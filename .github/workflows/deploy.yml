@@ -30,7 +30,7 @@ jobs:
 
       - name: Deploy to fly.io
         working-directory: ./apps/agent-auth-api
-        run: fly deploy --remote-only
+        run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -58,7 +58,7 @@ jobs:
 
       - name: Deploy to fly.io
         working-directory: ./apps/agent-data-api
-        run: fly deploy --remote-only
+        run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -86,7 +86,7 @@ jobs:
 
       - name: Deploy to fly.io
         working-directory: ./apps/agent-registry-api
-        run: fly deploy --remote-only
+        run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -110,7 +110,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: fly deploy --remote-only -c apps/dashboard/fly.toml
+        run: flyctl deploy --remote-only -c apps/dashboard/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -134,6 +134,6 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: fly deploy --remote-only -c apps/hermes/fly.toml
+        run: flyctl deploy --remote-only -c apps/hermes/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
