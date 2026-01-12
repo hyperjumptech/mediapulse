@@ -1,0 +1,21 @@
+{
+  "name": "eslint-plugin-strict-env",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "ESLint plugin to prevent process.env usage",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node tests/rules/no-process-env.test.js"
+  },
+  "keywords": [
+    "eslint",
+    "eslintplugin",
+    "eslint-plugin"
+  ],
+  "peerDependencies": {
+    "eslint": ">=9.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.32.0"
+  }
+}
