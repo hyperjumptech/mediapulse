@@ -26,6 +26,8 @@ jobs:
       - name: Build
         run: pnpm build --filter=agent-auth-api
 
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
       - name: Deploy to fly.io
         working-directory: ./apps/agent-auth-api
         run: fly deploy --remote-only
@@ -51,6 +53,8 @@ jobs:
 
       - name: Build
         run: pnpm build --filter=agent-data-api
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
         working-directory: ./apps/agent-data-api
@@ -78,6 +82,8 @@ jobs:
       - name: Build
         run: pnpm build --filter=agent-registry-api
 
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
       - name: Deploy to fly.io
         working-directory: ./apps/agent-registry-api
         run: fly deploy --remote-only
@@ -101,6 +107,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
       - name: Deploy to fly.io
         run: fly deploy --remote-only -c apps/dashboard/fly.toml
         env:
@@ -122,6 +130,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
         run: fly deploy --remote-only -c apps/hermes/fly.toml
