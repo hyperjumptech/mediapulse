@@ -11,7 +11,7 @@ pnpm install
 ### Setup Environment Variables
 
 ```bash
-cp ./packages/env/.env.example ./packages/env/.env
+cp ./packages/env/env.example ./packages/env/.env
 
 # Adjust the values in the .env file as needed.
 ```

@@ -32,8 +32,5 @@ CREATE UNIQUE INDEX "user_email_key" ON "user"("email");
 -- CreateIndex
 CREATE UNIQUE INDEX "api_key_key_key" ON "api_key"("key");
 
--- CreateIndex
-CREATE UNIQUE INDEX "api_key_user_id_key" ON "api_key"("user_id");
-
 -- AddForeignKey
 ALTER TABLE "api_key" ADD CONSTRAINT "api_key_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

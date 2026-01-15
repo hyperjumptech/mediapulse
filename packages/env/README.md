@@ -1,6 +1,6 @@
 # `env`
 
-If you update the `.env.example` file, you need to run `npm run build` from the directory of this package to generate the type-safe environment variables object.
+If you update the `env.example` file, you need to run `npm run build` from the directory of this package to generate the type-safe environment variables object.
 
 ## Usage
 

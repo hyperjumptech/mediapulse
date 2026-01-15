@@ -30,7 +30,7 @@ model APIKey {
   id        String   @id @default(uuid())
   key       String   @unique
   isActive  Boolean  @default(true) @map("is_active")
-  userId    String   @unique @map("user_id")
+  userId    String   @map("user_id")
   createdBy User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
