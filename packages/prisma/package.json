@@ -1,0 +1,25 @@
+{
+  "name": "@workspace/prisma",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "migrate:dev": "dotenv -e ../env/.env -- npx prisma migrate dev",
+    "migrate:deploy": "dotenv -e ../env/.env -- npx prisma migrate deploy",
+    "generate": "dotenv -e ../env/.env -- npx prisma generate",
+    "mock": "dotenv -e ../env/.env -- tsx src/mock.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/pg": "^8.16.0",
+    "@workspace/env": "workspace:*",
+    "dotenv-cli": "catalog:",
+    "prisma": "^7.2.0",
+    "tsx": "^4.21.0",
+    "typescript": "catalog:"
+  }
+}

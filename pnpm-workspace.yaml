@@ -8,6 +8,7 @@ catalog:
   "@types/react": "^19.2.8"
   "@types/react-dom": "^19.2.3"
   "@turbo/gen": "^2.6.1"
+  "dotenv-cli": "^7.3.0"
   "eslint": "^9.32.0"
   "hono": "^4.11.3"
   "lucide-react": "^0.562.0"

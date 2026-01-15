@@ -8,6 +8,24 @@
 pnpm install
 ```
 
+### Setup Environment Variables
+
+```bash
+cp ./packages/env/.env.example ./packages/env/.env
+
+# Adjust the values in the .env file as needed.
+```
+
+### Setup Prisma
+
+```bash
+cd packages/prisma
+pnpm migrate:dev && pnpm generate
+cd ../..
+```
+
+---
+
 ### Running `agent-auth-api`
 
 ```bash

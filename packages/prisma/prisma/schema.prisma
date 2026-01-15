@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  apiKeys APIKey[]
+
+  @@map("user")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model APIKey {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  userId    String   @unique @map("user_id")
+  createdBy User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("api_key")
+}
