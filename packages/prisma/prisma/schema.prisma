@@ -28,6 +28,7 @@ enum UserRole {
 
 model APIKey {
   id        String   @id @default(uuid())
+  name      String
   key       String   @unique
   isActive  Boolean  @default(true) @map("is_active")
   userId    String   @map("user_id")
