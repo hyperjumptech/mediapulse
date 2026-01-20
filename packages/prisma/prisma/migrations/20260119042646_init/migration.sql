@@ -17,6 +17,7 @@ CREATE TABLE "user" (
 -- CreateTable
 CREATE TABLE "api_key" (
     "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
     "key" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "user_id" TEXT NOT NULL,

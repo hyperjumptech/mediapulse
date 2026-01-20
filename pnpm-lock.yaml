@@ -86,12 +86,21 @@ importers:
 
   apps/agent-auth-api:
     dependencies:
+      '@workspace/api-utils':
+        specifier: workspace:*
+        version: link:../../packages/api-utils
+      '@workspace/env':
+        specifier: workspace:*
+        version: link:../../packages/env
       '@workspace/prisma':
         specifier: workspace:*
         version: link:../../packages/prisma
       hono:
         specifier: 'catalog:'
         version: 4.11.3
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
     devDependencies:
       '@types/bun':
         specifier: latest
@@ -241,6 +250,25 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.32.0(jiti@2.5.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.2
+
+  packages/api-utils:
+    dependencies:
+      hono:
+        specifier: 'catalog:'
+        version: 4.11.3
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.9
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
       typescript:
         specifier: 'catalog:'
         version: 5.9.2

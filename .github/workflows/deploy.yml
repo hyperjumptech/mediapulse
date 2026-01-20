@@ -20,8 +20,16 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
+      - name: Prepare env variables
+        run: cp env.example .env
+        working-directory: packages/env
+
       - name: Install dependencies
         run: pnpm install
+
+      - name: Generate Prisma types
+        run: pnpm generate
+        working-directory: packages/prisma
 
       - name: Build
         run: pnpm build --filter=agent-auth-api
@@ -48,8 +56,16 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
+      - name: Prepare env variables
+        run: cp env.example .env
+        working-directory: packages/env
+
       - name: Install dependencies
         run: pnpm install
+
+      - name: Generate Prisma types
+        run: pnpm generate
+        working-directory: packages/prisma
 
       - name: Build
         run: pnpm build --filter=agent-data-api
@@ -76,8 +92,16 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
+      - name: Prepare env variables
+        run: cp env.example .env
+        working-directory: packages/env
+
       - name: Install dependencies
         run: pnpm install
+
+      - name: Generate Prisma types
+        run: pnpm generate
+        working-directory: packages/prisma
 
       - name: Build
         run: pnpm build --filter=agent-registry-api
@@ -104,8 +128,16 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
+      - name: Prepare env variables
+        run: cp env.example .env
+        working-directory: packages/env
+
       - name: Install dependencies
         run: pnpm install
+
+      - name: Generate Prisma types
+        run: pnpm generate
+        working-directory: packages/prisma
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -128,8 +160,16 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
+      - name: Prepare env variables
+        run: cp env.example .env
+        working-directory: packages/env
+
       - name: Install dependencies
         run: pnpm install
+
+      - name: Generate Prisma types
+        run: pnpm generate
+        working-directory: packages/prisma
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
