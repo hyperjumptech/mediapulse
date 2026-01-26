@@ -6,7 +6,7 @@ import { z } from "zod";
 
 const BodySchema = z.object({
   name: z.string(),
-  user_id: z.string().uuid(),
+  userId: z.string().uuid(),
 });
 
 export async function createAPIKey(context: Context) {
@@ -19,7 +19,7 @@ export async function createAPIKey(context: Context) {
       data: {
         key: hash,
         name: body.name,
-        userId: body.user_id,
+        userId: body.userId,
       },
     });
 

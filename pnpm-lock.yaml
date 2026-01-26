@@ -127,12 +127,21 @@ importers:
 
   apps/agent-registry-api:
     dependencies:
+      '@workspace/api-utils':
+        specifier: workspace:*
+        version: link:../../packages/api-utils
+      '@workspace/env':
+        specifier: workspace:*
+        version: link:../../packages/env
       '@workspace/prisma':
         specifier: workspace:*
         version: link:../../packages/prisma
       hono:
         specifier: 'catalog:'
         version: 4.11.3
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
     devDependencies:
       '@types/bun':
         specifier: latest
@@ -256,6 +265,9 @@ importers:
 
   packages/api-utils:
     dependencies:
+      '@workspace/prisma':
+        specifier: workspace:*
+        version: link:../prisma
       hono:
         specifier: 'catalog:'
         version: 4.11.3
