@@ -7,8 +7,11 @@
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun"
   },
   "dependencies": {
+    "@workspace/api-utils": "workspace:*",
+    "@workspace/env": "workspace:*",
     "@workspace/prisma": "workspace:*",
-    "hono": "catalog:"
+    "hono": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",
