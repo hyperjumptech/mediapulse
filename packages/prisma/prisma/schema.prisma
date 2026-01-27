@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
@@ -52,4 +52,26 @@ model AgentRegistry {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("agent_registry")
+}
+enum InstanceStatus {
+  ACTIVE
+  INACTIVE
+  UNHEALTHY
+  SPAWNING
+}
+
+model AgentInstance {
+  id            String         @id @default(uuid())
+  agentId       String         @map("agent_id")
+  agentVersion  String         @map("agent_version")
+  endpoint      Json // { url: string, method: 'POST', timeout: number }
+  status        InstanceStatus @default(SPAWNING)
+  capacity      Int
+  currentLoad   Int            @default(0) @map("current_load")
+  lastHeartbeat DateTime       @default(now()) @map("last_heartbeat")
+  metadata      Json?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@map("agent_instance")
 }

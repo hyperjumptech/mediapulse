@@ -7,6 +7,7 @@
     "migrate:dev": "dotenv -e ../env/.env -- npx prisma migrate dev",
     "migrate:deploy": "dotenv -e ../env/.env -- npx prisma migrate deploy",
     "generate": "dotenv -e ../env/.env -- npx prisma generate",
+    "db:reset": "dotenv -e ../env/.env -- npx prisma migrate reset",
     "mock": "dotenv -e ../env/.env -- tsx src/mock.ts"
   },
   "dependencies": {
