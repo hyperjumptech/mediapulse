@@ -1,5 +1,5 @@
 import { validateBody } from "@workspace/api-utils";
-import { prisma } from "@workspace/prisma";
+import { Prisma, prisma } from "@workspace/prisma";
 import { Context } from "hono";
 import { z } from "zod";
 
@@ -10,7 +10,6 @@ const BodySchema = z.object({
   endpoint: z.object({
     url: z.string().url(),
     method: z.enum(["POST"]),
-    headers: z.object({}).passthrough(),
   }),
 });
 
@@ -23,7 +22,7 @@ export async function registerAgent(context: Context) {
         agentId: body.agentId,
         agentVersion: body.agentVersion,
         description: body.description,
-        endpoint: body.endpoint,
+        endpoint: body.endpoint as Prisma.InputJsonValue,
       },
     });
 
@@ -32,7 +31,6 @@ export async function registerAgent(context: Context) {
       200,
     );
   } catch (response) {
-    console.log(response);
     if (response instanceof Response) {
       return response;
     }

@@ -1,0 +1,19 @@
+{
+  "type": "module",
+  "name": "data-collection-agent",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e ../../../packages/env/.env -- bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun"
+  },
+  "dependencies": {
+    "@workspace/agent-utils": "workspace:*",
+    "@workspace/prisma": "workspace:*",
+    "hono": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "dotenv-cli": "catalog:"
+  }
+}
