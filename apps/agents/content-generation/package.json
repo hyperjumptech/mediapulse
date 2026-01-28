@@ -9,8 +9,10 @@
   },
   "dependencies": {
     "@workspace/agent-utils": "workspace:*",
+    "@workspace/env": "workspace:*",
     "@workspace/prisma": "workspace:*",
-    "hono": "catalog:"
+    "hono": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",

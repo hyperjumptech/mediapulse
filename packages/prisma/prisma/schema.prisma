@@ -32,9 +32,10 @@ model APIKey {
   key       String   @unique
   isActive  Boolean  @default(true) @map("is_active")
   userId    String   @map("user_id")
-  createdBy User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
 
   @@map("api_key")
 }
@@ -51,4 +52,62 @@ model AgentRegistry {
 
   @@unique([agentId, agentVersion])
   @@map("agent_registry")
+}
+
+model DataSource {
+  id            String   @id @default(uuid())
+  url           String
+  title         String
+  content       String
+  metadata      Json?
+  tickerId      String   @map("ticker_id")
+  searchQueryId String   @map("search_query_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  ticker      Ticker      @relation(fields: [tickerId], references: [id])
+  searchQuery SearchQuery @relation(fields: [searchQueryId], references: [id])
+
+  @@map("data_source")
+}
+
+model Newsletter {
+  id          String   @id @default(uuid())
+  subject     String
+  description String?
+  content     String
+  tickerId    String   @map("ticker_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  ticker Ticker @relation(fields: [tickerId], references: [id])
+
+  @@map("newsletter")
+}
+
+model SearchQuery {
+  id        String   @id @default(uuid())
+  text      String
+  tickerId  String   @map("ticker_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ticker      Ticker       @relation(fields: [tickerId], references: [id])
+  dataSources DataSource[]
+
+  @@map("search_query")
+}
+
+model Ticker {
+  id        String   @id @default(uuid())
+  symbol    String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  searchQueries SearchQuery[]
+  dataSources   DataSource[]
+  newsletters   Newsletter[]
+
+  @@map("ticker")
 }
