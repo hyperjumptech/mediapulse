@@ -31,45 +31,54 @@ const payloadSchema = z.object({
 
 export const registryRegister = async (c: Context) => {
 
-    ;
 
     try {
 
         const payload = await validateBody(c, payloadSchema);
-        const agentRegistry = await prisma.agentRegistry.upsert({
-            where: { agentId: payload.agentId },
-            update: {
-                name: payload.name,
-                description: payload.description,
-                version: payload.version,
-                endpoint: payload.endpoint,
-                inputSchema: payload.inputSchema,
-                outputSchema: payload.outputSchema,
-                parameterTypes: payload.parameterTypes,
-                enabled: payload.enabled,
-                healthCheck: payload.healthCheck,
-                metadata: payload.metadata,
-            },
-            create: {
-                agentId: payload.agentId,
-                name: payload.name,
-                description: payload.description,
-                version: payload.version,
-                endpoint: payload.endpoint,
-                inputSchema: payload.inputSchema,
-                outputSchema: payload.outputSchema,
-                parameterTypes: payload.parameterTypes,
-                enabled: payload.enabled,
-                healthCheck: payload.healthCheck,
-                metadata: payload.metadata,
-            },
-        })
 
+        const agentExists = await prisma.agentRegistry.findUnique({
+            where: { agentId: payload.agentId },
+        });
+
+        let agentRegistry;
+        if (agentExists) {
+            agentRegistry = await prisma.agentRegistry.update({
+                where: { id: agentExists.id },
+                data: {
+                    name: payload.name,
+                    description: payload.description,
+                    version: payload.version,
+                    endpoint: payload.endpoint,
+                    inputSchema: payload.inputSchema,
+                    outputSchema: payload.outputSchema,
+                    parameterTypes: payload.parameterTypes,
+                    enabled: payload.enabled,
+                    healthCheck: payload.healthCheck,
+                    metadata: payload.metadata,
+                },
+            });
+        } else {
+            agentRegistry = await prisma.agentRegistry.create({
+                data: {
+                    agentId: payload.agentId,
+                    name: payload.name,
+                    description: payload.description,
+                    version: payload.version,
+                    endpoint: payload.endpoint,
+                    inputSchema: payload.inputSchema,
+                    outputSchema: payload.outputSchema,
+                    parameterTypes: payload.parameterTypes,
+                    enabled: payload.enabled,
+                    healthCheck: payload.healthCheck,
+                    metadata: payload.metadata,
+                },
+            });
+        }
 
         return c.json({
             success: true,
-            agentId: agentRegistry.agentId,
-            status: ,
+            agentId: payload.agentId,
+            status: agentExists ? "updated" : "created",
             message: "Agent registry created/updated successfully",
         }, 200);
 

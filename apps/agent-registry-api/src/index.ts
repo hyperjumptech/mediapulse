@@ -30,8 +30,8 @@ api.use(
 api.post("/agents/register", registerAgent);
 api.post("/heartbeat", heartbeat);
 api.get("/instances", instances);
-api.get("/registry", registry);
 api.post("/deregister", deRegister);
+api.get("/registry", registry);
 api.post("registry/register", registryRegister)
 
 export default api;

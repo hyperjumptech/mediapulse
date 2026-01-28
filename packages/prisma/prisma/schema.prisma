@@ -41,7 +41,7 @@ model APIKey {
 
 model AgentRegistry {
   id           String   @id @default(uuid())
-  agentId      String   @map("agent_id")
+  agentId      String   @map("agent_id") @unique
   agentVersion String   @map("agent_version")
   description  String?
   endpoint     Json
@@ -62,7 +62,7 @@ enum InstanceStatus {
 
 model AgentInstance {
   id            String         @id @default(uuid())
-  agentId       String         @map("agent_id")
+  agentId       String         @map("agent_id") @unique
   agentVersion  String         @map("agent_version")
   endpoint      Json // { url: string, method: 'POST', timeout: number }
   status        InstanceStatus @default(SPAWNING)
