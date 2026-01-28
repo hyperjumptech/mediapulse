@@ -1,4 +1,4 @@
-name: Deploy
+name: Agent Deployment
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  agent-auth-api:
+  data-collection:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -32,17 +32,17 @@ jobs:
         working-directory: packages/prisma
 
       - name: Build
-        run: pnpm build --filter=agent-auth-api
+        run: pnpm build --filter=data-collection-agent
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        working-directory: ./apps/agent-auth-api
+        working-directory: ./apps/agents/data-collection
         run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  agent-data-api:
+  content-generation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -68,17 +68,17 @@ jobs:
         working-directory: packages/prisma
 
       - name: Build
-        run: pnpm build --filter=agent-data-api
+        run: pnpm build --filter=content-generation-agent
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        working-directory: ./apps/agent-data-api
+        working-directory: ./apps/agents/content-generation
         run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  agent-registry-api:
+  delivery:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -104,76 +104,12 @@ jobs:
         working-directory: packages/prisma
 
       - name: Build
-        run: pnpm build --filter=agent-registry-api
+        run: pnpm build --filter=delivery-agent
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        working-directory: ./apps/agent-registry-api
+        working-directory: ./apps/agents/delivery
         run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  dashboard:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "pnpm"
-
-      - name: Prepare env variables
-        run: cp env.example .env
-        working-directory: packages/env
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Generate Prisma types
-        run: pnpm generate
-        working-directory: packages/prisma
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/dashboard/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  hermes:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "pnpm"
-
-      - name: Prepare env variables
-        run: cp env.example .env
-        working-directory: packages/env
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Generate Prisma types
-        run: pnpm generate
-        working-directory: packages/prisma
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/hermes/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

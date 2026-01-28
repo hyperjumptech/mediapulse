@@ -45,12 +45,11 @@ model AgentRegistry {
   agentVersion String   @map("agent_version")
   description  String?
   endpoint     Json
-  inputSchema  Json?    @map("input_schema")
-  outputSchema Json?    @map("output_schema")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  @@unique([agentId, agentVersion])
   @@map("agent_registry")
 }
 enum InstanceStatus {
