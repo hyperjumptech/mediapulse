@@ -5,27 +5,24 @@ import { z } from "zod";
 import { success } from "zod/v4";
 
 const payloadSchema = z.object({
-  agentId: z.string(),
-  name: z.string(),
-  description: z.string(),
-  version: z.string(),
-  endpoint: z.object({
-    type: z.enum(['http', 'webhook', 'n8n', 'cloud-function']),
-    url: z.string().url(),
-    method: z.enum(['POST', 'PUT']),
-    authentication: z.record(z.any()).optional(),
-    timeout: z.number(),
-    retryConfig: z.record(z.any()).optional(),
-  }),
-  inputSchema: z.record(z.any()),
-  outputSchema: z.record(z.any()),
-  parameterTypes: z.record(z.any()),
-  enabled: z.boolean(),
-  healthCheck: z.object({
-    endpoint: z.string(),
-    interval: z.number(),
-  }).optional(),
-  metadata: z.record(z.any()).optional(),
+    agentId: z.string(),
+    // Accept either `agentVersion` or `version` from clients and map to `agentVersion`
+    agentVersion: z.string().optional(),
+    version: z.string().optional(),
+    description: z.string().optional(),
+    endpoint: z.object({
+        type: z.enum(['http', 'webhook', 'n8n', 'cloud-function']),
+        url: z.string().url(),
+        method: z.enum(['POST', 'PUT']),
+        authentication: z.record(z.any()).optional(),
+        timeout: z.number(),
+        retryConfig: z.record(z.any()).optional(),
+    }),
+    // The Prisma model currently doesn't include these richer fields; accept but ignore/store as metadata if needed
+    // Allow arbitrary metadata to be passed through and stored if desired
+    metadata: z.record(z.any()).optional(),
+    // allow enabled -> map to `isActive` on the model
+    enabled: z.boolean().optional(),
 });
 
 
@@ -41,37 +38,27 @@ export const registryRegister = async (c: Context) => {
         });
 
         let agentRegistry;
+        // Normalize fields to match the Prisma `AgentRegistry` model
+        const agentVersion = payload.agentVersion ?? payload.version;
+        const data: any = {
+            agentId: payload.agentId,
+            agentVersion,
+            description: payload.description,
+            endpoint: payload.endpoint,
+            isActive: payload.enabled ?? true,
+        };
+
+        // Optionally store arbitrary metadata in the `metadata` JSON column if provided
+        if (payload.metadata) data.metadata = payload.metadata;
+
         if (agentExists) {
             agentRegistry = await prisma.agentRegistry.update({
                 where: { id: agentExists.id },
-                data: {
-                    name: payload.name,
-                    description: payload.description,
-                    version: payload.version,
-                    endpoint: payload.endpoint,
-                    inputSchema: payload.inputSchema,
-                    outputSchema: payload.outputSchema,
-                    parameterTypes: payload.parameterTypes,
-                    enabled: payload.enabled,
-                    healthCheck: payload.healthCheck,
-                    metadata: payload.metadata,
-                },
+                data,
             });
         } else {
             agentRegistry = await prisma.agentRegistry.create({
-                data: {
-                    agentId: payload.agentId,
-                    name: payload.name,
-                    description: payload.description,
-                    version: payload.version,
-                    endpoint: payload.endpoint,
-                    inputSchema: payload.inputSchema,
-                    outputSchema: payload.outputSchema,
-                    parameterTypes: payload.parameterTypes,
-                    enabled: payload.enabled,
-                    healthCheck: payload.healthCheck,
-                    metadata: payload.metadata,
-                },
+                data,
             });
         }
 
