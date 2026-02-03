@@ -5,6 +5,7 @@ import { bearerAuth } from "hono/bearer-auth";
 import { registerAgent } from "./routes/register-agent";
 import { heartbeat } from "./routes/heartbeat";
 import { deregister } from "./routes/deregister";
+import { instances } from "./routes/instances";
 
 const app = new Hono();
 const api = app.basePath("/api");
@@ -27,5 +28,6 @@ api.use(
 api.post("/agents/register", registerAgent);
 api.post("/agents/heartbeat", heartbeat);
 api.post("/agents/deregister", deregister);
+api.get("/agents/instances", instances);
 
 export default api;

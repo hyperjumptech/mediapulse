@@ -48,7 +48,7 @@ export type HandlerResponse<TResponse extends z.ZodType> =
 
 export const successResponse = <TResponse extends z.ZodType>(
   statusCode: number,
-  data: z.infer<TResponse>
+  data: z.infer<TResponse>,
 ): SuccessResponse<TResponse> => {
   return {
     status: true,
@@ -59,7 +59,7 @@ export const successResponse = <TResponse extends z.ZodType>(
 
 export const errorResponse = (
   statusCode: number,
-  message: string
+  message: string,
 ): ErrorResponse => {
   return {
     status: false,
@@ -96,5 +96,5 @@ export type HandlerFunc<
   TValidator extends ReturnType<typeof createRequestValidator>,
   TResponse extends z.ZodType,
 > = (
-  data: ExtractValidatorData<TValidator>
+  data: ExtractValidatorData<TValidator>,
 ) => Promise<HandlerResponse<TResponse>>;
