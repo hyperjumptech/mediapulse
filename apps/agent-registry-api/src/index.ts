@@ -3,6 +3,7 @@ import * as crypto from "crypto";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { registerAgent } from "./routes/register-agent";
+import { heartbeat } from "./routes/heartbeat";
 
 const app = new Hono();
 const api = app.basePath("/api");
@@ -23,5 +24,6 @@ api.use(
 );
 
 api.post("/agents/register", registerAgent);
+api.post("/agents/heartbeat", heartbeat);
 
 export default api;
