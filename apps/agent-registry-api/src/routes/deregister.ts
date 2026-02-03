@@ -1,12 +1,13 @@
 import { validateBody } from "@workspace/api-utils";
 import { prisma } from "@workspace/prisma";
+import { Context } from "hono";
 import { z } from "zod";
 
 const PayloadSchema = z.object({
   instanceId: z.string(),
 });
 
-export const deregister = async (c: any) => {
+export const deregister = async (c: Context) => {
   try {
     const body = await validateBody(c, PayloadSchema);
 
