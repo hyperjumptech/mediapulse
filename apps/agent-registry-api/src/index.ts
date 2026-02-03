@@ -7,6 +7,7 @@ import { heartbeat } from "./routes/heartbeat";
 import { deregister } from "./routes/deregister";
 import { instances } from "./routes/instances";
 import { registry } from "./routes/registry";
+import { registryRegister } from "./routes/registryRegister";
 
 const app = new Hono();
 const api = app.basePath("/api");
@@ -27,9 +28,10 @@ api.use(
 );
 
 api.post("/agents/register", registerAgent);
-api.post("/agents/heartbeat", heartbeat);
-api.post("/agents/deregister", deregister);
-api.get("/agents/instances", instances);
-api.get("/agents/registry", registry);
+api.post("/heartbeat", heartbeat);
+api.post("/deregister", deregister);
+api.get("/instances", instances);
+api.get("/registry", registry);
+api.post("/registry/register", registryRegister);
 
 export default api;

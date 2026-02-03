@@ -302,7 +302,7 @@ describe("registry", () => {
 
   it("should handle database errors", async () => {
     mockPrismaFindManyFn.mockRejectedValue(
-      new Error("Database connection failed")
+      new Error("Database connection failed"),
     );
 
     const response = await registry(mockContext);
@@ -313,9 +313,12 @@ describe("registry", () => {
   });
 
   it("should handle Response errors", async () => {
-    const errorResponse = new Response(JSON.stringify({ message: "DB error" }), {
-      status: 500,
-    });
+    const errorResponse = new Response(
+      JSON.stringify({ message: "DB error" }),
+      {
+        status: 500,
+      },
+    );
 
     mockPrismaFindManyFn.mockRejectedValue(errorResponse);
 
