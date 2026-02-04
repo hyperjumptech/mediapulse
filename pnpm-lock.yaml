@@ -294,6 +294,9 @@ importers:
       '@workspace/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@workspace/prisma':
+        specifier: workspace:*
+        version: link:../../packages/prisma
       '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui

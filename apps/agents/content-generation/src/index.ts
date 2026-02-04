@@ -36,17 +36,23 @@ app.post("/", async (context) => {
 
 async function retrieveAnalysisResultsFromDatabase() {
   // TODO: Implement search queries logic
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  console.log("Retrieving analysis results from database...");
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  console.log("Analysis results retrieved successfully");
 }
 
 async function generateContentsFromAnalysisResults() {
   // TODO: Implement search queries logic
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  console.log("Generating contents from analysis results...");
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  console.log("Contents generated successfully");
 }
 
 async function formatGeneratedContents() {
   // TODO: Implement web content fetching logic
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  console.log("Formatting generated contents...");
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  console.log("Formatted contents successfully");
 }
 
 async function sendToAgentDataAPI(token: string | undefined, tickerId: string) {

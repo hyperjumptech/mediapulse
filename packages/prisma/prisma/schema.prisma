@@ -85,6 +85,34 @@ model Newsletter {
   @@map("newsletter")
 }
 
+model Pipeline {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  steps PipelineStep[]
+
+  @@map("pipeline")
+}
+
+model PipelineStep {
+  id           String   @id @default(uuid())
+  order        Int
+  agentId      String   @map("agent_id")
+  agentVersion String   @map("agent_version")
+  pipelineId   String   @map("pipeline_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@unique([pipelineId, order])
+  @@map("pipeline_step")
+}
+
 model SearchQuery {
   id        String   @id @default(uuid())
   text      String

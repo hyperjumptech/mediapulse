@@ -1,6 +1,6 @@
 {
   "name": "hermes",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "type": "module",
   "private": true,
   "scripts": {
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@workspace/env": "workspace:*",
+    "@workspace/prisma": "workspace:*",
     "@workspace/ui": "workspace:*",
     "lucide-react": "catalog:",
     "next": "catalog:",

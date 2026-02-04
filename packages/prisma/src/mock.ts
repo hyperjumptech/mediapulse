@@ -44,6 +44,42 @@ async function main() {
 
   console.log("Created search queries:");
   console.log(searchQueries);
+
+  const pipeline = await prisma.pipeline.create({
+    data: {
+      name: "Demo Pipeline",
+      description: "This is a demo pipeline",
+    },
+  });
+
+  console.log("Created pipeline:");
+  console.log(pipeline);
+
+  const pipelineSteps = await prisma.pipelineStep.createMany({
+    data: [
+      {
+        order: 1,
+        agentId: "data-collection",
+        agentVersion: "1.0.0",
+        pipelineId: pipeline.id,
+      },
+      {
+        order: 2,
+        agentId: "content-generation",
+        agentVersion: "1.0.0",
+        pipelineId: pipeline.id,
+      },
+      {
+        order: 3,
+        agentId: "delivery",
+        agentVersion: "1.0.0",
+        pipelineId: pipeline.id,
+      },
+    ],
+  });
+
+  console.log("Created pipeline steps:");
+  console.log(pipelineSteps);
 }
 
 main()
