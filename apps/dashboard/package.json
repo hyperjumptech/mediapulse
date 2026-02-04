@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@next/env": "catalog:",
     "@workspace/env": "workspace:*",
     "@workspace/ui": "workspace:*",
     "lucide-react": "catalog:",
