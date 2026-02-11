@@ -6,9 +6,14 @@
   "scripts": {
     "build": "npx env-to-t3 -i .env -o src/index.ts",
     "build:agents.data-collection": "npx env-to-t3 -i .env.agents.data-collection -o src/agents-data-collection.ts",
+    "build:agents.content-generation": "npx env-to-t3 -i .env.agents.content-generation -o src/agents-content-generation.ts",
     "build:agents.delivery": "npx env-to-t3 -i .env.agents.delivery -o src/agents-delivery.ts"
   },
   "exports": {
+    "./agents-content-generation": {
+      "types": "./src/agents-content-generation.ts",
+      "default": "./src/agents-content-generation.ts"
+    },
     "./agents-data-collection": {
       "types": "./src/agents-data-collection.ts",
       "default": "./src/agents-data-collection.ts"
