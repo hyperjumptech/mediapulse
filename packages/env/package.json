@@ -3,10 +3,19 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
   "scripts": {
-    "build": "npx env-to-t3 -i env.example -o src/index.ts"
+    "build": "npx env-to-t3 -i .env -o src/index.ts",
+    "build:agents.delivery": "npx env-to-t3 -i .env.agents.delivery -o src/agents-delivery.ts"
+  },
+  "exports": {
+    "./agents-delivery": {
+      "types": "./src/agents-delivery.ts",
+      "default": "./src/agents-delivery.ts"
+    },
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
   },
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.10.1",
