@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "dotenv -e ../../../packages/env/.env -- bun run --hot src/index.ts",
+    "dev": "dotenv -e ../../../packages/env/.env.agents.content-generation -- bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun"
   },
   "dependencies": {
@@ -12,6 +12,7 @@
     "@workspace/env": "workspace:*",
     "@workspace/prisma": "workspace:*",
     "hono": "catalog:",
+    "openai": "^6.21.0",
     "zod": "catalog:"
   },
   "devDependencies": {

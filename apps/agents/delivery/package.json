@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "dotenv -e ../../../packages/env/.env -- bun run --hot src/index.ts",
+    "dev": "dotenv -e ../../../packages/env/.env.agents.delivery -- bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun"
   },
   "dependencies": {
@@ -12,6 +12,7 @@
     "@workspace/env": "workspace:*",
     "@workspace/prisma": "workspace:*",
     "hono": "catalog:",
+    "resend": "^6.9.1",
     "zod": "catalog:"
   },
   "devDependencies": {
