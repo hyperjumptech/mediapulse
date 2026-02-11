@@ -13,7 +13,9 @@ loadEnvConfig(envDir);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // your config
+  experimental: {
+    instrumentationHook: true,
+  },
 };
 
 export default nextConfig;

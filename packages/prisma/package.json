@@ -7,7 +7,8 @@
     "migrate:dev": "dotenv -e ../env/.env -- npx prisma migrate dev",
     "migrate:deploy": "dotenv -e ../env/.env -- npx prisma migrate deploy",
     "generate": "dotenv -e ../env/.env -- npx prisma generate",
-    "mock": "dotenv -e ../env/.env -- tsx src/mock.ts"
+    "mock": "dotenv -e ../env/.env -- tsx src/mock.ts",
+    "reset": "dotenv -e ../env/.env -- npx prisma migrate reset"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",
