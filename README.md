@@ -8,12 +8,24 @@
 pnpm install
 ```
 
+### Development database
+
+To run the development database, run the following command:
+
+```bash
+docker-compose up
+```
+
+This will start the PostgreSQL database.
+
 ### Setup Environment Variables
 
 ```bash
 cp ./packages/env/env.example ./packages/env/.env
-
 # Adjust the values in the .env file as needed.
+
+./dev-bootstrap.sh
+
 ```
 
 ### Setup Prisma

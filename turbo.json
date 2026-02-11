@@ -1,15 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["IS_ODD", "IS_EVEN"],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^db:migrate:deploy", "^db:generate", "^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "test": {
-      "dependsOn": ["^test"]
+      "outputs": ["coverage/**"],
+      "dependsOn": ["^db:generate", "^build"]
     },
     "lint": {
       "dependsOn": ["^lint"]
@@ -20,6 +20,14 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "db:migrate:deploy": {},
+    "db:migrate:dev": {},
+    "db:generate": {
+      "cache": false
+    },
+    "db:push": {
+      "cache": false
     }
   }
 }

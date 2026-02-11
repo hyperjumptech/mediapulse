@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  apiKeys APIKey[]
+
+  @@map("user")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model APIKey {
+  id        String   @id @default(uuid())
+  name      String
+  key       String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("api_key")
+}
+
+model AgentRegistry {
+  id           String   @id @default(uuid())
+  agentId      String   @map("agent_id")
+  agentVersion String   @map("agent_version")
+  description  String?
+  endpoint     Json
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([agentId, agentVersion])
+  @@map("agent_registry")
+}
+
+model DataSource {
+  id            String   @id @default(uuid())
+  url           String
+  title         String
+  content       String
+  metadata      Json?
+  tickerId      String   @map("ticker_id")
+  searchQueryId String   @map("search_query_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  ticker      Ticker      @relation(fields: [tickerId], references: [id])
+  searchQuery SearchQuery @relation(fields: [searchQueryId], references: [id])
+
+  @@map("data_source")
+}
+
+model Newsletter {
+  id          String   @id @default(uuid())
+  subject     String
+  description String?
+  content     String
+  tickerId    String   @map("ticker_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  ticker Ticker @relation(fields: [tickerId], references: [id])
+
+  @@map("newsletter")
+}
+
+model Pipeline {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  steps PipelineStep[]
+
+  @@map("pipeline")
+}
+
+model PipelineStep {
+  id           String   @id @default(uuid())
+  order        Int
+  agentId      String   @map("agent_id")
+  agentVersion String   @map("agent_version")
+  pipelineId   String   @map("pipeline_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@unique([pipelineId, order])
+  @@map("pipeline_step")
+}
+
+model SearchQuery {
+  id        String   @id @default(uuid())
+  text      String
+  tickerId  String   @map("ticker_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ticker      Ticker       @relation(fields: [tickerId], references: [id])
+  dataSources DataSource[]
+
+  @@map("search_query")
+}
+
+model Ticker {
+  id        String   @id @default(uuid())
+  symbol    String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  searchQueries SearchQuery[]
+  dataSources   DataSource[]
+  newsletters   Newsletter[]
+
+  @@map("ticker")
+}
