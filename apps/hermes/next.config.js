@@ -12,8 +12,6 @@ const envDir = path.resolve(__dirname, "../../packages/env");
 loadEnvConfig(envDir);
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // your config
-};
+const nextConfig = {};
 
 export default nextConfig;
