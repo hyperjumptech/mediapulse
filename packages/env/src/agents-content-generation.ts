@@ -12,6 +12,8 @@ export const env = createEnv({
     TEMP_ADMIN_USERNAME: z.string().min(1),
     TEMP_ADMIN_PASSWORD: z.string().min(1),
   },
-  client: {},
-  experimental__runtimeEnv: {},
+  client: {
+  },
+  experimental__runtimeEnv: {
+  }
 });

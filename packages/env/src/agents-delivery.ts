@@ -9,8 +9,6 @@ export const env = createEnv({
     AGENT_DATA_API_URL: z.string().min(1),
     RESEND_SENDER: z.string().min(1),
     RESEND_API_KEY: z.string().min(1),
-    TEMP_ADMIN_USERNAME: z.string().min(1),
-    TEMP_ADMIN_PASSWORD: z.string().min(1),
   },
   client: {
   },
