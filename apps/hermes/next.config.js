@@ -12,10 +12,6 @@ const envDir = path.resolve(__dirname, "../../packages/env");
 loadEnvConfig(envDir);
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  experimental: {
-    instrumentationHook: true,
-  },
-};
+const nextConfig = {};
 
 export default nextConfig;

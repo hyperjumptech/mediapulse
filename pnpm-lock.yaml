@@ -236,6 +236,9 @@ importers:
       '@types/bun':
         specifier: latest
         version: 1.3.9
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../../packages/typescript-config
       dotenv-cli:
         specifier: 'catalog:'
         version: 7.4.4
