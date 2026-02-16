@@ -24,6 +24,7 @@ app.post("/", async (context) => {
     const token = context.req.header("Authorization");
 
     const newsletter = await getNewsletter(data.tickerId);
+
     await sendEmailToUsers(newsletter);
     await sendToAgentDataAPI(token);
 

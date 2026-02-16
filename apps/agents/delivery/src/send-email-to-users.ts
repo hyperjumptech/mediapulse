@@ -11,14 +11,14 @@ export async function sendEmailToUsers(newsletter: {
 }) {
   const users = await prisma.user.findMany();
 
-  await Promise.all(
-    users.map((user) =>
-      resend.emails.send({
-        from: env.RESEND_SENDER,
-        to: user.email,
-        subject: newsletter.subject,
-        text: newsletter.content,
-      }),
-    ),
-  );
+  for (const user of users) {
+    await resend.emails.send({
+      from: env.RESEND_SENDER,
+      to: user.email,
+      subject: newsletter.subject,
+      text: newsletter.content,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
 }
