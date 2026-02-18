@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   data-collection:
@@ -21,18 +24,19 @@ jobs:
           cache: "pnpm"
 
       - name: Prepare env variables
-        run: cp env.example .env
+        run: |
+          cp env.example .env
+          cp env.agents.data-collection.example .env.agents.data-collection
         working-directory: packages/env
+
+      - name: Bootstrap env symlinks
+        run: ./dev-bootstrap.sh
 
       - name: Install dependencies
         run: pnpm install
 
       - name: Generate Prisma client
         run: pnpm --filter=@workspace/database run db:generate
-        env:
-          DATABASE_URL: postgresql://localhost:5432/dummy
-          TEMP_ADMIN_USERNAME: dummy
-          TEMP_ADMIN_PASSWORD: dummy
 
       - name: Build
         run: pnpm build --filter=data-collection-agent
@@ -60,18 +64,19 @@ jobs:
           cache: "pnpm"
 
       - name: Prepare env variables
-        run: cp env.example .env
+        run: |
+          cp env.example .env
+          cp env.agents.content-generation.example .env.agents.content-generation
         working-directory: packages/env
+
+      - name: Bootstrap env symlinks
+        run: ./dev-bootstrap.sh
 
       - name: Install dependencies
         run: pnpm install
 
       - name: Generate Prisma client
         run: pnpm --filter=@workspace/database run db:generate
-        env:
-          DATABASE_URL: postgresql://localhost:5432/dummy
-          TEMP_ADMIN_USERNAME: dummy
-          TEMP_ADMIN_PASSWORD: dummy
 
       - name: Build
         run: pnpm build --filter=content-generation-agent
@@ -99,18 +104,19 @@ jobs:
           cache: "pnpm"
 
       - name: Prepare env variables
-        run: cp env.example .env
+        run: |
+          cp env.example .env
+          cp env.agents.delivery.example .env.agents.delivery
         working-directory: packages/env
+
+      - name: Bootstrap env symlinks
+        run: ./dev-bootstrap.sh
 
       - name: Install dependencies
         run: pnpm install
 
       - name: Generate Prisma client
         run: pnpm --filter=@workspace/database run db:generate
-        env:
-          DATABASE_URL: postgresql://localhost:5432/dummy
-          TEMP_ADMIN_USERNAME: dummy
-          TEMP_ADMIN_PASSWORD: dummy
 
       - name: Build
         run: pnpm build --filter=delivery-agent

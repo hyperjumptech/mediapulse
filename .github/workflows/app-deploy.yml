@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   agent-auth-api:
@@ -24,15 +27,14 @@ jobs:
         run: cp env.example .env
         working-directory: packages/env
 
+      - name: Bootstrap env symlinks
+        run: ./dev-bootstrap.sh
+
       - name: Install dependencies
         run: pnpm install
 
       - name: Generate Prisma client
         run: pnpm --filter=@workspace/database run db:generate
-        env:
-          DATABASE_URL: postgresql://localhost:5432/dummy
-          TEMP_ADMIN_USERNAME: dummy
-          TEMP_ADMIN_PASSWORD: dummy
 
       - name: Build
         run: pnpm build --filter=agent-auth-api
@@ -63,15 +65,14 @@ jobs:
         run: cp env.example .env
         working-directory: packages/env
 
+      - name: Bootstrap env symlinks
+        run: ./dev-bootstrap.sh
+
       - name: Install dependencies
         run: pnpm install
 
       - name: Generate Prisma client
         run: pnpm --filter=@workspace/database run db:generate
-        env:
-          DATABASE_URL: postgresql://localhost:5432/dummy
-          TEMP_ADMIN_USERNAME: dummy
-          TEMP_ADMIN_PASSWORD: dummy
 
       - name: Build
         run: pnpm build --filter=agent-data-api
@@ -102,15 +103,14 @@ jobs:
         run: cp env.example .env
         working-directory: packages/env
 
+      - name: Bootstrap env symlinks
+        run: ./dev-bootstrap.sh
+
       - name: Install dependencies
         run: pnpm install
 
       - name: Generate Prisma client
         run: pnpm --filter=@workspace/database run db:generate
-        env:
-          DATABASE_URL: postgresql://localhost:5432/dummy
-          TEMP_ADMIN_USERNAME: dummy
-          TEMP_ADMIN_PASSWORD: dummy
 
       - name: Build
         run: pnpm build --filter=agent-registry-api
@@ -141,15 +141,14 @@ jobs:
         run: cp env.example .env
         working-directory: packages/env
 
+      - name: Bootstrap env symlinks
+        run: ./dev-bootstrap.sh
+
       - name: Install dependencies
         run: pnpm install
 
       - name: Generate Prisma client
         run: pnpm --filter=@workspace/database run db:generate
-        env:
-          DATABASE_URL: postgresql://localhost:5432/dummy
-          TEMP_ADMIN_USERNAME: dummy
-          TEMP_ADMIN_PASSWORD: dummy
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -176,15 +175,14 @@ jobs:
         run: cp env.example .env
         working-directory: packages/env
 
+      - name: Bootstrap env symlinks
+        run: ./dev-bootstrap.sh
+
       - name: Install dependencies
         run: pnpm install
 
       - name: Generate Prisma client
         run: pnpm --filter=@workspace/database run db:generate
-        env:
-          DATABASE_URL: postgresql://localhost:5432/dummy
-          TEMP_ADMIN_USERNAME: dummy
-          TEMP_ADMIN_PASSWORD: dummy
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
