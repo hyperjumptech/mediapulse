@@ -1,4 +1,4 @@
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
 
 export async function getNewsletter(tickerId: string) {
   const newsletter = await prisma.newsletter.findFirst({

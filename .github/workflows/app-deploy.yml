@@ -27,9 +27,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma types
-        run: pnpm generate
-        working-directory: packages/prisma
+      - name: Generate Prisma client
+        run: pnpm --filter=@workspace/database run db:generate
+        env:
+          DATABASE_URL: postgresql://localhost:5432/dummy
+          TEMP_ADMIN_USERNAME: dummy
+          TEMP_ADMIN_PASSWORD: dummy
 
       - name: Build
         run: pnpm build --filter=agent-auth-api
@@ -63,9 +66,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma types
-        run: pnpm generate
-        working-directory: packages/prisma
+      - name: Generate Prisma client
+        run: pnpm --filter=@workspace/database run db:generate
+        env:
+          DATABASE_URL: postgresql://localhost:5432/dummy
+          TEMP_ADMIN_USERNAME: dummy
+          TEMP_ADMIN_PASSWORD: dummy
 
       - name: Build
         run: pnpm build --filter=agent-data-api
@@ -99,9 +105,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma types
-        run: pnpm generate
-        working-directory: packages/prisma
+      - name: Generate Prisma client
+        run: pnpm --filter=@workspace/database run db:generate
+        env:
+          DATABASE_URL: postgresql://localhost:5432/dummy
+          TEMP_ADMIN_USERNAME: dummy
+          TEMP_ADMIN_PASSWORD: dummy
 
       - name: Build
         run: pnpm build --filter=agent-registry-api
@@ -135,9 +144,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma types
-        run: pnpm generate
-        working-directory: packages/prisma
+      - name: Generate Prisma client
+        run: pnpm --filter=@workspace/database run db:generate
+        env:
+          DATABASE_URL: postgresql://localhost:5432/dummy
+          TEMP_ADMIN_USERNAME: dummy
+          TEMP_ADMIN_PASSWORD: dummy
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -167,9 +179,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma types
-        run: pnpm generate
-        working-directory: packages/prisma
+      - name: Generate Prisma client
+        run: pnpm --filter=@workspace/database run db:generate
+        env:
+          DATABASE_URL: postgresql://localhost:5432/dummy
+          TEMP_ADMIN_USERNAME: dummy
+          TEMP_ADMIN_PASSWORD: dummy
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 

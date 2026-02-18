@@ -1,6 +1,6 @@
 import { verifyAPIKey } from "@workspace/agent-utils";
 import { env } from "@workspace/env/agents-content-generation";
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
 
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";

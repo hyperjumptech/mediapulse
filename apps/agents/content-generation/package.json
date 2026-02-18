@@ -10,7 +10,7 @@
   "dependencies": {
     "@workspace/agent-utils": "workspace:*",
     "@workspace/env": "workspace:*",
-    "@workspace/prisma": "workspace:*",
+    "@workspace/database": "workspace:*",
     "hono": "catalog:",
     "openai": "^6.21.0",
     "zod": "catalog:"

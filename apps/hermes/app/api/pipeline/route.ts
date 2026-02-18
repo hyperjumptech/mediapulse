@@ -1,5 +1,5 @@
 import { env } from "@workspace/env";
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";

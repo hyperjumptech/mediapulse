@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@workspace/agent-utils": "workspace:*",
-    "@workspace/prisma": "workspace:*",
+    "@workspace/database": "workspace:*",
     "hono": "catalog:",
     "zod": "catalog:"
   },

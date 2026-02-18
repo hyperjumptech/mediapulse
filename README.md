@@ -28,11 +28,11 @@ cp ./packages/env/env.example ./packages/env/.env
 
 ```
 
-### Setup Prisma
+### Setup database (Prisma)
 
 ```bash
-cd packages/prisma
-pnpm migrate:dev && pnpm generate
+cd packages/database
+pnpm db:migrate:dev && pnpm db:generate
 cd ../..
 ```
 

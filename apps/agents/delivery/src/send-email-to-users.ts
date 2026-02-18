@@ -1,5 +1,5 @@
 import { env } from "@workspace/env/agents-delivery";
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
 
 import { Resend } from "resend";
 

@@ -14,7 +14,7 @@
   "dependencies": {
     "@next/env": "catalog:",
     "@workspace/env": "workspace:*",
-    "@workspace/prisma": "workspace:*",
+    "@workspace/database": "workspace:*",
     "@workspace/ui": "workspace:*",
     "lucide-react": "catalog:",
     "next": "catalog:",

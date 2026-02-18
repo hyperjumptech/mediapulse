@@ -98,12 +98,12 @@ importers:
       '@workspace/api-utils':
         specifier: workspace:*
         version: link:../../packages/api-utils
+      '@workspace/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@workspace/env':
         specifier: workspace:*
         version: link:../../packages/env
-      '@workspace/prisma':
-        specifier: workspace:*
-        version: link:../../packages/prisma
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -123,9 +123,9 @@ importers:
       '@workspace/agent-utils':
         specifier: workspace:*
         version: link:../../packages/agent-utils
-      '@workspace/prisma':
+      '@workspace/database':
         specifier: workspace:*
-        version: link:../../packages/prisma
+        version: link:../../packages/database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -145,12 +145,12 @@ importers:
       '@workspace/api-utils':
         specifier: workspace:*
         version: link:../../packages/api-utils
+      '@workspace/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@workspace/env':
         specifier: workspace:*
         version: link:../../packages/env
-      '@workspace/prisma':
-        specifier: workspace:*
-        version: link:../../packages/prisma
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -170,12 +170,12 @@ importers:
       '@workspace/agent-utils':
         specifier: workspace:*
         version: link:../../../packages/agent-utils
+      '@workspace/database':
+        specifier: workspace:*
+        version: link:../../../packages/database
       '@workspace/env':
         specifier: workspace:*
         version: link:../../../packages/env
-      '@workspace/prisma':
-        specifier: workspace:*
-        version: link:../../../packages/prisma
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -198,12 +198,12 @@ importers:
       '@workspace/agent-utils':
         specifier: workspace:*
         version: link:../../../packages/agent-utils
+      '@workspace/database':
+        specifier: workspace:*
+        version: link:../../../packages/database
       '@workspace/env':
         specifier: workspace:*
         version: link:../../../packages/env
-      '@workspace/prisma':
-        specifier: workspace:*
-        version: link:../../../packages/prisma
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -223,12 +223,12 @@ importers:
       '@workspace/agent-utils':
         specifier: workspace:*
         version: link:../../../packages/agent-utils
+      '@workspace/database':
+        specifier: workspace:*
+        version: link:../../../packages/database
       '@workspace/env':
         specifier: workspace:*
         version: link:../../../packages/env
-      '@workspace/prisma':
-        specifier: workspace:*
-        version: link:../../../packages/prisma
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -348,12 +348,12 @@ importers:
       '@next/env':
         specifier: 'catalog:'
         version: 16.1.6
+      '@workspace/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@workspace/env':
         specifier: workspace:*
         version: link:../../packages/env
-      '@workspace/prisma':
-        specifier: workspace:*
-        version: link:../../packages/prisma
       '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -412,9 +412,9 @@ importers:
 
   packages/agent-utils:
     dependencies:
-      '@workspace/prisma':
+      '@workspace/database':
         specifier: workspace:*
-        version: link:../prisma
+        version: link:../database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -434,9 +434,9 @@ importers:
 
   packages/api-utils:
     dependencies:
-      '@workspace/prisma':
+      '@workspace/database':
         specifier: workspace:*
-        version: link:../prisma
+        version: link:../database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -575,37 +575,6 @@ importers:
       eslint:
         specifier: ^9.32.0
         version: 9.39.2(jiti@2.6.1)
-
-  packages/prisma:
-    dependencies:
-      '@prisma/adapter-pg':
-        specifier: ^7.2.0
-        version: 7.4.0
-      '@prisma/client':
-        specifier: ^7.2.0
-        version: 7.4.0(prisma@7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 20.19.33
-      '@types/pg':
-        specifier: ^8.16.0
-        version: 8.16.0
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../env
-      dotenv-cli:
-        specifier: 'catalog:'
-        version: 7.4.4
-      prisma:
-        specifier: ^7.2.0
-        version: 7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
 
   packages/typescript-config: {}
 
