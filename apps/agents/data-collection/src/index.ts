@@ -1,6 +1,7 @@
 import { verifyAPIKey } from "@workspace/agent-utils";
 import { env } from "@workspace/env/agents-data-collection";
 import { prisma } from "@workspace/database";
+import got from "got";
 
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
@@ -58,6 +59,7 @@ app.post("/", async (context) => {
       200,
     );
   } catch (error) {
+    console.error("Data collection agent error:", error);
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });
@@ -88,63 +90,46 @@ export async function performWebSearchWithQueries(
 
   const results = await Promise.all(
     queries.map(async (query) => {
-      try {
-        const response = await fetch("https://google.serper.dev/search", {
-          method: "POST",
+      const data = await got
+        .post("https://google.serper.dev/search", {
+          json: { q: query.text },
           headers: {
             "Content-Type": "application/json",
             "X-API-KEY": env.SERPER_API_KEY,
           },
-          body: JSON.stringify({ q: query.text }),
-        });
+        })
+        .json<{ organic?: Array<{ link?: string; title?: string; snippet?: string }> }>();
+      const first = data?.organic?.[0];
 
-        if (!response.ok) {
-          throw new Error(
-            `Serper request failed (${response.status}) for query: "${query.text}"`,
-          );
-        }
-
-        const data = await response.json();
-        const first = data?.organic?.[0];
-
-        return {
-          url: first?.link ?? "",
-          title: first?.title ?? "",
-          content: first?.snippet ?? "",
-          tickerId: query.tickerId,
-          searchQueryId: query.id,
-        };
-      } catch (err) {
-        console.error(`[serper] failed for query: ${query.text}`, err);
-        return null;
-      }
+      return {
+        url: first?.link ?? "",
+        title: first?.title ?? "",
+        content: first?.snippet ?? "",
+        tickerId: query.tickerId,
+        searchQueryId: query.id,
+      };
     }),
   );
 
-  return results.filter(Boolean) as WebPage[];
+  return results;
 }
 
 async function fetchWebPageContents(
   searchResults: Omit<WebPage, "content">[],
 ): Promise<WebPage[]> {
   const fetchPages = searchResults.map(async (result) => {
-    const response = await fetch("https://r.jina.ai/", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.JINA_API_KEY}`,
-      },
-      body: JSON.stringify({ url: result.url }),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Jina reader failed for URL "${result.url}": ${response.status}`,
-      );
-    }
-
-    const json = await response.json();
+    const json = await got
+      .post("https://r.jina.ai/", {
+        json: { url: result.url },
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.JINA_API_KEY}`,
+        },
+      })
+      .json<{
+        data?: { url?: string; title?: string; content?: string };
+      }>();
 
     return {
       url: json.data?.url ?? result.url,
@@ -166,13 +151,12 @@ async function sendToAgentDataAPI(token: string | undefined, pages: WebPage[]) {
   const url = new URL(env.AGENT_DATA_API_URL);
   url.pathname = "/data-collection";
 
-  return fetch(url, {
-    method: "POST",
+  await got.post(url.toString(), {
+    json: pages,
     headers: {
       "Content-Type": "application/json",
       ...(token && { Authorization: token }),
     },
-    body: JSON.stringify(pages),
   });
 }
 

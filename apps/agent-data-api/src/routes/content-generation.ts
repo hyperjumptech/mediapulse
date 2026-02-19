@@ -26,6 +26,7 @@ export async function contentGeneration(context: Context) {
 
     return context.json({ message: "Success" }, 200);
   } catch (error) {
+    console.error("Content generation API error:", error);
     return context.json({ message: "Internal Server Error" }, 500);
   }
 }

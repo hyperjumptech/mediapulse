@@ -9,8 +9,9 @@
   },
   "dependencies": {
     "@workspace/agent-utils": "workspace:*",
-    "@workspace/env": "workspace:*",
     "@workspace/database": "workspace:*",
+    "@workspace/env": "workspace:*",
+    "got": "catalog:",
     "hono": "catalog:",
     "openai": "^6.21.0",
     "zod": "catalog:"

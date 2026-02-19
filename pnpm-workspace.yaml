@@ -13,6 +13,7 @@ catalog:
   "dotenv": "^17.2.1"
   "dotenv-cli": "^7.3.0"
   "eslint": "^9.32.0"
+  "got": "^14.0.0"
   "hono": "^4.11.3"
   "lucide-react": "^0.562.0"
   "next": "^16.1.1"

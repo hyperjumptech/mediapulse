@@ -1,6 +1,7 @@
 import { verifyAPIKey } from "@workspace/agent-utils";
 import { env } from "@workspace/env/agents-content-generation";
 import { prisma } from "@workspace/database";
+import got from "got";
 
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
@@ -55,6 +56,7 @@ app.post("/", async (context) => {
       200,
     );
   } catch (error) {
+    console.error("Content generation agent error:", error);
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });
@@ -114,17 +116,16 @@ async function sendToAgentDataAPI(
   const url = new URL(env.AGENT_DATA_API_URL);
   url.pathname = "/content-generation";
 
-  return fetch(url, {
-    method: "POST",
+  await got.post(url.toString(), {
+    json: {
+      subject: generated.subject,
+      content: generated.content,
+      tickerId,
+    },
     headers: {
       "Content-Type": "application/json",
       ...(token && { Authorization: token }),
     },
-    body: JSON.stringify({
-      subject: generated.subject,
-      content: generated.content,
-      tickerId,
-    }),
   });
 }
 

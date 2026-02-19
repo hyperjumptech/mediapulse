@@ -1,5 +1,6 @@
 import { env } from "@workspace/env";
 import { prisma } from "@workspace/database";
+import got from "got";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -74,15 +75,12 @@ export async function POST(request: Request) {
       agents.map(async (agent) => {
         const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
 
-        return fetch(endpoint.url, {
-          method: endpoint.method,
+        await got.post(endpoint.url, {
+          json: { tickerId: data.tickerId },
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${data.apiKey}`,
           },
-          body: JSON.stringify({
-            tickerId: data.tickerId,
-          }),
         });
       }),
     );

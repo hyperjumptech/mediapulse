@@ -18,7 +18,7 @@ export async function retrieveAPIKey(context: Context) {
     if (response instanceof Response) {
       return response;
     }
-
+    console.error("Auth API error:", response);
     return context.json({ message: "Internal server error" }, 500);
   }
 }

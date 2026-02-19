@@ -1,6 +1,7 @@
 import cron from "node-cron";
+import got from "got";
 import { env } from "@workspace/env";
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
 import { z } from "zod";
 
 const AgentEndpointSchema = z.object({
@@ -44,42 +45,25 @@ async function runPipeline() {
         `Running pipeline "${pipeline.name}" for ticker "${ticker.symbol}"...`,
       );
 
-      try {
-        const responses = await Promise.all(
-          agents.map(async (agent) => {
-            const endpoint = await AgentEndpointSchema.parseAsync(
-              agent.endpoint,
-            );
+      await Promise.all(
+        agents.map(async (agent) => {
+          const endpoint = await AgentEndpointSchema.parseAsync(
+            agent.endpoint,
+          );
 
-            const response = await fetch(endpoint.url, {
-              method: endpoint.method,
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${env.AGENT_API_KEY}`,
-              },
-              body: JSON.stringify({ tickerId: ticker.id }),
-            });
+          await got.post(endpoint.url, {
+            json: { tickerId: ticker.id },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${env.AGENT_API_KEY}`,
+            },
+          });
+        }),
+      );
 
-            if (!response.ok) {
-              const body = await response.text().catch(() => "");
-              throw new Error(
-                `Agent "${agent.agentId}" returned ${response.status}: ${body}`,
-              );
-            }
-
-            return response;
-          }),
-        );
-
-        console.log(
-          `Pipeline "${pipeline.name}" completed for ticker "${ticker.symbol}".`,
-        );
-      } catch (error) {
-        console.error(
-          `Pipeline "${pipeline.name}" failed for ticker "${ticker.symbol}":`,
-          error,
-        );
-      }
+      console.log(
+        `Pipeline "${pipeline.name}" completed for ticker "${ticker.symbol}".`,
+      );
     }
   }
 

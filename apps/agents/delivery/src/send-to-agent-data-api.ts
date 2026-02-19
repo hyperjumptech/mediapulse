@@ -1,17 +1,16 @@
+import got from "got";
+
 import { env } from "@workspace/env/agents-delivery";
 
 export async function sendToAgentDataAPI(token: string | undefined) {
   const url = new URL(env.AGENT_DATA_API_URL);
   url.pathname = "/delivery";
 
-  return fetch(url, {
-    method: "POST",
+  await got.post(url.toString(), {
+    json: { userTickerId: "user_ticker_id_test" },
     headers: {
       "Content-Type": "application/json",
       ...(token && { Authorization: token }),
     },
-    body: JSON.stringify({
-      userTickerId: "user_ticker_id_test",
-    }),
   });
 }
