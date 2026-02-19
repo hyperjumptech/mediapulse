@@ -16,7 +16,8 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  apiKeys APIKey[]
+  apiKeys    APIKey[]
+  userTickers UserTicker[]
 
   @@map("user")
 }
@@ -136,6 +137,22 @@ model Ticker {
   searchQueries SearchQuery[]
   dataSources   DataSource[]
   newsletters   Newsletter[]
+  userTickers   UserTicker[]
 
   @@map("ticker")
+}
+
+model UserTicker {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tickerId  String   @map("ticker_id")
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticker Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tickerId])
+  @@map("user_ticker")
 }
