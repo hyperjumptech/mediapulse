@@ -11,8 +11,10 @@
     "@workspace/agent-utils": "workspace:*",
     "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
+    "@workspace/logger": "workspace:*",
     "got": "catalog:",
     "hono": "catalog:",
+    "hono-pino": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -10,18 +10,20 @@ import fs from "fs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-import { logger } from "@workspace/logger";
-
 const envPath = path.resolve(__dirname, "../.env.local");
+
 if (!fs.existsSync(envPath)) {
-  logger.error("The .env.local file does not exist in the root directory.");
+  console.error("The .env.local file does not exist in the root directory.");
   process.exit(1);
 }
 config({ path: envPath });
 
+const { logger } = await import("@workspace/logger");
+
 logger.info(`Loading environment variables from ${envPath}`);
 
 import bcrypt from "bcrypt";
+
 
 async function main() {
   const [email, password] = process.argv.slice(2);

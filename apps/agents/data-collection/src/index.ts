@@ -1,15 +1,19 @@
 import { verifyAPIKey } from "@workspace/agent-utils";
 import { env } from "@workspace/env/agents-data-collection";
+import { logger } from "@workspace/logger";
 import { prisma } from "@workspace/database";
 import got from "got";
 
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
+import { pinoLogger } from "hono-pino";
 import { z } from "zod";
 
 const app = new Hono();
+app.use(pinoLogger({ pino: logger }));
 
 app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
+
 
 const BodySchema = z.object({
   tickerId: z.string(),

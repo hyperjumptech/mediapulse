@@ -8,10 +8,9 @@ import { contentGeneration } from "./routes/content-generation";
 import { delivery } from "./routes/delivery";
 
 const app = new Hono();
-const api = app.basePath("/api");
 
-api.use(pinoLogger({ pino: logger }));
-api.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
+app.use(pinoLogger({ pino: logger }));
+app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
 
 app.post("/data-collection", dataCollection);
 app.post("/content-generation", contentGeneration);

@@ -17,6 +17,7 @@
     "@next/env": "catalog:",
     "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
+    "@workspace/logger": "workspace:*",
     "@workspace/ui": "workspace:*",
     "bcrypt": "^6.0.0",
     "dotenv": "catalog:",

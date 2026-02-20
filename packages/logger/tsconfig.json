@@ -1,15 +1,4 @@
 {
-    "compilerOptions": {
-        "target": "ES2022",
-        "module": "ESNext",
-        "moduleResolution": "bundler",
-        "strict": true,
-        "noImplicitAny": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "declaration": true
-    },
-    "include": [
-        "src"
-    ]
+  "extends": "@workspace/typescript-config/node16.json",
+  "include": ["src"]
 }
