@@ -1,6 +1,8 @@
 import { env } from "@workspace/env";
+import { logger } from "@workspace/logger";
 import { Hono } from "hono";
 import { basicAuth } from "hono/basic-auth";
+import { pinoLogger } from "hono-pino";
 import { createAPIKey } from "./routes/create-api-key";
 import { deactivateAPIKey } from "./routes/deactivate-api-key";
 import { deleteAPIKey } from "./routes/delete-api-key";
@@ -11,6 +13,8 @@ import { updateAPIKey } from "./routes/update-api-key";
 
 const app = new Hono();
 const api = app.basePath("/api/api-keys");
+
+api.use(pinoLogger({ pino: logger }));
 
 // Temporary auth
 api.use(

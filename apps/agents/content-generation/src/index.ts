@@ -56,7 +56,7 @@ app.post("/", async (context) => {
       200,
     );
   } catch (error) {
-    console.error("Content generation agent error:", error);
+    context.get("logger").error({ err: error }, "Content generation agent error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });

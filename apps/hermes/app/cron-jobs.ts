@@ -2,6 +2,7 @@ import cron from "node-cron";
 import got from "got";
 import { env } from "@workspace/env";
 import { prisma } from "@workspace/database";
+import { logger } from "@workspace/logger";
 import { z } from "zod";
 
 const AgentEndpointSchema = z.object({
@@ -10,21 +11,21 @@ const AgentEndpointSchema = z.object({
 });
 
 async function runPipeline() {
-  console.log(`${new Date().toISOString()}: Starting pipeline execution...`);
+  logger.info(`${new Date().toISOString()}: Starting pipeline execution...`);
 
   const pipelines = await prisma.pipeline.findMany({
     where: { isActive: true },
   });
 
   if (pipelines.length === 0) {
-    console.log("No active pipelines found. Skipping.");
+    logger.info("No active pipelines found. Skipping.");
     return;
   }
 
   const tickers = await prisma.ticker.findMany();
 
   if (tickers.length === 0) {
-    console.log("No tickers found. Skipping.");
+    logger.info("No tickers found. Skipping.");
     return;
   }
 
@@ -41,7 +42,7 @@ async function runPipeline() {
     });
 
     for (const ticker of tickers) {
-      console.log(
+      logger.info(
         `Running pipeline "${pipeline.name}" for ticker "${ticker.symbol}"...`,
       );
 
@@ -61,26 +62,26 @@ async function runPipeline() {
         }),
       );
 
-      console.log(
+      logger.info(
         `Pipeline "${pipeline.name}" completed for ticker "${ticker.symbol}".`,
       );
     }
   }
 
-  console.log(`${new Date().toISOString()}: Pipeline execution finished.`);
+  logger.info(`${new Date().toISOString()}: Pipeline execution finished.`);
 }
 
 export function initCronJobs() {
-  console.log("Initializing cron jobs in Hermes...");
+  logger.info("Initializing cron jobs in Hermes...");
 
   // Schedule every day at 11:00 AM Jakarta time (UTC+7), which is 4:00 AM UTC
   cron.schedule("0 4 * * *", () => {
     runPipeline().catch((error) => {
-      console.error("Cron pipeline execution failed:", error);
+      logger.error({ err: error }, "Cron pipeline execution failed");
     });
   });
 
-  console.log(
+  logger.info(
     "Cron job 'Pipeline' scheduled for 11:00 AM Jakarta time (4:00 AM UTC) daily",
   );
 }

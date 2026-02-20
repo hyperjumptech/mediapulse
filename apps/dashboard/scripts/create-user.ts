@@ -10,14 +10,16 @@ import fs from "fs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import { logger } from "@workspace/logger";
+
 const envPath = path.resolve(__dirname, "../.env.local");
 if (!fs.existsSync(envPath)) {
-  console.error("The .env.local file does not exist in the root directory.");
+  logger.error("The .env.local file does not exist in the root directory.");
   process.exit(1);
 }
 config({ path: envPath });
 
-console.log(`Loading environment variables from ${envPath}`);
+logger.info(`Loading environment variables from ${envPath}`);
 
 import bcrypt from "bcrypt";
 
@@ -25,7 +27,7 @@ async function main() {
   const [email, password] = process.argv.slice(2);
 
   if (!email || !password) {
-    console.error("Usage: npx tsx scripts/create-user.ts <email> <password>");
+    logger.error("Usage: npx tsx scripts/create-user.ts <email> <password>");
     process.exit(1);
   }
 
@@ -45,13 +47,13 @@ async function main() {
     },
   });
 
-  console.log(`User ${user.email} (${user.id}) saved successfully.`);
+  logger.info(`User ${user.email} (${user.id}) saved successfully.`);
 
   prismaClient.$disconnect();
   process.exit(0);
 }
 
 main().catch((error) => {
-  console.error(error);
+  logger.error(error);
   process.exit(1);
 });

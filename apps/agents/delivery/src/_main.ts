@@ -41,7 +41,7 @@ app.post("/", async (context) => {
 
     return context.json({ agentId: "delivery", agentVersion: "1.0.0" }, 200);
   } catch (error) {
-    console.error("Delivery agent error:", error);
+    context.get("logger").error({ err: error }, "Delivery agent error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });

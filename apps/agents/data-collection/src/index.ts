@@ -59,7 +59,7 @@ app.post("/", async (context) => {
       200,
     );
   } catch (error) {
-    console.error("Data collection agent error:", error);
+    context.get("logger").error({ err: error }, "Data collection agent error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });

@@ -34,7 +34,7 @@ export async function registerAgent(context: Context) {
     if (response instanceof Response) {
       return response;
     }
-    console.error("Register agent error:", response);
+    context.get("logger").error({ err: response }, "Register agent error");
     return context.json({ message: "Internal server error" }, 500);
   }
 }

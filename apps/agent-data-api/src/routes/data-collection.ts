@@ -21,7 +21,7 @@ export async function dataCollection(context: Context) {
 
     return context.json({ message: "Success" }, 200);
   } catch (error) {
-    console.error("Data collection API error:", error);
+    context.get("logger").error({ err: error }, "Data collection API error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 }

@@ -10,7 +10,9 @@
     "@workspace/api-utils": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/database": "workspace:*",
+    "@workspace/logger": "workspace:*",
     "hono": "catalog:",
+    "hono-pino": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

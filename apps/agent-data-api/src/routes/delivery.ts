@@ -12,7 +12,7 @@ export async function delivery(context: Context) {
 
     return context.json({ message: "Success" }, 200);
   } catch (error) {
-    console.error("Delivery API error:", error);
+    context.get("logger").error({ err: error }, "Delivery API error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 }
