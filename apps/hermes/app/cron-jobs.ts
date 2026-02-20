@@ -11,7 +11,7 @@ const AgentEndpointSchema = z.object({
 });
 
 async function runPipeline() {
-  logger.info(`${new Date().toISOString()}: Starting pipeline execution...`);
+  logger.info("Starting pipeline execution...");
 
   const pipelines = await prisma.pipeline.findMany({
     where: { isActive: true },
@@ -43,7 +43,8 @@ async function runPipeline() {
 
     for (const ticker of tickers) {
       logger.info(
-        `Running pipeline "${pipeline.name}" for ticker "${ticker.symbol}"...`,
+        { pipelineName: pipeline.name, tickerSymbol: ticker.symbol },
+        "Running pipeline for ticker...",
       );
 
       await Promise.all(
@@ -63,12 +64,13 @@ async function runPipeline() {
       );
 
       logger.info(
-        `Pipeline "${pipeline.name}" completed for ticker "${ticker.symbol}".`,
+        { pipelineName: pipeline.name, tickerSymbol: ticker.symbol },
+        "Pipeline completed for ticker.",
       );
     }
   }
 
-  logger.info(`${new Date().toISOString()}: Pipeline execution finished.`);
+  logger.info("Pipeline execution finished.");
 }
 
 export function initCronJobs() {

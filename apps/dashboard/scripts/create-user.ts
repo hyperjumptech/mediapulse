@@ -47,13 +47,13 @@ async function main() {
     },
   });
 
-  logger.info(`User ${user.email} (${user.id}) saved successfully.`);
+  logger.info({ email: user.email, userId: user.id }, "User saved successfully.");
 
   prismaClient.$disconnect();
   process.exit(0);
 }
 
 main().catch((error) => {
-  logger.error(error);
+  logger.error({ err: error }, "Error creating user");
   process.exit(1);
 });

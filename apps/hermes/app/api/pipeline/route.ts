@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       orderBy: { order: "asc" },
     });
 
-    logger.info({ pipelineSteps }, "PIPELINE STEPS");
+    logger.info({ pipelineId: data.pipelineId, stepCount: pipelineSteps.length }, "PIPELINE STEPS");
 
     const agentIds = pipelineSteps.map((step) => step.agentId);
 
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       where: { agentId: { in: agentIds } },
     });
 
-    logger.info({ agents }, "AGENTS");
+    logger.info({ agentIds }, "AGENTS");
 
     await Promise.all(
       agents.map(async (agent) => {
