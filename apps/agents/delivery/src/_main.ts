@@ -23,6 +23,7 @@ const BodySchema = z.object({
 });
 
 app.post("/", async (context) => {
+  const logger = context.get("logger");
   try {
     const body = await context.req.json();
     const data = await BodySchema.parseAsync(body);
@@ -45,7 +46,7 @@ app.post("/", async (context) => {
 
     return context.json({ agentId: "delivery", agentVersion: "1.0.0" }, 200);
   } catch (error) {
-    context.get("logger").error({ err: error }, "Delivery agent error");
+    logger.error({ err: error }, "Delivery agent error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });

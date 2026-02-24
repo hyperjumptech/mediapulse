@@ -38,6 +38,7 @@ interface GeneratedContent {
 }
 
 app.post("/", async (context) => {
+  const logger = context.get("logger");
   try {
     const body = await context.req.json();
     const data = await BodySchema.parseAsync(body);
@@ -61,7 +62,7 @@ app.post("/", async (context) => {
       200,
     );
   } catch (error) {
-    context.get("logger").error({ err: error }, "Content generation agent error");
+    logger.error({ err: error }, "Content generation agent error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });

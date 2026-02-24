@@ -11,6 +11,7 @@ const BodySchema = z.object({
 });
 
 export async function contentGeneration(context: Context) {
+  const logger = context.get("logger");
   try {
     const body = await context.req.json();
     const data = await BodySchema.parseAsync(body);
@@ -26,7 +27,7 @@ export async function contentGeneration(context: Context) {
 
     return context.json({ message: "Success" }, 200);
   } catch (error) {
-    context.get("logger").error({ err: error }, "Content generation API error");
+    logger.error({ err: error }, "Content generation API error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 }

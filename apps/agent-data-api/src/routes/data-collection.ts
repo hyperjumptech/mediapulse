@@ -14,6 +14,7 @@ const BodySchema = z.array(
 );
 
 export async function dataCollection(context: Context) {
+  const logger = context.get("logger");
   try {
     const body = await context.req.json();
     const data = await BodySchema.parseAsync(body);
@@ -21,7 +22,7 @@ export async function dataCollection(context: Context) {
 
     return context.json({ message: "Success" }, 200);
   } catch (error) {
-    context.get("logger").error({ err: error }, "Data collection API error");
+    logger.error({ err: error }, "Data collection API error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 }

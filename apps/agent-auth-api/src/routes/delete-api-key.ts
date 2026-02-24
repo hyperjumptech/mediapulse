@@ -2,6 +2,7 @@ import { prisma } from "@workspace/database";
 import { Context } from "hono";
 
 export async function deleteAPIKey(context: Context) {
+  const logger = context.get("logger");
   try {
     const id = context.req.param("id");
 
@@ -14,7 +15,7 @@ export async function deleteAPIKey(context: Context) {
     if (response instanceof Response) {
       return response;
     }
-    context.get("logger").error({ err: response }, "Auth API error");
+    logger.error({ err: response }, "Auth API error");
     return context.json({ message: "Internal server error" }, 500);
   }
 }

@@ -10,6 +10,7 @@ const BodySchema = z.object({
 });
 
 export async function createAPIKey(context: Context) {
+  const logger = context.get("logger");
   try {
     const body = await validateBody(context, BodySchema);
     const key = crypto.randomBytes(32).toString("base64url");
@@ -31,7 +32,7 @@ export async function createAPIKey(context: Context) {
     if (response instanceof Response) {
       return response;
     }
-    context.get("logger").error({ err: response }, "Auth API error");
+    logger.error({ err: response }, "Auth API error");
     return context.json({ message: "Internal server error" }, 500);
   }
 }
