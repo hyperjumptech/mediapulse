@@ -62,7 +62,10 @@ export async function POST(request: Request) {
       orderBy: { order: "asc" },
     });
 
-    logger.info({ pipelineId: data.pipelineId, stepCount: pipelineSteps.length }, "PIPELINE STEPS");
+    logger.info(
+      { pipelineId: data.pipelineId, stepCount: pipelineSteps.length },
+      "PIPELINE STEPS",
+    );
 
     const agentIds = pipelineSteps.map((step) => step.agentId);
 

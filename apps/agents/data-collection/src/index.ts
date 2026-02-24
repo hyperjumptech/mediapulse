@@ -14,7 +14,6 @@ app.use(pinoLogger({ pino: logger }));
 
 app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
 
-
 const BodySchema = z.object({
   tickerId: z.string(),
   timeWindow: z
@@ -103,7 +102,9 @@ export async function performWebSearchWithQueries(
             "X-API-KEY": env.SERPER_API_KEY,
           },
         })
-        .json<{ organic?: Array<{ link?: string; title?: string; snippet?: string }> }>();
+        .json<{
+          organic?: Array<{ link?: string; title?: string; snippet?: string }>;
+        }>();
       const first = data?.organic?.[0];
 
       return {

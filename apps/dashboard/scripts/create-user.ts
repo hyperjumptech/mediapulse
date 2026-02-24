@@ -24,7 +24,6 @@ logger.info(`Loading environment variables from ${envPath}`);
 
 import bcrypt from "bcrypt";
 
-
 async function main() {
   const [email, password] = process.argv.slice(2);
 
@@ -49,7 +48,10 @@ async function main() {
     },
   });
 
-  logger.info({ email: user.email, userId: user.id }, "User saved successfully.");
+  logger.info(
+    { email: user.email, userId: user.id },
+    "User saved successfully.",
+  );
 
   prismaClient.$disconnect();
   process.exit(0);

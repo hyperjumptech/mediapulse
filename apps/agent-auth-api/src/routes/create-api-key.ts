@@ -36,4 +36,3 @@ export async function createAPIKey(context: Context) {
     return context.json({ message: "Internal server error" }, 500);
   }
 }
-

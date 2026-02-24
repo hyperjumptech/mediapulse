@@ -17,7 +17,6 @@ const app = new Hono();
 app.use(pinoLogger({ pino: logger }));
 app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
 
-
 const BodySchema = z.object({
   tickerId: z.string().uuid(),
 });

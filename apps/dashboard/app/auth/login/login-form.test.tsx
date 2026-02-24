@@ -50,7 +50,9 @@ describe("LoginForm", () => {
     render(<LoginForm />);
 
     // Assert
-    const title = screen.getByText("Log in", { selector: "[data-slot='card-title']" });
+    const title = screen.getByText("Log in", {
+      selector: "[data-slot='card-title']",
+    });
     expect(title).toBeInTheDocument();
     expect(
       screen.getByText("Enter your credentials to access your account"),

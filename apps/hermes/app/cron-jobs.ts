@@ -49,9 +49,7 @@ async function runPipeline() {
 
       await Promise.all(
         agents.map(async (agent) => {
-          const endpoint = await AgentEndpointSchema.parseAsync(
-            agent.endpoint,
-          );
+          const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
 
           await got.post(endpoint.url, {
             json: { tickerId: ticker.id },
