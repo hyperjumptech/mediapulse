@@ -1,0 +1,127 @@
+---
+description: Workflow for creating Next.js route handlers (App Router), API routes (Pages Router) and server actions/functions using route-action-gen
+globs: "**/route.*.config.ts"
+alwaysApply: false
+---
+
+# Route Action Gen Workflow
+
+When creating a new route handler, API route or server action/function, always use `route-action-gen`.
+
+## Step 1: Create the config file
+
+Use the CLI to scaffold the config:
+
+```bash
+npx route-action-gen create <method> <directory>
+```
+
+Example: `npx route-action-gen create post app/api/posts/[postId]`
+
+Or create `route.<method>.config.ts` manually with these required exports:
+
+```typescript
+import { z } from "zod";
+import {
+  createRequestValidator,
+  type HandlerFunc,
+  successResponse,
+  errorResponse,
+} from "route-action-gen/lib";
+
+export const requestValidator = createRequestValidator({
+  body: z.object({
+    /* fields */
+  }), // optional
+  params: z.object({
+    /* fields */
+  }), // optional
+  searchParams: z.object({
+    /* fields */
+  }), // optional
+  user: authFunc, // optional
+});
+
+export const responseValidator = z.object({
+  /* fields */
+});
+
+export const handler: HandlerFunc<
+  typeof requestValidator,
+  typeof responseValidator,
+  undefined
+> = async (data) => {
+  // Business logic here
+  return successResponse({
+    /* response */
+  });
+};
+```
+
+## Step 2: Generate the files
+
+Run the generator to produce route handlers, clients, hooks, and form components:
+
+```bash
+npx route-action-gen
+```
+
+## Step 3: Create tests for the config
+
+Create a test file next to the config: `route.<method>.config.test.ts`
+
+Test the `handler` function directly by importing it along with `requestValidator` and `responseValidator`. Mock external dependencies (database calls, auth) at the boundary.
+
+```typescript
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  handler,
+  requestValidator,
+  responseValidator,
+} from "./route.<method>.config";
+
+// Mock external dependencies
+vi.mock("@/models/example", () => ({
+  getById: vi.fn(),
+}));
+
+describe("route.<method>.config handler", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns success for valid input", async () => {
+    // Setup
+    const { getById } = await import("@/models/example");
+    vi.mocked(getById).mockResolvedValue({ id: "1" });
+
+    // Act
+    const result = await handler({ params: { id: "1" } });
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ id: "1" });
+  });
+
+  it("returns error when resource not found", async () => {
+    // Setup
+    const { getById } = await import("@/models/example");
+    vi.mocked(getById).mockResolvedValue(null);
+
+    // Act
+    const result = await handler({ params: { id: "999" } });
+
+    // Assert
+    expect(result.success).toBe(false);
+    expect(result.status).toBe(404);
+  });
+});
+```
+
+## Checklist
+
+- [ ] Config file created: `route.<method>.config.ts`
+- [ ] Required exports present: `requestValidator`, `responseValidator`, `handler`
+- [ ] Generator ran: `npx route-action-gen`
+- [ ] Test file created: `route.<method>.config.test.ts`
+- [ ] Tests cover happy path and error paths

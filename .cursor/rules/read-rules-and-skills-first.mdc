@@ -1,0 +1,24 @@
+---
+description: Forces the agent to read all applicable rules and skills before writing any code
+alwaysApply: true
+---
+
+# Read Rules & Skills Before Coding
+
+**Before writing or editing any code**, you MUST:
+
+1. **Read all glob-matched rules** in `.cursor/rules/` that apply to the file types you are about to create or edit (e.g. `typescript-javascript-standards.mdc` for `.ts`/`.tsx` files).
+2. **Read every skill referenced** by those rules (e.g. if a rule says "Use the /react-component skill", read that skill file immediately).
+3. **Only then** begin writing code, ensuring every standard is applied on the first pass.
+
+```
+❌ BAD — write code, then retroactively fix standards
+1. Create component
+2. User points out missing JSDoc / tests / arrow functions
+3. Spend extra tokens fixing
+
+✅ GOOD — read rules first, write correct code once
+1. Read typescript-javascript-standards.mdc
+2. Read react-component skill, vitest-unit-testing skill
+3. Create component following all standards (arrow fn, JSDoc, DI, tests)
+```
