@@ -68,22 +68,24 @@ export async function POST(request: Request) {
     const agents = await prisma.agentRegistry.findMany({
       where: { agentId: { in: agentIds } },
     });
+    const agentById = new Map(agents.map((a) => [a.agentId, a]));
 
     console.log("AGENTS", agents);
 
-    await Promise.all(
-      agents.map(async (agent) => {
-        const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
-
-        await got.post(endpoint.url, {
-          json: { tickerId: data.tickerId },
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${data.apiKey}`,
-          },
-        });
-      }),
-    );
+    for (const step of pipelineSteps) {
+      const agent = agentById.get(step.agentId);
+      if (!agent) {
+        throw new Error(`Agent ${step.agentId} not found in registry for step order ${step.order}`);
+      }
+      const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
+      await got.post(endpoint.url, {
+        json: { tickerId: data.tickerId },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.apiKey}`,
+        },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
