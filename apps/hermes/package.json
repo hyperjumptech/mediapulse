@@ -4,16 +4,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "generate": "echo 'Replace this with route-action-gen later'",
-    "dev": "next dev --turbopack",
-    "build": "next build",
+    "generate": "route-action-gen",
+    "dev": "pnpm generate && next dev --turbopack",
+    "build": "pnpm generate && next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "typecheck": "tsc --noEmit",
     "create:route": "route-action-gen create",
-    "test": "vitest --run",
-    "test:coverage": "vitest --run --coverage"
+    "test": "pnpm generate && vitest --run",
+    "test:coverage": "pnpm generate && vitest --run --coverage"
   },
   "dependencies": {
     "@next/env": "catalog:",
@@ -34,6 +34,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@tailwindcss/postcss": "catalog:",
     "@types/bcrypt": "catalog:",
     "@types/node": "catalog:",
