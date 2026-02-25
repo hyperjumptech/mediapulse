@@ -5,11 +5,13 @@ packages:
 
 catalog:
   "@next/env": "^16.1.1"
+  "@types/bcrypt": "^6.0.0"
   "@tailwindcss/postcss": "^4.1.11"
   "@types/node": "^20.19.9"
   "@types/react": "^19.2.8"
   "@types/react-dom": "^19.2.3"
   "@turbo/gen": "^2.6.1"
+  "bcrypt": "^6.0.0"
   "dotenv": "^17.2.1"
   "dotenv-cli": "^7.3.0"
   "eslint": "^9.32.0"

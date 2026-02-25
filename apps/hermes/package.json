@@ -16,6 +16,8 @@
     "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/ui": "workspace:*",
+    "bcrypt": "catalog:",
+    "dotenv": "catalog:",
     "got": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
@@ -28,6 +30,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",
+    "@types/bcrypt": "catalog:",
     "@types/node": "catalog:",
     "@types/node-cron": "^3.0.11",
     "@types/react": "catalog:",

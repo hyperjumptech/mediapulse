@@ -15,6 +15,9 @@ catalogs:
     '@turbo/gen':
       specifier: ^2.6.1
       version: 2.8.6
+    '@types/bcrypt':
+      specifier: ^6.0.0
+      version: 6.0.0
     '@types/node':
       specifier: ^20.19.9
       version: 20.19.33
@@ -24,6 +27,9 @@ catalogs:
     '@types/react-dom':
       specifier: ^19.2.3
       version: 19.2.3
+    bcrypt:
+      specifier: ^6.0.0
+      version: 6.0.0
     dotenv:
       specifier: ^17.2.1
       version: 17.2.3
@@ -348,6 +354,9 @@ importers:
       jsdom:
         specifier: ^28.0.0
         version: 28.0.0
+      tsx:
+        specifier: ^4
+        version: 4.21.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -369,6 +378,12 @@ importers:
       '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      bcrypt:
+        specifier: 'catalog:'
+        version: 6.0.0
+      dotenv:
+        specifier: 'catalog:'
+        version: 17.2.3
       got:
         specifier: 'catalog:'
         version: 14.6.6
@@ -400,6 +415,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: 'catalog:'
         version: 4.1.18
+      '@types/bcrypt':
+        specifier: 'catalog:'
+        version: 6.0.0
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.33

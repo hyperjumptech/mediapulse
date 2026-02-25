@@ -1,7 +1,7 @@
 /**
- * This is a script to create a user in the database. Use it only for development purposes.
- * Usage: pnpm dlx tsx scripts/create-user.ts <email> <password>
- * Example: pnpm dlx tsx scripts/create-user.ts kevin@hyperjump.tech password123
+ * This is a script to create an admin user in the database. Use it only for development purposes.
+ * Usage: pnpm dlx tsx scripts/create-admin.ts <email> <password>
+ * Example: pnpm dlx tsx scripts/create-admin.ts kevin@hyperjump.tech password123
  */
 import { config } from "dotenv";
 import path from "path";
@@ -25,7 +25,7 @@ async function main() {
   const [email, password] = process.argv.slice(2);
 
   if (!email || !password) {
-    console.error("Usage: npx tsx scripts/create-user.ts <email> <password>");
+    console.error("Usage: npx tsx scripts/create-admin.ts <email> <password>");
     process.exit(1);
   }
 
@@ -42,10 +42,11 @@ async function main() {
       email,
       name: email.split("@")[0] ?? email,
       password: hashedPassword,
+      role: "ADMIN",
     },
   });
 
-  console.log(`User ${user.email} (${user.id}) saved successfully.`);
+  console.log(`Admin ${user.email} (${user.id}) saved successfully.`);
 
   prismaClient.$disconnect();
   process.exit(0);
