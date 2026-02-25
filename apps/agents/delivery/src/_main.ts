@@ -1,14 +1,13 @@
 import { verifyAPIKey } from "@workspace/agent-utils";
+import { env } from "@workspace/env/agents-delivery";
 import { logger } from "@workspace/logger";
+import got from "got";
 
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
 import { z } from "zod";
 
-import { prisma } from "@workspace/database";
-
-import { getNewsletter } from "./get-newsletter.js";
 import { sendEmailToUsers } from "./send-email-to-users.js";
 import { sendToAgentDataAPI } from "./send-to-agent-data-api.js";
 
@@ -29,15 +28,12 @@ app.post("/", async (context) => {
 
     const token = context.req.header("Authorization");
 
-    const newsletter = await getNewsletter(data.tickerId);
+    const { newsletter, subscribers } = await fetchDeliveryDataFromAgentDataAPI(
+      token,
+      data.tickerId,
+    );
 
-    const subscriptions = await prisma.userTicker.findMany({
-      where: { tickerId: data.tickerId, enabled: true },
-      include: { user: true },
-    });
-
-    if (subscriptions.length > 0) {
-      const subscribers = subscriptions.map((s) => s.user);
+    if (subscribers.length > 0) {
       await sendEmailToUsers(newsletter, subscribers);
     }
 
@@ -49,6 +45,34 @@ app.post("/", async (context) => {
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });
+
+async function fetchDeliveryDataFromAgentDataAPI(
+  token: string | undefined,
+  tickerId: string,
+) {
+  const url = new URL(env.AGENT_DATA_API_URL);
+  url.pathname = "/api/delivery";
+  url.searchParams.set("tickerId", tickerId);
+
+  const res = await got.get(url.toString(), {
+    headers: { ...(token && { Authorization: token }) },
+    throwHttpErrors: false,
+  });
+
+  if (res.statusCode === 404) {
+    throw new Error("No newsletter found for this ticker");
+  }
+
+  if (!res.ok) {
+    throw new Error(`Agent data API error: ${res.statusCode}`);
+  }
+
+  const body = JSON.parse(res.body) as {
+    newsletter: { subject: string; content: string };
+    subscribers: { email: string }[];
+  };
+  return body;
+}
 
 export default {
   port: 4000,

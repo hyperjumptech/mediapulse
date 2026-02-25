@@ -1,7 +1,6 @@
 import { verifyAPIKey } from "@workspace/agent-utils";
 import { env } from "@workspace/env/agents-content-generation";
 import { logger } from "@workspace/logger";
-import { prisma } from "@workspace/database";
 import got from "got";
 
 import { Hono } from "hono";
@@ -42,7 +41,10 @@ app.post("/", async (context) => {
     const body = await context.req.json();
     const data = await BodySchema.parseAsync(body);
 
-    const dataSources = await retrieveDataSources(data.tickerId);
+    const dataSources = await fetchDataSourcesFromAgentDataAPI(
+      context.req.header("Authorization"),
+      data.tickerId,
+    );
 
     if (dataSources.length === 0) {
       return context.json(
@@ -66,12 +68,19 @@ app.post("/", async (context) => {
   }
 });
 
-async function retrieveDataSources(
+async function fetchDataSourcesFromAgentDataAPI(
+  token: string | undefined,
   tickerId: string,
 ): Promise<DataSourceRecord[]> {
-  return prisma.dataSource.findMany({
-    where: { tickerId },
+  const url = new URL(env.AGENT_DATA_API_URL);
+  url.pathname = "/api/content-generation";
+  url.searchParams.set("tickerId", tickerId);
+
+  const res = await got.get(url.toString(), {
+    headers: { ...(token && { Authorization: token }) },
   });
+  const body = JSON.parse(res.body) as { dataSources: DataSourceRecord[] };
+  return body.dataSources;
 }
 
 async function generateContentWithOpenAI(
@@ -119,7 +128,7 @@ async function sendToAgentDataAPI(
   generated: GeneratedContent,
 ) {
   const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/content-generation";
+  url.pathname = "/api/content-generation";
 
   await got.post(url.toString(), {
     json: {

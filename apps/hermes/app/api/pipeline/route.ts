@@ -79,7 +79,9 @@ export async function POST(request: Request) {
     for (const step of pipelineSteps) {
       const agent = agentById.get(step.agentId);
       if (!agent) {
-        throw new Error(`Agent ${step.agentId} not found in registry for step order ${step.order}`);
+        throw new Error(
+          `Agent ${step.agentId} not found in registry for step order ${step.order}`,
+        );
       }
       const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
       await got.post(endpoint.url, {

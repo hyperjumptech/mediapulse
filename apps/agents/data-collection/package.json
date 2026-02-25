@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@workspace/agent-utils": "workspace:*",
-    "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:",

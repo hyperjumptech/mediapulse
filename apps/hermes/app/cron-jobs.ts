@@ -51,7 +51,9 @@ async function runPipeline() {
       for (const step of pipelineSteps) {
         const agent = agentById.get(step.agentId);
         if (!agent) {
-          console.warn(`Agent ${step.agentId} not found in registry, skipping step order ${step.order}`);
+          console.warn(
+            `Agent ${step.agentId} not found in registry, skipping step order ${step.order}`,
+          );
           continue;
         }
         const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);

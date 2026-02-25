@@ -1,7 +1,6 @@
 import { verifyAPIKey } from "@workspace/agent-utils";
 import { env } from "@workspace/env/agents-data-collection";
 import { logger } from "@workspace/logger";
-import { prisma } from "@workspace/database";
 import got from "got";
 
 import { Hono } from "hono";
@@ -48,7 +47,10 @@ app.post("/", async (context) => {
       return context.json({ message: "SERPER_API_KEY is not configured" }, 500);
     }
 
-    const queries = await retrieveQueriesFromDatabase(data);
+    const queries = await fetchSearchQueriesFromAgentDataAPI(
+      context.req.header("Authorization"),
+      data,
+    );
     const searchResults = await performWebSearchWithQueries(queries);
     const pages = await fetchWebPageContents(searchResults);
 
@@ -68,19 +70,25 @@ app.post("/", async (context) => {
   }
 });
 
-async function retrieveQueriesFromDatabase(body: BodySchemaType) {
-  return prisma.searchQuery.findMany({
-    where: {
-      tickerId: body.tickerId,
-      ...(body.timeWindow && {
-        createdAt: {
-          gte: new Date(body.timeWindow.start),
-          lte: new Date(body.timeWindow.end),
-        },
-      }),
-    },
+async function fetchSearchQueriesFromAgentDataAPI(
+  token: string | undefined,
+  body: BodySchemaType,
+) {
+  const url = new URL(env.AGENT_DATA_API_URL);
+  url.pathname = "/api/data-collection";
+  url.searchParams.set("tickerId", body.tickerId);
+  if (body.timeWindow) {
+    url.searchParams.set("start", body.timeWindow.start);
+    url.searchParams.set("end", body.timeWindow.end);
+  }
+
+  const res = await got.get(url.toString(), {
+    headers: { ...(token && { Authorization: token }) },
   });
+  const data = JSON.parse(res.body) as { searchQueries: SearchQuery[] };
+  return data.searchQueries;
 }
+
 type SearchQuery = {
   id: string;
   text: string;
@@ -155,7 +163,7 @@ async function sendToAgentDataAPI(token: string | undefined, pages: WebPage[]) {
   }
 
   const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/data-collection";
+  url.pathname = "/api/data-collection";
 
   await got.post(url.toString(), {
     json: pages,

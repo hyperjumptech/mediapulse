@@ -5,7 +5,6 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    DATABASE_URL: z.string().min(1),
     AGENT_DATA_API_URL: z.string().min(1),
     OPENAI_API_KEY: z.string().min(1),
     OPENAI_MODEL: z.string().min(1),

@@ -7,7 +7,7 @@ export async function sendToAgentDataAPI(
   tickerId: string,
 ) {
   const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/delivery";
+  url.pathname = "/api/delivery";
 
   await got.post(url.toString(), {
     json: { userTickerId: tickerId },

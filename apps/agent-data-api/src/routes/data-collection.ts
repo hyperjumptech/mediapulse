@@ -1,28 +1,32 @@
-import { prisma } from "@workspace/database";
-
 import { Context } from "hono";
-import { z } from "zod";
 
-const BodySchema = z.array(
-  z.object({
-    url: z.string().url(),
-    title: z.string(),
-    content: z.string(),
-    tickerId: z.string().uuid(),
-    searchQueryId: z.string().uuid(),
-  }),
-);
+import { internalError } from "@workspace/api-utils";
+import {
+  getDataCollectionQuerySchema,
+  postDataCollectionBodySchema,
+} from "../schemas/data-collection.js";
+import {
+  createDataSources,
+  getSearchQueries,
+} from "../services/data-collection.js";
 
-export async function dataCollection(context: Context) {
-  const logger = context.get("logger");
+export async function getDataCollection(context: Context) {
+  try {
+    const query = getDataCollectionQuerySchema.parse(context.req.query());
+    const searchQueries = await getSearchQueries(query);
+    return context.json({ searchQueries }, 200);
+  } catch (error) {
+    return internalError(context, error);
+  }
+}
+
+export async function postDataCollection(context: Context) {
   try {
     const body = await context.req.json();
-    const data = await BodySchema.parseAsync(body);
-    await prisma.dataSource.createMany({ data });
-
+    const data = await postDataCollectionBodySchema.parseAsync(body);
+    await createDataSources(data);
     return context.json({ message: "Success" }, 200);
   } catch (error) {
-    logger.error({ err: error }, "Data collection API error");
-    return context.json({ message: "Internal Server Error" }, 500);
+    return internalError(context, error);
   }
 }

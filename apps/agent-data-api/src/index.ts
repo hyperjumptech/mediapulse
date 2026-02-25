@@ -3,17 +3,30 @@ import { logger } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
-import { dataCollection } from "./routes/data-collection";
-import { contentGeneration } from "./routes/content-generation";
-import { delivery } from "./routes/delivery";
+
+import {
+  getContentGeneration,
+  postContentGeneration,
+} from "./routes/content-generation.js";
+import {
+  getDataCollection,
+  postDataCollection,
+} from "./routes/data-collection.js";
+import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 
 const app = new Hono();
+const api = app.basePath("/api");
 
 app.use(pinoLogger({ pino: logger }));
-app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
+api.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
 
-app.post("/data-collection", dataCollection);
-app.post("/content-generation", contentGeneration);
-app.post("/delivery", delivery);
+api.get("/content-generation", getContentGeneration);
+api.post("/content-generation", postContentGeneration);
+
+api.get("/data-collection", getDataCollection);
+api.post("/data-collection", postDataCollection);
+
+api.get("/delivery", getDelivery);
+api.post("/delivery", postDeliveryHandler);
 
 export default app;
