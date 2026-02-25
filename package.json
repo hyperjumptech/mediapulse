@@ -27,6 +27,7 @@
       "@parcel/watcher",
       "@prisma/engines",
       "@tailwindcss/oxide",
+      "bcrypt",
       "core-js-pure",
       "esbuild",
       "netlify-cli",
