@@ -4,12 +4,16 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "generate": "echo 'Replace this with route-action-gen later'",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "create:route": "route-action-gen create",
+    "test": "vitest --run",
+    "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
     "@next/env": "catalog:",
@@ -25,6 +29,7 @@
     "node-cron": "^4.2.1",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "route-action-gen": "^0.0.8",
     "sonner": "catalog:",
     "zod": "catalog:"
   },
@@ -38,6 +43,9 @@
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:"
   }
 }
