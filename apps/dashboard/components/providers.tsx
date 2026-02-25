@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { AuthProvider } from "./auth-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -12,7 +13,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       enableColorScheme
       disableTransitionOnChange
     >
-      {children}
+      <AuthProvider>
+        {children}
+      </AuthProvider>
     </NextThemesProvider>
   );
 }

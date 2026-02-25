@@ -40,6 +40,7 @@ async function runPipeline() {
     const agents = await prisma.agentRegistry.findMany({
       where: { agentId: { in: agentIds } },
     });
+    const agentById = new Map(agents.map((a) => [a.agentId, a]));
 
     for (const ticker of tickers) {
       logger.info(
@@ -47,19 +48,21 @@ async function runPipeline() {
         "Running pipeline for ticker...",
       );
 
-      await Promise.all(
-        agents.map(async (agent) => {
-          const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
-
-          await got.post(endpoint.url, {
-            json: { tickerId: ticker.id },
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${env.AGENT_API_KEY}`,
-            },
-          });
-        }),
-      );
+      for (const step of pipelineSteps) {
+        const agent = agentById.get(step.agentId);
+        if (!agent) {
+          console.warn(`Agent ${step.agentId} not found in registry, skipping step order ${step.order}`);
+          continue;
+        }
+        const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
+        await got.post(endpoint.url, {
+          json: { tickerId: ticker.id },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${env.AGENT_API_KEY}`,
+          },
+        });
+      }
 
       logger.info(
         { pipelineName: pipeline.name, tickerSymbol: ticker.symbol },
