@@ -1,5 +1,6 @@
 name: Agent Deployment
 
+# Requires GitHub secret: DATABASE_URL (PostgreSQL URL for migrate deploy during build).
 on:
   push:
     branches:
@@ -8,6 +9,8 @@ on:
 jobs:
   data-collection:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -48,6 +51,8 @@ jobs:
 
   content-generation:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -88,6 +93,8 @@ jobs:
 
   delivery:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
