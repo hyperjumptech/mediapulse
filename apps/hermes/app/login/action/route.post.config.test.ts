@@ -175,10 +175,15 @@ describe("createPersistAdminSession", () => {
     await persistSession(createAuthenticatedAdmin());
 
     // Assert
+    const opts = createSessionCookieOptions();
+    expect(setCookie).toHaveBeenCalledWith("auth-token", "session-token", opts);
     expect(setCookie).toHaveBeenCalledWith(
-      "auth-token",
-      "session-token",
-      createSessionCookieOptions(),
+      "auth-user",
+      JSON.stringify({
+        name: "Admin User",
+        email: "admin@example.com",
+      }),
+      opts,
     );
   });
 });
@@ -318,6 +323,11 @@ describe("handler", () => {
         email: "admin@example.com",
       },
     });
-    expect(setCookieMock).toHaveBeenCalledTimes(1);
+    expect(setCookieMock).toHaveBeenCalledTimes(2);
+    expect(setCookieMock).toHaveBeenCalledWith(
+      "auth-user",
+      JSON.stringify({ name: "Admin User", email: "admin@example.com" }),
+      expect.any(Object),
+    );
   });
 });

@@ -39,10 +39,10 @@ Every diagram must start with its type keyword. No blank lines before it.
 
 ### 4. Use correct arrow syntax per diagram type
 
-| Diagram | Solid arrow | Dotted arrow | Thick arrow |
-|---------|------------|--------------|-------------|
-| Flowchart | `-->` | `-.->` | `==>` |
-| Sequence | `->>` (async) / `->` (sync) | `-->>` (async) / `-->` (sync) | N/A |
+| Diagram   | Solid arrow                 | Dotted arrow                  | Thick arrow |
+| --------- | --------------------------- | ----------------------------- | ----------- |
+| Flowchart | `-->`                       | `-.->`                        | `==>`       |
+| Sequence  | `->>` (async) / `->` (sync) | `-->>` (async) / `-->` (sync) | N/A         |
 
 ### 5. Avoid reserved words as bare IDs
 
@@ -77,15 +77,15 @@ flowchart TD
 
 **Node shapes**:
 
-| Shape | Syntax | Example |
-|-------|--------|---------|
-| Rectangle | `A["text"]` | Default |
-| Rounded | `A("text")` | Processes |
-| Stadium | `A(["text"])` | Start/End |
-| Diamond | `A{"text"}` | Decision |
-| Hexagon | `A{{"text"}}` | Preparation |
-| Circle | `A(("text"))` | Connector |
-| Cylinder | `A[("text")]` | Database |
+| Shape     | Syntax        | Example     |
+| --------- | ------------- | ----------- |
+| Rectangle | `A["text"]`   | Default     |
+| Rounded   | `A("text")`   | Processes   |
+| Stadium   | `A(["text"])` | Start/End   |
+| Diamond   | `A{"text"}`   | Decision    |
+| Hexagon   | `A{{"text"}}` | Preparation |
+| Circle    | `A(("text"))` | Connector   |
+| Cylinder  | `A[("text")]` | Database    |
 
 ### Sequence Diagram
 
@@ -216,6 +216,7 @@ bash ~/.cursor/skills/mermaid-diagram/scripts/validate.sh /tmp/diagram.mmd
 ### Fix loop
 
 If validation fails:
+
 1. Read the error output from `mmdc`
 2. Apply the relevant fix from the Critical Syntax Rules above
 3. Rewrite the `.mmd` file with the corrected diagram

@@ -100,12 +100,17 @@ export const createPersistAdminSession = ({
   createSessionToken: createToken = createSessionToken,
 }: PersistAdminSessionDependencies = {}) => {
   /**
-   * Persists session cookie for the authenticated admin.
+   * Persists session cookie and user payload (name, email) for the authenticated admin.
    */
   return async (admin: AuthenticatedAdmin) => {
-    void admin;
     const cookieStore = await getCookieStore();
-    cookieStore.set("auth-token", createToken(), createSessionCookieOptions());
+    const opts = createSessionCookieOptions();
+    cookieStore.set("auth-token", createToken(), opts);
+    cookieStore.set(
+      "auth-user",
+      JSON.stringify({ name: admin.name, email: admin.email }),
+      opts,
+    );
   };
 };
 

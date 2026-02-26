@@ -119,12 +119,12 @@ sequenceDiagram
 
 ### Visibility markers
 
-| Marker | Meaning |
-|--------|---------|
-| `+` | Public |
-| `-` | Private |
-| `#` | Protected |
-| `~` | Package/Internal |
+| Marker | Meaning          |
+| ------ | ---------------- |
+| `+`    | Public           |
+| `-`    | Private          |
+| `#`    | Protected        |
+| `~`    | Package/Internal |
 
 ### Generic types
 

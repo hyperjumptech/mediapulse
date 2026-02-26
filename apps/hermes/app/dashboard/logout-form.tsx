@@ -41,12 +41,26 @@ const useLogoutFormState = () => {
   };
 };
 
+type LogoutFormProps = {
+  /** Optional form container className (e.g. for sidebar footer layout). */
+  className?: string;
+  /** Button variant when used in sidebar. */
+  variant?: "outline" | "ghost";
+  /** Optional button className for sidebar styling. */
+  buttonClassName?: string;
+};
+
 /**
  * Renders a logout form and redirects to login after logout succeeds.
  *
+ * @param props - Optional className, variant, and buttonClassName for sidebar usage.
  * @returns A logout form for authenticated admins.
  */
-export const LogoutForm = () => {
+export const LogoutForm = ({
+  className,
+  variant = "outline",
+  buttonClassName,
+}: LogoutFormProps = {}) => {
   const router = useRouter();
   const { FormWithAction, pending, errorMessage, data } = useLogoutFormState();
 
@@ -59,13 +73,18 @@ export const LogoutForm = () => {
   }, [data, router]);
 
   return (
-    <FormWithAction className="flex items-center gap-2">
+    <FormWithAction className={className}>
       {errorMessage ? (
         <p className="text-sm text-destructive" role="alert">
           {errorMessage}
         </p>
       ) : null}
-      <Button type="submit" disabled={pending} variant="outline">
+      <Button
+        type="submit"
+        disabled={pending}
+        variant={variant}
+        className={buttonClassName}
+      >
         {pending ? "Signing out..." : "Sign out"}
       </Button>
     </FormWithAction>

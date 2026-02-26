@@ -39,11 +39,9 @@ describe("createClearAdminSession", () => {
     await clearAdminSession();
 
     // Assert
-    expect(setCookie).toHaveBeenCalledWith(
-      "auth-token",
-      "",
-      createSessionClearCookieOptions(),
-    );
+    const clearOpts = createSessionClearCookieOptions();
+    expect(setCookie).toHaveBeenCalledWith("auth-token", "", clearOpts);
+    expect(setCookie).toHaveBeenCalledWith("auth-user", "", clearOpts);
   });
 });
 
@@ -102,11 +100,9 @@ describe("handler", () => {
     } as never);
 
     // Assert
-    expect(setCookieMock).toHaveBeenCalledWith(
-      "auth-token",
-      "",
-      createSessionClearCookieOptions(),
-    );
+    const clearOpts = createSessionClearCookieOptions();
+    expect(setCookieMock).toHaveBeenCalledWith("auth-token", "", clearOpts);
+    expect(setCookieMock).toHaveBeenCalledWith("auth-user", "", clearOpts);
     expect(result).toMatchObject({
       status: true,
       data: {

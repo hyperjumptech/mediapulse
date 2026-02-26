@@ -67,7 +67,9 @@ export const createClearAdminSession = ({
    */
   return async () => {
     const cookieStore = await getCookieStore();
-    cookieStore.set("auth-token", "", createSessionClearCookieOptions());
+    const clearOpts = createSessionClearCookieOptions();
+    cookieStore.set("auth-token", "", clearOpts);
+    cookieStore.set("auth-user", "", clearOpts);
   };
 };
 

@@ -9,9 +9,7 @@ Display important messages with semantic styling.
 ```mdx
 import { Callout } from "fumadocs-ui/components/callout";
 
-<Callout type="info">
-  Informational message.
-</Callout>
+<Callout type="info">Informational message.</Callout>
 ```
 
 **Types:** `warn`, `info`, `success`, `error`
@@ -27,9 +25,7 @@ import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
   <Accordion title="Section Title">
     Content goes here. Supports **Markdown** and other components.
   </Accordion>
-  <Accordion title="Another Section">
-    More content here.
-  </Accordion>
+  <Accordion title="Another Section">More content here.</Accordion>
 </Accordions>
 ```
 
@@ -82,11 +78,11 @@ import { File, Folder, Files } from "fumadocs-ui/components/files";
 
 **Props:**
 
-| Component | Prop          | Description                  |
-|-----------|---------------|------------------------------|
-| `Folder`  | `name`        | Folder display name          |
-| `Folder`  | `defaultOpen` | Expanded by default          |
-| `File`    | `name`        | File display name            |
+| Component | Prop          | Description         |
+| --------- | ------------- | ------------------- |
+| `Folder`  | `name`        | Folder display name |
+| `Folder`  | `defaultOpen` | Expanded by default |
+| `File`    | `name`        | File display name   |
 
 ## Tabs (Code Block Syntax)
 
@@ -203,15 +199,15 @@ Supports all Mermaid diagram types: flowcharts, sequence diagrams, class diagram
 
 ### All Fields
 
-| Field         | Type      | Default | Description                       |
-|---------------|-----------|---------|-----------------------------------|
-| `title`       | `string`  | —       | Display name in navigation        |
-| `icon`        | `string`  | —       | Icon identifier                   |
-| `pages`       | `array`   | —       | Ordered page list                 |
-| `defaultOpen` | `boolean` | `false` | Open folder by default            |
-| `collapsible` | `boolean` | `true`  | Allow collapsing folder           |
-| `root`        | `boolean` | `false` | Isolate as root sidebar section   |
-| `description` | `string`  | —       | Description (root folders only)   |
+| Field         | Type      | Default | Description                     |
+| ------------- | --------- | ------- | ------------------------------- |
+| `title`       | `string`  | —       | Display name in navigation      |
+| `icon`        | `string`  | —       | Icon identifier                 |
+| `pages`       | `array`   | —       | Ordered page list               |
+| `defaultOpen` | `boolean` | `false` | Open folder by default          |
+| `collapsible` | `boolean` | `true`  | Allow collapsing folder         |
+| `root`        | `boolean` | `false` | Isolate as root sidebar section |
+| `description` | `string`  | —       | Description (root folders only) |
 
 ### Pages Array Syntax
 
@@ -227,27 +223,27 @@ Supports all Mermaid diagram types: flowcharts, sequence diagrams, class diagram
 }
 ```
 
-| Entry                        | Description                                |
-|------------------------------|--------------------------------------------|
-| `"slug"`                     | Page or folder by filename (no extension)  |
-| `"./path/to/page"`          | Relative path to page or folder            |
-| `"---Label---"`             | Visual separator with label                |
-| `"---[Icon]Label---"`       | Separator with icon                        |
-| `"[Text](url)"`            | Navigation link                            |
-| `"[Icon][Text](url)"`      | Link with icon                             |
-| `"external:[Text](url)"`   | External link (opens new tab)              |
-| `"..."`                      | Remaining pages sorted A–Z                 |
-| `"z...a"`                    | Remaining pages sorted Z–A                 |
-| `"...folder"`               | Extract items from a folder                |
-| `"!item"`                    | Exclude from `...` or `z...a`              |
+| Entry                    | Description                               |
+| ------------------------ | ----------------------------------------- |
+| `"slug"`                 | Page or folder by filename (no extension) |
+| `"./path/to/page"`       | Relative path to page or folder           |
+| `"---Label---"`          | Visual separator with label               |
+| `"---[Icon]Label---"`    | Separator with icon                       |
+| `"[Text](url)"`          | Navigation link                           |
+| `"[Icon][Text](url)"`    | Link with icon                            |
+| `"external:[Text](url)"` | External link (opens new tab)             |
+| `"..."`                  | Remaining pages sorted A–Z                |
+| `"z...a"`                | Remaining pages sorted Z–A                |
+| `"...folder"`            | Extract items from a folder               |
+| `"!item"`                | Exclude from `...` or `z...a`             |
 
 ## Frontmatter Reference
 
 ```yaml
 ---
-title: Page Title          # Required
-description: Page summary  # Optional, used for SEO
-icon: IconName             # Optional, shown in navigation
+title: Page Title # Required
+description: Page summary # Optional, used for SEO
+icon: IconName # Optional, shown in navigation
 ---
 ```
 
