@@ -1,11 +1,10 @@
 import { prisma } from "@workspace/prisma";
 import { Context } from "hono";
-import { z } from "zod";
 
 export const registry = async (context: Context) => {
   try {
-    const agentId = context.req.param("agentId");
-    const isEnabled = context.req.param("enabled");
+    const agentId = context.req.query("agentId");
+    const isEnabled = context.req.query("enabled");
 
     const instances = await prisma.agentInstance.findMany({
       where: {

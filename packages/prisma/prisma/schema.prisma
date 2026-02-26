@@ -68,7 +68,6 @@ model AgentInstance {
   updatedAt     DateTime             @updatedAt @map("updated_at")
 
   @@map("agent_instance")
-  @@unique([id])
 }
 
 enum AgentInstanceStatus {

@@ -26,6 +26,7 @@ export const heartbeat = async (context: Context) => {
         ...(status !== undefined ? { status } : {}),
         currentLoad: body.currentLoad,
         capacity: body.capacity,
+        lastHeartbeat: new Date(),
       },
     });
 

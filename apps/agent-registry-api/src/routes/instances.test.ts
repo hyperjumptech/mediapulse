@@ -42,7 +42,7 @@ describe("instances", () => {
         });
       }),
       req: {
-        param: mock((name: string) => {
+        query: mock((name: string) => {
           const params: Record<string, string | undefined> = {
             agentId: undefined,
             agentVersion: undefined,
@@ -154,7 +154,6 @@ describe("instances", () => {
     });
 
     const response = await instances(mockContext);
-    const responseData = await response.json();
 
     expect(mockPrismafindManyFn).toHaveBeenCalledWith({
       where: {

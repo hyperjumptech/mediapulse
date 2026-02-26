@@ -6,10 +6,10 @@ const AgentInstanceStatusEnum = z.enum(["ACTIVE", "INACTIVE", "UNHEALTHY"]);
 type AgentInstanceStatus = z.infer<typeof AgentInstanceStatusEnum>;
 export const instances = async (c: Context) => {
   try {
-    const agentId = c.req.param("agentId");
-    const agentVersion = c.req.param("agentVersion");
-    const statusParam = c.req.param("status");
-    const minCapacity = c.req.param("minCapacity");
+    const agentId = c.req.query("agentId");
+    const agentVersion = c.req.query("agentVersion");
+    const statusParam = c.req.query("status");
+    const minCapacity = c.req.query("minCapacity");
 
     // validate status and default to ACTIVE
     const statusSchema = AgentInstanceStatusEnum;
@@ -22,11 +22,19 @@ export const instances = async (c: Context) => {
       statusFilter = parsed.data;
     }
 
+    let parsedMinCapacity: number | undefined;
+    if (minCapacity) {
+      parsedMinCapacity = parseInt(minCapacity, 10);
+      if (isNaN(parsedMinCapacity)) {
+        return c.json({ message: "Invalid minCapacity" }, 400);
+      }
+    }
+
     const instances = await prisma.agentInstance.findMany({
       where: {
         ...(agentId && { agentId }),
         ...(agentVersion && { agentVersion }),
-        ...(minCapacity && { capacity: { gte: parseInt(minCapacity) } }),
+        ...(parsedMinCapacity !== undefined && { capacity: { gte: parsedMinCapacity } }),
         status: statusFilter,
       },
     });

@@ -38,7 +38,7 @@ describe("registry", () => {
         });
       }),
       req: {
-        param: mock((name: string) => {
+        query: mock((name: string) => {
           const params: Record<string, string | undefined> = {
             agentId: undefined,
             enabled: undefined,
@@ -344,7 +344,6 @@ describe("registry", () => {
     });
 
     const response = await registry(mockContext);
-    const responseData = await response.json();
 
     expect(mockPrismaFindManyFn).toHaveBeenCalledWith({
       where: {

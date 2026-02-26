@@ -2,7 +2,6 @@ import { validateBody } from "@workspace/api-utils";
 import { prisma } from "@workspace/prisma";
 import { Context } from "hono";
 import { z } from "zod";
-import { success } from "zod/v4";
 
 const payloadSchema = z.object({
   agentId: z.string(),
@@ -23,13 +22,16 @@ const payloadSchema = z.object({
   metadata: z.record(z.any()).optional(),
   // allow enabled -> map to `isActive` on the model
   enabled: z.boolean().optional(),
+}).refine((data) => data.agentVersion || data.version, {
+  message: "Either agentVersion or version must be provided",
+  path: ["agentVersion"],
 });
 
 export const registryRegister = async (c: Context) => {
   try {
     const payload = await validateBody(c, payloadSchema);
 
-    const agentExists = await prisma.agentRegistry.findUnique({
+    const agentExists = await prisma.agentRegistry.findFirst({
       where: { agentId: payload.agentId },
     });
 
@@ -43,9 +45,6 @@ export const registryRegister = async (c: Context) => {
       endpoint: payload.endpoint,
       isActive: payload.enabled ?? true,
     };
-
-    // Optionally store arbitrary metadata in the `metadata` JSON column if provided
-    if (payload.metadata) data.metadata = payload.metadata;
 
     if (agentExists) {
       agentRegistry = await prisma.agentRegistry.update({
