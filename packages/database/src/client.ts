@@ -67,12 +67,14 @@ export class PrismaClientWithSchema extends PrismaClient {
   }
 }
 
-let prismaClient: PrismaClientWithSchema;
-
-if (!(global as any).prismaClientMediapulse) {
-  (global as any).prismaClientMediapulse = new PrismaClientWithSchema();
+declare global {
+  var prismaClientMediapulse: PrismaClientWithSchema | undefined;
 }
 
-prismaClient = (global as any).prismaClientMediapulse;
+if (!globalThis.prismaClientMediapulse) {
+  globalThis.prismaClientMediapulse = new PrismaClientWithSchema();
+}
+
+const prismaClient = globalThis.prismaClientMediapulse;
 
 export { prismaClient };

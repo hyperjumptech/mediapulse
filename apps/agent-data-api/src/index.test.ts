@@ -73,12 +73,15 @@ describe("agent-data-api", () => {
       expect(body.dataSources[0].title).toBe("Example");
     });
 
-    it("returns 500 when query validation fails (missing tickerId)", async () => {
+    it("returns 400 when query validation fails (missing tickerId)", async () => {
       const { default: app } = await import("./index.js");
       const res = await app.request("http://localhost/api/content-generation", {
         headers: AUTH_HEADERS,
       });
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.message).toBe("Bad Request");
+      expect(body.errors).toBeDefined();
     });
   });
 

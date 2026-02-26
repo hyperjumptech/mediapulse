@@ -42,7 +42,7 @@ export const getDatabaseParams = (
         rejectUnauthorized: true,
         ca: certContent,
       };
-    } catch (error) {
+    } catch {
       throw new Error(
         "Failed to process SSL certificate. Please ensure sslCertBase64 contains a valid base64-encoded certificate.",
       );

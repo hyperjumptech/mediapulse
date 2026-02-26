@@ -595,6 +595,9 @@ importers:
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      eslint:
+        specifier: ^9.32.0
+        version: 9.39.2(jiti@2.6.1)
       prisma:
         specifier: ^7.2.0
         version: 7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)

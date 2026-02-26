@@ -9,7 +9,7 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "deploy": "turbo deploy",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"apps/**/*.{ts,tsx,md}\" \"packages/**/*.{ts,tsx,md}\" \"*.{ts,tsx,md}\""
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",
