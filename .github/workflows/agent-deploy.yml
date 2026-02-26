@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   data-collection:
@@ -26,6 +29,7 @@ jobs:
       - name: Prepare env variables
         run: |
           cp env.example .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
           cp env.agents.data-collection.example .env.agents.data-collection
         working-directory: packages/env
 
@@ -68,6 +72,7 @@ jobs:
       - name: Prepare env variables
         run: |
           cp env.example .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
           cp env.agents.content-generation.example .env.agents.content-generation
         working-directory: packages/env
 
@@ -110,6 +115,7 @@ jobs:
       - name: Prepare env variables
         run: |
           cp env.example .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
           cp env.agents.delivery.example .env.agents.delivery
         working-directory: packages/env
 
