@@ -1,12 +1,15 @@
 import { verifyAPIKey } from "@workspace/agent-utils";
-import { env } from "@workspace/env";
-import { prisma } from "@workspace/prisma";
+import { env } from "@workspace/env/agents-data-collection";
+import { logger } from "@workspace/logger";
+import got from "got";
 
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
+import { pinoLogger } from "hono-pino";
 import { z } from "zod";
 
 const app = new Hono();
+app.use(pinoLogger({ pino: logger }));
 
 app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
 
@@ -22,19 +25,39 @@ const BodySchema = z.object({
 
 type BodySchemaType = z.infer<typeof BodySchema>;
 
+interface WebPage {
+  url: string;
+  title: string;
+  content: string;
+  tickerId: string;
+  searchQueryId: string;
+}
+
 app.post("/", async (context) => {
+  const logger = context.get("logger");
   try {
     const body = await context.req.json();
     const data = await BodySchema.parseAsync(body);
-    const queries = await retrieveQueriesFromDatabase(data);
-    console.log("queries", queries);
 
-    await performWebSearchWithQueries();
-    await fetchWebPageContentsFromResults();
+    if (!env.JINA_API_KEY) {
+      return context.json({ message: "JINA_API_KEY is not configured" }, 500);
+    }
+
+    if (!env.SERPER_API_KEY) {
+      return context.json({ message: "SERPER_API_KEY is not configured" }, 500);
+    }
+
+    const queries = await fetchSearchQueriesFromAgentDataAPI(
+      context.req.header("Authorization"),
+      data,
+    );
+    const searchResults = await performWebSearchWithQueries(queries);
+    const pages = await fetchWebPageContents(searchResults);
+
     const token = context.req.header("Authorization");
 
-    for (const query of queries) {
-      await sendToAgentDataAPI(token, data.tickerId, query.id);
+    if (pages.length > 0) {
+      await sendToAgentDataAPI(token, pages);
     }
 
     return context.json(
@@ -42,61 +65,112 @@ app.post("/", async (context) => {
       200,
     );
   } catch (error) {
+    logger.error({ err: error }, "Data collection agent error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });
 
-async function retrieveQueriesFromDatabase(body: BodySchemaType) {
-  return prisma.searchQuery.findMany({
-    where: {
-      tickerId: body.tickerId,
-      ...(body.timeWindow && {
-        createdAt: {
-          gte: new Date(body.timeWindow.start),
-          lte: new Date(body.timeWindow.end),
-        },
-      }),
-    },
-  });
-}
-
-async function performWebSearchWithQueries() {
-  // TODO: Implement search queries logic
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-}
-
-async function fetchWebPageContentsFromResults() {
-  // TODO: Implement web content fetching logic
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-}
-
-async function sendToAgentDataAPI(
+async function fetchSearchQueriesFromAgentDataAPI(
   token: string | undefined,
-  tickerId: string,
-  searchQueryId: string,
+  body: BodySchemaType,
 ) {
+  const url = new URL(env.AGENT_DATA_API_URL);
+  url.pathname = "/api/data-collection";
+  url.searchParams.set("tickerId", body.tickerId);
+  if (body.timeWindow) {
+    url.searchParams.set("start", body.timeWindow.start);
+    url.searchParams.set("end", body.timeWindow.end);
+  }
+
+  const res = await got.get(url.toString(), {
+    headers: { ...(token && { Authorization: token }) },
+  });
+  const data = JSON.parse(res.body) as { searchQueries: SearchQuery[] };
+  return data.searchQueries;
+}
+
+type SearchQuery = {
+  id: string;
+  text: string;
+  tickerId: string;
+};
+
+export async function performWebSearchWithQueries(
+  queries: SearchQuery[],
+): Promise<WebPage[]> {
+  if (!queries.length) return [];
+
+  const results = await Promise.all(
+    queries.map(async (query) => {
+      const data = await got
+        .post("https://google.serper.dev/search", {
+          json: { q: query.text },
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-KEY": env.SERPER_API_KEY,
+          },
+        })
+        .json<{
+          organic?: Array<{ link?: string; title?: string; snippet?: string }>;
+        }>();
+      const first = data?.organic?.[0];
+
+      return {
+        url: first?.link ?? "",
+        title: first?.title ?? "",
+        content: first?.snippet ?? "",
+        tickerId: query.tickerId,
+        searchQueryId: query.id,
+      };
+    }),
+  );
+
+  return results;
+}
+
+async function fetchWebPageContents(
+  searchResults: Omit<WebPage, "content">[],
+): Promise<WebPage[]> {
+  const fetchPages = searchResults.map(async (result) => {
+    const json = await got
+      .post("https://r.jina.ai/", {
+        json: { url: result.url },
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.JINA_API_KEY}`,
+        },
+      })
+      .json<{
+        data?: { url?: string; title?: string; content?: string };
+      }>();
+
+    return {
+      url: json.data?.url ?? result.url,
+      title: json.data?.title ?? result.title,
+      content: json.data?.content ?? "",
+      tickerId: result.tickerId,
+      searchQueryId: result.searchQueryId,
+    };
+  });
+
+  return Promise.all(fetchPages);
+}
+
+async function sendToAgentDataAPI(token: string | undefined, pages: WebPage[]) {
   if (!env.AGENT_DATA_API_URL) {
     throw new Error("AGENT_DATA_API_URL is not defined");
   }
 
   const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/data-collection";
+  url.pathname = "/api/data-collection";
 
-  return fetch(url, {
-    method: "POST",
+  await got.post(url.toString(), {
+    json: pages,
     headers: {
       "Content-Type": "application/json",
       ...(token && { Authorization: token }),
     },
-    body: JSON.stringify([
-      {
-        url: "https://apple.com",
-        title: "Apple",
-        content: "Apple Inc. is an American multinational technology company.",
-        tickerId,
-        searchQueryId,
-      },
-    ]),
   });
 }
 

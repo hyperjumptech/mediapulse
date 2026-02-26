@@ -1,5 +1,5 @@
 import * as crypto from "crypto";
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
 
 export async function verifyAPIKey(key: string) {
   const hash = crypto.createHash("sha256").update(key).digest("hex");

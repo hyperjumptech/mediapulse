@@ -7,10 +7,31 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres
+        # Provide the password for postgres
+        env:
+          POSTGRES_USER: mediapulse
+          POSTGRES_PASSWORD: mediapulse
+          POSTGRES_DB: mediapulse
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          # Maps tcp port 5432 on service container to the host
+          - 5432:5432
 
     steps:
       - uses: actions/checkout@v5
@@ -25,15 +46,23 @@ jobs:
           cache: "pnpm"
 
       - name: Prepare env variables
-        run: cp env.example .env
-        working-directory: packages/env
+        run: |
+          cd packages/env
+          cp env.example .env
+          cp env.agents.content-generation.example .env.agents.content-generation
+          cp env.agents.data-collection.example .env.agents.data-collection
+          cp env.agents.delivery.example .env.agents.delivery
+          cd ../..
+          ./dev-bootstrap.sh
 
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma types
-        run: pnpm generate
-        working-directory: packages/prisma
+      - name: Generate Prisma client
+        run: pnpm --filter=@workspace/database run db:generate
 
       - name: Build
         run: pnpm build
+
+      - name: Test
+        run: pnpm test:coverage

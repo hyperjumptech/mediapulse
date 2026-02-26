@@ -1,5 +1,5 @@
 import { validateBody } from "@workspace/api-utils";
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
 import * as crypto from "crypto";
 import { Context } from "hono";
 import { z } from "zod";
@@ -10,6 +10,7 @@ const BodySchema = z.object({
 });
 
 export async function createAPIKey(context: Context) {
+  const logger = context.get("logger");
   try {
     const body = await validateBody(context, BodySchema);
     const key = crypto.randomBytes(32).toString("base64url");
@@ -31,7 +32,7 @@ export async function createAPIKey(context: Context) {
     if (response instanceof Response) {
       return response;
     }
-
+    logger.error({ err: response }, "Auth API error");
     return context.json({ message: "Internal server error" }, 500);
   }
 }

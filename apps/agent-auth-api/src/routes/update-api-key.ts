@@ -1,5 +1,5 @@
 import { validateBody } from "@workspace/api-utils";
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
 import { Context } from "hono";
 import { z } from "zod";
 
@@ -8,6 +8,7 @@ const BodySchema = z.object({
 });
 
 export async function updateAPIKey(context: Context) {
+  const logger = context.get("logger");
   try {
     const id = context.req.param("id");
     const body = await validateBody(context, BodySchema);
@@ -22,7 +23,7 @@ export async function updateAPIKey(context: Context) {
     if (response instanceof Response) {
       return response;
     }
-
+    logger.error({ err: response }, "Auth API error");
     return context.json({ message: "Internal server error" }, 500);
   }
 }

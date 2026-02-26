@@ -5,18 +5,21 @@
   "scripts": {
     "build": "turbo build",
     "test": "turbo test",
+    "test:coverage": "turbo test:coverage",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "deploy": "turbo deploy",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"apps/**/*.{ts,tsx,md}\" \"packages/**/*.{ts,tsx,md}\" \"*.{ts,tsx,md}\""
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "netlify-cli": "^23.13.3",
     "prettier": "^3.6.2",
     "turbo": "^2.5.5",
-    "typescript": "5.7.3",
-    "netlify-cli": "^23.13.3"
+    "speed-docs": "^0.0.22",
+    "vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:"
   },
   "packageManager": "pnpm@10.4.1",
   "engines": {
@@ -24,7 +27,16 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "sharp"
+      "@parcel/watcher",
+      "@prisma/engines",
+      "@tailwindcss/oxide",
+      "bcrypt",
+      "core-js-pure",
+      "esbuild",
+      "netlify-cli",
+      "prisma",
+      "sharp",
+      "unix-dgram"
     ]
   }
 }

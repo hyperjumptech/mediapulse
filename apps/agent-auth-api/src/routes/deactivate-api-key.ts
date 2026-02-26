@@ -1,7 +1,8 @@
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
 import { Context } from "hono";
 
 export async function deactivateAPIKey(context: Context) {
+  const logger = context.get("logger");
   try {
     const id = context.req.param("id");
 
@@ -15,7 +16,7 @@ export async function deactivateAPIKey(context: Context) {
     if (response instanceof Response) {
       return response;
     }
-
+    logger.error({ err: response }, "Auth API error");
     return context.json({ message: "Internal server error" }, 500);
   }
 }

@@ -1,11 +1,18 @@
 import { verifyAPIKey } from "@workspace/agent-utils";
-import { env } from "@workspace/env";
+import { env } from "@workspace/env/agents-content-generation";
+import { logger } from "@workspace/logger";
+import got from "got";
 
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
+import { pinoLogger } from "hono-pino";
+import OpenAI from "openai";
 import { z } from "zod";
 
 const app = new Hono();
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+
+app.use(pinoLogger({ pino: logger }));
 
 app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
 
@@ -13,61 +20,126 @@ const BodySchema = z.object({
   tickerId: z.string(),
 });
 
+interface DataSourceRecord {
+  id: string;
+  url: string;
+  title: string;
+  content: string;
+  metadata: unknown;
+  tickerId: string;
+  searchQueryId: string;
+}
+
+interface GeneratedContent {
+  subject: string;
+  content: string;
+}
+
 app.post("/", async (context) => {
+  const logger = context.get("logger");
   try {
     const body = await context.req.json();
-    await BodySchema.parseAsync(body);
+    const data = await BodySchema.parseAsync(body);
 
-    await retrieveAnalysisResultsFromDatabase();
-    await generateContentsFromAnalysisResults();
-    await formatGeneratedContents();
+    const dataSources = await fetchDataSourcesFromAgentDataAPI(
+      context.req.header("Authorization"),
+      data.tickerId,
+    );
+
+    if (dataSources.length === 0) {
+      return context.json(
+        { message: "No data sources found for this ticker" },
+        404,
+      );
+    }
+
+    const generated = await generateContentWithOpenAI(dataSources);
 
     const token = context.req.header("Authorization");
-    await sendToAgentDataAPI(token, body.tickerId);
+    await sendToAgentDataAPI(token, data.tickerId, generated);
 
     return context.json(
       { agentId: "content-generation", agentVersion: "1.0.0" },
       200,
     );
   } catch (error) {
+    logger.error({ err: error }, "Content generation agent error");
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });
 
-async function retrieveAnalysisResultsFromDatabase() {
-  // TODO: Implement search queries logic
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+async function fetchDataSourcesFromAgentDataAPI(
+  token: string | undefined,
+  tickerId: string,
+): Promise<DataSourceRecord[]> {
+  const url = new URL(env.AGENT_DATA_API_URL);
+  url.pathname = "/api/content-generation";
+  url.searchParams.set("tickerId", tickerId);
+
+  const res = await got.get(url.toString(), {
+    headers: { ...(token && { Authorization: token }) },
+  });
+  const body = JSON.parse(res.body) as { dataSources: DataSourceRecord[] };
+  return body.dataSources;
 }
 
-async function generateContentsFromAnalysisResults() {
-  // TODO: Implement search queries logic
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-}
+async function generateContentWithOpenAI(
+  dataSources: DataSourceRecord[],
+): Promise<GeneratedContent> {
+  const sourceSummaries = dataSources
+    .map(
+      (source) => `Source: ${source.title} (${source.url})\n${source.content}`,
+    )
+    .join("\n\n---\n\n");
 
-async function formatGeneratedContents() {
-  // TODO: Implement web content fetching logic
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-}
+  const response = await openai.chat.completions.create({
+    model: env.OPENAI_MODEL,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a newsletter writer. Given multiple data sources, summarize the content into a concise and informative newsletter. Return a JSON object with two fields: 'subject' (a compelling email subject line) and 'content' (the summarized newsletter body in plain text).",
+      },
+      {
+        role: "user",
+        content: `Summarize the following data sources into a newsletter:\n\n${sourceSummaries}`,
+      },
+    ],
+    response_format: { type: "json_object" },
+  });
 
-async function sendToAgentDataAPI(token: string | undefined, tickerId: string) {
-  if (!env.AGENT_DATA_API_URL) {
-    throw new Error("AGENT_DATA_API_URL is not defined");
+  const result = response.choices[0]?.message?.content;
+
+  if (!result) {
+    throw new Error("OpenAI returned an empty response");
   }
 
-  const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/content-generation";
+  const parsed = JSON.parse(result) as GeneratedContent;
 
-  return fetch(url, {
-    method: "POST",
+  return {
+    subject: parsed.subject,
+    content: parsed.content,
+  };
+}
+
+async function sendToAgentDataAPI(
+  token: string | undefined,
+  tickerId: string,
+  generated: GeneratedContent,
+) {
+  const url = new URL(env.AGENT_DATA_API_URL);
+  url.pathname = "/api/content-generation";
+
+  await got.post(url.toString(), {
+    json: {
+      subject: generated.subject,
+      content: generated.content,
+      tickerId,
+    },
     headers: {
       "Content-Type": "application/json",
       ...(token && { Authorization: token }),
     },
-    body: JSON.stringify({
-      subject: "Apple - Subject",
-      content: "Apple Inc. is an American multinational technology company.",
-      tickerId,
-    }),
   });
 }
 

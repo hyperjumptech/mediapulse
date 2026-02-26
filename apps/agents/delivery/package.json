@@ -4,18 +4,22 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "dotenv -e ../../../packages/env/.env -- bun run --hot src/index.ts",
-    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun"
+    "dev": "dotenv -e ../../../packages/env/.env.agents.delivery -- bun run --hot src/_main.ts",
+    "build": "bun build src/_main.ts --outfile=./dist/server.js --target=bun"
   },
   "dependencies": {
     "@workspace/agent-utils": "workspace:*",
     "@workspace/env": "workspace:*",
-    "@workspace/prisma": "workspace:*",
+    "@workspace/logger": "workspace:*",
+    "got": "catalog:",
     "hono": "catalog:",
+    "hono-pino": "catalog:",
+    "resend": "^6.9.1",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:"
   }
 }

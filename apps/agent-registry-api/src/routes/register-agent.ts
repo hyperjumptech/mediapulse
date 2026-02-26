@@ -1,5 +1,5 @@
 import { validateBody } from "@workspace/api-utils";
-import { Prisma, prisma } from "@workspace/prisma";
+import { Prisma, prisma } from "@workspace/database";
 import { Context } from "hono";
 import { z } from "zod";
 
@@ -14,6 +14,7 @@ const BodySchema = z.object({
 });
 
 export async function registerAgent(context: Context) {
+  const logger = context.get("logger");
   try {
     const body = await validateBody(context, BodySchema);
 
@@ -34,7 +35,7 @@ export async function registerAgent(context: Context) {
     if (response instanceof Response) {
       return response;
     }
-
+    logger.error({ err: response }, "Register agent error");
     return context.json({ message: "Internal server error" }, 500);
   }
 }

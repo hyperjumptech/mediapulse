@@ -1,7 +1,9 @@
-import { prisma } from "@workspace/prisma";
+import { prisma } from "@workspace/database";
+import { logger } from "@workspace/logger";
 import * as crypto from "crypto";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
+import { pinoLogger } from "hono-pino";
 import { registerAgent } from "./routes/register-agent";
 import { heartbeat } from "./routes/heartbeat";
 import { deregister } from "./routes/deregister";
@@ -11,6 +13,8 @@ import { registryRegister } from "./routes/registryRegister";
 
 const app = new Hono();
 const api = app.basePath("/api");
+
+api.use(pinoLogger({ pino: logger }));
 
 api.use(
   "*",
