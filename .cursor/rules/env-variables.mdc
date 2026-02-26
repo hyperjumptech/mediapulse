@@ -1,0 +1,41 @@
+---
+description: Environment variable conventions for Next.js apps in this monorepo
+alwaysApply: true
+---
+
+# Environment Variables
+
+## Never use `process.env` directly
+
+Import the type-safe env object from `@workspace/env` (or a per-app export like `@workspace/env/env.app1`).
+
+```typescript
+// ❌ BAD
+const dbUrl = process.env.DATABASE_URL;
+
+// ✅ GOOD
+import { env } from "@workspace/env";
+const dbUrl = env.DATABASE_URL;
+```
+
+## Sensitive values must NOT have the `NEXT_PUBLIC_` prefix
+
+Database passwords, API keys, tokens, and any credential used to access backend resources must be server-only (no `NEXT_PUBLIC_` prefix). `NEXT_PUBLIC_` values are inlined into the client bundle and visible to anyone inspecting the page source.
+
+## Document every variable in `env.example`
+
+When adding or changing an environment variable:
+
+1. Add it to the appropriate `env.example` file (root or per-app) with a descriptive comment.
+2. Include `env-to-t3` annotations: `#required`, `#number`, `#default`, etc.
+3. Rebuild the env package: `pnpm build` in `packages/env`.
+
+```dotenv
+# The URL of the Postgres database pool
+DATABASE_URL="postgresql://postgres:root@localhost:5432/postgres" #required
+```
+
+## Static vs dynamic awareness
+
+- `NEXT_PUBLIC_` values and values read in static RSCs are baked in at **build time**. Changing them after build has no effect.
+- Values read in dynamic RSCs take effect at **runtime** (after server restart).

@@ -4,12 +4,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
+    "generate": "route-action-gen",
+    "dev": "pnpm generate && next dev --turbopack",
+    "build": "pnpm generate && next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "create:route": "route-action-gen create",
+    "test": "pnpm generate && vitest --run",
+    "test:coverage": "pnpm generate && vitest --run --coverage"
   },
   "dependencies": {
     "@next/env": "catalog:",
@@ -17,6 +21,8 @@
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/ui": "workspace:*",
+    "bcrypt": "catalog:",
+    "dotenv": "catalog:",
     "got": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
@@ -24,11 +30,15 @@
     "node-cron": "^4.2.1",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "route-action-gen": "^0.0.8",
     "sonner": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@tailwindcss/postcss": "catalog:",
+    "@types/bcrypt": "catalog:",
     "@types/node": "catalog:",
     "@types/node-cron": "^3.0.11",
     "@types/react": "catalog:",
@@ -36,6 +46,9 @@
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:"
   }
 }

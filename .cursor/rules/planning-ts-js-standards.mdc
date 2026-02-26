@@ -1,0 +1,28 @@
+---
+description: Ensure planned todos follow TypeScript/JavaScript standards
+alwaysApply: true
+---
+
+# Planning with TS/JS Standards
+
+When creating a plan or todo list for a TypeScript or JavaScript project, every todo item must account for the standards in the `typescript-javascript-standards` rule.
+
+Each planned task should include relevant steps for:
+
+- **JSDoc comments** on every new or modified function.
+- **Dependency injection** — accept collaborators as parameters with production defaults.
+- **Unit tests** with 100% coverage, co-located as `.test.ts` / `.test.js` files.
+- **Kebab-case file naming** for any new files.
+- **Linter & TypeScript error resolution** before marking a task complete.
+
+```
+❌ BAD — missing standards steps
+1. Create fetchUsers function
+2. Wire it up in the component
+
+✅ GOOD — includes standards
+1. Create fetchUsers function with JSDoc, accepting db client via DI
+2. Add fetchUsers.test.ts with 100% coverage using a fake db
+3. Wire it up in the component with production default
+4. Resolve all linter/TS errors
+```
