@@ -79,14 +79,14 @@ async function runPipeline() {
 export function initCronJobs() {
   logger.info("Initializing cron jobs in Hermes...");
 
-  // Schedule every day at 11:00 AM Jakarta time (UTC+7), which is 4:00 AM UTC
-  cron.schedule("0 4 * * *", () => {
+  // Schedule every day at 13:00 WIB (Jakarta, UTC+7), which is 06:00 UTC
+  cron.schedule("0 6 * * *", () => {
     runPipeline().catch((error) => {
       logger.error({ err: error }, "Cron pipeline execution failed");
     });
   });
 
   logger.info(
-    "Cron job 'Pipeline' scheduled for 11:00 AM Jakarta time (4:00 AM UTC) daily",
+    "Cron job 'Pipeline' scheduled for 13:00 WIB (06:00 UTC) daily",
   );
 }

@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createUpdatePipelineHandler, handler } from "./route.post.config";
+import { createUpdatePipelineHandler } from "./route.post.config";
 
 describe("createUpdatePipelineHandler", () => {
   afterEach(() => {

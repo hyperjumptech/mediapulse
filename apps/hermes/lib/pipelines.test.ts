@@ -6,7 +6,17 @@ import {
   getPipelinesWithSteps,
 } from "./pipelines";
 
-const createMockDb = () => ({
+type MockDb = {
+  pipeline: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+  };
+  agentRegistry: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
+};
+
+const createMockDb = (): MockDb => ({
   pipeline: {
     findMany: vi.fn(),
     findUnique: vi.fn(),
@@ -22,7 +32,7 @@ describe("getPipelinesWithSteps", () => {
   });
 
   it("calls pipeline.findMany with include steps and orderBy updatedAt desc", async () => {
-    const db = createMockDb() as any;
+    const db = createMockDb();
     db.pipeline.findMany.mockResolvedValue([]);
 
     await getPipelinesWithSteps(db);
@@ -34,7 +44,7 @@ describe("getPipelinesWithSteps", () => {
   });
 
   it("returns the result of findMany", async () => {
-    const db = createMockDb() as any;
+    const db = createMockDb();
     const pipelines = [
       {
         id: "p1",
@@ -56,7 +66,7 @@ describe("getPipelineWithSteps", () => {
   });
 
   it("calls pipeline.findUnique with id and include steps", async () => {
-    const db = createMockDb() as any;
+    const db = createMockDb();
     db.pipeline.findUnique.mockResolvedValue(null);
 
     await getPipelineWithSteps("pid-1", db);
@@ -68,7 +78,7 @@ describe("getPipelineWithSteps", () => {
   });
 
   it("returns the result of findUnique", async () => {
-    const db = createMockDb() as any;
+    const db = createMockDb();
     const pipeline = { id: "p1", name: "P1", steps: [] };
     db.pipeline.findUnique.mockResolvedValue(pipeline);
 
@@ -84,7 +94,7 @@ describe("getAgentRegistryList", () => {
   });
 
   it("calls agentRegistry.findMany with isActive true and orderBy", async () => {
-    const db = createMockDb() as any;
+    const db = createMockDb();
     db.agentRegistry.findMany.mockResolvedValue([]);
 
     await getAgentRegistryList(db);
@@ -96,7 +106,7 @@ describe("getAgentRegistryList", () => {
   });
 
   it("returns the result of findMany", async () => {
-    const db = createMockDb() as any;
+    const db = createMockDb();
     const agents = [{ id: "a1", agentId: "ag1", agentVersion: "1" }];
     db.agentRegistry.findMany.mockResolvedValue(agents);
 

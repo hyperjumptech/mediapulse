@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createRemoveStepHandler, handler } from "./route.post.config";
+import { createRemoveStepHandler } from "./route.post.config";
 
 describe("createRemoveStepHandler", () => {
   afterEach(() => {

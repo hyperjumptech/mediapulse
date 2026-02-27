@@ -1,6 +1,6 @@
 name: Agent Deployment
 
-# Requires GitHub secret: DATABASE_URL (PostgreSQL URL for migrate deploy during build).
+# Requires GitHub secret: FLY_API_TOKEN. Agents use agent-data-api for data; no database access.
 on:
   push:
     branches:
@@ -9,8 +9,6 @@ on:
 jobs:
   data-collection:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -24,10 +22,7 @@ jobs:
           cache: "pnpm"
 
       - name: Prepare env variables
-        run: |
-          cp env.example .env
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-          cp env.agents.data-collection.example .env.agents.data-collection
+        run: cp env.agents.data-collection.example .env.agents.data-collection
         working-directory: packages/env
 
       - name: Bootstrap env symlinks
@@ -35,9 +30,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
 
       - name: Build
         run: pnpm build --filter=data-collection-agent
@@ -52,8 +44,6 @@ jobs:
 
   content-generation:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -67,10 +57,7 @@ jobs:
           cache: "pnpm"
 
       - name: Prepare env variables
-        run: |
-          cp env.example .env
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-          cp env.agents.content-generation.example .env.agents.content-generation
+        run: cp env.agents.content-generation.example .env.agents.content-generation
         working-directory: packages/env
 
       - name: Bootstrap env symlinks
@@ -78,9 +65,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
 
       - name: Build
         run: pnpm build --filter=content-generation-agent
@@ -95,8 +79,6 @@ jobs:
 
   delivery:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -110,10 +92,7 @@ jobs:
           cache: "pnpm"
 
       - name: Prepare env variables
-        run: |
-          cp env.example .env
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-          cp env.agents.delivery.example .env.agents.delivery
+        run: cp env.agents.delivery.example .env.agents.delivery
         working-directory: packages/env
 
       - name: Bootstrap env symlinks
@@ -121,9 +100,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
 
       - name: Build
         run: pnpm build --filter=delivery-agent

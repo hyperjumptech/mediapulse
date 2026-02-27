@@ -2,7 +2,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createCreatePipelineHandler,
-  handler,
   requestValidator,
 } from "./route.post.config";
 
