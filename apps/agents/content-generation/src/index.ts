@@ -47,9 +47,19 @@ app.post("/", async (context) => {
     );
 
     if (dataSources.length === 0) {
+      logger.info(
+        { tickerId: data.tickerId },
+        "No data sources found for this ticker, skipping content generation",
+      );
+
       return context.json(
-        { message: "No data sources found for this ticker" },
-        404,
+        {
+          agentId: "content-generation",
+          agentVersion: "1.0.0",
+          skipped: true,
+          message: "No data sources found for this ticker",
+        },
+        200,
       );
     }
 

@@ -129,7 +129,7 @@ describe("agent-data-api", () => {
   });
 
   describe("POST /api/data-collection", () => {
-    it("returns 200 when body is valid array", async () => {
+    it("returns 200 when body is valid array with tickerId + searchQueryId per item", async () => {
       const mod = await getDataCollectionService();
       mod.createDataSources.mockResolvedValue(undefined);
 
@@ -151,6 +151,15 @@ describe("agent-data-api", () => {
 
       expect(res.status).toBe(200);
       expect(body.message).toBe("Success");
+      expect(mod.createDataSources).toHaveBeenCalledWith([
+        {
+          url: "https://example.com",
+          title: "Example",
+          content: "Content",
+          tickerId: TICKER_ID,
+          searchQueryId: SEARCH_QUERY_ID,
+        },
+      ]);
     });
   });
 

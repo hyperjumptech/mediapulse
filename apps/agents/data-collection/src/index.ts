@@ -57,7 +57,7 @@ app.post("/", async (context) => {
     const token = context.req.header("Authorization");
 
     if (pages.length > 0) {
-      await sendToAgentDataAPI(token, pages);
+      await sendToAgentDataAPI(token, data.tickerId, pages);
     }
 
     return context.json(
@@ -157,7 +157,11 @@ async function fetchWebPageContents(
   return Promise.all(fetchPages);
 }
 
-async function sendToAgentDataAPI(token: string | undefined, pages: WebPage[]) {
+async function sendToAgentDataAPI(
+  token: string | undefined,
+  tickerId: string,
+  pages: WebPage[],
+) {
   if (!env.AGENT_DATA_API_URL) {
     throw new Error("AGENT_DATA_API_URL is not defined");
   }
@@ -166,7 +170,13 @@ async function sendToAgentDataAPI(token: string | undefined, pages: WebPage[]) {
   url.pathname = "/api/data-collection";
 
   await got.post(url.toString(), {
-    json: pages,
+    json: pages.map((page) => ({
+      url: page.url,
+      title: page.title,
+      content: page.content,
+      tickerId,
+      searchQueryId: page.searchQueryId,
+    })),
     headers: {
       "Content-Type": "application/json",
       ...(token && { Authorization: token }),
