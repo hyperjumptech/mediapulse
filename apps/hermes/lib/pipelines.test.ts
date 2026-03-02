@@ -5,6 +5,7 @@ import {
   getPipelineWithSteps,
   getPipelinesWithSteps,
 } from "./pipelines";
+import type { PrismaClientWithSchema } from "@workspace/database/client";
 
 type MockDb = {
   pipeline: {
@@ -26,6 +27,10 @@ const createMockDb = (): MockDb => ({
   },
 });
 
+/** Cast minimal mock to PrismaClientWithSchema for tests. */
+const asDb = (db: MockDb): PrismaClientWithSchema =>
+  db as unknown as PrismaClientWithSchema;
+
 describe("getPipelinesWithSteps", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -35,7 +40,7 @@ describe("getPipelinesWithSteps", () => {
     const db = createMockDb();
     db.pipeline.findMany.mockResolvedValue([]);
 
-    await getPipelinesWithSteps(db);
+    await getPipelinesWithSteps(asDb(db));
 
     expect(db.pipeline.findMany).toHaveBeenCalledWith({
       include: { steps: { orderBy: { order: "asc" } } },
@@ -54,7 +59,7 @@ describe("getPipelinesWithSteps", () => {
     ];
     db.pipeline.findMany.mockResolvedValue(pipelines);
 
-    const result = await getPipelinesWithSteps(db);
+    const result = await getPipelinesWithSteps(asDb(db));
 
     expect(result).toEqual(pipelines);
   });
@@ -69,7 +74,7 @@ describe("getPipelineWithSteps", () => {
     const db = createMockDb();
     db.pipeline.findUnique.mockResolvedValue(null);
 
-    await getPipelineWithSteps("pid-1", db);
+    await getPipelineWithSteps("pid-1", asDb(db));
 
     expect(db.pipeline.findUnique).toHaveBeenCalledWith({
       where: { id: "pid-1" },
@@ -82,7 +87,7 @@ describe("getPipelineWithSteps", () => {
     const pipeline = { id: "p1", name: "P1", steps: [] };
     db.pipeline.findUnique.mockResolvedValue(pipeline);
 
-    const result = await getPipelineWithSteps("p1", db);
+    const result = await getPipelineWithSteps("p1", asDb(db));
 
     expect(result).toEqual(pipeline);
   });
@@ -97,7 +102,7 @@ describe("getAgentRegistryList", () => {
     const db = createMockDb();
     db.agentRegistry.findMany.mockResolvedValue([]);
 
-    await getAgentRegistryList(db);
+    await getAgentRegistryList(asDb(db));
 
     expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
       where: { isActive: true },
@@ -110,7 +115,7 @@ describe("getAgentRegistryList", () => {
     const agents = [{ id: "a1", agentId: "ag1", agentVersion: "1" }];
     db.agentRegistry.findMany.mockResolvedValue(agents);
 
-    const result = await getAgentRegistryList(db);
+    const result = await getAgentRegistryList(asDb(db));
 
     expect(result).toEqual(agents);
   });

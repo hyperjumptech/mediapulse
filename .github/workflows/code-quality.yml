@@ -51,6 +51,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Generate route actions
+        run: |
+          pnpm --filter=dashboard run action:generate
+          pnpm --filter=hermes run generate
+
       - name: Lint
         run: pnpm lint
 
