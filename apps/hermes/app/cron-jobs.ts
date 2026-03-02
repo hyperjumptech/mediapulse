@@ -86,7 +86,5 @@ export function initCronJobs() {
     });
   });
 
-  logger.info(
-    "Cron job 'Pipeline' scheduled for 13:00 WIB (06:00 UTC) daily",
-  );
+  logger.info("Cron job 'Pipeline' scheduled for 13:00 WIB (06:00 UTC) daily");
 }

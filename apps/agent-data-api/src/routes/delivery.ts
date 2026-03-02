@@ -20,9 +20,7 @@ export async function getDelivery(context: Context): Promise<Response> {
   }
 }
 
-export async function postDeliveryHandler(
-  context: Context,
-): Promise<Response> {
+export async function postDeliveryHandler(context: Context): Promise<Response> {
   try {
     const body = await context.req.json();
     const data = await postDeliveryBodySchema.parseAsync(body);
