@@ -11,6 +11,7 @@ export async function verifyTokenViaAuthApi(
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
+
     return res.status === 200;
   } catch {
     return false;

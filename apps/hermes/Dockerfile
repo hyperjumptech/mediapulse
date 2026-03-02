@@ -33,5 +33,6 @@ RUN pnpm prune --prod
 
 WORKDIR /app/apps/hermes
 
-EXPOSE 3000
+ENV PORT=3001
+EXPOSE 3001
 CMD [ "pnpm", "run", "start" ]

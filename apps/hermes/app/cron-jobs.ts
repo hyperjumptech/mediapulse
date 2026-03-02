@@ -13,46 +13,53 @@ const AgentEndpointSchema = z.object({
 async function runPipeline() {
   logger.info("Starting pipeline execution...");
 
-  const pipelines = await prisma.pipeline.findMany({
-    where: { isActive: true },
-  });
+  const [pipelines, tickers] = await Promise.all([
+    prisma.pipeline.findMany({ where: { isActive: true } }),
+    prisma.ticker.findMany(),
+  ]);
 
   if (pipelines.length === 0) {
     logger.info("No active pipelines found. Skipping.");
     return;
   }
-
-  const tickers = await prisma.ticker.findMany();
-
   if (tickers.length === 0) {
     logger.info("No tickers found. Skipping.");
     return;
   }
 
-  for (const pipeline of pipelines) {
-    const pipelineSteps = await prisma.pipelineStep.findMany({
-      where: { pipelineId: pipeline.id },
-      orderBy: { order: "asc" },
-    });
+  const pipelinesWithSteps = await Promise.all(
+    pipelines.map(async (pipeline) => {
+      const steps = await prisma.pipelineStep.findMany({
+        where: { pipelineId: pipeline.id },
+        orderBy: { order: "asc" },
+      });
+      return { pipeline, steps };
+    }),
+  );
 
-    const agentIds = pipelineSteps.map((step) => step.agentId);
+  const allAgentIds = [
+    ...new Set(
+      pipelinesWithSteps.flatMap(({ steps }) => steps.map((s) => s.agentId)),
+    ),
+  ];
+  const agents = await prisma.agentRegistry.findMany({
+    where: { agentId: { in: allAgentIds } },
+  });
+  const agentById = new Map(agents.map((a) => [a.agentId, a]));
 
-    const agents = await prisma.agentRegistry.findMany({
-      where: { agentId: { in: agentIds } },
-    });
-    const agentById = new Map(agents.map((a) => [a.agentId, a]));
+  for (const ticker of tickers) {
+    logger.info(
+      { tickerSymbol: ticker.symbol },
+      "Running all pipelines for ticker...",
+    );
 
-    for (const ticker of tickers) {
-      logger.info(
-        { pipelineName: pipeline.name, tickerSymbol: ticker.symbol },
-        "Running pipeline for ticker...",
-      );
-
-      for (const step of pipelineSteps) {
+    for (const { steps } of pipelinesWithSteps) {
+      for (const step of steps) {
         const agent = agentById.get(step.agentId);
         if (!agent) {
-          console.warn(
-            `Agent ${step.agentId} not found in registry, skipping step order ${step.order}`,
+          logger.warn(
+            { agentId: step.agentId, order: step.order },
+            "Agent not found in registry, skipping step",
           );
           continue;
         }
@@ -65,12 +72,12 @@ async function runPipeline() {
           },
         });
       }
-
-      logger.info(
-        { pipelineName: pipeline.name, tickerSymbol: ticker.symbol },
-        "Pipeline completed for ticker.",
-      );
     }
+
+    logger.info(
+      { tickerSymbol: ticker.symbol },
+      "Completed all pipelines for ticker.",
+    );
   }
 
   logger.info("Pipeline execution finished.");

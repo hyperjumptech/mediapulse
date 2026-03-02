@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-types": "workspace:*",
     "@workspace/api-utils": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/database": "workspace:*",

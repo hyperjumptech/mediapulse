@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-types": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:",

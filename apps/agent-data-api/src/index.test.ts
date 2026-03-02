@@ -48,7 +48,7 @@ describe("agent-data-api", () => {
 
   describe("GET /api/content-generation", () => {
     it("returns 401 without Authorization header", async () => {
-      const { default: app } = await import("./index.js");
+      const { app } = await import("./index.js");
       const res = await app.request(
         `http://localhost/api/content-generation?tickerId=${TICKER_ID}`,
       );
@@ -69,7 +69,7 @@ describe("agent-data-api", () => {
         },
       ]);
 
-      const { default: app } = await import("./index.js");
+      const { app } = await import("./index.js");
       const res = await app.request(
         `http://localhost/api/content-generation?tickerId=${TICKER_ID}`,
         { headers: AUTH_HEADERS },
@@ -83,7 +83,7 @@ describe("agent-data-api", () => {
     });
 
     it("returns 400 when query validation fails (missing tickerId)", async () => {
-      const { default: app } = await import("./index.js");
+      const { app } = await import("./index.js");
       const res = await app.request("http://localhost/api/content-generation", {
         headers: AUTH_HEADERS,
       });
@@ -99,7 +99,7 @@ describe("agent-data-api", () => {
       const mod = await getContentGenerationService();
       mod.createNewsletter.mockResolvedValue(undefined);
 
-      const { default: app } = await import("./index.js");
+      const { app } = await import("./index.js");
       const res = await app.request("http://localhost/api/content-generation", {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
@@ -123,7 +123,7 @@ describe("agent-data-api", () => {
         { id: "sq-1", text: "query one", tickerId: TICKER_ID },
       ]);
 
-      const { default: app } = await import("./index.js");
+      const { app } = await import("./index.js");
       const res = await app.request(
         `http://localhost/api/data-collection?tickerId=${TICKER_ID}`,
         { headers: AUTH_HEADERS },
@@ -142,7 +142,7 @@ describe("agent-data-api", () => {
       const mod = await getDataCollectionService();
       mod.createDataSources.mockResolvedValue(undefined);
 
-      const { default: app } = await import("./index.js");
+      const { app } = await import("./index.js");
       const res = await app.request("http://localhost/api/data-collection", {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
@@ -177,7 +177,7 @@ describe("agent-data-api", () => {
       const mod = await getDeliveryService();
       mod.getDeliveryData.mockResolvedValue(null);
 
-      const { default: app } = await import("./index.js");
+      const { app } = await import("./index.js");
       const res = await app.request(
         `http://localhost/api/delivery?tickerId=${TICKER_ID}`,
         { headers: AUTH_HEADERS },
@@ -203,7 +203,7 @@ describe("agent-data-api", () => {
         subscribers: [{ email: "u@example.com" }],
       });
 
-      const { default: app } = await import("./index.js");
+      const { app } = await import("./index.js");
       const res = await app.request(
         `http://localhost/api/delivery?tickerId=${TICKER_ID}`,
         { headers: AUTH_HEADERS },
@@ -222,7 +222,7 @@ describe("agent-data-api", () => {
       const mod = await getDeliveryService();
       mod.postDelivery.mockResolvedValue(undefined);
 
-      const { default: app } = await import("./index.js");
+      const { app } = await import("./index.js");
       const res = await app.request("http://localhost/api/delivery", {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },

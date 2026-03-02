@@ -33,10 +33,23 @@ app.post("/", async (context) => {
 
     const token = context.req.header("Authorization");
 
-    const { newsletter, subscribers } = await fetchDeliveryDataFromAgentDataAPI(
+    const deliveryData = await fetchDeliveryDataFromAgentDataAPI(
       token,
       data.tickerId,
     );
+
+    if (!deliveryData) {
+      logger.info(
+        { tickerId: data.tickerId },
+        "No newsletter for this ticker, skipping delivery",
+      );
+      return context.json(
+        { agentId: "delivery", agentVersion: "1.0.0", skipped: true },
+        200,
+      );
+    }
+
+    const { newsletter, subscribers } = deliveryData;
 
     if (subscribers.length > 0) {
       await sendEmailToUsers(newsletter, subscribers);
@@ -54,7 +67,10 @@ app.post("/", async (context) => {
 async function fetchDeliveryDataFromAgentDataAPI(
   token: string | undefined,
   tickerId: string,
-) {
+): Promise<{
+  newsletter: { subject: string; content: string };
+  subscribers: { email: string }[];
+} | null> {
   const url = new URL(env.AGENT_DATA_API_URL);
   url.pathname = "/api/delivery";
   url.searchParams.set("tickerId", tickerId);
@@ -65,7 +81,7 @@ async function fetchDeliveryDataFromAgentDataAPI(
   });
 
   if (res.statusCode === 404) {
-    throw new Error("No newsletter found for this ticker");
+    return null;
   }
 
   if (!res.ok) {
@@ -80,6 +96,6 @@ async function fetchDeliveryDataFromAgentDataAPI(
 }
 
 export default {
-  port: 4000,
+  port: env.PORT ?? 4003,
   fetch: app.fetch,
 };

@@ -37,4 +37,7 @@ api.delete("/:id", deleteAPIKey);
 api.post("/:id/deactivate", deactivateAPIKey);
 api.post("/:id/reactivate", reactivateAPIKey);
 
-export default mainApp;
+export default {
+  port: env.PORT ?? 8080,
+  fetch: mainApp.fetch,
+};

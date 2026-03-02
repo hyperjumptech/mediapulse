@@ -15,6 +15,10 @@ import {
 } from "./routes/data-collection.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 
+if (!env.AGENT_AUTH_API_URL) {
+  throw new Error("AGENT_AUTH_API_URL is required for agent-data-api");
+}
+
 const app = new Hono();
 const api = app.basePath("/api");
 
@@ -23,7 +27,7 @@ api.use(
   "*",
   bearerAuth({
     verifyToken: (token) =>
-      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
+      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL!),
   }),
 );
 
@@ -36,4 +40,8 @@ api.post("/data-collection", postDataCollection);
 api.get("/delivery", getDelivery);
 api.post("/delivery", postDeliveryHandler);
 
-export default app;
+export { app };
+export default {
+  port: env.PORT ?? 8081,
+  fetch: app.fetch,
+};

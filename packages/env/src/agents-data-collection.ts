@@ -5,11 +5,10 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
+    PORT: z.number({ coerce: true }).optional(),
     AGENT_DATA_API_URL: z.string().min(1),
     AGENT_AUTH_API_URL: z.string().min(1),
     JINA_API_KEY: z.string().min(1),
-    TEMP_ADMIN_USERNAME: z.string().min(1),
-    TEMP_ADMIN_PASSWORD: z.string().min(1),
     SERPER_API_KEY: z.string().min(1),
   },
   client: {},

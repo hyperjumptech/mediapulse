@@ -7,8 +7,9 @@ export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
     DATABASE_CERT_BASE64: z.string().optional(),
-    AGENT_DATA_API_URL: z.string().min(1),
-    AGENT_AUTH_API_URL: z.string().min(1),
+    PORT: z.number({ coerce: true }).optional(),
+    AGENT_DATA_API_URL: z.string().optional(),
+    AGENT_AUTH_API_URL: z.string().optional(),
     AGENT_API_KEY: z.string().optional(),
     TEMP_ADMIN_USERNAME: z.string().min(1),
     TEMP_ADMIN_PASSWORD: z.string().min(1),

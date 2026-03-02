@@ -1,4 +1,5 @@
 import { prisma } from "@workspace/database";
+import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
 import * as crypto from "crypto";
 import { Hono } from "hono";
@@ -28,4 +29,7 @@ api.use(
 
 api.post("/agents/register", registerAgent);
 
-export default api;
+export default {
+  port: env.PORT ?? 8082,
+  fetch: api.fetch,
+};

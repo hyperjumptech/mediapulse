@@ -2,9 +2,10 @@ app = 'mediapulse-content-generation-agent'
 primary_region = 'sin'
 
 [build]
+  dockerfile = "Dockerfile"
 
 [http_service]
-  internal_port = 4000
+  internal_port = 4002
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
