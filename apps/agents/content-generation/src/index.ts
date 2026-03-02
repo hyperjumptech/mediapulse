@@ -66,7 +66,7 @@ app.post("/", async (context) => {
           skipped: true,
           message: "No data sources found for this ticker",
         },
-        200,
+        404,
       );
     }
 

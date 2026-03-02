@@ -154,7 +154,7 @@ importers:
         specifier: 'catalog:'
         version: 7.4.4
       vitest:
-        specifier: ^4.0.18
+        specifier: 'catalog:'
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   apps/agent-data-api:
@@ -227,6 +227,9 @@ importers:
       dotenv-cli:
         specifier: 'catalog:'
         version: 7.4.4
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   apps/agents/content-generation:
     dependencies:
@@ -265,7 +268,7 @@ importers:
         specifier: 'catalog:'
         version: 7.4.4
       vitest:
-        specifier: ^4.0.18
+        specifier: 'catalog:'
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   apps/agents/data-collection:
@@ -301,6 +304,9 @@ importers:
       dotenv-cli:
         specifier: 'catalog:'
         version: 7.4.4
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   apps/agents/delivery:
     dependencies:
@@ -338,6 +344,9 @@ importers:
       dotenv-cli:
         specifier: 'catalog:'
         version: 7.4.4
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   apps/dashboard:
     dependencies:

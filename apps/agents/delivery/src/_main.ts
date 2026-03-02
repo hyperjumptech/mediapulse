@@ -80,10 +80,6 @@ async function fetchDeliveryDataFromAgentDataAPI(
     throwHttpErrors: false,
   });
 
-  if (res.statusCode === 404) {
-    return null;
-  }
-
   if (!res.ok) {
     throw new Error(`Agent data API error: ${res.statusCode}`);
   }

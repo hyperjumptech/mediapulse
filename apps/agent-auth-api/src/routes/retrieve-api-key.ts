@@ -11,6 +11,10 @@ export async function retrieveAPIKey(context: Context) {
       omit: { key: true, userId: true },
     });
 
+    if (!apiKey) {
+      return context.json({ message: "API key not found" }, 404);
+    }
+
     return context.json(
       { message: "API key retrieved successfully", data: apiKey },
       200,
