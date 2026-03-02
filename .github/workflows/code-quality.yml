@@ -51,6 +51,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Generate Prisma client
+        run: pnpm --filter=@workspace/database run db:generate
+
       - name: Generate route actions
         run: |
           pnpm --filter=dashboard run action:generate
