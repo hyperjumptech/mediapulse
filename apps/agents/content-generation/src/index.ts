@@ -1,4 +1,4 @@
-import { verifyAPIKey } from "@workspace/agent-utils";
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
 import { env } from "@workspace/env/agents-content-generation";
 import { logger } from "@workspace/logger";
 import got from "got";
@@ -14,7 +14,13 @@ const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
 app.use(pinoLogger({ pino: logger }));
 
-app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
+app.use(
+  "*",
+  bearerAuth({
+    verifyToken: (token) =>
+      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
+  }),
+);
 
 const BodySchema = z.object({
   tickerId: z.string(),

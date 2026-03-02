@@ -1,4 +1,4 @@
-import { verifyAPIKey } from "@workspace/agent-utils";
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
 import { env } from "@workspace/env/agents-data-collection";
 import { logger } from "@workspace/logger";
 import got from "got";
@@ -11,7 +11,13 @@ import { z } from "zod";
 const app = new Hono();
 app.use(pinoLogger({ pino: logger }));
 
-app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
+app.use(
+  "*",
+  bearerAuth({
+    verifyToken: (token) =>
+      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
+  }),
+);
 
 const BodySchema = z.object({
   tickerId: z.string(),

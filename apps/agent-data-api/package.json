@@ -9,8 +9,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@workspace/agent-utils": "workspace:*",
+    "@workspace/agent-auth-client": "workspace:*",
     "@workspace/api-utils": "workspace:*",
+    "@workspace/env": "workspace:*",
     "@workspace/database": "workspace:*",
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",

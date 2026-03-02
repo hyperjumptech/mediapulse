@@ -4,8 +4,17 @@ const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const SEARCH_QUERY_ID = "22222222-2222-4222-a222-222222222222";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 
-vi.mock("@workspace/agent-utils", () => ({
-  verifyAPIKey: vi.fn().mockResolvedValue(true),
+vi.mock("@workspace/agent-auth-client", () => ({
+  verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
+}));
+
+vi.mock("@workspace/env", () => ({
+  env: {
+    AGENT_AUTH_API_URL: "http://auth.example.com",
+    DATABASE_URL: "postgresql://localhost/test",
+    TEMP_ADMIN_USERNAME: "admin",
+    TEMP_ADMIN_PASSWORD: "admin",
+  },
 }));
 
 vi.mock("./services/content-generation.js", () => ({

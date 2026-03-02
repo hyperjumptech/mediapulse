@@ -153,18 +153,24 @@ importers:
       dotenv-cli:
         specifier: 'catalog:'
         version: 7.4.4
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   apps/agent-data-api:
     dependencies:
-      '@workspace/agent-utils':
+      '@workspace/agent-auth-client':
         specifier: workspace:*
-        version: link:../../packages/agent-utils
+        version: link:../../packages/agent-auth-client
       '@workspace/api-utils':
         specifier: workspace:*
         version: link:../../packages/api-utils
       '@workspace/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@workspace/env':
+        specifier: workspace:*
+        version: link:../../packages/env
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../packages/logger
@@ -221,9 +227,9 @@ importers:
 
   apps/agents/content-generation:
     dependencies:
-      '@workspace/agent-utils':
+      '@workspace/agent-auth-client':
         specifier: workspace:*
-        version: link:../../../packages/agent-utils
+        version: link:../../../packages/agent-auth-client
       '@workspace/env':
         specifier: workspace:*
         version: link:../../../packages/env
@@ -255,9 +261,9 @@ importers:
 
   apps/agents/data-collection:
     dependencies:
-      '@workspace/agent-utils':
+      '@workspace/agent-auth-client':
         specifier: workspace:*
-        version: link:../../../packages/agent-utils
+        version: link:../../../packages/agent-auth-client
       '@workspace/env':
         specifier: workspace:*
         version: link:../../../packages/env
@@ -286,9 +292,9 @@ importers:
 
   apps/agents/delivery:
     dependencies:
-      '@workspace/agent-utils':
+      '@workspace/agent-auth-client':
         specifier: workspace:*
-        version: link:../../../packages/agent-utils
+        version: link:../../../packages/agent-auth-client
       '@workspace/env':
         specifier: workspace:*
         version: link:../../../packages/env
@@ -521,27 +527,7 @@ importers:
         specifier: 'catalog:'
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/agent-utils:
-    dependencies:
-      '@workspace/database':
-        specifier: workspace:*
-        version: link:../database
-      hono:
-        specifier: 'catalog:'
-        version: 4.11.9
-      zod:
-        specifier: 'catalog:'
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 20.19.33
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
+  packages/agent-auth-client: {}
 
   packages/api-utils:
     dependencies:

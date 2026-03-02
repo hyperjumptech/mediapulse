@@ -6,9 +6,12 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     AGENT_DATA_API_URL: z.string().min(1),
+    AGENT_AUTH_API_URL: z.string().min(1),
     RESEND_SENDER: z.string().min(1),
     RESEND_API_KEY: z.string().min(1),
   },
-  client: {},
-  experimental__runtimeEnv: {},
+  client: {
+  },
+  experimental__runtimeEnv: {
+  }
 });

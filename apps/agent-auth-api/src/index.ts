@@ -10,13 +10,17 @@ import { reactivateAPIKey } from "./routes/reactivate-api-key";
 import { retrieveAPIKey } from "./routes/retrieve-api-key";
 import { retrieveAPIKeys } from "./routes/retrieve-api-keys";
 import { updateAPIKey } from "./routes/update-api-key";
+import { verifyApiKey } from "./routes/verify-api-key";
 
-const app = new Hono();
-const api = app.basePath("/api/api-keys");
+const mainApp = new Hono();
+mainApp.use(pinoLogger({ pino: logger }));
 
-api.use(pinoLogger({ pino: logger }));
+/** POST /api/verify — no basicAuth; callers use Authorization: Bearer <key> */
+mainApp.post("/api/verify", verifyApiKey);
 
-// Temporary auth
+const api = mainApp.basePath("/api/api-keys");
+
+// Temporary auth for API key CRUD
 api.use(
   "*",
   basicAuth({
@@ -33,4 +37,4 @@ api.delete("/:id", deleteAPIKey);
 api.post("/:id/deactivate", deactivateAPIKey);
 api.post("/:id/reactivate", reactivateAPIKey);
 
-export default api;
+export default mainApp;

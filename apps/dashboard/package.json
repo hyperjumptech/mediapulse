@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "tsc --noEmit",
+    "type:check": "tsc --noEmit",
     "action:generate": "route-action-gen",
     "test": "vitest run",
     "test:watch": "vitest"

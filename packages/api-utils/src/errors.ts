@@ -1,11 +1,11 @@
 import type { Context } from "hono";
 import { ZodError } from "zod";
 
-export function notFound(context: Context, message = "Not found"): unknown {
+export function notFound(context: Context, message = "Not found"): Response {
   return context.json({ message }, 404);
 }
 
-export function internalError(context: Context, error: unknown): unknown {
+export function internalError(context: Context, error: unknown): Response {
   if (error instanceof Response) {
     return error;
   }

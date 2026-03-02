@@ -1,4 +1,5 @@
-import { verifyAPIKey } from "@workspace/agent-utils";
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
+import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
@@ -18,7 +19,13 @@ const app = new Hono();
 const api = app.basePath("/api");
 
 app.use(pinoLogger({ pino: logger }));
-api.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
+api.use(
+  "*",
+  bearerAuth({
+    verifyToken: (token) =>
+      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
+  }),
+);
 
 api.get("/content-generation", getContentGeneration);
 api.post("/content-generation", postContentGeneration);

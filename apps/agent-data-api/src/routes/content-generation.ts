@@ -10,7 +10,9 @@ import {
   getDataSourcesForTicker,
 } from "../services/content-generation.js";
 
-export async function getContentGeneration(context: Context) {
+export async function getContentGeneration(
+  context: Context,
+): Promise<Response> {
   try {
     const query = getContentGenerationQuerySchema.parse(context.req.query());
     const dataSources = await getDataSourcesForTicker(query.tickerId);
@@ -20,7 +22,9 @@ export async function getContentGeneration(context: Context) {
   }
 }
 
-export async function postContentGeneration(context: Context) {
+export async function postContentGeneration(
+  context: Context,
+): Promise<Response> {
   try {
     const body = await context.req.json();
     const data = await postContentGenerationBodySchema.parseAsync(body);

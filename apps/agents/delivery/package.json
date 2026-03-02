@@ -8,7 +8,7 @@
     "build": "bun build src/_main.ts --outfile=./dist/server.js --target=bun"
   },
   "dependencies": {
-    "@workspace/agent-utils": "workspace:*",
+    "@workspace/agent-auth-client": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:",
