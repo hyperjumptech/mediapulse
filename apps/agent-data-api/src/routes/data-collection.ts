@@ -10,7 +10,7 @@ import {
   getSearchQueries,
 } from "../services/data-collection.js";
 
-export async function getDataCollection(context: Context) {
+export async function getDataCollection(context: Context): Promise<Response> {
   try {
     const query = getDataCollectionQuerySchema.parse(context.req.query());
     const searchQueries = await getSearchQueries(query);
@@ -20,7 +20,7 @@ export async function getDataCollection(context: Context) {
   }
 }
 
-export async function postDataCollection(context: Context) {
+export async function postDataCollection(context: Context): Promise<Response> {
   try {
     const body = await context.req.json();
     const data = await postDataCollectionBodySchema.parseAsync(body);

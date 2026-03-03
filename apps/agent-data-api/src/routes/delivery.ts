@@ -7,7 +7,7 @@ import {
 } from "../schemas/delivery.js";
 import { getDeliveryData, postDelivery } from "../services/delivery.js";
 
-export async function getDelivery(context: Context) {
+export async function getDelivery(context: Context): Promise<Response> {
   try {
     const query = getDeliveryQuerySchema.parse(context.req.query());
     const result = await getDeliveryData(query.tickerId);
@@ -20,7 +20,7 @@ export async function getDelivery(context: Context) {
   }
 }
 
-export async function postDeliveryHandler(context: Context) {
+export async function postDeliveryHandler(context: Context): Promise<Response> {
   try {
     const body = await context.req.json();
     const data = await postDeliveryBodySchema.parseAsync(body);

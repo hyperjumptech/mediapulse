@@ -34,7 +34,9 @@ export const instances = async (c: Context) => {
       where: {
         ...(agentId && { agentId }),
         ...(agentVersion && { agentVersion }),
-        ...(parsedMinCapacity !== undefined && { capacity: { gte: parsedMinCapacity } }),
+        ...(parsedMinCapacity !== undefined && {
+          capacity: { gte: parsedMinCapacity },
+        }),
         status: statusFilter,
       },
     });

@@ -1,4 +1,5 @@
 import { prisma } from "@workspace/database";
+import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
 import * as crypto from "crypto";
 import { Hono } from "hono";
@@ -38,4 +39,7 @@ api.get("/instances", instances);
 api.get("/registry", registry);
 api.post("/registry/register", registryRegister);
 
-export default api;
+export default {
+  port: env.PORT ?? 8082,
+  fetch: api.fetch,
+};

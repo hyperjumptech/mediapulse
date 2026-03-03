@@ -30,9 +30,15 @@ out/
 build
 dist
 
+# Generated Prisma client
+packages/database/client/
+
 
 # Debug
 npm-debug.log*
+
+# Local deploy script (optional: remove to track)
+scripts/deploy-all.sh
 
 # Misc
 .DS_Store

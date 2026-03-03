@@ -1,8 +1,6 @@
 import pino from "pino";
 
-const isDev = process.env.NODE_ENV !== "production";
-
-export const logger = pino({
+const baseOptions: pino.LoggerOptions = {
   level: process.env.LOG_LEVEL ?? "info",
   redact: {
     paths: [
@@ -31,17 +29,9 @@ export const logger = pino({
     ],
     censor: "[REDACTED]",
   },
-  ...(isDev && {
-    transport: {
-      target: "pino-pretty",
-      options: {
-        colorize: true,
-        translateTime: "SYS:standard",
-        ignore: "pid,hostname",
-      },
-    },
-  }),
-});
+};
+
+export const logger = pino(baseOptions);
 
 export { pino };
 export type { Logger } from "pino";

@@ -29,7 +29,6 @@ function checkAuth(request: Request) {
 
 const BodySchema = z.object({
   pipelineId: z.string().uuid(),
-  tickerId: z.string().uuid(),
   apiKey: z.string(),
 });
 
@@ -55,45 +54,71 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = await BodySchema.parseAsync(body);
 
-    const pipelineSteps = await prisma.pipelineStep.findMany({
-      where: {
-        pipelineId: data.pipelineId,
-      },
-      orderBy: { order: "asc" },
+    const pipeline = await prisma.pipeline.findUnique({
+      where: { id: data.pipelineId },
     });
+    if (!pipeline) {
+      return NextResponse.json(
+        { error: `Pipeline ${data.pipelineId} not found` },
+        { status: 404 },
+      );
+    }
 
-    logger.info(
-      { pipelineId: data.pipelineId, stepCount: pipelineSteps.length },
-      "PIPELINE STEPS",
-    );
+    const [pipelineSteps, tickers] = await Promise.all([
+      prisma.pipelineStep.findMany({
+        where: { pipelineId: data.pipelineId },
+        orderBy: { order: "asc" },
+      }),
+      prisma.ticker.findMany(),
+    ]);
+
+    if (tickers.length === 0) {
+      logger.info("No tickers found. Skipping.");
+      return NextResponse.json({ success: true, tickersRun: 0 });
+    }
 
     const agentIds = pipelineSteps.map((step) => step.agentId);
-
     const agents = await prisma.agentRegistry.findMany({
       where: { agentId: { in: agentIds } },
     });
     const agentById = new Map(agents.map((a) => [a.agentId, a]));
 
-    logger.info({ agentIds }, "AGENTS");
+    for (const ticker of tickers) {
+      logger.info(
+        { pipelineName: pipeline.name, tickerSymbol: ticker.symbol },
+        "Running pipeline for ticker (all steps in order)...",
+      );
 
-    for (const step of pipelineSteps) {
-      const agent = agentById.get(step.agentId);
-      if (!agent) {
-        throw new Error(
-          `Agent ${step.agentId} not found in registry for step order ${step.order}`,
-        );
+      for (const step of pipelineSteps) {
+        const agent = agentById.get(step.agentId);
+        if (!agent) {
+          logger.warn(
+            { agentId: step.agentId, order: step.order },
+            "Agent not found in registry, skipping step",
+          );
+          continue;
+        }
+        const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
+        await got.post(endpoint.url, {
+          json: { tickerId: ticker.id },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.apiKey}`,
+          },
+        });
       }
-      const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
-      await got.post(endpoint.url, {
-        json: { tickerId: data.tickerId },
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${data.apiKey}`,
-        },
-      });
+
+      logger.info(
+        { pipelineName: pipeline.name, tickerSymbol: ticker.symbol },
+        "Pipeline completed for ticker.",
+      );
     }
 
-    return NextResponse.json({ success: true });
+    logger.info(
+      { pipelineId: data.pipelineId, tickersRun: tickers.length },
+      "Pipeline execution finished.",
+    );
+    return NextResponse.json({ success: true, tickersRun: tickers.length });
   } catch (error) {
     logger.error({ err: error }, "Error in POST handler");
 

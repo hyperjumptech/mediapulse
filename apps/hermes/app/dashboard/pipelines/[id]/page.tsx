@@ -5,6 +5,7 @@ import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
 
 import { AddStepForm } from "./add-step-form";
 import { PipelineEditForm } from "./pipeline-edit-form";
+import { RunPipelineButton } from "./run-pipeline-button";
 import { StepList } from "./step-list";
 
 /**
@@ -27,13 +28,16 @@ const PipelineDetailPage = async ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          {pipeline.name}
-        </h1>
-        <p className="text-muted-foreground">
-          {pipeline.description ?? "Edit pipeline and manage agent steps."}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            {pipeline.name}
+          </h1>
+          <p className="text-muted-foreground">
+            {pipeline.description ?? "Edit pipeline and manage agent steps."}
+          </p>
+        </div>
+        <RunPipelineButton pipelineId={pipeline.id} />
       </div>
 
       <PipelineEditForm

@@ -1,4 +1,5 @@
-import { verifyAPIKey } from "@workspace/agent-utils";
+import type { DataSourceRecord } from "@workspace/agent-types";
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
 import { env } from "@workspace/env/agents-content-generation";
 import { logger } from "@workspace/logger";
 import got from "got";
@@ -9,30 +10,36 @@ import { pinoLogger } from "hono-pino";
 import OpenAI from "openai";
 import { z } from "zod";
 
+import { formatNewsletterContent } from "./format-newsletter-content.js";
+
 const app = new Hono();
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
 app.use(pinoLogger({ pino: logger }));
 
-app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
+app.use(
+  "*",
+  bearerAuth({
+    verifyToken: (token) =>
+      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
+  }),
+);
 
 const BodySchema = z.object({
   tickerId: z.string(),
 });
 
-interface DataSourceRecord {
-  id: string;
-  url: string;
-  title: string;
-  content: string;
-  metadata: unknown;
-  tickerId: string;
-  searchQueryId: string;
-}
-
 interface GeneratedContent {
   subject: string;
   content: string;
+  /** Optional executive summary, e.g. for newsletter preview or listing. */
+  description?: string;
+}
+
+interface NewsletterStructure {
+  subject: string;
+  executiveSummary: string;
+  topNews: Array<{ title: string; summary: string }>;
 }
 
 app.post("/", async (context) => {
@@ -41,19 +48,29 @@ app.post("/", async (context) => {
     const body = await context.req.json();
     const data = await BodySchema.parseAsync(body);
 
-    const dataSources = await fetchDataSourcesFromAgentDataAPI(
+    const sources = await fetchSourcesFromAgentDataAPI(
       context.req.header("Authorization"),
       data.tickerId,
     );
 
-    if (dataSources.length === 0) {
+    if (sources.length === 0) {
+      logger.info(
+        { tickerId: data.tickerId },
+        "No sources found for this ticker, skipping content generation",
+      );
+
       return context.json(
-        { message: "No data sources found for this ticker" },
+        {
+          agentId: "content-generation",
+          agentVersion: "1.0.0",
+          skipped: true,
+          message: "No data sources found for this ticker",
+        },
         404,
       );
     }
 
-    const generated = await generateContentWithOpenAI(dataSources);
+    const generated = await generateContentWithOpenAI(sources);
 
     const token = context.req.header("Authorization");
     await sendToAgentDataAPI(token, data.tickerId, generated);
@@ -68,7 +85,7 @@ app.post("/", async (context) => {
   }
 });
 
-async function fetchDataSourcesFromAgentDataAPI(
+async function fetchSourcesFromAgentDataAPI(
   token: string | undefined,
   tickerId: string,
 ): Promise<DataSourceRecord[]> {
@@ -83,10 +100,16 @@ async function fetchDataSourcesFromAgentDataAPI(
   return body.dataSources;
 }
 
+/**
+ * Calls OpenAI to generate a newsletter with an executive summary and top 3 news items.
+ *
+ * @param sources - Fetched articles/sources to summarize.
+ * @returns Subject and formatted plain-text content for the newsletter.
+ */
 async function generateContentWithOpenAI(
-  dataSources: DataSourceRecord[],
+  sources: DataSourceRecord[],
 ): Promise<GeneratedContent> {
-  const sourceSummaries = dataSources
+  const sourceSummaries = sources
     .map(
       (source) => `Source: ${source.title} (${source.url})\n${source.content}`,
     )
@@ -97,12 +120,16 @@ async function generateContentWithOpenAI(
     messages: [
       {
         role: "system",
-        content:
-          "You are a newsletter writer. Given multiple data sources, summarize the content into a concise and informative newsletter. Return a JSON object with two fields: 'subject' (a compelling email subject line) and 'content' (the summarized newsletter body in plain text).",
+        content: `You are a newsletter writer for busy executives. Given multiple data sources, produce a structured newsletter.
+
+Return a JSON object with:
+- "subject": a compelling email subject line (short, under ~60 chars).
+- "executiveSummary": 2–3 sentences summarizing the main themes and why they matter. No bullet points; use clear prose.
+- "topNews": an array of exactly 3 items. Each item has "title" (short headline) and "summary" (2–4 sentences). Pick the 3 most important or impactful stories. Keep summaries concise and actionable.`,
       },
       {
         role: "user",
-        content: `Summarize the following data sources into a newsletter:\n\n${sourceSummaries}`,
+        content: `Create a newsletter from these data sources. Include an executive summary and the top 3 news items with brief summaries.\n\n${sourceSummaries}`,
       },
     ],
     response_format: { type: "json_object" },
@@ -114,11 +141,19 @@ async function generateContentWithOpenAI(
     throw new Error("OpenAI returned an empty response");
   }
 
-  const parsed = JSON.parse(result) as GeneratedContent;
+  const parsed = JSON.parse(result) as NewsletterStructure;
+  const topNews = Array.isArray(parsed.topNews)
+    ? parsed.topNews.slice(0, 3)
+    : [];
+  const content = formatNewsletterContent(
+    parsed.executiveSummary ?? "",
+    topNews,
+  );
 
   return {
-    subject: parsed.subject,
-    content: parsed.content,
+    subject: parsed.subject ?? "Your daily briefing",
+    content,
+    description: parsed.executiveSummary?.trim() || undefined,
   };
 }
 
@@ -130,20 +165,36 @@ async function sendToAgentDataAPI(
   const url = new URL(env.AGENT_DATA_API_URL);
   url.pathname = "/api/content-generation";
 
-  await got.post(url.toString(), {
+  const res = await got.post(url.toString(), {
     json: {
       subject: generated.subject,
       content: generated.content,
+      ...(generated.description && { description: generated.description }),
       tickerId,
     },
     headers: {
       "Content-Type": "application/json",
       ...(token && { Authorization: token }),
     },
+    throwHttpErrors: false,
   });
+
+  if (!res.ok) {
+    logger.error(
+      {
+        tickerId,
+        statusCode: res.statusCode,
+        body: res.body,
+      },
+      "Agent data API rejected newsletter store",
+    );
+    throw new Error(`Agent data API returned ${res.statusCode}: ${res.body}`);
+  }
+
+  logger.info({ tickerId }, "Stored newsletter for ticker");
 }
 
 export default {
-  port: 4000,
+  port: env.PORT ?? 4002,
   fetch: app.fetch,
 };

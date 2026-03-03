@@ -1,4 +1,5 @@
-import { verifyAPIKey } from "@workspace/agent-utils";
+import type { DataSourceInput } from "@workspace/agent-types";
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
 import { env } from "@workspace/env/agents-data-collection";
 import { logger } from "@workspace/logger";
 import got from "got";
@@ -11,7 +12,13 @@ import { z } from "zod";
 const app = new Hono();
 app.use(pinoLogger({ pino: logger }));
 
-app.use("*", bearerAuth({ verifyToken: async (token) => verifyAPIKey(token) }));
+app.use(
+  "*",
+  bearerAuth({
+    verifyToken: (token) =>
+      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
+  }),
+);
 
 const BodySchema = z.object({
   tickerId: z.string(),
@@ -25,16 +32,17 @@ const BodySchema = z.object({
 
 type BodySchemaType = z.infer<typeof BodySchema>;
 
-interface WebPage {
+/** Internal shape for a collected page before sending to the API (includes searchQueryText for metadata). */
+interface CollectedPage {
   url: string;
   title: string;
   content: string;
   tickerId: string;
   searchQueryId: string;
+  searchQueryText?: string;
 }
 
 app.post("/", async (context) => {
-  const logger = context.get("logger");
   try {
     const body = await context.req.json();
     const data = await BodySchema.parseAsync(body);
@@ -53,11 +61,11 @@ app.post("/", async (context) => {
     );
     const searchResults = await performWebSearchWithQueries(queries);
     const pages = await fetchWebPageContents(searchResults);
-
     const token = context.req.header("Authorization");
 
     if (pages.length > 0) {
-      await sendToAgentDataAPI(token, pages);
+      const sources = toDataSourceInputs(data.tickerId, pages);
+      await sendToAgentDataAPI(token, sources);
     }
 
     return context.json(
@@ -77,6 +85,7 @@ async function fetchSearchQueriesFromAgentDataAPI(
   const url = new URL(env.AGENT_DATA_API_URL);
   url.pathname = "/api/data-collection";
   url.searchParams.set("tickerId", body.tickerId);
+
   if (body.timeWindow) {
     url.searchParams.set("start", body.timeWindow.start);
     url.searchParams.set("end", body.timeWindow.end);
@@ -85,7 +94,9 @@ async function fetchSearchQueriesFromAgentDataAPI(
   const res = await got.get(url.toString(), {
     headers: { ...(token && { Authorization: token }) },
   });
+
   const data = JSON.parse(res.body) as { searchQueries: SearchQuery[] };
+
   return data.searchQueries;
 }
 
@@ -97,7 +108,7 @@ type SearchQuery = {
 
 export async function performWebSearchWithQueries(
   queries: SearchQuery[],
-): Promise<WebPage[]> {
+): Promise<CollectedPage[]> {
   if (!queries.length) return [];
 
   const results = await Promise.all(
@@ -121,6 +132,7 @@ export async function performWebSearchWithQueries(
         content: first?.snippet ?? "",
         tickerId: query.tickerId,
         searchQueryId: query.id,
+        searchQueryText: query.text,
       };
     }),
   );
@@ -129,8 +141,8 @@ export async function performWebSearchWithQueries(
 }
 
 async function fetchWebPageContents(
-  searchResults: Omit<WebPage, "content">[],
-): Promise<WebPage[]> {
+  searchResults: Omit<CollectedPage, "content">[],
+): Promise<CollectedPage[]> {
   const fetchPages = searchResults.map(async (result) => {
     const json = await got
       .post("https://r.jina.ai/", {
@@ -151,13 +163,42 @@ async function fetchWebPageContents(
       content: json.data?.content ?? "",
       tickerId: result.tickerId,
       searchQueryId: result.searchQueryId,
+      searchQueryText: result.searchQueryText,
     };
   });
 
   return Promise.all(fetchPages);
 }
 
-async function sendToAgentDataAPI(token: string | undefined, pages: WebPage[]) {
+/**
+ * Converts collected pages to the shared DataSourceInput shape with optional metadata.
+ */
+function toDataSourceInputs(
+  tickerId: string,
+  pages: CollectedPage[],
+): DataSourceInput[] {
+  const fetchedAt = new Date().toISOString();
+  return pages.map((page) => ({
+    url: page.url,
+    title: page.title,
+    content: page.content,
+    tickerId,
+    searchQueryId: page.searchQueryId,
+    metadata:
+      page.searchQueryText != null
+        ? {
+            searchQueryText: page.searchQueryText,
+            fetchedAt,
+            sourceType: "web" as const,
+          }
+        : { fetchedAt, sourceType: "web" as const },
+  }));
+}
+
+async function sendToAgentDataAPI(
+  token: string | undefined,
+  sources: DataSourceInput[],
+) {
   if (!env.AGENT_DATA_API_URL) {
     throw new Error("AGENT_DATA_API_URL is not defined");
   }
@@ -166,7 +207,7 @@ async function sendToAgentDataAPI(token: string | undefined, pages: WebPage[]) {
   url.pathname = "/api/data-collection";
 
   await got.post(url.toString(), {
-    json: pages,
+    json: sources,
     headers: {
       "Content-Type": "application/json",
       ...(token && { Authorization: token }),
@@ -175,6 +216,6 @@ async function sendToAgentDataAPI(token: string | undefined, pages: WebPage[]) {
 }
 
 export default {
-  port: 4000,
+  port: env.PORT ?? 4001,
   fetch: app.fetch,
 };

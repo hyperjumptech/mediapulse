@@ -8,8 +8,10 @@
     "test:coverage": "turbo test:coverage",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "deploy": "turbo deploy",
-    "format": "prettier --write \"apps/**/*.{ts,tsx,md}\" \"packages/**/*.{ts,tsx,md}\" \"*.{ts,tsx,md}\""
+    "type:check": "turbo run type:check",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,md}\" \"packages/**/*.{ts,tsx,md}\" \"*.{ts,tsx,md}\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,md}\" \"packages/**/*.{ts,tsx,md}\" \"*.{ts,tsx,md}\"",
+    "deploy": "turbo deploy"
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",

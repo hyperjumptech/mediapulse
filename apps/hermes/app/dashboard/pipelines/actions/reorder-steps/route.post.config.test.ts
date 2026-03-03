@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createReorderStepsHandler, handler } from "./route.post.config";
+import { createReorderStepsHandler } from "./route.post.config";
 
 describe("createReorderStepsHandler", () => {
   afterEach(() => {

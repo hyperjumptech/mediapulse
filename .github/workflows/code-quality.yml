@@ -45,21 +45,28 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Prepare env variables
-        run: |
-          cd packages/env
-          cp env.example .env
-          cp env.agents.content-generation.example .env.agents.content-generation
-          cp env.agents.data-collection.example .env.agents.data-collection
-          cp env.agents.delivery.example .env.agents.delivery
-          cd ../..
-          ./dev-bootstrap.sh
+      - name: Bootstrap env
+        run: ./dev-bootstrap.sh
 
       - name: Install dependencies
         run: pnpm install
 
       - name: Generate Prisma client
         run: pnpm --filter=@workspace/database run db:generate
+
+      - name: Generate route actions
+        run: |
+          pnpm --filter=dashboard run action:generate
+          pnpm --filter=hermes run generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type:check
+
+      - name: Format check
+        run: pnpm format:check
 
       - name: Build
         run: pnpm build

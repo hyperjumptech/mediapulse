@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDeletePipelineHandler, handler } from "./route.post.config";
+import { createDeletePipelineHandler } from "./route.post.config";
 
 describe("createDeletePipelineHandler", () => {
   afterEach(() => {

@@ -3,29 +3,31 @@ import { prisma } from "@workspace/prisma";
 import { Context } from "hono";
 import { z } from "zod";
 
-const payloadSchema = z.object({
-  agentId: z.string(),
-  // Accept either `agentVersion` or `version` from clients and map to `agentVersion`
-  agentVersion: z.string().optional(),
-  version: z.string().optional(),
-  description: z.string().optional(),
-  endpoint: z.object({
-    type: z.enum(["http", "webhook", "n8n", "cloud-function"]),
-    url: z.string().url(),
-    method: z.enum(["POST", "PUT"]),
-    authentication: z.record(z.any()).optional(),
-    timeout: z.number(),
-    retryConfig: z.record(z.any()).optional(),
-  }),
-  // The Prisma model currently doesn't include these richer fields; accept but ignore/store as metadata if needed
-  // Allow arbitrary metadata to be passed through and stored if desired
-  metadata: z.record(z.any()).optional(),
-  // allow enabled -> map to `isActive` on the model
-  enabled: z.boolean().optional(),
-}).refine((data) => data.agentVersion || data.version, {
-  message: "Either agentVersion or version must be provided",
-  path: ["agentVersion"],
-});
+const payloadSchema = z
+  .object({
+    agentId: z.string(),
+    // Accept either `agentVersion` or `version` from clients and map to `agentVersion`
+    agentVersion: z.string().optional(),
+    version: z.string().optional(),
+    description: z.string().optional(),
+    endpoint: z.object({
+      type: z.enum(["http", "webhook", "n8n", "cloud-function"]),
+      url: z.string().url(),
+      method: z.enum(["POST", "PUT"]),
+      authentication: z.record(z.any()).optional(),
+      timeout: z.number(),
+      retryConfig: z.record(z.any()).optional(),
+    }),
+    // The Prisma model currently doesn't include these richer fields; accept but ignore/store as metadata if needed
+    // Allow arbitrary metadata to be passed through and stored if desired
+    metadata: z.record(z.any()).optional(),
+    // allow enabled -> map to `isActive` on the model
+    enabled: z.boolean().optional(),
+  })
+  .refine((data) => data.agentVersion || data.version, {
+    message: "Either agentVersion or version must be provided",
+    path: ["agentVersion"],
+  });
 
 export const registryRegister = async (c: Context) => {
   try {

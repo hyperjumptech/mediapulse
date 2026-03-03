@@ -5,10 +5,13 @@
   "private": true,
   "scripts": {
     "dev": "dotenv -e ../../../packages/env/.env.agents.data-collection -- bun run --hot src/index.ts",
-    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun"
+    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@workspace/agent-utils": "workspace:*",
+    "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-types": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:",
@@ -18,6 +21,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "dotenv-cli": "catalog:"
+    "dotenv-cli": "catalog:",
+    "vitest": "catalog:"
   }
 }
