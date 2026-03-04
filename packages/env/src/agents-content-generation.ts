@@ -11,8 +11,6 @@ export const env = createEnv({
     OPENAI_API_KEY: z.string().min(1),
     OPENAI_MODEL: z.string().min(1),
   },
-  client: {
-  },
-  experimental__runtimeEnv: {
-  }
+  client: {},
+  experimental__runtimeEnv: {},
 });
