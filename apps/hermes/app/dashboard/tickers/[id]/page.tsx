@@ -6,6 +6,19 @@ import { getTickerById } from "@/lib/tickers";
 import { TickerEditForm } from "./ticker-edit-form";
 
 /**
+ * Normalizes Prisma JsonValue to the shape expected by TickerEditForm (object or null).
+ */
+function toTickerMetadata(
+  value: unknown,
+): Record<string, unknown> | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+/**
  * Ticker detail/edit page. Loads ticker by id and renders edit form.
  */
 const TickerEditPage = async ({
@@ -35,7 +48,7 @@ const TickerEditPage = async ({
         tickerId={ticker.id}
         initialSymbol={ticker.symbol}
         initialName={ticker.name}
-        initialMetadata={ticker.metadata}
+        initialMetadata={toTickerMetadata(ticker.metadata)}
       />
     </div>
   );
