@@ -27,7 +27,7 @@ const TickerEditPage = async ({
           Edit ticker: {ticker.symbol}
         </h1>
         <p className="text-muted-foreground">
-          Update symbol and name for this ticker.
+          Update symbol, name, and metadata (JSON) for this ticker.
         </p>
       </div>
 
@@ -35,6 +35,7 @@ const TickerEditPage = async ({
         tickerId={ticker.id}
         initialSymbol={ticker.symbol}
         initialName={ticker.name}
+        initialMetadata={ticker.metadata}
       />
     </div>
   );

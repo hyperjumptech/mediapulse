@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@workspace/database";
 import { createUpdateTickerHandler } from "./route.post.config";
 
 describe("createUpdateTickerHandler", () => {
@@ -71,6 +72,53 @@ describe("createUpdateTickerHandler", () => {
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "00000000-0000-4000-8000-000000000001" },
       data: { name: "Only Name" },
+    });
+  });
+
+  it("updates metadata when provided as JSON object", async () => {
+    const updateMock = vi.fn().mockResolvedValue(undefined);
+    const db = { ticker: { update: updateMock } };
+    const updateHandler = createUpdateTickerHandler({
+      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      db: db as never,
+    });
+    const result = await updateHandler({
+      body: {
+        tickerId: "00000000-0000-4000-8000-000000000001",
+        metadata: { sector: "Energy", industry: "Coal" },
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: undefined,
+    } as never);
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "00000000-0000-4000-8000-000000000001" },
+      data: { metadata: { sector: "Energy", industry: "Coal" } },
+    });
+    expect(result).toMatchObject({ status: true, data: { ok: true } });
+  });
+
+  it("updates metadata to null when provided as null", async () => {
+    const updateMock = vi.fn().mockResolvedValue(undefined);
+    const db = { ticker: { update: updateMock } };
+    const updateHandler = createUpdateTickerHandler({
+      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      db: db as never,
+    });
+    await updateHandler({
+      body: {
+        tickerId: "00000000-0000-4000-8000-000000000001",
+        metadata: null,
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: undefined,
+    } as never);
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "00000000-0000-4000-8000-000000000001" },
+      data: { metadata: Prisma.DbNull },
     });
   });
 });

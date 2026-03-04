@@ -6,20 +6,26 @@ import { useEffect, useMemo } from "react";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
+import { cn } from "@workspace/ui/lib/utils";
 
 import { useFormAction } from "@/app/dashboard/tickers/actions/update/.generated/use-form-action";
 
+/** Ticker metadata is a nullable JSON object (record of string keys to arbitrary values). */
+type TickerMetadata = Record<string, unknown> | null;
+
 /**
- * Edit ticker form: symbol, name. Uses update action; refreshes on success.
+ * Edit ticker form: symbol, name, and metadata (JSON). Uses update action; refreshes on success.
  */
 export const TickerEditForm = ({
   tickerId,
   initialSymbol,
   initialName,
+  initialMetadata,
 }: {
   tickerId: string;
   initialSymbol: string;
   initialName: string;
+  initialMetadata?: TickerMetadata;
 }) => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
@@ -35,8 +41,16 @@ export const TickerEditForm = ({
     }
   }, [state, router]);
 
+  const metadataJson = useMemo(
+    () =>
+      initialMetadata === undefined || initialMetadata === null
+        ? "null"
+        : JSON.stringify(initialMetadata, null, 2),
+    [initialMetadata],
+  );
+
   return (
-    <FormWithAction className="flex flex-col gap-4 max-w-md">
+    <FormWithAction className="flex flex-col gap-4 max-w-2xl">
       <input type="hidden" name="body.tickerId" value={tickerId} readOnly />
       <div className="grid gap-2">
         <Label htmlFor="body.symbol">Symbol</Label>
@@ -59,6 +73,27 @@ export const TickerEditForm = ({
           required
           disabled={pending}
         />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="body.metadata">Metadata (JSON)</Label>
+        <textarea
+          id="body.metadata"
+          name="body.metadata"
+          defaultValue={metadataJson}
+          rows={14}
+          disabled={pending}
+          placeholder='{"key": "value"}'
+          className={cn(
+            "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
+            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+            "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+          )}
+        />
+        <p className="text-xs text-muted-foreground">
+          Optional. Use a JSON object or{" "}
+          <code className="rounded bg-muted px-1">null</code> to clear. Invalid
+          JSON will cause validation to fail.
+        </p>
       </div>
       {errorMessage ? (
         <p className="text-sm text-destructive" role="alert">
