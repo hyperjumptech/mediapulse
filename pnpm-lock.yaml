@@ -313,6 +313,9 @@ importers:
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/agent-auth-client
+      '@workspace/agent-types':
+        specifier: workspace:*
+        version: link:../../../packages/agent-types
       '@workspace/env':
         specifier: workspace:*
         version: link:../../../packages/env
