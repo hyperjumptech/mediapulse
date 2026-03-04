@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Button } from "@workspace/ui/components/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import type { TickerSortDir, TickerSortField } from "@/lib/tickers";
 
 type PaginationProps = {
   basePath: string;
@@ -12,23 +13,31 @@ type PaginationProps = {
   total: number;
   /** Optional search query to preserve in prev/next links. */
   searchQuery?: string;
+  /** Sort field to preserve in prev/next links. */
+  sortBy: TickerSortField;
+  /** Sort direction to preserve in prev/next links. */
+  sortDir: TickerSortDir;
 };
 
 /**
  * Prev/Next pagination links for the tickers list. Disables Prev on first page and Next on last page.
  */
 /**
- * Builds pagination query string including optional search.
+ * Builds pagination query string including optional search and sort.
  */
 const buildQueryString = (
   page: number,
   pageSize: number,
-  searchQuery?: string,
+  searchQuery: string | undefined,
+  sortBy: TickerSortField,
+  sortDir: TickerSortDir,
 ): string => {
   const params = new URLSearchParams();
   params.set("page", String(page));
   params.set("size", String(pageSize));
   if (searchQuery) params.set("q", searchQuery);
+  params.set("sort", sortBy);
+  params.set("dir", sortDir);
   return params.toString();
 };
 
@@ -38,16 +47,18 @@ export const Pagination = ({
   pageSize,
   total,
   searchQuery,
+  sortBy,
+  sortDir,
 }: PaginationProps) => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasPrev = page > 1;
   const hasNext = page < totalPages;
 
   const prevHref = hasPrev
-    ? `${basePath}?${buildQueryString(page - 1, pageSize, searchQuery)}`
+    ? `${basePath}?${buildQueryString(page - 1, pageSize, searchQuery, sortBy, sortDir)}`
     : undefined;
   const nextHref = hasNext
-    ? `${basePath}?${buildQueryString(page + 1, pageSize, searchQuery)}`
+    ? `${basePath}?${buildQueryString(page + 1, pageSize, searchQuery, sortBy, sortDir)}`
     : undefined;
 
   if (totalPages <= 1 && total <= pageSize) {

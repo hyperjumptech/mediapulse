@@ -4,12 +4,17 @@ import { Search } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
+import type { TickerSortDir, TickerSortField } from "@/lib/tickers";
 
 type TickersSearchProps = {
   /** Current search query for controlled default value. */
   initialQuery?: string;
   /** Current page size to preserve when submitting search. */
   pageSize: number;
+  /** Current sort field to preserve when submitting search. */
+  sortBy: TickerSortField;
+  /** Current sort direction to preserve when submitting search. */
+  sortDir: TickerSortDir;
 };
 
 /**
@@ -18,9 +23,11 @@ type TickersSearchProps = {
 export const TickersSearch = ({
   initialQuery = "",
   pageSize,
+  sortBy,
+  sortDir,
 }: TickersSearchProps) => {
   const hasActiveSearch = initialQuery.trim().length > 0;
-  const clearHref = `/dashboard/tickers?size=${pageSize}`;
+  const clearHref = `/dashboard/tickers?size=${pageSize}&sort=${sortBy}&dir=${sortDir}`;
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
@@ -32,6 +39,8 @@ export const TickersSearch = ({
         aria-label="Search tickers by symbol or company name"
       >
         <input type="hidden" name="size" value={pageSize} />
+        <input type="hidden" name="sort" value={sortBy} />
+        <input type="hidden" name="dir" value={sortDir} />
         <div className="flex-1 space-y-2">
           <Label htmlFor="tickers-search" className="sr-only">
             Search by symbol or company name

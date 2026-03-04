@@ -27,7 +27,7 @@ describe("getTickersPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("calls findMany with skip, take, orderBy and count", async () => {
+  it("calls findMany with skip, take, default orderBy (symbol asc) and count", async () => {
     const db = createMockDb();
     db.ticker.findMany.mockResolvedValue([]);
     db.ticker.count.mockResolvedValue(0);
@@ -41,6 +41,41 @@ describe("getTickersPage", () => {
       orderBy: { symbol: "asc" },
     });
     expect(db.ticker.count).toHaveBeenCalledWith({ where: undefined });
+  });
+
+  it("applies sortBy name and sortDir desc when provided", async () => {
+    const db = createMockDb();
+    db.ticker.findMany.mockResolvedValue([]);
+    db.ticker.count.mockResolvedValue(0);
+
+    await getTickersPage(1, 10, { sortBy: "name", sortDir: "desc" }, asDb(db));
+
+    expect(db.ticker.findMany).toHaveBeenCalledWith({
+      where: undefined,
+      skip: 0,
+      take: 10,
+      orderBy: { name: "desc" },
+    });
+  });
+
+  it("applies sortBy created and sortDir asc when provided", async () => {
+    const db = createMockDb();
+    db.ticker.findMany.mockResolvedValue([]);
+    db.ticker.count.mockResolvedValue(0);
+
+    await getTickersPage(
+      1,
+      10,
+      { sortBy: "created", sortDir: "asc" },
+      asDb(db),
+    );
+
+    expect(db.ticker.findMany).toHaveBeenCalledWith({
+      where: undefined,
+      skip: 0,
+      take: 10,
+      orderBy: { createdAt: "asc" },
+    });
   });
 
   it("returns tickers, total, page, pageSize", async () => {
@@ -100,6 +135,35 @@ describe("getTickersPage", () => {
       orderBy: { symbol: "asc" },
     });
     expect(db.ticker.count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+
+  it("combines search and sort options", async () => {
+    const db = createMockDb();
+    db.ticker.findMany.mockResolvedValue([]);
+    db.ticker.count.mockResolvedValue(0);
+
+    await getTickersPage(
+      1,
+      10,
+      {
+        search: "test",
+        sortBy: "created",
+        sortDir: "desc",
+      },
+      asDb(db),
+    );
+
+    expect(db.ticker.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { symbol: { contains: "test", mode: "insensitive" } },
+          { name: { contains: "test", mode: "insensitive" } },
+        ],
+      },
+      skip: 0,
+      take: 10,
+      orderBy: { createdAt: "desc" },
+    });
   });
 
   it("ignores empty or whitespace-only search", async () => {
