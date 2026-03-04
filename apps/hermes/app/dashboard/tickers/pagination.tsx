@@ -10,26 +10,44 @@ type PaginationProps = {
   page: number;
   pageSize: number;
   total: number;
+  /** Optional search query to preserve in prev/next links. */
+  searchQuery?: string;
 };
 
 /**
  * Prev/Next pagination links for the tickers list. Disables Prev on first page and Next on last page.
  */
+/**
+ * Builds pagination query string including optional search.
+ */
+const buildQueryString = (
+  page: number,
+  pageSize: number,
+  searchQuery?: string,
+): string => {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("size", String(pageSize));
+  if (searchQuery) params.set("q", searchQuery);
+  return params.toString();
+};
+
 export const Pagination = ({
   basePath,
   page,
   pageSize,
   total,
+  searchQuery,
 }: PaginationProps) => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasPrev = page > 1;
   const hasNext = page < totalPages;
 
   const prevHref = hasPrev
-    ? `${basePath}?page=${page - 1}&size=${pageSize}`
+    ? `${basePath}?${buildQueryString(page - 1, pageSize, searchQuery)}`
     : undefined;
   const nextHref = hasNext
-    ? `${basePath}?page=${page + 1}&size=${pageSize}`
+    ? `${basePath}?${buildQueryString(page + 1, pageSize, searchQuery)}`
     : undefined;
 
   if (totalPages <= 1 && total <= pageSize) {

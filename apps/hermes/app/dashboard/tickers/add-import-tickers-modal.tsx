@@ -216,7 +216,16 @@ export const AddImportTickersModal = () => {
                 className="max-w-xs"
               />
               <p className="text-sm text-muted-foreground">
-                or drag and drop a JSON file (IDX format)
+                or drag and drop a JSON file (
+                <a
+                  className="underline"
+                  href="https://www.idx.co.id/Primary/ListedCompany/GetCompanyProfiles?emitenType=&start=0&length=9999"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  IDX format
+                </a>
+                )
               </p>
               {file ? <p className="text-sm font-medium">{file.name}</p> : null}
             </div>
