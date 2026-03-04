@@ -130,6 +130,7 @@ model Ticker {
   id        String   @id @default(uuid())
   symbol    String   @unique
   name      String
+  metadata  Json?    @map("metadata")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

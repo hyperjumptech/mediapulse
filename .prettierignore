@@ -3,3 +3,4 @@ data/
 # Generated code
 **/.generated/
 packages/database/client/
+packages/env/src

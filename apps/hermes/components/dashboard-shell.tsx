@@ -24,6 +24,7 @@ export type DashboardUser = { name: string; email: string };
 
 const SEGMENT_LABELS: Record<string, string> = {
   pipelines: "Pipelines",
+  tickers: "Tickers",
 };
 
 const UUID_REGEX =
@@ -38,6 +39,16 @@ const getPipelinesSubLabel = (
   if (!subSegment) return null;
   if (subSegment === "new") return "New pipeline";
   if (UUID_REGEX.test(subSegment)) return "Pipeline";
+  return null;
+};
+
+/**
+ * Derives the breadcrumb page label for tickers sub-routes (new, [id]).
+ */
+const getTickersSubLabel = (subSegment: string | undefined): string | null => {
+  if (!subSegment) return null;
+  if (subSegment === "new") return "New ticker";
+  if (UUID_REGEX.test(subSegment)) return "Ticker";
   return null;
 };
 
@@ -57,12 +68,16 @@ export const DashboardShell = ({
   const subSegment = segments[2];
   const pipelinesSubLabel =
     dashboardSegment === "pipelines" ? getPipelinesSubLabel(subSegment) : null;
+  const tickersSubLabel =
+    dashboardSegment === "tickers" ? getTickersSubLabel(subSegment) : null;
   const currentLabel =
     pipelinesSubLabel ??
+    tickersSubLabel ??
     (dashboardSegment && SEGMENT_LABELS[dashboardSegment]) ??
     "Dashboard";
   const showParentLink =
-    dashboardSegment && (pipelinesSubLabel || dashboardSegment !== "pipelines");
+    dashboardSegment &&
+    (pipelinesSubLabel || tickersSubLabel || dashboardSegment !== "pipelines");
 
   return (
     <SidebarProvider>
@@ -89,6 +104,16 @@ export const DashboardShell = ({
                     <BreadcrumbItem className="hidden md:block">
                       <BreadcrumbLink asChild>
                         <Link href="/dashboard/pipelines">Pipelines</Link>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator className="hidden md:block" />
+                  </>
+                ) : null}
+                {tickersSubLabel ? (
+                  <>
+                    <BreadcrumbItem className="hidden md:block">
+                      <BreadcrumbLink asChild>
+                        <Link href="/dashboard/tickers">Tickers</Link>
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />

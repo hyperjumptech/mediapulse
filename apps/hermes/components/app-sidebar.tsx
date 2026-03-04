@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GitBranch, LayoutDashboard } from "lucide-react";
+import { GitBranch, LayoutDashboard, TrendingUp } from "lucide-react";
 
 import {
   Sidebar,
@@ -31,6 +31,7 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
   const pathname = usePathname();
   const isDashboard = pathname === "/dashboard";
   const isPipelines = pathname === "/dashboard/pipelines";
+  const isTickers = pathname?.startsWith("/dashboard/tickers") ?? false;
 
   return (
     <Sidebar {...props}>
@@ -59,6 +60,14 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/pipelines">
                   <GitBranch className="size-4" />
                   <span>Pipelines</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isTickers}>
+                <Link href="/dashboard/tickers">
+                  <TrendingUp className="size-4" />
+                  <span>Tickers</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
