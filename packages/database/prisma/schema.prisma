@@ -40,6 +40,23 @@ model APIKey {
   @@map("api_key")
 }
 
+model AgentInstance {
+  id            String   @id @default(uuid())
+  instanceId    String   @unique @map("instance_id")
+  agentId       String   @map("agent_id")
+  agentVersion  String   @map("agent_version")
+  endpoint      Json
+  status        String
+  capacity      Int
+  currentLoad   Int      @map("current_load")
+  lastHeartbeat DateTime @map("last_heartbeat")
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("agent_instance")
+}
+
 model AgentRegistry {
   id           String   @id @default(uuid())
   agentId      String   @map("agent_id")

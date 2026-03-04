@@ -5,6 +5,7 @@ import * as crypto from "crypto";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
+import { heartbeat } from "./routes/heartbeat";
 import { registerAgent } from "./routes/register-agent";
 
 const app = new Hono();
@@ -28,6 +29,7 @@ api.use(
 );
 
 api.post("/agents/register", registerAgent);
+api.post("/heartbeat", heartbeat);
 
 export default {
   port: env.PORT ?? 8082,
