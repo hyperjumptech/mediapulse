@@ -16,16 +16,52 @@ vi.mock("@workspace/env/agents-data-collection", () => ({
   },
 }));
 
-vi.mock("got", () => ({
-  default: {
-    get: vi.fn(),
-    post: vi.fn().mockReturnValue({
-      json: vi.fn(),
-    }),
-  },
+const getMock = vi.fn();
+const postMock = vi.fn();
+
+vi.mock("../src/utilities/web-search.js", () => ({
+  performWebSearch: vi.fn().mockResolvedValue([
+    {
+      url: "http://example.com",
+      title: "Test",
+      content: "Snippet",
+      tickerId: TICKER_ID,
+      searchQueryId: "sq-1",
+      searchQueryText: "test query",
+    },
+  ]),
 }));
 
-const getGot = async () => (await import("got")).default;
+vi.mock("../src/utilities/web-fetch.js", () => ({
+  performWebFetch: vi.fn().mockResolvedValue([
+    {
+      url: "http://example.com",
+      title: "Test",
+      content: "Main content",
+      tickerId: TICKER_ID,
+      searchQueryId: "sq-1",
+      searchQueryText: "test query",
+    },
+  ]),
+}));
+
+vi.mock("@workspace/agent-data-api-client", () => {
+  class MockAgentDataApiClient {
+    url: string;
+
+    constructor(opts: { url: string }) {
+      this.url = opts.url;
+    }
+
+    get = getMock;
+
+    post = postMock;
+  }
+
+  return {
+    AgentDataApiClient: MockAgentDataApiClient,
+  };
+});
 
 describe("data-collection-agent", () => {
   beforeEach(() => {
@@ -37,41 +73,12 @@ describe("data-collection-agent", () => {
   });
 
   it("returns 200 and success when data collection is successful", async () => {
-    const got = await getGot();
-    (got.get as any).mockResolvedValue({
-      body: JSON.stringify({
-        searchQueries: [
-          { id: "sq-1", text: "test query", tickerId: TICKER_ID },
-        ],
-      }),
+    getMock.mockResolvedValue({
+      data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
     });
 
-    const mockPost = got.post as any;
-    mockPost.mockImplementation((url: string) => {
-      if (url === "https://google.serper.dev/search") {
-        return {
-          json: vi.fn().mockResolvedValue({
-            organic: [
-              { link: "http://example.com", title: "Test", snippet: "Snippet" },
-            ],
-          }),
-        };
-      }
-      if (url === "https://r.jina.ai/") {
-        return {
-          json: vi.fn().mockResolvedValue({
-            data: {
-              url: "http://example.com",
-              title: "Test",
-              content: "Main content",
-            },
-          }),
-        };
-      }
-      return { statusCode: 200 };
-    });
+    const { default: app } = await import("../src/index.js");
 
-    const { default: app } = await import("./index.js");
     const res = await app.fetch(
       new Request("http://localhost/", {
         method: "POST",
@@ -81,18 +88,21 @@ describe("data-collection-agent", () => {
     );
 
     const body = await res.json();
+
     expect(res.status).toBe(200);
     expect(body.agentId).toBe("data-collection");
-    expect(got.get).toHaveBeenCalled();
-    expect(got.post).toHaveBeenCalled();
+    expect(getMock).toHaveBeenCalled();
+    expect(postMock).toHaveBeenCalled();
   });
 
   it("returns 500 when API keys are missing", async () => {
     const { env } = await import("@workspace/env/agents-data-collection");
     const originalJina = env.JINA_API_KEY;
+
     (env as any).JINA_API_KEY = "";
 
-    const { default: app } = await import("./index.js");
+    const { default: app } = await import("../src/index.js");
+
     const res = await app.fetch(
       new Request("http://localhost/", {
         method: "POST",
@@ -102,6 +112,7 @@ describe("data-collection-agent", () => {
     );
 
     const body = await res.json();
+
     expect(res.status).toBe(500);
     expect(body.message).toContain("JINA_API_KEY is not configured");
 

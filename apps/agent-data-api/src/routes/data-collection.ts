@@ -1,20 +1,29 @@
 import { Context } from "hono";
 
+import { prisma } from "@workspace/database";
 import { internalError } from "@workspace/api-utils";
 import {
-  getDataCollectionQuerySchema,
-  postDataCollectionBodySchema,
-} from "../schemas/data-collection.js";
-import {
-  createDataSources,
-  getSearchQueries,
-} from "../services/data-collection.js";
+  dataCollectionBodySchema,
+  dataCollectionQuerySchema,
+} from "@workspace/agent-types";
 
 export async function getDataCollection(context: Context): Promise<Response> {
   try {
-    const query = getDataCollectionQuerySchema.parse(context.req.query());
-    const searchQueries = await getSearchQueries(query);
-    return context.json({ searchQueries }, 200);
+    const query = dataCollectionQuerySchema.parse(context.req.query());
+    const data = await prisma.searchQuery.findMany({
+      where: {
+        tickerId: query.tickerId,
+        ...(query.start &&
+          query.end && {
+            createdAt: {
+              gte: new Date(query.start),
+              lte: new Date(query.end),
+            },
+          }),
+      },
+    });
+
+    return context.json({ data }, 200);
   } catch (error) {
     return internalError(context, error);
   }
@@ -23,8 +32,9 @@ export async function getDataCollection(context: Context): Promise<Response> {
 export async function postDataCollection(context: Context): Promise<Response> {
   try {
     const body = await context.req.json();
-    const data = await postDataCollectionBodySchema.parseAsync(body);
-    await createDataSources(data);
+    const data = await dataCollectionBodySchema.parseAsync(body);
+    await prisma.dataSource.createMany({ data });
+
     return context.json({ message: "Success" }, 200);
   } catch (error) {
     return internalError(context, error);
