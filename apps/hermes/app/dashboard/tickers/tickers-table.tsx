@@ -23,7 +23,7 @@ export const TickersTable = ({ tickers }: { tickers: TickerRow[] }) => {
         <TableHeader className="bg-muted/50">
           <TableRow className="border-muted hover:bg-transparent">
             <TableHead className="w-[120px]">Symbol</TableHead>
-            <TableHead className="w-[200px]">Name</TableHead>
+            <TableHead>Name</TableHead>
             <TableHead>Created</TableHead>
             <TableHead className="w-12" />
           </TableRow>

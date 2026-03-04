@@ -13,7 +13,11 @@ vi.mock("@workspace/database", () => ({
 
 const createMockDb = (): TickerUpsertDb => ({
   ticker: {
-    upsert: vi
+    findUnique: vi.fn(),
+    create: vi
+      .fn()
+      .mockResolvedValue({ id: "id-1", symbol: "AADI", name: "PT Adaro" }),
+    update: vi
       .fn()
       .mockResolvedValue({ id: "id-1", symbol: "AADI", name: "PT Adaro" }),
   },
@@ -71,9 +75,10 @@ describe("importIdxTickers", () => {
     vi.restoreAllMocks();
   });
 
-  it("calls upsert for each row with symbol and name from payload", async () => {
+  it("creates new tickers and returns added count when none exist", async () => {
     // Setup
     const db = createMockDb();
+    vi.mocked(db.ticker.findUnique).mockResolvedValue(null);
     const payload: IdxTickersPayload = {
       draw: 0,
       recordsTotal: 2,
@@ -88,37 +93,87 @@ describe("importIdxTickers", () => {
     const result = await importIdxTickers(payload, db);
 
     // Assert
-    expect(result.processed).toBe(2);
-    expect(db.ticker.upsert).toHaveBeenCalledTimes(2);
-    expect(db.ticker.upsert).toHaveBeenNthCalledWith(1, {
-      where: { symbol: "AADI" },
-      create: {
+    expect(result).toEqual({ added: 2, updated: 0 });
+    expect(db.ticker.findUnique).toHaveBeenCalledTimes(2);
+    expect(db.ticker.create).toHaveBeenCalledTimes(2);
+    expect(db.ticker.create).toHaveBeenNthCalledWith(1, {
+      data: {
         symbol: "AADI",
         name: "PT Adaro Andalan Indonesia Tbk",
         metadata: payload.data[0],
       },
-      update: {
-        name: "PT Adaro Andalan Indonesia Tbk",
-        metadata: payload.data[0],
-      },
     });
-    expect(db.ticker.upsert).toHaveBeenNthCalledWith(2, {
-      where: { symbol: "BBHI" },
-      create: {
+    expect(db.ticker.create).toHaveBeenNthCalledWith(2, {
+      data: {
         symbol: "BBHI",
         name: "PT Bank Harda Internasional Tbk",
         metadata: payload.data[1],
       },
-      update: {
-        name: "PT Bank Harda Internasional Tbk",
-        metadata: payload.data[1],
+    });
+    expect(db.ticker.update).not.toHaveBeenCalled();
+  });
+
+  it("updates existing tickers and returns updated count when all exist", async () => {
+    // Setup
+    const db = createMockDb();
+    vi.mocked(db.ticker.findUnique).mockResolvedValue({ id: "existing-id" });
+    const payload: IdxTickersPayload = {
+      data: [
+        { KodeEmiten: "AADI", NamaEmiten: "PT Adaro Andalan Indonesia Tbk" },
+        { KodeEmiten: "BBHI", NamaEmiten: "PT Bank Harda Internasional Tbk" },
+      ],
+    };
+
+    // Act
+    const result = await importIdxTickers(payload, db);
+
+    // Assert
+    expect(result).toEqual({ added: 0, updated: 2 });
+    expect(db.ticker.findUnique).toHaveBeenCalledTimes(2);
+    expect(db.ticker.update).toHaveBeenCalledTimes(2);
+    expect(db.ticker.update).toHaveBeenNthCalledWith(1, {
+      where: { symbol: "AADI" },
+      data: {
+        name: "PT Adaro Andalan Indonesia Tbk",
+        metadata: payload.data[0],
       },
+    });
+    expect(db.ticker.create).not.toHaveBeenCalled();
+  });
+
+  it("returns mixed added and updated when some symbols exist", async () => {
+    // Setup
+    const db = createMockDb();
+    vi.mocked(db.ticker.findUnique)
+      .mockResolvedValueOnce({ id: "id-aadi" })
+      .mockResolvedValueOnce(null);
+    const payload: IdxTickersPayload = {
+      data: [
+        { KodeEmiten: "AADI", NamaEmiten: "PT Adaro" },
+        { KodeEmiten: "BBHI", NamaEmiten: "PT Bank" },
+      ],
+    };
+
+    // Act
+    const result = await importIdxTickers(payload, db);
+
+    // Assert
+    expect(result).toEqual({ added: 1, updated: 1 });
+    expect(db.ticker.update).toHaveBeenCalledTimes(1);
+    expect(db.ticker.update).toHaveBeenCalledWith({
+      where: { symbol: "AADI" },
+      data: { name: "PT Adaro", metadata: payload.data[0] },
+    });
+    expect(db.ticker.create).toHaveBeenCalledTimes(1);
+    expect(db.ticker.create).toHaveBeenCalledWith({
+      data: { symbol: "BBHI", name: "PT Bank", metadata: payload.data[1] },
     });
   });
 
   it("skips rows with empty KodeEmiten", async () => {
     // Setup
     const db = createMockDb();
+    vi.mocked(db.ticker.findUnique).mockResolvedValue(null);
     const payload: IdxTickersPayload = {
       data: [
         { KodeEmiten: "", NamaEmiten: "No Code" },
@@ -131,18 +186,18 @@ describe("importIdxTickers", () => {
     const result = await importIdxTickers(payload, db);
 
     // Assert
-    expect(result.processed).toBe(3);
-    expect(db.ticker.upsert).toHaveBeenCalledTimes(1);
-    expect(db.ticker.upsert).toHaveBeenCalledWith({
-      where: { symbol: "OK" },
-      create: { symbol: "OK", name: "Valid", metadata: payload.data[2] },
-      update: { name: "Valid", metadata: payload.data[2] },
+    expect(result).toEqual({ added: 1, updated: 0 });
+    expect(db.ticker.findUnique).toHaveBeenCalledTimes(1);
+    expect(db.ticker.create).toHaveBeenCalledTimes(1);
+    expect(db.ticker.create).toHaveBeenCalledWith({
+      data: { symbol: "OK", name: "Valid", metadata: payload.data[2] },
     });
   });
 
   it("uses symbol as name when NamaEmiten is empty", async () => {
     // Setup
     const db = createMockDb();
+    vi.mocked(db.ticker.findUnique).mockResolvedValue(null);
     const payload: IdxTickersPayload = {
       data: [{ KodeEmiten: "XYZ", NamaEmiten: "" }],
     };
@@ -151,10 +206,8 @@ describe("importIdxTickers", () => {
     await importIdxTickers(payload, db);
 
     // Assert
-    expect(db.ticker.upsert).toHaveBeenCalledWith({
-      where: { symbol: "XYZ" },
-      create: { symbol: "XYZ", name: "XYZ", metadata: payload.data[0] },
-      update: { name: "XYZ", metadata: payload.data[0] },
+    expect(db.ticker.create).toHaveBeenCalledWith({
+      data: { symbol: "XYZ", name: "XYZ", metadata: payload.data[0] },
     });
   });
 
@@ -167,8 +220,10 @@ describe("importIdxTickers", () => {
     const result = await importIdxTickers(payload, db);
 
     // Assert
-    expect(result.processed).toBe(0);
-    expect(db.ticker.upsert).not.toHaveBeenCalled();
+    expect(result).toEqual({ added: 0, updated: 0 });
+    expect(db.ticker.findUnique).not.toHaveBeenCalled();
+    expect(db.ticker.create).not.toHaveBeenCalled();
+    expect(db.ticker.update).not.toHaveBeenCalled();
   });
 
   it("handles missing or invalid payload.data", async () => {
@@ -179,7 +234,7 @@ describe("importIdxTickers", () => {
     const result = await importIdxTickers({} as IdxTickersPayload, db);
 
     // Assert
-    expect(result.processed).toBe(0);
-    expect(db.ticker.upsert).not.toHaveBeenCalled();
+    expect(result).toEqual({ added: 0, updated: 0 });
+    expect(db.ticker.findUnique).not.toHaveBeenCalled();
   });
 });

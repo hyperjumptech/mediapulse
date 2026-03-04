@@ -7,7 +7,10 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import {
+  getDashboardSession,
+  getDashboardSessionForRoute,
+} from "@/lib/auth-dashboard";
 
 const bodyValidator = z.object({
   tickerId: z.string().uuid(),
@@ -17,7 +20,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSession,
+  user: getDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({

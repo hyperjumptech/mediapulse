@@ -1,6 +1,7 @@
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getTickersPage } from "@/lib/tickers";
 
+import { AddImportTickersModal } from "./add-import-tickers-modal";
 import { Pagination } from "./pagination";
 import { TickersTable } from "./tickers-table";
 
@@ -12,16 +13,33 @@ const DEFAULT_PAGE_SIZE = 10;
 const TickersPage = async ({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; size?: string }> | { page?: string; size?: string };
+  searchParams:
+    | Promise<{ page?: string; size?: string }>
+    | { page?: string; size?: string };
 }) => {
   const resolved = await Promise.resolve(searchParams);
   const page = Math.max(1, parseInt(resolved.page ?? "1", 10) || 1);
-  const pageSize = Math.min(100, Math.max(1, parseInt(resolved.size ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE));
+  const pageSize = Math.min(
+    100,
+    Math.max(
+      1,
+      parseInt(resolved.size ?? String(DEFAULT_PAGE_SIZE), 10) ||
+        DEFAULT_PAGE_SIZE,
+    ),
+  );
 
-  const { tickers, total, page: currentPage, pageSize: size } = await getTickersPage(page, pageSize);
+  const {
+    tickers,
+    total,
+    page: currentPage,
+    pageSize: size,
+  } = await getTickersPage(page, pageSize);
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <AddImportTickersModal />
+      </div>
       <TickersTable tickers={tickers} />
       <Pagination
         basePath="/dashboard/tickers"
