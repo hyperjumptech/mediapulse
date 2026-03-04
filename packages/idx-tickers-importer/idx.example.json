@@ -1,0 +1,38 @@
+{
+  "draw": 0,
+  "recordsTotal": 957,
+  "recordsFiltered": 957,
+  "data": [
+    {
+      "Alamat": "Cyber 2 Tower Lantai 26\nJl. H.R. Rasuna Said Blok X-5, No.13\nJakarta 12950 - Indonesia",
+      "BAE": "PT. Datindo Entrycom",
+      "DataID": 0,
+      "Divisi": null,
+      "EfekEmiten_EBA": false,
+      "EfekEmiten_ETF": false,
+      "EfekEmiten_Obligasi": false,
+      "EfekEmiten_Saham": true,
+      "EfekEmiten_SPEI": false,
+      "Industri": "Batu Bara",
+      "SubIndustri": "Produksi Batu Bara",
+      "Email": "corsec@adaroindonesia.com",
+      "Fax": "(021) 2553 3066",
+      "id": 0,
+      "JenisEmiten": null,
+      "KegiatanUsahaUtama": "Perkebunan kelapa sawit, karet dan tanaman penghasil getah lain, perusahaan holding, dan konsultasi manajemen lainnya",
+      "KodeDivisi": null,
+      "KodeEmiten": "AADI",
+      "NamaEmiten": "PT Adaro Andalan Indonesia Tbk",
+      "NPKP": "",
+      "NPWP": "02.433.115.9-091.000",
+      "PapanPencatatan": "Utama",
+      "Sektor": "Energi",
+      "SubSektor": "Minyak, Gas & Batu Bara",
+      "TanggalPencatatan": "2024-12-05T00:00:00",
+      "Telepon": "(021) 2553 3065",
+      "Website": "www.adaroindonesia.com",
+      "Status": 0,
+      "Logo": "/Portals/0/StaticData/ListedCompanies/LogoEmiten/AADI.jpg"
+    }
+  ]
+}
