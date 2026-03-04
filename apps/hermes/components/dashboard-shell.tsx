@@ -23,6 +23,7 @@ import { AppSidebar } from "./app-sidebar";
 export type DashboardUser = { name: string; email: string };
 
 const SEGMENT_LABELS: Record<string, string> = {
+  agents: "Agents",
   pipelines: "Pipelines",
   tickers: "Tickers",
 };
@@ -53,6 +54,15 @@ const getTickersSubLabel = (subSegment: string | undefined): string | null => {
 };
 
 /**
+ * Derives the breadcrumb page label for agents sub-routes ([id]).
+ */
+const getAgentsSubLabel = (subSegment: string | undefined): string | null => {
+  if (!subSegment) return null;
+  if (UUID_REGEX.test(subSegment)) return "Agent";
+  return null;
+};
+
+/**
  * Renders the dashboard shell: sidebar (with user and logout in footer), header with breadcrumb, and main content.
  */
 export const DashboardShell = ({
@@ -70,14 +80,20 @@ export const DashboardShell = ({
     dashboardSegment === "pipelines" ? getPipelinesSubLabel(subSegment) : null;
   const tickersSubLabel =
     dashboardSegment === "tickers" ? getTickersSubLabel(subSegment) : null;
+  const agentsSubLabel =
+    dashboardSegment === "agents" ? getAgentsSubLabel(subSegment) : null;
   const currentLabel =
     pipelinesSubLabel ??
     tickersSubLabel ??
+    agentsSubLabel ??
     (dashboardSegment && SEGMENT_LABELS[dashboardSegment]) ??
     "Dashboard";
   const showParentLink =
     dashboardSegment &&
-    (pipelinesSubLabel || tickersSubLabel || dashboardSegment !== "pipelines");
+    (pipelinesSubLabel ||
+      tickersSubLabel ||
+      agentsSubLabel ||
+      dashboardSegment !== "pipelines");
 
   return (
     <SidebarProvider>
@@ -114,6 +130,16 @@ export const DashboardShell = ({
                     <BreadcrumbItem className="hidden md:block">
                       <BreadcrumbLink asChild>
                         <Link href="/dashboard/tickers">Tickers</Link>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator className="hidden md:block" />
+                  </>
+                ) : null}
+                {agentsSubLabel ? (
+                  <>
+                    <BreadcrumbItem className="hidden md:block">
+                      <BreadcrumbLink asChild>
+                        <Link href="/dashboard/agents">Agents</Link>
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />

@@ -11,6 +11,8 @@ export const env = createEnv({
     RESEND_SENDER: z.string().min(1),
     RESEND_API_KEY: z.string().min(1),
   },
-  client: {},
-  experimental__runtimeEnv: {},
+  client: {
+  },
+  experimental__runtimeEnv: {
+  }
 });
