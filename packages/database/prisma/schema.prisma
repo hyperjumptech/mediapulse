@@ -26,6 +26,12 @@ enum UserRole {
   USER
 }
 
+enum AgentStatus {
+  active
+  inactive
+  unhealthy
+}
+
 model APIKey {
   id        String   @id @default(uuid())
   name      String
@@ -44,9 +50,9 @@ model AgentInstance {
   id            String   @id @default(uuid())
   instanceId    String   @unique @map("instance_id")
   agentId       String   @map("agent_id")
-  agentVersion  String   @map("agent_version")
+  agentVersion  String      @map("agent_version")
   endpoint      Json
-  status        String
+  status        AgentStatus @default(active)
   capacity      Int
   currentLoad   Int      @map("current_load")
   lastHeartbeat DateTime @map("last_heartbeat")
