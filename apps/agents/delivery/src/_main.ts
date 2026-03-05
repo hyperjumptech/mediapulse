@@ -62,6 +62,9 @@ app.post("/", async (context) => {
         400,
       );
     }
+    if (error instanceof SyntaxError) {
+      return context.json({ message: "Malformed JSON" }, 400);
+    }
     logger.error({ err: error }, "Delivery agent error");
     return context.json({ message: "Internal Server Error" }, 500);
   }

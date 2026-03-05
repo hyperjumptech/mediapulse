@@ -90,4 +90,38 @@ describe("delivery-agent", () => {
     const body = await res.json();
     expect(body.message).toBe("Internal Server Error");
   });
+
+  it("returns 400 when tickerId is not a UUID", async () => {
+    const { default: agent } = await import("./_main.js");
+    const res = await agent.fetch(
+      new Request("http://localhost/", {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({ tickerId: "not-a-uuid" }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toBe("Bad Request");
+    expect(body.errors).toBeDefined();
+    expect(Array.isArray(body.errors)).toBe(true);
+    expect(body.errors[0].code).toBe("invalid_string");
+    expect(body.errors[0].validation).toBe("uuid");
+  });
+
+  it("returns 400 when JSON is malformed", async () => {
+    const { default: agent } = await import("./_main.js");
+    const res = await agent.fetch(
+      new Request("http://localhost/", {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: "{ malformed json",
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toBe("Malformed JSON");
+  });
 });
