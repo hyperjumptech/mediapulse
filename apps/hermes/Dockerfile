@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1
 ARG NODE_VERSION=24.12.0
-FROM node:${NODE_VERSION}-slim
+FROM node:${NODE_VERSION}-slim AS builder
 LABEL fly_launch_runtime="Next.js"
 
 WORKDIR /app
@@ -30,10 +30,22 @@ RUN pnpm --filter=@workspace/database run db:generate
 
 RUN pnpm --filter=hermes run build
 
-RUN pnpm prune --prod
+# Standalone runner: only copy traced output + static
+ARG NODE_VERSION=24.12.0
+FROM node:${NODE_VERSION}-slim AS runner
+WORKDIR /app
 
-WORKDIR /app/apps/hermes
-
+ENV NODE_ENV="production"
+ENV HOSTNAME="0.0.0.0"
 ENV PORT=3001
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/.next/static ./apps/hermes/.next/static
+
+USER nextjs
+
 EXPOSE 3001
-CMD [ "pnpm", "run", "start" ]
+CMD ["node", "apps/hermes/server.js"]
