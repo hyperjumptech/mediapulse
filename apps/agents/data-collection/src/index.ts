@@ -1,71 +1,81 @@
-import type { DataSourceInput } from "@workspace/agent-types";
-import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
-import { env } from "@workspace/env/agents-data-collection";
-import { logger } from "@workspace/logger";
-import got from "got";
-
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
-import { z } from "zod";
+
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
+import { AgentDataApiClient } from "@workspace/agent-data-api-client";
+import { env } from "@workspace/env/agents-data-collection";
+import { logger } from "@workspace/logger";
+
+import { BodySchema } from "./utilities/body-schema.js";
+import { getConfigSchema } from "./utilities/config-schema.js";
+import { performWebSearch } from "./utilities/web-search.js";
+import { performWebFetch } from "./utilities/web-fetch.js";
 
 const app = new Hono();
+
 app.use(pinoLogger({ pino: logger }));
 
 app.use(
   "*",
   bearerAuth({
-    verifyToken: (token) =>
-      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
+    verifyToken: (token) => {
+      return verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL);
+    },
   }),
 );
 
-const BodySchema = z.object({
-  tickerId: z.string(),
-  timeWindow: z
-    .object({
-      start: z.string().datetime(),
-      end: z.string().datetime(),
-    })
-    .optional(),
+const agentDataApiClient = new AgentDataApiClient({
+  url: `${env.AGENT_DATA_API_URL}/api/data-collection`,
 });
 
-type BodySchemaType = z.infer<typeof BodySchema>;
-
-/** Internal shape for a collected page before sending to the API (includes searchQueryText for metadata). */
-interface CollectedPage {
-  url: string;
-  title: string;
-  content: string;
-  tickerId: string;
-  searchQueryId: string;
-  searchQueryText?: string;
-}
-
 app.post("/", async (context) => {
+  if (!env.JINA_API_KEY) {
+    return context.json({ message: "JINA_API_KEY is not configured" }, 500);
+  }
+
+  if (!env.SERPER_API_KEY) {
+    return context.json({ message: "SERPER_API_KEY is not configured" }, 500);
+  }
+
   try {
+    const apiKey = context.req.header("Authorization");
     const body = await context.req.json();
     const data = await BodySchema.parseAsync(body);
 
-    if (!env.JINA_API_KEY) {
-      return context.json({ message: "JINA_API_KEY is not configured" }, 500);
+    const query: Record<string, string> = {
+      tickerId: data.tickerId,
+    };
+
+    if (data.timeWindow) {
+      query.start = data.timeWindow.start;
+      query.end = data.timeWindow.end;
     }
 
-    if (!env.SERPER_API_KEY) {
-      return context.json({ message: "SERPER_API_KEY is not configured" }, 500);
-    }
+    const { data: queries } = await agentDataApiClient.get<{
+      data: { text: string }[];
+    }>({ query, apiKey });
 
-    const queries = await fetchSearchQueriesFromAgentDataAPI(
-      context.req.header("Authorization"),
-      data,
-    );
-    const searchResults = await performWebSearchWithQueries(queries);
-    const pages = await fetchWebPageContents(searchResults);
-    const token = context.req.header("Authorization");
+    const queryTexts = queries.map((query) => query.text);
 
-    if (pages.length > 0) {
-      const sources = toDataSourceInputs(data.tickerId, pages);
-      await sendToAgentDataAPI(token, sources);
+    const searchResults = await performWebSearch(queryTexts, {
+      serperApiKey: env.SERPER_API_KEY,
+    });
+
+    const fetchResults = await performWebFetch(searchResults, {
+      jinaApiKey: env.JINA_API_KEY,
+    });
+
+    if (fetchResults.length > 0) {
+      await agentDataApiClient.post({
+        body: fetchResults.map((page) => ({
+          url: page.url,
+          title: page.title,
+          description: page.description,
+          tickerId: data.tickerId,
+        })),
+        apiKey,
+      });
     }
 
     return context.json(
@@ -74,146 +84,12 @@ app.post("/", async (context) => {
     );
   } catch (error) {
     logger.error({ err: error }, "Data collection agent error");
+
     return context.json({ message: "Internal Server Error" }, 500);
   }
 });
 
-async function fetchSearchQueriesFromAgentDataAPI(
-  token: string | undefined,
-  body: BodySchemaType,
-) {
-  const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/api/data-collection";
-  url.searchParams.set("tickerId", body.tickerId);
-
-  if (body.timeWindow) {
-    url.searchParams.set("start", body.timeWindow.start);
-    url.searchParams.set("end", body.timeWindow.end);
-  }
-
-  const res = await got.get(url.toString(), {
-    headers: { ...(token && { Authorization: token }) },
-  });
-
-  const data = JSON.parse(res.body) as { searchQueries: SearchQuery[] };
-
-  return data.searchQueries;
-}
-
-type SearchQuery = {
-  id: string;
-  text: string;
-  tickerId: string;
-};
-
-export async function performWebSearchWithQueries(
-  queries: SearchQuery[],
-): Promise<CollectedPage[]> {
-  if (!queries.length) return [];
-
-  const results = await Promise.all(
-    queries.map(async (query) => {
-      const data = await got
-        .post("https://google.serper.dev/search", {
-          json: { q: query.text },
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-KEY": env.SERPER_API_KEY,
-          },
-        })
-        .json<{
-          organic?: Array<{ link?: string; title?: string; snippet?: string }>;
-        }>();
-      const first = data?.organic?.[0];
-
-      return {
-        url: first?.link ?? "",
-        title: first?.title ?? "",
-        content: first?.snippet ?? "",
-        tickerId: query.tickerId,
-        searchQueryId: query.id,
-        searchQueryText: query.text,
-      };
-    }),
-  );
-
-  return results;
-}
-
-async function fetchWebPageContents(
-  searchResults: Omit<CollectedPage, "content">[],
-): Promise<CollectedPage[]> {
-  const fetchPages = searchResults.map(async (result) => {
-    const json = await got
-      .post("https://r.jina.ai/", {
-        json: { url: result.url },
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${env.JINA_API_KEY}`,
-        },
-      })
-      .json<{
-        data?: { url?: string; title?: string; content?: string };
-      }>();
-
-    return {
-      url: json.data?.url ?? result.url,
-      title: json.data?.title ?? result.title,
-      content: json.data?.content ?? "",
-      tickerId: result.tickerId,
-      searchQueryId: result.searchQueryId,
-      searchQueryText: result.searchQueryText,
-    };
-  });
-
-  return Promise.all(fetchPages);
-}
-
-/**
- * Converts collected pages to the shared DataSourceInput shape with optional metadata.
- */
-function toDataSourceInputs(
-  tickerId: string,
-  pages: CollectedPage[],
-): DataSourceInput[] {
-  const fetchedAt = new Date().toISOString();
-  return pages.map((page) => ({
-    url: page.url,
-    title: page.title,
-    content: page.content,
-    tickerId,
-    searchQueryId: page.searchQueryId,
-    metadata:
-      page.searchQueryText != null
-        ? {
-            searchQueryText: page.searchQueryText,
-            fetchedAt,
-            sourceType: "web" as const,
-          }
-        : { fetchedAt, sourceType: "web" as const },
-  }));
-}
-
-async function sendToAgentDataAPI(
-  token: string | undefined,
-  sources: DataSourceInput[],
-) {
-  if (!env.AGENT_DATA_API_URL) {
-    throw new Error("AGENT_DATA_API_URL is not defined");
-  }
-
-  const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/api/data-collection";
-
-  await got.post(url.toString(), {
-    json: sources,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: token }),
-    },
-  });
-}
+app.get("/config", (context) => context.json(getConfigSchema(), 200));
 
 export default {
   port: env.PORT ?? 4001,

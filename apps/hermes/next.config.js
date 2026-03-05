@@ -12,6 +12,11 @@ const envDir = path.resolve(__dirname, "../../packages/env");
 loadEnvConfig(envDir);
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  output: "standalone",
+  experimental: {
+    outputFileTracingRoot: path.resolve(__dirname, "../.."),
+  },
+};
 
 export default nextConfig;

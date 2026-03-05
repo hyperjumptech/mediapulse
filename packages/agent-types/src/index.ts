@@ -5,7 +5,7 @@ export {
   type DataSourceInput,
   type DataSourceRecord,
   type SourceMetadata,
-} from "./sources.js";
+} from "./data-collection.js";
 
 export {
   deliveryConfigSchema,

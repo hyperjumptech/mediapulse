@@ -117,7 +117,7 @@ describe("agent-data-api", () => {
   });
 
   describe("GET /api/data-collection", () => {
-    it("returns 200 and searchQueries when service returns data", async () => {
+    it("returns 200 and data when service returns data", async () => {
       const mod = await getDataCollectionService();
       mod.getSearchQueries.mockResolvedValue([
         { id: "sq-1", text: "query one", tickerId: TICKER_ID },
@@ -131,9 +131,9 @@ describe("agent-data-api", () => {
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body).toHaveProperty("searchQueries");
-      expect(body.searchQueries).toHaveLength(1);
-      expect(body.searchQueries[0].text).toBe("query one");
+      expect(body).toHaveProperty("data");
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].text).toBe("query one");
     });
   });
 

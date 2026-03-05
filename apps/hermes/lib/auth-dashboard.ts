@@ -82,3 +82,15 @@ export const getDashboardSession = async ({
   }
   return null;
 };
+
+/**
+ * Wrapper for use with route-action-gen requestValidator.user.
+ * Ignores the request argument and returns the dashboard session from cookies/headers.
+ *
+ * @param _request - Optional request (ignored; session is read from next/headers).
+ * @returns The authenticated user or null.
+ */
+export const getDashboardSessionForRoute = async (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature required by route-action-gen
+  _request?: Request,
+): Promise<DashboardUser | null> => getDashboardSession();
