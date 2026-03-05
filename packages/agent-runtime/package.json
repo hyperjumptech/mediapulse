@@ -1,0 +1,30 @@
+{
+  "name": "@workspace/agent-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "type:check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/logger": "workspace:*",
+    "got": "catalog:",
+    "hono": "catalog:",
+    "hono-pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

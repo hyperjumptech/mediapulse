@@ -1,95 +1,62 @@
-import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
+import {
+  createAgentApp,
+  dataApiGet,
+  dataApiPost,
+} from "@workspace/agent-runtime";
 import { env } from "@workspace/env/agents-delivery";
-import { logger } from "@workspace/logger";
-import got from "got";
-
-import { Hono } from "hono";
-import { bearerAuth } from "hono/bearer-auth";
-import { pinoLogger } from "hono-pino";
 import { z } from "zod";
 
 import { sendEmailToUsers } from "./send-email-to-users.js";
-import { sendToAgentDataAPI } from "./send-to-agent-data-api.js";
-
-const app = new Hono();
-
-app.use(pinoLogger({ pino: logger }));
-app.use(
-  "*",
-  bearerAuth({
-    verifyToken: (token) =>
-      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
-  }),
-);
 
 const BodySchema = z.object({
   tickerId: z.string().uuid(),
 });
 
-app.post("/", async (context) => {
-  try {
-    const body = await context.req.json();
-    const data = await BodySchema.parseAsync(body);
+type Input = z.infer<typeof BodySchema>;
 
-    const token = context.req.header("Authorization");
-
-    const deliveryData = await fetchDeliveryDataFromAgentDataAPI(
-      token,
-      data.tickerId,
-    );
-
-    if (!deliveryData) {
-      logger.info(
-        { tickerId: data.tickerId },
-        "No newsletter for this ticker, skipping delivery",
-      );
-      return context.json(
-        { agentId: "delivery", agentVersion: "1.0.0", skipped: true },
-        200,
-      );
-    }
-
-    const { newsletter, subscribers } = deliveryData;
-
-    if (subscribers.length > 0) {
-      await sendEmailToUsers(newsletter, subscribers);
-    }
-
-    await sendToAgentDataAPI(token, data.tickerId);
-
-    return context.json({ agentId: "delivery", agentVersion: "1.0.0" }, 200);
-  } catch (error) {
-    logger.error({ err: error }, "Delivery agent error");
-    return context.json({ message: "Internal Server Error" }, 500);
-  }
-});
-
-async function fetchDeliveryDataFromAgentDataAPI(
-  token: string | undefined,
-  tickerId: string,
-): Promise<{
+type DeliveryData = {
   newsletter: { subject: string; content: string };
   subscribers: { email: string }[];
-} | null> {
-  const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/api/delivery";
-  url.searchParams.set("tickerId", tickerId);
+};
 
-  const res = await got.get(url.toString(), {
-    headers: { ...(token && { Authorization: token }) },
-    throwHttpErrors: false,
-  });
+const app = createAgentApp<Input, typeof BodySchema>(
+  {
+    agentId: "delivery",
+    agentVersion: "1.0.0",
+    inputSchema: BodySchema,
+    run: async ({ input, token }) => {
+      const deliveryData = await dataApiGet<DeliveryData>(
+        token,
+        env.AGENT_DATA_API_URL,
+        "/api/delivery",
+        { tickerId: input.tickerId },
+      );
 
-  if (!res.ok) {
-    throw new Error(`Agent data API error: ${res.statusCode}`);
-  }
+      if (!deliveryData?.newsletter) {
+        return {
+          success: false,
+          statusCode: 200,
+          skipped: true,
+        };
+      }
 
-  const body = JSON.parse(res.body) as {
-    newsletter: { subject: string; content: string };
-    subscribers: { email: string }[];
-  };
-  return body;
-}
+      const { newsletter, subscribers } = deliveryData;
+
+      if (subscribers.length > 0) {
+        await sendEmailToUsers(newsletter, subscribers);
+      }
+
+      await dataApiPost(token, env.AGENT_DATA_API_URL, "/api/delivery", {
+        userTickerId: input.tickerId,
+      });
+
+      return { success: true };
+    },
+  },
+  {
+    authApiUrl: env.AGENT_AUTH_API_URL,
+  },
+);
 
 export default {
   port: env.PORT ?? 4003,

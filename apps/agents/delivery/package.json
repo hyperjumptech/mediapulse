@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-runtime": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:",

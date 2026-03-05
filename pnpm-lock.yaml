@@ -236,6 +236,9 @@ importers:
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/agent-auth-client
+      '@workspace/agent-runtime':
+        specifier: workspace:*
+        version: link:../../../packages/agent-runtime
       '@workspace/agent-types':
         specifier: workspace:*
         version: link:../../../packages/agent-types
@@ -276,6 +279,9 @@ importers:
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/agent-auth-client
+      '@workspace/agent-runtime':
+        specifier: workspace:*
+        version: link:../../../packages/agent-runtime
       '@workspace/agent-types':
         specifier: workspace:*
         version: link:../../../packages/agent-types
@@ -313,6 +319,9 @@ importers:
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/agent-auth-client
+      '@workspace/agent-runtime':
+        specifier: workspace:*
+        version: link:../../../packages/agent-runtime
       '@workspace/env':
         specifier: workspace:*
         version: link:../../../packages/env
@@ -555,6 +564,37 @@ importers:
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/agent-auth-client: {}
+
+  packages/agent-runtime:
+    dependencies:
+      '@workspace/agent-auth-client':
+        specifier: workspace:*
+        version: link:../agent-auth-client
+      '@workspace/logger':
+        specifier: workspace:*
+        version: link:../logger
+      got:
+        specifier: 'catalog:'
+        version: 14.6.6
+      hono:
+        specifier: 'catalog:'
+        version: 4.11.9
+      hono-pino:
+        specifier: 'catalog:'
+        version: 0.6.0(hono@4.11.9)(pino@10.3.1)
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/agent-types:
     dependencies:

@@ -25,10 +25,6 @@ vi.mock("./send-email-to-users.js", () => ({
   sendEmailToUsers: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("./send-to-agent-data-api.js", () => ({
-  sendToAgentDataAPI: vi.fn().mockResolvedValue(undefined),
-}));
-
 const getGot = async () => (await import("got")).default;
 const getSendEmail = async () =>
   (await import("./send-email-to-users.js")).sendEmailToUsers;
@@ -52,6 +48,7 @@ describe("delivery-agent", () => {
         subscribers: [{ email: "u@example.com" }],
       }),
     });
+    (got.post as any).mockResolvedValue({ statusCode: 200, body: "" });
 
     const { default: agent } = await import("./_main.js");
     const res = await agent.fetch(

@@ -1,24 +1,13 @@
 import type { DataSourceInput } from "@workspace/agent-types";
-import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
+import {
+  createAgentApp,
+  dataApiGet,
+  dataApiPost,
+} from "@workspace/agent-runtime";
 import { env } from "@workspace/env/agents-data-collection";
-import { logger } from "@workspace/logger";
 import got from "got";
 
-import { Hono } from "hono";
-import { bearerAuth } from "hono/bearer-auth";
-import { pinoLogger } from "hono-pino";
 import { z } from "zod";
-
-const app = new Hono();
-app.use(pinoLogger({ pino: logger }));
-
-app.use(
-  "*",
-  bearerAuth({
-    verifyToken: (token) =>
-      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
-  }),
-);
 
 const BodySchema = z.object({
   tickerId: z.string(),
@@ -30,7 +19,13 @@ const BodySchema = z.object({
     .optional(),
 });
 
-type BodySchemaType = z.infer<typeof BodySchema>;
+type Input = z.infer<typeof BodySchema>;
+
+type SearchQuery = {
+  id: string;
+  text: string;
+  tickerId: string;
+};
 
 /** Internal shape for a collected page before sending to the API (includes searchQueryText for metadata). */
 interface CollectedPage {
@@ -42,69 +37,53 @@ interface CollectedPage {
   searchQueryText?: string;
 }
 
-app.post("/", async (context) => {
-  try {
-    const body = await context.req.json();
-    const data = await BodySchema.parseAsync(body);
+const app = createAgentApp<Input, typeof BodySchema>(
+  {
+    agentId: "data-collection",
+    agentVersion: "1.0.0",
+    inputSchema: BodySchema,
+    run: async ({ input, token }) => {
+      if (!env.JINA_API_KEY) {
+        return {
+          success: false,
+          statusCode: 500,
+          message: "JINA_API_KEY is not configured",
+        };
+      }
+      if (!env.SERPER_API_KEY) {
+        return {
+          success: false,
+          statusCode: 500,
+          message: "SERPER_API_KEY is not configured",
+        };
+      }
 
-    if (!env.JINA_API_KEY) {
-      return context.json({ message: "JINA_API_KEY is not configured" }, 500);
-    }
+      const query: Record<string, string> = { tickerId: input.tickerId };
+      if (input.timeWindow) {
+        query.start = input.timeWindow.start;
+        query.end = input.timeWindow.end;
+      }
+      const { searchQueries: queries } = await dataApiGet<{
+        searchQueries: SearchQuery[];
+      }>(token, env.AGENT_DATA_API_URL, "/api/data-collection", query);
+      const searchResults = await performWebSearchWithQueries(queries);
+      const pages = await fetchWebPageContents(searchResults);
 
-    if (!env.SERPER_API_KEY) {
-      return context.json({ message: "SERPER_API_KEY is not configured" }, 500);
-    }
+      if (pages.length > 0) {
+        const sources = toDataSourceInputs(input.tickerId, pages);
+        await dataApiPost(
+          token,
+          env.AGENT_DATA_API_URL,
+          "/api/data-collection",
+          sources,
+        );
+      }
 
-    const queries = await fetchSearchQueriesFromAgentDataAPI(
-      context.req.header("Authorization"),
-      data,
-    );
-    const searchResults = await performWebSearchWithQueries(queries);
-    const pages = await fetchWebPageContents(searchResults);
-    const token = context.req.header("Authorization");
-
-    if (pages.length > 0) {
-      const sources = toDataSourceInputs(data.tickerId, pages);
-      await sendToAgentDataAPI(token, sources);
-    }
-
-    return context.json(
-      { agentId: "data-collection", agentVersion: "1.0.0" },
-      200,
-    );
-  } catch (error) {
-    logger.error({ err: error }, "Data collection agent error");
-    return context.json({ message: "Internal Server Error" }, 500);
-  }
-});
-
-async function fetchSearchQueriesFromAgentDataAPI(
-  token: string | undefined,
-  body: BodySchemaType,
-) {
-  const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/api/data-collection";
-  url.searchParams.set("tickerId", body.tickerId);
-
-  if (body.timeWindow) {
-    url.searchParams.set("start", body.timeWindow.start);
-    url.searchParams.set("end", body.timeWindow.end);
-  }
-
-  const res = await got.get(url.toString(), {
-    headers: { ...(token && { Authorization: token }) },
-  });
-
-  const data = JSON.parse(res.body) as { searchQueries: SearchQuery[] };
-
-  return data.searchQueries;
-}
-
-type SearchQuery = {
-  id: string;
-  text: string;
-  tickerId: string;
-};
+      return { success: true };
+    },
+  },
+  { authApiUrl: env.AGENT_AUTH_API_URL },
+);
 
 export async function performWebSearchWithQueries(
   queries: SearchQuery[],
@@ -193,26 +172,6 @@ function toDataSourceInputs(
           }
         : { fetchedAt, sourceType: "web" as const },
   }));
-}
-
-async function sendToAgentDataAPI(
-  token: string | undefined,
-  sources: DataSourceInput[],
-) {
-  if (!env.AGENT_DATA_API_URL) {
-    throw new Error("AGENT_DATA_API_URL is not defined");
-  }
-
-  const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/api/data-collection";
-
-  await got.post(url.toString(), {
-    json: sources,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: token }),
-    },
-  });
 }
 
 export default {
