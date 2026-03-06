@@ -2,6 +2,10 @@
 
 Run `pnpm dev --filter hermes` from the root of the monorepo (or `pnpm dev` from `apps/hermes`). Hermes listens on port 3001.
 
+## Dashboard
+
+The Hermes dashboard (`/dashboard`) provides CRUD for **Pipelines**, **Tickers**, **Agents**, and **Schedules**. Use the sidebar to open each section. Schedules define when and how a pipeline runs (once or repeating, with cron or interval).
+
 ## Scheduler (DataQueue)
 
 Schedules are stored in the database (`Schedule` table). A DataQueue cron job runs every minute and executes due schedules (expand params, invoke pipeline steps via HTTP).

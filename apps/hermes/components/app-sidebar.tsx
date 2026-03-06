@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, GitBranch, LayoutDashboard, TrendingUp } from "lucide-react";
+import {
+  Bot,
+  Calendar,
+  GitBranch,
+  LayoutDashboard,
+  TrendingUp,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -33,6 +39,7 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
   const isPipelines = pathname === "/dashboard/pipelines";
   const isTickers = pathname?.startsWith("/dashboard/tickers") ?? false;
   const isAgents = pathname?.startsWith("/dashboard/agents") ?? false;
+  const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
 
   return (
     <Sidebar {...props}>
@@ -77,6 +84,14 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/agents">
                   <Bot className="size-4" />
                   <span>Agents</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isSchedules}>
+                <Link href="/dashboard/schedules">
+                  <Calendar className="size-4" />
+                  <span>Schedules</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

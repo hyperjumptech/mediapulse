@@ -10,7 +10,7 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 
 ## Features
 
-- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, and agents (CRUD).
+- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, agents, and schedules (CRUD).
 - **Database-driven scheduler** — Schedules are stored in the `Schedule` table; a DataQueue cron job runs every minute, polls for due schedules, expands data-source params (e.g. `db:ticker:all:id`), and invokes pipeline steps via HTTP. No hardcoded cron in code.
 - **Manual run** — Trigger a pipeline run from the dashboard.
 - **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@workspace/idx-tickers-importer`.
@@ -18,10 +18,11 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 
 ## Key routes / entrypoints
 
-- Dashboard: `/dashboard` (pipelines, tickers, agents).
+- Dashboard: `/dashboard` (pipelines, tickers, agents, schedules).
 - Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline.
 - Ticker actions: create, update, delete, import (IDX).
 - Agent actions: create, update.
+- Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). The scheduler uses `nextRunAt` to pick due schedules; for repeating runs, `nextRunAt` is recomputed after each execution.
 - Logout: `/logout`.
 
 ## Port

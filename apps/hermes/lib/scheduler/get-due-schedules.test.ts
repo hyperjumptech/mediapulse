@@ -9,9 +9,9 @@ describe("getDueSchedules", () => {
 
   it("calls schedule.findMany with enabled and nextRunAt lte now", async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    const db: GetDueSchedulesDb = {
+    const db = {
       schedule: { findMany },
-    } as GetDueSchedulesDb;
+    } as unknown as GetDueSchedulesDb;
 
     await getDueSchedules(db);
 
@@ -35,9 +35,9 @@ describe("getDueSchedules", () => {
         pipeline: { id: "p1", steps: [] },
       },
     ];
-    const db: GetDueSchedulesDb = {
+    const db = {
       schedule: { findMany: vi.fn().mockResolvedValue(schedules) },
-    } as GetDueSchedulesDb;
+    } as unknown as GetDueSchedulesDb;
 
     const result = await getDueSchedules(db);
 
