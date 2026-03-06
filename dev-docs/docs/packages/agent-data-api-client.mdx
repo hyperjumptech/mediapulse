@@ -1,0 +1,21 @@
+---
+title: agent-data-api-client
+description: Typed client for calling the agent-data-api
+icon: Plug
+---
+
+## Purpose
+
+`@workspace/agent-data-api-client` provides a **typed client** for the agent-data-api (GET/POST to content-generation, data-collection, delivery endpoints). Agents can use it instead of raw `dataApiGet` / `dataApiPost` for stronger typing.
+
+## Build
+
+Package is built with TypeScript (`pnpm build`); exports from `dist/index.js` and `dist/index.d.ts`.
+
+## Consumers
+
+data-collection agent (and optionally content-generation, delivery) when they want typed methods for specific endpoints.
+
+## Related
+
+[agent-runtime](/packages/agent-runtime) provides `dataApiGet` and `dataApiPost` that work with any endpoint; this package adds endpoint-specific types and possibly convenience methods.

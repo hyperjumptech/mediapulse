@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "dotenv -e ../../../packages/env/.env.agents.data-collection -- bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "type:check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
@@ -19,11 +21,13 @@
     "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "^4"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:",
+    "typescript": "catalog:",
     "vitest": "catalog:"
   }
 }

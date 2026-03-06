@@ -19,6 +19,18 @@ vi.mock("@workspace/env/agents-data-collection", () => ({
 const getMock = vi.fn();
 const postMock = vi.fn();
 
+vi.mock("@workspace/agent-runtime", async () => {
+  const actual = await vi.importActual<
+    typeof import("@workspace/agent-runtime")
+  >("@workspace/agent-runtime");
+
+  return {
+    ...actual,
+    dataApiGet: getMock,
+    dataApiPost: postMock,
+  };
+});
+
 vi.mock("../src/utilities/web-search.js", () => ({
   performWebSearch: vi.fn().mockResolvedValue([
     {
@@ -45,24 +57,6 @@ vi.mock("../src/utilities/web-fetch.js", () => ({
   ]),
 }));
 
-vi.mock("@workspace/agent-data-api-client", () => {
-  class MockAgentDataApiClient {
-    url: string;
-
-    constructor(opts: { url: string }) {
-      this.url = opts.url;
-    }
-
-    get = getMock;
-
-    post = postMock;
-  }
-
-  return {
-    AgentDataApiClient: MockAgentDataApiClient,
-  };
-});
-
 describe("data-collection-agent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -74,8 +68,9 @@ describe("data-collection-agent", () => {
 
   it("returns 200 and success when data collection is successful", async () => {
     getMock.mockResolvedValue({
-      data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
+      searchQueries: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
     });
+    postMock.mockResolvedValue("{}");
 
     const { default: app } = await import("../src/index.js");
 
@@ -87,7 +82,7 @@ describe("data-collection-agent", () => {
       }),
     );
 
-    const body = await res.json();
+    const body = (await res.json()) as { agentId: string };
 
     expect(res.status).toBe(200);
     expect(body.agentId).toBe("data-collection");
@@ -111,7 +106,7 @@ describe("data-collection-agent", () => {
       }),
     );
 
-    const body = await res.json();
+    const body = (await res.json()) as { message: string };
 
     expect(res.status).toBe(500);
     expect(body.message).toContain("JINA_API_KEY is not configured");

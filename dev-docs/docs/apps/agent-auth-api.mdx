@@ -1,0 +1,45 @@
+---
+title: agent-auth-api
+description: API for API key lifecycle and token verification
+icon: Key
+---
+
+## Purpose
+
+agent-auth-api is a Hono server that manages **API keys** (create, list, get, update, delete, deactivate, reactivate) and exposes **token verification** for other services (e.g. agents and agent-data-api). Agents and the data API use it to validate `Authorization: Bearer <token>`.
+
+## Features
+
+- **POST /api/verify** — Verify a bearer token (no basic auth). Used by agents and agent-data-api.
+- **API key CRUD** — Create, retrieve (list + by id), update, delete API keys.
+- **Deactivate / reactivate** — Soft-disable keys without deleting.
+- **Temporary admin auth** — API key management is protected by HTTP Basic Auth (`TEMP_ADMIN_USERNAME` / `TEMP_ADMIN_PASSWORD`) until a proper admin flow exists.
+
+## Key routes
+
+| Method | Path                           | Description         |
+| ------ | ------------------------------ | ------------------- |
+| POST   | `/api/verify`                  | Verify bearer token |
+| POST   | `/api/api-keys`                | Create API key      |
+| GET    | `/api/api-keys`                | List API keys       |
+| GET    | `/api/api-keys/:id`            | Get one API key     |
+| PATCH  | `/api/api-keys/:id`            | Update API key      |
+| DELETE | `/api/api-keys/:id`            | Delete API key      |
+| POST   | `/api/api-keys/:id/deactivate` | Deactivate          |
+| POST   | `/api/api-keys/:id/reactivate` | Reactivate          |
+
+## Port
+
+- **8080** (default from `env.PORT`).
+
+## Workspace dependencies
+
+- `@workspace/api-utils` — Error helpers (e.g. `internalError`, `notFound`).
+- `@workspace/env` — Environment variables.
+- `@workspace/database` — Prisma for API keys and user association.
+- `@workspace/logger` — Pino logger (hono-pino).
+
+## Related docs
+
+- [agent-data-api](/apps/agent-data-api) — Uses verification.
+- [Packages: agent-auth-client](/packages/agent-auth-client), [database](/packages/database).

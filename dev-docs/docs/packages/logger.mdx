@@ -1,0 +1,23 @@
+---
+title: logger
+description: Pino logger with redaction for secrets and PII
+icon: FileText
+---
+
+## Purpose
+
+`@workspace/logger` exports a **Pino logger** configured with **redaction** for authorization headers, cookies, API keys, passwords, tokens, and PII (e.g. email). Used by all APIs and agents so logs stay safe.
+
+## Exports
+
+- **`logger`** — Default Pino instance (level from `LOG_LEVEL`, default `info`).
+- **`pino`** — Pino constructor for custom instances.
+- **`Logger`** — Type from `pino`.
+
+## Redaction paths
+
+Includes `req.headers.authorization`, `*.password`, `*.token`, `*.apiKey`, `email`, and similar. Redacted values are replaced with `[REDACTED]`.
+
+## Consumers
+
+Hermes, Dashboard, agent-auth-api, agent-data-api, agent-registry-api, content-generation, data-collection, delivery (often via hono-pino middleware).

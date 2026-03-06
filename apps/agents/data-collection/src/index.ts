@@ -1,95 +1,124 @@
-import { Hono } from "hono";
-import { bearerAuth } from "hono/bearer-auth";
-import { pinoLogger } from "hono-pino";
-
-import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
-import { AgentDataApiClient } from "@workspace/agent-data-api-client";
+import type { DataCollectionInput } from "@workspace/agent-types";
+import {
+  createAgentApp,
+  dataApiGet,
+  dataApiPost,
+} from "@workspace/agent-runtime";
 import { env } from "@workspace/env/agents-data-collection";
-import { logger } from "@workspace/logger";
 
-import { BodySchema } from "./utilities/body-schema.js";
-import { getConfigSchema } from "./utilities/config-schema.js";
-import { performWebSearch } from "./utilities/web-search.js";
+import { z } from "zod";
 import { performWebFetch } from "./utilities/web-fetch.js";
+import {
+  performWebSearch,
+  type SearchQuery,
+  type WebSearchResult,
+} from "./utilities/web-search.js";
 
-const app = new Hono();
+const BodySchema = z.object({
+  tickerId: z.string(),
+  timeWindow: z
+    .object({
+      start: z.string().datetime(),
+      end: z.string().datetime(),
+    })
+    .optional(),
+});
 
-app.use(pinoLogger({ pino: logger }));
+type Input = z.infer<typeof BodySchema>;
 
-app.use(
-  "*",
-  bearerAuth({
-    verifyToken: (token) => {
-      return verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL);
+/** Internal shape for a collected page before sending to the API (includes searchQueryText for metadata). */
+interface CollectedPage {
+  url: string;
+  title: string;
+  content: string;
+  tickerId: string;
+  searchQueryId: string;
+  searchQueryText: string;
+}
+
+const app = createAgentApp<Input, typeof BodySchema>(
+  {
+    agentId: "data-collection",
+    agentVersion: "1.0.0",
+    inputSchema: BodySchema,
+    run: async ({ input, token }) => {
+      if (!env.JINA_API_KEY) {
+        return {
+          success: false,
+          statusCode: 500,
+          message: "JINA_API_KEY is not configured",
+        };
+      }
+      if (!env.SERPER_API_KEY) {
+        return {
+          success: false,
+          statusCode: 500,
+          message: "SERPER_API_KEY is not configured",
+        };
+      }
+
+      const query: Record<string, string> = { tickerId: input.tickerId };
+      if (input.timeWindow) {
+        query.start = input.timeWindow.start;
+        query.end = input.timeWindow.end;
+      }
+      const { searchQueries: queries } = await dataApiGet<{
+        searchQueries: SearchQuery[];
+      }>(token, env.AGENT_DATA_API_URL, "/api/data-collection", query);
+      const searchResults = await performWebSearchWithQueries(queries);
+      const pages = await fetchWebPageContents(searchResults);
+
+      if (pages.length > 0) {
+        const sources = toDataCollectionInputs(input.tickerId, pages);
+        await dataApiPost(
+          token,
+          env.AGENT_DATA_API_URL,
+          "/api/data-collection",
+          sources,
+        );
+      }
+
+      return { success: true };
     },
-  }),
+  },
+  { authApiUrl: env.AGENT_AUTH_API_URL },
 );
 
-const agentDataApiClient = new AgentDataApiClient({
-  url: `${env.AGENT_DATA_API_URL}/api/data-collection`,
-});
+export async function performWebSearchWithQueries(
+  queries: SearchQuery[],
+): Promise<CollectedPage[]> {
+  const results = await performWebSearch(queries, {
+    serperApiKey: env.SERPER_API_KEY,
+  });
 
-app.post("/", async (context) => {
-  if (!env.JINA_API_KEY) {
-    return context.json({ message: "JINA_API_KEY is not configured" }, 500);
-  }
+  return results;
+}
 
-  if (!env.SERPER_API_KEY) {
-    return context.json({ message: "SERPER_API_KEY is not configured" }, 500);
-  }
+async function fetchWebPageContents(
+  searchResults: WebSearchResult[],
+): Promise<CollectedPage[]> {
+  const pages = await performWebFetch(searchResults, {
+    jinaApiKey: env.JINA_API_KEY,
+  });
 
-  try {
-    const apiKey = context.req.header("Authorization");
-    const body = await context.req.json();
-    const data = await BodySchema.parseAsync(body);
+  return pages;
+}
 
-    const query: Record<string, string> = {
-      tickerId: data.tickerId,
-    };
-
-    if (data.timeWindow) {
-      query.start = data.timeWindow.start;
-      query.end = data.timeWindow.end;
-    }
-
-    const { data: queries } = await agentDataApiClient.get<{
-      data: { text: string }[];
-    }>({ query, apiKey });
-
-    const queryTexts = queries.map((query) => query.text);
-
-    const searchResults = await performWebSearch(queryTexts, {
-      serperApiKey: env.SERPER_API_KEY,
-    });
-
-    const fetchResults = await performWebFetch(searchResults, {
-      jinaApiKey: env.JINA_API_KEY,
-    });
-
-    if (fetchResults.length > 0) {
-      await agentDataApiClient.post({
-        body: fetchResults.map((page) => ({
-          url: page.url,
-          title: page.title,
-          description: page.description,
-          tickerId: data.tickerId,
-        })),
-        apiKey,
-      });
-    }
-
-    return context.json(
-      { agentId: "data-collection", agentVersion: "1.0.0" },
-      200,
-    );
-  } catch (error) {
-    logger.error({ err: error }, "Data collection agent error");
-
-    return context.json({ message: "Internal Server Error" }, 500);
-  }
-});
-
-app.get("/config", (context) => context.json(getConfigSchema(), 200));
+/**
+ * Converts collected pages to the shared DataCollectionInput shape.
+ */
+function toDataCollectionInputs(
+  tickerId: string,
+  pages: CollectedPage[],
+): DataCollectionInput[] {
+  return pages.map((page) => ({
+    url: page.url,
+    title: page.title,
+    content: page.content,
+    tickerId,
+    searchQueryId: page.searchQueryId,
+  }));
+}
 
 export default {
   port: env.PORT ?? 4001,

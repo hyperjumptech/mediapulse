@@ -1,0 +1,18 @@
+---
+title: utils
+description: General-purpose utilities
+icon: Box
+---
+
+## Purpose
+
+`@workspace/utils` provides **general utilities** used across the repo (e.g. timing, formatting, async helpers). Built with TypeScript; exports from `dist/`.
+
+## Exports
+
+- **`sleep(ms)`** — Promise that resolves after `ms` milliseconds; used in agents (e.g. rate limiting, retries).
+- Other shared helpers as needed (see package `src/` and exports).
+
+## Consumers
+
+data-collection agent (e.g. `sleep` in web-fetch or web-search), scripts, and other packages that need generic helpers.
