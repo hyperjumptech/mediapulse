@@ -53,7 +53,7 @@ describe("config", () => {
     const parsed = dataCollectionAgentConfigSchema.parse(config);
 
     // Assert
-    expect(parsed.webSearch["serper-dev"].baseUrl).toBe(
+    expect(parsed.webSearch["serper-dev"]?.baseUrl).toBe(
       "https://google.serper.dev",
     );
   });
