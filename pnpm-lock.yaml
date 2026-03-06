@@ -318,6 +318,9 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
+      zod-to-json-schema:
+        specifier: ^3.25.1
+        version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@types/bun':
         specifier: latest
@@ -421,7 +424,7 @@ importers:
         version: 19.2.3(react@19.2.3)
       route-action-gen:
         specifier: 'catalog:'
-        version: 0.0.10(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76)
+        version: 0.0.10(next@16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76)
       sonner:
         specifier: 'catalog:'
         version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -536,7 +539,7 @@ importers:
         version: 19.2.3(react@19.2.3)
       route-action-gen:
         specifier: 'catalog:'
-        version: 0.0.10(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76)
+        version: 0.0.10(next@16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76)
       sonner:
         specifier: 'catalog:'
         version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -565,6 +568,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.4
+        version: 5.1.4(vite@7.3.1(@types/node@20.19.33)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
@@ -16364,7 +16370,7 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.57.1
       fsevents: 2.3.3
 
-  route-action-gen@0.0.10(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76):
+  route-action-gen@0.0.10(next@16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76):
     dependencies:
       glob: 13.0.2
       zod: 3.25.76

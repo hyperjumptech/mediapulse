@@ -81,8 +81,8 @@ test("getActiveUsers returns only active users", async () => {
 
 ## Errors & Linting
 
-- Always resolve **all** linter errors and warnings before finishing.
-- Always resolve **all** TypeScript errors and warnings before finishing both during the build and in the IDE.
+- Always resolve **all** linter errors and warnings before finishing. Run "pnpm lint" from the root of the project to check for all lint errors.
+- Always resolve **all** TypeScript errors and warnings before finishing both during the build and in the IDE. Run "pnpm type:check" from the root of the project to check for all TypeScript errors.
 
 ## Formatting
 
