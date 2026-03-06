@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog";
 
-import { TickerEditForm } from "./[id]/ticker-edit-form";
+import { TickerEditForm } from "./ticker-edit-form";
 import type { TickersPageResult } from "@/lib/tickers";
 
 type TickerRow = TickersPageResult["tickers"][number];
