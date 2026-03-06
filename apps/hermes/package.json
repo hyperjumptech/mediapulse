@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "generate": "route-action-gen",
-    "dev": "pnpm generate && next dev --turbopack -p 3001",
+    "migrate-dataqueue": "dataqueue-cli migrate",
+    "dev": "pnpm generate && pnpm migrate-dataqueue:dev && next dev --turbopack -p 3001",
+    "migrate-dataqueue:dev": "dataqueue-cli migrate --envPath .env.local --schema dataqueue --verbose",
     "build": "pnpm generate && next build",
     "start": "next start",
     "lint": "eslint .",
@@ -16,6 +18,8 @@
     "test:coverage": "pnpm generate && vitest --run --coverage"
   },
   "dependencies": {
+    "@nicnocquee/dataqueue": "^1.36.0",
+    "cron-parser": "^5.0.0",
     "@next/env": "catalog:",
     "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
@@ -29,7 +33,6 @@
     "lucide-react": "catalog:",
     "next": "catalog:",
     "next-themes": "catalog:",
-    "node-cron": "^4.2.1",
     "react": "catalog:",
     "react-dom": "catalog:",
     "route-action-gen": "catalog:",
@@ -42,7 +45,6 @@
     "@testing-library/react": "^16.3.2",
     "@types/bcrypt": "catalog:",
     "@types/node": "catalog:",
-    "@types/node-cron": "^3.0.11",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitest/coverage-v8": "catalog:",

@@ -6,6 +6,8 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
+    /** PostgreSQL connection string for DataQueue (Hermes). Use same DB with ?schema=dataqueue or dedicated URL. */
+    PG_DATAQUEUE_DATABASE: z.string().optional(),
     DATABASE_CERT_BASE64: z.string().optional(),
     PORT: z.number({ coerce: true }).optional(),
     AGENT_DATA_API_URL: z.string().optional(),
