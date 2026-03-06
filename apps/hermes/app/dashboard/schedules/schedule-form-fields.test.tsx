@@ -35,8 +35,24 @@ vi.mock("@workspace/ui/lib/utils", () => ({
 }));
 
 const createMockPipelines = () => [
-  { id: "pipeline-1", name: "Pipeline A", steps: [] },
-  { id: "pipeline-2", name: "Pipeline B", steps: [] },
+  {
+    id: "pipeline-1",
+    name: "Pipeline A",
+    description: null,
+    isActive: true,
+    steps: [],
+    createdAt: new Date("2024-01-15"),
+    updatedAt: new Date("2024-01-15"),
+  },
+  {
+    id: "pipeline-2",
+    name: "Pipeline B",
+    description: null,
+    isActive: true,
+    steps: [],
+    createdAt: new Date("2024-01-15"),
+    updatedAt: new Date("2024-01-15"),
+  },
 ];
 
 describe("ScheduleFormFields", () => {

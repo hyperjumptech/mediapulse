@@ -92,7 +92,15 @@ vi.mock("./schedule-form-fields", () => ({
 }));
 
 const createMockPipelines = () => [
-  { id: "pipeline-1", name: "Pipeline A", steps: [] },
+  {
+    id: "pipeline-1",
+    name: "Pipeline A",
+    description: null,
+    isActive: true,
+    steps: [],
+    createdAt: new Date("2024-01-15"),
+    updatedAt: new Date("2024-01-15"),
+  },
 ];
 
 const getCreateUseFormActionMock = async () => {

@@ -2,6 +2,9 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SchedulesWithModal } from "./schedules-with-modal";
+import type { SchedulesPageResult } from "@/lib/schedules";
+
+type ScheduleRow = SchedulesPageResult["schedules"][number];
 
 vi.mock("@workspace/ui/components/button", () => ({
   Button: ({
@@ -67,15 +70,16 @@ vi.mock("./schedules-table", () => ({
   ),
 }));
 
-const createMockSchedule = (id: string, name: string) => ({
-  id,
-  name,
-  repeat: "repeating",
-  enabled: true,
-  nextRunAt: new Date("2024-01-15"),
-  pipeline: { name: "Test Pipeline" },
-  createdAt: new Date("2024-01-01"),
-});
+const createMockSchedule = (id: string, name: string): ScheduleRow =>
+  ({
+    id,
+    name,
+    repeat: "repeating",
+    enabled: true,
+    nextRunAt: new Date("2024-01-15"),
+    pipeline: { id: "pipeline-1", name: "Test Pipeline" },
+    createdAt: new Date("2024-01-01"),
+  }) as ScheduleRow;
 
 describe("SchedulesWithModal", () => {
   it("renders create schedule button", () => {

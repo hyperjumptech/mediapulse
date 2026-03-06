@@ -70,7 +70,15 @@ const createMockPipeline = () => ({
   description: "Test description",
   isActive: true,
   steps: [
-    { id: "step-1", order: 0, agentId: "summarizer", agentVersion: "1.0" },
+    {
+      id: "step-1",
+      pipelineId: "pipeline-123",
+      order: 0,
+      agentId: "summarizer",
+      agentVersion: "1.0",
+      createdAt: new Date("2024-01-15"),
+      updatedAt: new Date("2024-01-15"),
+    },
   ],
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
@@ -82,6 +90,10 @@ const createMockAgents = () => [
     agentId: "summarizer",
     agentVersion: "1.0",
     description: "Summarizes text",
+    isActive: true,
+    endpoint: {},
+    createdAt: new Date("2024-01-15"),
+    updatedAt: new Date("2024-01-15"),
   },
 ];
 

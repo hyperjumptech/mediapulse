@@ -2,6 +2,9 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SchedulesTable } from "./schedules-table";
+import type { SchedulesPageResult } from "@/lib/schedules";
+
+type ScheduleRow = SchedulesPageResult["schedules"][number];
 
 vi.mock("next/link", () => ({
   default: ({
@@ -54,18 +57,19 @@ const createMockSchedule = (
     repeat: string;
     enabled: boolean;
     nextRunAt: Date | null;
-    pipeline: { name: string };
+    pipeline: { id: string; name: string };
   }>,
-) => ({
-  id: "schedule-1",
-  name: "Daily Run",
-  repeat: "repeating",
-  enabled: true,
-  nextRunAt: new Date("2024-01-15T10:00:00Z"),
-  pipeline: { name: "Test Pipeline" },
-  createdAt: new Date("2024-01-01"),
-  ...overrides,
-});
+): ScheduleRow =>
+  ({
+    id: "schedule-1",
+    name: "Daily Run",
+    repeat: "repeating",
+    enabled: true,
+    nextRunAt: new Date("2024-01-15T10:00:00Z"),
+    pipeline: { id: "pipeline-1", name: "Test Pipeline" },
+    createdAt: new Date("2024-01-01"),
+    ...overrides,
+  }) as ScheduleRow;
 
 describe("SchedulesTable", () => {
   it("renders table headers", () => {
