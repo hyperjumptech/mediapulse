@@ -1,10 +1,10 @@
 export {
-  dataSourceInputSchema,
-  dataSourceRecordSchema,
-  sourceMetadataSchema,
-  type DataSourceInput,
-  type DataSourceRecord,
-  type SourceMetadata,
+  dataCollectionBodySchema,
+  dataCollectionQuerySchema,
+  dataCollectionInputSchema,
+  type DataCollectionBody,
+  type DataCollectionQuery,
+  type DataCollectionInput,
 } from "./data-collection.js";
 
 export {
