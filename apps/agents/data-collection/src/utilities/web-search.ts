@@ -1,14 +1,24 @@
 import got from "got";
 import { sleep } from "@workspace/utils";
 
+export interface SearchQuery {
+  id: string;
+  text: string;
+  tickerId: string;
+}
+
 export interface WebSearchResult {
   url: string;
   title: string;
-  description: string;
+  content: string;
+  tickerId: string;
+  searchQueryId: string;
+  searchQueryText: string;
 }
 
 export interface WebSearchDeps {
   serperApiKey: string;
+  gotClient?: typeof got;
 }
 
 export type SerperResponse = {
@@ -27,10 +37,10 @@ export type SerperResponse = {
  * @returns A list of web search results.
  */
 export async function performWebSearch(
-  queries: string[],
+  queries: SearchQuery[],
   deps: WebSearchDeps,
 ): Promise<WebSearchResult[]> {
-  const { serperApiKey } = deps;
+  const { serperApiKey, gotClient = got } = deps;
   const results: WebSearchResult[] = [];
 
   for (const [index, query] of queries.entries()) {
@@ -38,9 +48,9 @@ export async function performWebSearch(
       await sleep(1_000);
     }
 
-    const response = await got
+    const response = await gotClient
       .post("https://google.serper.dev/search", {
-        json: { q: query },
+        json: { q: query.text },
         headers: {
           "Content-Type": "application/json",
           "X-API-KEY": serperApiKey,
@@ -52,7 +62,10 @@ export async function performWebSearch(
       results.push({
         url: item.link ?? "",
         title: item.title ?? "",
-        description: item.snippet ?? "",
+        content: item.snippet ?? "",
+        tickerId: query.tickerId,
+        searchQueryId: query.id,
+        searchQueryText: query.text,
       });
     }
   }

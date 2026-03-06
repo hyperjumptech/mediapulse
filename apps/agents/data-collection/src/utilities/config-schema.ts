@@ -31,6 +31,8 @@ export const ConfigSchema = z.object({
   webFetch: z.record(z.string(), webFetchSchema),
 });
 
+export const dataCollectionAgentConfigSchema = ConfigSchema;
+
 export type DataCollectionAgentConfig = z.infer<typeof ConfigSchema>;
 
 /**

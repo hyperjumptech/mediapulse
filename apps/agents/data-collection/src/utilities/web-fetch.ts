@@ -40,6 +40,10 @@ export async function performWebFetch(
 
     const result = searchResults[index];
 
+    if (!result) {
+      continue;
+    }
+
     const json = await gotClient
       .post("https://r.jina.ai/", {
         json: { url: result.url },
