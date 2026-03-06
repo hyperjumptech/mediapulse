@@ -50,7 +50,7 @@ describe("delivery-agent", () => {
     });
     (got.post as any).mockResolvedValue({ statusCode: 200, body: "" });
 
-    const { default: agent } = await import("./_main.js");
+    const { default: agent } = await import("./index.js");
     const res = await agent.fetch(
       new Request("http://localhost/", {
         method: "POST",
@@ -59,7 +59,7 @@ describe("delivery-agent", () => {
       }),
     );
 
-    const body = await res.json();
+    const body = (await res.json()) as { agentId: string };
     expect(res.status).toBe(200);
     expect(body.agentId).toBe("delivery");
     expect(got.get).toHaveBeenCalled();
@@ -74,7 +74,7 @@ describe("delivery-agent", () => {
       statusCode: 404,
     });
 
-    const { default: agent } = await import("./_main.js");
+    const { default: agent } = await import("./index.js");
     const res = await agent.fetch(
       new Request("http://localhost/", {
         method: "POST",
@@ -84,7 +84,7 @@ describe("delivery-agent", () => {
     );
 
     expect(res.status).toBe(500);
-    const body = await res.json();
+    const body = (await res.json()) as { message: string };
     expect(body.message).toBe("Internal Server Error");
   });
 });

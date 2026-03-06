@@ -1,4 +1,4 @@
-import type { DataSourceRecord } from "@workspace/agent-types";
+import type { DataCollectionInput } from "@workspace/agent-types";
 import {
   createAgentApp,
   dataApiGet,
@@ -39,7 +39,7 @@ const app = createAgentApp<Input, typeof BodySchema>(
     inputSchema: BodySchema,
     run: async ({ input, token }) => {
       const { dataSources: sources } = await dataApiGet<{
-        dataSources: DataSourceRecord[];
+        dataSources: DataCollectionInput[];
       }>(token, env.AGENT_DATA_API_URL, "/api/content-generation", {
         tickerId: input.tickerId,
       });
@@ -90,7 +90,7 @@ const app = createAgentApp<Input, typeof BodySchema>(
  * @returns Subject and formatted plain-text content for the newsletter.
  */
 async function generateContentWithOpenAI(
-  sources: DataSourceRecord[],
+  sources: DataCollectionInput[],
 ): Promise<GeneratedContent> {
   const sourceSummaries = sources
     .map(

@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "dotenv -e ../../../packages/env/.env.agents.delivery -- bun run --hot src/_main.ts",
-    "build": "bun build src/_main.ts --outfile=./dist/server.js --target=bun",
+    "dev": "dotenv -e ../../../packages/env/.env.agents.delivery -- bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "type:check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -24,6 +25,7 @@
     "@types/bun": "latest",
     "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:",
+    "typescript": "catalog:",
     "vitest": "catalog:"
   }
 }

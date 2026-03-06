@@ -82,7 +82,7 @@ describe("data-collection-agent", () => {
       }),
     );
 
-    const body = await res.json();
+    const body = (await res.json()) as { agentId: string };
 
     expect(res.status).toBe(200);
     expect(body.agentId).toBe("data-collection");
@@ -106,7 +106,7 @@ describe("data-collection-agent", () => {
       }),
     );
 
-    const body = await res.json();
+    const body = (await res.json()) as { message: string };
 
     expect(res.status).toBe(500);
     expect(body.message).toContain("JINA_API_KEY is not configured");
