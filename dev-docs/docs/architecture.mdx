@@ -1,0 +1,55 @@
+---
+title: Architecture
+description: High-level system architecture — Hermes, agents, APIs, and database
+icon: GitBranch
+---
+
+## System overview
+
+Hermes is the central orchestrator: it runs pipelines (cron or manual), each step invoking an agent by HTTP with a bearer token. Agents call the **agent-data-api** for reading/writing pipeline data and the **agent-auth-api** for token verification. The **agent-registry-api** is used to register agents. All persistent data lives in PostgreSQL via the shared **database** package.
+
+<Mermaid
+  chart={`flowchart LR
+  subgraph hermes_sub ["Hermes"]
+    hermes_app["Hermes (Next.js)"]
+    pipelines["Pipelines / Cron"]
+    hermes_app --> pipelines
+  end
+
+subgraph agents_sub ["Agents"]
+agent_dc["data-collection"]
+agent_cg["content-generation"]
+agent_dv["delivery"]
+end
+
+subgraph apis_sub ["APIs"]
+api_auth["agent-auth-api"]
+api_data["agent-data-api"]
+api_reg["agent-registry-api"]
+end
+
+db[("PostgreSQL")]
+
+pipelines --> agent_dc
+pipelines --> agent_cg
+pipelines --> agent_dv
+
+agent_dc --> api_auth
+agent_dc --> api_data
+agent_cg --> api_auth
+agent_cg --> api_data
+agent_dv --> api_auth
+agent_dv --> api_data
+
+api_auth --> db
+api_data --> db
+api_reg --> db
+`}
+/>
+
+## Flow
+
+1. **Hermes** runs pipeline steps (e.g. data-collection → content-generation → delivery) and sends `POST` requests with `{ tickerId }` and `Authorization: Bearer <apiKey>` to each agent.
+2. **Agents** validate the body, verify the token via **agent-auth-api**, run their logic, and call **agent-data-api** to read/write ticker/newsletter/subscriber data.
+3. **agent-registry-api** stores agent metadata; Hermes (or tooling) can register agents there.
+4. **PostgreSQL** holds users, API keys, tickers, pipelines, agents, and all pipeline-produced data.

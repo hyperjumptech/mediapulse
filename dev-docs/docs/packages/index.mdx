@@ -1,0 +1,58 @@
+---
+title: Packages Overview
+description: Shared packages used by MediaPulse apps and agents
+icon: Package
+---
+
+## Purpose
+
+The monorepo shares code through **workspace packages** under `packages/`. Apps and agents depend on these packages via `workspace:*` in `package.json`.
+
+## Categories
+
+### Data & config
+
+- **[database](/packages/database)** — Prisma client and schema for PostgreSQL; used by Hermes, Dashboard, all APIs, and agents that need DB access.
+- **[env](/packages/env)** — Type-safe environment variables (T3 Env / env-to-t3); per-app and per-agent env builds.
+
+### Agent stack
+
+- **[agent-runtime](/packages/agent-runtime)** — Shared runtime for agents: `createAgentApp`, bearer auth, `dataApiGet` / `dataApiPost`.
+- **[agent-types](/packages/agent-types)** — Zod schemas and types for data-collection, content-generation, and other agent I/O.
+- **[agent-auth-client](/packages/agent-auth-client)** — `verifyTokenViaAuthApi` for validating bearer tokens against agent-auth-api.
+- **[agent-data-api-client](/packages/agent-data-api-client)** — Typed client for agent-data-api (used by data-collection and others).
+
+### Data & import
+
+- **[idx-tickers-importer](/packages/idx-tickers-importer)** — Imports IDX (Indonesian Stock Exchange) listed companies into the `ticker` table.
+
+### Server & API
+
+- **[api-utils](/packages/api-utils)** — Hono helpers: `internalError`, `notFound`, `validateBody`.
+
+### Cross-cutting
+
+- **[logger](/packages/logger)** — Pino logger with redaction for secrets; used by APIs and agents.
+- **[ui](/packages/ui)** — Shared React components, Tailwind/Radix, themes; used by Hermes and Dashboard.
+- **[utils](/packages/utils)** — General utilities (e.g. `sleep`); used by agents and scripts.
+
+### Tooling
+
+- **[tooling](/packages/tooling)** — ESLint config, eslint-plugin-strict-env, TypeScript base config; shared lint and type rules across the repo.
+
+## Consumers (summary)
+
+| Package               | Typical consumers                                                     |
+| --------------------- | --------------------------------------------------------------------- |
+| database              | Hermes, Dashboard, agent-auth-api, agent-data-api, agent-registry-api |
+| env                   | All apps and agents                                                   |
+| agent-runtime         | content-generation, data-collection, delivery agents                  |
+| agent-types           | agent-data-api, data-collection, content-generation                   |
+| agent-auth-client     | agent-data-api, all three agents                                      |
+| agent-data-api-client | data-collection agent                                                 |
+| idx-tickers-importer  | Hermes (ticker import)                                                |
+| api-utils             | agent-auth-api, agent-data-api, agent-registry-api                    |
+| logger                | Hermes, Dashboard, all APIs, all agents                               |
+| ui                    | Hermes, Dashboard                                                     |
+| utils                 | data-collection agent, scripts                                        |
+| tooling               | All packages and apps (devDependencies)                               |

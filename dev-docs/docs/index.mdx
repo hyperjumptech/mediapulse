@@ -1,0 +1,34 @@
+---
+title: Overview
+description: MediaPulse project overview, stack, and how to run the apps
+icon: Home
+---
+
+## What is MediaPulse?
+
+MediaPulse is an AI-powered newsletter and pipeline platform. It orchestrates **pipelines** of agents (data collection, content generation, delivery) to produce and send newsletters for tracked tickers (e.g. listed companies from the Indonesian Stock Exchange).
+
+## Stack
+
+- **Monorepo:** pnpm workspaces, Turborepo
+- **Apps:** Next.js (Hermes, Dashboard), Bun + Hono (agent-auth-api, agent-data-api, agent-registry-api, and agent services)
+- **Database:** PostgreSQL with Prisma
+- **Agents:** Small HTTP services built with `@workspace/agent-runtime`, invoked by Hermes with bearer tokens
+
+## Running the project
+
+For installation, environment setup, database migrations, and how to run each app, see the [root README](https://github.com/your-org/mediapulse/blob/main/README.md) in the repository.
+
+Quick reference:
+
+- **Database:** `docker-compose up` then `cd packages/database && pnpm db:migrate:dev && pnpm db:generate`
+- **Hermes:** `pnpm dev --filter=hermes` (port 3001)
+- **Dashboard:** `pnpm dev --filter=dashboard`
+- **APIs:** `pnpm dev --filter=agent-auth-api`, `agent-data-api`, `agent-registry-api`
+- **Agents:** Run each agent app from `apps/agents/*` with its own env file
+
+## Documentation map
+
+- **[Architecture](/architecture)** — High-level diagram (Hermes, agents, APIs, database).
+- **[Apps](/apps)** — Hermes, Dashboard, agent-auth-api, agent-data-api, agent-registry-api, and the three agents (content-generation, data-collection, delivery).
+- **[Packages](/packages)** — Shared packages: database, env, agent-runtime, agent-types, clients, idx-tickers-importer, api-utils, logger, ui, utils, tooling.

@@ -1,33 +1,21 @@
-import type { DataSourceRecord } from "@workspace/agent-types";
-import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
+import type { DataCollectionInput } from "@workspace/agent-types";
+import {
+  createAgentApp,
+  dataApiGet,
+  dataApiPost,
+} from "@workspace/agent-runtime";
 import { env } from "@workspace/env/agents-content-generation";
 import { logger } from "@workspace/logger";
-import got from "got";
-
-import { Hono } from "hono";
-import { bearerAuth } from "hono/bearer-auth";
-import { pinoLogger } from "hono-pino";
 import OpenAI from "openai";
 import { z } from "zod";
 
 import { formatNewsletterContent } from "./format-newsletter-content.js";
 
-const app = new Hono();
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-
-app.use(pinoLogger({ pino: logger }));
-
-app.use(
-  "*",
-  bearerAuth({
-    verifyToken: (token) =>
-      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL),
-  }),
-);
-
 const BodySchema = z.object({
   tickerId: z.string(),
 });
+
+type Input = z.infer<typeof BodySchema>;
 
 interface GeneratedContent {
   subject: string;
@@ -42,63 +30,58 @@ interface NewsletterStructure {
   topNews: Array<{ title: string; summary: string }>;
 }
 
-app.post("/", async (context) => {
-  const logger = context.get("logger");
-  try {
-    const body = await context.req.json();
-    const data = await BodySchema.parseAsync(body);
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-    const sources = await fetchSourcesFromAgentDataAPI(
-      context.req.header("Authorization"),
-      data.tickerId,
-    );
+const app = createAgentApp<Input, typeof BodySchema>(
+  {
+    agentId: "content-generation",
+    agentVersion: "1.0.0",
+    inputSchema: BodySchema,
+    run: async ({ input, token }) => {
+      const { dataSources: sources } = await dataApiGet<{
+        dataSources: DataCollectionInput[];
+      }>(token, env.AGENT_DATA_API_URL, "/api/content-generation", {
+        tickerId: input.tickerId,
+      });
 
-    if (sources.length === 0) {
-      logger.info(
-        { tickerId: data.tickerId },
-        "No sources found for this ticker, skipping content generation",
-      );
-
-      return context.json(
-        {
-          agentId: "content-generation",
-          agentVersion: "1.0.0",
+      if (!sources?.length) {
+        return {
+          success: false,
+          statusCode: 404,
           skipped: true,
           message: "No data sources found for this ticker",
-        },
-        404,
-      );
-    }
+        };
+      }
 
-    const generated = await generateContentWithOpenAI(sources);
+      const generated = await generateContentWithOpenAI(sources);
+      try {
+        await dataApiPost(
+          token,
+          env.AGENT_DATA_API_URL,
+          "/api/content-generation",
+          {
+            subject: generated.subject,
+            content: generated.content,
+            ...(generated.description && {
+              description: generated.description,
+            }),
+            tickerId: input.tickerId,
+          },
+        );
+      } catch (err) {
+        logger.error(
+          { tickerId: input.tickerId, err },
+          "Agent data API rejected newsletter store",
+        );
+        throw err;
+      }
 
-    const token = context.req.header("Authorization");
-    await sendToAgentDataAPI(token, data.tickerId, generated);
-
-    return context.json(
-      { agentId: "content-generation", agentVersion: "1.0.0" },
-      200,
-    );
-  } catch (error) {
-    logger.error({ err: error }, "Content generation agent error");
-    return context.json({ message: "Internal Server Error" }, 500);
-  }
-});
-
-async function fetchSourcesFromAgentDataAPI(
-  token: string | undefined,
-  tickerId: string,
-): Promise<DataSourceRecord[]> {
-  const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/api/content-generation";
-  url.searchParams.set("tickerId", tickerId);
-
-  const res = await got.get(url.toString(), {
-    headers: { ...(token && { Authorization: token }) },
-  });
-  const body = JSON.parse(res.body) as { dataSources: DataSourceRecord[] };
-  return body.dataSources;
-}
+      logger.info({ tickerId: input.tickerId }, "Stored newsletter for ticker");
+      return { success: true };
+    },
+  },
+  { authApiUrl: env.AGENT_AUTH_API_URL },
+);
 
 /**
  * Calls OpenAI to generate a newsletter with an executive summary and top 3 news items.
@@ -107,7 +90,7 @@ async function fetchSourcesFromAgentDataAPI(
  * @returns Subject and formatted plain-text content for the newsletter.
  */
 async function generateContentWithOpenAI(
-  sources: DataSourceRecord[],
+  sources: DataCollectionInput[],
 ): Promise<GeneratedContent> {
   const sourceSummaries = sources
     .map(
@@ -155,43 +138,6 @@ Return a JSON object with:
     content,
     description: parsed.executiveSummary?.trim() || undefined,
   };
-}
-
-async function sendToAgentDataAPI(
-  token: string | undefined,
-  tickerId: string,
-  generated: GeneratedContent,
-) {
-  const url = new URL(env.AGENT_DATA_API_URL);
-  url.pathname = "/api/content-generation";
-
-  const res = await got.post(url.toString(), {
-    json: {
-      subject: generated.subject,
-      content: generated.content,
-      ...(generated.description && { description: generated.description }),
-      tickerId,
-    },
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: token }),
-    },
-    throwHttpErrors: false,
-  });
-
-  if (!res.ok) {
-    logger.error(
-      {
-        tickerId,
-        statusCode: res.statusCode,
-        body: res.body,
-      },
-      "Agent data API rejected newsletter store",
-    );
-    throw new Error(`Agent data API returned ${res.statusCode}: ${res.body}`);
-  }
-
-  logger.info({ tickerId }, "Stored newsletter for ticker");
 }
 
 export default {

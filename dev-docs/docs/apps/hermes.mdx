@@ -1,0 +1,42 @@
+---
+title: Hermes
+description: Next.js app that orchestrates pipelines and invokes agents
+icon: Zap
+---
+
+## Purpose
+
+Hermes is the main orchestration app: it manages **pipelines** (sequences of agents), **tickers**, and **agents**. It runs pipeline steps on a schedule (cron) or manually by sending HTTP requests to each agent with a bearer token.
+
+## Features
+
+- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, and agents (CRUD).
+- **Cron jobs** — Periodically run pipeline steps (e.g. data-collection → content-generation → delivery).
+- **Manual run** — Trigger a pipeline run from the dashboard.
+- **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@workspace/idx-tickers-importer`.
+- **Session-based auth** — Dashboard uses cookie/session auth; agents are called with API keys.
+
+## Key routes / entrypoints
+
+- Dashboard: `/dashboard` (pipelines, tickers, agents).
+- Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline.
+- Ticker actions: create, update, delete, import (IDX).
+- Agent actions: create, update.
+- Logout: `/logout`.
+
+## Port
+
+- **3001** (via `next dev --turbopack -p 3001`).
+
+## Workspace dependencies
+
+- `@workspace/database` — Prisma client for pipelines, tickers, agents, etc.
+- `@workspace/env` — Environment variables.
+- `@workspace/idx-tickers-importer` — IDX ticker import.
+- `@workspace/logger` — Logging.
+- `@workspace/ui` — Shared UI components.
+
+## Related docs
+
+- [Architecture](/architecture) — How Hermes fits in the system.
+- [Packages: database](/packages/database), [idx-tickers-importer](/packages/idx-tickers-importer).

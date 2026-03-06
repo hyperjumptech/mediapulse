@@ -1,0 +1,32 @@
+---
+title: tooling
+description: Shared ESLint and TypeScript config
+icon: Sliders
+---
+
+## Purpose
+
+The **tooling** docs refer to shared **lint and TypeScript** configuration used across the monorepo. These are implemented as separate packages under `packages/`:
+
+- **`@workspace/eslint-config`** — Shared ESLint config; extended by apps and packages.
+- **`@workspace/eslint-plugin-strict-env`** — Custom rule(s) for env usage (e.g. forbid `process.env` outside `@workspace/env`).
+- **`@workspace/typescript-config`** — Base `tsconfig` (e.g. `next`, `library`) for consistent TypeScript settings.
+
+## Usage
+
+In each app or package:
+
+```json
+{
+  "devDependencies": {
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*"
+  }
+}
+```
+
+Extend the config in `eslint.config.js` and `tsconfig.json` as appropriate (e.g. `extends: ["@workspace/eslint-config"]`).
+
+## Consumers
+
+All apps and packages that list these in `devDependencies`; ensures consistent lint and type-check behavior.

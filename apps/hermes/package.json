@@ -19,9 +19,11 @@
     "@next/env": "catalog:",
     "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
+    "@workspace/idx-tickers-importer": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/ui": "workspace:*",
     "bcrypt": "catalog:",
+    "date-fns": "^4.1.0",
     "dotenv": "catalog:",
     "got": "catalog:",
     "lucide-react": "catalog:",
@@ -30,25 +32,25 @@
     "node-cron": "^4.2.1",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "route-action-gen": "^0.0.8",
+    "route-action-gen": "catalog:",
     "sonner": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "catalog:",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@tailwindcss/postcss": "catalog:",
     "@types/bcrypt": "catalog:",
     "@types/node": "catalog:",
     "@types/node-cron": "^3.0.11",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "catalog:",
-    "@vitest/coverage-v8": "catalog:"
+    "vitest": "catalog:"
   }
 }

@@ -1,0 +1,22 @@
+---
+title: agent-types
+description: Shared Zod schemas and types for agent I/O
+icon: Type
+---
+
+## Purpose
+
+`@workspace/agent-types` defines **Zod schemas and TypeScript types** used by the agent-data-api and agents (data-collection, content-generation, etc.) so request/response shapes stay consistent.
+
+## Exports
+
+- **Data collection:** `dataCollectionBodySchema`, `dataCollectionInputSchema`, `dataCollectionQuerySchema`, and types `DataCollectionBody`, `DataCollectionInput`, `DataCollectionQuery`.
+- Other agent-specific schemas and types as added (e.g. content-generation, delivery) may live here or in the API package.
+
+## Consumers
+
+agent-data-api (validation and response types), data-collection agent, content-generation agent (e.g. `DataSourceRecord`).
+
+## Source
+
+`packages/agent-types/src/` — minimal package, no runtime deps except Zod.

@@ -17,14 +17,20 @@ vi.mock("@workspace/env", () => ({
   },
 }));
 
+vi.mock("@workspace/database", () => ({
+  prisma: {
+    searchQuery: {
+      findMany: vi.fn(),
+    },
+    dataSource: {
+      createMany: vi.fn(),
+    },
+  },
+}));
+
 vi.mock("./services/content-generation.js", () => ({
   getDataSourcesForTicker: vi.fn(),
   createNewsletter: vi.fn(),
-}));
-
-vi.mock("./services/data-collection.js", () => ({
-  getSearchQueries: vi.fn(),
-  createDataSources: vi.fn(),
 }));
 
 vi.mock("./services/delivery.js", () => ({
@@ -34,8 +40,8 @@ vi.mock("./services/delivery.js", () => ({
 
 const getContentGenerationService = () =>
   import("./services/content-generation.js");
-const getDataCollectionService = () => import("./services/data-collection.js");
 const getDeliveryService = () => import("./services/delivery.js");
+const getDatabase = () => import("@workspace/database");
 
 describe("agent-data-api", () => {
   beforeEach(() => {
@@ -117,9 +123,9 @@ describe("agent-data-api", () => {
   });
 
   describe("GET /api/data-collection", () => {
-    it("returns 200 and searchQueries when service returns data", async () => {
-      const mod = await getDataCollectionService();
-      mod.getSearchQueries.mockResolvedValue([
+    it("returns 200 and data when service returns data", async () => {
+      const { prisma } = await getDatabase();
+      prisma.searchQuery.findMany.mockResolvedValue([
         { id: "sq-1", text: "query one", tickerId: TICKER_ID },
       ]);
 
@@ -131,16 +137,16 @@ describe("agent-data-api", () => {
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body).toHaveProperty("searchQueries");
-      expect(body.searchQueries).toHaveLength(1);
-      expect(body.searchQueries[0].text).toBe("query one");
+      expect(body).toHaveProperty("data");
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0].text).toBe("query one");
     });
   });
 
   describe("POST /api/data-collection", () => {
     it("returns 200 when body is valid array with tickerId + searchQueryId per item", async () => {
-      const mod = await getDataCollectionService();
-      mod.createDataSources.mockResolvedValue(undefined);
+      const { prisma } = await getDatabase();
+      prisma.dataSource.createMany.mockResolvedValue({ count: 1 });
 
       const { app } = await import("./index.js");
       const res = await app.request("http://localhost/api/data-collection", {
@@ -160,15 +166,17 @@ describe("agent-data-api", () => {
 
       expect(res.status).toBe(200);
       expect(body.message).toBe("Success");
-      expect(mod.createDataSources).toHaveBeenCalledWith([
-        {
-          url: "https://example.com",
-          title: "Example",
-          content: "Content",
-          tickerId: TICKER_ID,
-          searchQueryId: SEARCH_QUERY_ID,
-        },
-      ]);
+      expect(prisma.dataSource.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            url: "https://example.com",
+            title: "Example",
+            content: "Content",
+            tickerId: TICKER_ID,
+            searchQueryId: SEARCH_QUERY_ID,
+          },
+        ],
+      });
     });
   });
 

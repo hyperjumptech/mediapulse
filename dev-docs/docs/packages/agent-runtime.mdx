@@ -1,0 +1,35 @@
+---
+title: agent-runtime
+description: Shared runtime for pipeline agents — Hono app, bearer auth, data API helpers
+icon: Cpu
+---
+
+## Purpose
+
+`@workspace/agent-runtime` provides a **standard way to build agents** that Hermes invokes: a Hono app with bearer auth, request validation, and helpers to call the agent-data-api with the same token.
+
+## Main exports
+
+- **`createAgentApp<TInput, TSchema>(config, options)`** — Creates the agent app (fetch handler + port). Config: `agentId`, `agentVersion`, `inputSchema` (Zod), `run({ input, token })`.
+- **`dataApiGet(token, baseUrl, path, query?)`** — GET to agent-data-api with `Authorization: Bearer`.
+- **`dataApiPost(token, baseUrl, path, body)`** — POST to agent-data-api with bearer token.
+- **`verifyTokenViaAuthApi`** — Re-exported from `@workspace/agent-auth-client`; used when `authApiUrl` is set.
+- **Types:** `AgentResult`, `AgentRunContext`, `AgentConfig`, `CreateAgentAppOptions`, `LoggerLike`.
+
+## How Hermes invokes agents
+
+Hermes sends `POST` with body `{ tickerId: "<uuid>" }` and header `Authorization: Bearer <apiKey>`. Agents validate the body, verify the token, run logic, and return a consistent JSON result (success/failure/skipped).
+
+## Options (DI)
+
+- **`authApiUrl`** — Used by default token verifier (required in production unless you pass `verifyToken`).
+- **`verifyToken`** — Custom `(token: string) => Promise<boolean>`.
+- **`logger`** — Logger-like instance; defaults to `@workspace/logger`.
+
+## Consumers
+
+content-generation, data-collection, and delivery agents.
+
+## More
+
+See the [package README](https://github.com/your-org/mediapulse/blob/main/packages/agent-runtime/README.md) for full API and examples.
