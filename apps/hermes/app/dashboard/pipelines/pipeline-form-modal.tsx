@@ -117,28 +117,35 @@ export const PipelineFormModal = ({
       };
 
   const isLoadingEdit = isEdit && pipeline === "loading";
+  const notFound = isEdit && pipeline === null;
   const canShowForm =
     mode === "create" || (pipeline !== null && pipeline !== "loading");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        {isLoadingEdit ? (
-          <p className="text-muted-foreground">Loading pipeline…</p>
-        ) : canShowForm ? (
-          <Form className="flex flex-col gap-4">
-            <PipelineFormFields
-              namePrefix="body"
-              pending={pending}
-              errorMessage={errorMessage}
-              submitLabel={submitLabel}
-              {...formFieldsProps}
-            />
-          </Form>
-        ) : null}
+      <DialogContent className="max-h-[85vh] w-full max-w-lg overflow-y-hidden p-0">
+        <div className="flex max-h-[85vh] min-h-80 flex-col overflow-y-hidden px-6 pt-10 pb-6">
+          <DialogHeader className="shrink-0 pb-4">
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto py-4 px-1">
+            {isLoadingEdit ? (
+              <p className="text-muted-foreground">Loading pipeline…</p>
+            ) : notFound ? (
+              <p className="text-muted-foreground">Pipeline not found.</p>
+            ) : canShowForm ? (
+              <Form className="flex flex-col gap-4">
+                <PipelineFormFields
+                  namePrefix="body"
+                  pending={pending}
+                  errorMessage={errorMessage}
+                  submitLabel={submitLabel}
+                  {...formFieldsProps}
+                />
+              </Form>
+            ) : null}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
