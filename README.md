@@ -36,8 +36,6 @@ pnpm db:migrate:dev && pnpm db:generate
 cd ../..
 ```
 
----
-
 ### Running `agent-auth-api`
 
 ```bash
@@ -67,3 +65,19 @@ pnpm dev --filter=dashboard
 ```bash
 pnpm dev --filter=hermes
 ```
+
+### Documentation
+
+The documentation is built using [Speed Docs](https://speed-docs.dev). To run the documentation server, run the following command:
+
+```bash
+pnpm docs:dev
+```
+
+To build the documentation, run the following command:
+
+```bash
+pnpm docs:build
+```
+
+Keep the docs updated everytime you make changes to the project.
