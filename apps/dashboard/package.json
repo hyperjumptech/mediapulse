@@ -27,7 +27,7 @@
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "route-action-gen": "0.0.2",
+    "route-action-gen": "catalog:",
     "sonner": "catalog:",
     "zod": "catalog:"
   },

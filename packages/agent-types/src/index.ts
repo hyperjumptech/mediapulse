@@ -1,8 +1,8 @@
 export {
-  dataSourceInputSchema,
-  dataSourceRecordSchema,
-  sourceMetadataSchema,
-  type DataSourceInput,
-  type DataSourceRecord,
-  type SourceMetadata,
-} from "./sources.js";
+  dataCollectionBodySchema,
+  dataCollectionInputSchema,
+  dataCollectionQuerySchema,
+  type DataCollectionBody,
+  type DataCollectionInput,
+  type DataCollectionQuery,
+} from "./data-collection.js";

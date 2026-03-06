@@ -14,16 +14,16 @@
     "deploy": "turbo deploy"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "catalog:",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "netlify-cli": "^23.13.3",
     "prettier": "^3.6.2",
-    "turbo": "^2.5.5",
     "speed-docs": "^0.0.22",
-    "vitest": "catalog:",
-    "@vitest/coverage-v8": "catalog:"
+    "turbo": "^2.5.5",
+    "vitest": "catalog:"
   },
-  "packageManager": "pnpm@10.4.1",
+  "packageManager": "pnpm@10.30.3",
   "engines": {
     "node": ">=20"
   },

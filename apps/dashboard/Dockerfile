@@ -1,12 +1,13 @@
 # syntax = docker/dockerfile:1
 ARG NODE_VERSION=24.12.0
-FROM node:${NODE_VERSION}-slim
+FROM node:${NODE_VERSION}-slim AS builder
 LABEL fly_launch_runtime="Next.js"
 
 WORKDIR /app
 
 ENV NODE_ENV="production"
 ENV HOSTNAME="0.0.0.0"
+ENV CI=true
 
 RUN npm install -g pnpm
 
@@ -29,9 +30,22 @@ RUN pnpm --filter=@workspace/database run db:generate
 
 RUN pnpm --filter=dashboard run build
 
-RUN pnpm prune --prod
+# Standalone runner: only copy traced output + static
+ARG NODE_VERSION=24.12.0
+FROM node:${NODE_VERSION}-slim AS runner
+WORKDIR /app
 
-WORKDIR /app/apps/dashboard
+ENV NODE_ENV="production"
+ENV HOSTNAME="0.0.0.0"
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/apps/dashboard/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/dashboard/.next/static ./apps/dashboard/.next/static
+
+USER nextjs
 
 EXPOSE 3000
-CMD [ "pnpm", "run", "start" ]
+ENV PORT=3000
+CMD ["node", "apps/dashboard/server.js"]

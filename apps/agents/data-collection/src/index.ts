@@ -1,4 +1,4 @@
-import type { DataSourceInput } from "@workspace/agent-types";
+import type { DataCollectionInput } from "@workspace/agent-types";
 import {
   createAgentApp,
   dataApiGet,
@@ -70,7 +70,7 @@ const app = createAgentApp<Input, typeof BodySchema>(
       const pages = await fetchWebPageContents(searchResults);
 
       if (pages.length > 0) {
-        const sources = toDataSourceInputs(input.tickerId, pages);
+        const sources = toDataCollectionInputs(input.tickerId, pages);
         await dataApiPost(
           token,
           env.AGENT_DATA_API_URL,
@@ -150,27 +150,18 @@ async function fetchWebPageContents(
 }
 
 /**
- * Converts collected pages to the shared DataSourceInput shape with optional metadata.
+ * Converts collected pages to the shared DataCollectionInput shape.
  */
-function toDataSourceInputs(
+function toDataCollectionInputs(
   tickerId: string,
   pages: CollectedPage[],
-): DataSourceInput[] {
-  const fetchedAt = new Date().toISOString();
+): DataCollectionInput[] {
   return pages.map((page) => ({
     url: page.url,
     title: page.title,
     content: page.content,
     tickerId,
     searchQueryId: page.searchQueryId,
-    metadata:
-      page.searchQueryText != null
-        ? {
-            searchQueryText: page.searchQueryText,
-            fetchedAt,
-            sourceType: "web" as const,
-          }
-        : { fetchedAt, sourceType: "web" as const },
   }));
 }
 
