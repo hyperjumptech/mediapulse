@@ -5,9 +5,14 @@ import {
   dataApiPost,
 } from "@workspace/agent-runtime";
 import { env } from "@workspace/env/agents-data-collection";
-import got from "got";
 
 import { z } from "zod";
+import { performWebFetch } from "./utilities/web-fetch.js";
+import {
+  performWebSearch,
+  type SearchQuery,
+  type WebSearchResult,
+} from "./utilities/web-search.js";
 
 const BodySchema = z.object({
   tickerId: z.string(),
@@ -21,12 +26,6 @@ const BodySchema = z.object({
 
 type Input = z.infer<typeof BodySchema>;
 
-type SearchQuery = {
-  id: string;
-  text: string;
-  tickerId: string;
-};
-
 /** Internal shape for a collected page before sending to the API (includes searchQueryText for metadata). */
 interface CollectedPage {
   url: string;
@@ -34,7 +33,7 @@ interface CollectedPage {
   content: string;
   tickerId: string;
   searchQueryId: string;
-  searchQueryText?: string;
+  searchQueryText: string;
 }
 
 const app = createAgentApp<Input, typeof BodySchema>(
@@ -88,65 +87,21 @@ const app = createAgentApp<Input, typeof BodySchema>(
 export async function performWebSearchWithQueries(
   queries: SearchQuery[],
 ): Promise<CollectedPage[]> {
-  if (!queries.length) return [];
-
-  const results = await Promise.all(
-    queries.map(async (query) => {
-      const data = await got
-        .post("https://google.serper.dev/search", {
-          json: { q: query.text },
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-KEY": env.SERPER_API_KEY,
-          },
-        })
-        .json<{
-          organic?: Array<{ link?: string; title?: string; snippet?: string }>;
-        }>();
-      const first = data?.organic?.[0];
-
-      return {
-        url: first?.link ?? "",
-        title: first?.title ?? "",
-        content: first?.snippet ?? "",
-        tickerId: query.tickerId,
-        searchQueryId: query.id,
-        searchQueryText: query.text,
-      };
-    }),
-  );
+  const results = await performWebSearch(queries, {
+    serperApiKey: env.SERPER_API_KEY,
+  });
 
   return results;
 }
 
 async function fetchWebPageContents(
-  searchResults: Omit<CollectedPage, "content">[],
+  searchResults: WebSearchResult[],
 ): Promise<CollectedPage[]> {
-  const fetchPages = searchResults.map(async (result) => {
-    const json = await got
-      .post("https://r.jina.ai/", {
-        json: { url: result.url },
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${env.JINA_API_KEY}`,
-        },
-      })
-      .json<{
-        data?: { url?: string; title?: string; content?: string };
-      }>();
-
-    return {
-      url: json.data?.url ?? result.url,
-      title: json.data?.title ?? result.title,
-      content: json.data?.content ?? "",
-      tickerId: result.tickerId,
-      searchQueryId: result.searchQueryId,
-      searchQueryText: result.searchQueryText,
-    };
+  const pages = await performWebFetch(searchResults, {
+    jinaApiKey: env.JINA_API_KEY,
   });
 
-  return Promise.all(fetchPages);
+  return pages;
 }
 
 /**

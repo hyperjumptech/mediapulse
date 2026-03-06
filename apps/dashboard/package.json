@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm action:generate && next dev --turbopack",
-    "build": "pnpm action:generate && next build",
+    "dev": "pnpm generate && next dev --turbopack",
+    "build": "pnpm generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "type:check": "tsc --noEmit",
-    "action:generate": "route-action-gen",
+    "generate": "route-action-gen",
     "test": "vitest run",
     "test:watch": "vitest"
   },
