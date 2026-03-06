@@ -32,7 +32,7 @@
     "node-cron": "^4.2.1",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "route-action-gen": "^0.0.8",
+    "route-action-gen": "catalog:",
     "sonner": "catalog:",
     "zod": "catalog:"
   },
