@@ -1,0 +1,36 @@
+---
+title: agent-registry-api
+description: API for registering agents
+icon: BookMarked
+---
+
+## Purpose
+
+agent-registry-api is a Hono server that allows **registering agents** in the system. It is protected by bearer auth (same API keys as agent-auth-api); only authenticated callers can register.
+
+## Features
+
+- **Bearer auth** — Token verified against the database (hashed API key lookup).
+- **Register agent** — POST to store agent metadata (id, version, URL, etc.) so Hermes or other services can discover and invoke agents.
+
+## Key routes
+
+| Method | Path                   | Description       |
+| ------ | ---------------------- | ----------------- |
+| POST   | `/api/agents/register` | Register an agent |
+
+## Port
+
+- **8082** (default from `env.PORT`).
+
+## Workspace dependencies
+
+- `@workspace/api-utils` — Error helpers.
+- `@workspace/env` — Environment variables.
+- `@workspace/database` — Prisma for agent registry storage.
+- `@workspace/logger` — Pino logger.
+
+## Related docs
+
+- [Hermes](/apps/hermes) — Consumes registry to run pipelines.
+- [Packages: database](/packages/database).

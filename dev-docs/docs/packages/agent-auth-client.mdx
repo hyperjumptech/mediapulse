@@ -1,0 +1,17 @@
+---
+title: agent-auth-client
+description: Client for verifying bearer tokens via agent-auth-api
+icon: Key
+---
+
+## Purpose
+
+`@workspace/agent-auth-client` exposes a single function to **verify** a bearer token by calling the agent-auth-api. Used by agent-data-api and by agents (via agent-runtime’s default verifier) to validate `Authorization: Bearer <token>`.
+
+## Exports
+
+- **`verifyTokenViaAuthApi(token, authApiUrl)`** — `Promise<boolean>`. Calls `POST ${authApiUrl}/api/verify` with `Authorization: Bearer ${token}`; returns `true` if status is 200, `false` otherwise (401, network error, etc.).
+
+## Consumers
+
+agent-data-api (bearer middleware), agent-runtime (default `verifyToken` when `authApiUrl` is set), and thus all three agents indirectly.

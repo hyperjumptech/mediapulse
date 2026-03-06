@@ -15,6 +15,7 @@ Each planned task should include relevant steps for:
 - **Kebab-case file naming** for any new files.
 - **Linter & TypeScript error resolution** before marking a task complete.
 - **README file** for new package or app. Update existing ones when needed.
+- **Docs-dev**: Update the pages (or add a new page) in dev-docs/docs to reflect the new changes.
 
 ```
 ❌ BAD — missing standards steps

@@ -1,10 +1,21 @@
-# MediaPulse
+---
+title: Getting Started
+description: Getting started with MediaPulse
+icon: BookOpen
+---
 
-## Development
+## Prerequisites
 
-### Installation
+- Node.js 18+
+- pnpm 10.4.1
+- Docker
+- PostgreSQL
+
+## Installation
 
 ```bash
+git clone <repository-url>
+cd mediapulse
 pnpm install
 ```
 
@@ -65,19 +76,3 @@ pnpm dev --filter=dashboard
 ```bash
 pnpm dev --filter=hermes
 ```
-
-### Documentation
-
-The documentation is built using [Speed Docs](https://speed-docs.dev). To run the documentation server, run the following command:
-
-```bash
-pnpm docs:dev
-```
-
-To build the documentation, run the following command:
-
-```bash
-pnpm docs:build
-```
-
-Keep the docs updated everytime you make changes to the project.
