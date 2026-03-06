@@ -48,6 +48,7 @@ type SchedulesTableProps = {
   sortDir: ScheduleSortDir;
   pageSize: number;
   searchQuery?: string;
+  onEdit: (scheduleId: string) => void;
 };
 
 /**
@@ -59,6 +60,7 @@ export const SchedulesTable = ({
   sortDir,
   pageSize,
   searchQuery,
+  onEdit,
 }: SchedulesTableProps) => {
   const sortLink = (field: ScheduleSortField, label: string) => {
     const isActive = sortBy === field;
@@ -128,12 +130,13 @@ export const SchedulesTable = ({
             schedules.map((schedule) => (
               <TableRow key={schedule.id}>
                 <TableCell className="font-medium">
-                  <Link
-                    href={`/dashboard/schedules/${schedule.id}`}
-                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
+                  <button
+                    type="button"
+                    onClick={() => onEdit(schedule.id)}
+                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground text-left"
                   >
                     {schedule.name}
-                  </Link>
+                  </button>
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {schedule.pipeline.name}
@@ -156,6 +159,7 @@ export const SchedulesTable = ({
                   <ScheduleRowActions
                     scheduleId={schedule.id}
                     scheduleName={schedule.name}
+                    onEdit={onEdit}
                   />
                 </TableCell>
               </TableRow>

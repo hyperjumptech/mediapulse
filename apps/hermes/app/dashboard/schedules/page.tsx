@@ -1,16 +1,12 @@
-import Link from "next/link";
-
 import { withAuthProtection } from "@/components/with-auth-protection";
+import { getPipelinesWithSteps } from "@/lib/pipelines";
 import {
   getSchedulesPage,
   type ScheduleSortDir,
   type ScheduleSortField,
 } from "@/lib/schedules";
 
-import { Pagination } from "./pagination";
-import { SchedulesSearch } from "./schedules-search";
-import { SchedulesTable } from "./schedules-table";
-import { Button } from "@workspace/ui/components/button";
+import { SchedulesWithModal } from "./schedules-with-modal";
 
 const DEFAULT_PAGE_SIZE = 15;
 
@@ -65,45 +61,29 @@ const SchedulesPage = async ({
   const search = resolved.q?.trim() ?? undefined;
   const { sortBy, sortDir } = parseSort(resolved.sort, resolved.dir);
 
+  const [schedulesResult, pipelines] = await Promise.all([
+    getSchedulesPage(page, pageSize, { search, sortBy, sortDir }),
+    getPipelinesWithSteps(),
+  ]);
+
   const {
     schedules,
     total,
     page: currentPage,
     pageSize: size,
-  } = await getSchedulesPage(page, pageSize, { search, sortBy, sortDir });
+  } = schedulesResult;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col justify-between sm:flex-row sm:items-center">
-        <SchedulesSearch
-          initialQuery={search ?? ""}
-          pageSize={size}
-          sortBy={sortBy}
-          sortDir={sortDir}
-        />
-        <div className="shrink-0 sm:ml-auto">
-          <Button asChild>
-            <Link href="/dashboard/schedules/new">Create schedule</Link>
-          </Button>
-        </div>
-      </div>
-      <SchedulesTable
-        schedules={schedules}
-        sortBy={sortBy}
-        sortDir={sortDir}
-        pageSize={size}
-        searchQuery={search}
-      />
-      <Pagination
-        basePath="/dashboard/schedules"
-        page={currentPage}
-        pageSize={size}
-        total={total}
-        searchQuery={search}
-        sortBy={sortBy}
-        sortDir={sortDir}
-      />
-    </div>
+    <SchedulesWithModal
+      schedules={schedules}
+      pipelines={pipelines}
+      currentPage={currentPage}
+      pageSize={size}
+      total={total}
+      searchQuery={search}
+      sortBy={sortBy}
+      sortDir={sortDir}
+    />
   );
 };
 

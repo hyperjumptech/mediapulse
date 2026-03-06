@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Table,
@@ -16,11 +18,14 @@ type PipelineWithSteps = Awaited<
 
 /**
  * Renders the pipelines list as a table with Name, Description, Status, and row actions dropdown.
+ * When onEdit is provided, Edit opens the modal; otherwise Edit links to the pipeline detail page.
  */
 export const PipelinesTable = ({
   pipelines,
+  onEdit,
 }: {
   pipelines: PipelineWithSteps[];
+  onEdit?: (pipelineId: string) => void;
 }) => {
   return (
     <div className="rounded-md border">
@@ -46,7 +51,14 @@ export const PipelinesTable = ({
           ) : (
             pipelines.map((pipeline) => (
               <TableRow key={pipeline.id}>
-                <TableCell className="font-medium">{pipeline.name}</TableCell>
+                <TableCell className="font-medium">
+                  <Link
+                    href={`/dashboard/pipelines/${pipeline.id}`}
+                    className="hover:underline"
+                  >
+                    {pipeline.name}
+                  </Link>
+                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {pipeline.description ?? "—"}
                 </TableCell>
@@ -61,6 +73,7 @@ export const PipelinesTable = ({
                   <PipelineRowActions
                     pipelineId={pipeline.id}
                     pipelineName={pipeline.name}
+                    onEdit={onEdit}
                   />
                 </TableCell>
               </TableRow>

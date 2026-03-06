@@ -14,6 +14,7 @@ import {
 } from "@workspace/ui/components/table";
 
 import { TickerDetailDialog } from "./ticker-detail-dialog";
+import { TickerEditModal } from "./ticker-edit-modal";
 import { TickerRowActions } from "./ticker-row-actions";
 import { format } from "date-fns";
 import type {
@@ -65,10 +66,17 @@ export const TickersTable = ({
 }: TickersTableProps) => {
   const [detailTickerId, setDetailTickerId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [editTickerId, setEditTickerId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   const openDetail = (ticker: TickerRow) => {
     setDetailTickerId(ticker.id);
     setDetailOpen(true);
+  };
+
+  const openEdit = (id: string) => {
+    setEditTickerId(id);
+    setEditOpen(true);
   };
 
   const sortLink = (field: TickerSortField, label: string) => {
@@ -157,6 +165,7 @@ export const TickersTable = ({
                     <TickerRowActions
                       tickerId={ticker.id}
                       tickerSymbol={ticker.symbol}
+                      onEditClick={openEdit}
                     />
                   </TableCell>
                 </TableRow>
@@ -169,6 +178,14 @@ export const TickersTable = ({
         tickerId={detailTickerId}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+      />
+      <TickerEditModal
+        tickerId={editTickerId}
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) setEditTickerId(null);
+        }}
       />
     </>
   );

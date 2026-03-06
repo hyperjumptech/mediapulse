@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -17,14 +16,16 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useFormAction } from "@/app/dashboard/schedules/actions/delete/.generated/use-form-action";
 
 /**
- * Dropdown actions for a schedule row: Edit, Delete.
+ * Dropdown actions for a schedule row: Edit (opens modal), Delete.
  */
 export const ScheduleRowActions = ({
   scheduleId,
   scheduleName,
+  onEdit,
 }: {
   scheduleId: string;
   scheduleName: string;
+  onEdit: (scheduleId: string) => void;
 }) => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
@@ -48,11 +49,9 @@ export const ScheduleRowActions = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem asChild>
-          <Link href={`/dashboard/schedules/${scheduleId}`}>
-            <Pencil className="mr-2 size-4" />
-            Edit
-          </Link>
+        <DropdownMenuItem onSelect={() => onEdit(scheduleId)}>
+          <Pencil className="mr-2 size-4" />
+          Edit
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

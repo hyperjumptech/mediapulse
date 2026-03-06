@@ -33,13 +33,12 @@ const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
- * Derives the breadcrumb page label for pipelines sub-routes (new, [id]).
+ * Derives the breadcrumb page label for pipelines sub-routes ([id]).
  */
 const getPipelinesSubLabel = (
   subSegment: string | undefined,
 ): string | null => {
   if (!subSegment) return null;
-  if (subSegment === "new") return "New pipeline";
   if (UUID_REGEX.test(subSegment)) return "Pipeline";
   return null;
 };
