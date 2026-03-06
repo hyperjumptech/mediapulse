@@ -77,12 +77,6 @@ const createMockSchedule = (id: string, name: string) => ({
   createdAt: new Date("2024-01-01"),
 });
 
-const createMockPipeline = (id: string, name: string) => ({
-  id,
-  name,
-  steps: [],
-});
-
 describe("SchedulesWithModal", () => {
   it("renders create schedule button", () => {
     // Act

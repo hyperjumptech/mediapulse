@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { AddAgentModal } from "./add-agent-modal";
 
@@ -49,7 +49,6 @@ vi.mock("@workspace/ui/components/dialog", () => ({
   Dialog: ({
     children,
     open,
-    onOpenChange,
   }: React.PropsWithChildren<{
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
@@ -69,7 +68,6 @@ vi.mock("@workspace/ui/components/dialog", () => ({
   ),
   DialogTrigger: ({
     children,
-    asChild,
   }: React.PropsWithChildren<{ asChild?: boolean }>) => (
     <div data-testid="dialog-trigger">{children}</div>
   ),

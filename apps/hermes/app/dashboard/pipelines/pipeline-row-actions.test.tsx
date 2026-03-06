@@ -66,7 +66,6 @@ vi.mock("@workspace/ui/components/dropdown-menu", () => ({
   DropdownMenuItem: ({
     children,
     variant,
-    asChild,
   }: React.PropsWithChildren<{ variant?: string; asChild?: boolean }>) => (
     <div data-testid="dropdown-item" data-variant={variant}>
       {children}

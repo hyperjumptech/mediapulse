@@ -49,7 +49,6 @@ vi.mock("@workspace/ui/components/dropdown-menu", () => ({
   ),
   DropdownMenuTrigger: ({
     children,
-    asChild,
   }: React.PropsWithChildren<{ asChild?: boolean }>) => (
     <div data-testid="dropdown-trigger">{children}</div>
   ),
@@ -63,10 +62,8 @@ vi.mock("@workspace/ui/components/dropdown-menu", () => ({
   ),
   DropdownMenuItem: ({
     children,
-    asChild,
     variant,
     disabled,
-    onSelect,
   }: React.PropsWithChildren<{
     asChild?: boolean;
     variant?: string;

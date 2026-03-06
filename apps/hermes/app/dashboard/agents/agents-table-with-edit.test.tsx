@@ -3,8 +3,6 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentsTableWithEdit } from "./agents-table-with-edit";
 
-const mockOnEdit = vi.fn();
-
 vi.mock("./agents-table", () => ({
   AgentsTable: ({
     agents,

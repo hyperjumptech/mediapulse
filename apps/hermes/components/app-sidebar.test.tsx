@@ -43,7 +43,6 @@ vi.mock("@workspace/ui/components/sidebar", () => ({
   ),
   SidebarMenuButton: ({
     children,
-    asChild,
     isActive,
   }: React.PropsWithChildren<{ asChild?: boolean; isActive?: boolean }>) => (
     <div data-testid="sidebar-menu-button" data-active={isActive}>

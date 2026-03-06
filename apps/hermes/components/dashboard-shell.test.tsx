@@ -48,7 +48,6 @@ vi.mock("@workspace/ui/components/breadcrumb", () => ({
   ),
   BreadcrumbLink: ({
     children,
-    asChild,
   }: React.PropsWithChildren<{ asChild?: boolean }>) => (
     <span data-testid="breadcrumb-link">{children}</span>
   ),

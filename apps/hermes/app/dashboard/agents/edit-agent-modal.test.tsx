@@ -47,7 +47,6 @@ vi.mock("@workspace/ui/components/dialog", () => ({
   Dialog: ({
     children,
     open,
-    onOpenChange,
   }: React.PropsWithChildren<{
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
@@ -72,7 +71,6 @@ vi.mock("./agent-form-fields", () => ({
     mode,
     id,
     initialAgentId,
-    initialAgentVersion,
     pending,
     errorMessage,
     submitLabel,
