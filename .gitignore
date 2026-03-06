@@ -50,3 +50,5 @@ scripts/deploy-all.sh
 .netlify
 
 data
+
+docs-output

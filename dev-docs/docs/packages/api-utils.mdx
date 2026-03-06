@@ -1,0 +1,19 @@
+---
+title: api-utils
+description: Shared Hono API helpers — errors and body validation
+icon: Wrench
+---
+
+## Purpose
+
+`@workspace/api-utils` provides **shared utilities** for Hono-based APIs: error responses and request body validation so all agent-\* APIs behave consistently.
+
+## Exports
+
+- **`internalError`** — Helper to return 500 / internal server error response.
+- **`notFound`** — Helper to return 404 response.
+- **`validateBody`** — Validates request body with Zod (or similar); use to keep validation logic in one place.
+
+## Consumers
+
+agent-auth-api, agent-data-api, agent-registry-api (and optionally Dashboard/Hermes route handlers that use Hono-style APIs).

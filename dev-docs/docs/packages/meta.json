@@ -1,0 +1,19 @@
+{
+  "title": "Packages",
+  "pages": [
+    "index",
+    "database",
+    "env",
+    "agent-runtime",
+    "agent-types",
+    "agent-auth-client",
+    "agent-data-api-client",
+    "idx-tickers-importer",
+    "api-utils",
+    "logger",
+    "ui",
+    "utils",
+    "tooling"
+  ],
+  "defaultOpen": true
+}
