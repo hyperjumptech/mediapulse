@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 const webSearchSchema = z.object({
   baseUrl: z.string(),
@@ -43,21 +44,14 @@ export type JsonSchema = {
   [key: string]: unknown;
 };
 
-/** Zod v4 adds toJSONSchema; type is narrowed so TS accepts it when multiple zod versions exist in the workspace. */
-const zWithJSONSchema = z as typeof z & {
-  toJSONSchema: (
-    schema: z.ZodTypeAny,
-    options?: { unrepresentable?: "any" },
-  ) => Record<string, unknown>;
-};
-
+/**
+ * Returns the JSON Schema representation of the config schema wrapped with the agent ID.
+ */
 export function getConfigSchema(): {
   agentId: "data-collection";
   schema: JsonSchema;
 } {
-  const schema = zWithJSONSchema.toJSONSchema(ConfigSchema, {
-    unrepresentable: "any",
-  }) as JsonSchema;
+  const schema = zodToJsonSchema(ConfigSchema) as JsonSchema;
 
   return {
     agentId: "data-collection",
