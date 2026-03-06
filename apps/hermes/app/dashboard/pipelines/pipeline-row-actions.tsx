@@ -17,14 +17,16 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useFormAction } from "@/app/dashboard/pipelines/actions/delete/.generated/use-form-action";
 
 /**
- * Dropdown actions for a pipeline row: Edit, Delete.
+ * Dropdown actions for a pipeline row: Edit (modal or link to detail), Delete.
  */
 export const PipelineRowActions = ({
   pipelineId,
   pipelineName,
+  onEdit,
 }: {
   pipelineId: string;
   pipelineName: string;
+  onEdit?: (pipelineId: string) => void;
 }) => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
@@ -48,12 +50,19 @@ export const PipelineRowActions = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem asChild>
-          <Link href={`/dashboard/pipelines/${pipelineId}`}>
+        {onEdit ? (
+          <DropdownMenuItem onSelect={() => onEdit(pipelineId)}>
             <Pencil className="mr-2 size-4" />
             Edit
-          </Link>
-        </DropdownMenuItem>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link href={`/dashboard/pipelines/${pipelineId}`}>
+              <Pencil className="mr-2 size-4" />
+              Edit
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"

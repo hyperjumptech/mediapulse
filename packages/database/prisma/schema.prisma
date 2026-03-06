@@ -93,9 +93,93 @@ model Pipeline {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  steps PipelineStep[]
+  steps     PipelineStep[]
+  schedules Schedule[]
 
   @@map("pipeline")
+}
+
+enum ScheduleRepeat {
+  once
+  repeating
+}
+
+enum ScheduleExecutionStatus {
+  success
+  partial
+  failed
+}
+
+enum AgentJobExecutionStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+model Schedule {
+  id             String         @id @default(uuid())
+  name           String
+  description    String?
+  repeat         ScheduleRepeat
+  cronExpression String?        @map("cron_expression")
+  interval       Int? // milliseconds
+  timezone       String         @default("America/New_York")
+  startAt        DateTime?      @map("start_at")
+  nextRunAt      DateTime?      @map("next_run_at")
+  pipelineId     String         @map("pipeline_id")
+  params         Json           @default("{}")
+  retryConfig    Json?          @map("retry_config")
+  timeout        Int? // milliseconds
+  priority       Int            @default(0)
+  enabled        Boolean        @default(true)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  createdBy      String?        @map("created_by")
+
+  pipeline           Pipeline            @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  scheduleExecutions ScheduleExecution[]
+  agentJobExecutions AgentJobExecution[]
+
+  @@map("schedule")
+}
+
+model ScheduleExecution {
+  id            String                  @id @default(uuid())
+  scheduleId    String                  @map("schedule_id")
+  executionTime DateTime                @map("execution_time")
+  status        ScheduleExecutionStatus
+  jobsCreated   Int                     @map("jobs_created")
+  jobsEnqueued  Int                     @map("jobs_enqueued")
+  errors        Json? // array of { message, timestamp }
+  metadata      Json?
+  createdAt     DateTime                @default(now()) @map("created_at")
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@map("schedule_execution")
+}
+
+model AgentJobExecution {
+  id             String                  @id @default(uuid())
+  jobId          String                  @unique @map("job_id")
+  agentId        String                  @map("agent_id")
+  scheduleId     String?                 @map("schedule_id")
+  pipelineId     String?                 @map("pipeline_id")
+  pipelineStepId String?                 @map("pipeline_step_id")
+  status         AgentJobExecutionStatus
+  priority       Int                     @default(0)
+  enqueuedAt     DateTime                @map("enqueued_at")
+  dependencies   Json? // array of job IDs
+  params         Json                    @default("{}")
+  error          Json? // { message?, retryable? }
+  startedAt      DateTime?               @map("started_at")
+  completedAt    DateTime?               @map("completed_at")
+  createdAt      DateTime                @default(now()) @map("created_at")
+
+  schedule Schedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@map("agent_job_execution")
 }
 
 model PipelineStep {

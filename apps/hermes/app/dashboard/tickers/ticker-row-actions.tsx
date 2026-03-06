@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -17,14 +16,17 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useFormAction } from "@/app/dashboard/tickers/actions/delete/.generated/use-form-action";
 
 /**
- * Dropdown actions for a ticker row: Edit, Delete.
+ * Dropdown actions for a ticker row: Edit (opens modal), Delete.
  */
 export const TickerRowActions = ({
   tickerId,
   tickerSymbol,
+  onEditClick,
 }: {
   tickerId: string;
   tickerSymbol: string;
+  /** Called when Edit is chosen; use to open the edit modal. */
+  onEditClick?: (id: string) => void;
 }) => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
@@ -48,11 +50,12 @@ export const TickerRowActions = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem asChild>
-          <Link href={`/dashboard/tickers/${tickerId}`}>
-            <Pencil className="mr-2 size-4" />
-            Edit
-          </Link>
+        <DropdownMenuItem
+          onSelect={() => onEditClick?.(tickerId)}
+          disabled={!onEditClick}
+        >
+          <Pencil className="mr-2 size-4" />
+          Edit
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

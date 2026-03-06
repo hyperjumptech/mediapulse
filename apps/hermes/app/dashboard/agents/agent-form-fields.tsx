@@ -1,59 +1,64 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
-
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
-import { useFormAction } from "@/app/dashboard/agents/actions/update/.generated/use-form-action";
+const ENDPOINT_TEXTAREA_CLASS = cn(
+  "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
+  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+  "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+);
 
-/**
- * Edit agent form: agent ID, version, description, endpoint (JSON), and active. Uses update action; refreshes on success.
- */
-export const AgentEditForm = ({
-  id,
-  initialAgentId,
-  initialAgentVersion,
-  initialDescription,
-  initialEndpointJson,
-  initialIsActive,
-}: {
+type AgentFormFieldsBase = {
+  /** Whether the form is submitting. */
+  pending: boolean;
+  /** Error message to show when submit failed. */
+  errorMessage: string | null;
+  /** Label for the submit button. */
+  submitLabel: string;
+};
+
+type AgentFormFieldsCreate = AgentFormFieldsBase & {
+  mode: "create";
+};
+
+type AgentFormFieldsEdit = AgentFormFieldsBase & {
+  mode: "edit";
   id: string;
   initialAgentId: string;
   initialAgentVersion: string;
   initialDescription: string;
   initialEndpointJson: string;
   initialIsActive: boolean;
-}) => {
-  const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
+};
 
-  const errorMessage = useMemo(() => {
-    if (state && state.status === false) return state.message;
-    return null;
-  }, [state]);
+export type AgentFormFieldsProps = AgentFormFieldsCreate | AgentFormFieldsEdit;
 
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
+/**
+ * Shared form fields for create and edit agent: agent ID, version, description, endpoint (JSON), and active.
+ * Renders inputs only; parent must wrap in a form (e.g. FormWithAction).
+ */
+export const AgentFormFields = (props: AgentFormFieldsProps) => {
+  const { pending, errorMessage, submitLabel, mode } = props;
+  const isEdit = mode === "edit";
 
   return (
-    <FormWithAction className="flex max-w-2xl flex-col gap-4">
-      <input type="hidden" name="body.id" value={id} readOnly />
+    <>
+      {isEdit && (
+        <input type="hidden" name="body.id" value={props.id} readOnly />
+      )}
       <div className="grid gap-2">
         <Label htmlFor="body.agentId">Agent ID</Label>
         <Input
           id="body.agentId"
           name="body.agentId"
           type="text"
-          defaultValue={initialAgentId}
           required
+          placeholder="e.g. summarizer"
           disabled={pending}
+          {...(isEdit && { defaultValue: props.initialAgentId })}
         />
       </div>
       <div className="grid gap-2">
@@ -62,9 +67,10 @@ export const AgentEditForm = ({
           id="body.agentVersion"
           name="body.agentVersion"
           type="text"
-          defaultValue={initialAgentVersion}
           required
+          placeholder="e.g. 1.0"
           disabled={pending}
+          {...(isEdit && { defaultValue: props.initialAgentVersion })}
         />
       </div>
       <div className="grid gap-2">
@@ -73,9 +79,9 @@ export const AgentEditForm = ({
           id="body.description"
           name="body.description"
           type="text"
-          defaultValue={initialDescription}
           placeholder="Short description"
           disabled={pending}
+          {...(isEdit && { defaultValue: props.initialDescription })}
         />
       </div>
       <div className="grid gap-2">
@@ -83,18 +89,17 @@ export const AgentEditForm = ({
         <textarea
           id="body.endpoint"
           name="body.endpoint"
-          defaultValue={initialEndpointJson}
-          rows={10}
+          rows={isEdit ? 6 : 4}
+          required={!isEdit}
           disabled={pending}
           placeholder='{"url": "https://api.example.com"}'
-          className={cn(
-            "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
-            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-            "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-          )}
+          className={ENDPOINT_TEXTAREA_CLASS}
+          {...(isEdit && { defaultValue: props.initialEndpointJson })}
         />
         <p className="text-xs text-muted-foreground">
-          Must be a valid JSON object. Leave unchanged to keep current endpoint.
+          {isEdit
+            ? "Must be a valid JSON object. Leave unchanged to keep current endpoint."
+            : "Must be a valid JSON object. Invalid JSON will cause validation to fail."}
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -104,7 +109,7 @@ export const AgentEditForm = ({
           id="body.isActive"
           name="body.isActive"
           value="true"
-          defaultChecked={initialIsActive}
+          defaultChecked={isEdit ? props.initialIsActive : true}
           disabled={pending}
           className="size-4 rounded border-input"
         />
@@ -121,8 +126,8 @@ export const AgentEditForm = ({
         </p>
       ) : null}
       <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save changes"}
+        {submitLabel}
       </Button>
-    </FormWithAction>
+    </>
   );
 };

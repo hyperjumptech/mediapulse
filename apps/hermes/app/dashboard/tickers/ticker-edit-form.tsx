@@ -15,17 +15,21 @@ type TickerMetadata = Record<string, unknown> | null;
 
 /**
  * Edit ticker form: symbol, name, and metadata (JSON). Uses update action; refreshes on success.
+ * Optionally calls onSuccess when save succeeds (e.g. to close a modal).
  */
 export const TickerEditForm = ({
   tickerId,
   initialSymbol,
   initialName,
   initialMetadata,
+  onSuccess,
 }: {
   tickerId: string;
   initialSymbol: string;
   initialName: string;
   initialMetadata?: TickerMetadata;
+  /** Called when update succeeds; use to close a modal or navigate. */
+  onSuccess?: () => void;
 }) => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
@@ -38,8 +42,9 @@ export const TickerEditForm = ({
   useEffect(() => {
     if (state && state.status === true) {
       router.refresh();
+      onSuccess?.();
     }
-  }, [state, router]);
+  }, [state, router, onSuccess]);
 
   const metadataJson = useMemo(
     () =>
