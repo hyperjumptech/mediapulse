@@ -191,4 +191,29 @@ describe("createAgentApp", () => {
     expect(res.status).toBe(500);
     expect(body.agentId).toBe("test-agent");
   });
+
+  it("returns 400 when JSON is malformed", async () => {
+    // Setup
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        run: async () => ({ success: true }),
+      },
+      { verifyToken: async () => true },
+    );
+
+    // Act
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: "{ malformed json",
+    });
+    const body = (await res.json()) as { message: string };
+
+    // Assert
+    expect(res.status).toBe(400);
+    expect(body.message).toBe("Malformed JSON");
+  });
 });

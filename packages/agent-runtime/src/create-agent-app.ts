@@ -32,7 +32,13 @@ export function createAgentApp<TInput, TSchema extends z.ZodType<TInput>>(
 
   app.post("/", async (context) => {
     try {
-      const body = await context.req.json();
+      let body;
+      try {
+        body = await context.req.json();
+      } catch (e) {
+        return context.json({ message: "Malformed JSON" }, 400);
+      }
+
       const input = (await config.inputSchema.parseAsync(body)) as TInput;
       const token = context.req.header("Authorization");
 
@@ -60,7 +66,7 @@ export function createAgentApp<TInput, TSchema extends z.ZodType<TInput>>(
     } catch (error) {
       if (isZodError(error)) {
         return context.json(
-          { message: "Validation failed", errors: error.flatten() },
+          { message: "Bad Request", errors: error.issues },
           400,
         );
       }

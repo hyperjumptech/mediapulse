@@ -89,7 +89,7 @@ describe("delivery-agent", () => {
   });
 
   it("returns 400 when tickerId is not a UUID", async () => {
-    const { default: agent } = await import("./_main.js");
+    const { default: agent } = await import("./index.js");
     const res = await agent.fetch(
       new Request("http://localhost/", {
         method: "POST",
@@ -99,7 +99,7 @@ describe("delivery-agent", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.message).toBe("Bad Request");
     expect(body.errors).toBeDefined();
     expect(Array.isArray(body.errors)).toBe(true);
@@ -108,7 +108,7 @@ describe("delivery-agent", () => {
   });
 
   it("returns 400 when JSON is malformed", async () => {
-    const { default: agent } = await import("./_main.js");
+    const { default: agent } = await import("./index.js");
     const res = await agent.fetch(
       new Request("http://localhost/", {
         method: "POST",
@@ -118,7 +118,7 @@ describe("delivery-agent", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.message).toBe("Malformed JSON");
   });
 });
