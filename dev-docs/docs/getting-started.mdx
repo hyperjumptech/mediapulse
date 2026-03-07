@@ -4,9 +4,11 @@ description: Getting started with MediaPulse
 icon: BookOpen
 ---
 
+Follow the steps in this page to start developing MediaPulse.
+
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - pnpm 10.4.1
 - Docker
 - PostgreSQL
@@ -19,6 +21,8 @@ cd mediapulse
 pnpm install
 ```
 
+Remember that this project uses PNPM as the package manager. Don't use `npm`, `yarn`, or `bun` to install dependencies.
+
 ### Setup Environment Variables
 
 Run one of the following commands to setup the environment variables:
@@ -28,7 +32,20 @@ Run one of the following commands to setup the environment variables:
 ./dev-bootstrap.sh -f # to remove existing .env and .env.local files first
 ```
 
-The script will read the env.\*.example files and merge them into a single .env file. Then it will create symlinks for the environment variables in the apps and packages directories. This way the apps and packages can use the environment variables from the same .env file.
+The script will read the env.\*.example files in `packages/env` directory and merge them into a single `.env` file. Then it will create symlinks for the environment variables in the apps and packages directories. This way the apps and packages can use the environment variables from the same `.env` file.
+
+The example files already contain the correct values for some environment variables for development purposes. But you still need to add the correct values for the following environment variables in the generated `.env` file:
+
+| Environment Variable | Description                                                                                   |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| JINA_API_KEY         | The API key for the Jina AI API. Get it from the landing page of [Jina.ai](https://jina.ai)   |
+| SERPER_API_KEY       | The API key for the Serper API. Create a new free account in [Serper.dev](https://serper.dev) |
+| OPENAI_API_KEY       | The API key for the OpenAI API. Create a new free account in [OpenAI](https://openai.com)     |
+
+<Callout type="info">
+  Remember that the `packages/env/.env` file is the source of truth for the
+  environment variables during development.
+</Callout>
 
 ### Development database
 

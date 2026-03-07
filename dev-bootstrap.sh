@@ -9,6 +9,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 app_dir="$SCRIPT_DIR/apps"
 packages_dir="$SCRIPT_DIR/packages"
 
+# Print a section header (title only, no underline)
+section() { echo ""; echo "▸ $1"; echo ""; }
+# Print a single linked target (relative path from repo root)
+linked() { echo "  ✓ $1"; }
+
 while getopts "f" opt; do
   case "$opt" in
     f)
@@ -26,50 +31,47 @@ shift $((OPTIND - 1))
 
 cd "$SCRIPT_DIR"
 
-# Check if the .env file exists in the env package directory
-if [[ ! -f "$packages_dir/env/.env" ]]; then
-    echo "The .env file does not exist in $packages_dir/env/"
-    "$packages_dir/env/merge-env-examples.sh" "$packages_dir/env/.env"
-    echo "The .env file has been created in $packages_dir/env/"
-    echo "Please edit the file and add the correct values."
-    echo "Then run the script again."
-fi
+section "Env merge"
+# Always merge example env into .env (preserves existing values, adds new keys, removes deleted keys)
+"$packages_dir/env/merge-env-examples.sh" "$packages_dir/env/.env" 2>&1 | sed 's/^/  /'
+
+section "Symlinks (.env → packages/env/.env)"
 
 # Loop through the subdirectories of the app directory
 for dir in "$app_dir"/*; do
-    # Check if it is a directory
     if [[ -d "$dir" ]]; then
-        # Create the symlink
+        rel="${dir#$SCRIPT_DIR/}"
         cd "$dir"
-        echo `pwd`
-        ln -s "../../packages/env/.env" ".env.local"
-        ln -s "../../packages/env/.env" ".env"
-        cd -
+        ln -sf "../../packages/env/.env" ".env.local"
+        ln -sf "../../packages/env/.env" ".env"
+        linked "$rel"
+        cd - >/dev/null
     fi
 done
 
 # Loop through the subdirectories of the apps/agents directory
 for dir in "$app_dir/agents"/*; do
-    # Check if it is a directory
     if [[ -d "$dir" ]]; then
-        # Create the symlink
+        rel="${dir#$SCRIPT_DIR/}"
         cd "$dir"
-        echo `pwd`
-        ln -s "../../../packages/env/.env" ".env.local"
-        ln -s "../../../packages/env/.env" ".env"
-        cd -
+        ln -sf "../../../packages/env/.env" ".env.local"
+        ln -sf "../../../packages/env/.env" ".env"
+        linked "$rel"
+        cd - >/dev/null
     fi
 done
 
-# Loop through the subdirectories of the packages directory
+# Loop through the subdirectories of the packages directory (skip env — that’s where the canonical .env lives)
 for dir in "$packages_dir"/*; do
-    # Check if it is a directory
-    if [[ -d "$dir" ]]; then
-        # Create the symlink
+    if [[ -d "$dir" && "$dir" != "$packages_dir/env" ]]; then
+        rel="${dir#$SCRIPT_DIR/}"
         cd "$dir"
-        echo `pwd`
-        ln -s "../../packages/env/.env" ".env.local"
-        ln -s "../../packages/env/.env" ".env"
-        cd -
+        ln -sf "../../packages/env/.env" ".env.local"
+        ln -sf "../../packages/env/.env" ".env"
+        linked "$rel"
+        cd - >/dev/null
     fi
 done
+
+echo ""
+echo "Done. Env is in packages/env/.env; apps and packages are linked."

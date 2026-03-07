@@ -19,6 +19,14 @@ Run one of the following commands to setup the environment variables:
 
 The script will read the env.\*.example files and merge them into a single .env file. Then it will create symlinks for the environment variables in the apps and packages directories. This way the apps and packages can use the environment variables from the same .env file.
 
+The example files already contain the correct values for some environment variables for development purposes. But you still need to add the correct values for the following environment variables in the generated `.env` file:
+
+| Environment Variable | Description                                                                                   |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| JINA_API_KEY         | The API key for the Jina AI API. Get it from the landing page of [Jina.ai](https://jina.ai)   |
+| SERPER_API_KEY       | The API key for the Serper API. Create a new free account in [Serper.dev](https://serper.dev) |
+| OPENAI_API_KEY       | The API key for the OpenAI API. Create a new free account in [OpenAI](https://openai.com)     |
+
 ### Development database
 
 To run the development database, run the following command:
