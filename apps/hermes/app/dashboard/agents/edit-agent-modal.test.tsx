@@ -102,6 +102,8 @@ const createMockAgent = () => ({
   agentVersion: "1.0",
   description: "Test description",
   endpoint: { url: "https://example.com" },
+  inputSchema: null,
+  configSchema: null,
   isActive: true,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),

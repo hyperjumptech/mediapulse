@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -8,6 +8,7 @@ import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
 import type { getPipelinesWithSteps } from "@/lib/pipelines";
+import { validateWithJsonSchema } from "@/lib/validate-json-schema";
 
 /** Common IANA timezone identifiers for schedule runs. */
 export const TIMEZONE_OPTIONS = [
@@ -150,8 +151,107 @@ export const ScheduleFormFields = ({
   const [cronExpression, setCronExpression] = useState<string>(
     initial.cronExpression,
   );
+  const [pipelineId, setPipelineId] = useState(defaultPipelineId);
+  const [paramsValidationErrors, setParamsValidationErrors] = useState<
+    string[] | null
+  >(null);
+  const [showExpectedShape, setShowExpectedShape] = useState(false);
+  const [expectedShapeSummary, setExpectedShapeSummary] = useState<
+    string | null
+  >(null);
+  const paramsTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const pre = namePrefix ? `${namePrefix}.` : "";
+
+  const handleValidateParams = async () => {
+    if (!pipelineId) {
+      setParamsValidationErrors(["Select a pipeline first"]);
+      return;
+    }
+    const raw = paramsTextareaRef.current?.value ?? "";
+    let params: unknown;
+    try {
+      params = raw.trim() === "" ? {} : JSON.parse(raw);
+    } catch {
+      setParamsValidationErrors(["Invalid JSON"]);
+      return;
+    }
+    if (
+      typeof params !== "object" ||
+      params === null ||
+      Array.isArray(params)
+    ) {
+      setParamsValidationErrors(["Params must be a JSON object"]);
+      return;
+    }
+    const res = await fetch(`/api/pipelines/${pipelineId}/schemas`);
+    if (!res.ok) {
+      setParamsValidationErrors([`Failed to load schemas: ${res.status}`]);
+      return;
+    }
+    const { steps } = (await res.json()) as {
+      steps: Array<{
+        agentId: string;
+        agentVersion: string;
+        inputSchema: unknown;
+      }>;
+    };
+    const errors: string[] = [];
+    for (const step of steps) {
+      if (step.inputSchema == null || typeof step.inputSchema !== "object") {
+        errors.push(
+          `Agent ${step.agentId}@${step.agentVersion} has no input schema`,
+        );
+        continue;
+      }
+      const result = validateWithJsonSchema(
+        step.inputSchema as Record<string, unknown>,
+        params,
+      );
+      if (!result.valid) {
+        errors.push(
+          `${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
+        );
+      }
+    }
+    setParamsValidationErrors(errors.length > 0 ? errors : null);
+  };
+
+  const handleExplainParams = async () => {
+    if (!pipelineId) {
+      setExpectedShapeSummary("Select a pipeline first.");
+      setShowExpectedShape(true);
+      return;
+    }
+    const res = await fetch(`/api/pipelines/${pipelineId}/schemas`);
+    if (!res.ok) {
+      setExpectedShapeSummary(`Failed to load schemas: ${res.status}`);
+      setShowExpectedShape(true);
+      return;
+    }
+    const { steps } = (await res.json()) as {
+      steps: Array<{
+        agentId: string;
+        agentVersion: string;
+        inputSchema: unknown;
+      }>;
+    };
+    const lines = steps.map((step) => {
+      const schema = step.inputSchema;
+      if (schema == null || typeof schema !== "object") {
+        return `${step.agentId}@${step.agentVersion}: no schema`;
+      }
+      const props = (schema as { properties?: Record<string, unknown> })
+        .properties;
+      if (props && typeof props === "object") {
+        const keys = Object.keys(props).join(", ");
+        return `${step.agentId}@${step.agentVersion}: { ${keys} }`;
+      }
+      return `${step.agentId}@${step.agentVersion}: (see schema)`;
+    });
+    setExpectedShapeSummary(lines.join("\n"));
+    setShowExpectedShape(true);
+  };
 
   return (
     <>
@@ -332,7 +432,8 @@ export const ScheduleFormFields = ({
           id={`${pre}pipelineId`}
           name={`${pre}pipelineId`}
           required
-          defaultValue={defaultPipelineId}
+          value={pipelineId}
+          onChange={(e) => setPipelineId(e.target.value)}
           disabled={pending}
           className={cn(
             "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow]",
@@ -349,8 +450,31 @@ export const ScheduleFormFields = ({
         </select>
       </div>
       <div className="grid gap-2">
-        <Label htmlFor={`${pre}params`}>Params (JSON)</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor={`${pre}params`}>Params (JSON)</Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pending || !pipelineId}
+              onClick={handleValidateParams}
+            >
+              Validate
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={pending || !pipelineId}
+              onClick={handleExplainParams}
+            >
+              Expected shape
+            </Button>
+          </div>
+        </div>
         <textarea
+          ref={paramsTextareaRef}
           id={`${pre}params`}
           name={`${pre}params`}
           defaultValue={defaultParams}
@@ -363,6 +487,30 @@ export const ScheduleFormFields = ({
             "disabled:pointer-events-none disabled:opacity-50",
           )}
         />
+        {paramsValidationErrors != null && paramsValidationErrors.length > 0 ? (
+          <p className="text-sm text-destructive" role="alert">
+            {paramsValidationErrors.join(". ")}
+          </p>
+        ) : null}
+        {showExpectedShape && expectedShapeSummary != null ? (
+          <div className="rounded-md border border-border bg-muted/30 p-2">
+            <p className="text-sm font-medium mb-1">
+              Expected params shape (per agent)
+            </p>
+            <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+              {expectedShapeSummary}
+            </pre>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-2"
+              onClick={() => setShowExpectedShape(false)}
+            >
+              Close
+            </Button>
+          </div>
+        ) : null}
       </div>
       {scheduleId != null ? (
         <>

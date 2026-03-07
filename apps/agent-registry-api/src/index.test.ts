@@ -68,6 +68,7 @@ describe("agent-registry-api", () => {
               url: "http://example.com",
               method: "POST",
             },
+            inputSchema: { type: "object", properties: {} },
           }),
         }),
       );

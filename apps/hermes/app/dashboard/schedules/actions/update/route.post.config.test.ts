@@ -72,6 +72,9 @@ describe("createUpdateScheduleHandler", () => {
   it("updates schedule and returns ok", async () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = {
+      pipeline: {
+        findUnique: vi.fn().mockResolvedValue({ id: "p1", steps: [] }),
+      },
       schedule: {
         findUnique: vi.fn().mockResolvedValue(existingSchedule),
         update: updateMock,
@@ -108,6 +111,9 @@ describe("handler", () => {
 
   it("is the factory with production defaults", async () => {
     const db = {
+      pipeline: {
+        findUnique: vi.fn().mockResolvedValue({ id: "p1", steps: [] }),
+      },
       schedule: {
         findUnique: vi.fn().mockResolvedValue(existingSchedule),
         update: vi.fn().mockResolvedValue(undefined),

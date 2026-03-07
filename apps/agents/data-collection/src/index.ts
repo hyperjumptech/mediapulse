@@ -7,6 +7,7 @@ import {
 import { env } from "@workspace/env/agents-data-collection";
 
 import { z } from "zod";
+import { ConfigSchema } from "./utilities/config-schema.js";
 import { performWebFetch } from "./utilities/web-fetch.js";
 import {
   performWebSearch,
@@ -25,6 +26,7 @@ const BodySchema = z.object({
 });
 
 type Input = z.infer<typeof BodySchema>;
+type Config = z.infer<typeof ConfigSchema>;
 
 /** Internal shape for a collected page before sending to the API (includes searchQueryText for metadata). */
 interface CollectedPage {
@@ -36,12 +38,18 @@ interface CollectedPage {
   searchQueryText: string;
 }
 
-const app = createAgentApp<Input, typeof BodySchema>(
+const app = createAgentApp<
+  Input,
+  typeof BodySchema,
+  Config,
+  typeof ConfigSchema
+>(
   {
     agentId: "data-collection",
     agentVersion: "1.0.0",
     inputSchema: BodySchema,
-    run: async ({ input, token }) => {
+    configSchema: ConfigSchema,
+    run: async ({ input, config: _config, token }) => {
       if (!env.JINA_API_KEY) {
         return {
           success: false,

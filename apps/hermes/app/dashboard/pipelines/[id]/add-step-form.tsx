@@ -7,6 +7,7 @@ import { Button } from "@workspace/ui/components/button";
 import { Label } from "@workspace/ui/components/label";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/add-step/.generated/use-form-action";
+import { cn } from "@workspace/ui/lib/utils";
 
 type Agent = {
   id: string;
@@ -75,7 +76,10 @@ export const AddStepForm = ({
           <Label htmlFor="add-step-agent">Add agent</Label>
           <select
             id="add-step-agent"
-            className="flex h-9 w-[280px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className={cn(
+              "flex h-9 w-[280px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            )}
             value={
               selected ? `${selected.agentId}@${selected.agentVersion}` : ""
             }
@@ -109,6 +113,21 @@ export const AddStepForm = ({
         >
           {pending ? "Adding…" : "Add step"}
         </Button>
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="add-step-config">Config (JSON, optional)</Label>
+        <textarea
+          id="add-step-config"
+          name="body.config"
+          defaultValue="{}"
+          rows={3}
+          disabled={pending}
+          className={cn(
+            "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
+            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+          )}
+          placeholder="{}"
+        />
       </div>
       {availableAgents.length === 0 ? (
         <p className="text-sm text-muted-foreground">

@@ -74,6 +74,8 @@ const createMockAgent = (
   description: "Test description",
   isActive: true,
   endpoint: { url: "https://example.com" },
+  inputSchema: null,
+  configSchema: null,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
   ...overrides,

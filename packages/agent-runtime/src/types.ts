@@ -25,9 +25,11 @@ export type AgentFailure = {
 export type AgentResult = AgentSuccess | AgentFailure;
 
 /** Context passed to the agent run function. */
-export type AgentRunContext<TInput> = {
-  /** Parsed and validated request body. */
+export type AgentRunContext<TInput, TConfig = Record<string, never>> = {
+  /** Parsed and validated input (per-run payload). */
   input: TInput;
+  /** Parsed and validated config (static configuration for the agent). */
+  config: TConfig;
   /** Authorization header value (e.g. "Bearer <token>"). */
   token: string | undefined;
 };
@@ -42,17 +44,24 @@ export type CreateAgentAppOptions = {
   logger?: LoggerLike;
 };
 
-/** Configuration for a single agent: id, version, input schema, and run logic. */
-export type AgentConfig<TInput, TSchema extends z.ZodType<TInput>> = {
+/** Configuration for a single agent: id, version, input/config schemas, and run logic. */
+export type AgentConfig<
+  TInput,
+  TSchema extends z.ZodType<TInput>,
+  TConfig = Record<string, never>,
+  TConfigSchema extends z.ZodType<TConfig> = z.ZodType<TConfig>,
+> = {
   /** Unique agent identifier (e.g. "data-collection"). */
   agentId: string;
   /** Agent version string (e.g. "1.0.0"). */
   agentVersion: string;
-  /** Zod schema to parse and validate the POST body. */
+  /** Zod schema to parse and validate the request body's `input` field. */
   inputSchema: TSchema;
+  /** Zod schema to parse and validate the request body's `config` field. Defaults to empty object. */
+  configSchema?: TConfigSchema;
   /**
-   * Agent business logic. Receives parsed input and token; returns result
+   * Agent business logic. Receives parsed input, config, and token; returns result
    * that drives HTTP status and response body.
    */
-  run: (context: AgentRunContext<TInput>) => Promise<AgentResult>;
+  run: (context: AgentRunContext<TInput, TConfig>) => Promise<AgentResult>;
 };

@@ -5,19 +5,29 @@ import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
 import type { ZodError } from "zod";
 
-import type { z } from "zod";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+
 import type { AgentConfig, CreateAgentAppOptions } from "./types.js";
 
+const emptyConfigSchema = z.object({});
+
 /**
- * Creates a Hono app that handles POST "/" with bearer auth, body validation,
- * and the agent run function. Response shape: { agentId, agentVersion [, skipped, message ] }.
+ * Creates a Hono app that handles GET /schemas (no auth), POST "/" with bearer auth,
+ * body validation ({ input, config }), and the agent run function.
+ * Response shape: { agentId, agentVersion [, skipped, message ] }.
  *
- * @param config - Agent id, version, Zod input schema, and run function.
+ * @param config - Agent id, version, Zod input/config schemas, and run function.
  * @param options - Optional authApiUrl, verifyToken, and logger (DI for tests).
- * @returns Hono app with logger, bearer auth, and POST "/" handler.
+ * @returns Hono app with logger, GET /schemas, bearer auth, and POST "/" handler.
  */
-export function createAgentApp<TInput, TSchema extends z.ZodType<TInput>>(
-  config: AgentConfig<TInput, TSchema>,
+export function createAgentApp<
+  TInput,
+  TSchema extends z.ZodType<TInput>,
+  TConfig = Record<string, never>,
+  TConfigSchema extends z.ZodType<TConfig> = z.ZodType<TConfig>,
+>(
+  config: AgentConfig<TInput, TSchema, TConfig, TConfigSchema>,
   options: CreateAgentAppOptions = {},
 ): Hono {
   const {
@@ -25,6 +35,9 @@ export function createAgentApp<TInput, TSchema extends z.ZodType<TInput>>(
     verifyToken = (token: string) => verifyTokenViaAuthApi(token, authApiUrl),
     logger = defaultLogger,
   } = options;
+
+  const configSchema = (config.configSchema ??
+    emptyConfigSchema) as TConfigSchema;
 
   const app = new Hono();
   app.use(
@@ -40,15 +53,35 @@ export function createAgentApp<TInput, TSchema extends z.ZodType<TInput>>(
       },
     }),
   );
+
+  /** GET /schemas returns input and config JSON Schemas (no auth). */
+  app.get("/schemas", (context) => {
+    const inputSchema = zodToJsonSchema(config.inputSchema, {
+      $refStrategy: "none",
+    });
+    const configSchemaJson = zodToJsonSchema(configSchema, {
+      $refStrategy: "none",
+    });
+    return context.json({ inputSchema, configSchema: configSchemaJson });
+  });
+
   app.use("*", bearerAuth({ verifyToken }));
 
   app.post("/", async (context) => {
     try {
-      const body = await context.req.json();
-      const input = (await config.inputSchema.parseAsync(body)) as TInput;
+      const body = (await context.req.json()) as {
+        input?: unknown;
+        config?: unknown;
+      };
+      const rawInput = body?.input;
+      const rawConfig = body?.config ?? {};
+      const input = (await config.inputSchema.parseAsync(rawInput)) as TInput;
+      const configParsed = (await configSchema.parseAsync(
+        rawConfig,
+      )) as TConfig;
       const token = context.req.header("Authorization");
 
-      const result = await config.run({ input, token });
+      const result = await config.run({ input, config: configParsed, token });
 
       if (result.success) {
         return context.json(

@@ -1,0 +1,56 @@
+---
+title: Agent–Hermes contract
+description: Strongly typed input and config between agents and Hermes
+icon: FileCode
+---
+
+## Overview
+
+Agents and Hermes communicate with a **strongly typed contract**: each agent exposes an **input schema** (per-run payload) and an optional **config schema** (static configuration). Hermes stores these schemas in the agent registry, validates schedule params and step config in the admin UI, and sends `{ input, config }` in a single request body when invoking an agent.
+
+## Request body shape
+
+When Hermes invokes an agent, it sends a **POST** body:
+
+```json
+{
+  "input": { "tickerId": "uuid", ... },
+  "config": { "webSearch": {}, "webFetch": {}, ... }
+}
+```
+
+- **`input`** — The expanded schedule params (one object per run). Must satisfy the agent’s **input schema**.
+- **`config`** — Per-step configuration from the pipeline step. Must satisfy the agent’s **config schema** (if any). Defaults to `{}` when the agent has no config schema.
+
+## Agent: exposing schemas
+
+1. **Define Zod schemas** — In your agent app, define `inputSchema` and optionally `configSchema` (e.g. `z.object({})` for no config).
+2. **Pass to `createAgentApp`** — `createAgentApp` accepts `inputSchema` and optional `configSchema`; it validates the body and passes `{ input, config, token }` to `run()`.
+3. **GET /schemas** — The agent runtime exposes **GET /schemas** (no auth) returning `{ inputSchema, configSchema }` as **JSON Schema**. Use this when registering the agent so the registry stores the schemas.
+
+## Registry: storing schemas
+
+When **registering** an agent (POST to agent-registry-api), include:
+
+- **`inputSchema`** (required) — JSON Schema object for the agent’s input.
+- **`configSchema`** (optional) — JSON Schema object for the agent’s config.
+
+The registry stores these; Hermes uses them to validate schedule params and step config in the admin UI and at create/update time.
+
+## Hermes: assigning input and config
+
+- **Schedule params** — In the schedule form, “Params (JSON)” is the **input** template. It can contain data-source strings (e.g. `db:ticker:all:id`). Params are validated against every pipeline step’s agent **input schema** when saving. Use **Validate** to check params client-side; use **Expected shape** to see the required structure.
+- **Step config** — When adding or editing a pipeline step, “Config (JSON)” is the **config** for that step. It is validated against that step’s agent **config schema** when saving.
+
+## Adding a new agent
+
+1. Implement the agent with `inputSchema` and optional `configSchema`; implement `run({ input, config, token })`.
+2. Expose GET /schemas (provided by `createAgentApp`).
+3. Register the agent with the registry: POST with `agentId`, `agentVersion`, `endpoint`, `inputSchema` (and optionally `configSchema`). You can GET the agent’s `/schemas` and include that in the register payload.
+4. In Hermes, add the agent to a pipeline step and set step config if the agent has a config schema. Create schedules with params that satisfy the pipeline’s agents’ input schemas.
+
+## Related docs
+
+- [agent-runtime](/packages/agent-runtime) — `createAgentApp`, body validation, GET /schemas.
+- [agent-registry-api](/apps/agent-registry-api) — Register with `inputSchema` / `configSchema`.
+- [Hermes](/apps/hermes) — Schedule form (params, Validate, Expected shape), step config UI.
