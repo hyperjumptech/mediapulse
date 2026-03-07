@@ -43,6 +43,20 @@ for dir in "$app_dir"/*; do
         cd "$dir"
         echo `pwd`
         ln -s "../../packages/env/.env" ".env.local"
+        ln -s "../../packages/env/.env" ".env"
+        cd -
+    fi
+done
+
+# Loop through the subdirectories of the apps/agents directory
+for dir in "$app_dir/agents"/*; do
+    # Check if it is a directory
+    if [[ -d "$dir" ]]; then
+        # Create the symlink
+        cd "$dir"
+        echo `pwd`
+        ln -s "../../../packages/env/.env" ".env.local"
+        ln -s "../../../packages/env/.env" ".env"
         cd -
     fi
 done

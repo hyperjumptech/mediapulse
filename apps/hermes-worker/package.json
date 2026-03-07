@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "dotenv -e ../../packages/env/.env -- bun run --hot src/index.ts",
+    "dev": "dotenv -e ./.env.local -- bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
     "start": "bun run ./dist/server.js",
     "migrate-dataqueue": "dataqueue-cli migrate",
-    "migrate-dataqueue:dev": "dataqueue-cli migrate --envPath ../../packages/env/.env --schema dataqueue --verbose",
+    "migrate-dataqueue:dev": "dataqueue-cli migrate --envPath ./.env.local --schema dataqueue --verbose",
     "lint": "eslint \"src/**/*.ts\"",
     "type:check": "tsc --noEmit",
     "test": "vitest run"
