@@ -130,13 +130,12 @@ export const SchedulesTable = ({
             schedules.map((schedule) => (
               <TableRow key={schedule.id}>
                 <TableCell className="font-medium">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(schedule.id)}
-                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground text-left"
+                  <Link
+                    href={`/dashboard/schedules/${schedule.id}`}
+                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
                   >
                     {schedule.name}
-                  </button>
+                  </Link>
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {schedule.pipeline.name}

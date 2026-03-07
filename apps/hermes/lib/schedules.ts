@@ -127,3 +127,66 @@ export const getScheduleById = async (
     include: { pipeline: true },
   });
 };
+
+/** Shape of a single execution returned by getScheduleExecutionsPage. */
+export type ScheduleExecutionRow = {
+  id: string;
+  executionTime: Date;
+  status: string;
+  jobsCreated: number;
+  jobsEnqueued: number;
+  errors: unknown;
+  createdAt: Date;
+};
+
+export type ScheduleExecutionsPageResult = {
+  executions: ScheduleExecutionRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/**
+ * Fetches a paginated list of schedule executions for a schedule, newest first.
+ *
+ * @param scheduleId - UUID of the schedule.
+ * @param page - 1-based page number.
+ * @param pageSize - Number of items per page.
+ * @param db - Prisma client (injectable for tests).
+ * @returns Executions for the page plus total count and pagination info.
+ */
+export const getScheduleExecutionsPage = async (
+  scheduleId: string,
+  page: number,
+  pageSize: number,
+  db: Db = prisma,
+): Promise<ScheduleExecutionsPageResult> => {
+  const skip = (page - 1) * pageSize;
+  const where = { scheduleId };
+
+  const [executions, total] = await Promise.all([
+    db.scheduleExecution.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { executionTime: "desc" },
+      select: {
+        id: true,
+        executionTime: true,
+        status: true,
+        jobsCreated: true,
+        jobsEnqueued: true,
+        errors: true,
+        createdAt: true,
+      },
+    }),
+    db.scheduleExecution.count({ where }),
+  ]);
+
+  return {
+    executions: executions as ScheduleExecutionRow[],
+    total,
+    page,
+    pageSize,
+  };
+};

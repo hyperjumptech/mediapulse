@@ -1,6 +1,10 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getScheduleById, getSchedulesPage } from "./schedules";
+import {
+  getScheduleById,
+  getScheduleExecutionsPage,
+  getSchedulesPage,
+} from "./schedules";
 import type { PrismaClientWithSchema } from "@workspace/database/client";
 
 type MockDb = {
@@ -9,12 +13,20 @@ type MockDb = {
     findUnique: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
   };
+  scheduleExecution: {
+    findMany: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
+  };
 };
 
 const createMockDb = (): MockDb => ({
   schedule: {
     findMany: vi.fn(),
     findUnique: vi.fn(),
+    count: vi.fn(),
+  },
+  scheduleExecution: {
+    findMany: vi.fn(),
     count: vi.fn(),
   },
 });
@@ -231,5 +243,76 @@ describe("getScheduleById", () => {
     const result = await getScheduleById("missing-id", asDb(db));
 
     expect(result).toBeNull();
+  });
+});
+
+describe("getScheduleExecutionsPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls findMany and count with scheduleId, orderBy executionTime desc, skip and take", async () => {
+    const db = createMockDb();
+    db.scheduleExecution.findMany.mockResolvedValue([]);
+    db.scheduleExecution.count.mockResolvedValue(0);
+
+    await getScheduleExecutionsPage("sched-1", 1, 15, asDb(db));
+
+    expect(db.scheduleExecution.findMany).toHaveBeenCalledWith({
+      where: { scheduleId: "sched-1" },
+      skip: 0,
+      take: 15,
+      orderBy: { executionTime: "desc" },
+      select: {
+        id: true,
+        executionTime: true,
+        status: true,
+        jobsCreated: true,
+        jobsEnqueued: true,
+        errors: true,
+        createdAt: true,
+      },
+    });
+    expect(db.scheduleExecution.count).toHaveBeenCalledWith({
+      where: { scheduleId: "sched-1" },
+    });
+  });
+
+  it("uses correct skip for page 2", async () => {
+    const db = createMockDb();
+    db.scheduleExecution.findMany.mockResolvedValue([]);
+    db.scheduleExecution.count.mockResolvedValue(50);
+
+    await getScheduleExecutionsPage("sched-1", 2, 10, asDb(db));
+
+    expect(db.scheduleExecution.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 10, take: 10 }),
+    );
+  });
+
+  it("returns executions, total, page, and pageSize", async () => {
+    const db = createMockDb();
+    const executions = [
+      {
+        id: "ex-1",
+        executionTime: new Date("2025-01-15T10:00:00Z"),
+        status: "success",
+        jobsCreated: 3,
+        jobsEnqueued: 3,
+        errors: null,
+        createdAt: new Date("2025-01-15T10:00:01Z"),
+      },
+    ];
+    db.scheduleExecution.findMany.mockResolvedValue(executions);
+    db.scheduleExecution.count.mockResolvedValue(1);
+
+    const result = await getScheduleExecutionsPage("sched-1", 1, 10, asDb(db));
+
+    expect(result).toEqual({
+      executions,
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
   });
 });

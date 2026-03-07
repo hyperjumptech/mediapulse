@@ -4,7 +4,7 @@ Run `pnpm dev --filter hermes` from the root of the monorepo (or `pnpm dev` from
 
 ## Dashboard
 
-The Hermes dashboard (`/dashboard`) provides CRUD for **Pipelines**, **Tickers**, **Agents**, and **Schedules**. Use the sidebar to open each section. Schedules define when and how a pipeline runs (once or repeating, with cron or interval).
+The Hermes dashboard (`/dashboard`) provides CRUD for **Pipelines**, **Tickers**, **Agents**, and **Schedules**. Use the sidebar to open each section. Schedules define when and how a pipeline runs (once or repeating, with cron or interval). Click a schedule name to open its **detail page** (`/dashboard/schedules/[id]`), where you can view a paginated list of executions (newest first), open error logs in a modal, and edit the schedule.
 
 ## Scheduler (DataQueue)
 
