@@ -23,6 +23,8 @@ services:
     env_file:
       - packages/env/.env
       - packages/env/.env.local
+    environment:
+      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
       - postgres
     restart: unless-stopped
@@ -36,6 +38,8 @@ services:
     env_file:
       - packages/env/.env
       - packages/env/.env.local
+    environment:
+      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
       - postgres
     restart: unless-stopped
@@ -50,6 +54,8 @@ services:
     env_file:
       - packages/env/.env
       - packages/env/.env.local
+    environment:
+      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
       - postgres
     restart: unless-stopped
@@ -63,6 +69,8 @@ services:
     env_file:
       - packages/env/.env
       - packages/env/.env.local
+    environment:
+      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
       - postgres
       - agent-auth-api
@@ -77,6 +85,8 @@ services:
     env_file:
       - packages/env/.env
       - packages/env/.env.local
+    environment:
+      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
       - postgres
     restart: unless-stopped
@@ -132,6 +142,10 @@ services:
     env_file:
       - packages/env/.env
       - packages/env/.env.local
+    environment:
+      # In Docker, DB is reachable by service name, not localhost
+      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
+      PG_DATAQUEUE_DATABASE: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=dataqueue&search_path=dataqueue
     depends_on:
       - postgres
     restart: unless-stopped
