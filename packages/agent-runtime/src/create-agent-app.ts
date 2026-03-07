@@ -40,7 +40,7 @@ export function createAgentApp<TInput, TSchema extends z.ZodType<TInput>>(
       },
     }),
   );
-  //app.use("*", bearerAuth({ verifyToken }));
+  app.use("*", bearerAuth({ verifyToken }));
 
   app.post("/", async (context) => {
     try {
