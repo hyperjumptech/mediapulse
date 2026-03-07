@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@workspace/env", () => ({
+vi.mock("@workspace/env/hermes-worker", () => ({
   env: { PG_DATAQUEUE_DATABASE: undefined },
 }));
 
