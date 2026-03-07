@@ -45,6 +45,8 @@ async function main(): Promise<void> {
   }
 
   processor = jobQueue.createProcessor(jobHandlers, {
+    // eslint-disable-next-line strict-env/no-process-env, turbo/no-undeclared-env-vars
+    verbose: process.env.NODE_ENV === "development",
     workerId: `hermes-${process.pid}`,
     batchSize: 10,
     concurrency: 3,
@@ -56,6 +58,8 @@ async function main(): Promise<void> {
   processor.startInBackground();
 
   supervisor = jobQueue.createSupervisor({
+    // eslint-disable-next-line strict-env/no-process-env, turbo/no-undeclared-env-vars
+    verbose: process.env.NODE_ENV === "development",
     intervalMs: 60_000,
     stuckJobsTimeoutMinutes: 10,
     cleanupJobsDaysToKeep: 30,
