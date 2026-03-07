@@ -255,29 +255,37 @@ export const ScheduleFormFields = ({
               />
             ) : null}
             {repeatingType === "interval" ? (
-              <div className="grid gap-2">
-                <Label htmlFor={`${pre}intervalMinutes`}>
-                  Interval (minutes)
-                </Label>
-                <Input
-                  id={`${pre}intervalMinutes`}
-                  type="number"
-                  min={1}
-                  value={intervalMinutes}
-                  onChange={(e) =>
-                    setIntervalMinutes(Number(e.target.value) || 1)
-                  }
-                  placeholder="e.g. 60"
-                  disabled={pending}
-                  required
-                />
+              <>
                 <input
                   type="hidden"
-                  name={`${pre}interval`}
-                  value={intervalMinutes * MS_PER_MINUTE}
+                  name={`${pre}cronExpression`}
+                  value=""
                   readOnly
                 />
-              </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={`${pre}intervalMinutes`}>
+                    Interval (minutes)
+                  </Label>
+                  <Input
+                    id={`${pre}intervalMinutes`}
+                    type="number"
+                    min={1}
+                    value={intervalMinutes}
+                    onChange={(e) =>
+                      setIntervalMinutes(Number(e.target.value) || 1)
+                    }
+                    placeholder="e.g. 60"
+                    disabled={pending}
+                    required
+                  />
+                  <input
+                    type="hidden"
+                    name={`${pre}interval`}
+                    value={intervalMinutes * MS_PER_MINUTE}
+                    readOnly
+                  />
+                </div>
+              </>
             ) : null}
             {repeatingType === "cron" ? (
               <div className="grid gap-2">

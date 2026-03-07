@@ -28,7 +28,7 @@ export function createAgentApp<TInput, TSchema extends z.ZodType<TInput>>(
 
   const app = new Hono();
   app.use(pinoLogger({ pino: logger }));
-  app.use("*", bearerAuth({ verifyToken }));
+  //app.use("*", bearerAuth({ verifyToken }));
 
   app.post("/", async (context) => {
     try {

@@ -68,7 +68,15 @@ const bodyValidator = z
     pipelineId: z.string().uuid().optional(),
     params: paramsSchema,
     retryConfig: retryConfigSchema,
-    timeout: z.coerce.number().int().positive().optional().nullable(),
+    timeout: z
+      .union([z.literal(""), z.coerce.number()])
+      .optional()
+      .nullable()
+      .transform((v): number | null => {
+        if (v === "" || v === undefined || v === null) return null;
+        const n = Number(v);
+        return n > 0 ? n : null;
+      }),
     priority: z.coerce.number().int().optional(),
     enabled: z
       .union([z.boolean(), z.literal("on"), z.literal("false")])

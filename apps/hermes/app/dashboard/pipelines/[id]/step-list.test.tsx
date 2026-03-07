@@ -43,6 +43,13 @@ vi.mock(
   }),
 );
 
+vi.mock(
+  "@/app/dashboard/pipelines/actions/update-step/.generated/use-form-action",
+  () => ({
+    useFormAction: vi.fn(() => createMockUseFormAction()),
+  }),
+);
+
 vi.mock("@workspace/ui/components/button", () => ({
   Button: ({
     children,
@@ -225,5 +232,25 @@ describe("StepList", () => {
 
     // Assert
     expect(routerRefreshMock).toHaveBeenCalled();
+  });
+
+  it("renders Edit button for each step", async () => {
+    const mock = await getUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+
+    render(
+      <StepList
+        pipelineId="pipeline-123"
+        steps={createMockSteps()}
+        agentDescriptions={createMockAgents()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Edit step summarizer@1.0" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Edit step translator@2.0" }),
+    ).toBeInTheDocument();
   });
 });

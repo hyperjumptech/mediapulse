@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -70,14 +70,27 @@ export const ScheduleFormModal = ({
   const state = isEdit ? updateState : createState;
 
   const errorMessage = useMemo(() => {
-    if (state && state.status === false) return state.message as string;
+    if (
+      state &&
+      typeof state === "object" &&
+      "status" in state &&
+      state.status === false
+    )
+      return (state as { message?: string }).message ?? "Something went wrong";
+    if (state instanceof Error) return state.message;
     return null;
   }, [state]);
 
   const success = useMemo(
-    () => state != null && state.status === true,
+    () =>
+      state != null &&
+      typeof state === "object" &&
+      "status" in state &&
+      state.status === true,
     [state],
   );
+
+  const didHandleSuccess = useRef(true);
 
   const fetchSchedule = useCallback(async (id: string) => {
     setSchedule("loading");
@@ -94,7 +107,16 @@ export const ScheduleFormModal = ({
   }, [open, isEdit, editScheduleId, fetchSchedule]);
 
   useEffect(() => {
-    if (success) {
+    if (open) didHandleSuccess.current = true;
+  }, [open]);
+
+  useEffect(() => {
+    if (pending) didHandleSuccess.current = false;
+  }, [pending]);
+
+  useEffect(() => {
+    if (success && !didHandleSuccess.current) {
+      didHandleSuccess.current = true;
       onOpenChange(false);
       router.refresh();
     }
