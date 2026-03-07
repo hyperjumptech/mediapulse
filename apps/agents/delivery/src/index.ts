@@ -25,7 +25,6 @@ const app = createAgentApp<Input, typeof BodySchema>(
     agentVersion: "1.0.0",
     inputSchema: BodySchema,
     run: async ({ input, token }) => {
-      console.log("delivery", input.tickerId);
       const deliveryData = await dataApiGet<DeliveryData>(
         token,
         env.AGENT_DATA_API_URL,
