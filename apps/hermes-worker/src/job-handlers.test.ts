@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeSchedule, getDueSchedules } from "@workspace/hermes-scheduler";
 import { logger } from "@workspace/logger";
 import { jobHandlers } from "./job-handlers";
@@ -43,7 +43,11 @@ describe("jobHandlers", () => {
       vi.mocked(getDueSchedules).mockResolvedValue([]);
 
       // Act
-      await jobHandlers.check_schedules();
+      await jobHandlers.check_schedules(
+        {},
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.check_schedules>[2],
+      );
 
       // Assert
       expect(getDueSchedules).toHaveBeenCalledTimes(1);
@@ -68,12 +72,16 @@ describe("jobHandlers", () => {
           name: "Test",
           steps: [],
         },
-      } as Awaited<ReturnType<typeof getDueSchedules>>[number];
+      } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
       vi.mocked(getDueSchedules).mockResolvedValue([fakeSchedule]);
       vi.mocked(executeSchedule).mockResolvedValue(undefined);
 
       // Act
-      await jobHandlers.check_schedules();
+      await jobHandlers.check_schedules(
+        {},
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.check_schedules>[2],
+      );
 
       // Assert
       expect(getDueSchedules).toHaveBeenCalledWith(prisma);
@@ -103,14 +111,21 @@ describe("jobHandlers", () => {
           name: "Test",
           steps: [],
         },
-      } as Awaited<ReturnType<typeof getDueSchedules>>[number];
+      } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
       vi.mocked(getDueSchedules).mockResolvedValue([fakeSchedule]);
       vi.mocked(executeSchedule).mockRejectedValue(
         new Error("Execution failed"),
       );
 
+      const runCheck = () =>
+        jobHandlers.check_schedules(
+          {},
+          new AbortController().signal,
+          {} as Parameters<typeof jobHandlers.check_schedules>[2],
+        );
+
       // Act
-      await jobHandlers.check_schedules();
+      await runCheck();
 
       // Assert
       expect(logger.error).toHaveBeenCalledTimes(1);
@@ -118,9 +133,7 @@ describe("jobHandlers", () => {
         { err: expect.any(Error), scheduleId: "schedule-2" },
         "executeSchedule failed for schedule",
       );
-      await expect(
-        Promise.resolve(jobHandlers.check_schedules()),
-      ).resolves.not.toThrow();
+      await expect(Promise.resolve(runCheck())).resolves.not.toThrow();
     });
 
     it("processes all due schedules and logs only for the one that fails", async () => {
@@ -135,7 +148,7 @@ describe("jobHandlers", () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         pipeline: { id: "p1", name: "Ok", steps: [] },
-      } as Awaited<ReturnType<typeof getDueSchedules>>[number];
+      } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
       const scheduleFail = {
         id: "schedule-fail",
         enabled: true,
@@ -146,14 +159,18 @@ describe("jobHandlers", () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         pipeline: { id: "p2", name: "Fail", steps: [] },
-      } as Awaited<ReturnType<typeof getDueSchedules>>[number];
+      } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
       vi.mocked(getDueSchedules).mockResolvedValue([scheduleOk, scheduleFail]);
       vi.mocked(executeSchedule)
         .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(new Error("Fail"));
 
       // Act
-      await jobHandlers.check_schedules();
+      await jobHandlers.check_schedules(
+        {},
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.check_schedules>[2],
+      );
 
       // Assert
       expect(executeSchedule).toHaveBeenCalledTimes(2);

@@ -106,7 +106,7 @@ vi.mock("@workspace/ui/components/button", () => ({
     disabled?: boolean;
     onClick?: () => void;
     "aria-label"?: string;
-    "aria-live"?: string;
+    "aria-live"?: "off" | "assertive" | "polite";
   }>) => (
     <button
       type={type as "submit" | "button"}

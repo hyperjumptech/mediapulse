@@ -1,7 +1,10 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ScheduleDetailContent } from "./schedule-detail-content";
+import {
+  ScheduleDetailContent,
+  type ScheduleDetailContentProps,
+} from "./schedule-detail-content";
 
 vi.mock("next/link", () => ({
   default: ({
@@ -69,27 +72,28 @@ vi.mock("./executions-pagination", () => ({
   ),
 }));
 
-const createMockSchedule = () => ({
-  id: "sched-1",
-  name: "Daily Run",
-  description: "Runs every day",
-  pipeline: { id: "p1", name: "Main" },
-  repeat: "repeating",
-  cronExpression: "0 6 * * *",
-  interval: null,
-  timezone: "UTC",
-  startAt: null,
-  nextRunAt: new Date(),
-  pipelineId: "p1",
-  params: {},
-  retryConfig: null,
-  timeout: null,
-  priority: 0,
-  enabled: true,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  createdBy: null,
-});
+const createMockSchedule = (): ScheduleDetailContentProps["schedule"] =>
+  ({
+    id: "sched-1",
+    name: "Daily Run",
+    description: "Runs every day",
+    pipeline: { id: "p1", name: "Main" },
+    repeat: "repeating",
+    cronExpression: "0 6 * * *",
+    interval: null,
+    timezone: "UTC",
+    startAt: null,
+    nextRunAt: new Date(),
+    pipelineId: "p1",
+    params: {},
+    retryConfig: null,
+    timeout: null,
+    priority: 0,
+    enabled: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: null,
+  }) as unknown as ScheduleDetailContentProps["schedule"];
 
 const createMockExecution = () => ({
   id: "ex-1",
