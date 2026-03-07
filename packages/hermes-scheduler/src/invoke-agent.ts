@@ -2,7 +2,10 @@ import { z } from "zod";
 
 export const AgentEndpointSchema = z.object({
   url: z.string().url(),
-  method: z.string(),
+  method: z
+    .enum(["GET", "POST", "PUT", "DELETE", "PATCH"])
+    .optional()
+    .default("POST"),
 });
 
 export type AgentEndpoint = z.infer<typeof AgentEndpointSchema>;

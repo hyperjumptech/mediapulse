@@ -27,7 +27,19 @@ export function createAgentApp<TInput, TSchema extends z.ZodType<TInput>>(
   } = options;
 
   const app = new Hono();
-  app.use(pinoLogger({ pino: logger }));
+  app.use(
+    pinoLogger({
+      pino: logger,
+      http: {
+        onResBindings: (c) => ({
+          res: {
+            status: c.res.status,
+            headers: Object.fromEntries(c.res.headers.entries()),
+          },
+        }),
+      },
+    }),
+  );
   //app.use("*", bearerAuth({ verifyToken }));
 
   app.post("/", async (context) => {
@@ -59,8 +71,18 @@ export function createAgentApp<TInput, TSchema extends z.ZodType<TInput>>(
       return context.json(payload, statusCode as 404 | 500);
     } catch (error) {
       if (isZodError(error)) {
+        logger.error(
+          {
+            agentId: config.agentId,
+            errors: (error as ZodError).flatten(),
+          },
+          "Agent input validation failed",
+        );
         return context.json(
-          { message: "Validation failed", errors: error.flatten() },
+          {
+            message: "Validation failed",
+            errors: (error as ZodError).flatten(),
+          },
           400,
         );
       }
