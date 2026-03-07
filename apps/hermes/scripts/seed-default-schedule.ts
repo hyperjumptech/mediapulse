@@ -4,13 +4,7 @@
  * Run from apps/hermes: pnpm exec tsx scripts/seed-default-schedule.ts
  */
 import { prisma } from "@workspace/database";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const cronParser = require("cron-parser") as {
-  parseExpression: (
-    expr: string,
-    opts: { currentDate: Date; tz: string },
-  ) => { next: () => { toDate: () => Date } };
-};
+import { computeNextRunAt } from "@workspace/hermes-scheduler";
 
 const CRON_DAILY_06_UTC = "0 6 * * *";
 const DEFAULT_SCHEDULE_NAME = "Daily pipeline run (06:00 UTC)";
@@ -35,11 +29,20 @@ async function main() {
     process.exit(0);
   }
 
-  const iter = cronParser.parseExpression(CRON_DAILY_06_UTC, {
-    currentDate: new Date(),
-    tz: "UTC",
-  });
-  const nextRunAt = iter.next().toDate();
+  const nextRunAt = computeNextRunAt(
+    {
+      repeat: "repeating",
+      cronExpression: CRON_DAILY_06_UTC,
+      interval: null,
+      timezone: "UTC",
+      nextRunAt: null,
+    },
+    new Date(),
+  );
+  if (!nextRunAt) {
+    console.error("Failed to compute next run time");
+    process.exit(1);
+  }
 
   const schedule = await prisma.schedule.create({
     data: {

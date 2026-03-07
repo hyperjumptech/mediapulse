@@ -2,6 +2,7 @@
   "title": "Apps",
   "pages": [
     "hermes",
+    "hermes-worker",
     "dashboard",
     "agent-auth-api",
     "agent-data-api",

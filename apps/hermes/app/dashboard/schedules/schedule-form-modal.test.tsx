@@ -201,10 +201,15 @@ describe("ScheduleFormModal", () => {
     expect(screen.getByTestId("dialog")).toHaveAttribute("data-open", "true");
   });
 
-  it("calls router.refresh on success", async () => {
-    // Setup
+  it("calls router.refresh on success after submit", async () => {
+    // Setup: simulate success after a submit (pending was true, then success)
     const mock = await getCreateUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
+    mock.mockReturnValue(
+      createMockUseFormAction({
+        state: { status: true },
+        pending: true,
+      }),
+    );
 
     // Act
     render(
@@ -217,7 +222,7 @@ describe("ScheduleFormModal", () => {
       />,
     );
 
-    // Assert
+    // Assert: success + pending triggers the success path (didHandleSuccess set false by pending, then success effect runs)
     expect(routerRefreshMock).toHaveBeenCalled();
   });
 });

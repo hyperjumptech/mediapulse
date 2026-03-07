@@ -1,0 +1,26 @@
+---
+title: hermes-scheduler
+description: Shared scheduler logic for Hermes schedules (due queries, execution, next-run)
+icon: CalendarClock
+---
+
+## Purpose
+
+`@workspace/hermes-scheduler` holds the **scheduler logic** used by Hermes: querying due schedules, executing them (expand params, invoke agents, record runs), computing next run times, and parsing data-source strings. Hermes (Next.js) uses only `computeNextRunAt` for the dashboard; the long-running **hermes-worker** app uses the full API for the DataQueue `check_schedules` job.
+
+## Exports
+
+- **Due schedules:** `getDueSchedules`, `DueSchedule`, `GetDueSchedulesDb`
+- **Execution:** `executeSchedule`, `ExecuteScheduleDeps`
+- **Next run:** `computeNextRunAt`, `ScheduleForNextRun`
+- **Data sources:** `expandDataSources`, `expandSingleDataSource`, `ExpandDataSourcesDb`, `isDataSourceString`, `parseDataSourceString`, `isAllowlisted`, `DataSourceParsed`
+- **Agent invocation:** `invokeAgent`, `AgentEndpointSchema`, `AgentEndpoint`, `InvokeAgentHttpClient`
+
+## Consumers
+
+- **Hermes** — Schedule create/update routes import `computeNextRunAt` and `ScheduleForNextRun`.
+- **hermes-worker** — Job handlers import `getDueSchedules`, `executeSchedule`, and types to run the scheduler.
+
+## Dependencies
+
+`@workspace/database`, `cron-parser`, `zod`. No HTTP client; callers pass an `InvokeAgentHttpClient` (e.g. `got`) when calling `executeSchedule` or `invokeAgent`.

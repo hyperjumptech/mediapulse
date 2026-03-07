@@ -24,6 +24,7 @@ export type DashboardUser = { name: string; email: string };
 
 const SEGMENT_LABELS: Record<string, string> = {
   agents: "Agents",
+  "api-keys": "API Keys",
   pipelines: "Pipelines",
   schedules: "Schedules",
   tickers: "Tickers",

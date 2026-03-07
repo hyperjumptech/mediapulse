@@ -1,5 +1,5 @@
 import { initJobQueue } from "@nicnocquee/dataqueue";
-import { env } from "@workspace/env";
+import { env } from "@workspace/env/hermes-worker";
 import type { JobPayloadMap } from "./job-payload-map";
 
 let jobQueue: ReturnType<typeof initJobQueue<JobPayloadMap>> | null = null;

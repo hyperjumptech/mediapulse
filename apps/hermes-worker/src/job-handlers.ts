@@ -8,7 +8,7 @@ import {
   executeSchedule,
   getDueSchedules,
   type InvokeAgentHttpClient,
-} from "./scheduler";
+} from "@workspace/hermes-scheduler";
 
 const httpClient: InvokeAgentHttpClient = {
   post: (url, options) =>

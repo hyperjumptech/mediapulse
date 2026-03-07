@@ -1,0 +1,38 @@
+---
+title: hermes-worker
+description: Long-running process that runs the Hermes DataQueue scheduler (processor + supervisor)
+icon: ServerCog
+---
+
+## Purpose
+
+**hermes-worker** is a long-running Node/Bun app that runs the DataQueue **processor** and **supervisor** for the Hermes scheduler. It ensures the cron job `hermes-check-schedules` exists, processes `check_schedules` jobs (poll due schedules, execute them via `@workspace/hermes-scheduler`), and runs the supervisor (stuck-job reclaim, cleanup). Hermes (Next.js) no longer runs the queue and can be deployed without a long-running server; run hermes-worker on a persistent host for scheduled pipeline runs.
+
+## Features
+
+- **Queue init** — Connects to DataQueue using `PG_DATAQUEUE_DATABASE`.
+- **Cron registration** — Ensures `hermes-check-schedules` (every minute) exists.
+- **Processor** — Runs job handlers (e.g. `check_schedules`: get due schedules, execute each via hermes-scheduler).
+- **Supervisor** — Reclaims stuck jobs, cleans old jobs/events.
+- **Graceful shutdown** — SIGTERM/SIGINT drain processor and supervisor, then exit.
+
+## Scripts
+
+- `pnpm dev` — Start with hot reload (Bun). Uses `dotenv -e ../../packages/env/.env`.
+- `pnpm build` / `pnpm start` — Build and run production build.
+- `pnpm run migrate-dataqueue` — Run DataQueue schema migrations.
+- `pnpm run migrate-dataqueue:dev` — Migrate with dev env and verbose output.
+
+From repo root: `pnpm dev:hermes-worker`.
+
+## Environment
+
+- **PG_DATAQUEUE_DATABASE** (required) — DataQueue DB connection (e.g. same as `DATABASE_URL` with `?schema=dataqueue`).
+- **DATABASE_URL** — Used by Prisma in job handlers (schedule execution).
+- **AGENT_API_KEY** — Bearer token when invoking agents.
+
+## Workspace dependencies
+
+- `@workspace/hermes-scheduler` — Due schedules, execution, next-run logic.
+- `@workspace/database` — Prisma client for schedules and execution.
+- `@workspace/env`, `@workspace/logger`, `@nicnocquee/dataqueue`, `got`.

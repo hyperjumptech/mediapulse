@@ -212,6 +212,21 @@ describe("DashboardShell", () => {
     expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("Agents");
   });
 
+  it("shows API Keys breadcrumb on /dashboard/api-keys", () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/api-keys");
+
+    // Act
+    render(
+      <DashboardShell>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("API Keys");
+  });
+
   it("shows Schedules breadcrumb on /dashboard/schedules", () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard/schedules");

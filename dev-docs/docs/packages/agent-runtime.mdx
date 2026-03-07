@@ -16,9 +16,9 @@ icon: Cpu
 - **`verifyTokenViaAuthApi`** — Re-exported from `@workspace/agent-auth-client`; used when `authApiUrl` is set.
 - **Types:** `AgentResult`, `AgentRunContext`, `AgentConfig`, `CreateAgentAppOptions`, `LoggerLike`.
 
-## How Hermes invokes agents
+## How hermes-worker invokes agents
 
-Hermes sends `POST` with body `{ tickerId: "<uuid>" }` and header `Authorization: Bearer <apiKey>`. Agents validate the body, verify the token, run logic, and return a consistent JSON result (success/failure/skipped).
+hermes-worker sends `POST` with body `{ tickerId: "<uuid>" }` and header `Authorization: Bearer <apiKey>`. Agents validate the body, verify the token, run logic, and return a consistent JSON result (success/failure/skipped).
 
 ## Options (DI)
 

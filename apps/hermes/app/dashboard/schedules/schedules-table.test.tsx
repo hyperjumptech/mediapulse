@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SchedulesTable } from "./schedules-table";
 import type { SchedulesPageResult } from "@/lib/schedules";
@@ -187,9 +187,8 @@ describe("SchedulesTable", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("calls onEdit when clicking schedule name", () => {
+  it("schedule name is a link to schedule detail page", () => {
     // Setup
-    const onEdit = vi.fn();
     const schedules = [createMockSchedule({ id: "schedule-123" })];
 
     // Act
@@ -199,14 +198,18 @@ describe("SchedulesTable", () => {
         sortBy="name"
         sortDir="asc"
         pageSize={15}
-        onEdit={onEdit}
+        onEdit={vi.fn()}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Daily Run" }));
+    const nameLink = screen.getByRole("link", { name: "Daily Run" });
 
     // Assert
-    expect(onEdit).toHaveBeenCalledWith("schedule-123");
+    expect(nameLink).toBeInTheDocument();
+    expect(nameLink).toHaveAttribute(
+      "href",
+      "/dashboard/schedules/schedule-123",
+    );
   });
 
   it("renders row actions for each schedule", () => {

@@ -4,13 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm build:default && pnpm build:agents.data-collection && pnpm build:agents.content-generation && pnpm build:agents.delivery",
+    "build": "concurrently \"pnpm build:default\" \"pnpm build:agents.data-collection\" \"pnpm build:agents.content-generation\" \"pnpm build:agents.delivery\" \"pnpm build:hermes-worker\"",
     "build:default": "npx env-to-t3 -i env.example -o src/index.ts",
     "build:agents.data-collection": "npx env-to-t3 -i env.agents.data-collection.example -o src/agents-data-collection.ts",
     "build:agents.content-generation": "npx env-to-t3 -i env.agents.content-generation.example -o src/agents-content-generation.ts",
-    "build:agents.delivery": "npx env-to-t3 -i env.agents.delivery.example -o src/agents-delivery.ts"
+    "build:agents.delivery": "npx env-to-t3 -i env.agents.delivery.example -o src/agents-delivery.ts",
+    "build:hermes-worker": "npx env-to-t3 -i env.hermes-worker.example -o src/hermes-worker.ts"
   },
   "exports": {
+    "./hermes-worker": {
+      "types": "./src/hermes-worker.ts",
+      "default": "./src/hermes-worker.ts"
+    },
     "./agents-content-generation": {
       "types": "./src/agents-content-generation.ts",
       "default": "./src/agents-content-generation.ts"
@@ -34,6 +39,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "concurrently": "^9.2.1",
     "dotenv-cli": "^7.3.0",
     "eslint": "catalog:",
     "postcss": "catalog:",
