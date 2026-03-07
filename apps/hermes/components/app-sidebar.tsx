@@ -6,6 +6,7 @@ import {
   Bot,
   Calendar,
   GitBranch,
+  Key,
   LayoutDashboard,
   TrendingUp,
 } from "lucide-react";
@@ -39,6 +40,7 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
   const isPipelines = pathname === "/dashboard/pipelines";
   const isTickers = pathname?.startsWith("/dashboard/tickers") ?? false;
   const isAgents = pathname?.startsWith("/dashboard/agents") ?? false;
+  const isApiKeys = pathname?.startsWith("/dashboard/api-keys") ?? false;
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
 
   return (
@@ -84,6 +86,14 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/agents">
                   <Bot className="size-4" />
                   <span>Agents</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isApiKeys}>
+                <Link href="/dashboard/api-keys">
+                  <Key className="size-4" />
+                  <span>API Keys</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

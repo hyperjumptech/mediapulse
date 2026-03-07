@@ -6,22 +6,24 @@ icon: Zap
 
 ## Purpose
 
-Hermes is the main orchestration app: it manages **pipelines** (sequences of agents), **tickers**, **agents**, and **schedules**. It provides the dashboard and API for creating/editing schedules; the actual **scheduler** (DataQueue processor and supervisor) runs in the separate **hermes-worker** app so Hermes can stay stateless and deploy without a long-running server.
+Hermes is the main orchestration app: it manages **pipelines** (sequences of agents), **tickers**, **agents**, **API keys**, and **schedules**. It provides the dashboard and API for creating/editing schedules; the actual **scheduler** (DataQueue processor and supervisor) runs in the separate **hermes-worker** app so Hermes can stay stateless and deploy without a long-running server.
 
 ## Features
 
-- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, agents, and schedules (CRUD).
+- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, agents, API keys, and schedules (CRUD).
 - **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, expands data-source params (e.g. `db:ticker:all:id`), and invokes pipeline steps via HTTP. Hermes does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
 - **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@workspace/idx-tickers-importer`.
 - **Session-based auth** — Dashboard uses cookie/session auth; agents are called with API keys.
+- **API key management** — Admins can CRUD API keys from the dashboard. Create and update use modals; the raw key is shown once after create (stored as SHA-256 hash in DB, aligned with agent-auth-api).
 
 ## Key routes / entrypoints
 
-- Dashboard: `/dashboard` (pipelines, tickers, agents, schedules).
+- Dashboard: `/dashboard` (pipelines, tickers, agents, API keys, schedules).
 - Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline.
 - Ticker actions: create, update, delete, import (IDX).
 - Agent actions: create, update.
+- API key actions: create, update, delete. Create/update via modal; list is paginated with search by name.
 - Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@workspace/hermes-scheduler`; execution runs in hermes-worker.
 - Logout: `/logout`.
 
