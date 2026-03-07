@@ -1,0 +1,33 @@
+{
+  "name": "hermes-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../packages/env/.env -- bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "start": "bun run ./dist/server.js",
+    "migrate-dataqueue": "dataqueue-cli migrate",
+    "migrate-dataqueue:dev": "dataqueue-cli migrate --envPath ../../packages/env/.env --schema dataqueue --verbose",
+    "lint": "eslint \"src/**/*.ts\"",
+    "type:check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nicnocquee/dataqueue": "^1.36.0",
+    "@workspace/database": "workspace:*",
+    "@workspace/env": "workspace:*",
+    "@workspace/hermes-scheduler": "workspace:*",
+    "@workspace/logger": "workspace:*",
+    "got": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*",
+    "dotenv-cli": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -76,3 +76,13 @@ pnpm dev --filter=dashboard
 ```bash
 pnpm dev --filter=hermes
 ```
+
+Hermes is a Next.js app and does not run the scheduler. To run scheduled pipeline runs, start **hermes-worker** as well.
+
+### Running `hermes-worker` (scheduler)
+
+```bash
+pnpm dev:hermes-worker
+```
+
+Before first run, apply DataQueue migrations from the worker app: `pnpm --filter hermes-worker run migrate-dataqueue` (requires `PG_DATAQUEUE_DATABASE` in env).

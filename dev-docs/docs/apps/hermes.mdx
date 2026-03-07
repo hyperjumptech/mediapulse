@@ -6,12 +6,12 @@ icon: Zap
 
 ## Purpose
 
-Hermes is the main orchestration app: it manages **pipelines** (sequences of agents), **tickers**, **agents**, and **schedules**. It runs pipeline steps on a database-driven schedule (via [DataQueue](https://docs.dataqueue.dev)) or manually by sending HTTP requests to each agent with a bearer token.
+Hermes is the main orchestration app: it manages **pipelines** (sequences of agents), **tickers**, **agents**, and **schedules**. It provides the dashboard and API for creating/editing schedules; the actual **scheduler** (DataQueue processor and supervisor) runs in the separate **hermes-worker** app so Hermes can stay stateless and deploy without a long-running server.
 
 ## Features
 
 - **Dashboard UI** — Manage pipelines, pipeline steps, tickers, agents, and schedules (CRUD).
-- **Database-driven scheduler** — Schedules are stored in the `Schedule` table; a DataQueue cron job runs every minute, polls for due schedules, expands data-source params (e.g. `db:ticker:all:id`), and invokes pipeline steps via HTTP. No hardcoded cron in code.
+- **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, expands data-source params (e.g. `db:ticker:all:id`), and invokes pipeline steps via HTTP. Hermes does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
 - **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@workspace/idx-tickers-importer`.
 - **Session-based auth** — Dashboard uses cookie/session auth; agents are called with API keys.
@@ -22,40 +22,34 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 - Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline.
 - Ticker actions: create, update, delete, import (IDX).
 - Agent actions: create, update.
-- Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). The scheduler uses `nextRunAt` to pick due schedules; for repeating runs, `nextRunAt` is recomputed after each execution.
+- Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@workspace/hermes-scheduler`; execution runs in hermes-worker.
 - Logout: `/logout`.
 
 ## Port
 
 - **3001** (via `next dev --turbopack -p 3001`).
 
-## Scheduler (DataQueue)
+## Scheduler (hermes-worker)
 
-Hermes runs as a **long-running server**. On startup it:
+Hermes **does not** run the DataQueue queue or migrations. To run the scheduler:
 
-1. Initializes the DataQueue job queue (requires `PG_DATAQUEUE_DATABASE`).
-2. Registers a recurring cron schedule `hermes-check-schedules` that enqueues a `check_schedules` job every minute.
-3. Starts the DataQueue processor and supervisor in the background (process jobs, reclaim stuck jobs, cleanup).
-4. Registers graceful shutdown on `SIGTERM`/`SIGINT` (drain processor and supervisor, then exit).
+1. Run the **hermes-worker** app on a persistent server (e.g. `pnpm dev:hermes-worker` from repo root). It initializes the queue, ensures the `hermes-check-schedules` cron exists, and runs the processor + supervisor.
+2. Run DataQueue migrations from **hermes-worker**: `pnpm --filter hermes-worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`). Use the same DB as Hermes with `?schema=dataqueue`.
+3. Set `PG_DATAQUEUE_DATABASE` (and `DATABASE_URL`, `AGENT_API_KEY`) where hermes-worker runs.
 
-**Setup:**
-
-- Set `PG_DATAQUEUE_DATABASE` (e.g. same as `DATABASE_URL` with `?schema=dataqueue`). Run DataQueue migrations: from repo root, `pnpm run migrate-dataqueue` (or from `apps/hermes`: `pnpm run migrate-dataqueue`). Migrations use the `dataqueue` schema so they do not conflict with Prisma tables.
-- Run Prisma migrations so `Schedule`, `ScheduleExecution`, and `AgentJobExecution` tables exist.
-- (Optional) Seed a default schedule: `pnpm exec tsx scripts/seed-default-schedule.ts` from `apps/hermes` to create a daily 06:00 UTC schedule for the first active pipeline.
-
-If `PG_DATAQUEUE_DATABASE` is not set, Hermes still starts but the scheduler is disabled (log warning).
+See [hermes-worker](/apps/hermes-worker) for details.
 
 ## Workspace dependencies
 
 - `@workspace/database` — Prisma client for pipelines, tickers, agents, schedules, etc.
-- `@workspace/env` — Environment variables (including `PG_DATAQUEUE_DATABASE` for the scheduler).
-- `@nicnocquee/dataqueue` — Job queue and cron for the scheduler.
+- `@workspace/env` — Environment variables.
+- `@workspace/hermes-scheduler` — `computeNextRunAt` (and types) for schedule create/update in the dashboard.
 - `@workspace/idx-tickers-importer` — IDX ticker import.
 - `@workspace/logger` — Logging.
 - `@workspace/ui` — Shared UI components.
 
 ## Related docs
 
-- [Architecture](/architecture) — How Hermes fits in the system.
-- [Packages: database](/packages/database), [idx-tickers-importer](/packages/idx-tickers-importer).
+- [Architecture](/architecture) — How Hermes and hermes-worker fit in the system.
+- [hermes-worker](/apps/hermes-worker) — Long-running scheduler process.
+- [Packages: database](/packages/database), [hermes-scheduler](/packages/hermes-scheduler), [idx-tickers-importer](/packages/idx-tickers-importer).

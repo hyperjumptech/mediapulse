@@ -8,13 +8,13 @@ The Hermes dashboard (`/dashboard`) provides CRUD for **Pipelines**, **Tickers**
 
 ## Scheduler (DataQueue)
 
-Schedules are stored in the database (`Schedule` table). A DataQueue cron job runs every minute and executes due schedules (expand params, invoke pipeline steps via HTTP).
+Schedules are stored in the database (`Schedule` table). The **scheduler does not run inside Hermes**. Run the **hermes-worker** app on a persistent server: it runs the DataQueue processor and supervisor (cron job every minute, execute due schedules). Hermes is a stateless Next.js app.
 
-**To enable the scheduler:**
+**To run the scheduler:**
 
-1. Set `PG_DATAQUEUE_DATABASE` in `.env` or `.env.local` (e.g. same as `DATABASE_URL` with `?schema=dataqueue`).
-2. Run DataQueue migrations: `pnpm run migrate-dataqueue` (from repo root or `apps/hermes`).
-3. Ensure Prisma migrations are applied (including `Schedule`, `ScheduleExecution`, `AgentJobExecution`).
+1. Set `PG_DATAQUEUE_DATABASE` (e.g. same as `DATABASE_URL` with `?schema=dataqueue`). Run DataQueue migrations from **hermes-worker**: `pnpm --filter hermes-worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`).
+2. Ensure Prisma migrations are applied (including `Schedule`, `ScheduleExecution`, `AgentJobExecution`).
+3. Start **hermes-worker** (e.g. `pnpm dev:hermes-worker` from repo root).
 4. (Optional) Seed a default daily schedule: `pnpm exec tsx scripts/seed-default-schedule.ts` from `apps/hermes`.
 
 ## Creating an admin user

@@ -4,6 +4,7 @@
     "index",
     "database",
     "env",
+    "hermes-scheduler",
     "agent-runtime",
     "agent-types",
     "agent-auth-client",

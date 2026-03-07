@@ -1,13 +1,14 @@
 /**
- * Node.js-only instrumentation: queue processor, supervisor, and signal handlers.
- * Loaded only when NEXT_RUNTIME === "nodejs" so it can use process.on, process.pid, etc.
+ * Hermes worker: long-running process that runs the DataQueue processor and supervisor
+ * for the Hermes scheduler (check_schedules cron job). Run this app on a persistent server;
+ * Hermes (Next.js) stays stateless and does not run the queue.
  */
 
 const DRAIN_TIMEOUT_MS = 30_000;
 
-export async function runNodeInstrumentation(): Promise<void> {
-  const { getJobQueue } = await import("./lib/queue");
-  const { jobHandlers } = await import("./lib/job-handlers");
+async function main(): Promise<void> {
+  const { getJobQueue } = await import("./queue");
+  const { jobHandlers } = await import("./job-handlers");
   const { logger } = await import("@workspace/logger");
 
   let jobQueue: Awaited<ReturnType<typeof getJobQueue>> | null = null;
@@ -27,7 +28,7 @@ export async function runNodeInstrumentation(): Promise<void> {
       { err },
       "Scheduler disabled: PG_DATAQUEUE_DATABASE not set. Set it and run pnpm run migrate-dataqueue to enable.",
     );
-    return;
+    process.exit(1);
   }
 
   const existingCron = await jobQueue
@@ -65,7 +66,7 @@ export async function runNodeInstrumentation(): Promise<void> {
   });
   supervisor.startInBackground();
 
-  const shutdown = async () => {
+  const shutdown = async (): Promise<void> => {
     if (processor || supervisor) {
       await Promise.all([
         processor?.stopAndDrain(DRAIN_TIMEOUT_MS),
@@ -85,4 +86,11 @@ export async function runNodeInstrumentation(): Promise<void> {
   process.on("SIGINT", () => {
     shutdown().then(() => process.exit(0));
   });
+
+  logger.info("Hermes worker started (processor + supervisor)");
 }
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

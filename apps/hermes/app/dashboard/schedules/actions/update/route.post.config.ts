@@ -11,7 +11,7 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
-import { computeNextRunAt } from "@/lib/scheduler/next-run-at";
+import { computeNextRunAt } from "@workspace/hermes-scheduler";
 
 const paramsSchema = z
   .union([

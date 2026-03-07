@@ -12,7 +12,7 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
-import { computeNextRunAt } from "@/lib/scheduler/next-run-at";
+import { computeNextRunAt } from "@workspace/hermes-scheduler";
 
 /**
  * Parses optional JSON string into a plain object for schedule params. Default empty object.
