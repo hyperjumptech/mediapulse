@@ -222,9 +222,9 @@ describe("AgentsTable", () => {
     expect(screen.getByTestId("row-actions-agent-2")).toBeInTheDocument();
   });
 
-  it("calls onEdit callback when clicking agent ID with onEdit prop", () => {
+  it("calls onView callback when clicking agent ID with onView prop", () => {
     // Setup
-    const onEdit = vi.fn();
+    const onView = vi.fn();
     const agent = createMockAgent();
     const agents = [agent];
 
@@ -235,7 +235,7 @@ describe("AgentsTable", () => {
         sortBy="agentId"
         sortDir="asc"
         pageSize={15}
-        onEdit={onEdit}
+        onView={onView}
       />,
     );
 
@@ -243,10 +243,10 @@ describe("AgentsTable", () => {
     fireEvent.click(agentIdButton);
 
     // Assert
-    expect(onEdit).toHaveBeenCalledWith(agent);
+    expect(onView).toHaveBeenCalledWith(agent);
   });
 
-  it("renders link when onEdit not provided", () => {
+  it("renders link when onView not provided", () => {
     // Setup
     const agents = [createMockAgent({ id: "agent-123" })];
 

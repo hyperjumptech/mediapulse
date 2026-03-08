@@ -138,7 +138,7 @@ describe("AgentRowActions", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders Edit option", async () => {
+  it("renders View details option", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction());
@@ -148,7 +148,7 @@ describe("AgentRowActions", () => {
     render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
 
     // Assert
-    expect(screen.getByText("Edit")).toBeInTheDocument();
+    expect(screen.getByText("View details")).toBeInTheDocument();
   });
 
   it("renders Delete option", async () => {
@@ -164,7 +164,7 @@ describe("AgentRowActions", () => {
     expect(screen.getByText("Delete")).toBeInTheDocument();
   });
 
-  it("renders Edit as link when onEdit not provided", async () => {
+  it("renders View details as link when onView not provided", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction());
@@ -174,31 +174,31 @@ describe("AgentRowActions", () => {
     render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
 
     // Assert
-    const editLink = screen.getByRole("link", { name: /Edit/i });
-    expect(editLink).toHaveAttribute("href", "/dashboard/agents/agent-123");
+    const viewLink = screen.getByRole("link", { name: /View details/i });
+    expect(viewLink).toHaveAttribute("href", "/dashboard/agents/agent-123");
   });
 
-  it("renders Edit as button when onEdit provided", async () => {
+  it("renders View details as button when onView provided", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction());
     const agent = createMockAgent();
-    const onEdit = vi.fn();
+    const onView = vi.fn();
 
     // Act
     render(
       <AgentRowActions
         agent={agent}
         agentLabel="test-agent@1.0"
-        onEdit={onEdit}
+        onView={onView}
       />,
     );
 
     // Assert
     expect(
-      screen.queryByRole("link", { name: /Edit/i }),
+      screen.queryByRole("link", { name: /View details/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Edit")).toBeInTheDocument();
+    expect(screen.getByText("View details")).toBeInTheDocument();
   });
 
   it("renders hidden input with agent id for delete", async () => {
@@ -242,7 +242,7 @@ describe("AgentRowActions", () => {
     expect(routerRefreshMock).toHaveBeenCalled();
   });
 
-  it("renders separator between Edit and Delete", async () => {
+  it("renders separator between View details and Delete", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction());

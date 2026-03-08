@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import { Button } from "@workspace/ui/components/button";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Eye, MoreHorizontal, Trash2 } from "lucide-react";
 
 import { useFormAction } from "@/app/dashboard/agents/actions/delete/.generated/use-form-action";
 import type { AgentsPageResult } from "@/lib/agents";
@@ -21,17 +21,17 @@ type AgentRow = AgentsPageResult["agents"][number];
 type AgentRowActionsProps = {
   agent: AgentRow;
   agentLabel: string;
-  /** When provided, Edit opens the edit modal via this callback instead of navigating. */
-  onEdit?: (agent: AgentRow) => void;
+  /** When provided, View details opens the details modal via this callback instead of navigating. */
+  onView?: (agent: AgentRow) => void;
 };
 
 /**
- * Dropdown actions for an agent row: Edit, Delete.
+ * Dropdown actions for an agent row: View details, Delete.
  */
 export const AgentRowActions = ({
   agent,
   agentLabel,
-  onEdit,
+  onView,
 }: AgentRowActionsProps) => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
@@ -55,16 +55,16 @@ export const AgentRowActions = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
-        {onEdit ? (
-          <DropdownMenuItem onSelect={() => onEdit(agent)}>
-            <Pencil className="mr-2 size-4" />
-            Edit
+        {onView ? (
+          <DropdownMenuItem onSelect={() => onView(agent)}>
+            <Eye className="mr-2 size-4" />
+            View details
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem asChild>
             <a href={`/dashboard/agents/${agent.id}`}>
-              <Pencil className="mr-2 size-4" />
-              Edit
+              <Eye className="mr-2 size-4" />
+              View details
             </a>
           </DropdownMenuItem>
         )}
