@@ -583,6 +583,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
+      tsx:
+        specifier: ^4
+        version: 4.21.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
