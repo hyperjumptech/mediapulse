@@ -56,6 +56,23 @@ model AgentRegistry {
   @@map("agent_registry")
 }
 
+model AgentConfig {
+  id                      String   @id @default(uuid())
+  name                    String
+  description             String?
+  agentId                 String   @map("agent_id")
+  agentVersion            String   @map("agent_version")
+  config                  Json
+  configSchemaFingerprint String?  @map("config_schema_fingerprint")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  pipelineSteps PipelineStep[]
+
+  @@unique([agentId, agentVersion, name])
+  @@map("agent_config")
+}
+
 model DataSource {
   id            String   @id @default(uuid())
   url           String
@@ -185,16 +202,18 @@ model AgentJobExecution {
 }
 
 model PipelineStep {
-  id           String   @id @default(uuid())
-  order        Int
-  agentId      String   @map("agent_id")
-  agentVersion String   @map("agent_version")
-  pipelineId   String   @map("pipeline_id")
-  config       Json?    @default("{}")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  order         Int
+  agentId       String   @map("agent_id")
+  agentVersion  String   @map("agent_version")
+  pipelineId    String   @map("pipeline_id")
+  agentConfigId String?  @map("agent_config_id")
+  config        Json?    @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipeline    Pipeline     @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  agentConfig AgentConfig? @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
 
   @@unique([pipelineId, order])
   @@map("pipeline_step")

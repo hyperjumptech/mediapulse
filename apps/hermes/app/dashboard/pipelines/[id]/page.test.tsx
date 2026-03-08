@@ -21,6 +21,12 @@ vi.mock("@/lib/pipelines", () => ({
   getAgentRegistryList: () => getAgentRegistryListMock(),
 }));
 
+const getAgentConfigsByAgentKeysMock = vi.fn();
+vi.mock("@/lib/agent-configs", () => ({
+  getAgentConfigsByAgentKeys: (...args: unknown[]) =>
+    getAgentConfigsByAgentKeysMock(...args),
+}));
+
 vi.mock("./pipeline-detail-content", () => ({
   PipelineDetailContent: ({
     pipeline,
@@ -28,6 +34,7 @@ vi.mock("./pipeline-detail-content", () => ({
   }: {
     pipeline: { id: string; name: string };
     agents: Array<{ id: string }>;
+    configsByAgentKey?: Record<string, unknown[]>;
   }) => (
     <div
       data-testid="pipeline-detail-content"
@@ -52,10 +59,12 @@ describe("PipelineDetailPage", () => {
     vi.restoreAllMocks();
     getPipelineWithStepsMock.mockReset();
     getAgentRegistryListMock.mockReset();
+    getAgentConfigsByAgentKeysMock.mockReset();
     notFoundMock.mockReset();
   });
 
   it("renders pipeline detail content when authenticated", async () => {
+    getAgentConfigsByAgentKeysMock.mockResolvedValue({});
     // Setup
     getPipelineWithStepsMock.mockResolvedValue({
       id: "pipeline-123",
@@ -82,6 +91,7 @@ describe("PipelineDetailPage", () => {
 
   it("passes agents to detail content", async () => {
     // Setup
+    getAgentConfigsByAgentKeysMock.mockResolvedValue({});
     getPipelineWithStepsMock.mockResolvedValue({
       id: "pipeline-123",
       name: "Test Pipeline",
@@ -107,6 +117,7 @@ describe("PipelineDetailPage", () => {
 
   it("calls notFound when pipeline does not exist", async () => {
     // Setup
+    getAgentConfigsByAgentKeysMock.mockResolvedValue({});
     getPipelineWithStepsMock.mockResolvedValue(null);
     getAgentRegistryListMock.mockResolvedValue([]);
 

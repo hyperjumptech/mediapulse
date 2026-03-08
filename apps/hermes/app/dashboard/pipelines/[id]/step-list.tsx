@@ -9,11 +9,14 @@ import { Label } from "@workspace/ui/components/label";
 import { useFormAction as useRemoveStepFormAction } from "@/app/dashboard/pipelines/actions/remove-step/.generated/use-form-action";
 import { useFormAction as useUpdateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/use-form-action";
 
+import type { AgentConfigSummary } from "@/lib/agent-configs";
+
 type Step = {
   id: string;
   order: number;
   agentId: string;
   agentVersion: string;
+  agentConfigId?: string | null;
   config?: unknown;
 };
 
@@ -31,10 +34,12 @@ export const StepList = ({
   pipelineId,
   steps,
   agentDescriptions,
+  configsByAgentKey,
 }: {
   pipelineId: string;
   steps: Step[];
   agentDescriptions: Agent[];
+  configsByAgentKey: Record<string, AgentConfigSummary[]>;
 }) => {
   const agentByKey = useMemo(() => {
     const m = new Map<string, Agent>();
@@ -64,6 +69,7 @@ export const StepList = ({
               ?.description ?? null
           }
           agents={agentDescriptions}
+          configsByAgentKey={configsByAgentKey}
         />
       ))}
     </ul>
@@ -78,16 +84,26 @@ const StepRow = ({
   step,
   description,
   agents,
+  configsByAgentKey,
 }: {
   pipelineId: string;
   step: Step;
   description: string | null;
   agents: Agent[];
+  configsByAgentKey: Record<string, AgentConfigSummary[]>;
 }) => {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editAgentKey, setEditAgentKey] = useState(
     `${step.agentId}@${step.agentVersion}`,
+  );
+  const [editSavedConfigId, setEditSavedConfigId] = useState<string | "">(
+    step.agentConfigId ?? "",
+  );
+  const [editCustomConfigJson, setEditCustomConfigJson] = useState(
+    step.config != null && typeof step.config === "object"
+      ? JSON.stringify(step.config, null, 2)
+      : "{}",
   );
 
   const {
@@ -119,10 +135,10 @@ const StepRow = ({
 
   if (isEditing) {
     const [agentId, agentVersion] = editAgentKey.split("@");
-    const stepConfigJson =
-      step.config != null && typeof step.config === "object"
-        ? JSON.stringify(step.config, null, 2)
-        : "{}";
+    const savedConfigs = editAgentKey
+      ? (configsByAgentKey[editAgentKey] ?? [])
+      : [];
+    const useSavedConfig = editSavedConfigId !== "";
     return (
       <li className="flex flex-wrap items-center gap-2 rounded-md border p-3">
         <span className="text-muted-foreground font-mono text-sm w-6">
@@ -148,10 +164,25 @@ const StepRow = ({
             value={agentVersion ?? ""}
             readOnly
           />
+          <input
+            type="hidden"
+            name="body.agentConfigId"
+            value={useSavedConfig ? editSavedConfigId : ""}
+            readOnly
+          />
+          <input
+            type="hidden"
+            name="body.config"
+            value={useSavedConfig ? "{}" : editCustomConfigJson}
+            readOnly
+          />
           <select
             className="flex h-9 w-[280px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={editAgentKey}
-            onChange={(e) => setEditAgentKey(e.target.value)}
+            onChange={(e) => {
+              setEditAgentKey(e.target.value);
+              setEditSavedConfigId("");
+            }}
             disabled={updatePending}
           >
             {agents.map((a) => (
@@ -161,18 +192,42 @@ const StepRow = ({
               </option>
             ))}
           </select>
-          <div className="w-full grid gap-1.5">
-            <Label htmlFor={`step-config-${step.id}`}>Config (JSON)</Label>
-            <textarea
-              id={`step-config-${step.id}`}
-              name="body.config"
-              defaultValue={stepConfigJson}
-              rows={3}
-              disabled={updatePending}
-              className="w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-              placeholder="{}"
-            />
-          </div>
+          {savedConfigs.length > 0 ? (
+            <div className="w-full grid gap-1.5">
+              <Label htmlFor={`step-saved-config-${step.id}`}>
+                Saved config (optional)
+              </Label>
+              <select
+                id={`step-saved-config-${step.id}`}
+                className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={editSavedConfigId}
+                onChange={(e) => setEditSavedConfigId(e.target.value)}
+                disabled={updatePending}
+              >
+                <option value="">None (use custom below)</option>
+                {savedConfigs.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.description ? ` — ${c.description}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          {!useSavedConfig ? (
+            <div className="w-full grid gap-1.5">
+              <Label htmlFor={`step-config-${step.id}`}>Config (JSON)</Label>
+              <textarea
+                id={`step-config-${step.id}`}
+                value={editCustomConfigJson}
+                onChange={(e) => setEditCustomConfigJson(e.target.value)}
+                rows={3}
+                disabled={updatePending}
+                className="w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                placeholder="{}"
+              />
+            </div>
+          ) : null}
           <Button
             type="submit"
             variant="secondary"

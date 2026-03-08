@@ -28,8 +28,8 @@ const webFetchSchema = z.object({
 });
 
 export const ConfigSchema = z.object({
-  webSearch: z.record(z.string(), webSearchSchema),
-  webFetch: z.record(z.string(), webFetchSchema),
+  webSearch: webSearchSchema,
+  webFetch: webFetchSchema,
 });
 
 export const dataCollectionAgentConfigSchema = ConfigSchema;

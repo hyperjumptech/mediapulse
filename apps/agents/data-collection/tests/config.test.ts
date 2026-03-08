@@ -20,31 +20,27 @@ describe("config", () => {
     // Setup
     const config = {
       webSearch: {
-        "serper-dev": {
-          baseUrl: "https://google.serper.dev",
-          authentication: {
-            type: "bearer",
-            apiKey: "key",
-            headerName: "X-API-KEY",
-          },
-          rateLimit: {
-            requests: 100,
-            perSeconds: 60,
-          },
+        baseUrl: "https://google.serper.dev",
+        authentication: {
+          type: "bearer" as const,
+          apiKey: "key",
+          headerName: "X-API-KEY",
+        },
+        rateLimit: {
+          requests: 100,
+          perSeconds: 60,
         },
       },
       webFetch: {
-        jina: {
-          baseUrl: "https://r.jina.ai",
-          authentication: {
-            type: "bearer",
-            apiKey: "key",
-            headerName: "Authorization",
-          },
-          rateLimit: {
-            requests: 100,
-            perSeconds: 60,
-          },
+        baseUrl: "https://r.jina.ai",
+        authentication: {
+          type: "bearer" as const,
+          apiKey: "key",
+          headerName: "Authorization",
+        },
+        rateLimit: {
+          requests: 100,
+          perSeconds: 60,
         },
       },
     };
@@ -53,8 +49,7 @@ describe("config", () => {
     const parsed = dataCollectionAgentConfigSchema.parse(config);
 
     // Assert
-    expect(parsed.webSearch["serper-dev"]?.baseUrl).toBe(
-      "https://google.serper.dev",
-    );
+    expect(parsed.webSearch.baseUrl).toBe("https://google.serper.dev");
+    expect(parsed.webFetch.baseUrl).toBe("https://r.jina.ai");
   });
 });

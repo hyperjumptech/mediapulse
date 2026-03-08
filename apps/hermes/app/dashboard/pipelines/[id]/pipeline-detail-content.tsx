@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 
+import type { AgentConfigSummary } from "@/lib/agent-configs";
 import type {
   getAgentRegistryList,
   getPipelineWithSteps,
@@ -24,6 +25,7 @@ type AgentRegistryEntry = Awaited<
 export type PipelineDetailContentProps = {
   pipeline: PipelineWithSteps;
   agents: AgentRegistryEntry[];
+  configsByAgentKey: Record<string, AgentConfigSummary[]>;
 };
 
 /**
@@ -32,6 +34,7 @@ export type PipelineDetailContentProps = {
 export const PipelineDetailContent = ({
   pipeline,
   agents,
+  configsByAgentKey,
 }: PipelineDetailContentProps) => {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
@@ -63,6 +66,7 @@ export const PipelineDetailContent = ({
             pipelineId={pipeline.id}
             steps={pipeline.steps}
             agentDescriptions={agents}
+            configsByAgentKey={configsByAgentKey}
           />
           <AddStepForm
             pipelineId={pipeline.id}
@@ -70,6 +74,7 @@ export const PipelineDetailContent = ({
             existingStepAgentKeys={pipeline.steps.map(
               (s) => `${s.agentId}@${s.agentVersion}`,
             )}
+            configsByAgentKey={configsByAgentKey}
           />
         </section>
       </div>

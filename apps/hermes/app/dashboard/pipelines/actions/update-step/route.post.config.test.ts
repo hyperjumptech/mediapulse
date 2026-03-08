@@ -129,7 +129,12 @@ describe("createUpdateStepHandler", () => {
     } as never);
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "s-1" },
-      data: { agentId: "ag1", agentVersion: "1" },
+      data: {
+        agentId: "ag1",
+        agentVersion: "1",
+        agentConfigId: null,
+        config: {},
+      },
     });
     expect(result).toMatchObject({
       status: true,
