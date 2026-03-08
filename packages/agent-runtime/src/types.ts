@@ -34,6 +34,20 @@ export type AgentRunContext<TInput, TConfig = Record<string, never>> = {
   token: string | undefined;
 };
 
+/** Options for auto-registering with the agent-registry-api on startup. */
+export type AutoRegisterOptions = {
+  /** Base URL of the agent-registry-api (e.g. https://registry.example.com). */
+  registryUrl: string;
+  /** API key for bearer auth when calling the registry. */
+  apiKey: string;
+  /** Public URL where this agent is reachable (e.g. https://agent.example.com). */
+  agentUrl: string;
+  /** Optional description stored in the registry. */
+  description?: string;
+  /** Optional fetch implementation (for tests). */
+  fetchFn?: typeof fetch;
+};
+
 /** Options for creating the agent Hono app (injectable for tests). */
 export type CreateAgentAppOptions = {
   /** Auth API URL for token verification (required when using default verifyToken). */
@@ -42,6 +56,8 @@ export type CreateAgentAppOptions = {
   verifyToken?: (token: string) => Promise<boolean>;
   /** Logger instance; defaults to @workspace/logger. */
   logger?: LoggerLike;
+  /** When set, the agent registers itself with the registry on startup (fire-and-forget). */
+  autoRegister?: AutoRegisterOptions;
 };
 
 /** Configuration for a single agent: id, version, input/config schemas, and run logic. */

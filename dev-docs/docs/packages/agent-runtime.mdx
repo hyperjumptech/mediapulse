@@ -10,11 +10,12 @@ icon: Cpu
 
 ## Main exports
 
-- **`createAgentApp<TInput, TSchema, TConfig?, TConfigSchema?>(config, options)`** — Creates the agent app (fetch handler + port). Config: `agentId`, `agentVersion`, `inputSchema` (Zod), optional `configSchema` (Zod), `run({ input, config, token })`. Exposes **GET /schemas** (no auth) returning input and config as JSON Schema.
+- **`createAgentApp<TInput, TSchema, TConfig?, TConfigSchema?>(config, options)`** — Creates the agent app (fetch handler + port). Config: `agentId`, `agentVersion`, `inputSchema` (Zod), optional `configSchema` (Zod), `run({ input, config, token })`. Exposes **GET /schemas** (no auth) returning input and config as JSON Schema. Option **`autoRegister`** triggers self-registration with the agent-registry-api on startup when set.
+- **`registerWithRegistry(params)`** — Registers the agent with the registry (POST with schemas and endpoint). Used internally when `autoRegister` is set; can be called explicitly if needed.
 - **`dataApiGet(token, baseUrl, path, query?)`** — GET to agent-data-api with `Authorization: Bearer`.
 - **`dataApiPost(token, baseUrl, path, body)`** — POST to agent-data-api with bearer token.
 - **`verifyTokenViaAuthApi`** — Re-exported from `@workspace/agent-auth-client`; used when `authApiUrl` is set.
-- **Types:** `AgentResult`, `AgentRunContext<TInput, TConfig>`, `AgentConfig`, `CreateAgentAppOptions`, `LoggerLike`.
+- **Types:** `AgentResult`, `AgentRunContext<TInput, TConfig>`, `AgentConfig`, `CreateAgentAppOptions`, `AutoRegisterOptions`, `LoggerLike`.
 
 ## Request body and how Hermes invokes agents
 
@@ -25,6 +26,7 @@ Hermes sends **POST** with body `{ input: <params>, config: <stepConfig> }` and 
 - **`authApiUrl`** — Used by default token verifier (required in production unless you pass `verifyToken`).
 - **`verifyToken`** — Custom `(token: string) => Promise<boolean>`.
 - **`logger`** — Logger-like instance; defaults to `@workspace/logger`.
+- **`autoRegister`** — When set (`registryUrl`, `apiKey`, `agentUrl`, optional `description`), the agent registers itself with the agent-registry-api on startup (fire-and-forget). Optional `fetchFn` for tests.
 
 ## Consumers
 

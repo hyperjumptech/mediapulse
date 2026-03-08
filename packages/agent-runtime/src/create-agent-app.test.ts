@@ -263,4 +263,44 @@ describe("createAgentApp", () => {
       token: "Bearer test-token",
     });
   });
+
+  it("calls registerWithRegistry when autoRegister is set", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true });
+    createAgentApp<Input, typeof schema>(
+      {
+        agentId: "auto-agent",
+        agentVersion: "2.0.0",
+        inputSchema: schema,
+        run: async () => ({ success: true }),
+      },
+      {
+        verifyToken: async () => true,
+        autoRegister: {
+          registryUrl: "https://registry.test",
+          apiKey: "reg-key",
+          agentUrl: "https://agent.test",
+          fetchFn,
+        },
+      },
+    );
+
+    await new Promise<void>((r) => setImmediate(r));
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    const [url, options] = fetchFn.mock.calls[0] as [
+      string,
+      { method: string; headers: Record<string, string>; body: string },
+    ];
+    expect(url).toBe("https://registry.test/api/agents/register");
+    expect(options.headers.Authorization).toBe("Bearer reg-key");
+    const body = JSON.parse(options.body);
+    expect(body.agentId).toBe("auto-agent");
+    expect(body.agentVersion).toBe("2.0.0");
+    expect(body.endpoint).toEqual({
+      url: "https://agent.test",
+      method: "POST",
+    });
+    expect(body.inputSchema).toBeDefined();
+    expect(body.configSchema).toBeDefined();
+  });
 });

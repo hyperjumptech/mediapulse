@@ -80,7 +80,19 @@ const app = createAgentApp<Input, typeof BodySchema>(
       return { success: true };
     },
   },
-  { authApiUrl: env.AGENT_AUTH_API_URL },
+  {
+    authApiUrl: env.AGENT_AUTH_API_URL,
+    autoRegister:
+      env.AGENT_REGISTRY_URL &&
+      env.AGENT_REGISTRY_API_KEY &&
+      env.AGENT_PUBLIC_URL
+        ? {
+            registryUrl: env.AGENT_REGISTRY_URL,
+            apiKey: env.AGENT_REGISTRY_API_KEY,
+            agentUrl: env.AGENT_PUBLIC_URL,
+          }
+        : undefined,
+  },
 );
 
 /**

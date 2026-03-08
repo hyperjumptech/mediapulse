@@ -8,6 +8,7 @@ import type { ZodError } from "zod";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
+import { registerWithRegistry } from "./register-with-registry.js";
 import type { AgentConfig, CreateAgentAppOptions } from "./types.js";
 
 const emptyConfigSchema = z.object({});
@@ -66,6 +67,30 @@ export function createAgentApp<
   });
 
   app.use("*", bearerAuth({ verifyToken }));
+
+  if (options.autoRegister) {
+    const { registryUrl, apiKey, agentUrl, description, fetchFn } =
+      options.autoRegister;
+    const inputSchemaJson = zodToJsonSchema(config.inputSchema, {
+      $refStrategy: "none",
+    }) as Record<string, unknown>;
+    const configSchemaJson = zodToJsonSchema(configSchema, {
+      $refStrategy: "none",
+    }) as Record<string, unknown>;
+    registerWithRegistry({
+      registryUrl,
+      apiKey,
+      agentId: config.agentId,
+      agentVersion: config.agentVersion,
+      agentUrl,
+      inputSchema: inputSchemaJson,
+      configSchema: configSchemaJson,
+      description,
+      fetchFn,
+    }).catch((err) => {
+      logger.error({ err }, "Agent auto-registration failed");
+    });
+  }
 
   app.post("/", async (context) => {
     try {
