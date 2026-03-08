@@ -60,7 +60,9 @@ describe("createCreateScheduleHandler", () => {
     const pipelineId = "00000000-0000-4000-8000-000000000002";
     const scheduleId = "00000000-0000-4000-8000-000000000003";
     const db = {
-      pipeline: { findUnique: vi.fn().mockResolvedValue({ id: pipelineId }) },
+      pipeline: {
+        findUnique: vi.fn().mockResolvedValue({ id: pipelineId, steps: [] }),
+      },
       schedule: {
         create: vi.fn().mockResolvedValue({
           id: scheduleId,
@@ -108,7 +110,9 @@ describe("handler", () => {
 
   it("is the factory with production defaults", async () => {
     const db = {
-      pipeline: { findUnique: vi.fn().mockResolvedValue({ id: "p1" }) },
+      pipeline: {
+        findUnique: vi.fn().mockResolvedValue({ id: "p1", steps: [] }),
+      },
       schedule: { create: vi.fn().mockResolvedValue({ id: "s1" }) },
     };
     const customHandler = createCreateScheduleHandler({

@@ -11,6 +11,7 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
+import { validateScheduleParams } from "@/lib/validate-schedule-params";
 import { computeNextRunAt } from "@workspace/hermes-scheduler";
 
 const paramsSchema = z
@@ -143,6 +144,20 @@ export const createUpdateScheduleHandler = ({
     });
     if (!existing) {
       return errorResponse("Schedule not found");
+    }
+
+    const pipelineId = body.pipelineId ?? existing.pipelineId;
+    const paramsToValidate =
+      body.params !== undefined ? body.params : existing.params;
+    if (paramsToValidate != null && typeof paramsToValidate === "object") {
+      const paramsValidation = await validateScheduleParams(
+        db,
+        pipelineId,
+        paramsToValidate as Record<string, unknown>,
+      );
+      if (!paramsValidation.valid) {
+        return errorResponse(paramsValidation.message);
+      }
     }
 
     const repeat = body.repeat ?? existing.repeat;

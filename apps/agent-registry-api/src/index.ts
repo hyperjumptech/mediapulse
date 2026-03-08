@@ -10,7 +10,19 @@ import { registerAgent } from "./routes/register-agent";
 const app = new Hono();
 const api = app.basePath("/api");
 
-api.use(pinoLogger({ pino: logger }));
+api.use(
+  pinoLogger({
+    pino: logger,
+    http: {
+      onResBindings: (c) => ({
+        res: {
+          status: c.res.status,
+          headers: Object.fromEntries(c.res.headers.entries()),
+        },
+      }),
+    },
+  }),
+);
 
 api.use(
   "*",

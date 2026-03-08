@@ -10,21 +10,23 @@ icon: Cpu
 
 ## Main exports
 
-- **`createAgentApp<TInput, TSchema>(config, options)`** — Creates the agent app (fetch handler + port). Config: `agentId`, `agentVersion`, `inputSchema` (Zod), `run({ input, token })`.
+- **`createAgentApp<TInput, TSchema, TConfig?, TConfigSchema?>(config, options)`** — Creates the agent app (fetch handler + port). Config: `agentId`, `agentVersion`, `inputSchema` (Zod), optional `configSchema` (Zod), `run({ input, config, token })`. Exposes **GET /schemas** (no auth) returning input and config as JSON Schema. Option **`autoRegister`** triggers self-registration with the agent-registry-api on startup when set.
+- **`registerWithRegistry(params)`** — Registers the agent with the registry (POST with schemas and endpoint). Used internally when `autoRegister` is set; can be called explicitly if needed.
 - **`dataApiGet(token, baseUrl, path, query?)`** — GET to agent-data-api with `Authorization: Bearer`.
 - **`dataApiPost(token, baseUrl, path, body)`** — POST to agent-data-api with bearer token.
 - **`verifyTokenViaAuthApi`** — Re-exported from `@workspace/agent-auth-client`; used when `authApiUrl` is set.
-- **Types:** `AgentResult`, `AgentRunContext`, `AgentConfig`, `CreateAgentAppOptions`, `LoggerLike`.
+- **Types:** `AgentResult`, `AgentRunContext<TInput, TConfig>`, `AgentConfig`, `CreateAgentAppOptions`, `AutoRegisterOptions`, `LoggerLike`.
 
-## How hermes-worker invokes agents
+## Request body and how Hermes invokes agents
 
-hermes-worker sends `POST` with body `{ tickerId: "<uuid>" }` and header `Authorization: Bearer <apiKey>`. Agents validate the body, verify the token, run logic, and return a consistent JSON result (success/failure/skipped).
+Hermes sends **POST** with body `{ input: <params>, config: <stepConfig> }` and header `Authorization: Bearer <apiKey>`. The agent validates `input` with `inputSchema` and `config` with `configSchema` (default empty object), then runs `run({ input, config, token })` and returns a consistent JSON result (success/failure/skipped). See [Agent–Hermes contract](/agent-hermes-contract) for the full contract.
 
 ## Options (DI)
 
 - **`authApiUrl`** — Used by default token verifier (required in production unless you pass `verifyToken`).
 - **`verifyToken`** — Custom `(token: string) => Promise<boolean>`.
 - **`logger`** — Logger-like instance; defaults to `@workspace/logger`.
+- **`autoRegister`** — When set (`registryUrl`, `apiKey`, `agentUrl`, optional `description`), the agent registers itself with the agent-registry-api on startup (fire-and-forget). Optional `fetchFn` for tests.
 
 ## Consumers
 

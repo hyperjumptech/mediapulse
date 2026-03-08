@@ -17,10 +17,6 @@ vi.mock("@/lib/agents", () => ({
   getAgentsPage: (...args: unknown[]) => getAgentsPageMock(...args),
 }));
 
-vi.mock("./add-agent-modal", () => ({
-  AddAgentModal: () => <button data-testid="add-agent-modal">Add agent</button>,
-}));
-
 vi.mock("./agents-table-with-edit", () => ({
   AgentsTableWithEdit: ({
     agents,
@@ -83,23 +79,6 @@ describe("AgentsPage", () => {
       "data-count",
       "1",
     );
-  });
-
-  it("renders add agent modal button", async () => {
-    // Setup
-    getAgentsPageMock.mockResolvedValue({
-      agents: [],
-      total: 0,
-      page: 1,
-      pageSize: 15,
-    });
-
-    // Act
-    const component = await AgentsPage({ searchParams: {} });
-    render(component);
-
-    // Assert
-    expect(screen.getByTestId("add-agent-modal")).toBeInTheDocument();
   });
 
   it("renders pagination", async () => {

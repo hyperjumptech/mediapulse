@@ -49,8 +49,8 @@ type AgentsTableProps = {
   sortDir: AgentSortDir;
   pageSize: number;
   searchQuery?: string;
-  /** When provided, Edit opens this callback instead of navigating to edit page. */
-  onEdit?: (agent: AgentRow) => void;
+  /** When provided, View opens the details modal via this callback instead of navigating. */
+  onView?: (agent: AgentRow) => void;
 };
 
 /**
@@ -62,7 +62,7 @@ export const AgentsTable = ({
   sortDir,
   pageSize,
   searchQuery,
-  onEdit,
+  onView,
 }: AgentsTableProps) => {
   const sortLink = (field: AgentSortField, label: string) => {
     const isActive = sortBy === field;
@@ -103,7 +103,7 @@ export const AgentsTable = ({
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[140px]">
+            <TableHead className="w-[280px]">
               {sortLink("agentId", "Agent ID")}
             </TableHead>
             <TableHead className="w-[100px]">
@@ -131,10 +131,10 @@ export const AgentsTable = ({
             agents.map((agent) => (
               <TableRow key={agent.id}>
                 <TableCell className="font-medium">
-                  {onEdit ? (
+                  {onView ? (
                     <button
                       type="button"
-                      onClick={() => onEdit(agent)}
+                      onClick={() => onView(agent)}
                       className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground text-left"
                     >
                       {agent.agentId}
@@ -169,7 +169,7 @@ export const AgentsTable = ({
                   <AgentRowActions
                     agent={agent}
                     agentLabel={`${agent.agentId}@${agent.agentVersion}`}
-                    onEdit={onEdit}
+                    onView={onView}
                   />
                 </TableCell>
               </TableRow>

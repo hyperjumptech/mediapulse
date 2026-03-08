@@ -67,7 +67,13 @@ describe("createAddStepHandler", () => {
       user: undefined,
     } as never);
     expect(db.pipelineStep.create).toHaveBeenCalledWith({
-      data: { pipelineId: "p-1", agentId: "ag1", agentVersion: "1", order: 3 },
+      data: {
+        pipelineId: "p-1",
+        agentId: "ag1",
+        agentVersion: "1",
+        order: 3,
+        config: {},
+      },
     });
     expect(result).toMatchObject({
       status: true,

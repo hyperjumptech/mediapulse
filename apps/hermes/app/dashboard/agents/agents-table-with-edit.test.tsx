@@ -1,19 +1,19 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentsTableWithEdit } from "./agents-table-with-edit";
 
 vi.mock("./agents-table", () => ({
   AgentsTable: ({
     agents,
-    onEdit,
+    onView,
     sortBy,
     sortDir,
     pageSize,
     searchQuery,
   }: {
     agents: Array<{ id: string; agentId: string }>;
-    onEdit?: (agent: { id: string; agentId: string }) => void;
+    onView?: (agent: { id: string; agentId: string }) => void;
     sortBy: string;
     sortDir: string;
     pageSize: number;
@@ -26,38 +26,13 @@ vi.mock("./agents-table", () => ({
       data-sort-dir={sortDir}
       data-page-size={pageSize}
       data-search={searchQuery}
+      data-has-on-view={onView != null ? "true" : "false"}
     >
       {agents.map((agent) => (
-        <button
-          key={agent.id}
-          data-testid={`edit-${agent.id}`}
-          onClick={() => onEdit?.(agent)}
-        >
-          Edit {agent.agentId}
-        </button>
+        <a key={agent.id} href={`/dashboard/agents/${agent.id}`}>
+          View {agent.agentId}
+        </a>
       ))}
-    </div>
-  ),
-}));
-
-vi.mock("./edit-agent-modal", () => ({
-  EditAgentModal: ({
-    agent,
-    open,
-    onOpenChange,
-  }: {
-    agent: { id: string; agentId: string } | null;
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-  }) => (
-    <div
-      data-testid="edit-agent-modal"
-      data-agent-id={agent?.id ?? "none"}
-      data-open={open}
-    >
-      <button data-testid="close-modal" onClick={() => onOpenChange(false)}>
-        Close
-      </button>
     </div>
   ),
 }));
@@ -68,6 +43,8 @@ const createMockAgent = (id: string, agentId: string) => ({
   agentVersion: "1.0",
   description: "Test description",
   endpoint: { url: "https://example.com" },
+  inputSchema: null,
+  configSchema: null,
   isActive: true,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
@@ -96,9 +73,9 @@ describe("AgentsTableWithEdit", () => {
     expect(screen.getByTestId("agents-table")).toBeInTheDocument();
   });
 
-  it("renders edit agent modal", () => {
+  it("does not pass onView so table renders links to detail page", () => {
     // Setup
-    const agents = [createMockAgent("1", "agent-a")];
+    const agents = [createMockAgent("agent-1", "agent-a")];
 
     // Act
     render(
@@ -111,7 +88,12 @@ describe("AgentsTableWithEdit", () => {
     );
 
     // Assert
-    expect(screen.getByTestId("edit-agent-modal")).toBeInTheDocument();
+    expect(screen.getByTestId("agents-table")).toHaveAttribute(
+      "data-has-on-view",
+      "false",
+    );
+    const link = screen.getByRole("link", { name: /View agent-a/ });
+    expect(link).toHaveAttribute("href", "/dashboard/agents/agent-1");
   });
 
   it("passes agents to table", () => {
@@ -178,101 +160,6 @@ describe("AgentsTableWithEdit", () => {
     expect(screen.getByTestId("agents-table")).toHaveAttribute(
       "data-search",
       "test",
-    );
-  });
-
-  it("modal is closed initially", () => {
-    // Setup
-    const agents = [createMockAgent("1", "agent-a")];
-
-    // Act
-    render(
-      <AgentsTableWithEdit
-        agents={agents}
-        sortBy="agentId"
-        sortDir="asc"
-        pageSize={15}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByTestId("edit-agent-modal")).toHaveAttribute(
-      "data-open",
-      "false",
-    );
-  });
-
-  it("opens modal when edit is clicked", () => {
-    // Setup
-    const agents = [createMockAgent("agent-1", "agent-a")];
-
-    // Act
-    render(
-      <AgentsTableWithEdit
-        agents={agents}
-        sortBy="agentId"
-        sortDir="asc"
-        pageSize={15}
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId("edit-agent-1"));
-
-    // Assert
-    expect(screen.getByTestId("edit-agent-modal")).toHaveAttribute(
-      "data-open",
-      "true",
-    );
-  });
-
-  it("passes selected agent to modal", () => {
-    // Setup
-    const agents = [createMockAgent("agent-1", "agent-a")];
-
-    // Act
-    render(
-      <AgentsTableWithEdit
-        agents={agents}
-        sortBy="agentId"
-        sortDir="asc"
-        pageSize={15}
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId("edit-agent-1"));
-
-    // Assert
-    expect(screen.getByTestId("edit-agent-modal")).toHaveAttribute(
-      "data-agent-id",
-      "agent-1",
-    );
-  });
-
-  it("closes modal and clears agent when onOpenChange(false)", () => {
-    // Setup
-    const agents = [createMockAgent("agent-1", "agent-a")];
-
-    // Act
-    render(
-      <AgentsTableWithEdit
-        agents={agents}
-        sortBy="agentId"
-        sortDir="asc"
-        pageSize={15}
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId("edit-agent-1"));
-    fireEvent.click(screen.getByTestId("close-modal"));
-
-    // Assert
-    expect(screen.getByTestId("edit-agent-modal")).toHaveAttribute(
-      "data-open",
-      "false",
-    );
-    expect(screen.getByTestId("edit-agent-modal")).toHaveAttribute(
-      "data-agent-id",
-      "none",
     );
   });
 });

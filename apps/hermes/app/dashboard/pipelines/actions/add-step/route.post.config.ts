@@ -8,11 +8,34 @@ import {
 import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
+import { validateWithJsonSchema } from "@/lib/validate-json-schema";
+
+const configSchemaBody = z
+  .union([
+    z.record(z.unknown()),
+    z
+      .string()
+      .optional()
+      .transform((s): Record<string, unknown> => {
+        if (s === undefined || s === null || s === "") return {};
+        try {
+          const v = JSON.parse(s) as unknown;
+          if (typeof v === "object" && v !== null && !Array.isArray(v))
+            return v as Record<string, unknown>;
+          return {};
+        } catch {
+          throw new Error("config must be valid JSON object");
+        }
+      }),
+  ])
+  .optional()
+  .default({});
 
 const bodyValidator = z.object({
   pipelineId: z.string().uuid(),
   agentId: z.string().min(1),
   agentVersion: z.string().min(1),
+  config: configSchemaBody,
 });
 
 export const requestValidator = createRequestValidator({
@@ -50,7 +73,7 @@ export const createAddStepHandler = ({
       return errorResponse("Unauthorized");
     }
 
-    const { pipelineId, agentId, agentVersion } = data.body;
+    const { pipelineId, agentId, agentVersion, config } = data.body;
 
     const agent = await db.agentRegistry.findFirst({
       where: { agentId, agentVersion, isActive: true },
@@ -59,6 +82,18 @@ export const createAddStepHandler = ({
       return errorResponse(
         `Agent ${agentId}@${agentVersion} not found in registry`,
       );
+    }
+
+    if (agent.configSchema != null && typeof agent.configSchema === "object") {
+      const result = validateWithJsonSchema(
+        agent.configSchema as Record<string, unknown>,
+        config,
+      );
+      if (!result.valid) {
+        return errorResponse(
+          `Config validation failed: ${result.errors.join("; ")}`,
+        );
+      }
     }
 
     const maxOrder = await db.pipelineStep.aggregate({
@@ -73,6 +108,7 @@ export const createAddStepHandler = ({
         agentId,
         agentVersion,
         order: nextOrder,
+        config: (config ?? {}) as object,
       },
     });
 

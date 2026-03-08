@@ -12,6 +12,7 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
+import { validateScheduleParams } from "@/lib/validate-schedule-params";
 import { computeNextRunAt } from "@workspace/hermes-scheduler";
 
 /**
@@ -180,6 +181,15 @@ export const createCreateScheduleHandler = ({
     });
     if (!pipeline) {
       return errorResponse("Pipeline not found");
+    }
+
+    const paramsValidation = await validateScheduleParams(
+      db,
+      body.pipelineId,
+      body.params as Record<string, unknown>,
+    );
+    if (!paramsValidation.valid) {
+      return errorResponse(paramsValidation.message);
     }
 
     const nextRunAt = computeNextRun(

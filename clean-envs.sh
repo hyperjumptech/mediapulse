@@ -18,8 +18,10 @@ if [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]]; then
   echo "Backed up to packages/env/$BAK_NAME"
 fi
 
-# Delete both regular files and symlinks (dev-bootstrap creates symlinks)
+# Delete .env everywhere (symlinks and the canonical file after backup)
 find . -name ".env" \( -type f -o -type l \) -not -path "./.git/*" -delete
-find . -name ".env.local" \( -type f -o -type l \) -not -path "./.git/*" -delete
+# Delete .env.local: all symlinks; real files only outside apps/agents (keep per-agent overrides)
+find . -name ".env.local" -type l -not -path "./.git/*" -delete
+find . -name ".env.local" -type f -not -path "./.git/*" -not -path "./apps/agents/*" -delete
 
 echo "Done!"

@@ -78,7 +78,10 @@ describe("data-collection-agent", () => {
       new Request("http://localhost/", {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ tickerId: TICKER_ID }),
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: { webSearch: {}, webFetch: {} },
+        }),
       }),
     );
 
@@ -102,7 +105,10 @@ describe("data-collection-agent", () => {
       new Request("http://localhost/", {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ tickerId: TICKER_ID }),
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: { webSearch: {}, webFetch: {} },
+        }),
       }),
     );
 

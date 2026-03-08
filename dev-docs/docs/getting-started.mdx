@@ -32,9 +32,9 @@ Run one of the following commands to setup the environment variables:
 ./dev-bootstrap.sh -f # to remove existing .env and .env.local files first
 ```
 
-The script will read the env.\*.example files in `packages/env` directory and merge them into a single `.env` file. Then it will create symlinks for the environment variables in the apps and packages directories. This way the apps and packages can use the environment variables from the same `.env` file.
+The script merges all `env.*.example` files into `packages/env/.env`, then creates symlinks so apps and packages use that shared file. **Agent apps** (e.g. `apps/agents/delivery`) also get a **per-agent `.env.local`** (created from `env.agents.<name>.example`) so you can set `PORT`, `AGENT_PUBLIC_URL`, and `AGENT_REGISTRY_API_KEY` per agent without affecting others. Edit `apps/agents/<name>/.env.local` for agent-specific overrides.
 
-The example files already contain the correct values for some environment variables for development purposes. But you still need to add the correct values for the following environment variables in the generated `.env` file:
+The example files already contain the correct values for some environment variables for development purposes. But you still need to add the correct values for the following environment variables in the generated `.env` file (and in each agent’s `.env.local` if you use registry/URL overrides):
 
 | Environment Variable | Description                                                                                   |
 | -------------------- | --------------------------------------------------------------------------------------------- |
@@ -65,6 +65,24 @@ pnpm db:migrate:dev && pnpm db:generate
 cd ../..
 ```
 
+### Create an admin user
+
+Run the following command to create an admin user:
+
+```bash
+cd apps/hermes && pnpm create:admin <email> <password>
+```
+
+### Generate an API key for the agents
+
+Run the following command to generate an API key for the agents:
+
+```bash
+cd apps/hermes && pnpm generate-api-key
+```
+
+The script will print the API key. Set this value in the `AGENT_REGISTRY_API_KEY` environment variable in the agent's `.env.local` files (`apps/agents/<name>/.env.local`).
+
 ### Running all apps (`pnpm dev`)
 
 When you run `pnpm dev`, Turbo starts every app’s dev server. Each app is bound to a different port so they can run together:
@@ -79,43 +97,3 @@ When you run `pnpm dev`, Turbo starts every app’s dev server. Each app is boun
 | data-collection agent    | 4001 |
 | content-generation agent | 4002 |
 | delivery agent           | 4003 |
-
-### Running `agent-auth-api`
-
-```bash
-pnpm dev --filter=agent-auth-api
-```
-
-### Running `agent-data-api`
-
-```bash
-pnpm dev --filter=agent-data-api
-```
-
-### Running `agent-registry-api`
-
-```bash
-pnpm dev --filter=agent-registry-api
-```
-
-### Running `dashboard`
-
-```bash
-pnpm dev --filter=dashboard
-```
-
-### Running `hermes`
-
-```bash
-pnpm dev --filter=hermes
-```
-
-Hermes is a Next.js app and does not run the scheduler. To run scheduled pipeline runs, start **hermes-worker** as well.
-
-### Running `hermes-worker` (scheduler)
-
-```bash
-pnpm dev:hermes-worker
-```
-
-Before first run, apply DataQueue migrations from the worker app: `pnpm --filter hermes-worker run migrate-dataqueue` (requires `PG_DATAQUEUE_DATABASE` in env).

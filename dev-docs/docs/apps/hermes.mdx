@@ -22,7 +22,7 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 - Dashboard: `/dashboard` (pipelines, tickers, agents, API keys, schedules).
 - Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline.
 - Ticker actions: create, update, delete, import (IDX).
-- Agent actions: create, update.
+- Agent actions: create, update. Agent details are on a dedicated page (`/dashboard/agents/[id]`) with tabs: **General** (details and endpoint), **Input schema** (pretty-printed JSON), **Config schema** (pretty-printed JSON).
 - API key actions: create, update, delete. Create/update via modal; list is paginated with search by name.
 - Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@workspace/hermes-scheduler`; execution runs in hermes-worker.
 - Logout: `/logout`.

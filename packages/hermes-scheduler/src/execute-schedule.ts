@@ -136,10 +136,19 @@ export const executeSchedule = async (
         continue;
       }
 
+      const stepConfig =
+        (step as { config?: unknown }).config != null
+          ? (step as { config: Record<string, unknown> }).config
+          : {};
+      const body = {
+        input: paramSet,
+        config: stepConfig,
+      } as Record<string, unknown>;
+
       try {
         await invokeAgent(
           endpointResult.data,
-          paramSet as Record<string, unknown>,
+          body,
           {
             jobId,
             executionId,

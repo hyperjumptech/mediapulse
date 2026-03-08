@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
+import { Label } from "@workspace/ui/components/label";
 
 import { useFormAction as useRemoveStepFormAction } from "@/app/dashboard/pipelines/actions/remove-step/.generated/use-form-action";
 import { useFormAction as useUpdateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/use-form-action";
@@ -13,6 +14,7 @@ type Step = {
   order: number;
   agentId: string;
   agentVersion: string;
+  config?: unknown;
 };
 
 type Agent = {
@@ -117,12 +119,16 @@ const StepRow = ({
 
   if (isEditing) {
     const [agentId, agentVersion] = editAgentKey.split("@");
+    const stepConfigJson =
+      step.config != null && typeof step.config === "object"
+        ? JSON.stringify(step.config, null, 2)
+        : "{}";
     return (
       <li className="flex flex-wrap items-center gap-2 rounded-md border p-3">
         <span className="text-muted-foreground font-mono text-sm w-6">
           {step.order + 1}.
         </span>
-        <UpdateForm className="flex flex-wrap items-center gap-2 flex-1">
+        <UpdateForm className="flex flex-wrap items-center gap-2 flex-1 w-full">
           <input
             type="hidden"
             name="body.pipelineId"
@@ -155,6 +161,18 @@ const StepRow = ({
               </option>
             ))}
           </select>
+          <div className="w-full grid gap-1.5">
+            <Label htmlFor={`step-config-${step.id}`}>Config (JSON)</Label>
+            <textarea
+              id={`step-config-${step.id}`}
+              name="body.config"
+              defaultValue={stepConfigJson}
+              rows={3}
+              disabled={updatePending}
+              className="w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+              placeholder="{}"
+            />
+          </div>
           <Button
             type="submit"
             variant="secondary"
