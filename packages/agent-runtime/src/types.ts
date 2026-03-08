@@ -3,6 +3,10 @@ import type { z } from "zod";
 /** Minimal logger interface (e.g. pino Logger) for DI. */
 export type LoggerLike = {
   error: (obj: unknown, msg?: string) => void;
+  /** Optional; used for startup warnings (e.g. auto-registration disabled). */
+  warn?: (obj: unknown, msg?: string) => void;
+  /** Optional; used for info-level logs (e.g. registration success, retries). */
+  info?: (obj: unknown, msg?: string) => void;
 };
 
 /** Successful agent run. */

@@ -37,9 +37,9 @@ section "Env merge"
 
 section "Symlinks (.env → packages/env/.env)"
 
-# Loop through the subdirectories of the app directory
+# Loop through the subdirectories of the app directory (skip "agents" — those get per-agent .env.local below)
 for dir in "$app_dir"/*; do
-    if [[ -d "$dir" ]]; then
+    if [[ -d "$dir" && "$(basename "$dir")" != "agents" ]]; then
         rel="${dir#$SCRIPT_DIR/}"
         cd "$dir"
         ln -sf "../../packages/env/.env" ".env.local"
@@ -49,14 +49,24 @@ for dir in "$app_dir"/*; do
     fi
 done
 
-# Loop through the subdirectories of the apps/agents directory
+# Agent apps: .env → shared; .env.local → per-agent overrides (PORT, AGENT_PUBLIC_URL, AGENT_REGISTRY_API_KEY)
+env_pkg="$packages_dir/env"
 for dir in "$app_dir/agents"/*; do
     if [[ -d "$dir" ]]; then
         rel="${dir#$SCRIPT_DIR/}"
+        agent_name="$(basename "$dir")"
+        example_file="$env_pkg/env.agents.${agent_name}.example"
         cd "$dir"
-        ln -sf "../../../packages/env/.env" ".env.local"
         ln -sf "../../../packages/env/.env" ".env"
-        linked "$rel"
+        if [[ -f "$example_file" ]]; then
+            # Remove .env.local if it's a symlink so we don't merge over shared .env (preserve only real dev overrides)
+            [[ -L ".env.local" ]] && rm ".env.local"
+            "$env_pkg/merge-agent-env.sh" "$example_file" ".env.local" 2>&1 | sed 's/^/  /' || true
+            linked "$rel (.env + .env.local)"
+        else
+            ln -sf "../../../packages/env/.env" ".env.local"
+            linked "$rel"
+        fi
         cd - >/dev/null
     fi
 done

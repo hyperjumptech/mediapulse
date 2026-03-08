@@ -12,6 +12,8 @@
     "lint:fix": "eslint . --fix",
     "type:check": "tsc --noEmit",
     "create:route": "route-action-gen create",
+    "create:admin": "tsx scripts/create-admin.ts",
+    "generate-api-key": "tsx scripts/generate-api-key.ts",
     "test": "pnpm generate && vitest --run",
     "test:coverage": "pnpm generate && vitest --run --coverage"
   },
@@ -50,6 +52,7 @@
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "catalog:",
+    "tsx": "^4",
     "typescript": "catalog:",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "catalog:"

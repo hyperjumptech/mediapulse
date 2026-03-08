@@ -27,14 +27,28 @@ export async function registerAgent(context: Context) {
   try {
     const body = await validateBody(context, BodySchema);
 
-    const agentRegistry = await prisma.agentRegistry.create({
-      data: {
-        agentId: body.agentId,
-        agentVersion: body.agentVersion,
-        description: body.description,
-        endpoint: body.endpoint as Prisma.InputJsonValue,
-        inputSchema: body.inputSchema as Prisma.InputJsonValue,
-        configSchema: (body.configSchema as Prisma.InputJsonValue) ?? undefined,
+    const data = {
+      agentId: body.agentId,
+      agentVersion: body.agentVersion,
+      description: body.description,
+      endpoint: body.endpoint as Prisma.InputJsonValue,
+      inputSchema: body.inputSchema as Prisma.InputJsonValue,
+      configSchema: (body.configSchema as Prisma.InputJsonValue) ?? undefined,
+    };
+
+    const agentRegistry = await prisma.agentRegistry.upsert({
+      where: {
+        agentId_agentVersion: {
+          agentId: body.agentId,
+          agentVersion: body.agentVersion,
+        },
+      },
+      create: data,
+      update: {
+        description: data.description,
+        endpoint: data.endpoint,
+        inputSchema: data.inputSchema,
+        configSchema: data.configSchema,
       },
     });
 
