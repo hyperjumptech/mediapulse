@@ -2,16 +2,16 @@
 
 import { format } from "date-fns";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog";
 import { Badge } from "@workspace/ui/components/badge";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/tabs";
 
-import { EndpointDisplay } from "./endpoint-display";
-import { JsonSchemaSummary } from "./json-schema-summary";
+import { EndpointDisplay } from "../endpoint-display";
+import { JsonPretty } from "../json-pretty";
 import type { AgentsPageResult } from "@/lib/agents";
 
 type AgentRow = AgentsPageResult["agents"][number];
@@ -23,37 +23,31 @@ const LABEL_CLASS =
 const VALUE_CLASS =
   "min-w-0 flex-1 text-sm font-medium text-foreground text-right";
 
-type AgentDetailsModalProps = {
-  agent: AgentRow | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+type AgentDetailsContentProps = {
+  /** Agent from getAgentById (registry row). */
+  agent: AgentRow;
 };
 
 /**
- * Read-only modal that shows agent details: ID, version, description, active, created,
- * endpoint (key-value), input schema summary, and config schema summary.
- * Agents are self-registered; admins cannot edit.
+ * Renders agent details in a tabbed layout: General (details + endpoint), Input schema (pretty JSON), Config schema (pretty JSON).
  */
-export const AgentDetailsModal = ({
-  agent,
-  open,
-  onOpenChange,
-}: AgentDetailsModalProps) => {
-  if (!agent) return null;
-
+export const AgentDetailsContent = ({ agent }: AgentDetailsContentProps) => {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto px-6 sm:px-8 pb-8">
-        <DialogHeader className="px-0">
-          <DialogTitle>
-            Agent details: {agent.agentId}@{agent.agentVersion}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-8 pt-6">
+    <div className="flex flex-col gap-6">
+      <h1 className="text-xl font-semibold text-foreground">
+        Agent details: {agent.agentId}@{agent.agentVersion}
+      </h1>
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="input-schema">Input schema</TabsTrigger>
+          <TabsTrigger value="config-schema">Config schema</TabsTrigger>
+        </TabsList>
+        <TabsContent value="general" className="space-y-8 pt-6">
           <section className="min-h-0">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
               Details
-            </h3>
+            </h2>
             <div className="rounded-lg bg-muted/25 border border-border/50 overflow-hidden">
               <div className={ROW_CLASS}>
                 <span className={LABEL_CLASS}>Agent ID</span>
@@ -88,31 +82,22 @@ export const AgentDetailsModal = ({
               </div>
             </div>
           </section>
-
           <section className="min-h-0">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
               Endpoint
-            </h3>
+            </h2>
             <div className="rounded-lg bg-muted/25 border border-border/50 overflow-hidden">
               <EndpointDisplay endpoint={agent.endpoint} />
             </div>
           </section>
-
-          <section className="min-h-0">
-            <JsonSchemaSummary
-              schema={agent.inputSchema}
-              title="Input schema"
-            />
-          </section>
-
-          <section className="min-h-0">
-            <JsonSchemaSummary
-              schema={agent.configSchema}
-              title="Config schema"
-            />
-          </section>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </TabsContent>
+        <TabsContent value="input-schema" className="pt-6">
+          <JsonPretty value={agent.inputSchema} title="Input schema" />
+        </TabsContent>
+        <TabsContent value="config-schema" className="pt-6">
+          <JsonPretty value={agent.configSchema} title="Config schema" />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };

@@ -1,14 +1,11 @@
 "use client";
 
-import { useState } from "react";
-
 import type {
   AgentsPageResult,
   AgentSortDir,
   AgentSortField,
 } from "@/lib/agents";
 
-import { AgentDetailsModal } from "./agent-details-modal";
 import { AgentsTable } from "./agents-table";
 
 type AgentRow = AgentsPageResult["agents"][number];
@@ -22,8 +19,7 @@ type AgentsTableWithEditProps = {
 };
 
 /**
- * Client wrapper that holds view-modal state and renders the agents table plus details modal.
- * View row action opens the modal to show read-only agent details.
+ * Client wrapper that renders the agents table. View row action and agent ID link navigate to the agent detail page.
  */
 export const AgentsTableWithEdit = ({
   agents,
@@ -32,23 +28,13 @@ export const AgentsTableWithEdit = ({
   pageSize,
   searchQuery,
 }: AgentsTableWithEditProps) => {
-  const [viewingAgent, setViewingAgent] = useState<AgentRow | null>(null);
-
   return (
-    <>
-      <AgentsTable
-        agents={agents}
-        sortBy={sortBy}
-        sortDir={sortDir}
-        pageSize={pageSize}
-        searchQuery={searchQuery}
-        onView={setViewingAgent}
-      />
-      <AgentDetailsModal
-        agent={viewingAgent}
-        open={viewingAgent !== null}
-        onOpenChange={(open) => !open && setViewingAgent(null)}
-      />
-    </>
+    <AgentsTable
+      agents={agents}
+      sortBy={sortBy}
+      sortDir={sortDir}
+      pageSize={pageSize}
+      searchQuery={searchQuery}
+    />
   );
 };

@@ -103,7 +103,7 @@ export const AgentsTable = ({
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[140px]">
+            <TableHead className="w-[280px]">
               {sortLink("agentId", "Agent ID")}
             </TableHead>
             <TableHead className="w-[100px]">
