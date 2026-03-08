@@ -19,8 +19,9 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 
 ## Key routes / entrypoints
 
-- Dashboard: `/dashboard` (pipelines, tickers, agents, API keys, schedules).
-- Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline.
+- Dashboard: `/dashboard` (pipelines, tickers, agents, **agent configs**, API keys, schedules).
+- Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline. When adding or editing a step, you can choose a **saved agent config** (by name) or enter custom JSON config.
+- **Agent configs** (`/dashboard/agent-configs`): Create, edit, duplicate, or delete named configs per agent (agentId + version). Each config has a name, description, and JSON validated against the agent’s config schema. Configs can be assigned to pipeline steps so one config is reused across steps; updating a saved config applies to all steps that reference it. If an agent’s config schema changes (same version), saved configs are marked “Schema changed” until you re-save them.
 - Ticker actions: create, update, delete, import (IDX).
 - Agent actions: create, update. Agent details are on a dedicated page (`/dashboard/agents/[id]`) with tabs: **General** (details and endpoint), **Input schema** (pretty-printed JSON), **Config schema** (pretty-printed JSON).
 - API key actions: create, update, delete. Create/update via modal; list is paginated with search by name.
@@ -46,6 +47,7 @@ See [hermes-worker](/apps/hermes-worker) for details.
 - `@workspace/database` — Prisma client for pipelines, tickers, agents, schedules, etc.
 - `@workspace/env` — Environment variables.
 - `@workspace/hermes-scheduler` — `computeNextRunAt` (and types) for schedule create/update in the dashboard.
+- `@workspace/json-schema-form` — Renders forms from agent config schemas (create/edit agent config modals).
 - `@workspace/idx-tickers-importer` — IDX ticker import.
 - `@workspace/logger` — Logging.
 - `@workspace/ui` — Shared UI components.

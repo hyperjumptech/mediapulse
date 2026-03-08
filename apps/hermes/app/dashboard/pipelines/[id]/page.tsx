@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 
 import { withAuthProtection } from "@/components/with-auth-protection";
+import { getAgentConfigsByAgentKeys } from "@/lib/agent-configs";
 import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
 
 import { PipelineDetailContent } from "./pipeline-detail-content";
 
 /**
- * Pipeline detail page. Loads pipeline with steps and agent registry; renders name/description via edit modal, step list, and add-step control.
+ * Pipeline detail page. Loads pipeline with steps, agent registry, and agent configs for step assignment.
  */
 const PipelineDetailPage = async ({
   params,
@@ -23,7 +24,17 @@ const PipelineDetailPage = async ({
     notFound();
   }
 
-  return <PipelineDetailContent pipeline={pipeline} agents={agents} />;
+  const configsByAgentKey = await getAgentConfigsByAgentKeys(
+    agents.map((a) => ({ agentId: a.agentId, agentVersion: a.agentVersion })),
+  );
+
+  return (
+    <PipelineDetailContent
+      pipeline={pipeline}
+      agents={agents}
+      configsByAgentKey={configsByAgentKey}
+    />
+  );
 };
 
 export default withAuthProtection(PipelineDetailPage);

@@ -21,7 +21,14 @@ describe("getDueSchedules", () => {
         nextRunAt: { lte: expect.any(Date) },
       },
       include: {
-        pipeline: { include: { steps: { orderBy: { order: "asc" } } } },
+        pipeline: {
+          include: {
+            steps: {
+              orderBy: { order: "asc" },
+              include: { agentConfig: true },
+            },
+          },
+        },
       },
     });
   });

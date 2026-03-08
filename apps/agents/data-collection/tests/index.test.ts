@@ -80,7 +80,18 @@ describe("data-collection-agent", () => {
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
-          config: { webSearch: {}, webFetch: {} },
+          config: {
+            webSearch: {
+              baseUrl: "https://search.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+            webFetch: {
+              baseUrl: "https://fetch.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+          },
         }),
       }),
     );
@@ -107,7 +118,18 @@ describe("data-collection-agent", () => {
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
-          config: { webSearch: {}, webFetch: {} },
+          config: {
+            webSearch: {
+              baseUrl: "https://search.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+            webFetch: {
+              baseUrl: "https://fetch.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+          },
         }),
       }),
     );

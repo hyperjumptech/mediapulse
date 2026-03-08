@@ -12,6 +12,7 @@ import {
   invokeAgent,
   type InvokeAgentHttpClient,
 } from "./invoke-agent";
+import { validateWithJsonSchema } from "./validate-json-schema";
 
 /** Dependencies for executeSchedule (injectable for tests). */
 export type ExecuteScheduleDeps = {
@@ -136,10 +137,54 @@ export const executeSchedule = async (
         continue;
       }
 
-      const stepConfig =
-        (step as { config?: unknown }).config != null
-          ? (step as { config: Record<string, unknown> }).config
-          : {};
+      let stepConfig: Record<string, unknown>;
+      const stepWithConfig = step as {
+        config?: unknown;
+        agentConfigId?: string | null;
+        agentConfig?: { config: unknown } | null;
+      };
+      if (
+        stepWithConfig.agentConfigId != null &&
+        stepWithConfig.agentConfig != null
+      ) {
+        const referencedConfig = stepWithConfig.agentConfig.config;
+        const configObj =
+          referencedConfig != null &&
+          typeof referencedConfig === "object" &&
+          !Array.isArray(referencedConfig)
+            ? (referencedConfig as Record<string, unknown>)
+            : {};
+        const configSchema =
+          agent.configSchema != null && typeof agent.configSchema === "object"
+            ? (agent.configSchema as Record<string, unknown>)
+            : null;
+        if (configSchema) {
+          const result = validateWithJsonSchema(configSchema, configObj);
+          if (!result.valid) {
+            logger.warn(
+              {
+                stepId: step.id,
+                agentConfigId: stepWithConfig.agentConfigId,
+                errors: result.errors,
+              },
+              "Agent config validation failed, skipping step",
+            );
+            errors.push({
+              message: `Step config invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
+              timestamp: new Date().toISOString(),
+            });
+            continue;
+          }
+        }
+        stepConfig = configObj;
+      } else {
+        stepConfig =
+          stepWithConfig.config != null &&
+          typeof stepWithConfig.config === "object" &&
+          !Array.isArray(stepWithConfig.config)
+            ? (stepWithConfig.config as Record<string, unknown>)
+            : {};
+      }
       const body = {
         input: paramSet,
         config: stepConfig,

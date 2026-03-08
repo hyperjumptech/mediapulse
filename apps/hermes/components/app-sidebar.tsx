@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Bot,
   Calendar,
+  FileJson,
   GitBranch,
   Key,
   LayoutDashboard,
@@ -40,6 +41,8 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
   const isPipelines = pathname === "/dashboard/pipelines";
   const isTickers = pathname?.startsWith("/dashboard/tickers") ?? false;
   const isAgents = pathname?.startsWith("/dashboard/agents") ?? false;
+  const isAgentConfigs =
+    pathname?.startsWith("/dashboard/agent-configs") ?? false;
   const isApiKeys = pathname?.startsWith("/dashboard/api-keys") ?? false;
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
 
@@ -86,6 +89,14 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/agents">
                   <Bot className="size-4" />
                   <span>Agents</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isAgentConfigs}>
+                <Link href="/dashboard/agent-configs">
+                  <FileJson className="size-4" />
+                  <span>Agent configs</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

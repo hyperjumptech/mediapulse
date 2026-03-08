@@ -102,6 +102,7 @@ describe("AddStepForm", () => {
         pipelineId="pipeline-123"
         agents={createMockAgents()}
         existingStepAgentKeys={[]}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -120,6 +121,7 @@ describe("AddStepForm", () => {
         pipelineId="pipeline-123"
         agents={createMockAgents()}
         existingStepAgentKeys={[]}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -139,6 +141,7 @@ describe("AddStepForm", () => {
         pipelineId="pipeline-123"
         agents={createMockAgents()}
         existingStepAgentKeys={[]}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -162,6 +165,7 @@ describe("AddStepForm", () => {
         pipelineId="pipeline-123"
         agents={createMockAgents()}
         existingStepAgentKeys={["summarizer@1.0"]}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -185,6 +189,7 @@ describe("AddStepForm", () => {
         pipelineId="pipeline-123"
         agents={createMockAgents()}
         existingStepAgentKeys={[]}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -205,6 +210,7 @@ describe("AddStepForm", () => {
         pipelineId="pipeline-123"
         agents={createMockAgents()}
         existingStepAgentKeys={[]}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -223,6 +229,7 @@ describe("AddStepForm", () => {
         pipelineId="pipeline-123"
         agents={createMockAgents()}
         existingStepAgentKeys={["summarizer@1.0", "translator@2.0"]}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -247,6 +254,7 @@ describe("AddStepForm", () => {
         pipelineId="pipeline-123"
         agents={createMockAgents()}
         existingStepAgentKeys={[]}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -265,6 +273,7 @@ describe("AddStepForm", () => {
         pipelineId="pipeline-123"
         agents={createMockAgents()}
         existingStepAgentKeys={[]}
+        configsByAgentKey={{}}
       />,
     );
 

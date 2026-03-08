@@ -77,6 +77,7 @@ const createMockPipeline = () => ({
       agentId: "summarizer",
       agentVersion: "1.0",
       config: {},
+      agentConfigId: null,
       createdAt: new Date("2024-01-15"),
       updatedAt: new Date("2024-01-15"),
     },
@@ -107,6 +108,7 @@ describe("PipelineDetailContent", () => {
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -122,6 +124,7 @@ describe("PipelineDetailContent", () => {
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -135,6 +138,7 @@ describe("PipelineDetailContent", () => {
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -150,6 +154,7 @@ describe("PipelineDetailContent", () => {
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -163,6 +168,7 @@ describe("PipelineDetailContent", () => {
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -180,6 +186,7 @@ describe("PipelineDetailContent", () => {
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -193,6 +200,7 @@ describe("PipelineDetailContent", () => {
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -222,7 +230,11 @@ describe("PipelineDetailContent", () => {
 
     // Act
     render(
-      <PipelineDetailContent pipeline={pipeline} agents={createMockAgents()} />,
+      <PipelineDetailContent
+        pipeline={pipeline}
+        agents={createMockAgents()}
+        configsByAgentKey={{}}
+      />,
     );
 
     // Assert

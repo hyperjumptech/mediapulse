@@ -1,0 +1,49 @@
+---
+title: json-schema-form
+description: Render forms from JSON Schema (nested objects and arrays)
+icon: FileJson
+---
+
+## Purpose
+
+`@workspace/json-schema-form` renders a controlled form from a JSON Schema. It supports nested objects and arrays and is used by Hermes for **agent config** create/edit modals so admins can edit config without writing raw JSON.
+
+## Usage
+
+Import the `SchemaForm` component and pass a schema (object with `type: "object"` and `properties`), plus `value` and `onChange`:
+
+```tsx
+import { SchemaForm } from "@workspace/json-schema-form";
+
+<SchemaForm
+  schema={schema}
+  value={value}
+  onChange={setValue}
+  validate={optionalValidateFn}
+  disabled={false}
+  className="..."
+/>;
+```
+
+## Supported types
+
+- **string** — Text input, or select when the schema has `enum`.
+- **number** / **integer** — Number input.
+- **boolean** — Checkbox.
+- **object** — Nested block; recurses into `properties`.
+- **array** — List with add/remove; each item follows the `items` schema.
+
+Schema `title` and `description` are used for labels and hints.
+
+## Validation
+
+Pass an optional `validate(value)` function. It is called on blur; if it returns `{ valid: false, errors: string[] }`, errors are shown below the form.
+
+## Dependencies
+
+- `@workspace/ui` — Shadcn primitives (Input, Label, Button, etc.).
+- React.
+
+## Related
+
+- [Hermes](/apps/hermes) — Uses this package for agent config create/edit and step config (when not using a saved config).

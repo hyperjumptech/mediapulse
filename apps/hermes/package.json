@@ -22,6 +22,7 @@
     "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/hermes-scheduler": "workspace:*",
+    "@workspace/json-schema-form": "workspace:*",
     "@workspace/idx-tickers-importer": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/ui": "workspace:*",

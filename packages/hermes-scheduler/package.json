@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@workspace/database": "workspace:*",
+    "ajv": "^8.17.1",
     "cron-parser": "^5.0.0",
     "zod": "catalog:"
   },

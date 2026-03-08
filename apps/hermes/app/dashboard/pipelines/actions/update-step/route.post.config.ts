@@ -36,6 +36,11 @@ const bodyValidator = z.object({
   stepId: z.string().uuid(),
   agentId: z.string().min(1),
   agentVersion: z.string().min(1),
+  agentConfigId: z
+    .union([z.string().uuid(), z.literal("")])
+    .nullable()
+    .optional()
+    .transform((s) => (s === "" ? null : (s ?? null))),
   config: configSchemaBody,
 });
 
@@ -74,7 +79,8 @@ export const createUpdateStepHandler = ({
       return errorResponse("Unauthorized");
     }
 
-    const { pipelineId, stepId, agentId, agentVersion, config } = data.body;
+    const { pipelineId, stepId, agentId, agentVersion, agentConfigId, config } =
+      data.body;
 
     const step = await db.pipelineStep.findFirst({
       where: { id: stepId, pipelineId },
@@ -92,7 +98,22 @@ export const createUpdateStepHandler = ({
       );
     }
 
-    if (agent.configSchema != null && typeof agent.configSchema === "object") {
+    if (agentConfigId != null) {
+      const agentConfig = await db.agentConfig.findFirst({
+        where: { id: agentConfigId, agentId, agentVersion },
+      });
+      if (!agentConfig) {
+        return errorResponse(
+          "Selected saved config not found or does not match this agent",
+        );
+      }
+    }
+
+    if (
+      agentConfigId == null &&
+      agent.configSchema != null &&
+      typeof agent.configSchema === "object"
+    ) {
       const result = validateWithJsonSchema(
         agent.configSchema as Record<string, unknown>,
         config,
@@ -106,7 +127,15 @@ export const createUpdateStepHandler = ({
 
     await db.pipelineStep.update({
       where: { id: stepId },
-      data: { agentId, agentVersion, config: config as object },
+      data: {
+        agentId,
+        agentVersion,
+        agentConfigId: agentConfigId ?? null,
+        config:
+          agentConfigId != null && agentConfigId !== ""
+            ? {}
+            : ((config ?? {}) as object),
+      },
     });
 
     return successResponse({ ok: true as const });

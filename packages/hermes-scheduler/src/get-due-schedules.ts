@@ -3,9 +3,11 @@ import type { Prisma, PrismaClient } from "@workspace/database";
 /** DB type that provides schedule queries (injectable for tests). */
 export type GetDueSchedulesDb = Pick<PrismaClient, "schedule">;
 
-/** Schedule with pipeline and steps included (returned by getDueSchedules). */
+/** Schedule with pipeline and steps (including agentConfig when step references one) included (returned by getDueSchedules). */
 export type DueSchedule = Prisma.ScheduleGetPayload<{
-  include: { pipeline: { include: { steps: true } } };
+  include: {
+    pipeline: { include: { steps: { include: { agentConfig: true } } } };
+  };
 }>;
 
 /**
@@ -24,7 +26,14 @@ export const getDueSchedules = async (
       nextRunAt: { lte: now },
     },
     include: {
-      pipeline: { include: { steps: { orderBy: { order: "asc" } } } },
+      pipeline: {
+        include: {
+          steps: {
+            orderBy: { order: "asc" },
+            include: { agentConfig: true },
+          },
+        },
+      },
     },
   });
 };

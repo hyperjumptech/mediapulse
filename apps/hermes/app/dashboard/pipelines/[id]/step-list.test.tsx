@@ -110,6 +110,7 @@ describe("StepList", () => {
         pipelineId="pipeline-123"
         steps={[]}
         agentDescriptions={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -130,6 +131,7 @@ describe("StepList", () => {
         pipelineId="pipeline-123"
         steps={createMockSteps()}
         agentDescriptions={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -149,6 +151,7 @@ describe("StepList", () => {
         pipelineId="pipeline-123"
         steps={createMockSteps()}
         agentDescriptions={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -168,6 +171,7 @@ describe("StepList", () => {
         pipelineId="pipeline-123"
         steps={createMockSteps()}
         agentDescriptions={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -186,6 +190,7 @@ describe("StepList", () => {
         pipelineId="pipeline-123"
         steps={createMockSteps()}
         agentDescriptions={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -209,6 +214,7 @@ describe("StepList", () => {
         pipelineId="pipeline-123"
         steps={[createMockSteps()[0]!]}
         agentDescriptions={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -227,6 +233,7 @@ describe("StepList", () => {
         pipelineId="pipeline-123"
         steps={[createMockSteps()[0]!]}
         agentDescriptions={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
@@ -243,6 +250,7 @@ describe("StepList", () => {
         pipelineId="pipeline-123"
         steps={createMockSteps()}
         agentDescriptions={createMockAgents()}
+        configsByAgentKey={{}}
       />,
     );
 
