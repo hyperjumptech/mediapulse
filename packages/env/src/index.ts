@@ -13,6 +13,10 @@ export const env = createEnv({
     AGENT_API_KEY: z.string().optional(),
     TEMP_ADMIN_USERNAME: z.string().min(1),
     TEMP_ADMIN_PASSWORD: z.string().min(1),
+    OUTLOOK_CLIENT_ID: z.string().optional(),
+    OUTLOOK_CLIENT_SECRET: z.string().optional(),
+    OUTLOOK_TENANT_ID: z.string().optional(),
+    OUTLOOK_USER_ID: z.string().optional(),
   },
   client: {
   },
