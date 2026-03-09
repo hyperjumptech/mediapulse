@@ -12,6 +12,7 @@
     "idx-tickers-importer",
     "json-schema-form",
     "api-utils",
+    "outlook-inbox",
     "logger",
     "ui",
     "utils",
