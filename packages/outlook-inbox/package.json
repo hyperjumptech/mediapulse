@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:lib": "dotenv -e .env.local -- tsx script/test-lib.ts",
     "type:check": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\""
   },
@@ -19,7 +20,11 @@
     "got": "catalog:"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "@workspace/env": "workspace:*",
+    "dotenv-cli": "catalog:",
+    "tsx": "^4",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "^9.32.0",

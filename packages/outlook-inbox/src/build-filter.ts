@@ -1,4 +1,4 @@
-import type { MessageFilter } from "./types.js";
+import type { GraphMessage, MessageFilter } from "./types.js";
 
 /**
  * Builds an OData $filter string for Microsoft Graph messages from a MessageFilter.
@@ -32,6 +32,61 @@ export function buildFilter(filter: MessageFilter): string {
   }
 
   return parts.length === 0 ? "" : parts.join(" and ");
+}
+
+/**
+ * Builds an OData $filter string using only criteria supported reliably by the Graph messages API.
+ * Excludes subject filters (subjectEquals, subjectContains) to avoid InefficientFilter errors;
+ * apply subject filters client-side via applySubjectFilter after fetching.
+ *
+ * @param filter - Filter criteria; subject fields are ignored.
+ * @returns OData filter string for receivedDateTime and isRead only, or "".
+ */
+export function buildFilterForGraph(filter: MessageFilter): string {
+  const parts: string[] = [];
+
+  if (filter.receivedAfter !== undefined) {
+    parts.push(`receivedDateTime ge ${toODataDateTime(filter.receivedAfter)}`);
+  }
+  if (filter.receivedBefore !== undefined) {
+    parts.push(`receivedDateTime le ${toODataDateTime(filter.receivedBefore)}`);
+  }
+  if (filter.isUnread === true) {
+    parts.push("isRead eq false");
+  }
+  if (filter.isUnread === false) {
+    parts.push("isRead eq true");
+  }
+
+  return parts.length === 0 ? "" : parts.join(" and ");
+}
+
+/**
+ * Filters messages in memory by subjectEquals and/or subjectContains.
+ * Used when subject criteria are not sent to Graph to avoid InefficientFilter.
+ *
+ * @param messages - Messages returned from Graph.
+ * @param filter - Filter with optional subjectEquals (exact, case-sensitive) and subjectContains (substring, case-insensitive).
+ * @returns Subset of messages matching subject criteria; returns all if no subject filter.
+ */
+export function applySubjectFilter(
+  messages: GraphMessage[],
+  filter: MessageFilter,
+): GraphMessage[] {
+  const hasEquals =
+    filter.subjectEquals !== undefined && filter.subjectEquals !== "";
+  const hasContains =
+    filter.subjectContains !== undefined && filter.subjectContains !== "";
+
+  if (!hasEquals && !hasContains) return messages;
+
+  const sub = filter.subjectContains?.toLowerCase() ?? "";
+  return messages.filter((msg) => {
+    const subject = msg.subject ?? "";
+    if (hasEquals && subject !== filter.subjectEquals) return false;
+    if (hasContains && !subject.toLowerCase().includes(sub)) return false;
+    return true;
+  });
 }
 
 /**

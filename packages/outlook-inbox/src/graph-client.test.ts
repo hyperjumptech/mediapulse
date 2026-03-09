@@ -13,8 +13,8 @@ describe("createGraphClient", () => {
   });
 
   describe("listMessages", () => {
-    it("calls GET with filter and returns value array", async () => {
-      // Setup
+    it("calls GET with Graph-safe filter and applies subject filter client-side", async () => {
+      // Setup: subject filters are not sent to Graph (avoids InefficientFilter), applied in memory
       const getAccessToken = vi.fn().mockResolvedValue("bearer-token");
       const getFn = vi.fn().mockResolvedValue({
         statusCode: 200,
@@ -38,7 +38,7 @@ describe("createGraphClient", () => {
       // Act
       const result = await client.listMessages("me", filter, { top: 50 });
 
-      // Assert
+      // Assert: URL has only Graph-safe filter (receivedDateTime, isRead), no subject
       expect(getAccessToken).toHaveBeenCalledTimes(1);
       expect(getFn).toHaveBeenCalledTimes(1);
       expect(getFn.mock.calls[0]).toBeDefined();
@@ -47,16 +47,12 @@ describe("createGraphClient", () => {
         { headers: Record<string, string> },
       ];
       expect(url).toContain("/users/me/messages");
-      expect(url).toContain("filter=");
-      expect(url).toContain("contains");
-      expect(url).toContain("subject");
-      expect(url).toContain("Test");
       expect(url).toContain("isRead");
       expect(url).toContain("false");
+      expect(url).not.toContain("contains(subject"); // subject filter applied client-side
       expect(url).toContain("top=50");
       expect(opts.headers.Authorization).toBe("Bearer bearer-token");
       expect(result).toHaveLength(1);
-      expect(result[0]).toBeDefined();
       expect((result[0] as { id: string; subject: string }).id).toBe("msg-1");
       expect((result[0] as { id: string; subject: string }).subject).toBe(
         "Test",

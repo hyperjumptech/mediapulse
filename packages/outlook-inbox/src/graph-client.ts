@@ -4,7 +4,7 @@ import type {
   ListMessagesResponse,
   MessageFilter,
 } from "./types.js";
-import { buildFilter } from "./build-filter.js";
+import { applySubjectFilter, buildFilterForGraph } from "./build-filter.js";
 
 const DEFAULT_GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
@@ -61,7 +61,7 @@ export function createGraphClient(
       paging?: { top?: number; orderBy?: string },
     ): Promise<GraphMessage[]> {
       const token = await getAccessToken();
-      const filterStr = buildFilter(filter);
+      const filterStr = buildFilterForGraph(filter);
       const url = new URL(
         `${baseUrl}/users/${encodeURIComponent(userId)}/messages`,
       );
@@ -81,7 +81,8 @@ export function createGraphClient(
       }
 
       const data = JSON.parse(res.body) as ListMessagesResponse;
-      return data.value ?? [];
+      const messages = data.value ?? [];
+      return applySubjectFilter(messages, filter);
     },
 
     /**

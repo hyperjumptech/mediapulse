@@ -51,7 +51,7 @@ Document in your app’s `env.example` (and add to your env schema) for client-c
 - `OUTLOOK_CLIENT_ID` — Azure AD app (client) ID
 - `OUTLOOK_CLIENT_SECRET` — Client secret (server-only, no `NEXT_PUBLIC_`)
 - `OUTLOOK_TENANT_ID` — Azure AD tenant ID
-- `OUTLOOK_USER_ID` — Optional; mailbox user ID for app-only, or omit for "me"
+- `OUTLOOK_USER_ID` — Optional; for app-only, the shared mailbox to access: use the mailbox email (e.g. `shared@domain.com`) or Azure AD object ID. Omit for "me".
 
 ## Filtering messages
 
