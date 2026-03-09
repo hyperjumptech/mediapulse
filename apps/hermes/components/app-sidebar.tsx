@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, GitBranch, LayoutDashboard, TrendingUp } from "lucide-react";
+import {
+  Bot,
+  Calendar,
+  FileJson,
+  GitBranch,
+  Key,
+  LayoutDashboard,
+  TrendingUp,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -33,6 +41,10 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
   const isPipelines = pathname === "/dashboard/pipelines";
   const isTickers = pathname?.startsWith("/dashboard/tickers") ?? false;
   const isAgents = pathname?.startsWith("/dashboard/agents") ?? false;
+  const isAgentConfigs =
+    pathname?.startsWith("/dashboard/agent-configs") ?? false;
+  const isApiKeys = pathname?.startsWith("/dashboard/api-keys") ?? false;
+  const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
 
   return (
     <Sidebar {...props}>
@@ -77,6 +89,30 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/agents">
                   <Bot className="size-4" />
                   <span>Agents</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isAgentConfigs}>
+                <Link href="/dashboard/agent-configs">
+                  <FileJson className="size-4" />
+                  <span>Agent configs</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isApiKeys}>
+                <Link href="/dashboard/api-keys">
+                  <Key className="size-4" />
+                  <span>API Keys</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isSchedules}>
+                <Link href="/dashboard/schedules">
+                  <Calendar className="size-4" />
+                  <span>Schedules</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

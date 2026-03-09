@@ -8,7 +8,7 @@ vi.mock("@workspace/database", () => ({
       findUnique: vi.fn(),
     },
     agentRegistry: {
-      create: vi.fn(),
+      upsert: vi.fn(),
     },
   },
 }));
@@ -49,7 +49,7 @@ describe("agent-registry-api", () => {
         userId: "123",
         name: "test",
       });
-      (prisma.agentRegistry.create as any).mockResolvedValue({
+      (prisma.agentRegistry.upsert as any).mockResolvedValue({
         id: "1",
         agentId: "test-agent",
         agentVersion: "1.0.0",
@@ -68,6 +68,7 @@ describe("agent-registry-api", () => {
               url: "http://example.com",
               method: "POST",
             },
+            inputSchema: { type: "object", properties: {} },
           }),
         }),
       );

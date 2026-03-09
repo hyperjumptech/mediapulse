@@ -49,6 +49,8 @@ type AgentsTableProps = {
   sortDir: AgentSortDir;
   pageSize: number;
   searchQuery?: string;
+  /** When provided, View opens the details modal via this callback instead of navigating. */
+  onView?: (agent: AgentRow) => void;
 };
 
 /**
@@ -60,6 +62,7 @@ export const AgentsTable = ({
   sortDir,
   pageSize,
   searchQuery,
+  onView,
 }: AgentsTableProps) => {
   const sortLink = (field: AgentSortField, label: string) => {
     const isActive = sortBy === field;
@@ -100,7 +103,7 @@ export const AgentsTable = ({
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[140px]">
+            <TableHead className="w-[280px]">
               {sortLink("agentId", "Agent ID")}
             </TableHead>
             <TableHead className="w-[100px]">
@@ -128,12 +131,22 @@ export const AgentsTable = ({
             agents.map((agent) => (
               <TableRow key={agent.id}>
                 <TableCell className="font-medium">
-                  <Link
-                    href={`/dashboard/agents/${agent.id}`}
-                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
-                  >
-                    {agent.agentId}
-                  </Link>
+                  {onView ? (
+                    <button
+                      type="button"
+                      onClick={() => onView(agent)}
+                      className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground text-left"
+                    >
+                      {agent.agentId}
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/dashboard/agents/${agent.id}`}
+                      className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
+                    >
+                      {agent.agentId}
+                    </Link>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {agent.agentVersion}
@@ -154,8 +167,9 @@ export const AgentsTable = ({
                 </TableCell>
                 <TableCell className="text-right">
                   <AgentRowActions
-                    agentId={agent.id}
+                    agent={agent}
                     agentLabel={`${agent.agentId}@${agent.agentVersion}`}
+                    onView={onView}
                   />
                 </TableCell>
               </TableRow>

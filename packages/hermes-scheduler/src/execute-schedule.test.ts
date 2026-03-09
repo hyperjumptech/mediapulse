@@ -1,0 +1,182 @@
+/** @vitest-environment node */
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { executeSchedule, type ExecuteScheduleDeps } from "./execute-schedule";
+import type { DueSchedule } from "./get-due-schedules";
+
+const createMockSchedule = (overrides?: Partial<DueSchedule>): DueSchedule =>
+  ({
+    id: "s1",
+    name: "Test",
+    repeat: "repeating",
+    cronExpression: "0 6 * * *",
+    interval: null,
+    timezone: "UTC",
+    nextRunAt: new Date(),
+    pipelineId: "p1",
+    params: { tickerId: "tid-1" },
+    priority: 0,
+    pipeline: {
+      id: "p1",
+      steps: [
+        {
+          id: "step1",
+          order: 0,
+          agentId: "agent-a",
+          agentVersion: "1.0.0",
+          pipelineId: "p1",
+          agentConfigId: null,
+          agentConfig: null,
+        },
+      ],
+    },
+    ...overrides,
+  }) as DueSchedule;
+
+describe("executeSchedule", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("creates schedule execution and updates schedule nextRunAt for repeating", async () => {
+    const schedule = createMockSchedule();
+    const scheduleUpdate = vi.fn().mockResolvedValue(undefined);
+    const scheduleExecutionCreate = vi.fn().mockResolvedValue(undefined);
+    const agentRegistryFindMany = vi.fn().mockResolvedValue([
+      {
+        agentId: "agent-a",
+        agentVersion: "1.0.0",
+        endpoint: { url: "https://agent.example/run", method: "POST" },
+        isActive: true,
+      },
+    ]);
+    const agentJobExecutionCreate = vi.fn().mockResolvedValue(undefined);
+    const agentJobExecutionUpdate = vi.fn().mockResolvedValue(undefined);
+    const deps: ExecuteScheduleDeps = {
+      db: {
+        agentRegistry: { findMany: agentRegistryFindMany },
+        agentJobExecution: {
+          create: agentJobExecutionCreate,
+          update: agentJobExecutionUpdate,
+        },
+        scheduleExecution: { create: scheduleExecutionCreate },
+        schedule: { update: scheduleUpdate },
+      } as unknown as ExecuteScheduleDeps["db"],
+      httpClient: { post: vi.fn().mockResolvedValue(undefined) },
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    };
+
+    await executeSchedule(schedule, deps);
+
+    expect(scheduleExecutionCreate).toHaveBeenCalled();
+    expect(scheduleUpdate).toHaveBeenCalledTimes(1);
+    expect(scheduleUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: schedule.id } }),
+    );
+    const updateCall = scheduleUpdate.mock.calls[0] as [
+      { where: { id: string }; data: { nextRunAt?: Date | null } },
+    ];
+    expect(updateCall[0].data).toHaveProperty("nextRunAt");
+  });
+
+  it("sends body { input, config } to agent with step config when present", async () => {
+    // Setup
+    const now = new Date();
+    const schedule = createMockSchedule({
+      params: { tickerId: "tid-1" },
+      pipeline: {
+        id: "p1",
+        name: "p1",
+        description: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+        steps: [
+          {
+            id: "step1",
+            order: 0,
+            agentId: "agent-a",
+            agentVersion: "1.0.0",
+            pipelineId: "p1",
+            config: { limit: 10 },
+            createdAt: now,
+            updatedAt: now,
+            agentConfigId: null,
+            agentConfig: null,
+          },
+        ],
+      },
+    });
+    const post = vi.fn().mockResolvedValue(undefined);
+    const deps: ExecuteScheduleDeps = {
+      db: {
+        agentRegistry: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              agentId: "agent-a",
+              agentVersion: "1.0.0",
+              endpoint: { url: "https://agent.example/run", method: "POST" },
+              isActive: true,
+            },
+          ]),
+        },
+        agentJobExecution: {
+          create: vi.fn().mockResolvedValue(undefined),
+          update: vi.fn().mockResolvedValue(undefined),
+        },
+        scheduleExecution: { create: vi.fn().mockResolvedValue(undefined) },
+        schedule: { update: vi.fn().mockResolvedValue(undefined) },
+      } as unknown as ExecuteScheduleDeps["db"],
+      httpClient: { post },
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    };
+
+    // Act
+    await executeSchedule(schedule, deps);
+
+    // Assert
+    expect(post).toHaveBeenCalledTimes(1);
+    const [url, options] = post.mock.calls[0] as [
+      string,
+      { json: Record<string, unknown> },
+    ];
+    expect(url).toBe("https://agent.example/run");
+    expect(options.json).toEqual({
+      input: { tickerId: "tid-1" },
+      config: { limit: 10 },
+    });
+  });
+
+  it("disables schedule when repeat is once", async () => {
+    const schedule = createMockSchedule({ repeat: "once" });
+    const scheduleUpdate = vi.fn().mockResolvedValue(undefined);
+    const scheduleExecutionCreate = vi.fn().mockResolvedValue(undefined);
+    const agentRegistryFindMany = vi.fn().mockResolvedValue([
+      {
+        agentId: "agent-a",
+        agentVersion: "1.0.0",
+        endpoint: { url: "https://agent.example/run", method: "POST" },
+        isActive: true,
+      },
+    ]);
+    const deps: ExecuteScheduleDeps = {
+      db: {
+        agentRegistry: { findMany: agentRegistryFindMany },
+        agentJobExecution: {
+          create: vi.fn().mockResolvedValue(undefined),
+          update: vi.fn().mockResolvedValue(undefined),
+        },
+        scheduleExecution: { create: scheduleExecutionCreate },
+        schedule: { update: scheduleUpdate },
+      } as unknown as ExecuteScheduleDeps["db"],
+      httpClient: { post: vi.fn().mockResolvedValue(undefined) },
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    };
+
+    await executeSchedule(schedule, deps);
+
+    expect(scheduleUpdate).toHaveBeenCalledWith({
+      where: { id: schedule.id },
+      data: { enabled: false },
+    });
+  });
+});

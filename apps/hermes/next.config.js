@@ -14,7 +14,10 @@ loadEnvConfig(envDir);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  outputFileTracingRoot: path.resolve(__dirname, "../.."),
+  transpilePackages: ["@workspace/json-schema-form"],
+  experimental: {
+    outputFileTracingRoot: path.resolve(__dirname, "../.."),
+  },
 };
 
 export default nextConfig;

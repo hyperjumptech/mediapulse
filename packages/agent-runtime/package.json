@@ -20,7 +20,8 @@
     "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "@workspace/typescript-config": "workspace:*",

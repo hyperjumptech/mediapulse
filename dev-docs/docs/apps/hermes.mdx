@@ -6,37 +6,54 @@ icon: Zap
 
 ## Purpose
 
-Hermes is the main orchestration app: it manages **pipelines** (sequences of agents), **tickers**, and **agents**. It runs pipeline steps on a schedule (cron) or manually by sending HTTP requests to each agent with a bearer token.
+Hermes is the main orchestration app: it manages **pipelines** (sequences of agents), **tickers**, **agents**, **API keys**, and **schedules**. It provides the dashboard and API for creating/editing schedules; the actual **scheduler** (DataQueue processor and supervisor) runs in the separate **hermes-worker** app so Hermes can stay stateless and deploy without a long-running server.
 
 ## Features
 
-- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, and agents (CRUD).
-- **Cron jobs** — Periodically run pipeline steps (e.g. data-collection → content-generation → delivery).
+- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, agents, API keys, and schedules (CRUD).
+- **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, expands data-source params (e.g. `db:ticker:all:id`), and invokes pipeline steps via HTTP. Hermes does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
 - **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@workspace/idx-tickers-importer`.
 - **Session-based auth** — Dashboard uses cookie/session auth; agents are called with API keys.
+- **API key management** — Admins can CRUD API keys from the dashboard. Create and update use modals; the raw key is shown once after create (stored as SHA-256 hash in DB, aligned with agent-auth-api).
 
 ## Key routes / entrypoints
 
-- Dashboard: `/dashboard` (pipelines, tickers, agents).
-- Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline.
+- Dashboard: `/dashboard` (pipelines, tickers, agents, **agent configs**, API keys, schedules).
+- Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline. When adding or editing a step, you can choose a **saved agent config** (by name) or enter custom JSON config.
+- **Agent configs** (`/dashboard/agent-configs`): Create, edit, duplicate, or delete named configs per agent (agentId + version). Each config has a name, description, and JSON validated against the agent’s config schema. Configs can be assigned to pipeline steps so one config is reused across steps; updating a saved config applies to all steps that reference it. If an agent’s config schema changes (same version), saved configs are marked “Schema changed” until you re-save them.
 - Ticker actions: create, update, delete, import (IDX).
-- Agent actions: create, update.
+- Agent actions: create, update. Agent details are on a dedicated page (`/dashboard/agents/[id]`) with tabs: **General** (details and endpoint), **Input schema** (pretty-printed JSON), **Config schema** (pretty-printed JSON).
+- API key actions: create, update, delete. Create/update via modal; list is paginated with search by name.
+- Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@workspace/hermes-scheduler`; execution runs in hermes-worker.
 - Logout: `/logout`.
 
 ## Port
 
 - **3001** (via `next dev --turbopack -p 3001`).
 
+## Scheduler (hermes-worker)
+
+Hermes **does not** run the DataQueue queue or migrations. To run the scheduler:
+
+1. Run the **hermes-worker** app on a persistent server (e.g. `pnpm dev:hermes-worker` from repo root). It initializes the queue, ensures the `hermes-check-schedules` cron exists, and runs the processor + supervisor.
+2. Run DataQueue migrations from **hermes-worker**: `pnpm --filter hermes-worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`). Use the same DB as Hermes with `?schema=dataqueue`.
+3. Set `PG_DATAQUEUE_DATABASE` (and `DATABASE_URL`, `AGENT_API_KEY`) where hermes-worker runs.
+
+See [hermes-worker](/apps/hermes-worker) for details.
+
 ## Workspace dependencies
 
-- `@workspace/database` — Prisma client for pipelines, tickers, agents, etc.
+- `@workspace/database` — Prisma client for pipelines, tickers, agents, schedules, etc.
 - `@workspace/env` — Environment variables.
+- `@workspace/hermes-scheduler` — `computeNextRunAt` (and types) for schedule create/update in the dashboard.
+- `@workspace/json-schema-form` — Renders forms from agent config schemas (create/edit agent config modals).
 - `@workspace/idx-tickers-importer` — IDX ticker import.
 - `@workspace/logger` — Logging.
 - `@workspace/ui` — Shared UI components.
 
 ## Related docs
 
-- [Architecture](/architecture) — How Hermes fits in the system.
-- [Packages: database](/packages/database), [idx-tickers-importer](/packages/idx-tickers-importer).
+- [Architecture](/architecture) — How Hermes and hermes-worker fit in the system.
+- [hermes-worker](/apps/hermes-worker) — Long-running scheduler process.
+- [Packages: database](/packages/database), [hermes-scheduler](/packages/hermes-scheduler), [idx-tickers-importer](/packages/idx-tickers-importer).

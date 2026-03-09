@@ -1,4 +1,4 @@
-name: Code Quality
+name: Code Quality Checks
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
 
 jobs:
   build:
+    name: Build everything
     runs-on: ubuntu-latest
 
     services:
@@ -57,18 +58,57 @@ jobs:
       - name: Generate route actions
         run: |
           pnpm generate
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Type check
-        run: pnpm type:check
-
-      - name: Format check
-        run: pnpm format:check
-
       - name: Build
         run: pnpm build
 
-      - name: Test
-        run: pnpm test:coverage
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code quality check
+
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres
+        # Provide the password for postgres
+        env:
+          POSTGRES_USER: mediapulse
+          POSTGRES_PASSWORD: mediapulse
+          POSTGRES_DB: mediapulse
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          # Maps tcp port 5432 on service container to the host
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Bootstrap env
+        run: ./dev-bootstrap.sh
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Prisma client
+        run: pnpm --filter=@workspace/database run db:generate
+
+      - name: Generate route actions
+        run: |
+          pnpm generate
+
+      - name: Code quality
+        run: pnpm code-quality

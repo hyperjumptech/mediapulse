@@ -5,8 +5,7 @@ import {
   type AgentSortField,
 } from "@/lib/agents";
 
-import { AddAgentModal } from "./add-agent-modal";
-import { AgentsTable } from "./agents-table";
+import { AgentsTableWithEdit } from "./agents-table-with-edit";
 import { AgentsPagination } from "./pagination";
 import { AgentsSearch } from "./agents-search";
 
@@ -74,11 +73,8 @@ const AgentsPage = async ({
           sortBy={sortBy}
           sortDir={sortDir}
         />
-        <div className="shrink-0 sm:ml-auto">
-          <AddAgentModal />
-        </div>
       </div>
-      <AgentsTable
+      <AgentsTableWithEdit
         agents={agents}
         sortBy={sortBy}
         sortDir={sortDir}

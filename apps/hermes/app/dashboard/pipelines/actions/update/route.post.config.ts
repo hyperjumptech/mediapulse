@@ -9,11 +9,17 @@ import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
 
+const stepItemValidator = z.object({
+  agentId: z.string().min(1),
+  agentVersion: z.string().min(1),
+});
+
 const bodyValidator = z.object({
   pipelineId: z.string().uuid(),
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
   isActive: z.coerce.boolean().optional(),
+  steps: z.array(stepItemValidator).optional(),
 });
 
 export const requestValidator = createRequestValidator({
@@ -36,10 +42,50 @@ type UpdatePipelineHandler = HandlerFunc<
 >;
 
 /**
+ * Syncs pipeline steps to DB: replaces all steps for the pipeline with the given list (order = index).
+ * Validates each agent exists in registry before applying.
+ *
+ * @param db - Prisma client.
+ * @param pipelineId - Pipeline id.
+ * @param steps - Array of { agentId, agentVersion }.
+ * @returns Error message if any agent not in registry, otherwise undefined.
+ */
+async function syncPipelineSteps(
+  db: typeof prisma,
+  pipelineId: string,
+  steps: Array<{ agentId: string; agentVersion: string }>,
+): Promise<string | undefined> {
+  const agentKeys = [
+    ...new Set(steps.map((s) => `${s.agentId}@${s.agentVersion}`)),
+  ];
+  for (const key of agentKeys) {
+    const [agentId, agentVersion] = key.split("@");
+    const agent = await db.agentRegistry.findFirst({
+      where: { agentId, agentVersion, isActive: true },
+    });
+    if (!agent) {
+      return `Agent ${agentId}@${agentVersion} not found in registry`;
+    }
+  }
+  await db.pipelineStep.deleteMany({ where: { pipelineId } });
+  for (let i = 0; i < steps.length; i++) {
+    await db.pipelineStep.create({
+      data: {
+        pipelineId,
+        agentId: steps[i]!.agentId,
+        agentVersion: steps[i]!.agentVersion,
+        order: i,
+      },
+    });
+  }
+  return undefined;
+}
+
+/**
  * Creates the update-pipeline handler with injectable dependencies for tests.
  *
  * @param dependencies - Optional getSession and db.
- * @returns Handler that updates a pipeline.
+ * @returns Handler that updates a pipeline (and optionally syncs steps to DB).
  */
 export const createUpdatePipelineHandler = ({
   getSession = getDashboardSession,
@@ -51,7 +97,7 @@ export const createUpdatePipelineHandler = ({
       return errorResponse("Unauthorized");
     }
 
-    const { pipelineId, name, description, isActive } = data.body;
+    const { pipelineId, name, description, isActive, steps } = data.body;
     const updateData: {
       name?: string;
       description?: string | null;
@@ -60,6 +106,11 @@ export const createUpdatePipelineHandler = ({
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (isActive !== undefined) updateData.isActive = isActive;
+
+    if (steps !== undefined) {
+      const err = await syncPipelineSteps(db, pipelineId, steps);
+      if (err) return errorResponse(err);
+    }
 
     await db.pipeline.update({
       where: { id: pipelineId },
