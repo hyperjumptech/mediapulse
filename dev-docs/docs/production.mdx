@@ -1,0 +1,147 @@
+---
+title: Production
+description: Environment variables required and optional per app, and how to find their values
+icon: Server
+---
+
+This page lists **required** and **optional** environment variables for each app in production, and how to obtain or configure each value. All variables are defined in `packages/env` (see [env package](/packages/env)); sensitive values must **not** use the `NEXT_PUBLIC_` prefix.
+
+## Shared variables (main env)
+
+These come from `packages/env/env.example` and are used by multiple apps.
+
+| Variable               | Required       | How to find the value                                                                                                                                                                                                                                                                                                 |
+| ---------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`         | Yes            | PostgreSQL connection string from your database provider (e.g. [Supabase](https://supabase.com), [Neon](https://neon.tech), [Railway](https://railway.app)). Format: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public`. Get it from the provider’s dashboard under “Connection string” or “Database URL”. |
+| `DATABASE_CERT_BASE64` | No             | For TLS (e.g. Neon), the base64-encoded client certificate. In Neon: Project → Settings → Connection → “Download certificate”, then `base64 -i certificate.pem` (or your provider’s equivalent). Omit if your provider doesn’t use client certs.                                                                      |
+| `PORT`                 | No             | Port the app listens on. Defaults in code: agent-auth-api `8080`, agent-data-api `8081`, agent-registry-api `8082`. Override per deployment if needed.                                                                                                                                                                |
+| `AGENT_DATA_API_URL`   | Depends on app | **Required** for agent-data-api consumers (agents, hermes-worker). Set to the **public URL** of your deployed agent-data-api (e.g. `https://agent-data-api.yourdomain.com`).                                                                                                                                          |
+| `AGENT_AUTH_API_URL`   | Depends on app | **Required** for agent-data-api and all agents. Set to the **public URL** of your deployed agent-auth-api (e.g. `https://agent-auth-api.yourdomain.com`).                                                                                                                                                             |
+| `AGENT_API_KEY`        | Depends on app | **Required** for hermes and hermes-worker when triggering pipelines or calling agent-data-api. Create via `apps/hermes/scripts/generate-api-key.ts` (or insert into the API keys table). Store securely; never expose to the client.                                                                                  |
+| `TEMP_ADMIN_USERNAME`  | Yes            | Admin username for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                       |
+| `TEMP_ADMIN_PASSWORD`  | Yes            | Admin password for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                       |
+
+---
+
+## Per-app variables
+
+### agent-auth-api
+
+| Variable              | Required | How to find the value                               |
+| --------------------- | -------- | --------------------------------------------------- |
+| `DATABASE_URL`        | Yes      | Shared (see above).                                 |
+| `PORT`                | No       | Default `8080`. Set if your host uses another port. |
+| `TEMP_ADMIN_USERNAME` | Yes      | Shared. Used to validate admin login.               |
+| `TEMP_ADMIN_PASSWORD` | Yes      | Shared. Used to validate admin login.               |
+
+---
+
+### agent-data-api
+
+| Variable             | Required | How to find the value                            |
+| -------------------- | -------- | ------------------------------------------------ |
+| `DATABASE_URL`       | Yes      | Shared.                                          |
+| `PORT`               | No       | Default `8081`.                                  |
+| `AGENT_AUTH_API_URL` | Yes      | Shared. Used to verify API keys on each request. |
+
+---
+
+### agent-registry-api
+
+| Variable       | Required | How to find the value                                   |
+| -------------- | -------- | ------------------------------------------------------- |
+| `DATABASE_URL` | Yes      | Shared. Uses same DB for API key storage (bearer auth). |
+| `PORT`         | No       | Default `8082`.                                         |
+
+---
+
+### hermes (Next.js app)
+
+| Variable              | Required               | How to find the value                                    |
+| --------------------- | ---------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`        | Yes                    | Shared.                                                  |
+| `TEMP_ADMIN_USERNAME` | Yes                    | Shared. Used for pipeline run auth.                      |
+| `TEMP_ADMIN_PASSWORD` | Yes                    | Shared.                                                  |
+| `AGENT_API_KEY`       | Yes (to run pipelines) | Shared. Used when the dashboard triggers a pipeline run. |
+
+---
+
+### hermes-worker
+
+Uses **`packages/env/env.hermes-worker.example`** (merged with main env). The worker needs both the main database and the DataQueue schema.
+
+| Variable                | Required            | How to find the value                                                                                                                                                                                                                                     |
+| ----------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | Yes                 | Shared. Main app database.                                                                                                                                                                                                                                |
+| `PG_DATAQUEUE_DATABASE` | Yes (for scheduler) | Same as `DATABASE_URL` but with `?schema=dataqueue&search_path=dataqueue`. Can use the same database; run migrations with `pnpm --filter hermes-worker run migrate-dataqueue`. See [DataQueue docs](https://docs.dataqueue.dev/usage/database-migration). |
+| `AGENT_API_KEY`         | Yes (for jobs)      | Shared. Used when job handlers call agent-data-api.                                                                                                                                                                                                       |
+
+---
+
+### dashboard
+
+Uses shared env. Scripts (e.g. create-user) read from `.env.local` in the app root. In production, ensure the same `DATABASE_URL` and auth-related variables are available where the app runs.
+
+| Variable       | Required | How to find the value |
+| -------------- | -------- | --------------------- |
+| `DATABASE_URL` | Yes      | Shared.               |
+
+---
+
+### data-collection agent
+
+Uses **`packages/env/env.agents.data-collection.example`** (and main env). Per-agent overrides go in `apps/agents/data-collection/.env.local` in dev; in production, set in the environment for that service.
+
+| Variable                 | Required | How to find the value                                                                                                                                                    |
+| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PORT`                   | No       | Default `4001`.                                                                                                                                                          |
+| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                                                                                  |
+| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                                                                                  |
+| `JINA_API_KEY`           | Yes      | [Jina.ai](https://jina.ai) → account / API keys. Used for Reader API.                                                                                                    |
+| `SERPER_API_KEY`         | Yes      | [Serper.dev](https://serper.dev) → create account → API key. Used for search.                                                                                            |
+| `AGENT_REGISTRY_URL`     | No       | When set with `AGENT_REGISTRY_API_KEY` and `AGENT_PUBLIC_URL`, agent auto-registers. Use your agent-registry-api URL (e.g. `https://agent-registry-api.yourdomain.com`). |
+| `AGENT_REGISTRY_API_KEY` | No       | API key for the registry (create/store in agent-registry-api or your auth system).                                                                                       |
+| `AGENT_PUBLIC_URL`       | No       | Public URL where this agent is reachable (e.g. `https://data-collection-agent.yourdomain.com`).                                                                          |
+
+---
+
+### content-generation agent
+
+Uses **`packages/env/env.agents.content-generation.example`**.
+
+| Variable                 | Required | How to find the value                                                                                   |
+| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
+| `PORT`                   | No       | Default `4002`.                                                                                         |
+| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                 |
+| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                 |
+| `OPENAI_API_KEY`         | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
+| `OPENAI_MODEL`           | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
+| `AGENT_REGISTRY_URL`     | No       | Same as data-collection.                                                                                |
+| `AGENT_REGISTRY_API_KEY` | No       | Same as data-collection.                                                                                |
+| `AGENT_PUBLIC_URL`       | No       | Public URL for this agent (e.g. `https://content-generation-agent.yourdomain.com`).                     |
+
+---
+
+### delivery agent
+
+Uses **`packages/env/env.agents.delivery.example`**.
+
+| Variable                 | Required | How to find the value                                                                                                         |
+| ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                   | No       | Default `4003`.                                                                                                               |
+| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                                       |
+| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                                       |
+| `RESEND_SENDER`          | Yes      | [Resend](https://resend.com) → Domains → verify a domain → use a verified sender email (e.g. `notifications@yourdomain.com`). |
+| `RESEND_API_KEY`         | Yes      | Resend dashboard → API Keys → create and copy.                                                                                |
+| `AGENT_REGISTRY_URL`     | No       | Same as data-collection.                                                                                                      |
+| `AGENT_REGISTRY_API_KEY` | No       | Same as data-collection.                                                                                                      |
+| `AGENT_PUBLIC_URL`       | No       | Public URL for this agent (e.g. `https://delivery-agent.yourdomain.com`).                                                     |
+
+---
+
+## Summary
+
+- **Required everywhere (when the app uses DB):** `DATABASE_URL`. For agent-data-api add `AGENT_AUTH_API_URL`. For hermes/hermes-worker add `AGENT_API_KEY`. For agent-auth-api and hermes add `TEMP_ADMIN_USERNAME` and `TEMP_ADMIN_PASSWORD`.
+- **Optional:** `DATABASE_CERT_BASE64` (TLS), `PORT` (override defaults), and for agents the registry trio (`AGENT_REGISTRY_URL`, `AGENT_REGISTRY_API_KEY`, `AGENT_PUBLIC_URL`) if you want auto-registration.
+- **Where to set them:** Use your host’s env config (e.g. Vercel, Railway, Docker env files). Never commit real secrets; use secrets managers or platform secret storage.
+- After changing any `env*.example` file, run `pnpm build` in `packages/env` to regenerate types.
