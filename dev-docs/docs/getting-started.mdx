@@ -75,13 +75,19 @@ cd apps/hermes && pnpm create:admin <email> <password>
 
 ### Generate an API key for the agents
 
-Run the following command to generate an API key for the agents:
+Run the following command to generate an API key for the agents (pass the **user email** and a human-readable **name/label** for the key):
 
 ```bash
-cd apps/hermes && pnpm generate-api-key
+cd apps/hermes && pnpm generate-api-key <email> "<name>"
 ```
 
-The script will print the API key. Set this value in the `AGENT_REGISTRY_API_KEY` environment variable in the agent's `.env.local` files (`apps/agents/<name>/.env.local`).
+For example:
+
+```bash
+cd apps/hermes && pnpm generate-api-key dev@example.com "Local dev agent key"
+```
+
+The script will print the API key once. Set this value in the `AGENT_REGISTRY_API_KEY` environment variable in the agent's `.env.local` files (`apps/agents/<name>/.env.local`).
 
 ### Running all apps (`pnpm dev`)
 
