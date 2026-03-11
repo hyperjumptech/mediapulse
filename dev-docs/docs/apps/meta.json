@@ -3,7 +3,7 @@
   "pages": [
     "hermes",
     "hermes-worker",
-    "dashboard",
+    "user-registration",
     "agent-auth-api",
     "agent-data-api",
     "agent-registry-api",

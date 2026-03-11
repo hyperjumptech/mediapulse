@@ -51,7 +51,7 @@ When you run `pnpm dev`, Turbo starts every app’s dev server. Each app is boun
 
 | App                      | Port |
 | ------------------------ | ---- |
-| dashboard                | 3000 |
+| user-registration        | 3002 |
 | hermes                   | 3001 |
 | agent-auth-api           | 8080 |
 | agent-data-api           | 8081 |
@@ -78,10 +78,10 @@ pnpm dev --filter=agent-data-api
 pnpm dev --filter=agent-registry-api
 ```
 
-### Running `dashboard`
+### Running `user-registration`
 
 ```bash
-pnpm dev --filter=dashboard
+pnpm dev --filter=user-registration
 ```
 
 ### Running `hermes`

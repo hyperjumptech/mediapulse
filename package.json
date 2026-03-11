@@ -9,7 +9,7 @@
     "generate": "turbo run generate",
     "dev": "turbo dev",
     "dev:hermes": "turbo dev --filter=hermes",
-    "dev:dashboard": "turbo dev --filter=dashboard",
+    "dev:user-registration": "turbo dev --filter=user-registration",
     "dev:agent-auth-api": "turbo dev --filter=agent-auth-api",
     "dev:agent-data-api": "turbo dev --filter=agent-data-api",
     "dev:agent-registry-api": "turbo dev --filter=agent-registry-api",

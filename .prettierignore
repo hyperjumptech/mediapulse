@@ -1,5 +1,8 @@
 data/
 
+# Next.js build output
+**/.next/
+
 # Generated code
 **/.generated/
 packages/database/client/
