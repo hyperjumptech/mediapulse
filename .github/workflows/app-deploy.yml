@@ -130,7 +130,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  dashboard:
+  user-registration:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -164,7 +164,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/dashboard/fly.toml
+        run: flyctl deploy --remote-only -c apps/user-registration/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -203,5 +203,43 @@ jobs:
 
       - name: Deploy to fly.io
         run: flyctl deploy --remote-only -c apps/hermes/fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  hermes-worker:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Prepare env variables
+        run: |
+          cp env.example .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+        working-directory: packages/env
+
+      - name: Bootstrap env symlinks
+        run: ./dev-bootstrap.sh
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Prisma client
+        run: pnpm --filter=@workspace/database run db:generate
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to fly.io
+        run: flyctl deploy --remote-only -c apps/hermes-worker/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

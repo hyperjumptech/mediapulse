@@ -30,12 +30,12 @@ services:
       - postgres
     restart: unless-stopped
 
-  dashboard:
+  user-registration:
     build:
       context: .
-      dockerfile: apps/dashboard/Dockerfile
+      dockerfile: apps/user-registration/Dockerfile
     ports:
-      - 3000:3000
+      - 3002:3002
     env_file:
       - packages/env/.env
       - packages/env/.env.local
