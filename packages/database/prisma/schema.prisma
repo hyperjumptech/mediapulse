@@ -17,6 +17,7 @@ model User {
   updatedAt   DateTime     @updatedAt @map("updated_at")
   apiKeys     APIKey[]
   userTickers UserTicker[]
+  variables   Variable[]
 
   @@map("user")
 }
@@ -71,6 +72,21 @@ model AgentConfig {
 
   @@unique([agentId, agentVersion, name])
   @@map("agent_config")
+}
+
+model Variable {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  note        String?
+  isSecret    Boolean  @default(false) @map("is_secret")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("variable")
 }
 
 model DataSource {

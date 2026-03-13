@@ -12,6 +12,7 @@ import {
   invokeAgent,
   type InvokeAgentHttpClient,
 } from "./invoke-agent";
+import { substituteVariables } from "./substitute-variables";
 import { validateWithJsonSchema } from "./validate-json-schema";
 
 /** Dependencies for executeSchedule (injectable for tests). */
@@ -50,7 +51,13 @@ export const executeSchedule = async (
   let jobsEnqueued = 0;
 
   const params = (schedule.params as Record<string, unknown>) ?? {};
-  const paramSets = await expandDataSources(params, db);
+  const variables = await db.variable.findMany();
+  const variableMap = new Map(variables.map((v) => [v.key, v.value]));
+  const paramsSubstituted = substituteVariables(params, variableMap) as Record<
+    string,
+    unknown
+  >;
+  const paramSets = await expandDataSources(paramsSubstituted, db);
 
   const pipeline = schedule.pipeline;
   const steps = pipeline?.steps ?? [];
@@ -185,6 +192,10 @@ export const executeSchedule = async (
             ? (stepWithConfig.config as Record<string, unknown>)
             : {};
       }
+      stepConfig = substituteVariables(stepConfig, variableMap) as Record<
+        string,
+        unknown
+      >;
       const body = {
         input: paramSet,
         config: stepConfig,

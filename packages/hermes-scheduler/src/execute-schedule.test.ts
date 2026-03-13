@@ -60,6 +60,7 @@ describe("executeSchedule", () => {
         },
         scheduleExecution: { create: scheduleExecutionCreate },
         schedule: { update: scheduleUpdate },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
       } as unknown as ExecuteScheduleDeps["db"],
       httpClient: { post: vi.fn().mockResolvedValue(undefined) },
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -125,6 +126,7 @@ describe("executeSchedule", () => {
         },
         scheduleExecution: { create: vi.fn().mockResolvedValue(undefined) },
         schedule: { update: vi.fn().mockResolvedValue(undefined) },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
       } as unknown as ExecuteScheduleDeps["db"],
       httpClient: { post },
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -144,6 +146,78 @@ describe("executeSchedule", () => {
       input: { tickerId: "tid-1" },
       config: { limit: 10 },
     });
+  });
+
+  it("substitutes {{VAR_KEY}} in step config and params with variable values", async () => {
+    const now = new Date();
+    const schedule = createMockSchedule({
+      params: { apiKey: "{{MY_KEY}}" },
+      pipeline: {
+        id: "p1",
+        name: "p1",
+        description: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+        steps: [
+          {
+            id: "step1",
+            order: 0,
+            agentId: "agent-a",
+            agentVersion: "1.0.0",
+            pipelineId: "p1",
+            config: { token: "{{MY_KEY}}" },
+            createdAt: now,
+            updatedAt: now,
+            agentConfigId: null,
+            agentConfig: null,
+          },
+        ],
+      },
+    });
+    const post = vi.fn().mockResolvedValue(undefined);
+    const variableFindMany = vi
+      .fn()
+      .mockResolvedValue([{ key: "MY_KEY", value: "resolved-secret" }]);
+    const deps: ExecuteScheduleDeps = {
+      db: {
+        agentRegistry: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              agentId: "agent-a",
+              agentVersion: "1.0.0",
+              endpoint: { url: "https://agent.example/run", method: "POST" },
+              isActive: true,
+            },
+          ]),
+        },
+        agentJobExecution: {
+          create: vi.fn().mockResolvedValue(undefined),
+          update: vi.fn().mockResolvedValue(undefined),
+        },
+        scheduleExecution: { create: vi.fn().mockResolvedValue(undefined) },
+        schedule: { update: vi.fn().mockResolvedValue(undefined) },
+        variable: { findMany: variableFindMany },
+      } as unknown as ExecuteScheduleDeps["db"],
+      httpClient: { post },
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    };
+
+    await executeSchedule(schedule, deps);
+
+    expect(variableFindMany).toHaveBeenCalled();
+    expect(post).toHaveBeenCalledTimes(1);
+    const [, options] = post.mock.calls[0] as [
+      string,
+      {
+        json: {
+          input: Record<string, unknown>;
+          config: Record<string, unknown>;
+        };
+      },
+    ];
+    expect(options.json.input).toEqual({ apiKey: "resolved-secret" });
+    expect(options.json.config).toEqual({ token: "resolved-secret" });
   });
 
   it("disables schedule when repeat is once", async () => {
@@ -167,6 +241,7 @@ describe("executeSchedule", () => {
         },
         scheduleExecution: { create: scheduleExecutionCreate },
         schedule: { update: scheduleUpdate },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
       } as unknown as ExecuteScheduleDeps["db"],
       httpClient: { post: vi.fn().mockResolvedValue(undefined) },
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },

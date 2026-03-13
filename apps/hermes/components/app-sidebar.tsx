@@ -10,6 +10,7 @@ import {
   Key,
   LayoutDashboard,
   TrendingUp,
+  Variable,
 } from "lucide-react";
 
 import {
@@ -43,6 +44,7 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
   const isAgents = pathname?.startsWith("/dashboard/agents") ?? false;
   const isAgentConfigs =
     pathname?.startsWith("/dashboard/agent-configs") ?? false;
+  const isVariables = pathname?.startsWith("/dashboard/variables") ?? false;
   const isApiKeys = pathname?.startsWith("/dashboard/api-keys") ?? false;
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
 
@@ -97,6 +99,14 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/agent-configs">
                   <FileJson className="size-4" />
                   <span>Agent configs</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isVariables}>
+                <Link href="/dashboard/variables">
+                  <Variable className="size-4" />
+                  <span>Variables</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

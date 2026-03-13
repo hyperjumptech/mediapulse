@@ -1,5 +1,9 @@
 export { executeSchedule, type ExecuteScheduleDeps } from "./execute-schedule";
 export {
+  substituteVariables,
+  substituteInString,
+} from "./substitute-variables";
+export {
   expandDataSources,
   expandSingleDataSource,
   type ExpandDataSourcesDb,
