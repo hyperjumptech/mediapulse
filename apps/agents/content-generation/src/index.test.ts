@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { formatNewsletterContent } from "./format-newsletter-content.js";
+import { parseNewsletterJson } from "./parse-newsletter-json.js";
 
 describe("formatNewsletterContent", () => {
   it("formats executive summary and top 3 news into plain text", () => {
@@ -57,5 +58,44 @@ describe("formatNewsletterContent", () => {
     // Assert
     expect(content).toContain("1. Only one");
     expect(content).not.toContain("2.");
+  });
+});
+
+describe("parseNewsletterJson", () => {
+  it("parses valid newsletter JSON", () => {
+    // Setup
+    const raw = JSON.stringify({
+      subject: "Daily Brief",
+      executiveSummary: "Markets up.",
+      topNews: [{ title: "Headline", summary: "Summary text." }],
+    });
+
+    // Act
+    const result = parseNewsletterJson(raw);
+
+    // Assert
+    expect(result.subject).toBe("Daily Brief");
+    expect(result.executiveSummary).toBe("Markets up.");
+    expect(result.topNews).toHaveLength(1);
+    expect(result.topNews?.[0]?.title).toBe("Headline");
+  });
+
+  it("throws when JSON is malformed", () => {
+    // Act & Assert
+    expect(() => parseNewsletterJson("not valid json")).toThrow(
+      "OpenAI returned invalid JSON",
+    );
+  });
+
+  it("throws when topNews item has invalid shape", () => {
+    // Setup: topNews item missing required title/summary strings
+    const raw = JSON.stringify({
+      subject: "x",
+      executiveSummary: "y",
+      topNews: [{ title: 123, summary: "ok" }],
+    });
+
+    // Act & Assert
+    expect(() => parseNewsletterJson(raw)).toThrow();
   });
 });

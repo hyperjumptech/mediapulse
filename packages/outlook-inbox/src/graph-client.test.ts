@@ -117,6 +117,22 @@ describe("createGraphClient", () => {
       // Assert
       expect(result).toEqual([]);
     });
+
+    it("throws when list response has invalid value shape", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ value: "not-an-array" }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act & Assert
+      await expect(client.listMessages("me", {})).rejects.toThrow();
+    });
   });
 
   describe("moveMessage", () => {
@@ -170,6 +186,24 @@ describe("createGraphClient", () => {
       await expect(
         client.moveMessage("me", "bad-id", "archive"),
       ).rejects.toThrow("Graph move message failed: 404");
+    });
+
+    it("throws when move response has invalid message shape", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const postFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ id: 123, subject: "x" }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn: vi.fn(),
+        postFn,
+      });
+
+      // Act & Assert
+      await expect(
+        client.moveMessage("me", "msg-1", "archive"),
+      ).rejects.toThrow();
     });
   });
 

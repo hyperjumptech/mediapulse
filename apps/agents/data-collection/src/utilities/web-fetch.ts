@@ -1,4 +1,5 @@
 import got from "got";
+import { z } from "zod";
 import { sleep } from "@workspace/utils";
 
 import type { WebSearchResult } from "./web-search.js";
@@ -14,9 +15,19 @@ export interface WebFetchDeps {
   gotClient?: typeof got;
 }
 
-export type WebFetchResponse = {
-  data?: { url?: string; title?: string; content?: string };
-};
+/** Zod schema for Jina AI Reader API response data object. */
+const jinaDataSchema = z.object({
+  url: z.string().optional(),
+  title: z.string().optional(),
+  content: z.string().optional(),
+});
+
+/** Zod schema for Jina AI Reader API response. */
+export const webFetchResponseSchema = z.object({
+  data: jinaDataSchema.optional(),
+});
+
+export type WebFetchResponse = z.infer<typeof webFetchResponseSchema>;
 
 /**
  * Fetches and enriches web page contents for each search result using the Jina AI API.
@@ -44,7 +55,7 @@ export async function performWebFetch(
       continue;
     }
 
-    const json = await gotClient
+    const raw = await gotClient
       .post("https://r.jina.ai/", {
         json: { url: result.url },
         headers: {
@@ -53,7 +64,9 @@ export async function performWebFetch(
           Authorization: `Bearer ${jinaApiKey}`,
         },
       })
-      .json<WebFetchResponse>();
+      .json<unknown>();
+
+    const json = webFetchResponseSchema.parse(raw);
 
     pages.push({
       url: json.data?.url ?? result.url,

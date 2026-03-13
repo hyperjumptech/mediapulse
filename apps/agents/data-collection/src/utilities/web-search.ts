@@ -1,4 +1,5 @@
 import got from "got";
+import { z } from "zod";
 import { sleep } from "@workspace/utils";
 
 export interface SearchQuery {
@@ -21,13 +22,19 @@ export interface WebSearchDeps {
   gotClient?: typeof got;
 }
 
-export type SerperResponse = {
-  organic?: Array<{
-    link?: string;
-    title?: string;
-    snippet?: string;
-  }>;
-};
+/** Zod schema for Serper.dev API organic search result item. */
+const serperOrganicItemSchema = z.object({
+  link: z.string().optional(),
+  title: z.string().optional(),
+  snippet: z.string().optional(),
+});
+
+/** Zod schema for Serper.dev API search response. */
+export const serperResponseSchema = z.object({
+  organic: z.array(serperOrganicItemSchema).optional(),
+});
+
+export type SerperResponse = z.infer<typeof serperResponseSchema>;
 
 /**
  * Performs web search for each query using the Serper.dev API and returns a web search result per query.
@@ -48,7 +55,7 @@ export async function performWebSearch(
       await sleep(1_000);
     }
 
-    const response = await gotClient
+    const raw = await gotClient
       .post("https://google.serper.dev/search", {
         json: { q: query.text },
         headers: {
@@ -56,9 +63,11 @@ export async function performWebSearch(
           "X-API-KEY": serperApiKey,
         },
       })
-      .json<SerperResponse>();
+      .json<unknown>();
 
-    for (const item of response?.organic ?? []) {
+    const response = serperResponseSchema.parse(raw);
+
+    for (const item of response.organic ?? []) {
       results.push({
         url: item.link ?? "",
         title: item.title ?? "",

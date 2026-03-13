@@ -133,7 +133,12 @@ describe("createOutlookInboxClient", () => {
       });
       const postFn = vi.fn().mockResolvedValue({
         statusCode: 200,
-        body: JSON.stringify({ id: "msg-1", subject: "X" }),
+        body: JSON.stringify({
+          id: "msg-1",
+          subject: "X",
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: false,
+        }),
       });
       const client = createOutlookInboxClient(
         { getAccessToken },
@@ -173,7 +178,12 @@ describe("createOutlookInboxClient", () => {
       });
       const postFn = vi.fn().mockResolvedValue({
         statusCode: 200,
-        body: JSON.stringify({ id: "msg-2" }),
+        body: JSON.stringify({
+          id: "msg-2",
+          subject: "Y",
+          receivedDateTime: "2024-01-02T00:00:00Z",
+          isRead: true,
+        }),
       });
       const client = createOutlookInboxClient(
         { getAccessToken },
@@ -221,10 +231,26 @@ describe("createOutlookInboxClient", () => {
           ],
         }),
       });
-      const postFn = vi.fn().mockResolvedValue({
-        statusCode: 200,
-        body: JSON.stringify({}),
-      });
+      const postFn = vi
+        .fn()
+        .mockResolvedValueOnce({
+          statusCode: 200,
+          body: JSON.stringify({
+            id: "1",
+            subject: "A",
+            receivedDateTime: "2024-01-01T00:00:00Z",
+            isRead: false,
+          }),
+        })
+        .mockResolvedValueOnce({
+          statusCode: 200,
+          body: JSON.stringify({
+            id: "2",
+            subject: "B",
+            receivedDateTime: "2024-01-02T00:00:00Z",
+            isRead: false,
+          }),
+        });
       const client = createOutlookInboxClient(
         { getAccessToken },
         { graphClientOptions: { getFn, postFn } },
@@ -324,7 +350,12 @@ describe("createOutlookInboxClient", () => {
       const getAccessToken = vi.fn().mockResolvedValue("t");
       const postFn = vi.fn().mockResolvedValue({
         statusCode: 200,
-        body: JSON.stringify({ id: "del-1" }),
+        body: JSON.stringify({
+          id: "del-1",
+          subject: null,
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: false,
+        }),
       });
       const client = createOutlookInboxClient(
         { getAccessToken },
@@ -348,7 +379,12 @@ describe("createOutlookInboxClient", () => {
       const getAccessToken = vi.fn().mockResolvedValue("t");
       const postFn = vi.fn().mockResolvedValue({
         statusCode: 200,
-        body: JSON.stringify({ id: "x" }),
+        body: JSON.stringify({
+          id: "x",
+          subject: null,
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: false,
+        }),
       });
       const client = createOutlookInboxClient(
         { getAccessToken },
