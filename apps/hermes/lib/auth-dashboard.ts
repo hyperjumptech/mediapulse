@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 
-export type DashboardUser = { name: string; email: string };
+export type DashboardUser = { id: string; name: string; email: string };
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
@@ -43,7 +43,7 @@ export const getCookieFromHeader = (
  * falls back to parsing the Cookie header so pipeline actions receive the same session as the layout.
  *
  * @param dependencies - Optional getCookieStore and getHeaders for tests.
- * @returns The authenticated user (name, email) or null if auth-token or auth-user is missing/invalid.
+ * @returns The authenticated user (id, name, email) or null if auth-token or auth-user is missing/invalid.
  */
 export const getDashboardSession = async ({
   getCookieStore = cookies,
@@ -70,8 +70,10 @@ export const getDashboardSession = async ({
     if (
       parsed &&
       typeof parsed === "object" &&
+      "id" in parsed &&
       "name" in parsed &&
       "email" in parsed &&
+      typeof (parsed as DashboardUser).id === "string" &&
       typeof (parsed as DashboardUser).name === "string" &&
       typeof (parsed as DashboardUser).email === "string"
     ) {

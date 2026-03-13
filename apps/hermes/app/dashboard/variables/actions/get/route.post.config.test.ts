@@ -28,7 +28,11 @@ describe("createGetVariableHandler", () => {
   it("returns error when variable not found", async () => {
     const getById = vi.fn().mockResolvedValue(null);
     const handler = createGetVariableHandler({
-      getSession: async () => ({ name: "Admin", email: "a@b.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "a@b.com",
+      }),
       getById,
     });
     const result = await handler(baseData as never);
@@ -47,7 +51,11 @@ describe("createGetVariableHandler", () => {
       updatedAt: new Date(),
     });
     const handler = createGetVariableHandler({
-      getSession: async () => ({ name: "Admin", email: "a@b.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "a@b.com",
+      }),
       getById,
     });
     const result = await handler(baseData as never);

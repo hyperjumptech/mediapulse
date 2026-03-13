@@ -27,7 +27,7 @@ describe("createUpdatePipelineHandler", () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = { pipeline: { update: updateMock } };
     const updateHandler = createUpdatePipelineHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -70,7 +70,7 @@ describe("createUpdatePipelineHandler", () => {
       },
     };
     const updateHandler = createUpdatePipelineHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -121,7 +121,7 @@ describe("createUpdatePipelineHandler", () => {
       },
     };
     const updateHandler = createUpdatePipelineHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -147,7 +147,7 @@ describe("handler", () => {
   it("is the factory with production defaults", async () => {
     const db = { pipeline: { update: vi.fn().mockResolvedValue(undefined) } };
     const customHandler = createUpdatePipelineHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({

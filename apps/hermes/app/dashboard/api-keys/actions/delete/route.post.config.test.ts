@@ -33,7 +33,11 @@ describe("createDeleteApiKeyHandler", () => {
       aPIKey: { delete: deleteMock },
     };
     const deleteHandler = createDeleteApiKeyHandler({
-      getSession: async () => ({ name: "Admin", email: "a@b.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "a@b.com",
+      }),
       db: db as never,
     });
     const result = await deleteHandler(baseData);
@@ -53,7 +57,7 @@ describe("handler", () => {
     const deleteMock = vi.fn().mockResolvedValue(undefined);
     const db = { aPIKey: { delete: deleteMock } };
     const deleteHandler = createDeleteApiKeyHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await deleteHandler(baseData);

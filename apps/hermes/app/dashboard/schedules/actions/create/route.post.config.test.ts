@@ -35,7 +35,7 @@ describe("createCreateScheduleHandler", () => {
       schedule: { create: vi.fn() },
     };
     const createHandler = createCreateScheduleHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await createHandler({
@@ -72,7 +72,7 @@ describe("createCreateScheduleHandler", () => {
       },
     };
     const createHandler = createCreateScheduleHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await createHandler({
@@ -116,7 +116,11 @@ describe("handler", () => {
       schedule: { create: vi.fn().mockResolvedValue({ id: "s1" }) },
     };
     const customHandler = createCreateScheduleHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@test.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@test.com",
+      }),
       db: db as never,
     });
     const result = await customHandler({

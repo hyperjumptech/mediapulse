@@ -36,7 +36,7 @@ describe("createUpdateStepHandler", () => {
       agentRegistry: {},
     };
     const handler = createUpdateStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await handler({
@@ -71,7 +71,7 @@ describe("createUpdateStepHandler", () => {
       },
     };
     const handler = createUpdateStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await handler({
@@ -112,7 +112,7 @@ describe("createUpdateStepHandler", () => {
       },
     };
     const handler = createUpdateStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await handler({
@@ -170,7 +170,7 @@ describe("handler", () => {
     };
     const { createUpdateStepHandler } = await import("./route.post.config");
     const customHandler = createUpdateStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({

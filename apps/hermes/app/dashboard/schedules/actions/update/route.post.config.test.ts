@@ -54,7 +54,7 @@ describe("createUpdateScheduleHandler", () => {
       },
     };
     const updateHandler = createUpdateScheduleHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -81,7 +81,7 @@ describe("createUpdateScheduleHandler", () => {
       },
     };
     const updateHandler = createUpdateScheduleHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -120,7 +120,11 @@ describe("handler", () => {
       },
     };
     const customHandler = createUpdateScheduleHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@test.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@test.com",
+      }),
       db: db as never,
     });
     const result = await customHandler({

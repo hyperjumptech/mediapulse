@@ -35,7 +35,11 @@ describe("createUpdateApiKeyHandler", () => {
       },
     };
     const updateHandler = createUpdateApiKeyHandler({
-      getSession: async () => ({ name: "Admin", email: "a@b.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "a@b.com",
+      }),
       db: db as never,
     });
     const result = await updateHandler(baseData);
@@ -56,7 +60,11 @@ describe("createUpdateApiKeyHandler", () => {
       },
     };
     const updateHandler = createUpdateApiKeyHandler({
-      getSession: async () => ({ name: "Admin", email: "a@b.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "a@b.com",
+      }),
       db: db as never,
     });
     const result = await updateHandler(baseData);
@@ -83,7 +91,7 @@ describe("handler", () => {
       },
     };
     const updateHandler = createUpdateApiKeyHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler(baseData);

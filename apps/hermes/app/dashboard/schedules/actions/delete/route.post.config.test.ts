@@ -33,7 +33,7 @@ describe("createDeleteScheduleHandler", () => {
       },
     };
     const deleteHandler = createDeleteScheduleHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await deleteHandler({
@@ -57,7 +57,7 @@ describe("createDeleteScheduleHandler", () => {
       },
     };
     const deleteHandler = createDeleteScheduleHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await deleteHandler({
@@ -86,7 +86,11 @@ describe("handler", () => {
       },
     };
     const customHandler = createDeleteScheduleHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@test.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@test.com",
+      }),
       db: db as never,
     });
     const result = await customHandler({

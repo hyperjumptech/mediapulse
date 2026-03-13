@@ -27,7 +27,7 @@ describe("createReorderStepsHandler", () => {
     const updateManyMock = vi.fn().mockResolvedValue({ count: 1 });
     const db = { pipelineStep: { updateMany: updateManyMock } };
     const reorderHandler = createReorderStepsHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await reorderHandler({
@@ -60,7 +60,7 @@ describe("handler", () => {
       pipelineStep: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
     const customHandler = createReorderStepsHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({

@@ -28,7 +28,7 @@ describe("createRunPipelineHandler", () => {
 
   it("returns error when apiKey is not configured", async () => {
     const handler = createRunPipelineHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       apiKey: "", // empty string so !apiKey is true (undefined would use default from env)
       db: {
         pipeline: {
@@ -46,7 +46,7 @@ describe("createRunPipelineHandler", () => {
 
   it("returns error when pipeline not found", async () => {
     const handler = createRunPipelineHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       apiKey: "key",
       db: {
         pipeline: { findUnique: vi.fn().mockResolvedValue(null) },
@@ -62,7 +62,7 @@ describe("createRunPipelineHandler", () => {
 
   it("returns success with tickersRun 0 when no tickers", async () => {
     const handler = createRunPipelineHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       apiKey: "key",
       db: {
         pipeline: {
@@ -81,7 +81,7 @@ describe("createRunPipelineHandler", () => {
   it("runs pipeline for each ticker and returns tickersRun", async () => {
     const postMock = vi.fn().mockResolvedValue(undefined);
     const handler = createRunPipelineHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       apiKey: "secret",
       post: postMock as never,
       db: {

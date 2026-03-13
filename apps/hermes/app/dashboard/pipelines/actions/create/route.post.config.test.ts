@@ -44,7 +44,11 @@ describe("createCreatePipelineHandler", () => {
     };
 
     const createHandler = createCreatePipelineHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
       db: db as never,
     });
 
@@ -83,7 +87,7 @@ describe("createCreatePipelineHandler", () => {
     };
 
     const createHandler = createCreatePipelineHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
 
