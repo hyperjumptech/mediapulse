@@ -165,6 +165,37 @@ describe("SchemaForm", () => {
     });
   });
 
+  it("seeds nested required enum so select is valid without user interaction", () => {
+    // Setup: nested object with required enum (e.g. authentication.type)
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        authentication: {
+          type: "object",
+          title: "Authentication",
+          properties: {
+            type: {
+              type: "string",
+              title: "Type",
+              enum: ["none", "bearer"],
+            },
+          },
+          required: ["type"],
+        },
+      },
+      required: ["authentication"],
+    };
+    const value: Record<string, unknown> = { authentication: {} };
+    const onChange = vi.fn();
+
+    render(<SchemaForm schema={schema} value={value} onChange={onChange} />);
+
+    // Assert: nested required key "type" is seeded with first enum value
+    expect(onChange).toHaveBeenCalledWith({
+      authentication: { type: "none" },
+    });
+  });
+
   it("calls validate on blur when validate prop is provided", () => {
     // Setup
     const schema: JsonSchema = {

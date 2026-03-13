@@ -140,7 +140,7 @@ export const PipelineStepEditorPanel = ({
               value={stepInput}
               onChange={onStepInputChange}
               disabled={disabled}
-              seedRequiredDefaults={false}
+              seedRequiredDefaults={true}
             />
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -155,7 +155,7 @@ export const PipelineStepEditorPanel = ({
               value={stepConfig}
               onChange={onStepConfigChange}
               disabled={disabled}
-              seedRequiredDefaults={false}
+              seedRequiredDefaults={true}
             />
           ) : (
             <p className="text-xs text-muted-foreground">

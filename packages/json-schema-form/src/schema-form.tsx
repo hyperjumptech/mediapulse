@@ -46,8 +46,9 @@ function defaultForSchema(schema: JsonSchema): unknown {
 }
 
 /**
- * Merges value with empty defaults for any required keys that are missing.
- * Ensures submitted config includes required properties (e.g. webSearch, webFetch) so server validation passes.
+ * Recursively merges value with empty defaults for any required keys that are missing.
+ * Handles nested objects (e.g. authentication: {} with required ["type"]) so required
+ * enum/string fields get a valid value and are not treated as invalid until the user touches the select.
  */
 function applyRequiredDefaults(
   schema: JsonSchema,
@@ -57,10 +58,29 @@ function applyRequiredDefaults(
   let changed = false;
   const result = { ...value };
   for (const key of schema.required) {
-    if (result[key] === undefined) {
-      const propSchema = schema.properties[key];
-      if (propSchema) {
-        result[key] = defaultForSchema(propSchema);
+    const propSchema = schema.properties[key];
+    if (!propSchema) continue;
+    const existing = result[key];
+    if (existing === undefined) {
+      result[key] = defaultForSchema(propSchema);
+      changed = true;
+      continue;
+    }
+    const propType = getType(propSchema);
+    if (
+      propType === "object" &&
+      propSchema.properties != null &&
+      propSchema.required?.length != null &&
+      typeof existing === "object" &&
+      existing !== null &&
+      !Array.isArray(existing)
+    ) {
+      const nested = applyRequiredDefaults(
+        propSchema,
+        existing as Record<string, unknown>,
+      );
+      if (nested !== existing) {
+        result[key] = nested;
         changed = true;
       }
     }
@@ -120,7 +140,8 @@ const useRecordEntryDraftKey = (onKeyChange: (newKey: string) => void) => {
 };
 
 /**
- * Seeds parent value with required schema keys when missing (runs once per missing-required change).
+ * Seeds parent value with required schema keys when missing (including nested required keys).
+ * Ensures select/enum fields in nested objects get a valid value so save does not warn until the user touches them.
  */
 const useSchemaFormSeed = (
   schema: JsonSchema,
@@ -131,10 +152,8 @@ const useSchemaFormSeed = (
   React.useEffect(() => {
     if (type !== "object" || !schema.properties || !schema.required?.length)
       return;
-    const missingRequired = schema.required.some((k) => value[k] === undefined);
-    if (!missingRequired) return;
     const merged = applyRequiredDefaults(schema, value);
-    onChange(merged);
+    if (merged !== value) onChange(merged);
   }, [schema, type, value, onChange]);
 };
 
