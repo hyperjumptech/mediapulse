@@ -7,7 +7,7 @@ const baseData = {
   body: {
     id,
     name: "Updated name",
-    expansionString: "db:userTicker:all:tickerId",
+    expansionString: "db:userTicker:tickerId",
     description: "Updated desc",
   },
   params: {},
@@ -55,7 +55,7 @@ describe("createUpdateDataSourceExpansionHandler", () => {
     const updated = {
       id,
       name: "Updated name",
-      expansionString: "db:userTicker:all:tickerId",
+      expansionString: "db:userTicker:tickerId",
       description: "Updated desc",
       createdAt: new Date(),
       updatedAt: new Date(),

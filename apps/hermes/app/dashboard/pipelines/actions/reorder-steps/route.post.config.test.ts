@@ -37,12 +37,23 @@ describe("createReorderStepsHandler", () => {
       searchParams: {},
       user: undefined,
     } as never);
-    expect(updateManyMock).toHaveBeenCalledTimes(2);
+    // Two-phase update to avoid unique constraint on (pipelineId, order)
+    expect(updateManyMock).toHaveBeenCalledTimes(4);
+    // Phase 1: temporary orders
     expect(updateManyMock).toHaveBeenNthCalledWith(1, {
+      where: { id: "s2", pipelineId: "p-1" },
+      data: { order: 10000 },
+    });
+    expect(updateManyMock).toHaveBeenNthCalledWith(2, {
+      where: { id: "s1", pipelineId: "p-1" },
+      data: { order: 10001 },
+    });
+    // Phase 2: final orders
+    expect(updateManyMock).toHaveBeenNthCalledWith(3, {
       where: { id: "s2", pipelineId: "p-1" },
       data: { order: 0 },
     });
-    expect(updateManyMock).toHaveBeenNthCalledWith(2, {
+    expect(updateManyMock).toHaveBeenNthCalledWith(4, {
       where: { id: "s1", pipelineId: "p-1" },
       data: { order: 1 },
     });

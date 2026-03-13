@@ -12,31 +12,7 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
-import { validateScheduleParams } from "@/lib/validate-schedule-params";
 import { computeNextRunAt } from "@workspace/hermes-scheduler";
-
-/**
- * Parses optional JSON string into a plain object for schedule params. Default empty object.
- */
-const paramsSchema = z
-  .union([
-    z.record(z.unknown()),
-    z
-      .string()
-      .optional()
-      .transform((s): Record<string, unknown> => {
-        if (s === undefined || s === null || s === "") return {};
-        try {
-          const v = JSON.parse(s) as unknown;
-          if (typeof v === "object" && v !== null && !Array.isArray(v))
-            return v as Record<string, unknown>;
-          return {};
-        } catch {
-          throw new Error("params must be valid JSON object");
-        }
-      }),
-  ])
-  .default({});
 
 /**
  * Parses optional JSON string into plain object or null for retryConfig.
@@ -73,7 +49,6 @@ const bodyValidator = z
     timezone: z.string().min(1, "Timezone is required"),
     startAt: z.coerce.date().optional().nullable(),
     pipelineId: z.string().uuid(),
-    params: paramsSchema,
     retryConfig: retryConfigSchema,
     timeout: z
       .union([z.literal(""), z.coerce.number()])
@@ -183,15 +158,6 @@ export const createCreateScheduleHandler = ({
       return errorResponse("Pipeline not found");
     }
 
-    const paramsValidation = await validateScheduleParams(
-      db,
-      body.pipelineId,
-      body.params as Record<string, unknown>,
-    );
-    if (!paramsValidation.valid) {
-      return errorResponse(paramsValidation.message);
-    }
-
     const nextRunAt = computeNextRun(
       body.repeat,
       body.startAt ?? null,
@@ -211,7 +177,6 @@ export const createCreateScheduleHandler = ({
         startAt: body.startAt ?? null,
         nextRunAt,
         pipelineId: body.pipelineId,
-        params: body.params as Prisma.InputJsonValue,
         retryConfig:
           body.retryConfig != null
             ? (body.retryConfig as Prisma.InputJsonValue)

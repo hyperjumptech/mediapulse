@@ -5,7 +5,7 @@ import { createCreateDataSourceExpansionHandler } from "./route.post.config";
 const baseData = {
   body: {
     name: "My expansion",
-    expansionString: "db:ticker:all:id",
+    expansionString: "db:ticker:id",
     description: "All ticker IDs",
   },
   params: {},
@@ -33,7 +33,7 @@ describe("createCreateDataSourceExpansionHandler", () => {
     const created = {
       id: "00000000-0000-4000-8000-000000000001",
       name: "My expansion",
-      expansionString: "db:ticker:all:id",
+      expansionString: "db:ticker:id",
       description: "All ticker IDs",
       createdAt: new Date(),
       updatedAt: new Date(),

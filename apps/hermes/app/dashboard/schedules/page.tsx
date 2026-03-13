@@ -5,6 +5,8 @@ import {
   type ScheduleSortDir,
   type ScheduleSortField,
 } from "@/lib/schedules";
+import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
+import { prisma } from "@workspace/database";
 
 import { SchedulesWithModal } from "./schedules-with-modal";
 
@@ -65,6 +67,10 @@ const SchedulesPage = async ({
     getSchedulesPage(page, pageSize, { search, sortBy, sortDir }),
     getPipelinesWithSteps(),
   ]);
+  const pipelineValidationById = await getPipelinesValidationMap(
+    pipelines,
+    prisma,
+  );
 
   const {
     schedules,
@@ -77,6 +83,7 @@ const SchedulesPage = async ({
     <SchedulesWithModal
       schedules={schedules}
       pipelines={pipelines}
+      pipelineValidationById={pipelineValidationById}
       currentPage={currentPage}
       pageSize={size}
       total={total}

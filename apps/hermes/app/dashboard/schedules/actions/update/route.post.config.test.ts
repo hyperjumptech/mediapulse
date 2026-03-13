@@ -14,7 +14,6 @@ const existingSchedule = {
   startAt: new Date(),
   nextRunAt: new Date(),
   pipelineId: "p1",
-  params: {},
   retryConfig: null,
   timeout: null,
   priority: 0,

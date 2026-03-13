@@ -39,7 +39,7 @@ describe("getDataSourceExpansionsPage", () => {
       {
         id: "e1",
         name: "Tickers",
-        expansionString: "db:ticker:all:id",
+        expansionString: "db:ticker:id",
         description: "All ticker IDs",
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -55,7 +55,7 @@ describe("getDataSourceExpansionsPage", () => {
     // Assert
     expect(result.expansions).toHaveLength(1);
     expect(result.expansions[0]?.name).toBe("Tickers");
-    expect(result.expansions[0]?.expansionString).toBe("db:ticker:all:id");
+    expect(result.expansions[0]?.expansionString).toBe("db:ticker:id");
     expect(result.total).toBe(1);
     expect(result.page).toBe(1);
     expect(result.pageSize).toBe(10);
@@ -129,7 +129,7 @@ describe("getDataSourceExpansionById", () => {
     const row = {
       id: "e1",
       name: "Test",
-      expansionString: "db:ticker:all:id",
+      expansionString: "db:ticker:id",
       description: "Desc",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -169,7 +169,7 @@ describe("createDataSourceExpansion", () => {
     const created = {
       id: "e1",
       name: "My expansion",
-      expansionString: "db:ticker:all:id",
+      expansionString: "db:ticker:id",
       description: "Notes",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -181,7 +181,7 @@ describe("createDataSourceExpansion", () => {
     const result = await createDataSourceExpansion(
       {
         name: "  My expansion  ",
-        expansionString: "  db:ticker:all:id  ",
+        expansionString: "  db:ticker:id  ",
         description: "Notes",
         createdById: "user-1",
       },
@@ -192,7 +192,7 @@ describe("createDataSourceExpansion", () => {
     expect(create).toHaveBeenCalledWith({
       data: {
         name: "My expansion",
-        expansionString: "db:ticker:all:id",
+        expansionString: "db:ticker:id",
         description: "Notes",
         createdBy: { connect: { id: "user-1" } },
       },
@@ -206,7 +206,7 @@ describe("createDataSourceExpansion", () => {
     const created = {
       id: "e1",
       name: "X",
-      expansionString: "db:ticker:all:id",
+      expansionString: "db:ticker:id",
       description: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -218,7 +218,7 @@ describe("createDataSourceExpansion", () => {
     await createDataSourceExpansion(
       {
         name: "X",
-        expansionString: "db:ticker:all:id",
+        expansionString: "db:ticker:id",
         description: "   ",
         createdById: "user-1",
       },
@@ -242,7 +242,7 @@ describe("updateDataSourceExpansion", () => {
     const updated = {
       id: "e1",
       name: "New name",
-      expansionString: "db:userTicker:all:tickerId",
+      expansionString: "db:userTicker:tickerId",
       description: "New desc",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -255,7 +255,7 @@ describe("updateDataSourceExpansion", () => {
       "e1",
       {
         name: "New name",
-        expansionString: "db:userTicker:all:tickerId",
+        expansionString: "db:userTicker:tickerId",
         description: "New desc",
       },
       db,
@@ -268,7 +268,7 @@ describe("updateDataSourceExpansion", () => {
       where: { id: "e1" },
       data: {
         name: "New name",
-        expansionString: "db:userTicker:all:tickerId",
+        expansionString: "db:userTicker:tickerId",
         description: "New desc",
       },
     });
@@ -284,7 +284,7 @@ describe("updateDataSourceExpansion", () => {
     // Act
     const result = await updateDataSourceExpansion(
       "missing",
-      { name: "X", expansionString: "db:ticker:all:id" },
+      { name: "X", expansionString: "db:ticker:id" },
       db,
     );
 

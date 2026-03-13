@@ -1,19 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
+import { Input } from "@workspace/ui/components/input";
+import { Label } from "@workspace/ui/components/label";
 
+import { formAction as updatePipelineFormAction } from "@/app/dashboard/pipelines/actions/update/.generated/form.action";
+import { formAction as updateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/form.action";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 import type {
   getAgentRegistryList,
   getPipelineWithSteps,
 } from "@/lib/pipelines";
 
-import { PipelineFormModal } from "../pipeline-form-modal";
-import { AddStepForm } from "./add-step-form";
+import type { PipelineValidationResult } from "@/lib/validate-pipeline";
+
+import { PipelineAvailableAgents } from "./pipeline-available-agents";
+import { PipelineStepEditorPanel } from "./pipeline-step-editor-panel";
+import { PipelineStepsColumn } from "./pipeline-steps-column";
 import { RunPipelineButton } from "./run-pipeline-button";
-import { StepList } from "./step-list";
 
 type PipelineWithSteps = NonNullable<
   Awaited<ReturnType<typeof getPipelineWithSteps>>
@@ -26,64 +33,254 @@ export type PipelineDetailContentProps = {
   pipeline: PipelineWithSteps;
   agents: AgentRegistryEntry[];
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
+  pipelineValidation: PipelineValidationResult;
 };
 
 /**
- * Client wrapper for pipeline detail: header with Edit details button, step list, add-step form, and edit modal.
+ * Client wrapper for pipeline detail: name/description and Save above; three-column layout
+ * (available agents | pipeline steps | agent input/config only). Save beside Run pipeline.
  */
 export const PipelineDetailContent = ({
   pipeline,
   agents,
   configsByAgentKey,
+  pipelineValidation,
 }: PipelineDetailContentProps) => {
-  const [editModalOpen, setEditModalOpen] = useState(false);
+  const router = useRouter();
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [pipelineName, setPipelineName] = useState(pipeline.name);
+  const [pipelineDescription, setPipelineDescription] = useState(
+    pipeline.description ?? "",
+  );
+  const [stepInput, setStepInput] = useState<Record<string, unknown>>({});
+  const [stepConfig, setStepConfig] = useState<Record<string, unknown>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const selectedStep = useMemo(
+    () => pipeline.steps.find((s) => s.id === selectedStepId) ?? null,
+    [pipeline.steps, selectedStepId],
+  );
+
+  const existingStepAgentKeys = useMemo(
+    () => pipeline.steps.map((s) => `${s.agentId}@${s.agentVersion}`),
+    [pipeline.steps],
+  );
+
+  useEffect(() => {
+    setPipelineName(pipeline.name);
+    setPipelineDescription(pipeline.description ?? "");
+  }, [pipeline.name, pipeline.description]);
+
+  useEffect(() => {
+    if (!selectedStep) {
+      setStepInput({});
+      setStepConfig({});
+      return;
+    }
+    const rawInput =
+      selectedStep.input != null &&
+      typeof selectedStep.input === "object" &&
+      !Array.isArray(selectedStep.input)
+        ? (selectedStep.input as Record<string, unknown>)
+        : {};
+    const rawConfig =
+      selectedStep.config != null &&
+      typeof selectedStep.config === "object" &&
+      !Array.isArray(selectedStep.config)
+        ? (selectedStep.config as Record<string, unknown>)
+        : {};
+    setStepInput(rawInput);
+    setStepConfig(rawConfig);
+  }, [selectedStep]);
+
+  const handleSave = useCallback(async () => {
+    setSaveError(null);
+    setSaveWarnings([]);
+    setSaving(true);
+    try {
+      const pipelineFormData = new FormData();
+      pipelineFormData.set("body.pipelineId", pipeline.id);
+      pipelineFormData.set("body.name", pipelineName);
+      pipelineFormData.set("body.description", pipelineDescription);
+      const pipelineResult = await updatePipelineFormAction(
+        null,
+        pipelineFormData,
+      );
+      const pipelineOk =
+        pipelineResult != null &&
+        typeof pipelineResult === "object" &&
+        "status" in pipelineResult &&
+        (pipelineResult as { status: boolean }).status === true;
+      if (!pipelineOk) {
+        const msg =
+          pipelineResult != null &&
+          typeof pipelineResult === "object" &&
+          "message" in pipelineResult
+            ? String((pipelineResult as { message: unknown }).message)
+            : "Failed to save pipeline";
+        setSaveError(msg);
+        return;
+      }
+
+      if (selectedStep) {
+        const stepFormData = new FormData();
+        stepFormData.set("body.pipelineId", pipeline.id);
+        stepFormData.set("body.stepId", selectedStep.id);
+        stepFormData.set("body.agentId", selectedStep.agentId);
+        stepFormData.set("body.agentVersion", selectedStep.agentVersion);
+        stepFormData.set(
+          "body.agentConfigId",
+          selectedStep.agentConfigId ?? "",
+        );
+        stepFormData.set("body.input", JSON.stringify(stepInput));
+        stepFormData.set("body.config", JSON.stringify(stepConfig));
+        const stepResult = await updateStepFormAction(null, stepFormData);
+        const stepOk =
+          stepResult != null &&
+          typeof stepResult === "object" &&
+          "status" in stepResult &&
+          (stepResult as { status: boolean }).status === true;
+        if (!stepOk) {
+          const msg =
+            stepResult != null &&
+            typeof stepResult === "object" &&
+            "message" in stepResult
+              ? String((stepResult as { message: unknown }).message)
+              : "Failed to save step";
+          setSaveError(msg);
+          return;
+        }
+        const warnings =
+          stepResult != null &&
+          typeof stepResult === "object" &&
+          "data" in stepResult &&
+          stepResult.data != null &&
+          typeof stepResult.data === "object" &&
+          "validationWarnings" in stepResult.data &&
+          Array.isArray(
+            (stepResult.data as { validationWarnings?: string[] })
+              .validationWarnings,
+          )
+            ? (stepResult.data as { validationWarnings: string[] })
+                .validationWarnings
+            : [];
+        setSaveWarnings(warnings);
+      }
+
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    pipeline.id,
+    pipelineName,
+    pipelineDescription,
+    selectedStep,
+    stepInput,
+    stepConfig,
+  ]);
 
   return (
-    <>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              {pipeline.name}
-            </h1>
-            <p className="text-muted-foreground">
-              {pipeline.description ?? "Edit pipeline and manage agent steps."}
-            </p>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="pipeline-name">Pipeline name</Label>
+            <Input
+              id="pipeline-name"
+              type="text"
+              value={pipelineName}
+              onChange={(e) => setPipelineName(e.target.value)}
+              disabled={saving}
+              className="text-lg font-semibold"
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setEditModalOpen(true)}>
-              Edit details
-            </Button>
-            <RunPipelineButton pipelineId={pipeline.id} />
+          <div className="grid gap-2">
+            <Label htmlFor="pipeline-description">Description (optional)</Label>
+            <Input
+              id="pipeline-description"
+              type="text"
+              value={pipelineDescription}
+              onChange={(e) => setPipelineDescription(e.target.value)}
+              disabled={saving}
+              placeholder="Edit pipeline and manage agent steps."
+            />
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <RunPipelineButton
+            pipelineId={pipeline.id}
+            disabled={!pipelineValidation.valid}
+          />
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+          {saveError ? (
+            <p className="text-sm text-destructive" role="alert">
+              {saveError}
+            </p>
+          ) : null}
+          {saveWarnings.length > 0 ? (
+            <div
+              className="w-full text-sm text-amber-600 dark:text-amber-500"
+              role="alert"
+            >
+              <p className="font-medium">Saved with warnings:</p>
+              <ul className="list-disc pl-4 mt-1">
+                {saveWarnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {!pipelineValidation.valid &&
+          pipelineValidation.warnings.length > 0 ? (
+            <div
+              className="w-full text-sm text-amber-600 dark:text-amber-500"
+              role="status"
+            >
+              <p className="font-medium">Pipeline incomplete (Run disabled):</p>
+              <ul className="list-disc pl-4 mt-1">
+                {pipelineValidation.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </div>
 
-        <section>
-          <h2 className="text-lg font-medium text-foreground mb-2">
-            Pipeline steps
-          </h2>
-          <StepList
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/20 p-4">
+          <PipelineAvailableAgents
+            pipelineId={pipeline.id}
+            agents={agents}
+            existingStepAgentKeys={existingStepAgentKeys}
+          />
+        </div>
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/20 p-4">
+          <PipelineStepsColumn
             pipelineId={pipeline.id}
             steps={pipeline.steps}
             agentDescriptions={agents}
+            selectedStepId={selectedStepId}
+            onSelectStep={setSelectedStepId}
             configsByAgentKey={configsByAgentKey}
           />
-          <AddStepForm
-            pipelineId={pipeline.id}
-            agents={agents}
-            existingStepAgentKeys={pipeline.steps.map(
-              (s) => `${s.agentId}@${s.agentVersion}`,
-            )}
-            configsByAgentKey={configsByAgentKey}
+        </div>
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/20 p-4">
+          <PipelineStepEditorPanel
+            selectedStep={selectedStep}
+            stepInput={stepInput}
+            stepConfig={stepConfig}
+            onStepInputChange={setStepInput}
+            onStepConfigChange={setStepConfig}
+            disabled={saving}
           />
-        </section>
+        </div>
       </div>
-      <PipelineFormModal
-        open={editModalOpen}
-        onOpenChange={setEditModalOpen}
-        mode="edit"
-        editPipelineId={pipeline.id}
-      />
-    </>
+    </div>
   );
 };

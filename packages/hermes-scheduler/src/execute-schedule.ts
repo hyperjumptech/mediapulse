@@ -29,7 +29,8 @@ export type ExecuteScheduleDeps = {
 };
 
 /**
- * Executes a due schedule: expands params, runs pipeline steps for each param set, records executions, and updates schedule state.
+ * Executes a due schedule: for each pipeline step, substitutes variables and expands
+ * data sources in the step's input, then runs that step once per expanded input set.
  *
  * @param schedule - Schedule with pipeline and steps (from getDueSchedules).
  * @param deps - DB, HTTP client, logger, auth, timeout.
@@ -50,14 +51,8 @@ export const executeSchedule = async (
   let jobsCreated = 0;
   let jobsEnqueued = 0;
 
-  const params = (schedule.params as Record<string, unknown>) ?? {};
   const variables = await db.variable.findMany();
   const variableMap = new Map(variables.map((v) => [v.key, v.value]));
-  const paramsSubstituted = substituteVariables(params, variableMap) as Record<
-    string,
-    unknown
-  >;
-  const paramSets = await expandDataSources(paramsSubstituted, db);
 
   const pipeline = schedule.pipeline;
   const steps = pipeline?.steps ?? [];
@@ -93,30 +88,102 @@ export const executeSchedule = async (
     agents.map((a) => [`${a.agentId}:${a.agentVersion}`, a]),
   );
 
-  for (const paramSet of paramSets) {
-    for (const step of steps) {
-      const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
-      if (!agent) {
-        logger.warn(
-          { agentId: step.agentId, agentVersion: step.agentVersion },
-          "Agent not found in registry, skipping step",
-        );
+  for (const step of steps) {
+    const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
+    if (!agent) {
+      logger.warn(
+        { agentId: step.agentId, agentVersion: step.agentVersion },
+        "Agent not found in registry, skipping step",
+      );
+      errors.push({
+        message: `Agent ${step.agentId}@${step.agentVersion} not found`,
+        timestamp: new Date().toISOString(),
+      });
+      continue;
+    }
+
+    const endpointResult = AgentEndpointSchema.safeParse(agent.endpoint);
+    if (!endpointResult.success) {
+      errors.push({
+        message: `Invalid endpoint for ${step.agentId}: ${endpointResult.error.message}`,
+        timestamp: new Date().toISOString(),
+      });
+      continue;
+    }
+
+    const stepWithInput = step as { input?: unknown };
+    const rawInput =
+      stepWithInput.input != null &&
+      typeof stepWithInput.input === "object" &&
+      !Array.isArray(stepWithInput.input)
+        ? (stepWithInput.input as Record<string, unknown>)
+        : {};
+    const inputSubstituted = substituteVariables(
+      rawInput,
+      variableMap,
+    ) as Record<string, unknown>;
+    const inputSchema =
+      agent.inputSchema != null && typeof agent.inputSchema === "object"
+        ? (agent.inputSchema as Record<string, unknown>)
+        : null;
+    if (inputSchema) {
+      const result = validateWithJsonSchema(inputSchema, inputSubstituted);
+      if (!result.valid) {
         errors.push({
-          message: `Agent ${step.agentId}@${step.agentVersion} not found`,
+          message: `Step input invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
           timestamp: new Date().toISOString(),
         });
         continue;
       }
+    }
+    const inputSets = await expandDataSources(inputSubstituted, db);
 
-      const endpointResult = AgentEndpointSchema.safeParse(agent.endpoint);
-      if (!endpointResult.success) {
+    let stepConfig: Record<string, unknown>;
+    const stepWithConfig = step as {
+      config?: unknown;
+      agentConfigId?: string | null;
+      agentConfig?: { config: unknown } | null;
+    };
+    if (
+      stepWithConfig.agentConfigId != null &&
+      stepWithConfig.agentConfig != null
+    ) {
+      const referencedConfig = stepWithConfig.agentConfig.config;
+      const configObj =
+        referencedConfig != null &&
+        typeof referencedConfig === "object" &&
+        !Array.isArray(referencedConfig)
+          ? (referencedConfig as Record<string, unknown>)
+          : {};
+      stepConfig = configObj;
+    } else {
+      stepConfig =
+        stepWithConfig.config != null &&
+        typeof stepWithConfig.config === "object" &&
+        !Array.isArray(stepWithConfig.config)
+          ? (stepWithConfig.config as Record<string, unknown>)
+          : {};
+    }
+    stepConfig = substituteVariables(stepConfig, variableMap) as Record<
+      string,
+      unknown
+    >;
+    const configSchema =
+      agent.configSchema != null && typeof agent.configSchema === "object"
+        ? (agent.configSchema as Record<string, unknown>)
+        : null;
+    if (configSchema) {
+      const result = validateWithJsonSchema(configSchema, stepConfig);
+      if (!result.valid) {
         errors.push({
-          message: `Invalid endpoint for ${step.agentId}: ${endpointResult.error.message}`,
+          message: `Step config invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
           timestamp: new Date().toISOString(),
         });
         continue;
       }
+    }
 
+    for (const inputSet of inputSets) {
       const jobId = randomUUID();
       const executionId = randomUUID();
       jobsCreated += 1;
@@ -132,7 +199,7 @@ export const executeSchedule = async (
             status: AgentJobExecutionStatus.pending,
             priority: schedule.priority,
             enqueuedAt: executionTime,
-            params: paramSet as object,
+            params: inputSet as object,
           },
         });
       } catch (err) {
@@ -144,60 +211,8 @@ export const executeSchedule = async (
         continue;
       }
 
-      let stepConfig: Record<string, unknown>;
-      const stepWithConfig = step as {
-        config?: unknown;
-        agentConfigId?: string | null;
-        agentConfig?: { config: unknown } | null;
-      };
-      if (
-        stepWithConfig.agentConfigId != null &&
-        stepWithConfig.agentConfig != null
-      ) {
-        const referencedConfig = stepWithConfig.agentConfig.config;
-        const configObj =
-          referencedConfig != null &&
-          typeof referencedConfig === "object" &&
-          !Array.isArray(referencedConfig)
-            ? (referencedConfig as Record<string, unknown>)
-            : {};
-        const configSchema =
-          agent.configSchema != null && typeof agent.configSchema === "object"
-            ? (agent.configSchema as Record<string, unknown>)
-            : null;
-        if (configSchema) {
-          const result = validateWithJsonSchema(configSchema, configObj);
-          if (!result.valid) {
-            logger.warn(
-              {
-                stepId: step.id,
-                agentConfigId: stepWithConfig.agentConfigId,
-                errors: result.errors,
-              },
-              "Agent config validation failed, skipping step",
-            );
-            errors.push({
-              message: `Step config invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
-              timestamp: new Date().toISOString(),
-            });
-            continue;
-          }
-        }
-        stepConfig = configObj;
-      } else {
-        stepConfig =
-          stepWithConfig.config != null &&
-          typeof stepWithConfig.config === "object" &&
-          !Array.isArray(stepWithConfig.config)
-            ? (stepWithConfig.config as Record<string, unknown>)
-            : {};
-      }
-      stepConfig = substituteVariables(stepConfig, variableMap) as Record<
-        string,
-        unknown
-      >;
       const body = {
-        input: paramSet,
+        input: inputSet,
         config: stepConfig,
       } as Record<string, unknown>;
 

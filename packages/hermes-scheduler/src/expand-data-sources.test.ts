@@ -21,7 +21,7 @@ describe("expandSingleDataSource", () => {
         },
       },
     };
-    const parsed = parseDataSourceString("db:ticker:all:id");
+    const parsed = parseDataSourceString("db:ticker:id");
     expect(parsed).not.toBeNull();
 
     // Act
@@ -36,7 +36,7 @@ describe("expandSingleDataSource", () => {
     const db: ExpandDataSourcesDb = {
       ticker: { findMany: async () => [] },
     };
-    const parsed = parseDataSourceString("db:nonExistentModel:all:id");
+    const parsed = parseDataSourceString("db:nonExistentModel:id");
     expect(parsed).not.toBeNull();
 
     // Act
@@ -56,7 +56,7 @@ describe("expandSingleDataSource", () => {
         },
       },
     };
-    const parsed = parseDataSourceString("db:ticker:all:id?take=10");
+    const parsed = parseDataSourceString("db:ticker:id?take=10");
     expect(parsed).not.toBeNull();
 
     // Act
@@ -78,7 +78,7 @@ describe("expandSingleDataSource", () => {
       },
     };
     const parsed = parseDataSourceString(
-      "db:userTicker:all:tickerId?where.enabled=true&distinct=tickerId",
+      "db:userTicker:tickerId?where.enabled=true&distinct=tickerId",
     );
     expect(parsed).not.toBeNull();
 
@@ -117,7 +117,7 @@ describe("expandDataSources", () => {
 
     // Act
     const result = await expandDataSources(
-      { tickerId: "db:ticker:all:id", extra: true },
+      { tickerId: "db:ticker:id", extra: true },
       db,
     );
 
@@ -135,10 +135,7 @@ describe("expandDataSources", () => {
     } as unknown as ExpandDataSourcesDb;
 
     // Act
-    const result = await expandDataSources(
-      { tickerId: "db:ticker:all:id" },
-      db,
-    );
+    const result = await expandDataSources({ tickerId: "db:ticker:id" }, db);
 
     // Assert
     expect(result).toEqual([{}]);
@@ -152,12 +149,12 @@ describe("expandDataSources", () => {
 
     // Act
     const result = await expandDataSources(
-      { tickerId: "db:otherTable:all:id" },
+      { tickerId: "db:otherTable:id" },
       db,
     );
 
     // Assert
-    expect(result).toEqual([{ tickerId: "db:otherTable:all:id" }]);
+    expect(result).toEqual([{ tickerId: "db:otherTable:id" }]);
   });
 
   it("leaves non-parseable data source string as-is", async () => {
@@ -186,7 +183,7 @@ describe("expandDataSources", () => {
     } as unknown as ExpandDataSourcesDb;
 
     // Act
-    await expandDataSources({ tickerId: "db:ticker:all:id" }, db);
+    await expandDataSources({ tickerId: "db:ticker:id" }, db);
 
     // Assert
     expect(capturedTake).toBe(DEFAULT_TAKE);
@@ -205,7 +202,7 @@ describe("expandDataSources", () => {
     } as unknown as ExpandDataSourcesDb;
 
     // Act
-    await expandDataSources({ tickerId: "db:ticker:all:id?take=99999" }, db, {
+    await expandDataSources({ tickerId: "db:ticker:id?take=99999" }, db, {
       defaultTake: 500,
       maxTake: MAX_TAKE,
     });

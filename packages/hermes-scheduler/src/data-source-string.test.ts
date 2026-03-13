@@ -8,9 +8,9 @@ import {
 describe("isDataSourceString", () => {
   it("returns true for valid data source string", () => {
     // Act & Assert
-    expect(isDataSourceString("db:ticker:all:id")).toBe(true);
+    expect(isDataSourceString("db:ticker:id")).toBe(true);
     expect(
-      isDataSourceString("db:userTicker:all:tickerId?where.enabled=true"),
+      isDataSourceString("db:userTicker:tickerId?where.enabled=true"),
     ).toBe(true);
   });
 
@@ -23,21 +23,20 @@ describe("isDataSourceString", () => {
 
   it("returns false for string that does not match format", () => {
     // Act & Assert
-    expect(isDataSourceString("ticker:all")).toBe(false);
-    expect(isDataSourceString("db:ticker:all")).toBe(false);
+    expect(isDataSourceString("ticker:id")).toBe(false);
+    expect(isDataSourceString("db:ticker")).toBe(false);
   });
 });
 
 describe("parseDataSourceString", () => {
-  it("parses db:table:selector:field without query", () => {
+  it("parses db:table:field without query", () => {
     // Act
-    const r = parseDataSourceString("db:ticker:all:id");
+    const r = parseDataSourceString("db:ticker:id");
 
     // Assert
     expect(r).not.toBeNull();
     expect(r?.source).toBe("db");
     expect(r?.table).toBe("ticker");
-    expect(r?.selector).toBe("all");
     expect(r?.field).toBe("id");
     expect(r?.where).toEqual({});
   });
@@ -45,7 +44,7 @@ describe("parseDataSourceString", () => {
   it("parses with where.enabled=true", () => {
     // Act
     const r = parseDataSourceString(
-      "db:userTicker:all:tickerId?where.enabled=true&distinct=tickerId",
+      "db:userTicker:tickerId?where.enabled=true&distinct=tickerId",
     );
 
     // Assert
@@ -56,7 +55,7 @@ describe("parseDataSourceString", () => {
 
   it("parses with take and limit", () => {
     // Act
-    const r = parseDataSourceString("db:ticker:all:id?take=100&limit=50");
+    const r = parseDataSourceString("db:ticker:id?take=100&limit=50");
 
     // Assert
     expect(r).not.toBeNull();
@@ -65,7 +64,7 @@ describe("parseDataSourceString", () => {
 
   it("parses with orderBy", () => {
     // Act
-    const r = parseDataSourceString("db:ticker:all:id?orderBy=id:asc");
+    const r = parseDataSourceString("db:ticker:id?orderBy=id:asc");
 
     // Assert
     expect(r).not.toBeNull();
@@ -75,6 +74,6 @@ describe("parseDataSourceString", () => {
   it("returns null for invalid format", () => {
     // Act & Assert
     expect(parseDataSourceString("invalid")).toBeNull();
-    expect(parseDataSourceString("db:ticker:all")).toBeNull();
+    expect(parseDataSourceString("db:ticker")).toBeNull();
   });
 });

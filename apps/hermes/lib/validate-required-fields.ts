@@ -1,7 +1,3 @@
-import Ajv, { type JSONSchemaType } from "ajv";
-
-const ajv = new Ajv({ allErrors: true });
-
 type JsonSchemaLike = {
   type?: string | string[];
   required?: string[];
@@ -39,14 +35,14 @@ function resolveLocalRef(
 
 /**
  * Collects errors for required string fields that are present but empty.
- * JSON Schema "required" validates key existence only.
+ * JSON Schema "required" only checks key presence, not blank strings.
  *
- * @param schema - Schema with required/properties metadata.
- * @param data - Data object to validate.
- * @param path - Current JSON path.
- * @returns Error messages for empty required strings.
+ * @param schema - Schema object with required/properties metadata.
+ * @param data - Data object being validated against the schema.
+ * @param path - Path prefix for nested objects.
+ * @returns List of human-readable errors for empty required strings.
  */
-function collectEmptyRequiredStringErrors(
+export function collectEmptyRequiredStringErrors(
   schema: JsonSchemaLike,
   data: unknown,
   path = "/",
@@ -58,10 +54,10 @@ function collectEmptyRequiredStringErrors(
  * Internal recursive implementation with root schema for ref resolution.
  *
  * @param schema - Current schema node.
- * @param data - Data object to validate.
+ * @param data - Current data node.
  * @param path - Current JSON path.
  * @param root - Root schema object.
- * @returns Error messages for empty required strings.
+ * @returns Error list.
  */
 function collectEmptyRequiredStringErrorsInternal(
   schema: JsonSchemaLike,
@@ -81,7 +77,6 @@ function collectEmptyRequiredStringErrorsInternal(
     !Array.isArray(resolved.required)
   )
     return errors;
-
   const obj =
     data != null && typeof data === "object" && !Array.isArray(data)
       ? (data as Record<string, unknown>)
@@ -124,33 +119,4 @@ function collectEmptyRequiredStringErrorsInternal(
   }
 
   return errors;
-}
-
-/**
- * Validates data against a JSON Schema.
- *
- * @param schema - JSON Schema object (e.g. from agent registry).
- * @param data - Data to validate.
- * @returns Object with valid: true, or valid: false and errors array.
- */
-export function validateWithJsonSchema(
-  schema: Record<string, unknown>,
-  data: unknown,
-): { valid: true } | { valid: false; errors: string[] } {
-  try {
-    const emptyRequiredErrors = collectEmptyRequiredStringErrors(
-      schema as JsonSchemaLike,
-      data,
-    );
-    const validate = ajv.compile(schema as JSONSchemaType<unknown>);
-    const ok = validate(data);
-    if (ok && emptyRequiredErrors.length === 0) return { valid: true };
-    const errors = (validate.errors ?? []).map((e) =>
-      `${e.instancePath || "/"} ${e.message ?? "validation failed"}`.trim(),
-    );
-    return { valid: false, errors: [...errors, ...emptyRequiredErrors] };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { valid: false, errors: [message] };
-  }
 }

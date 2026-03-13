@@ -11,28 +11,7 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
-import { validateScheduleParams } from "@/lib/validate-schedule-params";
 import { computeNextRunAt } from "@workspace/hermes-scheduler";
-
-const paramsSchema = z
-  .union([
-    z.record(z.unknown()),
-    z
-      .string()
-      .optional()
-      .transform((s): Record<string, unknown> => {
-        if (s === undefined || s === null || s === "") return {};
-        try {
-          const v = JSON.parse(s) as unknown;
-          if (typeof v === "object" && v !== null && !Array.isArray(v))
-            return v as Record<string, unknown>;
-          return {};
-        } catch {
-          throw new Error("params must be valid JSON object");
-        }
-      }),
-  ])
-  .optional();
 
 const retryConfigSchema = z
   .union([
@@ -67,7 +46,6 @@ const bodyValidator = z
     timezone: z.string().min(1).optional(),
     startAt: z.coerce.date().optional().nullable(),
     pipelineId: z.string().uuid().optional(),
-    params: paramsSchema,
     retryConfig: retryConfigSchema,
     timeout: z
       .union([z.literal(""), z.coerce.number()])
@@ -146,20 +124,6 @@ export const createUpdateScheduleHandler = ({
       return errorResponse("Schedule not found");
     }
 
-    const pipelineId = body.pipelineId ?? existing.pipelineId;
-    const paramsToValidate =
-      body.params !== undefined ? body.params : existing.params;
-    if (paramsToValidate != null && typeof paramsToValidate === "object") {
-      const paramsValidation = await validateScheduleParams(
-        db,
-        pipelineId,
-        paramsToValidate as Record<string, unknown>,
-      );
-      if (!paramsValidation.valid) {
-        return errorResponse(paramsValidation.message);
-      }
-    }
-
     const repeat = body.repeat ?? existing.repeat;
     const timezone = body.timezone ?? existing.timezone;
     const startAt =
@@ -199,9 +163,6 @@ export const createUpdateScheduleHandler = ({
       ...(body.timezone !== undefined && { timezone: body.timezone }),
       ...(body.startAt !== undefined && { startAt: body.startAt }),
       ...(body.pipelineId !== undefined && { pipelineId: body.pipelineId }),
-      ...(body.params !== undefined && {
-        params: body.params as Prisma.InputJsonValue,
-      }),
       ...(body.retryConfig !== undefined && {
         retryConfig:
           body.retryConfig != null

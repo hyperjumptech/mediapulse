@@ -128,6 +128,7 @@ describe("ScheduleFormModal", () => {
         mode="create"
         editScheduleId={null}
         pipelines={createMockPipelines()}
+        pipelineValidationById={{}}
       />,
     );
 
@@ -150,6 +151,7 @@ describe("ScheduleFormModal", () => {
         mode="edit"
         editScheduleId="schedule-123"
         pipelines={createMockPipelines()}
+        pipelineValidationById={{}}
       />,
     );
 
@@ -172,6 +174,7 @@ describe("ScheduleFormModal", () => {
         mode="create"
         editScheduleId={null}
         pipelines={createMockPipelines()}
+        pipelineValidationById={{}}
       />,
     );
 
@@ -194,6 +197,7 @@ describe("ScheduleFormModal", () => {
         mode="create"
         editScheduleId={null}
         pipelines={createMockPipelines()}
+        pipelineValidationById={{}}
       />,
     );
 
@@ -219,6 +223,7 @@ describe("ScheduleFormModal", () => {
         mode="create"
         editScheduleId={null}
         pipelines={createMockPipelines()}
+        pipelineValidationById={{}}
       />,
     );
 

@@ -21,6 +21,12 @@ vi.mock("@/lib/pipelines", () => ({
   getPipelinesWithSteps: () => getPipelinesWithStepsMock(),
 }));
 
+vi.mock("@/lib/validate-pipeline", () => ({
+  getPipelinesValidationMap: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock("@workspace/database", () => ({ prisma: {} }));
+
 vi.mock("./schedules-with-modal", () => ({
   SchedulesWithModal: ({
     schedules,

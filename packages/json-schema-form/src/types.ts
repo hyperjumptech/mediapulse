@@ -25,6 +25,8 @@ export interface JsonSchema {
   items?: JsonSchema;
   enum?: unknown[];
   default?: unknown;
+  /** JSON Schema format (e.g. "date", "date-time"). */
+  format?: string;
 }
 
 /**
@@ -43,6 +45,8 @@ export interface SchemaFormProps {
   ) => { valid: true } | { valid: false; errors: string[] };
   /** Whether the form is disabled. */
   disabled?: boolean;
+  /** When true, auto-seeds missing required fields with defaults. */
+  seedRequiredDefaults?: boolean;
   /** Optional class name for the root element. */
   className?: string;
 }

@@ -20,7 +20,7 @@ describe("validateDataSourceExpressions", () => {
   it("returns valid when data source string parses and take in bounds", () => {
     // Act
     const result = validateDataSourceExpressions({
-      tickerId: "db:ticker:all:id?take=100",
+      tickerId: "db:ticker:id?take=100",
     });
 
     // Assert
@@ -30,20 +30,20 @@ describe("validateDataSourceExpressions", () => {
   it("returns invalid when data source string has bad format", () => {
     // Act
     const result = validateDataSourceExpressions({
-      tickerId: "db:ticker:all",
+      tickerId: "db:ticker",
     }) as ValidateDataSourceExpressionsResult & { valid: false };
 
     // Assert
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'Param "tickerId": invalid data source format. Expected db:table:selector:field?options',
+      'Param "tickerId": invalid data source format. Expected db:table:field?options',
     );
   });
 
   it("returns invalid when take exceeds MAX_TAKE", () => {
     // Act
     const result = validateDataSourceExpressions({
-      tickerId: "db:ticker:all:id?take=10000",
+      tickerId: "db:ticker:id?take=10000",
     }) as ValidateDataSourceExpressionsResult & { valid: false };
 
     // Assert
@@ -54,7 +54,7 @@ describe("validateDataSourceExpressions", () => {
   it("returns invalid when take is negative", () => {
     // Act
     const result = validateDataSourceExpressions({
-      tickerId: "db:ticker:all:id?take=-1",
+      tickerId: "db:ticker:id?take=-1",
     }) as ValidateDataSourceExpressionsResult & { valid: false };
 
     // Assert

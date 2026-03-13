@@ -72,6 +72,31 @@ function applyRequiredDefaults(
 const NEW_ENTRY_KEY = "__new__";
 
 /**
+ * Converts an ISO date-time string to YYYY-MM-DDTHH:mm for datetime-local input (local time).
+ */
+function isoToDatetimeLocal(iso: string): string {
+  if (!iso || iso.length < 10) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 16);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${day}T${h}:${min}`;
+}
+
+/**
+ * Converts a datetime-local value (YYYY-MM-DDTHH:mm) to RFC 3339 ISO string.
+ */
+function datetimeLocalToIso(local: string): string {
+  if (!local || local.length < 16) return local;
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return local;
+  return d.toISOString();
+}
+
+/**
  * Turns a camelCase property name into a readable label (e.g. baseUrl → "Base URL").
  */
 function humanize(name: string): string {
@@ -299,6 +324,46 @@ const SchemaField = ({
 
   if (type === "string") {
     const str = typeof value === "string" ? value : "";
+    const format = schema.format;
+
+    if (format === "date") {
+      const dateValue = str && str.length >= 10 ? str.slice(0, 10) : "";
+      return (
+        <div className="grid gap-1.5">
+          <Label htmlFor={id}>{labelText}</Label>
+          <Input
+            id={id}
+            type="date"
+            value={dateValue}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+          />
+          {description ? (
+            <p className="text-muted-foreground text-xs">{description}</p>
+          ) : null}
+        </div>
+      );
+    }
+
+    if (format === "date-time") {
+      const localValue = isoToDatetimeLocal(str);
+      return (
+        <div className="grid gap-1.5">
+          <Label htmlFor={id}>{labelText}</Label>
+          <Input
+            id={id}
+            type="datetime-local"
+            value={localValue}
+            onChange={(e) => onChange(datetimeLocalToIso(e.target.value))}
+            disabled={disabled}
+          />
+          {description ? (
+            <p className="text-muted-foreground text-xs">{description}</p>
+          ) : null}
+        </div>
+      );
+    }
+
     return (
       <div className="grid gap-1.5">
         <Label htmlFor={id}>{labelText}</Label>
@@ -511,14 +576,20 @@ export const SchemaForm = ({
   onChange,
   validate,
   disabled = false,
+  seedRequiredDefaults = true,
   className,
 }: SchemaFormProps) => {
   const type = getType(schema);
+  const noopOnChange = React.useCallback(() => undefined, []);
   const effectiveValue = React.useMemo(
-    () => applyRequiredDefaults(schema, value),
-    [schema, value],
+    () => (seedRequiredDefaults ? applyRequiredDefaults(schema, value) : value),
+    [schema, value, seedRequiredDefaults],
   );
-  useSchemaFormSeed(schema, value, onChange);
+  useSchemaFormSeed(
+    schema,
+    value,
+    seedRequiredDefaults ? onChange : noopOnChange,
+  );
   const { touched, setTouched } = useSchemaFormTouch();
   const errors = React.useMemo(
     () =>
