@@ -53,19 +53,19 @@ vi.mock("./executions-table", () => ({
   ),
 }));
 
-vi.mock("./executions-pagination", () => ({
-  ExecutionsPagination: ({
-    scheduleId,
+vi.mock("@/components/list-pagination", () => ({
+  ListPagination: ({
+    basePath,
     page,
     total,
   }: {
-    scheduleId: string;
+    basePath: string;
     page: number;
     total: number;
   }) => (
     <nav
       data-testid="executions-pagination"
-      data-schedule-id={scheduleId}
+      data-base-path={basePath}
       data-page={page}
       data-total={total}
     />

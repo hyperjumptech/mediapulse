@@ -7,7 +7,7 @@ import type { ScheduleSortDir, ScheduleSortField } from "@/lib/schedules";
 import type { SchedulesPageResult } from "@/lib/schedules";
 import type { PipelineOption } from "./schedule-form-fields";
 
-import { Pagination } from "./pagination";
+import { ListPagination } from "@/components/list-pagination";
 import { ScheduleFormModal } from "./schedule-form-modal";
 import { SchedulesSearch } from "./schedules-search";
 import { SchedulesTable } from "./schedules-table";
@@ -76,11 +76,12 @@ export const SchedulesWithModal = ({
           searchQuery={searchQuery}
           onEdit={openEditModal}
         />
-        <Pagination
+        <ListPagination
           basePath="/dashboard/schedules"
           page={currentPage}
           pageSize={pageSize}
           total={total}
+          ariaLabel="Schedules list pagination"
           searchQuery={searchQuery}
           sortBy={sortBy}
           sortDir={sortDir}

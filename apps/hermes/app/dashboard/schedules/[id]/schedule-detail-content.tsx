@@ -9,9 +9,9 @@ import { ChevronLeft } from "lucide-react";
 
 import type { getScheduleById, ScheduleExecutionRow } from "@/lib/schedules";
 
+import { ListPagination } from "@/components/list-pagination";
 import { ScheduleFormModal } from "../schedule-form-modal";
 import type { PipelineOption } from "../schedule-form-fields";
-import { ExecutionsPagination } from "./executions-pagination";
 import { ExecutionsTable } from "./executions-table";
 
 type ScheduleWithPipeline = NonNullable<
@@ -73,11 +73,12 @@ export const ScheduleDetailContent = ({
           </h2>
           <ExecutionsTable executions={executions} />
           <div className="mt-4">
-            <ExecutionsPagination
-              scheduleId={schedule.id}
+            <ListPagination
+              basePath={`/dashboard/schedules/${schedule.id}`}
               page={currentPage}
               pageSize={pageSize}
               total={totalExecutions}
+              ariaLabel="Executions pagination"
             />
           </div>
         </section>

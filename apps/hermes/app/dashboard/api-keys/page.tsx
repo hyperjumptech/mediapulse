@@ -5,8 +5,8 @@ import {
   type ApiKeySortField,
 } from "@/lib/api-keys";
 
+import { ListPagination } from "@/components/list-pagination";
 import { AddApiKeyModal } from "./add-api-key-modal";
-import { ApiKeysPagination } from "./api-keys-pagination";
 import { ApiKeysSearch } from "./api-keys-search";
 import { ApiKeysTableWithEdit } from "./api-keys-table-with-edit";
 
@@ -85,11 +85,12 @@ const ApiKeysPage = async ({
         pageSize={size}
         searchQuery={search}
       />
-      <ApiKeysPagination
+      <ListPagination
         basePath="/dashboard/api-keys"
         page={currentPage}
         pageSize={size}
         total={total}
+        ariaLabel="API keys list pagination"
         searchQuery={search}
         sortBy={sortBy}
         sortDir={sortDir}
