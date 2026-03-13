@@ -1,0 +1,13 @@
+---
+description: Run code-quality after editing code so type and lint errors are caught before the user does
+alwaysApply: true
+---
+
+# Run Code-Quality After Changes
+
+After creating or editing TypeScript, JavaScript, or test files in this repo, you **must** run the code-quality check **before** considering the task complete.
+
+- **From repo root:** `pnpm code-quality` (runs type-check and lint across the workspace).
+- **Or** run the relevant script in the app/package you changed (e.g. `pnpm run type:check` and `pnpm run lint` in `apps/hermes`).
+
+Do not rely on the user to run it. If the command fails, fix the reported errors and run it again until it passes.
