@@ -144,11 +144,11 @@ export function createAgentApp<
         config?: unknown;
       };
       const rawInput = body?.input;
-      const rawConfig = body?.config ?? {};
       const input = (await config.inputSchema.parseAsync(rawInput)) as TInput;
-      const configParsed = (await configSchema.parseAsync(
-        rawConfig,
-      )) as TConfig;
+      const configParsed =
+        body?.config === undefined
+          ? ({} as TConfig)
+          : ((await configSchema.parseAsync(body.config)) as TConfig);
       const token = context.req.header("Authorization");
 
       const result = await config.run({ input, config: configParsed, token });
@@ -174,17 +174,41 @@ export function createAgentApp<
       return context.json(payload, statusCode as 404 | 500);
     } catch (error) {
       if (isZodError(error)) {
+        const zodError = error as ZodError;
+        const flattenedErrors = zodError.flatten();
+        const requiredFields = Array.from(
+          new Set(
+            zodError.issues
+              .filter(
+                (issue) =>
+                  issue.code === "invalid_type" &&
+                  issue.received === "undefined",
+              )
+              .map((issue) =>
+                issue.path.length > 0 ? issue.path.join(".") : "input",
+              ),
+          ),
+        );
+        const validationMessage =
+          requiredFields.length > 0
+            ? `Validation failed: missing required field(s): ${requiredFields.join(
+                ", ",
+              )}`
+            : "Validation failed";
+
         logger.error(
           {
             agentId: config.agentId,
-            errors: (error as ZodError).flatten(),
+            errors: flattenedErrors,
+            requiredFields,
           },
           "Agent input validation failed",
         );
         return context.json(
           {
-            message: "Validation failed",
-            errors: (error as ZodError).flatten(),
+            message: validationMessage,
+            requiredFields,
+            errors: flattenedErrors,
           },
           400,
         );

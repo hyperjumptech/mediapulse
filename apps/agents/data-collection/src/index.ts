@@ -70,8 +70,8 @@ const app = createAgentApp<
         query.start = input.timeWindow.start;
         query.end = input.timeWindow.end;
       }
-      const { searchQueries: queries } = await dataApiGet<{
-        searchQueries: SearchQuery[];
+      const { data: queries = [] } = await dataApiGet<{
+        data?: SearchQuery[];
       }>(token, env.AGENT_DATA_API_URL, "/api/data-collection", query);
       const searchResults = await performWebSearchWithQueries(queries);
       const pages = await fetchWebPageContents(searchResults);
