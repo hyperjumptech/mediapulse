@@ -1,0 +1,37 @@
+---
+description: Use Prisma migrate dev for schema changes; never create or edit migration SQL by hand
+globs: "**/schema.prisma,**/migrations/**"
+alwaysApply: false
+---
+
+# Prisma Migrations
+
+When adding or changing the Prisma schema (`schema.prisma`), **do not** create or edit migration SQL files manually.
+
+## Correct workflow
+
+1. Edit `packages/database/prisma/schema.prisma` only.
+2. Generate the migration by running from the repo root:
+
+   ```bash
+   cd packages/database && pnpm db:migrate:dev
+   ```
+
+   Or from root with filter:
+
+   ```bash
+   pnpm --filter @workspace/database db:migrate:dev
+   ```
+
+3. When prompted, give the migration a descriptive name (e.g. `add_variable_created_by`).
+
+Prisma will create the migration file and apply it. Do not create `migrations/<timestamp>_<name>/migration.sql` yourself or paste raw SQL into it.
+
+## When to use
+
+- Adding, removing, or changing models, fields, indexes, or relations in `schema.prisma`.
+- Fixing schema drift: prefer changing the schema and re-running `db:migrate:dev` with a new migration over hand-editing existing migration files.
+
+## Editing an existing migration
+
+Only edit an existing migration file if the user explicitly asks to update a recent migration that has not been deployed (e.g. to avoid a new migration). Even then, prefer creating a new migration when possible.
