@@ -12,8 +12,9 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import { Button } from "@workspace/ui/components/button";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil } from "lucide-react";
 
+import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/data-source-expansions/actions/delete/.generated/use-form-action";
 import type { DataSourceExpansionRow } from "@/lib/data-source-expansions";
 
@@ -57,22 +58,12 @@ export const DataSourceExpansionRowActions = ({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" disabled={pending} asChild>
-          <FormWithAction
-            className="flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-destructive/10 focus:text-destructive [&_button]:flex [&_button]:w-full [&_button]:cursor-default [&_button]:items-center [&_button]:text-left"
-            onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
-              if (
-                !confirm(`Delete "${expansion.name}"? This cannot be undone.`)
-              ) {
-                e.preventDefault();
-              }
-            }}
-          >
-            <input type="hidden" name="body.id" value={expansion.id} readOnly />
-            <button type="submit" className="flex items-center gap-2">
-              <Trash2 className="size-4" />
-              {pending ? "Deleting…" : "Delete"}
-            </button>
-          </FormWithAction>
+          <DeleteConfirmForm
+            FormWithAction={FormWithAction}
+            confirmMessage={`Delete "${expansion.name}"? This cannot be undone.`}
+            bodyField={{ name: "body.id", value: expansion.id }}
+            pending={pending}
+          />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

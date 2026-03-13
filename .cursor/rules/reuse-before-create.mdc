@@ -16,6 +16,7 @@ alwaysApply: true
 - **Pagination:** Use the shared `ListPagination` from `@/components/list-pagination` (Hermes). It accepts `basePath`, `page`, `pageSize`, `total`, `ariaLabel`, and optional `searchQuery` / `sortBy` / `sortDir`. Do not create new `XyzPagination` components that duplicate prev/next links and query building.
 - **Modals / forms:** If a "create" and "edit" flow are almost the same, use one component with a mode or discriminated props (e.g. `VariableModal` with `variable={null}` for create and `variable={row}` for edit). Do not create separate `AddXModal` and `EditXModal` that duplicate the same form and submit logic.
 - **Tables, search, row actions:** Search for existing table/search/actions patterns in the same app (e.g. under `dashboard/`) and reuse or generalize them instead of writing a new variant from scratch.
+- **Delete-with-confirm in row actions:** Use the shared `DeleteConfirmForm` from `@/components/delete-confirm-form` (Hermes). Pass `FormWithAction`, `confirmMessage`, `bodyField`, and `pending`. Do not duplicate the form + confirm logic in each `*-row-actions.tsx` file.
 
 ```
 ❌ BAD — duplicate pattern
