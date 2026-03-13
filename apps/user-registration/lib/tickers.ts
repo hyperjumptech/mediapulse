@@ -1,8 +1,16 @@
+import { z } from "zod";
+
+/** Zod schema for a slim ticker from tickers.json. */
+export const tickerSchema = z.object({
+  KodeEmiten: z.string(),
+  NamaEmiten: z.string(),
+});
+
 /** Slim ticker representation used throughout the app. */
-export type Ticker = {
-  KodeEmiten: string;
-  NamaEmiten: string;
-};
+export type Ticker = z.infer<typeof tickerSchema>;
+
+/** Zod schema for tickers.json array. */
+export const tickersArraySchema = z.array(tickerSchema);
 
 /**
  * Filters tickers by matching the query against both code and name.

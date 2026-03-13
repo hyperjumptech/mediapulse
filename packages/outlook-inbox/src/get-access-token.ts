@@ -1,4 +1,5 @@
 import got from "got";
+import { z } from "zod";
 
 const GRAPH_SCOPE = "https://graph.microsoft.com/.default";
 
@@ -9,12 +10,12 @@ export type ClientCredentialsConfig = {
   tenantId: string;
 };
 
-/** Response shape from Microsoft token endpoint. */
-type TokenResponse = {
-  access_token?: string;
-  error?: string;
-  error_description?: string;
-};
+/** Zod schema for Microsoft OAuth token endpoint response. */
+export const tokenResponseSchema = z.object({
+  access_token: z.string().optional(),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+});
 
 /** Options for getAccessTokenFromClientCredentials (DI). */
 export type GetAccessTokenOptions = {
@@ -56,16 +57,21 @@ export async function getAccessTokenFromClientCredentials(
   if (res.statusCode < 200 || res.statusCode >= 300) {
     let message = `Token request failed: ${res.statusCode}`;
     try {
-      const err = JSON.parse(res.body) as TokenResponse;
-      if (err.error_description) message += ` - ${err.error_description}`;
-      else if (err.error) message += ` - ${err.error}`;
+      const parsed = JSON.parse(res.body) as unknown;
+      const result = tokenResponseSchema.safeParse(parsed);
+      if (result.success) {
+        if (result.data.error_description)
+          message += ` - ${result.data.error_description}`;
+        else if (result.data.error) message += ` - ${result.data.error}`;
+      }
     } catch {
       // use status only
     }
     throw new Error(message);
   }
 
-  const data = JSON.parse(res.body) as TokenResponse;
+  const parsed = JSON.parse(res.body) as unknown;
+  const data = tokenResponseSchema.parse(parsed);
   if (typeof data.access_token !== "string") {
     throw new Error("Token response missing access_token");
   }

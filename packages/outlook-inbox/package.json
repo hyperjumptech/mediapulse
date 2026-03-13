@@ -17,7 +17,8 @@
     "lint": "eslint \"src/**/*.ts\""
   },
   "dependencies": {
-    "got": "catalog:"
+    "got": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

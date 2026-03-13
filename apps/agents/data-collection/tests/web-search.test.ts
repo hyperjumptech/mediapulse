@@ -64,4 +64,24 @@ describe("performWebSearch", () => {
       searchQueryText: "search",
     });
   });
+
+  it("throws when Serper returns invalid response shape", async () => {
+    // Setup
+    const postMock = vi.fn().mockReturnValue({
+      json: vi.fn().mockResolvedValue({
+        organic: "not-an-array",
+      }),
+    });
+
+    const fakeGot = { post: postMock } as any;
+    const queries = [{ id: "q1", text: "search", tickerId: "ticker-1" }] as any;
+
+    // Act & Assert
+    await expect(
+      performWebSearch(queries, {
+        serperApiKey: "serper-key",
+        gotClient: fakeGot,
+      }),
+    ).rejects.toThrow();
+  });
 });

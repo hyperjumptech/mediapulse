@@ -163,4 +163,20 @@ describe("getAccessTokenFromClientCredentials", () => {
       ),
     ).rejects.toThrow("Token request failed: 500");
   });
+
+  it("throws when success response has invalid token shape", async () => {
+    // Setup: access_token must be string, not number
+    const requestFn = vi.fn().mockResolvedValue({
+      statusCode: 200,
+      body: JSON.stringify({ access_token: 12345 }),
+    });
+
+    // Act & Assert
+    await expect(
+      getAccessTokenFromClientCredentials(
+        { clientId: "a", clientSecret: "b", tenantId: "c" },
+        { requestFn },
+      ),
+    ).rejects.toThrow();
+  });
 });
