@@ -9,5 +9,7 @@ Shared scheduler logic for Hermes: due-schedule queries, execution (expand param
 
 - `getDueSchedules`, `executeSchedule`, `expandDataSources`, `expandSingleDataSource`
 - `computeNextRunAt`, `ScheduleForNextRun`
-- `isDataSourceString`, `parseDataSourceString`, `isAllowlisted`, `DataSourceParsed`
+- `isDataSourceString`, `parseDataSourceString`, `DataSourceParsed`
+- `validateDataSourceExpressions`, `ValidateDataSourceExpressionsResult`
+- `DEFAULT_TAKE`, `MAX_TAKE`
 - `invokeAgent`, `AgentEndpointSchema`, `AgentEndpoint`, `InvokeAgentHttpClient`

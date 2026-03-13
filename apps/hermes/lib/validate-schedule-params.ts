@@ -1,10 +1,12 @@
 import type { PrismaClient } from "@workspace/database";
+import { validateDataSourceExpressions } from "@workspace/hermes-scheduler";
 
 import { validateWithJsonSchema } from "./validate-json-schema";
 
 /**
  * Loads the pipeline's steps and their agents' input schemas from the registry,
- * then validates params against every step's input schema.
+ * validates params against every step's input schema, and validates data source
+ * expression syntax and take/limit bounds.
  *
  * @param db - Prisma client.
  * @param pipelineId - Pipeline to load.
@@ -16,6 +18,11 @@ export async function validateScheduleParams(
   pipelineId: string,
   params: Record<string, unknown>,
 ): Promise<{ valid: true } | { valid: false; message: string }> {
+  const dsValidation = validateDataSourceExpressions(params);
+  if (!dsValidation.valid) {
+    return { valid: false, message: dsValidation.errors.join(". ") };
+  }
+
   const pipeline = await db.pipeline.findUnique({
     where: { id: pipelineId },
     include: { steps: { orderBy: { order: "asc" } } },

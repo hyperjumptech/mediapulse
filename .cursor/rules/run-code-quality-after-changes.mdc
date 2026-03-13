@@ -7,7 +7,8 @@ alwaysApply: true
 
 After creating or editing TypeScript, JavaScript, or test files in this repo, you **must** run the code-quality check **before** considering the task complete.
 
-- **From repo root:** `pnpm code-quality` (runs type-check and lint across the workspace).
-- **Or** run the relevant script in the app/package you changed (e.g. `pnpm run type:check` and `pnpm run lint` in `apps/hermes`).
+- **From repo root:** `pnpm code-quality` (runs type-check, lint, and tests across the workspace).
+- **Gate:** Do not mark any task, todo, or implementation as complete until `pnpm code-quality` exits with code 0.
+- **If it fails:** Fix the reported errors and run it again. Repeat until it passes. Do not hand off to the user.
 
-Do not rely on the user to run it. If the command fails, fix the reported errors and run it again until it passes.
+**New test files:** If a test imports server-side modules (e.g. `@workspace/database`, `@workspace/env`, or code that uses `env.*`), add `/** @vitest-environment node */` at the top so Vitest runs in Node instead of the default browser-like environment.

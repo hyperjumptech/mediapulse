@@ -480,7 +480,7 @@ export const ScheduleFormFields = ({
           defaultValue={defaultParams}
           rows={4}
           disabled={pending}
-          placeholder='{"tickerId": "db:ticker:all:id"}'
+          placeholder='{"tickerId": "db:userTicker:all:tickerId?where.enabled=true&distinct=tickerId&take=500"}'
           className={cn(
             "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
             "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
