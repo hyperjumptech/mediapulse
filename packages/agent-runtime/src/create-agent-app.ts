@@ -181,7 +181,8 @@ export function createAgentApp<
             zodError.issues
               .filter(
                 (issue) =>
-                  issue.code === "invalid_type" && issue.received === "undefined",
+                  issue.code === "invalid_type" &&
+                  issue.received === "undefined",
               )
               .map((issue) =>
                 issue.path.length > 0 ? issue.path.join(".") : "input",
