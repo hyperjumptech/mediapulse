@@ -1,0 +1,88 @@
+---
+title: Data source expansion
+description: How schedule params expand from db:table:selector:field strings at runtime
+icon: Database
+---
+
+## Overview
+
+**Data source expansion** lets schedule params use placeholders that are resolved at execution time by querying the database. Instead of hard-coding a single `tickerId`, you can use an expression like `db:userTicker:all:tickerId?where.enabled=true` so the scheduler runs the pipeline **once per row** (e.g. once per enabled user ticker).
+
+Expansion is implemented in `@workspace/hermes-scheduler` and used by **hermes-worker** when it processes due schedules: params are expanded, then each resulting param set triggers a pipeline run.
+
+## Where it’s used
+
+- **Schedule params** — In the Hermes schedule form, the “Params (JSON)” field can contain **data-source expressions** as string values. At runtime, each expression is replaced with the list of values from the DB; multiple expressions produce a **Cartesian product** of param sets (one run per combination).
+- **Saved expansion templates** — In Hermes, **Data source expansions** (`/dashboard/data-source-expansions`) let you save named templates (name, expansion string, description) for reuse. The create/edit page has **Run preview** to test an expansion against the current database.
+
+## Format
+
+A data source string has the form:
+
+```
+db:table:selector:field?options
+```
+
+| Part       | Description                                                   |
+| ---------- | ------------------------------------------------------------- |
+| `db`       | Source identifier (currently only `db` for database).         |
+| `table`    | Prisma model name in camelCase (e.g. `userTicker`, `ticker`). |
+| `selector` | Selector; use `all` to select all rows (subject to options).  |
+| `field`    | Field name to extract from each row (e.g. `tickerId`, `id`).  |
+| `options`  | Optional query string; see below.                             |
+
+## Options (query string)
+
+After `?`, you can add:
+
+| Option                                          | Description                                                                                                     |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `where.<key>=<value>`                           | Filter rows (e.g. `where.enabled=true`). Values are coerced: `true`/`false` → boolean, numeric string → number. |
+| `distinct=<field>`                              | Return distinct values for the given field.                                                                     |
+| `take=<n>` or `limit=<n>`                       | Maximum number of rows (default **500**, max **5000**).                                                         |
+| `orderBy=<field>:asc` or `orderBy=<field>:desc` | Sort order.                                                                                                     |
+
+Multiple options are combined with `&`.
+
+## Examples
+
+```text
+db:ticker:all:id
+```
+
+All ticker IDs, default take (500), ascending by `id`.
+
+```text
+db:ticker:all:id?orderBy=id:asc
+```
+
+Same, with explicit sort.
+
+```text
+db:userTicker:all:tickerId?where.enabled=true&distinct=tickerId&take=500
+```
+
+Distinct `tickerId` from `UserTicker` where `enabled=true`, up to 500 rows.
+
+## Validation
+
+When saving a schedule, Hermes validates params (including data-source expressions) against every pipeline step’s agent **input schema**. Data-source strings are also validated for:
+
+- **Format** — Must match `db:table:selector:field?options`; invalid format is reported per param key.
+- **Take/limit** — Must be in range 0–5000; otherwise an error is returned.
+
+Use **Validate** in the schedule form to check params before saving. The **Expected shape** section shows the structure required by the pipeline’s agents.
+
+## Execution behavior
+
+1. **Parse** — Each param value that looks like a data-source string (`db:...`) is parsed.
+2. **Query** — For each parsed string, the scheduler calls the DB (Prisma `findMany` on the given model with `where`, `distinct`, `take`, `orderBy`).
+3. **Expand** — The param’s value is replaced by the list of values from the query. If the value is not a valid data-source string or the table is unknown, the value is left as-is (single run).
+4. **Cartesian product** — If multiple params contain data-source strings, the result is one param object per combination (e.g. param A has 3 values and param B has 2 → 6 runs).
+5. **Invoke** — Each resulting param set is sent as `input` to the pipeline; hermes-worker runs the pipeline once per set.
+
+## Related docs
+
+- [Hermes](/apps/hermes) — Dashboard, schedule form, **Data source expansions** CRUD and preview.
+- [Agent–Hermes contract](/agent-hermes-contract) — Schedule params, input schema, variables.
+- [hermes-scheduler](/packages/hermes-scheduler) — Package that implements parsing, expansion, and validation.
