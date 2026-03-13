@@ -8,16 +8,17 @@ datasource db {
 }
 
 model User {
-  id          String       @id @default(uuid())
-  name        String
-  email       String       @unique
-  password    String
-  role        UserRole     @default(USER)
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  apiKeys     APIKey[]
-  userTickers UserTicker[]
-  variables   Variable[]
+  id                   String                @id @default(uuid())
+  name                 String
+  email                String                @unique
+  password             String
+  role                 UserRole              @default(USER)
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  apiKeys              APIKey[]
+  userTickers          UserTicker[]
+  variables            Variable[]
+  dataSourceExpansions DataSourceExpansion[]
 
   @@map("user")
 }
@@ -104,6 +105,20 @@ model DataSource {
   searchQuery SearchQuery @relation(fields: [searchQueryId], references: [id])
 
   @@map("data_source")
+}
+
+model DataSourceExpansion {
+  id              String   @id @default(uuid())
+  name            String
+  expansionString String   @map("expansion_string")
+  description     String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdById     String   @map("created_by_id")
+
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("data_source_expansion")
 }
 
 model Newsletter {
