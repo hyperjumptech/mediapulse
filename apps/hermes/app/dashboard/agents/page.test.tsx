@@ -29,8 +29,8 @@ vi.mock("./agents-table-with-edit", () => ({
   ),
 }));
 
-vi.mock("./pagination", () => ({
-  AgentsPagination: ({ page, total }: { page: number; total: number }) => (
+vi.mock("@/components/list-pagination", () => ({
+  ListPagination: ({ page, total }: { page: number; total: number }) => (
     <nav data-testid="agents-pagination" data-page={page} data-total={total}>
       Pagination
     </nav>

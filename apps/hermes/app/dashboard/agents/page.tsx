@@ -5,8 +5,8 @@ import {
   type AgentSortField,
 } from "@/lib/agents";
 
+import { ListPagination } from "@/components/list-pagination";
 import { AgentsTableWithEdit } from "./agents-table-with-edit";
-import { AgentsPagination } from "./pagination";
 import { AgentsSearch } from "./agents-search";
 
 const DEFAULT_PAGE_SIZE = 15;
@@ -81,11 +81,12 @@ const AgentsPage = async ({
         pageSize={size}
         searchQuery={search}
       />
-      <AgentsPagination
+      <ListPagination
         basePath="/dashboard/agents"
         page={currentPage}
         pageSize={size}
         total={total}
+        ariaLabel="Agents list pagination"
         searchQuery={search}
         sortBy={sortBy}
         sortDir={sortDir}

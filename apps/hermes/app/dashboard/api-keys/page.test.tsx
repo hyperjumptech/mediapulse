@@ -34,8 +34,8 @@ vi.mock("./api-keys-table-with-edit", () => ({
   ),
 }));
 
-vi.mock("./api-keys-pagination", () => ({
-  ApiKeysPagination: ({ page, total }: { page: number; total: number }) => (
+vi.mock("@/components/list-pagination", () => ({
+  ListPagination: ({ page, total }: { page: number; total: number }) => (
     <nav data-testid="api-keys-pagination" data-page={page} data-total={total}>
       Pagination
     </nav>

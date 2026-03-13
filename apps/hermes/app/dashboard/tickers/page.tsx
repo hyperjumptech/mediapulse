@@ -5,8 +5,8 @@ import {
   type TickerSortField,
 } from "@/lib/tickers";
 
+import { ListPagination } from "@/components/list-pagination";
 import { AddImportTickersModal } from "./add-import-tickers-modal";
-import { Pagination } from "./pagination";
 import { TickersSearch } from "./tickers-search";
 import { TickersTable } from "./tickers-table";
 
@@ -85,11 +85,12 @@ const TickersPage = async ({
         pageSize={size}
         searchQuery={search}
       />
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={currentPage}
         pageSize={size}
         total={total}
+        ariaLabel="Tickers list pagination"
         searchQuery={search}
         sortBy={sortBy}
         sortDir={sortDir}

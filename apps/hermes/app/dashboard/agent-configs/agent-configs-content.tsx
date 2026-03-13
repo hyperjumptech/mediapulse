@@ -4,10 +4,10 @@ import { useCallback, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 
+import { ListPagination } from "@/components/list-pagination";
 import { AddConfigModal } from "./add-config-modal";
 import { AgentConfigsTable } from "./agent-configs-table";
 import { EditConfigModal } from "./edit-config-modal";
-import { AgentConfigsPagination } from "./pagination";
 import type { AgentConfigRow } from "./agent-config-row-actions";
 import type {
   AgentConfigSortDir,
@@ -108,11 +108,12 @@ export const AgentConfigsContent = ({
           onEdit={setEditingConfig}
           onDuplicate={openDuplicateModal}
         />
-        <AgentConfigsPagination
+        <ListPagination
           basePath="/dashboard/agent-configs"
           page={page}
           pageSize={pageSize}
           total={total}
+          ariaLabel="Agent configs list pagination"
           sortBy={sortBy}
           sortDir={sortDir}
         />

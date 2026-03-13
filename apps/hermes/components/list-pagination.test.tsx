@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Pagination } from "./pagination";
+import { ListPagination } from "./list-pagination";
 
 vi.mock("next/link", () => ({
   default: ({
@@ -25,15 +25,16 @@ vi.mock("@workspace/ui/components/button", () => ({
   ),
 }));
 
-describe("Pagination", () => {
+describe("ListPagination", () => {
   it("renders page info text", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={1}
         pageSize={15}
         total={30}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -46,11 +47,12 @@ describe("Pagination", () => {
   it("renders Previous and Next buttons", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={2}
         pageSize={15}
         total={45}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -64,11 +66,12 @@ describe("Pagination", () => {
   it("disables Previous on first page", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={1}
         pageSize={15}
         total={30}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -82,11 +85,12 @@ describe("Pagination", () => {
   it("enables Previous on page 2", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={2}
         pageSize={15}
         total={30}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -100,11 +104,12 @@ describe("Pagination", () => {
   it("disables Next on last page", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={2}
         pageSize={15}
         total={30}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -118,11 +123,12 @@ describe("Pagination", () => {
   it("enables Next when not on last page", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={1}
         pageSize={15}
         total={30}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -133,14 +139,15 @@ describe("Pagination", () => {
     expect(nextLink).toBeInTheDocument();
   });
 
-  it("constructs correct Previous href", () => {
+  it("constructs correct Previous href with sort params", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={3}
         pageSize={15}
         total={60}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -157,11 +164,12 @@ describe("Pagination", () => {
   it("constructs correct Next href", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={1}
         pageSize={15}
         total={30}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -178,11 +186,12 @@ describe("Pagination", () => {
   it("includes search query in pagination links", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={1}
         pageSize={15}
         total={30}
+        ariaLabel="Tickers list pagination"
         searchQuery="AAPL"
         sortBy="symbol"
         sortDir="asc"
@@ -200,11 +209,12 @@ describe("Pagination", () => {
   it("returns null when total fits in one page", () => {
     // Act
     const { container } = render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={1}
         pageSize={15}
         total={10}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -217,11 +227,12 @@ describe("Pagination", () => {
   it("renders navigation with aria-label", () => {
     // Act
     render(
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={1}
         pageSize={15}
         total={30}
+        ariaLabel="Tickers list pagination"
         sortBy="symbol"
         sortDir="asc"
       />,
@@ -231,5 +242,25 @@ describe("Pagination", () => {
     expect(
       screen.getByRole("navigation", { name: "Tickers list pagination" }),
     ).toBeInTheDocument();
+  });
+
+  it("builds minimal query when only page and size", () => {
+    // Act
+    render(
+      <ListPagination
+        basePath="/dashboard/schedules/sched-1"
+        page={1}
+        pageSize={10}
+        total={25}
+        ariaLabel="Executions pagination"
+      />,
+    );
+
+    // Assert
+    const nextLink = screen.getByRole("link", { name: /Next/ });
+    expect(nextLink).toHaveAttribute(
+      "href",
+      "/dashboard/schedules/sched-1?page=2&size=10",
+    );
   });
 });
