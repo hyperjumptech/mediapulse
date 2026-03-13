@@ -8,7 +8,7 @@ const baseData = {
   headers: new Headers(),
   searchParams: {},
   user: undefined,
-} as never;
+};
 
 describe("createGetVariableHandler", () => {
   afterEach(() => {
@@ -20,7 +20,7 @@ describe("createGetVariableHandler", () => {
       getSession: async () => null,
       getById: vi.fn(),
     });
-    const result = await handler(baseData);
+    const result = await handler(baseData as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Unauthorized");
   });
@@ -31,7 +31,7 @@ describe("createGetVariableHandler", () => {
       getSession: async () => ({ name: "Admin", email: "a@b.com" }),
       getById,
     });
-    const result = await handler(baseData);
+    const result = await handler(baseData as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Variable not found");
   });
@@ -50,7 +50,7 @@ describe("createGetVariableHandler", () => {
       getSession: async () => ({ name: "Admin", email: "a@b.com" }),
       getById,
     });
-    const result = await handler(baseData);
+    const result = await handler(baseData as never);
     expect(result.status).toBe(true);
     const data = (result as { data?: { value: string; isSecret: boolean } })
       .data;

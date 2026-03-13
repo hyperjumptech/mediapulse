@@ -8,7 +8,7 @@ const baseData = {
   headers: new Headers(),
   searchParams: {},
   user: undefined,
-} as never;
+};
 
 describe("createDeleteVariableHandler", () => {
   afterEach(() => {
@@ -20,7 +20,7 @@ describe("createDeleteVariableHandler", () => {
       getSession: async () => null,
       db: {} as never,
     });
-    const result = await handler(baseData);
+    const result = await handler(baseData as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Unauthorized");
   });
@@ -34,7 +34,7 @@ describe("createDeleteVariableHandler", () => {
       getSession: async () => ({ name: "Admin", email: "a@b.com" }),
       db: db as never,
     });
-    const result = await handler(baseData);
+    const result = await handler(baseData as never);
     expect(result.status).toBe(true);
     expect((result as { data?: { ok: boolean } }).data?.ok).toBe(true);
     expect(deleteMock).toHaveBeenCalledWith({

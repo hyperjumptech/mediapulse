@@ -13,7 +13,7 @@ const baseData = {
   headers: new Headers(),
   searchParams: {},
   user: undefined,
-} as never;
+};
 
 describe("createCreateVariableHandler", () => {
   afterEach(() => {
@@ -25,7 +25,7 @@ describe("createCreateVariableHandler", () => {
       getSession: async () => null,
       db: {} as never,
     });
-    const result = await handler(baseData);
+    const result = await handler(baseData as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Unauthorized");
   });
@@ -43,7 +43,7 @@ describe("createCreateVariableHandler", () => {
       getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
       db: db as never,
     });
-    const result = await handler(baseData);
+    const result = await handler(baseData as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toContain(
       "already exists",
@@ -65,7 +65,7 @@ describe("createCreateVariableHandler", () => {
       getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
       db: db as never,
     });
-    const result = await handler(baseData);
+    const result = await handler(baseData as never);
 
     expect(result.status).toBe(true);
     expect((result as { data?: { id: string } }).data?.id).toBe(
