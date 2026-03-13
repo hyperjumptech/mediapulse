@@ -29,7 +29,7 @@ describe("createAddStepHandler", () => {
       pipelineStep: {},
     };
     const addHandler = createAddStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await addHandler({
@@ -56,7 +56,7 @@ describe("createAddStepHandler", () => {
       },
     };
     const addHandler = createAddStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await addHandler({
@@ -97,7 +97,7 @@ describe("handler", () => {
       },
     };
     const customHandler = createAddStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({

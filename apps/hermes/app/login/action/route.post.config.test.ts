@@ -182,6 +182,7 @@ describe("createPersistAdminSession", () => {
       JSON.stringify({
         name: "Admin User",
         email: "admin@example.com",
+        id: "user_1",
       }),
       opts,
     );
@@ -326,7 +327,11 @@ describe("handler", () => {
     expect(setCookieMock).toHaveBeenCalledTimes(2);
     expect(setCookieMock).toHaveBeenCalledWith(
       "auth-user",
-      JSON.stringify({ name: "Admin User", email: "admin@example.com" }),
+      JSON.stringify({
+        name: "Admin User",
+        email: "admin@example.com",
+        id: "user_1",
+      }),
       expect.any(Object),
     );
   });

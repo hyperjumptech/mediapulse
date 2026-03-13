@@ -31,7 +31,7 @@ describe("createRemoveStepHandler", () => {
       },
     };
     const removeHandler = createRemoveStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await removeHandler({
@@ -59,7 +59,7 @@ describe("createRemoveStepHandler", () => {
       },
     };
     const removeHandler = createRemoveStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await removeHandler({
@@ -92,7 +92,7 @@ describe("handler", () => {
       },
     };
     const customHandler = createRemoveStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({

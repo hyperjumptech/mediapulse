@@ -32,7 +32,11 @@ describe("createUpdateVariableHandler", () => {
       },
     };
     const handler = createUpdateVariableHandler({
-      getSession: async () => ({ name: "Admin", email: "a@b.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "a@b.com",
+      }),
       db: db as never,
     });
     const result = await handler({
@@ -61,7 +65,11 @@ describe("createUpdateVariableHandler", () => {
       },
     };
     const handler = createUpdateVariableHandler({
-      getSession: async () => ({ name: "Admin", email: "a@b.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "a@b.com",
+      }),
       db: db as never,
     });
     const result = await handler({
@@ -93,7 +101,11 @@ describe("createUpdateVariableHandler", () => {
       },
     };
     const handler = createUpdateVariableHandler({
-      getSession: async () => ({ name: "Admin", email: "a@b.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "a@b.com",
+      }),
       db: db as never,
     });
     await handler({

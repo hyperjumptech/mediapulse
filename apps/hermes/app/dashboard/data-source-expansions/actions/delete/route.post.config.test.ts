@@ -27,7 +27,11 @@ describe("createDeleteDataSourceExpansionHandler", () => {
 
   it("returns error when expansion not found", async () => {
     const handler = createDeleteDataSourceExpansionHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
       db: {
         dataSourceExpansion: {
           deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -43,7 +47,11 @@ describe("createDeleteDataSourceExpansionHandler", () => {
 
   it("deletes expansion and returns ok", async () => {
     const handler = createDeleteDataSourceExpansionHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
       db: {
         dataSourceExpansion: {
           deleteMany: vi.fn().mockResolvedValue({ count: 1 }),

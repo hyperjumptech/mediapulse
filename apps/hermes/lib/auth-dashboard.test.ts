@@ -72,13 +72,20 @@ describe("getDashboardSession", () => {
         name === "auth-token"
           ? { value: "token" }
           : name === "auth-user"
-            ? { value: '{"name":"Admin","email":"admin@example.com"}' }
+            ? {
+                value:
+                  '{"id":"user-1","name":"Admin","email":"admin@example.com"}',
+              }
             : undefined,
     });
 
     const result = await getDashboardSession({ getCookieStore });
 
-    expect(result).toEqual({ name: "Admin", email: "admin@example.com" });
+    expect(result).toEqual({
+      id: "user-1",
+      name: "Admin",
+      email: "admin@example.com",
+    });
   });
 
   it("returns user from Cookie header when cookie store has no auth cookies (e.g. Server Action)", async () => {
@@ -87,7 +94,9 @@ describe("getDashboardSession", () => {
     });
     const cookieHeader =
       "auth-token=session-123; auth-user=" +
-      encodeURIComponent('{"name":"Admin","email":"admin@example.com"}');
+      encodeURIComponent(
+        '{"id":"user-1","name":"Admin","email":"admin@example.com"}',
+      );
     const getHeaders = vi
       .fn()
       .mockResolvedValue(new Headers({ cookie: cookieHeader }));
@@ -97,6 +106,10 @@ describe("getDashboardSession", () => {
       getHeaders,
     });
 
-    expect(result).toEqual({ name: "Admin", email: "admin@example.com" });
+    expect(result).toEqual({
+      id: "user-1",
+      name: "Admin",
+      email: "admin@example.com",
+    });
   });
 });

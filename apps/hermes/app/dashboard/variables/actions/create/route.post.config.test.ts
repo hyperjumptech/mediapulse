@@ -40,7 +40,11 @@ describe("createCreateVariableHandler", () => {
       },
     };
     const handler = createCreateVariableHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
       db: db as never,
     });
     const result = await handler(baseData as never);
@@ -62,7 +66,11 @@ describe("createCreateVariableHandler", () => {
       },
     };
     const handler = createCreateVariableHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
       db: db as never,
     });
     const result = await handler(baseData as never);
@@ -92,7 +100,11 @@ describe("createCreateVariableHandler", () => {
       },
     };
     const handler = createCreateVariableHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
       db: db as never,
     });
     const result = await handler({

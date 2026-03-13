@@ -33,7 +33,11 @@ describe("createUpdateDataSourceExpansionHandler", () => {
 
   it("returns error when expansion not found", async () => {
     const handler = createUpdateDataSourceExpansionHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
       db: {
         dataSourceExpansion: {
           update: vi.fn().mockRejectedValue(new Error("Record not found")),
@@ -57,7 +61,11 @@ describe("createUpdateDataSourceExpansionHandler", () => {
       updatedAt: new Date(),
     };
     const handler = createUpdateDataSourceExpansionHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
       db: {
         dataSourceExpansion: {
           update: vi.fn().mockResolvedValue(updated),

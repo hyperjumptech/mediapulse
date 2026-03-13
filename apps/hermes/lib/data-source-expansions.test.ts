@@ -183,6 +183,7 @@ describe("createDataSourceExpansion", () => {
         name: "  My expansion  ",
         expansionString: "  db:ticker:all:id  ",
         description: "Notes",
+        createdById: "user-1",
       },
       db,
     );
@@ -193,6 +194,7 @@ describe("createDataSourceExpansion", () => {
         name: "My expansion",
         expansionString: "db:ticker:all:id",
         description: "Notes",
+        createdBy: { connect: { id: "user-1" } },
       },
     });
     expect(result.id).toBe("e1");
@@ -214,7 +216,12 @@ describe("createDataSourceExpansion", () => {
 
     // Act
     await createDataSourceExpansion(
-      { name: "X", expansionString: "db:ticker:all:id", description: "   " },
+      {
+        name: "X",
+        expansionString: "db:ticker:all:id",
+        description: "   ",
+        createdById: "user-1",
+      },
       db,
     );
 

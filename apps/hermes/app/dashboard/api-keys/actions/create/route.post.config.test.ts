@@ -31,7 +31,11 @@ describe("createCreateApiKeyHandler", () => {
       aPIKey: { create: vi.fn() },
     };
     const createHandler = createCreateApiKeyHandler({
-      getSession: async () => ({ name: "Admin", email: "unknown@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "unknown@example.com",
+      }),
       db: db as never,
     });
     const result = await createHandler(baseData);
@@ -57,7 +61,11 @@ describe("createCreateApiKeyHandler", () => {
       aPIKey: { create: createMock },
     };
     const createHandler = createCreateApiKeyHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@example.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
       db: db as never,
     });
     const result = await createHandler(baseData);
@@ -103,7 +111,7 @@ describe("handler", () => {
       aPIKey: { create: createMock },
     };
     const createHandler = createCreateApiKeyHandler({
-      getSession: async () => ({ name: "U", email: "u@x.com" }),
+      getSession: async () => ({ id: "user-1", name: "U", email: "u@x.com" }),
       db: db as never,
     });
     const result = await createHandler({
