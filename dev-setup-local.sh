@@ -42,7 +42,7 @@ prompt_non_empty_secret() {
   local value=""
   while [[ -z "$value" ]]; do
     read -r -s -p "$prompt" value
-    echo ""
+    echo "" >&2
   done
   printf "%s" "$value"
 }
@@ -312,6 +312,12 @@ main() {
   echo "  - AGENT_REGISTRY_API_KEY"
   echo "Updated apps/agents/*/.env.local with:"
   echo "  - AGENT_REGISTRY_API_KEY"
+  if [[ "$SKIP_ADMIN" == "false" ]]; then
+    echo ""
+    echo "Admin credentials:"
+    echo "  - Email: $ADMIN_EMAIL"
+    echo "  - Password: $ADMIN_PASSWORD"
+  fi
   echo ""
   echo "Next step: pnpm dev"
 }
