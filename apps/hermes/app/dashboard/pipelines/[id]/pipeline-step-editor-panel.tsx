@@ -71,6 +71,19 @@ export const PipelineStepEditorPanel = ({
     configSchema: Record<string, unknown> | null;
   }>({ inputSchema: null, configSchema: null });
   const [schemaLoading, setSchemaLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"input" | "config">("input");
+  const [lastStepId, setLastStepId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedStep) {
+      setLastStepId(null);
+      return;
+    }
+    if (selectedStep.id !== lastStepId) {
+      setLastStepId(selectedStep.id);
+      setActiveTab("input");
+    }
+  }, [selectedStep, lastStepId]);
 
   useEffect(() => {
     if (!selectedStep) {
@@ -128,7 +141,11 @@ export const PipelineStepEditorPanel = ({
       <h3 className="text-sm font-medium text-foreground">
         Agent input & config
       </h3>
-      <Tabs defaultValue="input" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "input" | "config")}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="input">Input</TabsTrigger>
           <TabsTrigger value="config">Config</TabsTrigger>
