@@ -9,6 +9,7 @@ ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
 AGENT_AUTH_API_URL="http://localhost:8080"
 SCHEDULER_KEY_NAME="Local dev scheduler"
+REGISTRY_KEY_NAME="Local dev registry"
 JWT_SECRET=""
 SKIP_INSTALL="false"
 SKIP_MIGRATIONS="false"
@@ -105,6 +106,7 @@ Options:
   --admin-password <password>       Admin password (required in non-interactive mode).
   --agent-auth-api-url <url>        AGENT_AUTH_API_URL value (default: http://localhost:8080).
   --scheduler-key-name <name>       Scheduler API key name (default: Local dev scheduler).
+  --registry-key-name <name>        Registry API key name (default: Local dev registry).
   --jwt-secret <secret>             AGENT_AUTH_JWT_SECRET value (default: generated with openssl).
   --skip-install                    Skip pnpm install.
   --skip-migrations                 Skip Prisma and DataQueue migrations.
@@ -139,6 +141,10 @@ parse_args() {
         ;;
       --scheduler-key-name)
         SCHEDULER_KEY_NAME="${2:-}"
+        shift 2
+        ;;
+      --registry-key-name)
+        REGISTRY_KEY_NAME="${2:-}"
         shift 2
         ;;
       --jwt-secret)
@@ -191,7 +197,24 @@ collect_interactive_inputs() {
     ADMIN_EMAIL="$(prompt_non_empty "Admin email: ")"
     ADMIN_PASSWORD="$(prompt_non_empty_secret "Admin password: ")"
     SCHEDULER_KEY_NAME="$(prompt_with_default "Scheduler key name" "$SCHEDULER_KEY_NAME")"
+    REGISTRY_KEY_NAME="$(prompt_with_default "Registry key name" "$REGISTRY_KEY_NAME")"
   fi
+}
+
+set_agent_registry_api_key_for_all_agents() {
+  local api_key="$1"
+  local agent_dir
+  local env_local_file
+
+  for agent_dir in "$SCRIPT_DIR/apps/agents"/*; do
+    if [[ -d "$agent_dir" ]]; then
+      env_local_file="$agent_dir/.env.local"
+      if [[ ! -f "$env_local_file" ]]; then
+        touch "$env_local_file"
+      fi
+      upsert_env_var "$env_local_file" "AGENT_REGISTRY_API_KEY" "$api_key"
+    fi
+  done
 }
 
 main() {
@@ -248,19 +271,37 @@ main() {
       echo "Hermes worker may fail until AGENT_API_KEY is set."
     fi
   else
-    section "Create admin and scheduler API key"
-    GENERATED_OUTPUT="$(
+    section "Create admin and API keys"
+    (
       cd apps/hermes
-      pnpm create:admin "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
+      pnpm create:admin "$ADMIN_EMAIL" "$ADMIN_PASSWORD" >/dev/null
+    )
+
+    SCHEDULER_OUTPUT="$(
+      cd apps/hermes
       pnpm generate-api-key "$ADMIN_EMAIL" "$SCHEDULER_KEY_NAME" --purpose scheduler
     )"
-    API_KEY="$(extract_generated_api_key "$GENERATED_OUTPUT")"
-    if [[ -z "$API_KEY" ]]; then
+    SCHEDULER_API_KEY="$(extract_generated_api_key "$SCHEDULER_OUTPUT")"
+    if [[ -z "$SCHEDULER_API_KEY" ]]; then
       echo "Could not parse generated API key from output."
       echo "Please run apps/hermes/scripts/generate-api-key.ts manually."
       exit 1
     fi
-    upsert_env_var "$ENV_FILE" "AGENT_API_KEY" "$API_KEY"
+
+    REGISTRY_OUTPUT="$(
+      cd apps/hermes
+      pnpm generate-api-key "$ADMIN_EMAIL" "$REGISTRY_KEY_NAME" --purpose general
+    )"
+    REGISTRY_API_KEY="$(extract_generated_api_key "$REGISTRY_OUTPUT")"
+    if [[ -z "$REGISTRY_API_KEY" ]]; then
+      echo "Could not parse generated registry API key from output."
+      echo "Please run apps/hermes/scripts/generate-api-key.ts manually."
+      exit 1
+    fi
+
+    upsert_env_var "$ENV_FILE" "AGENT_API_KEY" "$SCHEDULER_API_KEY"
+    upsert_env_var "$ENV_FILE" "AGENT_REGISTRY_API_KEY" "$REGISTRY_API_KEY"
+    set_agent_registry_api_key_for_all_agents "$REGISTRY_API_KEY"
   fi
 
   section "Done"
@@ -268,6 +309,9 @@ main() {
   echo "  - AGENT_AUTH_JWT_SECRET"
   echo "  - AGENT_AUTH_API_URL=$AGENT_AUTH_API_URL"
   echo "  - AGENT_API_KEY"
+  echo "  - AGENT_REGISTRY_API_KEY"
+  echo "Updated apps/agents/*/.env.local with:"
+  echo "  - AGENT_REGISTRY_API_KEY"
   echo ""
   echo "Next step: pnpm dev"
 }
