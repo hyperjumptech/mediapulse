@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   getDataSourceExpansionsPage,
@@ -75,6 +76,10 @@ const DataSourceExpansionsPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Data source expansions"
+        description="Manage data source expansion definitions."
+      />
       <div className="flex flex-col justify-between sm:flex-row sm:items-center">
         <DataSourceExpansionsSearch
           initialQuery={search ?? ""}

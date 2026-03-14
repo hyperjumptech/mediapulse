@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   getAgentsPage,
@@ -66,6 +67,10 @@ const AgentsPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Agents"
+        description="View and manage registered agents."
+      />
       <div className="flex flex-col justify-between sm:flex-row sm:items-center">
         <AgentsSearch
           initialQuery={search ?? ""}
