@@ -4,138 +4,67 @@ description: Run the full MediaPulse stack locally
 icon: BookOpen
 ---
 
-This guide gets you from clone to a running local stack. Do the steps in order; the **Quick reference** at the end lists all commands in one place.
+Fast path to a running local stack:
+
+## Quick start (interactive, recommended)
+
+```bash
+docker-compose up -d
+./dev-setup-local.sh
+pnpm dev
+```
+
+Open **http://localhost:3001** when `pnpm dev` is up.
+
+The setup script prompts for your admin email/password and then automatically:
+
+- bootstraps env files/symlinks
+- generates and writes `AGENT_AUTH_JWT_SECRET`
+- sets `AGENT_AUTH_API_URL`
+- runs DB + DataQueue migrations
+- creates an admin user
+- creates a scheduler API key and writes `AGENT_API_KEY`
+
+## Quick start (non-interactive / automation)
+
+```bash
+docker-compose up -d
+./dev-setup-local.sh --non-interactive --admin-email dev@example.com --admin-password "ChangeMe123!"
+pnpm dev
+```
+
+Optional flags:
+
+- `--agent-auth-api-url http://localhost:8080`
+- `--scheduler-key-name "Local dev scheduler"`
+- `--jwt-secret "<your-secret>"` (if omitted, the script generates one)
+- `--skip-install` (use when dependencies are already installed)
+- `--skip-migrations` (use when DB schema is already up to date)
+- `--skip-admin` (use when admin user and `AGENT_API_KEY` are already set)
 
 ## Prerequisites
 
 - **Node.js 22+**
-- **pnpm 10.4+** — enable with `corepack enable && corepack prepare pnpm@latest --activate` if needed
-- **Docker** — for PostgreSQL
-- **Bun** (optional) — used by agent and API dev servers; [install](https://bun.sh)
+- **pnpm 10.4+** (`corepack enable && corepack prepare pnpm@latest --activate`)
+- **Docker**
+- **Bun** (optional; used by some local dev servers)
 
-Use **pnpm** for install and scripts. Do not use `npm`, `yarn`, or `bun` to install dependencies.
-
----
-
-## Step 1: Clone and install
-
-```bash
-git clone <repository-url>
-cd mediapulse
-pnpm install
-```
+Use **pnpm** for install/scripts.
 
 ---
 
-## Step 2: Start the database
+## What the setup script runs
 
-```bash
-docker-compose up -d
-```
+`./dev-setup-local.sh` executes these steps in order:
 
-PostgreSQL runs (e.g. `localhost:5432`). The default connection string in the example env matches the usual Docker Compose setup.
-
----
-
-## Step 3: Environment and symlinks
-
-Bootstrap creates the shared env file and symlinks so every app and package uses it:
-
-```bash
-./dev-bootstrap.sh
-```
-
-To reset env and symlinks from scratch:
-
-```bash
-./dev-bootstrap.sh -f
-```
-
-Then build the env package so generated TypeScript env modules exist (required for hermes-worker, agents, etc.):
-
-```bash
-pnpm --filter @workspace/env build
-```
-
----
-
-## Step 4: Set required env for auth and scheduler
-
-Edit **`packages/env/.env`** and set at least:
-
-| Variable                | Example / note                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| `AGENT_AUTH_API_URL`    | `http://localhost:8080`                                                        |
-| `AGENT_AUTH_JWT_SECRET` | Long random string (32+ chars). Required for hermes-worker short-lived tokens |
-
-Generate a secure JWT secret and paste it into `packages/env/.env`:
-
-```bash
-openssl rand -base64 32
-# then set AGENT_AUTH_JWT_SECRET=<output>
-```
-
-Leave `AGENT_API_KEY` empty for now; you’ll set it after creating a **scheduler** key in the next steps.
-
-<Callout type="info">
-  **`packages/env/.env`** is the single source of truth for shared env. After
-  editing, restart the apps that use it (or restart `pnpm dev`).
-</Callout>
-
----
-
-## Step 5: Database migrations
-
-Prisma (main app schema):
-
-```bash
-cd packages/database
-pnpm db:migrate:dev
-pnpm db:generate
-cd ../..
-```
-
-DataQueue (hermes-worker scheduler):
-
-```bash
-pnpm --filter hermes-worker run migrate-dataqueue:dev
-```
-
----
-
-## Step 6: Admin user
-
-Create an admin user (email and password of your choice):
-
-```bash
-cd apps/hermes && pnpm create:admin your@email.com YourPassword && cd ../..
-```
-
----
-
-## Step 7: Scheduler API key (for hermes-worker and pipelines)
-
-hermes-worker and Hermes use **short-lived tokens only**. The auth API issues tokens only for API keys with **purpose `scheduler`**. Create one with:
-
-```bash
-cd apps/hermes && pnpm generate-api-key your@email.com "Local dev scheduler" --purpose scheduler && cd ../..
-```
-
-The script prints the raw key **once**. Copy it, then open **`packages/env/.env`** and set:
-
-```bash
-AGENT_API_KEY=<paste the key here>
-```
-
----
-
-## Step 8: Run the stack
-
-```bash
-pnpm dev
-```
-
-Turbo starts every app with a `dev` script. When everything is up, open the Hermes dashboard at **http://localhost:3001**.
+1. `pnpm install` (unless `--skip-install`)
+2. `./dev-bootstrap.sh`
+3. `pnpm --filter @workspace/env build`
+4. Prisma migrations + client generation in `packages/database` (unless `--skip-migrations`)
+5. `pnpm --filter hermes-worker run migrate-dataqueue:dev` (unless `--skip-migrations`)
+6. `pnpm create:admin ...` in `apps/hermes` (unless `--skip-admin`)
+7. `pnpm generate-api-key ... --purpose scheduler` in `apps/hermes` (unless `--skip-admin`)
+8. Writes `AGENT_API_KEY` to `packages/env/.env` (unless `--skip-admin`)
 
 ### Services and ports
 
@@ -184,45 +113,34 @@ To let agents register with the registry on startup, set in each agent’s **`ap
 | Problem                             | Check                                                                                                                             |
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | DB connection errors                | Docker is running (`docker-compose up -d`), connection string in `packages/env/.env` matches (e.g. `DATABASE_URL`).               |
-| hermes-worker can’t get token / 403 | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (see Step 7).                                                          |
-| hermes-worker can’t get token / 403 | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (see Step 7).                                                          |
+| hermes-worker can’t get token / 403 | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (the setup script creates it this way).                                |
 | Agent returns 401                   | Auth API is running (8080); **`AGENT_AUTH_API_URL`** is set where the agent loads env; the token or key is valid and not revoked. |
 | Env var not picked up               | Edit **`packages/env/.env`** (or the app’s `.env.local` for app-specific vars). Restart the app or `pnpm dev`.                    |
 | DataQueue / cron errors             | Run **`pnpm --filter hermes-worker run migrate-dataqueue:dev`** once.                                                             |
 
 ---
 
-## Quick reference (all commands in order)
+## Quick reference
 
 ```bash
-# 1. Install
-pnpm install
-
-# 2. Database
+# 1. Database
 docker-compose up -d
 
-# 3. Env
-./dev-bootstrap.sh
-pnpm --filter @workspace/env build
+# 2. Full local setup (interactive)
+./dev-setup-local.sh
 
-# 4. Env for short-lived tokens
-openssl rand -base64 32
-# paste output into packages/env/.env as AGENT_AUTH_JWT_SECRET
-# and set AGENT_AUTH_API_URL=http://localhost:8080
-
-# 5. Migrations
-cd packages/database && pnpm db:migrate:dev && pnpm db:generate && cd ../..
-pnpm --filter hermes-worker run migrate-dataqueue:dev
-
-# 6. Admin
-cd apps/hermes && pnpm create:admin your@email.com YourPassword && cd ../..
-
-# 7. Scheduler key (use same email as admin)
-cd apps/hermes && pnpm generate-api-key your@email.com "Local dev scheduler" --purpose scheduler && cd ../..
-# Set printed key as AGENT_API_KEY in packages/env/.env
-
-# 8. Run
+# 3. Run
 pnpm dev
 ```
 
-Then open **http://localhost:3001** for the Hermes dashboard.
+For automation, replace step 3 with:
+
+```bash
+./dev-setup-local.sh --non-interactive --admin-email dev@example.com --admin-password "ChangeMe123!"
+```
+
+For repeat runs (already installed + migrated):
+
+```bash
+./dev-setup-local.sh --skip-install --skip-migrations --skip-admin
+```
