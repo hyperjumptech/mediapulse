@@ -25,10 +25,9 @@ export type PipelineFormModalProps = {
 };
 
 /**
- * Modal for creating or editing a pipeline. Uses shared PipelineFormFields with create or update action based on mode.
- * For edit mode, fetches pipeline when opened and shows loading until data is ready.
+ * Encapsulates pipeline form modal state: fetch for edit, create/update form actions, success close.
  */
-export const PipelineFormModal = ({
+const usePipelineFormModalState = ({
   open,
   onOpenChange,
   mode,
@@ -120,6 +119,37 @@ export const PipelineFormModal = ({
   const notFound = isEdit && pipeline === null;
   const canShowForm =
     mode === "create" || (pipeline !== null && pipeline !== "loading");
+
+  return {
+    Form,
+    title,
+    pending,
+    errorMessage,
+    submitLabel,
+    formFieldsProps,
+    isLoadingEdit,
+    notFound,
+    canShowForm,
+  };
+};
+
+/**
+ * Modal for creating or editing a pipeline. Uses shared PipelineFormFields with create or update action based on mode.
+ * For edit mode, fetches pipeline when opened and shows loading until data is ready.
+ */
+export const PipelineFormModal = (props: PipelineFormModalProps) => {
+  const { open, onOpenChange } = props;
+  const {
+    Form,
+    title,
+    pending,
+    errorMessage,
+    submitLabel,
+    formFieldsProps,
+    isLoadingEdit,
+    notFound,
+    canShowForm,
+  } = usePipelineFormModalState(props);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -23,15 +23,15 @@ type EditApiKeyModalProps = {
 };
 
 /**
- * Modal with form to edit an existing API key (name, isActive). Submits via update action; closes and refreshes on success.
+ * Encapsulates edit-api-key form state and close-on-success behavior.
  */
-export const EditApiKeyModal = ({
-  apiKey,
-  open,
-  onOpenChange,
-}: EditApiKeyModalProps) => {
+const useEditApiKeyModalState = (
+  open: boolean,
+  onOpenChange: (open: boolean) => void,
+) => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
+  const didHandleSuccess = useRef(false);
 
   const errorMessage = useMemo(() => {
     if (state && state.status === false) return state.message as string;
@@ -39,7 +39,6 @@ export const EditApiKeyModal = ({
   }, [state]);
 
   const success = useMemo(() => state && state.status === true, [state]);
-  const didHandleSuccess = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -54,6 +53,22 @@ export const EditApiKeyModal = ({
       router.refresh();
     }
   }, [success, onOpenChange, router]);
+
+  return { FormWithAction, pending, errorMessage };
+};
+
+/**
+ * Modal with form to edit an existing API key (name, isActive). Submits via update action; closes and refreshes on success.
+ */
+export const EditApiKeyModal = ({
+  apiKey,
+  open,
+  onOpenChange,
+}: EditApiKeyModalProps) => {
+  const { FormWithAction, pending, errorMessage } = useEditApiKeyModalState(
+    open,
+    onOpenChange,
+  );
 
   if (!apiKey) return null;
 

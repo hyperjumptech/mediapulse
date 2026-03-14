@@ -15,13 +15,9 @@ export type RunPipelineButtonProps = {
 };
 
 /**
- * Button that runs the pipeline for all tickers (same behavior as cron). Uses run-pipeline action.
- * Disabled when pipeline is invalid so admin must complete step input/config first.
+ * Encapsulates run-pipeline form action and refresh-on-success.
  */
-export const RunPipelineButton = ({
-  pipelineId,
-  disabled = false,
-}: RunPipelineButtonProps) => {
+const useRunPipelineButtonState = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -30,6 +26,19 @@ export const RunPipelineButton = ({
       router.refresh();
     }
   }, [state, router]);
+
+  return { FormWithAction, state, pending };
+};
+
+/**
+ * Button that runs the pipeline for all tickers (same behavior as cron). Uses run-pipeline action.
+ * Disabled when pipeline is invalid so admin must complete step input/config first.
+ */
+export const RunPipelineButton = ({
+  pipelineId,
+  disabled = false,
+}: RunPipelineButtonProps) => {
+  const { FormWithAction, state, pending } = useRunPipelineButtonState();
 
   const errorMessage = state && state.status === false ? state.message : null;
   const successTickers =

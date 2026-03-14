@@ -22,6 +22,17 @@ type ApiKeysTableWithEditProps = {
 };
 
 /**
+ * Encapsulates API keys table edit modal state.
+ */
+const useApiKeysTableWithEditState = () => {
+  const [editingApiKey, setEditingApiKey] = useState<ApiKeyRow | null>(null);
+  return {
+    editingApiKey,
+    setEditingApiKey,
+  };
+};
+
+/**
  * Client wrapper that holds edit-modal state and renders the API keys table plus edit modal.
  * Edit row action opens the modal.
  */
@@ -32,7 +43,7 @@ export const ApiKeysTableWithEdit = ({
   pageSize,
   searchQuery,
 }: ApiKeysTableWithEditProps) => {
-  const [editingApiKey, setEditingApiKey] = useState<ApiKeyRow | null>(null);
+  const { editingApiKey, setEditingApiKey } = useApiKeysTableWithEditState();
 
   return (
     <>

@@ -53,24 +53,12 @@ const reorderedStepIds = (
 };
 
 /**
- * Renders the pipeline steps list with select, delete, and reorder (up/down) actions.
+ * Encapsulates remove/reorder form actions and refresh-on-success for the pipeline steps column.
  */
-export const PipelineStepsColumn = ({
-  pipelineId,
-  steps,
-  agentDescriptions,
-  selectedStepId,
-  onSelectStep,
-}: PipelineStepsColumnProps) => {
+const usePipelineStepsColumnState = (
+  onSelectStep: (stepId: string | null) => void,
+) => {
   const router = useRouter();
-  const agentByKey = useMemo(() => {
-    const m = new Map<string, Agent>();
-    for (const a of agentDescriptions) {
-      m.set(`${a.agentId}@${a.agentVersion}`, a);
-    }
-    return m;
-  }, [agentDescriptions]);
-
   const {
     FormWithAction: RemoveForm,
     state: removeState,
@@ -96,6 +84,30 @@ export const PipelineStepsColumn = ({
   }, [reorderState, router]);
 
   const pending = removePending || reorderPending;
+
+  return { RemoveForm, ReorderForm, pending };
+};
+
+/**
+ * Renders the pipeline steps list with select, delete, and reorder (up/down) actions.
+ */
+export const PipelineStepsColumn = ({
+  pipelineId,
+  steps,
+  agentDescriptions,
+  selectedStepId,
+  onSelectStep,
+}: PipelineStepsColumnProps) => {
+  const agentByKey = useMemo(() => {
+    const m = new Map<string, Agent>();
+    for (const a of agentDescriptions) {
+      m.set(`${a.agentId}@${a.agentVersion}`, a);
+    }
+    return m;
+  }, [agentDescriptions]);
+
+  const { RemoveForm, ReorderForm, pending } =
+    usePipelineStepsColumnState(onSelectStep);
 
   if (steps.length === 0) {
     return (

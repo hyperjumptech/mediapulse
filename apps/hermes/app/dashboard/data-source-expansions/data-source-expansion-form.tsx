@@ -1,9 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -32,9 +31,9 @@ export type DataSourceExpansionFormProps =
   | DataSourceExpansionFormEditProps;
 
 /**
- * Form for creating or editing a data source expansion. Includes Run/Preview and format docs.
+ * Encapsulates data source expansion form state: create/update action, preview, and success effects.
  */
-export const DataSourceExpansionForm = (
+const useDataSourceExpansionFormState = (
   props: DataSourceExpansionFormProps,
 ) => {
   const router = useRouter();
@@ -80,7 +79,7 @@ export const DataSourceExpansionForm = (
     }
   }, [updateSuccess, router]);
 
-  const handleRunPreview = async () => {
+  const handleRunPreview = useCallback(async () => {
     const raw =
       expansionStringRef.current?.value?.trim() ??
       (props.mode === "edit" ? props.initialExpansionString : "");
@@ -108,7 +107,36 @@ export const DataSourceExpansionForm = (
     } finally {
       setPreviewPending(false);
     }
+  }, [props]);
+
+  return {
+    FormWithAction,
+    pending,
+    errorMessage,
+    expansionStringRef,
+    previewResult,
+    previewPending,
+    handleRunPreview,
+    isCreate,
   };
+};
+
+/**
+ * Form for creating or editing a data source expansion. Includes Run/Preview and format docs.
+ */
+export const DataSourceExpansionForm = (
+  props: DataSourceExpansionFormProps,
+) => {
+  const {
+    FormWithAction,
+    pending,
+    errorMessage,
+    expansionStringRef,
+    previewResult,
+    previewPending,
+    handleRunPreview,
+    isCreate,
+  } = useDataSourceExpansionFormState(props);
 
   return (
     <div className="flex flex-col gap-6">

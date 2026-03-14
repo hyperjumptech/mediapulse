@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -25,22 +25,37 @@ const hasErrors = (errors: unknown): boolean =>
   Array.isArray(errors) ? errors.length > 0 : errors != null;
 
 /**
+ * Encapsulates executions table error log modal state.
+ */
+const useExecutionsTableState = () => {
+  const [errorLogOpen, setErrorLogOpen] = useState(false);
+  const [selectedErrors, setSelectedErrors] = useState<unknown>(null);
+
+  const openErrorLog = useCallback((errors: unknown) => {
+    setSelectedErrors(errors);
+    setErrorLogOpen(true);
+  }, []);
+
+  const closeErrorLog = useCallback(() => {
+    setErrorLogOpen(false);
+    setSelectedErrors(null);
+  }, []);
+
+  return {
+    errorLogOpen,
+    selectedErrors,
+    openErrorLog,
+    closeErrorLog,
+  };
+};
+
+/**
  * Renders the schedule executions list as a table with Execution time, Status, Jobs created, Jobs enqueued, and Error log link.
  * Clicking "View log" opens the error log modal for that execution.
  */
 export const ExecutionsTable = ({ executions }: ExecutionsTableProps) => {
-  const [errorLogOpen, setErrorLogOpen] = useState(false);
-  const [selectedErrors, setSelectedErrors] = useState<unknown>(null);
-
-  const openErrorLog = (errors: unknown) => {
-    setSelectedErrors(errors);
-    setErrorLogOpen(true);
-  };
-
-  const closeErrorLog = () => {
-    setErrorLogOpen(false);
-    setSelectedErrors(null);
-  };
+  const { errorLogOpen, selectedErrors, openErrorLog, closeErrorLog } =
+    useExecutionsTableState();
 
   return (
     <>

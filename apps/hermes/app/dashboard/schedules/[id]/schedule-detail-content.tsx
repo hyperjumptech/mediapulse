@@ -30,6 +30,14 @@ export type ScheduleDetailContentProps = {
 };
 
 /**
+ * Encapsulates schedule detail edit modal state.
+ */
+const useScheduleDetailContentState = () => {
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  return { editModalOpen, setEditModalOpen };
+};
+
+/**
  * Client wrapper for schedule detail: back link, header with Edit schedule button, executions table, and pagination.
  */
 export const ScheduleDetailContent = ({
@@ -41,7 +49,7 @@ export const ScheduleDetailContent = ({
   pipelines,
   pipelineValidationById,
 }: ScheduleDetailContentProps) => {
-  const [editModalOpen, setEditModalOpen] = useState(false);
+  const { editModalOpen, setEditModalOpen } = useScheduleDetailContentState();
 
   return (
     <>

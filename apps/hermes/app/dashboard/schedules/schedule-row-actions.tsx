@@ -17,6 +17,22 @@ import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/schedules/actions/delete/.generated/use-form-action";
 
 /**
+ * Encapsulates delete form action and refresh-on-success for schedule row actions.
+ */
+const useScheduleRowActions = () => {
+  const router = useRouter();
+  const { FormWithAction, state, pending } = useFormAction();
+
+  useEffect(() => {
+    if (state && state.status === true) {
+      router.refresh();
+    }
+  }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
  * Dropdown actions for a schedule row: Edit (opens modal), Delete.
  */
 export const ScheduleRowActions = ({
@@ -28,14 +44,7 @@ export const ScheduleRowActions = ({
   scheduleName: string;
   onEdit: (scheduleId: string) => void;
 }) => {
-  const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
+  const { FormWithAction, pending } = useScheduleRowActions();
 
   return (
     <DropdownMenu>

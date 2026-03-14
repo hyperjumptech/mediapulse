@@ -27,13 +27,9 @@ type ApiKeyRowActionsProps = {
 };
 
 /**
- * Dropdown actions for an API key row: Edit, Delete.
+ * Encapsulates delete form action and refresh-on-success for API key row actions.
  */
-export const ApiKeyRowActions = ({
-  apiKey,
-  apiKeyLabel,
-  onEdit,
-}: ApiKeyRowActionsProps) => {
+const useApiKeyRowActions = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -42,6 +38,19 @@ export const ApiKeyRowActions = ({
       router.refresh();
     }
   }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
+ * Dropdown actions for an API key row: Edit, Delete.
+ */
+export const ApiKeyRowActions = ({
+  apiKey,
+  apiKeyLabel,
+  onEdit,
+}: ApiKeyRowActionsProps) => {
+  const { FormWithAction, pending } = useApiKeyRowActions();
 
   return (
     <DropdownMenu>

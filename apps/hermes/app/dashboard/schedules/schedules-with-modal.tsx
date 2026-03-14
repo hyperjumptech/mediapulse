@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 import type { ScheduleSortDir, ScheduleSortField } from "@/lib/schedules";
@@ -28,6 +28,36 @@ export type SchedulesWithModalProps = {
 };
 
 /**
+ * Encapsulates schedule list modal state: open, mode, edit id, and open callbacks.
+ */
+const useSchedulesWithModalState = () => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+  const [editScheduleId, setEditScheduleId] = useState<string | null>(null);
+
+  const openCreateModal = useCallback(() => {
+    setModalMode("create");
+    setEditScheduleId(null);
+    setModalOpen(true);
+  }, []);
+
+  const openEditModal = useCallback((scheduleId: string) => {
+    setModalMode("edit");
+    setEditScheduleId(scheduleId);
+    setModalOpen(true);
+  }, []);
+
+  return {
+    modalOpen,
+    setModalOpen,
+    modalMode,
+    editScheduleId,
+    openCreateModal,
+    openEditModal,
+  };
+};
+
+/**
  * Client wrapper that provides Create/Edit schedule modals and wires table row Edit to open the modal.
  */
 export const SchedulesWithModal = ({
@@ -41,21 +71,14 @@ export const SchedulesWithModal = ({
   sortBy,
   sortDir,
 }: SchedulesWithModalProps) => {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-  const [editScheduleId, setEditScheduleId] = useState<string | null>(null);
-
-  const openCreateModal = () => {
-    setModalMode("create");
-    setEditScheduleId(null);
-    setModalOpen(true);
-  };
-
-  const openEditModal = (scheduleId: string) => {
-    setModalMode("edit");
-    setEditScheduleId(scheduleId);
-    setModalOpen(true);
-  };
+  const {
+    modalOpen,
+    setModalOpen,
+    modalMode,
+    editScheduleId,
+    openCreateModal,
+    openEditModal,
+  } = useSchedulesWithModalState();
 
   return (
     <>

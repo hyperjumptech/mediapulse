@@ -23,11 +23,9 @@ type DataSourceExpansionRowActionsProps = {
 };
 
 /**
- * Dropdown actions for a data source expansion row: Edit (link to page), Delete.
+ * Encapsulates delete form action and refresh-on-success for data source expansion row actions.
  */
-export const DataSourceExpansionRowActions = ({
-  expansion,
-}: DataSourceExpansionRowActionsProps) => {
+const useDataSourceExpansionRowActions = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -36,6 +34,17 @@ export const DataSourceExpansionRowActions = ({
       router.refresh();
     }
   }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
+ * Dropdown actions for a data source expansion row: Edit (link to page), Delete.
+ */
+export const DataSourceExpansionRowActions = ({
+  expansion,
+}: DataSourceExpansionRowActionsProps) => {
+  const { FormWithAction, pending } = useDataSourceExpansionRowActions();
 
   return (
     <DropdownMenu>
