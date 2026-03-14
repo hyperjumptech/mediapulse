@@ -31,9 +31,15 @@ export async function issueToken(context: Context) {
   const jwtSecret = env.AGENT_AUTH_JWT_SECRET;
   if (!jwtSecret || jwtSecret.length < 16) {
     logger.warn(
-      "AGENT_AUTH_JWT_SECRET not set or too short; token issuance disabled",
+      "AGENT_AUTH_JWT_SECRET not set or too short (< 16 chars); token issuance disabled",
     );
-    return context.json({ error: "Token issuance not configured" }, 503);
+    return context.json(
+      {
+        error: "Token issuance not configured",
+        hint: "Set AGENT_AUTH_JWT_SECRET in packages/env/.env (32+ chars), then restart agent-auth-api. See dev-docs/docs/getting-started.mdx.",
+      },
+      503,
+    );
   }
 
   try {

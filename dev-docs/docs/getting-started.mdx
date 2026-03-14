@@ -63,10 +63,17 @@ pnpm --filter @workspace/env build
 
 Edit **`packages/env/.env`** and set at least:
 
-| Variable                | Example / note                                                                                                                |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `AGENT_AUTH_API_URL`    | `http://localhost:8080`                                                                                                       |
-| `AGENT_AUTH_JWT_SECRET` | Any long random string (32+ chars). Required for hermes-worker (short-lived tokens). Generate with: `openssl rand -base64 32` |
+| Variable                | Example / note                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `AGENT_AUTH_API_URL`    | `http://localhost:8080`                                                        |
+| `AGENT_AUTH_JWT_SECRET` | Long random string (32+ chars). Required for hermes-worker short-lived tokens |
+
+Generate a secure JWT secret and paste it into `packages/env/.env`:
+
+```bash
+openssl rand -base64 32
+# then set AGENT_AUTH_JWT_SECRET=<output>
+```
 
 Leave `AGENT_API_KEY` empty for now; you’ll set it after creating a **scheduler** key in the next steps.
 
@@ -172,14 +179,16 @@ To let agents register with the registry on startup, set in each agent’s **`ap
 
 ## Troubleshooting
 
-| Problem                                                  | Check                                                                                                                             |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| DB connection errors                                     | Docker is running (`docker-compose up -d`), connection string in `packages/env/.env` matches (e.g. `DATABASE_URL`).               |
-| "Token issuance not configured" / 503 from hermes-worker | **`AGENT_AUTH_JWT_SECRET`** is set in `packages/env/.env` (32+ chars). Restart agent-auth-api and hermes-worker.                  |
-| hermes-worker can’t get token / 403                      | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (see Step 7).                                                          |
-| Agent returns 401                                        | Auth API is running (8080); **`AGENT_AUTH_API_URL`** is set where the agent loads env; the token or key is valid and not revoked. |
-| Env var not picked up                                    | Edit **`packages/env/.env`** (or the app’s `.env.local` for app-specific vars). Restart the app or `pnpm dev`.                    |
-| DataQueue / cron errors                                  | Run **`pnpm --filter hermes-worker run migrate-dataqueue:dev`** once.                                                             |
+**503 "Token issuance not configured"** — hermes-worker calls agent-auth-api to get a short-lived token; the auth API returns 503 when it has no JWT secret. Fix: open **`packages/env/.env`**, set **`AGENT_AUTH_JWT_SECRET`** to a long random string (e.g. run `openssl rand -base64 32` and paste the output). Save the file, then **restart agent-auth-api and hermes-worker** (or stop and run `pnpm dev` again). The auth API reads env from the same `.env` (via symlink); if the var is missing or shorter than 16 characters, token issuance is disabled.
+
+| Problem                             | Check                                                                                                                             |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| DB connection errors                | Docker is running (`docker-compose up -d`), connection string in `packages/env/.env` matches (e.g. `DATABASE_URL`).               |
+| hermes-worker can’t get token / 403 | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (see Step 7).                                                          |
+| hermes-worker can’t get token / 403 | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (see Step 7).                                                          |
+| Agent returns 401                   | Auth API is running (8080); **`AGENT_AUTH_API_URL`** is set where the agent loads env; the token or key is valid and not revoked. |
+| Env var not picked up               | Edit **`packages/env/.env`** (or the app’s `.env.local` for app-specific vars). Restart the app or `pnpm dev`.                    |
+| DataQueue / cron errors             | Run **`pnpm --filter hermes-worker run migrate-dataqueue:dev`** once.                                                             |
 
 ---
 
@@ -196,7 +205,10 @@ docker-compose up -d
 ./dev-bootstrap.sh
 pnpm --filter @workspace/env build
 
-# 4. Edit packages/env/.env: set AGENT_AUTH_API_URL, AGENT_AUTH_JWT_SECRET (see Step 4)
+# 4. Env for short-lived tokens
+openssl rand -base64 32
+# paste output into packages/env/.env as AGENT_AUTH_JWT_SECRET
+# and set AGENT_AUTH_API_URL=http://localhost:8080
 
 # 5. Migrations
 cd packages/database && pnpm db:migrate:dev && pnpm db:generate && cd ../..
