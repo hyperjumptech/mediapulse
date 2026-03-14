@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 
+vi.mock("@workspace/agent-auth-client", () => ({
+  verifyApiKeyViaAuthApi: vi.fn().mockResolvedValue(true),
+}));
+
 vi.mock("@workspace/database", () => ({
   prisma: {
-    aPIKey: {
-      findUnique: vi.fn(),
-    },
     agentRegistry: {
       upsert: vi.fn(),
     },
@@ -15,6 +16,7 @@ vi.mock("@workspace/database", () => ({
 
 vi.mock("@workspace/env", () => ({
   env: {
+    AGENT_AUTH_API_URL: "https://auth.example.com",
     DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
     TEMP_ADMIN_USERNAME: "admin",
     TEMP_ADMIN_PASSWORD: "password",
@@ -45,10 +47,6 @@ describe("agent-registry-api", () => {
 
     it("returns 200 and registers agent with valid body and token", async () => {
       const prisma = await getPrisma();
-      (prisma.aPIKey.findUnique as any).mockResolvedValue({
-        userId: "123",
-        name: "test",
-      });
       (prisma.agentRegistry.upsert as any).mockResolvedValue({
         id: "1",
         agentId: "test-agent",

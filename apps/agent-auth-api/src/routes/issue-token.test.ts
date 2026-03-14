@@ -59,7 +59,8 @@ describe("issueToken route", () => {
     });
     expect(res.status).toBe(503);
     const body = await res.json();
-    expect(body).toEqual({ error: "Token issuance not configured" });
+    expect(body.error).toBe("Token issuance not configured");
+    expect(body).toHaveProperty("hint");
   });
 
   it("returns 401 when API key is not found or inactive", async () => {

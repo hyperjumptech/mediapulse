@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAgentTokenClient } from "./agent-token-client";
+import { createAgentTokenClient } from "@workspace/agent-auth-client";
 
 describe("createAgentTokenClient", () => {
   afterEach(() => {

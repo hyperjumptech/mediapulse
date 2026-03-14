@@ -14,7 +14,7 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 - **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, and for each pipeline step expands that step's input (e.g. data-source expressions like `db:ticker:id`), then invokes the step via HTTP. Hermes does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
 - **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@workspace/idx-tickers-importer`.
-- **Session-based auth** — Dashboard uses cookie/session auth; agents are called with API keys.
+- **Session-based auth** — Dashboard uses cookie/session auth. When running pipelines (manual or scheduled), agents are invoked with **short-lived JWT bearer tokens** (minted via agent-auth-api); the scheduler API key is never sent to agents.
 - **Variable management** — Admins can CRUD **variables** (key, value, optional note, secret flag) from `/dashboard/variables`. Variables are referenced in agent config and step input as `{{VAR_KEY}}`; at pipeline execution time the placeholder is replaced with the stored value. Secret variables are never returned by the API or shown in the UI after creation (value is masked).
 - **API key management** — Admins can CRUD API keys from the dashboard. Create and update use modals; the raw key is shown once after create (stored as SHA-256 hash in DB, aligned with agent-auth-api).
 

@@ -205,6 +205,9 @@ importers:
 
   apps/agent-registry-api:
     dependencies:
+      '@workspace/agent-auth-client':
+        specifier: workspace:*
+        version: link:../../packages/agent-auth-client
       '@workspace/api-utils':
         specifier: workspace:*
         version: link:../../packages/api-utils
@@ -435,6 +438,9 @@ importers:
       '@next/env':
         specifier: 'catalog:'
         version: 16.1.6
+      '@workspace/agent-auth-client':
+        specifier: workspace:*
+        version: link:../../packages/agent-auth-client
       '@workspace/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -553,6 +559,9 @@ importers:
       '@nicnocquee/dataqueue':
         specifier: ^1.36.0
         version: 1.36.0(pg@8.18.0)
+      '@workspace/agent-auth-client':
+        specifier: workspace:*
+        version: link:../../packages/agent-auth-client
       '@workspace/database':
         specifier: workspace:*
         version: link:../../packages/database

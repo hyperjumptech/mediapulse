@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@next/env": "catalog:",
+    "@workspace/agent-auth-client": "workspace:*",
     "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/hermes-scheduler": "workspace:*",

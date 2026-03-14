@@ -4,12 +4,12 @@ import { env } from "@workspace/env/hermes-worker";
 import { logger } from "@workspace/logger";
 import type { JobHandlers } from "@nicnocquee/dataqueue";
 import type { JobPayloadMap } from "./job-payload-map";
+import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import {
   executeSchedule,
   getDueSchedules,
   type InvokeAgentHttpClient,
 } from "@workspace/hermes-scheduler";
-import { createAgentTokenClient } from "./agent-token-client";
 
 const httpClient: InvokeAgentHttpClient = {
   post: (url, options) =>
@@ -20,22 +20,22 @@ const httpClient: InvokeAgentHttpClient = {
     }),
 };
 
-/** Short-lived tokens only: worker gets JWTs from auth API; no raw API key sent to agents. */
-const tokenClient =
-  env.AGENT_AUTH_API_URL && env.AGENT_API_KEY
-    ? createAgentTokenClient({
-        authApiUrl: env.AGENT_AUTH_API_URL,
-        credential: env.AGENT_API_KEY,
-      })
-    : null;
+if (!env.AGENT_AUTH_API_URL || !env.AGENT_API_KEY) {
+  throw new Error(
+    "AGENT_AUTH_API_URL and AGENT_API_KEY are required for hermes-worker (JWT-only agent invocation)",
+  );
+}
+
+/** JWT-only: worker mints short-lived tokens from auth API; never sends raw API key to agents. */
+const tokenClient = createAgentTokenClient({
+  authApiUrl: env.AGENT_AUTH_API_URL,
+  credential: env.AGENT_API_KEY,
+});
 
 /**
- * Returns a short-lived token from the auth API for agent invocation. Requires AGENT_AUTH_API_URL, AGENT_API_KEY, and agent-auth-api to have AGENT_AUTH_JWT_SECRET set.
+ * Returns a short-lived JWT from the auth API for agent invocation.
  */
-async function getAuthToken(): Promise<string | undefined> {
-  if (!tokenClient) {
-    return undefined;
-  }
+async function getAuthToken(): Promise<string> {
   return tokenClient.getToken();
 }
 

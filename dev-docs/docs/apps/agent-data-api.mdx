@@ -10,12 +10,12 @@ agent-data-api is a Hono server that exposes **data endpoints** used by the agen
 
 ## Features
 
-- **Bearer auth** — Every request must include `Authorization: Bearer <apiKey>`; verified via agent-auth-api.
+- **Bearer auth** — Every request must include `Authorization: Bearer <api_key>`. API keys are verified via agent-auth-api `POST /api/verify-api-key` (agents use admin-issued API keys to call this service).
 - **Content-generation** — GET/POST for content-generation data (e.g. store/retrieve generated newsletter content).
 - **Data-collection** — GET/POST for data-collection data (e.g. store/retrieve collected pages/sources).
 - **Delivery** — GET/POST for delivery data (e.g. newsletter content + subscribers for sending).
 
-Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call these endpoints with the same token they received from Hermes.
+Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call these endpoints with their **admin-issued API key** (not the invocation JWT).
 
 ## Key routes
 
@@ -34,7 +34,7 @@ Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call 
 
 ## Workspace dependencies
 
-- `@workspace/agent-auth-client` — `verifyTokenViaAuthApi` for bearer auth.
+- `@workspace/agent-auth-client` — `verifyApiKeyViaAuthApi` for bearer (API key) auth.
 - `@workspace/agent-types` — Shared types for request/response shapes.
 - `@workspace/api-utils` — Error helpers.
 - `@workspace/env` — Environment (including `AGENT_AUTH_API_URL`).

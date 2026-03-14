@@ -1,8 +1,3 @@
-/**
- * Fetches and caches short-lived JWT tokens from agent-auth-api for agent invocation.
- * When AGENT_AUTH_API_URL is set, the worker uses this client instead of sending the raw API key to agents.
- */
-
 /** Minimum seconds before expiry to still use cached token; refresh earlier than that. */
 const REFRESH_BUFFER_SECONDS = 120;
 
@@ -25,8 +20,8 @@ type CachedToken = {
 };
 
 /**
- * Creates a client that fetches short-lived tokens from POST /api/token and caches them.
- * Use getToken() to obtain a valid Bearer token for agent calls.
+ * Creates a client that fetches short-lived JWTs from agent-auth-api POST /api/token and caches them.
+ * Use getToken() to obtain a valid Bearer token for agent invocation.
  *
  * @param deps - Auth API base URL, credential (scheduler API key), optional fetch.
  * @returns Object with getToken().
@@ -63,7 +58,7 @@ export function createAgentTokenClient(deps: AgentTokenClientDeps): {
   }
 
   /**
-   * Returns a valid Bearer token, from cache or by fetching a new one.
+   * Returns a valid Bearer JWT, from cache or by fetching a new one.
    */
   async function getToken(): Promise<string> {
     const now = Date.now();

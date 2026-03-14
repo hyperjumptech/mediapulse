@@ -6,33 +6,35 @@ icon: Key
 
 ## Purpose
 
-agent-auth-api is a Hono server that manages **API keys** (create, list, get, update, delete, deactivate, reactivate), issues **short-lived JWT tokens** for agent invocation, and exposes **token verification** for other services (e.g. agents and agent-data-api). Agents and the data API use it to validate `Authorization: Bearer <token>`.
+agent-auth-api is a Hono server that manages **API keys** (create, list, get, update, delete, deactivate, reactivate), issues **short-lived JWT tokens** for agent invocation, and exposes **verification endpoints** for other services. Agents use it to verify invocation JWTs; agent-data-api and agent-registry-api use it to verify API keys.
 
 ## Features
 
-- **POST /api/verify** — Verify a bearer token (no basic auth). Accepts **raw API keys** (lookup by hash) or **short-lived JWTs** (signature and expiry check). Used by agents and agent-data-api.
-- **POST /api/token** — Issue a short-lived JWT (e.g. 15 min) for agent invocation. Caller sends `Authorization: Bearer <api_key>`. The API key must be active and have **purpose `scheduler`**. Requires `AGENT_AUTH_JWT_SECRET` to be set. Used by hermes-worker (and optionally Hermes) so they send JWTs to agents instead of the raw key.
-- **API key CRUD** — Create, retrieve (list + by id), update, delete API keys. Create accepts optional **purpose** (`general`, `scheduler`, `run_pipeline`). Use `scheduler` for keys that hermes-worker uses to obtain tokens.
-- **Deactivate / reactivate** — Soft-disable keys without deleting. Revoking a scheduler key stops hermes-worker from obtaining new tokens after the next refresh.
+- **POST /api/verify** — **JWT-only** invocation verification. Accepts `Authorization: Bearer <jwt>`. Verifies signature and expiry. Used by agents to verify that the caller (Hermes/hermes-worker) is authorized. Requires `AGENT_AUTH_JWT_SECRET`.
+- **POST /api/verify-api-key** — API-key verification for service callers. Accepts `Authorization: Bearer <api_key>`. Looks up hashed key in DB. Used by agent-data-api and agent-registry-api to validate keys presented by agents.
+- **POST /api/token** — Issue a short-lived JWT (e.g. 15 min) for agent invocation. Caller sends `Authorization: Bearer <api_key>`. The API key must be active and have **purpose `scheduler`**. Requires `AGENT_AUTH_JWT_SECRET`. Used by Hermes and hermes-worker to mint JWTs; they never send the raw key to agents.
+- **API key CRUD** — Create, retrieve (list + by id), update, delete API keys. Create accepts optional **purpose** (`general`, `scheduler`, `run_pipeline`). Use `scheduler` for keys that Hermes and hermes-worker use to obtain tokens.
+- **Deactivate / reactivate** — Soft-disable keys without deleting. Revoking a scheduler key stops new token issuance after the next refresh.
 - **Temporary admin auth** — API key management is protected by HTTP Basic Auth (`TEMP_ADMIN_USERNAME` / `TEMP_ADMIN_PASSWORD`) until a proper admin flow exists.
 
 ## Key routes
 
-| Method | Path                           | Description             |
-| ------ | ------------------------------ | ----------------------- |
-| POST   | `/api/verify`                  | Verify bearer token/JWT |
-| POST   | `/api/token`                   | Issue short-lived JWT   |
-| POST   | `/api/api-keys`                | Create API key          |
-| GET    | `/api/api-keys`                | List API keys           |
-| GET    | `/api/api-keys/:id`            | Get one API key         |
-| PATCH  | `/api/api-keys/:id`            | Update API key          |
-| DELETE | `/api/api-keys/:id`            | Delete API key          |
-| POST   | `/api/api-keys/:id/deactivate` | Deactivate              |
-| POST   | `/api/api-keys/:id/reactivate` | Reactivate              |
+| Method | Path                           | Description                      |
+| ------ | ------------------------------ | -------------------------------- |
+| POST   | `/api/verify`                  | Verify JWT (invocation only)     |
+| POST   | `/api/verify-api-key`          | Verify API key (service callers) |
+| POST   | `/api/token`                   | Issue short-lived JWT            |
+| POST   | `/api/api-keys`                | Create API key                   |
+| GET    | `/api/api-keys`                | List API keys                    |
+| GET    | `/api/api-keys/:id`            | Get one API key                  |
+| PATCH  | `/api/api-keys/:id`            | Update API key                   |
+| DELETE | `/api/api-keys/:id`            | Delete API key                   |
+| POST   | `/api/api-keys/:id/deactivate` | Deactivate                       |
+| POST   | `/api/api-keys/:id/reactivate` | Reactivate                       |
 
 ## Environment
 
-- **AGENT_AUTH_JWT_SECRET** (optional) — Secret for signing short-lived JWTs. Required for POST /api/token. Use a long random value (e.g. 32+ chars) in production.
+- **AGENT_AUTH_JWT_SECRET** (required) — Secret for signing and verifying short-lived JWTs. Required for POST /api/token and POST /api/verify. Use a long random value (e.g. 32+ chars) in production.
 
 ## Port
 

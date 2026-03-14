@@ -14,7 +14,7 @@ icon: ServerCog
 - **Cron registration** — Ensures `hermes-check-schedules` (every minute) exists.
 - **Processor** — Runs job handlers (e.g. `check_schedules`: get due schedules, execute each via hermes-scheduler).
 - **Supervisor** — Reclaims stuck jobs, cleans old jobs/events.
-- **Agent token client** — When `AGENT_AUTH_API_URL` and `AGENT_API_KEY` are set, the worker fetches **short-lived JWTs** from `POST /api/token` (using the API key as credential) and uses those tokens when invoking agents, instead of sending the raw key. Use an API key with **purpose `scheduler`** so token issuance is allowed. Revoking that key in the admin UI stops the worker from obtaining new tokens after expiry.
+- **JWT-only invocation** — The worker **requires** `AGENT_AUTH_API_URL` and `AGENT_API_KEY`. It fetches short-lived JWTs from `POST /api/token` (using the scheduler API key as credential) and sends only JWTs to agents; the raw key is never sent to agents. Use an API key with **purpose `scheduler`**. Revoking that key stops the worker from obtaining new tokens after expiry.
 - **HTTPS enforcement** — When `REQUIRE_HTTPS_AGENT_ENDPOINTS=true`, agent endpoint URLs must use HTTPS (or `http://localhost` / `http://127.0.0.1` for local dev).
 - **Graceful shutdown** — SIGTERM/SIGINT drain processor and supervisor, then exit.
 
@@ -42,13 +42,13 @@ If you see an error like `relation "cron_schedules" does not exist` when startin
 
 All variables are defined in **`packages/env/env.hermes-worker.example`**. Copy that file to `apps/hermes-worker/.env.local` (or set in your deployment).
 
-| Variable                          | Required               | Description                                                                                                                                  |
-| --------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DATABASE_URL**                  | Yes                    | Main app database (Prisma).                                                                                                                  |
-| **PG_DATAQUEUE_DATABASE**         | Yes                    | DataQueue connection (`?schema=dataqueue&search_path=dataqueue`). Run migrate-dataqueue before first start.                                  |
-| **AGENT_API_KEY**                 | For schedule execution | Scheduler API key (create in API keys UI with purpose `scheduler`). When **AGENT_AUTH_API_URL** is set, used only to fetch short-lived JWTs. |
-| **AGENT_AUTH_API_URL**            | No                     | When set with AGENT_API_KEY, worker uses token client (recommended).                                                                         |
-| **REQUIRE_HTTPS_AGENT_ENDPOINTS** | No                     | Set to `true` in production to reject non-HTTPS agent endpoints (except localhost).                                                          |
+| Variable                          | Required | Description                                                                                                                    |
+| --------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **DATABASE_URL**                  | Yes      | Main app database (Prisma).                                                                                                    |
+| **PG_DATAQUEUE_DATABASE**         | Yes      | DataQueue connection (`?schema=dataqueue&search_path=dataqueue`). Run migrate-dataqueue before first start.                    |
+| **AGENT_AUTH_API_URL**            | Yes      | **Required.** Base URL of agent-auth-api. Worker mints JWTs via POST /api/token.                                               |
+| **AGENT_API_KEY**                 | Yes      | Scheduler API key (create in API keys UI with purpose `scheduler`). Used only to fetch short-lived JWTs; never sent to agents. |
+| **REQUIRE_HTTPS_AGENT_ENDPOINTS** | No       | Set to `true` in production to reject non-HTTPS agent endpoints (except localhost).                                            |
 
 ## Workspace dependencies
 
