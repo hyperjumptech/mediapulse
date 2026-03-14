@@ -1,0 +1,35 @@
+# ticker-echo
+
+Minimal agent for **local scheduler testing**. Accepts `tickerId` as input, logs it, and returns success. No side effects—safe to run with the hermes-worker DataQueue flow (check_schedules → invoke_agent_step).
+
+## Input
+
+- **input.tickerId** (string, required)
+
+## Local testing (no agent-auth-api)
+
+1. Copy `.env.example` to `.env.local` and set `ALLOW_ANY_BEARER_FOR_LOCAL=true`.
+2. In Hermes, register the agent in the registry (or insert into `agent_registry`):
+   - **Agent ID:** `ticker-echo`
+   - **Version:** `1.0.0`
+   - **Endpoint:** `{ "url": "http://localhost:4010", "method": "POST" }`
+   - **Input schema:** `{ "type": "object", "properties": { "tickerId": { "type": "string" } }, "required": ["tickerId"] }`
+3. Create a pipeline with one step: agent `ticker-echo@1.0.0`, input e.g. `{ "tickerId": "{{tickerId}}" }` or a data source.
+4. Create a schedule for that pipeline (or use “Run pipeline”).
+5. Start the agent: `pnpm --filter ticker-echo-agent dev`.
+6. Start hermes-worker (and optionally Hermes). When the scheduler runs, you’ll see log lines like `ticker-echo received tickerId` for each invocation.
+
+Set the same value in hermes-worker’s `AGENT_API_KEY` (any non-empty string when `ALLOW_ANY_BEARER_FOR_LOCAL=true`).
+
+## With agent-auth-api
+
+Set `ALLOW_ANY_BEARER_FOR_LOCAL=false` (or omit it), set `AGENT_AUTH_API_URL` to your auth API, and use a valid API key for `AGENT_API_KEY` in hermes-worker.
+
+## Scripts
+
+- `pnpm dev` — Run with hot reload (Bun). Uses `.env.local` and `.env`.
+- `pnpm build` / run the built server for production.
+- `pnpm type:check` — TypeScript check.
+- `pnpm test` — Run tests.
+
+From repo root: `pnpm --filter ticker-echo-agent dev`.
