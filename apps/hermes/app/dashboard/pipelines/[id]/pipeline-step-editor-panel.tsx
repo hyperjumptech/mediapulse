@@ -1,12 +1,14 @@
 "use client";
 
-import { SchemaForm } from "@workspace/json-schema-form";
+import { SchemaForm, type StringFieldProps } from "@workspace/json-schema-form";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
+
+import { VariableExpansionInput } from "@/components/variable-expansion-input";
 
 import { useStepEditorPanelState } from "./use-step-editor-panel-state";
 
@@ -20,6 +22,14 @@ type Step = {
   config?: unknown;
 };
 
+export type VariableKeyOption = { key: string };
+
+export type ExpansionTemplateOption = {
+  id: string;
+  name: string;
+  expansionString: string;
+};
+
 export type PipelineStepEditorPanelProps = {
   selectedStep: Step | null;
   stepInput: Record<string, unknown>;
@@ -27,6 +37,30 @@ export type PipelineStepEditorPanelProps = {
   onStepInputChange: (value: Record<string, unknown>) => void;
   onStepConfigChange: (value: Record<string, unknown>) => void;
   disabled?: boolean;
+  /** Variable keys for the insert picker ({{key}}). */
+  variableKeys?: VariableKeyOption[];
+  /** Expansion templates for the insert picker. */
+  expansionTemplates?: ExpansionTemplateOption[];
+};
+
+/** Builds a StringField component that uses VariableExpansionInput with the given variables and expansions. */
+const createStringFieldComponent = (
+  variableKeys: VariableKeyOption[],
+  expansionTemplates: ExpansionTemplateOption[],
+) => {
+  const StringField = (props: StringFieldProps) => (
+    <VariableExpansionInput
+      value={props.value}
+      onChange={props.onChange}
+      id={props.id}
+      label={props.labelText}
+      description={props.description}
+      disabled={props.disabled}
+      variables={variableKeys}
+      expansions={expansionTemplates}
+    />
+  );
+  return StringField;
 };
 
 /**
@@ -40,9 +74,15 @@ export const PipelineStepEditorPanel = ({
   onStepInputChange,
   onStepConfigChange,
   disabled = false,
+  variableKeys = [],
+  expansionTemplates = [],
 }: PipelineStepEditorPanelProps) => {
   const { schemas, schemaLoading, activeTab, setActiveTab } =
     useStepEditorPanelState(selectedStep);
+  const stringFieldComponent = createStringFieldComponent(
+    variableKeys,
+    expansionTemplates,
+  );
 
   if (!selectedStep) {
     return (
@@ -90,6 +130,7 @@ export const PipelineStepEditorPanel = ({
               onChange={onStepInputChange}
               disabled={disabled}
               seedRequiredDefaults={true}
+              components={{ StringField: stringFieldComponent }}
             />
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -105,6 +146,7 @@ export const PipelineStepEditorPanel = ({
               onChange={onStepConfigChange}
               disabled={disabled}
               seedRequiredDefaults={true}
+              components={{ StringField: stringFieldComponent }}
             />
           ) : (
             <p className="text-xs text-muted-foreground">

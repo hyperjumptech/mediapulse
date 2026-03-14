@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 import { SchemaForm } from "./schema-form.js";
-import type { JsonSchema } from "./types.js";
+import type { JsonSchema, StringFieldProps } from "./types.js";
 
 describe("SchemaForm", () => {
   it("renders nothing useful when schema is not object with properties", () => {
@@ -226,5 +226,47 @@ describe("SchemaForm", () => {
     // Assert
     expect(validate).toHaveBeenCalledWith(value);
     expect(screen.getByText(/Name is required/i)).toBeInTheDocument();
+  });
+
+  it("uses custom StringField when components.StringField is provided", () => {
+    // Setup
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        message: { type: "string", title: "Message" },
+      },
+    };
+    const value: Record<string, unknown> = { message: "hello" };
+    const onChange = vi.fn();
+    const CustomStringField = (props: StringFieldProps) => (
+      <div data-testid="custom-string-field" data-value={props.value}>
+        <label htmlFor={props.id}>{props.labelText}</label>
+        <input
+          id={props.id}
+          value={props.value}
+          onChange={(e) => props.onChange(e.target.value)}
+          disabled={props.disabled}
+        />
+      </div>
+    );
+
+    // Act
+    render(
+      <SchemaForm
+        schema={schema}
+        value={value}
+        onChange={onChange}
+        components={{ StringField: CustomStringField }}
+      />,
+    );
+
+    // Assert
+    const custom = screen.getByTestId("custom-string-field");
+    expect(custom).toBeInTheDocument();
+    expect(custom).toHaveAttribute("data-value", "hello");
+    fireEvent.change(screen.getByLabelText(/Message/i), {
+      target: { value: "updated" },
+    });
+    expect(onChange).toHaveBeenCalledWith({ message: "updated" });
   });
 });

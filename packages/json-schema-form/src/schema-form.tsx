@@ -7,7 +7,7 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
-import type { JsonSchema, SchemaFormProps } from "./types.js";
+import type { JsonSchema, SchemaFormProps, StringFieldProps } from "./types.js";
 
 /**
  * Resolves the effective schema type (single type name) when schema.type is a string or array.
@@ -165,6 +165,8 @@ const useSchemaFormTouch = () => {
   return { touched, setTouched };
 };
 
+type SchemaFormComponents = SchemaFormProps["components"];
+
 /**
  * One key-value row in a record (additionalProperties) editor.
  */
@@ -178,6 +180,7 @@ const RecordEntryRow = ({
   onValueChange,
   onRemove,
   isNew = false,
+  components,
 }: {
   entryKey: string;
   value: unknown;
@@ -188,6 +191,7 @@ const RecordEntryRow = ({
   onValueChange: (v: unknown) => void;
   onRemove: () => void;
   isNew?: boolean;
+  components?: SchemaFormComponents;
 }) => {
   const { draftKey, setDraftKey, handleBlur } =
     useRecordEntryDraftKey(onKeyChange);
@@ -228,6 +232,7 @@ const RecordEntryRow = ({
           onChange={onValueChange}
           disabled={disabled}
           path={path}
+          components={components}
         />
       </div>
     </div>
@@ -245,6 +250,7 @@ const SchemaField = ({
   disabled,
   path,
   isRequired = false,
+  components,
 }: {
   name: string;
   schema: JsonSchema;
@@ -254,6 +260,8 @@ const SchemaField = ({
   path: string;
   /** When true, label shows required indicator. */
   isRequired?: boolean;
+  /** Optional custom components (e.g. StringField). */
+  components?: SchemaFormComponents;
 }) => {
   const type = getType(schema);
   const title = schema.title ?? humanize(name);
@@ -321,6 +329,7 @@ const SchemaField = ({
               onKeyChange={(newKey) => handleKeyChange(key, newKey)}
               onValueChange={(v) => handleValueChange(key, v)}
               onRemove={() => handleRemove(key)}
+              components={components}
             />
           ))}
           {hasNewRow ? (
@@ -334,6 +343,7 @@ const SchemaField = ({
               onValueChange={(v) => handleValueChange(NEW_ENTRY_KEY, v)}
               onRemove={() => handleRemove(NEW_ENTRY_KEY)}
               isNew
+              components={components}
             />
           ) : null}
         </div>
@@ -381,6 +391,25 @@ const SchemaField = ({
           ) : null}
         </div>
       );
+    }
+
+    if (
+      (schema.enum == null || schema.enum.length === 0) &&
+      components?.StringField != null
+    ) {
+      const StringField = components.StringField;
+      const stringFieldProps: StringFieldProps = {
+        value: str,
+        onChange: (v: string) => onChange(v),
+        schema,
+        name,
+        path,
+        id,
+        labelText,
+        description,
+        disabled,
+      };
+      return <StringField {...stringFieldProps} />;
     }
 
     return (
@@ -495,6 +524,7 @@ const SchemaField = ({
               disabled={disabled}
               path={`${path}.${k}`}
               isRequired={schema.required?.includes(k)}
+              components={components}
             />
           ))}
         </div>
@@ -560,6 +590,7 @@ const SchemaField = ({
                   onChange={(v) => handleItemChange(index, v)}
                   disabled={disabled}
                   path={`${path}[${index}]`}
+                  components={components}
                 />
               </div>
               <Button
@@ -597,6 +628,7 @@ export const SchemaForm = ({
   disabled = false,
   seedRequiredDefaults = true,
   className,
+  components,
 }: SchemaFormProps) => {
   const type = getType(schema);
   const noopOnChange = React.useCallback(() => undefined, []);
@@ -644,6 +676,7 @@ export const SchemaForm = ({
           disabled={disabled}
           path={key}
           isRequired={schema.required?.includes(key)}
+          components={components}
         />
       ))}
       {errorList.length > 0 ? (

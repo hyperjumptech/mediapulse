@@ -29,11 +29,23 @@ type AgentRegistryEntry = Awaited<
   ReturnType<typeof getAgentRegistryList>
 >[number];
 
+export type VariableKeyOption = { key: string };
+
+export type ExpansionTemplateOption = {
+  id: string;
+  name: string;
+  expansionString: string;
+};
+
 export type PipelineDetailContentProps = {
   pipeline: PipelineWithSteps;
   agents: AgentRegistryEntry[];
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
   pipelineValidation: PipelineValidationResult;
+  /** Variable keys for the step editor picker (insert {{key}}). */
+  variableKeys?: VariableKeyOption[];
+  /** Expansion templates for the step editor picker (insert expansion string). */
+  expansionTemplates?: ExpansionTemplateOption[];
   /** Optional DI: override for tests. Defaults to the generated update pipeline form action. */
   updatePipelineFormAction?: typeof defaultUpdatePipelineFormAction;
   /** Optional DI: override for tests. Defaults to the generated update step form action. */
@@ -216,6 +228,8 @@ export const PipelineDetailContent = ({
   agents,
   configsByAgentKey,
   pipelineValidation,
+  variableKeys = [],
+  expansionTemplates = [],
   updatePipelineFormAction = defaultUpdatePipelineFormAction,
   updateStepFormAction = defaultUpdateStepFormAction,
 }: PipelineDetailContentProps) => {
@@ -338,6 +352,8 @@ export const PipelineDetailContent = ({
             onStepInputChange={setStepInput}
             onStepConfigChange={setStepConfig}
             disabled={saving}
+            variableKeys={variableKeys}
+            expansionTemplates={expansionTemplates}
           />
         </div>
       </div>
