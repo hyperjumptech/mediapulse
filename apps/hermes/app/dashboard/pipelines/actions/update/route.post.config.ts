@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
+import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 
 const stepItemValidator = z.object({
   agentId: z.string().min(1),
@@ -116,6 +117,8 @@ export const createUpdatePipelineHandler = ({
       where: { id: pipelineId },
       data: updateData,
     });
+
+    await disableSchedulesForPipelineIfNotEnabled(db, pipelineId);
 
     return successResponse({ ok: true as const });
   };

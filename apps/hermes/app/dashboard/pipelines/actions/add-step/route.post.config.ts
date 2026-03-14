@@ -8,9 +8,10 @@ import {
 import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
-import { validateWithJsonSchema } from "@/lib/validate-json-schema";
+import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
+import { validateDataSourceExpressions } from "@workspace/hermes-scheduler";
 
-const configSchemaBody = z
+const jsonObjectSchema = z
   .union([
     z.record(z.unknown()),
     z
@@ -24,7 +25,7 @@ const configSchemaBody = z
             return v as Record<string, unknown>;
           return {};
         } catch {
-          throw new Error("config must be valid JSON object");
+          throw new Error("must be valid JSON object");
         }
       }),
   ])
@@ -39,7 +40,8 @@ const bodyValidator = z.object({
     .union([z.string().uuid(), z.literal("")])
     .optional()
     .transform((s) => (s === "" ? undefined : s)),
-  config: configSchemaBody,
+  input: jsonObjectSchema,
+  config: jsonObjectSchema,
 });
 
 export const requestValidator = createRequestValidator({
@@ -77,8 +79,16 @@ export const createAddStepHandler = ({
       return errorResponse("Unauthorized");
     }
 
-    const { pipelineId, agentId, agentVersion, agentConfigId, config } =
+    const { pipelineId, agentId, agentVersion, agentConfigId, input, config } =
       data.body;
+
+    const inputObj = (input ?? {}) as Record<string, unknown>;
+    const dataSourceValidation = validateDataSourceExpressions(inputObj);
+    if (!dataSourceValidation.valid) {
+      return errorResponse(
+        `Input validation failed: ${dataSourceValidation.errors.join("; ")}`,
+      );
+    }
 
     const agent = await db.agentRegistry.findFirst({
       where: { agentId, agentVersion, isActive: true },
@@ -100,21 +110,9 @@ export const createAddStepHandler = ({
       }
     }
 
-    if (
-      agentConfigId == null &&
-      agent.configSchema != null &&
-      typeof agent.configSchema === "object"
-    ) {
-      const result = validateWithJsonSchema(
-        agent.configSchema as Record<string, unknown>,
-        config,
-      );
-      if (!result.valid) {
-        return errorResponse(
-          `Config validation failed: ${result.errors.join("; ")}`,
-        );
-      }
-    }
+    // Do not validate input/config against agent schemas when adding a step.
+    // User adds the agent to the pipeline first, then assigns input and config
+    // in the third column. Validation happens on update-step (Save) or at run time.
 
     const maxOrder = await db.pipelineStep.aggregate({
       where: { pipelineId },
@@ -129,9 +127,12 @@ export const createAddStepHandler = ({
         agentVersion,
         order: nextOrder,
         agentConfigId: agentConfigId ?? null,
+        input: inputObj as object,
         config: agentConfigId != null ? {} : ((config ?? {}) as object),
       },
     });
+
+    await disableSchedulesForPipelineIfNotEnabled(db, pipelineId);
 
     return successResponse({ stepId: step.id });
   };

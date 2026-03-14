@@ -89,14 +89,33 @@ describe("createRunPipelineHandler", () => {
           findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
         },
         pipelineStep: {
-          findMany: vi
-            .fn()
-            .mockResolvedValue([{ id: "s1", agentId: "ag1", order: 1 }]),
+          findMany: vi.fn().mockResolvedValue([
+            {
+              id: "s1",
+              agentId: "ag1",
+              agentVersion: "1.0.0",
+              order: 1,
+              agentConfigId: null,
+              input: { tickerId: "t1" },
+              config: {},
+            },
+          ]),
         },
         ticker: {
           findMany: vi.fn().mockResolvedValue([{ id: "t1", symbol: "X" }]),
         },
         agentRegistry: {
+          findFirst: vi.fn().mockResolvedValue({
+            agentId: "ag1",
+            agentVersion: "1.0.0",
+            isActive: true,
+            inputSchema: {
+              type: "object",
+              required: ["tickerId"],
+              properties: { tickerId: { type: "string" } },
+            },
+            configSchema: null,
+          }),
           findMany: vi.fn().mockResolvedValue([
             {
               agentId: "ag1",
@@ -117,6 +136,59 @@ describe("createRunPipelineHandler", () => {
           Authorization: "Bearer secret",
         }),
       }),
+    );
+  });
+
+  it("returns error when pipeline validation fails", async () => {
+    // Setup
+    const handler = createRunPipelineHandler({
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
+      apiKey: "secret",
+      post: vi.fn() as never,
+      db: {
+        pipeline: {
+          findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
+        },
+        pipelineStep: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              id: "s1",
+              agentId: "ag1",
+              agentVersion: "1.0.0",
+              order: 0,
+              agentConfigId: null,
+              input: { tickerId: "" },
+              config: {},
+            },
+          ]),
+        },
+        ticker: {
+          findMany: vi.fn().mockResolvedValue([{ id: "t1", symbol: "X" }]),
+        },
+        agentRegistry: {
+          findFirst: vi.fn().mockResolvedValue({
+            agentId: "ag1",
+            agentVersion: "1.0.0",
+            isActive: true,
+            inputSchema: {
+              type: "object",
+              required: ["tickerId"],
+              properties: { tickerId: { type: "string" } },
+            },
+            configSchema: null,
+          }),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      } as never,
+    });
+
+    // Act
+    const result = await handler(request({ pipelineId: "p-1" }));
+
+    // Assert
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toContain(
+      "Pipeline is invalid",
     );
   });
 });

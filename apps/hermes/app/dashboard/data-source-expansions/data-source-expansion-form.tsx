@@ -160,7 +160,7 @@ export const DataSourceExpansionForm = (
             required
             rows={4}
             disabled={pending}
-            placeholder="db:userTicker:all:tickerId?where.enabled=true&distinct=tickerId&take=500"
+            placeholder="db:userTicker:tickerId?where.enabled=true&distinct=tickerId&take=500"
             className="w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50"
             defaultValue={
               props.mode === "edit" ? props.initialExpansionString : undefined

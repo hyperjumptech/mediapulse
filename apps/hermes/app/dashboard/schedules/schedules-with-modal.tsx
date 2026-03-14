@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@workspace/ui/components/button";
 import type { ScheduleSortDir, ScheduleSortField } from "@/lib/schedules";
 import type { SchedulesPageResult } from "@/lib/schedules";
+import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 import type { PipelineOption } from "./schedule-form-fields";
 
 import { ListPagination } from "@/components/list-pagination";
@@ -17,6 +18,7 @@ type ScheduleRow = SchedulesPageResult["schedules"][number];
 export type SchedulesWithModalProps = {
   schedules: ScheduleRow[];
   pipelines: PipelineOption[];
+  pipelineValidationById: Record<string, PipelineValidationResult>;
   currentPage: number;
   pageSize: number;
   total: number;
@@ -31,6 +33,7 @@ export type SchedulesWithModalProps = {
 export const SchedulesWithModal = ({
   schedules,
   pipelines,
+  pipelineValidationById,
   currentPage,
   pageSize,
   total,
@@ -93,6 +96,7 @@ export const SchedulesWithModal = ({
         mode={modalMode}
         editScheduleId={editScheduleId}
         pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
       />
     </>
   );

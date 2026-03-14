@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getPipelinesWithStepsMock = vi.fn();
+const getPipelinesValidationMapMock = vi.fn();
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
@@ -14,6 +15,14 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/pipelines", () => ({
   getPipelinesWithSteps: () => getPipelinesWithStepsMock(),
+}));
+
+vi.mock("@/lib/validate-pipeline", () => ({
+  getPipelinesValidationMap: () => getPipelinesValidationMapMock(),
+}));
+
+vi.mock("@workspace/database", () => ({
+  prisma: {},
 }));
 
 vi.mock("./pipelines-with-modal", () => ({
@@ -40,6 +49,7 @@ describe("PipelinesPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     getPipelinesWithStepsMock.mockReset();
+    getPipelinesValidationMapMock.mockReset();
   });
 
   it("renders pipelines with modal when authenticated", async () => {
@@ -47,6 +57,7 @@ describe("PipelinesPage", () => {
     getPipelinesWithStepsMock.mockResolvedValue([
       { id: "1", name: "Test Pipeline", steps: [] },
     ]);
+    getPipelinesValidationMapMock.mockResolvedValue({});
 
     // Act
     const component = await PipelinesPage({});
@@ -63,6 +74,7 @@ describe("PipelinesPage", () => {
   it("renders empty state when no pipelines", async () => {
     // Setup
     getPipelinesWithStepsMock.mockResolvedValue([]);
+    getPipelinesValidationMapMock.mockResolvedValue({});
 
     // Act
     const component = await PipelinesPage({});

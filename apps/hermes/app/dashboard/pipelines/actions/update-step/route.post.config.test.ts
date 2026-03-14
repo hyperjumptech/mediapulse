@@ -2,6 +2,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createUpdateStepHandler } from "./route.post.config";
 
+vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
+  disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("createUpdateStepHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -133,12 +137,85 @@ describe("createUpdateStepHandler", () => {
         agentId: "ag1",
         agentVersion: "1",
         agentConfigId: null,
+        input: {},
         config: {},
       },
     });
     expect(result).toMatchObject({
       status: true,
       data: { ok: true },
+    });
+  });
+
+  it("returns validation warnings for missing required config fields", async () => {
+    // Setup
+    const updateMock = vi.fn().mockResolvedValue(undefined);
+    const db = {
+      pipelineStep: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "s-1",
+          pipelineId: "p-1",
+          order: 0,
+          agentId: "ag0",
+          agentVersion: "0",
+        }),
+        update: updateMock,
+      },
+      agentRegistry: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "ar1",
+          agentId: "ag1",
+          agentVersion: "1",
+          inputSchema: {
+            type: "object",
+            properties: {},
+          },
+          configSchema: {
+            type: "object",
+            required: ["webFetch"],
+            properties: {
+              webFetch: {
+                type: "object",
+                required: ["baseUrl"],
+                properties: {
+                  baseUrl: { type: "string" },
+                },
+              },
+            },
+          },
+        }),
+      },
+    };
+    const handler = createUpdateStepHandler({
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
+      db: db as never,
+    });
+
+    // Act
+    const result = await handler({
+      body: {
+        pipelineId: "p-1",
+        stepId: "s-1",
+        agentId: "ag1",
+        agentVersion: "1",
+        config: { webFetch: { baseUrl: "" } },
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: undefined,
+    } as never);
+
+    // Assert
+    expect(result.status).toBe(true);
+    expect(updateMock).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      data: {
+        ok: true,
+        validationWarnings: expect.arrayContaining([
+          expect.stringContaining("/webFetch/baseUrl is required"),
+        ]),
+      },
     });
   });
 });

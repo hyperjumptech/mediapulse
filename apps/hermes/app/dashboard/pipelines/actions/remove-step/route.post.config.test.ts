@@ -2,6 +2,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRemoveStepHandler } from "./route.post.config";
 
+vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
+  disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("createRemoveStepHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();

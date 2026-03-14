@@ -8,6 +8,7 @@ import { Button } from "@workspace/ui/components/button";
 import { ChevronLeft } from "lucide-react";
 
 import type { getScheduleById, ScheduleExecutionRow } from "@/lib/schedules";
+import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
 import { ListPagination } from "@/components/list-pagination";
 import { ScheduleFormModal } from "../schedule-form-modal";
@@ -25,6 +26,7 @@ export type ScheduleDetailContentProps = {
   currentPage: number;
   pageSize: number;
   pipelines: PipelineOption[];
+  pipelineValidationById: Record<string, PipelineValidationResult>;
 };
 
 /**
@@ -37,6 +39,7 @@ export const ScheduleDetailContent = ({
   currentPage,
   pageSize,
   pipelines,
+  pipelineValidationById,
 }: ScheduleDetailContentProps) => {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
@@ -89,6 +92,7 @@ export const ScheduleDetailContent = ({
         mode="edit"
         editScheduleId={schedule.id}
         pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
       />
     </>
   );

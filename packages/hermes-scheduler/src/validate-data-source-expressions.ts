@@ -23,7 +23,7 @@ export const validateDataSourceExpressions = (
     const parsed = parseDataSourceString(value);
     if (!parsed) {
       errors.push(
-        `Param "${key}": invalid data source format. Expected db:table:selector:field?options`,
+        `Param "${key}": invalid data source format. Expected db:table:field?options`,
       );
       continue;
     }

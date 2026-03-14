@@ -13,7 +13,6 @@ const createMockSchedule = (overrides?: Partial<DueSchedule>): DueSchedule =>
     timezone: "UTC",
     nextRunAt: new Date(),
     pipelineId: "p1",
-    params: { tickerId: "tid-1" },
     priority: 0,
     pipeline: {
       id: "p1",
@@ -25,6 +24,7 @@ const createMockSchedule = (overrides?: Partial<DueSchedule>): DueSchedule =>
           agentVersion: "1.0.0",
           pipelineId: "p1",
           agentConfigId: null,
+          input: {},
           agentConfig: null,
         },
       ],
@@ -83,7 +83,6 @@ describe("executeSchedule", () => {
     // Setup
     const now = new Date();
     const schedule = createMockSchedule({
-      params: { tickerId: "tid-1" },
       pipeline: {
         id: "p1",
         name: "p1",
@@ -98,12 +97,13 @@ describe("executeSchedule", () => {
             agentId: "agent-a",
             agentVersion: "1.0.0",
             pipelineId: "p1",
+            input: { tickerId: "tid-1" },
             config: { limit: 10 },
             createdAt: now,
             updatedAt: now,
             agentConfigId: null,
             agentConfig: null,
-          },
+          } as DueSchedule["pipeline"]["steps"][number],
         ],
       },
     });
@@ -148,10 +148,9 @@ describe("executeSchedule", () => {
     });
   });
 
-  it("substitutes {{VAR_KEY}} in step config and params with variable values", async () => {
+  it("substitutes {{VAR_KEY}} in step input and config with variable values", async () => {
     const now = new Date();
     const schedule = createMockSchedule({
-      params: { apiKey: "{{MY_KEY}}" },
       pipeline: {
         id: "p1",
         name: "p1",
@@ -166,12 +165,13 @@ describe("executeSchedule", () => {
             agentId: "agent-a",
             agentVersion: "1.0.0",
             pipelineId: "p1",
+            input: { apiKey: "{{MY_KEY}}" },
             config: { token: "{{MY_KEY}}" },
             createdAt: now,
             updatedAt: now,
             agentConfigId: null,
             agentConfig: null,
-          },
+          } as DueSchedule["pipeline"]["steps"][number],
         ],
       },
     });

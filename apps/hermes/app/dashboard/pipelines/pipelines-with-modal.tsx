@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@workspace/ui/components/button";
 
 import type { getPipelinesWithSteps } from "@/lib/pipelines";
+import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
 import { PipelineFormModal } from "./pipeline-form-modal";
 import { PipelinesTable } from "./pipelines-table";
@@ -15,12 +16,16 @@ type PipelineWithSteps = Awaited<
 
 export type PipelinesWithModalProps = {
   pipelines: PipelineWithSteps[];
+  pipelineValidationById: Record<string, PipelineValidationResult>;
 };
 
 /**
  * Client wrapper that provides Create/Edit pipeline modals and wires table row Edit to open the modal.
  */
-export const PipelinesWithModal = ({ pipelines }: PipelinesWithModalProps) => {
+export const PipelinesWithModal = ({
+  pipelines,
+  pipelineValidationById,
+}: PipelinesWithModalProps) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editPipelineId, setEditPipelineId] = useState<string | null>(null);
@@ -43,7 +48,11 @@ export const PipelinesWithModal = ({ pipelines }: PipelinesWithModalProps) => {
         <div className="flex justify-end">
           <Button onClick={openCreateModal}>Create pipeline</Button>
         </div>
-        <PipelinesTable pipelines={pipelines} onEdit={openEditModal} />
+        <PipelinesTable
+          pipelines={pipelines}
+          pipelineValidationById={pipelineValidationById}
+          onEdit={openEditModal}
+        />
       </div>
       <PipelineFormModal
         open={modalOpen}

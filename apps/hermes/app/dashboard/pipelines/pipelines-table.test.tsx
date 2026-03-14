@@ -99,52 +99,99 @@ describe("PipelinesTable", () => {
 
   it("renders pipeline rows when pipelines provided", () => {
     // Setup
-    const pipelines = [createMockPipeline()];
+    const pipelines = [createMockPipeline({ id: "p1" })];
+    const pipelineValidationById = { p1: { valid: true, warnings: [] } };
 
     // Act
-    render(<PipelinesTable pipelines={pipelines} />);
+    render(
+      <PipelinesTable
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+      />,
+    );
 
     // Assert
     expect(screen.getByText("Test Pipeline")).toBeInTheDocument();
     expect(screen.getByText("Test description")).toBeInTheDocument();
   });
 
-  it("displays Active badge for active pipelines", () => {
+  it("displays Enabled badge for enabled pipelines (valid and active)", () => {
     // Setup
-    const pipelines = [createMockPipeline({ isActive: true })];
+    const pipelines = [createMockPipeline({ id: "p1", isActive: true })];
+    const pipelineValidationById = { p1: { valid: true, warnings: [] } };
 
     // Act
-    render(<PipelinesTable pipelines={pipelines} />);
+    render(
+      <PipelinesTable
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+      />,
+    );
 
     // Assert
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
     expect(screen.getByTestId("badge")).toHaveAttribute(
       "data-variant",
       "success",
     );
   });
 
-  it("displays Inactive badge for inactive pipelines", () => {
+  it("displays Disabled badge for inactive pipelines (valid but isActive false)", () => {
     // Setup
-    const pipelines = [createMockPipeline({ isActive: false })];
+    const pipelines = [createMockPipeline({ id: "p1", isActive: false })];
+    const pipelineValidationById = { p1: { valid: true, warnings: [] } };
 
     // Act
-    render(<PipelinesTable pipelines={pipelines} />);
+    render(
+      <PipelinesTable
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+      />,
+    );
 
     // Assert
-    expect(screen.getByText("Inactive")).toBeInTheDocument();
+    expect(screen.getByText("Disabled")).toBeInTheDocument();
     expect(screen.getByTestId("badge")).toHaveAttribute(
       "data-variant",
       "secondary",
     );
   });
 
-  it("displays dash for null description", () => {
+  it("displays Incomplete badge for invalid pipelines", () => {
     // Setup
-    const pipelines = [createMockPipeline({ description: null })];
+    const pipelines = [createMockPipeline({ id: "p1", isActive: true })];
+    const pipelineValidationById = {
+      p1: { valid: false, warnings: ["Step 1: missing input"] },
+    };
 
     // Act
-    render(<PipelinesTable pipelines={pipelines} />);
+    render(
+      <PipelinesTable
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByText("Incomplete")).toBeInTheDocument();
+    expect(screen.getByTestId("badge")).toHaveAttribute(
+      "data-variant",
+      "destructive",
+    );
+  });
+
+  it("displays dash for null description", () => {
+    // Setup
+    const pipelines = [createMockPipeline({ id: "p1", description: null })];
+    const pipelineValidationById = { p1: { valid: true, warnings: [] } };
+
+    // Act
+    render(
+      <PipelinesTable
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+      />,
+    );
 
     // Assert
     expect(screen.getByText("—")).toBeInTheDocument();
@@ -156,9 +203,18 @@ describe("PipelinesTable", () => {
       createMockPipeline({ id: "pipeline-1", name: "Pipeline A" }),
       createMockPipeline({ id: "pipeline-2", name: "Pipeline B" }),
     ];
+    const pipelineValidationById = {
+      "pipeline-1": { valid: true, warnings: [] },
+      "pipeline-2": { valid: true, warnings: [] },
+    };
 
     // Act
-    render(<PipelinesTable pipelines={pipelines} />);
+    render(
+      <PipelinesTable
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+      />,
+    );
 
     // Assert
     expect(screen.getByTestId("row-actions-pipeline-1")).toBeInTheDocument();
@@ -168,9 +224,17 @@ describe("PipelinesTable", () => {
   it("renders pipeline name as link", () => {
     // Setup
     const pipelines = [createMockPipeline({ id: "pipeline-123" })];
+    const pipelineValidationById = {
+      "pipeline-123": { valid: true, warnings: [] },
+    };
 
     // Act
-    render(<PipelinesTable pipelines={pipelines} />);
+    render(
+      <PipelinesTable
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+      />,
+    );
 
     // Assert
     const link = screen.getByRole("link", { name: "Test Pipeline" });

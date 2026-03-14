@@ -54,7 +54,6 @@ async function main() {
       timezone: "UTC",
       nextRunAt,
       pipelineId: pipeline.id,
-      params: { tickerId: "db:ticker:all:id" },
       priority: 0,
       enabled: true,
     },

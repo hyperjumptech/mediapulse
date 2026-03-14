@@ -18,7 +18,6 @@ describe("createCreateScheduleHandler", () => {
         repeat: "once",
         timezone: "UTC",
         pipelineId: "00000000-0000-4000-8000-000000000001",
-        params: {},
       },
       params: {},
       headers: new Headers(),
@@ -44,7 +43,6 @@ describe("createCreateScheduleHandler", () => {
         repeat: "once",
         timezone: "UTC",
         pipelineId: "00000000-0000-4000-8000-000000000001",
-        params: {},
       },
       params: {},
       headers: new Headers(),
@@ -56,12 +54,51 @@ describe("createCreateScheduleHandler", () => {
     expect(db.schedule.create).not.toHaveBeenCalled();
   });
 
+  it("returns error when pipeline is not enabled (disabled)", async () => {
+    const pipelineId = "00000000-0000-4000-8000-000000000002";
+    const db = {
+      pipeline: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: pipelineId,
+          isActive: false,
+          steps: [],
+        }),
+      },
+      schedule: { create: vi.fn() },
+    };
+    const createHandler = createCreateScheduleHandler({
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
+      db: db as never,
+    });
+    const result = await createHandler({
+      body: {
+        name: "Daily",
+        repeat: "once",
+        timezone: "UTC",
+        pipelineId,
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: undefined,
+    } as never);
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toContain(
+      "Pipeline must be enabled",
+    );
+    expect(db.schedule.create).not.toHaveBeenCalled();
+  });
+
   it("creates schedule and returns id", async () => {
     const pipelineId = "00000000-0000-4000-8000-000000000002";
     const scheduleId = "00000000-0000-4000-8000-000000000003";
     const db = {
       pipeline: {
-        findUnique: vi.fn().mockResolvedValue({ id: pipelineId, steps: [] }),
+        findUnique: vi.fn().mockResolvedValue({
+          id: pipelineId,
+          isActive: true,
+          steps: [],
+        }),
       },
       schedule: {
         create: vi.fn().mockResolvedValue({
@@ -81,7 +118,6 @@ describe("createCreateScheduleHandler", () => {
         repeat: "once",
         timezone: "America/New_York",
         pipelineId,
-        params: {},
         startAt: null,
       },
       params: {},
@@ -111,7 +147,11 @@ describe("handler", () => {
   it("is the factory with production defaults", async () => {
     const db = {
       pipeline: {
-        findUnique: vi.fn().mockResolvedValue({ id: "p1", steps: [] }),
+        findUnique: vi.fn().mockResolvedValue({
+          id: "p1",
+          isActive: true,
+          steps: [],
+        }),
       },
       schedule: { create: vi.fn().mockResolvedValue({ id: "s1" }) },
     };
@@ -130,7 +170,6 @@ describe("handler", () => {
         cronExpression: "0 6 * * *",
         timezone: "UTC",
         pipelineId: "p1",
-        params: {},
       },
       params: {},
       headers: new Headers(),

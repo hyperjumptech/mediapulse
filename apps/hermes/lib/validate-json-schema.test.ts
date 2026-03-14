@@ -60,4 +60,20 @@ describe("validateWithJsonSchema", () => {
       ).toBe(true);
     }
   });
+
+  it("accepts date-time format when ajv-formats is used", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        end: { type: "string", format: "date-time" },
+      },
+      required: ["end"],
+    };
+    const validData = { end: "2025-03-13T12:00:00Z" };
+    const result = validateWithJsonSchema(schema, validData);
+    expect(result.valid).toBe(true);
+    const invalidData = { end: "not-a-date" };
+    const invalidResult = validateWithJsonSchema(schema, invalidData);
+    expect(invalidResult.valid).toBe(false);
+  });
 });

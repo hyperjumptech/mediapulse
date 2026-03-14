@@ -15,7 +15,6 @@ export type ScheduleForEdit = {
   timezone: string;
   startAt: string | null;
   pipelineId: string;
-  params: Record<string, unknown> | null;
   retryConfig: Record<string, unknown> | null;
   timeout: number | null;
   priority: number;
@@ -53,7 +52,6 @@ export const getScheduleForEdit = async (
     timezone: schedule.timezone,
     startAt: schedule.startAt?.toISOString() ?? null,
     pipelineId: schedule.pipelineId,
-    params: toJson(schedule.params),
     retryConfig: toJson(schedule.retryConfig),
     timeout: schedule.timeout,
     priority: schedule.priority,

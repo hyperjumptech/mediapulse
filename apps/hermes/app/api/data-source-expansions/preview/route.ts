@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       {
         success: false,
         error:
-          "Invalid format. Expected db:table:selector:field?options (e.g. where.key=value, distinct, take, orderBy)",
+          "Invalid format. Expected db:table:field?options (e.g. where.key=value, distinct, take, orderBy)",
       },
       { status: 400 },
     );

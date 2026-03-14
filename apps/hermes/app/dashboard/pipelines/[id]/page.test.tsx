@@ -27,6 +27,12 @@ vi.mock("@/lib/agent-configs", () => ({
     getAgentConfigsByAgentKeysMock(...args),
 }));
 
+vi.mock("@/lib/validate-pipeline", () => ({
+  validatePipeline: vi.fn().mockResolvedValue({ valid: true, warnings: [] }),
+}));
+
+vi.mock("@workspace/database", () => ({ prisma: {} }));
+
 vi.mock("./pipeline-detail-content", () => ({
   PipelineDetailContent: ({
     pipeline,

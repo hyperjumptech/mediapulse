@@ -90,14 +90,7 @@ export const expandSingleDataSource = async (
     maxTake: options?.maxTake ?? MAX_TAKE,
   });
 
-  let where = buildWhere(parsed.where);
-  if (parsed.selector && parsed.selector !== "all") {
-    where = {
-      ...where,
-      [parsed.field]: parsed.selector,
-    } as Record<string, unknown>;
-  }
-
+  const where = buildWhere(parsed.where);
   const select: Record<string, boolean> = { [parsed.field]: true };
   const distinctField = parsed.distinct ?? parsed.field;
 

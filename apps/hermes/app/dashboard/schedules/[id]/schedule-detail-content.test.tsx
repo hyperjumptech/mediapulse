@@ -85,7 +85,6 @@ const createMockSchedule = (): ScheduleDetailContentProps["schedule"] =>
     startAt: null,
     nextRunAt: new Date(),
     pipelineId: "p1",
-    params: {},
     retryConfig: null,
     timeout: null,
     priority: 0,
@@ -115,6 +114,7 @@ describe("ScheduleDetailContent", () => {
         currentPage={1}
         pageSize={15}
         pipelines={[]}
+        pipelineValidationById={{}}
       />,
     );
     const backLink = screen.getByRole("link", { name: /back to schedules/i });
@@ -131,6 +131,7 @@ describe("ScheduleDetailContent", () => {
         currentPage={1}
         pageSize={15}
         pipelines={[]}
+        pipelineValidationById={{}}
       />,
     );
     expect(
@@ -148,6 +149,7 @@ describe("ScheduleDetailContent", () => {
         currentPage={1}
         pageSize={15}
         pipelines={[]}
+        pipelineValidationById={{}}
       />,
     );
     expect(
@@ -164,6 +166,7 @@ describe("ScheduleDetailContent", () => {
         currentPage={1}
         pageSize={15}
         pipelines={[]}
+        pipelineValidationById={{}}
       />,
     );
     const modal = screen.getByTestId("schedule-form-modal");
@@ -184,6 +187,7 @@ describe("ScheduleDetailContent", () => {
         currentPage={1}
         pageSize={15}
         pipelines={[]}
+        pipelineValidationById={{}}
       />,
     );
     expect(screen.getByText("Executions")).toBeInTheDocument();

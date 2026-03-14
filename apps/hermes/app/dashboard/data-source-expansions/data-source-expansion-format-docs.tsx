@@ -33,7 +33,7 @@ export const DataSourceExpansionFormatDocs = () => {
           <p>
             <strong className="text-foreground">Format:</strong>{" "}
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-              db:table:selector:field?options
+              db:table:field?options
             </code>
           </p>
           <p>
@@ -78,9 +78,10 @@ export const DataSourceExpansionFormatDocs = () => {
             <strong className="text-foreground">Examples:</strong>
           </p>
           <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
-            {`db:ticker:all:id
-db:ticker:all:id?orderBy=id:asc
-db:userTicker:all:tickerId?where.enabled=true&distinct=tickerId&take=500`}
+            {`db:ticker:id
+db:ticker:id?orderBy=id:asc
+db:ticker:id?where.id=123
+db:userTicker:tickerId?where.enabled=true&distinct=tickerId&take=500`}
           </pre>
         </div>
       </CollapsibleContent>

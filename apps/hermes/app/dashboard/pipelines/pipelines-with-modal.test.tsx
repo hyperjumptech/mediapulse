@@ -66,7 +66,7 @@ const createMockPipeline = (id: string, name: string) => ({
 describe("PipelinesWithModal", () => {
   it("renders create pipeline button", () => {
     // Act
-    render(<PipelinesWithModal pipelines={[]} />);
+    render(<PipelinesWithModal pipelines={[]} pipelineValidationById={{}} />);
 
     // Assert
     expect(
@@ -79,7 +79,12 @@ describe("PipelinesWithModal", () => {
     const pipelines = [createMockPipeline("1", "Pipeline A")];
 
     // Act
-    render(<PipelinesWithModal pipelines={pipelines} />);
+    render(
+      <PipelinesWithModal
+        pipelines={pipelines}
+        pipelineValidationById={{ "1": { valid: true, warnings: [] } }}
+      />,
+    );
 
     // Assert
     expect(screen.getByTestId("pipelines-table")).toBeInTheDocument();
@@ -91,7 +96,7 @@ describe("PipelinesWithModal", () => {
 
   it("renders pipeline form modal", () => {
     // Act
-    render(<PipelinesWithModal pipelines={[]} />);
+    render(<PipelinesWithModal pipelines={[]} pipelineValidationById={{}} />);
 
     // Assert
     expect(screen.getByTestId("pipeline-form-modal")).toBeInTheDocument();
@@ -99,7 +104,7 @@ describe("PipelinesWithModal", () => {
 
   it("opens create modal when clicking create button", () => {
     // Act
-    render(<PipelinesWithModal pipelines={[]} />);
+    render(<PipelinesWithModal pipelines={[]} pipelineValidationById={{}} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
 
@@ -119,7 +124,14 @@ describe("PipelinesWithModal", () => {
     const pipelines = [createMockPipeline("pipeline-1", "Pipeline A")];
 
     // Act
-    render(<PipelinesWithModal pipelines={pipelines} />);
+    render(
+      <PipelinesWithModal
+        pipelines={pipelines}
+        pipelineValidationById={{
+          "pipeline-1": { valid: true, warnings: [] },
+        }}
+      />,
+    );
 
     fireEvent.click(screen.getByTestId("edit-pipeline-1"));
 
@@ -140,7 +152,7 @@ describe("PipelinesWithModal", () => {
 
   it("modal is closed initially", () => {
     // Act
-    render(<PipelinesWithModal pipelines={[]} />);
+    render(<PipelinesWithModal pipelines={[]} pipelineValidationById={{}} />);
 
     // Assert
     expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(

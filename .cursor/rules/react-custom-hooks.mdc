@@ -1,0 +1,57 @@
+---
+globs: **/*.tsx
+alwaysApply: false
+---
+
+# React: Custom Hooks for State and Effects
+
+**React components must NOT use `useState` or `useEffect` (or other state/effect hooks) directly in the component body.**
+
+All stateful and effectful logic must live in **custom hooks**. The component should only:
+
+1. Call one or more custom hooks.
+2. Derive presentational data from hook return values.
+3. Render JSX.
+
+## Why
+
+- Keeps components thin and easy to read.
+- Makes state/effect logic testable in isolation (test the hook with `renderHook`).
+- Reusable across components when the hook is generic.
+- Ensures a single place for dependency injection (e.g. fetch functions) for tests.
+
+## Rule
+
+- **Forbidden in a component:** `useState`, `useEffect`, `useReducer`, `useRef` (when used for mutable state that triggers logic), or any custom hook that is only a thin wrapper around a single `useState`/`useEffect` that could be moved into a dedicated hook.
+- **Allowed in a component:** `useContext`, `useMemo`/`useCallback` for render optimization only, and **calls to custom hooks** that encapsulate state/effects.
+- **Custom hook:** Create a hook (e.g. `useStepEditorPanelState`, `useSearch`) that owns all related `useState`/`useEffect` and returns the state and setters the component needs. Co-locate the hook in the same file as the component, or in a dedicated `use-*.ts` file. Add JSDoc and unit tests (100% coverage).
+
+## Example
+
+```tsx
+// ❌ BAD
+const MyPanel = ({ step }: { step: Step | null }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!step) return;
+    setLoading(true);
+    fetchData(step.id).then(setData).finally(() => setLoading(false));
+  }, [step]);
+  return loading ? <Spinner /> : <Content data={data} />;
+};
+
+// ✅ GOOD
+const useMyPanelState = (step: Step | null) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => { ... }, [step]);
+  return { data, loading };
+};
+const MyPanel = ({ step }: { step: Step | null }) => {
+  const { data, loading } = useMyPanelState(step);
+  return loading ? <Spinner /> : <Content data={data} />;
+};
+```
+
+When generating or editing React components, always extract state and effects into a custom hook instead of putting them in the component.

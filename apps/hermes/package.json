@@ -40,7 +40,8 @@
     "route-action-gen": "catalog:",
     "sonner": "catalog:",
     "zod": "catalog:",
-    "ajv": "^8.17.1"
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

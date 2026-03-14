@@ -178,7 +178,6 @@ model Schedule {
   startAt        DateTime?      @map("start_at")
   nextRunAt      DateTime?      @map("next_run_at")
   pipelineId     String         @map("pipeline_id")
-  params         Json           @default("{}")
   retryConfig    Json?          @map("retry_config")
   timeout        Int? // milliseconds
   priority       Int            @default(0)
@@ -239,6 +238,7 @@ model PipelineStep {
   agentVersion  String   @map("agent_version")
   pipelineId    String   @map("pipeline_id")
   agentConfigId String?  @map("agent_config_id")
+  input         Json?    @default("{}")
   config        Json?    @default("{}")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")

@@ -10,6 +10,7 @@ import {
 import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
+import { validatePipeline } from "@/lib/validate-pipeline";
 
 const bodyValidator = z.object({
   pipelineId: z.string().uuid(),
@@ -78,6 +79,27 @@ export const createRunPipelineHandler = ({
       }),
       db.ticker.findMany(),
     ]);
+    const pipelineValidation = await validatePipeline(
+      {
+        id: pipeline.id,
+        name: pipeline.name,
+        steps: pipelineSteps.map((step) => ({
+          id: step.id,
+          order: step.order,
+          agentId: step.agentId,
+          agentVersion: step.agentVersion,
+          agentConfigId: step.agentConfigId,
+          input: step.input,
+          config: step.config,
+        })),
+      },
+      db,
+    );
+    if (!pipelineValidation.valid) {
+      return errorResponse(
+        `Pipeline is invalid: ${pipelineValidation.warnings.join("; ")}`,
+      );
+    }
 
     if (tickers.length === 0) {
       return successResponse({ ok: true as const, tickersRun: 0 });
