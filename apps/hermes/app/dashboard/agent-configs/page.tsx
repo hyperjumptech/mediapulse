@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   getAgentConfigsPage,
@@ -107,15 +108,21 @@ const AgentConfigsPage = async ({
   });
 
   return (
-    <AgentConfigsContent
-      configs={configsWithStatus}
-      agents={agentsForDropdown}
-      total={total}
-      page={currentPage}
-      pageSize={size}
-      sortBy={sortBy}
-      sortDir={sortDir}
-    />
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Agent configs"
+        description="Create and manage agent configuration presets."
+      />
+      <AgentConfigsContent
+        configs={configsWithStatus}
+        agents={agentsForDropdown}
+        total={total}
+        page={currentPage}
+        pageSize={size}
+        sortBy={sortBy}
+        sortDir={sortDir}
+      />
+    </div>
   );
 };
 

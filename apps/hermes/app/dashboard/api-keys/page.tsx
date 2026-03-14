@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   getApiKeysPage,
@@ -67,6 +68,10 @@ const ApiKeysPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="API keys"
+        description="Create and manage API keys for external access."
+      />
       <div className="flex flex-col justify-between sm:flex-row sm:items-center">
         <ApiKeysSearch
           initialQuery={search ?? ""}
