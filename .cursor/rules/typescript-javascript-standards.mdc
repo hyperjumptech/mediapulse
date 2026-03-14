@@ -19,7 +19,7 @@ export { createAgentTokenClient } from "./agent-token-client";
 export { verifyApiKeyViaAuthApi } from "./verify-token";
 ```
 
-Use `.js` in imports only when the package has a build step and consumers import from the built output (e.g. `"main": "dist/index.js"`).
+Use `.js` in relative imports when the package **has a build step** and exports built output (e.g. `"main": "dist/index.js"`). With `moduleResolution: "NodeNext"` / `"node16"`, tsc requires explicit `.js` extensions in ESM; the build emits real `.js` files, so consumers (and tsc) resolve them correctly.
 
 ## File Naming
 

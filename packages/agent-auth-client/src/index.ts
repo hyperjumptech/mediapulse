@@ -1,2 +1,5 @@
-export { createAgentTokenClient } from "./agent-token-client";
-export { verifyApiKeyViaAuthApi, verifyTokenViaAuthApi } from "./verify-token";
+export { createAgentTokenClient } from "./agent-token-client.js";
+export {
+  verifyApiKeyViaAuthApi,
+  verifyTokenViaAuthApi,
+} from "./verify-token.js";
