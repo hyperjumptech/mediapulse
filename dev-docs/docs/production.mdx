@@ -6,26 +6,85 @@ icon: Server
 
 This page lists **required** and **optional** environment variables for each app in production, and how to obtain or configure each value. All variables are defined in `packages/env` (see [env package](/packages/env)); sensitive values must **not** use the `NEXT_PUBLIC_` prefix.
 
+## Production deployment checklist
+
+Use this checklist to deploy the system in the right order. Each step assumes the previous ones are done.
+
+### 1. Prerequisites and database
+
+- [ ] **PostgreSQL** is provisioned and reachable (e.g. Supabase, Neon, Railway). You have the connection string.
+- [ ] **Prisma migrations** are applied: from repo root, `pnpm --filter @workspace/database db:migrate:deploy` (or your CI/deploy step). Schema is up to date.
+- [ ] **`DATABASE_URL`** is set everywhere it is needed (auth API, data API, registry API, Hermes, hermes-worker). Use the same DB for all except DataQueue schema (see hermes-worker).
+- [ ] **`TEMP_ADMIN_USERNAME`** and **`TEMP_ADMIN_PASSWORD`** are set to strong production values (shared by agent-auth-api and Hermes for dashboard/admin auth).
+
+### 2. agent-auth-api (must be first)
+
+- [ ] **agent-auth-api** is deployed and reachable at a public URL (e.g. `https://agent-auth-api.yourdomain.com`).
+- [ ] **`AGENT_AUTH_JWT_SECRET`** is set (32+ chars, random). Required for `POST /api/token` and `POST /api/verify`.
+- [ ] **`DATABASE_URL`**, **`TEMP_ADMIN_USERNAME`**, **`TEMP_ADMIN_PASSWORD`** are set. Restart after changing env.
+- [ ] **Smoke test:** Open the auth API URL; you should get 404 or a non-5xx. Optionally call `POST /api/verify` with no body → expect 401 (not 503).
+
+### 3. agent-data-api and agent-registry-api
+
+- [ ] **agent-data-api** is deployed with **`AGENT_AUTH_API_URL`** set to the agent-auth-api URL. **`DATABASE_URL`** set.
+- [ ] **agent-registry-api** is deployed with **`AGENT_AUTH_API_URL`** set to the agent-auth-api URL. **`DATABASE_URL`** set.
+- [ ] **Smoke test:** Both APIs are reachable. They will return 401 without a valid Bearer token; that is expected.
+
+### 4. Hermes (dashboard)
+
+- [ ] **Hermes** (Next.js) is deployed with **`DATABASE_URL`**, **`TEMP_ADMIN_USERNAME`**, **`TEMP_ADMIN_PASSWORD`**.
+- [ ] **`AGENT_AUTH_API_URL`** is set so the dashboard can mint JWTs when running pipelines manually. Do not set **`AGENT_API_KEY`** yet if you have not created the scheduler key (next step).
+- [ ] **Smoke test:** Log in to the dashboard. You can create pipelines, tickers, agents, and API keys.
+
+### 5. Scheduler API key (create in Hermes)
+
+- [ ] In the **Hermes dashboard**, go to **API keys** and **Create** a new key.
+- [ ] Set **purpose** to **`scheduler`**. Name it e.g. “Production scheduler”.
+- [ ] **Copy the raw key once** (it is shown only at creation). Store it in your secrets manager.
+- [ ] Set **`AGENT_API_KEY`** to this value in the environment for **Hermes** and **hermes-worker**. Restart or redeploy both after setting.
+
+### 6. hermes-worker (scheduler)
+
+- [ ] **DataQueue schema** is migrated: `pnpm --filter hermes-worker run migrate-dataqueue` (or your deploy step). Uses same DB with `?schema=dataqueue&search_path=dataqueue`.
+- [ ] **hermes-worker** is deployed with **`DATABASE_URL`**, **`PG_DATAQUEUE_DATABASE`** (same as `DATABASE_URL` with `?schema=dataqueue&search_path=dataqueue`), **`AGENT_AUTH_API_URL`**, and **`AGENT_API_KEY`** (the scheduler key from step 5).
+- [ ] In production, set **`REQUIRE_HTTPS_AGENT_ENDPOINTS=true`** so the worker only invokes agents over HTTPS (or localhost).
+- [ ] **Smoke test:** Worker starts without throwing (e.g. “AGENT_AUTH_API_URL and AGENT_API_KEY are required”). Cron runs every minute; check logs or DB for schedule execution.
+
+### 7. Agents
+
+- [ ] Each **agent** (data-collection, content-generation, delivery, ticker-echo, etc.) is deployed with **`AGENT_AUTH_API_URL`** (so it can verify invocation JWTs) and **`AGENT_DATA_API_URL`** (for agents that call the data API).
+- [ ] Agents that call agent-data-api or agent-registry-api have an **API key** (created in Hermes dashboard, purpose `general` or as needed) set in their env (e.g. for registry: **`AGENT_REGISTRY_API_KEY`**; for data API the agent runtime uses the same key when calling the data API).
+- [ ] If agents **auto-register**, set **`AGENT_REGISTRY_URL`**, **`AGENT_REGISTRY_API_KEY`**, and **`AGENT_PUBLIC_URL`** per agent. Register agents in the Hermes dashboard if not auto-registering.
+- [ ] **Smoke test:** From Hermes dashboard, run a pipeline manually. Agents should receive the request (check agent logs) and return success; no 401 from agents.
+
+### 8. Verification
+
+- [ ] **Manual run:** In Hermes dashboard, trigger a pipeline run. All steps complete without 401/503 from agents or auth API.
+- [ ] **Scheduled run:** Create a schedule, wait for the next run (or trigger via worker). hermes-worker invokes agents with JWTs; agents verify via agent-auth-api and run.
+- [ ] **Revocation:** In Hermes dashboard, deactivate the scheduler API key. After a short while (JWT expiry), hermes-worker and manual runs should no longer be able to obtain new tokens. Re-activate the key to restore.
+
+---
+
 ## Shared variables (main env)
 
 These come from `packages/env/env.example` and are used by multiple apps.
 
-| Variable                        | Required       | How to find the value                                                                                                                                                                                                                                                                                                 |
-| ------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                  | Yes            | PostgreSQL connection string from your database provider (e.g. [Supabase](https://supabase.com), [Neon](https://neon.tech), [Railway](https://railway.app)). Format: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public`. Get it from the provider’s dashboard under “Connection string” or “Database URL”. |
-| `DATABASE_CERT_BASE64`          | No             | For TLS (e.g. Neon), the base64-encoded client certificate. In Neon: Project → Settings → Connection → “Download certificate”, then `base64 -i certificate.pem` (or your provider’s equivalent). Omit if your provider doesn’t use client certs.                                                                      |
-| `PORT`                          | No             | Port the app listens on. Defaults in code: agent-auth-api `8080`, agent-data-api `8081`, agent-registry-api `8082`. Override per deployment if needed.                                                                                                                                                                |
-| `AGENT_DATA_API_URL`            | Depends on app | **Required** for agent-data-api consumers (agents, hermes-worker). Set to the **public URL** of your deployed agent-data-api (e.g. `https://agent-data-api.yourdomain.com`).                                                                                                                                          |
-| `AGENT_AUTH_API_URL`            | Depends on app | **Required** for agent-data-api, agent-registry-api, hermes, hermes-worker, and all agents. Set to the **public URL** of your deployed agent-auth-api (e.g. `https://agent-auth-api.yourdomain.com`).                                                                                                                 |
-| `AGENT_API_KEY`                 | Depends on app | **Required** for Hermes and hermes-worker. Create via API key CRUD with **purpose `scheduler`**. Used only to call `POST /api/token` to mint short-lived JWTs; the raw key is never sent to agents. Store securely; never expose to the client; the raw key is printed once at creation.                              |
-| `AGENT_AUTH_JWT_SECRET`         | Yes (auth API) | **Required** for agent-auth-api (JWT issuance and invocation verification). Hermes and hermes-worker call `POST /api/token` to mint short-lived JWTs and send them to agents. Use a long random value (32+ chars).                                                                                                    |
-| `REQUIRE_HTTPS_AGENT_ENDPOINTS` | No             | Set to `true` in production so hermes-worker rejects agent endpoints that use `http` with a non-local host. Localhost and 127.0.0.1 are always allowed.                                                                                                                                                               |
-| `TEMP_ADMIN_USERNAME`           | Yes            | Admin username for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                       |
-| `TEMP_ADMIN_PASSWORD`           | Yes            | Admin password for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                       |
-| `OUTLOOK_CLIENT_ID`             | No             | Azure App Registration (Microsoft Entra) → **Application (client) ID**. Used by Outlook/Microsoft Graph integrations and scripts (see [Microsoft setup](/packages/outlook-inbox/microsoft-setup)).                                                                                                                    |
-| `OUTLOOK_CLIENT_SECRET`         | No             | Azure App Registration → **Certificates & secrets** → client secret value. Store as a server-side secret.                                                                                                                                                                                                             |
-| `OUTLOOK_TENANT_ID`             | No             | Azure App Registration → **Directory (tenant) ID**.                                                                                                                                                                                                                                                                   |
-| `OUTLOOK_USER_ID`               | No             | Mailbox identifier for app-only Graph access: usually the shared mailbox email (for example `shared@yourdomain.com`), or an Azure AD object ID.                                                                                                                                                                       |
+| Variable                        | Required       | How to find the value                                                                                                                                                                                                                                                                                                      |
+| ------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | Yes            | PostgreSQL connection string from your database provider (e.g. [Supabase](https://supabase.com), [Neon](https://neon.tech), [Railway](https://railway.app)). Format: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public`. Get it from the provider’s dashboard under “Connection string” or “Database URL”.      |
+| `DATABASE_CERT_BASE64`          | No             | For TLS (e.g. Neon), the base64-encoded client certificate. In Neon: Project → Settings → Connection → “Download certificate”, then `base64 -i certificate.pem` (or your provider’s equivalent). Omit if your provider doesn’t use client certs.                                                                           |
+| `PORT`                          | No             | Port the app listens on. Defaults in code: agent-auth-api `8080`, agent-data-api `8081`, agent-registry-api `8082`. Override per deployment if needed.                                                                                                                                                                     |
+| `AGENT_DATA_API_URL`            | Depends on app | **Required** for agent-data-api consumers (agents, hermes-worker). Set to the **public URL** of your deployed agent-data-api (e.g. `https://agent-data-api.yourdomain.com`).                                                                                                                                               |
+| `AGENT_AUTH_API_URL`            | Depends on app | **Required** for agent-data-api, agent-registry-api, hermes, hermes-worker, and all agents. Set to the **public URL** of your deployed agent-auth-api (e.g. `https://agent-auth-api.yourdomain.com`).                                                                                                                      |
+| `AGENT_API_KEY`                 | Depends on app | **Required** for Hermes and hermes-worker. **Create in the Hermes dashboard** (API keys → Create, purpose `scheduler`). Used only to call `POST /api/token` to mint short-lived JWTs; the raw key is never sent to agents. Copy the key once at creation and set it in env; store securely and never expose to the client. |
+| `AGENT_AUTH_JWT_SECRET`         | Yes (auth API) | **Required** for agent-auth-api (JWT issuance and invocation verification). Hermes and hermes-worker call `POST /api/token` to mint short-lived JWTs and send them to agents. Use a long random value (32+ chars).                                                                                                         |
+| `REQUIRE_HTTPS_AGENT_ENDPOINTS` | No             | Set to `true` in production so hermes-worker rejects agent endpoints that use `http` with a non-local host. Localhost and 127.0.0.1 are always allowed.                                                                                                                                                                    |
+| `TEMP_ADMIN_USERNAME`           | Yes            | Admin username for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                            |
+| `TEMP_ADMIN_PASSWORD`           | Yes            | Admin password for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                            |
+| `OUTLOOK_CLIENT_ID`             | No             | Azure App Registration (Microsoft Entra) → **Application (client) ID**. Used by Outlook/Microsoft Graph integrations and scripts (see [Microsoft setup](/packages/outlook-inbox/microsoft-setup)).                                                                                                                         |
+| `OUTLOOK_CLIENT_SECRET`         | No             | Azure App Registration → **Certificates & secrets** → client secret value. Store as a server-side secret.                                                                                                                                                                                                                  |
+| `OUTLOOK_TENANT_ID`             | No             | Azure App Registration → **Directory (tenant) ID**.                                                                                                                                                                                                                                                                        |
+| `OUTLOOK_USER_ID`               | No             | Mailbox identifier for app-only Graph access: usually the shared mailbox email (for example `shared@yourdomain.com`), or an Azure AD object ID.                                                                                                                                                                            |
 
 ---
 
@@ -65,13 +124,13 @@ These come from `packages/env/env.example` and are used by multiple apps.
 
 ### hermes (Next.js app)
 
-| Variable              | Required               | How to find the value                                                             |
-| --------------------- | ---------------------- | --------------------------------------------------------------------------------- |
-| `DATABASE_URL`        | Yes                    | Shared.                                                                           |
-| `TEMP_ADMIN_USERNAME` | Yes                    | Shared. Used for pipeline run auth.                                               |
-| `TEMP_ADMIN_PASSWORD` | Yes                    | Shared.                                                                           |
-| `AGENT_AUTH_API_URL`  | Yes (to run pipelines) | Shared. Used to mint JWTs when the dashboard triggers a pipeline run.             |
-| `AGENT_API_KEY`       | Yes (to run pipelines) | Shared. Scheduler key used only to call POST /api/token; JWTs are sent to agents. |
+| Variable              | Required               | How to find the value                                                                                                                               |
+| --------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`        | Yes                    | Shared.                                                                                                                                             |
+| `TEMP_ADMIN_USERNAME` | Yes                    | Shared. Used for pipeline run auth.                                                                                                                 |
+| `TEMP_ADMIN_PASSWORD` | Yes                    | Shared.                                                                                                                                             |
+| `AGENT_AUTH_API_URL`  | Yes (to run pipelines) | Shared. Used to mint JWTs when the dashboard triggers a pipeline run.                                                                               |
+| `AGENT_API_KEY`       | Yes (to run pipelines) | Scheduler key **created by admin in Hermes dashboard** (API keys, purpose `scheduler`). Used only to call POST /api/token; JWTs are sent to agents. |
 
 ---
 
@@ -79,13 +138,13 @@ These come from `packages/env/env.example` and are used by multiple apps.
 
 Uses **`packages/env/env.hermes-worker.example`** (merged with main env). The worker needs both the main database and the DataQueue schema.
 
-| Variable                        | Required            | How to find the value                                                                                                                                                                                                                                     |
-| ------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                  | Yes                 | Shared. Main app database.                                                                                                                                                                                                                                |
-| `PG_DATAQUEUE_DATABASE`         | Yes (for scheduler) | Same as `DATABASE_URL` but with `?schema=dataqueue&search_path=dataqueue`. Can use the same database; run migrations with `pnpm --filter hermes-worker run migrate-dataqueue`. See [DataQueue docs](https://docs.dataqueue.dev/usage/database-migration). |
-| `AGENT_API_KEY`                 | Yes (for jobs)      | Shared. Use a key with **purpose `scheduler`** so the worker can call `POST /api/token` and send short-lived JWTs to agents. Revoking this key stops the worker after token expiry.                                                                       |
-| `AGENT_AUTH_API_URL`            | Yes                 | **Required** with `AGENT_API_KEY`. Worker mints short-lived JWTs via `POST /api/token` and sends only JWTs to agents. Use HTTPS in production.                                                                                                            |
-| `REQUIRE_HTTPS_AGENT_ENDPOINTS` | No                  | Set to `true` in production to reject agent endpoints that use `http` with a non-local host.                                                                                                                                                              |
+| Variable                        | Required            | How to find the value                                                                                                                                                                                                                                            |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | Yes                 | Shared. Main app database.                                                                                                                                                                                                                                       |
+| `PG_DATAQUEUE_DATABASE`         | Yes (for scheduler) | Same as `DATABASE_URL` but with `?schema=dataqueue&search_path=dataqueue`. Can use the same database; run migrations with `pnpm --filter hermes-worker run migrate-dataqueue`. See [DataQueue docs](https://docs.dataqueue.dev/usage/database-migration).        |
+| `AGENT_API_KEY`                 | Yes (for jobs)      | Scheduler key **created by admin in the Hermes dashboard** (API keys → Create, purpose `scheduler`). Worker uses it only to call `POST /api/token`; short-lived JWTs are sent to agents. Revoking this key in the dashboard stops the worker after token expiry. |
+| `AGENT_AUTH_API_URL`            | Yes                 | **Required** with `AGENT_API_KEY`. Worker mints short-lived JWTs via `POST /api/token` and sends only JWTs to agents. Use HTTPS in production.                                                                                                                   |
+| `REQUIRE_HTTPS_AGENT_ENDPOINTS` | No                  | Set to `true` in production to reject agent endpoints that use `http` with a non-local host.                                                                                                                                                                     |
 
 ---
 
@@ -166,7 +225,7 @@ Uses **`packages/env/env.agents.ticker-echo.example`**.
 
 ## Secure agent communications
 
-- **JWT-only invocation:** Agent invocation uses **only** short-lived JWTs. Hermes and hermes-worker call `POST /api/token` with a scheduler API key to obtain a JWT, then send `Authorization: Bearer <jwt>` to agents. Agents verify the JWT via `POST /api/verify`. Raw API keys are never sent to agents for invocation. Set `AGENT_AUTH_JWT_SECRET` on agent-auth-api (required) and give Hermes/hermes-worker an API key with **purpose `scheduler`**.
+- **JWT-only invocation:** Agent invocation uses **only** short-lived JWTs. Hermes and hermes-worker call `POST /api/token` with a **scheduler API key** (created by an admin in the Hermes dashboard, API keys, purpose `scheduler`) to obtain a JWT, then send `Authorization: Bearer <jwt>` to agents. Agents verify the JWT via `POST /api/verify`. Raw API keys are never sent to agents. Set `AGENT_AUTH_JWT_SECRET` on agent-auth-api (required).
 - **API keys for service calls:** Agents use admin-issued API keys to call agent-data-api and agent-registry-api; those services verify keys via `POST /api/verify-api-key`.
 - **HTTPS:** Use HTTPS for all service URLs in production. Set `REQUIRE_HTTPS_AGENT_ENDPOINTS=true` so hermes-worker rejects non-HTTPS agent endpoints (except localhost).
 - **No bypass in prod:** Do not set `ALLOW_ANY_BEARER_FOR_LOCAL=true` (or equivalent) in production; keep it for local dev only.
