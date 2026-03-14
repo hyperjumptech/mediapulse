@@ -78,6 +78,7 @@ const mockApiKey = {
   id: "key-1",
   name: "My Key",
   key: "hashed",
+  purpose: null as string | null,
   isActive: true,
   userId: "user-1",
   createdAt: new Date(),

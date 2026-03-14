@@ -66,6 +66,7 @@ const createMockApiKey = (id: string, name: string) => ({
   id,
   name,
   key: "hash",
+  purpose: null as string | null,
   isActive: true,
   userId: "user-1",
   createdAt: new Date("2024-01-15"),

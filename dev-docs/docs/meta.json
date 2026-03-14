@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "architecture",
+    "communication",
     "getting-started",
     "production",
     "apps",

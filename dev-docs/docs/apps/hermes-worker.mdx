@@ -14,6 +14,8 @@ icon: ServerCog
 - **Cron registration** — Ensures `hermes-check-schedules` (every minute) exists.
 - **Processor** — Runs job handlers (e.g. `check_schedules`: get due schedules, execute each via hermes-scheduler).
 - **Supervisor** — Reclaims stuck jobs, cleans old jobs/events.
+- **JWT-only invocation** — The worker **requires** `AGENT_AUTH_API_URL` and `AGENT_API_KEY`. The scheduler API key must be **created by an admin in the Hermes dashboard** (API keys → Create, purpose `scheduler`). The worker uses it only to fetch short-lived JWTs from `POST /api/token` and sends only JWTs to agents; the raw key is never sent to agents. Revoking that key in the dashboard stops the worker from obtaining new tokens after expiry.
+- **HTTPS enforcement** — When `REQUIRE_HTTPS_AGENT_ENDPOINTS=true`, agent endpoint URLs must use HTTPS (or `http://localhost` / `http://127.0.0.1` for local dev).
 - **Graceful shutdown** — SIGTERM/SIGINT drain processor and supervisor, then exit.
 
 ## Scripts
@@ -38,12 +40,19 @@ If you see an error like `relation "cron_schedules" does not exist` when startin
 
 ## Environment
 
-- **PG_DATAQUEUE_DATABASE** (required) — DataQueue DB connection (e.g. same as `DATABASE_URL` with `?schema=dataqueue`).
-- **DATABASE_URL** — Used by Prisma in job handlers (schedule execution).
-- **AGENT_API_KEY** — Bearer token when invoking agents.
+All variables are defined in **`packages/env/env.hermes-worker.example`**. Copy that file to `apps/hermes-worker/.env.local` (or set in your deployment).
+
+| Variable                          | Required | Description                                                                                                                                                         |
+| --------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **DATABASE_URL**                  | Yes      | Main app database (Prisma).                                                                                                                                         |
+| **PG_DATAQUEUE_DATABASE**         | Yes      | DataQueue connection (`?schema=dataqueue&search_path=dataqueue`). Run migrate-dataqueue before first start.                                                         |
+| **AGENT_AUTH_API_URL**            | Yes      | **Required.** Base URL of agent-auth-api. Worker mints JWTs via POST /api/token.                                                                                    |
+| **AGENT_API_KEY**                 | Yes      | Scheduler API key **created by admin in the Hermes dashboard** (API keys → Create, purpose `scheduler`). Used only to fetch short-lived JWTs; never sent to agents. |
+| **REQUIRE_HTTPS_AGENT_ENDPOINTS** | No       | Set to `true` in production to reject non-HTTPS agent endpoints (except localhost).                                                                                 |
 
 ## Workspace dependencies
 
 - `@workspace/hermes-scheduler` — Due schedules, execution, next-run logic.
 - `@workspace/database` — Prisma client for schedules and execution.
-- `@workspace/env`, `@workspace/logger`, `@nicnocquee/dataqueue`, `got`.
+- `@workspace/env/hermes-worker` — Env schema in `packages/env/env.hermes-worker.example`. Copy to `apps/hermes-worker/.env.local` and fill in values.
+- `@workspace/logger`, `@nicnocquee/dataqueue`, `got`.

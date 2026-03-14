@@ -26,7 +26,27 @@ export type ExecuteScheduleDeps = {
   };
   authToken?: string;
   defaultTimeoutMs?: number;
+  /** When true, reject agent endpoint URLs that use http with a non-local host. */
+  requireHttpsAgentEndpoints?: boolean;
 };
+
+/**
+ * Returns false when requireHttps is true and the URL is http with a host other than localhost/127.0.0.1.
+ */
+function isAllowedAgentEndpointUrl(
+  urlString: string,
+  requireHttps: boolean,
+): boolean {
+  if (!requireHttps) return true;
+  try {
+    const u = new URL(urlString);
+    if (u.protocol !== "http:") return true;
+    const h = u.hostname.toLowerCase();
+    return h === "localhost" || h === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Executes a due schedule: for each pipeline step, substitutes variables and expands
@@ -45,6 +65,7 @@ export const executeSchedule = async (
     logger,
     authToken,
     defaultTimeoutMs = 300_000,
+    requireHttpsAgentEndpoints = false,
   } = deps;
   const executionTime = new Date();
   const errors: Array<{ message: string; timestamp: string }> = [];
@@ -106,6 +127,18 @@ export const executeSchedule = async (
     if (!endpointResult.success) {
       errors.push({
         message: `Invalid endpoint for ${step.agentId}: ${endpointResult.error.message}`,
+        timestamp: new Date().toISOString(),
+      });
+      continue;
+    }
+    if (
+      !isAllowedAgentEndpointUrl(
+        endpointResult.data.url,
+        requireHttpsAgentEndpoints,
+      )
+    ) {
+      errors.push({
+        message: `Agent endpoint must use HTTPS (or localhost) for ${step.agentId}: ${endpointResult.data.url}`,
         timestamp: new Date().toISOString(),
       });
       continue;

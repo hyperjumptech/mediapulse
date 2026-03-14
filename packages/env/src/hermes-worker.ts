@@ -8,6 +8,9 @@ export const env = createEnv({
     DATABASE_URL: z.string().min(1),
     DATABASE_CERT_BASE64: z.string().optional(),
     PG_DATAQUEUE_DATABASE: z.string().min(1),
+    AGENT_API_KEY: z.string().optional(),
+    AGENT_AUTH_API_URL: z.string().optional(),
+    REQUIRE_HTTPS_AGENT_ENDPOINTS: z.string().optional(),
   },
   client: {
   },

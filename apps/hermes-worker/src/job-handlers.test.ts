@@ -8,8 +8,18 @@ vi.mock("@workspace/database", () => ({
   prisma: {},
 }));
 
-vi.mock("@workspace/env", () => ({
-  env: { AGENT_API_KEY: "test-api-key" },
+vi.mock("@workspace/env/hermes-worker", () => ({
+  env: {
+    AGENT_API_KEY: "test-scheduler-key",
+    AGENT_AUTH_API_URL: "https://auth.example.com",
+    REQUIRE_HTTPS_AGENT_ENDPOINTS: undefined as string | undefined,
+  },
+}));
+
+vi.mock("@workspace/agent-auth-client", () => ({
+  createAgentTokenClient: () => ({
+    getToken: () => Promise.resolve("test-jwt-token"),
+  }),
 }));
 
 vi.mock("@workspace/logger", () => ({
@@ -90,8 +100,9 @@ describe("jobHandlers", () => {
         db: prisma,
         httpClient: expect.any(Object),
         logger,
-        authToken: "test-api-key",
+        authToken: "test-jwt-token",
         defaultTimeoutMs: 300_000,
+        requireHttpsAgentEndpoints: false,
       });
     });
 
