@@ -254,4 +254,81 @@ describe("executeSchedule", () => {
       data: { enabled: false },
     });
   });
+
+  it("rejects http agent endpoint when requireHttpsAgentEndpoints is true", async () => {
+    const schedule = createMockSchedule();
+    const post = vi.fn().mockResolvedValue(undefined);
+    const scheduleExecutionCreate = vi.fn().mockResolvedValue(undefined);
+    const deps: ExecuteScheduleDeps = {
+      db: {
+        agentRegistry: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              agentId: "agent-a",
+              agentVersion: "1.0.0",
+              endpoint: { url: "http://evil.example/run", method: "POST" },
+              isActive: true,
+            },
+          ]),
+        },
+        agentJobExecution: {
+          create: vi.fn().mockResolvedValue(undefined),
+          update: vi.fn().mockResolvedValue(undefined),
+        },
+        scheduleExecution: { create: scheduleExecutionCreate },
+        schedule: { update: vi.fn().mockResolvedValue(undefined) },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
+      } as unknown as ExecuteScheduleDeps["db"],
+      httpClient: { post },
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      requireHttpsAgentEndpoints: true,
+    };
+
+    await executeSchedule(schedule, deps);
+
+    expect(post).not.toHaveBeenCalled();
+    expect(scheduleExecutionCreate).toHaveBeenCalledTimes(1);
+    const createCall = scheduleExecutionCreate.mock.calls[0] as [
+      { data: { errors?: Array<{ message: string }> } },
+    ];
+    const errors = createCall[0].data.errors ?? [];
+    expect(errors.some((e) => e.message.includes("must use HTTPS"))).toBe(true);
+  });
+
+  it("allows http localhost when requireHttpsAgentEndpoints is true", async () => {
+    const schedule = createMockSchedule();
+    const post = vi.fn().mockResolvedValue(undefined);
+    const deps: ExecuteScheduleDeps = {
+      db: {
+        agentRegistry: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              agentId: "agent-a",
+              agentVersion: "1.0.0",
+              endpoint: {
+                url: "http://localhost:4010/",
+                method: "POST",
+              },
+              isActive: true,
+            },
+          ]),
+        },
+        agentJobExecution: {
+          create: vi.fn().mockResolvedValue(undefined),
+          update: vi.fn().mockResolvedValue(undefined),
+        },
+        scheduleExecution: { create: vi.fn().mockResolvedValue(undefined) },
+        schedule: { update: vi.fn().mockResolvedValue(undefined) },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
+      } as unknown as ExecuteScheduleDeps["db"],
+      httpClient: { post },
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      requireHttpsAgentEndpoints: true,
+    };
+
+    await executeSchedule(schedule, deps);
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect((post.mock.calls[0] as [string])[0]).toBe("http://localhost:4010/");
+  });
 });

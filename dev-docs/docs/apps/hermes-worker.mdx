@@ -14,6 +14,8 @@ icon: ServerCog
 - **Cron registration** — Ensures `hermes-check-schedules` (every minute) exists.
 - **Processor** — Runs job handlers (e.g. `check_schedules`: get due schedules, execute each via hermes-scheduler).
 - **Supervisor** — Reclaims stuck jobs, cleans old jobs/events.
+- **Agent token client** — When `AGENT_AUTH_API_URL` and `AGENT_API_KEY` are set, the worker fetches **short-lived JWTs** from `POST /api/token` (using the API key as credential) and uses those tokens when invoking agents, instead of sending the raw key. Use an API key with **purpose `scheduler`** so token issuance is allowed. Revoking that key in the admin UI stops the worker from obtaining new tokens after expiry.
+- **HTTPS enforcement** — When `REQUIRE_HTTPS_AGENT_ENDPOINTS=true`, agent endpoint URLs must use HTTPS (or `http://localhost` / `http://127.0.0.1` for local dev).
 - **Graceful shutdown** — SIGTERM/SIGINT drain processor and supervisor, then exit.
 
 ## Scripts
@@ -40,7 +42,9 @@ If you see an error like `relation "cron_schedules" does not exist` when startin
 
 - **PG_DATAQUEUE_DATABASE** (required) — DataQueue DB connection (e.g. same as `DATABASE_URL` with `?schema=dataqueue`).
 - **DATABASE_URL** — Used by Prisma in job handlers (schedule execution).
-- **AGENT_API_KEY** — Bearer token when invoking agents.
+- **AGENT_API_KEY** — Credential for agent invocation. When **AGENT_AUTH_API_URL** is also set, this key is used only to call `POST /api/token`; the worker then sends the returned short-lived JWT to agents. Use a key with purpose `scheduler` (create via API key CRUD with `purpose: "scheduler"`).
+- **AGENT_AUTH_API_URL** (optional) — Base URL of agent-auth-api. When set with `AGENT_API_KEY`, the worker uses the token client (short-lived JWTs) instead of the raw key when invoking agents.
+- **REQUIRE_HTTPS_AGENT_ENDPOINTS** (optional) — Set to `true` in production to reject agent endpoints that use `http` with a non-local host. Localhost and 127.0.0.1 are always allowed.
 
 ## Workspace dependencies
 

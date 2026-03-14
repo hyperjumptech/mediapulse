@@ -9,7 +9,11 @@ vi.mock("@workspace/database", () => ({
 }));
 
 vi.mock("@workspace/env", () => ({
-  env: { AGENT_API_KEY: "test-api-key" },
+  env: {
+    AGENT_API_KEY: "test-api-key",
+    AGENT_AUTH_API_URL: undefined as string | undefined,
+    REQUIRE_HTTPS_AGENT_ENDPOINTS: undefined as string | undefined,
+  },
 }));
 
 vi.mock("@workspace/logger", () => ({
@@ -92,6 +96,7 @@ describe("jobHandlers", () => {
         logger,
         authToken: "test-api-key",
         defaultTimeoutMs: 300_000,
+        requireHttpsAgentEndpoints: false,
       });
     });
 

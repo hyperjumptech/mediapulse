@@ -10,16 +10,18 @@ This page lists **required** and **optional** environment variables for each app
 
 These come from `packages/env/env.example` and are used by multiple apps.
 
-| Variable               | Required       | How to find the value                                                                                                                                                                                                                                                                                                 |
-| ---------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`         | Yes            | PostgreSQL connection string from your database provider (e.g. [Supabase](https://supabase.com), [Neon](https://neon.tech), [Railway](https://railway.app)). Format: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public`. Get it from the provider’s dashboard under “Connection string” or “Database URL”. |
-| `DATABASE_CERT_BASE64` | No             | For TLS (e.g. Neon), the base64-encoded client certificate. In Neon: Project → Settings → Connection → “Download certificate”, then `base64 -i certificate.pem` (or your provider’s equivalent). Omit if your provider doesn’t use client certs.                                                                      |
-| `PORT`                 | No             | Port the app listens on. Defaults in code: agent-auth-api `8080`, agent-data-api `8081`, agent-registry-api `8082`. Override per deployment if needed.                                                                                                                                                                |
-| `AGENT_DATA_API_URL`   | Depends on app | **Required** for agent-data-api consumers (agents, hermes-worker). Set to the **public URL** of your deployed agent-data-api (e.g. `https://agent-data-api.yourdomain.com`).                                                                                                                                          |
-| `AGENT_AUTH_API_URL`   | Depends on app | **Required** for agent-data-api and all agents. Set to the **public URL** of your deployed agent-auth-api (e.g. `https://agent-auth-api.yourdomain.com`).                                                                                                                                                             |
-| `AGENT_API_KEY`        | Depends on app | **Required** for hermes and hermes-worker when triggering pipelines or calling agent-data-api. Create via `apps/hermes/scripts/generate-api-key.ts <email> "<name>"` (or insert into the API keys table). Store securely; never expose to the client; the raw key is printed once.                                    |
-| `TEMP_ADMIN_USERNAME`  | Yes            | Admin username for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                       |
-| `TEMP_ADMIN_PASSWORD`  | Yes            | Admin password for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                       |
+| Variable                        | Required       | How to find the value                                                                                                                                                                                                                                                                                                  |
+| ------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | Yes            | PostgreSQL connection string from your database provider (e.g. [Supabase](https://supabase.com), [Neon](https://neon.tech), [Railway](https://railway.app)). Format: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public`. Get it from the provider’s dashboard under “Connection string” or “Database URL”.  |
+| `DATABASE_CERT_BASE64`          | No             | For TLS (e.g. Neon), the base64-encoded client certificate. In Neon: Project → Settings → Connection → “Download certificate”, then `base64 -i certificate.pem` (or your provider’s equivalent). Omit if your provider doesn’t use client certs.                                                                       |
+| `PORT`                          | No             | Port the app listens on. Defaults in code: agent-auth-api `8080`, agent-data-api `8081`, agent-registry-api `8082`. Override per deployment if needed.                                                                                                                                                                 |
+| `AGENT_DATA_API_URL`            | Depends on app | **Required** for agent-data-api consumers (agents, hermes-worker). Set to the **public URL** of your deployed agent-data-api (e.g. `https://agent-data-api.yourdomain.com`).                                                                                                                                           |
+| `AGENT_AUTH_API_URL`            | Depends on app | **Required** for agent-data-api and all agents. Set to the **public URL** of your deployed agent-auth-api (e.g. `https://agent-auth-api.yourdomain.com`).                                                                                                                                                              |
+| `AGENT_API_KEY`                 | Depends on app | **Required** for hermes and hermes-worker when triggering pipelines or calling agent-data-api. Create via API key CRUD with **purpose `scheduler`** for hermes-worker so it can obtain short-lived tokens from `POST /api/token`. Store securely; never expose to the client; the raw key is printed once at creation. |
+| `AGENT_AUTH_JWT_SECRET`         | No             | **Required** for token issuance (agent-auth-api). Set when using short-lived tokens: hermes-worker calls `POST /api/token` and sends the JWT to agents. Use a long random value (32+ chars).                                                                                                                           |
+| `REQUIRE_HTTPS_AGENT_ENDPOINTS` | No             | Set to `true` in production so hermes-worker rejects agent endpoints that use `http` with a non-local host. Localhost and 127.0.0.1 are always allowed.                                                                                                                                                                |
+| `TEMP_ADMIN_USERNAME`           | Yes            | Admin username for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                        |
+| `TEMP_ADMIN_PASSWORD`           | Yes            | Admin password for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                        |
 
 ---
 
@@ -27,12 +29,13 @@ These come from `packages/env/env.example` and are used by multiple apps.
 
 ### agent-auth-api
 
-| Variable              | Required | How to find the value                               |
-| --------------------- | -------- | --------------------------------------------------- |
-| `DATABASE_URL`        | Yes      | Shared (see above).                                 |
-| `PORT`                | No       | Default `8080`. Set if your host uses another port. |
-| `TEMP_ADMIN_USERNAME` | Yes      | Shared. Used to validate admin login.               |
-| `TEMP_ADMIN_PASSWORD` | Yes      | Shared. Used to validate admin login.               |
+| Variable                | Required | How to find the value                                                                  |
+| ----------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | Yes      | Shared (see above).                                                                    |
+| `PORT`                  | No       | Default `8080`. Set if your host uses another port.                                    |
+| `AGENT_AUTH_JWT_SECRET` | No       | **Required** if hermes-worker uses short-lived tokens. Long random string (32+ chars). |
+| `TEMP_ADMIN_USERNAME`   | Yes      | Shared. Used to validate admin login.                                                  |
+| `TEMP_ADMIN_PASSWORD`   | Yes      | Shared. Used to validate admin login.                                                  |
 
 ---
 
@@ -70,11 +73,13 @@ These come from `packages/env/env.example` and are used by multiple apps.
 
 Uses **`packages/env/env.hermes-worker.example`** (merged with main env). The worker needs both the main database and the DataQueue schema.
 
-| Variable                | Required            | How to find the value                                                                                                                                                                                                                                     |
-| ----------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`          | Yes                 | Shared. Main app database.                                                                                                                                                                                                                                |
-| `PG_DATAQUEUE_DATABASE` | Yes (for scheduler) | Same as `DATABASE_URL` but with `?schema=dataqueue&search_path=dataqueue`. Can use the same database; run migrations with `pnpm --filter hermes-worker run migrate-dataqueue`. See [DataQueue docs](https://docs.dataqueue.dev/usage/database-migration). |
-| `AGENT_API_KEY`         | Yes (for jobs)      | Shared. Used when job handlers call agent-data-api.                                                                                                                                                                                                       |
+| Variable                        | Required            | How to find the value                                                                                                                                                                                                                                     |
+| ------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | Yes                 | Shared. Main app database.                                                                                                                                                                                                                                |
+| `PG_DATAQUEUE_DATABASE`         | Yes (for scheduler) | Same as `DATABASE_URL` but with `?schema=dataqueue&search_path=dataqueue`. Can use the same database; run migrations with `pnpm --filter hermes-worker run migrate-dataqueue`. See [DataQueue docs](https://docs.dataqueue.dev/usage/database-migration). |
+| `AGENT_API_KEY`                 | Yes (for jobs)      | Shared. Use a key with **purpose `scheduler`** so the worker can call `POST /api/token` and send short-lived JWTs to agents. Revoking this key stops the worker after token expiry.                                                                       |
+| `AGENT_AUTH_API_URL`            | No (recommended)    | When set with `AGENT_API_KEY`, the worker fetches short-lived tokens from auth API instead of sending the raw key to agents. Use HTTPS in production.                                                                                                     |
+| `REQUIRE_HTTPS_AGENT_ENDPOINTS` | No                  | Set to `true` in production to reject agent endpoints that use `http` with a non-local host.                                                                                                                                                              |
 
 ---
 
@@ -139,9 +144,15 @@ Uses **`packages/env/env.agents.delivery.example`**.
 
 ---
 
+## Secure agent communications
+
+- **Short-lived tokens:** Set `AGENT_AUTH_API_URL` and `AGENT_AUTH_JWT_SECRET` (auth API) and give hermes-worker an API key with **purpose `scheduler`**. The worker then uses that key only to call `POST /api/token` and sends the returned JWT to agents. Revoking the key in the admin UI stops the worker from obtaining new tokens; existing tokens expire in minutes.
+- **HTTPS:** Use HTTPS for all service URLs (agent-auth-api, agent-data-api, agent endpoints) in production. Set `REQUIRE_HTTPS_AGENT_ENDPOINTS=true` so hermes-worker rejects non-HTTPS agent endpoints (except localhost).
+- **No bypass in prod:** Do not set `ALLOW_ANY_BEARER_FOR_LOCAL=true` (or equivalent) in production; keep it for local dev only.
+
 ## Summary
 
 - **Required everywhere (when the app uses DB):** `DATABASE_URL`. For agent-data-api add `AGENT_AUTH_API_URL`. For hermes/hermes-worker add `AGENT_API_KEY`. For agent-auth-api and hermes add `TEMP_ADMIN_USERNAME` and `TEMP_ADMIN_PASSWORD`.
-- **Optional:** `DATABASE_CERT_BASE64` (TLS), `PORT` (override defaults), and for agents the registry trio (`AGENT_REGISTRY_URL`, `AGENT_REGISTRY_API_KEY`, `AGENT_PUBLIC_URL`) if you want auto-registration.
+- **Optional:** `DATABASE_CERT_BASE64` (TLS), `PORT` (override defaults), `AGENT_AUTH_JWT_SECRET` (token issuance), `REQUIRE_HTTPS_AGENT_ENDPOINTS` (hermes-worker), and for agents the registry trio (`AGENT_REGISTRY_URL`, `AGENT_REGISTRY_API_KEY`, `AGENT_PUBLIC_URL`) if you want auto-registration.
 - **Where to set them:** Use your host’s env config (e.g. Vercel, Railway, Docker env files). Never commit real secrets; use secrets managers or platform secret storage.
 - After changing any `env*.example` file, run `pnpm build` in `packages/env` to regenerate types.

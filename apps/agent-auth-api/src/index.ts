@@ -6,6 +6,7 @@ import { pinoLogger } from "hono-pino";
 import { createAPIKey } from "./routes/create-api-key";
 import { deactivateAPIKey } from "./routes/deactivate-api-key";
 import { deleteAPIKey } from "./routes/delete-api-key";
+import { issueToken } from "./routes/issue-token";
 import { reactivateAPIKey } from "./routes/reactivate-api-key";
 import { retrieveAPIKey } from "./routes/retrieve-api-key";
 import { retrieveAPIKeys } from "./routes/retrieve-api-keys";
@@ -15,8 +16,11 @@ import { verifyApiKey } from "./routes/verify-api-key";
 const mainApp = new Hono();
 mainApp.use(pinoLogger({ pino: logger }));
 
-/** POST /api/verify — no basicAuth; callers use Authorization: Bearer <key> */
+/** POST /api/verify — no basicAuth; callers use Authorization: Bearer <key> or JWT */
 mainApp.post("/api/verify", verifyApiKey);
+
+/** POST /api/token — issue short-lived JWT; callers use Authorization: Bearer <scheduler api_key> */
+mainApp.post("/api/token", issueToken);
 
 const api = mainApp.basePath("/api/api-keys");
 
