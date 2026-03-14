@@ -68,11 +68,47 @@ describe("createUpdateScheduleHandler", () => {
     expect(db.schedule.update).not.toHaveBeenCalled();
   });
 
+  it("returns error when assigning pipeline that is not enabled", async () => {
+    const db = {
+      pipeline: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "p2",
+          isActive: false,
+          steps: [],
+        }),
+      },
+      schedule: {
+        findUnique: vi.fn().mockResolvedValue(existingSchedule),
+        update: vi.fn(),
+      },
+    };
+    const updateHandler = createUpdateScheduleHandler({
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
+      db: db as never,
+    });
+    const result = await updateHandler({
+      body: { scheduleId, pipelineId: "p2" },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: undefined,
+    } as never);
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toContain(
+      "Pipeline must be enabled",
+    );
+    expect(db.schedule.update).not.toHaveBeenCalled();
+  });
+
   it("updates schedule and returns ok", async () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = {
       pipeline: {
-        findUnique: vi.fn().mockResolvedValue({ id: "p1", steps: [] }),
+        findUnique: vi.fn().mockResolvedValue({
+          id: "p1",
+          isActive: true,
+          steps: [],
+        }),
       },
       schedule: {
         findUnique: vi.fn().mockResolvedValue(existingSchedule),
@@ -111,7 +147,11 @@ describe("handler", () => {
   it("is the factory with production defaults", async () => {
     const db = {
       pipeline: {
-        findUnique: vi.fn().mockResolvedValue({ id: "p1", steps: [] }),
+        findUnique: vi.fn().mockResolvedValue({
+          id: "p1",
+          isActive: true,
+          steps: [],
+        }),
       },
       schedule: {
         findUnique: vi.fn().mockResolvedValue(existingSchedule),

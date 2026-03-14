@@ -8,7 +8,10 @@ import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
 import type { getPipelinesWithSteps } from "@/lib/pipelines";
-import type { PipelineValidationResult } from "@/lib/validate-pipeline";
+import {
+  getPipelineStatus,
+  type PipelineValidationResult,
+} from "@/lib/pipeline-status";
 
 /** Common IANA timezone identifiers for schedule runs. */
 export const TIMEZONE_OPTIONS = [
@@ -346,30 +349,44 @@ export const ScheduleFormFields = ({
         >
           <option value="">Select pipeline</option>
           {pipelines.map((p) => {
-            const validation = pipelineValidationById[p.id];
-            const invalid = validation && !validation.valid;
+            const validation = pipelineValidationById[p.id] ?? {
+              valid: false,
+              warnings: [],
+            };
+            const status = getPipelineStatus(p, validation);
+            const selectable = status === "enabled";
+            const suffix =
+              status === "incomplete"
+                ? " (incomplete)"
+                : status === "disabled"
+                  ? " (disabled)"
+                  : "";
+            const title =
+              status === "incomplete"
+                ? "Complete step input and config in pipeline editor to enable"
+                : status === "disabled"
+                  ? "Enable the pipeline in pipeline settings to use in a schedule"
+                  : undefined;
             return (
               <option
                 key={p.id}
                 value={p.id}
-                disabled={invalid}
-                title={
-                  invalid
-                    ? "Complete step input and config in pipeline editor to enable"
-                    : undefined
-                }
+                disabled={!selectable}
+                title={title}
               >
                 {p.name}
-                {invalid ? " (incomplete)" : ""}
+                {suffix}
               </option>
             );
           })}
         </select>
         {Object.keys(pipelineValidationById).length > 0 &&
-          Object.values(pipelineValidationById).some((v) => !v.valid) && (
+          (Object.values(pipelineValidationById).some((v) => !v.valid) ||
+            pipelines.some((p) => !p.isActive)) && (
             <p className="text-xs text-muted-foreground">
-              Pipelines marked (incomplete) have missing step input or config.
-              Edit the pipeline to fix before using in a schedule.
+              Only enabled pipelines can be selected. Incomplete or disabled
+              pipelines are listed but not selectable. Edit the pipeline to fix
+              or enable it.
             </p>
           )}
       </div>

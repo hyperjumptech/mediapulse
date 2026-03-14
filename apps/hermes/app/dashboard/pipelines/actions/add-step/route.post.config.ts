@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
+import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 import { validateDataSourceExpressions } from "@workspace/hermes-scheduler";
 
 const jsonObjectSchema = z
@@ -130,6 +131,8 @@ export const createAddStepHandler = ({
         config: agentConfigId != null ? {} : ((config ?? {}) as object),
       },
     });
+
+    await disableSchedulesForPipelineIfNotEnabled(db, pipelineId);
 
     return successResponse({ stepId: step.id });
   };

@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
+import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 
 const stepIdsSchema = z.union([
   z.array(z.string().uuid()),
@@ -82,6 +83,8 @@ export const createReorderStepsHandler = ({
         data: { order: i },
       });
     }
+
+    await disableSchedulesForPipelineIfNotEnabled(db, pipelineId);
 
     return successResponse({ ok: true as const });
   };

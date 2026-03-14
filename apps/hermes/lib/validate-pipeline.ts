@@ -1,8 +1,13 @@
 import type { PrismaClient } from "@workspace/database";
 import { validateDataSourceExpressions } from "@workspace/hermes-scheduler";
 
+import type { PipelineValidationResult } from "./pipeline-status";
 import { collectEmptyRequiredStringErrors } from "./validate-required-fields";
 import { validateWithJsonSchema } from "./validate-json-schema";
+
+export type { PipelineStatus } from "./pipeline-status";
+export { getPipelineStatus, getPipelineStatusMap } from "./pipeline-status";
+export type { PipelineValidationResult } from "./pipeline-status";
 
 type PipelineWithSteps = {
   id: string;
@@ -16,11 +21,6 @@ type PipelineWithSteps = {
     input: unknown;
     config: unknown;
   }>;
-};
-
-export type PipelineValidationResult = {
-  valid: boolean;
-  warnings: string[];
 };
 
 /**

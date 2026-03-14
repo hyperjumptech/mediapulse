@@ -12,6 +12,8 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
+import { getPipelineWithSteps } from "@/lib/pipelines";
+import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { computeNextRunAt } from "@workspace/hermes-scheduler";
 
 /**
@@ -151,11 +153,15 @@ export const createCreateScheduleHandler = ({
 
     const body = data.body;
 
-    const pipeline = await db.pipeline.findUnique({
-      where: { id: body.pipelineId },
-    });
+    const pipeline = await getPipelineWithSteps(body.pipelineId, db);
     if (!pipeline) {
       return errorResponse("Pipeline not found");
+    }
+    const validation = await validatePipeline(pipeline, db);
+    if (getPipelineStatus(pipeline, validation) !== "enabled") {
+      return errorResponse(
+        "Pipeline must be enabled to create a schedule. Complete step input and config and ensure the pipeline is active.",
+      );
     }
 
     const nextRunAt = computeNextRun(

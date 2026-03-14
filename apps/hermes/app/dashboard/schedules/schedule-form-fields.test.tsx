@@ -157,6 +157,10 @@ describe("ScheduleFormFields", () => {
         errorMessage={null}
         submitLabel="Create"
         pipelines={createMockPipelines()}
+        pipelineValidationById={{
+          "pipeline-1": { valid: true, warnings: [] },
+          "pipeline-2": { valid: true, warnings: [] },
+        }}
         defaultName=""
         defaultDescription=""
         defaultRepeat="repeating"

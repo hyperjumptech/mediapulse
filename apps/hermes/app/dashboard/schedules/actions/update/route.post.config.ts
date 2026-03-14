@@ -11,6 +11,8 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
+import { getPipelineWithSteps } from "@/lib/pipelines";
+import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { computeNextRunAt } from "@workspace/hermes-scheduler";
 
 const retryConfigSchema = z
@@ -122,6 +124,19 @@ export const createUpdateScheduleHandler = ({
     });
     if (!existing) {
       return errorResponse("Schedule not found");
+    }
+
+    if (body.pipelineId != null) {
+      const pipeline = await getPipelineWithSteps(body.pipelineId, db);
+      if (!pipeline) {
+        return errorResponse("Pipeline not found");
+      }
+      const validation = await validatePipeline(pipeline, db);
+      if (getPipelineStatus(pipeline, validation) !== "enabled") {
+        return errorResponse(
+          "Pipeline must be enabled to assign to a schedule. Complete step input and config and ensure the pipeline is active.",
+        );
+      }
     }
 
     const repeat = body.repeat ?? existing.repeat;

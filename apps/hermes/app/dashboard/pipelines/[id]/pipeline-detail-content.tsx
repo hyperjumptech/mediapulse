@@ -180,6 +180,7 @@ export const PipelineDetailContent = ({
     selectedStep,
     stepInput,
     stepConfig,
+    router,
   ]);
 
   return (
