@@ -13,7 +13,8 @@ const app = createAgentApp<Input, typeof InputSchema>(
     agentId: "ticker-echo",
     agentVersion: "1.0.0",
     inputSchema: InputSchema,
-    run: async () => {
+    run: async ({ input }) => {
+      console.log("--> ticker-echo received tickerId", input.tickerId);
       return { success: true };
     },
   },
