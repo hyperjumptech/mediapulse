@@ -1,4 +1,8 @@
-export { executeSchedule, type ExecuteScheduleDeps } from "./execute-schedule";
+export {
+  executeSchedule,
+  type ExecuteScheduleDeps,
+  type InvokeAgentStepPayload,
+} from "./execute-schedule";
 export {
   substituteVariables,
   substituteInString,

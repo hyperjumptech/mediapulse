@@ -10,10 +10,24 @@ import { computeNextRunAt } from "./next-run-at";
 import {
   AgentEndpointSchema,
   invokeAgent,
+  type AgentEndpoint,
   type InvokeAgentHttpClient,
 } from "./invoke-agent";
 import { substituteVariables } from "./substitute-variables";
 import { validateWithJsonSchema } from "./validate-json-schema";
+
+/**
+ * Payload for an enqueued invoke_agent_step job. Used so the worker can invoke
+ * the agent when the job runs; hermes-scheduler stays agnostic of DataQueue.
+ */
+export type InvokeAgentStepPayload = {
+  jobId: string;
+  executionId: string;
+  scheduleExecutionId: string;
+  endpoint: AgentEndpoint;
+  body: { input: Record<string, unknown>; config: Record<string, unknown> };
+  timeoutMs: number;
+};
 
 /** Dependencies for executeSchedule (injectable for tests). */
 export type ExecuteScheduleDeps = {
@@ -26,6 +40,11 @@ export type ExecuteScheduleDeps = {
   };
   authToken?: string;
   defaultTimeoutMs?: number;
+  /**
+   * When set, each expanded input set is enqueued via this callback instead of
+   * invoking the agent inline. Used by the worker to push DataQueue jobs.
+   */
+  enqueueAgentJob?: (payload: InvokeAgentStepPayload) => Promise<void>;
 };
 
 /**
@@ -45,6 +64,7 @@ export const executeSchedule = async (
     logger,
     authToken,
     defaultTimeoutMs = 300_000,
+    enqueueAgentJob,
   } = deps;
   const executionTime = new Date();
   const errors: Array<{ message: string; timestamp: string }> = [];
@@ -77,6 +97,17 @@ export const executeSchedule = async (
     });
     return;
   }
+
+  const scheduleExecution = await db.scheduleExecution.create({
+    data: {
+      scheduleId: schedule.id,
+      executionTime,
+      status: ScheduleExecutionStatus.enqueuing,
+      jobsCreated: 0,
+      jobsEnqueued: 0,
+    },
+  });
+  const scheduleExecutionId = scheduleExecution.id;
 
   const agentIds: string[] = [
     ...new Set(steps.map((s: { agentId: string }) => s.agentId)),
@@ -194,6 +225,7 @@ export const executeSchedule = async (
             jobId,
             agentId: step.agentId,
             scheduleId: schedule.id,
+            scheduleExecutionId,
             pipelineId: schedule.pipelineId,
             pipelineStepId: step.id,
             status: AgentJobExecutionStatus.pending,
@@ -215,43 +247,77 @@ export const executeSchedule = async (
         input: inputSet,
         config: stepConfig,
       } as Record<string, unknown>;
+      const timeoutMs = schedule.timeout ?? defaultTimeoutMs;
 
-      try {
-        await invokeAgent(
-          endpointResult.data,
-          body,
-          {
+      if (enqueueAgentJob) {
+        try {
+          await enqueueAgentJob({
             jobId,
             executionId,
-            authToken,
-            timeoutMs: schedule.timeout ?? defaultTimeoutMs,
-          },
-          httpClient,
-        );
-        jobsEnqueued += 1;
-        await db.agentJobExecution.update({
-          where: { jobId },
-          data: {
-            status: AgentJobExecutionStatus.running,
-            startedAt: new Date(),
-          },
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        errors.push({
-          message: `Agent invoke failed: ${message}`,
-          timestamp: new Date().toISOString(),
-        });
-        await db.agentJobExecution
-          .update({
+            scheduleExecutionId,
+            endpoint: endpointResult.data,
+            body: body as {
+              input: Record<string, unknown>;
+              config: Record<string, unknown>;
+            },
+            timeoutMs,
+          });
+          jobsEnqueued += 1;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push({
+            message: `Enqueue agent job failed: ${message}`,
+            timestamp: new Date().toISOString(),
+          });
+          await db.agentJobExecution
+            .update({
+              where: { jobId },
+              data: {
+                status: AgentJobExecutionStatus.failed,
+                error: { message, retryable: true },
+                completedAt: new Date(),
+              },
+            })
+            .catch(() => {});
+        }
+      } else {
+        try {
+          await invokeAgent(
+            endpointResult.data,
+            body,
+            {
+              jobId,
+              executionId,
+              authToken,
+              timeoutMs,
+            },
+            httpClient,
+          );
+          jobsEnqueued += 1;
+          await db.agentJobExecution.update({
             where: { jobId },
             data: {
-              status: AgentJobExecutionStatus.failed,
-              error: { message, retryable: true },
-              completedAt: new Date(),
+              status: AgentJobExecutionStatus.running,
+              startedAt: new Date(),
             },
-          })
-          .catch(() => {});
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push({
+            message: `Agent invoke failed: ${message}`,
+            timestamp: new Date().toISOString(),
+          });
+          await db.agentJobExecution
+            .update({
+              where: { jobId },
+              data: {
+                status: AgentJobExecutionStatus.failed,
+                error: { message, retryable: true },
+                completedAt: new Date(),
+              },
+            })
+            .catch(() => {});
+        }
       }
     }
   }
@@ -271,6 +337,7 @@ export const executeSchedule = async (
     jobsCreated,
     jobsEnqueued,
     errors: errors.length > 0 ? errors : undefined,
+    scheduleExecutionId,
   });
 };
 
@@ -282,6 +349,8 @@ async function recordScheduleExecutionAndUpdateSchedule(args: {
   jobsCreated: number;
   jobsEnqueued: number;
   errors?: Array<{ message: string; timestamp: string }>;
+  /** When set, update this row instead of creating a new one (used when we created it at run start). */
+  scheduleExecutionId?: string;
 }): Promise<void> {
   const {
     db,
@@ -291,17 +360,30 @@ async function recordScheduleExecutionAndUpdateSchedule(args: {
     jobsCreated,
     jobsEnqueued,
     errors,
+    scheduleExecutionId,
   } = args;
-  await db.scheduleExecution.create({
-    data: {
-      scheduleId: schedule.id,
-      executionTime,
-      status,
-      jobsCreated,
-      jobsEnqueued,
-      errors: errors ?? undefined,
-    },
-  });
+  if (scheduleExecutionId) {
+    await db.scheduleExecution.update({
+      where: { id: scheduleExecutionId },
+      data: {
+        status,
+        jobsCreated,
+        jobsEnqueued,
+        errors: errors ?? undefined,
+      },
+    });
+  } else {
+    await db.scheduleExecution.create({
+      data: {
+        scheduleId: schedule.id,
+        executionTime,
+        status,
+        jobsCreated,
+        jobsEnqueued,
+        errors: errors ?? undefined,
+      },
+    });
+  }
 
   if (schedule.repeat === "once") {
     await db.schedule.update({

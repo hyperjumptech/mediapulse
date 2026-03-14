@@ -1,11 +1,35 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { executeSchedule, getDueSchedules } from "@workspace/hermes-scheduler";
+import { AgentJobExecutionStatus } from "@workspace/database";
+import {
+  executeSchedule,
+  getDueSchedules,
+  invokeAgent,
+} from "@workspace/hermes-scheduler";
 import { logger } from "@workspace/logger";
 import { jobHandlers } from "./job-handlers";
 
+const mockAddJob = vi.hoisted(() => vi.fn().mockResolvedValue(1));
+const agentJobExecutionFindUnique = vi.hoisted(() => vi.fn());
+const agentJobExecutionUpdate = vi.hoisted(() => vi.fn());
+
+vi.mock("./queue", () => ({
+  getJobQueue: () => ({ addJob: mockAddJob }),
+}));
+
 vi.mock("@workspace/database", () => ({
-  prisma: {},
+  AgentJobExecutionStatus: {
+    pending: "pending",
+    running: "running",
+    completed: "completed",
+    failed: "failed",
+  },
+  prisma: {
+    agentJobExecution: {
+      findUnique: agentJobExecutionFindUnique,
+      update: agentJobExecutionUpdate,
+    },
+  },
 }));
 
 vi.mock("@workspace/env", () => ({
@@ -23,6 +47,7 @@ vi.mock("@workspace/logger", () => ({
 vi.mock("@workspace/hermes-scheduler", () => ({
   getDueSchedules: vi.fn(),
   executeSchedule: vi.fn(),
+  invokeAgent: vi.fn(),
 }));
 
 describe("jobHandlers", () => {
@@ -30,6 +55,9 @@ describe("jobHandlers", () => {
     vi.mocked(getDueSchedules).mockClear();
     vi.mocked(executeSchedule).mockClear();
     vi.mocked(logger.error).mockClear();
+    agentJobExecutionFindUnique.mockClear();
+    agentJobExecutionUpdate.mockClear();
+    vi.mocked(invokeAgent).mockClear();
   });
 
   afterEach(() => {
@@ -92,6 +120,7 @@ describe("jobHandlers", () => {
         logger,
         authToken: "test-api-key",
         defaultTimeoutMs: 300_000,
+        enqueueAgentJob: expect.any(Function),
       });
     });
 
@@ -189,6 +218,96 @@ describe("jobHandlers", () => {
         { err: expect.any(Error), scheduleId: "schedule-fail" },
         "executeSchedule failed for schedule",
       );
+    });
+  });
+
+  describe("invoke_agent_step", () => {
+    const payload = {
+      jobId: "job-1",
+      executionId: "exec-1",
+      scheduleExecutionId: "sexec-1",
+      endpoint: { url: "https://agent.example/run", method: "POST" as const },
+      body: { input: { tickerId: "t1" }, config: {} },
+      timeoutMs: 60_000,
+    };
+    const signal = new AbortController().signal;
+    const ctx = {} as Parameters<typeof jobHandlers.invoke_agent_step>[2];
+
+    it("invokes agent and updates execution to running when status is pending", async () => {
+      agentJobExecutionFindUnique.mockResolvedValue({
+        jobId: payload.jobId,
+        status: AgentJobExecutionStatus.pending,
+      });
+      agentJobExecutionUpdate.mockResolvedValue(undefined);
+      vi.mocked(invokeAgent).mockResolvedValue(undefined);
+
+      await jobHandlers.invoke_agent_step(payload, signal, ctx);
+
+      expect(invokeAgent).toHaveBeenCalledTimes(1);
+      expect(invokeAgent).toHaveBeenCalledWith(
+        payload.endpoint,
+        payload.body,
+        {
+          jobId: payload.jobId,
+          executionId: payload.executionId,
+          authToken: "test-api-key",
+          timeoutMs: payload.timeoutMs,
+        },
+        expect.any(Object),
+      );
+      expect(agentJobExecutionUpdate).toHaveBeenCalledWith({
+        where: { jobId: payload.jobId },
+        data: {
+          status: AgentJobExecutionStatus.running,
+          startedAt: expect.any(Date),
+        },
+      });
+    });
+
+    it("skips invoke when execution is already running (idempotent)", async () => {
+      agentJobExecutionFindUnique.mockResolvedValue({
+        jobId: payload.jobId,
+        status: AgentJobExecutionStatus.running,
+      });
+
+      await jobHandlers.invoke_agent_step(payload, signal, ctx);
+
+      expect(invokeAgent).not.toHaveBeenCalled();
+      expect(agentJobExecutionUpdate).not.toHaveBeenCalled();
+    });
+
+    it("skips invoke when execution is already completed (idempotent)", async () => {
+      agentJobExecutionFindUnique.mockResolvedValue({
+        jobId: payload.jobId,
+        status: AgentJobExecutionStatus.completed,
+      });
+
+      await jobHandlers.invoke_agent_step(payload, signal, ctx);
+
+      expect(invokeAgent).not.toHaveBeenCalled();
+      expect(agentJobExecutionUpdate).not.toHaveBeenCalled();
+    });
+
+    it("updates execution to failed and rethrows when invokeAgent throws", async () => {
+      agentJobExecutionFindUnique.mockResolvedValue({
+        jobId: payload.jobId,
+        status: AgentJobExecutionStatus.pending,
+      });
+      agentJobExecutionUpdate.mockResolvedValue(undefined);
+      vi.mocked(invokeAgent).mockRejectedValue(new Error("Network error"));
+
+      await expect(
+        jobHandlers.invoke_agent_step(payload, signal, ctx),
+      ).rejects.toThrow("Network error");
+
+      expect(agentJobExecutionUpdate).toHaveBeenCalledWith({
+        where: { jobId: payload.jobId },
+        data: {
+          status: AgentJobExecutionStatus.failed,
+          error: { message: "Network error", retryable: true },
+          completedAt: expect.any(Date),
+        },
+      });
     });
   });
 });

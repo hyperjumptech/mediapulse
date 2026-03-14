@@ -6,13 +6,15 @@ icon: ServerCog
 
 ## Purpose
 
-**hermes-worker** is a long-running Node/Bun app that runs the DataQueue **processor** and **supervisor** for the Hermes scheduler. It ensures the cron job `hermes-check-schedules` exists, processes `check_schedules` jobs (poll due schedules, execute them via `@workspace/hermes-scheduler`), and runs the supervisor (stuck-job reclaim, cleanup). Hermes (Next.js) no longer runs the queue and can be deployed without a long-running server; run hermes-worker on a persistent host for scheduled pipeline runs.
+**hermes-worker** is a long-running Node/Bun app that runs the DataQueue **processor** and **supervisor** for the Hermes scheduler. It ensures the cron job `hermes-check-schedules` exists, processes `check_schedules` jobs (poll due schedules, enqueue one `invoke_agent_step` job per expanded input set), and runs the supervisor (stuck-job reclaim, cleanup). Hermes (Next.js) no longer runs the queue and can be deployed without a long-running server; run hermes-worker on a persistent host for scheduled pipeline runs.
 
 ## Features
 
 - **Queue init** — Connects to DataQueue using `PG_DATAQUEUE_DATABASE`.
 - **Cron registration** — Ensures `hermes-check-schedules` (every minute) exists.
-- **Processor** — Runs job handlers (e.g. `check_schedules`: get due schedules, execute each via hermes-scheduler).
+- **Processor** — Runs job handlers:
+  - **check_schedules** — Gets due schedules and, for each, creates a schedule execution and enqueues one **invoke_agent_step** job per expanded input set (so many sets do not block or overwhelm the agent server). Concurrency is controlled by the processor options (e.g. only a few agent invocations at a time).
+  - **invoke_agent_step** — Runs a single agent HTTP invocation. Idempotent: if the corresponding `AgentJobExecution` is already `running` or `completed`, the handler returns without calling the agent (safe on DataQueue retries). Each job is linked to a **schedule execution** via `scheduleExecutionId` for correlation (why/what/when something failed).
 - **Supervisor** — Reclaims stuck jobs, cleans old jobs/events.
 - **Graceful shutdown** — SIGTERM/SIGINT drain processor and supervisor, then exit.
 
