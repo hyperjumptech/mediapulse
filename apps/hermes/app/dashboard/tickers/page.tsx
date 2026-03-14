@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   getTickersPage,
@@ -67,6 +68,10 @@ const TickersPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Tickers"
+        description="Manage ticker symbols and company names for data sources."
+      />
       <div className="flex flex-col justify-between sm:flex-row sm:items-center">
         <TickersSearch
           initialQuery={search ?? ""}

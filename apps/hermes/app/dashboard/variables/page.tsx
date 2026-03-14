@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   getVariablesPage,
@@ -68,6 +69,10 @@ const VariablesPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Variables"
+        description="Manage key-value variables for pipelines (secrets are masked)."
+      />
       <div className="flex flex-col justify-between sm:flex-row sm:items-center">
         <VariablesSearch
           initialQuery={search ?? ""}

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getPipelinesWithSteps } from "@/lib/pipelines";
 import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
@@ -16,10 +17,16 @@ const PipelinesPage = async () => {
   );
 
   return (
-    <PipelinesWithModal
-      pipelines={pipelines}
-      pipelineValidationById={pipelineValidationById}
-    />
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Pipelines"
+        description="Create and manage pipelines and their steps."
+      />
+      <PipelinesWithModal
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+      />
+    </div>
   );
 };
 
