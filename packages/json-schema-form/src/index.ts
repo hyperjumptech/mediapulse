@@ -6,4 +6,9 @@
  */
 
 export { SchemaForm } from "./schema-form";
-export type { JsonSchema, JsonSchemaTypeName, SchemaFormProps } from "./types";
+export type {
+  JsonSchema,
+  JsonSchemaTypeName,
+  SchemaFormProps,
+  StringFieldProps,
+} from "./types";
