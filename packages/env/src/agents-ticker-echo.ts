@@ -5,12 +5,11 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    DATABASE_URL: z.string().min(1),
-    DATABASE_CERT_BASE64: z.string().optional(),
-    PG_DATAQUEUE_DATABASE: z.string().min(1),
-    AGENT_API_KEY: z.string().optional(),
+    PORT: z.number({ coerce: true }).optional(),
     AGENT_AUTH_API_URL: z.string().optional(),
-    REQUIRE_HTTPS_AGENT_ENDPOINTS: z.string().optional(),
+    AGENT_REGISTRY_URL: z.string().optional(),
+    AGENT_REGISTRY_API_KEY: z.string().optional(),
+    AGENT_PUBLIC_URL: z.string().optional(),
   },
   client: {
   },

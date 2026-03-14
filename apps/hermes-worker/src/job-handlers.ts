@@ -1,6 +1,6 @@
 import got from "got";
 import { prisma } from "@workspace/database";
-import { env } from "@workspace/env";
+import { env } from "@workspace/env/hermes-worker";
 import { logger } from "@workspace/logger";
 import type { JobHandlers } from "@nicnocquee/dataqueue";
 import type { JobPayloadMap } from "./job-payload-map";
@@ -20,7 +20,7 @@ const httpClient: InvokeAgentHttpClient = {
     }),
 };
 
-/** When set, use short-lived tokens from auth API instead of raw AGENT_API_KEY. */
+/** Short-lived tokens only: worker gets JWTs from auth API; no raw API key sent to agents. */
 const tokenClient =
   env.AGENT_AUTH_API_URL && env.AGENT_API_KEY
     ? createAgentTokenClient({
@@ -30,13 +30,13 @@ const tokenClient =
     : null;
 
 /**
- * Resolves the auth token to use for agent invocation: short-lived JWT when token client is configured, else raw API key.
+ * Returns a short-lived token from the auth API for agent invocation. Requires AGENT_AUTH_API_URL, AGENT_API_KEY, and agent-auth-api to have AGENT_AUTH_JWT_SECRET set.
  */
 async function getAuthToken(): Promise<string | undefined> {
-  if (tokenClient) {
-    return tokenClient.getToken();
+  if (!tokenClient) {
+    return undefined;
   }
-  return env.AGENT_API_KEY;
+  return tokenClient.getToken();
 }
 
 /**

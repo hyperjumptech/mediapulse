@@ -1,19 +1,23 @@
 ---
 title: Getting Started
-description: Getting started with MediaPulse
+description: Run the full MediaPulse stack locally
 icon: BookOpen
 ---
 
-Follow the steps in this page to start developing MediaPulse.
+This guide gets you from clone to a running local stack. Do the steps in order; the **Quick reference** at the end lists all commands in one place.
 
 ## Prerequisites
 
-- Node.js 22+
-- pnpm 10.4.1
-- Docker
-- PostgreSQL
+- **Node.js 22+**
+- **pnpm 10.4+** — enable with `corepack enable && corepack prepare pnpm@latest --activate` if needed
+- **Docker** — for PostgreSQL
+- **Bun** (optional) — used by agent and API dev servers; [install](https://bun.sh)
 
-## Installation
+Use **pnpm** for install and scripts. Do not use `npm`, `yarn`, or `bun` to install dependencies.
+
+---
+
+## Step 1: Clone and install
 
 ```bash
 git clone <repository-url>
@@ -21,85 +25,192 @@ cd mediapulse
 pnpm install
 ```
 
-Remember that this project uses PNPM as the package manager. Don't use `npm`, `yarn`, or `bun` to install dependencies.
+---
 
-### Setup Environment Variables
+## Step 2: Start the database
 
-Run one of the following commands to setup the environment variables:
+```bash
+docker-compose up -d
+```
+
+PostgreSQL runs (e.g. `localhost:5432`). The default connection string in the example env matches the usual Docker Compose setup.
+
+---
+
+## Step 3: Environment and symlinks
+
+Bootstrap creates the shared env file and symlinks so every app and package uses it:
 
 ```bash
 ./dev-bootstrap.sh
-./dev-bootstrap.sh -f # to remove existing .env and .env.local files first
 ```
 
-The script merges all `env.*.example` files into `packages/env/.env`, then creates symlinks so apps and packages use that shared file. **Agent apps** (e.g. `apps/agents/delivery`) also get a **per-agent `.env.local`** (created from `env.agents.<name>.example`) so you can set `PORT`, `AGENT_PUBLIC_URL`, and `AGENT_REGISTRY_API_KEY` per agent without affecting others. Edit `apps/agents/<name>/.env.local` for agent-specific overrides.
-
-The example files already contain the correct values for some environment variables for development purposes. But you still need to add the correct values for the following environment variables in the generated `.env` file (and in each agent’s `.env.local` if you use registry/URL overrides):
-
-| Environment Variable | Description                                                                                   |
-| -------------------- | --------------------------------------------------------------------------------------------- |
-| JINA_API_KEY         | The API key for the Jina AI API. Get it from the landing page of [Jina.ai](https://jina.ai)   |
-| SERPER_API_KEY       | The API key for the Serper API. Create a new free account in [Serper.dev](https://serper.dev) |
-| OPENAI_API_KEY       | The API key for the OpenAI API. Create a new free account in [OpenAI](https://openai.com)     |
-
-<Callout type="info">
-  Remember that the `packages/env/.env` file is the source of truth for the
-  environment variables during development.
-</Callout>
-
-### Development database
-
-To run the development database, run the following command:
+To reset env and symlinks from scratch:
 
 ```bash
-docker-compose up
+./dev-bootstrap.sh -f
 ```
 
-This will start the PostgreSQL database.
+Then build the env package so generated TypeScript env modules exist (required for hermes-worker, agents, etc.):
 
-### Setup database (Prisma)
+```bash
+pnpm --filter @workspace/env build
+```
+
+---
+
+## Step 4: Set required env for auth and scheduler
+
+Edit **`packages/env/.env`** and set at least:
+
+| Variable                | Example / note                                                                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `AGENT_AUTH_API_URL`    | `http://localhost:8080`                                                                                                       |
+| `AGENT_AUTH_JWT_SECRET` | Any long random string (32+ chars). Required for hermes-worker (short-lived tokens). Generate with: `openssl rand -base64 32` |
+
+Leave `AGENT_API_KEY` empty for now; you’ll set it after creating a **scheduler** key in the next steps.
+
+<Callout type="info">
+  **`packages/env/.env`** is the single source of truth for shared env. After
+  editing, restart the apps that use it (or restart `pnpm dev`).
+</Callout>
+
+---
+
+## Step 5: Database migrations
+
+Prisma (main app schema):
 
 ```bash
 cd packages/database
-pnpm db:migrate:dev && pnpm db:generate
+pnpm db:migrate:dev
+pnpm db:generate
 cd ../..
 ```
 
-### Create an admin user
-
-Run the following command to create an admin user:
+DataQueue (hermes-worker scheduler):
 
 ```bash
-cd apps/hermes && pnpm create:admin <email> <password>
+pnpm --filter hermes-worker run migrate-dataqueue:dev
 ```
 
-### Generate an API key for the agents
+---
 
-Run the following command to generate an API key for the agents (pass the **user email** and a human-readable **name/label** for the key):
+## Step 6: Admin user
+
+Create an admin user (email and password of your choice):
 
 ```bash
-cd apps/hermes && pnpm generate-api-key <email> "<name>"
+cd apps/hermes && pnpm create:admin your@email.com YourPassword && cd ../..
 ```
 
-For example:
+---
+
+## Step 7: Scheduler API key (for hermes-worker and pipelines)
+
+hermes-worker and Hermes use **short-lived tokens only**. The auth API issues tokens only for API keys with **purpose `scheduler`**. Create one with:
 
 ```bash
-cd apps/hermes && pnpm generate-api-key dev@example.com "Local dev agent key"
+cd apps/hermes && pnpm generate-api-key your@email.com "Local dev scheduler" --purpose scheduler && cd ../..
 ```
 
-The script will print the API key once. Set this value in the `AGENT_REGISTRY_API_KEY` environment variable in the agent's `.env.local` files (`apps/agents/<name>/.env.local`).
+The script prints the raw key **once**. Copy it, then open **`packages/env/.env`** and set:
 
-### Running all apps (`pnpm dev`)
+```bash
+AGENT_API_KEY=<paste the key here>
+```
 
-When you run `pnpm dev`, Turbo starts every app’s dev server. Each app is bound to a different port so they can run together:
+---
 
-| App                      | Port |
-| ------------------------ | ---- |
-| dashboard                | 3000 |
-| hermes                   | 3001 |
-| agent-auth-api           | 8080 |
-| agent-data-api           | 8081 |
-| agent-registry-api       | 8082 |
-| data-collection agent    | 4001 |
-| content-generation agent | 4002 |
-| delivery agent           | 4003 |
+## Step 8: Run the stack
+
+```bash
+pnpm dev
+```
+
+Turbo starts every app with a `dev` script. When everything is up, open the Hermes dashboard at **http://localhost:3001**.
+
+### Services and ports
+
+| Service                  | Port | Description                                    |
+| ------------------------ | ---- | ---------------------------------------------- |
+| hermes (dashboard)       | 3001 | Pipelines, schedules, API keys                 |
+| user-registration        | 3002 | Next.js app                                    |
+| agent-auth-api           | 8080 | API key CRUD, verify, issue short-lived tokens |
+| agent-data-api           | 8081 | Agent data storage                             |
+| agent-registry-api       | 8082 | Agent registry                                 |
+| data-collection agent    | 4001 |                                                |
+| content-generation agent | 4002 |                                                |
+| delivery agent           | 4003 |                                                |
+| ticker-echo agent        | 4010 | Minimal test agent                             |
+| hermes-worker            | —    | Background worker (no HTTP port)               |
+
+---
+
+## Optional: Third-party API keys
+
+For full pipeline runs (data collection, content generation, delivery), add to **`packages/env/.env`**:
+
+| Variable         | Used by            | Where to get it                  |
+| ---------------- | ------------------ | -------------------------------- |
+| `JINA_API_KEY`   | data-collection    | [Jina.ai](https://jina.ai)       |
+| `SERPER_API_KEY` | data-collection    | [Serper.dev](https://serper.dev) |
+| `OPENAI_API_KEY` | content-generation | [OpenAI](https://openai.com)     |
+| `RESEND_API_KEY` | delivery           | [Resend](https://resend.com)     |
+
+---
+
+## Optional: Agent auto-registration
+
+To let agents register with the registry on startup, set in each agent’s **`apps/agents/<name>/.env.local`**:
+
+- `AGENT_REGISTRY_URL` (e.g. `http://localhost:8082`)
+- `AGENT_REGISTRY_API_KEY` (an API key you create)
+- `AGENT_PUBLIC_URL` (e.g. `http://localhost:4001` for data-collection)
+
+---
+
+## Troubleshooting
+
+| Problem                                                  | Check                                                                                                                             |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| DB connection errors                                     | Docker is running (`docker-compose up -d`), connection string in `packages/env/.env` matches (e.g. `DATABASE_URL`).               |
+| "Token issuance not configured" / 503 from hermes-worker | **`AGENT_AUTH_JWT_SECRET`** is set in `packages/env/.env` (32+ chars). Restart agent-auth-api and hermes-worker.                  |
+| hermes-worker can’t get token / 403                      | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (see Step 7).                                                          |
+| Agent returns 401                                        | Auth API is running (8080); **`AGENT_AUTH_API_URL`** is set where the agent loads env; the token or key is valid and not revoked. |
+| Env var not picked up                                    | Edit **`packages/env/.env`** (or the app’s `.env.local` for app-specific vars). Restart the app or `pnpm dev`.                    |
+| DataQueue / cron errors                                  | Run **`pnpm --filter hermes-worker run migrate-dataqueue:dev`** once.                                                             |
+
+---
+
+## Quick reference (all commands in order)
+
+```bash
+# 1. Install
+pnpm install
+
+# 2. Database
+docker-compose up -d
+
+# 3. Env
+./dev-bootstrap.sh
+pnpm --filter @workspace/env build
+
+# 4. Edit packages/env/.env: set AGENT_AUTH_API_URL, AGENT_AUTH_JWT_SECRET (see Step 4)
+
+# 5. Migrations
+cd packages/database && pnpm db:migrate:dev && pnpm db:generate && cd ../..
+pnpm --filter hermes-worker run migrate-dataqueue:dev
+
+# 6. Admin
+cd apps/hermes && pnpm create:admin your@email.com YourPassword && cd ../..
+
+# 7. Scheduler key (use same email as admin)
+cd apps/hermes && pnpm generate-api-key your@email.com "Local dev scheduler" --purpose scheduler && cd ../..
+# Set printed key as AGENT_API_KEY in packages/env/.env
+
+# 8. Run
+pnpm dev
+```
+
+Then open **http://localhost:3001** for the Hermes dashboard.

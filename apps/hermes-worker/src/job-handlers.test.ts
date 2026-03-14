@@ -8,7 +8,7 @@ vi.mock("@workspace/database", () => ({
   prisma: {},
 }));
 
-vi.mock("@workspace/env", () => ({
+vi.mock("@workspace/env/hermes-worker", () => ({
   env: {
     AGENT_API_KEY: "test-api-key",
     AGENT_AUTH_API_URL: undefined as string | undefined,
