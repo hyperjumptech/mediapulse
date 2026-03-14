@@ -77,21 +77,13 @@ export const StepList = ({
 };
 
 /**
- * Single step row: order, agent id/version, description, Edit and Remove. Edit form persists step change to DB.
+ * Encapsulates step row state: edit mode, form fields, remove/update form actions, and refresh-on-success.
  */
-const StepRow = ({
-  pipelineId,
-  step,
-  description,
-  agents,
-  configsByAgentKey,
-}: {
-  pipelineId: string;
-  step: Step;
-  description: string | null;
-  agents: Agent[];
-  configsByAgentKey: Record<string, AgentConfigSummary[]>;
-}) => {
+const useStepRowState = (
+  step: Step,
+  pipelineId: string,
+  configsByAgentKey: Record<string, AgentConfigSummary[]>,
+) => {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editAgentKey, setEditAgentKey] = useState(
@@ -133,12 +125,66 @@ const StepRow = ({
   const updateErrorMessage =
     updateState && updateState.status === false ? updateState.message : null;
 
+  const savedConfigs = editAgentKey
+    ? (configsByAgentKey[editAgentKey] ?? [])
+    : [];
+  const useSavedConfig = editSavedConfigId !== "";
+
+  return {
+    isEditing,
+    setIsEditing,
+    editAgentKey,
+    setEditAgentKey,
+    editSavedConfigId,
+    setEditSavedConfigId,
+    editCustomConfigJson,
+    setEditCustomConfigJson,
+    RemoveForm,
+    UpdateForm,
+    removePending,
+    updatePending,
+    updateErrorMessage,
+    savedConfigs,
+    useSavedConfig,
+  };
+};
+
+/**
+ * Single step row: order, agent id/version, description, Edit and Remove. Edit form persists step change to DB.
+ */
+const StepRow = ({
+  pipelineId,
+  step,
+  description,
+  agents,
+  configsByAgentKey,
+}: {
+  pipelineId: string;
+  step: Step;
+  description: string | null;
+  agents: Agent[];
+  configsByAgentKey: Record<string, AgentConfigSummary[]>;
+}) => {
+  const {
+    isEditing,
+    setIsEditing,
+    editAgentKey,
+    setEditAgentKey,
+    editSavedConfigId,
+    setEditSavedConfigId,
+    editCustomConfigJson,
+    setEditCustomConfigJson,
+    RemoveForm,
+    UpdateForm,
+    removePending,
+    updatePending,
+    updateErrorMessage,
+    savedConfigs,
+    useSavedConfig,
+  } = useStepRowState(step, pipelineId, configsByAgentKey);
+
   if (isEditing) {
     const [agentId, agentVersion] = editAgentKey.split("@");
-    const savedConfigs = editAgentKey
-      ? (configsByAgentKey[editAgentKey] ?? [])
-      : [];
-    const useSavedConfig = editSavedConfigId !== "";
     return (
       <li className="flex flex-wrap items-center gap-2 rounded-md border p-3">
         <span className="text-muted-foreground font-mono text-sm w-6">

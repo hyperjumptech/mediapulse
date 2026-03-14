@@ -27,13 +27,9 @@ type VariableRowActionsProps = {
 };
 
 /**
- * Dropdown actions for a variable row: Edit, Delete.
+ * Encapsulates delete form action and refresh-on-success for variable row actions.
  */
-export const VariableRowActions = ({
-  variable,
-  variableLabel,
-  onEdit,
-}: VariableRowActionsProps) => {
+const useVariableRowActions = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -42,6 +38,19 @@ export const VariableRowActions = ({
       router.refresh();
     }
   }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
+ * Dropdown actions for a variable row: Edit, Delete.
+ */
+export const VariableRowActions = ({
+  variable,
+  variableLabel,
+  onEdit,
+}: VariableRowActionsProps) => {
+  const { FormWithAction, pending } = useVariableRowActions();
 
   return (
     <DropdownMenu>

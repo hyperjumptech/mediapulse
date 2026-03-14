@@ -27,13 +27,9 @@ type AgentRowActionsProps = {
 };
 
 /**
- * Dropdown actions for an agent row: View details, Delete.
+ * Encapsulates delete form action and refresh-on-success for agent row actions.
  */
-export const AgentRowActions = ({
-  agent,
-  agentLabel,
-  onView,
-}: AgentRowActionsProps) => {
+const useAgentRowActions = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -42,6 +38,19 @@ export const AgentRowActions = ({
       router.refresh();
     }
   }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
+ * Dropdown actions for an agent row: View details, Delete.
+ */
+export const AgentRowActions = ({
+  agent,
+  agentLabel,
+  onView,
+}: AgentRowActionsProps) => {
+  const { FormWithAction, pending } = useAgentRowActions();
 
   return (
     <DropdownMenu>

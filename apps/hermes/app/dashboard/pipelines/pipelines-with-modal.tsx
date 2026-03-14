@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 
@@ -20,27 +20,50 @@ export type PipelinesWithModalProps = {
 };
 
 /**
+ * Encapsulates pipeline list modal state: open, mode, edit id, and open callbacks.
+ */
+const usePipelinesWithModalState = () => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+  const [editPipelineId, setEditPipelineId] = useState<string | null>(null);
+
+  const openCreateModal = useCallback(() => {
+    setModalMode("create");
+    setEditPipelineId(null);
+    setModalOpen(true);
+  }, []);
+
+  const openEditModal = useCallback((pipelineId: string) => {
+    setModalMode("edit");
+    setEditPipelineId(pipelineId);
+    setModalOpen(true);
+  }, []);
+
+  return {
+    modalOpen,
+    setModalOpen,
+    modalMode,
+    editPipelineId,
+    openCreateModal,
+    openEditModal,
+  };
+};
+
+/**
  * Client wrapper that provides Create/Edit pipeline modals and wires table row Edit to open the modal.
  */
 export const PipelinesWithModal = ({
   pipelines,
   pipelineValidationById,
 }: PipelinesWithModalProps) => {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-  const [editPipelineId, setEditPipelineId] = useState<string | null>(null);
-
-  const openCreateModal = () => {
-    setModalMode("create");
-    setEditPipelineId(null);
-    setModalOpen(true);
-  };
-
-  const openEditModal = (pipelineId: string) => {
-    setModalMode("edit");
-    setEditPipelineId(pipelineId);
-    setModalOpen(true);
-  };
+  const {
+    modalOpen,
+    setModalOpen,
+    modalMode,
+    editPipelineId,
+    openEditModal,
+    openCreateModal,
+  } = usePipelinesWithModalState();
 
   return (
     <>

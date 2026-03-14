@@ -35,14 +35,13 @@ type TickerEditModalProps = {
 };
 
 /**
- * Modal that fetches a ticker by ID and renders the edit form (symbol, name, metadata).
- * Closes on successful save via onOpenChange(false).
+ * Encapsulates ticker fetch and success handler for the edit modal.
  */
-export const TickerEditModal = ({
-  tickerId,
-  open,
-  onOpenChange,
-}: TickerEditModalProps) => {
+const useTickerEditModalState = (
+  tickerId: string | null,
+  open: boolean,
+  onOpenChange: (open: boolean) => void,
+) => {
   const [ticker, setTicker] = useState<TickerRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +77,24 @@ export const TickerEditModal = ({
   const handleSuccess = useCallback(() => {
     onOpenChange(false);
   }, [onOpenChange]);
+
+  return { ticker, loading, error, handleSuccess };
+};
+
+/**
+ * Modal that fetches a ticker by ID and renders the edit form (symbol, name, metadata).
+ * Closes on successful save via onOpenChange(false).
+ */
+export const TickerEditModal = ({
+  tickerId,
+  open,
+  onOpenChange,
+}: TickerEditModalProps) => {
+  const { ticker, loading, error, handleSuccess } = useTickerEditModalState(
+    tickerId,
+    open,
+    onOpenChange,
+  );
 
   if (!tickerId) return null;
 

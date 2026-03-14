@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 
-import { formAction as addStepFormAction } from "@/app/dashboard/pipelines/actions/add-step/.generated/form.action";
+import { formAction as defaultAddStepFormAction } from "@/app/dashboard/pipelines/actions/add-step/.generated/form.action";
 
 type Agent = {
   id: string;
@@ -18,16 +18,18 @@ export type PipelineAvailableAgentsProps = {
   pipelineId: string;
   agents: Agent[];
   existingStepAgentKeys: string[];
+  /** Optional DI: override for tests. Defaults to the generated add-step form action. */
+  addStepFormAction?: typeof defaultAddStepFormAction;
 };
 
 /**
  * Builds FormData for the add-step action (body.pipelineId, body.agentId, etc.).
  */
-function buildAddStepFormData(
+const buildAddStepFormData = (
   pipelineId: string,
   agentId: string,
   agentVersion: string,
-): FormData {
+): FormData => {
   const formData = new FormData();
   formData.set("body.pipelineId", pipelineId);
   formData.set("body.agentId", agentId);
@@ -36,16 +38,17 @@ function buildAddStepFormData(
   formData.set("body.input", "{}");
   formData.set("body.config", "{}");
   return formData;
-}
+};
 
 /**
- * Renders a list of agents not yet in the pipeline. Each agent can be added via a one-click button that invokes the add-step action.
+ * Encapsulates add-step action state and available agents filter for the pipeline available agents list.
  */
-export const PipelineAvailableAgents = ({
-  pipelineId,
-  agents,
-  existingStepAgentKeys,
-}: PipelineAvailableAgentsProps) => {
+const usePipelineAvailableAgentsState = (
+  pipelineId: string,
+  agents: Agent[],
+  existingStepAgentKeys: string[],
+  addStepFormAction: typeof defaultAddStepFormAction,
+) => {
   const router = useRouter();
   const [state, setState] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
@@ -83,7 +86,7 @@ export const PipelineAvailableAgents = ({
         setPending(false);
       }
     },
-    [pipelineId, router],
+    [pipelineId, router, addStepFormAction],
   );
 
   const errorMessage =
@@ -94,6 +97,26 @@ export const PipelineAvailableAgents = ({
     "message" in state
       ? String((state as { message: string }).message)
       : null;
+
+  return { availableAgents, pending, handleAddAgent, errorMessage };
+};
+
+/**
+ * Renders a list of agents not yet in the pipeline. Each agent can be added via a one-click button that invokes the add-step action.
+ */
+export const PipelineAvailableAgents = ({
+  pipelineId,
+  agents,
+  existingStepAgentKeys,
+  addStepFormAction = defaultAddStepFormAction,
+}: PipelineAvailableAgentsProps) => {
+  const { availableAgents, pending, handleAddAgent, errorMessage } =
+    usePipelineAvailableAgentsState(
+      pipelineId,
+      agents,
+      existingStepAgentKeys,
+      addStepFormAction,
+    );
 
   if (availableAgents.length === 0) {
     return (

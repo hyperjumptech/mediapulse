@@ -7,7 +7,7 @@ type MockFormActionState = {
 } | null;
 
 type MockUseFormActionReturn = {
-  FormWithAction: React.FC<{
+  FormWithAction: React.ComponentType<{
     children: React.ReactNode;
     className?: string;
   }>;

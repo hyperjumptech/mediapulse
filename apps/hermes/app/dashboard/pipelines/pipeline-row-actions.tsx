@@ -18,6 +18,22 @@ import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/pipelines/actions/delete/.generated/use-form-action";
 
 /**
+ * Encapsulates delete form action and refresh-on-success for pipeline row actions.
+ */
+const usePipelineRowActions = () => {
+  const router = useRouter();
+  const { FormWithAction, state, pending } = useFormAction();
+
+  useEffect(() => {
+    if (state && state.status === true) {
+      router.refresh();
+    }
+  }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
  * Dropdown actions for a pipeline row: Edit (modal or link to detail), Delete.
  */
 export const PipelineRowActions = ({
@@ -29,14 +45,7 @@ export const PipelineRowActions = ({
   pipelineName: string;
   onEdit?: (pipelineId: string) => void;
 }) => {
-  const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
+  const { FormWithAction, pending } = usePipelineRowActions();
 
   return (
     <DropdownMenu>

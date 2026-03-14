@@ -22,6 +22,19 @@ type VariablesTableWithEditProps = {
 };
 
 /**
+ * Encapsulates variables table edit modal state.
+ */
+const useVariablesTableWithEditState = () => {
+  const [editingVariable, setEditingVariable] = useState<VariableRow | null>(
+    null,
+  );
+  return {
+    editingVariable,
+    setEditingVariable,
+  };
+};
+
+/**
  * Client wrapper that holds edit-modal state and renders the variables table plus edit modal.
  * Edit row action opens the modal.
  */
@@ -32,9 +45,8 @@ export const VariablesTableWithEdit = ({
   pageSize,
   searchQuery,
 }: VariablesTableWithEditProps) => {
-  const [editingVariable, setEditingVariable] = useState<VariableRow | null>(
-    null,
-  );
+  const { editingVariable, setEditingVariable } =
+    useVariablesTableWithEditState();
 
   return (
     <>

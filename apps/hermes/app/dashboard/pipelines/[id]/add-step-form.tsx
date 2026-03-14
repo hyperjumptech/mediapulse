@@ -18,19 +18,13 @@ type Agent = {
 };
 
 /**
- * Add step form: select agent, optional saved config or custom JSON config; submit to add-step.
+ * Encapsulates add-step form state: selection, config, form action, and reset-on-success.
  */
-export const AddStepForm = ({
-  pipelineId,
-  agents,
-  existingStepAgentKeys,
-  configsByAgentKey,
-}: {
-  pipelineId: string;
-  agents: Agent[];
-  existingStepAgentKeys: string[];
-  configsByAgentKey: Record<string, AgentConfigSummary[]>;
-}) => {
+const useAddStepFormState = (
+  agents: Agent[],
+  existingStepAgentKeys: string[],
+  configsByAgentKey: Record<string, AgentConfigSummary[]>,
+) => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
   const [selected, setSelected] = useState<{
@@ -72,6 +66,53 @@ export const AddStepForm = ({
   useEffect(() => {
     setSavedConfigId("");
   }, [agentKey]);
+
+  return {
+    FormWithAction,
+    pending,
+    errorMessage,
+    selected,
+    setSelected,
+    savedConfigId,
+    setSavedConfigId,
+    customConfigJson,
+    setCustomConfigJson,
+    availableAgents,
+    agentKey,
+    savedConfigs,
+    useSavedConfig,
+  };
+};
+
+/**
+ * Add step form: select agent, optional saved config or custom JSON config; submit to add-step.
+ */
+export const AddStepForm = ({
+  pipelineId,
+  agents,
+  existingStepAgentKeys,
+  configsByAgentKey,
+}: {
+  pipelineId: string;
+  agents: Agent[];
+  existingStepAgentKeys: string[];
+  configsByAgentKey: Record<string, AgentConfigSummary[]>;
+}) => {
+  const {
+    FormWithAction,
+    pending,
+    errorMessage,
+    selected,
+    setSelected,
+    savedConfigId,
+    setSavedConfigId,
+    customConfigJson,
+    setCustomConfigJson,
+    availableAgents,
+    agentKey,
+    savedConfigs,
+    useSavedConfig,
+  } = useAddStepFormState(agents, existingStepAgentKeys, configsByAgentKey);
 
   return (
     <FormWithAction className="flex flex-col gap-2 mt-4">

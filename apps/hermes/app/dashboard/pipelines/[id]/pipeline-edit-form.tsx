@@ -10,19 +10,9 @@ import { Label } from "@workspace/ui/components/label";
 import { useFormAction } from "@/app/dashboard/pipelines/actions/update/.generated/use-form-action";
 
 /**
- * Edit pipeline form: name, description, isActive. Uses update action; refreshes on success.
+ * Encapsulates pipeline edit form action state and refresh-on-success.
  */
-export const PipelineEditForm = ({
-  pipelineId,
-  initialName,
-  initialDescription,
-  initialIsActive,
-}: {
-  pipelineId: string;
-  initialName: string;
-  initialDescription: string;
-  initialIsActive: boolean;
-}) => {
+const usePipelineEditFormState = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -36,6 +26,25 @@ export const PipelineEditForm = ({
       router.refresh();
     }
   }, [state, router]);
+
+  return { FormWithAction, pending, errorMessage };
+};
+
+/**
+ * Edit pipeline form: name, description, isActive. Uses update action; refreshes on success.
+ */
+export const PipelineEditForm = ({
+  pipelineId,
+  initialName,
+  initialDescription,
+  initialIsActive,
+}: {
+  pipelineId: string;
+  initialName: string;
+  initialDescription: string;
+  initialIsActive: boolean;
+}) => {
+  const { FormWithAction, pending, errorMessage } = usePipelineEditFormState();
 
   return (
     <FormWithAction className="flex flex-col gap-4 max-w-md">

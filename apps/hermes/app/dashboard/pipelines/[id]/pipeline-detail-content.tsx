@@ -7,8 +7,8 @@ import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 
-import { formAction as updatePipelineFormAction } from "@/app/dashboard/pipelines/actions/update/.generated/form.action";
-import { formAction as updateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/form.action";
+import { formAction as defaultUpdatePipelineFormAction } from "@/app/dashboard/pipelines/actions/update/.generated/form.action";
+import { formAction as defaultUpdateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/form.action";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 import type {
   getAgentRegistryList,
@@ -34,18 +34,20 @@ export type PipelineDetailContentProps = {
   agents: AgentRegistryEntry[];
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
   pipelineValidation: PipelineValidationResult;
+  /** Optional DI: override for tests. Defaults to the generated update pipeline form action. */
+  updatePipelineFormAction?: typeof defaultUpdatePipelineFormAction;
+  /** Optional DI: override for tests. Defaults to the generated update step form action. */
+  updateStepFormAction?: typeof defaultUpdateStepFormAction;
 };
 
 /**
- * Client wrapper for pipeline detail: name/description and Save above; three-column layout
- * (available agents | pipeline steps | agent input/config only). Save beside Run pipeline.
+ * Encapsulates pipeline detail state: selection, name/description, step input/config, save logic, and sync effects.
  */
-export const PipelineDetailContent = ({
-  pipeline,
-  agents,
-  configsByAgentKey,
-  pipelineValidation,
-}: PipelineDetailContentProps) => {
+const usePipelineDetailState = (
+  pipeline: PipelineWithSteps,
+  updatePipelineFormAction: typeof defaultUpdatePipelineFormAction,
+  updateStepFormAction: typeof defaultUpdateStepFormAction,
+) => {
   const router = useRouter();
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [pipelineName, setPipelineName] = useState(pipeline.name);
@@ -181,7 +183,64 @@ export const PipelineDetailContent = ({
     stepInput,
     stepConfig,
     router,
+    updatePipelineFormAction,
+    updateStepFormAction,
   ]);
+
+  return {
+    selectedStepId,
+    setSelectedStepId,
+    pipelineName,
+    setPipelineName,
+    pipelineDescription,
+    setPipelineDescription,
+    stepInput,
+    setStepInput,
+    stepConfig,
+    setStepConfig,
+    saveError,
+    saveWarnings,
+    saving,
+    selectedStep,
+    existingStepAgentKeys,
+    handleSave,
+  };
+};
+
+/**
+ * Client wrapper for pipeline detail: name/description and Save above; three-column layout
+ * (available agents | pipeline steps | agent input/config only). Save beside Run pipeline.
+ */
+export const PipelineDetailContent = ({
+  pipeline,
+  agents,
+  configsByAgentKey,
+  pipelineValidation,
+  updatePipelineFormAction = defaultUpdatePipelineFormAction,
+  updateStepFormAction = defaultUpdateStepFormAction,
+}: PipelineDetailContentProps) => {
+  const {
+    selectedStepId,
+    setSelectedStepId,
+    pipelineName,
+    setPipelineName,
+    pipelineDescription,
+    setPipelineDescription,
+    stepInput,
+    setStepInput,
+    stepConfig,
+    setStepConfig,
+    saveError,
+    saveWarnings,
+    saving,
+    selectedStep,
+    existingStepAgentKeys,
+    handleSave,
+  } = usePipelineDetailState(
+    pipeline,
+    updatePipelineFormAction,
+    updateStepFormAction,
+  );
 
   return (
     <div className="flex flex-col gap-6">

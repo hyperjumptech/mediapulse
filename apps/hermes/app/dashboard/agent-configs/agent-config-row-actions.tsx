@@ -35,14 +35,9 @@ type AgentConfigRowActionsProps = {
 };
 
 /**
- * Dropdown actions for an agent config row: Edit, Duplicate, Delete.
+ * Encapsulates delete form action, error state, and refresh-on-success for agent config row actions.
  */
-export const AgentConfigRowActions = ({
-  config,
-  configLabel,
-  onEdit,
-  onDuplicate,
-}: AgentConfigRowActionsProps) => {
+const useAgentConfigRowActions = (configLabel: string) => {
   const router = useRouter();
   const deleteFormWrapperRef = useRef<HTMLDivElement>(null);
   const { FormWithAction, state, pending } = useFormAction();
@@ -80,6 +75,32 @@ export const AgentConfigRowActions = ({
     },
     [configLabel],
   );
+
+  return {
+    FormWithAction,
+    pending,
+    deleteError,
+    deleteFormWrapperRef,
+    handleDeleteClick,
+  };
+};
+
+/**
+ * Dropdown actions for an agent config row: Edit, Duplicate, Delete.
+ */
+export const AgentConfigRowActions = ({
+  config,
+  configLabel,
+  onEdit,
+  onDuplicate,
+}: AgentConfigRowActionsProps) => {
+  const {
+    FormWithAction,
+    pending,
+    deleteError,
+    deleteFormWrapperRef,
+    handleDeleteClick,
+  } = useAgentConfigRowActions(configLabel);
 
   return (
     <>

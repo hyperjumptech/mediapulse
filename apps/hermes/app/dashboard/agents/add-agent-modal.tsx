@@ -16,10 +16,13 @@ import { useFormAction } from "@/app/dashboard/agents/actions/create/.generated/
 import { AgentFormFields } from "./agent-form-fields";
 
 /**
- * Hook state for the create-agent form inside the modal.
+ * Encapsulates create-agent form state, modal open state, and close-on-success behavior.
  */
-const useCreateAgentFormState = () => {
+const useAddAgentModalState = () => {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
   const { FormWithAction, state, pending } = useFormAction();
+  const didHandleSuccess = useRef(false);
 
   const errorMessage = useMemo(() => {
     if (state && state.status === false) {
@@ -31,20 +34,6 @@ const useCreateAgentFormState = () => {
   const success = useMemo(() => {
     return state && state.status === true && state.data?.id != null;
   }, [state]);
-
-  return { FormWithAction, pending, errorMessage, success };
-};
-
-/**
- * Modal with form to create a new agent. Submits via create action; closes and refreshes on success.
- */
-export const AddAgentModal = () => {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-
-  const { FormWithAction, pending, errorMessage, success } =
-    useCreateAgentFormState();
-  const didHandleSuccess = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -59,6 +48,16 @@ export const AddAgentModal = () => {
       router.refresh();
     }
   }, [success, router]);
+
+  return { open, setOpen, FormWithAction, pending, errorMessage };
+};
+
+/**
+ * Modal with form to create a new agent. Submits via create action; closes and refreshes on success.
+ */
+export const AddAgentModal = () => {
+  const { open, setOpen, FormWithAction, pending, errorMessage } =
+    useAddAgentModalState();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

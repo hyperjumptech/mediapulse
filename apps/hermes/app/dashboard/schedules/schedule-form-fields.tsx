@@ -55,14 +55,14 @@ const MS_PER_MINUTE = 60_000;
 /**
  * Derives initial repeating type and interval minutes from stored interval (ms) and cron.
  */
-function getInitialRepeatingState(
+const getInitialRepeatingState = (
   intervalMs: number | null | undefined,
   cron: string | null | undefined,
 ): {
   repeatingType: RepeatingType;
   intervalMinutes: number;
   cronExpression: string;
-} {
+} => {
   if (intervalMs === MS_PER_HOUR) {
     return { repeatingType: "hourly", intervalMinutes: 60, cronExpression: "" };
   }
@@ -84,7 +84,7 @@ function getInitialRepeatingState(
     return { repeatingType: "cron", intervalMinutes: 60, cronExpression: cron };
   }
   return { repeatingType: "hourly", intervalMinutes: 60, cronExpression: "" };
-}
+};
 
 export type ScheduleFormFieldsProps = {
   /** Hidden input name prefix, e.g. "body" for body.name */
@@ -118,6 +118,45 @@ export type ScheduleFormFieldsProps = {
 };
 
 /**
+ * Encapsulates schedule form field state: repeat, repeating type, interval, cron, pipeline id.
+ */
+const useScheduleFormFieldsState = (
+  defaultRepeat: "once" | "repeating",
+  defaultPipelineId: string,
+  initialIntervalMs?: number | null,
+  initialCronExpression?: string | null,
+) => {
+  const initial = getInitialRepeatingState(
+    initialIntervalMs,
+    initialCronExpression,
+  );
+  const [repeat, setRepeat] = useState<"once" | "repeating">(defaultRepeat);
+  const [repeatingType, setRepeatingType] = useState<RepeatingType>(
+    initial.repeatingType,
+  );
+  const [intervalMinutes, setIntervalMinutes] = useState<number>(
+    initial.intervalMinutes,
+  );
+  const [cronExpression, setCronExpression] = useState<string>(
+    initial.cronExpression,
+  );
+  const [pipelineId, setPipelineId] = useState(defaultPipelineId);
+
+  return {
+    repeat,
+    setRepeat,
+    repeatingType,
+    setRepeatingType,
+    intervalMinutes,
+    setIntervalMinutes,
+    cronExpression,
+    setCronExpression,
+    pipelineId,
+    setPipelineId,
+  };
+};
+
+/**
  * Shared schedule form fields: name, description, repeat group (once/repeating + schedule type), timezone, pipeline, priority, enabled. Optional edit-only: scheduleId, retryConfig, timeout.
  */
 export const ScheduleFormFields = ({
@@ -141,21 +180,23 @@ export const ScheduleFormFields = ({
   defaultRetryConfig = "",
   defaultTimeout,
 }: ScheduleFormFieldsProps) => {
-  const initial = getInitialRepeatingState(
+  const {
+    repeat,
+    setRepeat,
+    repeatingType,
+    setRepeatingType,
+    intervalMinutes,
+    setIntervalMinutes,
+    cronExpression,
+    setCronExpression,
+    pipelineId,
+    setPipelineId,
+  } = useScheduleFormFieldsState(
+    defaultRepeat,
+    defaultPipelineId,
     initialIntervalMs,
     initialCronExpression,
   );
-  const [repeat, setRepeat] = useState<"once" | "repeating">(defaultRepeat);
-  const [repeatingType, setRepeatingType] = useState<RepeatingType>(
-    initial.repeatingType,
-  );
-  const [intervalMinutes, setIntervalMinutes] = useState<number>(
-    initial.intervalMinutes,
-  );
-  const [cronExpression, setCronExpression] = useState<string>(
-    initial.cronExpression,
-  );
-  const [pipelineId, setPipelineId] = useState(defaultPipelineId);
 
   const pre = namePrefix ? `${namePrefix}.` : "";
 

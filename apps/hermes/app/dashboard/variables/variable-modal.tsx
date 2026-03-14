@@ -44,11 +44,9 @@ const isCreateMode = (
   props.variable === null && !("open" in props);
 
 /**
- * Single modal for creating or editing a variable. Use composition:
- * - Create: <VariableModal variable={null} trigger={<Button>Add variable</Button>} />
- * - Edit: <VariableModal variable={row} open={...} onOpenChange={...} />
+ * Encapsulates create/edit variable modal state, form actions, and success effects.
  */
-export const VariableModal = (props: VariableModalProps) => {
+const useVariableModalState = (props: VariableModalProps) => {
   const router = useRouter();
   const isCreate = isCreateMode(props);
 
@@ -131,6 +129,37 @@ export const VariableModal = (props: VariableModalProps) => {
     isCreate && "trigger" in props && props.trigger != null
       ? props.trigger
       : null;
+
+  return {
+    open,
+    setOpenRef,
+    FormWithAction,
+    pending,
+    errorMessage,
+    isCreate,
+    variable,
+    title,
+    trigger,
+  };
+};
+
+/**
+ * Single modal for creating or editing a variable. Use composition:
+ * - Create: <VariableModal variable={null} trigger={<Button>Add variable</Button>} />
+ * - Edit: <VariableModal variable={row} open={...} onOpenChange={...} />
+ */
+export const VariableModal = (props: VariableModalProps) => {
+  const {
+    open,
+    setOpenRef,
+    FormWithAction,
+    pending,
+    errorMessage,
+    isCreate,
+    variable,
+    title,
+    trigger,
+  } = useVariableModalState(props);
 
   const dialogContent = (
     <DialogContent className="sm:max-w-lg">

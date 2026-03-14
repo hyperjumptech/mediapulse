@@ -17,6 +17,22 @@ import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/tickers/actions/delete/.generated/use-form-action";
 
 /**
+ * Encapsulates delete form action and refresh-on-success for ticker row actions.
+ */
+const useTickerRowActions = () => {
+  const router = useRouter();
+  const { FormWithAction, state, pending } = useFormAction();
+
+  useEffect(() => {
+    if (state && state.status === true) {
+      router.refresh();
+    }
+  }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
  * Dropdown actions for a ticker row: Edit (opens modal), Delete.
  */
 export const TickerRowActions = ({
@@ -29,14 +45,7 @@ export const TickerRowActions = ({
   /** Called when Edit is chosen; use to open the edit modal. */
   onEditClick?: (id: string) => void;
 }) => {
-  const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
+  const { FormWithAction, pending } = useTickerRowActions();
 
   return (
     <DropdownMenu>

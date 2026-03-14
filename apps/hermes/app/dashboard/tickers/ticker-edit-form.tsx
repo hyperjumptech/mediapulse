@@ -14,6 +14,28 @@ import { useFormAction } from "@/app/dashboard/tickers/actions/update/.generated
 type TickerMetadata = Record<string, unknown> | null;
 
 /**
+ * Encapsulates ticker edit form action state, refresh-on-success, and onSuccess callback.
+ */
+const useTickerEditFormState = (onSuccess?: () => void) => {
+  const router = useRouter();
+  const { FormWithAction, state, pending } = useFormAction();
+
+  const errorMessage = useMemo(() => {
+    if (state && state.status === false) return state.message;
+    return null;
+  }, [state]);
+
+  useEffect(() => {
+    if (state && state.status === true) {
+      router.refresh();
+      onSuccess?.();
+    }
+  }, [state, router, onSuccess]);
+
+  return { FormWithAction, pending, errorMessage };
+};
+
+/**
  * Edit ticker form: symbol, name, and metadata (JSON). Uses update action; refreshes on success.
  * Optionally calls onSuccess when save succeeds (e.g. to close a modal).
  */
@@ -31,20 +53,8 @@ export const TickerEditForm = ({
   /** Called when update succeeds; use to close a modal or navigate. */
   onSuccess?: () => void;
 }) => {
-  const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
-
-  const errorMessage = useMemo(() => {
-    if (state && state.status === false) return state.message;
-    return null;
-  }, [state]);
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-      onSuccess?.();
-    }
-  }, [state, router, onSuccess]);
+  const { FormWithAction, pending, errorMessage } =
+    useTickerEditFormState(onSuccess);
 
   const metadataJson = useMemo(
     () =>
