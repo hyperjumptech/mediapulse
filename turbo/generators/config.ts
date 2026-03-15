@@ -124,6 +124,16 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       },
       {
         type: "add",
+        path: "apps/agents/{{agentName}}/src/run.ts",
+        templateFile: "templates/agent/src/run.ts.hbs",
+      },
+      {
+        type: "add",
+        path: "apps/agents/{{agentName}}/src/run.test.ts",
+        templateFile: "templates/agent/src/run.test.ts.hbs",
+      },
+      {
+        type: "add",
         path: "apps/agents/{{agentName}}/tsconfig.json",
         templateFile: "templates/agent/tsconfig.json.hbs",
       },
