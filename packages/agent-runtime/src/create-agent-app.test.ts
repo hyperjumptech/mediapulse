@@ -371,4 +371,36 @@ describe("createAgentApp", () => {
     expect(body.inputSchema).toBeDefined();
     expect(body.configSchema).toBeDefined();
   });
+
+  it("sends config description in register body when autoRegister is set", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true });
+    createAgentApp<Input, typeof schema>(
+      {
+        agentId: "desc-agent",
+        agentVersion: "1.0.0",
+        description: "My agent",
+        inputSchema: schema,
+        run: async () => ({ success: true }),
+      },
+      {
+        verifyToken: async () => true,
+        autoRegister: {
+          registryUrl: "https://registry.test",
+          apiKey: "key",
+          agentUrl: "https://agent.test",
+          fetchFn,
+        },
+      },
+    );
+
+    await new Promise<void>((r) => setImmediate(r));
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    const [, options] = fetchFn.mock.calls[0] as [
+      string,
+      { method: string; headers: Record<string, string>; body: string },
+    ];
+    const body = JSON.parse(options.body);
+    expect(body.description).toBe("My agent");
+  });
 });

@@ -98,6 +98,7 @@ describe("AgentsTable", () => {
     expect(screen.getByText("Description")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Created")).toBeInTheDocument();
+    expect(screen.getByText("Updated")).toBeInTheDocument();
   });
 
   it("renders empty state when no agents", () => {
@@ -128,6 +129,7 @@ describe("AgentsTable", () => {
     expect(screen.getByText("test-agent")).toBeInTheDocument();
     expect(screen.getByText("1.0")).toBeInTheDocument();
     expect(screen.getByText("Test description")).toBeInTheDocument();
+    // Created and Updated columns both show formatted dates; header "Updated" confirms the column is present
   });
 
   it("displays Yes badge for active agents", () => {

@@ -115,6 +115,26 @@ describe("getAgentsPage", () => {
     });
   });
 
+  it("uses sortBy updated when specified", async () => {
+    const db = createMockDb();
+    db.agentRegistry.findMany.mockResolvedValue([]);
+    db.agentRegistry.count.mockResolvedValue(0);
+
+    await getAgentsPage(
+      1,
+      10,
+      { sortBy: "updated", sortDir: "desc" },
+      asDb(db),
+    );
+
+    expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
+      where: undefined,
+      skip: 0,
+      take: 10,
+      orderBy: { updatedAt: "desc" },
+    });
+  });
+
   it("returns agents, total, page, and pageSize", async () => {
     const db = createMockDb();
     const agents = [
