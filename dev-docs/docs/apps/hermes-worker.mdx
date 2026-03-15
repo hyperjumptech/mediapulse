@@ -6,13 +6,13 @@ icon: ServerCog
 
 ## Purpose
 
-**hermes-worker** is a long-running Node/Bun app that runs the DataQueue **processor** and **supervisor** for the Hermes scheduler. It ensures the cron job `hermes-check-schedules` exists, processes `check_schedules` jobs (poll due schedules, execute them via `@workspace/hermes-scheduler`), and runs the supervisor (stuck-job reclaim, cleanup). Hermes (Next.js) no longer runs the queue and can be deployed without a long-running server; run hermes-worker on a persistent host for scheduled pipeline runs.
+**hermes-worker** is a long-running Node/Bun app that runs the DataQueue **processor** and **supervisor** for the Hermes scheduler. It ensures the cron job `hermes-check-schedules` exists, processes `check_schedules` jobs (poll due schedules, enqueue agent invocations via `@workspace/hermes-scheduler`), and processes `invoke_agent` jobs (HTTP call to each agent). Hermes (Next.js) no longer runs the queue and can be deployed without a long-running server; run hermes-worker on a persistent host for scheduled pipeline runs.
 
 ## Features
 
 - **Queue init** — Connects to DataQueue using `PG_DATAQUEUE_DATABASE`.
 - **Cron registration** — Ensures `hermes-check-schedules` (every minute) exists.
-- **Processor** — Runs job handlers (e.g. `check_schedules`: get due schedules, execute each via hermes-scheduler).
+- **Processor** — Runs job handlers: `check_schedules` (get due schedules, enqueue one `invoke_agent` job per expanded input); `invoke_agent` (get JWT, POST to agent, update `AgentJobExecution`). Concurrency and batch size are configurable via env so multiple agent invocations run in parallel.
 - **Supervisor** — Reclaims stuck jobs, cleans old jobs/events.
 - **JWT-only invocation** — The worker **requires** `AGENT_AUTH_API_URL` and `AGENT_API_KEY`. The scheduler API key must be **created by an admin in the Hermes dashboard** (API keys → Create, purpose `scheduler`). The worker uses it only to fetch short-lived JWTs from `POST /api/token` and sends only JWTs to agents; the raw key is never sent to agents. Revoking that key in the dashboard stops the worker from obtaining new tokens after expiry.
 - **HTTPS enforcement** — When `REQUIRE_HTTPS_AGENT_ENDPOINTS=true`, agent endpoint URLs must use HTTPS (or `http://localhost` / `http://127.0.0.1` for local dev).
@@ -49,6 +49,8 @@ All variables are defined in **`packages/env/env.hermes-worker.example`**. Copy 
 | **AGENT_AUTH_API_URL**            | Yes      | **Required.** Base URL of agent-auth-api. Worker mints JWTs via POST /api/token.                                                                                    |
 | **AGENT_API_KEY**                 | Yes      | Scheduler API key **created by admin in the Hermes dashboard** (API keys → Create, purpose `scheduler`). Used only to fetch short-lived JWTs; never sent to agents. |
 | **REQUIRE_HTTPS_AGENT_ENDPOINTS** | No       | Set to `true` in production to reject non-HTTPS agent endpoints (except localhost).                                                                                 |
+| **PROCESSOR_BATCH_SIZE**          | No       | Max jobs fetched per poll (default `10`). Tune for agent invocation throughput.                                                                                     |
+| **PROCESSOR_CONCURRENCY**         | No       | Max concurrent job executions, e.g. agent HTTP calls (default `3`). Increase for more parallelism.                                                                  |
 
 ## Workspace dependencies
 

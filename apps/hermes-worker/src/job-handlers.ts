@@ -1,4 +1,5 @@
 import got from "got";
+import { AgentJobExecutionStatus } from "@workspace/database";
 import { prisma } from "@workspace/database";
 import { env } from "@workspace/env/hermes-worker";
 import { logger } from "@workspace/logger";
@@ -8,17 +9,23 @@ import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import {
   executeSchedule,
   getDueSchedules,
+  invokeAgent,
   type InvokeAgentHttpClient,
 } from "@workspace/hermes-scheduler";
+import { getJobQueue } from "./queue";
 
-const httpClient: InvokeAgentHttpClient = {
+/**
+ * Creates an HTTP client that forwards the optional AbortSignal to got for request cancellation.
+ */
+const createHttpClient = (signal?: AbortSignal): InvokeAgentHttpClient => ({
   post: (url, options) =>
     got.post(url, {
       json: options.json,
       headers: options.headers,
       timeout: options.timeout,
+      signal: options.signal ?? signal,
     }),
-};
+});
 
 if (!env.AGENT_AUTH_API_URL || !env.AGENT_API_KEY) {
   throw new Error(
@@ -40,19 +47,29 @@ async function getAuthToken(): Promise<string> {
 }
 
 /**
- * DataQueue job handlers for Hermes. check_schedules polls the DB for due schedules and runs them.
+ * DataQueue job handlers for Hermes.
+ * check_schedules: polls due schedules and enqueues one invoke_agent job per expanded input.
+ * invoke_agent: performs the HTTP call to the agent and updates AgentJobExecution.
  */
 export const jobHandlers: JobHandlers<JobPayloadMap> = {
   check_schedules: async () => {
-    const authToken = await getAuthToken();
+    const jobQueue = getJobQueue();
     const schedules = await getDueSchedules(prisma);
     for (const schedule of schedules) {
       try {
         await executeSchedule(schedule, {
           db: prisma,
-          httpClient,
           logger,
-          authToken,
+          enqueueAgentInvocations: async (payloads) => {
+            await jobQueue.addJobs(
+              payloads.map((p) => ({
+                jobType: "invoke_agent" as const,
+                payload: p,
+                priority: p.priority,
+                idempotencyKey: p.jobId,
+              })),
+            );
+          },
           defaultTimeoutMs: 300_000,
           requireHttpsAgentEndpoints:
             env.REQUIRE_HTTPS_AGENT_ENDPOINTS === "true",
@@ -63,6 +80,66 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           "executeSchedule failed for schedule",
         );
       }
+    }
+  },
+
+  invoke_agent: async (payload, signal) => {
+    logger.info(
+      {
+        jobId: payload.jobId,
+        agentId: payload.agentId,
+        scheduleId: payload.scheduleId,
+      },
+      "invoke_agent started",
+    );
+
+    const claimed = await prisma.agentJobExecution.updateMany({
+      where: { jobId: payload.jobId, status: AgentJobExecutionStatus.pending },
+      data: {
+        status: AgentJobExecutionStatus.running,
+        startedAt: new Date(),
+      },
+    });
+    if (claimed.count === 0) {
+      return;
+    }
+
+    const httpClient = createHttpClient(signal);
+    const authToken = await getAuthToken();
+    const endpoint = { url: payload.endpointUrl, method: "POST" as const };
+    try {
+      await invokeAgent(
+        endpoint,
+        payload.body as Record<string, unknown>,
+        {
+          jobId: payload.jobId,
+          executionId: payload.executionId,
+          authToken,
+          timeoutMs: payload.timeoutMs,
+          signal,
+        },
+        httpClient,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error(
+        {
+          err,
+          jobId: payload.jobId,
+          agentId: payload.agentId,
+          scheduleId: payload.scheduleId,
+        },
+        "invoke_agent failed",
+      );
+      await prisma.agentJobExecution.update({
+        where: { jobId: payload.jobId },
+        data: {
+          status: AgentJobExecutionStatus.failed,
+          error: { message, retryable: true },
+          completedAt: new Date(),
+        },
+      });
+      throw err;
     }
   },
 };

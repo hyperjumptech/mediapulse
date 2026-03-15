@@ -11,6 +11,8 @@ export const env = createEnv({
     AGENT_API_KEY: z.string().optional(),
     AGENT_AUTH_API_URL: z.string().optional(),
     REQUIRE_HTTPS_AGENT_ENDPOINTS: z.string().optional(),
+    PROCESSOR_BATCH_SIZE: z.string().optional(),
+    PROCESSOR_CONCURRENCY: z.string().optional(),
   },
   client: {
   },
