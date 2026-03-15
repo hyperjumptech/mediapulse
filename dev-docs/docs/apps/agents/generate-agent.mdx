@@ -4,6 +4,16 @@ description: Scaffold a new agent package from the minimal ticker-echo template 
 icon: Plus
 ---
 
+## Cursor: use the Generate agent skill
+
+In Cursor, you can use the **Generate agent** skill so the AI follows the full workflow for you. Invoke it by name (e.g. **`/generate-agent`** or by referencing the **generate-agent** skill). The skill instructs the AI to:
+
+1. Run `pnpm gen:agent` (or `pnpm turbo gen agent --args <agent-name>`).
+2. Run `pnpm install` (with `--no-frozen-lockfile` if needed).
+3. Run `./setup-agent-env.sh <agent-name>` so the agent gets `.env`/`.env.local` and `AGENT_REGISTRY_API_KEY` for auto-registration.
+
+Use the skill when you want to create a new agent, scaffold an agent package, or add another agent under `apps/agents/`.
+
 ## Command
 
 From the repo root:
@@ -20,6 +30,17 @@ pnpm turbo gen agent --args my-agent
 
 You will be prompted for an **agent name** in kebab-case (e.g. `my-agent`). The generator creates a new package under `apps/agents/<name>/` and wires it into `@workspace/env`.
 
+## After generation: install and env
+
+Run these steps after the generator succeeds:
+
+1. **Install** — `pnpm install` (use `--no-frozen-lockfile` if the lockfile is frozen).
+2. **Env and API key** — `./setup-agent-env.sh <agent-name>`. This:
+   - Runs `dev-bootstrap.sh` so the agent gets `.env` and `.env.local` from `env.agents.<name>.example` (with the correct PORT and `AGENT_PUBLIC_URL`).
+   - Gets or creates `AGENT_REGISTRY_API_KEY` and sets it in the agent's `.env.local`. The script reuses an existing key from another agent's `.env.local` or from `packages/env/.env`; if none exists, it can create one via Hermes `generate-api-key` (requires `--admin-email` or `ADMIN_EMAIL` in `packages/env/.env`). If no key exists and no admin email is available, the script exits with instructions; run again with `--admin-email <email>` or after `./dev-setup-local.sh`.
+
+Optional flags for `setup-agent-env.sh`: `--no-bootstrap` (skip bootstrap if `.env` is already set up), `--admin-email EMAIL`, `--key-name NAME`.
+
 ## What gets created
 
 - **`apps/agents/&lt;name&gt;/`** — New agent package with:
@@ -27,13 +48,23 @@ You will be prompted for an **agent name** in kebab-case (e.g. `my-agent`). The 
   - `src/index.ts` — `createAgentApp` with a placeholder input schema (`payload: z.string()`) and a minimal `run`; env from `@workspace/env/agents-&lt;name&gt;`
   - `src/index.test.ts` — GET /schemas test
   - `tsconfig.json`, `turbo.json`, `vitest.config.ts`
-- **`packages/env/`** — New env example `env.agents.&lt;name&gt;.example`, new build script, and new export `./agents-&lt;name&gt;`
+- **`packages/env/`** — New env example `env.agents.&lt;name&gt;.example` (with a unique PORT and `AGENT_PUBLIC_URL`), new build script, and new export `./agents-&lt;name&gt;`
 - **Root `package.json`** — New script `dev:agent-&lt;name&gt;` so you can run `pnpm dev:agent-my-agent`
+
+## Auto-registration with the agent registry
+
+Agents built with `createAgentApp` can **register themselves** with the agent-registry-api when they start. The generated `src/index.ts` passes **`autoRegister`** when these env vars are set:
+
+- **`AGENT_REGISTRY_URL`** — URL of the agent-registry-api (e.g. `http://localhost:8082`).
+- **`AGENT_REGISTRY_API_KEY`** — API key for bearer auth when calling the registry (create in Hermes dashboard or via `generate-api-key`; `./setup-agent-env.sh` gets or creates it and writes it to the agent's `.env.local`).
+- **`AGENT_PUBLIC_URL`** — Public URL where the agent is reachable (e.g. `http://localhost:4010`). The env example sets this from PORT.
+
+When all three are set, the agent POSTs its metadata and schemas to the registry on startup (fire-and-forget, with retries). If registration fails (e.g. registry unreachable), the error is logged and the agent keeps running. If any of the three is missing, auto-registration is skipped and a warning is logged.
 
 ## Customize your agent
 
 1. **Input and config** — Edit `src/index.ts`: change the Zod `InputSchema` (and add `configSchema` if needed).
 2. **Run logic** — Implement the `run` function; it receives `{ input, config, token }` and returns `Promise&lt;AgentResult&gt;`.
-3. **Env** — Copy `packages/env/env.agents.&lt;name&gt;.example` to the agent’s `.env.local` and set `PORT`, `AGENT_AUTH_API_URL`, and optionally registry URL/key for auto-registration.
+3. **Env** — After `./setup-agent-env.sh`, the agent has `.env.local` with PORT and `AGENT_REGISTRY_API_KEY`. Set `AGENT_REGISTRY_URL` in `.env.local` if you want auto-registration and the example does not already include it.
 
 The minimal template is **ticker-echo** (`apps/agents/ticker-echo`); the generator is based on it so you only define body, config, and what the agent does.
