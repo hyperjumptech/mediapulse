@@ -53,7 +53,7 @@ export type PipelineDetailContentProps = {
 };
 
 /**
- * Encapsulates pipeline detail state: selection, name/description, step input/config, save logic, and sync effects.
+ * Encapsulates pipeline detail state: selection, name/description, step input and agent-config picker, save logic, and sync effects.
  */
 const usePipelineDetailState = (
   pipeline: PipelineWithSteps,
@@ -67,7 +67,7 @@ const usePipelineDetailState = (
     pipeline.description ?? "",
   );
   const [stepInput, setStepInput] = useState<Record<string, unknown>>({});
-  const [stepConfig, setStepConfig] = useState<Record<string, unknown>>({});
+  const [stepAgentConfigId, setStepAgentConfigId] = useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -90,7 +90,7 @@ const usePipelineDetailState = (
   useEffect(() => {
     if (!selectedStep) {
       setStepInput({});
-      setStepConfig({});
+      setStepAgentConfigId("");
       return;
     }
     const rawInput =
@@ -99,14 +99,8 @@ const usePipelineDetailState = (
       !Array.isArray(selectedStep.input)
         ? (selectedStep.input as Record<string, unknown>)
         : {};
-    const rawConfig =
-      selectedStep.config != null &&
-      typeof selectedStep.config === "object" &&
-      !Array.isArray(selectedStep.config)
-        ? (selectedStep.config as Record<string, unknown>)
-        : {};
     setStepInput(rawInput);
-    setStepConfig(rawConfig);
+    setStepAgentConfigId(selectedStep.agentConfigId ?? "");
   }, [selectedStep]);
 
   const handleSave = useCallback(async () => {
@@ -144,12 +138,9 @@ const usePipelineDetailState = (
         stepFormData.set("body.stepId", selectedStep.id);
         stepFormData.set("body.agentId", selectedStep.agentId);
         stepFormData.set("body.agentVersion", selectedStep.agentVersion);
-        stepFormData.set(
-          "body.agentConfigId",
-          selectedStep.agentConfigId ?? "",
-        );
+        stepFormData.set("body.agentConfigId", stepAgentConfigId);
         stepFormData.set("body.input", JSON.stringify(stepInput));
-        stepFormData.set("body.config", JSON.stringify(stepConfig));
+        stepFormData.set("body.config", "{}");
         const stepResult = await updateStepFormAction(null, stepFormData);
         const stepOk =
           stepResult != null &&
@@ -193,7 +184,7 @@ const usePipelineDetailState = (
     pipelineDescription,
     selectedStep,
     stepInput,
-    stepConfig,
+    stepAgentConfigId,
     router,
     updatePipelineFormAction,
     updateStepFormAction,
@@ -208,8 +199,8 @@ const usePipelineDetailState = (
     setPipelineDescription,
     stepInput,
     setStepInput,
-    stepConfig,
-    setStepConfig,
+    stepAgentConfigId,
+    setStepAgentConfigId,
     saveError,
     saveWarnings,
     saving,
@@ -242,8 +233,8 @@ export const PipelineDetailContent = ({
     setPipelineDescription,
     stepInput,
     setStepInput,
-    stepConfig,
-    setStepConfig,
+    stepAgentConfigId,
+    setStepAgentConfigId,
     saveError,
     saveWarnings,
     saving,
@@ -348,9 +339,16 @@ export const PipelineDetailContent = ({
           <PipelineStepEditorPanel
             selectedStep={selectedStep}
             stepInput={stepInput}
-            stepConfig={stepConfig}
             onStepInputChange={setStepInput}
-            onStepConfigChange={setStepConfig}
+            configsForAgent={
+              selectedStep
+                ? (configsByAgentKey[
+                    `${selectedStep.agentId}@${selectedStep.agentVersion}`
+                  ] ?? [])
+                : []
+            }
+            stepAgentConfigId={stepAgentConfigId}
+            onStepAgentConfigIdChange={setStepAgentConfigId}
             disabled={saving}
             variableKeys={variableKeys}
             expansionTemplates={expansionTemplates}
