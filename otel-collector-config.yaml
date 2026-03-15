@@ -1,0 +1,79 @@
+file_format: "0.3"
+
+# OpenTelemetry Collector Configuration
+# For MediaPulse Observability Stack
+
+extensions:
+  health_check:
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # The memory_limiter processor is used to prevent the collector from running out of memory.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 15
+
+  # The batch processor groups data before sending it to exporters for better performance.
+  batch:
+    send_batch_size: 1000
+    timeout: 10s
+
+  # The resourcedetection processor automatically adds resource information to telemetry.
+  resourcedetection:
+    detectors: [env, system]
+    timeout: 2s
+    override: false
+
+  # The resource processor adds static resource attributes.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: "development"
+        action: upsert
+
+exporters:
+  # Export traces to Jaeger
+  otlp:
+    endpoint: "jaeger:4317"
+    tls:
+      insecure: true
+
+  # Export metrics as a Prometheus scrape target
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    send_timestamps: true
+    metric_expiration: 180s
+    enable_open_metrics: true
+
+  # Debugging exporter (formerly logging exporter)
+  debug:
+    verbosity: basic # Change to 'normal' or 'detailed' for more verbosity
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource, batch]
+      exporters: [otlp, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource, batch]
+      exporters: [prometheus, debug]
+    # Future-proofing for logs via OTLP
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource, batch]
+      exporters: [debug]

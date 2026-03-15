@@ -13,6 +13,7 @@
     "@workspace/env": "workspace:*",
     "@workspace/database": "workspace:*",
     "@workspace/logger": "workspace:*",
+    "@workspace/observability": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",
     "zod": "catalog:"

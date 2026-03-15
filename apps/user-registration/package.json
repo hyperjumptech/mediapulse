@@ -19,6 +19,7 @@
     "@next/env": "catalog:",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
+    "@workspace/observability": "workspace:*",
     "@workspace/ui": "workspace:*",
     "dotenv": "catalog:",
     "lucide-react": "catalog:",

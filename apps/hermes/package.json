@@ -27,6 +27,7 @@
     "@workspace/json-schema-form": "workspace:*",
     "@workspace/idx-tickers-importer": "workspace:*",
     "@workspace/logger": "workspace:*",
+    "@workspace/observability": "workspace:*",
     "@workspace/ui": "workspace:*",
     "bcrypt": "catalog:",
     "date-fns": "^4.1.0",

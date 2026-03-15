@@ -1,3 +1,6 @@
+import { initNodeObservability } from "@workspace/observability";
+initNodeObservability("agent-auth-api");
+
 import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";

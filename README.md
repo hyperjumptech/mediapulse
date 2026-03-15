@@ -102,6 +102,16 @@ pnpm dev --filter=hermes-worker
 docker-compose -f docker-compose-all.yml up
 ```
 
+### Observability
+
+You can now start the observability stack by running:
+
+```bash
+docker-compose -f docker-compose-all.yml up -d jaeger otel-collector prometheus
+```
+
+Then start your apps as usual. Traces will be available at http://localhost:16686 (Jaeger) and metrics at http://localhost:9090 (Prometheus).
+
 ### Documentation
 
 The documentation is built using [Speed Docs](https://speed-docs.dev). To run the documentation server, run the following command:

@@ -1,3 +1,6 @@
+import { initNodeObservability } from "@workspace/observability";
+initNodeObservability("hermes-worker");
+
 /**
  * Hermes worker: long-running process that runs the DataQueue processor and supervisor
  * for the Hermes scheduler (check_schedules cron job). Run this app on a persistent server;

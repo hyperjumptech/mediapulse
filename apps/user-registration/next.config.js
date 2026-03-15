@@ -9,11 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const envDir = path.resolve(__dirname, "../../packages/env");
-
 loadEnvConfig(envDir);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    instrumentationHook: true,
+  },
   output: "standalone",
   outputFileTracingRoot: path.resolve(__dirname, "../.."),
 };

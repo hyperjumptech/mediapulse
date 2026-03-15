@@ -1,3 +1,6 @@
+import { initNodeObservability } from "@workspace/observability";
+initNodeObservability("agent-registry-api");
+
 import { prisma } from "@workspace/database";
 import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";

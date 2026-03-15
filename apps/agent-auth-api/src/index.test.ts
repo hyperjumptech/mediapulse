@@ -38,7 +38,7 @@ describe("agent-auth-api", () => {
 
   describe("POST /api/api-keys", () => {
     it("returns 401 without Basic Auth", async () => {
-      const { default: app } = await import("./index.js");
+      const { default: app } = (await import("./index.js")) as any;
       const res = await app.fetch(
         new Request("http://localhost/api/api-keys", {
           method: "POST",
@@ -55,7 +55,7 @@ describe("agent-auth-api", () => {
         userId: USER_ID,
       });
 
-      const { default: app } = await import("./index.js");
+      const { default: app } = (await import("./index.js")) as any;
       const res = await app.fetch(
         new Request("http://localhost/api/api-keys", {
           method: "POST",
@@ -82,7 +82,7 @@ describe("agent-auth-api", () => {
         { id: API_KEY_ID, name: "Test Key", userId: USER_ID },
       ]);
 
-      const { default: app } = await import("./index.js");
+      const { default: app } = (await import("./index.js")) as any;
       const res = await app.fetch(
         new Request("http://localhost/api/api-keys", {
           headers: AUTH_HEADERS,
@@ -105,7 +105,7 @@ describe("agent-auth-api", () => {
         userId: USER_ID,
       });
 
-      const { default: app } = await import("./index.js");
+      const { default: app } = (await import("./index.js")) as any;
       const res = await app.fetch(
         new Request(`http://localhost/api/api-keys/${API_KEY_ID}`, {
           headers: AUTH_HEADERS,
@@ -121,7 +121,7 @@ describe("agent-auth-api", () => {
       const prisma = await getPrisma();
       (prisma.aPIKey.findUnique as any).mockResolvedValue(null);
 
-      const { default: app } = await import("./index.js");
+      const { default: app } = (await import("./index.js")) as any;
       const res = await app.fetch(
         new Request(`http://localhost/api/api-keys/${API_KEY_ID}`, {
           headers: AUTH_HEADERS,
@@ -137,7 +137,7 @@ describe("agent-auth-api", () => {
       const prisma = await getPrisma();
       (prisma.aPIKey.delete as any).mockResolvedValue({ id: API_KEY_ID });
 
-      const { default: app } = await import("./index.js");
+      const { default: app } = (await import("./index.js")) as any;
       const res = await app.fetch(
         new Request(`http://localhost/api/api-keys/${API_KEY_ID}`, {
           method: "DELETE",

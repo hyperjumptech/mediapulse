@@ -1,3 +1,6 @@
+import { initNodeObservability } from "@workspace/observability";
+initNodeObservability("agent-data-api");
+
 import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
 import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";

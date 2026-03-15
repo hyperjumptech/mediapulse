@@ -1,7 +1,19 @@
 import pino from "pino";
+import { trace, context } from "@opentelemetry/api";
+import { env } from "@workspace/env";
 
 const baseOptions: pino.LoggerOptions = {
-  level: process.env.LOG_LEVEL ?? "info",
+  level: env.LOG_LEVEL,
+  mixin() {
+    const span = trace.getSpan(context.active());
+    if (!span) return {};
+    const spanContext = span.spanContext();
+    return {
+      trace_id: spanContext.traceId,
+      span_id: spanContext.spanId,
+      trace_flags: spanContext.traceFlags.toString(16).padStart(2, "0"),
+    };
+  },
   redact: {
     paths: [
       // HTTP Headers
@@ -31,6 +43,10 @@ const baseOptions: pino.LoggerOptions = {
   },
 };
 
+/**
+ * Standardized logger for the workspace.
+ * Automatically injects OpenTelemetry trace context if available.
+ */
 export const logger = pino(baseOptions);
 
 export { pino };
