@@ -13,6 +13,12 @@ New agents are scaffolded with **Turbo Gen** from the **ticker-echo** minimal te
 - User wants to add another agent to `apps/agents/`.
 - User mentions `turbo gen agent`, `gen:agent`, or “minimal agent template”.
 
+## Workflow (run in order)
+
+1. Generate: `pnpm turbo gen agent --args <agent-name>` (or `pnpm gen:agent` and enter name when prompted).
+2. Install: `pnpm install` (use `--no-frozen-lockfile` if needed).
+3. Env and key: `./setup-agent-env.sh <agent-name>` — **always run this** so the agent gets `.env`/`.env.local` and `AGENT_REGISTRY_API_KEY` (get or create).
+
 ## Command
 
 From the repo root:
@@ -39,14 +45,17 @@ The prompt asks for an **agent name** in kebab-case (e.g. `my-agent`). The gener
 - **`packages/env/`** — New `env.agents.<name>.example` with a **unique PORT** (next free port after existing agents, base 4010), new build script, and export `./agents-<name>`. `AGENT_PUBLIC_URL` is set to `http://localhost:<PORT>`.
 - **Root `package.json`** — New script `dev:agent-<name>` (e.g. `pnpm dev:agent-my-agent`).
 
-## After generation: env and API key
+## After generation (mandatory): install and env setup
 
-1. **Install and bootstrap** — Run `pnpm install` (so the new workspace is in the lockfile), then run the env setup so the new agent has `.env` and `.env.local` with correct values:
+**You must run these steps automatically** right after the generator succeeds:
+
+1. **Install** — Run `pnpm install` (use `--no-frozen-lockfile` if the lockfile is frozen) so the new workspace is in the lockfile.
+2. **Env and API key** — Run:
    ```bash
    ./setup-agent-env.sh <agent-name>
    ```
-   This script runs `dev-bootstrap.sh` (so the agent gets `.env` and `.env.local` from `env.agents.<name>.example` with the correct PORT), then **gets or creates** `AGENT_REGISTRY_API_KEY` and sets it in the agent’s `.env.local`. If no registry key exists yet, pass `--admin-email <email>` to create one via Hermes `generate-api-key`, or run `./dev-setup-local.sh` first to create admin and a shared registry key.
-2. **Optional args for `setup-agent-env.sh`** — `--no-bootstrap` (skip bootstrap if .env already set up), `--admin-email EMAIL` (required to create a new key), `--key-name NAME` (name for the new API key).
+   This runs `dev-bootstrap.sh` (so the agent gets `.env` and `.env.local` from `env.agents.<name>.example` with the correct PORT), then **gets or creates** `AGENT_REGISTRY_API_KEY` and sets it in the agent’s `.env.local`. Key creation is automatic when an existing key is found in another agent’s `.env.local` or in `packages/env/.env`, or when `ADMIN_EMAIL` is set in `packages/env/.env`. If no key exists and no `ADMIN_EMAIL` is available, the script exits with instructions; then run again with `--admin-email <email>` or after `./dev-setup-local.sh`.
+3. **Optional args for `setup-agent-env.sh`** — `--no-bootstrap` (skip bootstrap if .env already set up), `--admin-email EMAIL` (use when creating a new key and not in env), `--key-name NAME` (name for the new API key).
 
 ## After generation: what to customize
 
