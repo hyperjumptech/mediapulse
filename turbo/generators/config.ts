@@ -18,9 +18,32 @@ function toKebab(value: string): string {
   );
 }
 
+/** Base port for agents; first agent gets this, then increment. */
+const AGENT_PORT_BASE = 4010;
+
+/**
+ * Finds the next unused agent port by scanning existing env.agents.*.example files.
+ * Returns the next port (max existing + 1), or AGENT_PORT_BASE if none exist.
+ */
+function nextAgentPort(envPkgPath: string): number {
+  const portRe = /^PORT=(\d+)/m;
+  let maxPort = AGENT_PORT_BASE - 1;
+  const dir = envPkgPath;
+  if (!fs.existsSync(dir)) return AGENT_PORT_BASE;
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    if (!file.startsWith("env.agents.") || !file.endsWith(".example")) continue;
+    const content = fs.readFileSync(path.join(dir, file), "utf8");
+    const m = content.match(portRe);
+    if (m) maxPort = Math.max(maxPort, Number(m[1]));
+  }
+  return maxPort + 1;
+}
+
 /**
  * Custom action: add env example file and update packages/env/package.json
  * (new build script, add to build script list, new export).
+ * Assigns a unique PORT not used by existing agents.
  * Optionally adds dev:agent-<name> to root package.json.
  */
 const wireEnvPackage: PlopTypes.CustomActionFunction = (answers) => {
@@ -41,8 +64,17 @@ const wireEnvPackage: PlopTypes.CustomActionFunction = (answers) => {
     return `Env template not found: ${templateExamplePath}`;
   }
 
+  const port = nextAgentPort(envPkgPath);
   let exampleContent = fs.readFileSync(templateExamplePath, "utf8");
   exampleContent = exampleContent.replace(/ticker-echo/g, name);
+  exampleContent = exampleContent.replace(
+    /# Port this agent listens on \(.*\)\nPORT=\d+ #number #default/,
+    `# Port this agent listens on (${name}: ${port})\nPORT=${port} #number #default`,
+  );
+  exampleContent = exampleContent.replace(
+    /AGENT_PUBLIC_URL="http:\/\/localhost:\d+"/,
+    `AGENT_PUBLIC_URL="http://localhost:${port}"`,
+  );
   fs.writeFileSync(examplePath, exampleContent);
 
   const pkg = JSON.parse(fs.readFileSync(envPkgJsonPath, "utf8")) as Record<
