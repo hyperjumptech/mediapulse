@@ -80,6 +80,12 @@ export const AgentDetailsContent = ({ agent }: AgentDetailsContentProps) => {
                   {format(agent.createdAt, "LLL d, yyyy")}
                 </span>
               </div>
+              <div className={ROW_CLASS}>
+                <span className={LABEL_CLASS}>Last updated</span>
+                <span className="min-w-0 flex-1 text-sm text-muted-foreground normal-case font-normal text-right">
+                  {format(agent.updatedAt, "LLL d, yyyy")}
+                </span>
+              </div>
             </div>
           </section>
           <section className="min-h-0">

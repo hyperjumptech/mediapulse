@@ -69,8 +69,7 @@ export function createAgentApp<
   app.use("*", bearerAuth({ verifyToken }));
 
   if (options.autoRegister) {
-    const { registryUrl, apiKey, agentUrl, description, fetchFn } =
-      options.autoRegister;
+    const { registryUrl, apiKey, agentUrl, fetchFn } = options.autoRegister;
     const inputSchemaJson = zodToJsonSchema(config.inputSchema, {
       $refStrategy: "none",
     }) as Record<string, unknown>;
@@ -90,7 +89,7 @@ export function createAgentApp<
             agentUrl,
             inputSchema: inputSchemaJson,
             configSchema: configSchemaJson,
-            description,
+            description: config.description,
             fetchFn,
           });
           logger.info?.(

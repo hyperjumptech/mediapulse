@@ -54,7 +54,7 @@ type AgentsTableProps = {
 };
 
 /**
- * Renders the agents list as a table with sortable Agent ID, Version, Description, Active, Created columns and row actions.
+ * Renders the agents list as a table with sortable Agent ID, Version, Description, Active, Created, Updated columns and row actions.
  */
 export const AgentsTable = ({
   agents,
@@ -114,6 +114,9 @@ export const AgentsTable = ({
             <TableHead className="w-[120px]">
               {sortLink("created", "Created")}
             </TableHead>
+            <TableHead className="w-[120px]">
+              {sortLink("updated", "Updated")}
+            </TableHead>
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
@@ -121,7 +124,7 @@ export const AgentsTable = ({
           {agents.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={6}
+                colSpan={7}
                 className="text-center text-muted-foreground"
               >
                 No agents yet.
@@ -164,6 +167,9 @@ export const AgentsTable = ({
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {format(agent.createdAt, "LLL d, yyyy")}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {format(agent.updatedAt, "LLL d, yyyy")}
                 </TableCell>
                 <TableCell className="text-right">
                   <AgentRowActions

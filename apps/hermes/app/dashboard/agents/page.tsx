@@ -12,7 +12,12 @@ import { AgentsSearch } from "./agents-search";
 
 const DEFAULT_PAGE_SIZE = 15;
 
-const SORT_FIELDS: AgentSortField[] = ["agentId", "agentVersion", "created"];
+const SORT_FIELDS: AgentSortField[] = [
+  "agentId",
+  "agentVersion",
+  "created",
+  "updated",
+];
 const SORT_DIRS: AgentSortDir[] = ["asc", "desc"];
 
 const parseSort = (
@@ -30,7 +35,7 @@ const parseSort = (
 
 /**
  * Agents list page. Fetches paginated agents and renders table with edit/delete row actions.
- * Supports search by agent ID or description and sort by agentId, agentVersion, or created.
+ * Supports search by agent ID or description and sort by agentId, agentVersion, created, or updated.
  */
 const AgentsPage = async ({
   searchParams,
