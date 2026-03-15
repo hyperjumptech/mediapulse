@@ -1,119 +1,25 @@
 # MediaPulse
 
-## Development
+## Quick start
 
-### Installation
-
-```bash
-pnpm install
-```
-
-### Setup Environment Variables
-
-Run one of the following commands to setup the environment variables:
+**Prerequisites:** Node.js 22+, pnpm 10.4+, Docker. Use pnpm for install/scripts.
 
 ```bash
-./dev-bootstrap.sh
-./dev-bootstrap.sh -f # to remove existing .env and .env.local files first
+docker-compose up -d
+./dev-setup-local.sh
+pnpm dev
 ```
 
-The script will read the env.\*.example files and merge them into a single .env file. Then it will create symlinks for the environment variables in the apps and packages directories. This way the apps and packages can use the environment variables from the same .env file.
+Then open **http://localhost:3001**.
 
-The example files already contain the correct values for some environment variables for development purposes. But you still need to add the correct values for the following environment variables in the generated `.env` file:
+The setup script is interactive: it will prompt for admin email/password and bootstrap env, DB migrations, admin user, and API keys.
 
-| Environment Variable | Description                                                                                   |
-| -------------------- | --------------------------------------------------------------------------------------------- |
-| JINA_API_KEY         | The API key for the Jina AI API. Get it from the landing page of [Jina.ai](https://jina.ai)   |
-| SERPER_API_KEY       | The API key for the Serper API. Create a new free account in [Serper.dev](https://serper.dev) |
-| OPENAI_API_KEY       | The API key for the OpenAI API. Create a new free account in [OpenAI](https://openai.com)     |
+## More information
 
-### Development database
-
-To run the development database, run the following command:
-
-```bash
-docker-compose up
-```
-
-This will start the PostgreSQL database.
-
-### Setup database (Prisma)
-
-```bash
-cd packages/database
-pnpm db:migrate:dev && pnpm db:generate
-cd ../..
-```
-
-### Running all apps (`pnpm dev`)
-
-When you run `pnpm dev`, Turbo starts every app’s dev server. Each app is bound to a different port so they can run together:
-
-| App                      | Port |
-| ------------------------ | ---- |
-| user-registration        | 3002 |
-| hermes                   | 3001 |
-| agent-auth-api           | 8080 |
-| agent-data-api           | 8081 |
-| agent-registry-api       | 8082 |
-| data-collection agent    | 4001 |
-| content-generation agent | 4002 |
-| delivery agent           | 4003 |
-
-### Running `agent-auth-api`
-
-```bash
-pnpm dev --filter=agent-auth-api
-```
-
-### Running `agent-data-api`
-
-```bash
-pnpm dev --filter=agent-data-api
-```
-
-### Running `agent-registry-api`
-
-```bash
-pnpm dev --filter=agent-registry-api
-```
-
-### Running `user-registration`
-
-```bash
-pnpm dev --filter=user-registration
-```
-
-### Running `hermes`
-
-```bash
-pnpm dev --filter=hermes
-```
-
-### Running `hermes-worker`
-
-```bash
-pnpm dev --filter=hermes-worker
-```
-
-### Running non-development everything in Docker
-
-```bash
-docker-compose -f docker-compose-all.yml up
-```
-
-### Documentation
-
-The documentation is built using [Speed Docs](https://speed-docs.dev). To run the documentation server, run the following command:
+Full setup options, services and ports, third-party API keys, troubleshooting, and running individual apps are in the **dev-docs**. From the repo root:
 
 ```bash
 pnpm docs:dev
 ```
 
-To build the documentation, run the following command:
-
-```bash
-pnpm docs:build
-```
-
-Keep the docs updated everytime you make changes to the project.
+Then open the docs and go to **Getting started**.
