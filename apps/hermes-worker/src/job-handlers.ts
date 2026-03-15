@@ -1,4 +1,5 @@
 import got from "got";
+import { AgentJobExecutionStatus } from "@workspace/database";
 import { prisma } from "@workspace/database";
 import { env } from "@workspace/env/hermes-worker";
 import { logger } from "@workspace/logger";
@@ -8,8 +9,10 @@ import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import {
   executeSchedule,
   getDueSchedules,
+  invokeAgent,
   type InvokeAgentHttpClient,
 } from "@workspace/hermes-scheduler";
+import { getJobQueue } from "./queue";
 
 const httpClient: InvokeAgentHttpClient = {
   post: (url, options) =>
@@ -40,19 +43,26 @@ async function getAuthToken(): Promise<string> {
 }
 
 /**
- * DataQueue job handlers for Hermes. check_schedules polls the DB for due schedules and runs them.
+ * DataQueue job handlers for Hermes.
+ * check_schedules: polls due schedules and enqueues one invoke_agent job per expanded input.
+ * invoke_agent: performs the HTTP call to the agent and updates AgentJobExecution.
  */
 export const jobHandlers: JobHandlers<JobPayloadMap> = {
   check_schedules: async () => {
-    const authToken = await getAuthToken();
+    const jobQueue = getJobQueue();
     const schedules = await getDueSchedules(prisma);
     for (const schedule of schedules) {
       try {
         await executeSchedule(schedule, {
           db: prisma,
-          httpClient,
           logger,
-          authToken,
+          enqueueAgentInvocation: async (payload) => {
+            await jobQueue.addJob({
+              jobType: "invoke_agent",
+              payload,
+              priority: payload.priority,
+            });
+          },
           defaultTimeoutMs: 300_000,
           requireHttpsAgentEndpoints:
             env.REQUIRE_HTTPS_AGENT_ENDPOINTS === "true",
@@ -63,6 +73,43 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           "executeSchedule failed for schedule",
         );
       }
+    }
+  },
+
+  invoke_agent: async (payload) => {
+    const authToken = await getAuthToken();
+    const endpoint = { url: payload.endpointUrl, method: "POST" as const };
+    try {
+      await invokeAgent(
+        endpoint,
+        payload.body as Record<string, unknown>,
+        {
+          jobId: payload.jobId,
+          executionId: payload.executionId,
+          authToken,
+          timeoutMs: payload.timeoutMs,
+        },
+        httpClient,
+      );
+      await prisma.agentJobExecution.update({
+        where: { jobId: payload.jobId },
+        data: {
+          status: AgentJobExecutionStatus.running,
+          startedAt: new Date(),
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await prisma.agentJobExecution
+        .update({
+          where: { jobId: payload.jobId },
+          data: {
+            status: AgentJobExecutionStatus.failed,
+            error: { message, retryable: true },
+            completedAt: new Date(),
+          },
+        })
+        .catch(() => {});
     }
   },
 };

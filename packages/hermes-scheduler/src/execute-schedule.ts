@@ -7,24 +7,38 @@ import { randomUUID } from "node:crypto";
 import type { DueSchedule } from "./get-due-schedules";
 import { expandDataSources } from "./expand-data-sources";
 import { computeNextRunAt } from "./next-run-at";
-import {
-  AgentEndpointSchema,
-  invokeAgent,
-  type InvokeAgentHttpClient,
-} from "./invoke-agent";
+import { AgentEndpointSchema } from "./invoke-agent";
 import { substituteVariables } from "./substitute-variables";
 import { validateWithJsonSchema } from "./validate-json-schema";
+
+/**
+ * Payload for a single agent invocation job (DataQueue job type `invoke_agent`).
+ * Used when enqueueing so the worker can perform the HTTP call and update AgentJobExecution.
+ */
+export type InvokeAgentJobPayload = {
+  jobId: string;
+  executionId: string;
+  scheduleId: string;
+  pipelineId: string;
+  pipelineStepId: string;
+  agentId: string;
+  agentVersion: string;
+  endpointUrl: string;
+  body: { input: Record<string, unknown>; config: Record<string, unknown> };
+  timeoutMs: number;
+  priority: number;
+};
 
 /** Dependencies for executeSchedule (injectable for tests). */
 export type ExecuteScheduleDeps = {
   db: PrismaClient;
-  httpClient: InvokeAgentHttpClient;
   logger: {
     info: (obj: unknown, msg?: string) => void;
     warn: (obj: unknown, msg?: string) => void;
     error: (obj: unknown, msg?: string) => void;
   };
-  authToken?: string;
+  /** Enqueues one agent invocation job; called once per expanded input set. */
+  enqueueAgentInvocation: (payload: InvokeAgentJobPayload) => Promise<void>;
   defaultTimeoutMs?: number;
   /** When true, reject agent endpoint URLs that use http with a non-local host. */
   requireHttpsAgentEndpoints?: boolean;
@@ -61,9 +75,8 @@ export const executeSchedule = async (
 ): Promise<void> => {
   const {
     db,
-    httpClient,
     logger,
-    authToken,
+    enqueueAgentInvocation,
     defaultTimeoutMs = 300_000,
     requireHttpsAgentEndpoints = false,
   } = deps;
@@ -244,35 +257,30 @@ export const executeSchedule = async (
         continue;
       }
 
-      const body = {
-        input: inputSet,
-        config: stepConfig,
-      } as Record<string, unknown>;
+      const payload: InvokeAgentJobPayload = {
+        jobId,
+        executionId,
+        scheduleId: schedule.id,
+        pipelineId: schedule.pipelineId,
+        pipelineStepId: step.id,
+        agentId: step.agentId,
+        agentVersion: step.agentVersion,
+        endpointUrl: endpointResult.data.url,
+        body: {
+          input: inputSet as Record<string, unknown>,
+          config: stepConfig,
+        },
+        timeoutMs: schedule.timeout ?? defaultTimeoutMs,
+        priority: schedule.priority,
+      };
 
       try {
-        await invokeAgent(
-          endpointResult.data,
-          body,
-          {
-            jobId,
-            executionId,
-            authToken,
-            timeoutMs: schedule.timeout ?? defaultTimeoutMs,
-          },
-          httpClient,
-        );
+        await enqueueAgentInvocation(payload);
         jobsEnqueued += 1;
-        await db.agentJobExecution.update({
-          where: { jobId },
-          data: {
-            status: AgentJobExecutionStatus.running,
-            startedAt: new Date(),
-          },
-        });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         errors.push({
-          message: `Agent invoke failed: ${message}`,
+          message: `Failed to enqueue agent invocation: ${message}`,
           timestamp: new Date().toISOString(),
         });
         await db.agentJobExecution

@@ -4,7 +4,18 @@
  * Hermes (Next.js) stays stateless and does not run the queue.
  */
 
+import { env } from "@workspace/env/hermes-worker";
+
 const DRAIN_TIMEOUT_MS = 30_000;
+
+const processorBatchSize = Math.max(
+  1,
+  Number.parseInt(env.PROCESSOR_BATCH_SIZE ?? "10", 10) || 10,
+);
+const processorConcurrency = Math.max(
+  1,
+  Number.parseInt(env.PROCESSOR_CONCURRENCY ?? "3", 10) || 3,
+);
 
 async function main(): Promise<void> {
   const { getJobQueue } = await import("./queue");
@@ -48,8 +59,8 @@ async function main(): Promise<void> {
     // eslint-disable-next-line strict-env/no-process-env, turbo/no-undeclared-env-vars
     verbose: process.env.NODE_ENV === "development",
     workerId: `hermes-${process.pid}`,
-    batchSize: 10,
-    concurrency: 3,
+    batchSize: processorBatchSize,
+    concurrency: processorConcurrency,
     pollInterval: 5000,
     onError: (err) => {
       logger.error({ err }, "DataQueue processor error");

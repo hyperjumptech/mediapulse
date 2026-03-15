@@ -1,11 +1,22 @@
 /** @vitest-environment node */
+import { AgentJobExecutionStatus } from "@workspace/database";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { executeSchedule, getDueSchedules } from "@workspace/hermes-scheduler";
+import {
+  executeSchedule,
+  getDueSchedules,
+  invokeAgent,
+} from "@workspace/hermes-scheduler";
 import { logger } from "@workspace/logger";
 import { jobHandlers } from "./job-handlers";
 
+const mockPrisma = {
+  agentJobExecution: {
+    update: vi.fn().mockResolvedValue(undefined),
+  },
+};
+
 vi.mock("@workspace/database", () => ({
-  prisma: {},
+  prisma: mockPrisma,
 }));
 
 vi.mock("@workspace/env/hermes-worker", () => ({
@@ -33,6 +44,15 @@ vi.mock("@workspace/logger", () => ({
 vi.mock("@workspace/hermes-scheduler", () => ({
   getDueSchedules: vi.fn(),
   executeSchedule: vi.fn(),
+  invokeAgent: vi.fn(),
+}));
+
+const mockAddJob = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("./queue", () => ({
+  getJobQueue: () => ({
+    addJob: mockAddJob,
+  }),
 }));
 
 describe("jobHandlers", () => {
@@ -98,9 +118,8 @@ describe("jobHandlers", () => {
       expect(executeSchedule).toHaveBeenCalledTimes(1);
       expect(executeSchedule).toHaveBeenCalledWith(fakeSchedule, {
         db: prisma,
-        httpClient: expect.any(Object),
         logger,
-        authToken: "test-jwt-token",
+        enqueueAgentInvocation: expect.any(Function),
         defaultTimeoutMs: 300_000,
         requireHttpsAgentEndpoints: false,
       });
@@ -200,6 +219,77 @@ describe("jobHandlers", () => {
         { err: expect.any(Error), scheduleId: "schedule-fail" },
         "executeSchedule failed for schedule",
       );
+    });
+  });
+
+  describe("invoke_agent", () => {
+    const payload = {
+      jobId: "job-1",
+      executionId: "exec-1",
+      scheduleId: "sched-1",
+      pipelineId: "pipe-1",
+      pipelineStepId: "step-1",
+      agentId: "agent-a",
+      agentVersion: "1.0.0",
+      endpointUrl: "https://agent.example/run",
+      body: { input: { tickerId: "t1" }, config: {} },
+      timeoutMs: 60_000,
+      priority: 0,
+    };
+
+    beforeEach(() => {
+      vi.mocked(invokeAgent).mockClear();
+      mockPrisma.agentJobExecution.update.mockClear();
+    });
+
+    it("calls invokeAgent and updates AgentJobExecution to running on success", async () => {
+      vi.mocked(invokeAgent).mockResolvedValue(undefined);
+
+      await jobHandlers.invoke_agent(
+        payload,
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.invoke_agent>[2],
+      );
+
+      expect(invokeAgent).toHaveBeenCalledTimes(1);
+      expect(invokeAgent).toHaveBeenCalledWith(
+        { url: payload.endpointUrl, method: "POST" },
+        payload.body,
+        {
+          jobId: payload.jobId,
+          executionId: payload.executionId,
+          authToken: "test-jwt-token",
+          timeoutMs: payload.timeoutMs,
+        },
+        expect.any(Object),
+      );
+      expect(mockPrisma.agentJobExecution.update).toHaveBeenCalledWith({
+        where: { jobId: payload.jobId },
+        data: {
+          status: AgentJobExecutionStatus.running,
+          startedAt: expect.any(Date),
+        },
+      });
+    });
+
+    it("updates AgentJobExecution to failed when invokeAgent throws", async () => {
+      vi.mocked(invokeAgent).mockRejectedValue(new Error("Network error"));
+
+      await jobHandlers.invoke_agent(
+        payload,
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.invoke_agent>[2],
+      );
+
+      expect(invokeAgent).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.agentJobExecution.update).toHaveBeenCalledWith({
+        where: { jobId: payload.jobId },
+        data: {
+          status: AgentJobExecutionStatus.failed,
+          error: { message: "Network error", retryable: true },
+          completedAt: expect.any(Date),
+        },
+      });
     });
   });
 });
