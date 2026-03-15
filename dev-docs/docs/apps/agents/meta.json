@@ -1,4 +1,9 @@
 {
   "title": "Agents",
-  "pages": ["content-generation", "data-collection", "delivery"]
+  "pages": [
+    "generate-agent",
+    "content-generation",
+    "data-collection",
+    "delivery"
+  ]
 }

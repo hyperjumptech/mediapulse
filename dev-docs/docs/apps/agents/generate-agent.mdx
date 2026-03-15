@@ -1,0 +1,39 @@
+---
+title: Generate a new agent
+description: Scaffold a new agent package from the minimal ticker-echo template using Turbo Gen
+icon: Plus
+---
+
+## Command
+
+From the repo root:
+
+```bash
+pnpm gen:agent
+```
+
+Or with the agent name to skip the prompt:
+
+```bash
+pnpm turbo gen agent --args my-agent
+```
+
+You will be prompted for an **agent name** in kebab-case (e.g. `my-agent`). The generator creates a new package under `apps/agents/<name>/` and wires it into `@workspace/env`.
+
+## What gets created
+
+- **`apps/agents/&lt;name&gt;/`** — New agent package with:
+  - `package.json` (name `&lt;name&gt;-agent`, same scripts and deps as ticker-echo)
+  - `src/index.ts` — `createAgentApp` with a placeholder input schema (`payload: z.string()`) and a minimal `run`; env from `@workspace/env/agents-&lt;name&gt;`
+  - `src/index.test.ts` — GET /schemas test
+  - `tsconfig.json`, `turbo.json`, `vitest.config.ts`
+- **`packages/env/`** — New env example `env.agents.&lt;name&gt;.example`, new build script, and new export `./agents-&lt;name&gt;`
+- **Root `package.json`** — New script `dev:agent-&lt;name&gt;` so you can run `pnpm dev:agent-my-agent`
+
+## Customize your agent
+
+1. **Input and config** — Edit `src/index.ts`: change the Zod `InputSchema` (and add `configSchema` if needed).
+2. **Run logic** — Implement the `run` function; it receives `{ input, config, token }` and returns `Promise&lt;AgentResult&gt;`.
+3. **Env** — Copy `packages/env/env.agents.&lt;name&gt;.example` to the agent’s `.env.local` and set `PORT`, `AGENT_AUTH_API_URL`, and optionally registry URL/key for auto-registration.
+
+The minimal template is **ticker-echo** (`apps/agents/ticker-echo`); the generator is based on it so you only define body, config, and what the agent does.
