@@ -10,8 +10,9 @@ type Input = z.infer<typeof InputSchema>;
 
 const app = createAgentApp<Input, typeof InputSchema>(
   {
-    agentId: "ticker-echo",
-    agentVersion: "1.0.0",
+    agentId: "ticker-echo", // this should be stable for the lifetime of the agent
+    agentVersion: "1.0.0", // this should be incremented when the agent is updated
+    description: "Echoes ticker ID from input for testing pipelines.",
     inputSchema: InputSchema,
     run: async ({ input }) => {
       console.log("--> ticker-echo received tickerId", input.tickerId);
