@@ -7,10 +7,7 @@ export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
     DATABASE_CERT_BASE64: z.string().optional(),
-    LOG_LEVEL: z.enum(["info", "debug", "warn", "error", "trace", "fatal"]).optional().default("info"),
     PG_DATAQUEUE_DATABASE: z.string().min(1),
-    OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional().default("http://localhost:4318"),
-    OTEL_SERVICE_NAME: z.string().optional().default("hermes-worker"),
   },
   client: {
   },

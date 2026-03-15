@@ -32,7 +32,7 @@ The example files already contain the correct values for some environment variab
 To run the development database, run the following command:
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 This will start the PostgreSQL database.
@@ -99,7 +99,7 @@ pnpm dev --filter=hermes-worker
 ### Running non-development everything in Docker
 
 ```bash
-docker-compose -f docker-compose-all.yml up
+docker compose -f docker compose-all.yml up
 ```
 
 ### Observability
@@ -107,10 +107,10 @@ docker-compose -f docker-compose-all.yml up
 You can now start the observability stack by running:
 
 ```bash
-docker-compose -f docker-compose-all.yml up -d jaeger otel-collector prometheus
+docker compose -f docker compose-all.yml up -d jaeger otel-collector prometheus
 ```
 
-Then start your apps as usual. Traces will be available at http://localhost:16686 (Jaeger) and metrics at http://localhost:9090 (Prometheus).
+Then start your apps as usual. Traces will be available at <http://localhost:16686> (Jaeger) and metrics at <http://localhost:9090> (Prometheus).
 
 ### Documentation
 
