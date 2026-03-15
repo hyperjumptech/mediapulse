@@ -18,6 +18,7 @@ export type InvokeAgentHttpClient = {
       json: Record<string, unknown>;
       headers: Record<string, string>;
       timeout?: { request: number };
+      signal?: AbortSignal;
     },
   ) => Promise<unknown>;
 };
@@ -27,7 +28,7 @@ export type InvokeAgentHttpClient = {
  *
  * @param endpoint - Parsed agent endpoint (url, method).
  * @param params - JSON body for the request.
- * @param options - Job IDs for headers, auth token, timeout.
+ * @param options - Job IDs for headers, auth token, timeout, optional abort signal.
  * @param httpClient - HTTP client (e.g. got).
  * @returns Resolves on success; throws on HTTP error.
  */
@@ -39,6 +40,7 @@ export const invokeAgent = async (
     executionId: string;
     authToken?: string;
     timeoutMs?: number;
+    signal?: AbortSignal;
   },
   httpClient: InvokeAgentHttpClient,
 ): Promise<void> => {
@@ -54,5 +56,6 @@ export const invokeAgent = async (
     json: params,
     headers,
     timeout: options.timeoutMs ? { request: options.timeoutMs } : undefined,
+    signal: options.signal,
   });
 };

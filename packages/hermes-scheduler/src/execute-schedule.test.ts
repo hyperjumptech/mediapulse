@@ -50,7 +50,7 @@ describe("executeSchedule", () => {
       },
     ]);
     const agentJobExecutionCreate = vi.fn().mockResolvedValue(undefined);
-    const enqueueAgentInvocation = vi.fn().mockResolvedValue(undefined);
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
     const deps: ExecuteScheduleDeps = {
       db: {
         agentRegistry: { findMany: agentRegistryFindMany },
@@ -63,7 +63,7 @@ describe("executeSchedule", () => {
         variable: { findMany: vi.fn().mockResolvedValue([]) },
       } as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      enqueueAgentInvocation,
+      enqueueAgentInvocations,
     };
 
     await executeSchedule(schedule, deps);
@@ -107,7 +107,7 @@ describe("executeSchedule", () => {
         ],
       },
     });
-    const enqueueAgentInvocation = vi.fn().mockResolvedValue(undefined);
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
     const deps: ExecuteScheduleDeps = {
       db: {
         agentRegistry: {
@@ -129,19 +129,22 @@ describe("executeSchedule", () => {
         variable: { findMany: vi.fn().mockResolvedValue([]) },
       } as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      enqueueAgentInvocation,
+      enqueueAgentInvocations,
     };
 
     // Act
     await executeSchedule(schedule, deps);
 
     // Assert
-    expect(enqueueAgentInvocation).toHaveBeenCalledTimes(1);
-    const [payload] = enqueueAgentInvocation.mock.calls[0] as [
-      import("./execute-schedule").InvokeAgentJobPayload,
+    expect(enqueueAgentInvocations).toHaveBeenCalledTimes(1);
+    const [payloads] = enqueueAgentInvocations.mock.calls[0] as [
+      import("./execute-schedule").InvokeAgentJobPayload[],
     ];
-    expect(payload.endpointUrl).toBe("https://agent.example/run");
-    expect(payload.body).toEqual({
+    expect(payloads).toHaveLength(1);
+    const p = payloads[0];
+    expect(p).toBeDefined();
+    expect(p!.endpointUrl).toBe("https://agent.example/run");
+    expect(p!.body).toEqual({
       input: { tickerId: "tid-1" },
       config: { limit: 10 },
     });
@@ -174,7 +177,7 @@ describe("executeSchedule", () => {
         ],
       },
     });
-    const enqueueAgentInvocation = vi.fn().mockResolvedValue(undefined);
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
     const variableFindMany = vi
       .fn()
       .mockResolvedValue([{ key: "MY_KEY", value: "resolved-secret" }]);
@@ -199,18 +202,21 @@ describe("executeSchedule", () => {
         variable: { findMany: variableFindMany },
       } as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      enqueueAgentInvocation,
+      enqueueAgentInvocations,
     };
 
     await executeSchedule(schedule, deps);
 
     expect(variableFindMany).toHaveBeenCalled();
-    expect(enqueueAgentInvocation).toHaveBeenCalledTimes(1);
-    const [payload] = enqueueAgentInvocation.mock.calls[0] as [
-      import("./execute-schedule").InvokeAgentJobPayload,
+    expect(enqueueAgentInvocations).toHaveBeenCalledTimes(1);
+    const [payloads] = enqueueAgentInvocations.mock.calls[0] as [
+      import("./execute-schedule").InvokeAgentJobPayload[],
     ];
-    expect(payload.body.input).toEqual({ apiKey: "resolved-secret" });
-    expect(payload.body.config).toEqual({ token: "resolved-secret" });
+    expect(payloads).toHaveLength(1);
+    const p = payloads[0];
+    expect(p).toBeDefined();
+    expect(p!.body.input).toEqual({ apiKey: "resolved-secret" });
+    expect(p!.body.config).toEqual({ token: "resolved-secret" });
   });
 
   it("disables schedule when repeat is once", async () => {
@@ -237,7 +243,7 @@ describe("executeSchedule", () => {
         variable: { findMany: vi.fn().mockResolvedValue([]) },
       } as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      enqueueAgentInvocation: vi.fn().mockResolvedValue(undefined),
+      enqueueAgentInvocations: vi.fn().mockResolvedValue(undefined),
     };
 
     await executeSchedule(schedule, deps);
@@ -250,7 +256,7 @@ describe("executeSchedule", () => {
 
   it("rejects http agent endpoint when requireHttpsAgentEndpoints is true", async () => {
     const schedule = createMockSchedule();
-    const enqueueAgentInvocation = vi.fn().mockResolvedValue(undefined);
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
     const scheduleExecutionCreate = vi.fn().mockResolvedValue(undefined);
     const deps: ExecuteScheduleDeps = {
       db: {
@@ -273,13 +279,13 @@ describe("executeSchedule", () => {
         variable: { findMany: vi.fn().mockResolvedValue([]) },
       } as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      enqueueAgentInvocation,
+      enqueueAgentInvocations,
       requireHttpsAgentEndpoints: true,
     };
 
     await executeSchedule(schedule, deps);
 
-    expect(enqueueAgentInvocation).not.toHaveBeenCalled();
+    expect(enqueueAgentInvocations).not.toHaveBeenCalled();
     expect(scheduleExecutionCreate).toHaveBeenCalledTimes(1);
     const createCall = scheduleExecutionCreate.mock.calls[0] as [
       { data: { errors?: Array<{ message: string }> } },
@@ -290,7 +296,7 @@ describe("executeSchedule", () => {
 
   it("allows http localhost when requireHttpsAgentEndpoints is true", async () => {
     const schedule = createMockSchedule();
-    const enqueueAgentInvocation = vi.fn().mockResolvedValue(undefined);
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
     const deps: ExecuteScheduleDeps = {
       db: {
         agentRegistry: {
@@ -315,16 +321,19 @@ describe("executeSchedule", () => {
         variable: { findMany: vi.fn().mockResolvedValue([]) },
       } as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      enqueueAgentInvocation,
+      enqueueAgentInvocations,
       requireHttpsAgentEndpoints: true,
     };
 
     await executeSchedule(schedule, deps);
 
-    expect(enqueueAgentInvocation).toHaveBeenCalledTimes(1);
-    const [payload] = enqueueAgentInvocation.mock.calls[0] as [
-      import("./execute-schedule").InvokeAgentJobPayload,
+    expect(enqueueAgentInvocations).toHaveBeenCalledTimes(1);
+    const [payloads] = enqueueAgentInvocations.mock.calls[0] as [
+      import("./execute-schedule").InvokeAgentJobPayload[],
     ];
-    expect(payload.endpointUrl).toBe("http://localhost:4010/");
+    expect(payloads).toHaveLength(1);
+    const p = payloads[0];
+    expect(p).toBeDefined();
+    expect(p!.endpointUrl).toBe("http://localhost:4010/");
   });
 });

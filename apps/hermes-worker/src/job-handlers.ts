@@ -14,14 +14,18 @@ import {
 } from "@workspace/hermes-scheduler";
 import { getJobQueue } from "./queue";
 
-const httpClient: InvokeAgentHttpClient = {
+/**
+ * Creates an HTTP client that forwards the optional AbortSignal to got for request cancellation.
+ */
+const createHttpClient = (signal?: AbortSignal): InvokeAgentHttpClient => ({
   post: (url, options) =>
     got.post(url, {
       json: options.json,
       headers: options.headers,
       timeout: options.timeout,
+      signal: options.signal ?? signal,
     }),
-};
+});
 
 if (!env.AGENT_AUTH_API_URL || !env.AGENT_API_KEY) {
   throw new Error(
@@ -56,12 +60,15 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
         await executeSchedule(schedule, {
           db: prisma,
           logger,
-          enqueueAgentInvocation: async (payload) => {
-            await jobQueue.addJob({
-              jobType: "invoke_agent",
-              payload,
-              priority: payload.priority,
-            });
+          enqueueAgentInvocations: async (payloads) => {
+            await jobQueue.addJobs(
+              payloads.map((p) => ({
+                jobType: "invoke_agent" as const,
+                payload: p,
+                priority: p.priority,
+                idempotencyKey: p.jobId,
+              })),
+            );
           },
           defaultTimeoutMs: 300_000,
           requireHttpsAgentEndpoints:
@@ -76,7 +83,28 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     }
   },
 
-  invoke_agent: async (payload) => {
+  invoke_agent: async (payload, signal) => {
+    logger.info(
+      {
+        jobId: payload.jobId,
+        agentId: payload.agentId,
+        scheduleId: payload.scheduleId,
+      },
+      "invoke_agent started",
+    );
+
+    const claimed = await prisma.agentJobExecution.updateMany({
+      where: { jobId: payload.jobId, status: AgentJobExecutionStatus.pending },
+      data: {
+        status: AgentJobExecutionStatus.running,
+        startedAt: new Date(),
+      },
+    });
+    if (claimed.count === 0) {
+      return;
+    }
+
+    const httpClient = createHttpClient(signal);
     const authToken = await getAuthToken();
     const endpoint = { url: payload.endpointUrl, method: "POST" as const };
     try {
@@ -88,28 +116,30 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           executionId: payload.executionId,
           authToken,
           timeoutMs: payload.timeoutMs,
+          signal,
         },
         httpClient,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error(
+        {
+          err,
+          jobId: payload.jobId,
+          agentId: payload.agentId,
+          scheduleId: payload.scheduleId,
+        },
+        "invoke_agent failed",
       );
       await prisma.agentJobExecution.update({
         where: { jobId: payload.jobId },
         data: {
-          status: AgentJobExecutionStatus.running,
-          startedAt: new Date(),
+          status: AgentJobExecutionStatus.failed,
+          error: { message, retryable: true },
+          completedAt: new Date(),
         },
       });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await prisma.agentJobExecution
-        .update({
-          where: { jobId: payload.jobId },
-          data: {
-            status: AgentJobExecutionStatus.failed,
-            error: { message, retryable: true },
-            completedAt: new Date(),
-          },
-        })
-        .catch(() => {});
+      throw err;
     }
   },
 };

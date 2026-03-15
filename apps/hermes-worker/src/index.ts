@@ -95,11 +95,21 @@ async function main(): Promise<void> {
     }
   };
 
+  const onShutdownSignal = async (): Promise<void> => {
+    let exitCode = 0;
+    try {
+      await shutdown();
+    } catch (err) {
+      logger.error({ err }, "Shutdown failed (drain timeout or error)");
+      exitCode = 1;
+    }
+    process.exit(exitCode);
+  };
   process.on("SIGTERM", () => {
-    shutdown().then(() => process.exit(0));
+    void onShutdownSignal();
   });
   process.on("SIGINT", () => {
-    shutdown().then(() => process.exit(0));
+    void onShutdownSignal();
   });
 
   logger.info("Hermes worker started (processor + supervisor)");

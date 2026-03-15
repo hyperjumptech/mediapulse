@@ -37,8 +37,8 @@ export type ExecuteScheduleDeps = {
     warn: (obj: unknown, msg?: string) => void;
     error: (obj: unknown, msg?: string) => void;
   };
-  /** Enqueues one agent invocation job; called once per expanded input set. */
-  enqueueAgentInvocation: (payload: InvokeAgentJobPayload) => Promise<void>;
+  /** Enqueues agent invocation jobs in a single batch per call (e.g. per step). */
+  enqueueAgentInvocations: (payloads: InvokeAgentJobPayload[]) => Promise<void>;
   defaultTimeoutMs?: number;
   /** When true, reject agent endpoint URLs that use http with a non-local host. */
   requireHttpsAgentEndpoints?: boolean;
@@ -76,7 +76,7 @@ export const executeSchedule = async (
   const {
     db,
     logger,
-    enqueueAgentInvocation,
+    enqueueAgentInvocations,
     defaultTimeoutMs = 300_000,
     requireHttpsAgentEndpoints = false,
   } = deps;
@@ -183,6 +183,7 @@ export const executeSchedule = async (
       }
     }
     const inputSets = await expandDataSources(inputSubstituted, db);
+    const stepPayloads: InvokeAgentJobPayload[] = [];
 
     let stepConfig: Record<string, unknown>;
     const stepWithConfig = step as {
@@ -273,26 +274,36 @@ export const executeSchedule = async (
         timeoutMs: schedule.timeout ?? defaultTimeoutMs,
         priority: schedule.priority,
       };
+      stepPayloads.push(payload);
+    }
 
+    if (stepPayloads.length > 0) {
       try {
-        await enqueueAgentInvocation(payload);
-        jobsEnqueued += 1;
+        await enqueueAgentInvocations(stepPayloads);
+        jobsEnqueued += stepPayloads.length;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         errors.push({
-          message: `Failed to enqueue agent invocation: ${message}`,
+          message: `Failed to enqueue agent invocations: ${message}`,
           timestamp: new Date().toISOString(),
         });
-        await db.agentJobExecution
-          .update({
-            where: { jobId },
-            data: {
-              status: AgentJobExecutionStatus.failed,
-              error: { message, retryable: true },
-              completedAt: new Date(),
-            },
-          })
-          .catch(() => {});
+        for (const p of stepPayloads) {
+          try {
+            await db.agentJobExecution.update({
+              where: { jobId: p.jobId },
+              data: {
+                status: AgentJobExecutionStatus.failed,
+                error: { message, retryable: true },
+                completedAt: new Date(),
+              },
+            });
+          } catch (updateErr) {
+            logger.error(
+              { err: updateErr, jobId: p.jobId },
+              "Failed to update AgentJobExecution to failed after enqueue error",
+            );
+          }
+        }
       }
     }
   }
