@@ -28,6 +28,9 @@ ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
 RUN pnpm --filter=@workspace/database run db:generate
 
+# Build workspace packages that emit dist/ so Turbopack can resolve them
+RUN pnpm --filter=@workspace/agent-auth-client run build
+
 RUN pnpm --filter=hermes run build
 
 # Standalone runner: only copy traced output + static

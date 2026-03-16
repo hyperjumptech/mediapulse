@@ -11,11 +11,20 @@ const __dirname = path.dirname(__filename);
 const envDir = path.resolve(__dirname, "../../packages/env");
 loadEnvConfig(envDir);
 
+const monorepoRoot = path.resolve(__dirname, "../..");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  transpilePackages: ["@workspace/json-schema-form"],
-  outputFileTracingRoot: path.resolve(__dirname, "../.."),
+  transpilePackages: [
+    "@workspace/agent-auth-client",
+    "@workspace/json-schema-form",
+  ],
+  outputFileTracingRoot: monorepoRoot,
+  // Resolve workspace packages from monorepo root (required for Turbopack in Docker/CI)
+  turbopack: {
+    root: monorepoRoot,
+  },
 };
 
 export default nextConfig;

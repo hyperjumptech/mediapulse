@@ -13,7 +13,10 @@ ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
 RUN pnpm --filter=@workspace/database run db:generate
 
-RUN pnpm --filter hermes-worker build
+# Build workspace packages that emit dist/ so the bundler can resolve them
+RUN pnpm --filter=@workspace/agent-auth-client run build
+
+RUN pnpm --filter=hermes-worker run build
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1
