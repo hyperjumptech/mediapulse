@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "concurrently \"pnpm build:default\" \"pnpm build:agents.data-collection\" \"pnpm build:agents.content-generation\" \"pnpm build:agents.delivery\" \"pnpm build:agents.ticker-echo\" \"pnpm build:hermes-worker\"",
-    "build:default": "npx env-to-t3 -i env.example -o src/index.ts",
-    "build:agents.data-collection": "npx env-to-t3 -i env.agents.data-collection.example -o src/agents-data-collection.ts",
-    "build:agents.content-generation": "npx env-to-t3 -i env.agents.content-generation.example -o src/agents-content-generation.ts",
-    "build:agents.delivery": "npx env-to-t3 -i env.agents.delivery.example -o src/agents-delivery.ts",
-    "build:agents.ticker-echo": "npx env-to-t3 -i env.agents.ticker-echo.example -o src/agents-ticker-echo.ts",
-    "build:hermes-worker": "npx env-to-t3 -i env.hermes-worker.example -o src/hermes-worker.ts"
+    "build:default": "pnpm exec env-to-t3 -i env.example -o src/index.ts",
+    "build:agents.data-collection": "pnpm exec env-to-t3 -i env.agents.data-collection.example -o src/agents-data-collection.ts",
+    "build:agents.content-generation": "pnpm exec env-to-t3 -i env.agents.content-generation.example -o src/agents-content-generation.ts",
+    "build:agents.delivery": "pnpm exec env-to-t3 -i env.agents.delivery.example -o src/agents-delivery.ts",
+    "build:agents.ticker-echo": "pnpm exec env-to-t3 -i env.agents.ticker-echo.example -o src/agents-ticker-echo.ts",
+    "build:hermes-worker": "pnpm exec env-to-t3 -i env.hermes-worker.example -o src/hermes-worker.ts"
   },
   "exports": {
     "./hermes-worker": {
@@ -46,6 +46,7 @@
     "@types/node": "catalog:",
     "concurrently": "^9.2.1",
     "dotenv-cli": "^7.3.0",
+    "env-to-t3": "^0.0.12",
     "eslint": "catalog:",
     "postcss": "catalog:",
     "@workspace/typescript-config": "workspace:*",
