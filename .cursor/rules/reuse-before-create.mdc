@@ -1,0 +1,30 @@
+---
+description: Reuse existing components and utilities instead of writing duplicate code; prefer generic/shared implementations over one-off copies
+alwaysApply: true
+---
+
+# Reuse Before Create
+
+**Before writing a new component, utility, or UI pattern**, you MUST:
+
+1. **Search the codebase** for existing implementations that do the same or similar thing (e.g. pagination, modals, tables, search inputs, row actions, form patterns).
+2. **Reuse the existing one** if it fits (same app or shared package). Pass props or adapt the call site; do not copy-paste and rename.
+3. **If the same pattern exists in multiple places** (e.g. several `*-pagination.tsx` or `*-modal.tsx` files with nearly identical logic), **extract or use a single generic component** and migrate all callers to it. Do not add another one-off copy.
+
+## Examples in this repo
+
+- **Pagination:** Use the shared `ListPagination` from `@/components/list-pagination` (Hermes). It accepts `basePath`, `page`, `pageSize`, `total`, `ariaLabel`, and optional `searchQuery` / `sortBy` / `sortDir`. Do not create new `XyzPagination` components that duplicate prev/next links and query building.
+- **Modals / forms:** If a "create" and "edit" flow are almost the same, use one component with a mode or discriminated props (e.g. `VariableModal` with `variable={null}` for create and `variable={row}` for edit). Do not create separate `AddXModal` and `EditXModal` that duplicate the same form and submit logic.
+- **Tables, search, row actions:** Search for existing table/search/actions patterns in the same app (e.g. under `dashboard/`) and reuse or generalize them instead of writing a new variant from scratch.
+- **Delete-with-confirm in row actions:** Use the shared `DeleteConfirmForm` from `@/components/delete-confirm-form` (Hermes). Pass `FormWithAction`, `confirmMessage`, `bodyField`, and `pending`. Do not duplicate the form + confirm logic in each `*-row-actions.tsx` file.
+
+```
+❌ BAD — duplicate pattern
+- User asks for pagination on a new list page.
+- You create NewFeaturePagination.tsx that again implements prev/next, query string, aria-label.
+
+✅ GOOD — reuse first
+- Search for "pagination" / "Pagination" in the app.
+- Use the existing ListPagination (or equivalent) with the right basePath and ariaLabel.
+- If none exists but the same pattern appears in 2+ files, extract one shared component and switch callers to it.
+```

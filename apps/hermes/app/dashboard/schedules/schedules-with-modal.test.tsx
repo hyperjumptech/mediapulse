@@ -15,8 +15,8 @@ vi.mock("@workspace/ui/components/button", () => ({
   ),
 }));
 
-vi.mock("./pagination", () => ({
-  Pagination: ({ page, total }: { page: number; total: number }) => (
+vi.mock("@/components/list-pagination", () => ({
+  ListPagination: ({ page, total }: { page: number; total: number }) => (
     <nav data-testid="pagination" data-page={page} data-total={total}>
       Pagination
     </nav>
@@ -88,6 +88,7 @@ describe("SchedulesWithModal", () => {
       <SchedulesWithModal
         schedules={[]}
         pipelines={[]}
+        pipelineValidationById={{}}
         currentPage={1}
         pageSize={15}
         total={0}
@@ -111,6 +112,7 @@ describe("SchedulesWithModal", () => {
       <SchedulesWithModal
         schedules={schedules}
         pipelines={[]}
+        pipelineValidationById={{}}
         currentPage={1}
         pageSize={15}
         total={1}
@@ -133,6 +135,7 @@ describe("SchedulesWithModal", () => {
       <SchedulesWithModal
         schedules={[]}
         pipelines={[]}
+        pipelineValidationById={{}}
         currentPage={1}
         pageSize={15}
         total={0}
@@ -151,6 +154,7 @@ describe("SchedulesWithModal", () => {
       <SchedulesWithModal
         schedules={[]}
         pipelines={[]}
+        pipelineValidationById={{}}
         currentPage={1}
         pageSize={15}
         total={0}
@@ -173,6 +177,7 @@ describe("SchedulesWithModal", () => {
       <SchedulesWithModal
         schedules={[]}
         pipelines={[]}
+        pipelineValidationById={{}}
         currentPage={2}
         pageSize={15}
         total={30}
@@ -195,6 +200,7 @@ describe("SchedulesWithModal", () => {
       <SchedulesWithModal
         schedules={[]}
         pipelines={[]}
+        pipelineValidationById={{}}
         currentPage={1}
         pageSize={15}
         total={0}
@@ -225,6 +231,7 @@ describe("SchedulesWithModal", () => {
       <SchedulesWithModal
         schedules={schedules}
         pipelines={[]}
+        pipelineValidationById={{}}
         currentPage={1}
         pageSize={15}
         total={1}

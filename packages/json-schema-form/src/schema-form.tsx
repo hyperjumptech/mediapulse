@@ -7,7 +7,7 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
-import type { JsonSchema, SchemaFormProps } from "./types.js";
+import type { JsonSchema, SchemaFormProps, StringFieldProps } from "./types.js";
 
 /**
  * Resolves the effective schema type (single type name) when schema.type is a string or array.
@@ -46,8 +46,9 @@ function defaultForSchema(schema: JsonSchema): unknown {
 }
 
 /**
- * Merges value with empty defaults for any required keys that are missing.
- * Ensures submitted config includes required properties (e.g. webSearch, webFetch) so server validation passes.
+ * Recursively merges value with empty defaults for any required keys that are missing.
+ * Handles nested objects (e.g. authentication: {} with required ["type"]) so required
+ * enum/string fields get a valid value and are not treated as invalid until the user touches the select.
  */
 function applyRequiredDefaults(
   schema: JsonSchema,
@@ -57,10 +58,29 @@ function applyRequiredDefaults(
   let changed = false;
   const result = { ...value };
   for (const key of schema.required) {
-    if (result[key] === undefined) {
-      const propSchema = schema.properties[key];
-      if (propSchema) {
-        result[key] = defaultForSchema(propSchema);
+    const propSchema = schema.properties[key];
+    if (!propSchema) continue;
+    const existing = result[key];
+    if (existing === undefined) {
+      result[key] = defaultForSchema(propSchema);
+      changed = true;
+      continue;
+    }
+    const propType = getType(propSchema);
+    if (
+      propType === "object" &&
+      propSchema.properties != null &&
+      propSchema.required?.length != null &&
+      typeof existing === "object" &&
+      existing !== null &&
+      !Array.isArray(existing)
+    ) {
+      const nested = applyRequiredDefaults(
+        propSchema,
+        existing as Record<string, unknown>,
+      );
+      if (nested !== existing) {
+        result[key] = nested;
         changed = true;
       }
     }
@@ -70,6 +90,31 @@ function applyRequiredDefaults(
 
 /** Placeholder key for "new" record entry until user types a real key. */
 const NEW_ENTRY_KEY = "__new__";
+
+/**
+ * Converts an ISO date-time string to YYYY-MM-DDTHH:mm for datetime-local input (local time).
+ */
+function isoToDatetimeLocal(iso: string): string {
+  if (!iso || iso.length < 10) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 16);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${day}T${h}:${min}`;
+}
+
+/**
+ * Converts a datetime-local value (YYYY-MM-DDTHH:mm) to RFC 3339 ISO string.
+ */
+function datetimeLocalToIso(local: string): string {
+  if (!local || local.length < 16) return local;
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return local;
+  return d.toISOString();
+}
 
 /**
  * Turns a camelCase property name into a readable label (e.g. baseUrl → "Base URL").
@@ -95,7 +140,8 @@ const useRecordEntryDraftKey = (onKeyChange: (newKey: string) => void) => {
 };
 
 /**
- * Seeds parent value with required schema keys when missing (runs once per missing-required change).
+ * Seeds parent value with required schema keys when missing (including nested required keys).
+ * Ensures select/enum fields in nested objects get a valid value so save does not warn until the user touches them.
  */
 const useSchemaFormSeed = (
   schema: JsonSchema,
@@ -106,10 +152,8 @@ const useSchemaFormSeed = (
   React.useEffect(() => {
     if (type !== "object" || !schema.properties || !schema.required?.length)
       return;
-    const missingRequired = schema.required.some((k) => value[k] === undefined);
-    if (!missingRequired) return;
     const merged = applyRequiredDefaults(schema, value);
-    onChange(merged);
+    if (merged !== value) onChange(merged);
   }, [schema, type, value, onChange]);
 };
 
@@ -120,6 +164,8 @@ const useSchemaFormTouch = () => {
   const [touched, setTouched] = React.useState(false);
   return { touched, setTouched };
 };
+
+type SchemaFormComponents = SchemaFormProps["components"];
 
 /**
  * One key-value row in a record (additionalProperties) editor.
@@ -134,6 +180,7 @@ const RecordEntryRow = ({
   onValueChange,
   onRemove,
   isNew = false,
+  components,
 }: {
   entryKey: string;
   value: unknown;
@@ -144,6 +191,7 @@ const RecordEntryRow = ({
   onValueChange: (v: unknown) => void;
   onRemove: () => void;
   isNew?: boolean;
+  components?: SchemaFormComponents;
 }) => {
   const { draftKey, setDraftKey, handleBlur } =
     useRecordEntryDraftKey(onKeyChange);
@@ -184,6 +232,7 @@ const RecordEntryRow = ({
           onChange={onValueChange}
           disabled={disabled}
           path={path}
+          components={components}
         />
       </div>
     </div>
@@ -201,6 +250,7 @@ const SchemaField = ({
   disabled,
   path,
   isRequired = false,
+  components,
 }: {
   name: string;
   schema: JsonSchema;
@@ -210,6 +260,8 @@ const SchemaField = ({
   path: string;
   /** When true, label shows required indicator. */
   isRequired?: boolean;
+  /** Optional custom components (e.g. StringField). */
+  components?: SchemaFormComponents;
 }) => {
   const type = getType(schema);
   const title = schema.title ?? humanize(name);
@@ -277,6 +329,7 @@ const SchemaField = ({
               onKeyChange={(newKey) => handleKeyChange(key, newKey)}
               onValueChange={(v) => handleValueChange(key, v)}
               onRemove={() => handleRemove(key)}
+              components={components}
             />
           ))}
           {hasNewRow ? (
@@ -290,6 +343,7 @@ const SchemaField = ({
               onValueChange={(v) => handleValueChange(NEW_ENTRY_KEY, v)}
               onRemove={() => handleRemove(NEW_ENTRY_KEY)}
               isNew
+              components={components}
             />
           ) : null}
         </div>
@@ -299,6 +353,65 @@ const SchemaField = ({
 
   if (type === "string") {
     const str = typeof value === "string" ? value : "";
+    const format = schema.format;
+
+    if (format === "date") {
+      const dateValue = str && str.length >= 10 ? str.slice(0, 10) : "";
+      return (
+        <div className="grid gap-1.5">
+          <Label htmlFor={id}>{labelText}</Label>
+          <Input
+            id={id}
+            type="date"
+            value={dateValue}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+          />
+          {description ? (
+            <p className="text-muted-foreground text-xs">{description}</p>
+          ) : null}
+        </div>
+      );
+    }
+
+    if (format === "date-time") {
+      const localValue = isoToDatetimeLocal(str);
+      return (
+        <div className="grid gap-1.5">
+          <Label htmlFor={id}>{labelText}</Label>
+          <Input
+            id={id}
+            type="datetime-local"
+            value={localValue}
+            onChange={(e) => onChange(datetimeLocalToIso(e.target.value))}
+            disabled={disabled}
+          />
+          {description ? (
+            <p className="text-muted-foreground text-xs">{description}</p>
+          ) : null}
+        </div>
+      );
+    }
+
+    if (
+      (schema.enum == null || schema.enum.length === 0) &&
+      components?.StringField != null
+    ) {
+      const StringField = components.StringField;
+      const stringFieldProps: StringFieldProps = {
+        value: str,
+        onChange: (v: string) => onChange(v),
+        schema,
+        name,
+        path,
+        id,
+        labelText,
+        description,
+        disabled,
+      };
+      return <StringField {...stringFieldProps} />;
+    }
+
     return (
       <div className="grid gap-1.5">
         <Label htmlFor={id}>{labelText}</Label>
@@ -411,6 +524,7 @@ const SchemaField = ({
               disabled={disabled}
               path={`${path}.${k}`}
               isRequired={schema.required?.includes(k)}
+              components={components}
             />
           ))}
         </div>
@@ -476,6 +590,7 @@ const SchemaField = ({
                   onChange={(v) => handleItemChange(index, v)}
                   disabled={disabled}
                   path={`${path}[${index}]`}
+                  components={components}
                 />
               </div>
               <Button
@@ -511,14 +626,21 @@ export const SchemaForm = ({
   onChange,
   validate,
   disabled = false,
+  seedRequiredDefaults = true,
   className,
+  components,
 }: SchemaFormProps) => {
   const type = getType(schema);
+  const noopOnChange = React.useCallback(() => undefined, []);
   const effectiveValue = React.useMemo(
-    () => applyRequiredDefaults(schema, value),
-    [schema, value],
+    () => (seedRequiredDefaults ? applyRequiredDefaults(schema, value) : value),
+    [schema, value, seedRequiredDefaults],
   );
-  useSchemaFormSeed(schema, value, onChange);
+  useSchemaFormSeed(
+    schema,
+    value,
+    seedRequiredDefaults ? onChange : noopOnChange,
+  );
   const { touched, setTouched } = useSchemaFormTouch();
   const errors = React.useMemo(
     () =>
@@ -554,6 +676,7 @@ export const SchemaForm = ({
           disabled={disabled}
           path={key}
           isRequired={schema.required?.includes(key)}
+          components={components}
         />
       ))}
       {errorList.length > 0 ? (

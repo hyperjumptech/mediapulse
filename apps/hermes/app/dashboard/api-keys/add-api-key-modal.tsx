@@ -19,10 +19,16 @@ import { useFormAction } from "@/app/dashboard/api-keys/actions/create/.generate
 import { ApiKeyFormFields } from "./api-key-form-fields";
 
 /**
- * Hook state for the create-api-key form inside the modal.
+ * Encapsulates create-api-key form state, modal open/key step/copied state, and effects.
  */
-const useCreateApiKeyFormState = () => {
+const useAddApiKeyModalState = () => {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
   const { FormWithAction, state, pending } = useFormAction();
+  const didHandleSuccess = useRef(false);
+  const [showKeyStep, setShowKeyStep] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const errorMessage = useMemo(() => {
     if (state && state.status === false) {
@@ -46,23 +52,6 @@ const useCreateApiKeyFormState = () => {
     }
     return null;
   }, [state]);
-
-  return { FormWithAction, pending, errorMessage, success, createdKey };
-};
-
-/**
- * Modal with form to create a new API key. On success shows the raw key once with Copy and Done.
- */
-export const AddApiKeyModal = () => {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-
-  const { FormWithAction, pending, errorMessage, success, createdKey } =
-    useCreateApiKeyFormState();
-  const didHandleSuccess = useRef(false);
-  const [showKeyStep, setShowKeyStep] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -109,6 +98,37 @@ export const AddApiKeyModal = () => {
       toast.error("Failed to copy");
     }
   }, [createdKey]);
+
+  return {
+    open,
+    setOpen,
+    showKeyStep,
+    createdKey,
+    FormWithAction,
+    pending,
+    errorMessage,
+    handleDone,
+    handleCopy,
+    copied,
+  };
+};
+
+/**
+ * Modal with form to create a new API key. On success shows the raw key once with Copy and Done.
+ */
+export const AddApiKeyModal = () => {
+  const {
+    open,
+    setOpen,
+    showKeyStep,
+    createdKey,
+    FormWithAction,
+    pending,
+    errorMessage,
+    handleDone,
+    handleCopy,
+    copied,
+  } = useAddApiKeyModalState();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getPipelinesWithSteps } from "@/lib/pipelines";
 import { getScheduleById, getScheduleExecutionsPage } from "@/lib/schedules";
+import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
+import { prisma } from "@workspace/database";
 
 import { ScheduleDetailContent } from "./schedule-detail-content";
 
@@ -43,6 +45,11 @@ const ScheduleDetailPage = async ({
     notFound();
   }
 
+  const pipelineValidationById = await getPipelinesValidationMap(
+    pipelines,
+    prisma,
+  );
+
   return (
     <ScheduleDetailContent
       schedule={schedule}
@@ -51,6 +58,7 @@ const ScheduleDetailPage = async ({
       currentPage={executionsResult.page}
       pageSize={executionsResult.pageSize}
       pipelines={pipelines}
+      pipelineValidationById={pipelineValidationById}
     />
   );
 };

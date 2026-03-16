@@ -1,9 +1,10 @@
 import got from "got";
-import type {
-  GraphMessage,
-  ListMessagesResponse,
-  MessageFilter,
-} from "./types.js";
+import type { MessageFilter } from "./types.js";
+import {
+  type GraphMessage,
+  graphMessageSchema,
+  listMessagesResponseSchema,
+} from "./schemas.js";
 import { applySubjectFilter, buildFilterForGraph } from "./build-filter.js";
 
 const DEFAULT_GRAPH_BASE = "https://graph.microsoft.com/v1.0";
@@ -80,7 +81,8 @@ export function createGraphClient(
         );
       }
 
-      const data = JSON.parse(res.body) as ListMessagesResponse;
+      const parsed = JSON.parse(res.body) as unknown;
+      const data = listMessagesResponseSchema.parse(parsed);
       const messages = data.value ?? [];
       return applySubjectFilter(messages, filter);
     },
@@ -115,7 +117,8 @@ export function createGraphClient(
         );
       }
 
-      return JSON.parse(res.body) as GraphMessage;
+      const parsed = JSON.parse(res.body) as unknown;
+      return graphMessageSchema.parse(parsed);
     },
   };
 }

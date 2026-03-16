@@ -17,7 +17,7 @@ vi.mock("@workspace/database", () => ({
 describe("verifyApiKey route", () => {
   const app = new Hono();
   app.use(pinoLogger({ pino: logger }));
-  app.post("/api/verify", verifyApiKey);
+  app.post("/api/verify-api-key", verifyApiKey);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -28,7 +28,7 @@ describe("verifyApiKey route", () => {
   });
 
   it("returns 401 when Authorization header is missing", async () => {
-    const res = await app.request("http://localhost/api/verify", {
+    const res = await app.request("http://localhost/api/verify-api-key", {
       method: "POST",
     });
     expect(res.status).toBe(401);
@@ -39,7 +39,7 @@ describe("verifyApiKey route", () => {
 
   it("returns 401 when API key is not found or inactive", async () => {
     mockFindUnique.mockResolvedValue(null);
-    const res = await app.request("http://localhost/api/verify", {
+    const res = await app.request("http://localhost/api/verify-api-key", {
       method: "POST",
       headers: { Authorization: "Bearer any-token" },
     });
@@ -51,7 +51,7 @@ describe("verifyApiKey route", () => {
 
   it("returns 200 with valid true when API key exists and is active", async () => {
     mockFindUnique.mockResolvedValue({ userId: "user-123" });
-    const res = await app.request("http://localhost/api/verify", {
+    const res = await app.request("http://localhost/api/verify-api-key", {
       method: "POST",
       headers: { Authorization: "Bearer valid-token" },
     });

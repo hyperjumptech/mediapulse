@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -8,7 +8,10 @@ import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
 import type { getPipelinesWithSteps } from "@/lib/pipelines";
-import { validateWithJsonSchema } from "@/lib/validate-json-schema";
+import {
+  getPipelineStatus,
+  type PipelineValidationResult,
+} from "@/lib/pipeline-status";
 
 /** Common IANA timezone identifiers for schedule runs. */
 export const TIMEZONE_OPTIONS = [
@@ -52,14 +55,14 @@ const MS_PER_MINUTE = 60_000;
 /**
  * Derives initial repeating type and interval minutes from stored interval (ms) and cron.
  */
-function getInitialRepeatingState(
+const getInitialRepeatingState = (
   intervalMs: number | null | undefined,
   cron: string | null | undefined,
 ): {
   repeatingType: RepeatingType;
   intervalMinutes: number;
   cronExpression: string;
-} {
+} => {
   if (intervalMs === MS_PER_HOUR) {
     return { repeatingType: "hourly", intervalMinutes: 60, cronExpression: "" };
   }
@@ -81,7 +84,7 @@ function getInitialRepeatingState(
     return { repeatingType: "cron", intervalMinutes: 60, cronExpression: cron };
   }
   return { repeatingType: "hourly", intervalMinutes: 60, cronExpression: "" };
-}
+};
 
 export type ScheduleFormFieldsProps = {
   /** Hidden input name prefix, e.g. "body" for body.name */
@@ -90,13 +93,14 @@ export type ScheduleFormFieldsProps = {
   errorMessage: string | null;
   submitLabel: string;
   pipelines: PipelineOption[];
+  /** Pipeline validation by id; invalid pipelines are disabled in the dropdown. */
+  pipelineValidationById?: Record<string, PipelineValidationResult>;
   /** Default/initial values for all fields */
   defaultName: string;
   defaultDescription: string;
   defaultRepeat: "once" | "repeating";
   defaultTimezone: string;
   defaultPipelineId: string;
-  defaultParams: string;
   defaultPriority: number;
   defaultEnabled: boolean;
   /** Start at as datetime-local string (empty if none). Shown when repeat is once. */
@@ -114,29 +118,14 @@ export type ScheduleFormFieldsProps = {
 };
 
 /**
- * Shared schedule form fields: name, description, repeat group (once/repeating + schedule type), timezone, pipeline, params, priority, enabled. Optional edit-only: scheduleId, retryConfig, timeout.
+ * Encapsulates schedule form field state: repeat, repeating type, interval, cron, pipeline id.
  */
-export const ScheduleFormFields = ({
-  namePrefix = "body",
-  pending,
-  errorMessage,
-  submitLabel,
-  pipelines,
-  defaultName,
-  defaultDescription,
-  defaultRepeat,
-  defaultTimezone,
-  defaultPipelineId,
-  defaultParams,
-  defaultPriority,
-  defaultEnabled,
-  defaultStartAt = "",
-  initialIntervalMs,
-  initialCronExpression,
-  scheduleId,
-  defaultRetryConfig = "",
-  defaultTimeout,
-}: ScheduleFormFieldsProps) => {
+const useScheduleFormFieldsState = (
+  defaultRepeat: "once" | "repeating",
+  defaultPipelineId: string,
+  initialIntervalMs?: number | null,
+  initialCronExpression?: string | null,
+) => {
   const initial = getInitialRepeatingState(
     initialIntervalMs,
     initialCronExpression,
@@ -152,106 +141,64 @@ export const ScheduleFormFields = ({
     initial.cronExpression,
   );
   const [pipelineId, setPipelineId] = useState(defaultPipelineId);
-  const [paramsValidationErrors, setParamsValidationErrors] = useState<
-    string[] | null
-  >(null);
-  const [showExpectedShape, setShowExpectedShape] = useState(false);
-  const [expectedShapeSummary, setExpectedShapeSummary] = useState<
-    string | null
-  >(null);
-  const paramsTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  return {
+    repeat,
+    setRepeat,
+    repeatingType,
+    setRepeatingType,
+    intervalMinutes,
+    setIntervalMinutes,
+    cronExpression,
+    setCronExpression,
+    pipelineId,
+    setPipelineId,
+  };
+};
+
+/**
+ * Shared schedule form fields: name, description, repeat group (once/repeating + schedule type), timezone, pipeline, priority, enabled. Optional edit-only: scheduleId, retryConfig, timeout.
+ */
+export const ScheduleFormFields = ({
+  namePrefix = "body",
+  pending,
+  errorMessage,
+  submitLabel,
+  pipelines,
+  pipelineValidationById = {},
+  defaultName,
+  defaultDescription,
+  defaultRepeat,
+  defaultTimezone,
+  defaultPipelineId,
+  defaultPriority,
+  defaultEnabled,
+  defaultStartAt = "",
+  initialIntervalMs,
+  initialCronExpression,
+  scheduleId,
+  defaultRetryConfig = "",
+  defaultTimeout,
+}: ScheduleFormFieldsProps) => {
+  const {
+    repeat,
+    setRepeat,
+    repeatingType,
+    setRepeatingType,
+    intervalMinutes,
+    setIntervalMinutes,
+    cronExpression,
+    setCronExpression,
+    pipelineId,
+    setPipelineId,
+  } = useScheduleFormFieldsState(
+    defaultRepeat,
+    defaultPipelineId,
+    initialIntervalMs,
+    initialCronExpression,
+  );
 
   const pre = namePrefix ? `${namePrefix}.` : "";
-
-  const handleValidateParams = async () => {
-    if (!pipelineId) {
-      setParamsValidationErrors(["Select a pipeline first"]);
-      return;
-    }
-    const raw = paramsTextareaRef.current?.value ?? "";
-    let params: unknown;
-    try {
-      params = raw.trim() === "" ? {} : JSON.parse(raw);
-    } catch {
-      setParamsValidationErrors(["Invalid JSON"]);
-      return;
-    }
-    if (
-      typeof params !== "object" ||
-      params === null ||
-      Array.isArray(params)
-    ) {
-      setParamsValidationErrors(["Params must be a JSON object"]);
-      return;
-    }
-    const res = await fetch(`/api/pipelines/${pipelineId}/schemas`);
-    if (!res.ok) {
-      setParamsValidationErrors([`Failed to load schemas: ${res.status}`]);
-      return;
-    }
-    const { steps } = (await res.json()) as {
-      steps: Array<{
-        agentId: string;
-        agentVersion: string;
-        inputSchema: unknown;
-      }>;
-    };
-    const errors: string[] = [];
-    for (const step of steps) {
-      if (step.inputSchema == null || typeof step.inputSchema !== "object") {
-        errors.push(
-          `Agent ${step.agentId}@${step.agentVersion} has no input schema`,
-        );
-        continue;
-      }
-      const result = validateWithJsonSchema(
-        step.inputSchema as Record<string, unknown>,
-        params,
-      );
-      if (!result.valid) {
-        errors.push(
-          `${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
-        );
-      }
-    }
-    setParamsValidationErrors(errors.length > 0 ? errors : null);
-  };
-
-  const handleExplainParams = async () => {
-    if (!pipelineId) {
-      setExpectedShapeSummary("Select a pipeline first.");
-      setShowExpectedShape(true);
-      return;
-    }
-    const res = await fetch(`/api/pipelines/${pipelineId}/schemas`);
-    if (!res.ok) {
-      setExpectedShapeSummary(`Failed to load schemas: ${res.status}`);
-      setShowExpectedShape(true);
-      return;
-    }
-    const { steps } = (await res.json()) as {
-      steps: Array<{
-        agentId: string;
-        agentVersion: string;
-        inputSchema: unknown;
-      }>;
-    };
-    const lines = steps.map((step) => {
-      const schema = step.inputSchema;
-      if (schema == null || typeof schema !== "object") {
-        return `${step.agentId}@${step.agentVersion}: no schema`;
-      }
-      const props = (schema as { properties?: Record<string, unknown> })
-        .properties;
-      if (props && typeof props === "object") {
-        const keys = Object.keys(props).join(", ");
-        return `${step.agentId}@${step.agentVersion}: { ${keys} }`;
-      }
-      return `${step.agentId}@${step.agentVersion}: (see schema)`;
-    });
-    setExpectedShapeSummary(lines.join("\n"));
-    setShowExpectedShape(true);
-  };
 
   return (
     <>
@@ -442,75 +389,47 @@ export const ScheduleFormFields = ({
           )}
         >
           <option value="">Select pipeline</option>
-          {pipelines.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
+          {pipelines.map((p) => {
+            const validation = pipelineValidationById[p.id] ?? {
+              valid: false,
+              warnings: [],
+            };
+            const status = getPipelineStatus(p, validation);
+            const selectable = status === "enabled";
+            const suffix =
+              status === "incomplete"
+                ? " (incomplete)"
+                : status === "disabled"
+                  ? " (disabled)"
+                  : "";
+            const title =
+              status === "incomplete"
+                ? "Complete step input and config in pipeline editor to enable"
+                : status === "disabled"
+                  ? "Enable the pipeline in pipeline settings to use in a schedule"
+                  : undefined;
+            return (
+              <option
+                key={p.id}
+                value={p.id}
+                disabled={!selectable}
+                title={title}
+              >
+                {p.name}
+                {suffix}
+              </option>
+            );
+          })}
         </select>
-      </div>
-      <div className="grid gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <Label htmlFor={`${pre}params`}>Params (JSON)</Label>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pending || !pipelineId}
-              onClick={handleValidateParams}
-            >
-              Validate
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={pending || !pipelineId}
-              onClick={handleExplainParams}
-            >
-              Expected shape
-            </Button>
-          </div>
-        </div>
-        <textarea
-          ref={paramsTextareaRef}
-          id={`${pre}params`}
-          name={`${pre}params`}
-          defaultValue={defaultParams}
-          rows={4}
-          disabled={pending}
-          placeholder='{"tickerId": "db:ticker:all:id"}'
-          className={cn(
-            "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
-            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-            "disabled:pointer-events-none disabled:opacity-50",
-          )}
-        />
-        {paramsValidationErrors != null && paramsValidationErrors.length > 0 ? (
-          <p className="text-sm text-destructive" role="alert">
-            {paramsValidationErrors.join(". ")}
-          </p>
-        ) : null}
-        {showExpectedShape && expectedShapeSummary != null ? (
-          <div className="rounded-md border border-border bg-muted/30 p-2">
-            <p className="text-sm font-medium mb-1">
-              Expected params shape (per agent)
+        {Object.keys(pipelineValidationById).length > 0 &&
+          (Object.values(pipelineValidationById).some((v) => !v.valid) ||
+            pipelines.some((p) => !p.isActive)) && (
+            <p className="text-xs text-muted-foreground">
+              Only enabled pipelines can be selected. Incomplete or disabled
+              pipelines are listed but not selectable. Edit the pipeline to fix
+              or enable it.
             </p>
-            <pre className="text-xs font-mono whitespace-pre-wrap break-words">
-              {expectedShapeSummary}
-            </pre>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() => setShowExpectedShape(false)}
-            >
-              Close
-            </Button>
-          </div>
-        ) : null}
+          )}
       </div>
       {scheduleId != null ? (
         <>

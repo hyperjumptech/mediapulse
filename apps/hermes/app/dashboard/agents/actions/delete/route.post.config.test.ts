@@ -29,7 +29,7 @@ describe("createDeleteAgentHandler", () => {
       agentRegistry: { delete: deleteMock },
     };
     const deleteHandler = createDeleteAgentHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await deleteHandler({
@@ -55,7 +55,7 @@ describe("handler", () => {
     const deleteMock = vi.fn().mockResolvedValue(undefined);
     const db = { agentRegistry: { delete: deleteMock } };
     const customHandler = createDeleteAgentHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({

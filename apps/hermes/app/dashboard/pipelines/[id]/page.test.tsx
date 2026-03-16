@@ -27,6 +27,30 @@ vi.mock("@/lib/agent-configs", () => ({
     getAgentConfigsByAgentKeysMock(...args),
 }));
 
+vi.mock("@/lib/validate-pipeline", () => ({
+  validatePipeline: vi.fn().mockResolvedValue({ valid: true, warnings: [] }),
+}));
+
+vi.mock("@/lib/variables", () => ({
+  getVariablesPage: vi.fn().mockResolvedValue({
+    variables: [],
+    total: 0,
+    page: 1,
+    pageSize: 500,
+  }),
+}));
+
+vi.mock("@/lib/data-source-expansions", () => ({
+  getDataSourceExpansionsPage: vi.fn().mockResolvedValue({
+    expansions: [],
+    total: 0,
+    page: 1,
+    pageSize: 500,
+  }),
+}));
+
+vi.mock("@workspace/database", () => ({ prisma: {} }));
+
 vi.mock("./pipeline-detail-content", () => ({
   PipelineDetailContent: ({
     pipeline,

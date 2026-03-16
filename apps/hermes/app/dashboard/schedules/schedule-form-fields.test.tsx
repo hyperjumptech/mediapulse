@@ -69,7 +69,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -92,7 +91,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -115,7 +113,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -142,7 +139,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -161,12 +157,15 @@ describe("ScheduleFormFields", () => {
         errorMessage={null}
         submitLabel="Create"
         pipelines={createMockPipelines()}
+        pipelineValidationById={{
+          "pipeline-1": { valid: true, warnings: [] },
+          "pipeline-2": { valid: true, warnings: [] },
+        }}
         defaultName=""
         defaultDescription=""
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -182,7 +181,7 @@ describe("ScheduleFormFields", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders Params textarea", () => {
+  it("renders Pipeline select", () => {
     // Act
     render(
       <ScheduleFormFields
@@ -195,14 +194,13 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
     );
 
     // Assert
-    expect(screen.getByLabelText("Params (JSON)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pipeline")).toBeInTheDocument();
   });
 
   it("renders Priority input", () => {
@@ -218,7 +216,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -241,7 +238,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -264,7 +260,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -289,7 +284,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -312,7 +306,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
       />,
@@ -337,7 +330,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="UTC"
         defaultPipelineId=""
-        defaultParams="{}"
         defaultPriority={0}
         defaultEnabled={true}
         scheduleId="schedule-123"
@@ -364,7 +356,6 @@ describe("ScheduleFormFields", () => {
         defaultRepeat="repeating"
         defaultTimezone="America/New_York"
         defaultPipelineId="pipeline-1"
-        defaultParams='{"key": "value"}'
         defaultPriority={5}
         defaultEnabled={false}
       />,

@@ -3,8 +3,8 @@ import type { Context } from "hono";
 import * as crypto from "crypto";
 
 /**
- * Verifies an API key via Bearer token. Accepts POST with Authorization: Bearer <token>.
- * Returns 200 with { valid: true } if the key exists and is active, 401 otherwise.
+ * POST /api/verify-api-key — API-key verification for service callers (agent-data-api, agent-registry-api).
+ * Accepts Authorization: Bearer &lt;api_key&gt;. Looks up hashed key in DB; returns 200 with { valid: true } if active key exists, 401 otherwise.
  */
 export async function verifyApiKey(context: Context) {
   const logger = context.get("logger");

@@ -1,3 +1,5 @@
+import type React from "react";
+
 /**
  * Minimal JSON Schema type for form rendering (no $ref).
  * Covers types used by zod-to-json-schema with $refStrategy: "none".
@@ -25,6 +27,32 @@ export interface JsonSchema {
   items?: JsonSchema;
   enum?: unknown[];
   default?: unknown;
+  /** JSON Schema format (e.g. "date", "date-time"). */
+  format?: string;
+}
+
+/**
+ * Props passed to a custom string field component when components.StringField is provided.
+ */
+export interface StringFieldProps {
+  /** Current string value. */
+  value: string;
+  /** Called when the value changes. */
+  onChange: (value: string) => void;
+  /** JSON Schema for this property. */
+  schema: JsonSchema;
+  /** Property name. */
+  name: string;
+  /** Dot-separated path (e.g. "foo" or "foo.bar"). */
+  path: string;
+  /** Resolved id for the input (path with dots replaced by underscores). */
+  id: string;
+  /** Label text (title or humanized name, with required indicator if applicable). */
+  labelText: string;
+  /** Optional description from schema. */
+  description?: string;
+  /** Whether the field is disabled. */
+  disabled?: boolean;
 }
 
 /**
@@ -43,6 +71,12 @@ export interface SchemaFormProps {
   ) => { valid: true } | { valid: false; errors: string[] };
   /** Whether the form is disabled. */
   disabled?: boolean;
+  /** When true, auto-seeds missing required fields with defaults. */
+  seedRequiredDefaults?: boolean;
   /** Optional class name for the root element. */
   className?: string;
+  /** Optional custom components (e.g. StringField for pipeline step variable/expansion picker). */
+  components?: {
+    StringField?: React.ComponentType<StringFieldProps>;
+  };
 }

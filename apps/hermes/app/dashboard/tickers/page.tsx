@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   getTickersPage,
@@ -5,8 +6,8 @@ import {
   type TickerSortField,
 } from "@/lib/tickers";
 
+import { ListPagination } from "@/components/list-pagination";
 import { AddImportTickersModal } from "./add-import-tickers-modal";
-import { Pagination } from "./pagination";
 import { TickersSearch } from "./tickers-search";
 import { TickersTable } from "./tickers-table";
 
@@ -67,6 +68,10 @@ const TickersPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Tickers"
+        description="Manage ticker symbols and company names for data sources."
+      />
       <div className="flex flex-col justify-between sm:flex-row sm:items-center">
         <TickersSearch
           initialQuery={search ?? ""}
@@ -85,11 +90,12 @@ const TickersPage = async ({
         pageSize={size}
         searchQuery={search}
       />
-      <Pagination
+      <ListPagination
         basePath="/dashboard/tickers"
         page={currentPage}
         pageSize={size}
         total={total}
+        ariaLabel="Tickers list pagination"
         searchQuery={search}
         sortBy={sortBy}
         sortDir={sortDir}

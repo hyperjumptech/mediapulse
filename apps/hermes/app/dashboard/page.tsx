@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 
 /**
@@ -5,12 +6,10 @@ import { withAuthProtection } from "@/components/with-auth-protection";
  */
 const DashboardPage = () => {
   return (
-    <div className="flex flex-col gap-2">
-      <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-      <p className="text-muted-foreground">
-        Use the sidebar to manage pipelines and agents.
-      </p>
-    </div>
+    <PageHeader
+      title="Dashboard"
+      description="Use the sidebar to manage pipelines and agents."
+    />
   );
 };
 

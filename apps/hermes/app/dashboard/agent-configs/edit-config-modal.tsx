@@ -36,13 +36,27 @@ const initialFormState = {
 };
 
 /**
- * Form state synced from the config when modal opens.
+ * Encapsulates form state synced from config, form action, and close-on-success for edit config modal.
  */
 const useEditConfigModalState = (
   config: AgentConfigRow | null,
   open: boolean,
+  onOpenChange: (open: boolean) => void,
 ) => {
+  const router = useRouter();
   const [formState, setFormState] = useState(initialFormState);
+  const { FormWithAction, state, pending } = useFormAction();
+  const didHandleSuccess = useRef(false);
+
+  const errorMessage = useMemo(() => {
+    if (state && state.status === false) return state.message as string;
+    return null;
+  }, [state]);
+
+  const success = useMemo(
+    () => Boolean(state && state.status === true),
+    [state],
+  );
 
   useEffect(() => {
     if (config && open) {
@@ -58,18 +72,6 @@ const useEditConfigModalState = (
     }
   }, [config, open]);
 
-  return { formState, setFormState };
-};
-
-/**
- * On success: close modal and refresh.
- */
-const useEditConfigModalSuccess = (
-  success: boolean,
-  onOpenChange: (open: boolean) => void,
-  router: ReturnType<typeof useRouter>,
-) => {
-  const didHandleSuccess = useRef(false);
   useEffect(() => {
     if (success && !didHandleSuccess.current) {
       didHandleSuccess.current = true;
@@ -77,6 +79,8 @@ const useEditConfigModalSuccess = (
       router.refresh();
     }
   }, [success, onOpenChange, router]);
+
+  return { formState, setFormState, FormWithAction, pending, errorMessage };
 };
 
 /**
@@ -88,20 +92,8 @@ export const EditConfigModal = ({
   open,
   onOpenChange,
 }: EditConfigModalProps) => {
-  const router = useRouter();
-  const { formState, setFormState } = useEditConfigModalState(config, open);
-
-  const { FormWithAction, state, pending } = useFormAction();
-  const errorMessage = useMemo(() => {
-    if (state && state.status === false) return state.message as string;
-    return null;
-  }, [state]);
-  const success = useMemo(
-    () => Boolean(state && state.status === true),
-    [state],
-  );
-
-  useEditConfigModalSuccess(success, onOpenChange, router);
+  const { formState, setFormState, FormWithAction, pending, errorMessage } =
+    useEditConfigModalState(config, open, onOpenChange);
 
   if (!config) return null;
 

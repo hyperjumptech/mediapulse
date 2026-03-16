@@ -68,7 +68,7 @@ describe("data-collection-agent", () => {
 
   it("returns 200 and success when data collection is successful", async () => {
     getMock.mockResolvedValue({
-      searchQueries: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
+      data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
     });
     postMock.mockResolvedValue("{}");
 

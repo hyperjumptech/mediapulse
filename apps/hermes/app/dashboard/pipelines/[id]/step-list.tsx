@@ -17,6 +17,7 @@ type Step = {
   agentId: string;
   agentVersion: string;
   agentConfigId?: string | null;
+  input?: unknown;
   config?: unknown;
 };
 
@@ -77,21 +78,13 @@ export const StepList = ({
 };
 
 /**
- * Single step row: order, agent id/version, description, Edit and Remove. Edit form persists step change to DB.
+ * Encapsulates step row state: edit mode, form fields, remove/update form actions, and refresh-on-success.
  */
-const StepRow = ({
-  pipelineId,
-  step,
-  description,
-  agents,
-  configsByAgentKey,
-}: {
-  pipelineId: string;
-  step: Step;
-  description: string | null;
-  agents: Agent[];
-  configsByAgentKey: Record<string, AgentConfigSummary[]>;
-}) => {
+const useStepRowState = (
+  step: Step,
+  pipelineId: string,
+  configsByAgentKey: Record<string, AgentConfigSummary[]>,
+) => {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editAgentKey, setEditAgentKey] = useState(
@@ -99,11 +92,6 @@ const StepRow = ({
   );
   const [editSavedConfigId, setEditSavedConfigId] = useState<string | "">(
     step.agentConfigId ?? "",
-  );
-  const [editCustomConfigJson, setEditCustomConfigJson] = useState(
-    step.config != null && typeof step.config === "object"
-      ? JSON.stringify(step.config, null, 2)
-      : "{}",
   );
 
   const {
@@ -133,12 +121,59 @@ const StepRow = ({
   const updateErrorMessage =
     updateState && updateState.status === false ? updateState.message : null;
 
+  const savedConfigs = editAgentKey
+    ? (configsByAgentKey[editAgentKey] ?? [])
+    : [];
+
+  return {
+    isEditing,
+    setIsEditing,
+    editAgentKey,
+    setEditAgentKey,
+    editSavedConfigId,
+    setEditSavedConfigId,
+    RemoveForm,
+    UpdateForm,
+    removePending,
+    updatePending,
+    updateErrorMessage,
+    savedConfigs,
+  };
+};
+
+/**
+ * Single step row: order, agent id/version, description, Edit and Remove. Edit form persists step change to DB.
+ */
+const StepRow = ({
+  pipelineId,
+  step,
+  description,
+  agents,
+  configsByAgentKey,
+}: {
+  pipelineId: string;
+  step: Step;
+  description: string | null;
+  agents: Agent[];
+  configsByAgentKey: Record<string, AgentConfigSummary[]>;
+}) => {
+  const {
+    isEditing,
+    setIsEditing,
+    editAgentKey,
+    setEditAgentKey,
+    editSavedConfigId,
+    setEditSavedConfigId,
+    RemoveForm,
+    UpdateForm,
+    removePending,
+    updatePending,
+    updateErrorMessage,
+    savedConfigs,
+  } = useStepRowState(step, pipelineId, configsByAgentKey);
+
   if (isEditing) {
     const [agentId, agentVersion] = editAgentKey.split("@");
-    const savedConfigs = editAgentKey
-      ? (configsByAgentKey[editAgentKey] ?? [])
-      : [];
-    const useSavedConfig = editSavedConfigId !== "";
     return (
       <li className="flex flex-wrap items-center gap-2 rounded-md border p-3">
         <span className="text-muted-foreground font-mono text-sm w-6">
@@ -167,15 +202,22 @@ const StepRow = ({
           <input
             type="hidden"
             name="body.agentConfigId"
-            value={useSavedConfig ? editSavedConfigId : ""}
+            value={editSavedConfigId}
             readOnly
           />
           <input
             type="hidden"
-            name="body.config"
-            value={useSavedConfig ? "{}" : editCustomConfigJson}
+            name="body.input"
+            value={JSON.stringify(
+              step.input != null &&
+                typeof step.input === "object" &&
+                !Array.isArray(step.input)
+                ? step.input
+                : {},
+            )}
             readOnly
           />
+          <input type="hidden" name="body.config" value="{}" readOnly />
           <select
             className="flex h-9 w-[280px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={editAgentKey}
@@ -192,42 +234,31 @@ const StepRow = ({
               </option>
             ))}
           </select>
-          {savedConfigs.length > 0 ? (
-            <div className="w-full grid gap-1.5">
-              <Label htmlFor={`step-saved-config-${step.id}`}>
-                Saved config (optional)
-              </Label>
-              <select
-                id={`step-saved-config-${step.id}`}
-                className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={editSavedConfigId}
-                onChange={(e) => setEditSavedConfigId(e.target.value)}
-                disabled={updatePending}
-              >
-                <option value="">None (use custom below)</option>
-                {savedConfigs.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.description ? ` — ${c.description}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          {!useSavedConfig ? (
-            <div className="w-full grid gap-1.5">
-              <Label htmlFor={`step-config-${step.id}`}>Config (JSON)</Label>
-              <textarea
-                id={`step-config-${step.id}`}
-                value={editCustomConfigJson}
-                onChange={(e) => setEditCustomConfigJson(e.target.value)}
-                rows={3}
-                disabled={updatePending}
-                className="w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-                placeholder="{}"
-              />
-            </div>
-          ) : null}
+          <div className="w-full grid gap-1.5">
+            <Label htmlFor={`step-saved-config-${step.id}`}>Agent config</Label>
+            <select
+              id={`step-saved-config-${step.id}`}
+              className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={editSavedConfigId}
+              onChange={(e) => setEditSavedConfigId(e.target.value)}
+              disabled={updatePending}
+              aria-label="Choose a saved agent config"
+            >
+              <option value="">None</option>
+              {savedConfigs.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.description ? ` — ${c.description}` : ""}
+                </option>
+              ))}
+            </select>
+            {savedConfigs.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No agent configs for this agent. Create one in Agent configs
+                first.
+              </p>
+            ) : null}
+          </div>
           <Button
             type="submit"
             variant="secondary"

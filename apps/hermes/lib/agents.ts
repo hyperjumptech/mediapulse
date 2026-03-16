@@ -35,7 +35,7 @@ const agentSearchWhere = (
   };
 };
 
-export type AgentSortField = "agentId" | "agentVersion" | "created";
+export type AgentSortField = "agentId" | "agentVersion" | "created" | "updated";
 export type AgentSortDir = "asc" | "desc";
 
 const SORT_DEFAULT: { sortBy: AgentSortField; sortDir: AgentSortDir } = {
@@ -44,9 +44,9 @@ const SORT_DEFAULT: { sortBy: AgentSortField; sortDir: AgentSortDir } = {
 };
 
 /**
- * Builds Prisma orderBy from sort field and direction. "created" maps to createdAt.
+ * Builds Prisma orderBy from sort field and direction. "created" maps to createdAt, "updated" to updatedAt.
  *
- * @param sortBy - Field to sort by (agentId, agentVersion, or created).
+ * @param sortBy - Field to sort by (agentId, agentVersion, created, or updated).
  * @param sortDir - asc or desc.
  * @returns Prisma orderBy object.
  */
@@ -57,9 +57,11 @@ const agentOrderBy = (
   agentId?: "asc" | "desc";
   agentVersion?: "asc" | "desc";
   createdAt?: "asc" | "desc";
+  updatedAt?: "asc" | "desc";
 } => {
   const dir = sortDir === "asc" ? "asc" : "desc";
   if (sortBy === "created") return { createdAt: dir };
+  if (sortBy === "updated") return { updatedAt: dir };
   if (sortBy === "agentVersion") return { agentVersion: dir };
   return { agentId: dir };
 };
@@ -69,7 +71,7 @@ const agentOrderBy = (
  *
  * @param page - 1-based page number.
  * @param pageSize - Number of items per page.
- * @param options - Optional search term and sort (sortBy: agentId | agentVersion | created, sortDir: asc | desc).
+ * @param options - Optional search term and sort (sortBy: agentId | agentVersion | created | updated, sortDir: asc | desc).
  * @param db - Prisma client (injectable for tests).
  * @returns Agents for the page plus total count and pagination info.
  */

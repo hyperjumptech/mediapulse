@@ -31,7 +31,7 @@ describe("createUpdateTickerHandler", () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = { ticker: { update: updateMock } };
     const updateHandler = createUpdateTickerHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -56,7 +56,7 @@ describe("createUpdateTickerHandler", () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = { ticker: { update: updateMock } };
     const updateHandler = createUpdateTickerHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     await updateHandler({
@@ -79,7 +79,7 @@ describe("createUpdateTickerHandler", () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = { ticker: { update: updateMock } };
     const updateHandler = createUpdateTickerHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -103,7 +103,7 @@ describe("createUpdateTickerHandler", () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = { ticker: { update: updateMock } };
     const updateHandler = createUpdateTickerHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     await updateHandler({
@@ -132,7 +132,7 @@ describe("handler", () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = { ticker: { update: updateMock } };
     const customHandler = createUpdateTickerHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({

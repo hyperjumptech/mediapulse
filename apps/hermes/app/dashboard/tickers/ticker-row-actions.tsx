@@ -11,9 +11,26 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import { Button } from "@workspace/ui/components/button";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil } from "lucide-react";
 
+import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/tickers/actions/delete/.generated/use-form-action";
+
+/**
+ * Encapsulates delete form action and refresh-on-success for ticker row actions.
+ */
+const useTickerRowActions = () => {
+  const router = useRouter();
+  const { FormWithAction, state, pending } = useFormAction();
+
+  useEffect(() => {
+    if (state && state.status === true) {
+      router.refresh();
+    }
+  }, [state, router]);
+
+  return { FormWithAction, pending };
+};
 
 /**
  * Dropdown actions for a ticker row: Edit (opens modal), Delete.
@@ -28,14 +45,7 @@ export const TickerRowActions = ({
   /** Called when Edit is chosen; use to open the edit modal. */
   onEditClick?: (id: string) => void;
 }) => {
-  const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
+  const { FormWithAction, pending } = useTickerRowActions();
 
   return (
     <DropdownMenu>
@@ -58,32 +68,13 @@ export const TickerRowActions = ({
           Edit
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={pending}
-          onSelect={(e) => {
-            if (
-              !confirm(
-                `Delete ticker "${tickerSymbol}"? This cannot be undone.`,
-              )
-            ) {
-              e.preventDefault();
-            }
-          }}
-          asChild
-        >
-          <FormWithAction className="flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-destructive/10 focus:text-destructive [&_button]:flex [&_button]:w-full [&_button]:cursor-default [&_button]:items-center [&_button]:text-left">
-            <input
-              type="hidden"
-              name="body.tickerId"
-              value={tickerId}
-              readOnly
-            />
-            <button type="submit" className="flex items-center gap-2">
-              <Trash2 className="size-4" />
-              {pending ? "Deleting…" : "Delete"}
-            </button>
-          </FormWithAction>
+        <DropdownMenuItem variant="destructive" disabled={pending} asChild>
+          <DeleteConfirmForm
+            FormWithAction={FormWithAction}
+            confirmMessage={`Delete ticker "${tickerSymbol}"? This cannot be undone.`}
+            bodyField={{ name: "body.tickerId", value: tickerId }}
+            pending={pending}
+          />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

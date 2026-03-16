@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
@@ -54,6 +54,39 @@ type TickersTableProps = {
 };
 
 /**
+ * Encapsulates tickers table detail and edit modal state.
+ */
+const useTickersTableState = () => {
+  const [detailTickerId, setDetailTickerId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [editTickerId, setEditTickerId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const openDetail = useCallback((ticker: TickerRow) => {
+    setDetailTickerId(ticker.id);
+    setDetailOpen(true);
+  }, []);
+
+  const openEdit = useCallback((id: string) => {
+    setEditTickerId(id);
+    setEditOpen(true);
+  }, []);
+
+  return {
+    detailTickerId,
+    setDetailTickerId,
+    detailOpen,
+    setDetailOpen,
+    editTickerId,
+    setEditTickerId,
+    editOpen,
+    setEditOpen,
+    openDetail,
+    openEdit,
+  };
+};
+
+/**
  * Renders the tickers list as a table with sortable Symbol, Name, Created columns and row actions.
  * Clicking symbol or name opens a dialog with full ticker data and metadata as rows.
  */
@@ -64,20 +97,17 @@ export const TickersTable = ({
   pageSize,
   searchQuery,
 }: TickersTableProps) => {
-  const [detailTickerId, setDetailTickerId] = useState<string | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [editTickerId, setEditTickerId] = useState<string | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
-
-  const openDetail = (ticker: TickerRow) => {
-    setDetailTickerId(ticker.id);
-    setDetailOpen(true);
-  };
-
-  const openEdit = (id: string) => {
-    setEditTickerId(id);
-    setEditOpen(true);
-  };
+  const {
+    detailTickerId,
+    detailOpen,
+    setDetailOpen,
+    editTickerId,
+    setEditTickerId,
+    editOpen,
+    setEditOpen,
+    openDetail,
+    openEdit,
+  } = useTickersTableState();
 
   const sortLink = (field: TickerSortField, label: string) => {
     const isActive = sortBy === field;

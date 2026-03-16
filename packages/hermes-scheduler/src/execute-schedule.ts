@@ -7,28 +7,64 @@ import { randomUUID } from "node:crypto";
 import type { DueSchedule } from "./get-due-schedules";
 import { expandDataSources } from "./expand-data-sources";
 import { computeNextRunAt } from "./next-run-at";
-import {
-  AgentEndpointSchema,
-  invokeAgent,
-  type InvokeAgentHttpClient,
-} from "./invoke-agent";
+import { AgentEndpointSchema } from "./invoke-agent";
+import { substituteVariables } from "./substitute-variables";
 import { validateWithJsonSchema } from "./validate-json-schema";
+
+/**
+ * Payload for a single agent invocation job (DataQueue job type `invoke_agent`).
+ * Used when enqueueing so the worker can perform the HTTP call and update AgentJobExecution.
+ */
+export type InvokeAgentJobPayload = {
+  jobId: string;
+  executionId: string;
+  scheduleId: string;
+  pipelineId: string;
+  pipelineStepId: string;
+  agentId: string;
+  agentVersion: string;
+  endpointUrl: string;
+  body: { input: Record<string, unknown>; config: Record<string, unknown> };
+  timeoutMs: number;
+  priority: number;
+};
 
 /** Dependencies for executeSchedule (injectable for tests). */
 export type ExecuteScheduleDeps = {
   db: PrismaClient;
-  httpClient: InvokeAgentHttpClient;
   logger: {
     info: (obj: unknown, msg?: string) => void;
     warn: (obj: unknown, msg?: string) => void;
     error: (obj: unknown, msg?: string) => void;
   };
-  authToken?: string;
+  /** Enqueues agent invocation jobs in a single batch per call (e.g. per step). */
+  enqueueAgentInvocations: (payloads: InvokeAgentJobPayload[]) => Promise<void>;
   defaultTimeoutMs?: number;
+  /** When true, reject agent endpoint URLs that use http with a non-local host. */
+  requireHttpsAgentEndpoints?: boolean;
 };
 
 /**
- * Executes a due schedule: expands params, runs pipeline steps for each param set, records executions, and updates schedule state.
+ * Returns false when requireHttps is true and the URL is http with a host other than localhost/127.0.0.1.
+ */
+function isAllowedAgentEndpointUrl(
+  urlString: string,
+  requireHttps: boolean,
+): boolean {
+  if (!requireHttps) return true;
+  try {
+    const u = new URL(urlString);
+    if (u.protocol !== "http:") return true;
+    const h = u.hostname.toLowerCase();
+    return h === "localhost" || h === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Executes a due schedule: for each pipeline step, substitutes variables and expands
+ * data sources in the step's input, then runs that step once per expanded input set.
  *
  * @param schedule - Schedule with pipeline and steps (from getDueSchedules).
  * @param deps - DB, HTTP client, logger, auth, timeout.
@@ -39,18 +75,18 @@ export const executeSchedule = async (
 ): Promise<void> => {
   const {
     db,
-    httpClient,
     logger,
-    authToken,
+    enqueueAgentInvocations,
     defaultTimeoutMs = 300_000,
+    requireHttpsAgentEndpoints = false,
   } = deps;
   const executionTime = new Date();
   const errors: Array<{ message: string; timestamp: string }> = [];
   let jobsCreated = 0;
   let jobsEnqueued = 0;
 
-  const params = (schedule.params as Record<string, unknown>) ?? {};
-  const paramSets = await expandDataSources(params, db);
+  const variables = await db.variable.findMany();
+  const variableMap = new Map(variables.map((v) => [v.key, v.value]));
 
   const pipeline = schedule.pipeline;
   const steps = pipeline?.steps ?? [];
@@ -86,30 +122,115 @@ export const executeSchedule = async (
     agents.map((a) => [`${a.agentId}:${a.agentVersion}`, a]),
   );
 
-  for (const paramSet of paramSets) {
-    for (const step of steps) {
-      const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
-      if (!agent) {
-        logger.warn(
-          { agentId: step.agentId, agentVersion: step.agentVersion },
-          "Agent not found in registry, skipping step",
-        );
+  for (const step of steps) {
+    const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
+    if (!agent) {
+      logger.warn(
+        { agentId: step.agentId, agentVersion: step.agentVersion },
+        "Agent not found in registry, skipping step",
+      );
+      errors.push({
+        message: `Agent ${step.agentId}@${step.agentVersion} not found`,
+        timestamp: new Date().toISOString(),
+      });
+      continue;
+    }
+
+    const endpointResult = AgentEndpointSchema.safeParse(agent.endpoint);
+    if (!endpointResult.success) {
+      errors.push({
+        message: `Invalid endpoint for ${step.agentId}: ${endpointResult.error.message}`,
+        timestamp: new Date().toISOString(),
+      });
+      continue;
+    }
+    if (
+      !isAllowedAgentEndpointUrl(
+        endpointResult.data.url,
+        requireHttpsAgentEndpoints,
+      )
+    ) {
+      errors.push({
+        message: `Agent endpoint must use HTTPS (or localhost) for ${step.agentId}: ${endpointResult.data.url}`,
+        timestamp: new Date().toISOString(),
+      });
+      continue;
+    }
+
+    const stepWithInput = step as { input?: unknown };
+    const rawInput =
+      stepWithInput.input != null &&
+      typeof stepWithInput.input === "object" &&
+      !Array.isArray(stepWithInput.input)
+        ? (stepWithInput.input as Record<string, unknown>)
+        : {};
+    const inputSubstituted = substituteVariables(
+      rawInput,
+      variableMap,
+    ) as Record<string, unknown>;
+    const inputSchema =
+      agent.inputSchema != null && typeof agent.inputSchema === "object"
+        ? (agent.inputSchema as Record<string, unknown>)
+        : null;
+    if (inputSchema) {
+      const result = validateWithJsonSchema(inputSchema, inputSubstituted);
+      if (!result.valid) {
         errors.push({
-          message: `Agent ${step.agentId}@${step.agentVersion} not found`,
+          message: `Step input invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
           timestamp: new Date().toISOString(),
         });
         continue;
       }
+    }
+    const inputSets = await expandDataSources(inputSubstituted, db);
+    const stepPayloads: InvokeAgentJobPayload[] = [];
 
-      const endpointResult = AgentEndpointSchema.safeParse(agent.endpoint);
-      if (!endpointResult.success) {
+    let stepConfig: Record<string, unknown>;
+    const stepWithConfig = step as {
+      config?: unknown;
+      agentConfigId?: string | null;
+      agentConfig?: { config: unknown } | null;
+    };
+    if (
+      stepWithConfig.agentConfigId != null &&
+      stepWithConfig.agentConfig != null
+    ) {
+      const referencedConfig = stepWithConfig.agentConfig.config;
+      const configObj =
+        referencedConfig != null &&
+        typeof referencedConfig === "object" &&
+        !Array.isArray(referencedConfig)
+          ? (referencedConfig as Record<string, unknown>)
+          : {};
+      stepConfig = configObj;
+    } else {
+      stepConfig =
+        stepWithConfig.config != null &&
+        typeof stepWithConfig.config === "object" &&
+        !Array.isArray(stepWithConfig.config)
+          ? (stepWithConfig.config as Record<string, unknown>)
+          : {};
+    }
+    stepConfig = substituteVariables(stepConfig, variableMap) as Record<
+      string,
+      unknown
+    >;
+    const configSchema =
+      agent.configSchema != null && typeof agent.configSchema === "object"
+        ? (agent.configSchema as Record<string, unknown>)
+        : null;
+    if (configSchema) {
+      const result = validateWithJsonSchema(configSchema, stepConfig);
+      if (!result.valid) {
         errors.push({
-          message: `Invalid endpoint for ${step.agentId}: ${endpointResult.error.message}`,
+          message: `Step config invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
           timestamp: new Date().toISOString(),
         });
         continue;
       }
+    }
 
+    for (const inputSet of inputSets) {
       const jobId = randomUUID();
       const executionId = randomUUID();
       jobsCreated += 1;
@@ -125,7 +246,7 @@ export const executeSchedule = async (
             status: AgentJobExecutionStatus.pending,
             priority: schedule.priority,
             enqueuedAt: executionTime,
-            params: paramSet as object,
+            params: inputSet as object,
           },
         });
       } catch (err) {
@@ -137,95 +258,52 @@ export const executeSchedule = async (
         continue;
       }
 
-      let stepConfig: Record<string, unknown>;
-      const stepWithConfig = step as {
-        config?: unknown;
-        agentConfigId?: string | null;
-        agentConfig?: { config: unknown } | null;
+      const payload: InvokeAgentJobPayload = {
+        jobId,
+        executionId,
+        scheduleId: schedule.id,
+        pipelineId: schedule.pipelineId,
+        pipelineStepId: step.id,
+        agentId: step.agentId,
+        agentVersion: step.agentVersion,
+        endpointUrl: endpointResult.data.url,
+        body: {
+          input: inputSet as Record<string, unknown>,
+          config: stepConfig,
+        },
+        timeoutMs: schedule.timeout ?? defaultTimeoutMs,
+        priority: schedule.priority,
       };
-      if (
-        stepWithConfig.agentConfigId != null &&
-        stepWithConfig.agentConfig != null
-      ) {
-        const referencedConfig = stepWithConfig.agentConfig.config;
-        const configObj =
-          referencedConfig != null &&
-          typeof referencedConfig === "object" &&
-          !Array.isArray(referencedConfig)
-            ? (referencedConfig as Record<string, unknown>)
-            : {};
-        const configSchema =
-          agent.configSchema != null && typeof agent.configSchema === "object"
-            ? (agent.configSchema as Record<string, unknown>)
-            : null;
-        if (configSchema) {
-          const result = validateWithJsonSchema(configSchema, configObj);
-          if (!result.valid) {
-            logger.warn(
-              {
-                stepId: step.id,
-                agentConfigId: stepWithConfig.agentConfigId,
-                errors: result.errors,
-              },
-              "Agent config validation failed, skipping step",
-            );
-            errors.push({
-              message: `Step config invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
-              timestamp: new Date().toISOString(),
-            });
-            continue;
-          }
-        }
-        stepConfig = configObj;
-      } else {
-        stepConfig =
-          stepWithConfig.config != null &&
-          typeof stepWithConfig.config === "object" &&
-          !Array.isArray(stepWithConfig.config)
-            ? (stepWithConfig.config as Record<string, unknown>)
-            : {};
-      }
-      const body = {
-        input: paramSet,
-        config: stepConfig,
-      } as Record<string, unknown>;
+      stepPayloads.push(payload);
+    }
 
+    if (stepPayloads.length > 0) {
       try {
-        await invokeAgent(
-          endpointResult.data,
-          body,
-          {
-            jobId,
-            executionId,
-            authToken,
-            timeoutMs: schedule.timeout ?? defaultTimeoutMs,
-          },
-          httpClient,
-        );
-        jobsEnqueued += 1;
-        await db.agentJobExecution.update({
-          where: { jobId },
-          data: {
-            status: AgentJobExecutionStatus.running,
-            startedAt: new Date(),
-          },
-        });
+        await enqueueAgentInvocations(stepPayloads);
+        jobsEnqueued += stepPayloads.length;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         errors.push({
-          message: `Agent invoke failed: ${message}`,
+          message: `Failed to enqueue agent invocations: ${message}`,
           timestamp: new Date().toISOString(),
         });
-        await db.agentJobExecution
-          .update({
-            where: { jobId },
-            data: {
-              status: AgentJobExecutionStatus.failed,
-              error: { message, retryable: true },
-              completedAt: new Date(),
-            },
-          })
-          .catch(() => {});
+        for (const p of stepPayloads) {
+          try {
+            await db.agentJobExecution.update({
+              where: { jobId: p.jobId },
+              data: {
+                status: AgentJobExecutionStatus.failed,
+                error: { message, retryable: true },
+                completedAt: new Date(),
+              },
+            });
+          } catch (updateErr) {
+            logger.error(
+              { err: updateErr, jobId: p.jobId },
+              "Failed to update AgentJobExecution to failed after enqueue error",
+            );
+          }
+        }
       }
     }
   }

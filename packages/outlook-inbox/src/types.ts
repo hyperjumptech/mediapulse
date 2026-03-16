@@ -42,23 +42,4 @@ export type ProcessMessagesOptions = {
   maxMessages?: number;
 };
 
-/**
- * Minimal message shape returned by Graph API list messages.
- */
-export type GraphMessage = {
-  id: string;
-  subject: string | null;
-  receivedDateTime: string;
-  isRead: boolean;
-  body?: { content?: string; contentType?: string };
-  from?: { emailAddress?: { address?: string; name?: string } };
-  toRecipients?: Array<{ emailAddress?: { address?: string; name?: string } }>;
-};
-
-/**
- * Response shape from Graph API list messages.
- */
-export type ListMessagesResponse = {
-  value: GraphMessage[];
-  "@odata.nextLink"?: string;
-};
+export type { GraphMessage, ListMessagesResponse } from "./schemas.js";

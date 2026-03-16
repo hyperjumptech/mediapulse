@@ -91,9 +91,12 @@ describe("AgentDetailsContent", () => {
     );
   });
 
-  it("renders Details section with Agent ID, Version, Description, Active, Created in General tab", () => {
-    // Setup
-    const agent = createMockAgent();
+  it("renders Details section with Agent ID, Version, Description, Active, Created, Last updated in General tab", () => {
+    // Setup: use distinct updatedAt so Last updated value is unique in the document
+    const agent = {
+      ...createMockAgent(),
+      updatedAt: new Date("2024-02-20"),
+    };
 
     // Act
     render(<AgentDetailsContent agent={agent} />);
@@ -108,6 +111,8 @@ describe("AgentDetailsContent", () => {
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Yes")).toBeInTheDocument();
     expect(screen.getByText("Created")).toBeInTheDocument();
+    expect(screen.getByText("Last updated")).toBeInTheDocument();
+    expect(screen.getByText("Feb 20, 2024")).toBeInTheDocument();
   });
 
   it("renders Endpoint section via EndpointDisplay in General tab", () => {

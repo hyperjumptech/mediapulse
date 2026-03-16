@@ -24,11 +24,7 @@ interface GeneratedContent {
   description?: string;
 }
 
-interface NewsletterStructure {
-  subject: string;
-  executiveSummary: string;
-  topNews: Array<{ title: string; summary: string }>;
-}
+import { parseNewsletterJson } from "./parse-newsletter-json.js";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
@@ -136,19 +132,19 @@ Return a JSON object with:
     throw new Error("OpenAI returned an empty response");
   }
 
-  const parsed = JSON.parse(result) as NewsletterStructure;
-  const topNews = Array.isArray(parsed.topNews)
-    ? parsed.topNews.slice(0, 3)
+  const validated = parseNewsletterJson(result);
+  const topNews = Array.isArray(validated.topNews)
+    ? validated.topNews.slice(0, 3)
     : [];
   const content = formatNewsletterContent(
-    parsed.executiveSummary ?? "",
+    validated.executiveSummary ?? "",
     topNews,
   );
 
   return {
-    subject: parsed.subject ?? "Your daily briefing",
+    subject: validated.subject ?? "Your daily briefing",
     content,
-    description: parsed.executiveSummary?.trim() || undefined,
+    description: validated.executiveSummary?.trim() || undefined,
   };
 }
 

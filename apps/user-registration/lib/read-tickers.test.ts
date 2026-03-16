@@ -50,4 +50,25 @@ describe("readTickers", () => {
 
     await fs.unlink(tmpFile);
   });
+
+  it("returns empty array when JSON has invalid ticker shape", async () => {
+    // Setup: valid JSON but ticker missing required fields
+    const tmpFile = path.join(
+      os.tmpdir(),
+      `tickers-bad-shape-${Date.now()}.json`,
+    );
+    await fs.writeFile(
+      tmpFile,
+      JSON.stringify([{ KodeEmiten: "AADI" }]),
+      "utf8",
+    );
+
+    // Act
+    const result = await readTickers(tmpFile);
+
+    // Assert
+    expect(result).toEqual([]);
+
+    await fs.unlink(tmpFile);
+  });
 });

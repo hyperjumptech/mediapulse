@@ -14,6 +14,8 @@ import { getScheduleForEdit } from "@/app/dashboard/schedules/actions/get-for-ed
 import { useFormAction as useCreateFormAction } from "@/app/dashboard/schedules/actions/create/.generated/use-form-action";
 import { useFormAction as useUpdateFormAction } from "@/app/dashboard/schedules/actions/update/.generated/use-form-action";
 
+import type { PipelineValidationResult } from "@/lib/validate-pipeline";
+
 import {
   ScheduleFormFields,
   type PipelineOption,
@@ -26,6 +28,7 @@ export type ScheduleFormModalProps = {
   mode: "create" | "edit";
   editScheduleId: string | null;
   pipelines: PipelineOption[];
+  pipelineValidationById: Record<string, PipelineValidationResult>;
 };
 
 /**
@@ -39,16 +42,17 @@ const toDatetimeLocal = (iso: string | null): string => {
 };
 
 /**
- * Modal for creating or editing a schedule. Uses a single form with create or update action based on mode.
- * For edit mode, fetches schedule when opened and shows loading until data is ready.
+ * Encapsulates schedule form modal state: fetch for edit, create/update form actions, success close.
  */
-export const ScheduleFormModal = ({
-  open,
-  onOpenChange,
-  mode,
-  editScheduleId,
-  pipelines,
-}: ScheduleFormModalProps) => {
+const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
+  const {
+    open,
+    onOpenChange,
+    mode,
+    editScheduleId,
+    pipelines,
+    pipelineValidationById,
+  } = props;
   const router = useRouter();
   const [schedule, setSchedule] = useState<ScheduleForEdit | null | "loading">(
     null,
@@ -134,10 +138,6 @@ export const ScheduleFormModal = ({
 
   const defaultStartAt =
     schedule && schedule !== "loading" ? toDatetimeLocal(schedule.startAt) : "";
-  const defaultParams =
-    schedule && schedule !== "loading" && schedule.params != null
-      ? JSON.stringify(schedule.params, null, 2)
-      : "{}";
   const defaultRetryConfig =
     schedule && schedule !== "loading" && schedule.retryConfig != null
       ? JSON.stringify(schedule.retryConfig, null, 2)
@@ -152,7 +152,6 @@ export const ScheduleFormModal = ({
           defaultRepeat: schedule.repeat,
           defaultTimezone: schedule.timezone,
           defaultPipelineId: schedule.pipelineId,
-          defaultParams,
           defaultPriority: schedule.priority,
           defaultEnabled: schedule.enabled,
           defaultStartAt,
@@ -168,7 +167,6 @@ export const ScheduleFormModal = ({
         defaultRepeat: "repeating" as const,
         defaultTimezone: "America/New_York",
         defaultPipelineId: "",
-        defaultParams: "{}",
         defaultPriority: 0,
         defaultEnabled: true,
       };
@@ -177,6 +175,41 @@ export const ScheduleFormModal = ({
   const notFound = isEdit && schedule === null;
   const canShowForm =
     mode === "create" || (schedule !== null && schedule !== "loading");
+
+  return {
+    Form,
+    title,
+    pending,
+    errorMessage,
+    submitLabel,
+    formFieldsProps,
+    isLoadingEdit,
+    notFound,
+    canShowForm,
+    pipelines,
+    pipelineValidationById,
+  };
+};
+
+/**
+ * Modal for creating or editing a schedule. Uses a single form with create or update action based on mode.
+ * For edit mode, fetches schedule when opened and shows loading until data is ready.
+ */
+export const ScheduleFormModal = (props: ScheduleFormModalProps) => {
+  const { open, onOpenChange } = props;
+  const {
+    Form,
+    title,
+    pending,
+    errorMessage,
+    submitLabel,
+    formFieldsProps,
+    isLoadingEdit,
+    notFound,
+    canShowForm,
+    pipelines,
+    pipelineValidationById,
+  } = useScheduleFormModalState(props);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -198,6 +231,7 @@ export const ScheduleFormModal = ({
                   errorMessage={errorMessage}
                   submitLabel={submitLabel}
                   pipelines={pipelines}
+                  pipelineValidationById={pipelineValidationById}
                   {...formFieldsProps}
                 />
               </Form>

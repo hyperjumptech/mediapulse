@@ -8,10 +8,11 @@ import { Button } from "@workspace/ui/components/button";
 import { ChevronLeft } from "lucide-react";
 
 import type { getScheduleById, ScheduleExecutionRow } from "@/lib/schedules";
+import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
+import { ListPagination } from "@/components/list-pagination";
 import { ScheduleFormModal } from "../schedule-form-modal";
 import type { PipelineOption } from "../schedule-form-fields";
-import { ExecutionsPagination } from "./executions-pagination";
 import { ExecutionsTable } from "./executions-table";
 
 type ScheduleWithPipeline = NonNullable<
@@ -25,6 +26,15 @@ export type ScheduleDetailContentProps = {
   currentPage: number;
   pageSize: number;
   pipelines: PipelineOption[];
+  pipelineValidationById: Record<string, PipelineValidationResult>;
+};
+
+/**
+ * Encapsulates schedule detail edit modal state.
+ */
+const useScheduleDetailContentState = () => {
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  return { editModalOpen, setEditModalOpen };
 };
 
 /**
@@ -37,8 +47,9 @@ export const ScheduleDetailContent = ({
   currentPage,
   pageSize,
   pipelines,
+  pipelineValidationById,
 }: ScheduleDetailContentProps) => {
-  const [editModalOpen, setEditModalOpen] = useState(false);
+  const { editModalOpen, setEditModalOpen } = useScheduleDetailContentState();
 
   return (
     <>
@@ -73,11 +84,12 @@ export const ScheduleDetailContent = ({
           </h2>
           <ExecutionsTable executions={executions} />
           <div className="mt-4">
-            <ExecutionsPagination
-              scheduleId={schedule.id}
+            <ListPagination
+              basePath={`/dashboard/schedules/${schedule.id}`}
               page={currentPage}
               pageSize={pageSize}
               total={totalExecutions}
+              ariaLabel="Executions pagination"
             />
           </div>
         </section>
@@ -88,6 +100,7 @@ export const ScheduleDetailContent = ({
         mode="edit"
         editScheduleId={schedule.id}
         pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
       />
     </>
   );

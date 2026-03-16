@@ -34,8 +34,8 @@ vi.mock("./tickers-table", () => ({
   ),
 }));
 
-vi.mock("./pagination", () => ({
-  Pagination: ({ page, total }: { page: number; total: number }) => (
+vi.mock("@/components/list-pagination", () => ({
+  ListPagination: ({ page, total }: { page: number; total: number }) => (
     <nav data-testid="pagination" data-page={page} data-total={total}>
       Pagination
     </nav>

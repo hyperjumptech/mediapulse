@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   getApiKeysPage,
@@ -5,8 +6,8 @@ import {
   type ApiKeySortField,
 } from "@/lib/api-keys";
 
+import { ListPagination } from "@/components/list-pagination";
 import { AddApiKeyModal } from "./add-api-key-modal";
-import { ApiKeysPagination } from "./api-keys-pagination";
 import { ApiKeysSearch } from "./api-keys-search";
 import { ApiKeysTableWithEdit } from "./api-keys-table-with-edit";
 
@@ -67,6 +68,10 @@ const ApiKeysPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="API keys"
+        description="Create and manage API keys for external access."
+      />
       <div className="flex flex-col justify-between sm:flex-row sm:items-center">
         <ApiKeysSearch
           initialQuery={search ?? ""}
@@ -85,11 +90,12 @@ const ApiKeysPage = async ({
         pageSize={size}
         searchQuery={search}
       />
-      <ApiKeysPagination
+      <ListPagination
         basePath="/dashboard/api-keys"
         page={currentPage}
         pageSize={size}
         total={total}
+        ariaLabel="API keys list pagination"
         searchQuery={search}
         sortBy={sortBy}
         sortDir={sortDir}

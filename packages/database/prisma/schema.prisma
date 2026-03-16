@@ -8,15 +8,17 @@ datasource db {
 }
 
 model User {
-  id          String       @id @default(uuid())
-  name        String
-  email       String       @unique
-  password    String
-  role        UserRole     @default(USER)
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  apiKeys     APIKey[]
-  userTickers UserTicker[]
+  id                   String                @id @default(uuid())
+  name                 String
+  email                String                @unique
+  password             String
+  role                 UserRole              @default(USER)
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  apiKeys              APIKey[]
+  userTickers          UserTicker[]
+  variables            Variable[]
+  dataSourceExpansions DataSourceExpansion[]
 
   @@map("user")
 }
@@ -30,6 +32,7 @@ model APIKey {
   id        String   @id @default(uuid())
   name      String
   key       String   @unique
+  purpose   String?  @default("general") // scheduler | run_pipeline | general
   isActive  Boolean  @default(true) @map("is_active")
   userId    String   @map("user_id")
   createdAt DateTime @default(now()) @map("created_at")
@@ -73,6 +76,21 @@ model AgentConfig {
   @@map("agent_config")
 }
 
+model Variable {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  note        String?
+  isSecret    Boolean  @default(false) @map("is_secret")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("variable")
+}
+
 model DataSource {
   id            String   @id @default(uuid())
   url           String
@@ -88,6 +106,20 @@ model DataSource {
   searchQuery SearchQuery @relation(fields: [searchQueryId], references: [id])
 
   @@map("data_source")
+}
+
+model DataSourceExpansion {
+  id              String   @id @default(uuid())
+  name            String
+  expansionString String   @map("expansion_string")
+  description     String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdById     String   @map("created_by_id")
+
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("data_source_expansion")
 }
 
 model Newsletter {
@@ -147,7 +179,6 @@ model Schedule {
   startAt        DateTime?      @map("start_at")
   nextRunAt      DateTime?      @map("next_run_at")
   pipelineId     String         @map("pipeline_id")
-  params         Json           @default("{}")
   retryConfig    Json?          @map("retry_config")
   timeout        Int? // milliseconds
   priority       Int            @default(0)
@@ -208,6 +239,7 @@ model PipelineStep {
   agentVersion  String   @map("agent_version")
   pipelineId    String   @map("pipeline_id")
   agentConfigId String?  @map("agent_config_id")
+  input         Json?    @default("{}")
   config        Json?    @default("{}")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")

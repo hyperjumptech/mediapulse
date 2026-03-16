@@ -1,42 +1,63 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PipelineDetailContent } from "./pipeline-detail-content";
 
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    onClick,
-    variant,
-  }: React.PropsWithChildren<{ onClick?: () => void; variant?: string }>) => (
-    <button onClick={onClick} data-variant={variant}>
-      {children}
-    </button>
-  ),
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
 }));
 
-vi.mock("../pipeline-form-modal", () => ({
-  PipelineFormModal: ({
-    open,
-    mode,
-    editPipelineId,
+vi.mock(
+  "@/app/dashboard/pipelines/actions/update/.generated/form.action",
+  () => ({ formAction: vi.fn().mockResolvedValue({ status: true }) }),
+);
+vi.mock(
+  "@/app/dashboard/pipelines/actions/update-step/.generated/form.action",
+  () => ({ formAction: vi.fn().mockResolvedValue({ status: true }) }),
+);
+
+vi.mock("./pipeline-available-agents", () => ({
+  PipelineAvailableAgents: ({
+    pipelineId,
+    existingStepAgentKeys,
   }: {
-    open: boolean;
-    mode: string;
-    editPipelineId: string | null;
+    pipelineId: string;
+    existingStepAgentKeys: string[];
   }) => (
     <div
-      data-testid="pipeline-form-modal"
-      data-open={open}
-      data-mode={mode}
-      data-edit-id={editPipelineId ?? "none"}
+      data-testid="pipeline-available-agents"
+      data-pipeline-id={pipelineId}
+      data-existing-count={existingStepAgentKeys.length}
     />
   ),
 }));
 
-vi.mock("./add-step-form", () => ({
-  AddStepForm: ({ pipelineId }: { pipelineId: string }) => (
-    <div data-testid="add-step-form" data-pipeline-id={pipelineId} />
+vi.mock("./pipeline-steps-column", () => ({
+  PipelineStepsColumn: ({
+    pipelineId,
+    steps,
+  }: {
+    pipelineId: string;
+    steps: Array<{ id: string }>;
+  }) => (
+    <div
+      data-testid="pipeline-steps-column"
+      data-pipeline-id={pipelineId}
+      data-steps-count={steps.length}
+    />
+  ),
+}));
+
+vi.mock("./pipeline-step-editor-panel", () => ({
+  PipelineStepEditorPanel: ({
+    selectedStep,
+  }: {
+    selectedStep: { id: string } | null;
+  }) => (
+    <div
+      data-testid="pipeline-step-editor-panel"
+      data-selected-step-id={selectedStep?.id ?? "none"}
+    />
   ),
 }));
 
@@ -48,21 +69,10 @@ vi.mock("./run-pipeline-button", () => ({
   ),
 }));
 
-vi.mock("./step-list", () => ({
-  StepList: ({
-    pipelineId,
-    steps,
-  }: {
-    pipelineId: string;
-    steps: Array<{ id: string }>;
-  }) => (
-    <div
-      data-testid="step-list"
-      data-pipeline-id={pipelineId}
-      data-steps-count={steps.length}
-    />
-  ),
-}));
+const createMockPipelineValidation = () => ({
+  valid: true,
+  warnings: [] as string[],
+});
 
 const createMockPipeline = () => ({
   id: "pipeline-123",
@@ -76,6 +86,7 @@ const createMockPipeline = () => ({
       order: 0,
       agentId: "summarizer",
       agentVersion: "1.0",
+      input: {},
       config: {},
       agentConfigId: null,
       createdAt: new Date("2024-01-15"),
@@ -102,144 +113,90 @@ const createMockAgents = () => [
 ];
 
 describe("PipelineDetailContent", () => {
-  it("renders pipeline name as heading", () => {
-    // Act
+  it("renders pipeline name and description inputs above the columns", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
         configsByAgentKey={{}}
+        pipelineValidation={createMockPipelineValidation()}
       />,
     );
 
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Test Pipeline", level: 1 }),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Pipeline name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pipeline name")).toHaveValue("Test Pipeline");
+    expect(screen.getByLabelText("Description (optional)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Description (optional)")).toHaveValue(
+      "Test description",
+    );
   });
 
-  it("renders pipeline description", () => {
-    // Act
+  it("renders Save button beside Run pipeline button", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
         configsByAgentKey={{}}
+        pipelineValidation={createMockPipelineValidation()}
       />,
     );
 
-    // Assert
-    expect(screen.getByText("Test description")).toBeInTheDocument();
-  });
-
-  it("renders Edit details button", () => {
-    // Act
-    render(
-      <PipelineDetailContent
-        pipeline={createMockPipeline()}
-        agents={createMockAgents()}
-        configsByAgentKey={{}}
-      />,
-    );
-
-    // Assert
-    expect(
-      screen.getByRole("button", { name: "Edit details" }),
-    ).toBeInTheDocument();
-  });
-
-  it("renders run pipeline button", () => {
-    // Act
-    render(
-      <PipelineDetailContent
-        pipeline={createMockPipeline()}
-        agents={createMockAgents()}
-        configsByAgentKey={{}}
-      />,
-    );
-
-    // Assert
     expect(screen.getByTestId("run-pipeline-button")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
-  it("renders step list", () => {
-    // Act
+  it("renders three columns: available agents, steps, editor panel", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
         agents={createMockAgents()}
         configsByAgentKey={{}}
+        pipelineValidation={createMockPipelineValidation()}
       />,
     );
 
-    // Assert
-    expect(screen.getByTestId("step-list")).toBeInTheDocument();
-    expect(screen.getByTestId("step-list")).toHaveAttribute(
+    expect(screen.getByTestId("pipeline-available-agents")).toBeInTheDocument();
+    expect(screen.getByTestId("pipeline-steps-column")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("pipeline-step-editor-panel"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders steps column with step count", () => {
+    render(
+      <PipelineDetailContent
+        pipeline={createMockPipeline()}
+        agents={createMockAgents()}
+        configsByAgentKey={{}}
+        pipelineValidation={createMockPipelineValidation()}
+      />,
+    );
+
+    expect(screen.getByTestId("pipeline-steps-column")).toHaveAttribute(
       "data-steps-count",
       "1",
     );
   });
 
-  it("renders add step form", () => {
-    // Act
-    render(
-      <PipelineDetailContent
-        pipeline={createMockPipeline()}
-        agents={createMockAgents()}
-        configsByAgentKey={{}}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByTestId("add-step-form")).toBeInTheDocument();
-  });
-
-  it("opens edit modal when clicking Edit details", () => {
-    // Act
-    render(
-      <PipelineDetailContent
-        pipeline={createMockPipeline()}
-        agents={createMockAgents()}
-        configsByAgentKey={{}}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit details" }));
-
-    // Assert
-    expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
-      "data-open",
-      "true",
-    );
-    expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
-      "data-mode",
-      "edit",
-    );
-    expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
-      "data-edit-id",
-      "pipeline-123",
-    );
-  });
-
-  it("renders default description when none provided", () => {
-    // Setup
+  it("renders description placeholder when none provided", () => {
     const pipeline = {
       ...createMockPipeline(),
       description: null,
     };
 
-    // Act
     render(
       <PipelineDetailContent
         pipeline={pipeline}
         agents={createMockAgents()}
         configsByAgentKey={{}}
+        pipelineValidation={createMockPipelineValidation()}
       />,
     );
 
-    // Assert
-    expect(
-      screen.getByText("Edit pipeline and manage agent steps."),
-    ).toBeInTheDocument();
+    const descInput = screen.getByLabelText("Description (optional)");
+    expect(descInput).toHaveAttribute(
+      "placeholder",
+      "Edit pipeline and manage agent steps.",
+    );
   });
 });

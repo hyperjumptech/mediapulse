@@ -59,4 +59,33 @@ describe("performWebFetch", () => {
       searchQueryText: "query",
     });
   });
+
+  it("throws when Jina returns invalid response shape", async () => {
+    // Setup
+    const postMock = vi.fn().mockReturnValue({
+      json: vi.fn().mockResolvedValue({
+        data: "not-an-object",
+      }),
+    });
+
+    const fakeGot = { post: postMock } as any;
+    const searchResults = [
+      {
+        url: "http://example.com",
+        title: "Snippet",
+        content: "Snippet",
+        tickerId: "ticker-1",
+        searchQueryId: "q1",
+        searchQueryText: "query",
+      },
+    ];
+
+    // Act & Assert
+    await expect(
+      performWebFetch(searchResults, {
+        jinaApiKey: "jina-key",
+        gotClient: fakeGot,
+      }),
+    ).rejects.toThrow();
+  });
 });

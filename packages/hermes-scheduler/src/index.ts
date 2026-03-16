@@ -1,7 +1,17 @@
-export { executeSchedule, type ExecuteScheduleDeps } from "./execute-schedule";
+export {
+  executeSchedule,
+  type ExecuteScheduleDeps,
+  type InvokeAgentJobPayload,
+} from "./execute-schedule";
+export {
+  substituteVariables,
+  substituteInString,
+} from "./substitute-variables";
 export {
   expandDataSources,
   expandSingleDataSource,
+  DEFAULT_TAKE,
+  MAX_TAKE,
   type ExpandDataSourcesDb,
 } from "./expand-data-sources";
 export {
@@ -13,9 +23,12 @@ export { computeNextRunAt, type ScheduleForNextRun } from "./next-run-at";
 export {
   isDataSourceString,
   parseDataSourceString,
-  isAllowlisted,
   type DataSourceParsed,
 } from "./data-source-string";
+export {
+  validateDataSourceExpressions,
+  type ValidateDataSourceExpressionsResult,
+} from "./validate-data-source-expressions";
 export {
   invokeAgent,
   AgentEndpointSchema,

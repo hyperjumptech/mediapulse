@@ -1,4 +1,4 @@
-import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
+import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
 import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
@@ -22,12 +22,24 @@ if (!env.AGENT_AUTH_API_URL) {
 const app = new Hono();
 const api = app.basePath("/api");
 
-app.use(pinoLogger({ pino: logger }));
+app.use(
+  pinoLogger({
+    pino: logger,
+    http: {
+      onResBindings: (c) => ({
+        res: {
+          status: c.res.status,
+          headers: Object.fromEntries(c.res.headers.entries()),
+        },
+      }),
+    },
+  }),
+);
 api.use(
   "*",
   bearerAuth({
     verifyToken: (token) =>
-      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL!),
+      verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL!),
   }),
 );
 

@@ -38,19 +38,35 @@ const emptyForm = {
 };
 
 /**
- * Open/close and form state for the add/duplicate config modal.
+ * Encapsulates open/form state, form action, and close-on-success for add config modal.
  */
 const useAddConfigModalState = (
   controlledOpen?: boolean,
   onOpenChange?: (open: boolean) => void,
   initialData?: AgentConfigRow | null,
 ) => {
+  const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
   const [formState, setFormState] = useState(emptyForm);
+  const { FormWithAction, state, pending } = useFormAction();
+  const didHandleSuccess = useRef(false);
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
-  const setOpen = isControlled ? (onOpenChange ?? (() => {})) : setInternalOpen;
+  const setOpen = useMemo(
+    () => (isControlled ? (onOpenChange ?? (() => {})) : setInternalOpen),
+    [isControlled, onOpenChange],
+  );
+
+  const errorMessage = useMemo(() => {
+    if (state && state.status === false) return state.message as string;
+    return null;
+  }, [state]);
+
+  const success = useMemo(
+    () => Boolean(state && state.status === true && state.data?.id != null),
+    [state],
+  );
 
   useEffect(() => {
     if (open && initialData) {
@@ -68,21 +84,6 @@ const useAddConfigModalState = (
     }
   }, [open, initialData]);
 
-  return { open, setOpen, formState, setFormState };
-};
-
-/**
- * Handles success side-effect: close modal, reset form, refresh router.
- */
-const useAddConfigModalSuccess = (
-  success: boolean,
-  setOpen: (open: boolean) => void,
-  setFormState: (
-    s: typeof emptyForm | ((prev: typeof emptyForm) => typeof emptyForm),
-  ) => void,
-  router: ReturnType<typeof useRouter>,
-) => {
-  const didHandleSuccess = useRef(false);
   useEffect(() => {
     if (success && !didHandleSuccess.current) {
       didHandleSuccess.current = true;
@@ -90,7 +91,17 @@ const useAddConfigModalSuccess = (
       setFormState(emptyForm);
       router.refresh();
     }
-  }, [success, setOpen, setFormState, router]);
+  }, [success, setOpen, router]);
+
+  return {
+    open,
+    setOpen,
+    formState,
+    setFormState,
+    FormWithAction,
+    pending,
+    errorMessage,
+  };
 };
 
 /**
@@ -104,24 +115,19 @@ export const AddConfigModal = ({
   initialData,
   trigger = <Button>Add config</Button>,
 }: AddConfigModalProps) => {
-  const router = useRouter();
-  const { open, setOpen, formState, setFormState } = useAddConfigModalState(
+  const {
+    open,
+    setOpen,
+    formState,
+    setFormState,
+    FormWithAction,
+    pending,
+    errorMessage,
+  } = useAddConfigModalState(
     controlledOpen,
     controlledOnOpenChange,
     initialData,
   );
-
-  const { FormWithAction, state, pending } = useFormAction();
-  const errorMessage = useMemo(() => {
-    if (state && state.status === false) return state.message as string;
-    return null;
-  }, [state]);
-  const success = useMemo(
-    () => Boolean(state && state.status === true && state.data?.id != null),
-    [state],
-  );
-
-  useAddConfigModalSuccess(success, setOpen, setFormState, router);
 
   const [agentId, agentVersion] = formState.agentKey
     ? formState.agentKey.split("@")

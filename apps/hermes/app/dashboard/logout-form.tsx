@@ -10,11 +10,12 @@ type LogoutActionData = {
 };
 
 /**
- * Derives logout form state from the generated form action hook.
+ * Derives logout form state from the generated form action hook and handles redirect on success.
  *
  * @returns The form wrapper component and derived logout UI state.
  */
 const useLogoutFormState = () => {
+  const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
   const errorMessage = useMemo(() => {
@@ -33,11 +34,18 @@ const useLogoutFormState = () => {
     return null;
   }, [state]);
 
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    router.replace(data.redirectTo);
+  }, [data, router]);
+
   return {
     FormWithAction,
     pending,
     errorMessage,
-    data,
   };
 };
 
@@ -61,16 +69,7 @@ export const LogoutForm = ({
   variant = "outline",
   buttonClassName,
 }: LogoutFormProps = {}) => {
-  const router = useRouter();
-  const { FormWithAction, pending, errorMessage, data } = useLogoutFormState();
-
-  useEffect(() => {
-    if (!data) {
-      return;
-    }
-
-    router.replace(data.redirectTo);
-  }, [data, router]);
+  const { FormWithAction, pending, errorMessage } = useLogoutFormState();
 
   return (
     <FormWithAction className={className}>

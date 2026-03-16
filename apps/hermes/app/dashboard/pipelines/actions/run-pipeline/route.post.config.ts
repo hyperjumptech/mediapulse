@@ -1,3 +1,4 @@
+import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@workspace/env";
 import { prisma } from "@workspace/database";
 import got from "got";
@@ -10,6 +11,7 @@ import {
 import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
+import { validatePipeline } from "@/lib/validate-pipeline";
 
 const bodyValidator = z.object({
   pipelineId: z.string().uuid(),
@@ -29,10 +31,19 @@ const AgentEndpointSchema = z.object({
   method: z.string(),
 });
 
+const defaultGetToken =
+  env.AGENT_AUTH_API_URL && env.AGENT_API_KEY
+    ? createAgentTokenClient({
+        authApiUrl: env.AGENT_AUTH_API_URL,
+        credential: env.AGENT_API_KEY,
+      }).getToken
+    : null;
+
 type RunPipelineHandlerDependencies = {
   getSession?: typeof getDashboardSession;
   db?: typeof prisma;
-  apiKey?: string;
+  /** Returns a short-lived JWT for agent invocation. */
+  getToken?: () => Promise<string>;
   post?: typeof got.post;
 };
 
@@ -45,13 +56,16 @@ type RunPipelineHandler = HandlerFunc<
 /**
  * Creates the run-pipeline handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession, db, apiKey, and post (got.post).
+ * @param dependencies - Optional getSession, db, getToken, and post (got.post).
  * @returns Handler that runs the pipeline for all tickers (each ticker gets all steps in order).
  */
 export const createRunPipelineHandler = ({
   getSession = getDashboardSession,
   db = prisma,
-  apiKey = env.AGENT_API_KEY,
+  getToken = defaultGetToken ??
+    (async () => {
+      throw new Error("AGENT_AUTH_API_URL and AGENT_API_KEY are required");
+    }),
   post = got.post,
 }: RunPipelineHandlerDependencies = {}): RunPipelineHandler => {
   return async (data) => {
@@ -60,8 +74,14 @@ export const createRunPipelineHandler = ({
       return errorResponse("Unauthorized");
     }
 
-    if (!apiKey) {
-      return errorResponse("AGENT_API_KEY is not configured");
+    let jwt: string;
+    try {
+      jwt = await getToken();
+    } catch (err) {
+      console.error("--> error getting token", err);
+      return errorResponse(
+        "AGENT_AUTH_API_URL and AGENT_API_KEY are required to run pipelines (JWT-only invocation)",
+      );
     }
 
     const pipeline = await db.pipeline.findUnique({
@@ -78,6 +98,27 @@ export const createRunPipelineHandler = ({
       }),
       db.ticker.findMany(),
     ]);
+    const pipelineValidation = await validatePipeline(
+      {
+        id: pipeline.id,
+        name: pipeline.name,
+        steps: pipelineSteps.map((step) => ({
+          id: step.id,
+          order: step.order,
+          agentId: step.agentId,
+          agentVersion: step.agentVersion,
+          agentConfigId: step.agentConfigId,
+          input: step.input,
+          config: step.config,
+        })),
+      },
+      db,
+    );
+    if (!pipelineValidation.valid) {
+      return errorResponse(
+        `Pipeline is invalid: ${pipelineValidation.warnings.join("; ")}`,
+      );
+    }
 
     if (tickers.length === 0) {
       return successResponse({ ok: true as const, tickersRun: 0 });
@@ -98,7 +139,7 @@ export const createRunPipelineHandler = ({
           json: { tickerId: ticker.id },
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${jwt}`,
           },
         });
       }

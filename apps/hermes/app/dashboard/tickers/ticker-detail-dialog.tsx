@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Dialog,
@@ -63,14 +63,9 @@ type TickerDetailDialogProps = {
 };
 
 /**
- * Dialog that shows full ticker data including all metadata as key-value rows.
- * Fetches the ticker by ID when opened so the complete metadata from the DB is shown.
+ * Encapsulates ticker fetch for the detail dialog.
  */
-export const TickerDetailDialog = ({
-  tickerId,
-  open,
-  onOpenChange,
-}: TickerDetailDialogProps) => {
+const useTickerDetailDialogState = (tickerId: string | null, open: boolean) => {
   const [ticker, setTicker] = useState<TickerRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,9 +98,29 @@ export const TickerDetailDialog = ({
     }
   }, [open, tickerId, fetchTicker]);
 
-  if (!tickerId) return null;
+  const metaRows = useMemo(
+    () => (ticker ? metadataToRows(ticker.metadata) : []),
+    [ticker],
+  );
 
-  const metaRows = ticker ? metadataToRows(ticker.metadata) : [];
+  return { ticker, loading, error, metaRows };
+};
+
+/**
+ * Dialog that shows full ticker data including all metadata as key-value rows.
+ * Fetches the ticker by ID when opened so the complete metadata from the DB is shown.
+ */
+export const TickerDetailDialog = ({
+  tickerId,
+  open,
+  onOpenChange,
+}: TickerDetailDialogProps) => {
+  const { ticker, loading, error, metaRows } = useTickerDetailDialogState(
+    tickerId,
+    open,
+  );
+
+  if (!tickerId) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

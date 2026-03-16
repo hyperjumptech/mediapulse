@@ -80,6 +80,37 @@ describe("createAgentApp", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("returns missing required field names when input is absent", async () => {
+    // Setup
+    const run = vi.fn();
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    // Act
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({}),
+    });
+    const body = (await res.json()) as {
+      message: string;
+      requiredFields: string[];
+    };
+
+    // Assert
+    expect(res.status).toBe(400);
+    expect(body.message).toContain("missing required field(s): input");
+    expect(body.requiredFields).toEqual(["input"]);
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("returns 401 when verifyToken returns false", async () => {
     // Setup
     const app = createAgentApp<Input, typeof schema>(
@@ -264,6 +295,43 @@ describe("createAgentApp", () => {
     });
   });
 
+  it("accepts missing config even when configSchema has required fields", async () => {
+    // Setup
+    const requiredConfigSchema = z.object({ limit: z.number() });
+    type RequiredConfig = z.infer<typeof requiredConfigSchema>;
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentResult);
+    const app = createAgentApp<
+      Input,
+      typeof schema,
+      RequiredConfig,
+      typeof requiredConfigSchema
+    >(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        configSchema: requiredConfigSchema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    // Act
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ input: validInput }),
+    });
+
+    // Assert
+    expect(res.status).toBe(200);
+    expect(run).toHaveBeenCalledWith({
+      input: validInput,
+      config: {},
+      token: "Bearer test-token",
+    });
+  });
+
   it("calls registerWithRegistry when autoRegister is set", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ ok: true });
     createAgentApp<Input, typeof schema>(
@@ -302,5 +370,37 @@ describe("createAgentApp", () => {
     });
     expect(body.inputSchema).toBeDefined();
     expect(body.configSchema).toBeDefined();
+  });
+
+  it("sends config description in register body when autoRegister is set", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true });
+    createAgentApp<Input, typeof schema>(
+      {
+        agentId: "desc-agent",
+        agentVersion: "1.0.0",
+        description: "My agent",
+        inputSchema: schema,
+        run: async () => ({ success: true }),
+      },
+      {
+        verifyToken: async () => true,
+        autoRegister: {
+          registryUrl: "https://registry.test",
+          apiKey: "key",
+          agentUrl: "https://agent.test",
+          fetchFn,
+        },
+      },
+    );
+
+    await new Promise<void>((r) => setImmediate(r));
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    const [, options] = fetchFn.mock.calls[0] as [
+      string,
+      { method: string; headers: Record<string, string>; body: string },
+    ];
+    const body = JSON.parse(options.body);
+    expect(body.description).toBe("My agent");
   });
 });

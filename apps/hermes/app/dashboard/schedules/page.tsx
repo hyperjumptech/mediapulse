@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getPipelinesWithSteps } from "@/lib/pipelines";
 import {
@@ -5,6 +6,8 @@ import {
   type ScheduleSortDir,
   type ScheduleSortField,
 } from "@/lib/schedules";
+import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
+import { prisma } from "@workspace/database";
 
 import { SchedulesWithModal } from "./schedules-with-modal";
 
@@ -65,6 +68,10 @@ const SchedulesPage = async ({
     getSchedulesPage(page, pageSize, { search, sortBy, sortDir }),
     getPipelinesWithSteps(),
   ]);
+  const pipelineValidationById = await getPipelinesValidationMap(
+    pipelines,
+    prisma,
+  );
 
   const {
     schedules,
@@ -74,16 +81,23 @@ const SchedulesPage = async ({
   } = schedulesResult;
 
   return (
-    <SchedulesWithModal
-      schedules={schedules}
-      pipelines={pipelines}
-      currentPage={currentPage}
-      pageSize={size}
-      total={total}
-      searchQuery={search}
-      sortBy={sortBy}
-      sortDir={sortDir}
-    />
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Schedules"
+        description="Schedule pipelines to run on a cron or interval."
+      />
+      <SchedulesWithModal
+        schedules={schedules}
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+        currentPage={currentPage}
+        pageSize={size}
+        total={total}
+        searchQuery={search}
+        sortBy={sortBy}
+        sortDir={sortDir}
+      />
+    </div>
   );
 };
 

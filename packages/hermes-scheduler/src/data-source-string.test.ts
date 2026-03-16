@@ -1,107 +1,79 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 import {
-  isAllowlisted,
   isDataSourceString,
   parseDataSourceString,
 } from "./data-source-string";
 
 describe("isDataSourceString", () => {
   it("returns true for valid data source string", () => {
-    expect(isDataSourceString("db:ticker:all:id")).toBe(true);
-    expect(isDataSourceString("db:ticker:all:id?batchSize=10")).toBe(true);
+    // Act & Assert
+    expect(isDataSourceString("db:ticker:id")).toBe(true);
+    expect(
+      isDataSourceString("db:userTicker:tickerId?where.enabled=true"),
+    ).toBe(true);
   });
 
   it("returns false for non-string", () => {
+    // Act & Assert
     expect(isDataSourceString(123)).toBe(false);
     expect(isDataSourceString(null)).toBe(false);
     expect(isDataSourceString({})).toBe(false);
   });
 
   it("returns false for string that does not match format", () => {
-    expect(isDataSourceString("ticker:all")).toBe(false);
-    expect(isDataSourceString("db:ticker:all")).toBe(false);
+    // Act & Assert
+    expect(isDataSourceString("ticker:id")).toBe(false);
+    expect(isDataSourceString("db:ticker")).toBe(false);
   });
 });
 
 describe("parseDataSourceString", () => {
-  it("parses db:table:filter:field without query", () => {
-    const r = parseDataSourceString("db:ticker:all:id");
+  it("parses db:table:field without query", () => {
+    // Act
+    const r = parseDataSourceString("db:ticker:id");
+
+    // Assert
     expect(r).not.toBeNull();
     expect(r?.source).toBe("db");
     expect(r?.table).toBe("ticker");
-    expect(r?.filter).toBe("all");
     expect(r?.field).toBe("id");
-    expect(r?.filters).toEqual({});
+    expect(r?.where).toEqual({});
   });
 
-  it("parses with batchSize and staggerDelay", () => {
+  it("parses with where.enabled=true", () => {
+    // Act
     const r = parseDataSourceString(
-      "db:ticker:all:id?batchSize=10&staggerDelay=2000",
+      "db:userTicker:tickerId?where.enabled=true&distinct=tickerId",
     );
+
+    // Assert
     expect(r).not.toBeNull();
-    expect(r?.batchSize).toBe(10);
-    expect(r?.staggerDelay).toBe(2000);
+    expect(r?.where).toEqual({ enabled: "true" });
+    expect(r?.distinct).toBe("tickerId");
   });
 
-  it("parses simple filter in query", () => {
-    const r = parseDataSourceString("db:ticker:all:id?enabled=true");
+  it("parses with take and limit", () => {
+    // Act
+    const r = parseDataSourceString("db:ticker:id?take=100&limit=50");
+
+    // Assert
     expect(r).not.toBeNull();
-    expect(r?.filters).toEqual({ enabled: "true" });
+    expect(r?.take).toBe(50);
+  });
+
+  it("parses with orderBy", () => {
+    // Act
+    const r = parseDataSourceString("db:ticker:id?orderBy=id:asc");
+
+    // Assert
+    expect(r).not.toBeNull();
+    expect(r?.orderBy).toEqual({ field: "id", dir: "asc" });
   });
 
   it("returns null for invalid format", () => {
+    // Act & Assert
     expect(parseDataSourceString("invalid")).toBeNull();
-    expect(parseDataSourceString("db:ticker:all")).toBeNull();
-  });
-});
-
-describe("isAllowlisted", () => {
-  it("returns true for ticker and id", () => {
-    expect(
-      isAllowlisted({
-        source: "db",
-        table: "ticker",
-        filter: "all",
-        field: "id",
-        filters: {},
-      }),
-    ).toBe(true);
-  });
-
-  it("returns true for ticker and symbol", () => {
-    expect(
-      isAllowlisted({
-        source: "db",
-        table: "ticker",
-        filter: "all",
-        field: "symbol",
-        filters: {},
-      }),
-    ).toBe(true);
-  });
-
-  it("returns false for unknown table", () => {
-    expect(
-      isAllowlisted({
-        source: "db",
-        table: "users",
-        filter: "all",
-        field: "id",
-        filters: {},
-      }),
-    ).toBe(false);
-  });
-
-  it("returns false for unknown field", () => {
-    expect(
-      isAllowlisted({
-        source: "db",
-        table: "ticker",
-        filter: "all",
-        field: "other",
-        filters: {},
-      }),
-    ).toBe(false);
+    expect(parseDataSourceString("db:ticker")).toBeNull();
   });
 });

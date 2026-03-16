@@ -32,7 +32,7 @@ describe("createUpdateAgentHandler", () => {
       },
     };
     const updateHandler = createUpdateAgentHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -66,7 +66,7 @@ describe("createUpdateAgentHandler", () => {
       },
     };
     const updateHandler = createUpdateAgentHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -103,7 +103,7 @@ describe("createUpdateAgentHandler", () => {
       },
     };
     const updateHandler = createUpdateAgentHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     await updateHandler({
@@ -137,7 +137,7 @@ describe("handler", () => {
       },
     };
     const customHandler = createUpdateAgentHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({
