@@ -30,6 +30,7 @@ import {
   Heading,
   Html,
   Preview,
+  Tailwind,
   Text,
 } from "@react-email/components";
 
@@ -53,14 +54,18 @@ export const InviteEmail = ({
     <Html>
       <Head />
       <Preview>{inviterName} invited you to join</Preview>
-      <Body style={main}>
-        <Container style={container}>
-          <Heading style={heading}>You're invited!</Heading>
-          <Text style={paragraph}>
-            {inviterName} invited you to join the workspace.
-          </Text>
-        </Container>
-      </Body>
+      <Tailwind>
+        <Body className="bg-white my-auto mx-auto font-sans">
+          <Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] w-[465px]">
+            <Heading className="text-black text-[24px] font-normal text-center p-0 my-[30px] mx-0">
+              You're invited!
+            </Heading>
+            <Text className="text-black text-[14px] leading-[24px]">
+              {inviterName} invited you to join the workspace.
+            </Text>
+          </Container>
+        </Body>
+      </Tailwind>
     </Html>
   );
 };
@@ -75,9 +80,10 @@ export default InviteEmail;
 
 ## Styling
 
-- Use plain `React.CSSProperties` objects defined as `const` at the bottom of the file.
-- Common styles: `main` (body background + font), `container` (white card), `heading`, `paragraph`, `button`, `buttonContainer`, `hr`, `footer`.
-- Match the existing style objects from other templates for visual consistency.
+- Use Tailwind CSS for styling via the `<Tailwind>` component from `@react-email/components`.
+- Wrap the main `<Body>` or the entire `<Html>` content inside the `<Tailwind>` tag to apply classes.
+- Avoid using plain `React.CSSProperties` objects unless explicitly necessary for dynamic styles.
+- Example: `<Heading className="text-2xl font-bold text-gray-800">` instead of `<Heading style={heading}>`.
 
 ## After Creating a Template
 
@@ -100,6 +106,6 @@ Before finalizing a template:
 - [ ] Component return type is `React.JSX.Element`
 - [ ] `PreviewProps` set with `satisfies {PropsType}`
 - [ ] Default export of the component
-- [ ] Styles are `React.CSSProperties` objects at the bottom
+- [ ] Styles are implemented using Tailwind CSS classes inside a `<Tailwind>` wrapper
 - [ ] Co-located `.test.tsx` with 100% coverage (renders HTML containing key props)
 - [ ] Ran `pnpm --filter @workspace/email-templates generate`

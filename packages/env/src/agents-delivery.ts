@@ -13,6 +13,8 @@ export const env = createEnv({
     AGENT_PUBLIC_URL: z.string().optional(),
     RESEND_SENDER: z.string().min(1),
     RESEND_API_KEY: z.string().min(1),
+    EMAIL_USER: z.string().optional(),
+    EMAIL_PASS: z.string().optional(),
   },
   client: {
   },

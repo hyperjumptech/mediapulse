@@ -7,8 +7,8 @@ services:
     ports:
       - 5432:5432
     environment:
-      POSTGRES_PASSWORD: mediapulse
-      POSTGRES_USER: mediapulse
+      POSTGRES_PASSWORD: symon
+      POSTGRES_USER: symon
       POSTGRES_DB: mediapulse
     volumes:
       - ./data:/var/lib/postgresql/data

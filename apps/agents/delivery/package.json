@@ -11,20 +11,27 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@react-email/components": "^1.0.9",
+    "@react-email/tailwind": "^2.0.5",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
+    "@workspace/email-send": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
+    "nodemailer": "^8.0.2",
+    "react": "catalog:",
     "resend": "^6.9.1",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/node-cron": "^3.0.11",
     "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:",
+    "node-cron": "^4.2.1",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
