@@ -15,7 +15,7 @@ RUN npm install -g pnpm
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
-COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
 
 COPY packages ./packages
 COPY apps ./apps
@@ -28,10 +28,7 @@ ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
 RUN pnpm --filter=@workspace/database run db:generate
 
-# Build workspace packages that emit dist/ so Turbopack can resolve them
-RUN pnpm --filter=@workspace/agent-auth-client run build
-
-RUN pnpm --filter=hermes run build
+RUN pnpm exec turbo build --filter=hermes
 
 # Standalone runner: only copy traced output + static
 ARG NODE_VERSION=24.12.0
