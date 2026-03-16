@@ -11,10 +11,7 @@ RUN pnpm install --frozen-lockfile
 ENV DATABASE_URL="postgresql://localhost:5432/dummy"
 RUN pnpm --filter=@workspace/database run db:generate
 
-# Build workspace packages that emit dist/ so the bundler can resolve them
-RUN pnpm --filter=@workspace/agent-auth-client run build
-
-RUN pnpm --filter=agent-registry-api run build
+RUN pnpm exec turbo build --filter=agent-registry-api
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1
