@@ -12,20 +12,15 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import { Button } from "@workspace/ui/components/button";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil } from "lucide-react";
 
+import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/pipelines/actions/delete/.generated/use-form-action";
 
 /**
- * Dropdown actions for a pipeline row: Edit, Delete.
+ * Encapsulates delete form action and refresh-on-success for pipeline row actions.
  */
-export const PipelineRowActions = ({
-  pipelineId,
-  pipelineName,
-}: {
-  pipelineId: string;
-  pipelineName: string;
-}) => {
+const usePipelineRowActions = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -34,6 +29,23 @@ export const PipelineRowActions = ({
       router.refresh();
     }
   }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
+ * Dropdown actions for a pipeline row: Edit (modal or link to detail), Delete.
+ */
+export const PipelineRowActions = ({
+  pipelineId,
+  pipelineName,
+  onEdit,
+}: {
+  pipelineId: string;
+  pipelineName: string;
+  onEdit?: (pipelineId: string) => void;
+}) => {
+  const { FormWithAction, pending } = usePipelineRowActions();
 
   return (
     <DropdownMenu>
@@ -48,39 +60,27 @@ export const PipelineRowActions = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem asChild>
-          <Link href={`/dashboard/pipelines/${pipelineId}`}>
+        {onEdit ? (
+          <DropdownMenuItem onSelect={() => onEdit(pipelineId)}>
             <Pencil className="mr-2 size-4" />
             Edit
-          </Link>
-        </DropdownMenuItem>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link href={`/dashboard/pipelines/${pipelineId}`}>
+              <Pencil className="mr-2 size-4" />
+              Edit
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={pending}
-          onSelect={(e) => {
-            if (
-              !confirm(
-                `Delete pipeline "${pipelineName}"? This cannot be undone.`,
-              )
-            ) {
-              e.preventDefault();
-            }
-          }}
-          asChild
-        >
-          <FormWithAction className="flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-destructive/10 focus:text-destructive [&_button]:flex [&_button]:w-full [&_button]:cursor-default [&_button]:items-center [&_button]:text-left">
-            <input
-              type="hidden"
-              name="body.pipelineId"
-              value={pipelineId}
-              readOnly
-            />
-            <button type="submit" className="flex items-center gap-2">
-              <Trash2 className="size-4" />
-              {pending ? "Deleting…" : "Delete"}
-            </button>
-          </FormWithAction>
+        <DropdownMenuItem variant="destructive" disabled={pending} asChild>
+          <DeleteConfirmForm
+            FormWithAction={FormWithAction}
+            confirmMessage={`Delete pipeline "${pipelineName}"? This cannot be undone.`}
+            bodyField={{ name: "body.pipelineId", value: pipelineId }}
+            pending={pending}
+          />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

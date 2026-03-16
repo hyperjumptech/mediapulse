@@ -3,6 +3,13 @@ import { Prisma, prisma } from "@workspace/database";
 import { Context } from "hono";
 import { z } from "zod";
 
+/** JSON Schema is an object (e.g. { type: "object", properties: { ... } }). */
+const jsonSchemaObject = z
+  .record(z.unknown())
+  .refine((v) => v !== null && typeof v === "object" && !Array.isArray(v), {
+    message: "Must be a JSON object",
+  });
+
 const BodySchema = z.object({
   agentId: z.string(),
   agentVersion: z.string(),
@@ -11,6 +18,8 @@ const BodySchema = z.object({
     url: z.string().url(),
     method: z.enum(["POST"]),
   }),
+  inputSchema: jsonSchemaObject,
+  configSchema: jsonSchemaObject.optional(),
 });
 
 export async function registerAgent(context: Context) {
@@ -18,12 +27,28 @@ export async function registerAgent(context: Context) {
   try {
     const body = await validateBody(context, BodySchema);
 
-    const agentRegistry = await prisma.agentRegistry.create({
-      data: {
-        agentId: body.agentId,
-        agentVersion: body.agentVersion,
-        description: body.description,
-        endpoint: body.endpoint as Prisma.InputJsonValue,
+    const data = {
+      agentId: body.agentId,
+      agentVersion: body.agentVersion,
+      description: body.description,
+      endpoint: body.endpoint as Prisma.InputJsonValue,
+      inputSchema: body.inputSchema as Prisma.InputJsonValue,
+      configSchema: (body.configSchema as Prisma.InputJsonValue) ?? undefined,
+    };
+
+    const agentRegistry = await prisma.agentRegistry.upsert({
+      where: {
+        agentId_agentVersion: {
+          agentId: body.agentId,
+          agentVersion: body.agentVersion,
+        },
+      },
+      create: data,
+      update: {
+        description: data.description,
+        endpoint: data.endpoint,
+        inputSchema: data.inputSchema,
+        configSchema: data.configSchema,
       },
     });
 

@@ -128,10 +128,9 @@ const useImportTickers = (onClose: () => void) => {
 };
 
 /**
- * Modal with tabs: Create new ticker and Import from JSON.
- * Renders a trigger button and dialog content with forms.
+ * Encapsulates modal open state, create form state, import state, and close-on-create-success.
  */
-export const AddImportTickersModal = () => {
+const useAddImportTickersModalState = () => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -154,6 +153,44 @@ export const AddImportTickersModal = () => {
       router.refresh();
     }
   }, [success, router]);
+
+  return {
+    open,
+    setOpen,
+    FormWithAction,
+    pending,
+    errorMessage,
+    file,
+    handleFileChange,
+    handleDrop,
+    handleDragOver,
+    handleImportSubmit,
+    importPending,
+    importError,
+    importResult,
+  };
+};
+
+/**
+ * Modal with tabs: Create new ticker and Import from JSON.
+ * Renders a trigger button and dialog content with forms.
+ */
+export const AddImportTickersModal = () => {
+  const {
+    open,
+    setOpen,
+    FormWithAction,
+    pending,
+    errorMessage,
+    file,
+    handleFileChange,
+    handleDrop,
+    handleDragOver,
+    handleImportSubmit,
+    importPending,
+    importError,
+    importResult,
+  } = useAddImportTickersModalState();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

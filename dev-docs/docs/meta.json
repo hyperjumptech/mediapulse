@@ -1,4 +1,13 @@
 {
   "title": "Documentation",
-  "pages": ["index", "architecture", "getting-started", "apps", "packages"]
+  "pages": [
+    "index",
+    "architecture",
+    "communication",
+    "getting-started",
+    "production",
+    "apps",
+    "agent-hermes-contract",
+    "packages"
+  ]
 }

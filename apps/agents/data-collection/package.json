@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "dotenv -e ../../../packages/env/.env.agents.data-collection -- bun run --hot src/index.ts",
+    "dev": "dotenv -e .env.local -e .env -- bun run --no-env-file --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
     "type:check": "tsc --noEmit",
     "test": "vitest run",
@@ -12,16 +12,17 @@
   },
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
-    "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/utils": "workspace:*",
     "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "@types/bun": "latest",

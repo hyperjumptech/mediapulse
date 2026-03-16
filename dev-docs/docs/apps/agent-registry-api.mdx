@@ -6,25 +6,32 @@ icon: BookMarked
 
 ## Purpose
 
-agent-registry-api is a Hono server that allows **registering agents** in the system. It is protected by bearer auth (same API keys as agent-auth-api); only authenticated callers can register.
+agent-registry-api is a Hono server that allows **registering agents** in the system. It is protected by bearer auth: API keys are verified via agent-auth-api `POST /api/verify-api-key`.
 
 ## Features
 
-- **Bearer auth** — Token verified against the database (hashed API key lookup).
+- **Bearer auth** — Callers send `Authorization: Bearer <api_key>`. Keys are verified via agent-auth-api (centralized key storage).
 - **Register agent** — POST to store agent metadata (id, version, URL, etc.) so Hermes or other services can discover and invoke agents.
 
 ## Key routes
 
-| Method | Path                   | Description       |
-| ------ | ---------------------- | ----------------- |
-| POST   | `/api/agents/register` | Register an agent |
+| Method | Path                   | Description                                                                                             |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/agents/register` | Register an agent (body: `agentId`, `agentVersion`, `endpoint`, `inputSchema`, optional `configSchema`) |
+
+Registration requires **`inputSchema`** (JSON Schema object) and accepts optional **`configSchema`** (JSON Schema object). Hermes uses these to validate schedule params and step config. See [Agent–Hermes contract](/agent-hermes-contract).
 
 ## Port
 
 - **8082** (default from `env.PORT`).
 
+## Environment
+
+- **AGENT_AUTH_API_URL** (required) — Base URL of agent-auth-api. Used to verify API keys on each request.
+
 ## Workspace dependencies
 
+- `@workspace/agent-auth-client` — `verifyApiKeyViaAuthApi` for bearer auth.
 - `@workspace/api-utils` — Error helpers.
 - `@workspace/env` — Environment variables.
 - `@workspace/database` — Prisma for agent registry storage.

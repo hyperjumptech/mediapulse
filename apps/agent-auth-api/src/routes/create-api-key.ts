@@ -7,6 +7,7 @@ import { z } from "zod";
 const BodySchema = z.object({
   name: z.string(),
   userId: z.string().uuid(),
+  purpose: z.enum(["general", "scheduler", "run_pipeline"]).optional(),
 });
 
 export async function createAPIKey(context: Context) {
@@ -21,6 +22,7 @@ export async function createAPIKey(context: Context) {
         key: hash,
         name: body.name,
         userId: body.userId,
+        purpose: body.purpose ?? "general",
       },
     });
 

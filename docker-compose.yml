@@ -1,3 +1,4 @@
+# This docker-compose file is used to start the development database.
 version: "3"
 
 services:

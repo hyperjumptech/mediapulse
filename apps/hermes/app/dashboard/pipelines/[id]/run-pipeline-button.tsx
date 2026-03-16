@@ -8,10 +8,16 @@ import { Play } from "lucide-react";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/run-pipeline/.generated/use-form-action";
 
+export type RunPipelineButtonProps = {
+  pipelineId: string;
+  /** When true, button is disabled (e.g. pipeline has validation errors). */
+  disabled?: boolean;
+};
+
 /**
- * Button that runs the pipeline for all tickers (same behavior as cron). Uses run-pipeline action.
+ * Encapsulates run-pipeline form action and refresh-on-success.
  */
-export const RunPipelineButton = ({ pipelineId }: { pipelineId: string }) => {
+const useRunPipelineButtonState = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -21,11 +27,25 @@ export const RunPipelineButton = ({ pipelineId }: { pipelineId: string }) => {
     }
   }, [state, router]);
 
+  return { FormWithAction, state, pending };
+};
+
+/**
+ * Button that runs the pipeline for all tickers (same behavior as cron). Uses run-pipeline action.
+ * Disabled when pipeline is invalid so admin must complete step input/config first.
+ */
+export const RunPipelineButton = ({
+  pipelineId,
+  disabled = false,
+}: RunPipelineButtonProps) => {
+  const { FormWithAction, state, pending } = useRunPipelineButtonState();
+
   const errorMessage = state && state.status === false ? state.message : null;
   const successTickers =
     state && state.status === true && state.data
       ? (state.data as { tickersRun?: number }).tickersRun
       : null;
+  const isDisabled = disabled || pending;
 
   return (
     <div className="flex flex-col gap-1">
@@ -36,7 +56,16 @@ export const RunPipelineButton = ({ pipelineId }: { pipelineId: string }) => {
           value={pipelineId}
           readOnly
         />
-        <Button type="submit" variant="default" disabled={pending}>
+        <Button
+          type="submit"
+          variant="default"
+          disabled={isDisabled}
+          title={
+            disabled
+              ? "Complete all step input and config to run the pipeline"
+              : undefined
+          }
+        >
           <Play className="mr-2 size-4" />
           {pending ? "Running…" : "Run pipeline"}
         </Button>

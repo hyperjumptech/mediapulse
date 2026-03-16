@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, GitBranch, LayoutDashboard, TrendingUp } from "lucide-react";
+import {
+  Bot,
+  Calendar,
+  Database,
+  FileJson,
+  GitBranch,
+  Key,
+  LayoutDashboard,
+  TrendingUp,
+  Variable,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -33,6 +43,13 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
   const isPipelines = pathname === "/dashboard/pipelines";
   const isTickers = pathname?.startsWith("/dashboard/tickers") ?? false;
   const isAgents = pathname?.startsWith("/dashboard/agents") ?? false;
+  const isAgentConfigs =
+    pathname?.startsWith("/dashboard/agent-configs") ?? false;
+  const isVariables = pathname?.startsWith("/dashboard/variables") ?? false;
+  const isApiKeys = pathname?.startsWith("/dashboard/api-keys") ?? false;
+  const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
+  const isDataSourceExpansions =
+    pathname?.startsWith("/dashboard/data-source-expansions") ?? false;
 
   return (
     <Sidebar {...props}>
@@ -77,6 +94,46 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/agents">
                   <Bot className="size-4" />
                   <span>Agents</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isAgentConfigs}>
+                <Link href="/dashboard/agent-configs">
+                  <FileJson className="size-4" />
+                  <span>Agent configs</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isVariables}>
+                <Link href="/dashboard/variables">
+                  <Variable className="size-4" />
+                  <span>Variables</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isApiKeys}>
+                <Link href="/dashboard/api-keys">
+                  <Key className="size-4" />
+                  <span>API Keys</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isSchedules}>
+                <Link href="/dashboard/schedules">
+                  <Calendar className="size-4" />
+                  <span>Schedules</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isDataSourceExpansions}>
+                <Link href="/dashboard/data-source-expansions">
+                  <Database className="size-4" />
+                  <span>Data source expansions</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

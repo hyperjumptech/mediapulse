@@ -49,10 +49,12 @@ type AgentsTableProps = {
   sortDir: AgentSortDir;
   pageSize: number;
   searchQuery?: string;
+  /** When provided, View opens the details modal via this callback instead of navigating. */
+  onView?: (agent: AgentRow) => void;
 };
 
 /**
- * Renders the agents list as a table with sortable Agent ID, Version, Description, Active, Created columns and row actions.
+ * Renders the agents list as a table with sortable Agent ID, Version, Description, Active, Created, Updated columns and row actions.
  */
 export const AgentsTable = ({
   agents,
@@ -60,6 +62,7 @@ export const AgentsTable = ({
   sortDir,
   pageSize,
   searchQuery,
+  onView,
 }: AgentsTableProps) => {
   const sortLink = (field: AgentSortField, label: string) => {
     const isActive = sortBy === field;
@@ -100,7 +103,7 @@ export const AgentsTable = ({
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[140px]">
+            <TableHead className="w-[280px]">
               {sortLink("agentId", "Agent ID")}
             </TableHead>
             <TableHead className="w-[100px]">
@@ -111,6 +114,9 @@ export const AgentsTable = ({
             <TableHead className="w-[120px]">
               {sortLink("created", "Created")}
             </TableHead>
+            <TableHead className="w-[120px]">
+              {sortLink("updated", "Updated")}
+            </TableHead>
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
@@ -118,7 +124,7 @@ export const AgentsTable = ({
           {agents.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={6}
+                colSpan={7}
                 className="text-center text-muted-foreground"
               >
                 No agents yet.
@@ -128,12 +134,22 @@ export const AgentsTable = ({
             agents.map((agent) => (
               <TableRow key={agent.id}>
                 <TableCell className="font-medium">
-                  <Link
-                    href={`/dashboard/agents/${agent.id}`}
-                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
-                  >
-                    {agent.agentId}
-                  </Link>
+                  {onView ? (
+                    <button
+                      type="button"
+                      onClick={() => onView(agent)}
+                      className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground text-left"
+                    >
+                      {agent.agentId}
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/dashboard/agents/${agent.id}`}
+                      className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
+                    >
+                      {agent.agentId}
+                    </Link>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {agent.agentVersion}
@@ -152,10 +168,14 @@ export const AgentsTable = ({
                 <TableCell className="text-muted-foreground text-sm">
                   {format(agent.createdAt, "LLL d, yyyy")}
                 </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {format(agent.updatedAt, "LLL d, yyyy")}
+                </TableCell>
                 <TableCell className="text-right">
                   <AgentRowActions
-                    agentId={agent.id}
+                    agent={agent}
                     agentLabel={`${agent.agentId}@${agent.agentVersion}`}
+                    onView={onView}
                   />
                 </TableCell>
               </TableRow>

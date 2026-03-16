@@ -1,15 +1,20 @@
 import { notFound } from "next/navigation";
 
 import { withAuthProtection } from "@/components/with-auth-protection";
+import { getAgentConfigsByAgentKeys } from "@/lib/agent-configs";
+import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
 import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
+import { getVariablesPage } from "@/lib/variables";
+import { validatePipeline } from "@/lib/validate-pipeline";
+import { prisma } from "@workspace/database";
 
-import { AddStepForm } from "./add-step-form";
-import { PipelineEditForm } from "./pipeline-edit-form";
-import { RunPipelineButton } from "./run-pipeline-button";
-import { StepList } from "./step-list";
+import { PipelineDetailContent } from "./pipeline-detail-content";
+
+/** Max items to load for variable/expansion pickers on the pipeline step editor. */
+const PICKER_PAGE_SIZE = 500;
 
 /**
- * Pipeline detail/edit page. Loads pipeline with steps and agent registry; renders edit form, step list, and add-step control.
+ * Pipeline detail page. Loads pipeline with steps, agent registry, validation, agent configs, variables, and expansion templates for step assignment and step input/config editing.
  */
 const PipelineDetailPage = async ({
   params,
@@ -26,45 +31,35 @@ const PipelineDetailPage = async ({
     notFound();
   }
 
+  const [configsByAgentKey, validation, variablesPage, expansionsPage] =
+    await Promise.all([
+      getAgentConfigsByAgentKeys(
+        agents.map((a) => ({
+          agentId: a.agentId,
+          agentVersion: a.agentVersion,
+        })),
+      ),
+      validatePipeline(pipeline, prisma),
+      getVariablesPage(1, PICKER_PAGE_SIZE, undefined, prisma),
+      getDataSourceExpansionsPage(1, PICKER_PAGE_SIZE, undefined, prisma),
+    ]);
+
+  const variableKeys = variablesPage.variables.map((v) => ({ key: v.key }));
+  const expansionTemplates = expansionsPage.expansions.map((e) => ({
+    id: e.id,
+    name: e.name,
+    expansionString: e.expansionString,
+  }));
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            {pipeline.name}
-          </h1>
-          <p className="text-muted-foreground">
-            {pipeline.description ?? "Edit pipeline and manage agent steps."}
-          </p>
-        </div>
-        <RunPipelineButton pipelineId={pipeline.id} />
-      </div>
-
-      <PipelineEditForm
-        pipelineId={pipeline.id}
-        initialName={pipeline.name}
-        initialDescription={pipeline.description ?? ""}
-        initialIsActive={pipeline.isActive}
-      />
-
-      <section>
-        <h2 className="text-lg font-medium text-foreground mb-2">
-          Pipeline steps
-        </h2>
-        <StepList
-          pipelineId={pipeline.id}
-          steps={pipeline.steps}
-          agentDescriptions={agents}
-        />
-        <AddStepForm
-          pipelineId={pipeline.id}
-          agents={agents}
-          existingStepAgentKeys={pipeline.steps.map(
-            (s) => `${s.agentId}@${s.agentVersion}`,
-          )}
-        />
-      </section>
-    </div>
+    <PipelineDetailContent
+      pipeline={pipeline}
+      agents={agents}
+      configsByAgentKey={configsByAgentKey}
+      pipelineValidation={validation}
+      variableKeys={variableKeys}
+      expansionTemplates={expansionTemplates}
+    />
   );
 };
 

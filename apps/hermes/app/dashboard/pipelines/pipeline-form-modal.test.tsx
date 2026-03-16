@@ -1,0 +1,206 @@
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
+import { PipelineFormModal } from "./pipeline-form-modal";
+
+const routerRefreshMock = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    refresh: routerRefreshMock,
+  }),
+}));
+
+const createMockFormWithAction = () => {
+  const FormWithAction = ({
+    children,
+    className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => (
+    <form data-testid="form-with-action" className={className}>
+      {children}
+    </form>
+  );
+  FormWithAction.displayName = "FormWithAction";
+  return FormWithAction;
+};
+
+const createMockUseFormAction = (overrides?: {
+  state?: { status: boolean; message?: string } | null;
+  pending?: boolean;
+}) => ({
+  FormWithAction: createMockFormWithAction(),
+  state: overrides?.state ?? null,
+  pending: overrides?.pending ?? false,
+});
+
+vi.mock(
+  "@/app/dashboard/pipelines/actions/create/.generated/use-form-action",
+  () => ({
+    useFormAction: vi.fn(() => createMockUseFormAction()),
+  }),
+);
+
+vi.mock(
+  "@/app/dashboard/pipelines/actions/update/.generated/use-form-action",
+  () => ({
+    useFormAction: vi.fn(() => createMockUseFormAction()),
+  }),
+);
+
+vi.mock("@/app/dashboard/pipelines/actions/get-for-edit", () => ({
+  getPipelineForEdit: vi.fn(),
+}));
+
+vi.mock("@workspace/ui/components/dialog", () => ({
+  Dialog: ({ children, open }: React.PropsWithChildren<{ open?: boolean }>) => (
+    <div data-testid="dialog" data-open={open}>
+      {children}
+    </div>
+  ),
+  DialogContent: ({ children }: React.PropsWithChildren) => (
+    <div data-testid="dialog-content">{children}</div>
+  ),
+  DialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div data-testid="dialog-header">{children}</div>
+  ),
+  DialogTitle: ({ children }: React.PropsWithChildren) => (
+    <h2 data-testid="dialog-title">{children}</h2>
+  ),
+}));
+
+vi.mock("./pipeline-form-fields", () => ({
+  PipelineFormFields: ({
+    pending,
+    errorMessage,
+    submitLabel,
+  }: {
+    pending: boolean;
+    errorMessage: string | null;
+    submitLabel: string;
+  }) => (
+    <div
+      data-testid="pipeline-form-fields"
+      data-pending={pending}
+      data-error={errorMessage}
+    >
+      <button type="submit">{submitLabel}</button>
+    </div>
+  ),
+}));
+
+const getCreateUseFormActionMock = async () => {
+  const mod =
+    await import("@/app/dashboard/pipelines/actions/create/.generated/use-form-action");
+  return mod.useFormAction as Mock;
+};
+
+describe("PipelineFormModal", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    routerRefreshMock.mockReset();
+  });
+
+  it("renders dialog with create title", async () => {
+    // Setup
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+
+    // Act
+    render(
+      <PipelineFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="create"
+        editPipelineId={null}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByTestId("dialog-title")).toHaveTextContent(
+      "Create pipeline",
+    );
+  });
+
+  it("renders dialog with edit title", async () => {
+    // Setup
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+
+    // Act
+    render(
+      <PipelineFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="edit"
+        editPipelineId="pipeline-123"
+      />,
+    );
+
+    // Assert
+    expect(screen.getByTestId("dialog-title")).toHaveTextContent(
+      "Edit pipeline",
+    );
+  });
+
+  it("shows create button label when in create mode", async () => {
+    // Setup
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+
+    // Act
+    render(
+      <PipelineFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="create"
+        editPipelineId={null}
+      />,
+    );
+
+    // Assert
+    expect(
+      screen.getByRole("button", { name: "Create pipeline" }),
+    ).toBeInTheDocument();
+  });
+
+  it("passes open state to dialog", async () => {
+    // Setup
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+
+    // Act
+    render(
+      <PipelineFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="create"
+        editPipelineId={null}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByTestId("dialog")).toHaveAttribute("data-open", "true");
+  });
+
+  it("calls router.refresh on success", async () => {
+    // Setup
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
+
+    // Act
+    render(
+      <PipelineFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="create"
+        editPipelineId={null}
+      />,
+    );
+
+    // Assert
+    expect(routerRefreshMock).toHaveBeenCalled();
+  });
+});

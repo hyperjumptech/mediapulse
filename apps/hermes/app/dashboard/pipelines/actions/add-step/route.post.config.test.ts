@@ -2,6 +2,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAddStepHandler } from "./route.post.config";
 
+vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
+  disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("createAddStepHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -29,7 +33,7 @@ describe("createAddStepHandler", () => {
       pipelineStep: {},
     };
     const addHandler = createAddStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await addHandler({
@@ -56,7 +60,7 @@ describe("createAddStepHandler", () => {
       },
     };
     const addHandler = createAddStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await addHandler({
@@ -67,7 +71,15 @@ describe("createAddStepHandler", () => {
       user: undefined,
     } as never);
     expect(db.pipelineStep.create).toHaveBeenCalledWith({
-      data: { pipelineId: "p-1", agentId: "ag1", agentVersion: "1", order: 3 },
+      data: {
+        pipelineId: "p-1",
+        agentId: "ag1",
+        agentVersion: "1",
+        order: 3,
+        agentConfigId: null,
+        input: {},
+        config: {},
+      },
     });
     expect(result).toMatchObject({
       status: true,
@@ -90,7 +102,7 @@ describe("handler", () => {
       },
     };
     const customHandler = createAddStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({

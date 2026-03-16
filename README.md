@@ -1,83 +1,25 @@
 # MediaPulse
 
-## Development
+## Quick start
 
-### Installation
-
-```bash
-pnpm install
-```
-
-### Setup Environment Variables
+**Prerequisites:** Node.js 22+, pnpm 10.4+, Docker. Use pnpm for install/scripts.
 
 ```bash
-cp ./packages/env/env.example ./packages/env/.env
-# Adjust the values in the .env file as needed.
-
-./dev-bootstrap.sh
-
+docker-compose up -d
+./dev-setup-local.sh
+pnpm dev
 ```
 
-### Development database
+Then open **http://localhost:3001**.
 
-To run the development database, run the following command:
+The setup script is interactive: it will prompt for admin email/password and bootstrap env, DB migrations, admin user, and API keys.
 
-```bash
-docker-compose up
-```
+## More information
 
-This will start the PostgreSQL database.
-
-### Setup database (Prisma)
-
-```bash
-cd packages/database
-pnpm db:migrate:dev && pnpm db:generate
-cd ../..
-```
-
-### Running `agent-auth-api`
-
-```bash
-pnpm dev --filter=agent-auth-api
-```
-
-### Running `agent-data-api`
-
-```bash
-pnpm dev --filter=agent-data-api
-```
-
-### Running `agent-registry-api`
-
-```bash
-pnpm dev --filter=agent-registry-api
-```
-
-### Running `dashboard`
-
-```bash
-pnpm dev --filter=dashboard
-```
-
-### Running `hermes`
-
-```bash
-pnpm dev --filter=hermes
-```
-
-### Documentation
-
-The documentation is built using [Speed Docs](https://speed-docs.dev). To run the documentation server, run the following command:
+Full setup options, services and ports, third-party API keys, troubleshooting, and running individual apps are in the **dev-docs**. From the repo root:
 
 ```bash
 pnpm docs:dev
 ```
 
-To build the documentation, run the following command:
-
-```bash
-pnpm docs:build
-```
-
-Keep the docs updated everytime you make changes to the project.
+Then open the docs and go to **Getting started**.

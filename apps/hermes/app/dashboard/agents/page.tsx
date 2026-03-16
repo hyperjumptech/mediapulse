@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   getAgentsPage,
@@ -5,14 +6,18 @@ import {
   type AgentSortField,
 } from "@/lib/agents";
 
-import { AddAgentModal } from "./add-agent-modal";
-import { AgentsTable } from "./agents-table";
-import { AgentsPagination } from "./pagination";
+import { ListPagination } from "@/components/list-pagination";
+import { AgentsTableWithEdit } from "./agents-table-with-edit";
 import { AgentsSearch } from "./agents-search";
 
 const DEFAULT_PAGE_SIZE = 15;
 
-const SORT_FIELDS: AgentSortField[] = ["agentId", "agentVersion", "created"];
+const SORT_FIELDS: AgentSortField[] = [
+  "agentId",
+  "agentVersion",
+  "created",
+  "updated",
+];
 const SORT_DIRS: AgentSortDir[] = ["asc", "desc"];
 
 const parseSort = (
@@ -30,7 +35,7 @@ const parseSort = (
 
 /**
  * Agents list page. Fetches paginated agents and renders table with edit/delete row actions.
- * Supports search by agent ID or description and sort by agentId, agentVersion, or created.
+ * Supports search by agent ID or description and sort by agentId, agentVersion, created, or updated.
  */
 const AgentsPage = async ({
   searchParams,
@@ -67,6 +72,10 @@ const AgentsPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Agents"
+        description="View and manage registered agents."
+      />
       <div className="flex flex-col justify-between sm:flex-row sm:items-center">
         <AgentsSearch
           initialQuery={search ?? ""}
@@ -74,22 +83,20 @@ const AgentsPage = async ({
           sortBy={sortBy}
           sortDir={sortDir}
         />
-        <div className="shrink-0 sm:ml-auto">
-          <AddAgentModal />
-        </div>
       </div>
-      <AgentsTable
+      <AgentsTableWithEdit
         agents={agents}
         sortBy={sortBy}
         sortDir={sortDir}
         pageSize={size}
         searchQuery={search}
       />
-      <AgentsPagination
+      <ListPagination
         basePath="/dashboard/agents"
         page={currentPage}
         pageSize={size}
         total={total}
+        ariaLabel="Agents list pagination"
         searchQuery={search}
         sortBy={sortBy}
         sortDir={sortDir}

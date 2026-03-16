@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
@@ -14,6 +14,7 @@ import {
 } from "@workspace/ui/components/table";
 
 import { TickerDetailDialog } from "./ticker-detail-dialog";
+import { TickerEditModal } from "./ticker-edit-modal";
 import { TickerRowActions } from "./ticker-row-actions";
 import { format } from "date-fns";
 import type {
@@ -53,6 +54,39 @@ type TickersTableProps = {
 };
 
 /**
+ * Encapsulates tickers table detail and edit modal state.
+ */
+const useTickersTableState = () => {
+  const [detailTickerId, setDetailTickerId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [editTickerId, setEditTickerId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const openDetail = useCallback((ticker: TickerRow) => {
+    setDetailTickerId(ticker.id);
+    setDetailOpen(true);
+  }, []);
+
+  const openEdit = useCallback((id: string) => {
+    setEditTickerId(id);
+    setEditOpen(true);
+  }, []);
+
+  return {
+    detailTickerId,
+    setDetailTickerId,
+    detailOpen,
+    setDetailOpen,
+    editTickerId,
+    setEditTickerId,
+    editOpen,
+    setEditOpen,
+    openDetail,
+    openEdit,
+  };
+};
+
+/**
  * Renders the tickers list as a table with sortable Symbol, Name, Created columns and row actions.
  * Clicking symbol or name opens a dialog with full ticker data and metadata as rows.
  */
@@ -63,13 +97,17 @@ export const TickersTable = ({
   pageSize,
   searchQuery,
 }: TickersTableProps) => {
-  const [detailTickerId, setDetailTickerId] = useState<string | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-
-  const openDetail = (ticker: TickerRow) => {
-    setDetailTickerId(ticker.id);
-    setDetailOpen(true);
-  };
+  const {
+    detailTickerId,
+    detailOpen,
+    setDetailOpen,
+    editTickerId,
+    setEditTickerId,
+    editOpen,
+    setEditOpen,
+    openDetail,
+    openEdit,
+  } = useTickersTableState();
 
   const sortLink = (field: TickerSortField, label: string) => {
     const isActive = sortBy === field;
@@ -157,6 +195,7 @@ export const TickersTable = ({
                     <TickerRowActions
                       tickerId={ticker.id}
                       tickerSymbol={ticker.symbol}
+                      onEditClick={openEdit}
                     />
                   </TableCell>
                 </TableRow>
@@ -169,6 +208,14 @@ export const TickersTable = ({
         tickerId={detailTickerId}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+      />
+      <TickerEditModal
+        tickerId={editTickerId}
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) setEditTickerId(null);
+        }}
       />
     </>
   );

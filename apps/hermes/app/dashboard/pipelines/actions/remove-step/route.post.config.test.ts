@@ -2,6 +2,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRemoveStepHandler } from "./route.post.config";
 
+vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
+  disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("createRemoveStepHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -31,7 +35,7 @@ describe("createRemoveStepHandler", () => {
       },
     };
     const removeHandler = createRemoveStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await removeHandler({
@@ -59,7 +63,7 @@ describe("createRemoveStepHandler", () => {
       },
     };
     const removeHandler = createRemoveStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await removeHandler({
@@ -92,7 +96,7 @@ describe("handler", () => {
       },
     };
     const customHandler = createRemoveStepHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({

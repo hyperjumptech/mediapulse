@@ -68,7 +68,7 @@ describe("data-collection-agent", () => {
 
   it("returns 200 and success when data collection is successful", async () => {
     getMock.mockResolvedValue({
-      searchQueries: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
+      data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
     });
     postMock.mockResolvedValue("{}");
 
@@ -78,7 +78,21 @@ describe("data-collection-agent", () => {
       new Request("http://localhost/", {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ tickerId: TICKER_ID }),
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: {
+            webSearch: {
+              baseUrl: "https://search.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+            webFetch: {
+              baseUrl: "https://fetch.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+          },
+        }),
       }),
     );
 
@@ -102,7 +116,21 @@ describe("data-collection-agent", () => {
       new Request("http://localhost/", {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ tickerId: TICKER_ID }),
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: {
+            webSearch: {
+              baseUrl: "https://search.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+            webFetch: {
+              baseUrl: "https://fetch.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+          },
+        }),
       }),
     );
 

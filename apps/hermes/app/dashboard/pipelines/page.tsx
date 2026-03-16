@@ -1,25 +1,31 @@
-import Link from "next/link";
-
+import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
+import { prisma } from "@workspace/database";
 
-import { PipelinesTable } from "./pipelines-table";
-import { Button } from "@workspace/ui/components/button";
+import { PipelinesWithModal } from "./pipelines-with-modal";
 
 /**
- * Pipelines list page. Fetches all pipelines with steps and renders an interactive table.
+ * Pipelines list page. Fetches all pipelines and validation, renders table with create/edit modals.
  */
 const PipelinesPage = async () => {
   const pipelines = await getPipelinesWithSteps();
+  const pipelineValidationById = await getPipelinesValidationMap(
+    pipelines,
+    prisma,
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Button asChild>
-          <Link href="/dashboard/pipelines/new">Create pipeline</Link>
-        </Button>
-      </div>
-      <PipelinesTable pipelines={pipelines} />
+      <PageHeader
+        title="Pipelines"
+        description="Create and manage pipelines and their steps."
+      />
+      <PipelinesWithModal
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+      />
     </div>
   );
 };

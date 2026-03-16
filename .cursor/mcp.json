@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "dataqueue": {
+      "command": "npx",
+      "args": [
+        "@nicnocquee/dataqueue",
+        "mcp"
+      ]
+    }
+  }
+}

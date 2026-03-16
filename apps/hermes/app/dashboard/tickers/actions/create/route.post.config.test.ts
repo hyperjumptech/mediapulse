@@ -31,7 +31,7 @@ describe("createCreateTickerHandler", () => {
     });
     const db = { ticker: { create: createMock } };
     const createHandler = createCreateTickerHandler({
-      getSession: async () => ({ name: "A", email: "a@b.com" }),
+      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await createHandler({
@@ -64,7 +64,11 @@ describe("handler", () => {
     });
     const db = { ticker: { create: createMock } };
     const customHandler = createCreateTickerHandler({
-      getSession: async () => ({ name: "Admin", email: "admin@test.com" }),
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@test.com",
+      }),
       db: db as never,
     });
     const result = await customHandler({

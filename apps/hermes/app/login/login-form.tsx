@@ -21,9 +21,10 @@ type LoginActionData = {
 };
 
 /**
- * Derives login form state from the generated form action hook.
+ * Derives login form state from the generated form action hook and handles redirect on success.
  */
 const useLoginFormState = () => {
+  const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
   const errorMessage = useMemo(() => {
@@ -42,21 +43,6 @@ const useLoginFormState = () => {
     return null;
   }, [state]);
 
-  return {
-    FormWithAction,
-    pending,
-    errorMessage,
-    data,
-  };
-};
-
-/**
- * Renders the admin login form and redirects on success.
- */
-export const LoginForm = () => {
-  const router = useRouter();
-  const { FormWithAction, pending, errorMessage, data } = useLoginFormState();
-
   useEffect(() => {
     if (!data) {
       return;
@@ -64,6 +50,19 @@ export const LoginForm = () => {
 
     router.push("/dashboard");
   }, [data, router]);
+
+  return {
+    FormWithAction,
+    pending,
+    errorMessage,
+  };
+};
+
+/**
+ * Renders the admin login form and redirects on success.
+ */
+export const LoginForm = () => {
+  const { FormWithAction, pending, errorMessage } = useLoginFormState();
 
   return (
     <Card className="w-full max-w-sm">

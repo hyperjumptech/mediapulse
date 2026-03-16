@@ -24,21 +24,24 @@ export type DashboardUser = { name: string; email: string };
 
 const SEGMENT_LABELS: Record<string, string> = {
   agents: "Agents",
+  "agent-configs": "Agent configs",
+  "api-keys": "API Keys",
   pipelines: "Pipelines",
+  schedules: "Schedules",
   tickers: "Tickers",
+  variables: "Variables",
 };
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
- * Derives the breadcrumb page label for pipelines sub-routes (new, [id]).
+ * Derives the breadcrumb page label for pipelines sub-routes ([id]).
  */
 const getPipelinesSubLabel = (
   subSegment: string | undefined,
 ): string | null => {
   if (!subSegment) return null;
-  if (subSegment === "new") return "New pipeline";
   if (UUID_REGEX.test(subSegment)) return "Pipeline";
   return null;
 };
@@ -63,6 +66,18 @@ const getAgentsSubLabel = (subSegment: string | undefined): string | null => {
 };
 
 /**
+ * Derives the breadcrumb page label for schedules sub-routes (new, [id]).
+ */
+const getSchedulesSubLabel = (
+  subSegment: string | undefined,
+): string | null => {
+  if (!subSegment) return null;
+  if (subSegment === "new") return "New schedule";
+  if (UUID_REGEX.test(subSegment)) return "Schedule";
+  return null;
+};
+
+/**
  * Renders the dashboard shell: sidebar (with user and logout in footer), header with breadcrumb, and main content.
  */
 export const DashboardShell = ({
@@ -82,10 +97,13 @@ export const DashboardShell = ({
     dashboardSegment === "tickers" ? getTickersSubLabel(subSegment) : null;
   const agentsSubLabel =
     dashboardSegment === "agents" ? getAgentsSubLabel(subSegment) : null;
+  const schedulesSubLabel =
+    dashboardSegment === "schedules" ? getSchedulesSubLabel(subSegment) : null;
   const currentLabel =
     pipelinesSubLabel ??
     tickersSubLabel ??
     agentsSubLabel ??
+    schedulesSubLabel ??
     (dashboardSegment && SEGMENT_LABELS[dashboardSegment]) ??
     "Dashboard";
   const showParentLink =
@@ -93,6 +111,7 @@ export const DashboardShell = ({
     (pipelinesSubLabel ||
       tickersSubLabel ||
       agentsSubLabel ||
+      schedulesSubLabel ||
       dashboardSegment !== "pipelines");
 
   return (
@@ -140,6 +159,16 @@ export const DashboardShell = ({
                     <BreadcrumbItem className="hidden md:block">
                       <BreadcrumbLink asChild>
                         <Link href="/dashboard/agents">Agents</Link>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator className="hidden md:block" />
+                  </>
+                ) : null}
+                {schedulesSubLabel ? (
+                  <>
+                    <BreadcrumbItem className="hidden md:block">
+                      <BreadcrumbLink asChild>
+                        <Link href="/dashboard/schedules">Schedules</Link>
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />

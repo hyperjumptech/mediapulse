@@ -17,7 +17,7 @@ MediaPulse is an AI-powered newsletter and pipeline platform. It orchestrates **
 
 ## Running the project
 
-For installation, environment setup, database migrations, and how to run each app, see the [root README](https://github.com/your-org/mediapulse/blob/main/README.md) in the repository.
+For installation, environment setup, database migrations, and how to run each app, see the [Getting Started](/getting-started) page.
 
 Quick reference:
 
@@ -30,5 +30,7 @@ Quick reference:
 ## Documentation map
 
 - **[Architecture](/architecture)** — High-level diagram (Hermes, agents, APIs, database).
-- **[Apps](/apps)** — Hermes, Dashboard, agent-auth-api, agent-data-api, agent-registry-api, and the three agents (content-generation, data-collection, delivery).
+- **[Communication between parts](/communication)** — How components talk to each other (JWT invocation, API-key service auth).
+- **[Agent–Hermes contract](/agent-hermes-contract)** — Strongly typed input and config: how agents expose schemas and how Hermes validates and sends params and step config.
+- **[Apps](/apps)** — Hermes, [Data source expansion](/apps/data-source-expansion), agent-auth-api, agent-data-api, agent-registry-api, and the three agents (content-generation, data-collection, delivery).
 - **[Packages](/packages)** — Shared packages: database, env, agent-runtime, agent-types, clients, idx-tickers-importer, api-utils, logger, ui, utils, tooling.

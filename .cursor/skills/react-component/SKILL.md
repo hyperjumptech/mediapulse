@@ -55,11 +55,19 @@ const CreatePostForm = ({
 ## State Management Rules
 
 1. **Computed state first** — derive values from existing state/props instead of adding new state.
-2. **No hooks in components** — extract all `useState`/`useEffect` into custom hooks with a single responsibility.
-3. **Memoize when needed** — use `useMemo`/`useCallback` to prevent unnecessary re-renders.
+2. **Never put `useState` or `useEffect` in a component body** — components must not contain state or effect logic directly. Extract all of it into a **custom hook** (e.g. `useStepEditorPanelState`, `useSearch`) with a single responsibility. The component only calls the hook and renders.
+3. **Memoize when needed** — use `useMemo`/`useCallback` inside the custom hook (or in the component only for render-related memoization) to prevent unnecessary re-renders.
 
 ```tsx
-// ✅ Custom hook encapsulates all stateful logic
+// ❌ BAD — useState/useEffect in the component
+const SearchList = ({ items }: { items: Item[] }) => {
+  const [query, setQuery] = useState("");
+  useEffect(() => { ... }, [items]);
+  const filtered = items.filter(...);
+  return ...;
+};
+
+// ✅ GOOD — custom hook holds all state and effects
 const useSearch = (items: Item[]) => {
   const [query, setQuery] = useState("");
   const filtered = useMemo(
@@ -69,7 +77,7 @@ const useSearch = (items: Item[]) => {
   return { query, setQuery, filtered };
 };
 
-// ✅ Component stays clean
+// ✅ GOOD — component only calls hook and renders
 const SearchList = ({ items }: { items: Item[] }) => {
   const { query, setQuery, filtered } = useSearch(items);
   return ...;
@@ -113,8 +121,9 @@ Before finalizing a component, verify:
 - [ ] `const` arrow function, no `React.FC`
 - [ ] Shadcn primitives + Tailwind classes
 - [ ] Server component unless interactivity is required
-- [ ] All stateful logic in custom hooks
-- [ ] Computed state preferred over new `useState`
+- [ ] **No `useState` or `useEffect` in the component** — all state/effects in a custom hook
+- [ ] All stateful logic in custom hooks (single responsibility per hook)
+- [ ] Computed state preferred over new `useState` (inside the hook)
 - [ ] Zod validation on server actions / API routes
 - [ ] Server actions accepted as props (DI)
 - [ ] Suspense boundaries around async components

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Table,
@@ -8,6 +10,11 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
+import {
+  getPipelineStatus,
+  type PipelineValidationResult,
+} from "@/lib/pipeline-status";
+
 import { PipelineRowActions } from "./pipeline-row-actions";
 
 type PipelineWithSteps = Awaited<
@@ -15,12 +22,17 @@ type PipelineWithSteps = Awaited<
 >[number];
 
 /**
- * Renders the pipelines list as a table with Name, Description, Status, and row actions dropdown.
+ * Renders the pipelines list as a table with Name, Description, Status (Incomplete/Disabled/Enabled), and row actions.
+ * When onEdit is provided, Edit opens the modal; otherwise Edit links to the pipeline detail page.
  */
 export const PipelinesTable = ({
   pipelines,
+  pipelineValidationById = {},
+  onEdit,
 }: {
   pipelines: PipelineWithSteps[];
+  pipelineValidationById?: Record<string, PipelineValidationResult>;
+  onEdit?: (pipelineId: string) => void;
 }) => {
   return (
     <div className="rounded-md border">
@@ -44,27 +56,52 @@ export const PipelinesTable = ({
               </TableCell>
             </TableRow>
           ) : (
-            pipelines.map((pipeline) => (
-              <TableRow key={pipeline.id}>
-                <TableCell className="font-medium">{pipeline.name}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {pipeline.description ?? "—"}
-                </TableCell>
-                <TableCell>
-                  {pipeline.isActive ? (
-                    <Badge variant="success">Active</Badge>
-                  ) : (
-                    <Badge variant="secondary">Inactive</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <PipelineRowActions
-                    pipelineId={pipeline.id}
-                    pipelineName={pipeline.name}
-                  />
-                </TableCell>
-              </TableRow>
-            ))
+            pipelines.map((pipeline) => {
+              const status = getPipelineStatus(
+                pipeline,
+                pipelineValidationById[pipeline.id] ?? {
+                  valid: false,
+                  warnings: [],
+                },
+              );
+              const statusLabel =
+                status === "incomplete"
+                  ? "Incomplete"
+                  : status === "disabled"
+                    ? "Disabled"
+                    : "Enabled";
+              const badgeVariant =
+                status === "incomplete"
+                  ? "destructive"
+                  : status === "disabled"
+                    ? "secondary"
+                    : "success";
+              return (
+                <TableRow key={pipeline.id}>
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/dashboard/pipelines/${pipeline.id}`}
+                      className="hover:underline"
+                    >
+                      {pipeline.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {pipeline.description ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={badgeVariant}>{statusLabel}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <PipelineRowActions
+                      pipelineId={pipeline.id}
+                      pipelineName={pipeline.name}
+                      onEdit={onEdit}
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>

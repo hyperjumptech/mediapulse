@@ -1,0 +1,5 @@
+{
+  "title": "outlook-inbox",
+  "pages": ["index", "microsoft-setup"],
+  "defaultOpen": true
+}

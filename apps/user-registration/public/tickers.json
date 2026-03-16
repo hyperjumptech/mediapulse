@@ -1,0 +1,3830 @@
+[
+  {
+    "KodeEmiten": "AADI",
+    "NamaEmiten": "PT Adaro Andalan Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "AALI",
+    "NamaEmiten": "Astra Agro Lestari Tbk"
+  },
+  {
+    "KodeEmiten": "ABBA",
+    "NamaEmiten": "Mahaka Media Tbk"
+  },
+  {
+    "KodeEmiten": "ABDA",
+    "NamaEmiten": "Asuransi Bina Dana Arta Tbk"
+  },
+  {
+    "KodeEmiten": "ABMM",
+    "NamaEmiten": "ABM Investama Tbk"
+  },
+  {
+    "KodeEmiten": "ACES",
+    "NamaEmiten": "PT Aspirasi Hidup Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ACRO",
+    "NamaEmiten": "PT Samcro Hyosung Adilestari Tbk."
+  },
+  {
+    "KodeEmiten": "ACST",
+    "NamaEmiten": "PT Acset Indonusa Tbk."
+  },
+  {
+    "KodeEmiten": "ADCP",
+    "NamaEmiten": "PT Adhi Commuter Properti Tbk"
+  },
+  {
+    "KodeEmiten": "ADES",
+    "NamaEmiten": "Akasha Wira International Tbk  Tbk"
+  },
+  {
+    "KodeEmiten": "ADHI",
+    "NamaEmiten": "PT Adhi Karya (Persero) Tbk."
+  },
+  {
+    "KodeEmiten": "ADMF",
+    "NamaEmiten": "Adira Dinamika Multi Finance Tbk"
+  },
+  {
+    "KodeEmiten": "ADMG",
+    "NamaEmiten": "Polychem Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ADMR",
+    "NamaEmiten": "PT Alamtri Minerals Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ADRO",
+    "NamaEmiten": "Alamtri Resources Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "AEGS",
+    "NamaEmiten": "PT Anugerah Spareparts Sejahtera Tbk."
+  },
+  {
+    "KodeEmiten": "AGAR",
+    "NamaEmiten": "PT Asia Sejahtera Mina Tbk"
+  },
+  {
+    "KodeEmiten": "AGII",
+    "NamaEmiten": "PT Samator Indo Gas Tbk"
+  },
+  {
+    "KodeEmiten": "AGRO",
+    "NamaEmiten": "PT Bank Raya Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "AGRS",
+    "NamaEmiten": "PT Bank IBK Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "AHAP",
+    "NamaEmiten": "Asuransi Harta Aman Pratama Tbk"
+  },
+  {
+    "KodeEmiten": "AIMS",
+    "NamaEmiten": "PT Artha Mahiya Investama Tbk"
+  },
+  {
+    "KodeEmiten": "AISA",
+    "NamaEmiten": "PT FKS Food Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "AKKU",
+    "NamaEmiten": "PT Anugerah Kagum Karya Utama Tbk"
+  },
+  {
+    "KodeEmiten": "AKPI",
+    "NamaEmiten": "Argha Karya Prima Ind. Tbk"
+  },
+  {
+    "KodeEmiten": "AKRA",
+    "NamaEmiten": "PT AKR Corporindo Tbk."
+  },
+  {
+    "KodeEmiten": "AKSI",
+    "NamaEmiten": "PT Mineral Sumberdaya Mandiri Tbk"
+  },
+  {
+    "KodeEmiten": "ALDO",
+    "NamaEmiten": "Alkindo Naratama Tbk"
+  },
+  {
+    "KodeEmiten": "ALII",
+    "NamaEmiten": "PT Ancara Logistics Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ALKA",
+    "NamaEmiten": "Alakasa Industrindo Tbk"
+  },
+  {
+    "KodeEmiten": "ALMI",
+    "NamaEmiten": "Alumindo Light Metal Industry Tbk"
+  },
+  {
+    "KodeEmiten": "ALTO",
+    "NamaEmiten": "Tri Banyan Tirta Tbk"
+  },
+  {
+    "KodeEmiten": "AMAG",
+    "NamaEmiten": "Asuransi Multi Artha Guna Tbk"
+  },
+  {
+    "KodeEmiten": "AMAN",
+    "NamaEmiten": "PT Makmur Berkah Amanda Tbk."
+  },
+  {
+    "KodeEmiten": "AMAR",
+    "NamaEmiten": "PT Bank Amar Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "AMFG",
+    "NamaEmiten": "Asahimas Flat Glass Tbk"
+  },
+  {
+    "KodeEmiten": "AMIN",
+    "NamaEmiten": "PT Ateliers Mecaniques D Indonesie Tbk."
+  },
+  {
+    "KodeEmiten": "AMMN",
+    "NamaEmiten": "PT Amman Mineral Internasional Tbk."
+  },
+  {
+    "KodeEmiten": "AMMS",
+    "NamaEmiten": "PT Agung Menjangan Mas Tbk"
+  },
+  {
+    "KodeEmiten": "AMOR",
+    "NamaEmiten": "PT Ashmore Asset Management Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "AMRT",
+    "NamaEmiten": "PT Sumber Alfaria Trijaya Tbk."
+  },
+  {
+    "KodeEmiten": "ANDI",
+    "NamaEmiten": "PT Andira Agro Tbk"
+  },
+  {
+    "KodeEmiten": "ANJT",
+    "NamaEmiten": "PT Austindo Nusantara Jaya Tbk."
+  },
+  {
+    "KodeEmiten": "ANTM",
+    "NamaEmiten": "Aneka Tambang Tbk."
+  },
+  {
+    "KodeEmiten": "APEX",
+    "NamaEmiten": "Apexindo Pratama Duta Tbk"
+  },
+  {
+    "KodeEmiten": "APIC",
+    "NamaEmiten": "PACIFIC STRATEGIC FINANCIAL Tbk"
+  },
+  {
+    "KodeEmiten": "APII",
+    "NamaEmiten": "PT Arita Prima Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "APLI",
+    "NamaEmiten": "Asiaplast Industries Tbk"
+  },
+  {
+    "KodeEmiten": "APLN",
+    "NamaEmiten": "PT Agung Podomoro Land Tbk."
+  },
+  {
+    "KodeEmiten": "ARCI",
+    "NamaEmiten": "PT Archi Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "AREA",
+    "NamaEmiten": "PT Dunia Virtual Online Tbk"
+  },
+  {
+    "KodeEmiten": "ARGO",
+    "NamaEmiten": "Argo Pantes Tbk"
+  },
+  {
+    "KodeEmiten": "ARII",
+    "NamaEmiten": "Atlas Resources Tbk"
+  },
+  {
+    "KodeEmiten": "ARKA",
+    "NamaEmiten": "PT Arkha Jayanti Persada Tbk."
+  },
+  {
+    "KodeEmiten": "ARKO",
+    "NamaEmiten": "PT Arkora Hydro Tbk."
+  },
+  {
+    "KodeEmiten": "ARMY",
+    "NamaEmiten": "PT Armidian Karyatama Tbk"
+  },
+  {
+    "KodeEmiten": "ARNA",
+    "NamaEmiten": "Arwana Citramulia Tbk"
+  },
+  {
+    "KodeEmiten": "ARTA",
+    "NamaEmiten": "Arthavest Tbk"
+  },
+  {
+    "KodeEmiten": "ARTI",
+    "NamaEmiten": "Ratu Prabu Energi Tbk"
+  },
+  {
+    "KodeEmiten": "ARTO",
+    "NamaEmiten": "PT Bank Jago Tbk."
+  },
+  {
+    "KodeEmiten": "ASBI",
+    "NamaEmiten": "Asuransi Bintang Tbk"
+  },
+  {
+    "KodeEmiten": "ASDM",
+    "NamaEmiten": "Asuransi Dayin Mitra Tbk"
+  },
+  {
+    "KodeEmiten": "ASGR",
+    "NamaEmiten": "Astra Graphia Tbk"
+  },
+  {
+    "KodeEmiten": "ASHA",
+    "NamaEmiten": "PT Cilacap Samudera Fishing Industry Tbk"
+  },
+  {
+    "KodeEmiten": "ASII",
+    "NamaEmiten": "Astra International Tbk"
+  },
+  {
+    "KodeEmiten": "ASJT",
+    "NamaEmiten": "Asuransi Jasa Tania Tbk"
+  },
+  {
+    "KodeEmiten": "ASLC",
+    "NamaEmiten": "PT Autopedia Sukses Lestari Tbk"
+  },
+  {
+    "KodeEmiten": "ASLI",
+    "NamaEmiten": "PT Asri Karya Lestari Tbk."
+  },
+  {
+    "KodeEmiten": "ASMI",
+    "NamaEmiten": "PT Asuransi Maximus Graha Persada Tbk."
+  },
+  {
+    "KodeEmiten": "ASPI",
+    "NamaEmiten": "PT Andalan Sakti Primaindo Tbk."
+  },
+  {
+    "KodeEmiten": "ASPR",
+    "NamaEmiten": "PT Asia Pramulia Tbk"
+  },
+  {
+    "KodeEmiten": "ASRI",
+    "NamaEmiten": "ALAM SUTERA REALTY Tbk"
+  },
+  {
+    "KodeEmiten": "ASRM",
+    "NamaEmiten": "Asuransi Ramayana Tbk"
+  },
+  {
+    "KodeEmiten": "ASSA",
+    "NamaEmiten": "Adi Sarana Armada Tbk"
+  },
+  {
+    "KodeEmiten": "ATAP",
+    "NamaEmiten": "PT Trimitra Prawara Goldland Tbk"
+  },
+  {
+    "KodeEmiten": "ATIC",
+    "NamaEmiten": "PT Anabatic Technologies Tbk"
+  },
+  {
+    "KodeEmiten": "ATLA",
+    "NamaEmiten": "PT Atlantis Subsea Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "AUTO",
+    "NamaEmiten": "Astra Otoparts Tbk"
+  },
+  {
+    "KodeEmiten": "AVIA",
+    "NamaEmiten": "PT Avia Avian Tbk"
+  },
+  {
+    "KodeEmiten": "AWAN",
+    "NamaEmiten": "PT Era Digital Media Tbk"
+  },
+  {
+    "KodeEmiten": "AXIO",
+    "NamaEmiten": "PT Tera Data Indonusa Tbk"
+  },
+  {
+    "KodeEmiten": "AYAM",
+    "NamaEmiten": "PT Janu Putra Sejahtera Tbk."
+  },
+  {
+    "KodeEmiten": "AYLS",
+    "NamaEmiten": "PT Agro Yasa Lestari Tbk"
+  },
+  {
+    "KodeEmiten": "BABP",
+    "NamaEmiten": "PT Bank MNC Internasional Tbk."
+  },
+  {
+    "KodeEmiten": "BABY",
+    "NamaEmiten": "PT Multitrend Indo Tbk."
+  },
+  {
+    "KodeEmiten": "BACA",
+    "NamaEmiten": "PT Bank Capital Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BAIK",
+    "NamaEmiten": "PT Bersama Mencapai Puncak Tbk."
+  },
+  {
+    "KodeEmiten": "BAJA",
+    "NamaEmiten": "Saranacentral Bajatama Tbk"
+  },
+  {
+    "KodeEmiten": "BALI",
+    "NamaEmiten": "PT Bali Towerindo Sentra Tbk."
+  },
+  {
+    "KodeEmiten": "BANK",
+    "NamaEmiten": "PT Bank Aladin Syariah Tbk"
+  },
+  {
+    "KodeEmiten": "BAPA",
+    "NamaEmiten": "Bekasi Asri Pemula Tbk"
+  },
+  {
+    "KodeEmiten": "BAPI",
+    "NamaEmiten": "PT Bhakti Agung Propertindo Tbk."
+  },
+  {
+    "KodeEmiten": "BATA",
+    "NamaEmiten": "Sepatu Bata Tbk"
+  },
+  {
+    "KodeEmiten": "BATR",
+    "NamaEmiten": "PT Benteng Api Technic Tbk"
+  },
+  {
+    "KodeEmiten": "BAUT",
+    "NamaEmiten": "PT Mitra Angkasa Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "BAYU",
+    "NamaEmiten": "Bayu Buana Tbk"
+  },
+  {
+    "KodeEmiten": "BBCA",
+    "NamaEmiten": "PT Bank Central Asia Tbk."
+  },
+  {
+    "KodeEmiten": "BBHI",
+    "NamaEmiten": "PT Allo Bank Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BBKP",
+    "NamaEmiten": "PT Bank KB Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BBLD",
+    "NamaEmiten": "Buana Finance Tbk"
+  },
+  {
+    "KodeEmiten": "BBMD",
+    "NamaEmiten": "PT Bank Mestika Dharma Tbk."
+  },
+  {
+    "KodeEmiten": "BBNI",
+    "NamaEmiten": "PT Bank Negara Indonesia (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "BBRI",
+    "NamaEmiten": "PT Bank Rakyat Indonesia (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "BBRM",
+    "NamaEmiten": "Pelayaran Nasional Bina Buana Raya Tbk"
+  },
+  {
+    "KodeEmiten": "BBSI",
+    "NamaEmiten": "PT Krom Bank Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BBSS",
+    "NamaEmiten": "PT Bumi Benowo Sukses Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "BBTN",
+    "NamaEmiten": "PT Bank Tabungan Negara (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "BBYB",
+    "NamaEmiten": "PT Bank Neo Commerce Tbk."
+  },
+  {
+    "KodeEmiten": "BCAP",
+    "NamaEmiten": "MNC Kapital Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BCIC",
+    "NamaEmiten": "PT Bank JTrust Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "BCIP",
+    "NamaEmiten": "Bumi Citra Permai Tbk"
+  },
+  {
+    "KodeEmiten": "BDKR",
+    "NamaEmiten": "PT Berdikari Pondasi Perkasa Tbk."
+  },
+  {
+    "KodeEmiten": "BDMN",
+    "NamaEmiten": "PT Bank Danamon Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BEBS",
+    "NamaEmiten": "PT Berkah Beton Sadaya Tbk"
+  },
+  {
+    "KodeEmiten": "BEEF",
+    "NamaEmiten": "PT Estika Tata Tiara Tbk."
+  },
+  {
+    "KodeEmiten": "BEER",
+    "NamaEmiten": "PT Jobubu Jarum Minahasa Tbk"
+  },
+  {
+    "KodeEmiten": "BEKS",
+    "NamaEmiten": "PT Bank Pembangunan Daerah Banten Tbk."
+  },
+  {
+    "KodeEmiten": "BELI",
+    "NamaEmiten": "PT Global Digital Niaga Tbk"
+  },
+  {
+    "KodeEmiten": "BELL",
+    "NamaEmiten": "PT Trisula Textile Industries Tbk"
+  },
+  {
+    "KodeEmiten": "BESS",
+    "NamaEmiten": "PT Batulicin Nusantara Maritim Tbk."
+  },
+  {
+    "KodeEmiten": "BEST",
+    "NamaEmiten": "Bekasi Fajar Industrial Estate Tbk"
+  },
+  {
+    "KodeEmiten": "BFIN",
+    "NamaEmiten": "BFI Finance Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BGTG",
+    "NamaEmiten": "PT Bank Ganesha Tbk."
+  },
+  {
+    "KodeEmiten": "BHAT",
+    "NamaEmiten": "PT Bhakti Multi Artha Tbk."
+  },
+  {
+    "KodeEmiten": "BHIT",
+    "NamaEmiten": "PT MNC Asia Holding Tbk"
+  },
+  {
+    "KodeEmiten": "BIKA",
+    "NamaEmiten": "PT Binakarya Jaya Abadi Tbk."
+  },
+  {
+    "KodeEmiten": "BIKE",
+    "NamaEmiten": "PT Sepeda Bersama Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BIMA",
+    "NamaEmiten": "Primarindo Asia Infrastructure Tbk"
+  },
+  {
+    "KodeEmiten": "BINA",
+    "NamaEmiten": "PT Bank Ina Perdana Tbk."
+  },
+  {
+    "KodeEmiten": "BINO",
+    "NamaEmiten": "PT Perma Plasindo Tbk"
+  },
+  {
+    "KodeEmiten": "BIPI",
+    "NamaEmiten": "PT Astrindo Nusantara Infrastruktur Tbk."
+  },
+  {
+    "KodeEmiten": "BIPP",
+    "NamaEmiten": "Bhuwanatala Indah Permai Tbk"
+  },
+  {
+    "KodeEmiten": "BIRD",
+    "NamaEmiten": "PT Blue Bird Tbk"
+  },
+  {
+    "KodeEmiten": "BISI",
+    "NamaEmiten": "BISI INTERNATIONAL Tbk"
+  },
+  {
+    "KodeEmiten": "BJBR",
+    "NamaEmiten": "Bank Pembangunan Daerah Jawa Barat dan Banten Tbk"
+  },
+  {
+    "KodeEmiten": "BJTM",
+    "NamaEmiten": "Bank Pembangunan Daerah Jawa Timur Tbk"
+  },
+  {
+    "KodeEmiten": "BKDP",
+    "NamaEmiten": "Bukit Darmo Property Tbk"
+  },
+  {
+    "KodeEmiten": "BKSL",
+    "NamaEmiten": "Sentul City Tbk"
+  },
+  {
+    "KodeEmiten": "BKSW",
+    "NamaEmiten": "PT Bank QNB Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BLES",
+    "NamaEmiten": "PT Superior Prima Sukses Tbk"
+  },
+  {
+    "KodeEmiten": "BLOG",
+    "NamaEmiten": "PT Trimitra Trans Persada Tbk"
+  },
+  {
+    "KodeEmiten": "BLTA",
+    "NamaEmiten": "Berlian Laju Tanker Tbk"
+  },
+  {
+    "KodeEmiten": "BLTZ",
+    "NamaEmiten": "PT Graha Layar Prima Tbk."
+  },
+  {
+    "KodeEmiten": "BLUE",
+    "NamaEmiten": "PT Berkah Prima Perkasa Tbk"
+  },
+  {
+    "KodeEmiten": "BMAS",
+    "NamaEmiten": "PT Bank Maspion Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "BMBL",
+    "NamaEmiten": "PT Lavender Bina Cendikia Tbk"
+  },
+  {
+    "KodeEmiten": "BMHS",
+    "NamaEmiten": "PT Bundamedik Tbk"
+  },
+  {
+    "KodeEmiten": "BMRI",
+    "NamaEmiten": "PT Bank Mandiri (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "BMSR",
+    "NamaEmiten": "Bintang Mitra Semestaraya Tbk"
+  },
+  {
+    "KodeEmiten": "BMTR",
+    "NamaEmiten": "PT Global Mediacom Tbk"
+  },
+  {
+    "KodeEmiten": "BNBA",
+    "NamaEmiten": "Bank Bumi Arta Tbk"
+  },
+  {
+    "KodeEmiten": "BNBR",
+    "NamaEmiten": "Bakrie & Brothers Tbk"
+  },
+  {
+    "KodeEmiten": "BNGA",
+    "NamaEmiten": "PT Bank CIMB Niaga Tbk"
+  },
+  {
+    "KodeEmiten": "BNII",
+    "NamaEmiten": "PT Bank Maybank Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BNLI",
+    "NamaEmiten": "Bank Permata Tbk"
+  },
+  {
+    "KodeEmiten": "BOAT",
+    "NamaEmiten": "PT Newport Marine Services Tbk"
+  },
+  {
+    "KodeEmiten": "BOBA",
+    "NamaEmiten": "PT Formosa Ingredient Factory Tbk"
+  },
+  {
+    "KodeEmiten": "BOGA",
+    "NamaEmiten": "PT Apollo Global Interactive Tbk"
+  },
+  {
+    "KodeEmiten": "BOLA",
+    "NamaEmiten": "PT Bali Bintang Sejahtera Tbk."
+  },
+  {
+    "KodeEmiten": "BOLT",
+    "NamaEmiten": "PT Garuda Metalindo Tbk."
+  },
+  {
+    "KodeEmiten": "BOSS",
+    "NamaEmiten": "PT Borneo Olah Sarana Sukses Tbk."
+  },
+  {
+    "KodeEmiten": "BPFI",
+    "NamaEmiten": "PT Woori Finance Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BPII",
+    "NamaEmiten": "PT Batavia Prosperindo Internasional Tbk."
+  },
+  {
+    "KodeEmiten": "BPTR",
+    "NamaEmiten": "PT Batavia Prosperindo Trans Tbk."
+  },
+  {
+    "KodeEmiten": "BRAM",
+    "NamaEmiten": "Indo Kordsa Tbk"
+  },
+  {
+    "KodeEmiten": "BREN",
+    "NamaEmiten": "PT Barito Renewables Energy Tbk."
+  },
+  {
+    "KodeEmiten": "BRIS",
+    "NamaEmiten": "PT Bank Syariah Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BRMS",
+    "NamaEmiten": "Bumi Resources Minerals Tbk"
+  },
+  {
+    "KodeEmiten": "BRNA",
+    "NamaEmiten": "Berlina Tbk"
+  },
+  {
+    "KodeEmiten": "BRPT",
+    "NamaEmiten": "Barito Pacific Tbk"
+  },
+  {
+    "KodeEmiten": "BRRC",
+    "NamaEmiten": "PT Raja Roti Cemerlang Tbk"
+  },
+  {
+    "KodeEmiten": "BSBK",
+    "NamaEmiten": "PT Wulandari Bangun Laksana Tbk"
+  },
+  {
+    "KodeEmiten": "BSDE",
+    "NamaEmiten": "PT Bumi Serpong Damai Tbk"
+  },
+  {
+    "KodeEmiten": "BSIM",
+    "NamaEmiten": "Bank Sinarmas Tbk"
+  },
+  {
+    "KodeEmiten": "BSML",
+    "NamaEmiten": "PT Bintang Samudera Mandiri Lines Tbk"
+  },
+  {
+    "KodeEmiten": "BSSR",
+    "NamaEmiten": "Baramulti Suksessarana Tbk"
+  },
+  {
+    "KodeEmiten": "BSWD",
+    "NamaEmiten": "Bank of India Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BTEK",
+    "NamaEmiten": "Bumi Teknokultura Unggul Tbk"
+  },
+  {
+    "KodeEmiten": "BTEL",
+    "NamaEmiten": "Bakrie Telecom Tbk"
+  },
+  {
+    "KodeEmiten": "BTON",
+    "NamaEmiten": "Betonjaya Manunggal Tbk"
+  },
+  {
+    "KodeEmiten": "BTPN",
+    "NamaEmiten": "PT Bank SMBC Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BTPS",
+    "NamaEmiten": "PT Bank BTPN Syariah Tbk."
+  },
+  {
+    "KodeEmiten": "BUAH",
+    "NamaEmiten": "PT Segar Kumala Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "BUDI",
+    "NamaEmiten": "PT Budi Starch & Sweetener Tbk."
+  },
+  {
+    "KodeEmiten": "BUKA",
+    "NamaEmiten": "PT Bukalapak.com Tbk"
+  },
+  {
+    "KodeEmiten": "BUKK",
+    "NamaEmiten": "Bukaka Teknik Utama Tbk"
+  },
+  {
+    "KodeEmiten": "BULL",
+    "NamaEmiten": "PT Buana Lintas Lautan Tbk."
+  },
+  {
+    "KodeEmiten": "BUMI",
+    "NamaEmiten": "Bumi Resources Tbk"
+  },
+  {
+    "KodeEmiten": "BUVA",
+    "NamaEmiten": "PT Bukit Uluwatu Villa Tbk"
+  },
+  {
+    "KodeEmiten": "BVIC",
+    "NamaEmiten": "Bank Victoria International Tbk"
+  },
+  {
+    "KodeEmiten": "BWPT",
+    "NamaEmiten": "Eagle High Plantations Tbk"
+  },
+  {
+    "KodeEmiten": "BYAN",
+    "NamaEmiten": "Bayan Resources Tbk"
+  },
+  {
+    "KodeEmiten": "CAKK",
+    "NamaEmiten": "PT Cahayaputra Asa Keramik Tbk."
+  },
+  {
+    "KodeEmiten": "CAMP",
+    "NamaEmiten": "PT Campina Ice Cream Industry Tbk."
+  },
+  {
+    "KodeEmiten": "CANI",
+    "NamaEmiten": "PT Capitol Nusantara Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "CARE",
+    "NamaEmiten": "PT Metro Healthcare Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "CARS",
+    "NamaEmiten": "PT Industri dan Perdagangan Bintraco Dharma Tbk"
+  },
+  {
+    "KodeEmiten": "CASA",
+    "NamaEmiten": "PT Capital Financial Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "CASH",
+    "NamaEmiten": "PT Cashlez Worldwide Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "CASS",
+    "NamaEmiten": "Cahaya Aero Services Tbk"
+  },
+  {
+    "KodeEmiten": "CBDK",
+    "NamaEmiten": "PT Bangun Kosambi Sukses Tbk"
+  },
+  {
+    "KodeEmiten": "CBMF",
+    "NamaEmiten": "PT Cahaya Bintang Medan Tbk"
+  },
+  {
+    "KodeEmiten": "CBPE",
+    "NamaEmiten": "PT Citra Buana Prasida Tbk"
+  },
+  {
+    "KodeEmiten": "CBRE",
+    "NamaEmiten": "PT Cakra Buana Resources Energi Tbk"
+  },
+  {
+    "KodeEmiten": "CBUT",
+    "NamaEmiten": "PT Citra Borneo Utama Tbk"
+  },
+  {
+    "KodeEmiten": "CCSI",
+    "NamaEmiten": "PT Communication Cable Systems Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "CDIA",
+    "NamaEmiten": "PT Chandra Daya Investasi Tbk"
+  },
+  {
+    "KodeEmiten": "CEKA",
+    "NamaEmiten": "PT Wilmar Cahaya Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "CENT",
+    "NamaEmiten": "PT Centratama Telekomunikasi Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "CFIN",
+    "NamaEmiten": "Clipan Finance Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "CGAS",
+    "NamaEmiten": "PT Citra Nusantara Gemilang Tbk."
+  },
+  {
+    "KodeEmiten": "CHEK",
+    "NamaEmiten": "PT Diastika Biotekindo Tbk"
+  },
+  {
+    "KodeEmiten": "CHEM",
+    "NamaEmiten": "PT Chemstar Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "CHIP",
+    "NamaEmiten": "PT Pelita Teknologi Global Tbk"
+  },
+  {
+    "KodeEmiten": "CINT",
+    "NamaEmiten": "PT Chitose Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "CITA",
+    "NamaEmiten": "Cita Mineral Investindo Tbk"
+  },
+  {
+    "KodeEmiten": "CITY",
+    "NamaEmiten": "PT Natura City Developments Tbk."
+  },
+  {
+    "KodeEmiten": "CLAY",
+    "NamaEmiten": "PT Citra Putra Realty Tbk"
+  },
+  {
+    "KodeEmiten": "CLEO",
+    "NamaEmiten": "PT Sariguna Primatirta Tbk"
+  },
+  {
+    "KodeEmiten": "CLPI",
+    "NamaEmiten": "Colorpak Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "CMNP",
+    "NamaEmiten": "Citra Marga Nusaphala Persada Tbk"
+  },
+  {
+    "KodeEmiten": "CMNT",
+    "NamaEmiten": "PT Cemindo Gemilang Tbk"
+  },
+  {
+    "KodeEmiten": "CMPP",
+    "NamaEmiten": "PT AirAsia Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "CMRY",
+    "NamaEmiten": "PT Cisarua Mountain Dairy Tbk"
+  },
+  {
+    "KodeEmiten": "CNKO",
+    "NamaEmiten": "Exploitasi Energi Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "CNMA",
+    "NamaEmiten": "PT Nusantara Sejahtera Raya Tbk"
+  },
+  {
+    "KodeEmiten": "CNTX",
+    "NamaEmiten": "PT Century Textile Industry Tbk"
+  },
+  {
+    "KodeEmiten": "COAL",
+    "NamaEmiten": "PT Black Diamond Resources Tbk"
+  },
+  {
+    "KodeEmiten": "COCO",
+    "NamaEmiten": "PT Wahana Interfood Nusantara Tbk."
+  },
+  {
+    "KodeEmiten": "COIN",
+    "NamaEmiten": "PT Indokripto Koin Semesta Tbk"
+  },
+  {
+    "KodeEmiten": "COWL",
+    "NamaEmiten": "COWELL DEVELOPMENT Tbk"
+  },
+  {
+    "KodeEmiten": "CPIN",
+    "NamaEmiten": "Charoen Pokphand Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "CPRI",
+    "NamaEmiten": "PT Capri Nusa Satu Properti Tbk."
+  },
+  {
+    "KodeEmiten": "CPRO",
+    "NamaEmiten": "Central Proteina Prima Tbk"
+  },
+  {
+    "KodeEmiten": "CRAB",
+    "NamaEmiten": "PT Toba Surimi Industries Tbk"
+  },
+  {
+    "KodeEmiten": "CRSN",
+    "NamaEmiten": "PT Carsurin Tbk"
+  },
+  {
+    "KodeEmiten": "CSAP",
+    "NamaEmiten": "Catur Sentosa Adiprana Tbk"
+  },
+  {
+    "KodeEmiten": "CSIS",
+    "NamaEmiten": "PT Cahayasakti Investindo Sukses Tbk"
+  },
+  {
+    "KodeEmiten": "CSMI",
+    "NamaEmiten": "PT Cipta Selera Murni Tbk."
+  },
+  {
+    "KodeEmiten": "CSRA",
+    "NamaEmiten": "PT Cisadane Sawit Raya Tbk."
+  },
+  {
+    "KodeEmiten": "CTBN",
+    "NamaEmiten": "Citra Tubindo Tbk"
+  },
+  {
+    "KodeEmiten": "CTRA",
+    "NamaEmiten": "Ciputra Development Tbk"
+  },
+  {
+    "KodeEmiten": "CTTH",
+    "NamaEmiten": "Citatah Tbk"
+  },
+  {
+    "KodeEmiten": "CUAN",
+    "NamaEmiten": "PT Petrindo Jaya Kreasi Tbk"
+  },
+  {
+    "KodeEmiten": "CYBR",
+    "NamaEmiten": "PT ITSEC Asia Tbk."
+  },
+  {
+    "KodeEmiten": "DAAZ",
+    "NamaEmiten": "PT Daaz Bara Lestari Tbk"
+  },
+  {
+    "KodeEmiten": "DADA",
+    "NamaEmiten": "PT Diamond Citra Propertindo Tbk."
+  },
+  {
+    "KodeEmiten": "DART",
+    "NamaEmiten": "Duta Anggada Realty Tbk"
+  },
+  {
+    "KodeEmiten": "DATA",
+    "NamaEmiten": "PT Remala Abadi Tbk"
+  },
+  {
+    "KodeEmiten": "DAYA",
+    "NamaEmiten": "PT Duta Intidaya Tbk."
+  },
+  {
+    "KodeEmiten": "DCII",
+    "NamaEmiten": "PT DCI Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "DEAL",
+    "NamaEmiten": "PT Dewata Freightinternational Tbk."
+  },
+  {
+    "KodeEmiten": "DEFI",
+    "NamaEmiten": "Danasupra Erapacific Tbk"
+  },
+  {
+    "KodeEmiten": "DEPO",
+    "NamaEmiten": "PT Caturkarda Depo Bangunan Tbk"
+  },
+  {
+    "KodeEmiten": "DEWA",
+    "NamaEmiten": "Darma Henwa Tbk"
+  },
+  {
+    "KodeEmiten": "DEWI",
+    "NamaEmiten": "PT Dewi Shri Farmindo Tbk"
+  },
+  {
+    "KodeEmiten": "DFAM",
+    "NamaEmiten": "PT Dafam Property Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "DGIK",
+    "NamaEmiten": "Nusa Konstruksi Enjiniring  Tbk"
+  },
+  {
+    "KodeEmiten": "DGNS",
+    "NamaEmiten": "PT Diagnos Laboratorium Utama Tbk"
+  },
+  {
+    "KodeEmiten": "DGWG",
+    "NamaEmiten": "PT Delta Giri Wacana Tbk"
+  },
+  {
+    "KodeEmiten": "DIGI",
+    "NamaEmiten": "PT Arkadia Digital Media Tbk"
+  },
+  {
+    "KodeEmiten": "DILD",
+    "NamaEmiten": "Intiland Development Tbk"
+  },
+  {
+    "KodeEmiten": "DIVA",
+    "NamaEmiten": "PT Distribusi Voucher Nusantara Tbk"
+  },
+  {
+    "KodeEmiten": "DKFT",
+    "NamaEmiten": "Central Omega Resources Tbk"
+  },
+  {
+    "KodeEmiten": "DKHH",
+    "NamaEmiten": "PT Cipta Sarana Medika Tbk"
+  },
+  {
+    "KodeEmiten": "DLTA",
+    "NamaEmiten": "Delta Djakarta Tbk"
+  },
+  {
+    "KodeEmiten": "DMAS",
+    "NamaEmiten": "PT Puradelta Lestari Tbk."
+  },
+  {
+    "KodeEmiten": "DMMX",
+    "NamaEmiten": "PT Digital Mediatama Maxima Tbk"
+  },
+  {
+    "KodeEmiten": "DMND",
+    "NamaEmiten": "PT Diamond Food Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "DNAR",
+    "NamaEmiten": "PT Bank Oke Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "DNET",
+    "NamaEmiten": "PT Indoritel Makmur Internasional Tbk."
+  },
+  {
+    "KodeEmiten": "DOID",
+    "NamaEmiten": "PT BUMA Internasional Grup Tbk"
+  },
+  {
+    "KodeEmiten": "DOOH",
+    "NamaEmiten": "PT Era Media Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "DOSS",
+    "NamaEmiten": "PT Global Sukses Digital Tbk"
+  },
+  {
+    "KodeEmiten": "DPNS",
+    "NamaEmiten": "Duta Pertiwi Nusantara Tbk"
+  },
+  {
+    "KodeEmiten": "DPUM",
+    "NamaEmiten": "PT Dua Putra Utama Makmur Tbk."
+  },
+  {
+    "KodeEmiten": "DRMA",
+    "NamaEmiten": "PT Dharma Polimetal Tbk"
+  },
+  {
+    "KodeEmiten": "DSFI",
+    "NamaEmiten": "Dharma Samudera Fishing Ind. Tbk"
+  },
+  {
+    "KodeEmiten": "DSNG",
+    "NamaEmiten": "PT Dharma Satya Nusantara Tbk."
+  },
+  {
+    "KodeEmiten": "DSSA",
+    "NamaEmiten": "Dian Swastatika Sentosa Tbk"
+  },
+  {
+    "KodeEmiten": "DUCK",
+    "NamaEmiten": "PT Jaya Bersama Indo Tbk."
+  },
+  {
+    "KodeEmiten": "DUTI",
+    "NamaEmiten": "Duta Pertiwi Tbk"
+  },
+  {
+    "KodeEmiten": "DVLA",
+    "NamaEmiten": "Darya-Varia Laboratoria Tbk"
+  },
+  {
+    "KodeEmiten": "DWGL",
+    "NamaEmiten": "PT Dwi Guna Laksana Tbk"
+  },
+  {
+    "KodeEmiten": "DYAN",
+    "NamaEmiten": "PT Dyandra Media International Tbk."
+  },
+  {
+    "KodeEmiten": "EAST",
+    "NamaEmiten": "PT Eastparc Hotel Tbk"
+  },
+  {
+    "KodeEmiten": "ECII",
+    "NamaEmiten": "PT Electronic City Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "EDGE",
+    "NamaEmiten": "PT Indointernet Tbk."
+  },
+  {
+    "KodeEmiten": "EKAD",
+    "NamaEmiten": "Ekadharma International Tbk"
+  },
+  {
+    "KodeEmiten": "ELIT",
+    "NamaEmiten": "PT Data Sinergitama Jaya Tbk"
+  },
+  {
+    "KodeEmiten": "ELPI",
+    "NamaEmiten": "PT Pelayaran Nasional Ekalya Purnamasari Tbk"
+  },
+  {
+    "KodeEmiten": "ELSA",
+    "NamaEmiten": "Elnusa Tbk"
+  },
+  {
+    "KodeEmiten": "ELTY",
+    "NamaEmiten": "Bakrieland Development Tbk"
+  },
+  {
+    "KodeEmiten": "EMAS",
+    "NamaEmiten": "PT Merdeka Gold Resources Tbk"
+  },
+  {
+    "KodeEmiten": "EMDE",
+    "NamaEmiten": "Megapolitan Developments Tbk"
+  },
+  {
+    "KodeEmiten": "EMTK",
+    "NamaEmiten": "Elang Mahkota Teknologi Tbk"
+  },
+  {
+    "KodeEmiten": "ENAK",
+    "NamaEmiten": "PT Champ Resto Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ENRG",
+    "NamaEmiten": "Energi Mega Persada Tbk"
+  },
+  {
+    "KodeEmiten": "ENVY",
+    "NamaEmiten": "PT Envy Technologies Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ENZO",
+    "NamaEmiten": "PT Morenzo Abadi Perkasa Tbk"
+  },
+  {
+    "KodeEmiten": "EPAC",
+    "NamaEmiten": "PT Megalestari Epack Sentosaraya Tbk."
+  },
+  {
+    "KodeEmiten": "EPMT",
+    "NamaEmiten": "Enseval Putera Megatrading Tbk"
+  },
+  {
+    "KodeEmiten": "ERAA",
+    "NamaEmiten": "Erajaya Swasembada Tbk"
+  },
+  {
+    "KodeEmiten": "ERAL",
+    "NamaEmiten": "PT Sinar Eka Selaras Tbk"
+  },
+  {
+    "KodeEmiten": "ERTX",
+    "NamaEmiten": "Eratex Djaja Tbk"
+  },
+  {
+    "KodeEmiten": "ESIP",
+    "NamaEmiten": "PT Sinergi Inti Plastindo Tbk."
+  },
+  {
+    "KodeEmiten": "ESSA",
+    "NamaEmiten": "ESSA Industries Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ESTA",
+    "NamaEmiten": "PT Esta Multi Usaha Tbk."
+  },
+  {
+    "KodeEmiten": "ESTI",
+    "NamaEmiten": "Ever Shine Textile Industry Tbk"
+  },
+  {
+    "KodeEmiten": "ETWA",
+    "NamaEmiten": "Eterindo Wahanatama Tbk"
+  },
+  {
+    "KodeEmiten": "EURO",
+    "NamaEmiten": "PT Estee Gold Feet Tbk"
+  },
+  {
+    "KodeEmiten": "EXCL",
+    "NamaEmiten": "PT XLSMART Telecom Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "FAPA",
+    "NamaEmiten": "PT FAP Agri Tbk"
+  },
+  {
+    "KodeEmiten": "FAST",
+    "NamaEmiten": "PT Fast Food Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "FASW",
+    "NamaEmiten": "Fajar Surya Wisesa Tbk"
+  },
+  {
+    "KodeEmiten": "FILM",
+    "NamaEmiten": "PT MD Entertainment Tbk"
+  },
+  {
+    "KodeEmiten": "FIMP",
+    "NamaEmiten": "PT Fimperkasa Utama Tbk"
+  },
+  {
+    "KodeEmiten": "FIRE",
+    "NamaEmiten": "PT Alfa Energi Investama Tbk."
+  },
+  {
+    "KodeEmiten": "FISH",
+    "NamaEmiten": "FKS Multi Agro Tbk"
+  },
+  {
+    "KodeEmiten": "FITT",
+    "NamaEmiten": "PT Hotel Fitra International Tbk"
+  },
+  {
+    "KodeEmiten": "FLMC",
+    "NamaEmiten": "PT Falmaco Nonwoven Industri Tbk"
+  },
+  {
+    "KodeEmiten": "FMII",
+    "NamaEmiten": "Fortune Mate Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "FOLK",
+    "NamaEmiten": "PT Multi Garam Utama Tbk."
+  },
+  {
+    "KodeEmiten": "FOOD",
+    "NamaEmiten": "PT Sentra Food Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "FORE",
+    "NamaEmiten": "PT Fore Kopi Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "FORU",
+    "NamaEmiten": "Fortune Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "FPNI",
+    "NamaEmiten": "PT Lotte Chemical Titan Tbk."
+  },
+  {
+    "KodeEmiten": "FUJI",
+    "NamaEmiten": "PT Fuji Finance Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "FUTR",
+    "NamaEmiten": "PT Futura Energi Global Tbk"
+  },
+  {
+    "KodeEmiten": "FWCT",
+    "NamaEmiten": "PT Wijaya Cahaya Timber Tbk"
+  },
+  {
+    "KodeEmiten": "GAMA",
+    "NamaEmiten": "Aksara Global Development Tbk"
+  },
+  {
+    "KodeEmiten": "GDST",
+    "NamaEmiten": "Gunawan Dianjaya Steel Tbk"
+  },
+  {
+    "KodeEmiten": "GDYR",
+    "NamaEmiten": "Goodyear Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "GEMA",
+    "NamaEmiten": "Gema Grahasarana Tbk"
+  },
+  {
+    "KodeEmiten": "GEMS",
+    "NamaEmiten": "Golden Energy Mines Tbk"
+  },
+  {
+    "KodeEmiten": "GGRM",
+    "NamaEmiten": "Gudang Garam Tbk"
+  },
+  {
+    "KodeEmiten": "GGRP",
+    "NamaEmiten": "PT Gunung Raja Paksi Tbk."
+  },
+  {
+    "KodeEmiten": "GHON",
+    "NamaEmiten": "PT Gihon Telekomunikasi Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "GIAA",
+    "NamaEmiten": "Garuda Indonesia (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "GJTL",
+    "NamaEmiten": "Gajah Tunggal Tbk"
+  },
+  {
+    "KodeEmiten": "GLOB",
+    "NamaEmiten": "PT Globe Kita Terang Tbk"
+  },
+  {
+    "KodeEmiten": "GLVA",
+    "NamaEmiten": "PT Galva Technologies Tbk"
+  },
+  {
+    "KodeEmiten": "GMFI",
+    "NamaEmiten": "PT Garuda Maintenance Facility Aero Asia Tbk."
+  },
+  {
+    "KodeEmiten": "GMTD",
+    "NamaEmiten": "Gowa Makassar Tourism Development Tbk"
+  },
+  {
+    "KodeEmiten": "GOLD",
+    "NamaEmiten": "PT Visi Telekomunikasi Infrastruktur Tbk."
+  },
+  {
+    "KodeEmiten": "GOLF",
+    "NamaEmiten": "PT Intra GolfLink Resorts Tbk"
+  },
+  {
+    "KodeEmiten": "GOLL",
+    "NamaEmiten": "PT Golden Plantation Tbk"
+  },
+  {
+    "KodeEmiten": "GOOD",
+    "NamaEmiten": "PT Garudafood Putra Putri Jaya Tbk."
+  },
+  {
+    "KodeEmiten": "GOTO",
+    "NamaEmiten": "PT GoTo Gojek Tokopedia Tbk"
+  },
+  {
+    "KodeEmiten": "GPRA",
+    "NamaEmiten": "Perdana Gapura Prima Tbk"
+  },
+  {
+    "KodeEmiten": "GPSO",
+    "NamaEmiten": "PT Geoprima Solusi Tbk"
+  },
+  {
+    "KodeEmiten": "GRIA",
+    "NamaEmiten": "PT Ingria Pratama Capitalindo Tbk"
+  },
+  {
+    "KodeEmiten": "GRPH",
+    "NamaEmiten": "PT Griptha Putra Persada Tbk."
+  },
+  {
+    "KodeEmiten": "GRPM",
+    "NamaEmiten": "PT Graha Prima Mentari Tbk."
+  },
+  {
+    "KodeEmiten": "GSMF",
+    "NamaEmiten": "Equity Development Investment Tbk"
+  },
+  {
+    "KodeEmiten": "GTBO",
+    "NamaEmiten": "Garda Tujuh Buana Tbk"
+  },
+  {
+    "KodeEmiten": "GTRA",
+    "NamaEmiten": "PT Grahaprima Suksesmandiri Tbk"
+  },
+  {
+    "KodeEmiten": "GTSI",
+    "NamaEmiten": "PT GTS Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "GULA",
+    "NamaEmiten": "PT Aman Agrindo Tbk"
+  },
+  {
+    "KodeEmiten": "GUNA",
+    "NamaEmiten": "PT Gunanusa Eramandiri Tbk"
+  },
+  {
+    "KodeEmiten": "GWSA",
+    "NamaEmiten": "PT Greenwood Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "GZCO",
+    "NamaEmiten": "Gozco Plantations Tbk"
+  },
+  {
+    "KodeEmiten": "HADE",
+    "NamaEmiten": "PT Himalaya Energi Perkasa Tbk"
+  },
+  {
+    "KodeEmiten": "HAIS",
+    "NamaEmiten": "PT Hasnur Internasional Shipping Tbk"
+  },
+  {
+    "KodeEmiten": "HAJJ",
+    "NamaEmiten": "PT Arsy Buana Travelindo Tbk"
+  },
+  {
+    "KodeEmiten": "HALO",
+    "NamaEmiten": "PT Haloni Jane Tbk"
+  },
+  {
+    "KodeEmiten": "HATM",
+    "NamaEmiten": "PT Habco Trans Maritima Tbk"
+  },
+  {
+    "KodeEmiten": "HBAT",
+    "NamaEmiten": "PT Minahasa Membangun Hebat Tbk"
+  },
+  {
+    "KodeEmiten": "HDFA",
+    "NamaEmiten": "Radana Bhaskara Finance Tbk"
+  },
+  {
+    "KodeEmiten": "HDIT",
+    "NamaEmiten": "PT Hensel Davest Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "HEAL",
+    "NamaEmiten": "PT Medikaloka Hermina Tbk."
+  },
+  {
+    "KodeEmiten": "HELI",
+    "NamaEmiten": "PT Jaya Trishindo Tbk"
+  },
+  {
+    "KodeEmiten": "HERO",
+    "NamaEmiten": "PT DFI Retail Nusantara Tbk"
+  },
+  {
+    "KodeEmiten": "HEXA",
+    "NamaEmiten": "Hexindo Adiperkasa Tbk"
+  },
+  {
+    "KodeEmiten": "HGII",
+    "NamaEmiten": "PT Hero Global Investment Tbk"
+  },
+  {
+    "KodeEmiten": "HILL",
+    "NamaEmiten": "PT Hillcon Tbk"
+  },
+  {
+    "KodeEmiten": "HITS",
+    "NamaEmiten": "Humpuss Intermoda Transportasi Tbk"
+  },
+  {
+    "KodeEmiten": "HKMU",
+    "NamaEmiten": "PT HK Metals Utama Tbk"
+  },
+  {
+    "KodeEmiten": "HMSP",
+    "NamaEmiten": "HM Sampoerna Tbk"
+  },
+  {
+    "KodeEmiten": "HOKI",
+    "NamaEmiten": "PT Buyung Poetra Sembada Tbk."
+  },
+  {
+    "KodeEmiten": "HOME",
+    "NamaEmiten": "Hotel Mandarine Regency Tbk"
+  },
+  {
+    "KodeEmiten": "HOMI",
+    "NamaEmiten": "PT Grand House Mulia Tbk"
+  },
+  {
+    "KodeEmiten": "HOPE",
+    "NamaEmiten": "PT Harapan Duta Pertiwi Tbk."
+  },
+  {
+    "KodeEmiten": "HOTL",
+    "NamaEmiten": "Saraswati Griya Lestari Tbk"
+  },
+  {
+    "KodeEmiten": "HRME",
+    "NamaEmiten": "PT Menteng Heritage Realty Tbk."
+  },
+  {
+    "KodeEmiten": "HRTA",
+    "NamaEmiten": "PT Hartadinata Abadi Tbk"
+  },
+  {
+    "KodeEmiten": "HRUM",
+    "NamaEmiten": "Harum Energy Tbk"
+  },
+  {
+    "KodeEmiten": "HUMI",
+    "NamaEmiten": "PT Humpuss Maritim Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "HYGN",
+    "NamaEmiten": "PT Ecocare Indo Pasifik Tbk."
+  },
+  {
+    "KodeEmiten": "IATA",
+    "NamaEmiten": "PT MNC Energy Investments Tbk"
+  },
+  {
+    "KodeEmiten": "IBFN",
+    "NamaEmiten": "PT Intan Baru Prana Tbk"
+  },
+  {
+    "KodeEmiten": "IBOS",
+    "NamaEmiten": "PT Indo Boga Sukses Tbk"
+  },
+  {
+    "KodeEmiten": "IBST",
+    "NamaEmiten": "Inti Bangun Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "ICBP",
+    "NamaEmiten": "Indofood CBP Sukses Makmur Tbk"
+  },
+  {
+    "KodeEmiten": "ICON",
+    "NamaEmiten": "Island Concepts Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "IDEA",
+    "NamaEmiten": "PT Idea Indonesia Akademi Tbk"
+  },
+  {
+    "KodeEmiten": "IDPR",
+    "NamaEmiten": "PT Indonesia Pondasi Raya Tbk."
+  },
+  {
+    "KodeEmiten": "IFII",
+    "NamaEmiten": "PT Indonesia Fibreboard Industry Tbk"
+  },
+  {
+    "KodeEmiten": "IFSH",
+    "NamaEmiten": "PT Ifishdeco Tbk."
+  },
+  {
+    "KodeEmiten": "IGAR",
+    "NamaEmiten": "Champion Pacific Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "IIKP",
+    "NamaEmiten": "Inti Agri Resources Tbk"
+  },
+  {
+    "KodeEmiten": "IKAI",
+    "NamaEmiten": "Intikeramik Alamasri Industri Tbk"
+  },
+  {
+    "KodeEmiten": "IKAN",
+    "NamaEmiten": "PT Era Mandiri Cemerlang Tbk"
+  },
+  {
+    "KodeEmiten": "IKBI",
+    "NamaEmiten": "Sumi Indo Kabel Tbk"
+  },
+  {
+    "KodeEmiten": "IKPM",
+    "NamaEmiten": "PT Ikapharmindo Putramas Tbk."
+  },
+  {
+    "KodeEmiten": "IMAS",
+    "NamaEmiten": "Indomobil Sukses Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "IMJS",
+    "NamaEmiten": "PT Indomobil Multi Jasa Tbk."
+  },
+  {
+    "KodeEmiten": "IMPC",
+    "NamaEmiten": "PT Impack Pratama Industri Tbk"
+  },
+  {
+    "KodeEmiten": "INAF",
+    "NamaEmiten": "Indofarma Tbk."
+  },
+  {
+    "KodeEmiten": "INAI",
+    "NamaEmiten": "Indal Aluminium Industry Tbk"
+  },
+  {
+    "KodeEmiten": "INCF",
+    "NamaEmiten": "PT Indo Komoditi Korpora Tbk"
+  },
+  {
+    "KodeEmiten": "INCI",
+    "NamaEmiten": "Intanwijaya Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "INCO",
+    "NamaEmiten": "Vale Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "INDF",
+    "NamaEmiten": "Indofood Sukses Makmur Tbk"
+  },
+  {
+    "KodeEmiten": "INDO",
+    "NamaEmiten": "PT Royalindo Investa Wijaya Tbk"
+  },
+  {
+    "KodeEmiten": "INDR",
+    "NamaEmiten": "PT Indo-Rama Synthetics Tbk"
+  },
+  {
+    "KodeEmiten": "INDS",
+    "NamaEmiten": "Indospring Tbk"
+  },
+  {
+    "KodeEmiten": "INDX",
+    "NamaEmiten": "Tanah Laut Tbk"
+  },
+  {
+    "KodeEmiten": "INDY",
+    "NamaEmiten": "Indika Energy Tbk"
+  },
+  {
+    "KodeEmiten": "INET",
+    "NamaEmiten": "PT Sinergi Inti Andalan Prima Tbk."
+  },
+  {
+    "KodeEmiten": "INKP",
+    "NamaEmiten": "Indah Kiat Pulp & Paper Tbk"
+  },
+  {
+    "KodeEmiten": "INOV",
+    "NamaEmiten": "PT Inocycle Technology Group Tbk."
+  },
+  {
+    "KodeEmiten": "INPC",
+    "NamaEmiten": "Bank Artha Graha Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "INPP",
+    "NamaEmiten": "Indonesian Paradise Property Tbk"
+  },
+  {
+    "KodeEmiten": "INPS",
+    "NamaEmiten": "PT Indah Prakasa Sentosa Tbk."
+  },
+  {
+    "KodeEmiten": "INRU",
+    "NamaEmiten": "Toba Pulp Lestari Tbk"
+  },
+  {
+    "KodeEmiten": "INTA",
+    "NamaEmiten": "Intraco Penta Tbk"
+  },
+  {
+    "KodeEmiten": "INTD",
+    "NamaEmiten": "Inter-Delta Tbk"
+  },
+  {
+    "KodeEmiten": "INTP",
+    "NamaEmiten": "Indocement Tunggal Prakarsa Tbk"
+  },
+  {
+    "KodeEmiten": "IOTF",
+    "NamaEmiten": "PT Sumber Sinergi Makmur Tbk"
+  },
+  {
+    "KodeEmiten": "IPAC",
+    "NamaEmiten": "PT Era Graharealty Tbk"
+  },
+  {
+    "KodeEmiten": "IPCC",
+    "NamaEmiten": "PT Indonesia Kendaraan Terminal Tbk."
+  },
+  {
+    "KodeEmiten": "IPCM",
+    "NamaEmiten": "PT Jasa Armada Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "IPOL",
+    "NamaEmiten": "Indopoly Swakarsa Industry Tbk"
+  },
+  {
+    "KodeEmiten": "IPPE",
+    "NamaEmiten": "PT Indo Pureco Pratama Tbk"
+  },
+  {
+    "KodeEmiten": "IPTV",
+    "NamaEmiten": "PT MNC Vision Networks Tbk."
+  },
+  {
+    "KodeEmiten": "IRRA",
+    "NamaEmiten": "PT Itama Ranoraya Tbk."
+  },
+  {
+    "KodeEmiten": "IRSX",
+    "NamaEmiten": "PT Folago Global Nusantara Tbk"
+  },
+  {
+    "KodeEmiten": "ISAP",
+    "NamaEmiten": "PT Isra Presisi Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ISAT",
+    "NamaEmiten": "PT Indosat Tbk"
+  },
+  {
+    "KodeEmiten": "ISEA",
+    "NamaEmiten": "PT Indo American Seafoods Tbk"
+  },
+  {
+    "KodeEmiten": "ISSP",
+    "NamaEmiten": "PT Steel Pipe Industry of Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ITIC",
+    "NamaEmiten": "PT Indonesian Tobacco Tbk."
+  },
+  {
+    "KodeEmiten": "ITMA",
+    "NamaEmiten": "SUMBER ENERGI ANDALAN Tbk"
+  },
+  {
+    "KodeEmiten": "ITMG",
+    "NamaEmiten": "Indo Tambangraya Megah Tbk"
+  },
+  {
+    "KodeEmiten": "JARR",
+    "NamaEmiten": "PT Jhonlin Agro Raya Tbk"
+  },
+  {
+    "KodeEmiten": "JAST",
+    "NamaEmiten": "PT Jasnita Telekomindo Tbk."
+  },
+  {
+    "KodeEmiten": "JATI",
+    "NamaEmiten": "PT Informasi Teknologi Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "JAWA",
+    "NamaEmiten": "Jaya Agra Wattie Tbk"
+  },
+  {
+    "KodeEmiten": "JAYA",
+    "NamaEmiten": "PT Armada Berjaya Trans Tbk."
+  },
+  {
+    "KodeEmiten": "JECC",
+    "NamaEmiten": "Jembo Cable Company Tbk"
+  },
+  {
+    "KodeEmiten": "JGLE",
+    "NamaEmiten": "PT Graha Andrasentra Propertindo Tbk."
+  },
+  {
+    "KodeEmiten": "JIHD",
+    "NamaEmiten": "Jakarta International Hotels & Development Tbk"
+  },
+  {
+    "KodeEmiten": "JKON",
+    "NamaEmiten": "Jaya Konstruksi Manggala Pratama Tbk"
+  },
+  {
+    "KodeEmiten": "JMAS",
+    "NamaEmiten": "PT Asuransi Jiwa Syariah Jasa Mitra Abadi Tbk"
+  },
+  {
+    "KodeEmiten": "JPFA",
+    "NamaEmiten": "JAPFA Comfeed Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "JRPT",
+    "NamaEmiten": "Jaya Real Property Tbk"
+  },
+  {
+    "KodeEmiten": "JSKY",
+    "NamaEmiten": "PT Sky Energy Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "JSMR",
+    "NamaEmiten": "PT Jasa Marga Tbk"
+  },
+  {
+    "KodeEmiten": "JSPT",
+    "NamaEmiten": "Jakarta Setiabudi Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "JTPE",
+    "NamaEmiten": "Jasuindo Tiga Perkasa Tbk"
+  },
+  {
+    "KodeEmiten": "KAEF",
+    "NamaEmiten": "Kimia Farma Tbk."
+  },
+  {
+    "KodeEmiten": "KAQI",
+    "NamaEmiten": "PT Jantra Grupo Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "KARW",
+    "NamaEmiten": "Meratus Jasa Prima Tbk"
+  },
+  {
+    "KodeEmiten": "KAYU",
+    "NamaEmiten": "PT Darmi Bersaudara Tbk."
+  },
+  {
+    "KodeEmiten": "KBAG",
+    "NamaEmiten": "PT Karya Bersama Anugerah Tbk"
+  },
+  {
+    "KodeEmiten": "KBLI",
+    "NamaEmiten": "KMI Wire and Cable Tbk"
+  },
+  {
+    "KodeEmiten": "KBLM",
+    "NamaEmiten": "Kabelindo Murni Tbk"
+  },
+  {
+    "KodeEmiten": "KBLV",
+    "NamaEmiten": "First Media Tbk"
+  },
+  {
+    "KodeEmiten": "KBRI",
+    "NamaEmiten": "Kertas Basuki Rachmat Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "KDSI",
+    "NamaEmiten": "Kedawung Setia Industrial Tbk"
+  },
+  {
+    "KodeEmiten": "KDTN",
+    "NamaEmiten": "PT Puri Sentul Permai Tbk"
+  },
+  {
+    "KodeEmiten": "KEEN",
+    "NamaEmiten": "PT Kencana Energi Lestari Tbk."
+  },
+  {
+    "KodeEmiten": "KEJU",
+    "NamaEmiten": "PT Mulia Boga Raya Tbk"
+  },
+  {
+    "KodeEmiten": "KETR",
+    "NamaEmiten": "PT Ketrosden Triasmitra Tbk"
+  },
+  {
+    "KodeEmiten": "KIAS",
+    "NamaEmiten": "Keramika Indonesia Assosiasi Tbk"
+  },
+  {
+    "KodeEmiten": "KICI",
+    "NamaEmiten": "Kedaung Indah Can Tbk"
+  },
+  {
+    "KodeEmiten": "KIJA",
+    "NamaEmiten": "Kawasan Industri Jababeka Tbk"
+  },
+  {
+    "KodeEmiten": "KING",
+    "NamaEmiten": "PT Hoffmen Cleanindo Tbk"
+  },
+  {
+    "KodeEmiten": "KINO",
+    "NamaEmiten": "PT Kino Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "KIOS",
+    "NamaEmiten": "PT Kioson Komersial Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "KJEN",
+    "NamaEmiten": "PT Krida Jaringan Nusantara Tbk."
+  },
+  {
+    "KodeEmiten": "KKES",
+    "NamaEmiten": "PT Kusuma Kemindo Sentosa Tbk"
+  },
+  {
+    "KodeEmiten": "KKGI",
+    "NamaEmiten": "Resource Alam Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "KLAS",
+    "NamaEmiten": "PT Pelayaran Kurnia Lautan Semesta Tbk"
+  },
+  {
+    "KodeEmiten": "KLBF",
+    "NamaEmiten": "Kalbe Farma Tbk"
+  },
+  {
+    "KodeEmiten": "KLIN",
+    "NamaEmiten": "PT Klinko Karya Imaji Tbk"
+  },
+  {
+    "KodeEmiten": "KMDS",
+    "NamaEmiten": "PT Kurniamitra Duta Sentosa Tbk."
+  },
+  {
+    "KodeEmiten": "KMTR",
+    "NamaEmiten": "PT Kirana Megatara Tbk."
+  },
+  {
+    "KodeEmiten": "KOBX",
+    "NamaEmiten": "Kobexindo Tractors Tbk"
+  },
+  {
+    "KodeEmiten": "KOCI",
+    "NamaEmiten": "PT Kokoh Exa Nusantara"
+  },
+  {
+    "KodeEmiten": "KOIN",
+    "NamaEmiten": "Kokoh Inti Arebama Tbk"
+  },
+  {
+    "KodeEmiten": "KOKA",
+    "NamaEmiten": "PT Koka Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "KONI",
+    "NamaEmiten": "Perdana Bangun Pusaka Tbk"
+  },
+  {
+    "KodeEmiten": "KOPI",
+    "NamaEmiten": "PT Mitra Energi Persada Tbk"
+  },
+  {
+    "KodeEmiten": "KOTA",
+    "NamaEmiten": "PT DMS Propertindo Tbk."
+  },
+  {
+    "KodeEmiten": "KPIG",
+    "NamaEmiten": "MNC Tourism Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "KRAS",
+    "NamaEmiten": "Krakatau Steel (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "KREN",
+    "NamaEmiten": "PT Quantum Clovera Investama Tbk."
+  },
+  {
+    "KodeEmiten": "KRYA",
+    "NamaEmiten": "PT Bangun Karya Perkasa Jaya Tbk"
+  },
+  {
+    "KodeEmiten": "KSIX",
+    "NamaEmiten": "PT Kentanix Supra International Tbk"
+  },
+  {
+    "KodeEmiten": "KUAS",
+    "NamaEmiten": "PT Ace Oldfields Tbk"
+  },
+  {
+    "KodeEmiten": "LABA",
+    "NamaEmiten": "PT Green Power Group Tbk"
+  },
+  {
+    "KodeEmiten": "LABS",
+    "NamaEmiten": "PT UBC Medical Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "LAJU",
+    "NamaEmiten": "PT Jasa Berdikari Logistics Tbk"
+  },
+  {
+    "KodeEmiten": "LAND",
+    "NamaEmiten": "PT Trimitra Propertindo Tbk."
+  },
+  {
+    "KodeEmiten": "LAPD",
+    "NamaEmiten": "Leyand International Tbk"
+  },
+  {
+    "KodeEmiten": "LCGP",
+    "NamaEmiten": "PT Eureka Prima Jakarta Tbk."
+  },
+  {
+    "KodeEmiten": "LCKM",
+    "NamaEmiten": "PT LCK Global Kedaton Tbk"
+  },
+  {
+    "KodeEmiten": "LEAD",
+    "NamaEmiten": "PT Logindo Samudramakmur Tbk."
+  },
+  {
+    "KodeEmiten": "LFLO",
+    "NamaEmiten": "PT Imago Mulia Persada Tbk"
+  },
+  {
+    "KodeEmiten": "LIFE",
+    "NamaEmiten": "PT MSIG Life Insurance Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "LINK",
+    "NamaEmiten": "PT Link Net Tbk."
+  },
+  {
+    "KodeEmiten": "LION",
+    "NamaEmiten": "Lion Metal Works Tbk"
+  },
+  {
+    "KodeEmiten": "LIVE",
+    "NamaEmiten": "PT Homeco Victoria Makmur Tbk"
+  },
+  {
+    "KodeEmiten": "LMAS",
+    "NamaEmiten": "Limas Indonesia Makmur Tbk"
+  },
+  {
+    "KodeEmiten": "LMAX",
+    "NamaEmiten": "PT Lupromax Pelumas Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "LMPI",
+    "NamaEmiten": "Langgeng Makmur Industri Tbk"
+  },
+  {
+    "KodeEmiten": "LMSH",
+    "NamaEmiten": "Lionmesh Prima Tbk"
+  },
+  {
+    "KodeEmiten": "LOPI",
+    "NamaEmiten": "PT Logisticsplus International Tbk"
+  },
+  {
+    "KodeEmiten": "LPCK",
+    "NamaEmiten": "Lippo Cikarang Tbk"
+  },
+  {
+    "KodeEmiten": "LPGI",
+    "NamaEmiten": "Lippo General Insurance Tbk"
+  },
+  {
+    "KodeEmiten": "LPIN",
+    "NamaEmiten": "Multi Prima Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "LPKR",
+    "NamaEmiten": "Lippo Karawaci Tbk"
+  },
+  {
+    "KodeEmiten": "LPLI",
+    "NamaEmiten": "Star Pacific Tbk"
+  },
+  {
+    "KodeEmiten": "LPPF",
+    "NamaEmiten": "Matahari Department Store Tbk"
+  },
+  {
+    "KodeEmiten": "LPPS",
+    "NamaEmiten": "PT Lenox Pasifik Investama Tbk"
+  },
+  {
+    "KodeEmiten": "LRNA",
+    "NamaEmiten": "PT Eka Sari Lorena Transport Tbk."
+  },
+  {
+    "KodeEmiten": "LSIP",
+    "NamaEmiten": "PP London Sumatra Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "LTLS",
+    "NamaEmiten": "PT Lautan Luas Tbk"
+  },
+  {
+    "KodeEmiten": "LUCK",
+    "NamaEmiten": "PT Sentral Mitra Informatika Tbk."
+  },
+  {
+    "KodeEmiten": "LUCY",
+    "NamaEmiten": "PT Lima Dua Lima Tiga Tbk"
+  },
+  {
+    "KodeEmiten": "MABA",
+    "NamaEmiten": "PT Marga Abhinaya Abadi Tbk"
+  },
+  {
+    "KodeEmiten": "MAGP",
+    "NamaEmiten": "Multi Agro Gemilang Plantation Tbk"
+  },
+  {
+    "KodeEmiten": "MAHA",
+    "NamaEmiten": "PT Mandiri Herindo Adiperkasa Tbk"
+  },
+  {
+    "KodeEmiten": "MAIN",
+    "NamaEmiten": "Malindo Feedmill Tbk"
+  },
+  {
+    "KodeEmiten": "MANG",
+    "NamaEmiten": "PT Manggung Polahraya Tbk"
+  },
+  {
+    "KodeEmiten": "MAPA",
+    "NamaEmiten": "PT Map Aktif Adiperkasa Tbk"
+  },
+  {
+    "KodeEmiten": "MAPB",
+    "NamaEmiten": "PT Map Boga Adiperkasa Tbk"
+  },
+  {
+    "KodeEmiten": "MAPI",
+    "NamaEmiten": "PT Mitra Adiperkasa Tbk"
+  },
+  {
+    "KodeEmiten": "MARI",
+    "NamaEmiten": "PT Mahaka Radio Integra Tbk."
+  },
+  {
+    "KodeEmiten": "MARK",
+    "NamaEmiten": "PT Mark Dynamics Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "MASB",
+    "NamaEmiten": "PT Bank Multiarta Sentosa Tbk"
+  },
+  {
+    "KodeEmiten": "MAXI",
+    "NamaEmiten": "PT Maxindo Karya Anugerah Tbk"
+  },
+  {
+    "KodeEmiten": "MAYA",
+    "NamaEmiten": "PT Bank Mayapada Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "MBAP",
+    "NamaEmiten": "PT Mitrabara Adiperdana Tbk"
+  },
+  {
+    "KodeEmiten": "MBMA",
+    "NamaEmiten": "PT Merdeka Battery Materials Tbk"
+  },
+  {
+    "KodeEmiten": "MBSS",
+    "NamaEmiten": "Mitrabahtera Segara Sejati Tbk"
+  },
+  {
+    "KodeEmiten": "MBTO",
+    "NamaEmiten": "Martina Berto Tbk"
+  },
+  {
+    "KodeEmiten": "MCAS",
+    "NamaEmiten": "PT M Cash Integrasi Tbk"
+  },
+  {
+    "KodeEmiten": "MCOL",
+    "NamaEmiten": "PT Prima Andalan Mandiri Tbk"
+  },
+  {
+    "KodeEmiten": "MCOR",
+    "NamaEmiten": "PT Bank China Construction Bank Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "MDIA",
+    "NamaEmiten": "PT Intermedia Capital Tbk."
+  },
+  {
+    "KodeEmiten": "MDIY",
+    "NamaEmiten": "PT Daya Intiguna Yasa Tbk"
+  },
+  {
+    "KodeEmiten": "MDKA",
+    "NamaEmiten": "PT Merdeka Copper Gold Tbk."
+  },
+  {
+    "KodeEmiten": "MDKI",
+    "NamaEmiten": "PT Emdeki Utama Tbk"
+  },
+  {
+    "KodeEmiten": "MDLA",
+    "NamaEmiten": "PT Medela Potentia Tbk"
+  },
+  {
+    "KodeEmiten": "MDLN",
+    "NamaEmiten": "PT Modernland Realty Tbk."
+  },
+  {
+    "KodeEmiten": "MDRN",
+    "NamaEmiten": "Modern Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "MEDC",
+    "NamaEmiten": "PT Medco Energi Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "MEDS",
+    "NamaEmiten": "PT Hetzer Medical Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "MEGA",
+    "NamaEmiten": "Bank Mega Tbk"
+  },
+  {
+    "KodeEmiten": "MEJA",
+    "NamaEmiten": "PT Harta Djaya Karya Tbk"
+  },
+  {
+    "KodeEmiten": "MENN",
+    "NamaEmiten": "PT Menn Teknologi Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "MERI",
+    "NamaEmiten": "PT Merry Riana Edukasi Tbk"
+  },
+  {
+    "KodeEmiten": "MERK",
+    "NamaEmiten": "Merck Tbk"
+  },
+  {
+    "KodeEmiten": "META",
+    "NamaEmiten": "Nusantara Infrastructure Tbk"
+  },
+  {
+    "KodeEmiten": "MFIN",
+    "NamaEmiten": "PT Adira Dinamika Multi Finance Tbk"
+  },
+  {
+    "KodeEmiten": "MFMI",
+    "NamaEmiten": "Multifiling Mitra Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "MGLV",
+    "NamaEmiten": "PT Panca Anugrah Wisesa Tbk"
+  },
+  {
+    "KodeEmiten": "MGNA",
+    "NamaEmiten": "PT Magna Investama Mandiri Tbk"
+  },
+  {
+    "KodeEmiten": "MGRO",
+    "NamaEmiten": "PT Mahkota Group Tbk."
+  },
+  {
+    "KodeEmiten": "MHKI",
+    "NamaEmiten": "PT Multi Hanna Kreasindo Tbk"
+  },
+  {
+    "KodeEmiten": "MICE",
+    "NamaEmiten": "Multi Indocitra Tbk"
+  },
+  {
+    "KodeEmiten": "MIDI",
+    "NamaEmiten": "Midi Utama Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "MIKA",
+    "NamaEmiten": "PT Mitra Keluarga Karyasehat Tbk."
+  },
+  {
+    "KodeEmiten": "MINA",
+    "NamaEmiten": "PT Sanurhasta Mitra Tbk."
+  },
+  {
+    "KodeEmiten": "MINE",
+    "NamaEmiten": "PT Sinar Terang Mandiri Tbk"
+  },
+  {
+    "KodeEmiten": "MIRA",
+    "NamaEmiten": "Mitra International Resources Tbk"
+  },
+  {
+    "KodeEmiten": "MITI",
+    "NamaEmiten": "Mitra Investindo Tbk"
+  },
+  {
+    "KodeEmiten": "MKAP",
+    "NamaEmiten": "PT Multikarya Asia Pasifik Raya Tbk"
+  },
+  {
+    "KodeEmiten": "MKNT",
+    "NamaEmiten": "PT Mitra Komunikasi Nusantara Tbk."
+  },
+  {
+    "KodeEmiten": "MKPI",
+    "NamaEmiten": "Metropolitan Kentjana Tbk"
+  },
+  {
+    "KodeEmiten": "MKTR",
+    "NamaEmiten": "PT Menthobi Karyatama Raya Tbk"
+  },
+  {
+    "KodeEmiten": "MLBI",
+    "NamaEmiten": "Multi Bintang Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "MLIA",
+    "NamaEmiten": "Mulia Industrindo Tbk"
+  },
+  {
+    "KodeEmiten": "MLPL",
+    "NamaEmiten": "Multipolar Tbk"
+  },
+  {
+    "KodeEmiten": "MLPT",
+    "NamaEmiten": "PT Multipolar Technology Tbk."
+  },
+  {
+    "KodeEmiten": "MMIX",
+    "NamaEmiten": "PT Multi Medika Internasional Tbk"
+  },
+  {
+    "KodeEmiten": "MMLP",
+    "NamaEmiten": "PT Mega Manunggal Property Tbk."
+  },
+  {
+    "KodeEmiten": "MNCN",
+    "NamaEmiten": "Media Nusantara Citra Tbk"
+  },
+  {
+    "KodeEmiten": "MOLI",
+    "NamaEmiten": "PT Madusari Murni Indah Tbk."
+  },
+  {
+    "KodeEmiten": "MORA",
+    "NamaEmiten": "PT Mora Telematika Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "MPIX",
+    "NamaEmiten": "PT Mitra Pedagang Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "MPMX",
+    "NamaEmiten": "PT Mitra Pinasthika Mustika Tbk."
+  },
+  {
+    "KodeEmiten": "MPOW",
+    "NamaEmiten": "PT Megapower Makmur Tbk."
+  },
+  {
+    "KodeEmiten": "MPPA",
+    "NamaEmiten": "Matahari Putra Prima Tbk"
+  },
+  {
+    "KodeEmiten": "MPRO",
+    "NamaEmiten": "PT Maha Properti Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "MPXL",
+    "NamaEmiten": "PT MPX Logistics International Tbk"
+  },
+  {
+    "KodeEmiten": "MRAT",
+    "NamaEmiten": "Mustika Ratu Tbk"
+  },
+  {
+    "KodeEmiten": "MREI",
+    "NamaEmiten": "Maskapai Reasuransi Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "MSIE",
+    "NamaEmiten": "PT Multisarana Intan Eduka Tbk"
+  },
+  {
+    "KodeEmiten": "MSIN",
+    "NamaEmiten": "PT MNC Digital Entertainment Tbk"
+  },
+  {
+    "KodeEmiten": "MSJA",
+    "NamaEmiten": "PT Multi Spunindo Jaya Tbk."
+  },
+  {
+    "KodeEmiten": "MSKY",
+    "NamaEmiten": "MNC Sky Vision Tbk"
+  },
+  {
+    "KodeEmiten": "MSTI",
+    "NamaEmiten": "PT Mastersystem Infotama Tbk."
+  },
+  {
+    "KodeEmiten": "MTDL",
+    "NamaEmiten": "Metrodata Electronics Tbk"
+  },
+  {
+    "KodeEmiten": "MTEL",
+    "NamaEmiten": "PT Dayamitra Telekomunikasi Tbk"
+  },
+  {
+    "KodeEmiten": "MTFN",
+    "NamaEmiten": "Capitalinc Investment Tbk"
+  },
+  {
+    "KodeEmiten": "MTLA",
+    "NamaEmiten": "Metropolitan Land Tbk"
+  },
+  {
+    "KodeEmiten": "MTMH",
+    "NamaEmiten": "PT Murni Sadar Tbk"
+  },
+  {
+    "KodeEmiten": "MTPS",
+    "NamaEmiten": "PT Meta Epsi Tbk."
+  },
+  {
+    "KodeEmiten": "MTRA",
+    "NamaEmiten": "PT Mitra Pemuda Tbk."
+  },
+  {
+    "KodeEmiten": "MTSM",
+    "NamaEmiten": "Metro Realty Tbk"
+  },
+  {
+    "KodeEmiten": "MTWI",
+    "NamaEmiten": "PT Malacca Trust Wuwungan Insurance Tbk."
+  },
+  {
+    "KodeEmiten": "MUTU",
+    "NamaEmiten": "PT Mutuagung Lestari Tbk"
+  },
+  {
+    "KodeEmiten": "MYOH",
+    "NamaEmiten": "Samindo Resources Tbk"
+  },
+  {
+    "KodeEmiten": "MYOR",
+    "NamaEmiten": "Mayora Indah Tbk"
+  },
+  {
+    "KodeEmiten": "MYTX",
+    "NamaEmiten": "PT Asia Pacific Investama Tbk."
+  },
+  {
+    "KodeEmiten": "NAIK",
+    "NamaEmiten": "PT Adiwarna Anugerah Abadi Tbk"
+  },
+  {
+    "KodeEmiten": "NANO",
+    "NamaEmiten": "PT Nanotech Indonesia Global Tbk"
+  },
+  {
+    "KodeEmiten": "NASA",
+    "NamaEmiten": "PT Andalan Perkasa Abadi Tbk"
+  },
+  {
+    "KodeEmiten": "NASI",
+    "NamaEmiten": "PT Wahana Inti Makmur Tbk"
+  },
+  {
+    "KodeEmiten": "NATO",
+    "NamaEmiten": "PT Olympus Strategic Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "NAYZ",
+    "NamaEmiten": "PT Hassana Boga Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "NCKL",
+    "NamaEmiten": "PT Trimegah Bangun Persada Tbk."
+  },
+  {
+    "KodeEmiten": "NELY",
+    "NamaEmiten": "Pelayaran Nelly Dwi Putri Tbk"
+  },
+  {
+    "KodeEmiten": "NEST",
+    "NamaEmiten": "PT Esta Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "NETV",
+    "NamaEmiten": "PT MDTV Media Technologies Tbk"
+  },
+  {
+    "KodeEmiten": "NFCX",
+    "NamaEmiten": "PT NFC Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "NICE",
+    "NamaEmiten": "PT Adhi Kartiko Pratama Tbk"
+  },
+  {
+    "KodeEmiten": "NICK",
+    "NamaEmiten": "PT Charnic Capital Tbk."
+  },
+  {
+    "KodeEmiten": "NICL",
+    "NamaEmiten": "PT PAM Mineral Tbk"
+  },
+  {
+    "KodeEmiten": "NIKL",
+    "NamaEmiten": "Pelat Timah Nusantara Tbk"
+  },
+  {
+    "KodeEmiten": "NINE",
+    "NamaEmiten": "PT Techno9 Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "NIRO",
+    "NamaEmiten": "City Retail Developments Tbk"
+  },
+  {
+    "KodeEmiten": "NISP",
+    "NamaEmiten": "PT Bank OCBC NISP Tbk"
+  },
+  {
+    "KodeEmiten": "NOBU",
+    "NamaEmiten": "PT Bank Nationalnobu Tbk."
+  },
+  {
+    "KodeEmiten": "NPGF",
+    "NamaEmiten": "PT Nusa Palapa Gemilang Tbk"
+  },
+  {
+    "KodeEmiten": "NRCA",
+    "NamaEmiten": "PT Nusa Raya Cipta Tbk."
+  },
+  {
+    "KodeEmiten": "NSSS",
+    "NamaEmiten": "PT Nusantara Sawit Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "NTBK",
+    "NamaEmiten": "PT Nusatama Berkah Tbk"
+  },
+  {
+    "KodeEmiten": "NUSA",
+    "NamaEmiten": "PT Sinergi Megah Internusa Tbk"
+  },
+  {
+    "KodeEmiten": "NZIA",
+    "NamaEmiten": "PT Nusantara Almazia, Tbk."
+  },
+  {
+    "KodeEmiten": "OASA",
+    "NamaEmiten": "PT Maharaksa Biru Energi Tbk"
+  },
+  {
+    "KodeEmiten": "OBAT",
+    "NamaEmiten": "PT Brigit Biofarmaka Teknologi Tbk"
+  },
+  {
+    "KodeEmiten": "OBMD",
+    "NamaEmiten": "PT OBM Drilchem Tbk"
+  },
+  {
+    "KodeEmiten": "OCAP",
+    "NamaEmiten": "ONIX CAPITAL Tbk"
+  },
+  {
+    "KodeEmiten": "OILS",
+    "NamaEmiten": "PT Indo Oil Perkasa Tbk"
+  },
+  {
+    "KodeEmiten": "OKAS",
+    "NamaEmiten": "Ancora Indonesia Resources Tbk"
+  },
+  {
+    "KodeEmiten": "OLIV",
+    "NamaEmiten": "PT Oscar Mitra Sukses Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "OMED",
+    "NamaEmiten": "PT Jayamas Medica Industri Tbk"
+  },
+  {
+    "KodeEmiten": "OMRE",
+    "NamaEmiten": "Indonesia Prima Property Tbk"
+  },
+  {
+    "KodeEmiten": "OPMS",
+    "NamaEmiten": "PT Optima Prima Metal Sinergi Tbk."
+  },
+  {
+    "KodeEmiten": "PACK",
+    "NamaEmiten": "PT Abadi Nusantara Hijau Investama Tbk"
+  },
+  {
+    "KodeEmiten": "PADA",
+    "NamaEmiten": "PT Personel Alih Daya Tbk"
+  },
+  {
+    "KodeEmiten": "PADI",
+    "NamaEmiten": "Minna Padi Investama Sekuritas Tbk"
+  },
+  {
+    "KodeEmiten": "PALM",
+    "NamaEmiten": "PT Provident Investasi Bersama Tbk"
+  },
+  {
+    "KodeEmiten": "PAMG",
+    "NamaEmiten": "PT Bima Sakti Pertiwi Tbk"
+  },
+  {
+    "KodeEmiten": "PANI",
+    "NamaEmiten": "PT Pantai Indah Kapuk Dua Tbk."
+  },
+  {
+    "KodeEmiten": "PANR",
+    "NamaEmiten": "Panorama Sentrawisata Tbk"
+  },
+  {
+    "KodeEmiten": "PANS",
+    "NamaEmiten": "Panin Sekuritas Tbk"
+  },
+  {
+    "KodeEmiten": "PART",
+    "NamaEmiten": "PT Cipta Perdana Lancar Tbk"
+  },
+  {
+    "KodeEmiten": "PBID",
+    "NamaEmiten": "PT Panca Budi Idaman Tbk"
+  },
+  {
+    "KodeEmiten": "PBRX",
+    "NamaEmiten": "Pan Brothers Tbk"
+  },
+  {
+    "KodeEmiten": "PBSA",
+    "NamaEmiten": "PT Paramita Bangun Sarana Tbk"
+  },
+  {
+    "KodeEmiten": "PCAR",
+    "NamaEmiten": "PT Prima Cakrawala Abadi Tbk"
+  },
+  {
+    "KodeEmiten": "PDES",
+    "NamaEmiten": "Destinasi Tirta Nusantara Tbk"
+  },
+  {
+    "KodeEmiten": "PDPP",
+    "NamaEmiten": "PT Primadaya Plastisindo Tbk"
+  },
+  {
+    "KodeEmiten": "PEGE",
+    "NamaEmiten": "PT Panca Global Kapital Tbk."
+  },
+  {
+    "KodeEmiten": "PEHA",
+    "NamaEmiten": "PT Phapros Tbk"
+  },
+  {
+    "KodeEmiten": "PEVE",
+    "NamaEmiten": "PT Penta Valent Tbk"
+  },
+  {
+    "KodeEmiten": "PGAS",
+    "NamaEmiten": "PT Perusahaan Gas Negara (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "PGEO",
+    "NamaEmiten": "PT Pertamina Geothermal Energy Tbk"
+  },
+  {
+    "KodeEmiten": "PGJO",
+    "NamaEmiten": "PT Bahtera Bumi Raya Tbk"
+  },
+  {
+    "KodeEmiten": "PGLI",
+    "NamaEmiten": "Pembangunan Graha Lestari Indah Tbk"
+  },
+  {
+    "KodeEmiten": "PGUN",
+    "NamaEmiten": "PT Pradiksi Gunatama Tbk"
+  },
+  {
+    "KodeEmiten": "PICO",
+    "NamaEmiten": "Pelangi Indah Canindo Tbk"
+  },
+  {
+    "KodeEmiten": "PIPA",
+    "NamaEmiten": "PT Multi Makmur Lemindo Tbk."
+  },
+  {
+    "KodeEmiten": "PJAA",
+    "NamaEmiten": "Pembangunan Jaya Ancol Tbk"
+  },
+  {
+    "KodeEmiten": "PJHB",
+    "NamaEmiten": "PT Pelayaran Jaya Hidup Baru Tbk"
+  },
+  {
+    "KodeEmiten": "PKPK",
+    "NamaEmiten": "Paragon Karya Perkasa Tbk"
+  },
+  {
+    "KodeEmiten": "PLAN",
+    "NamaEmiten": "PT Planet Properindo Jaya Tbk"
+  },
+  {
+    "KodeEmiten": "PLAS",
+    "NamaEmiten": "Polaris Investama Tbk"
+  },
+  {
+    "KodeEmiten": "PLIN",
+    "NamaEmiten": "Plaza Indonesia Realty Tbk"
+  },
+  {
+    "KodeEmiten": "PMJS",
+    "NamaEmiten": "PT Putra Mandiri Jembar Tbk"
+  },
+  {
+    "KodeEmiten": "PMMP",
+    "NamaEmiten": "PT Panca Mitra Multiperdana Tbk."
+  },
+  {
+    "KodeEmiten": "PMUI",
+    "NamaEmiten": "PT Prima Multi Usaha Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "PNBN",
+    "NamaEmiten": "Bank Pan Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "PNBS",
+    "NamaEmiten": "PT Bank Panin Dubai Syariah Tbk."
+  },
+  {
+    "KodeEmiten": "PNGO",
+    "NamaEmiten": "PT Pinago Utama Tbk"
+  },
+  {
+    "KodeEmiten": "PNIN",
+    "NamaEmiten": "Paninvest Tbk"
+  },
+  {
+    "KodeEmiten": "PNLF",
+    "NamaEmiten": "Panin Financial Tbk"
+  },
+  {
+    "KodeEmiten": "PNSE",
+    "NamaEmiten": "Pudjiadi & Sons Tbk"
+  },
+  {
+    "KodeEmiten": "POLA",
+    "NamaEmiten": "PT Pool Advista Finance Tbk."
+  },
+  {
+    "KodeEmiten": "POLI",
+    "NamaEmiten": "PT Pollux Hotels Group Tbk"
+  },
+  {
+    "KodeEmiten": "POLL",
+    "NamaEmiten": "PT Pollux Properties Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "POLU",
+    "NamaEmiten": "PT Golden Flower Tbk."
+  },
+  {
+    "KodeEmiten": "POLY",
+    "NamaEmiten": "Asia Pacific Fibers Tbk"
+  },
+  {
+    "KodeEmiten": "POOL",
+    "NamaEmiten": "Pool Advista Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "PORT",
+    "NamaEmiten": "PT Nusantara Pelabuhan Handal Tbk."
+  },
+  {
+    "KodeEmiten": "POSA",
+    "NamaEmiten": "PT Bliss Properti Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "POWR",
+    "NamaEmiten": "PT Cikarang Listrindo Tbk."
+  },
+  {
+    "KodeEmiten": "PPGL",
+    "NamaEmiten": "PT Prima Globalindo Logistik Tbk."
+  },
+  {
+    "KodeEmiten": "PPRE",
+    "NamaEmiten": "PT PP Presisi Tbk."
+  },
+  {
+    "KodeEmiten": "PPRI",
+    "NamaEmiten": "PT Paperocks Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "PPRO",
+    "NamaEmiten": "PT PP Properti Tbk."
+  },
+  {
+    "KodeEmiten": "PRAY",
+    "NamaEmiten": "PT Famon Awal Bros Sedaya Tbk"
+  },
+  {
+    "KodeEmiten": "PRDA",
+    "NamaEmiten": "PT Prodia Widyahusada Tbk."
+  },
+  {
+    "KodeEmiten": "PRIM",
+    "NamaEmiten": "PT Royal Prima Tbk."
+  },
+  {
+    "KodeEmiten": "PSAB",
+    "NamaEmiten": "J RESOURCES ASIA PASIFIK Tbk"
+  },
+  {
+    "KodeEmiten": "PSAT",
+    "NamaEmiten": "PT Pancaran Samudera Transport Tbk"
+  },
+  {
+    "KodeEmiten": "PSDN",
+    "NamaEmiten": "Prasidha Aneka Niaga Tbk"
+  },
+  {
+    "KodeEmiten": "PSGO",
+    "NamaEmiten": "PT Palma Serasih Tbk."
+  },
+  {
+    "KodeEmiten": "PSKT",
+    "NamaEmiten": "PT Red Planet Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "PSSI",
+    "NamaEmiten": "PT IMC Pelita Logistik Tbk"
+  },
+  {
+    "KodeEmiten": "PTBA",
+    "NamaEmiten": "PT Bukit Asam (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "PTDU",
+    "NamaEmiten": "PT Djasa Ubersakti Tbk"
+  },
+  {
+    "KodeEmiten": "PTIS",
+    "NamaEmiten": "Indo Straits Tbk"
+  },
+  {
+    "KodeEmiten": "PTMP",
+    "NamaEmiten": "PT Mitra Pack Tbk."
+  },
+  {
+    "KodeEmiten": "PTMR",
+    "NamaEmiten": "PT Master Print Tbk"
+  },
+  {
+    "KodeEmiten": "PTPP",
+    "NamaEmiten": "PP (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "PTPS",
+    "NamaEmiten": "PT Pulau Subur Tbk."
+  },
+  {
+    "KodeEmiten": "PTPW",
+    "NamaEmiten": "PT Pratama Widya Tbk."
+  },
+  {
+    "KodeEmiten": "PTRO",
+    "NamaEmiten": "Petrosea Tbk"
+  },
+  {
+    "KodeEmiten": "PTSN",
+    "NamaEmiten": "Sat Nusapersada Tbk"
+  },
+  {
+    "KodeEmiten": "PTSP",
+    "NamaEmiten": "Pioneerindo Gourmet International Tbk"
+  },
+  {
+    "KodeEmiten": "PUDP",
+    "NamaEmiten": "Pudjiadi Prestige Tbk"
+  },
+  {
+    "KodeEmiten": "PURA",
+    "NamaEmiten": "PT Putra Rajawali Kencana Tbk."
+  },
+  {
+    "KodeEmiten": "PURE",
+    "NamaEmiten": "PT Trinitan Metals and Minerals Tbk"
+  },
+  {
+    "KodeEmiten": "PURI",
+    "NamaEmiten": "PT Puri Global Sukses Tbk"
+  },
+  {
+    "KodeEmiten": "PWON",
+    "NamaEmiten": "Pakuwon Jati Tbk"
+  },
+  {
+    "KodeEmiten": "PYFA",
+    "NamaEmiten": "PT Pyridam Farma Tbk"
+  },
+  {
+    "KodeEmiten": "PZZA",
+    "NamaEmiten": "PT Sarimelati Kencana Tbk."
+  },
+  {
+    "KodeEmiten": "RAAM",
+    "NamaEmiten": "PT Tripar Multivision Plus Tbk."
+  },
+  {
+    "KodeEmiten": "RAFI",
+    "NamaEmiten": "PT Sari Kreasi Boga Tbk"
+  },
+  {
+    "KodeEmiten": "RAJA",
+    "NamaEmiten": "Rukun Raharja Tbk"
+  },
+  {
+    "KodeEmiten": "RALS",
+    "NamaEmiten": "Ramayana Lestari Sentosa Tbk"
+  },
+  {
+    "KodeEmiten": "RANC",
+    "NamaEmiten": "Supra Boga Lestari Tbk"
+  },
+  {
+    "KodeEmiten": "RATU",
+    "NamaEmiten": "PT Raharja Energi Cepu Tbk"
+  },
+  {
+    "KodeEmiten": "RBMS",
+    "NamaEmiten": "Ristia Bintang Mahkotasejati Tbk"
+  },
+  {
+    "KodeEmiten": "RCCC",
+    "NamaEmiten": "PT Utama Radar Cahaya Tbk"
+  },
+  {
+    "KodeEmiten": "RDTX",
+    "NamaEmiten": "Roda Vivatex Tbk"
+  },
+  {
+    "KodeEmiten": "REAL",
+    "NamaEmiten": "PT Repower Asia Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "RELF",
+    "NamaEmiten": "PT Graha Mitra Asia Tbk."
+  },
+  {
+    "KodeEmiten": "RELI",
+    "NamaEmiten": "Reliance Sekuritas Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "RGAS",
+    "NamaEmiten": "PT Kian Santang Muliatama Tbk."
+  },
+  {
+    "KodeEmiten": "RICY",
+    "NamaEmiten": "Ricky Putra Globalindo Tbk"
+  },
+  {
+    "KodeEmiten": "RIGS",
+    "NamaEmiten": "Rig Tenders Tbk"
+  },
+  {
+    "KodeEmiten": "RIMO",
+    "NamaEmiten": "PT Rimo International Lestari Tbk."
+  },
+  {
+    "KodeEmiten": "RISE",
+    "NamaEmiten": "PT Jaya Sukses Makmur Sentosa Tbk."
+  },
+  {
+    "KodeEmiten": "RLCO",
+    "NamaEmiten": "PT Abadi Lestari Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "RMKE",
+    "NamaEmiten": "PT RMK Energy Tbk"
+  },
+  {
+    "KodeEmiten": "RMKO",
+    "NamaEmiten": "PT Royaltama Mulia Kontraktorindo Tbk."
+  },
+  {
+    "KodeEmiten": "ROCK",
+    "NamaEmiten": "PT Rockfields Properti Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "RODA",
+    "NamaEmiten": "Pikko Land Development Tbk"
+  },
+  {
+    "KodeEmiten": "RONY",
+    "NamaEmiten": "PT Aracord Nusantara Group Tbk"
+  },
+  {
+    "KodeEmiten": "ROTI",
+    "NamaEmiten": "PT Nippon Indosari Corpindo Tbk"
+  },
+  {
+    "KodeEmiten": "RSCH",
+    "NamaEmiten": "PT Charlie Hospital Semarang Tbk."
+  },
+  {
+    "KodeEmiten": "RSGK",
+    "NamaEmiten": "PT Kedoya Adyaraya Tbk"
+  },
+  {
+    "KodeEmiten": "RUIS",
+    "NamaEmiten": "Radiant Utama Interinsco Tbk"
+  },
+  {
+    "KodeEmiten": "RUNS",
+    "NamaEmiten": "PT Global Sukses Solusi Tbk"
+  },
+  {
+    "KodeEmiten": "SAFE",
+    "NamaEmiten": "Steady Safe Tbk"
+  },
+  {
+    "KodeEmiten": "SAGE",
+    "NamaEmiten": "PT Saptausaha Gemilangindah Tbk"
+  },
+  {
+    "KodeEmiten": "SAME",
+    "NamaEmiten": "Sarana Meditama Metropolitan Tbk"
+  },
+  {
+    "KodeEmiten": "SAMF",
+    "NamaEmiten": "PT Saraswanti Anugerah Makmur Tbk."
+  },
+  {
+    "KodeEmiten": "SAPX",
+    "NamaEmiten": "PT Satria Antaran Prima Tbk."
+  },
+  {
+    "KodeEmiten": "SATU",
+    "NamaEmiten": "PT Kota Satu Properti Tbk."
+  },
+  {
+    "KodeEmiten": "SBAT",
+    "NamaEmiten": "PT Sejahtera Bintang Abadi Textile Tbk."
+  },
+  {
+    "KodeEmiten": "SBMA",
+    "NamaEmiten": "PT Surya Biru Murni Acetylene Tbk"
+  },
+  {
+    "KodeEmiten": "SCCO",
+    "NamaEmiten": "PT Supreme Cable Manufacturing & Commerce Tbk"
+  },
+  {
+    "KodeEmiten": "SCMA",
+    "NamaEmiten": "Surya Citra Media Tbk"
+  },
+  {
+    "KodeEmiten": "SCNP",
+    "NamaEmiten": "PT Selaras Citra Nusantara Perkasa Tbk"
+  },
+  {
+    "KodeEmiten": "SCPI",
+    "NamaEmiten": "PT Organon Pharma Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "SDMU",
+    "NamaEmiten": "Sidomulyo Selaras Tbk"
+  },
+  {
+    "KodeEmiten": "SDPC",
+    "NamaEmiten": "Millennium Pharmacon International Tbk"
+  },
+  {
+    "KodeEmiten": "SDRA",
+    "NamaEmiten": "PT Bank Woori Saudara Indonesia 1906 Tbk"
+  },
+  {
+    "KodeEmiten": "SEMA",
+    "NamaEmiten": "PT Semacom Integrated Tbk"
+  },
+  {
+    "KodeEmiten": "SFAN",
+    "NamaEmiten": "PT Surya Fajar Capital Tbk"
+  },
+  {
+    "KodeEmiten": "SGER",
+    "NamaEmiten": "PT Sumber Global Energy Tbk."
+  },
+  {
+    "KodeEmiten": "SGRO",
+    "NamaEmiten": "PT Prime Agri Resources Tbk"
+  },
+  {
+    "KodeEmiten": "SHID",
+    "NamaEmiten": "Hotel Sahid Jaya Tbk"
+  },
+  {
+    "KodeEmiten": "SHIP",
+    "NamaEmiten": "PT Sillo Maritime Perdana Tbk"
+  },
+  {
+    "KodeEmiten": "SICO",
+    "NamaEmiten": "PT Sigma Energy Compressindo Tbk"
+  },
+  {
+    "KodeEmiten": "SIDO",
+    "NamaEmiten": "PT Industri Jamu Dan Farmasi Sido Muncul Tbk"
+  },
+  {
+    "KodeEmiten": "SILO",
+    "NamaEmiten": "PT Siloam International Hospitals Tbk."
+  },
+  {
+    "KodeEmiten": "SIMA",
+    "NamaEmiten": "Siwani Makmur Tbk"
+  },
+  {
+    "KodeEmiten": "SIMP",
+    "NamaEmiten": "Salim Ivomas Pratama Tbk"
+  },
+  {
+    "KodeEmiten": "SINI",
+    "NamaEmiten": "PT Singaraja Putra Tbk."
+  },
+  {
+    "KodeEmiten": "SIPD",
+    "NamaEmiten": "PT Sreeya Sewu Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "SKBM",
+    "NamaEmiten": "Sekar Bumi Tbk"
+  },
+  {
+    "KodeEmiten": "SKLT",
+    "NamaEmiten": "Sekar Laut Tbk"
+  },
+  {
+    "KodeEmiten": "SKRN",
+    "NamaEmiten": "PT Superkrane Mitra Utama Tbk"
+  },
+  {
+    "KodeEmiten": "SKYB",
+    "NamaEmiten": "PT Northcliff Citranusa Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "SLIS",
+    "NamaEmiten": "PT Gaya Abadi Sempurna Tbk"
+  },
+  {
+    "KodeEmiten": "SMAR",
+    "NamaEmiten": "PT Sinar Mas Agro Resources and Technology Tbk"
+  },
+  {
+    "KodeEmiten": "SMBR",
+    "NamaEmiten": "PT Semen Baturaja (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "SMCB",
+    "NamaEmiten": "PT Solusi Bangun Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "SMDM",
+    "NamaEmiten": "Suryamas Dutamakmur Tbk"
+  },
+  {
+    "KodeEmiten": "SMDR",
+    "NamaEmiten": "Samudera Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "SMGA",
+    "NamaEmiten": "PT Sumber Mineral Global Abadi Tbk"
+  },
+  {
+    "KodeEmiten": "SMGR",
+    "NamaEmiten": "Semen Indonesia (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "SMIL",
+    "NamaEmiten": "PT Sarana Mitra Luas Tbk"
+  },
+  {
+    "KodeEmiten": "SMKL",
+    "NamaEmiten": "PT Satyamitra Kemas Lestari Tbk"
+  },
+  {
+    "KodeEmiten": "SMKM",
+    "NamaEmiten": "PT Sumber Mas Konstruksi Tbk"
+  },
+  {
+    "KodeEmiten": "SMLE",
+    "NamaEmiten": "PT Sinergi Multi Lestarindo Tbk"
+  },
+  {
+    "KodeEmiten": "SMMA",
+    "NamaEmiten": "PT Sinar Mas Multiartha Tbk"
+  },
+  {
+    "KodeEmiten": "SMMT",
+    "NamaEmiten": "GOLDEN EAGLE ENERGY Tbk"
+  },
+  {
+    "KodeEmiten": "SMRA",
+    "NamaEmiten": "PT Summarecon Agung Tbk"
+  },
+  {
+    "KodeEmiten": "SMRU",
+    "NamaEmiten": "SMR Utama Tbk"
+  },
+  {
+    "KodeEmiten": "SMSM",
+    "NamaEmiten": "Selamat Sempurna Tbk"
+  },
+  {
+    "KodeEmiten": "SNLK",
+    "NamaEmiten": "PT Sunter Lakeside Hotel Tbk."
+  },
+  {
+    "KodeEmiten": "SOCI",
+    "NamaEmiten": "PT Soechi Lines Tbk."
+  },
+  {
+    "KodeEmiten": "SOFA",
+    "NamaEmiten": "PT Solusi Environment Asia Tbk"
+  },
+  {
+    "KodeEmiten": "SOHO",
+    "NamaEmiten": "PT Soho Global Health Tbk"
+  },
+  {
+    "KodeEmiten": "SOLA",
+    "NamaEmiten": "PT Xolare RCR Energy Tbk"
+  },
+  {
+    "KodeEmiten": "SONA",
+    "NamaEmiten": "Sona Topas Tourism Industry Tbk"
+  },
+  {
+    "KodeEmiten": "SOSS",
+    "NamaEmiten": "PT Shield On Service Tbk."
+  },
+  {
+    "KodeEmiten": "SOTS",
+    "NamaEmiten": "PT Satria Mega Kencana Tbk."
+  },
+  {
+    "KodeEmiten": "SOUL",
+    "NamaEmiten": "PT Mitra Tirta Buwana Tbk"
+  },
+  {
+    "KodeEmiten": "SPMA",
+    "NamaEmiten": "Suparma Tbk"
+  },
+  {
+    "KodeEmiten": "SPRE",
+    "NamaEmiten": "PT Soraya Berjaya Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "SPTO",
+    "NamaEmiten": "PT Surya Pertiwi Tbk"
+  },
+  {
+    "KodeEmiten": "SQMI",
+    "NamaEmiten": "Wilton Makmur Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "SRAJ",
+    "NamaEmiten": "Sejahteraraya Anugrahjaya Tbk"
+  },
+  {
+    "KodeEmiten": "SRIL",
+    "NamaEmiten": "PT Sri Rejeki Isman Tbk"
+  },
+  {
+    "KodeEmiten": "SRSN",
+    "NamaEmiten": "Indo Acidatama Tbk"
+  },
+  {
+    "KodeEmiten": "SRTG",
+    "NamaEmiten": "PT Saratoga Investama Sedaya Tbk."
+  },
+  {
+    "KodeEmiten": "SSIA",
+    "NamaEmiten": "PT Surya Semesta Internusa Tbk"
+  },
+  {
+    "KodeEmiten": "SSMS",
+    "NamaEmiten": "PT Sawit Sumbermas Sarana Tbk."
+  },
+  {
+    "KodeEmiten": "SSTM",
+    "NamaEmiten": "Sunson Textile Manufacturer Tbk"
+  },
+  {
+    "KodeEmiten": "STAA",
+    "NamaEmiten": "PT Sumber Tani Agung Resources Tbk"
+  },
+  {
+    "KodeEmiten": "STAR",
+    "NamaEmiten": "PT Buana Artha Anugerah Tbk."
+  },
+  {
+    "KodeEmiten": "STRK",
+    "NamaEmiten": "PT Lovina Beach Brewery Tbk."
+  },
+  {
+    "KodeEmiten": "STTP",
+    "NamaEmiten": "PT Siantar Top Tbk"
+  },
+  {
+    "KodeEmiten": "SUGI",
+    "NamaEmiten": "Sugih Energy Tbk"
+  },
+  {
+    "KodeEmiten": "SULI",
+    "NamaEmiten": "PT SLJ Global Tbk"
+  },
+  {
+    "KodeEmiten": "SUNI",
+    "NamaEmiten": "PT Sunindo Pratama Tbk"
+  },
+  {
+    "KodeEmiten": "SUPA",
+    "NamaEmiten": "PT Super Bank Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "SUPR",
+    "NamaEmiten": "Solusi Tunas Pratama Tbk"
+  },
+  {
+    "KodeEmiten": "SURE",
+    "NamaEmiten": "PT Super Energy Tbk."
+  },
+  {
+    "KodeEmiten": "SURI",
+    "NamaEmiten": "PT Maja Agung Latexindo Tbk."
+  },
+  {
+    "KodeEmiten": "SWAT",
+    "NamaEmiten": "PT Sriwahana Adityakarta Tbk."
+  },
+  {
+    "KodeEmiten": "SWID",
+    "NamaEmiten": "PT Saraswanti Indoland Development Tbk"
+  },
+  {
+    "KodeEmiten": "TALF",
+    "NamaEmiten": "PT Tunas Alfin Tbk"
+  },
+  {
+    "KodeEmiten": "TAMA",
+    "NamaEmiten": "PT Lancartama Sejati Tbk."
+  },
+  {
+    "KodeEmiten": "TAMU",
+    "NamaEmiten": "PT Pelayaran Tamarin Samudra Tbk."
+  },
+  {
+    "KodeEmiten": "TAPG",
+    "NamaEmiten": "PT Triputra Agro Persada Tbk."
+  },
+  {
+    "KodeEmiten": "TARA",
+    "NamaEmiten": "PT Agung Semesta Sejahtera Tbk"
+  },
+  {
+    "KodeEmiten": "TAXI",
+    "NamaEmiten": "Express Transindo Utama Tbk"
+  },
+  {
+    "KodeEmiten": "TAYS",
+    "NamaEmiten": "PT Jaya Swarasa Agung Tbk"
+  },
+  {
+    "KodeEmiten": "TBIG",
+    "NamaEmiten": "PT Tower Bersama Infrastructure Tbk"
+  },
+  {
+    "KodeEmiten": "TBLA",
+    "NamaEmiten": "Tunas Baru Lampung Tbk"
+  },
+  {
+    "KodeEmiten": "TBMS",
+    "NamaEmiten": "Tembaga Mulia Semanan Tbk"
+  },
+  {
+    "KodeEmiten": "TCID",
+    "NamaEmiten": "Mandom Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "TCPI",
+    "NamaEmiten": "PT Transcoal Pacific Tbk."
+  },
+  {
+    "KodeEmiten": "TDPM",
+    "NamaEmiten": "PT Tianrong Chemicals Industry Tbk"
+  },
+  {
+    "KodeEmiten": "TEBE",
+    "NamaEmiten": "PT Dana Brata Luhur Tbk."
+  },
+  {
+    "KodeEmiten": "TECH",
+    "NamaEmiten": "PT Indosterling Technomedia Tbk"
+  },
+  {
+    "KodeEmiten": "TELE",
+    "NamaEmiten": "PT Omni Inovasi Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "TFAS",
+    "NamaEmiten": "PT Telefast Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "TFCO",
+    "NamaEmiten": "Tifico Fiber Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "TGKA",
+    "NamaEmiten": "Tigaraksa Satria Tbk"
+  },
+  {
+    "KodeEmiten": "TGRA",
+    "NamaEmiten": "PT Terregra Asia Energy"
+  },
+  {
+    "KodeEmiten": "TGUK",
+    "NamaEmiten": "PT Platinum Wahab Nusantara Tbk."
+  },
+  {
+    "KodeEmiten": "TIFA",
+    "NamaEmiten": "KDB Tifa Finance Tbk"
+  },
+  {
+    "KodeEmiten": "TINS",
+    "NamaEmiten": "PT Timah Tbk."
+  },
+  {
+    "KodeEmiten": "TIRA",
+    "NamaEmiten": "Tira Austenite Tbk"
+  },
+  {
+    "KodeEmiten": "TIRT",
+    "NamaEmiten": "Tirta Mahakam Resources Tbk"
+  },
+  {
+    "KodeEmiten": "TKIM",
+    "NamaEmiten": "Pabrik Kertas Tjiwi Kimia Tbk"
+  },
+  {
+    "KodeEmiten": "TLDN",
+    "NamaEmiten": "PT Teladan Prima Agro Tbk"
+  },
+  {
+    "KodeEmiten": "TLKM",
+    "NamaEmiten": "PT Telkom Indonesia (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "TMAS",
+    "NamaEmiten": "PT Temas Tbk."
+  },
+  {
+    "KodeEmiten": "TMPO",
+    "NamaEmiten": "Tempo Inti Media Tbk"
+  },
+  {
+    "KodeEmiten": "TNCA",
+    "NamaEmiten": "PT Trimuda Nuansa Citra Tbk."
+  },
+  {
+    "KodeEmiten": "TOBA",
+    "NamaEmiten": "PT TBS Energi Utama Tbk"
+  },
+  {
+    "KodeEmiten": "TOOL",
+    "NamaEmiten": "PT Rohartindo Nusantara Luas Tbk"
+  },
+  {
+    "KodeEmiten": "TOPS",
+    "NamaEmiten": "PT Totalindo Eka Persada Tbk."
+  },
+  {
+    "KodeEmiten": "TOSK",
+    "NamaEmiten": "PT Topindo Solusi Komunika Tbk."
+  },
+  {
+    "KodeEmiten": "TOTL",
+    "NamaEmiten": "Total Bangun Persada Tbk"
+  },
+  {
+    "KodeEmiten": "TOTO",
+    "NamaEmiten": "Surya Toto Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "TOWR",
+    "NamaEmiten": "Sarana Menara Nusantara Tbk"
+  },
+  {
+    "KodeEmiten": "TOYS",
+    "NamaEmiten": "PT Sunindo Adipersada Tbk."
+  },
+  {
+    "KodeEmiten": "TPIA",
+    "NamaEmiten": "PT Chandra Asri Pacific Tbk"
+  },
+  {
+    "KodeEmiten": "TPMA",
+    "NamaEmiten": "Trans Power Marine Tbk"
+  },
+  {
+    "KodeEmiten": "TRAM",
+    "NamaEmiten": "Trada Alam Minera Tbk."
+  },
+  {
+    "KodeEmiten": "TRGU",
+    "NamaEmiten": "PT Cerestar Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "TRIL",
+    "NamaEmiten": "Triwira Insanlestari Tbk"
+  },
+  {
+    "KodeEmiten": "TRIM",
+    "NamaEmiten": "PT Trimegah Sekuritas Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "TRIN",
+    "NamaEmiten": "PT Perintis Triniti Properti Tbk"
+  },
+  {
+    "KodeEmiten": "TRIO",
+    "NamaEmiten": "Trikomsel Oke Tbk"
+  },
+  {
+    "KodeEmiten": "TRIS",
+    "NamaEmiten": "Trisula International Tbk"
+  },
+  {
+    "KodeEmiten": "TRJA",
+    "NamaEmiten": "PT Transkon Jaya Tbk."
+  },
+  {
+    "KodeEmiten": "TRON",
+    "NamaEmiten": "PT Teknologi Karya Digital Nusa Tbk."
+  },
+  {
+    "KodeEmiten": "TRST",
+    "NamaEmiten": "Trias Sentosa Tbk"
+  },
+  {
+    "KodeEmiten": "TRUE",
+    "NamaEmiten": "PT Triniti Dinamik Tbk"
+  },
+  {
+    "KodeEmiten": "TRUK",
+    "NamaEmiten": "PT Guna Timur Raya Tbk."
+  },
+  {
+    "KodeEmiten": "TRUS",
+    "NamaEmiten": "Trust Finance Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "TSPC",
+    "NamaEmiten": "Tempo Scan Pacific Tbk"
+  },
+  {
+    "KodeEmiten": "TUGU",
+    "NamaEmiten": "PT Asuransi Tugu Pratama Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "TYRE",
+    "NamaEmiten": "PT King Tire Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "UANG",
+    "NamaEmiten": "PT Pakuan Tbk"
+  },
+  {
+    "KodeEmiten": "UCID",
+    "NamaEmiten": "PT Uni-Charm Indonesia Tbk."
+  },
+  {
+    "KodeEmiten": "UDNG",
+    "NamaEmiten": "PT Agro Bahari Nusantara Tbk"
+  },
+  {
+    "KodeEmiten": "UFOE",
+    "NamaEmiten": "PT Damai Sejahtera Abadi Tbk"
+  },
+  {
+    "KodeEmiten": "ULTJ",
+    "NamaEmiten": "PT Ultrajaya Milk Industry & Trading Company Tbk"
+  },
+  {
+    "KodeEmiten": "UNIC",
+    "NamaEmiten": "Unggul Indah Cahaya Tbk"
+  },
+  {
+    "KodeEmiten": "UNIQ",
+    "NamaEmiten": "PT Ulima Nitra Tbk"
+  },
+  {
+    "KodeEmiten": "UNIT",
+    "NamaEmiten": "Nusantara Inti Corpora Tbk"
+  },
+  {
+    "KodeEmiten": "UNSP",
+    "NamaEmiten": "Bakrie Sumatera Plantations Tbk"
+  },
+  {
+    "KodeEmiten": "UNTD",
+    "NamaEmiten": "PT Terang Dunia Internusa Tbk."
+  },
+  {
+    "KodeEmiten": "UNTR",
+    "NamaEmiten": "United Tractors Tbk"
+  },
+  {
+    "KodeEmiten": "UNVR",
+    "NamaEmiten": "Unilever Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "URBN",
+    "NamaEmiten": "PT Urban Jakarta Propertindo Tbk."
+  },
+  {
+    "KodeEmiten": "UVCR",
+    "NamaEmiten": "PT Trimegah Karya Pratama Tbk."
+  },
+  {
+    "KodeEmiten": "VAST",
+    "NamaEmiten": "PT Vastland Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "VERN",
+    "NamaEmiten": "PT Verona Indah Pictures Tbk"
+  },
+  {
+    "KodeEmiten": "VICI",
+    "NamaEmiten": "PT Victoria Care Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "VICO",
+    "NamaEmiten": "PT Victoria Investama Tbk."
+  },
+  {
+    "KodeEmiten": "VINS",
+    "NamaEmiten": "PT Victoria Insurance Tbk."
+  },
+  {
+    "KodeEmiten": "VISI",
+    "NamaEmiten": "PT Satu Visi Putra Tbk."
+  },
+  {
+    "KodeEmiten": "VIVA",
+    "NamaEmiten": "PT Visi Media Asia Tbk"
+  },
+  {
+    "KodeEmiten": "VKTR",
+    "NamaEmiten": "PT VKTR Teknologi Mobilitas Tbk"
+  },
+  {
+    "KodeEmiten": "VOKS",
+    "NamaEmiten": "Voksel Electric Tbk"
+  },
+  {
+    "KodeEmiten": "VRNA",
+    "NamaEmiten": "PT Mizuho Leasing Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "VTNY",
+    "NamaEmiten": "PT Venteny Fortuna International Tbk"
+  },
+  {
+    "KodeEmiten": "WAPO",
+    "NamaEmiten": "Wahana Pronatural Tbk"
+  },
+  {
+    "KodeEmiten": "WEGE",
+    "NamaEmiten": "PT Wijaya Karya Bangunan Gedung Tbk."
+  },
+  {
+    "KodeEmiten": "WEHA",
+    "NamaEmiten": "PT WEHA Transportasi Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "WGSH",
+    "NamaEmiten": "PT Wira Global Solusi Tbk"
+  },
+  {
+    "KodeEmiten": "WICO",
+    "NamaEmiten": "Wicaksana Overseas International Tbk"
+  },
+  {
+    "KodeEmiten": "WIDI",
+    "NamaEmiten": "PT Widiant Jaya Krenindo Tbk."
+  },
+  {
+    "KodeEmiten": "WIFI",
+    "NamaEmiten": "PT Solusi Sinergi Digital Tbk"
+  },
+  {
+    "KodeEmiten": "WIIM",
+    "NamaEmiten": "Wismilak Inti Makmur Tbk"
+  },
+  {
+    "KodeEmiten": "WIKA",
+    "NamaEmiten": "PT Wijaya Karya (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "WINE",
+    "NamaEmiten": "PT Hatten Bali Tbk"
+  },
+  {
+    "KodeEmiten": "WINR",
+    "NamaEmiten": "PT Winner Nusantara Jaya Tbk"
+  },
+  {
+    "KodeEmiten": "WINS",
+    "NamaEmiten": "Wintermar Offshore Marine Tbk"
+  },
+  {
+    "KodeEmiten": "WIRG",
+    "NamaEmiten": "PT WIR ASIA Tbk"
+  },
+  {
+    "KodeEmiten": "WMPP",
+    "NamaEmiten": "PT Widodo Makmur Perkasa Tbk"
+  },
+  {
+    "KodeEmiten": "WMUU",
+    "NamaEmiten": "PT Widodo Makmur Unggas Tbk"
+  },
+  {
+    "KodeEmiten": "WOMF",
+    "NamaEmiten": "PT Wahana Ottomitra Multiartha Tbk"
+  },
+  {
+    "KodeEmiten": "WOOD",
+    "NamaEmiten": "PT Integra Indocabinet Tbk"
+  },
+  {
+    "KodeEmiten": "WOWS",
+    "NamaEmiten": "PT Ginting Jaya Energi Tbk"
+  },
+  {
+    "KodeEmiten": "WSBP",
+    "NamaEmiten": "PT Waskita Beton Precast Tbk."
+  },
+  {
+    "KodeEmiten": "WSKT",
+    "NamaEmiten": "PT Waskita Karya (Persero) Tbk"
+  },
+  {
+    "KodeEmiten": "WTON",
+    "NamaEmiten": "Wijaya Karya Beton"
+  },
+  {
+    "KodeEmiten": "YELO",
+    "NamaEmiten": "PT Yelooo Integra Datanet Tbk."
+  },
+  {
+    "KodeEmiten": "YOII",
+    "NamaEmiten": "PT Asuransi Digital Bersama Tbk"
+  },
+  {
+    "KodeEmiten": "YPAS",
+    "NamaEmiten": "Yanaprima Hastapersada Tbk"
+  },
+  {
+    "KodeEmiten": "YULE",
+    "NamaEmiten": "Yulie Sekuritas Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "YUPI",
+    "NamaEmiten": "PT Yupi Indo Jelly Gum Tbk"
+  },
+  {
+    "KodeEmiten": "ZATA",
+    "NamaEmiten": "PT Bersama Zatta Jaya Tbk"
+  },
+  {
+    "KodeEmiten": "ZBRA",
+    "NamaEmiten": "PT Dosni Roha Indonesia Tbk"
+  },
+  {
+    "KodeEmiten": "ZINC",
+    "NamaEmiten": "PT Kapuas Prima Coal Tbk"
+  },
+  {
+    "KodeEmiten": "ZONE",
+    "NamaEmiten": "PT Mega Perintis Tbk."
+  },
+  {
+    "KodeEmiten": "ZYRX",
+    "NamaEmiten": "PT Zyrexindo Mandiri Buana Tbk"
+  }
+]

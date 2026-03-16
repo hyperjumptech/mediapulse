@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -12,20 +11,15 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import { Button } from "@workspace/ui/components/button";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil } from "lucide-react";
 
+import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/tickers/actions/delete/.generated/use-form-action";
 
 /**
- * Dropdown actions for a ticker row: Edit, Delete.
+ * Encapsulates delete form action and refresh-on-success for ticker row actions.
  */
-export const TickerRowActions = ({
-  tickerId,
-  tickerSymbol,
-}: {
-  tickerId: string;
-  tickerSymbol: string;
-}) => {
+const useTickerRowActions = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -34,6 +28,24 @@ export const TickerRowActions = ({
       router.refresh();
     }
   }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
+ * Dropdown actions for a ticker row: Edit (opens modal), Delete.
+ */
+export const TickerRowActions = ({
+  tickerId,
+  tickerSymbol,
+  onEditClick,
+}: {
+  tickerId: string;
+  tickerSymbol: string;
+  /** Called when Edit is chosen; use to open the edit modal. */
+  onEditClick?: (id: string) => void;
+}) => {
+  const { FormWithAction, pending } = useTickerRowActions();
 
   return (
     <DropdownMenu>
@@ -48,39 +60,21 @@ export const TickerRowActions = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem asChild>
-          <Link href={`/dashboard/tickers/${tickerId}`}>
-            <Pencil className="mr-2 size-4" />
-            Edit
-          </Link>
+        <DropdownMenuItem
+          onSelect={() => onEditClick?.(tickerId)}
+          disabled={!onEditClick}
+        >
+          <Pencil className="mr-2 size-4" />
+          Edit
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={pending}
-          onSelect={(e) => {
-            if (
-              !confirm(
-                `Delete ticker "${tickerSymbol}"? This cannot be undone.`,
-              )
-            ) {
-              e.preventDefault();
-            }
-          }}
-          asChild
-        >
-          <FormWithAction className="flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-destructive/10 focus:text-destructive [&_button]:flex [&_button]:w-full [&_button]:cursor-default [&_button]:items-center [&_button]:text-left">
-            <input
-              type="hidden"
-              name="body.tickerId"
-              value={tickerId}
-              readOnly
-            />
-            <button type="submit" className="flex items-center gap-2">
-              <Trash2 className="size-4" />
-              {pending ? "Deleting…" : "Delete"}
-            </button>
-          </FormWithAction>
+        <DropdownMenuItem variant="destructive" disabled={pending} asChild>
+          <DeleteConfirmForm
+            FormWithAction={FormWithAction}
+            confirmMessage={`Delete ticker "${tickerSymbol}"? This cannot be undone.`}
+            bodyField={{ name: "body.tickerId", value: tickerId }}
+            pending={pending}
+          />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
