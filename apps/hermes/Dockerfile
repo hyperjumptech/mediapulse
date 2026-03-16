@@ -15,7 +15,7 @@ RUN npm install -g pnpm
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
-COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
 
 COPY packages ./packages
 COPY apps ./apps
