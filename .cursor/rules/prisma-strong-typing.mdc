@@ -1,0 +1,36 @@
+---
+description: Enforce strong Prisma typing patterns in TS/TSX files
+globs: **/*.{ts,tsx}
+alwaysApply: true
+---
+
+# Prisma Strong Typing
+
+Apply this rule whenever code uses Prisma (`prisma`, `Prisma`, model delegates, or Prisma query objects).
+
+## Required patterns
+
+- Use generated Prisma helpers instead of hand-written query shapes:
+  - `Prisma.<Model>FindManyArgs` / `Prisma.<Model>FindUniqueArgs` for args.
+  - `Prisma.<Model>GetPayload<...>` for result payloads.
+- Prefer `satisfies` for query objects:
+  - `const args = { ... } satisfies Prisma.DataSourceFindManyArgs;`
+- Type dependency-injected DB collaborators with delegate method picks:
+  - `Pick<typeof prisma.dataSource, "findMany">`
+  - `Pick<typeof prisma.newsletter, "create">`
+- Keep strict mode clean: no implicit `any`, no untyped callback params.
+
+## Avoid
+
+- Do not hand-write deep structural types for Prisma args/results.
+- Do not use `any` for Prisma values, delegates, or query payloads.
+- Avoid broad `as unknown as ...` casts in app code. If tests require a cast for mocks, keep it local and minimal.
+
+## Test typing guidance
+
+- For mocked Prisma/service functions, use `vi.mocked(...)` before `.mockResolvedValue(...)`.
+- Provide complete typed fixtures for required Prisma model fields.
+
+## Skill
+
+Use the `/prisma-strong-typing` skill for implementation recipes and examples.
