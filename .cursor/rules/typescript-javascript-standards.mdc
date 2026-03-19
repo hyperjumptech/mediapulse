@@ -111,6 +111,10 @@ Use the /react-component skill when creating a React component.
 
 Use the /email-template skill when creating an email template.
 
+## Prisma code
+
+Use the /prisma-strong-typing skill when creating or updating Prisma queries, Prisma service-layer code, or Prisma-related tests.
+
 ## React Server Action/Function
 
 Follow the /route-action-gen-workflow rule when creating a server action/function.
