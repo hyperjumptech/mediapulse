@@ -6,13 +6,15 @@ icon: Database
 
 ## Purpose
 
-agent-data-api is a Hono server that exposes **data endpoints** used by the agents (currently content-generation, data-collection, delivery). All routes are protected by **bearer auth**; the token is verified via `@workspace/agent-auth-client` against agent-auth-api.
+agent-data-api is a Hono server that exposes **data endpoints** used by the agents (query-analysis, data-collection, analysis, content-generation, delivery). All routes are protected by **bearer auth**; the token is verified via `@workspace/agent-auth-client` against agent-auth-api.
 
 ## Features
 
 - **Bearer auth** — Every request must include `Authorization: Bearer <api_key>`. API keys are verified via agent-auth-api `POST /api/verify-api-key` (agents use admin-issued API keys to call this service).
+- **Query-analysis** — GET/POST endpoints for reading ticker KG context and writing generated search queries.
 - **Content-generation** — GET/POST for content-generation data (e.g. store/retrieve generated newsletter content).
 - **Data-collection** — GET/POST for data-collection data (e.g. store/retrieve collected pages/sources).
+- **Analysis** — GET/POST endpoints for unscored articles, KG vocabulary/context, and bulk relevance writes.
 - **Delivery** — GET/POST for delivery data (e.g. newsletter content + subscribers for sending).
 
 Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call these endpoints with their **admin-issued API key** (not the invocation JWT).
@@ -21,10 +23,14 @@ Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call 
 
 | Method | Path                      | Description                                    |
 | ------ | ------------------------- | ---------------------------------------------- |
+| GET    | `/api/query-analysis`     | Get query-analysis context by `tickerId`       |
+| POST   | `/api/query-analysis`     | Upsert generated search queries                |
 | GET    | `/api/content-generation` | Get content-generation data (e.g. by tickerId) |
 | POST   | `/api/content-generation` | Store content-generation payload               |
 | GET    | `/api/data-collection`    | Get data-collection data                       |
 | POST   | `/api/data-collection`    | Store data-collection payload                  |
+| GET    | `/api/analysis`           | Get analysis payload (e.g. unscored items)     |
+| POST   | `/api/analysis`           | Store analysis/KG and relevance results        |
 | GET    | `/api/delivery`           | Get delivery data (newsletter + subscribers)   |
 | POST   | `/api/delivery`           | Store delivery payload                         |
 
@@ -44,5 +50,6 @@ Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call 
 ## Related docs
 
 - [agent-auth-api](/apps/agent-auth-api) — Token verification.
-- [Agents: content-generation, data-collection, delivery](/apps/agents/content-generation) — Consumers.
+- [Agents overview](/apps/agents/content-generation) — Existing consumer agents.
+- [KG Agents](/agents) — query-analysis and analysis docs.
 - [Packages: agent-runtime](/packages/agent-runtime), [agent-data-api-client](/packages/agent-data-api-client).

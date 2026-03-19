@@ -2,7 +2,6 @@
   "title": "Apps",
   "pages": [
     "hermes",
-    "data-source-expansion",
     "hermes-worker",
     "user-registration",
     "agent-auth-api",

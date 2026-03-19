@@ -1,0 +1,151 @@
+---
+title: Worked Example
+description: End-to-end KG example for one ticker, from raw articles to selected newsletter items
+icon: FlaskConical
+---
+
+## Goal
+
+This page shows one realistic, end-to-end run of the knowledge graph flow for a single ticker so operators can see how data moves through each table and why an article is selected.
+
+## Scenario
+
+- Ticker: `BBCA` (sample only)
+- Date window: one daily analysis run
+- Pipeline stages: query-analysis -> data-collection -> analysis -> content-generation
+
+## Step 1: Query-analysis output
+
+Input:
+
+```json
+{
+  "tickerId": "ticker-bbca-id"
+}
+```
+
+Generated `search_query` rows (example):
+
+```json
+[
+  { "text": "BBCA quarterly earnings outlook" },
+  { "text": "Bank Central Asia digital banking strategy" },
+  { "text": "BBCA loan growth Indonesia banking sector" },
+  { "text": "Bank Central Asia corporate actions" },
+  { "text": "BBCA management commentary" }
+]
+```
+
+## Step 2: Data-collection output
+
+Collected rows are stored in `data_source` and linked to `ticker_id` + `search_query_id`.
+
+Example records:
+
+| Data source ID | URL                                              | Notes                                |
+| -------------- | ------------------------------------------------ | ------------------------------------ |
+| `ds_001`       | `https://example-news.com/bbca-earnings`         | Financial results recap              |
+| `ds_002`       | `https://example-finance.com/bank-digital`       | Product and channel strategy         |
+| `ds_003`       | `https://example-market.com/bank-sector-lending` | Sector comparison and market context |
+
+## Step 3: Analysis extraction output
+
+The analysis stage reads:
+
+- unprocessed `data_source` rows
+- vocabulary from `entity_type` and `relation_type`
+- existing ticker graph context (`ticker_entity`, `entity_relation`)
+
+Then it upserts canonical nodes and aliases.
+
+Example `entity` / `entity_alias` outcomes:
+
+| Canonical entity     | Type                     | Example aliases                     |
+| -------------------- | ------------------------ | ----------------------------------- |
+| `Bank Central Asia`  | `COMPANY`                | `BBCA`, `BCA`                       |
+| `Jahja Setiaatmadja` | `PERSON`                 | `BCA President Director`            |
+| `Digital Banking`    | `TOPIC`                  | `mobile banking`, `digital channel` |
+| `Net Profit`         | `METRIC` (if configured) | `earnings`, `profit`                |
+
+Example `entity_relation` rows:
+
+| From                 | Relation        | To                  | Why                                 |
+| -------------------- | --------------- | ------------------- | ----------------------------------- |
+| `Jahja Setiaatmadja` | `CEO_OF`        | `Bank Central Asia` | Mentioned as leadership attribution |
+| `Bank Central Asia`  | `COMPETITOR_OF` | `Bank Mandiri`      | Comparative sector article          |
+| `Bank Central Asia`  | `FOCUSES_ON`    | `Digital Banking`   | Strategy commentary coverage        |
+
+Example `article_entity` mention stats:
+
+| Data source | Entity              | mentionCount | confidence |
+| ----------- | ------------------- | ------------ | ---------- |
+| `ds_001`    | `Bank Central Asia` | 12           | 0.97       |
+| `ds_001`    | `Net Profit`        | 5            | 0.83       |
+| `ds_002`    | `Digital Banking`   | 7            | 0.88       |
+
+## Step 4: Relevance scoring output
+
+For each `(data_source_id, ticker_id)` pair, analysis computes:
+
+`score = 0.30*aliasMatch + 0.30*entityOverlap + 0.20*freshness + 0.10*sourceQuality + 0.10*novelty`
+
+Example `article_relevance` rows:
+
+| Data source | aliasMatch | entityOverlap | freshness | sourceQuality | novelty | finalScore | selected |
+| ----------- | ---------- | ------------- | --------- | ------------- | ------- | ---------- | -------- |
+| `ds_001`    | 0.98       | 0.92          | 0.95      | 0.80          | 0.72    | 0.904      | `true`   |
+| `ds_002`    | 0.87       | 0.78          | 0.90      | 0.82          | 0.85    | 0.837      | `true`   |
+| `ds_003`    | 0.75       | 0.64          | 0.88      | 0.76          | 0.70    | 0.734      | `false`  |
+
+Example `score_breakdown` JSON:
+
+```json
+{
+  "aliasMatch": 0.98,
+  "entityOverlap": 0.92,
+  "freshness": 0.95,
+  "sourceQuality": 0.8,
+  "novelty": 0.72
+}
+```
+
+## Step 5: Content-generation and newsletter
+
+Content-generation only consumes rows with `selected = true`.
+
+In this example:
+
+- Included: `ds_001`, `ds_002`
+- Excluded: `ds_003`
+
+The resulting `newsletter` row stores:
+
+- `subject`
+- `description` (optional)
+- `content`
+- `ticker_id`
+
+## Traceability checklist
+
+When reviewing one run in production, verify in this order:
+
+1. `search_query` has enough query diversity.
+2. `data_source` has sufficient quality and source spread.
+3. `article_entity` contains expected high-confidence mentions.
+4. `entity_relation` direction matches your relation semantics.
+5. `article_relevance.score_breakdown` explains ranking outcomes.
+6. Selected rows (`selected = true`) align with editorial expectations.
+
+## Troubleshooting with this example
+
+- If `aliasMatch` is high but `entityOverlap` is low, ticker graph context may be sparse (`ticker_entity` not rich enough).
+- If `freshness` is low for most rows, data collection timing may be too late for the news cycle.
+- If newsletters are repetitive, inspect `novelty` and source concentration.
+- If extracted relations look wrong, refine `relation_type` descriptions and re-run analysis on sample tickers.
+
+## Related docs
+
+- [Knowledge Graph](/knowledge-graph/knowledge-graph)
+- [Entity Types](/knowledge-graph/entity-types)
+- [Relation Types](/knowledge-graph/relation-types)
+- [Analysis Agent](/apps/agents/analysis)

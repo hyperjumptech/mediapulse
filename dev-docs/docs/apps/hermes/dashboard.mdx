@@ -1,5 +1,5 @@
 ---
-title: Hermes
+title: Dashboard
 description: Next.js app that orchestrates pipelines and invokes agents
 icon: Zap
 ---
@@ -8,9 +8,15 @@ icon: Zap
 
 Hermes is the main orchestration app: it manages **pipelines** (sequences of agents), **tickers**, **agents**, **agent configs**, **variables**, **API keys**, and **schedules**. It provides the dashboard and API for creating/editing schedules; the actual **scheduler** (DataQueue processor and supervisor) runs in the separate **hermes-worker** app so Hermes can stay stateless and deploy without a long-running server.
 
+## Quick overview
+
+- **Agents** are executable units and can have multiple versions. An agent automatically registers itself when it starts up.
+- **Pipelines** are created by admins as an ordered series of agent steps. Admin can configure the input and config for each step.
+- **Schedules** define when a pipeline should run.
+
 ## Features
 
-- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, agents, API keys, **data source expansions**, and schedules (CRUD).
+- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, agents, API keys, **data source expansions**, **entity types**, **relation types**, and schedules (CRUD).
 - **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, and for each pipeline step expands that step's input (e.g. data-source expressions like `db:ticker:id`), then invokes the step via HTTP. Hermes does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
 - **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@workspace/idx-tickers-importer`.
@@ -20,13 +26,15 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 
 ## Key routes / entrypoints
 
-- Dashboard: `/dashboard` (pipelines, tickers, agents, **agent configs**, **variables**, API keys, **data source expansions**, schedules).
+- Dashboard: `/dashboard` (pipelines, tickers, agents, **agent configs**, **variables**, API keys, **data source expansions**, **entity types**, **relation types**, schedules).
 - Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline. **Pipeline detail** uses a three-column layout: available agents (click to add), pipeline steps (select, reorder, remove), and step editor (pipeline name/description, step **input** and **config** from agent schemas). When adding or editing a step, you can set input and config (or choose a **saved agent config**). String fields in the step editor use a **variable/expansion input**: you can type freely or use the **Insert…** picker to add variable placeholders (`{{KEY}}`) or data source expansion template strings. Save persists pipeline metadata and the selected step's input/config.
 - **Agent configs** (`/dashboard/agent-configs`): Create, edit, duplicate, or delete named configs per agent (agentId + version). Each config has a name, description, and JSON validated against the agent’s config schema. Configs can be assigned to pipeline steps so one config is reused across steps; updating a saved config applies to all steps that reference it. If an agent’s config schema changes (same version), saved configs are marked “Schema changed” until you re-save them.
 - Ticker actions: create, update, delete, import (IDX).
 - Agent actions: create, update. Agent details are on a dedicated page (`/dashboard/agents/[id]`) with tabs: **General** (details and endpoint), **Input schema** (pretty-printed JSON), **Config schema** (pretty-printed JSON).
 - **Variables** (`/dashboard/variables`): Create, edit, delete. Each variable has a unique key, value, optional note, and “Secret” flag. Use `{{KEY}}` in agent config or schedule params; hermes-scheduler substitutes values at execution time. Secret values are never returned or shown after save.
 - **Data source expansions** (`/dashboard/data-source-expansions`): Create, edit, delete saved expansion templates. Each has a name, expansion string (e.g. `db:userTicker:tickerId?where.enabled=true`), and optional description. Use **Run preview** on the create/edit page to test the expansion against the DB; format docs and examples are shown on the page. See [Data source expansion](/apps/data-source-expansion) for full format and behavior.
+- **Entity types** (`/dashboard/entity-types`): Manage entity classification vocabulary used by analysis prompts.
+- **Relation types** (`/dashboard/relation-types`): Manage relation vocabulary used by analysis prompts.
 - API key actions: create, update, delete. Create/update via modal; list is paginated with search by name.
 - Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@workspace/hermes-scheduler`; execution runs in hermes-worker.
 - Logout: `/logout`.

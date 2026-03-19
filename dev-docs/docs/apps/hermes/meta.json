@@ -1,0 +1,5 @@
+{
+  "title": "Hermes",
+  "pages": ["dashboard", "data-source-expansion", "hermes-worker"],
+  "defaultOpen": true
+}

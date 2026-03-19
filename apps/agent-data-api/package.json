@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "dotenv -e ./.env.local -- env PORT=8081 bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "type:check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -21,7 +22,9 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:",
+    "typescript": "catalog:",
     "vitest": "^4.0.18"
   }
 }
