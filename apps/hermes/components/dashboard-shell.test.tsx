@@ -244,6 +244,40 @@ describe("DashboardShell", () => {
     );
   });
 
+  it("shows Entity Types breadcrumb on /dashboard/entity-types", () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/entity-types");
+
+    // Act
+    render(
+      <DashboardShell>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
+      "Entity Types",
+    );
+  });
+
+  it("shows Relation Types breadcrumb on /dashboard/relation-types", () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/relation-types");
+
+    // Act
+    render(
+      <DashboardShell>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
+      "Relation Types",
+    );
+  });
+
   it("shows Pipeline breadcrumb for UUID sub-route", () => {
     // Setup
     usePathnameMock.mockReturnValue(

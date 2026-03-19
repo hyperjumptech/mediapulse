@@ -88,6 +88,8 @@ describe("AppSidebar", () => {
     expect(screen.getByText("Agents")).toBeInTheDocument();
     expect(screen.getByText("API Keys")).toBeInTheDocument();
     expect(screen.getByText("Schedules")).toBeInTheDocument();
+    expect(screen.getByText("Entity Types")).toBeInTheDocument();
+    expect(screen.getByText("Relation Types")).toBeInTheDocument();
   });
 
   it("marks Dashboard as active when on /dashboard", () => {
@@ -163,6 +165,36 @@ describe("AppSidebar", () => {
       btn.textContent?.includes("Schedules"),
     );
     expect(schedulesButton).toHaveAttribute("data-active", "true");
+  });
+
+  it("marks Entity Types as active when on /dashboard/entity-types", () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/entity-types");
+
+    // Act
+    render(<AppSidebar />);
+
+    // Assert
+    const buttons = screen.getAllByTestId("sidebar-menu-button");
+    const entityTypesButton = buttons.find((btn) =>
+      btn.textContent?.includes("Entity Types"),
+    );
+    expect(entityTypesButton).toHaveAttribute("data-active", "true");
+  });
+
+  it("marks Relation Types as active when on /dashboard/relation-types", () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/relation-types");
+
+    // Act
+    render(<AppSidebar />);
+
+    // Assert
+    const buttons = screen.getAllByTestId("sidebar-menu-button");
+    const relationTypesButton = buttons.find((btn) =>
+      btn.textContent?.includes("Relation Types"),
+    );
+    expect(relationTypesButton).toHaveAttribute("data-active", "true");
   });
 
   it("displays user name and email when user prop provided", () => {
