@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { SchemaForm, type StringFieldProps } from "@workspace/json-schema-form";
+import { SchemaForm } from "@workspace/json-schema-form";
 import { Label } from "@workspace/ui/components/label";
 import {
   Tabs,
@@ -11,7 +11,7 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 
-import { VariableExpansionInput } from "@/components/variable-expansion-input";
+import { createVariableExpansionStringField } from "@/components/variable-expansion-schema-string-field";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 
 import { useStepEditorPanelState } from "./use-step-editor-panel-state";
@@ -49,26 +49,6 @@ export type PipelineStepEditorPanelProps = {
   expansionTemplates?: ExpansionTemplateOption[];
 };
 
-/** Builds a StringField component that uses VariableExpansionInput with the given variables and expansions. */
-const createStringFieldComponent = (
-  variableKeys: VariableKeyOption[],
-  expansionTemplates: ExpansionTemplateOption[],
-) => {
-  const StringField = (props: StringFieldProps) => (
-    <VariableExpansionInput
-      value={props.value}
-      onChange={props.onChange}
-      id={props.id}
-      label={props.labelText}
-      description={props.description}
-      disabled={props.disabled}
-      variables={variableKeys}
-      expansions={expansionTemplates}
-    />
-  );
-  return StringField;
-};
-
 /**
  * Renders the selected agent's input form and config picker (saved agent configs only).
  * Third column only; pipeline name/description and Save live above the layout.
@@ -86,7 +66,7 @@ export const PipelineStepEditorPanel = ({
 }: PipelineStepEditorPanelProps) => {
   const { schemas, schemaLoading, activeTab, setActiveTab } =
     useStepEditorPanelState(selectedStep);
-  const stringFieldComponent = createStringFieldComponent(
+  const stringFieldComponent = createVariableExpansionStringField(
     variableKeys,
     expansionTemplates,
   );
