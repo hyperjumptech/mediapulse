@@ -7,6 +7,12 @@ import { Label } from "@workspace/ui/components/label";
 import { SchemaForm, type JsonSchema } from "@workspace/json-schema-form";
 import { cn } from "@workspace/ui/lib/utils";
 
+import { createVariableExpansionStringField } from "@/components/variable-expansion-schema-string-field";
+import type {
+  ExpansionOption,
+  VariableOption,
+} from "@/components/variable-expansion-input";
+
 type AgentForDropdown = {
   id: string;
   agentId: string;
@@ -23,6 +29,8 @@ type AgentConfigFormFieldsProps = {
   onDescriptionChange: (v: string) => void;
   onAgentChange: (agentKey: string) => void;
   onConfigChange: (v: Record<string, unknown>) => void;
+  variableKeys?: VariableOption[];
+  expansionTemplates?: ExpansionOption[];
   disabled?: boolean;
   nameId?: string;
   descriptionId?: string;
@@ -89,6 +97,8 @@ export const AgentConfigFormFields = ({
   onDescriptionChange,
   onAgentChange,
   onConfigChange,
+  variableKeys = [],
+  expansionTemplates = [],
   disabled = false,
   nameId = "agent-config-name",
   descriptionId = "agent-config-description",
@@ -100,6 +110,10 @@ export const AgentConfigFormFields = ({
   const { configSchema, schemaLoading, isObjectSchema } = useAgentConfigSchema(
     agentId,
     agentVersion,
+  );
+  const stringFieldComponent = useMemo(
+    () => createVariableExpansionStringField(variableKeys, expansionTemplates),
+    [variableKeys, expansionTemplates],
   );
 
   const handleAgentChange = useCallback(
@@ -162,6 +176,7 @@ export const AgentConfigFormFields = ({
             value={config}
             onChange={onConfigChange}
             disabled={disabled}
+            components={{ StringField: stringFieldComponent }}
           />
         </div>
       ) : agentKey ? (

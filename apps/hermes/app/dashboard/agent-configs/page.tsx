@@ -5,6 +5,8 @@ import {
   type AgentConfigSortDir,
   type AgentConfigSortField,
 } from "@/lib/agent-configs";
+import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
+import { getVariablesPage } from "@/lib/variables";
 import { prisma } from "@workspace/database";
 
 import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
@@ -12,6 +14,7 @@ import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
 import { AgentConfigsContent } from "./agent-configs-content";
 
 const DEFAULT_PAGE_SIZE = 15;
+const PICKER_PAGE_SIZE = 500;
 
 const SORT_FIELDS: AgentConfigSortField[] = ["name", "createdAt", "agentId"];
 const SORT_DIRS: AgentConfigSortDir[] = ["asc", "desc"];
@@ -63,6 +66,8 @@ const AgentConfigsPage = async ({
   const [
     { configs, total, page: currentPage, pageSize: size },
     agentsForDropdown,
+    variablesPage,
+    expansionsPage,
   ] = await Promise.all([
     getAgentConfigsPage(page, pageSize, { sortBy, sortDir }),
     prisma.agentRegistry.findMany({
@@ -70,7 +75,15 @@ const AgentConfigsPage = async ({
       select: { id: true, agentId: true, agentVersion: true },
       orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
     }),
+    getVariablesPage(1, PICKER_PAGE_SIZE, undefined, prisma),
+    getDataSourceExpansionsPage(1, PICKER_PAGE_SIZE, undefined, prisma),
   ]);
+  const variableKeys = variablesPage.variables.map((v) => ({ key: v.key }));
+  const expansionTemplates = expansionsPage.expansions.map((e) => ({
+    id: e.id,
+    name: e.name,
+    expansionString: e.expansionString,
+  }));
 
   const agentKeys = [
     ...new Set(configs.map((c) => `${c.agentId}\0${c.agentVersion}`)),
@@ -121,6 +134,8 @@ const AgentConfigsPage = async ({
         pageSize={size}
         sortBy={sortBy}
         sortDir={sortDir}
+        variableKeys={variableKeys}
+        expansionTemplates={expansionTemplates}
       />
     </div>
   );
