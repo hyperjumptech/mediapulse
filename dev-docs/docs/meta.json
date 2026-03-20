@@ -2,12 +2,12 @@
   "title": "Documentation",
   "pages": [
     "index",
-    "architecture",
-    "communication",
     "getting-started",
     "production",
+    "architecture",
+    "knowledge-graph",
     "apps",
-    "agent-hermes-contract",
+    "data-source-expansion",
     "packages"
   ]
 }

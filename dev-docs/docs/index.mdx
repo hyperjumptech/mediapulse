@@ -6,7 +6,7 @@ icon: Home
 
 ## What is MediaPulse?
 
-MediaPulse is an AI-powered newsletter and pipeline platform. It orchestrates **pipelines** of agents (data collection, content generation, delivery) to produce and send newsletters for tracked tickers (e.g. listed companies from the Indonesian Stock Exchange).
+MediaPulse is an AI-powered newsletter and pipeline platform. It orchestrates **pipelines** of agents (query analysis, data collection, analysis, content generation, delivery) to produce and send newsletters for tracked tickers (e.g. listed companies from the Indonesian Stock Exchange).
 
 ## Stack
 
@@ -32,5 +32,7 @@ Quick reference:
 - **[Architecture](/architecture)** — High-level diagram (Hermes, agents, APIs, database).
 - **[Communication between parts](/communication)** — How components talk to each other (JWT invocation, API-key service auth).
 - **[Agent–Hermes contract](/agent-hermes-contract)** — Strongly typed input and config: how agents expose schemas and how Hermes validates and sends params and step config.
-- **[Apps](/apps)** — Hermes, [Data source expansion](/apps/data-source-expansion), agent-auth-api, agent-data-api, agent-registry-api, and the three agents (content-generation, data-collection, delivery).
+- **[Apps](/apps)** — Hermes, [Data source expansion](/apps/data-source-expansion), agent-auth-api, agent-data-api, agent-registry-api, and operational agent docs.
+- **[KG Agents](/agents)** — query-analysis and analysis flow details.
+- **[KG Admin](/admin)** — entity types and relation types administration pages.
 - **[Packages](/packages)** — Shared packages: database, env, agent-runtime, agent-types, clients, idx-tickers-importer, api-utils, logger, ui, utils, tooling.

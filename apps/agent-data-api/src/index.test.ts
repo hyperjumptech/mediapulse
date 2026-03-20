@@ -63,7 +63,7 @@ describe("agent-data-api", () => {
 
     it("returns 200 and dataSources when service returns data", async () => {
       const mod = await getContentGenerationService();
-      mod.getDataSourcesForTicker.mockResolvedValue([
+      vi.mocked(mod.getDataSourcesForTicker).mockResolvedValue([
         {
           id: "ds-1",
           url: "https://example.com",
@@ -72,6 +72,8 @@ describe("agent-data-api", () => {
           metadata: null,
           tickerId: TICKER_ID,
           searchQueryId: "sq-1",
+          createdAt: new Date("2026-03-19T00:00:00.000Z"),
+          updatedAt: new Date("2026-03-19T00:00:00.000Z"),
         },
       ]);
 
@@ -103,7 +105,15 @@ describe("agent-data-api", () => {
   describe("POST /api/content-generation", () => {
     it("returns 200 and Success when body is valid", async () => {
       const mod = await getContentGenerationService();
-      mod.createNewsletter.mockResolvedValue(undefined);
+      vi.mocked(mod.createNewsletter).mockResolvedValue({
+        id: "newsletter-1",
+        tickerId: TICKER_ID,
+        subject: "Test Subject",
+        description: null,
+        content: "Test content",
+        createdAt: new Date("2026-03-19T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-19T00:00:00.000Z"),
+      });
 
       const { app } = await import("./index.js");
       const res = await app.request("http://localhost/api/content-generation", {
@@ -125,8 +135,14 @@ describe("agent-data-api", () => {
   describe("GET /api/data-collection", () => {
     it("returns 200 and data when service returns data", async () => {
       const { prisma } = await getDatabase();
-      prisma.searchQuery.findMany.mockResolvedValue([
-        { id: "sq-1", text: "query one", tickerId: TICKER_ID },
+      vi.mocked(prisma.searchQuery.findMany).mockResolvedValue([
+        {
+          id: "sq-1",
+          text: "query one",
+          tickerId: TICKER_ID,
+          createdAt: new Date("2026-03-19T00:00:00.000Z"),
+          updatedAt: new Date("2026-03-19T00:00:00.000Z"),
+        },
       ]);
 
       const { app } = await import("./index.js");
@@ -146,7 +162,7 @@ describe("agent-data-api", () => {
   describe("POST /api/data-collection", () => {
     it("returns 200 when body is valid array with tickerId + searchQueryId per item", async () => {
       const { prisma } = await getDatabase();
-      prisma.dataSource.createMany.mockResolvedValue({ count: 1 });
+      vi.mocked(prisma.dataSource.createMany).mockResolvedValue({ count: 1 });
 
       const { app } = await import("./index.js");
       const res = await app.request("http://localhost/api/data-collection", {
@@ -183,7 +199,7 @@ describe("agent-data-api", () => {
   describe("GET /api/delivery", () => {
     it("returns 404 when no newsletter exists", async () => {
       const mod = await getDeliveryService();
-      mod.getDeliveryData.mockResolvedValue(null);
+      vi.mocked(mod.getDeliveryData).mockResolvedValue(null);
 
       const { app } = await import("./index.js");
       const res = await app.request(
@@ -198,7 +214,7 @@ describe("agent-data-api", () => {
 
     it("returns 200 and newsletter + subscribers when data exists", async () => {
       const mod = await getDeliveryService();
-      mod.getDeliveryData.mockResolvedValue({
+      vi.mocked(mod.getDeliveryData).mockResolvedValue({
         newsletter: {
           subject: "News",
           content: "Body",
@@ -228,7 +244,7 @@ describe("agent-data-api", () => {
   describe("POST /api/delivery", () => {
     it("returns 200 when body has userTickerId", async () => {
       const mod = await getDeliveryService();
-      mod.postDelivery.mockResolvedValue(undefined);
+      vi.mocked(mod.postDelivery).mockResolvedValue(undefined);
 
       const { app } = await import("./index.js");
       const res = await app.request("http://localhost/api/delivery", {
