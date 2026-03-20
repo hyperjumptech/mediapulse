@@ -10,6 +10,7 @@ import {
   GitBranch,
   Key,
   LayoutDashboard,
+  Search,
   Tags,
   TrendingUp,
   Variable,
@@ -48,6 +49,8 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
     pathname?.startsWith("/dashboard/agent-configs") ?? false;
   const isVariables = pathname?.startsWith("/dashboard/variables") ?? false;
   const isApiKeys = pathname?.startsWith("/dashboard/api-keys") ?? false;
+  const isSearchQueries =
+    pathname?.startsWith("/dashboard/search-queries") ?? false;
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
   const isDataSourceExpansions =
     pathname?.startsWith("/dashboard/data-source-expansions") ?? false;
@@ -115,6 +118,14 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/variables">
                   <Variable className="size-4" />
                   <span>Variables</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isSearchQueries}>
+                <Link href="/dashboard/search-queries">
+                  <Search className="size-4" />
+                  <span>Search Query</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

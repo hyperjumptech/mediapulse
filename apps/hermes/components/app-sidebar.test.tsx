@@ -85,6 +85,7 @@ describe("AppSidebar", () => {
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Pipelines")).toBeInTheDocument();
     expect(screen.getByText("Tickers")).toBeInTheDocument();
+    expect(screen.getByText("Search Query")).toBeInTheDocument();
     expect(screen.getByText("Agents")).toBeInTheDocument();
     expect(screen.getByText("API Keys")).toBeInTheDocument();
     expect(screen.getByText("Schedules")).toBeInTheDocument();
@@ -150,6 +151,21 @@ describe("AppSidebar", () => {
       btn.textContent?.includes("API Keys"),
     );
     expect(apiKeysButton).toHaveAttribute("data-active", "true");
+  });
+
+  it("marks Search Query as active when on /dashboard/search-queries", () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/search-queries");
+
+    // Act
+    render(<AppSidebar />);
+
+    // Assert
+    const buttons = screen.getAllByTestId("sidebar-menu-button");
+    const searchQueriesButton = buttons.find((btn) =>
+      btn.textContent?.includes("Search Query"),
+    );
+    expect(searchQueriesButton).toHaveAttribute("data-active", "true");
   });
 
   it("marks Schedules as active when on /dashboard/schedules", () => {

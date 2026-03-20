@@ -19,6 +19,8 @@ export type ListPaginationProps = {
   sortBy?: string;
   /** Optional sort direction to preserve in prev/next links. */
   sortDir?: string;
+  /** Optional arbitrary query params to preserve in prev/next links. */
+  extraParams?: Record<string, string>;
 };
 
 /**
@@ -36,6 +38,7 @@ const buildQueryString = (
     searchQuery?: string;
     sortBy?: string;
     sortDir?: string;
+    extraParams?: Record<string, string>;
   },
 ): string => {
   const params = new URLSearchParams();
@@ -44,6 +47,9 @@ const buildQueryString = (
   if (options.searchQuery) params.set("q", options.searchQuery);
   if (options.sortBy) params.set("sort", options.sortBy);
   if (options.sortDir) params.set("dir", options.sortDir);
+  for (const [key, value] of Object.entries(options.extraParams ?? {})) {
+    params.set(key, value);
+  }
   return params.toString();
 };
 
@@ -59,12 +65,13 @@ export const ListPagination = ({
   searchQuery,
   sortBy,
   sortDir,
+  extraParams,
 }: ListPaginationProps) => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasPrev = page > 1;
   const hasNext = page < totalPages;
 
-  const opts = { searchQuery, sortBy, sortDir };
+  const opts = { searchQuery, sortBy, sortDir, extraParams };
   const prevHref = hasPrev
     ? `${basePath}?${buildQueryString(page - 1, pageSize, opts)}`
     : undefined;
