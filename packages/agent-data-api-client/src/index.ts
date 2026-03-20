@@ -1,33 +1,9 @@
 import {
-  getAnalysisResponseSchema,
-  getContentGenerationResponseSchema,
-  getDeliveryResponseSchema,
-  getQueryAnalysisResponseSchema,
-  postAnalysisResponseSchema,
-  postContentGenerationResponseSchema,
-  postDeliveryResponseSchema,
-  postQueryAnalysisResponseSchema,
-  type GetAnalysisQuery,
-  type GetAnalysisResponse,
-  type GetContentGenerationQuery,
-  type GetContentGenerationResponse,
-  type GetDeliveryQuery,
-  type GetDeliveryResponse,
-  type GetQueryAnalysisQuery,
-  type GetQueryAnalysisResponse,
-  type PostAnalysisBody,
-  type PostAnalysisResponse,
-  type PostContentGenerationBody,
-  type PostContentGenerationResponse,
-  type PostDeliveryBody,
-  type PostDeliveryResponse,
-  type PostQueryAnalysisBody,
-  type PostQueryAnalysisResponse,
+  agentDataApiManifest,
+  agentDataApiPathname,
+  type AgentDataApiManifest,
+  type AgentDataApiResourceKey,
 } from "@workspace/agent-data-api-contract";
-import {
-  type DataCollectionBody,
-  type DataCollectionQuery,
-} from "@workspace/agent-types";
 import got from "got";
 import { z } from "zod";
 
@@ -48,34 +24,43 @@ export type DataApiPostFn = (
   },
 ) => Promise<PostResponse>;
 
-const getDataCollectionResponseSchema = z.object({
-  data: z.array(
-    z.object({
-      id: z.string().uuid(),
-      text: z.string(),
-      tickerId: z.string().uuid(),
-    }),
-  ),
-});
-const postDataCollectionResponseSchema = z.object({
-  message: z.string(),
-});
-
-export type GetDataCollectionResponse = z.infer<
-  typeof getDataCollectionResponseSchema
->;
-export type PostDataCollectionResponse = z.infer<
-  typeof postDataCollectionResponseSchema
->;
-
-export type AgentDataApiClient = ReturnType<typeof createAgentDataApiClient>;
-
 type AgentDataApiClientOptions = {
   baseUrl: string;
   token?: string;
   getAuthHeader?: () => string | undefined;
   getFn?: DataApiGetFn;
   postFn?: DataApiPostFn;
+};
+
+type GetEndpointClient<T extends { get?: unknown }> = T extends {
+  get: {
+    query: infer TQuery extends z.ZodTypeAny;
+    response: infer TResponse extends z.ZodTypeAny;
+  };
+}
+  ? {
+      get: (query: z.infer<TQuery>) => Promise<z.infer<TResponse>>;
+    }
+  : {};
+
+type PostEndpointClient<T extends { post?: unknown }> = T extends {
+  post: {
+    body: infer TBody extends z.ZodTypeAny;
+    response: infer TResponse extends z.ZodTypeAny;
+  };
+}
+  ? {
+      create: (body: z.infer<TBody>) => Promise<z.infer<TResponse>>;
+    }
+  : {};
+
+type ManifestResourceClient<T extends { get?: unknown; post?: unknown }> =
+  GetEndpointClient<T> & PostEndpointClient<T>;
+
+export type AgentDataApiClient = {
+  [K in AgentDataApiResourceKey]: ManifestResourceClient<
+    AgentDataApiManifest[K]
+  >;
 };
 
 /**
@@ -86,7 +71,7 @@ type AgentDataApiClientOptions = {
  */
 export const createAgentDataApiClient = (
   options: AgentDataApiClientOptions,
-) => {
+): AgentDataApiClient => {
   const { baseUrl } = options;
   const resolveAuthHeader = () => options.getAuthHeader?.() ?? options.token;
 
@@ -135,56 +120,52 @@ export const createAgentDataApiClient = (
     return schema.parse(JSON.parse(res.body));
   };
 
-  return {
-    analysis: {
-      get: (query: GetAnalysisQuery): Promise<GetAnalysisResponse> =>
-        getJson("/api/analysis", query, getAnalysisResponseSchema),
-      create: (body: PostAnalysisBody): Promise<PostAnalysisResponse> =>
-        postJson("/api/analysis", body, postAnalysisResponseSchema),
-    },
-    queryAnalysis: {
-      get: (query: GetQueryAnalysisQuery): Promise<GetQueryAnalysisResponse> =>
-        getJson("/api/query-analysis", query, getQueryAnalysisResponseSchema),
-      create: (
-        body: PostQueryAnalysisBody,
-      ): Promise<PostQueryAnalysisResponse> =>
-        postJson("/api/query-analysis", body, postQueryAnalysisResponseSchema),
-    },
-    contentGeneration: {
-      get: (
-        query: GetContentGenerationQuery,
-      ): Promise<GetContentGenerationResponse> =>
-        getJson(
-          "/api/content-generation",
-          query,
-          getContentGenerationResponseSchema,
-        ),
-      create: (
-        body: PostContentGenerationBody,
-      ): Promise<PostContentGenerationResponse> =>
-        postJson(
-          "/api/content-generation",
-          body,
-          postContentGenerationResponseSchema,
-        ),
-    },
-    dataCollection: {
-      get: (query: DataCollectionQuery): Promise<GetDataCollectionResponse> =>
-        getJson("/api/data-collection", query, getDataCollectionResponseSchema),
-      create: (body: DataCollectionBody): Promise<PostDataCollectionResponse> =>
-        postJson(
-          "/api/data-collection",
-          body,
-          postDataCollectionResponseSchema,
-        ),
-    },
-    delivery: {
-      get: (query: GetDeliveryQuery): Promise<GetDeliveryResponse> =>
-        getJson("/api/delivery", query, getDeliveryResponseSchema),
-      create: (body: PostDeliveryBody): Promise<PostDeliveryResponse> =>
-        postJson("/api/delivery", body, postDeliveryResponseSchema),
-    },
+  /**
+   * Builds a typed resource client with GET and POST methods from one manifest entry.
+   *
+   * @param resourceKey - Key in the shared API manifest.
+   * @param resourceConfig - Manifest definition for a single API resource.
+   * @returns Generated client namespace for the resource.
+   */
+  const buildResourceClient = <
+    TResourceKey extends AgentDataApiResourceKey,
+    TResourceConfig extends AgentDataApiManifest[TResourceKey],
+  >(
+    resourceKey: TResourceKey,
+    resourceConfig: TResourceConfig,
+  ): ManifestResourceClient<TResourceConfig> => {
+    const path = agentDataApiPathname(resourceKey);
+    const resourceClient: Record<string, unknown> = {};
+    const getConfig = resourceConfig.get as
+      | { query: z.ZodTypeAny; response: z.ZodTypeAny }
+      | undefined;
+    const postConfig = resourceConfig.post as
+      | { body: z.ZodTypeAny; response: z.ZodTypeAny }
+      | undefined;
+
+    if (getConfig) {
+      resourceClient.get = (
+        query: Record<string, string | number | boolean | undefined>,
+      ) => getJson(path, query, getConfig.response);
+    }
+
+    if (postConfig) {
+      resourceClient.create = (body: unknown) =>
+        postJson(path, body, postConfig.response);
+    }
+
+    return resourceClient as ManifestResourceClient<TResourceConfig>;
   };
+
+  const resourceKeys = Object.keys(
+    agentDataApiManifest,
+  ) as AgentDataApiResourceKey[];
+  const entries = resourceKeys.map((resourceKey) => [
+    resourceKey,
+    buildResourceClient(resourceKey, agentDataApiManifest[resourceKey]),
+  ]);
+
+  return Object.fromEntries(entries) as AgentDataApiClient;
 };
 
 /**

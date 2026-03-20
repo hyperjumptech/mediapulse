@@ -1,4 +1,12 @@
 export {
+  AGENT_DATA_API_BASE_PATH,
+  agentDataApiManifest,
+  agentDataApiPathname,
+  camelCaseResourceKeyToPathSegment,
+  type AgentDataApiManifest,
+  type AgentDataApiResourceKey,
+} from "./agent-data-api-manifest.js";
+export {
   analysisDataSourceSchema,
   analysisEntityTypeSchema,
   analysisExistingEntitySchema,
@@ -23,6 +31,16 @@ export {
   type PostContentGenerationBody,
   type PostContentGenerationResponse,
 } from "./content-generation.js";
+export {
+  dataCollectionBodySchema,
+  dataCollectionQuerySchema,
+  getDataCollectionResponseSchema,
+  postDataCollectionResponseSchema,
+  type DataCollectionBody,
+  type DataCollectionQuery,
+  type GetDataCollectionResponse,
+  type PostDataCollectionResponse,
+} from "./data-collection.js";
 export {
   deliveryNewsletterSchema,
   deliverySubscriberSchema,

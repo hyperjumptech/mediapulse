@@ -1,11 +1,11 @@
 import { Context } from "hono";
 
-import { prisma } from "@workspace/database";
-import { internalError } from "@workspace/api-utils";
 import {
   dataCollectionBodySchema,
   dataCollectionQuerySchema,
-} from "@workspace/agent-types";
+} from "@workspace/agent-data-api-contract";
+import { internalError } from "@workspace/api-utils";
+import { prisma } from "@workspace/database";
 
 export async function getDataCollection(context: Context): Promise<Response> {
   try {

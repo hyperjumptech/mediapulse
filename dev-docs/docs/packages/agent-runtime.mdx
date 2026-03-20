@@ -1,19 +1,17 @@
 ---
 title: agent-runtime
-description: Shared runtime for pipeline agents — Hono app, bearer auth, data API helpers
+description: Shared runtime for pipeline agents — Hono app and bearer auth
 icon: Cpu
 ---
 
 ## Purpose
 
-`@workspace/agent-runtime` provides a **standard way to build agents** that Hermes invokes: a Hono app with bearer auth, request validation, and helpers to call the agent-data-api with the same token.
+`@workspace/agent-runtime` provides a standard way to build agents that Hermes invokes: a Hono app with bearer auth and request validation.
 
 ## Main exports
 
 - **`createAgentApp<TInput, TSchema, TConfig?, TConfigSchema?>(config, options)`** — Creates the agent app (fetch handler + port). Config: `agentId`, `agentVersion`, `inputSchema` (Zod), optional `configSchema` (Zod), `run({ input, config, token })`. Exposes **GET /schemas** (no auth) returning input and config as JSON Schema. Option **`autoRegister`** triggers self-registration with the agent-registry-api on startup when set.
 - **`registerWithRegistry(params)`** — Registers the agent with the registry (POST with schemas and endpoint). Used internally when `autoRegister` is set; can be called explicitly if needed.
-- **`dataApiGet(token, baseUrl, path, query?)`** — GET to agent-data-api with `Authorization: Bearer`.
-- **`dataApiPost(token, baseUrl, path, body)`** — POST to agent-data-api with bearer token.
 - **`verifyTokenViaAuthApi`** — Re-exported from `@workspace/agent-auth-client`; used when `authApiUrl` is set.
 - **Types:** `AgentResult`, `AgentRunContext<TInput, TConfig>`, `AgentConfig`, `CreateAgentAppOptions`, `AutoRegisterOptions`, `LoggerLike`.
 
@@ -35,3 +33,5 @@ content-generation, data-collection, and delivery agents.
 ## More
 
 See the [package README](https://github.com/your-org/mediapulse/blob/main/packages/agent-runtime/README.md) for full API and examples.
+
+For typed agent-data-api calls inside `run`, use [agent-data-api-client](/packages/agent-data-api-client).

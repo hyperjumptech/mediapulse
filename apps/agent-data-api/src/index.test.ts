@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { agentDataApiPathname } from "@workspace/agent-data-api-contract";
 
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const SEARCH_QUERY_ID = "22222222-2222-4222-a222-222222222222";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
+const contentGenerationPath = agentDataApiPathname("contentGeneration");
+const dataCollectionPath = agentDataApiPathname("dataCollection");
+const deliveryPath = agentDataApiPathname("delivery");
 
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyApiKeyViaAuthApi: vi.fn().mockResolvedValue(true),
@@ -52,11 +56,11 @@ describe("agent-data-api", () => {
     vi.restoreAllMocks();
   });
 
-  describe("GET /api/content-generation", () => {
+  describe(`GET ${contentGenerationPath}`, () => {
     it("returns 401 without Authorization header", async () => {
       const { app } = await import("./index.js");
       const res = await app.request(
-        `http://localhost/api/content-generation?tickerId=${TICKER_ID}`,
+        `http://localhost${contentGenerationPath}?tickerId=${TICKER_ID}`,
       );
       expect(res.status).toBe(401);
     });
@@ -71,7 +75,7 @@ describe("agent-data-api", () => {
           content: "Content",
           metadata: null,
           tickerId: TICKER_ID,
-          searchQueryId: "sq-1",
+          searchQueryId: SEARCH_QUERY_ID,
           createdAt: new Date("2026-03-19T00:00:00.000Z"),
           updatedAt: new Date("2026-03-19T00:00:00.000Z"),
         },
@@ -79,7 +83,7 @@ describe("agent-data-api", () => {
 
       const { app } = await import("./index.js");
       const res = await app.request(
-        `http://localhost/api/content-generation?tickerId=${TICKER_ID}`,
+        `http://localhost${contentGenerationPath}?tickerId=${TICKER_ID}`,
         { headers: AUTH_HEADERS },
       );
       const body = await res.json();
@@ -92,9 +96,12 @@ describe("agent-data-api", () => {
 
     it("returns 400 when query validation fails (missing tickerId)", async () => {
       const { app } = await import("./index.js");
-      const res = await app.request("http://localhost/api/content-generation", {
-        headers: AUTH_HEADERS,
-      });
+      const res = await app.request(
+        `http://localhost${contentGenerationPath}`,
+        {
+          headers: AUTH_HEADERS,
+        },
+      );
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body.message).toBe("Bad Request");
@@ -102,7 +109,7 @@ describe("agent-data-api", () => {
     });
   });
 
-  describe("POST /api/content-generation", () => {
+  describe(`POST ${contentGenerationPath}`, () => {
     it("returns 200 and Success when body is valid", async () => {
       const mod = await getContentGenerationService();
       vi.mocked(mod.createNewsletter).mockResolvedValue({
@@ -116,15 +123,18 @@ describe("agent-data-api", () => {
       });
 
       const { app } = await import("./index.js");
-      const res = await app.request("http://localhost/api/content-generation", {
-        method: "POST",
-        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: "Test Subject",
-          content: "Test content",
-          tickerId: TICKER_ID,
-        }),
-      });
+      const res = await app.request(
+        `http://localhost${contentGenerationPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: "Test Subject",
+            content: "Test content",
+            tickerId: TICKER_ID,
+          }),
+        },
+      );
       const body = await res.json();
 
       expect(res.status).toBe(200);
@@ -132,7 +142,7 @@ describe("agent-data-api", () => {
     });
   });
 
-  describe("GET /api/data-collection", () => {
+  describe(`GET ${dataCollectionPath}`, () => {
     it("returns 200 and data when service returns data", async () => {
       const { prisma } = await getDatabase();
       vi.mocked(prisma.searchQuery.findMany).mockResolvedValue([
@@ -147,7 +157,7 @@ describe("agent-data-api", () => {
 
       const { app } = await import("./index.js");
       const res = await app.request(
-        `http://localhost/api/data-collection?tickerId=${TICKER_ID}`,
+        `http://localhost${dataCollectionPath}?tickerId=${TICKER_ID}`,
         { headers: AUTH_HEADERS },
       );
       const body = await res.json();
@@ -159,13 +169,13 @@ describe("agent-data-api", () => {
     });
   });
 
-  describe("POST /api/data-collection", () => {
+  describe(`POST ${dataCollectionPath}`, () => {
     it("returns 200 when body is valid array with tickerId + searchQueryId per item", async () => {
       const { prisma } = await getDatabase();
       vi.mocked(prisma.dataSource.createMany).mockResolvedValue({ count: 1 });
 
       const { app } = await import("./index.js");
-      const res = await app.request("http://localhost/api/data-collection", {
+      const res = await app.request(`http://localhost${dataCollectionPath}`, {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify([
@@ -196,14 +206,14 @@ describe("agent-data-api", () => {
     });
   });
 
-  describe("GET /api/delivery", () => {
+  describe(`GET ${deliveryPath}`, () => {
     it("returns 404 when no newsletter exists", async () => {
       const mod = await getDeliveryService();
       vi.mocked(mod.getDeliveryData).mockResolvedValue(null);
 
       const { app } = await import("./index.js");
       const res = await app.request(
-        `http://localhost/api/delivery?tickerId=${TICKER_ID}`,
+        `http://localhost${deliveryPath}?tickerId=${TICKER_ID}`,
         { headers: AUTH_HEADERS },
       );
       const body = await res.json();
@@ -229,7 +239,7 @@ describe("agent-data-api", () => {
 
       const { app } = await import("./index.js");
       const res = await app.request(
-        `http://localhost/api/delivery?tickerId=${TICKER_ID}`,
+        `http://localhost${deliveryPath}?tickerId=${TICKER_ID}`,
         { headers: AUTH_HEADERS },
       );
       const body = await res.json();
@@ -241,13 +251,13 @@ describe("agent-data-api", () => {
     });
   });
 
-  describe("POST /api/delivery", () => {
+  describe(`POST ${deliveryPath}`, () => {
     it("returns 200 when body has userTickerId", async () => {
       const mod = await getDeliveryService();
       vi.mocked(mod.postDelivery).mockResolvedValue(undefined);
 
       const { app } = await import("./index.js");
-      const res = await app.request("http://localhost/api/delivery", {
+      const res = await app.request(`http://localhost${deliveryPath}`, {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({ userTickerId: TICKER_ID }),

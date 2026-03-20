@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  agentDataApiPathname,
+  camelCaseResourceKeyToPathSegment,
+} from "@workspace/agent-data-api-contract";
 import { createAgentDataApiClient } from "./index.js";
 
 describe("createAgentDataApiClient", () => {
@@ -6,18 +10,17 @@ describe("createAgentDataApiClient", () => {
     vi.restoreAllMocks();
   });
 
-  it("builds query-analysis GET with typed query and auth header", async () => {
+  it("builds data-collection GET with typed query and auth header", async () => {
     // Setup
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
-        ticker: {
-          id: "11111111-1111-4111-a111-111111111111",
-          symbol: "BBRI",
-          name: "Bank Rakyat Indonesia",
-          metadata: null,
-        },
-        topEntities: [],
-        recentThemes: [],
+        data: [
+          {
+            id: "11111111-1111-4111-a111-111111111111",
+            text: "earnings update",
+            tickerId: "11111111-1111-4111-a111-111111111111",
+          },
+        ],
       }),
       statusCode: 200,
     });
@@ -28,28 +31,25 @@ describe("createAgentDataApiClient", () => {
     });
 
     // Act
-    const result = await client.queryAnalysis.get({
+    const result = await client.dataCollection.get({
       tickerId: "11111111-1111-4111-a111-111111111111",
     });
 
     // Assert
     expect(getFn).toHaveBeenCalledWith(
-      "http://agent-data-api/api/query-analysis?tickerId=11111111-1111-4111-a111-111111111111",
+      `http://agent-data-api${agentDataApiPathname("dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111`,
       expect.objectContaining({
         headers: { Authorization: "Bearer sdk-token" },
       }),
     );
-    expect(result.ticker.symbol).toBe("BBRI");
+    expect(result.data[0]?.text).toBe("earnings update");
   });
 
-  it("serializes boolean query parameters for analysis GET", async () => {
+  it("serializes optional query parameters for data-collection GET", async () => {
     // Setup
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
-        dataSources: [],
-        entityTypes: [],
-        relationTypes: [],
-        existingEntities: [],
+        data: [],
       }),
       statusCode: 200,
     });
@@ -59,22 +59,22 @@ describe("createAgentDataApiClient", () => {
     });
 
     // Act
-    await client.analysis.get({
+    await client.dataCollection.get({
       tickerId: "11111111-1111-4111-a111-111111111111",
-      unanalyzed: true,
+      start: "2026-03-20T00:00:00.000Z",
     });
 
     // Assert
     expect(getFn).toHaveBeenCalledWith(
-      "http://agent-data-api/api/analysis?tickerId=11111111-1111-4111-a111-111111111111&unanalyzed=true",
+      `http://agent-data-api${agentDataApiPathname("dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111&start=2026-03-20T00%3A00%3A00.000Z`,
       expect.anything(),
     );
   });
 
-  it("posts query-analysis payload and parses response", async () => {
+  it("posts content-generation payload and parses response", async () => {
     // Setup
     const postFn = vi.fn().mockResolvedValue({
-      body: JSON.stringify({ created: 8 }),
+      body: JSON.stringify({ message: "Success" }),
       statusCode: 200,
     });
     const client = createAgentDataApiClient({
@@ -84,18 +84,20 @@ describe("createAgentDataApiClient", () => {
     });
 
     // Act
-    const result = await client.queryAnalysis.create({
+    const result = await client.contentGeneration.create({
+      subject: "Subject",
+      content: "Body",
       tickerId: "11111111-1111-4111-a111-111111111111",
-      queries: [{ text: "BBRI quarterly earnings" }],
     });
 
     // Assert
     expect(postFn).toHaveBeenCalledWith(
-      "http://agent-data-api/api/query-analysis",
+      `http://agent-data-api${agentDataApiPathname("contentGeneration")}`,
       expect.objectContaining({
         json: {
+          subject: "Subject",
+          content: "Body",
           tickerId: "11111111-1111-4111-a111-111111111111",
-          queries: [{ text: "BBRI quarterly earnings" }],
         },
         headers: {
           "Content-Type": "application/json",
@@ -103,7 +105,7 @@ describe("createAgentDataApiClient", () => {
         },
       }),
     );
-    expect(result).toEqual({ created: 8 });
+    expect(result).toEqual({ message: "Success" });
   });
 
   it("throws for non-2xx responses", async () => {
@@ -123,5 +125,23 @@ describe("createAgentDataApiClient", () => {
 
     // Assert
     await expect(act).rejects.toThrow("Agent data API error: 404");
+  });
+});
+
+describe("agent-data-api path helpers", () => {
+  it("derives kebab-case path segments from resource keys", () => {
+    // Act
+    const segment = camelCaseResourceKeyToPathSegment("dataCollection");
+
+    // Assert
+    expect(segment).toBe("/data-collection");
+  });
+
+  it("builds API pathnames from manifest resource keys", () => {
+    // Act
+    const pathname = agentDataApiPathname("contentGeneration");
+
+    // Assert
+    expect(pathname).toBe("/api/content-generation");
   });
 });

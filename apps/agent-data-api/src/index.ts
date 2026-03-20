@@ -1,4 +1,8 @@
 import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
+import {
+  AGENT_DATA_API_BASE_PATH,
+  agentDataApiManifest,
+} from "@workspace/agent-data-api-contract";
 import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
@@ -14,13 +18,17 @@ import {
   postDataCollection,
 } from "./routes/data-collection.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
+import {
+  registerAgentDataApiRoutes,
+  type AgentDataApiHandlers,
+} from "./register-agent-data-api-routes.js";
 
 if (!env.AGENT_AUTH_API_URL) {
   throw new Error("AGENT_AUTH_API_URL is required for agent-data-api");
 }
 
 const app = new Hono();
-const api = app.basePath("/api");
+const api = app.basePath(AGENT_DATA_API_BASE_PATH);
 
 app.use(
   pinoLogger({
@@ -43,14 +51,22 @@ api.use(
   }),
 );
 
-api.get("/content-generation", getContentGeneration);
-api.post("/content-generation", postContentGeneration);
+const routeHandlers = {
+  contentGeneration: {
+    get: getContentGeneration,
+    post: postContentGeneration,
+  },
+  dataCollection: {
+    get: getDataCollection,
+    post: postDataCollection,
+  },
+  delivery: {
+    get: getDelivery,
+    post: postDeliveryHandler,
+  },
+} satisfies AgentDataApiHandlers;
 
-api.get("/data-collection", getDataCollection);
-api.post("/data-collection", postDataCollection);
-
-api.get("/delivery", getDelivery);
-api.post("/delivery", postDeliveryHandler);
+registerAgentDataApiRoutes(api, agentDataApiManifest, routeHandlers);
 
 export { app };
 export default {

@@ -1,6 +1,6 @@
 # @workspace/agent-runtime
 
-Shared runtime for agents that are invoked by Hermes: standard Hono app with bearer auth, request validation, and helpers for calling the agent-data-api.
+Shared runtime for agents that are invoked by Hermes: standard Hono app with bearer auth and request validation.
 
 ## How Hermes invokes agents
 
@@ -51,27 +51,30 @@ Validation errors (invalid body) return 400 with a structured error payload.
 
 ### 3. Calling the agent-data-api from `run`
 
-Use **`dataApiGet`** and **`dataApiPost`** so all agents use the same token and base URL pattern:
+Use `@workspace/agent-data-api-client` for typed API access:
 
 ```ts
-import {
-  createAgentApp,
-  dataApiGet,
-  dataApiPost,
-} from "@workspace/agent-runtime";
+import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import { createAgentApp } from "@workspace/agent-runtime";
 
 // Inside run():
-const data = await dataApiGet<MyType>(
+const dataApiClient = createAgentDataApiClient({
+  baseUrl: env.AGENT_DATA_API_URL,
   token,
-  env.AGENT_DATA_API_URL,
-  "/api/my-agent",
-  { tickerId: input.tickerId },
-);
+});
+
+const data = await dataApiClient.dataCollection.get({
+  tickerId: input.tickerId,
+});
 // ...
-await dataApiPost(token, env.AGENT_DATA_API_URL, "/api/my-agent", payload);
+await dataApiClient.contentGeneration.create({
+  subject: "Daily update",
+  content: "Newsletter body",
+  tickerId: input.tickerId,
+});
 ```
 
-Both helpers add the `Authorization` header when `token` is present and throw if the response status is not 2xx.
+The client includes response validation and uses shared contract schemas and route manifest entries.
 
 ### 4. Options (DI for tests)
 

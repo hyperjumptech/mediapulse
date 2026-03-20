@@ -11,22 +11,24 @@ Use this rule whenever you add, delete, or change an `agent-data-api` endpoint.
 ## Required order
 
 1. Update or add endpoint schemas in `@workspace/agent-data-api-contract` first.
-2. Update `apps/agent-data-api` routes/services to consume those shared schemas.
-3. Update `@workspace/agent-data-api-client` methods for the endpoint.
-4. Update all agent consumers and tests that call the SDK methods.
-5. Update docs in `dev-docs/docs/apps/agent-data-api.mdx`.
-6. Run `pnpm code-quality` before finishing.
+2. Update `agentDataApiManifest` in the contract package for the resource.
+3. Update `apps/agent-data-api` routes/services and handler map to consume the shared schemas.
+4. Update `@workspace/agent-data-api-client` behavior if the contract shape changed.
+5. Update all agent consumers and tests that call the SDK methods.
+6. Update docs in `dev-docs/docs/apps/agent-data-api.mdx`.
+7. Run `pnpm code-quality` before finishing.
 
 ## Endpoint-specific checks
 
-- **New endpoint:** register it in `apps/agent-data-api/src/index.ts` and add a typed SDK method in the same change.
+- **New endpoint:** add schemas, add the resource in `agentDataApiManifest`, and wire handlers in the route handler map. Do not hardcode path strings in app/client code.
 - **Updated request/response shape:** update contract types first, then fix API and SDK compile errors, then update agents.
-- **Deleted endpoint:** remove route registration, handlers, contract schema/types, SDK methods, agent usages, and docs in one pass.
+- **Deleted endpoint:** remove the manifest resource, handlers, contract schema/types, SDK usages, agent usages, and docs in one pass.
 
 ## Do not
 
 - Do not add raw string-path API calls from agents.
 - Do not duplicate endpoint request/response types in agent code when contract types exist.
 - Do not skip response validation in the SDK.
+- Do not register ad-hoc routes in `apps/agent-data-api/src/index.ts`; use manifest + typed handler map.
 
 For full implementation steps, follow `.cursor/skills/agent-data-api-endpoints/SKILL.md`.
