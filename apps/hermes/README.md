@@ -17,6 +17,17 @@ Schedules are stored in the database (`Schedule` table). The **scheduler does no
 3. Start **hermes-worker** (e.g. `pnpm dev:hermes-worker` from repo root).
 4. (Optional) Seed a default daily schedule: `pnpm exec tsx scripts/seed-default-schedule.ts` from `apps/hermes`.
 
+## Knowledge graph seeding (development)
+
+With Prisma migrations applied and `apps/hermes/.env.local` configured, you can seed default knowledge-graph data from this directory:
+
+```bash
+pnpm seed-kg-vocabulary
+pnpm seed-kg-pipelines
+```
+
+The first command loads entity types and relation types; the second loads the default KG pipelines and their schedules. Both scripts are idempotent.
+
 ## Creating an admin user
 
 Run `pnpm dlx tsx scripts/create-admin.ts <email> <password>` from the `apps/hermes` directory.

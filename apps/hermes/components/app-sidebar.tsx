@@ -10,6 +10,7 @@ import {
   GitBranch,
   Key,
   LayoutDashboard,
+  Tags,
   TrendingUp,
   Variable,
 } from "lucide-react";
@@ -50,6 +51,10 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
   const isDataSourceExpansions =
     pathname?.startsWith("/dashboard/data-source-expansions") ?? false;
+  const isEntityTypes =
+    pathname?.startsWith("/dashboard/entity-types") ?? false;
+  const isRelationTypes =
+    pathname?.startsWith("/dashboard/relation-types") ?? false;
 
   return (
     <Sidebar {...props}>
@@ -82,14 +87,6 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isTickers}>
-                <Link href="/dashboard/tickers">
-                  <TrendingUp className="size-4" />
-                  <span>Tickers</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isAgents}>
                 <Link href="/dashboard/agents">
                   <Bot className="size-4" />
@@ -102,6 +99,14 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/agent-configs">
                   <FileJson className="size-4" />
                   <span>Agent configs</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isTickers}>
+                <Link href="/dashboard/tickers">
+                  <TrendingUp className="size-4" />
+                  <span>Tickers</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -134,6 +139,27 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/data-source-expansions">
                   <Database className="size-4" />
                   <span>Data source expansions</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Knowledge Graph</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isEntityTypes}>
+                <Link href="/dashboard/entity-types">
+                  <Tags className="size-4" />
+                  <span>Entity Types</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isRelationTypes}>
+                <Link href="/dashboard/relation-types">
+                  <GitBranch className="size-4" />
+                  <span>Relation Types</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

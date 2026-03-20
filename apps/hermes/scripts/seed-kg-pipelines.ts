@@ -1,5 +1,9 @@
+import { config } from "dotenv";
+import fs from "fs";
 import type { PrismaClientWithSchema } from "@workspace/database/client";
 import type { Prisma } from "@workspace/database";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const TICKER_EXPANSION = "db:userTicker:tickerId?where.enabled=true";
 
@@ -41,6 +45,23 @@ type ComputeNextRunAtFn = (
   schedule: ComputeNextRunAtInput,
   now: Date,
 ) => Date | null;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * Loads Hermes script environment variables from the app-local .env file.
+ */
+const loadHermesScriptEnv = (): void => {
+  const envPath = path.resolve(__dirname, "../.env.local");
+  if (!fs.existsSync(envPath)) {
+    console.error("The .env.local file does not exist in the app root.");
+    process.exit(1);
+  }
+
+  config({ path: envPath });
+  console.log(`Loading environment variables from ${envPath}`);
+};
 
 const KG_PIPELINE_DEFINITIONS: PipelineDefinition[] = [
   {
@@ -323,6 +344,7 @@ export const seedKgPipelines = async (
  * Runs the KG pipeline seed as a CLI script.
  */
 const main = async (): Promise<void> => {
+  loadHermesScriptEnv();
   const result = await seedKgPipelines();
   console.log(
     `Seeded ${result.pipelinesSeeded} pipelines, ${result.stepsSeeded} steps, and ${result.schedulesSeeded} schedules.`,
