@@ -16,7 +16,9 @@ export async function getDeliveryData(tickerId: string) {
     return null;
   }
 
-  const subscribers = subscriptions.map((s) => ({ email: s.user.email }));
+  const subscribers = subscriptions.map((subscription) => ({
+    email: subscription.user.email,
+  }));
 
   return { newsletter, subscribers };
 }

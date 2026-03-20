@@ -1,9 +1,11 @@
 {
   "title": "Agents",
   "pages": [
-    "generate-agent",
+    "query-analysis",
+    "analysis",
     "content-generation",
     "data-collection",
-    "delivery"
+    "delivery",
+    "generate-agent"
   ]
 }

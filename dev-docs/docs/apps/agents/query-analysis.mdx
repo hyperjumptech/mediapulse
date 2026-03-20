@@ -1,0 +1,46 @@
+---
+title: Query Analysis Agent
+description: Generates ticker-specific search queries using ticker metadata and KG context
+icon: Sparkles
+---
+
+## Purpose
+
+The query-analysis agent generates 5-10 search queries per ticker so data-collection can crawl more relevant sources.
+
+It uses:
+
+- Ticker metadata (symbol, name, sector/industry)
+- Existing ticker KG context (entities/themes)
+- LLM-driven query generation
+
+## I/O contract
+
+- **Input:** `{ tickerId: string }`
+- **Reads:** `GET /api/query-analysis?tickerId=...`
+- **Writes:** `POST /api/query-analysis` (upsert search queries)
+
+## Environment variables
+
+| Variable | Required | Notes |
+| -------- | -------- | ----- |
+| `PORT` | Yes | Agent HTTP port |
+| `AGENT_AUTH_API_URL` | Yes | JWT/API-key verification endpoint |
+| `AGENT_DATA_API_URL` | Yes | Base URL for data API calls |
+| `OPENAI_API_KEY` | Yes | LLM provider key |
+| `OPENAI_MODEL` | Yes | Model id used for query generation |
+| `AGENT_REGISTRY_URL` | No | Needed for auto-register |
+| `AGENT_REGISTRY_API_KEY` | No | Needed for auto-register |
+| `AGENT_PUBLIC_URL` | No | Needed for auto-register |
+
+## Pipeline usage
+
+- Included in **Pipeline A: Query Analysis**
+- Schedule: `0 5 * * *` in `Asia/Jakarta`
+- Input fan-out: `{ "tickerId": "db:userTicker:tickerId?where.enabled=true" }`
+
+## Related docs
+
+- [Knowledge Graph Architecture](/architecture/knowledge-graph)
+- [Data Collection Agent](/apps/agents/data-collection)
+- [agent-data-api](/apps/agent-data-api)

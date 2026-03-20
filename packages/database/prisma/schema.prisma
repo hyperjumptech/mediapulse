@@ -102,8 +102,10 @@ model DataSource {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  ticker      Ticker      @relation(fields: [tickerId], references: [id])
-  searchQuery SearchQuery @relation(fields: [searchQueryId], references: [id])
+  ticker            Ticker             @relation(fields: [tickerId], references: [id])
+  searchQuery       SearchQuery        @relation(fields: [searchQueryId], references: [id])
+  articleEntities   ArticleEntity[]
+  articleRelevances ArticleRelevance[]
 
   @@map("data_source")
 }
@@ -166,6 +168,148 @@ enum AgentJobExecutionStatus {
   running
   completed
   failed
+}
+
+enum TickerEntitySource {
+  SEED
+  EXTRACTED
+  MANUAL
+}
+
+enum Sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+
+/// Admin-managed vocabulary for entity classification used by extraction prompts.
+model EntityType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  entities Entity[]
+
+  @@map("entity_type")
+}
+
+/// Admin-managed vocabulary for relationship classification used by extraction prompts.
+model RelationType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  entityRelations EntityRelation[]
+
+  @@map("relation_type")
+}
+
+/// Canonical representation of a real-world entity mentioned in financial articles.
+model Entity {
+  id            String   @id @default(uuid())
+  typeId        String   @map("type_id")
+  canonicalName String   @map("canonical_name")
+  description   String?
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  type            EntityType       @relation(fields: [typeId], references: [id])
+  aliases         EntityAlias[]
+  tickerEntities  TickerEntity[]
+  articleEntities ArticleEntity[]
+  relationsFrom   EntityRelation[] @relation("RelationFrom")
+  relationsTo     EntityRelation[] @relation("RelationTo")
+
+  @@map("entity")
+}
+
+/// Alternative names for an entity to support robust alias-based deduplication.
+model EntityAlias {
+  id              String   @id @default(uuid())
+  entityId        String   @map("entity_id")
+  alias           String
+  normalizedAlias String   @map("normalized_alias")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, normalizedAlias])
+  @@index([normalizedAlias])
+  @@map("entity_alias")
+}
+
+/// Per-ticker membership table representing which entities belong to a ticker graph.
+model TickerEntity {
+  id              String             @id @default(uuid())
+  tickerId        String             @map("ticker_id")
+  entityId        String             @map("entity_id")
+  relevanceWeight Float              @default(0.5) @map("relevance_weight")
+  source          TickerEntitySource @default(EXTRACTED)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  ticker Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([tickerId, entityId])
+  @@map("ticker_entity")
+}
+
+/// Directed relationship edge between two entities with a typed semantic meaning.
+model EntityRelation {
+  id             String   @id @default(uuid())
+  fromEntityId   String   @map("from_entity_id")
+  toEntityId     String   @map("to_entity_id")
+  relationTypeId String   @map("relation_type_id")
+  weight         Float    @default(1.0)
+  lastSeenAt     DateTime @default(now()) @map("last_seen_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  fromEntity   Entity       @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
+  toEntity     Entity       @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+  relationType RelationType @relation(fields: [relationTypeId], references: [id])
+
+  @@unique([fromEntityId, toEntityId, relationTypeId])
+  @@map("entity_relation")
+}
+
+/// Join table connecting an article to entities it mentions with extraction metadata.
+model ArticleEntity {
+  id           String     @id @default(uuid())
+  dataSourceId String     @map("data_source_id")
+  entityId     String     @map("entity_id")
+  mentionCount Int        @default(1) @map("mention_count")
+  confidence   Float      @default(0.5)
+  sentiment    Sentiment?
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  entity     Entity     @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([dataSourceId, entityId])
+  @@map("article_entity")
+}
+
+/// Per-ticker relevance score for an article including selected state and breakdown.
+model ArticleRelevance {
+  id             String   @id @default(uuid())
+  dataSourceId   String   @map("data_source_id")
+  tickerId       String   @map("ticker_id")
+  score          Float
+  scoreBreakdown Json     @map("score_breakdown")
+  selected       Boolean  @default(false)
+  scoredAt       DateTime @default(now()) @map("scored_at")
+
+  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  ticker     Ticker     @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@unique([dataSourceId, tickerId])
+  @@map("article_relevance")
 }
 
 model Schedule {
@@ -272,10 +416,12 @@ model Ticker {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  searchQueries SearchQuery[]
-  dataSources   DataSource[]
-  newsletters   Newsletter[]
-  userTickers   UserTicker[]
+  searchQueries     SearchQuery[]
+  dataSources       DataSource[]
+  newsletters       Newsletter[]
+  userTickers       UserTicker[]
+  tickerEntities    TickerEntity[]
+  articleRelevances ArticleRelevance[]
 
   @@map("ticker")
 }
