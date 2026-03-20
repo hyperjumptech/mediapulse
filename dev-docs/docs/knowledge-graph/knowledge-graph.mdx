@@ -86,7 +86,12 @@ Legend:
 | 4x Daily Data Collection | `0 6,10,14,18 * * *` | `Asia/Jakarta` | repeating | `false`            |
 | Daily Newsletter         | `0 20 * * *`         | `Asia/Jakarta` | repeating | `false`            |
 
-The seed script is `apps/hermes/scripts/seed-kg-pipelines.ts`. It is idempotent and can be re-run safely.
+**During development**, load default KG rows into the database from `apps/hermes` using the package scripts (wrappers around the TypeScript files in `scripts/`):
+
+- `pnpm seed-kg-vocabulary` — upserts default **entity types** and **relation types**.
+- `pnpm seed-kg-pipelines` — upserts the **pipelines** and **schedules** in the table above.
+
+Both operations are idempotent and safe to re-run. For an empty local DB, run vocabulary first so the dashboard and analysis agents have the baseline vocabulary; then run the pipeline seed.
 
 ## Data model in detail
 

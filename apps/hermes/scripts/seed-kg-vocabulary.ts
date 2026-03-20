@@ -1,4 +1,14 @@
+/**
+ * Seed the default knowledge-graph vocabulary (entity types and relation types).
+ * The operation is idempotent and safe to run multiple times because rows are upserted by name.
+ * The script can be run standalone: `pnpm dlx tsx scripts/seed-kg-vocabulary.ts`
+ */
+
+import { config } from "dotenv";
+import fs from "fs";
+import path from "path";
 import type { PrismaClientWithSchema } from "@workspace/database/client";
+import { fileURLToPath } from "url";
 
 const DEFAULT_ENTITY_TYPES = [
   {
@@ -65,6 +75,23 @@ type SeedKgVocabularyResult = {
   relationTypesSeeded: number;
 };
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * Loads Hermes script environment variables from the app-local .env file.
+ */
+const loadHermesScriptEnv = (): void => {
+  const envPath = path.resolve(__dirname, "../.env.local");
+  if (!fs.existsSync(envPath)) {
+    console.error("The .env.local file does not exist in the app root.");
+    process.exit(1);
+  }
+
+  config({ path: envPath });
+  console.log(`Loading environment variables from ${envPath}`);
+};
+
 /**
  * Seeds the default knowledge-graph vocabulary (entity types and relation types).
  * The operation is idempotent and safe to run multiple times because rows are upserted by name.
@@ -110,6 +137,7 @@ export const seedKgVocabulary = async (
  * Executes the KG vocabulary seed script from CLI.
  */
 const main = async (): Promise<void> => {
+  loadHermesScriptEnv();
   const result = await seedKgVocabulary();
   console.log(
     `Seeded ${result.entityTypesSeeded} entity types and ${result.relationTypesSeeded} relation types.`,

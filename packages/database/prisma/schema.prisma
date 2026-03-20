@@ -426,63 +426,6 @@ model Ticker {
   @@map("ticker")
 }
 
-model EntityType {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  entities Entity[]
-
-  @@map("entity_type")
-}
-
-model RelationType {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  entityRelations EntityRelation[]
-
-  @@map("relation_type")
-}
-
-model Entity {
-  id            String   @id @default(uuid())
-  typeId        String   @map("type_id")
-  canonicalName String   @map("canonical_name")
-  description   String?
-  metadata      Json?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  type          EntityType       @relation(fields: [typeId], references: [id])
-  relationsFrom EntityRelation[] @relation("RelationFrom")
-  relationsTo   EntityRelation[] @relation("RelationTo")
-
-  @@map("entity")
-}
-
-model EntityRelation {
-  id             String   @id @default(uuid())
-  fromEntityId   String   @map("from_entity_id")
-  toEntityId     String   @map("to_entity_id")
-  relationTypeId String   @map("relation_type_id")
-  weight         Float    @default(1.0)
-  lastSeenAt     DateTime @default(now()) @map("last_seen_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  fromEntity   Entity       @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
-  toEntity     Entity       @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
-  relationType RelationType @relation(fields: [relationTypeId], references: [id])
-
-  @@unique([fromEntityId, toEntityId, relationTypeId])
-  @@map("entity_relation")
-}
-
 model UserTicker {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
