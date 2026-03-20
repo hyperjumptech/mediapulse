@@ -10,14 +10,14 @@ agent-data-api is a Hono server that exposes **data endpoints** used by the agen
 
 ## Features
 
-- **Bearer auth** — Every request must include `Authorization: Bearer <api_key>`. API keys are verified via agent-auth-api `POST /api/verify-api-key` (agents use admin-issued API keys to call this service).
+- **Bearer auth** — Every request must include `Authorization: Bearer <token>`. Tokens are verified via agent-auth-api `POST /api/verify` (short-lived JWTs minted by hermes-worker for agent invocation, forwarded by agents when calling this API).
 - **Query-analysis** — GET/POST endpoints for reading ticker KG context and writing generated search queries.
 - **Content-generation** — GET/POST for content-generation data (e.g. store/retrieve generated newsletter content).
 - **Data-collection** — GET/POST for data-collection data (e.g. store/retrieve collected pages/sources).
 - **Analysis** — GET/POST endpoints for unscored articles, KG vocabulary/context, and bulk relevance writes.
 - **Delivery** — GET/POST for delivery data (e.g. newsletter content + subscribers for sending).
 
-Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call these endpoints with their **admin-issued API key** (not the invocation JWT).
+Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime`, passing the same `Authorization` header they received on invocation (the worker-issued JWT).
 
 ## Key routes
 
@@ -40,7 +40,7 @@ Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call 
 
 ## Workspace dependencies
 
-- `@workspace/agent-auth-client` — `verifyApiKeyViaAuthApi` for bearer (API key) auth.
+- `@workspace/agent-auth-client` — `verifyTokenViaAuthApi` for bearer (invocation JWT) auth.
 - `@workspace/agent-types` — Shared types for request/response shapes.
 - `@workspace/api-utils` — Error helpers.
 - `@workspace/env` — Environment (including `AGENT_AUTH_API_URL`).

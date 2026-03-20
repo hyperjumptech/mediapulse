@@ -5,7 +5,7 @@ const SEARCH_QUERY_ID = "22222222-2222-4222-a222-222222222222";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 
 vi.mock("@workspace/agent-auth-client", () => ({
-  verifyApiKeyViaAuthApi: vi.fn().mockResolvedValue(true),
+  verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@workspace/env", () => ({

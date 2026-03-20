@@ -1,4 +1,4 @@
-import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
 import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
@@ -44,7 +44,7 @@ api.use(
   "*",
   bearerAuth({
     verifyToken: (token) =>
-      verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL!),
+      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL!),
   }),
 );
 
