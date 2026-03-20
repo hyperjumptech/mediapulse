@@ -1,0 +1,32 @@
+---
+description: Keep agent-data-api endpoints, contract, and SDK synchronized
+globs: "{apps/agent-data-api/**/*,packages/agent-data-api-contract/**/*,packages/agent-data-api-client/**/*}"
+alwaysApply: false
+---
+
+# Agent Data API Endpoint Workflow
+
+Use this rule whenever you add, delete, or change an `agent-data-api` endpoint.
+
+## Required order
+
+1. Update or add endpoint schemas in `@workspace/agent-data-api-contract` first.
+2. Update `apps/agent-data-api` routes/services to consume those shared schemas.
+3. Update `@workspace/agent-data-api-client` methods for the endpoint.
+4. Update all agent consumers and tests that call the SDK methods.
+5. Update docs in `dev-docs/docs/apps/agent-data-api.mdx`.
+6. Run `pnpm code-quality` before finishing.
+
+## Endpoint-specific checks
+
+- **New endpoint:** register it in `apps/agent-data-api/src/index.ts` and add a typed SDK method in the same change.
+- **Updated request/response shape:** update contract types first, then fix API and SDK compile errors, then update agents.
+- **Deleted endpoint:** remove route registration, handlers, contract schema/types, SDK methods, agent usages, and docs in one pass.
+
+## Do not
+
+- Do not add raw string-path API calls from agents.
+- Do not duplicate endpoint request/response types in agent code when contract types exist.
+- Do not skip response validation in the SDK.
+
+For full implementation steps, follow `.cursor/skills/agent-data-api-endpoints/SKILL.md`.

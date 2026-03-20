@@ -17,7 +17,6 @@
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/logger": "workspace:*",
-    "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
     "zod": "catalog:",

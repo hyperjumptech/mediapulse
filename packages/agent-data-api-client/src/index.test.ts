@@ -1,98 +1,127 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createAgentDataApiClient } from "./index.js";
 
-import { AgentDataApiClient } from "./index.js";
-
-vi.mock("got", () => {
-  return {
-    default: {
-      get: vi.fn(),
-      post: vi.fn(),
-    },
-  };
-});
-
-const getGot = async () => (await import("got")).default;
-
-describe("AgentDataApiClient", () => {
+describe("createAgentDataApiClient", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("performs a GET with query params and apiKey", async () => {
+  it("builds query-analysis GET with typed query and auth header", async () => {
     // Setup
-    const got = await getGot();
-    (got.get as any).mockResolvedValue({
-      body: JSON.stringify({ ok: true }),
-      headers: { "content-type": "application/json" },
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        ticker: {
+          id: "11111111-1111-4111-a111-111111111111",
+          symbol: "BBRI",
+          name: "Bank Rakyat Indonesia",
+          metadata: null,
+        },
+        topEntities: [],
+        recentThemes: [],
+      }),
+      statusCode: 200,
     });
-    const client = new AgentDataApiClient({
-      url: "http://agent-data-api/api/example",
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
     });
 
     // Act
-    const result = await client.get<{ ok: boolean }>({
-      query: { tickerId: "123" },
-      apiKey: "Bearer test",
+    const result = await client.queryAnalysis.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
     });
 
     // Assert
-    expect(got.get).toHaveBeenCalledWith(
-      "http://agent-data-api/api/example?tickerId=123",
+    expect(getFn).toHaveBeenCalledWith(
+      "http://agent-data-api/api/query-analysis?tickerId=11111111-1111-4111-a111-111111111111",
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: "Bearer test",
-        }),
+        headers: { Authorization: "Bearer sdk-token" },
       }),
     );
-    expect(result).toEqual({ ok: true });
+    expect(result.ticker.symbol).toBe("BBRI");
   });
 
-  it("performs a POST with JSON body and apiKey", async () => {
+  it("serializes boolean query parameters for analysis GET", async () => {
     // Setup
-    const got = await getGot();
-    (got.post as any).mockResolvedValue({
-      body: "",
-      headers: { "content-type": "application/json" },
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        dataSources: [],
+        entityTypes: [],
+        relationTypes: [],
+        existingEntities: [],
+      }),
+      statusCode: 200,
     });
-    const client = new AgentDataApiClient({
-      url: "http://agent-data-api/api/example",
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      getFn,
     });
 
     // Act
-    await client.post({
-      body: { foo: "bar" },
-      apiKey: "Bearer test",
+    await client.analysis.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      unanalyzed: true,
     });
 
     // Assert
-    expect(got.post).toHaveBeenCalledWith(
-      "http://agent-data-api/api/example",
-      expect.objectContaining({
-        json: { foo: "bar" },
-        headers: expect.objectContaining({
-          Authorization: "Bearer test",
-        }),
-      }),
+    expect(getFn).toHaveBeenCalledWith(
+      "http://agent-data-api/api/analysis?tickerId=11111111-1111-4111-a111-111111111111&unanalyzed=true",
+      expect.anything(),
     );
   });
 
-  it("parses JSON response for non-void POST", async () => {
+  it("posts query-analysis payload and parses response", async () => {
     // Setup
-    const got = await getGot();
-    (got.post as any).mockResolvedValue({
-      body: JSON.stringify({ id: "123" }),
-      headers: { "content-type": "application/json" },
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ created: 8 }),
+      statusCode: 200,
     });
-    const client = new AgentDataApiClient({
-      url: "http://agent-data-api/api/example",
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      postFn,
     });
 
     // Act
-    const result = await client.post<{ foo: string }, { id: string }>({
-      body: { foo: "bar" },
+    const result = await client.queryAnalysis.create({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      queries: [{ text: "BBRI quarterly earnings" }],
     });
 
     // Assert
-    expect(result).toEqual({ id: "123" });
+    expect(postFn).toHaveBeenCalledWith(
+      "http://agent-data-api/api/query-analysis",
+      expect.objectContaining({
+        json: {
+          tickerId: "11111111-1111-4111-a111-111111111111",
+          queries: [{ text: "BBRI quarterly earnings" }],
+        },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer sdk-token",
+        },
+      }),
+    );
+    expect(result).toEqual({ created: 8 });
+  });
+
+  it("throws for non-2xx responses", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ message: "error" }),
+      statusCode: 404,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      getFn,
+    });
+
+    // Act
+    const act = () =>
+      client.delivery.get({ tickerId: "11111111-1111-4111-a111-111111111111" });
+
+    // Assert
+    await expect(act).rejects.toThrow("Agent data API error: 404");
   });
 });

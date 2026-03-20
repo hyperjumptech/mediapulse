@@ -1,8 +1,8 @@
 import { prisma } from "@workspace/database";
 import { logger } from "@workspace/logger";
+import type { PostContentGenerationBody } from "@workspace/agent-data-api-contract";
 
 import type { Prisma } from "@workspace/database";
-import type { PostContentGenerationBody } from "../schemas/content-generation.js";
 
 type DataSourceWithScore = Prisma.DataSourceGetPayload<{
   include: {

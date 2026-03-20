@@ -1,9 +1,5 @@
-import type { DataCollectionInput } from "@workspace/agent-types";
-import {
-  createAgentApp,
-  dataApiGet,
-  dataApiPost,
-} from "@workspace/agent-runtime";
+import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@workspace/env/agents-content-generation";
 import { logger } from "@workspace/logger";
 import OpenAI from "openai";
@@ -16,6 +12,12 @@ const BodySchema = z.object({
 });
 
 type Input = z.infer<typeof BodySchema>;
+
+type SourceForGeneration = {
+  url: string;
+  title: string;
+  content: string;
+};
 
 interface GeneratedContent {
   subject: string;
@@ -34,11 +36,14 @@ const app = createAgentApp<Input, typeof BodySchema>(
     agentVersion: "1.0.0",
     inputSchema: BodySchema,
     run: async ({ input, token }) => {
-      const { dataSources: sources } = await dataApiGet<{
-        dataSources: DataCollectionInput[];
-      }>(token, env.AGENT_DATA_API_URL, "/api/content-generation", {
-        tickerId: input.tickerId,
+      const dataApiClient = createAgentDataApiClient({
+        baseUrl: env.AGENT_DATA_API_URL,
+        token,
       });
+      const { dataSources: sources } =
+        await dataApiClient.contentGeneration.get({
+          tickerId: input.tickerId,
+        });
 
       if (!sources?.length) {
         return {
@@ -51,19 +56,14 @@ const app = createAgentApp<Input, typeof BodySchema>(
 
       const generated = await generateContentWithOpenAI(sources);
       try {
-        await dataApiPost(
-          token,
-          env.AGENT_DATA_API_URL,
-          "/api/content-generation",
-          {
-            subject: generated.subject,
-            content: generated.content,
-            ...(generated.description && {
-              description: generated.description,
-            }),
-            tickerId: input.tickerId,
-          },
-        );
+        await dataApiClient.contentGeneration.create({
+          subject: generated.subject,
+          content: generated.content,
+          ...(generated.description && {
+            description: generated.description,
+          }),
+          tickerId: input.tickerId,
+        });
       } catch (err) {
         logger.error(
           { tickerId: input.tickerId, err },
@@ -98,7 +98,7 @@ const app = createAgentApp<Input, typeof BodySchema>(
  * @returns Subject and formatted plain-text content for the newsletter.
  */
 async function generateContentWithOpenAI(
-  sources: DataCollectionInput[],
+  sources: SourceForGeneration[],
 ): Promise<GeneratedContent> {
   const sourceSummaries = sources
     .map(

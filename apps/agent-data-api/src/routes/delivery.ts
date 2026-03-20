@@ -3,8 +3,10 @@ import { Context } from "hono";
 import { internalError, notFound } from "@workspace/api-utils";
 import {
   getDeliveryQuerySchema,
+  getDeliveryResponseSchema,
   postDeliveryBodySchema,
-} from "../schemas/delivery.js";
+  postDeliveryResponseSchema,
+} from "@workspace/agent-data-api-contract";
 import { getDeliveryData, postDelivery } from "../services/delivery.js";
 
 export async function getDelivery(context: Context): Promise<Response> {
@@ -14,7 +16,8 @@ export async function getDelivery(context: Context): Promise<Response> {
     if (!result) {
       return notFound(context, "No newsletter found for this ticker");
     }
-    return context.json(result, 200);
+    const response = getDeliveryResponseSchema.parse(result);
+    return context.json(response, 200);
   } catch (error) {
     return internalError(context, error);
   }
@@ -25,7 +28,8 @@ export async function postDeliveryHandler(context: Context): Promise<Response> {
     const body = await context.req.json();
     const data = await postDeliveryBodySchema.parseAsync(body);
     await postDelivery(data);
-    return context.json({ message: "Success" }, 200);
+    const response = postDeliveryResponseSchema.parse({ message: "Success" });
+    return context.json(response, 200);
   } catch (error) {
     return internalError(context, error);
   }

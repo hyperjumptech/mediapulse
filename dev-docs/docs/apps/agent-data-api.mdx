@@ -17,7 +17,7 @@ agent-data-api is a Hono server that exposes **data endpoints** used by the agen
 - **Analysis** — GET/POST endpoints for unscored articles, KG vocabulary/context, and bulk relevance writes.
 - **Delivery** — GET/POST for delivery data (e.g. newsletter content + subscribers for sending).
 
-Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call these endpoints with their **admin-issued API key** (not the invocation JWT).
+Agents call this API through `@workspace/agent-data-api-client`, which centralizes endpoint paths, request typing, and response parsing with shared contract schemas.
 
 ## Key routes
 
@@ -40,12 +40,26 @@ Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call 
 
 ## Workspace dependencies
 
-- `@workspace/agent-auth-client` — `verifyApiKeyViaAuthApi` for bearer (API key) auth.
-- `@workspace/agent-types` — Shared types for request/response shapes.
+- `@workspace/agent-auth-client` — `verifyTokenViaAuthApi` for bearer (invocation JWT) auth.
+- `@workspace/agent-data-api-contract` — Shared Zod schemas and inferred endpoint types.
+- `@workspace/agent-data-api-client` — Typed SDK used by agents.
+- `@workspace/agent-types` — Shared data-collection request/body schemas.
 - `@workspace/api-utils` — Error helpers.
 - `@workspace/env` — Environment (including `AGENT_AUTH_API_URL`).
 - `@workspace/database` — Prisma for reading/writing agent data.
 - `@workspace/logger` — Pino logger.
+
+## Endpoint change workflow
+
+When the API surface changes (new endpoint, removed endpoint, or request/response changes), use this order:
+
+1. Update schemas in `@workspace/agent-data-api-contract`.
+2. Update `apps/agent-data-api` handlers and services.
+3. Update `@workspace/agent-data-api-client` methods.
+4. Update agent consumers.
+5. Update tests and run `pnpm code-quality`.
+
+See `.cursor/skills/agent-data-api-endpoints/SKILL.md` for the detailed checklist.
 
 ## Related docs
 
