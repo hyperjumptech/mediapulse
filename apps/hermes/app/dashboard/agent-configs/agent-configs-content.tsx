@@ -13,6 +13,10 @@ import type {
   AgentConfigSortDir,
   AgentConfigSortField,
 } from "@/lib/agent-configs";
+import type {
+  ExpansionOption,
+  VariableOption,
+} from "@/components/variable-expansion-input";
 
 type AgentForDropdown = {
   id: string;
@@ -28,6 +32,8 @@ type AgentConfigsContentProps = {
   pageSize: number;
   sortBy: AgentConfigSortField;
   sortDir: AgentConfigSortDir;
+  variableKeys: VariableOption[];
+  expansionTemplates: ExpansionOption[];
 };
 
 /**
@@ -80,6 +86,8 @@ export const AgentConfigsContent = ({
   pageSize,
   sortBy,
   sortDir,
+  variableKeys,
+  expansionTemplates,
 }: AgentConfigsContentProps) => {
   const {
     addModalOpen,
@@ -124,12 +132,16 @@ export const AgentConfigsContent = ({
         onOpenChange={handleAddModalOpenChange}
         initialData={duplicateConfig}
         trigger={null}
+        variableKeys={variableKeys}
+        expansionTemplates={expansionTemplates}
       />
       <EditConfigModal
         config={editingConfig}
         agents={agents}
         open={editingConfig !== null}
         onOpenChange={(open) => !open && setEditingConfig(null)}
+        variableKeys={variableKeys}
+        expansionTemplates={expansionTemplates}
       />
     </>
   );
