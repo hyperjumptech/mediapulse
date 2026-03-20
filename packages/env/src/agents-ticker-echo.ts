@@ -7,6 +7,7 @@ export const env = createEnv({
   server: {
     PORT: z.number({ coerce: true }).optional(),
     AGENT_AUTH_API_URL: z.string().optional(),
+    ALLOW_ANY_BEARER_FOR_LOCAL: z.string().default("false").optional(),
     AGENT_REGISTRY_URL: z.string().optional(),
     AGENT_REGISTRY_API_KEY: z.string().optional(),
     AGENT_PUBLIC_URL: z.string().optional(),
