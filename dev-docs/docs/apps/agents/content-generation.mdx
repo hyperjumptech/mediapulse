@@ -11,7 +11,7 @@ The content-generation agent takes **selected data sources** (scored by the anal
 ## Features
 
 - **Input:** `tickerId` (and optional fields). Receives bearer token from Hermes.
-- **Fetches** selected high-relevance sources for the ticker from `GET /api/content-generation` (rows where `article_relevance.selected = true` and scored today).
+- **Fetches** selected high-relevance sources for the ticker from `GET /api/v1/content-generation` (rows where `article_relevance.selected = true` and scored today).
 - **Calls OpenAI** to generate structured newsletter content (subject, executive summary, top news items).
 - **Stores** generated content via agent-data-api for the delivery agent.
 - **Skips** with a clear message if no data sources are found.
@@ -27,7 +27,8 @@ The content-generation agent takes **selected data sources** (scored by the anal
 ## Workspace dependencies
 
 - `@workspace/agent-auth-client` — Token verification.
-- `@workspace/agent-runtime` — `createAgentApp`, `dataApiGet`, `dataApiPost`.
+- `@workspace/agent-runtime` — `createAgentApp`.
+- `@workspace/agent-data-api-client` — Typed API client for content-generation endpoints.
 - `@workspace/agent-types` — `DataSourceRecord` and related types.
 - `@workspace/env` — Via `@workspace/env/agents-content-generation` (OpenAI key, API URLs, port).
 - `@workspace/logger` — Logging.

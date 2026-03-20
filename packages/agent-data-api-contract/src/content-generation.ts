@@ -1,0 +1,44 @@
+import { z } from "zod";
+
+export const getContentGenerationQuerySchema = z.object({
+  tickerId: z.string().uuid(),
+});
+
+export const postContentGenerationBodySchema = z.object({
+  subject: z.string(),
+  description: z.string().optional(),
+  content: z.string(),
+  tickerId: z.string().uuid(),
+});
+
+export const contentGenerationDataSourceSchema = z
+  .object({
+    url: z.string(),
+    title: z.string(),
+    content: z.string(),
+    tickerId: z.string().uuid(),
+    searchQueryId: z.string().uuid(),
+    description: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+export const getContentGenerationResponseSchema = z.object({
+  dataSources: z.array(contentGenerationDataSourceSchema),
+});
+
+export const postContentGenerationResponseSchema = z.object({
+  message: z.string(),
+});
+
+export type GetContentGenerationQuery = z.infer<
+  typeof getContentGenerationQuerySchema
+>;
+export type PostContentGenerationBody = z.infer<
+  typeof postContentGenerationBodySchema
+>;
+export type GetContentGenerationResponse = z.infer<
+  typeof getContentGenerationResponseSchema
+>;
+export type PostContentGenerationResponse = z.infer<
+  typeof postContentGenerationResponseSchema
+>;

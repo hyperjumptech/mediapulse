@@ -1,79 +1,229 @@
+import {
+  AGENT_DATA_API_DEFAULT_VERSION,
+  agentDataApiManifestForVersion,
+  agentDataApiPathname,
+  type AgentDataApiFlatManifest,
+  type AgentDataApiResourceKey,
+  type AgentDataApiVersion,
+} from "@workspace/agent-data-api-contract";
 import got from "got";
+import { z } from "zod";
 
-export interface AgentGetOptions {
-  query?: Record<string, string>;
-  apiKey?: string;
-}
+export type GetResponse = { body: string; statusCode: number };
+export type PostResponse = { body: string; statusCode: number };
 
-export interface AgentPostOptions<TRequest> {
-  body: TRequest;
-  apiKey?: string;
+export type DataApiGetFn = (
+  url: string,
+  options?: { headers?: Record<string, string>; throwHttpErrors?: boolean },
+) => Promise<GetResponse>;
+
+export type DataApiPostFn = (
+  url: string,
+  options?: {
+    json?: unknown;
+    headers?: Record<string, string>;
+    throwHttpErrors?: boolean;
+  },
+) => Promise<PostResponse>;
+
+type AgentDataApiClientOptions = {
+  baseUrl: string;
+  version?: AgentDataApiVersion;
+  token?: string;
+  getAuthHeader?: () => string | undefined;
+  getFn?: DataApiGetFn;
+  postFn?: DataApiPostFn;
+};
+
+type GetEndpointClient<T extends { get?: unknown }> = T extends {
+  get: {
+    query: infer TQuery extends z.ZodTypeAny;
+    response: infer TResponse extends z.ZodTypeAny;
+  };
 }
+  ? {
+      get: (query: z.infer<TQuery>) => Promise<z.infer<TResponse>>;
+    }
+  : {};
+
+type PostEndpointClient<T extends { post?: unknown }> = T extends {
+  post: {
+    body: infer TBody extends z.ZodTypeAny;
+    response: infer TResponse extends z.ZodTypeAny;
+  };
+}
+  ? {
+      create: (body: z.infer<TBody>) => Promise<z.infer<TResponse>>;
+    }
+  : {};
+
+type ManifestResourceClient<T extends { get?: unknown; post?: unknown }> =
+  GetEndpointClient<T> & PostEndpointClient<T>;
+
+export type AgentDataApiClient<
+  TVersion extends AgentDataApiVersion = typeof AGENT_DATA_API_DEFAULT_VERSION,
+> = {
+  [K in AgentDataApiResourceKey]: ManifestResourceClient<
+    AgentDataApiFlatManifest<TVersion>[K]
+  >;
+};
 
 /**
- * Generic HTTP client for talking to the Agent Data API.
- * Callers supply query params and payloads; this client handles URL and JSON transport.
+ * Creates a typed SDK for the agent-data-api that validates responses with shared schemas.
+ *
+ * @param options - Base URL, auth, and optional transport dependencies.
+ * @returns Namespaced endpoint methods for GET and POST operations.
  */
-export class AgentDataApiClient {
-  private readonly url: string;
+export const createAgentDataApiClient = <
+  TVersion extends AgentDataApiVersion = typeof AGENT_DATA_API_DEFAULT_VERSION,
+>(
+  options: AgentDataApiClientOptions & { version?: TVersion },
+): AgentDataApiClient<TVersion> => {
+  const { baseUrl } = options;
+  const version = (options.version ??
+    AGENT_DATA_API_DEFAULT_VERSION) as TVersion;
+  const manifest = agentDataApiManifestForVersion(version);
+  const resolveAuthHeader = () => options.getAuthHeader?.() ?? options.token;
 
-  constructor(opts: { url: string }) {
-    this.url = opts.url;
-  }
-
-  /**
-   * Issues a GET request and parses the JSON response as T.
-   */
-  async get<T>(options: AgentGetOptions = {}): Promise<T> {
-    const url = this.buildUrl(options.query);
-
-    const res = await got.get(url, {
-      headers: this.buildHeaders(options.apiKey),
-    });
-
-    return JSON.parse(res.body) as T;
-  }
-
-  /**
-   * Issues a POST request with a JSON body and optionally parses a JSON response.
-   */
-  async post<TRequest, TResponse = void>(
-    options: AgentPostOptions<TRequest>,
-  ): Promise<TResponse> {
-    const res = await got.post(this.url, {
-      json: options.body,
-      headers: this.buildHeaders(options.apiKey),
-    });
-
-    if (
-      res.body &&
-      (res.headers["content-type"] ?? "").includes("application/json")
-    ) {
-      return JSON.parse(res.body) as TResponse;
-    }
-
-    return undefined as TResponse;
-  }
-
-  private buildUrl(query?: Record<string, string>): string {
-    if (!query) return this.url;
-
-    const url = new URL(this.url);
-
+  const getJson = async <T>(
+    path: string,
+    query: Record<string, string | number | boolean | undefined>,
+    schema: z.ZodType<T>,
+  ): Promise<T> => {
+    const url = new URL(baseUrl);
+    url.pathname = path.startsWith("/") ? path : `/${path}`;
     for (const [key, value] of Object.entries(query)) {
-      url.searchParams.set(key, value);
+      if (value !== undefined) {
+        url.searchParams.set(key, String(value));
+      }
     }
 
-    return url.toString();
-  }
+    const res = await (options.getFn ?? defaultGet)(url.toString(), {
+      headers: buildAuthHeaders(resolveAuthHeader()),
+      throwHttpErrors: false,
+    });
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw new Error(`Agent data API error: ${res.statusCode}`);
+    }
+    return schema.parse(JSON.parse(res.body));
+  };
 
-  private buildHeaders(apiKey?: string): Record<string, string> {
-    const headers: Record<string, string> = {};
+  const postJson = async <T>(
+    path: string,
+    body: unknown,
+    schema: z.ZodType<T>,
+  ): Promise<T> => {
+    const url = new URL(baseUrl);
+    url.pathname = path.startsWith("/") ? path : `/${path}`;
 
-    if (apiKey) {
-      headers.Authorization = apiKey;
+    const res = await (options.postFn ?? defaultPost)(url.toString(), {
+      json: body,
+      headers: {
+        "Content-Type": "application/json",
+        ...buildAuthHeaders(resolveAuthHeader()),
+      },
+      throwHttpErrors: false,
+    });
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw new Error(`Agent data API error: ${res.statusCode}`);
+    }
+    return schema.parse(JSON.parse(res.body));
+  };
+
+  /**
+   * Builds a typed resource client with GET and POST methods from one manifest entry.
+   *
+   * @param resourceKey - Key in the shared API manifest.
+   * @param resourceConfig - Manifest definition for a single API resource.
+   * @returns Generated client namespace for the resource.
+   */
+  const buildResourceClient = <
+    TResourceKey extends AgentDataApiResourceKey,
+    TResourceConfig extends AgentDataApiFlatManifest<TVersion>[TResourceKey],
+  >(
+    resourceKey: TResourceKey,
+    resourceConfig: TResourceConfig,
+  ): ManifestResourceClient<TResourceConfig> => {
+    const path = agentDataApiPathname(version, resourceKey);
+    const resourceClient: Record<string, unknown> = {};
+    const getConfig = resourceConfig.get as
+      | { query: z.ZodTypeAny; response: z.ZodTypeAny }
+      | undefined;
+    const postConfig = resourceConfig.post as
+      | { body: z.ZodTypeAny; response: z.ZodTypeAny }
+      | undefined;
+
+    if (getConfig) {
+      resourceClient.get = (
+        query: Record<string, string | number | boolean | undefined>,
+      ) => getJson(path, query, getConfig.response);
     }
 
-    return headers;
-  }
-}
+    if (postConfig) {
+      resourceClient.create = (body: unknown) =>
+        postJson(path, body, postConfig.response);
+    }
+
+    return resourceClient as ManifestResourceClient<TResourceConfig>;
+  };
+
+  const resourceKeys = Object.keys(manifest) as AgentDataApiResourceKey[];
+  const entries = resourceKeys.map((resourceKey) => [
+    resourceKey,
+    buildResourceClient(resourceKey, manifest[resourceKey]),
+  ]);
+
+  return Object.fromEntries(entries) as AgentDataApiClient<TVersion>;
+};
+
+/**
+ * Builds an Authorization header object when a token exists.
+ *
+ * @param token - Bearer token or undefined.
+ * @returns Header record suitable for got options.
+ */
+const buildAuthHeaders = (
+  token: string | undefined,
+): Record<string, string> | undefined =>
+  token ? { Authorization: token } : undefined;
+
+/**
+ * Executes a default GET request through got.
+ *
+ * @param url - Absolute endpoint URL.
+ * @param opts - Optional headers and got flags.
+ * @returns Response body and status code.
+ */
+const defaultGet = async (
+  url: string,
+  opts?: { headers?: Record<string, string>; throwHttpErrors?: boolean },
+): Promise<GetResponse> => {
+  const res = await got.get(url, {
+    headers: opts?.headers,
+    throwHttpErrors: opts?.throwHttpErrors ?? false,
+  });
+  return { body: res.body, statusCode: res.statusCode ?? 200 };
+};
+
+/**
+ * Executes a default POST request through got.
+ *
+ * @param url - Absolute endpoint URL.
+ * @param opts - Optional JSON payload and headers.
+ * @returns Response body and status code.
+ */
+const defaultPost = async (
+  url: string,
+  opts?: {
+    json?: unknown;
+    headers?: Record<string, string>;
+    throwHttpErrors?: boolean;
+  },
+): Promise<PostResponse> => {
+  const res = await got.post(url, {
+    json: opts?.json,
+    headers: opts?.headers,
+    throwHttpErrors: opts?.throwHttpErrors ?? false,
+  });
+  return { body: res.body, statusCode: res.statusCode ?? 200 };
+};

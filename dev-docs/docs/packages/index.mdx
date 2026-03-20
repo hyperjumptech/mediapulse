@@ -17,7 +17,7 @@ The monorepo shares code through **workspace packages** under `packages/`. Apps 
 
 ### Agent stack
 
-- **[agent-runtime](/packages/agent-runtime)** — Shared runtime for agents: `createAgentApp`, bearer auth, `dataApiGet` / `dataApiPost`.
+- **[agent-runtime](/packages/agent-runtime)** — Shared runtime for agents: `createAgentApp` and bearer auth.
 - **[agent-types](/packages/agent-types)** — Zod schemas and types for data-collection, content-generation, and other agent I/O.
 - **[agent-auth-client](/packages/agent-auth-client)** — `verifyTokenViaAuthApi` for validating bearer tokens against agent-auth-api.
 - **[agent-data-api-client](/packages/agent-data-api-client)** — Typed client for agent-data-api (used by data-collection and others).

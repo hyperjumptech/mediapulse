@@ -1,8 +1,5 @@
-import {
-  createAgentApp,
-  dataApiGet,
-  dataApiPost,
-} from "@workspace/agent-runtime";
+import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@workspace/env/agents-delivery";
 import { z } from "zod";
 
@@ -14,23 +11,20 @@ const BodySchema = z.object({
 
 type Input = z.infer<typeof BodySchema>;
 
-type DeliveryData = {
-  newsletter: { subject: string; content: string };
-  subscribers: { email: string }[];
-};
-
 const app = createAgentApp<Input, typeof BodySchema>(
   {
     agentId: "delivery",
     agentVersion: "1.0.0",
     inputSchema: BodySchema,
     run: async ({ input, token }) => {
-      const deliveryData = await dataApiGet<DeliveryData>(
+      const dataApiClient = createAgentDataApiClient({
+        baseUrl: env.AGENT_DATA_API_URL,
+        version: "v1",
         token,
-        env.AGENT_DATA_API_URL,
-        "/api/delivery",
-        { tickerId: input.tickerId },
-      );
+      });
+      const deliveryData = await dataApiClient.delivery.get({
+        tickerId: input.tickerId,
+      });
 
       if (!deliveryData?.newsletter) {
         return {
@@ -46,7 +40,7 @@ const app = createAgentApp<Input, typeof BodySchema>(
         await sendEmailToUsers(newsletter, subscribers);
       }
 
-      await dataApiPost(token, env.AGENT_DATA_API_URL, "/api/delivery", {
+      await dataApiClient.delivery.create({
         userTickerId: input.tickerId,
       });
 

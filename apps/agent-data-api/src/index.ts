@@ -1,4 +1,9 @@
 import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
+import {
+  AGENT_DATA_API_LIVE_VERSIONS,
+  AGENT_DATA_API_PREFIX,
+  agentDataApiManifestForVersion,
+} from "@workspace/agent-data-api-contract";
 import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
@@ -14,13 +19,16 @@ import {
   postDataCollection,
 } from "./routes/data-collection.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
+import {
+  registerAgentDataApiRoutes,
+  type AgentDataApiHandlers,
+} from "./register-agent-data-api-routes.js";
 
 if (!env.AGENT_AUTH_API_URL) {
   throw new Error("AGENT_AUTH_API_URL is required for agent-data-api");
 }
 
 const app = new Hono();
-const api = app.basePath("/api");
 
 app.use(
   pinoLogger({
@@ -35,22 +43,37 @@ app.use(
     },
   }),
 );
-api.use(
-  "*",
-  bearerAuth({
-    verifyToken: (token) =>
-      verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL!),
-  }),
-);
+const routeHandlers = {
+  contentGeneration: {
+    get: getContentGeneration,
+    post: postContentGeneration,
+  },
+  dataCollection: {
+    get: getDataCollection,
+    post: postDataCollection,
+  },
+  delivery: {
+    get: getDelivery,
+    post: postDeliveryHandler,
+  },
+} satisfies AgentDataApiHandlers;
 
-api.get("/content-generation", getContentGeneration);
-api.post("/content-generation", postContentGeneration);
-
-api.get("/data-collection", getDataCollection);
-api.post("/data-collection", postDataCollection);
-
-api.get("/delivery", getDelivery);
-api.post("/delivery", postDeliveryHandler);
+for (const version of AGENT_DATA_API_LIVE_VERSIONS) {
+  const versionApi = new Hono();
+  versionApi.use(
+    "*",
+    bearerAuth({
+      verifyToken: (token) =>
+        verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL!),
+    }),
+  );
+  registerAgentDataApiRoutes(
+    versionApi,
+    agentDataApiManifestForVersion(version),
+    routeHandlers,
+  );
+  app.route(`${AGENT_DATA_API_PREFIX}/${version}`, versionApi);
+}
 
 export { app };
 export default {

@@ -6,33 +6,49 @@ icon: Database
 
 ## Purpose
 
-agent-data-api is a Hono server that exposes **data endpoints** used by the agents (query-analysis, data-collection, analysis, content-generation, delivery). All routes are protected by **bearer auth**; the token is verified via `@workspace/agent-auth-client` against agent-auth-api.
+agent-data-api is a Hono server that exposes data endpoints used by agents. **The agent gets data it needs and stores output data it produces to this API via the agent-data-api-client SDK.** All routes are protected by bearer auth; the token is verified via `@workspace/agent-auth-client` against agent-auth-api.
 
 ## Features
 
-- **Bearer auth** — Every request must include `Authorization: Bearer <api_key>`. API keys are verified via agent-auth-api `POST /api/verify-api-key` (agents use admin-issued API keys to call this service).
-- **Query-analysis** — GET/POST endpoints for reading ticker KG context and writing generated search queries.
-- **Content-generation** — GET/POST for content-generation data (e.g. store/retrieve generated newsletter content).
-- **Data-collection** — GET/POST for data-collection data (e.g. store/retrieve collected pages/sources).
-- **Analysis** — GET/POST endpoints for unscored articles, KG vocabulary/context, and bulk relevance writes.
-- **Delivery** — GET/POST for delivery data (e.g. newsletter content + subscribers for sending).
+agent-data-api is the **HTTP persistence layer between agents and the database**: agents do not talk to Prisma directly. Each resource is a small, typed surface with **GET** (load state for a run or ticker) and **POST** (save the next artifact), backed by shared Zod schemas in `@workspace/agent-data-api-contract`.
 
-Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call these endpoints with their **admin-issued API key** (not the invocation JWT).
+- **Bearer auth** — Requests must send `Authorization: Bearer <api_key>`. Keys are checked with agent-auth-api (`verifyApiKeyViaAuthApi`); only validated callers can read or write agent data.
+- **Content generation** — Stores and loads generated newsletter-style output so downstream steps can reuse it without reshaping ad hoc payloads.
+- **Data collection** — Stores and loads crawled or gathered source material (pages, feeds, etc.) so collection and later stages see the same structured snapshot.
+- **Delivery** — Stores and loads what is needed to send a newsletter: composed content plus subscriber-oriented data, so the sending path does not re-derive everything from scratch.
+
+**Contract-driven routing:** URL paths and the `@workspace/agent-data-api-client` method namespaces are derived from `agentDataApiManifest` plus version helpers in `@workspace/agent-data-api-contract` (resource keys → `/api/<version>/...` segments). That keeps the server, SDK, and docs aligned and avoids one-off paths in app or agent code.
 
 ## Key routes
 
-| Method | Path                      | Description                                    |
-| ------ | ------------------------- | ---------------------------------------------- |
-| GET    | `/api/query-analysis`     | Get query-analysis context by `tickerId`       |
-| POST   | `/api/query-analysis`     | Upsert generated search queries                |
-| GET    | `/api/content-generation` | Get content-generation data (e.g. by tickerId) |
-| POST   | `/api/content-generation` | Store content-generation payload               |
-| GET    | `/api/data-collection`    | Get data-collection data                       |
-| POST   | `/api/data-collection`    | Store data-collection payload                  |
-| GET    | `/api/analysis`           | Get analysis payload (e.g. unscored items)     |
-| POST   | `/api/analysis`           | Store analysis/KG and relevance results        |
-| GET    | `/api/delivery`           | Get delivery data (newsletter + subscribers)   |
-| POST   | `/api/delivery`           | Store delivery payload                         |
+Agents should not call these HTTP paths directly. In agent code, use `@workspace/agent-data-api-client` and call SDK namespaces such as `contentGeneration`, `dataCollection`, and `delivery`. The SDK provides typed methods for each endpoint and validates responses with shared schemas.
+
+| Method | Path                         | Description                                    |
+| ------ | ---------------------------- | ---------------------------------------------- |
+| GET    | `/api/v1/content-generation` | Get content-generation data (e.g. by tickerId) |
+| POST   | `/api/v1/content-generation` | Store content-generation payload               |
+| GET    | `/api/v1/data-collection`    | Get data-collection data                       |
+| POST   | `/api/v1/data-collection`    | Store data-collection payload                  |
+| GET    | `/api/v1/delivery`           | Get delivery data (newsletter + subscribers)   |
+| POST   | `/api/v1/delivery`           | Store delivery payload                         |
+
+For example, in agents:
+
+```ts
+const dataApiClient = createAgentDataApiClient({
+  baseUrl: env.AGENT_DATA_API_URL,
+  version: "v1",
+  token,
+});
+
+await dataApiClient.contentGeneration.get({ tickerId });
+```
+
+## Versioning
+
+- `agent-data-api` can serve multiple live versions (for example `v1`, `v2`) under `/api/<version>/...`.
+- The contract package defines live versions and the default SDK version (`AGENT_DATA_API_DEFAULT_VERSION`).
+- Existing agents can pin a specific version with `createAgentDataApiClient({ version: "v1", ... })` during migrations.
 
 ## Port
 
@@ -40,12 +56,34 @@ Agents use `dataApiGet` / `dataApiPost` from `@workspace/agent-runtime` to call 
 
 ## Workspace dependencies
 
-- `@workspace/agent-auth-client` — `verifyApiKeyViaAuthApi` for bearer (API key) auth.
-- `@workspace/agent-types` — Shared types for request/response shapes.
+- `@workspace/agent-auth-client` — `verifyTokenViaAuthApi` for bearer (invocation JWT) auth.
+- `@workspace/agent-data-api-contract` — Shared Zod schemas, `agentDataApiManifest`, and derived path helpers.
+- `@workspace/agent-data-api-client` — Typed SDK used by agents.
 - `@workspace/api-utils` — Error helpers.
 - `@workspace/env` — Environment (including `AGENT_AUTH_API_URL`).
 - `@workspace/database` — Prisma for reading/writing agent data.
 - `@workspace/logger` — Pino logger.
+
+## Endpoint change workflow
+
+When the API surface changes (new endpoint, removed endpoint, or request/response changes), follow this sequence to keep contract, server routes, SDK, and agents in sync:
+
+1. **Contract first:** update schemas and exported types in `@workspace/agent-data-api-contract`.
+2. **Manifest update:** add or update the resource in `agentDataApiManifest` (this is the canonical source of route shape).
+3. **API wiring:** implement/update handlers in `apps/agent-data-api/src/routes` and `src/services`, then wire them in the typed handler map used by route registration.
+4. **SDK alignment:** update `@workspace/agent-data-api-client` if request/response types changed.
+5. **Consumer updates:** update agent callsites that use the SDK.
+6. **Validation:** update tests, then run `pnpm code-quality`.
+
+See `.cursor/skills/agent-data-api-endpoints/SKILL.md` for the detailed checklist.
+
+## Using the Cursor skill
+
+When you ask Cursor to add/remove/change an endpoint, explicitly reference:
+
+- `.cursor/skills/agent-data-api-endpoints/SKILL.md`
+
+This skill keeps the implementation order correct and prevents API route drift from SDK behavior. For a shorter app-local summary, see `apps/agent-data-api/README.md`.
 
 ## Related docs
 

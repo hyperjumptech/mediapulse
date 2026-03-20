@@ -3,8 +3,10 @@ import { Context } from "hono";
 import { internalError } from "@workspace/api-utils";
 import {
   getContentGenerationQuerySchema,
+  getContentGenerationResponseSchema,
   postContentGenerationBodySchema,
-} from "../schemas/content-generation.js";
+  postContentGenerationResponseSchema,
+} from "@workspace/agent-data-api-contract";
 import {
   createNewsletter,
   getDataSourcesForTicker,
@@ -16,7 +18,8 @@ export async function getContentGeneration(
   try {
     const query = getContentGenerationQuerySchema.parse(context.req.query());
     const dataSources = await getDataSourcesForTicker(query.tickerId);
-    return context.json({ dataSources }, 200);
+    const response = getContentGenerationResponseSchema.parse({ dataSources });
+    return context.json(response, 200);
   } catch (error) {
     return internalError(context, error);
   }
@@ -29,7 +32,10 @@ export async function postContentGeneration(
     const body = await context.req.json();
     const data = await postContentGenerationBodySchema.parseAsync(body);
     await createNewsletter(data);
-    return context.json({ message: "Success" }, 200);
+    const response = postContentGenerationResponseSchema.parse({
+      message: "Success",
+    });
+    return context.json(response, 200);
   } catch (error) {
     return internalError(context, error);
   }

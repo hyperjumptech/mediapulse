@@ -19,15 +19,14 @@ vi.mock("@workspace/env/agents-data-collection", () => ({
 const getMock = vi.fn();
 const postMock = vi.fn();
 
-vi.mock("@workspace/agent-runtime", async () => {
-  const actual = await vi.importActual<
-    typeof import("@workspace/agent-runtime")
-  >("@workspace/agent-runtime");
-
+vi.mock("@workspace/agent-data-api-client", () => {
   return {
-    ...actual,
-    dataApiGet: getMock,
-    dataApiPost: postMock,
+    createAgentDataApiClient: vi.fn(() => ({
+      dataCollection: {
+        get: getMock,
+        create: postMock,
+      },
+    })),
   };
 });
 

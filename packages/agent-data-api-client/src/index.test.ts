@@ -1,98 +1,172 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  AGENT_DATA_API_DEFAULT_VERSION,
+  agentDataApiPathname,
+  camelCaseResourceKeyToPathSegment,
+} from "@workspace/agent-data-api-contract";
+import { createAgentDataApiClient } from "./index.js";
 
-import { AgentDataApiClient } from "./index.js";
-
-vi.mock("got", () => {
-  return {
-    default: {
-      get: vi.fn(),
-      post: vi.fn(),
-    },
-  };
-});
-
-const getGot = async () => (await import("got")).default;
-
-describe("AgentDataApiClient", () => {
+describe("createAgentDataApiClient", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("performs a GET with query params and apiKey", async () => {
+  it("builds data-collection GET with typed query and auth header", async () => {
     // Setup
-    const got = await getGot();
-    (got.get as any).mockResolvedValue({
-      body: JSON.stringify({ ok: true }),
-      headers: { "content-type": "application/json" },
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        data: [
+          {
+            id: "11111111-1111-4111-a111-111111111111",
+            text: "earnings update",
+            tickerId: "11111111-1111-4111-a111-111111111111",
+          },
+        ],
+      }),
+      statusCode: 200,
     });
-    const client = new AgentDataApiClient({
-      url: "http://agent-data-api/api/example",
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
     });
 
     // Act
-    const result = await client.get<{ ok: boolean }>({
-      query: { tickerId: "123" },
-      apiKey: "Bearer test",
+    const result = await client.dataCollection.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
     });
 
     // Assert
-    expect(got.get).toHaveBeenCalledWith(
-      "http://agent-data-api/api/example?tickerId=123",
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111`,
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: "Bearer test",
-        }),
+        headers: { Authorization: "Bearer sdk-token" },
       }),
     );
-    expect(result).toEqual({ ok: true });
+    expect(result.data[0]?.text).toBe("earnings update");
   });
 
-  it("performs a POST with JSON body and apiKey", async () => {
+  it("serializes optional query parameters for data-collection GET", async () => {
     // Setup
-    const got = await getGot();
-    (got.post as any).mockResolvedValue({
-      body: "",
-      headers: { "content-type": "application/json" },
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        data: [],
+      }),
+      statusCode: 200,
     });
-    const client = new AgentDataApiClient({
-      url: "http://agent-data-api/api/example",
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      getFn,
     });
 
     // Act
-    await client.post({
-      body: { foo: "bar" },
-      apiKey: "Bearer test",
+    await client.dataCollection.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      start: "2026-03-20T00:00:00.000Z",
     });
 
     // Assert
-    expect(got.post).toHaveBeenCalledWith(
-      "http://agent-data-api/api/example",
-      expect.objectContaining({
-        json: { foo: "bar" },
-        headers: expect.objectContaining({
-          Authorization: "Bearer test",
-        }),
-      }),
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111&start=2026-03-20T00%3A00%3A00.000Z`,
+      expect.anything(),
     );
   });
 
-  it("parses JSON response for non-void POST", async () => {
+  it("posts content-generation payload and parses response", async () => {
     // Setup
-    const got = await getGot();
-    (got.post as any).mockResolvedValue({
-      body: JSON.stringify({ id: "123" }),
-      headers: { "content-type": "application/json" },
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ message: "Success" }),
+      statusCode: 200,
     });
-    const client = new AgentDataApiClient({
-      url: "http://agent-data-api/api/example",
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      postFn,
     });
 
     // Act
-    const result = await client.post<{ foo: string }, { id: string }>({
-      body: { foo: "bar" },
+    const result = await client.contentGeneration.create({
+      subject: "Subject",
+      content: "Body",
+      tickerId: "11111111-1111-4111-a111-111111111111",
     });
 
     // Assert
-    expect(result).toEqual({ id: "123" });
+    expect(postFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGeneration")}`,
+      expect.objectContaining({
+        json: {
+          subject: "Subject",
+          content: "Body",
+          tickerId: "11111111-1111-4111-a111-111111111111",
+        },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer sdk-token",
+        },
+      }),
+    );
+    expect(result).toEqual({ message: "Success" });
+  });
+
+  it("throws for non-2xx responses", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ message: "error" }),
+      statusCode: 404,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      getFn,
+    });
+
+    // Act
+    const act = () =>
+      client.delivery.get({ tickerId: "11111111-1111-4111-a111-111111111111" });
+
+    // Assert
+    await expect(act).rejects.toThrow("Agent data API error: 404");
+  });
+
+  it("uses explicit version when provided", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ data: [] }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      version: "v2",
+      getFn,
+    });
+
+    // Act
+    await client.dataCollection.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+    });
+
+    // Assert
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname("v2", "dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111`,
+      expect.anything(),
+    );
+  });
+});
+
+describe("agent-data-api path helpers", () => {
+  it("derives kebab-case path segments from resource keys", () => {
+    // Act
+    const segment = camelCaseResourceKeyToPathSegment("dataCollection");
+
+    // Assert
+    expect(segment).toBe("/data-collection");
+  });
+
+  it("builds API pathnames from manifest resource keys", () => {
+    // Act
+    const pathname = agentDataApiPathname("v1", "contentGeneration");
+
+    // Assert
+    expect(pathname).toBe("/api/v1/content-generation");
   });
 });

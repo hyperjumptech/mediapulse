@@ -1,9 +1,6 @@
 import type { DataCollectionInput } from "@workspace/agent-types";
-import {
-  createAgentApp,
-  dataApiGet,
-  dataApiPost,
-} from "@workspace/agent-runtime";
+import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@workspace/env/agents-data-collection";
 
 import { z } from "zod";
@@ -65,25 +62,26 @@ const app = createAgentApp<
         };
       }
 
-      const query: Record<string, string> = { tickerId: input.tickerId };
+      const dataApiClient = createAgentDataApiClient({
+        baseUrl: env.AGENT_DATA_API_URL,
+        version: "v1",
+        token,
+      });
+      const query: { tickerId: string; start?: string; end?: string } = {
+        tickerId: input.tickerId,
+      };
       if (input.timeWindow) {
         query.start = input.timeWindow.start;
         query.end = input.timeWindow.end;
       }
-      const { data: queries = [] } = await dataApiGet<{
-        data?: SearchQuery[];
-      }>(token, env.AGENT_DATA_API_URL, "/api/data-collection", query);
+      const { data: queries = [] } =
+        await dataApiClient.dataCollection.get(query);
       const searchResults = await performWebSearchWithQueries(queries);
       const pages = await fetchWebPageContents(searchResults);
 
       if (pages.length > 0) {
         const sources = toDataCollectionInputs(input.tickerId, pages);
-        await dataApiPost(
-          token,
-          env.AGENT_DATA_API_URL,
-          "/api/data-collection",
-          sources,
-        );
+        await dataApiClient.dataCollection.create(sources);
       }
 
       return { success: true };

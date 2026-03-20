@@ -83,7 +83,7 @@ RegistryAPI->>Agent: 200 registered
 
 **Steps:**
 
-1. The **agent** holds an **API key** in its env (e.g. `AGENT_REGISTRY_API_KEY` for registry; for data API the agent runtime uses the same key when calling `dataApiGet` / `dataApiPost`). It sends `Authorization: Bearer <api_key>` to agent-data-api or agent-registry-api.
+1. The **agent** holds an **API key** in its env (e.g. `AGENT_REGISTRY_API_KEY` for registry; for data API calls agents pass this token through `@workspace/agent-data-api-client`). It sends `Authorization: Bearer <api_key>` to agent-data-api or agent-registry-api.
 2. **agent-data-api** and **agent-registry-api** do **not** validate the key themselves. They call **agent-auth-api** `POST /api/verify-api-key` with the same Bearer value.
 3. **agent-auth-api** hashes the key, looks it up in the API key table (active keys only), and returns 200 with `{ valid: true }` or 401.
 4. The data/registry API allows or denies the request based on that result.

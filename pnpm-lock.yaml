@@ -171,6 +171,9 @@ importers:
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../packages/agent-auth-client
+      '@workspace/agent-data-api-contract':
+        specifier: workspace:*
+        version: link:../../packages/agent-data-api-contract
       '@workspace/agent-types':
         specifier: workspace:*
         version: link:../../packages/agent-types
@@ -254,6 +257,9 @@ importers:
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/agent-auth-client
+      '@workspace/agent-data-api-client':
+        specifier: workspace:*
+        version: link:../../../packages/agent-data-api-client
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../packages/agent-runtime
@@ -358,6 +364,9 @@ importers:
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/agent-auth-client
+      '@workspace/agent-data-api-client':
+        specifier: workspace:*
+        version: link:../../../packages/agent-data-api-client
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../packages/agent-runtime
@@ -705,12 +714,18 @@ importers:
 
   packages/agent-data-api-client:
     dependencies:
+      '@workspace/agent-data-api-contract':
+        specifier: workspace:*
+        version: link:../agent-data-api-contract
       '@workspace/agent-types':
         specifier: workspace:*
         version: link:../agent-types
       got:
         specifier: 'catalog:'
         version: 14.6.6
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
     devDependencies:
       '@workspace/typescript-config':
         specifier: workspace:*
@@ -722,6 +737,19 @@ importers:
         specifier: 'catalog:'
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/agent-data-api-contract:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/agent-runtime:
     dependencies:
       '@workspace/agent-auth-client':
@@ -730,9 +758,6 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../logger
-      got:
-        specifier: 'catalog:'
-        version: 14.6.6
       hono:
         specifier: 'catalog:'
         version: 4.11.9
