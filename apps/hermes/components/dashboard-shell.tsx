@@ -30,6 +30,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   pipelines: "Pipelines",
   "relation-types": "Relation Types",
   schedules: "Schedules",
+  "search-queries": "Search Query",
   tickers: "Tickers",
   variables: "Variables",
 };
