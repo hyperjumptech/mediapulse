@@ -1,0 +1,274 @@
+---
+title: Knowledge Graph
+description: Detailed KG architecture, data model, scoring logic, and operational playbook
+icon: Network
+---
+
+## Overview
+
+MediaPulse uses a per-ticker knowledge graph (KG) to turn raw news into structured signals for newsletter generation.
+
+At a high level, the KG lifecycle is:
+
+1. **Expand target tickers** from enabled subscriptions.
+2. **Generate search queries** for each ticker context.
+3. **Collect and store raw articles** from those queries.
+4. **Extract entities and relations** from article text.
+5. **Compute relevance scores** per article and ticker.
+6. **Select top articles** and generate newsletter content.
+7. **Deliver newsletters** and repeat on schedule.
+
+Ticker fan-out is driven by data source expansion in pipeline step input:
+
+`{ "tickerId": "db:userTicker:tickerId?where.enabled=true" }`
+
+This means each step runs once per enabled `user_ticker` row (or per distinct ticker if you add `distinct=tickerId`).
+
+## Pipeline architecture and ownership
+
+<Mermaid
+  chart={`flowchart TD
+  subgraph pipeline_a["Pipeline A: Query Analysis (05:00 WIB)"]
+    qa["query-analysis@1.0.0"]
+  end
+
+subgraph pipeline_b["Pipeline B: Data Collection (06:00, 10:00, 14:00, 18:00 WIB)"]
+dc["data-collection@1.0.0"]
+end
+
+subgraph pipeline_c["Pipeline C: Analysis & Newsletter (20:00 WIB)"]
+an["analysis@1.0.0"] --> cg["content-generation@1.0.0"] --> dl["delivery@1.0.0"]
+end
+
+subgraph data_api["agent-data-api"]
+qa_route["/api/query-analysis"]
+dc_route["/api/data-collection"]
+an_route["/api/analysis"]
+cg_route["/api/content-generation"]
+dl_route["/api/delivery"]
+end
+
+subgraph database["PostgreSQL"]
+sq[("search_query")]
+ds[("data_source")]
+ae[("article_entity")]
+ar[("article_relevance")]
+te[("ticker_entity")]
+et[("entity_type")]
+rt[("relation_type")]
+nl[("newsletter")]
+end
+
+qa --> qa_route --> sq
+dc --> dc_route --> ds
+an --> an_route --> ae
+an_route --> ar
+an_route --> te
+an_route --> et
+an_route --> rt
+cg --> cg_route --> ar
+cg_route --> nl
+dl --> dl_route --> nl
+`}
+/>
+
+Legend:
+
+- `query-analysis`, `data-collection`, `analysis`, `content-generation`, `delivery` are agent apps.
+- `agent-data-api` owns read/write routes for pipeline data exchange.
+- PostgreSQL stores both the raw and structured outputs.
+
+## Schedule configuration (default seeds)
+
+| Pipeline                 | Cron                 | Timezone       | Repeat    | Enabled by default |
+| ------------------------ | -------------------- | -------------- | --------- | ------------------ |
+| Daily Query Analysis     | `0 5 * * *`          | `Asia/Jakarta` | repeating | `false`            |
+| 4x Daily Data Collection | `0 6,10,14,18 * * *` | `Asia/Jakarta` | repeating | `false`            |
+| Daily Newsletter         | `0 20 * * *`         | `Asia/Jakarta` | repeating | `false`            |
+
+The seed script is `apps/hermes/scripts/seed-kg-pipelines.ts`. It is idempotent and can be re-run safely.
+
+## Data model in detail
+
+### Terminology you should keep distinct
+
+These terms are related but represent different layers of the KG:
+
+| Term                               | What it means                                                              | Typical example                                       |
+| ---------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `entity_type`                      | A **category label** for entities (vocabulary/admin-defined).              | `COMPANY`, `PERSON`, `PRODUCT`                        |
+| `entity`                           | A **canonical real-world thing** (a node in the graph).                    | `Apple Inc.`, `Tim Cook`, `iPhone 16`                 |
+| `ticker_entity`                    | A **membership link** saying an entity belongs to one ticker's KG context. | `AAPL` graph contains entity `Apple Inc.`             |
+| `article_entity`                   | A **mention link** saying a specific article mentions an entity.           | Article `data_source:123` mentions `Tim Cook` 4 times |
+| `relationship` (`entity_relation`) | A **typed directed edge** between two entities.                            | `Tim Cook --CEO_OF--> Apple Inc.`                     |
+
+In short:
+
+- `entity_type` classifies an `entity`.
+- `ticker_entity` scopes an `entity` to a ticker graph.
+- `article_entity` links an `entity` to article evidence.
+- `entity_relation` links one `entity` to another `entity`.
+
+### Visual mental model
+
+<Mermaid
+  chart={`flowchart LR
+  ET["entity_type<br/>category vocabulary"] -->|classifies| E["entity<br/>canonical node"]
+  T["ticker (AAPL)"] -->|scopes via ticker_entity| E
+  DS["data_source article"] -->|mentions via article_entity| E
+  E -->|entity_relation + relation_type| E2["another entity"]
+`}
+/>
+
+### Core ingestion tables
+
+| Table          | Purpose                                                                       | Produced by        |
+| -------------- | ----------------------------------------------------------------------------- | ------------------ |
+| `search_query` | Stores generated search strings per ticker.                                   | Query-analysis     |
+| `data_source`  | Stores collected article/page payloads (`url`, `title`, `content`, metadata). | Data-collection    |
+| `newsletter`   | Stores generated newsletter content per ticker/day.                           | Content-generation |
+
+### KG vocabulary (admin-curated)
+
+| Table           | Purpose                                                             | Managed from                |
+| --------------- | ------------------------------------------------------------------- | --------------------------- |
+| `entity_type`   | Allowed classes for canonical entities (`COMPANY`, `PERSON`, etc.). | `/dashboard/entity-types`   |
+| `relation_type` | Allowed labels for edges (`CEO_OF`, `PARTNER_OF`, etc.).            | `/dashboard/relation-types` |
+
+### KG structure tables
+
+| Table               | Purpose                                                          | Notes                                                               |
+| ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `entity`            | Canonical node (`canonical_name`, `type_id`, optional metadata). | One real-world concept per row.                                     |
+| `entity_alias`      | Alternate spellings/aliases for entity matching and dedup.       | Indexed by `normalized_alias`.                                      |
+| `ticker_entity`     | Membership of entities in a ticker graph.                        | Not a new entity row; it links existing `ticker` + `entity`.        |
+| `entity_relation`   | Directed typed edge from one entity to another.                  | "Relationship" table; unique by `(from, to, relation_type)`.        |
+| `article_entity`    | Mentions linking article (`data_source`) to extracted entities.  | Evidence table; one row means "this article mentioned this entity". |
+| `article_relevance` | Per-ticker article score and selection state.                    | Includes `score_breakdown` JSON.                                    |
+
+## End-to-end flow for one ticker
+
+1. **Query-analysis** reads ticker profile and existing KG context.
+2. It upserts multiple rows into `search_query`.
+3. **Data-collection** reads queries and persists fetched articles into `data_source`.
+4. **Analysis** reads unprocessed sources and current vocab (`entity_type`, `relation_type`).
+5. Analysis extracts entities and relations, then upserts:
+   - `entity` and `entity_alias`
+   - `ticker_entity`
+   - `entity_relation`
+   - `article_entity`
+6. Analysis computes relevance per `(data_source_id, ticker_id)` and upserts `article_relevance`.
+7. Top-K rows are marked `selected = true`.
+8. **Content-generation** reads selected rows and creates `newsletter`.
+9. **Delivery** reads newsletter + subscribers and sends messages.
+
+## Relevance scoring model (analysis agent)
+
+The analysis stage computes a weighted composite score per article and ticker:
+
+| Signal          | Weight | Description                                              |
+| --------------- | ------ | -------------------------------------------------------- |
+| `aliasMatch`    | `0.30` | Symbol/name/alias matches found in title and content     |
+| `entityOverlap` | `0.30` | Portion of extracted entities that overlap the ticker KG |
+| `freshness`     | `0.20` | Time-decay score favoring newer articles                 |
+| `sourceQuality` | `0.10` | Domain trust score from allowlist/config                 |
+| `novelty`       | `0.10` | Dedup signal favoring non-redundant articles             |
+
+Formula:
+
+`score = 0.30*aliasMatch + 0.30*entityOverlap + 0.20*freshness + 0.10*sourceQuality + 0.10*novelty`
+
+Practical interpretation:
+
+- `aliasMatch`: direct match confidence against ticker symbol/name/entity aliases.
+- `entityOverlap`: how much extracted article graph intersects ticker graph.
+- `freshness`: time-decay score to prioritize recent events.
+- `sourceQuality`: trust prior of source domain or feed.
+- `novelty`: reduces duplicate story clusters and rewards new information.
+
+Top-K scored rows are marked `selected = true` in `article_relevance` and then consumed by content-generation.
+
+## Selection policy and tie-breakers
+
+When scores are close, ranking should prefer:
+
+1. Higher `score`
+2. More recent `scored_at` / article timestamp
+3. Better `sourceQuality` component
+4. Higher novelty to avoid repetitive newsletters
+
+If no row crosses your practical quality threshold, content-generation should skip with a clear status instead of producing low-signal output.
+
+## Extraction quality guidelines
+
+- Keep entity and relation vocabularies compact and explicit.
+- Avoid overlapping entity types (for example, `ORGANIZATION` and `COMPANY`) unless you have a strict distinction.
+- Treat relation types as typed verbs and keep direction consistent (`CEO_OF` from person to company).
+- Update descriptions whenever extraction drift appears in production samples.
+
+## Operational playbook
+
+### What to monitor
+
+- Number of generated `search_query` rows per ticker/day.
+- `data_source` ingestion volume and source diversity.
+- `article_relevance` score distribution and selected count.
+- Newsletter skip rate (no selected articles).
+- Growth of KG nodes/edges (`entity`, `entity_relation`) by ticker.
+
+### Common failure patterns
+
+| Symptom                    | Likely cause                          | First checks                                              |
+| -------------------------- | ------------------------------------- | --------------------------------------------------------- |
+| Very few selected articles | Strict scoring or weak query coverage | Check search query quality and source volume              |
+| Repetitive newsletters     | Novelty too weak or same-source bias  | Inspect `score_breakdown.novelty` + source spread         |
+| Wrong entity labels        | Ambiguous entity type definitions     | Refine `entity_type.description`                          |
+| Nonsensical relations      | Directionality confusion in labels    | Clarify relation semantics in `relation_type.description` |
+
+### Safe maintenance actions
+
+- Re-run `seed-kg-pipelines.ts` (idempotent) after schedule/pipeline drift.
+- Add or improve vocab descriptions before adding many new labels.
+- Backfill analysis by re-running pipeline C for selected tickers/date windows.
+- Keep relation/entity names stable to preserve historical analytics continuity.
+
+## Environment variables (new KG agents)
+
+### query-analysis
+
+- `AGENT_AUTH_API_URL`
+- `AGENT_DATA_API_URL`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `AGENT_REGISTRY_URL` (optional auto-register)
+- `AGENT_REGISTRY_API_KEY` (optional auto-register)
+- `AGENT_PUBLIC_URL` (optional auto-register)
+- `PORT`
+
+### analysis
+
+- `AGENT_AUTH_API_URL`
+- `AGENT_DATA_API_URL`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `AGENT_REGISTRY_URL` (optional auto-register)
+- `AGENT_REGISTRY_API_KEY` (optional auto-register)
+- `AGENT_PUBLIC_URL` (optional auto-register)
+- `PORT`
+
+## Admin vocabulary pages
+
+The KG vocabulary used by analysis prompts is managed in Hermes:
+
+- **Entity Types:** `/dashboard/entity-types` and docs at `/knowledge-graph/entity-types`
+- **Relation Types:** `/dashboard/relation-types` and docs at `/knowledge-graph/relation-types`
+
+## Related docs
+
+- [Worked Example](/knowledge-graph/worked-example)
+- [Entity Types](/knowledge-graph/entity-types)
+- [Relation Types](/knowledge-graph/relation-types)
+- [Query Analysis Agent](/apps/agents/query-analysis)
+- [Analysis Agent](/apps/agents/analysis)
+- [Content Generation Agent](/apps/agents/content-generation)
+- [Data source expansion](/data-source-expansion)

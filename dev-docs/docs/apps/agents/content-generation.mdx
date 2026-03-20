@@ -6,12 +6,12 @@ icon: FileText
 
 ## Purpose
 
-The content-generation agent takes **data sources** (from the data-collection agent, stored via agent-data-api) and produces a **newsletter** (subject, content, optional description) using OpenAI. It then stores the result via agent-data-api for the delivery agent to consume.
+The content-generation agent takes **selected data sources** (scored by the analysis agent and served by agent-data-api) and produces a **newsletter** (subject, content, optional description) using OpenAI. It then stores the result via agent-data-api for the delivery agent to consume.
 
 ## Features
 
 - **Input:** `tickerId` (and optional fields). Receives bearer token from Hermes.
-- **Fetches** existing data-collection output for the ticker from agent-data-api (`/api/data-collection` or content-generation endpoint as defined).
+- **Fetches** selected high-relevance sources for the ticker from `GET /api/content-generation` (rows where `article_relevance.selected = true` and scored today).
 - **Calls OpenAI** to generate structured newsletter content (subject, executive summary, top news items).
 - **Stores** generated content via agent-data-api for the delivery agent.
 - **Skips** with a clear message if no data sources are found.

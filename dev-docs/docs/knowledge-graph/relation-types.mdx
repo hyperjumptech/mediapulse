@@ -1,0 +1,97 @@
+---
+title: Relation Types Admin Page
+description: Detailed guide for defining relationship semantics in the knowledge graph
+icon: Link
+---
+
+## Purpose
+
+`/dashboard/relation-types` defines the allowed relationship labels used when analysis extracts edges between entities.
+
+Typical labels: `CEO_OF`, `SUBSIDIARY_OF`, `PARENT_OF`, `COMPETITOR_OF`, `INVESTOR_IN`, `PARTNER_OF`, `SUPPLIES_TO`.
+
+These rows directly control relation extraction behavior in `entity_relation`.
+
+## Common confusion to avoid
+
+`relation_type` defines the meaning of an edge label, not the edge instance itself:
+
+- `relation_type`: edge vocabulary (for example `CEO_OF`)
+- `entity_relation`: actual edge row between two specific entities
+- `entity_type`: category of a node, not a relationship label
+- `article_entity`: mention evidence that can support edge extraction
+
+Quick check before adding a relation type: "Is this a reusable verb-like connection between two entities?" If not, this may be an entity type, metadata field, or article-level attribute instead.
+
+## Data contract
+
+Rows map to the `relation_type` table:
+
+| Field         | Required           | Database behavior   | Guidance                                         |
+| ------------- | ------------------ | ------------------- | ------------------------------------------------ |
+| `name`        | Yes                | Unique (`@unique`)  | Use uppercase verb-style label                   |
+| `description` | No but recommended | Prompt context only | Define semantic meaning, direction, and boundary |
+
+## Directed edge semantics (critical)
+
+`entity_relation` is directional:
+
+- `from_entity_id` -> `to_entity_id`
+- relation type is applied to that direction
+- unique key is `(from_entity_id, to_entity_id, relation_type_id)`
+
+So for `CEO_OF`, direction should be:
+
+- `PERSON` -> `COMPANY`
+
+Not the reverse.
+
+## Label design conventions
+
+- Prefer labels that read like typed verbs (`INVESTOR_IN`, `ACQUIRES`, `PARTNER_OF`).
+- Use one canonical form for equivalent concepts (do not mix `OWNS` and `OWNER_OF` without strict rules).
+- Avoid generic labels like `RELATED_TO`.
+- If relation is naturally symmetric, still define a single canonical direction for consistency.
+- Keep naming stable once used in production to preserve trend analysis.
+
+## Description template (recommended)
+
+For each relation type, include:
+
+1. Semantic definition.
+2. Expected source and target entity types.
+3. Positive examples (2-3).
+4. Counterexamples or exclusion rules.
+
+Example for `INVESTOR_IN`:
+
+"Ownership or capital participation relation where the source entity (person/company/fund) has invested in the target company. Source is investor; target is investee. Exclude passive mentions with no ownership evidence."
+
+## Change management workflow
+
+1. Add/adjust labels in small increments.
+2. Validate directionality with sample extracted edges.
+3. Re-run analysis on representative ticker sets.
+4. Check edge quality and relation distribution.
+5. Keep or rollback based on precision and usefulness.
+
+## Operational notes
+
+- Improve extraction quality by refining descriptions before adding many new labels.
+- Avoid deleting relation types that existing rows in `entity_relation` still reference.
+- If a label is obsolete, deprecate in process/docs first, then migrate historical data intentionally.
+- Review high-frequency and low-confidence edges for drift.
+
+## Why it matters
+
+Relation types determine how the graph encodes events, ownership, leadership, competition, and partnerships. Better relation semantics improve:
+
+- graph explainability for operators
+- relevance scoring context for analysis
+- confidence of generated newsletter narratives
+
+## Related docs
+
+- [Knowledge Graph](/knowledge-graph/knowledge-graph)
+- [Entity Types](/knowledge-graph/entity-types)
+- [Analysis Agent](/apps/agents/analysis)

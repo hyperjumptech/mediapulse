@@ -79,7 +79,9 @@ Use **pnpm** for install/scripts.
 | agent-auth-api           | 8080 | API key CRUD, verify, issue short-lived tokens |
 | agent-data-api           | 8081 | Agent data storage                             |
 | agent-registry-api       | 8082 | Agent registry                                 |
+| query-analysis agent     | 4011 | Generates ticker search queries                |
 | data-collection agent    | 4001 |                                                |
+| analysis agent           | 4012 | Scores relevance and updates KG                |
 | content-generation agent | 4002 |                                                |
 | delivery agent           | 4003 |                                                |
 | ticker-echo agent        | 4010 | Minimal test agent                             |
@@ -95,7 +97,7 @@ For full pipeline runs (data collection, content generation, delivery), add to *
 | ---------------- | ------------------ | -------------------------------- |
 | `JINA_API_KEY`   | data-collection    | [Jina.ai](https://jina.ai)       |
 | `SERPER_API_KEY` | data-collection    | [Serper.dev](https://serper.dev) |
-| `OPENAI_API_KEY` | content-generation | [OpenAI](https://openai.com)     |
+| `OPENAI_API_KEY` | query-analysis, analysis, content-generation | [OpenAI](https://openai.com)     |
 | `RESEND_API_KEY` | delivery           | [Resend](https://resend.com)     |
 
 ---

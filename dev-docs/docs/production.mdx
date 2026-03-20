@@ -175,6 +175,23 @@ Uses **`packages/env/env.agents.data-collection.example`** (and main env). Per-a
 
 ---
 
+### query-analysis agent
+
+Uses **`packages/env/env.agents.query-analysis.example`**.
+
+| Variable                 | Required | How to find the value                                                                                   |
+| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
+| `PORT`                   | No       | Service default (commonly `4011` unless changed).                                                      |
+| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                 |
+| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                 |
+| `OPENAI_API_KEY`         | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
+| `OPENAI_MODEL`           | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
+| `AGENT_REGISTRY_URL`     | No       | Optional auto-registration endpoint.                                                                    |
+| `AGENT_REGISTRY_API_KEY` | No       | Optional auto-registration API key.                                                                     |
+| `AGENT_PUBLIC_URL`       | No       | Public URL where this agent is reachable.                                                               |
+
+---
+
 ### content-generation agent
 
 Uses **`packages/env/env.agents.content-generation.example`**.
@@ -189,6 +206,23 @@ Uses **`packages/env/env.agents.content-generation.example`**.
 | `AGENT_REGISTRY_URL`     | No       | Same as data-collection.                                                                                |
 | `AGENT_REGISTRY_API_KEY` | No       | Same as data-collection.                                                                                |
 | `AGENT_PUBLIC_URL`       | No       | Public URL for this agent (e.g. `https://content-generation-agent.yourdomain.com`).                     |
+
+---
+
+### analysis agent
+
+Uses **`packages/env/env.agents.analysis.example`**.
+
+| Variable                 | Required | How to find the value                                                                                   |
+| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
+| `PORT`                   | No       | Service default (commonly `4012` unless changed).                                                      |
+| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                 |
+| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                 |
+| `OPENAI_API_KEY`         | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
+| `OPENAI_MODEL`           | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
+| `AGENT_REGISTRY_URL`     | No       | Optional auto-registration endpoint.                                                                    |
+| `AGENT_REGISTRY_API_KEY` | No       | Optional auto-registration API key.                                                                     |
+| `AGENT_PUBLIC_URL`       | No       | Public URL where this agent is reachable.                                                               |
 
 ---
 
