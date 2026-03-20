@@ -13,7 +13,7 @@ ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
 RUN pnpm --filter=@workspace/database run db:generate
 
-RUN pnpm --filter hermes-worker build
+RUN pnpm exec turbo build --filter=hermes-worker
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1

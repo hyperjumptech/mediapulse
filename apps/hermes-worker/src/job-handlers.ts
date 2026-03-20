@@ -1,9 +1,11 @@
 import got from "got";
-import { AgentJobExecutionStatus, prisma } from "@workspace/database";
-import { env } from "@workspace/env";
+import { AgentJobExecutionStatus } from "@workspace/database";
+import { prisma } from "@workspace/database";
+import { env } from "@workspace/env/hermes-worker";
 import { logger } from "@workspace/logger";
 import type { JobHandlers } from "@nicnocquee/dataqueue";
 import type { JobPayloadMap } from "./job-payload-map";
+import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import {
   executeSchedule,
   getDueSchedules,
@@ -12,39 +14,65 @@ import {
 } from "@workspace/hermes-scheduler";
 import { getJobQueue } from "./queue";
 
-const httpClient: InvokeAgentHttpClient = {
+/**
+ * Creates an HTTP client that forwards the optional AbortSignal to got for request cancellation.
+ */
+const createHttpClient = (signal?: AbortSignal): InvokeAgentHttpClient => ({
   post: (url, options) =>
     got.post(url, {
       json: options.json,
       headers: options.headers,
       timeout: options.timeout,
+      signal: options.signal ?? signal,
     }),
-};
+});
+
+if (!env.AGENT_AUTH_API_URL || !env.AGENT_API_KEY) {
+  throw new Error(
+    "AGENT_AUTH_API_URL and AGENT_API_KEY are required for hermes-worker (JWT-only agent invocation)",
+  );
+}
+
+/** JWT-only: worker mints short-lived tokens from auth API; never sends raw API key to agents. */
+const tokenClient = createAgentTokenClient({
+  authApiUrl: env.AGENT_AUTH_API_URL,
+  credential: env.AGENT_API_KEY,
+});
 
 /**
- * DataQueue job handlers for Hermes. check_schedules enqueues one invoke_agent_step
- * per expanded input set; invoke_agent_step runs a single agent invocation (idempotent).
+ * Returns a short-lived JWT from the auth API for agent invocation.
+ */
+async function getAuthToken(): Promise<string> {
+  return tokenClient.getToken();
+}
+
+/**
+ * DataQueue job handlers for Hermes.
+ * check_schedules: polls due schedules and enqueues one invoke_agent job per expanded input.
+ * invoke_agent: performs the HTTP call to the agent and updates AgentJobExecution.
  */
 export const jobHandlers: JobHandlers<JobPayloadMap> = {
   check_schedules: async () => {
-    const queue = getJobQueue();
+    const jobQueue = getJobQueue();
     const schedules = await getDueSchedules(prisma);
     for (const schedule of schedules) {
       try {
         await executeSchedule(schedule, {
           db: prisma,
-          httpClient,
           logger,
-          authToken: env.AGENT_API_KEY,
+          enqueueAgentInvocations: async (payloads) => {
+            await jobQueue.addJobs(
+              payloads.map((p) => ({
+                jobType: "invoke_agent" as const,
+                payload: p,
+                priority: p.priority,
+                idempotencyKey: p.jobId,
+              })),
+            );
+          },
           defaultTimeoutMs: 300_000,
-          enqueueAgentJob: (payload) =>
-            queue
-              .addJob({
-                jobType: "invoke_agent_step",
-                payload,
-                timeoutMs: payload.timeoutMs,
-              })
-              .then(() => {}),
+          requireHttpsAgentEndpoints:
+            env.REQUIRE_HTTPS_AGENT_ENDPOINTS === "true",
         });
       } catch (err) {
         logger.error(
@@ -55,57 +83,62 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     }
   },
 
-  invoke_agent_step: async (payload) => {
-    const execution = await prisma.agentJobExecution.findUnique({
-      where: { jobId: payload.jobId },
+  invoke_agent: async (payload, signal) => {
+    logger.info(
+      {
+        jobId: payload.jobId,
+        agentId: payload.agentId,
+        scheduleId: payload.scheduleId,
+      },
+      "invoke_agent started",
+    );
+
+    const claimed = await prisma.agentJobExecution.updateMany({
+      where: { jobId: payload.jobId, status: AgentJobExecutionStatus.pending },
+      data: {
+        status: AgentJobExecutionStatus.running,
+        startedAt: new Date(),
+      },
     });
-    if (!execution) {
-      logger.warn(
-        {
-          jobId: payload.jobId,
-          scheduleExecutionId: payload.scheduleExecutionId,
-        },
-        "AgentJobExecution not found for invoke_agent_step",
-      );
+    if (claimed.count === 0) {
       return;
     }
-    if (
-      execution.status === AgentJobExecutionStatus.running ||
-      execution.status === AgentJobExecutionStatus.completed
-    ) {
-      return;
-    }
+
+    const httpClient = createHttpClient(signal);
+    const authToken = await getAuthToken();
+    const endpoint = { url: payload.endpointUrl, method: "POST" as const };
     try {
       await invokeAgent(
-        payload.endpoint,
-        payload.body,
+        endpoint,
+        payload.body as Record<string, unknown>,
         {
           jobId: payload.jobId,
           executionId: payload.executionId,
-          authToken: env.AGENT_API_KEY,
+          authToken,
           timeoutMs: payload.timeoutMs,
+          signal,
         },
         httpClient,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error(
+        {
+          err,
+          jobId: payload.jobId,
+          agentId: payload.agentId,
+          scheduleId: payload.scheduleId,
+        },
+        "invoke_agent failed",
       );
       await prisma.agentJobExecution.update({
         where: { jobId: payload.jobId },
         data: {
-          status: AgentJobExecutionStatus.running,
-          startedAt: new Date(),
+          status: AgentJobExecutionStatus.failed,
+          error: { message, retryable: true },
+          completedAt: new Date(),
         },
       });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await prisma.agentJobExecution
-        .update({
-          where: { jobId: payload.jobId },
-          data: {
-            status: AgentJobExecutionStatus.failed,
-            error: { message, retryable: true },
-            completedAt: new Date(),
-          },
-        })
-        .catch(() => {});
       throw err;
     }
   },

@@ -7,45 +7,60 @@ import { randomUUID } from "node:crypto";
 import type { DueSchedule } from "./get-due-schedules";
 import { expandDataSources } from "./expand-data-sources";
 import { computeNextRunAt } from "./next-run-at";
-import {
-  AgentEndpointSchema,
-  invokeAgent,
-  type AgentEndpoint,
-  type InvokeAgentHttpClient,
-} from "./invoke-agent";
+import { AgentEndpointSchema } from "./invoke-agent";
 import { substituteVariables } from "./substitute-variables";
 import { validateWithJsonSchema } from "./validate-json-schema";
 
 /**
- * Payload for an enqueued invoke_agent_step job. Used so the worker can invoke
- * the agent when the job runs; hermes-scheduler stays agnostic of DataQueue.
+ * Payload for a single agent invocation job (DataQueue job type `invoke_agent`).
+ * Used when enqueueing so the worker can perform the HTTP call and update AgentJobExecution.
  */
-export type InvokeAgentStepPayload = {
+export type InvokeAgentJobPayload = {
   jobId: string;
   executionId: string;
-  scheduleExecutionId: string;
-  endpoint: AgentEndpoint;
+  scheduleId: string;
+  pipelineId: string;
+  pipelineStepId: string;
+  agentId: string;
+  agentVersion: string;
+  endpointUrl: string;
   body: { input: Record<string, unknown>; config: Record<string, unknown> };
   timeoutMs: number;
+  priority: number;
 };
 
 /** Dependencies for executeSchedule (injectable for tests). */
 export type ExecuteScheduleDeps = {
   db: PrismaClient;
-  httpClient: InvokeAgentHttpClient;
   logger: {
     info: (obj: unknown, msg?: string) => void;
     warn: (obj: unknown, msg?: string) => void;
     error: (obj: unknown, msg?: string) => void;
   };
-  authToken?: string;
+  /** Enqueues agent invocation jobs in a single batch per call (e.g. per step). */
+  enqueueAgentInvocations: (payloads: InvokeAgentJobPayload[]) => Promise<void>;
   defaultTimeoutMs?: number;
-  /**
-   * When set, each expanded input set is enqueued via this callback instead of
-   * invoking the agent inline. Used by the worker to push DataQueue jobs.
-   */
-  enqueueAgentJob?: (payload: InvokeAgentStepPayload) => Promise<void>;
+  /** When true, reject agent endpoint URLs that use http with a non-local host. */
+  requireHttpsAgentEndpoints?: boolean;
 };
+
+/**
+ * Returns false when requireHttps is true and the URL is http with a host other than localhost/127.0.0.1.
+ */
+function isAllowedAgentEndpointUrl(
+  urlString: string,
+  requireHttps: boolean,
+): boolean {
+  if (!requireHttps) return true;
+  try {
+    const u = new URL(urlString);
+    if (u.protocol !== "http:") return true;
+    const h = u.hostname.toLowerCase();
+    return h === "localhost" || h === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Executes a due schedule: for each pipeline step, substitutes variables and expands
@@ -60,11 +75,10 @@ export const executeSchedule = async (
 ): Promise<void> => {
   const {
     db,
-    httpClient,
     logger,
-    authToken,
+    enqueueAgentInvocations,
     defaultTimeoutMs = 300_000,
-    enqueueAgentJob,
+    requireHttpsAgentEndpoints = false,
   } = deps;
   const executionTime = new Date();
   const errors: Array<{ message: string; timestamp: string }> = [];
@@ -98,17 +112,6 @@ export const executeSchedule = async (
     return;
   }
 
-  const scheduleExecution = await db.scheduleExecution.create({
-    data: {
-      scheduleId: schedule.id,
-      executionTime,
-      status: ScheduleExecutionStatus.enqueuing,
-      jobsCreated: 0,
-      jobsEnqueued: 0,
-    },
-  });
-  const scheduleExecutionId = scheduleExecution.id;
-
   const agentIds: string[] = [
     ...new Set(steps.map((s: { agentId: string }) => s.agentId)),
   ];
@@ -141,6 +144,18 @@ export const executeSchedule = async (
       });
       continue;
     }
+    if (
+      !isAllowedAgentEndpointUrl(
+        endpointResult.data.url,
+        requireHttpsAgentEndpoints,
+      )
+    ) {
+      errors.push({
+        message: `Agent endpoint must use HTTPS (or localhost) for ${step.agentId}: ${endpointResult.data.url}`,
+        timestamp: new Date().toISOString(),
+      });
+      continue;
+    }
 
     const stepWithInput = step as { input?: unknown };
     const rawInput =
@@ -168,6 +183,7 @@ export const executeSchedule = async (
       }
     }
     const inputSets = await expandDataSources(inputSubstituted, db);
+    const stepPayloads: InvokeAgentJobPayload[] = [];
 
     let stepConfig: Record<string, unknown>;
     const stepWithConfig = step as {
@@ -225,7 +241,6 @@ export const executeSchedule = async (
             jobId,
             agentId: step.agentId,
             scheduleId: schedule.id,
-            scheduleExecutionId,
             pipelineId: schedule.pipelineId,
             pipelineStepId: step.id,
             status: AgentJobExecutionStatus.pending,
@@ -243,80 +258,51 @@ export const executeSchedule = async (
         continue;
       }
 
-      const body = {
-        input: inputSet,
-        config: stepConfig,
-      } as Record<string, unknown>;
-      const timeoutMs = schedule.timeout ?? defaultTimeoutMs;
+      const payload: InvokeAgentJobPayload = {
+        jobId,
+        executionId,
+        scheduleId: schedule.id,
+        pipelineId: schedule.pipelineId,
+        pipelineStepId: step.id,
+        agentId: step.agentId,
+        agentVersion: step.agentVersion,
+        endpointUrl: endpointResult.data.url,
+        body: {
+          input: inputSet as Record<string, unknown>,
+          config: stepConfig,
+        },
+        timeoutMs: schedule.timeout ?? defaultTimeoutMs,
+        priority: schedule.priority,
+      };
+      stepPayloads.push(payload);
+    }
 
-      if (enqueueAgentJob) {
-        try {
-          await enqueueAgentJob({
-            jobId,
-            executionId,
-            scheduleExecutionId,
-            endpoint: endpointResult.data,
-            body: body as {
-              input: Record<string, unknown>;
-              config: Record<string, unknown>;
-            },
-            timeoutMs,
-          });
-          jobsEnqueued += 1;
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          errors.push({
-            message: `Enqueue agent job failed: ${message}`,
-            timestamp: new Date().toISOString(),
-          });
-          await db.agentJobExecution
-            .update({
-              where: { jobId },
+    if (stepPayloads.length > 0) {
+      try {
+        await enqueueAgentInvocations(stepPayloads);
+        jobsEnqueued += stepPayloads.length;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push({
+          message: `Failed to enqueue agent invocations: ${message}`,
+          timestamp: new Date().toISOString(),
+        });
+        for (const p of stepPayloads) {
+          try {
+            await db.agentJobExecution.update({
+              where: { jobId: p.jobId },
               data: {
                 status: AgentJobExecutionStatus.failed,
                 error: { message, retryable: true },
                 completedAt: new Date(),
               },
-            })
-            .catch(() => {});
-        }
-      } else {
-        try {
-          await invokeAgent(
-            endpointResult.data,
-            body,
-            {
-              jobId,
-              executionId,
-              authToken,
-              timeoutMs,
-            },
-            httpClient,
-          );
-          jobsEnqueued += 1;
-          await db.agentJobExecution.update({
-            where: { jobId },
-            data: {
-              status: AgentJobExecutionStatus.running,
-              startedAt: new Date(),
-            },
-          });
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          errors.push({
-            message: `Agent invoke failed: ${message}`,
-            timestamp: new Date().toISOString(),
-          });
-          await db.agentJobExecution
-            .update({
-              where: { jobId },
-              data: {
-                status: AgentJobExecutionStatus.failed,
-                error: { message, retryable: true },
-                completedAt: new Date(),
-              },
-            })
-            .catch(() => {});
+            });
+          } catch (updateErr) {
+            logger.error(
+              { err: updateErr, jobId: p.jobId },
+              "Failed to update AgentJobExecution to failed after enqueue error",
+            );
+          }
         }
       }
     }
@@ -337,7 +323,6 @@ export const executeSchedule = async (
     jobsCreated,
     jobsEnqueued,
     errors: errors.length > 0 ? errors : undefined,
-    scheduleExecutionId,
   });
 };
 
@@ -349,8 +334,6 @@ async function recordScheduleExecutionAndUpdateSchedule(args: {
   jobsCreated: number;
   jobsEnqueued: number;
   errors?: Array<{ message: string; timestamp: string }>;
-  /** When set, update this row instead of creating a new one (used when we created it at run start). */
-  scheduleExecutionId?: string;
 }): Promise<void> {
   const {
     db,
@@ -360,30 +343,17 @@ async function recordScheduleExecutionAndUpdateSchedule(args: {
     jobsCreated,
     jobsEnqueued,
     errors,
-    scheduleExecutionId,
   } = args;
-  if (scheduleExecutionId) {
-    await db.scheduleExecution.update({
-      where: { id: scheduleExecutionId },
-      data: {
-        status,
-        jobsCreated,
-        jobsEnqueued,
-        errors: errors ?? undefined,
-      },
-    });
-  } else {
-    await db.scheduleExecution.create({
-      data: {
-        scheduleId: schedule.id,
-        executionTime,
-        status,
-        jobsCreated,
-        jobsEnqueued,
-        errors: errors ?? undefined,
-      },
-    });
-  }
+  await db.scheduleExecution.create({
+    data: {
+      scheduleId: schedule.id,
+      executionTime,
+      status,
+      jobsCreated,
+      jobsEnqueued,
+      errors: errors ?? undefined,
+    },
+  });
 
   if (schedule.repeat === "once") {
     await db.schedule.update({

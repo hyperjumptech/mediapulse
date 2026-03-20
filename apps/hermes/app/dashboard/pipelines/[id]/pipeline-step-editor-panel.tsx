@@ -1,6 +1,9 @@
 "use client";
 
-import { SchemaForm, type StringFieldProps } from "@workspace/json-schema-form";
+import Link from "next/link";
+
+import { SchemaForm } from "@workspace/json-schema-form";
+import { Label } from "@workspace/ui/components/label";
 import {
   Tabs,
   TabsContent,
@@ -8,7 +11,8 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 
-import { VariableExpansionInput } from "@/components/variable-expansion-input";
+import { createVariableExpansionStringField } from "@/components/variable-expansion-schema-string-field";
+import type { AgentConfigSummary } from "@/lib/agent-configs";
 
 import { useStepEditorPanelState } from "./use-step-editor-panel-state";
 
@@ -33,9 +37,11 @@ export type ExpansionTemplateOption = {
 export type PipelineStepEditorPanelProps = {
   selectedStep: Step | null;
   stepInput: Record<string, unknown>;
-  stepConfig: Record<string, unknown>;
   onStepInputChange: (value: Record<string, unknown>) => void;
-  onStepConfigChange: (value: Record<string, unknown>) => void;
+  /** Agent configs for the selected step's agent (for Config tab picker). */
+  configsForAgent: AgentConfigSummary[];
+  stepAgentConfigId: string;
+  onStepAgentConfigIdChange: (id: string) => void;
   disabled?: boolean;
   /** Variable keys for the insert picker ({{key}}). */
   variableKeys?: VariableKeyOption[];
@@ -43,43 +49,24 @@ export type PipelineStepEditorPanelProps = {
   expansionTemplates?: ExpansionTemplateOption[];
 };
 
-/** Builds a StringField component that uses VariableExpansionInput with the given variables and expansions. */
-const createStringFieldComponent = (
-  variableKeys: VariableKeyOption[],
-  expansionTemplates: ExpansionTemplateOption[],
-) => {
-  const StringField = (props: StringFieldProps) => (
-    <VariableExpansionInput
-      value={props.value}
-      onChange={props.onChange}
-      id={props.id}
-      label={props.labelText}
-      description={props.description}
-      disabled={props.disabled}
-      variables={variableKeys}
-      expansions={expansionTemplates}
-    />
-  );
-  return StringField;
-};
-
 /**
- * Renders the selected agent's input and config forms from its schemas.
+ * Renders the selected agent's input form and config picker (saved agent configs only).
  * Third column only; pipeline name/description and Save live above the layout.
  */
 export const PipelineStepEditorPanel = ({
   selectedStep,
   stepInput,
-  stepConfig,
   onStepInputChange,
-  onStepConfigChange,
+  configsForAgent = [],
+  stepAgentConfigId,
+  onStepAgentConfigIdChange,
   disabled = false,
   variableKeys = [],
   expansionTemplates = [],
 }: PipelineStepEditorPanelProps) => {
   const { schemas, schemaLoading, activeTab, setActiveTab } =
     useStepEditorPanelState(selectedStep);
-  const stringFieldComponent = createStringFieldComponent(
+  const stringFieldComponent = createVariableExpansionStringField(
     variableKeys,
     expansionTemplates,
   );
@@ -139,19 +126,38 @@ export const PipelineStepEditorPanel = ({
           )}
         </TabsContent>
         <TabsContent value="config" className="mt-4">
-          {schemas.configSchema ? (
-            <SchemaForm
-              schema={schemas.configSchema}
-              value={stepConfig}
-              onChange={onStepConfigChange}
-              disabled={disabled}
-              seedRequiredDefaults={true}
-              components={{ StringField: stringFieldComponent }}
-            />
+          {configsForAgent.length === 0 ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">
+                No agent configs for this agent. Create one first.
+              </p>
+              <Link
+                href="/dashboard/agent-configs"
+                className="text-sm font-medium text-primary underline underline-offset-4 hover:no-underline"
+              >
+                Go to Agent configs
+              </Link>
+            </div>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              No config schema for this agent.
-            </p>
+            <div className="grid gap-2">
+              <Label htmlFor="step-agent-config-picker">Agent config</Label>
+              <select
+                id="step-agent-config-picker"
+                className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={stepAgentConfigId}
+                onChange={(e) => onStepAgentConfigIdChange(e.target.value)}
+                disabled={disabled}
+                aria-label="Choose a saved agent config"
+              >
+                <option value="">None</option>
+                {configsForAgent.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.description ? ` — ${c.description}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
         </TabsContent>
       </Tabs>

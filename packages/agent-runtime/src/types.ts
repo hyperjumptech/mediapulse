@@ -46,8 +46,6 @@ export type AutoRegisterOptions = {
   apiKey: string;
   /** Public URL where this agent is reachable (e.g. https://agent.example.com). */
   agentUrl: string;
-  /** Optional description stored in the registry. */
-  description?: string;
   /** Optional fetch implementation (for tests). */
   fetchFn?: typeof fetch;
 };
@@ -75,6 +73,8 @@ export type AgentConfig<
   agentId: string;
   /** Agent version string (e.g. "1.0.0"). */
   agentVersion: string;
+  /** Optional short description for admins (e.g. in Hermes agents table). */
+  description?: string;
   /** Zod schema to parse and validate the request body's `input` field. */
   inputSchema: TSchema;
   /** Zod schema to parse and validate the request body's `config` field. Defaults to empty object. */

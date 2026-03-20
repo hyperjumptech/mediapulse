@@ -1,12 +1,13 @@
-import type { InvokeAgentStepPayload } from "@workspace/hermes-scheduler";
+import type { InvokeAgentJobPayload } from "@workspace/hermes-scheduler";
 
 /**
- * DataQueue job payload map for Hermes. check_schedules polls due runs;
- * invoke_agent_step runs one agent invocation per expanded input set.
+ * DataQueue job payload map for Hermes. Keys are job types; values are payload shapes.
+ * check_schedules: polls due schedules and enqueues invoke_agent jobs.
+ * invoke_agent: one job per agent invocation; processor runs with configurable concurrency.
  */
 export type JobPayloadMap = {
   check_schedules: {
     timestamp?: string;
   };
-  invoke_agent_step: InvokeAgentStepPayload;
+  invoke_agent: InvokeAgentJobPayload;
 };

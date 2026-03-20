@@ -3,10 +3,11 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 COPY . .
 
+# pnpm for workspace install; bun for the app build
 RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter content-generation-agent build
+RUN pnpm exec turbo build --filter=content-generation-agent
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1

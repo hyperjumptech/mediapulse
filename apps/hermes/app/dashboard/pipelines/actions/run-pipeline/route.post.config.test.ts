@@ -26,10 +26,13 @@ describe("createRunPipelineHandler", () => {
     expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
-  it("returns error when apiKey is not configured", async () => {
+  it("returns error when getToken fails (e.g. AGENT_AUTH_API_URL/AGENT_API_KEY not configured)", async () => {
     const handler = createRunPipelineHandler({
       getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
-      apiKey: "", // empty string so !apiKey is true (undefined would use default from env)
+      getToken: () =>
+        Promise.reject(
+          new Error("AGENT_AUTH_API_URL and AGENT_API_KEY are required"),
+        ),
       db: {
         pipeline: {
           findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
@@ -41,13 +44,15 @@ describe("createRunPipelineHandler", () => {
     });
     const result = await handler(request({ pipelineId: "p-1" }));
     expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toContain("AGENT_API_KEY");
+    expect((result as { message?: string }).message).toContain(
+      "AGENT_AUTH_API_URL and AGENT_API_KEY",
+    );
   });
 
   it("returns error when pipeline not found", async () => {
     const handler = createRunPipelineHandler({
       getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
-      apiKey: "key",
+      getToken: async () => "jwt",
       db: {
         pipeline: { findUnique: vi.fn().mockResolvedValue(null) },
         pipelineStep: { findMany: vi.fn() },
@@ -63,7 +68,7 @@ describe("createRunPipelineHandler", () => {
   it("returns success with tickersRun 0 when no tickers", async () => {
     const handler = createRunPipelineHandler({
       getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
-      apiKey: "key",
+      getToken: async () => "jwt",
       db: {
         pipeline: {
           findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
@@ -82,7 +87,7 @@ describe("createRunPipelineHandler", () => {
     const postMock = vi.fn().mockResolvedValue(undefined);
     const handler = createRunPipelineHandler({
       getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
-      apiKey: "secret",
+      getToken: async () => "minted-jwt",
       post: postMock as never,
       db: {
         pipeline: {
@@ -133,7 +138,7 @@ describe("createRunPipelineHandler", () => {
       expect.objectContaining({
         json: { tickerId: "t1" },
         headers: expect.objectContaining({
-          Authorization: "Bearer secret",
+          Authorization: "Bearer minted-jwt",
         }),
       }),
     );
@@ -143,7 +148,7 @@ describe("createRunPipelineHandler", () => {
     // Setup
     const handler = createRunPipelineHandler({
       getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
-      apiKey: "secret",
+      getToken: async () => "jwt",
       post: vi.fn() as never,
       db: {
         pipeline: {

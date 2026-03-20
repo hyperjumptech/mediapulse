@@ -6,7 +6,12 @@ COPY . .
 RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter agent-data-api build
+
+# Generate Prisma client (required by @workspace/database)
+ENV DATABASE_URL="postgresql://localhost:5432/dummy"
+RUN pnpm --filter=@workspace/database run db:generate
+
+RUN pnpm exec turbo build --filter=agent-data-api
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1

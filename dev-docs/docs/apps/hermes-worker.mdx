@@ -6,16 +6,16 @@ icon: ServerCog
 
 ## Purpose
 
-**hermes-worker** is a long-running Node/Bun app that runs the DataQueue **processor** and **supervisor** for the Hermes scheduler. It ensures the cron job `hermes-check-schedules` exists, processes `check_schedules` jobs (poll due schedules, enqueue one `invoke_agent_step` job per expanded input set), and runs the supervisor (stuck-job reclaim, cleanup). Hermes (Next.js) no longer runs the queue and can be deployed without a long-running server; run hermes-worker on a persistent host for scheduled pipeline runs.
+**hermes-worker** is a long-running Node/Bun app that runs the DataQueue **processor** and **supervisor** for the Hermes scheduler. It ensures the cron job `hermes-check-schedules` exists, processes `check_schedules` jobs (poll due schedules, enqueue agent invocations via `@workspace/hermes-scheduler`), and processes `invoke_agent` jobs (HTTP call to each agent). Hermes (Next.js) no longer runs the queue and can be deployed without a long-running server; run hermes-worker on a persistent host for scheduled pipeline runs.
 
 ## Features
 
 - **Queue init** — Connects to DataQueue using `PG_DATAQUEUE_DATABASE`.
 - **Cron registration** — Ensures `hermes-check-schedules` (every minute) exists.
-- **Processor** — Runs job handlers:
-  - **check_schedules** — Gets due schedules and, for each, creates a schedule execution and enqueues one **invoke_agent_step** job per expanded input set (so many sets do not block or overwhelm the agent server). Concurrency is controlled by the processor options (e.g. only a few agent invocations at a time).
-  - **invoke_agent_step** — Runs a single agent HTTP invocation. Idempotent: if the corresponding `AgentJobExecution` is already `running` or `completed`, the handler returns without calling the agent (safe on DataQueue retries). Each job is linked to a **schedule execution** via `scheduleExecutionId` for correlation (why/what/when something failed).
+- **Processor** — Runs job handlers: `check_schedules` (get due schedules, enqueue one `invoke_agent` job per expanded input); `invoke_agent` (get JWT, POST to agent, update `AgentJobExecution`). Concurrency and batch size are configurable via env so multiple agent invocations run in parallel.
 - **Supervisor** — Reclaims stuck jobs, cleans old jobs/events.
+- **JWT-only invocation** — The worker **requires** `AGENT_AUTH_API_URL` and `AGENT_API_KEY`. The scheduler API key must be **created by an admin in the Hermes dashboard** (API keys → Create, purpose `scheduler`). The worker uses it only to fetch short-lived JWTs from `POST /api/token` and sends only JWTs to agents; the raw key is never sent to agents. Revoking that key in the dashboard stops the worker from obtaining new tokens after expiry.
+- **HTTPS enforcement** — When `REQUIRE_HTTPS_AGENT_ENDPOINTS=true`, agent endpoint URLs must use HTTPS (or `http://localhost` / `http://127.0.0.1` for local dev).
 - **Graceful shutdown** — SIGTERM/SIGINT drain processor and supervisor, then exit.
 
 ## Scripts
@@ -40,12 +40,21 @@ If you see an error like `relation "cron_schedules" does not exist` when startin
 
 ## Environment
 
-- **PG_DATAQUEUE_DATABASE** (required) — DataQueue DB connection (e.g. same as `DATABASE_URL` with `?schema=dataqueue`).
-- **DATABASE_URL** — Used by Prisma in job handlers (schedule execution).
-- **AGENT_API_KEY** — Bearer token when invoking agents.
+All variables are defined in **`packages/env/env.hermes-worker.example`**. Copy that file to `apps/hermes-worker/.env.local` (or set in your deployment).
+
+| Variable                          | Required | Description                                                                                                                                                         |
+| --------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **DATABASE_URL**                  | Yes      | Main app database (Prisma).                                                                                                                                         |
+| **PG_DATAQUEUE_DATABASE**         | Yes      | DataQueue connection (`?schema=dataqueue&search_path=dataqueue`). Run migrate-dataqueue before first start.                                                         |
+| **AGENT_AUTH_API_URL**            | Yes      | **Required.** Base URL of agent-auth-api. Worker mints JWTs via POST /api/token.                                                                                    |
+| **AGENT_API_KEY**                 | Yes      | Scheduler API key **created by admin in the Hermes dashboard** (API keys → Create, purpose `scheduler`). Used only to fetch short-lived JWTs; never sent to agents. |
+| **REQUIRE_HTTPS_AGENT_ENDPOINTS** | No       | Set to `true` in production to reject non-HTTPS agent endpoints (except localhost).                                                                                 |
+| **PROCESSOR_BATCH_SIZE**          | No       | Max jobs fetched per poll (default `10`). Tune for agent invocation throughput.                                                                                     |
+| **PROCESSOR_CONCURRENCY**         | No       | Max concurrent job executions, e.g. agent HTTP calls (default `3`). Increase for more parallelism.                                                                  |
 
 ## Workspace dependencies
 
 - `@workspace/hermes-scheduler` — Due schedules, execution, next-run logic.
 - `@workspace/database` — Prisma client for schedules and execution.
-- `@workspace/env`, `@workspace/logger`, `@nicnocquee/dataqueue`, `got`.
+- `@workspace/env/hermes-worker` — Env schema in `packages/env/env.hermes-worker.example`. Copy to `apps/hermes-worker/.env.local` and fill in values.
+- `@workspace/logger`, `@nicnocquee/dataqueue`, `got`.

@@ -1,7 +1,7 @@
 export {
   executeSchedule,
   type ExecuteScheduleDeps,
-  type InvokeAgentStepPayload,
+  type InvokeAgentJobPayload,
 } from "./execute-schedule";
 export {
   substituteVariables,

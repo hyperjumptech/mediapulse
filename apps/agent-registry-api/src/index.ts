@@ -1,11 +1,15 @@
+import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
 import { prisma } from "@workspace/database";
 import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
-import * as crypto from "crypto";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
 import { registerAgent } from "./routes/register-agent";
+
+if (!env.AGENT_AUTH_API_URL) {
+  throw new Error("AGENT_AUTH_API_URL is required for agent-registry-api");
+}
 
 const app = new Hono();
 const api = app.basePath("/api");
@@ -27,15 +31,8 @@ api.use(
 api.use(
   "*",
   bearerAuth({
-    verifyToken: async (token, c) => {
-      const hash = crypto.createHash("sha256").update(token).digest("hex");
-      const apiKey = await prisma.aPIKey.findUnique({
-        where: { key: hash },
-        select: { userId: true, name: true },
-      });
-
-      return !!apiKey;
-    },
+    verifyToken: (token) =>
+      verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL!),
   }),
 );
 

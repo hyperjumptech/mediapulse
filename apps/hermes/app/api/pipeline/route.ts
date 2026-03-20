@@ -1,3 +1,4 @@
+import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@workspace/env";
 import { prisma } from "@workspace/database";
 import { logger } from "@workspace/logger";
@@ -29,7 +30,6 @@ function checkAuth(request: Request) {
 
 const BodySchema = z.object({
   pipelineId: z.string().uuid(),
-  apiKey: z.string(),
 });
 
 const AgentEndpointSchema = z.object({
@@ -53,6 +53,22 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const data = await BodySchema.parseAsync(body);
+
+    if (!env.AGENT_AUTH_API_URL || !env.AGENT_API_KEY) {
+      return NextResponse.json(
+        {
+          error:
+            "AGENT_AUTH_API_URL and AGENT_API_KEY are required to run pipelines (JWT-only invocation)",
+        },
+        { status: 503 },
+      );
+    }
+
+    const getToken = createAgentTokenClient({
+      authApiUrl: env.AGENT_AUTH_API_URL,
+      credential: env.AGENT_API_KEY,
+    }).getToken;
+    const jwt = await getToken();
 
     const pipeline = await prisma.pipeline.findUnique({
       where: { id: data.pipelineId },
@@ -103,7 +119,7 @@ export async function POST(request: Request) {
           json: { tickerId: ticker.id },
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${data.apiKey}`,
+            Authorization: `Bearer ${jwt}`,
           },
         });
       }
