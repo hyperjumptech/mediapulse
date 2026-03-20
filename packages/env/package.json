@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "concurrently \"pnpm build:default\" \"pnpm build:agents.data-collection\" \"pnpm build:agents.content-generation\" \"pnpm build:agents.delivery\" \"pnpm build:agents.ticker-echo\" \"pnpm build:hermes-worker\"",
+    "build": "concurrently \"pnpm build:default\" \"pnpm build:agents.data-collection\" \"pnpm build:agents.content-generation\" \"pnpm build:agents.delivery\" \"pnpm build:agents.ticker-echo\" \"pnpm build:hermes-worker\" \"pnpm build:agents.analysis\" \"pnpm build:agents.query-analysis\"",
     "build:default": "pnpm exec env-to-t3 -i env.example -o src/index.ts",
     "build:agents.data-collection": "pnpm exec env-to-t3 -i env.agents.data-collection.example -o src/agents-data-collection.ts",
     "build:agents.content-generation": "pnpm exec env-to-t3 -i env.agents.content-generation.example -o src/agents-content-generation.ts",
     "build:agents.delivery": "pnpm exec env-to-t3 -i env.agents.delivery.example -o src/agents-delivery.ts",
     "build:agents.ticker-echo": "pnpm exec env-to-t3 -i env.agents.ticker-echo.example -o src/agents-ticker-echo.ts",
-    "build:hermes-worker": "pnpm exec env-to-t3 -i env.hermes-worker.example -o src/hermes-worker.ts"
+    "build:hermes-worker": "pnpm exec env-to-t3 -i env.hermes-worker.example -o src/hermes-worker.ts",
+    "build:agents.query-analysis": "npx env-to-t3 -i env.agents.query-analysis.example -o src/agents-query-analysis.ts",
+    "build:agents.analysis": "npx env-to-t3 -i env.agents.analysis.example -o src/agents-analysis.ts"
   },
   "exports": {
     "./hermes-worker": {
@@ -36,6 +38,14 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./agents-query-analysis": {
+      "types": "./src/agents-query-analysis.ts",
+      "default": "./src/agents-query-analysis.ts"
+    },
+    "./agents-analysis": {
+      "types": "./src/agents-analysis.ts",
+      "default": "./src/agents-analysis.ts"
     }
   },
   "dependencies": {

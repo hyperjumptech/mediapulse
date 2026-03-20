@@ -9,11 +9,16 @@ import {
   getContentGeneration,
   postContentGeneration,
 } from "./routes/content-generation.js";
+import { getAnalysis, postAnalysis } from "./routes/analysis.js";
 import {
   getDataCollection,
   postDataCollection,
 } from "./routes/data-collection.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
+import {
+  getQueryAnalysis,
+  postQueryAnalysis,
+} from "./routes/query-analysis.js";
 
 if (!env.AGENT_AUTH_API_URL) {
   throw new Error("AGENT_AUTH_API_URL is required for agent-data-api");
@@ -51,6 +56,12 @@ api.post("/data-collection", postDataCollection);
 
 api.get("/delivery", getDelivery);
 api.post("/delivery", postDeliveryHandler);
+
+api.get("/query-analysis", getQueryAnalysis);
+api.post("/query-analysis", postQueryAnalysis);
+
+api.get("/analysis", getAnalysis);
+api.post("/analysis", postAnalysis);
 
 export { app };
 export default {
