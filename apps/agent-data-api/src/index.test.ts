@@ -1,12 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { agentDataApiPathname } from "@workspace/agent-data-api-contract";
+import {
+  AGENT_DATA_API_DEFAULT_VERSION,
+  agentDataApiPathname,
+} from "@workspace/agent-data-api-contract";
 
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const SEARCH_QUERY_ID = "22222222-2222-4222-a222-222222222222";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
-const contentGenerationPath = agentDataApiPathname("contentGeneration");
-const dataCollectionPath = agentDataApiPathname("dataCollection");
-const deliveryPath = agentDataApiPathname("delivery");
+const contentGenerationPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "contentGeneration",
+);
+const dataCollectionPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "dataCollection",
+);
+const deliveryPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "delivery",
+);
+const contentGenerationV2Path = agentDataApiPathname("v2", "contentGeneration");
 
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyApiKeyViaAuthApi: vi.fn().mockResolvedValue(true),
@@ -106,6 +119,16 @@ describe("agent-data-api", () => {
       const body = await res.json();
       expect(body.message).toBe("Bad Request");
       expect(body.errors).toBeDefined();
+    });
+  });
+
+  describe(`GET ${contentGenerationV2Path}`, () => {
+    it("returns 401 without Authorization header", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationV2Path}?tickerId=${TICKER_ID}`,
+      );
+      expect(res.status).toBe(401);
     });
   });
 

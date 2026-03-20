@@ -1,8 +1,10 @@
 import {
-  agentDataApiManifest,
+  AGENT_DATA_API_DEFAULT_VERSION,
+  agentDataApiManifestForVersion,
   agentDataApiPathname,
-  type AgentDataApiManifest,
+  type AgentDataApiFlatManifest,
   type AgentDataApiResourceKey,
+  type AgentDataApiVersion,
 } from "@workspace/agent-data-api-contract";
 import got from "got";
 import { z } from "zod";
@@ -26,6 +28,7 @@ export type DataApiPostFn = (
 
 type AgentDataApiClientOptions = {
   baseUrl: string;
+  version?: AgentDataApiVersion;
   token?: string;
   getAuthHeader?: () => string | undefined;
   getFn?: DataApiGetFn;
@@ -57,9 +60,11 @@ type PostEndpointClient<T extends { post?: unknown }> = T extends {
 type ManifestResourceClient<T extends { get?: unknown; post?: unknown }> =
   GetEndpointClient<T> & PostEndpointClient<T>;
 
-export type AgentDataApiClient = {
+export type AgentDataApiClient<
+  TVersion extends AgentDataApiVersion = typeof AGENT_DATA_API_DEFAULT_VERSION,
+> = {
   [K in AgentDataApiResourceKey]: ManifestResourceClient<
-    AgentDataApiManifest[K]
+    AgentDataApiFlatManifest<TVersion>[K]
   >;
 };
 
@@ -69,10 +74,15 @@ export type AgentDataApiClient = {
  * @param options - Base URL, auth, and optional transport dependencies.
  * @returns Namespaced endpoint methods for GET and POST operations.
  */
-export const createAgentDataApiClient = (
-  options: AgentDataApiClientOptions,
-): AgentDataApiClient => {
+export const createAgentDataApiClient = <
+  TVersion extends AgentDataApiVersion = typeof AGENT_DATA_API_DEFAULT_VERSION,
+>(
+  options: AgentDataApiClientOptions & { version?: TVersion },
+): AgentDataApiClient<TVersion> => {
   const { baseUrl } = options;
+  const version = (options.version ??
+    AGENT_DATA_API_DEFAULT_VERSION) as TVersion;
+  const manifest = agentDataApiManifestForVersion(version);
   const resolveAuthHeader = () => options.getAuthHeader?.() ?? options.token;
 
   const getJson = async <T>(
@@ -129,12 +139,12 @@ export const createAgentDataApiClient = (
    */
   const buildResourceClient = <
     TResourceKey extends AgentDataApiResourceKey,
-    TResourceConfig extends AgentDataApiManifest[TResourceKey],
+    TResourceConfig extends AgentDataApiFlatManifest<TVersion>[TResourceKey],
   >(
     resourceKey: TResourceKey,
     resourceConfig: TResourceConfig,
   ): ManifestResourceClient<TResourceConfig> => {
-    const path = agentDataApiPathname(resourceKey);
+    const path = agentDataApiPathname(version, resourceKey);
     const resourceClient: Record<string, unknown> = {};
     const getConfig = resourceConfig.get as
       | { query: z.ZodTypeAny; response: z.ZodTypeAny }
@@ -157,15 +167,13 @@ export const createAgentDataApiClient = (
     return resourceClient as ManifestResourceClient<TResourceConfig>;
   };
 
-  const resourceKeys = Object.keys(
-    agentDataApiManifest,
-  ) as AgentDataApiResourceKey[];
+  const resourceKeys = Object.keys(manifest) as AgentDataApiResourceKey[];
   const entries = resourceKeys.map((resourceKey) => [
     resourceKey,
-    buildResourceClient(resourceKey, agentDataApiManifest[resourceKey]),
+    buildResourceClient(resourceKey, manifest[resourceKey]),
   ]);
 
-  return Object.fromEntries(entries) as AgentDataApiClient;
+  return Object.fromEntries(entries) as AgentDataApiClient<TVersion>;
 };
 
 /**

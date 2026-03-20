@@ -64,6 +64,7 @@ const app = createAgentApp<
 
       const dataApiClient = createAgentDataApiClient({
         baseUrl: env.AGENT_DATA_API_URL,
+        version: "v1",
         token,
       });
       const query: { tickerId: string; start?: string; end?: string } = {

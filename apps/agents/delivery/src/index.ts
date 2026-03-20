@@ -19,6 +19,7 @@ const app = createAgentApp<Input, typeof BodySchema>(
     run: async ({ input, token }) => {
       const dataApiClient = createAgentDataApiClient({
         baseUrl: env.AGENT_DATA_API_URL,
+        version: "v1",
         token,
       });
       const deliveryData = await dataApiClient.delivery.get({

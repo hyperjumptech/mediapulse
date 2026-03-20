@@ -1,6 +1,6 @@
 import {
   camelCaseResourceKeyToPathSegment,
-  type AgentDataApiManifest,
+  type AgentDataApiFlatManifest,
   type AgentDataApiResourceKey,
 } from "@workspace/agent-data-api-contract";
 import { Hono, type Context } from "hono";
@@ -9,10 +9,10 @@ type RouteHandler = (context: Context) => Promise<Response>;
 
 export type AgentDataApiHandlers = {
   [K in AgentDataApiResourceKey]: {
-    get?: AgentDataApiManifest[K]["get"] extends undefined
+    get?: AgentDataApiFlatManifest[K]["get"] extends undefined
       ? never
       : RouteHandler;
-    post?: AgentDataApiManifest[K]["post"] extends undefined
+    post?: AgentDataApiFlatManifest[K]["post"] extends undefined
       ? never
       : RouteHandler;
   };
@@ -28,7 +28,7 @@ export type AgentDataApiHandlers = {
  */
 export const registerAgentDataApiRoutes = (
   api: Hono,
-  manifest: AgentDataApiManifest,
+  manifest: AgentDataApiFlatManifest,
   handlers: AgentDataApiHandlers,
 ): Hono => {
   const resourceKeys = Object.keys(manifest) as AgentDataApiResourceKey[];

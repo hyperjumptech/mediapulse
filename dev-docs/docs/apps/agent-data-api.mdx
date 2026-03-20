@@ -17,31 +17,38 @@ agent-data-api is the **HTTP persistence layer between agents and the database**
 - **Data collection** — Stores and loads crawled or gathered source material (pages, feeds, etc.) so collection and later stages see the same structured snapshot.
 - **Delivery** — Stores and loads what is needed to send a newsletter: composed content plus subscriber-oriented data, so the sending path does not re-derive everything from scratch.
 
-**Contract-driven routing:** URL paths and the `@workspace/agent-data-api-client` method namespaces are derived from `agentDataApiManifest` (resource keys → `/api/...` segments). That keeps the server, SDK, and docs aligned and avoids one-off paths in app or agent code.
+**Contract-driven routing:** URL paths and the `@workspace/agent-data-api-client` method namespaces are derived from `agentDataApiManifest` plus version helpers in `@workspace/agent-data-api-contract` (resource keys → `/api/<version>/...` segments). That keeps the server, SDK, and docs aligned and avoids one-off paths in app or agent code.
 
 ## Key routes
 
 Agents should not call these HTTP paths directly. In agent code, use `@workspace/agent-data-api-client` and call SDK namespaces such as `contentGeneration`, `dataCollection`, and `delivery`. The SDK provides typed methods for each endpoint and validates responses with shared schemas.
 
-| Method | Path                      | Description                                    |
-| ------ | ------------------------- | ---------------------------------------------- |
-| GET    | `/api/content-generation` | Get content-generation data (e.g. by tickerId) |
-| POST   | `/api/content-generation` | Store content-generation payload               |
-| GET    | `/api/data-collection`    | Get data-collection data                       |
-| POST   | `/api/data-collection`    | Store data-collection payload                  |
-| GET    | `/api/delivery`           | Get delivery data (newsletter + subscribers)   |
-| POST   | `/api/delivery`           | Store delivery payload                         |
+| Method | Path                         | Description                                    |
+| ------ | ---------------------------- | ---------------------------------------------- |
+| GET    | `/api/v1/content-generation` | Get content-generation data (e.g. by tickerId) |
+| POST   | `/api/v1/content-generation` | Store content-generation payload               |
+| GET    | `/api/v1/data-collection`    | Get data-collection data                       |
+| POST   | `/api/v1/data-collection`    | Store data-collection payload                  |
+| GET    | `/api/v1/delivery`           | Get delivery data (newsletter + subscribers)   |
+| POST   | `/api/v1/delivery`           | Store delivery payload                         |
 
 For example, in agents:
 
 ```ts
 const dataApiClient = createAgentDataApiClient({
   baseUrl: env.AGENT_DATA_API_URL,
+  version: "v1",
   token,
 });
 
 await dataApiClient.contentGeneration.get({ tickerId });
 ```
+
+## Versioning
+
+- `agent-data-api` can serve multiple live versions (for example `v1`, `v2`) under `/api/<version>/...`.
+- The contract package defines live versions and the default SDK version (`AGENT_DATA_API_DEFAULT_VERSION`).
+- Existing agents can pin a specific version with `createAgentDataApiClient({ version: "v1", ... })` during migrations.
 
 ## Port
 

@@ -12,12 +12,13 @@ Use this skill when changing `agent-data-api` HTTP endpoints.
 1. Update `@workspace/agent-data-api-contract` schemas and exported types first.
 2. Update `apps/agent-data-api` routes/services to use the updated contract.
 3. Update or add the resource in `agentDataApiManifest` in `@workspace/agent-data-api-contract`.
-4. Update `apps/agent-data-api` handlers and the typed handler map used by route registration.
-5. Update `@workspace/agent-data-api-client` behavior and response parsing when needed.
-6. Update agent callers to use typed SDK methods and contract-backed types.
-7. Update/extend tests for server routes/services, SDK methods, and agents.
-8. Update `dev-docs/docs/apps/agent-data-api.mdx`.
-9. Run `pnpm code-quality`.
+4. For versioned routes, keep `AGENT_DATA_API_LIVE_VERSIONS` and `agentDataApiManifestForVersion(...)` aligned with nested `agentDataApiManifest` entries.
+5. Update `apps/agent-data-api` handlers and the typed handler map used by route registration.
+6. Update `@workspace/agent-data-api-client` behavior and response parsing when needed.
+7. Update agent callers to use typed SDK methods and contract-backed types.
+8. Update/extend tests for server routes/services, SDK methods, and agents.
+9. Update `dev-docs/docs/apps/agent-data-api.mdx`.
+10. Run `pnpm code-quality`.
 
 ## New endpoint
 

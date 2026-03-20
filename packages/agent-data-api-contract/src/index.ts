@@ -1,10 +1,15 @@
 export {
-  AGENT_DATA_API_BASE_PATH,
+  AGENT_DATA_API_DEFAULT_VERSION,
+  AGENT_DATA_API_LIVE_VERSIONS,
+  AGENT_DATA_API_PREFIX,
   agentDataApiManifest,
+  agentDataApiManifestForVersion,
   agentDataApiPathname,
   camelCaseResourceKeyToPathSegment,
+  type AgentDataApiFlatManifest,
   type AgentDataApiManifest,
   type AgentDataApiResourceKey,
+  type AgentDataApiVersion,
 } from "./agent-data-api-manifest.js";
 export {
   analysisDataSourceSchema,

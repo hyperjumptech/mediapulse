@@ -41,11 +41,11 @@ an["analysis@1.0.0"] --> cg["content-generation@1.0.0"] --> dl["delivery@1.0.0"]
 end
 
 subgraph data_api["agent-data-api"]
-qa_route["/api/query-analysis"]
-dc_route["/api/data-collection"]
-an_route["/api/analysis"]
-cg_route["/api/content-generation"]
-dl_route["/api/delivery"]
+qa_route["/api/v1/query-analysis"]
+dc_route["/api/v1/data-collection"]
+an_route["/api/v1/analysis"]
+cg_route["/api/v1/content-generation"]
+dl_route["/api/v1/delivery"]
 end
 
 subgraph database["PostgreSQL"]

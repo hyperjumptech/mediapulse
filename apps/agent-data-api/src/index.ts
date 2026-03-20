@@ -1,7 +1,8 @@
 import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
 import {
-  AGENT_DATA_API_BASE_PATH,
-  agentDataApiManifest,
+  AGENT_DATA_API_LIVE_VERSIONS,
+  AGENT_DATA_API_PREFIX,
+  agentDataApiManifestForVersion,
 } from "@workspace/agent-data-api-contract";
 import { env } from "@workspace/env";
 import { logger } from "@workspace/logger";
@@ -28,7 +29,6 @@ if (!env.AGENT_AUTH_API_URL) {
 }
 
 const app = new Hono();
-const api = app.basePath(AGENT_DATA_API_BASE_PATH);
 
 app.use(
   pinoLogger({
@@ -43,14 +43,6 @@ app.use(
     },
   }),
 );
-api.use(
-  "*",
-  bearerAuth({
-    verifyToken: (token) =>
-      verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL!),
-  }),
-);
-
 const routeHandlers = {
   contentGeneration: {
     get: getContentGeneration,
@@ -66,7 +58,22 @@ const routeHandlers = {
   },
 } satisfies AgentDataApiHandlers;
 
-registerAgentDataApiRoutes(api, agentDataApiManifest, routeHandlers);
+for (const version of AGENT_DATA_API_LIVE_VERSIONS) {
+  const versionApi = new Hono();
+  versionApi.use(
+    "*",
+    bearerAuth({
+      verifyToken: (token) =>
+        verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL!),
+    }),
+  );
+  registerAgentDataApiRoutes(
+    versionApi,
+    agentDataApiManifestForVersion(version),
+    routeHandlers,
+  );
+  app.route(`${AGENT_DATA_API_PREFIX}/${version}`, versionApi);
+}
 
 export { app };
 export default {

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  AGENT_DATA_API_DEFAULT_VERSION,
   agentDataApiPathname,
   camelCaseResourceKeyToPathSegment,
 } from "@workspace/agent-data-api-contract";
@@ -37,7 +38,7 @@ describe("createAgentDataApiClient", () => {
 
     // Assert
     expect(getFn).toHaveBeenCalledWith(
-      `http://agent-data-api${agentDataApiPathname("dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111`,
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111`,
       expect.objectContaining({
         headers: { Authorization: "Bearer sdk-token" },
       }),
@@ -66,7 +67,7 @@ describe("createAgentDataApiClient", () => {
 
     // Assert
     expect(getFn).toHaveBeenCalledWith(
-      `http://agent-data-api${agentDataApiPathname("dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111&start=2026-03-20T00%3A00%3A00.000Z`,
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111&start=2026-03-20T00%3A00%3A00.000Z`,
       expect.anything(),
     );
   });
@@ -92,7 +93,7 @@ describe("createAgentDataApiClient", () => {
 
     // Assert
     expect(postFn).toHaveBeenCalledWith(
-      `http://agent-data-api${agentDataApiPathname("contentGeneration")}`,
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGeneration")}`,
       expect.objectContaining({
         json: {
           subject: "Subject",
@@ -126,6 +127,30 @@ describe("createAgentDataApiClient", () => {
     // Assert
     await expect(act).rejects.toThrow("Agent data API error: 404");
   });
+
+  it("uses explicit version when provided", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ data: [] }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      version: "v2",
+      getFn,
+    });
+
+    // Act
+    await client.dataCollection.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+    });
+
+    // Assert
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname("v2", "dataCollection")}?tickerId=11111111-1111-4111-a111-111111111111`,
+      expect.anything(),
+    );
+  });
 });
 
 describe("agent-data-api path helpers", () => {
@@ -139,9 +164,9 @@ describe("agent-data-api path helpers", () => {
 
   it("builds API pathnames from manifest resource keys", () => {
     // Act
-    const pathname = agentDataApiPathname("contentGeneration");
+    const pathname = agentDataApiPathname("v1", "contentGeneration");
 
     // Assert
-    expect(pathname).toBe("/api/content-generation");
+    expect(pathname).toBe("/api/v1/content-generation");
   });
 });

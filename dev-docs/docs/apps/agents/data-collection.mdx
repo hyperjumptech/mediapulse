@@ -11,7 +11,7 @@ The data-collection agent fetches **search queries** for a ticker from agent-dat
 ## Features
 
 - **Input:** `tickerId` and optional `timeWindow` (start/end datetimes). Receives bearer token from Hermes.
-- **Fetches** search queries for the ticker from agent-data-api (`/api/data-collection`).
+- **Fetches** search queries for the ticker from agent-data-api (`/api/v1/data-collection`).
 - **Web search** — Uses Serper (or similar) for search results; requires `SERPER_API_KEY`.
 - **Web fetch** — Uses Jina (or similar) to get page content; requires `JINA_API_KEY`.
 - **Stores** collected pages/sources via agent-data-api for content-generation.
