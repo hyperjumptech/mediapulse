@@ -227,6 +227,23 @@ describe("DashboardShell", () => {
     expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("API Keys");
   });
 
+  it("shows Search Query breadcrumb on /dashboard/search-queries", () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/search-queries");
+
+    // Act
+    render(
+      <DashboardShell>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
+      "Search Query",
+    );
+  });
+
   it("shows Schedules breadcrumb on /dashboard/schedules", () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard/schedules");

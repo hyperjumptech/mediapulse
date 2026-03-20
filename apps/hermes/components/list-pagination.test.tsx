@@ -263,4 +263,25 @@ describe("ListPagination", () => {
       "/dashboard/schedules/sched-1?page=2&size=10",
     );
   });
+
+  it("includes extra params in pagination links", () => {
+    // Act
+    render(
+      <ListPagination
+        basePath="/dashboard/search-queries"
+        page={1}
+        pageSize={15}
+        total={30}
+        ariaLabel="Search queries pagination"
+        extraParams={{ ticker: "Apple" }}
+      />,
+    );
+
+    // Assert
+    const nextLink = screen.getByRole("link", { name: /Next/ });
+    expect(nextLink).toHaveAttribute(
+      "href",
+      "/dashboard/search-queries?page=2&size=15&ticker=Apple",
+    );
+  });
 });
