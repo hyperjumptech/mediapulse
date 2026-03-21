@@ -351,11 +351,11 @@ const main = async (): Promise<void> => {
   );
 };
 
-const isVitestRuntime = Boolean(
-  (import.meta as ImportMeta & { vitest?: unknown }).vitest,
-);
+const isCliEntry = process.argv[1]
+  ? path.resolve(process.argv[1]) === __filename
+  : false;
 
-if (!isVitestRuntime) {
+if (isCliEntry) {
   main()
     .then(() => process.exit(0))
     .catch((error: unknown) => {
