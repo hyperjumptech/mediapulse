@@ -194,18 +194,16 @@ Uses **`packages/env/env.agents.query-analysis.example`**.
 
 ### content-generation agent
 
-Uses **`packages/env/env.agents.content-generation.example`**.
+Uses **`packages/env/env.agents.content-generation.example`**. **OpenAI** credentials are **not** env vars: set **`openaiApiKey`** and optional **`openaiModel`** on an [Agent config](/dashboard/agent-configs) in Hermes and attach that config to the pipeline step.
 
-| Variable                 | Required | How to find the value                                                                                   |
-| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
-| `PORT`                   | No       | Default `4002`.                                                                                         |
-| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                 |
-| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                 |
-| `OPENAI_API_KEY`         | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
-| `OPENAI_MODEL`           | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
-| `AGENT_REGISTRY_URL`     | No       | Same as data-collection.                                                                                |
-| `AGENT_REGISTRY_API_KEY` | No       | Same as data-collection.                                                                                |
-| `AGENT_PUBLIC_URL`       | No       | Public URL for this agent (e.g. `https://content-generation-agent.yourdomain.com`).                     |
+| Variable                 | Required | How to find the value                                                               |
+| ------------------------ | -------- | ----------------------------------------------------------------------------------- |
+| `PORT`                   | No       | Default `4002`.                                                                     |
+| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                             |
+| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                             |
+| `AGENT_REGISTRY_URL`     | No       | Same as data-collection.                                                            |
+| `AGENT_REGISTRY_API_KEY` | No       | Same as data-collection.                                                            |
+| `AGENT_PUBLIC_URL`       | No       | Public URL for this agent (e.g. `https://content-generation-agent.yourdomain.com`). |
 
 ---
 

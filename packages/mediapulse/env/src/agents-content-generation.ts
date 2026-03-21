@@ -11,8 +11,6 @@ export const env = createEnv({
     AGENT_REGISTRY_URL: z.string().optional(),
     AGENT_REGISTRY_API_KEY: z.string().optional(),
     AGENT_PUBLIC_URL: z.string().optional(),
-    OPENAI_API_KEY: z.string().min(1),
-    OPENAI_MODEL: z.string().min(1),
   },
   client: {
   },

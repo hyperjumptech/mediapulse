@@ -5,7 +5,12 @@ import { logger } from "@workspace/logger";
 import OpenAI from "openai";
 import { z } from "zod";
 
+import {
+  ContentGenerationConfigSchema,
+  type ContentGenerationConfig,
+} from "./config-schema.js";
 import { formatNewsletterContent } from "./format-newsletter-content.js";
+import { parseNewsletterJson } from "./parse-newsletter-json.js";
 
 const BodySchema = z.object({
   tickerId: z.string(),
@@ -26,16 +31,18 @@ interface GeneratedContent {
   description?: string;
 }
 
-import { parseNewsletterJson } from "./parse-newsletter-json.js";
-
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-
-const app = createAgentApp<Input, typeof BodySchema>(
+const app = createAgentApp<
+  Input,
+  typeof BodySchema,
+  ContentGenerationConfig,
+  typeof ContentGenerationConfigSchema
+>(
   {
     agentId: "content-generation",
     agentVersion: "1.0.0",
     inputSchema: BodySchema,
-    run: async ({ input, token }) => {
+    configSchema: ContentGenerationConfigSchema,
+    run: async ({ input, config, token }) => {
       const dataApiClient = createAgentDataApiClient({
         baseUrl: env.AGENT_DATA_API_URL,
         version: "v1",
@@ -55,7 +62,12 @@ const app = createAgentApp<Input, typeof BodySchema>(
         };
       }
 
-      const generated = await generateContentWithOpenAI(sources);
+      const openai = new OpenAI({ apiKey: config.openaiApiKey });
+      const model = config.openaiModel ?? "gpt-4o-mini";
+      const generated = await generateContentWithOpenAI(sources, {
+        openai,
+        model,
+      });
       try {
         await dataApiClient.contentGeneration.create({
           subject: generated.subject,
@@ -96,10 +108,12 @@ const app = createAgentApp<Input, typeof BodySchema>(
  * Calls OpenAI to generate a newsletter with an executive summary and top 3 news items.
  *
  * @param sources - Fetched articles/sources to summarize.
+ * @param deps - OpenAI client and model from pipeline agent config.
  * @returns Subject and formatted plain-text content for the newsletter.
  */
 async function generateContentWithOpenAI(
   sources: SourceForGeneration[],
+  deps: { openai: OpenAI; model: string },
 ): Promise<GeneratedContent> {
   const sourceSummaries = sources
     .map(
@@ -107,8 +121,8 @@ async function generateContentWithOpenAI(
     )
     .join("\n\n---\n\n");
 
-  const response = await openai.chat.completions.create({
-    model: env.OPENAI_MODEL,
+  const response = await deps.openai.chat.completions.create({
+    model: deps.model,
     messages: [
       {
         role: "system",
