@@ -1,4 +1,4 @@
-import { prisma, Prisma } from "@workspace/database";
+import { prisma, Prisma } from "@workspace/mediapulse-database";
 import {
   createRequestValidator,
   errorResponse,

@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@workspace/api-utils": "workspace:*",
-    "@workspace/env": "workspace:*",
-    "@workspace/database": "workspace:*",
+    "@hermes/env": "workspace:*",
+    "@workspace/orchestration-database": "workspace:*",
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",

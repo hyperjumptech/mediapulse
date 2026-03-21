@@ -56,9 +56,10 @@ async function main() {
     process.exit(1);
   }
 
-  const prismaClient = await import("@workspace/database/client").then(
-    (m) => m.prismaClient,
-  );
+  const prismaClient =
+    await import("@workspace/orchestration-database/client").then(
+      (m) => m.prismaClient,
+    );
 
   const user = await prismaClient.user.findUnique({
     where: { email },

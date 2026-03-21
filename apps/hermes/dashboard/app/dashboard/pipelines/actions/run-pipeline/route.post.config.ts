@@ -1,6 +1,7 @@
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
-import { env } from "@workspace/env";
-import { prisma } from "@workspace/database";
+import { env } from "@hermes/env";
+import { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
+import { prisma as orchestrationPrisma } from "@workspace/orchestration-database";
 import got from "got";
 import {
   createRequestValidator,
@@ -41,7 +42,10 @@ const defaultGetToken =
 
 type RunPipelineHandlerDependencies = {
   getSession?: typeof getDashboardSession;
-  db?: typeof prisma;
+  /** Orchestration DB (pipelines, steps, agent registry). */
+  db?: typeof orchestrationPrisma;
+  /** Mediapulse domain DB (tickers). */
+  mediapulseDb?: typeof mediapulsePrisma;
   /** Returns a short-lived JWT for agent invocation. */
   getToken?: () => Promise<string>;
   post?: typeof got.post;
@@ -56,12 +60,13 @@ type RunPipelineHandler = HandlerFunc<
 /**
  * Creates the run-pipeline handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession, db, getToken, and post (got.post).
+ * @param dependencies - Optional getSession, orchestration db, mediapulse db, getToken, and post (got.post).
  * @returns Handler that runs the pipeline for all tickers (each ticker gets all steps in order).
  */
 export const createRunPipelineHandler = ({
   getSession = getDashboardSession,
-  db = prisma,
+  db = orchestrationPrisma,
+  mediapulseDb = mediapulsePrisma,
   getToken = defaultGetToken ??
     (async () => {
       throw new Error("AGENT_AUTH_API_URL and AGENT_API_KEY are required");
@@ -96,7 +101,7 @@ export const createRunPipelineHandler = ({
         where: { pipelineId: data.body.pipelineId },
         orderBy: { order: "asc" },
       }),
-      db.ticker.findMany(),
+      mediapulseDb.ticker.findMany(),
     ]);
     const pipelineValidation = await validatePipeline(
       {

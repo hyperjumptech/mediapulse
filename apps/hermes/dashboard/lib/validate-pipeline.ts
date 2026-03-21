@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@workspace/database";
+import type { PrismaClient } from "@workspace/orchestration-database";
 
 import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 

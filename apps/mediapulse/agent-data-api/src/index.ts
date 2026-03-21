@@ -4,7 +4,7 @@ import {
   AGENT_DATA_API_PREFIX,
   agentDataApiManifestForVersion,
 } from "@workspace/agent-data-api-contract";
-import { env } from "@workspace/env";
+import { env } from "@mediapulse/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";

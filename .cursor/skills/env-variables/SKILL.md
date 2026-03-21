@@ -1,13 +1,15 @@
 ---
 name: env-variables
-description: Add, update, or manage environment variables in this Next.js monorepo using T3 Env and env-to-t3. Use when the user asks to add an env variable, update env.example, generate env types, work with @workspace/env, or configure per-app environment variables.
+description: Add, update, or manage environment variables in this Next.js monorepo using T3 Env and env-to-t3. Use when the user asks to add an env variable, update env.example, generate env types, work with @hermes/env or @mediapulse/env, or configure per-app environment variables.
 ---
 
 # Environment Variables Workflow
 
+The monorepo has two env packages: **`packages/hermes/env`** (`@hermes/env`) for Hermes, and **`packages/mediapulse/env`** (`@mediapulse/env`) for Mediapulse and agents.
+
 ## Adding a new environment variable
 
-1. **Update `env.example`** in `packages/env/` (or a per-app file like `env.example.app1`).
+1. **Update the correct `env.example`** (or `env.*.example`) under `packages/hermes/env/` or `packages/mediapulse/env/`.
    - Add a comment explaining the purpose and where to obtain the value.
    - Add `env-to-t3` annotations after the value.
 
@@ -29,43 +31,25 @@ Combine annotations: `TIMEOUT=5000 #number #default` → `z.number({ coerce: tru
 2. **Regenerate the typed env object.**
 
 ```bash
-# Default (uses env.example)
-pnpm build --filter @workspace/env
-
-# Per-app variant
-npx env-to-t3 -i env.example.app1 -o src/env.app1.ts
+pnpm build --filter @hermes/env
+pnpm build --filter @mediapulse/env
 ```
 
-3. **Import from `@workspace/env`**, never from `process.env`.
+3. **Import from `@hermes/env` or `@mediapulse/env`**, never from `process.env`.
 
 ```typescript
-import { env } from "@workspace/env";
-// or per-app:
-import { env } from "@workspace/env/env.app1";
+import { env } from "@hermes/env";
+// or
+import { env } from "@mediapulse/env";
+// subpaths when defined, e.g.:
+import { env } from "@hermes/env/hermes-worker";
+import { env } from "@mediapulse/env/agents-delivery";
 ```
 
-4. **Share `.env` for local dev** — run `./dev-bootstrap.sh` from the repo root to symlink `packages/env/.env` into each app's `.env.local`.
-
-## Per-app environment files
-
-When an app needs a different set of variables:
-
-1. Create `env.example.<app>` in `packages/env/`.
-2. Add a build script in `packages/env/package.json`:
-
-```json
-{
-  "exports": { "./env.<app>": "./src/env.<app>.ts" },
-  "scripts": {
-    "build:<app>": "npx env-to-t3 -i env.example.<app> -o src/env.<app>.ts"
-  }
-}
-```
-
-3. Import with `@workspace/env/env.<app>` in the target app.
+4. **Share `.env` for local dev** — run `./dev-bootstrap.sh` from the repo root to merge examples and symlink each app to the correct domain `packages/*/env/.env`.
 
 ## Ground rules
 
 - Never read `process.env` directly — always use the typed env object.
 - Sensitive credentials must **not** have the `NEXT_PUBLIC_` prefix.
-- Every variable must be documented with a comment in `env.example`.
+- Every variable must be documented with a comment in the relevant `env*.example`.

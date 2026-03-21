@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getPipelinesWithSteps } from "@/lib/pipelines";
 import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
-import { prisma } from "@workspace/database";
+import { prisma } from "@workspace/orchestration-database";
 
 import { PipelinesWithModal } from "./pipelines-with-modal";
 

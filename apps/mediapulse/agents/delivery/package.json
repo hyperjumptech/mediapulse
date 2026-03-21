@@ -14,7 +14,7 @@
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
-    "@workspace/env": "workspace:*",
+    "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:",
     "hono": "catalog:",

@@ -3,7 +3,7 @@
  * daily at 06:00 UTC, running the first active pipeline with params expanding all tickers.
  * Run from apps/hermes: pnpm exec tsx scripts/seed-default-schedule.ts
  */
-import { prisma } from "@workspace/database";
+import { prisma } from "@workspace/orchestration-database";
 import { computeNextRunAt } from "@workspace/hermes-scheduler";
 
 const CRON_DAILY_06_UTC = "0 6 * * *";

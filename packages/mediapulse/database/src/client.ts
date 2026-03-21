@@ -1,7 +1,7 @@
 import { PrismaClient } from "../client/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import { env } from "@workspace/env";
+import { env } from "@mediapulse/env";
 import { getDatabaseParams } from "./utils";
 
 /**
@@ -14,8 +14,7 @@ export class PrismaClientWithSchema extends PrismaClient {
   private currentSchema = "public";
 
   constructor(url?: string) {
-    const connectionString =
-      url ?? env.MEDIAPULSE_DATABASE_URL ?? env.DATABASE_URL;
+    const connectionString = url ?? env.MEDIAPULSE_DATABASE_URL;
     if (!connectionString) {
       throw new Error("Connection string is required");
     }

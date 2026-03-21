@@ -4,6 +4,16 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   test: {
+    // Defaults so importing @hermes/env / @mediapulse/env (e.g. via mediapulse-database) validates in CI.
+    env: {
+      ORCHESTRATION_DATABASE_URL:
+        "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=orchestration",
+      MEDIAPULSE_DATABASE_URL:
+        "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=mediapulse",
+      TEMP_ADMIN_USERNAME: "test",
+      TEMP_ADMIN_PASSWORD: "testtest",
+      HERMES_DATA_SOURCE_MAX_TAKE: "5000",
+    },
     testTimeout: 10_000,
     hookTimeout: 30_000,
     environment: "jsdom",

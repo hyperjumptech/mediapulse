@@ -4,7 +4,7 @@ import {
   prisma as orchestrationPrisma,
 } from "@workspace/orchestration-database";
 import { createDomainIntegrationClient } from "@workspace/hermes-domain-contract";
-import { env } from "@workspace/env/hermes-worker";
+import { env } from "@hermes/env/hermes-worker";
 import { logger } from "@workspace/logger";
 import type { JobHandlers } from "@nicnocquee/dataqueue";
 import type { JobPayloadMap } from "./job-payload-map";

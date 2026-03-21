@@ -5,7 +5,7 @@ import {
   getScheduleExecutionsPage,
   getSchedulesPage,
 } from "./schedules";
-import type { PrismaClientWithSchema } from "@workspace/database/client";
+import type { PrismaClientWithSchema } from "@workspace/orchestration-database/client";
 
 type MockDb = {
   schedule: {

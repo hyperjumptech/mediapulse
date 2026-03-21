@@ -10,7 +10,7 @@
 #   --key-name NAME    Name for the new API key (default: "Agent registry (<agent-name>)").
 #
 # Get or create: reads AGENT_REGISTRY_API_KEY from any existing apps/mediapulse/agents/*/.env.local
-# or packages/shared/env/.env; if missing, creates one via Hermes generate-api-key (requires
+# or packages/mediapulse/env/.env; if missing, creates one via Hermes generate-api-key (requires
 # --admin-email and Hermes .env.local with DB).
 
 set -euo pipefail
@@ -80,7 +80,7 @@ if [[ -z "$AGENT_NAME" ]]; then
 fi
 
 AGENT_DIR="$SCRIPT_DIR/apps/mediapulse/agents/$AGENT_NAME"
-ENV_PKG="$SCRIPT_DIR/packages/shared/env"
+ENV_PKG="$SCRIPT_DIR/packages/mediapulse/env"
 EXAMPLE_FILE="$ENV_PKG/env.agents.${AGENT_NAME}.example"
 
 if [[ ! -d "$AGENT_DIR" ]]; then
@@ -174,11 +174,11 @@ for f in "$SCRIPT_DIR/apps/mediapulse/agents"/*/.env.local; do
   fi
 done
 
-# 2. From packages/shared/env/.env
-if [[ -z "$REGISTRY_KEY" && -f "$SCRIPT_DIR/packages/shared/env/.env" ]]; then
-  REGISTRY_KEY="$(get_env_value "$SCRIPT_DIR/packages/shared/env/.env" "AGENT_REGISTRY_API_KEY")"
+# 2. From packages/mediapulse/env/.env
+if [[ -z "$REGISTRY_KEY" && -f "$SCRIPT_DIR/packages/mediapulse/env/.env" ]]; then
+  REGISTRY_KEY="$(get_env_value "$SCRIPT_DIR/packages/mediapulse/env/.env" "AGENT_REGISTRY_API_KEY")"
   if [[ -n "$REGISTRY_KEY" ]]; then
-    echo "  Using key from packages/shared/env/.env"
+    echo "  Using key from packages/mediapulse/env/.env"
   fi
 fi
 
@@ -187,8 +187,8 @@ if [[ -z "$REGISTRY_KEY" ]]; then
   if [[ -z "$ADMIN_EMAIL" ]]; then
     # Try env
     ADMIN_EMAIL="${ADMIN_EMAIL:-}"
-    if [[ -f "$SCRIPT_DIR/packages/shared/env/.env" ]]; then
-      ADMIN_EMAIL="$(get_env_value "$SCRIPT_DIR/packages/shared/env/.env" "ADMIN_EMAIL")"
+    if [[ -f "$SCRIPT_DIR/packages/mediapulse/env/.env" ]]; then
+      ADMIN_EMAIL="$(get_env_value "$SCRIPT_DIR/packages/mediapulse/env/.env" "ADMIN_EMAIL")"
     fi
   fi
   if [[ -z "$ADMIN_EMAIL" ]]; then

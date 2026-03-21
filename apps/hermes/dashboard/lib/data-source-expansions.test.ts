@@ -194,7 +194,7 @@ describe("createDataSourceExpansion", () => {
         name: "My expansion",
         expansionString: "db:ticker:id",
         description: "Notes",
-        createdBy: { connect: { id: "user-1" } },
+        createdById: "user-1",
       },
     });
     expect(result.id).toBe("e1");

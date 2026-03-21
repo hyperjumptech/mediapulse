@@ -7,11 +7,12 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma client (required by @workspace/database)
-ENV DATABASE_URL="postgresql://localhost:5432/dummy"
+# Generate Prisma client (orchestration DB)
+ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
+ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
-RUN pnpm --filter=@workspace/database run db:generate
+RUN pnpm --filter=@workspace/orchestration-database run db:generate
 
 RUN pnpm exec turbo build --filter=hermes-worker
 

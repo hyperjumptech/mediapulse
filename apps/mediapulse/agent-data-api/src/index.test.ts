@@ -25,16 +25,18 @@ vi.mock("@workspace/agent-auth-client", () => ({
   verifyApiKeyViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("@workspace/env", () => ({
+vi.mock("@mediapulse/env", () => ({
   env: {
     AGENT_AUTH_API_URL: "http://auth.example.com",
-    DATABASE_URL: "postgresql://localhost/test",
+    ORCHESTRATION_DATABASE_URL:
+      "postgresql://localhost/test?schema=orchestration",
+    MEDIAPULSE_DATABASE_URL: "postgresql://localhost/test?schema=mediapulse",
     TEMP_ADMIN_USERNAME: "admin",
     TEMP_ADMIN_PASSWORD: "admin",
   },
 }));
 
-vi.mock("@workspace/database", () => ({
+vi.mock("@workspace/mediapulse-database", () => ({
   prisma: {
     searchQuery: {
       findMany: vi.fn(),
@@ -58,7 +60,7 @@ vi.mock("./services/delivery.js", () => ({
 const getContentGenerationService = () =>
   import("./services/content-generation.js");
 const getDeliveryService = () => import("./services/delivery.js");
-const getDatabase = () => import("@workspace/database");
+const getDatabase = () => import("@workspace/mediapulse-database");
 
 describe("agent-data-api", () => {
   beforeEach(() => {

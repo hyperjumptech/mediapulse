@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { prisma } from "@workspace/database";
+import { prisma } from "@workspace/orchestration-database";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
 

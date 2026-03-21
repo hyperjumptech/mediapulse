@@ -3,7 +3,7 @@ import {
   registerDomainIntegrationRequestSchema,
   registerDomainIntegrationResponseSchema,
 } from "@workspace/hermes-domain-contract";
-import { env } from "@workspace/env";
+import { env } from "@hermes/env";
 import { NextResponse } from "next/server";
 import { registerDomainIntegration } from "@/lib/domain-integrations";
 

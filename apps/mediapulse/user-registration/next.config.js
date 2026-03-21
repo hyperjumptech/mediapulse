@@ -8,7 +8,7 @@ const { loadEnvConfig } = nextEnv;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const envDir = path.resolve(__dirname, "../../../packages/shared/env");
+const envDir = path.resolve(__dirname, "../../../packages/mediapulse/env");
 
 loadEnvConfig(envDir);
 

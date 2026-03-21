@@ -1,7 +1,7 @@
 import { PrismaClient } from "../client/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import { env } from "@workspace/env";
+import { env } from "@hermes/env";
 import { getDatabaseParams } from "./utils";
 
 /**

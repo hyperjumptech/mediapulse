@@ -1,5 +1,5 @@
-import type { Prisma } from "@workspace/database";
-import { prisma } from "@workspace/database";
+import type { Prisma } from "@workspace/mediapulse-database";
+import { prisma } from "@workspace/mediapulse-database";
 
 type Db = typeof prisma;
 
@@ -170,7 +170,7 @@ export const createDataSourceExpansion = async (
       name: data.name.trim(),
       expansionString: data.expansionString.trim(),
       description,
-      createdBy: { connect: { id: data.createdById } },
+      createdById: data.createdById,
     },
   });
 

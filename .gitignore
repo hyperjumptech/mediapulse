@@ -32,7 +32,8 @@ build
 dist
 
 # Generated Prisma client
-packages/database/client/
+packages/hermes/orchestration-database/client/
+packages/mediapulse/database/client/
 
 
 # Debug

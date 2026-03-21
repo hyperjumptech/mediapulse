@@ -31,7 +31,7 @@ vi.mock("@workspace/orchestration-database", () => ({
   prisma: mockPrisma,
 }));
 
-vi.mock("@workspace/env/hermes-worker", () => ({
+vi.mock("@hermes/env/hermes-worker", () => ({
   env: {
     AGENT_API_KEY: "test-scheduler-key",
     AGENT_AUTH_API_URL: "https://auth.example.com",

@@ -1,4 +1,4 @@
-import { env } from "@workspace/env";
+import { env } from "@hermes/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
 import { basicAuth } from "hono/basic-auth";

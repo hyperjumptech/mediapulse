@@ -15,7 +15,7 @@
     "type:check": "tsc --noEmit"
   },
   "dependencies": {
-    "@workspace/database": "workspace:*"
+    "@workspace/mediapulse-database": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -6,7 +6,7 @@
  */
 
 import { createOutlookInboxClient } from "@workspace/outlook-inbox";
-import { env } from "@workspace/env";
+import { env } from "@mediapulse/env";
 
 async function main(): Promise<void> {
   const { OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_TENANT_ID } = env;

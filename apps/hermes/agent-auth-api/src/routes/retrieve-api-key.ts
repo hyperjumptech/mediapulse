@@ -1,4 +1,4 @@
-import { prisma } from "@workspace/database";
+import { prisma } from "@workspace/orchestration-database";
 import { Context } from "hono";
 
 export async function retrieveAPIKey(context: Context) {

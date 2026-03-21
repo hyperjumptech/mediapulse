@@ -7,7 +7,8 @@ import {
 } from "@/lib/agent-configs";
 import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
 import { getVariablesPage } from "@/lib/variables";
-import { prisma } from "@workspace/database";
+import { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
+import { prisma as orchestrationPrisma } from "@workspace/orchestration-database";
 
 import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
 
@@ -70,13 +71,18 @@ const AgentConfigsPage = async ({
     expansionsPage,
   ] = await Promise.all([
     getAgentConfigsPage(page, pageSize, { sortBy, sortDir }),
-    prisma.agentRegistry.findMany({
+    orchestrationPrisma.agentRegistry.findMany({
       where: { isActive: true },
       select: { id: true, agentId: true, agentVersion: true },
       orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
     }),
-    getVariablesPage(1, PICKER_PAGE_SIZE, undefined, prisma),
-    getDataSourceExpansionsPage(1, PICKER_PAGE_SIZE, undefined, prisma),
+    getVariablesPage(1, PICKER_PAGE_SIZE, undefined, orchestrationPrisma),
+    getDataSourceExpansionsPage(
+      1,
+      PICKER_PAGE_SIZE,
+      undefined,
+      mediapulsePrisma,
+    ),
   ]);
   const variableKeys = variablesPage.variables.map((v) => ({ key: v.key }));
   const expansionTemplates = expansionsPage.expansions.map((e) => ({
@@ -90,7 +96,7 @@ const AgentConfigsPage = async ({
   ];
   const agents =
     agentKeys.length > 0
-      ? await prisma.agentRegistry.findMany({
+      ? await orchestrationPrisma.agentRegistry.findMany({
           where: {
             OR: agentKeys.map((key) => {
               const [agentId, agentVersion] = key.split("\0");

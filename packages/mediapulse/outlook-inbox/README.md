@@ -12,7 +12,7 @@ pnpm add @workspace/outlook-inbox
 
 ## Configuration
 
-The package does **not** read `process.env` directly. Consuming apps should use `@workspace/env` (or their app env slice) and pass credentials into the client.
+The package does **not** read `process.env` directly. Consuming apps should use `@mediapulse/env` (or their app env slice) and pass credentials into the client.
 
 ### Option 1: Client credentials (app-only)
 
@@ -20,7 +20,7 @@ Use Azure AD app registration with **Application** permission `Mail.ReadWrite` (
 
 ```ts
 import { createOutlookInboxClient } from "@workspace/outlook-inbox";
-import { env } from "@workspace/env";
+import { env } from "@mediapulse/env";
 
 const client = createOutlookInboxClient({
   clientId: env.OUTLOOK_CLIENT_ID,

@@ -41,8 +41,8 @@ function nextAgentPort(envPkgPath: string): number {
 }
 
 /**
- * Custom action: add env example file and update packages/env/package.json
- * (new build script, add to build script list, new export).
+ * Custom action: add env example file and update packages/mediapulse/env/package.json
+ * (new build script, add to concurrently build list, new export).
  * Assigns a unique PORT not used by existing agents.
  * Optionally adds dev:agent-<name> to root package.json.
  */
@@ -50,12 +50,13 @@ const wireEnvPackage: PlopTypes.CustomActionFunction = (answers) => {
   const name = answers.agentName as string;
   const envExampleName = `env.agents.${name}.example`;
   const envOutputName = `agents-${name}`;
-  const envPkgPath = path.join(ROOT, "packages", "env");
+  const envPkgPath = path.join(ROOT, "packages", "mediapulse", "env");
   const envPkgJsonPath = path.join(envPkgPath, "package.json");
   const examplePath = path.join(envPkgPath, envExampleName);
   const templateExamplePath = path.join(
     ROOT,
     "packages",
+    "mediapulse",
     "env",
     "env.agents.ticker-echo.example",
   );
@@ -84,12 +85,14 @@ const wireEnvPackage: PlopTypes.CustomActionFunction = (answers) => {
   const scripts = pkg.scripts as Record<string, string>;
   const buildKey = `build:agents.${name}`;
   scripts[buildKey] =
-    `npx env-to-t3 -i ${envExampleName} -o src/${envOutputName}.ts`;
+    `pnpm exec env-to-t3 -i ${envExampleName} -o src/${envOutputName}.ts`;
   const buildScript = scripts.build;
-  scripts.build = buildScript.replace(
-    '"pnpm build:hermes-worker"',
-    `"pnpm build:hermes-worker" "pnpm ${buildKey}"`,
-  );
+  if (!buildScript.includes(`"pnpm ${buildKey}"`)) {
+    scripts.build = buildScript.replace(
+      /"pnpm build:agents\.ticker-echo"/,
+      `"pnpm build:agents.ticker-echo" "pnpm ${buildKey}"`,
+    );
+  }
 
   const exports = pkg.exports as Record<
     string,
@@ -110,12 +113,12 @@ const wireEnvPackage: PlopTypes.CustomActionFunction = (answers) => {
   rootScripts[`dev:agent-${name}`] = `turbo dev --filter=${name}-agent`;
   fs.writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2));
 
-  return `Wired env: ${examplePath}, updated packages/env/package.json and root package.json`;
+  return `Wired env: ${examplePath}, updated packages/mediapulse/env/package.json and root package.json`;
 };
 
 /**
  * Registers the "agent" generator with Turbo Gen.
- * Scaffolds a new agent package from the ticker-echo template and wires @workspace/env.
+ * Scaffolds a new agent package from the ticker-echo template and wires @mediapulse/env.
  */
 export default function generator(plop: PlopTypes.NodePlopAPI): void {
   plop.setGenerator("agent", {
@@ -131,8 +134,9 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
           const kebab = toKebab(value);
           if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(kebab))
             return "Use only letters, numbers, and hyphens (e.g. my-agent)";
-          const dest = path.join(ROOT, "apps", "agents", kebab);
-          if (fs.existsSync(dest)) return `apps/agents/${kebab} already exists`;
+          const dest = path.join(ROOT, "apps", "mediapulse", "agents", kebab);
+          if (fs.existsSync(dest))
+            return `apps/mediapulse/agents/${kebab} already exists`;
           return true;
         },
         filter: (value) => toKebab(value),
@@ -141,42 +145,42 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
     actions: [
       {
         type: "add",
-        path: "apps/agents/{{agentName}}/package.json",
+        path: "apps/mediapulse/agents/{{agentName}}/package.json",
         templateFile: "templates/agent/package.json.hbs",
       },
       {
         type: "add",
-        path: "apps/agents/{{agentName}}/src/index.ts",
+        path: "apps/mediapulse/agents/{{agentName}}/src/index.ts",
         templateFile: "templates/agent/src/index.ts.hbs",
       },
       {
         type: "add",
-        path: "apps/agents/{{agentName}}/src/index.test.ts",
+        path: "apps/mediapulse/agents/{{agentName}}/src/index.test.ts",
         templateFile: "templates/agent/src/index.test.ts.hbs",
       },
       {
         type: "add",
-        path: "apps/agents/{{agentName}}/src/run.ts",
+        path: "apps/mediapulse/agents/{{agentName}}/src/run.ts",
         templateFile: "templates/agent/src/run.ts.hbs",
       },
       {
         type: "add",
-        path: "apps/agents/{{agentName}}/src/run.test.ts",
+        path: "apps/mediapulse/agents/{{agentName}}/src/run.test.ts",
         templateFile: "templates/agent/src/run.test.ts.hbs",
       },
       {
         type: "add",
-        path: "apps/agents/{{agentName}}/tsconfig.json",
+        path: "apps/mediapulse/agents/{{agentName}}/tsconfig.json",
         templateFile: "templates/agent/tsconfig.json.hbs",
       },
       {
         type: "add",
-        path: "apps/agents/{{agentName}}/turbo.json",
+        path: "apps/mediapulse/agents/{{agentName}}/turbo.json",
         templateFile: "templates/agent/turbo.json.hbs",
       },
       {
         type: "add",
-        path: "apps/agents/{{agentName}}/vitest.config.ts",
+        path: "apps/mediapulse/agents/{{agentName}}/vitest.config.ts",
         templateFile: "templates/agent/vitest.config.ts.hbs",
       },
       wireEnvPackage,

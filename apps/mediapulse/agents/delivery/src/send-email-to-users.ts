@@ -1,4 +1,4 @@
-import { env } from "@workspace/env/agents-delivery";
+import { env } from "@mediapulse/env/agents-delivery";
 
 import { Resend } from "resend";
 

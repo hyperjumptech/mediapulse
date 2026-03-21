@@ -28,7 +28,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
-    "@workspace/env": "workspace:*",
+    "@hermes/env": "workspace:*",
     "dotenv": "catalog:",
     "pg": "catalog:"
   },

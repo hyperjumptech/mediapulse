@@ -6,7 +6,7 @@ import { issueToken } from "./issue-token";
 
 const mockFindUnique = vi.fn();
 
-vi.mock("@workspace/database", () => ({
+vi.mock("@workspace/orchestration-database", () => ({
   prisma: {
     aPIKey: {
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
@@ -15,7 +15,7 @@ vi.mock("@workspace/database", () => ({
 }));
 
 const originalEnv = process.env;
-vi.mock("@workspace/env", () => ({
+vi.mock("@hermes/env", () => ({
   env: {
     get AGENT_AUTH_JWT_SECRET() {
       return process.env.AGENT_AUTH_JWT_SECRET ?? "";

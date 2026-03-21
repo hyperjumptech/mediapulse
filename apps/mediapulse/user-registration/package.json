@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@next/env": "catalog:",
-    "@workspace/env": "workspace:*",
+    "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/ui": "workspace:*",
     "dotenv": "catalog:",

@@ -4,7 +4,7 @@
  * Hermes (Next.js) stays stateless and does not run the queue.
  */
 
-import { env } from "@workspace/env/hermes-worker";
+import { env } from "@hermes/env/hermes-worker";
 
 const DRAIN_TIMEOUT_MS = 30_000;
 

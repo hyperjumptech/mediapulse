@@ -52,8 +52,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
+      - name: Generate Prisma clients
+        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
 
       - name: Generate route actions
         run: |
@@ -103,8 +103,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
+      - name: Generate Prisma clients
+        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
 
       - name: Generate route actions
         run: |

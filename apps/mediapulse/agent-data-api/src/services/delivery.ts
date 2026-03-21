@@ -1,14 +1,18 @@
-import { prisma } from "@workspace/database";
+import { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
+import { prisma as orchestrationPrisma } from "@workspace/orchestration-database";
 
+/**
+ * Loads the latest newsletter for a ticker and subscriber emails for enabled `user_ticker` rows.
+ * User rows live in the orchestration database; `user_ticker.user_id` references those ids without an FK.
+ */
 export async function getDeliveryData(tickerId: string) {
   const [newsletter, subscriptions] = await Promise.all([
-    prisma.newsletter.findFirst({
+    mediapulsePrisma.newsletter.findFirst({
       where: { tickerId },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.userTicker.findMany({
+    mediapulsePrisma.userTicker.findMany({
       where: { tickerId, enabled: true },
-      include: { user: true },
     }),
   ]);
 
@@ -16,9 +20,22 @@ export async function getDeliveryData(tickerId: string) {
     return null;
   }
 
-  const subscribers = subscriptions.map((subscription) => ({
-    email: subscription.user.email,
-  }));
+  const userIds = [...new Set(subscriptions.map((s) => s.userId))];
+  const users =
+    userIds.length === 0
+      ? []
+      : await orchestrationPrisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, email: true },
+        });
+  const emailByUserId = new Map(users.map((u) => [u.id, u.email] as const));
+
+  const subscribers = subscriptions
+    .map((subscription) => {
+      const email = emailByUserId.get(subscription.userId);
+      return email != null ? { email } : null;
+    })
+    .filter((s): s is { email: string } => s != null);
 
   return { newsletter, subscribers };
 }

@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import type { PrismaClient } from "@workspace/database";
+import type { PrismaClient } from "@workspace/orchestration-database";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { validateDataSourceExpressions } from "@/lib/step-input-expansion";

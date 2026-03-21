@@ -15,7 +15,7 @@
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",
-    "@workspace/env": "workspace:*",
+    "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/utils": "workspace:*",
     "got": "catalog:",

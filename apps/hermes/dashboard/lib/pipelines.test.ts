@@ -5,7 +5,7 @@ import {
   getPipelineWithSteps,
   getPipelinesWithSteps,
 } from "./pipelines";
-import type { PrismaClientWithSchema } from "@workspace/database/client";
+import type { PrismaClientWithSchema } from "@workspace/orchestration-database/client";
 
 type MockDb = {
   pipeline: {

@@ -131,18 +131,18 @@ importers:
 
   apps/hermes/agent-auth-api:
     dependencies:
+      '@hermes/env':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/env
       '@workspace/api-utils':
         specifier: workspace:*
         version: link:../../../packages/shared/api-utils
-      '@workspace/database':
-        specifier: workspace:*
-        version: link:../../../packages/shared/database
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../packages/shared/env
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
+      '@workspace/orchestration-database':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/orchestration-database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -168,21 +168,21 @@ importers:
 
   apps/hermes/agent-registry-api:
     dependencies:
+      '@hermes/env':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/env
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
       '@workspace/api-utils':
         specifier: workspace:*
         version: link:../../../packages/shared/api-utils
-      '@workspace/database':
-        specifier: workspace:*
-        version: link:../../../packages/shared/database
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../packages/shared/env
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
+      '@workspace/orchestration-database':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/orchestration-database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -205,18 +205,15 @@ importers:
 
   apps/hermes/dashboard:
     dependencies:
+      '@hermes/env':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/env
       '@next/env':
         specifier: 'catalog:'
         version: 16.1.6
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
-      '@workspace/database':
-        specifier: workspace:*
-        version: link:../../../packages/shared/database
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../packages/shared/env
       '@workspace/hermes-domain-contract':
         specifier: workspace:*
         version: link:../../../packages/hermes/domain-contract
@@ -235,6 +232,9 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
+      '@workspace/mediapulse-database':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/database
       '@workspace/orchestration-database':
         specifier: workspace:*
         version: link:../../../packages/hermes/orchestration-database
@@ -335,18 +335,15 @@ importers:
 
   apps/hermes/worker:
     dependencies:
+      '@hermes/env':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/env
       '@nicnocquee/dataqueue':
         specifier: ^1.36.0
         version: 1.36.0(pg@8.18.0)
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
-      '@workspace/database':
-        specifier: workspace:*
-        version: link:../../../packages/shared/database
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../packages/shared/env
       '@workspace/hermes-domain-contract':
         specifier: workspace:*
         version: link:../../../packages/hermes/domain-contract
@@ -390,6 +387,9 @@ importers:
 
   apps/mediapulse/agent-data-api:
     dependencies:
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/env
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
@@ -402,15 +402,15 @@ importers:
       '@workspace/api-utils':
         specifier: workspace:*
         version: link:../../../packages/shared/api-utils
-      '@workspace/database':
-        specifier: workspace:*
-        version: link:../../../packages/shared/database
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../packages/shared/env
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
+      '@workspace/mediapulse-database':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/database
+      '@workspace/orchestration-database':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/orchestration-database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -439,6 +439,9 @@ importers:
 
   apps/mediapulse/agents/content-generation:
     dependencies:
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../../../../packages/mediapulse/env
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-auth-client
@@ -451,9 +454,6 @@ importers:
       '@workspace/agent-types':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-types
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../../packages/shared/env
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
@@ -491,6 +491,9 @@ importers:
 
   apps/mediapulse/agents/data-collection:
     dependencies:
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../../../../packages/mediapulse/env
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-auth-client
@@ -503,9 +506,6 @@ importers:
       '@workspace/agent-types':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-types
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../../packages/shared/env
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
@@ -546,6 +546,9 @@ importers:
 
   apps/mediapulse/agents/delivery:
     dependencies:
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../../../../packages/mediapulse/env
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-auth-client
@@ -555,9 +558,6 @@ importers:
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../../packages/shared/env
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
@@ -595,6 +595,9 @@ importers:
 
   apps/mediapulse/agents/ticker-echo:
     dependencies:
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../../../../packages/mediapulse/env
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-auth-client
@@ -604,9 +607,6 @@ importers:
       '@workspace/agent-types':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-types
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../../packages/shared/env
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
@@ -638,9 +638,9 @@ importers:
 
   apps/mediapulse/domain-api:
     dependencies:
-      '@workspace/env':
+      '@mediapulse/env':
         specifier: workspace:*
-        version: link:../../../packages/shared/env
+        version: link:../../../packages/mediapulse/env
       '@workspace/hermes-domain-contract':
         specifier: workspace:*
         version: link:../../../packages/hermes/domain-contract
@@ -690,12 +690,12 @@ importers:
 
   apps/mediapulse/user-registration:
     dependencies:
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/env
       '@next/env':
         specifier: 'catalog:'
         version: 16.1.6
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../../packages/shared/env
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
@@ -801,17 +801,51 @@ importers:
         specifier: 'catalog:'
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/hermes/env:
+    dependencies:
+      '@t3-oss/env-nextjs':
+        specifier: ^0.10.1
+        version: 0.10.1(typescript@5.9.3)(zod@3.25.76)
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.33
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../shared/typescript-config
+      concurrently:
+        specifier: ^9.2.1
+        version: 9.2.1
+      dotenv-cli:
+        specifier: ^7.3.0
+        version: 7.4.4
+      env-to-t3:
+        specifier: ^0.0.12
+        version: 0.0.12(@types/react@19.2.14)
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.6.1)
+      postcss:
+        specifier: 'catalog:'
+        version: 8.5.6
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/hermes/orchestration-database:
     dependencies:
+      '@hermes/env':
+        specifier: workspace:*
+        version: link:../env
       '@prisma/adapter-pg':
         specifier: ^7.2.0
         version: 7.4.0
       '@prisma/client':
         specifier: ^7.2.0
         version: 7.4.0(prisma@7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../shared/env
       dotenv:
         specifier: 'catalog:'
         version: 17.2.3
@@ -910,15 +944,15 @@ importers:
 
   packages/mediapulse/database:
     dependencies:
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../env
       '@prisma/adapter-pg':
         specifier: ^7.2.0
         version: 7.4.0
       '@prisma/client':
         specifier: ^7.2.0
         version: 7.4.0(prisma@7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../shared/env
       dotenv:
         specifier: 'catalog:'
         version: 17.2.3
@@ -950,6 +984,40 @@ importers:
       tsx:
         specifier: ^4
         version: 4.21.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/mediapulse/env:
+    dependencies:
+      '@t3-oss/env-nextjs':
+        specifier: ^0.10.1
+        version: 0.10.1(typescript@5.9.3)(zod@3.25.76)
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.33
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../shared/typescript-config
+      concurrently:
+        specifier: ^9.2.1
+        version: 9.2.1
+      dotenv-cli:
+        specifier: ^7.3.0
+        version: 7.4.4
+      env-to-t3:
+        specifier: ^0.0.12
+        version: 0.0.12(@types/react@19.2.14)
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.6.1)
+      postcss:
+        specifier: 'catalog:'
+        version: 8.5.6
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -990,9 +1058,9 @@ importers:
 
   packages/mediapulse/idx-tickers-importer:
     dependencies:
-      '@workspace/database':
+      '@workspace/mediapulse-database':
         specifier: workspace:*
-        version: link:../../shared/database
+        version: link:../database
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1022,15 +1090,15 @@ importers:
         specifier: 'catalog:'
         version: 3.25.76
     devDependencies:
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../env
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.33
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../../shared/env
       '@workspace/eslint-config':
         specifier: workspace:*
         version: link:../../shared/eslint-config
@@ -1146,9 +1214,6 @@ importers:
 
   packages/shared/api-utils:
     dependencies:
-      '@workspace/database':
-        specifier: workspace:*
-        version: link:../database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -1162,86 +1227,6 @@ importers:
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  packages/shared/database:
-    dependencies:
-      '@prisma/adapter-pg':
-        specifier: ^7.2.0
-        version: 7.4.0
-      '@prisma/client':
-        specifier: ^7.2.0
-        version: 7.4.0(prisma@7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
-      '@workspace/env':
-        specifier: workspace:*
-        version: link:../env
-      dotenv:
-        specifier: 'catalog:'
-        version: 17.2.3
-      pg:
-        specifier: 'catalog:'
-        version: 8.18.0
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 20.19.33
-      '@types/pg':
-        specifier: ^8.16.0
-        version: 8.16.0
-      '@workspace/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      eslint:
-        specifier: ^9.32.0
-        version: 9.39.2(jiti@2.6.1)
-      prisma:
-        specifier: ^7.2.0
-        version: 7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
-      rimraf:
-        specifier: ^6.0.1
-        version: 6.1.2
-      tsx:
-        specifier: ^4
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  packages/shared/env:
-    dependencies:
-      '@t3-oss/env-nextjs':
-        specifier: ^0.10.1
-        version: 0.10.1(typescript@5.9.3)(zod@3.25.76)
-      zod:
-        specifier: 'catalog:'
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 20.19.33
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      concurrently:
-        specifier: ^9.2.1
-        version: 9.2.1
-      dotenv-cli:
-        specifier: ^7.3.0
-        version: 7.4.4
-      env-to-t3:
-        specifier: ^0.0.12
-        version: 0.0.12(@types/react@19.2.14)
-      eslint:
-        specifier: 'catalog:'
-        version: 9.39.2(jiti@2.6.1)
-      postcss:
-        specifier: 'catalog:'
-        version: 8.5.6
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

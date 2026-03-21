@@ -6,7 +6,7 @@ import { verifyApiKey } from "./verify-api-key";
 
 const mockFindUnique = vi.fn();
 
-vi.mock("@workspace/database", () => ({
+vi.mock("@workspace/orchestration-database", () => ({
   prisma: {
     aPIKey: {
       findUnique: (...args: unknown[]) => mockFindUnique(...args),

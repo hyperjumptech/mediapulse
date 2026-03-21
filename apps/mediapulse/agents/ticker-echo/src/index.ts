@@ -1,5 +1,5 @@
 import { createAgentApp } from "@workspace/agent-runtime";
-import { env } from "@workspace/env/agents-ticker-echo";
+import { env } from "@mediapulse/env/agents-ticker-echo";
 import { z } from "zod";
 import { run } from "./run";
 

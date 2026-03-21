@@ -11,7 +11,7 @@
     "lint": "eslint \"src/**/*.ts\""
   },
   "dependencies": {
-    "@workspace/env": "workspace:*",
+    "@mediapulse/env": "workspace:*",
     "@workspace/hermes-domain-contract": "workspace:*",
     "@workspace/hermes-step-input-syntax": "workspace:*",
     "@workspace/logger": "workspace:*",

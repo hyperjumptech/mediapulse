@@ -3,7 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/packages/shared/env/.env"
+HERMES_ENV_FILE="$SCRIPT_DIR/packages/hermes/env/.env"
+MEDIAPULSE_ENV_FILE="$SCRIPT_DIR/packages/mediapulse/env/.env"
 NON_INTERACTIVE="false"
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
@@ -239,24 +240,34 @@ main() {
 
   section "Bootstrap and build env"
   ./dev-bootstrap.sh
-  if [[ ! -f "$ENV_FILE" ]]; then
-    echo "Expected env file not found at $ENV_FILE after bootstrap."
+  if [[ ! -f "$HERMES_ENV_FILE" || ! -f "$MEDIAPULSE_ENV_FILE" ]]; then
+    echo "Expected env files after bootstrap:"
+    echo "  $HERMES_ENV_FILE"
+    echo "  $MEDIAPULSE_ENV_FILE"
     exit 1
   fi
   if [[ -z "$JWT_SECRET" ]]; then
     JWT_SECRET="$(openssl rand -base64 32)"
   fi
-  upsert_env_var "$ENV_FILE" "AGENT_AUTH_JWT_SECRET" "$JWT_SECRET"
-  upsert_env_var "$ENV_FILE" "AGENT_AUTH_API_URL" "$AGENT_AUTH_API_URL"
-  pnpm --filter @workspace/env build
+  upsert_env_var "$HERMES_ENV_FILE" "AGENT_AUTH_JWT_SECRET" "$JWT_SECRET"
+  upsert_env_var "$HERMES_ENV_FILE" "AGENT_AUTH_API_URL" "$AGENT_AUTH_API_URL"
+  upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_AUTH_JWT_SECRET" "$JWT_SECRET"
+  upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_AUTH_API_URL" "$AGENT_AUTH_API_URL"
+  pnpm --filter @hermes/env build && pnpm --filter @mediapulse/env build
 
   if [[ "$SKIP_MIGRATIONS" == "true" ]]; then
     section "Database migrations"
     echo "Skipping migrations (--skip-migrations)."
   else
     section "Database migrations"
+    # node "$SCRIPT_DIR/scripts/ensure-prisma-shadow-databases.mjs"
     (
-      cd packages/shared/database
+      cd packages/hermes/orchestration-database
+      pnpm db:migrate:dev
+      pnpm db:generate
+    )
+    (
+      cd packages/mediapulse/database
       pnpm db:migrate:dev
       pnpm db:generate
     )
@@ -266,8 +277,8 @@ main() {
   if [[ "$SKIP_ADMIN" == "true" ]]; then
     section "Admin and scheduler API key"
     echo "Skipping admin and API key generation (--skip-admin)."
-    if ! awk '/^AGENT_API_KEY=/{ if (length($0) > 14) found=1 } END { exit(found ? 0 : 1) }' "$ENV_FILE"; then
-      echo "Warning: AGENT_API_KEY is empty in $ENV_FILE."
+    if ! awk '/^AGENT_API_KEY=/{ if (length($0) > 14) found=1 } END { exit(found ? 0 : 1) }' "$HERMES_ENV_FILE"; then
+      echo "Warning: AGENT_API_KEY is empty in $HERMES_ENV_FILE."
       echo "Hermes worker may fail until AGENT_API_KEY is set."
     fi
   else
@@ -299,13 +310,15 @@ main() {
       exit 1
     fi
 
-    upsert_env_var "$ENV_FILE" "AGENT_API_KEY" "$SCHEDULER_API_KEY"
-    upsert_env_var "$ENV_FILE" "AGENT_REGISTRY_API_KEY" "$REGISTRY_API_KEY"
+    upsert_env_var "$HERMES_ENV_FILE" "AGENT_API_KEY" "$SCHEDULER_API_KEY"
+    upsert_env_var "$HERMES_ENV_FILE" "AGENT_REGISTRY_API_KEY" "$REGISTRY_API_KEY"
+    upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_API_KEY" "$SCHEDULER_API_KEY"
+    upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_REGISTRY_API_KEY" "$REGISTRY_API_KEY"
     set_agent_registry_api_key_for_all_agents "$REGISTRY_API_KEY"
   fi
 
   section "Done"
-  echo "Updated $ENV_FILE with:"
+  echo "Updated $HERMES_ENV_FILE and $MEDIAPULSE_ENV_FILE with:"
   echo "  - AGENT_AUTH_JWT_SECRET"
   echo "  - AGENT_AUTH_API_URL=$AGENT_AUTH_API_URL"
   echo "  - AGENT_API_KEY"

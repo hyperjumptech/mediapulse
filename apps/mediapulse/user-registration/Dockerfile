@@ -22,10 +22,6 @@ COPY apps ./apps
 
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma client (required by @workspace/database); dummy env is enough for generate
-ENV DATABASE_URL="postgresql://localhost:5432/dummy"
-RUN pnpm --filter=@workspace/database run db:generate
-
 RUN pnpm --filter=user-registration run build
 
 # Standalone runner: only copy traced output + static

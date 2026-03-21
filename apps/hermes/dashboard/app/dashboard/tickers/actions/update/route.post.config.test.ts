@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Prisma } from "@workspace/database";
+import { Prisma } from "@workspace/mediapulse-database";
 import { createUpdateTickerHandler } from "./route.post.config";
 
 describe("createUpdateTickerHandler", () => {

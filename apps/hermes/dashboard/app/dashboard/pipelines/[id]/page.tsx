@@ -6,7 +6,8 @@ import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
 import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
 import { getVariablesPage } from "@/lib/variables";
 import { validatePipeline } from "@/lib/validate-pipeline";
-import { prisma } from "@workspace/database";
+import { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
+import { prisma as orchestrationPrisma } from "@workspace/orchestration-database";
 
 import { PipelineDetailContent } from "./pipeline-detail-content";
 
@@ -39,9 +40,14 @@ const PipelineDetailPage = async ({
           agentVersion: a.agentVersion,
         })),
       ),
-      validatePipeline(pipeline, prisma),
-      getVariablesPage(1, PICKER_PAGE_SIZE, undefined, prisma),
-      getDataSourceExpansionsPage(1, PICKER_PAGE_SIZE, undefined, prisma),
+      validatePipeline(pipeline, orchestrationPrisma),
+      getVariablesPage(1, PICKER_PAGE_SIZE, undefined, orchestrationPrisma),
+      getDataSourceExpansionsPage(
+        1,
+        PICKER_PAGE_SIZE,
+        undefined,
+        mediapulsePrisma,
+      ),
     ]);
 
   const variableKeys = variablesPage.variables.map((v) => ({ key: v.key }));

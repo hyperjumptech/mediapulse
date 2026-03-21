@@ -5,7 +5,7 @@ import {
   dataCollectionQuerySchema,
 } from "@workspace/agent-data-api-contract";
 import { internalError } from "@workspace/api-utils";
-import { prisma } from "@workspace/database";
+import { prisma } from "@workspace/mediapulse-database";
 
 export async function getDataCollection(context: Context): Promise<Response> {
   try {

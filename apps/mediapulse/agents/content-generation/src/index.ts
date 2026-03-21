@@ -1,6 +1,6 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import { createAgentApp } from "@workspace/agent-runtime";
-import { env } from "@workspace/env/agents-content-generation";
+import { env } from "@mediapulse/env/agents-content-generation";
 import { logger } from "@workspace/logger";
 import OpenAI from "openai";
 import { z } from "zod";

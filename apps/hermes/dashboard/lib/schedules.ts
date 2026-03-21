@@ -1,5 +1,5 @@
-import type { Prisma } from "@workspace/database";
-import { prisma } from "@workspace/database";
+import type { Prisma } from "@workspace/orchestration-database";
+import { prisma } from "@workspace/orchestration-database";
 
 type Db = typeof prisma;
 

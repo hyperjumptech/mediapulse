@@ -23,7 +23,7 @@ jobs:
 
       - name: Prepare env variables
         run: cp env.agents.data-collection.example .env.agents.data-collection
-        working-directory: packages/shared/env
+        working-directory: packages/mediapulse/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -57,7 +57,7 @@ jobs:
 
       - name: Prepare env variables
         run: cp env.agents.content-generation.example .env.agents.content-generation
-        working-directory: packages/shared/env
+        working-directory: packages/mediapulse/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -91,7 +91,7 @@ jobs:
 
       - name: Prepare env variables
         run: cp env.agents.delivery.example .env.agents.delivery
-        working-directory: packages/shared/env
+        working-directory: packages/mediapulse/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh

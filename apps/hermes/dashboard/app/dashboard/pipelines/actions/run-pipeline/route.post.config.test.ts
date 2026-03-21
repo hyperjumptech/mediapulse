@@ -38,8 +38,10 @@ describe("createRunPipelineHandler", () => {
           findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
         },
         pipelineStep: { findMany: vi.fn().mockResolvedValue([]) },
-        ticker: { findMany: vi.fn().mockResolvedValue([]) },
         agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
+      } as never,
+      mediapulseDb: {
+        ticker: { findMany: vi.fn().mockResolvedValue([]) },
       } as never,
     });
     const result = await handler(request({ pipelineId: "p-1" }));
@@ -56,9 +58,9 @@ describe("createRunPipelineHandler", () => {
       db: {
         pipeline: { findUnique: vi.fn().mockResolvedValue(null) },
         pipelineStep: { findMany: vi.fn() },
-        ticker: { findMany: vi.fn() },
         agentRegistry: { findMany: vi.fn() },
       } as never,
+      mediapulseDb: { ticker: { findMany: vi.fn() } } as never,
     });
     const result = await handler(request({ pipelineId: "p-missing" }));
     expect(result.status).toBe(false);
@@ -74,8 +76,10 @@ describe("createRunPipelineHandler", () => {
           findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
         },
         pipelineStep: { findMany: vi.fn().mockResolvedValue([]) },
-        ticker: { findMany: vi.fn().mockResolvedValue([]) },
         agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
+      } as never,
+      mediapulseDb: {
+        ticker: { findMany: vi.fn().mockResolvedValue([]) },
       } as never,
     });
     const result = await handler(request({ pipelineId: "p-1" }));
@@ -106,9 +110,6 @@ describe("createRunPipelineHandler", () => {
             },
           ]),
         },
-        ticker: {
-          findMany: vi.fn().mockResolvedValue([{ id: "t1", symbol: "X" }]),
-        },
         agentRegistry: {
           findFirst: vi.fn().mockResolvedValue({
             agentId: "ag1",
@@ -127,6 +128,11 @@ describe("createRunPipelineHandler", () => {
               endpoint: { url: "https://agent.example/run", method: "POST" },
             },
           ]),
+        },
+      } as never,
+      mediapulseDb: {
+        ticker: {
+          findMany: vi.fn().mockResolvedValue([{ id: "t1", symbol: "X" }]),
         },
       } as never,
     });
@@ -167,9 +173,6 @@ describe("createRunPipelineHandler", () => {
             },
           ]),
         },
-        ticker: {
-          findMany: vi.fn().mockResolvedValue([{ id: "t1", symbol: "X" }]),
-        },
         agentRegistry: {
           findFirst: vi.fn().mockResolvedValue({
             agentId: "ag1",
@@ -183,6 +186,11 @@ describe("createRunPipelineHandler", () => {
             configSchema: null,
           }),
           findMany: vi.fn().mockResolvedValue([]),
+        },
+      } as never,
+      mediapulseDb: {
+        ticker: {
+          findMany: vi.fn().mockResolvedValue([{ id: "t1", symbol: "X" }]),
         },
       } as never,
     });

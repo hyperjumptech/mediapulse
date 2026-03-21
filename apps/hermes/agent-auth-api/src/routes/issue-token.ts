@@ -1,5 +1,5 @@
-import { env } from "@workspace/env";
-import { prisma } from "@workspace/database";
+import { env } from "@hermes/env";
+import { prisma } from "@workspace/orchestration-database";
 import * as crypto from "crypto";
 import { SignJWT } from "jose";
 import type { Context } from "hono";
@@ -36,7 +36,7 @@ export async function issueToken(context: Context) {
     return context.json(
       {
         error: "Token issuance not configured",
-        hint: "Set AGENT_AUTH_JWT_SECRET in packages/env/.env (32+ chars), then restart agent-auth-api. See dev-docs/docs/getting-started.mdx.",
+        hint: "Set AGENT_AUTH_JWT_SECRET in packages/hermes/env/.env (32+ chars), then restart agent-auth-api. See dev-docs/docs/getting-started.mdx.",
       },
       503,
     );

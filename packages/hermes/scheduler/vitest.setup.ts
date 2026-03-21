@@ -1,9 +1,13 @@
 /**
- * Sets minimal env vars so @workspace/database (and thus @workspace/env) can load in tests.
+ * Sets minimal env vars so @workspace/orchestration-database (and thus @hermes/env) can load in tests.
  * Tests use mocked DB; no real DB connection is made.
  */
-process.env.DATABASE_URL =
-  process.env.DATABASE_URL ?? "postgresql://local:local@localhost:5432/test";
+const testDbBase = "postgresql://local:local@localhost:5432/test";
+process.env.ORCHESTRATION_DATABASE_URL =
+  process.env.ORCHESTRATION_DATABASE_URL ??
+  `${testDbBase}?schema=orchestration`;
+process.env.MEDIAPULSE_DATABASE_URL =
+  process.env.MEDIAPULSE_DATABASE_URL ?? `${testDbBase}?schema=mediapulse`;
 process.env.TEMP_ADMIN_USERNAME =
   process.env.TEMP_ADMIN_USERNAME ?? "test-admin";
 process.env.TEMP_ADMIN_PASSWORD =

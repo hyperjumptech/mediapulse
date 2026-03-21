@@ -11,9 +11,10 @@ Disallows direct access to `process.env` and suggests using a safe import path i
 ```javascript
 {
   "strict-env/no-process-env": ["error", {
-    "envPath": "@workspace/env" // default
+    "envPaths": ["@hermes/env", "@mediapulse/env"]
   }]
 }
 ```
 
-- `envPath` (string, default: `"@workspace/env"`): The import path to use for the `env` import.
+- `envPaths` (string[], default: `["@hermes/env", "@mediapulse/env"]`): Import paths that count as typed `env` imports. Use a **single** entry if you want ESLint to auto-insert that import when fixing `process.env.*`.
+- `envPath` (string, optional): Legacy single path; equivalent to `envPaths: [envPath]`.

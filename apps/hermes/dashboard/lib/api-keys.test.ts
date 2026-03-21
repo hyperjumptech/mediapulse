@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getApiKeysPage } from "./api-keys";
-import type { PrismaClientWithSchema } from "@workspace/database/client";
+import type { PrismaClientWithSchema } from "@workspace/orchestration-database/client";
 
 type MockDb = {
   aPIKey: {

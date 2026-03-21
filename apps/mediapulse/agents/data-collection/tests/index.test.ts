@@ -7,7 +7,7 @@ vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("@workspace/env/agents-data-collection", () => ({
+vi.mock("@mediapulse/env/agents-data-collection", () => ({
   env: {
     JINA_API_KEY: "jina-key",
     SERPER_API_KEY: "serper-key",
@@ -104,7 +104,7 @@ describe("data-collection-agent", () => {
   });
 
   it("returns 500 when API keys are missing", async () => {
-    const { env } = await import("@workspace/env/agents-data-collection");
+    const { env } = await import("@mediapulse/env/agents-data-collection");
     const originalJina = env.JINA_API_KEY;
 
     (env as any).JINA_API_KEY = "";

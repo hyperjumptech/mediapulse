@@ -7,7 +7,7 @@ vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("@workspace/env/agents-delivery", () => ({
+vi.mock("@mediapulse/env/agents-delivery", () => ({
   env: {
     AGENT_DATA_API_URL: "http://agent-data-api",
     AGENT_AUTH_API_URL: "http://agent-auth-api",

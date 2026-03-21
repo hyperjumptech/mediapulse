@@ -7,7 +7,7 @@ import { verifyJwt } from "./verify-jwt";
 
 const jwtSecret = "verify-jwt-test-secret-at-least-16-chars";
 
-vi.mock("@workspace/env", () => ({
+vi.mock("@hermes/env", () => ({
   env: {
     get AGENT_AUTH_JWT_SECRET() {
       return process.env.AGENT_AUTH_JWT_SECRET ?? "";

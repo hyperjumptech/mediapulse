@@ -1,7 +1,7 @@
 import type { DataCollectionInput } from "@workspace/agent-types";
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import { createAgentApp } from "@workspace/agent-runtime";
-import { env } from "@workspace/env/agents-data-collection";
+import { env } from "@mediapulse/env/agents-data-collection";
 
 import { z } from "zod";
 import { ConfigSchema } from "./utilities/config-schema.js";

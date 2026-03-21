@@ -1,6 +1,7 @@
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
-import { env } from "@workspace/env";
-import { prisma } from "@workspace/database";
+import { env } from "@hermes/env";
+import { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
+import { prisma as orchestrationPrisma } from "@workspace/orchestration-database";
 import { logger } from "@workspace/logger";
 import got from "got";
 
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     }).getToken;
     const jwt = await getToken();
 
-    const pipeline = await prisma.pipeline.findUnique({
+    const pipeline = await orchestrationPrisma.pipeline.findUnique({
       where: { id: data.pipelineId },
     });
     if (!pipeline) {
@@ -81,11 +82,11 @@ export async function POST(request: Request) {
     }
 
     const [pipelineSteps, tickers] = await Promise.all([
-      prisma.pipelineStep.findMany({
+      orchestrationPrisma.pipelineStep.findMany({
         where: { pipelineId: data.pipelineId },
         orderBy: { order: "asc" },
       }),
-      prisma.ticker.findMany(),
+      mediapulsePrisma.ticker.findMany(),
     ]);
 
     if (tickers.length === 0) {
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
     }
 
     const agentIds = pipelineSteps.map((step) => step.agentId);
-    const agents = await prisma.agentRegistry.findMany({
+    const agents = await orchestrationPrisma.agentRegistry.findMany({
       where: { agentId: { in: agentIds } },
     });
     const agentById = new Map(agents.map((a) => [a.agentId, a]));

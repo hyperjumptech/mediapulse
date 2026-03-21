@@ -11,8 +11,8 @@
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/api-utils": "workspace:*",
-    "@workspace/database": "workspace:*",
-    "@workspace/env": "workspace:*",
+    "@workspace/orchestration-database": "workspace:*",
+    "@hermes/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",

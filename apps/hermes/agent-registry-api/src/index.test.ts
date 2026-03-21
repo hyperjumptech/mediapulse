@@ -6,7 +6,7 @@ vi.mock("@workspace/agent-auth-client", () => ({
   verifyApiKeyViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("@workspace/database", () => ({
+vi.mock("@workspace/orchestration-database", () => ({
   prisma: {
     agentRegistry: {
       upsert: vi.fn(),
@@ -14,16 +14,20 @@ vi.mock("@workspace/database", () => ({
   },
 }));
 
-vi.mock("@workspace/env", () => ({
+vi.mock("@hermes/env", () => ({
   env: {
     AGENT_AUTH_API_URL: "https://auth.example.com",
-    DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
+    ORCHESTRATION_DATABASE_URL:
+      "postgresql://user:pass@localhost:5432/db?schema=orchestration",
+    MEDIAPULSE_DATABASE_URL:
+      "postgresql://user:pass@localhost:5432/db?schema=mediapulse",
     TEMP_ADMIN_USERNAME: "admin",
     TEMP_ADMIN_PASSWORD: "password",
   },
 }));
 
-const getPrisma = async () => (await import("@workspace/database")).prisma;
+const getPrisma = async () =>
+  (await import("@workspace/orchestration-database")).prisma;
 
 describe("agent-registry-api", () => {
   beforeEach(() => {

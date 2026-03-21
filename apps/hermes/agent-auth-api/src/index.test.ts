@@ -6,7 +6,7 @@ const AUTH_HEADERS = {
   Authorization: `Basic ${Buffer.from("admin:password").toString("base64")}`,
 };
 
-vi.mock("@workspace/database", () => ({
+vi.mock("@workspace/orchestration-database", () => ({
   prisma: {
     aPIKey: {
       create: vi.fn(),
@@ -18,14 +18,15 @@ vi.mock("@workspace/database", () => ({
   },
 }));
 
-vi.mock("@workspace/env", () => ({
+vi.mock("@hermes/env", () => ({
   env: {
     TEMP_ADMIN_USERNAME: "admin",
     TEMP_ADMIN_PASSWORD: "password",
   },
 }));
 
-const getPrisma = async () => (await import("@workspace/database")).prisma;
+const getPrisma = async () =>
+  (await import("@workspace/orchestration-database")).prisma;
 
 describe("agent-auth-api", () => {
   beforeEach(() => {

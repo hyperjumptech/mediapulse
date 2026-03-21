@@ -16,8 +16,7 @@
   "dependencies": {
     "@nicnocquee/dataqueue": "^1.36.0",
     "@workspace/agent-auth-client": "workspace:*",
-    "@workspace/database": "workspace:*",
-    "@workspace/env": "workspace:*",
+    "@hermes/env": "workspace:*",
     "@workspace/hermes-domain-contract": "workspace:*",
     "@workspace/hermes-scheduler": "workspace:*",
     "@workspace/hermes-step-input-syntax": "workspace:*",

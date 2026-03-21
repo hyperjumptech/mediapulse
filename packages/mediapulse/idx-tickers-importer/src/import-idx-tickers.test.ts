@@ -7,7 +7,7 @@ import {
 } from "./import-idx-tickers";
 import type { IdxTickersPayload } from "./types";
 
-vi.mock("@workspace/database", () => ({
+vi.mock("@workspace/mediapulse-database", () => ({
   prisma: {},
 }));
 

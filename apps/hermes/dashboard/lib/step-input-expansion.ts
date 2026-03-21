@@ -1,4 +1,4 @@
-import { env } from "@workspace/env";
+import { env } from "@hermes/env";
 import { createDomainIntegrationClient } from "@workspace/hermes-domain-contract";
 import {
   MAX_TAKE,
@@ -33,7 +33,7 @@ export const getDomainIntegrationClient = async () => {
 
 /**
  * Validates `db:` expressions using the same max take/limit as runtime expansion
- * (`HERMES_DATA_SOURCE_MAX_TAKE` from `@workspace/env`).
+ * (`HERMES_DATA_SOURCE_MAX_TAKE` from `@hermes/env`).
  *
  * @param params - Params that may contain data source strings.
  * @returns Whether all expressions are syntactically valid and within bounds.

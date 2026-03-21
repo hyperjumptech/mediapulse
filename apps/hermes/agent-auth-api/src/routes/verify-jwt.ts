@@ -1,4 +1,4 @@
-import { env } from "@workspace/env";
+import { env } from "@hermes/env";
 import type { Context } from "hono";
 import { jwtVerify } from "jose";
 

@@ -1,3 +1,13 @@
+const DEFAULT_ENV_PATHS = ["@hermes/env", "@mediapulse/env"];
+
+/**
+ * @param {unknown} source
+ * @param {string[]} envPaths
+ */
+function isAllowedEnvImport(source, envPaths) {
+  return typeof source === "string" && envPaths.includes(source);
+}
+
 export const noProcessEnv = {
   meta: {
     type: "problem",
@@ -8,7 +18,7 @@ export const noProcessEnv = {
     },
     messages: {
       noProcessEnv:
-        "Direct access to process.env is not allowed. Use env.{{envVar}} from `{{envPath}}` instead.",
+        "Direct access to process.env is not allowed. Use env.{{envVar}} from `{{envPathLabel}}` instead.",
     },
     schema: [
       {
@@ -16,7 +26,14 @@ export const noProcessEnv = {
         properties: {
           envPath: {
             type: "string",
-            default: "@workspace/env",
+            description:
+              "Single allowed import path (legacy). Prefer envPaths for multiple packages.",
+          },
+          envPaths: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Allowed import paths for typed env (e.g. @hermes/env, @mediapulse/env).",
           },
         },
         additionalProperties: false,
@@ -26,7 +43,16 @@ export const noProcessEnv = {
   },
   create(context) {
     const options = context.options[0] || {};
-    const envPath = options.envPath || "@workspace/env";
+    /** @type {string[]} */
+    const envPaths =
+      Array.isArray(options.envPaths) && options.envPaths.length > 0
+        ? options.envPaths
+        : options.envPath
+          ? [options.envPath]
+          : DEFAULT_ENV_PATHS;
+    const envPathLabel = envPaths.join("`, `");
+    const canAutoAddImport = envPaths.length === 1;
+    const singleImportPath = envPaths[0];
 
     return {
       MemberExpression(node) {
@@ -48,54 +74,54 @@ export const noProcessEnv = {
             messageId: "noProcessEnv",
             data: {
               envVar: envVarName || "<ENV_VAR>",
-              envPath: envPath,
+              envPathLabel,
             },
             fix(fixer) {
-              if (envVarName && parent.type === "MemberExpression") {
-                const sourceCode = context.getSourceCode();
-                const text = sourceCode.getText(parent);
-                const replacement = text.replace(/process\.env\./, "env.");
-                const program = sourceCode.ast;
+              if (parent.type !== "MemberExpression") return null;
 
-                const hasEnvImport = program.body.some(
-                  (statement) =>
-                    statement.type === "ImportDeclaration" &&
-                    statement.source.value === envPath &&
-                    statement.specifiers.some(
-                      (spec) =>
-                        spec.type === "ImportSpecifier" &&
-                        spec.imported.name === "env"
-                    )
-                );
+              const sourceCode = context.getSourceCode();
+              const text = sourceCode.getText(parent);
+              const replacement = text.replace(/process\.env\./, "env.");
+              const program = sourceCode.ast;
 
-                if (hasEnvImport) {
-                  return fixer.replaceText(parent, replacement);
-                } else {
-                  const fixes = [];
-                  const lastImport = program.body
-                    .filter((node) => node.type === "ImportDeclaration")
-                    .pop();
+              const hasEnvImport = program.body.some(
+                (statement) =>
+                  statement.type === "ImportDeclaration" &&
+                  typeof statement.source.value === "string" &&
+                  isAllowedEnvImport(statement.source.value, envPaths) &&
+                  statement.specifiers.some(
+                    (spec) =>
+                      spec.type === "ImportSpecifier" &&
+                      spec.imported.name === "env",
+                  ),
+              );
 
-                  const importStatement = `import { env } from '${envPath}';\n`;
-
-                  if (lastImport) {
-                    fixes.push(
-                      fixer.insertTextAfter(lastImport, "\n" + importStatement)
-                    );
-                  } else {
-                    fixes.push(
-                      fixer.insertTextBeforeRange(
-                        [0, 0],
-                        importStatement + "\n"
-                      )
-                    );
-                  }
-
-                  fixes.push(fixer.replaceText(parent, replacement));
-                  return fixes;
-                }
+              if (hasEnvImport) {
+                return fixer.replaceText(parent, replacement);
               }
-              return null;
+              if (!canAutoAddImport || !singleImportPath) {
+                return null;
+              }
+
+              const fixes = [];
+              const lastImport = program.body
+                .filter((n) => n.type === "ImportDeclaration")
+                .pop();
+
+              const importStatement = `import { env } from '${singleImportPath}';\n`;
+
+              if (lastImport) {
+                fixes.push(
+                  fixer.insertTextAfter(lastImport, "\n" + importStatement),
+                );
+              } else {
+                fixes.push(
+                  fixer.insertTextBeforeRange([0, 0], importStatement + "\n"),
+                );
+              }
+
+              fixes.push(fixer.replaceText(parent, replacement));
+              return fixes;
             },
           });
         }

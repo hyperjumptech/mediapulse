@@ -27,7 +27,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/shared/env
+        working-directory: packages/hermes/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -35,8 +35,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
+      - name: Generate Prisma clients
+        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
 
       - name: Build
         run: pnpm build --filter=agent-auth-api
@@ -68,7 +68,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/shared/env
+        working-directory: packages/mediapulse/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -76,8 +76,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
+      - name: Generate Prisma clients
+        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
 
       - name: Build
         run: pnpm build --filter=agent-data-api
@@ -109,7 +109,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/shared/env
+        working-directory: packages/hermes/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -117,8 +117,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
+      - name: Generate Prisma clients
+        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
 
       - name: Build
         run: pnpm build --filter=agent-registry-api
@@ -150,7 +150,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/shared/env
+        working-directory: packages/mediapulse/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -158,8 +158,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
+      - name: Generate Prisma clients
+        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -188,7 +188,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/shared/env
+        working-directory: packages/hermes/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -196,8 +196,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
+      - name: Generate Prisma clients
+        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -226,7 +226,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/shared/env
+        working-directory: packages/hermes/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -234,8 +234,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Generate Prisma client
-        run: pnpm --filter=@workspace/database run db:generate
+      - name: Generate Prisma clients
+        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 

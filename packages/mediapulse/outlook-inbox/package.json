@@ -23,7 +23,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "@workspace/env": "workspace:*",
+    "@mediapulse/env": "workspace:*",
     "dotenv-cli": "catalog:",
     "tsx": "^4",
     "@workspace/eslint-config": "workspace:*",

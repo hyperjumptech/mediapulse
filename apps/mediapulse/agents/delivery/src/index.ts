@@ -1,6 +1,6 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import { createAgentApp } from "@workspace/agent-runtime";
-import { env } from "@workspace/env/agents-delivery";
+import { env } from "@mediapulse/env/agents-delivery";
 import { z } from "zod";
 
 import { sendEmailToUsers } from "./send-email-to-users.js";

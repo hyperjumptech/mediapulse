@@ -8,7 +8,7 @@ import {
   MAX_TAKE,
   parseDataSourceString,
 } from "@workspace/hermes-step-input-syntax";
-import { env } from "@workspace/env";
+import { env } from "@mediapulse/env";
 import { logger } from "@workspace/logger";
 import {
   expandDataSources,
