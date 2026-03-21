@@ -9,6 +9,7 @@ import {
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import { tickerMetadataFormProperties } from "./metadata-form-properties";
 import type { ListItem } from "./list-mapper";
+import { tickersCustomActionsForManifest } from "./tickers-table-v1-custom-actions";
 
 /** Hermes `table-v1` manifest page for the tickers resource. */
 export const tickersDashboardPage = {
@@ -55,16 +56,5 @@ export const tickersDashboardPage = {
       },
     },
   },
-  customActions: [
-    {
-      id: "import-idx-json",
-      label: "Import IDX JSON",
-      description:
-        "Upload a JSON file in IDX company profiles format (object with a data array).",
-      ui: "json-file-upload" as const,
-      method: "POST" as const,
-      path: "/import-idx-json",
-      accept: ".json,application/json",
-    },
-  ],
+  customActions: tickersCustomActionsForManifest,
 } satisfies DashboardPageInput;

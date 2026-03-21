@@ -2,11 +2,12 @@ import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 import { parsePagination } from "../../lib/list-pagination";
-import { importIdxTickersFromRequestBody } from "./import-idx-json";
+import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
 import { mergeTickerMetadataForPatch } from "./merge-metadata";
 import { parseTickerMetadataJson } from "./parse-metadata-json";
 import { mapRowToListItem } from "./list-mapper";
 import { tickerCreateSchema, tickerUpdateSchema } from "./request-schemas";
+import { tickersTableV1CustomActionRegistrations } from "./tickers-table-v1-custom-actions";
 
 /**
  * Hermes `table-v1` API for tickers plus IDX JSON import.
@@ -89,21 +90,10 @@ tickersRoutes.post("/", async (c) => {
   return c.json({ id: created.id }, 201);
 });
 
-tickersRoutes.post("/import-idx-json", async (c) => {
-  let jsonBody: unknown;
-  try {
-    jsonBody = await c.req.json();
-  } catch {
-    return c.json({ message: "Invalid JSON" }, 400);
-  }
-
-  const result = await importIdxTickersFromRequestBody(jsonBody);
-  if (!result.ok) {
-    return c.json({ message: result.message }, result.status);
-  }
-
-  return c.json({ added: result.added, updated: result.updated });
-});
+registerTableV1CustomActionRoutes(
+  tickersRoutes,
+  tickersTableV1CustomActionRegistrations,
+);
 
 tickersRoutes.patch("/:id", async (c) => {
   const body = tickerUpdateSchema.safeParse(await c.req.json());
