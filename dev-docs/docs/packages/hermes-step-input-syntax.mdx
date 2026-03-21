@@ -1,0 +1,20 @@
+---
+title: hermes-step-input-syntax
+description: Generic db:table:field parsing and validation for Hermes step inputs
+icon: Braces
+---
+
+## Purpose
+
+`@workspace/hermes-step-input-syntax` is **Hermes-only in scope** (not Mediapulse): it defines the shared `db:` **mini-language** used in pipeline step inputs and schedule params.
+
+## Exports
+
+- **`parseDataSourceString` / `isDataSourceString`** — Parse `db:table:field?…` strings.
+- **`validateDataSourceExpressions`** — Validate that all `db:` values parse and that `take` / `limit` are within `[0, maxTake]` (optional `maxTake`; defaults to `MAX_TAKE`).
+- **`DEFAULT_TAKE` / `MAX_TAKE`** — Default row caps (Hermes and worker should align with `HERMES_DATA_SOURCE_MAX_TAKE` in `@workspace/env`).
+
+## Relationship to other packages
+
+- **`@workspace/mediapulse-hermes-integration`** — Uses this syntax package and runs **Prisma** expansion against the Mediapulse schema (plus registered DBs + allowlists).
+- **Hermes app** — Imports validation and parsing via `apps/hermes/lib/step-input-expansion.ts`, which applies env-driven `maxTake` for validation.

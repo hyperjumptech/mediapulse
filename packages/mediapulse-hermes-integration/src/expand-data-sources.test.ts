@@ -1,13 +1,14 @@
 /** @vitest-environment node */
+import { parseDataSourceString } from "@workspace/hermes-step-input-syntax";
 import { describe, expect, it } from "vitest";
+
 import {
-  expandDataSources,
-  expandSingleDataSource,
   DEFAULT_TAKE,
   MAX_TAKE,
+  expandDataSources,
+  expandSingleDataSource,
   type ExpandDataSourcesDb,
 } from "./expand-data-sources";
-import { parseDataSourceString } from "./data-source-string";
 
 describe("expandSingleDataSource", () => {
   it("returns ticker id values from findMany", async () => {

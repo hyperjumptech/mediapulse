@@ -8,6 +8,7 @@ import { logger } from "@workspace/logger";
 import type { JobHandlers } from "@nicnocquee/dataqueue";
 import type { JobPayloadMap } from "./job-payload-map";
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
+import { DEFAULT_TAKE, MAX_TAKE } from "@workspace/hermes-step-input-syntax";
 import {
   executeSchedule,
   getDueSchedules,
@@ -56,6 +57,8 @@ async function getAuthToken(): Promise<string> {
 const expandStepInputs = createMediapulseExpandStepInputs({
   getPrismaForExpansion: getExpansionPrismaClient,
   resolveAllowlistedTables: getRegisteredDatabaseAllowlist,
+  defaultTake: DEFAULT_TAKE,
+  maxTake: env.HERMES_DATA_SOURCE_MAX_TAKE ?? MAX_TAKE,
 });
 
 /**

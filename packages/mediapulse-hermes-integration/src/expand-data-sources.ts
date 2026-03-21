@@ -1,15 +1,14 @@
 import type { PrismaClient } from "@workspace/mediapulse-database";
 import {
+  DEFAULT_TAKE,
+  MAX_TAKE,
   isDataSourceString,
   parseDataSourceString,
   type DataSourceParsed,
-} from "./data-source-string";
+} from "@workspace/hermes-step-input-syntax";
 
-/** Default max rows when take/limit omitted. */
-export const DEFAULT_TAKE = 500;
-
-/** Hard cap on rows returned per expansion. */
-export const MAX_TAKE = 5000;
+export { DEFAULT_TAKE, MAX_TAKE } from "@workspace/hermes-step-input-syntax";
+export type { DataSourceParsed } from "@workspace/hermes-step-input-syntax";
 
 /** Minimal DB shape for data source expansion (injectable for tests). */
 export type ExpandDataSourcesDb = {

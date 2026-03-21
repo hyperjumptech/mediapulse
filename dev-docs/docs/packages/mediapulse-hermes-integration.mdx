@@ -11,14 +11,12 @@ icon: Plug
 The package is the bridge between:
 
 - orchestration execution flow (`executeSchedule` + `expandStepInputs` hook), and
-- domain expansion rules (`db:table:field` parsing, validation, and expansion query behavior).
+- **Mediapulse** Prisma expansion (`expandDataSources` / `findMany`), using the generic `db:` syntax from [`@workspace/hermes-step-input-syntax`](/packages/hermes-step-input-syntax).
 
 ## Main exports
 
 - `createMediapulseExpandStepInputs` — Factory that builds the `expandStepInputs` hook implementation.
-- `expandSingleDataSource` / `expandDataSources`
-- `parseDataSourceString` / `isDataSourceString`
-- `validateDataSourceExpressions`
+- `expandSingleDataSource` / `expandDataSources` — Runtime expansion against a Mediapulse `PrismaClient` (or registered DB).
 
 ## Notes
 

@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/mediapulse-hermes-integration",
+  "name": "@workspace/hermes-step-input-syntax",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -14,16 +14,11 @@
     "test": "vitest --run",
     "test:coverage": "vitest --run --coverage"
   },
-  "dependencies": {
-    "@workspace/hermes-step-input-syntax": "workspace:*",
-    "@workspace/mediapulse-database": "workspace:*",
-    "@workspace/orchestration-database": "workspace:*"
-  },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
-    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

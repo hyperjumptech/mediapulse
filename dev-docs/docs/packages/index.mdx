@@ -31,7 +31,8 @@ The monorepo shares code through **workspace packages** under `packages/`. Apps 
 ### Server & API
 
 - **[api-utils](/packages/api-utils)** — Hono helpers: `internalError`, `notFound`, `validateBody`.
-- **[mediapulse-hermes-integration](/packages/mediapulse-hermes-integration)** — Mediapulse plug-in for Hermes input expansion/validation and registered DB crypto helpers.
+- **[hermes-step-input-syntax](/packages/hermes-step-input-syntax)** — Generic `db:table:field?…` parsing and validation (not Mediapulse-specific).
+- **[mediapulse-hermes-integration](/packages/mediapulse-hermes-integration)** — Mediapulse Prisma expansion wired into Hermes (`expandStepInputs` hook).
 
 ### Cross-cutting
 

@@ -19,6 +19,7 @@
     "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/hermes-scheduler": "workspace:*",
+    "@workspace/hermes-step-input-syntax": "workspace:*",
     "@workspace/mediapulse-hermes-integration": "workspace:*",
     "@workspace/mediapulse-database": "workspace:*",
     "@workspace/orchestration-database": "workspace:*",

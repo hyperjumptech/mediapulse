@@ -11,12 +11,3 @@ export {
   MAX_TAKE,
   type ExpandDataSourcesDb,
 } from "./expand-data-sources";
-export {
-  isDataSourceString,
-  parseDataSourceString,
-  type DataSourceParsed,
-} from "./data-source-string";
-export {
-  validateDataSourceExpressions,
-  type ValidateDataSourceExpressionsResult,
-} from "./validate-data-source-expressions";
