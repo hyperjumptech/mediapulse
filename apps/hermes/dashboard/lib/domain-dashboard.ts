@@ -1,8 +1,13 @@
 import {
+  createDomainIntegrationClient,
   tableV1ListResponseSchema,
   tableV1MetaResponseSchema,
 } from "@hermes/domain-contract";
+import type { PreviewExpansionResponse } from "@hermes/domain-contract";
 import { env } from "@hermes/env";
+import { z } from "zod";
+
+import { getDomainIntegrationByKey } from "@/lib/domain-integrations";
 
 /** Result state for JSON file custom actions (e.g. IDX import) returned from server actions. */
 export type DomainTableJsonImportState =
@@ -35,8 +40,6 @@ const getDashboardPage = async (
   };
   baseUrl: string;
 }> => {
-  const { getDomainIntegrationByKey } =
-    await import("@/lib/domain-integrations");
   const integration = await getDomainIntegrationByKey(integrationKey);
   if (!integration) {
     throw new Error(
@@ -226,6 +229,88 @@ export const getDomainTableList = async (
     `${baseUrl}${page.apiPrefix}?${search.toString()}`,
     tableV1ListResponseSchema.parse,
   );
+};
+
+const domainTableItemResponseSchema = z.record(z.unknown());
+
+/**
+ * Loads a single table-v1 row by id when the domain API exposes GET `{apiPrefix}/{id}`.
+ *
+ * @param integrationKey - Registered integration key.
+ * @param resource - Dashboard path segment.
+ * @param id - Row id.
+ * @returns Parsed row or null when the domain returns 404.
+ */
+export const getDomainTableItemById = async (
+  integrationKey: string,
+  resource: string,
+  id: string,
+): Promise<Record<string, unknown> | null> => {
+  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  if (env.DOMAIN_INTEGRATION_AUTH_TOKEN) {
+    headers.set("Authorization", `Bearer ${env.DOMAIN_INTEGRATION_AUTH_TOKEN}`);
+  }
+
+  const response = await fetch(`${baseUrl}${page.apiPrefix}/${id}`, {
+    headers,
+    cache: "no-store",
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Domain dashboard request failed (${response.status})`);
+  }
+
+  const payload = (await response.json()) as unknown;
+  return domainTableItemResponseSchema.parse(payload);
+};
+
+type PreviewDomainExpansionDependencies = {
+  getIntegration?: typeof getDomainIntegrationByKey;
+  createClient?: typeof createDomainIntegrationClient;
+};
+
+/**
+ * Calls the domain integration `preview-expansion` endpoint for a single expansion string.
+ *
+ * @param integrationKey - Registered integration key.
+ * @param expansionString - Value to preview (e.g. db:table:field).
+ * @param dependencies - Optional collaborators for tests.
+ * @returns Parsed preview response from the domain contract.
+ */
+export const previewDomainExpansion = async (
+  integrationKey: string,
+  expansionString: string,
+  dependencies: PreviewDomainExpansionDependencies = {},
+): Promise<PreviewExpansionResponse> => {
+  const getIntegration =
+    dependencies.getIntegration ?? getDomainIntegrationByKey;
+  const createClient =
+    dependencies.createClient ?? createDomainIntegrationClient;
+
+  const integration = await getIntegration(integrationKey);
+  if (!integration) {
+    throw new Error(
+      `Domain integration "${integrationKey}" is not active or not registered`,
+    );
+  }
+  if (!integration.capabilities.includes("preview-expansion")) {
+    throw new Error(
+      `Domain integration "${integrationKey}" does not support preview-expansion`,
+    );
+  }
+
+  const client = createClient({
+    baseUrl: integration.baseUrl,
+    authToken: env.DOMAIN_INTEGRATION_AUTH_TOKEN,
+  });
+
+  return client.previewExpansion({ expansionString });
 };
 
 /**

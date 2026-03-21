@@ -66,6 +66,42 @@ describe("createDomainIntegrationClient", () => {
     expect(result).toEqual({ success: true, values: ["a", "b"] });
   });
 
+  it("returns failure payload on 400 JSON without throwing", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      jsonResponse(
+        { success: false, error: "Unknown or unsupported table: missing" },
+        400,
+      );
+    const client = createDomainIntegrationClient({
+      baseUrl: "https://domain.example",
+      fetchImpl,
+    });
+
+    const result = await client.previewExpansion({
+      expansionString: "db:missing:id",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Unknown or unsupported table: missing",
+    });
+  });
+
+  it("maps non-contract JSON error bodies to failure result", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      jsonResponse({ message: "Bad request" }, 400);
+    const client = createDomainIntegrationClient({
+      baseUrl: "https://domain.example",
+      fetchImpl,
+    });
+
+    const result = await client.previewExpansion({
+      expansionString: "db:ticker:id",
+    });
+
+    expect(result).toEqual({ success: false, error: "Bad request" });
+  });
+
   it("throws on non-200 expand response", async () => {
     // Setup
     const fetchImpl: typeof fetch = async () =>

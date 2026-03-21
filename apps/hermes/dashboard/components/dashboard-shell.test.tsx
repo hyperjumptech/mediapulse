@@ -18,6 +18,7 @@ const mediapulsePages: DashboardPage[] = [
     actions: { create: true, update: true, delete: true },
     order: 0,
     customActions: [],
+    createNavigation: "modal",
   },
 ];
 const mediapulsePagesWithSearchQueries: DashboardPage[] = [
@@ -34,6 +35,7 @@ const mediapulsePagesWithSearchQueries: DashboardPage[] = [
     actions: { create: true, update: true, delete: true },
     order: 1,
     customActions: [],
+    createNavigation: "modal",
   },
 ];
 

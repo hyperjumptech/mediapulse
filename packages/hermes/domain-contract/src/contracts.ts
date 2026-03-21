@@ -32,6 +32,20 @@ export const dashboardPageCustomActionUiSchema = z.enum(["json-file-upload"]);
  * The domain service owns the HTTP handler; Hermes only renders UI from this metadata
  * and forwards requests with the integration auth token.
  */
+/** How Hermes opens create/edit flows for a table-v1 page. */
+export const dashboardPageCreateNavigationSchema = z
+  .enum(["modal", "full-page"])
+  .default("modal");
+
+/**
+ * When `enabled`, Hermes may show a preview control for the given form `fieldKey`
+ * if the integration also registers the `preview-expansion` capability.
+ */
+export const dashboardPagePreviewSchema = z.object({
+  enabled: z.boolean(),
+  fieldKey: z.string().min(1),
+});
+
 export const dashboardPageCustomActionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -78,6 +92,8 @@ export const dashboardPageSchema = z.object({
    */
   updateSchema: z.record(z.unknown()).optional(),
   customActions: z.array(dashboardPageCustomActionSchema).default([]),
+  createNavigation: dashboardPageCreateNavigationSchema,
+  preview: dashboardPagePreviewSchema.optional(),
 });
 
 export const dashboardManifestSchema = z.object({
@@ -116,6 +132,8 @@ export const tableV1MetaResponseSchema = z.object({
    */
   updateSchema: z.record(z.unknown()).optional(),
   customActions: z.array(dashboardPageCustomActionSchema).default([]),
+  createNavigation: dashboardPageCreateNavigationSchema,
+  preview: dashboardPagePreviewSchema.optional(),
 });
 
 export const registerDomainIntegrationRequestSchema = z.object({
@@ -189,6 +207,10 @@ export type TableV1MetaResponse = z.infer<typeof tableV1MetaResponseSchema>;
 export type DashboardPageCustomAction = z.infer<
   typeof dashboardPageCustomActionSchema
 >;
+export type DashboardPageCreateNavigation = z.infer<
+  typeof dashboardPageCreateNavigationSchema
+>;
+export type DashboardPagePreview = z.infer<typeof dashboardPagePreviewSchema>;
 export type DashboardPageCustomActionUi = z.infer<
   typeof dashboardPageCustomActionUiSchema
 >;

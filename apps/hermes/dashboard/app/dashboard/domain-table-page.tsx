@@ -1,5 +1,7 @@
 import { revalidatePath } from "next/cache";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Button } from "@workspace/ui/components/button";
 import {
   Table,
   TableBody,
@@ -168,6 +170,7 @@ export const DomainTablePage = async ({
 
   const hasRowActions = meta.actions.update || meta.actions.delete;
   const columnCount = meta.columns.length + (hasRowActions ? 1 : 0);
+  const fullPage = meta.createNavigation === "full-page";
 
   return (
     <div className="flex flex-col gap-4">
@@ -183,7 +186,11 @@ export const DomainTablePage = async ({
           ariaLabel={`Search ${meta.title}`}
         />
         <div className="shrink-0 sm:ml-auto">
-          {meta.actions.create && createFields.length > 0 ? (
+          {fullPage && meta.actions.create && createFields.length > 0 ? (
+            <Button asChild>
+              <Link href={`${basePath}/new`}>{`Add ${meta.title}`}</Link>
+            </Button>
+          ) : meta.actions.create && createFields.length > 0 ? (
             <DomainCreateModal
               fields={createFields}
               createAction={createAction}
@@ -229,6 +236,12 @@ export const DomainTablePage = async ({
               list.items.map((item) => {
                 const row = item as Record<string, unknown>;
                 const rowId = String(row.id ?? "");
+                const editHref =
+                  fullPage &&
+                  Boolean(meta.actions.update) &&
+                  updateFields.length > 0
+                    ? `${basePath}/${encodeURIComponent(rowId)}/edit`
+                    : undefined;
                 return (
                   <TableRow key={rowId}>
                     {meta.columns.map((column) => (
@@ -250,6 +263,7 @@ export const DomainTablePage = async ({
                               updateFields.length > 0
                             }
                             showDelete={Boolean(meta.actions.delete)}
+                            editHref={editHref}
                           />
                         </div>
                       </TableCell>

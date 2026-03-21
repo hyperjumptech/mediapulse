@@ -47,6 +47,7 @@ vi.mock("@/lib/domain-integrations", () => ({
     name: "Mediapulse",
     baseUrl: "http://localhost",
     version: "1",
+    capabilities: ["expand-step-inputs", "preview-expansion"],
     dashboard: { templateVersion: 1, pages: [] },
   }),
 }));

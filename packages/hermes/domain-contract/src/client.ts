@@ -18,6 +18,45 @@ type DomainClientOptions = {
 };
 
 /**
+ * Parses the preview-expansion HTTP body into a contract result. Accepts 2xx/4xx JSON
+ * payloads that match `previewExpansionResponseSchema` so domain APIs can return
+ * `{ success: false, error }` with status 400 without the client throwing before parse.
+ *
+ * @param response - Fetch response.
+ * @param text - Raw response body (already read).
+ * @returns Parsed preview result.
+ */
+const parsePreviewExpansionHttpResponse = (
+  response: Response,
+  text: string,
+): PreviewExpansionResponse => {
+  let payload: unknown;
+  try {
+    payload = text.trim() ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(
+      `Preview request failed (${response.status}): response was not valid JSON`,
+    );
+  }
+
+  const parsed = previewExpansionResponseSchema.safeParse(payload);
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "message" in payload &&
+    typeof (payload as { message: unknown }).message === "string"
+  ) {
+    return { success: false, error: (payload as { message: string }).message };
+  }
+
+  throw new Error(`Preview request failed (${response.status})`);
+};
+
+/**
  * Creates a typed HTTP client for a domain integration.
  *
  * @param options - Domain integration endpoint and auth settings.
@@ -76,14 +115,8 @@ export const createDomainIntegrationClient = (options: DomainClientOptions) => {
         headers: createHeaders(),
         body: JSON.stringify(body),
       });
-      if (!response.ok) {
-        throw new Error(
-          `Preview request failed with status ${response.status}`,
-        );
-      }
-      return parseJson(response, (value) =>
-        previewExpansionResponseSchema.parse(value),
-      );
+      const text = await response.text();
+      return parsePreviewExpansionHttpResponse(response, text);
     },
 
     /**

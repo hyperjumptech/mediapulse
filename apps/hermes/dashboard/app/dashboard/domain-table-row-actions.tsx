@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 
@@ -33,6 +34,8 @@ export type DomainTableRowActionsProps = {
   deleteAction: (formData: FormData) => Promise<void>;
   showEdit: boolean;
   showDelete: boolean;
+  /** When set, Edit navigates here instead of opening the edit modal. */
+  editHref?: string;
 };
 
 /**
@@ -96,6 +99,7 @@ export const DomainTableRowActions = ({
   deleteAction,
   showEdit,
   showDelete,
+  editHref,
 }: DomainTableRowActionsProps) => {
   const { editOpen, setEditOpen } = useDomainTableRowEditDialog();
   const deleteLabel = getDomainTableRowDeleteLabel(row, rowId);
@@ -116,10 +120,22 @@ export const DomainTableRowActions = ({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           {showEdit && updateFields.length > 0 ? (
-            <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-              <Pencil className="mr-2 size-4" />
-              Edit
-            </DropdownMenuItem>
+            editHref ? (
+              <DropdownMenuItem asChild>
+                <Link
+                  href={editHref}
+                  className="flex cursor-pointer items-center"
+                >
+                  <Pencil className="mr-2 size-4" />
+                  Edit
+                </Link>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                <Pencil className="mr-2 size-4" />
+                Edit
+              </DropdownMenuItem>
+            )
           ) : null}
           {showEdit && updateFields.length > 0 && showDelete ? (
             <DropdownMenuSeparator />
@@ -145,7 +161,7 @@ export const DomainTableRowActions = ({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {showEdit && updateFields.length > 0 ? (
+      {showEdit && updateFields.length > 0 && !editHref ? (
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogContent
             className="grid max-h-[min(90vh,880px)] w-full max-w-2xl grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-2xl"

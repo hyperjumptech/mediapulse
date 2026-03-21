@@ -299,6 +299,8 @@ const dashboardManifest = dashboardManifestSchema.parse({
       searchableFields: ["name", "description", "expansionString"],
       sortableFields: ["name", "createdAt"],
       actions: { create: true, update: true, delete: true },
+      createNavigation: "full-page",
+      preview: { enabled: true, fieldKey: "expansionString" },
       createSchema: {
         type: "object",
         required: ["name", "expansionString"],
@@ -328,6 +330,23 @@ const dashboardManifest = dashboardManifestSchema.parse({
  * @param pageSizeRaw - Raw page-size value from query string.
  * @returns Parsed page and page size values.
  */
+/** Max length for preview-expansion error strings returned to Hermes (admin UI). */
+const MAX_PREVIEW_EXPANSION_ERROR_LEN = 800;
+
+/**
+ * Trims and caps error text for preview API responses.
+ *
+ * @param message - Raw error message.
+ * @returns Safe-length string for JSON `error` field.
+ */
+const truncatePreviewExpansionError = (message: string): string => {
+  const trimmed = message.trim();
+  if (trimmed.length <= MAX_PREVIEW_EXPANSION_ERROR_LEN) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, MAX_PREVIEW_EXPANSION_ERROR_LEN)}…`;
+};
+
 const parsePagination = (
   pageRaw: string | undefined,
   pageSizeRaw: string | undefined,
@@ -444,6 +463,8 @@ api.get("/hermes-dashboard/:resource/meta", (c) => {
     createSchema: page.createSchema,
     updateSchema: page.updateSchema,
     customActions: page.customActions,
+    createNavigation: page.createNavigation,
+    preview: page.preview,
   });
 
   return c.json(meta);
@@ -906,6 +927,23 @@ api.get("/hermes-dashboard/data-source-expansions", async (c) => {
   return c.json(payload);
 });
 
+api.get("/hermes-dashboard/data-source-expansions/:id", async (c) => {
+  const row = await prisma.dataSourceExpansion.findUnique({
+    where: { id: c.req.param("id") },
+  });
+  if (!row) {
+    return c.json({ message: "Data source expansion not found" }, 404);
+  }
+  return c.json({
+    id: row.id,
+    name: row.name,
+    expansionString: row.expansionString,
+    description: row.description,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  });
+});
+
 api.post("/hermes-dashboard/data-source-expansions", async (c) => {
   const body = dataSourceExpansionCreateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -974,20 +1012,32 @@ api.post("/preview-expansion", async (c) => {
     );
   }
 
-  const values = await expandSingleDataSource(parsed, prisma, {
-    maxTake: env.HERMES_DATA_SOURCE_MAX_TAKE ?? MAX_TAKE,
-  });
-  if (values === null) {
+  try {
+    const values = await expandSingleDataSource(parsed, prisma, {
+      maxTake: env.HERMES_DATA_SOURCE_MAX_TAKE ?? MAX_TAKE,
+    });
+    if (values === null) {
+      return c.json(
+        {
+          success: false,
+          error: `Unknown or unsupported table: ${parsed.table}`,
+        },
+        400,
+      );
+    }
+
+    return c.json({ success: true, values });
+  } catch (e) {
+    logger.error({ err: e }, "preview-expansion failed");
+    const raw = e instanceof Error ? e.message : String(e);
     return c.json(
       {
         success: false,
-        error: `Unknown or unsupported table: ${parsed.table}`,
+        error: truncatePreviewExpansionError(raw),
       },
       400,
     );
   }
-
-  return c.json({ success: true, values });
 });
 
 api.post("/expand-step-inputs", async (c) => {

@@ -117,6 +117,7 @@ export const getDefaultDomainIntegration = async (): Promise<{
   baseUrl: string;
   version: string | null;
   dashboard: DashboardManifest;
+  capabilities: RegisterDomainIntegrationResponse["capabilities"];
 }> => {
   const integration = await prisma.domainIntegration.findFirst({
     where: { isActive: true },
@@ -128,6 +129,7 @@ export const getDefaultDomainIntegration = async (): Promise<{
       baseUrl: true,
       version: true,
       dashboardManifest: true,
+      capabilities: true,
     },
   });
 
@@ -142,6 +144,7 @@ export const getDefaultDomainIntegration = async (): Promise<{
     baseUrl: integration.baseUrl,
     version: integration.version,
     dashboard: parseDashboardManifest(integration.dashboardManifest),
+    capabilities: parseCapabilities(integration.capabilities),
   };
 };
 
@@ -155,6 +158,7 @@ export type DomainIntegrationRecord = {
   baseUrl: string;
   version: string | null;
   dashboard: DashboardManifest;
+  capabilities: RegisterDomainIntegrationResponse["capabilities"];
 };
 
 /**
@@ -170,6 +174,7 @@ const toDomainIntegrationRecord = (row: {
   baseUrl: string;
   version: string | null;
   dashboardManifest: Prisma.JsonValue | null;
+  capabilities: Prisma.JsonValue | null;
 }): DomainIntegrationRecord => ({
   id: row.id,
   key: row.key,
@@ -177,6 +182,7 @@ const toDomainIntegrationRecord = (row: {
   baseUrl: row.baseUrl,
   version: row.version,
   dashboard: parseDashboardManifest(row.dashboardManifest),
+  capabilities: parseCapabilities(row.capabilities),
 });
 
 /**
@@ -201,6 +207,7 @@ export const getActiveDomainIntegrations = async (
       baseUrl: true,
       version: true,
       dashboardManifest: true,
+      capabilities: true,
     },
   });
   return rows.map(toDomainIntegrationRecord);
@@ -229,6 +236,7 @@ export const getDomainIntegrationByKey = async (
       baseUrl: true,
       version: true,
       dashboardManifest: true,
+      capabilities: true,
     },
   });
   if (!row) return null;

@@ -71,6 +71,7 @@ const domainPages: DashboardPage[] = [
     actions: { create: true, update: true, delete: true },
     order: 10,
     customActions: [],
+    createNavigation: "modal",
   },
   {
     id: "search-queries",
@@ -84,6 +85,7 @@ const domainPages: DashboardPage[] = [
     actions: { create: false, update: false, delete: true },
     order: 20,
     customActions: [],
+    createNavigation: "modal",
   },
   {
     id: "entity-types",
@@ -97,6 +99,7 @@ const domainPages: DashboardPage[] = [
     actions: { create: true, update: true, delete: true },
     order: 30,
     customActions: [],
+    createNavigation: "modal",
   },
   {
     id: "relation-types",
@@ -110,6 +113,7 @@ const domainPages: DashboardPage[] = [
     actions: { create: true, update: true, delete: true },
     order: 40,
     customActions: [],
+    createNavigation: "modal",
   },
 ];
 

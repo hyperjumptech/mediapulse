@@ -80,6 +80,7 @@ describe("tableV1MetaResponseSchema", () => {
     });
 
     expect(parsed.customActions).toEqual([]);
+    expect(parsed.createNavigation).toBe("modal");
   });
 
   it("parses meta with customActions", () => {
@@ -101,6 +102,22 @@ describe("tableV1MetaResponseSchema", () => {
     expect(parsed.customActions).toHaveLength(1);
     expect(parsed.customActions[0]?.id).toBe("import-idx-json");
   });
+
+  it("parses full-page navigation and preview config", () => {
+    const parsed = tableV1MetaResponseSchema.parse({
+      title: "Expansions",
+      columns: [{ key: "name", label: "Name" }],
+      actions: { create: true, update: true, delete: true },
+      createNavigation: "full-page",
+      preview: { enabled: true, fieldKey: "expansionString" },
+    });
+
+    expect(parsed.createNavigation).toBe("full-page");
+    expect(parsed.preview).toEqual({
+      enabled: true,
+      fieldKey: "expansionString",
+    });
+  });
 });
 
 describe("dashboardPageSchema", () => {
@@ -115,5 +132,6 @@ describe("dashboardPageSchema", () => {
     });
 
     expect(parsed.customActions).toEqual([]);
+    expect(parsed.createNavigation).toBe("modal");
   });
 });

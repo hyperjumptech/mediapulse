@@ -2,8 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   callDomainCustomPost,
+  getDomainTableItemById,
   getDomainTableMeta,
   invokeDomainTableCustomAction,
+  previewDomainExpansion,
 } from "./domain-dashboard";
 
 const getDomainIntegrationByKey = vi.fn();
@@ -24,8 +26,12 @@ describe("getDomainTableMeta", () => {
 
   it("loads meta from domain integration HTTP", async () => {
     getDomainIntegrationByKey.mockResolvedValue({
+      id: "i1",
       key: "mediapulse",
+      name: "Mediapulse",
       baseUrl: "http://localhost:3001",
+      version: "1",
+      capabilities: ["expand-step-inputs", "preview-expansion"],
       dashboard: {
         templateVersion: 1,
         pages: [
@@ -54,6 +60,7 @@ describe("getDomainTableMeta", () => {
         searchableFields: [],
         sortableFields: [],
         actions: { create: true, update: true, delete: true },
+        createNavigation: "modal",
       }),
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -237,5 +244,141 @@ describe("invokeDomainTableCustomAction", () => {
       "http://localhost/v1/hermes-dashboard/tickers/import-idx-json",
       { payloadJson: '{"data":[]}' },
     );
+  });
+});
+
+describe("getDomainTableItemById", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  beforeEach(() => {
+    getDomainIntegrationByKey.mockReset();
+  });
+
+  it("returns null when domain responds 404", async () => {
+    getDomainIntegrationByKey.mockResolvedValue({
+      id: "i1",
+      key: "mediapulse",
+      name: "M",
+      baseUrl: "http://localhost:3001",
+      version: "1",
+      capabilities: ["preview-expansion", "expand-step-inputs"],
+      dashboard: {
+        templateVersion: 1,
+        pages: [
+          {
+            id: "tickers",
+            label: "Tickers",
+            pathSegment: "tickers",
+            template: "table-v1",
+            apiPrefix: "/v1/hermes-dashboard/tickers",
+            columns: [],
+            searchableFields: [],
+            sortableFields: [],
+            actions: { create: true, update: true, delete: true },
+            order: 0,
+          },
+        ],
+      },
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const row = await getDomainTableItemById(
+      "mediapulse",
+      "tickers",
+      "missing",
+    );
+
+    expect(row).toBeNull();
+  });
+
+  it("returns parsed row on success", async () => {
+    getDomainIntegrationByKey.mockResolvedValue({
+      id: "i1",
+      key: "mediapulse",
+      name: "M",
+      baseUrl: "http://localhost:3001",
+      version: "1",
+      capabilities: ["preview-expansion", "expand-step-inputs"],
+      dashboard: {
+        templateVersion: 1,
+        pages: [
+          {
+            id: "tickers",
+            label: "Tickers",
+            pathSegment: "tickers",
+            template: "table-v1",
+            apiPrefix: "/v1/hermes-dashboard/tickers",
+            columns: [],
+            searchableFields: [],
+            sortableFields: [],
+            actions: { create: true, update: true, delete: true },
+            order: 0,
+          },
+        ],
+      },
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "a1", name: "Row" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const row = await getDomainTableItemById("mediapulse", "tickers", "a1");
+
+    expect(row).toEqual({ id: "a1", name: "Row" });
+  });
+});
+
+describe("previewDomainExpansion", () => {
+  it("throws when integration lacks preview-expansion capability", async () => {
+    const getIntegration = vi.fn().mockResolvedValue({
+      id: "i1",
+      key: "k",
+      name: "N",
+      baseUrl: "http://localhost",
+      version: null,
+      capabilities: ["expand-step-inputs"],
+      dashboard: { templateVersion: 1, pages: [] },
+    });
+
+    await expect(
+      previewDomainExpansion("k", "db:ticker:id", { getIntegration }),
+    ).rejects.toThrow("does not support preview-expansion");
+  });
+
+  it("returns preview from domain client", async () => {
+    const previewExpansion = vi
+      .fn()
+      .mockResolvedValue({ success: true, values: ["x"] });
+    const createClient = vi.fn().mockReturnValue({ previewExpansion });
+    const getIntegration = vi.fn().mockResolvedValue({
+      id: "i1",
+      key: "k",
+      name: "N",
+      baseUrl: "http://localhost",
+      version: null,
+      capabilities: ["preview-expansion"],
+      dashboard: { templateVersion: 1, pages: [] },
+    });
+
+    const result = await previewDomainExpansion("k", "db:ticker:id", {
+      getIntegration,
+      createClient,
+    });
+
+    expect(result).toEqual({ success: true, values: ["x"] });
+    expect(previewExpansion).toHaveBeenCalledWith({
+      expansionString: "db:ticker:id",
+    });
   });
 });

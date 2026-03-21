@@ -24,6 +24,7 @@ describe("getActiveDomainIntegrations", () => {
         baseUrl: "http://localhost:3001",
         version: "1",
         dashboardManifest: emptyManifest,
+        capabilities: ["preview-expansion", "expand-step-inputs"],
       },
     ]);
 
@@ -39,11 +40,13 @@ describe("getActiveDomainIntegrations", () => {
         baseUrl: true,
         version: true,
         dashboardManifest: true,
+        capabilities: true,
       },
     });
     expect(result).toHaveLength(1);
     expect(result[0]?.key).toBe("mediapulse");
     expect(result[0]?.dashboard.templateVersion).toBe(1);
+    expect(result[0]?.capabilities).toContain("preview-expansion");
   });
 
   it("returns empty array when findMany returns none", async () => {
@@ -68,6 +71,7 @@ describe("getDomainIntegrationByKey", () => {
       baseUrl: "http://localhost:3001",
       version: "1",
       dashboardManifest: emptyManifest,
+      capabilities: ["preview-expansion", "expand-step-inputs"],
     });
 
     const result = await getDomainIntegrationByKey("mediapulse", {
@@ -83,6 +87,7 @@ describe("getDomainIntegrationByKey", () => {
         baseUrl: true,
         version: true,
         dashboardManifest: true,
+        capabilities: true,
       },
     });
     expect(result?.key).toBe("mediapulse");
