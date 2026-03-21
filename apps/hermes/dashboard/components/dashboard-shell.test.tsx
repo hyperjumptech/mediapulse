@@ -17,6 +17,7 @@ const mediapulsePages: DashboardPage[] = [
     sortableFields: [],
     actions: { create: true, update: true, delete: true },
     order: 0,
+    customActions: [],
   },
 ];
 const mediapulsePagesWithSearchQueries: DashboardPage[] = [
@@ -32,6 +33,7 @@ const mediapulsePagesWithSearchQueries: DashboardPage[] = [
     sortableFields: [],
     actions: { create: true, update: true, delete: true },
     order: 1,
+    customActions: [],
   },
 ];
 

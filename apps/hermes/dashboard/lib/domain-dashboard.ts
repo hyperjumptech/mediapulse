@@ -4,6 +4,12 @@ import {
 } from "@hermes/domain-contract";
 import { env } from "@hermes/env";
 
+/** Result state for JSON file custom actions (e.g. IDX import) returned from server actions. */
+export type DomainTableJsonImportState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "success"; added: number; updated: number };
+
 export type DomainTableListParams = {
   page: number;
   pageSize: number;
@@ -97,6 +103,102 @@ export const getDomainTableMeta = async (
     `${baseUrl}${page.apiPrefix}/meta`,
     tableV1MetaResponseSchema.parse,
   );
+};
+
+type CallDomainCustomPostResult =
+  | { ok: true; data: unknown }
+  | { ok: false; message: string };
+
+/**
+ * POSTs JSON to a domain URL and returns either parsed JSON or an error message from the response body.
+ *
+ * @param url - Full URL (base + apiPrefix + action path).
+ * @param body - JSON-serializable body.
+ * @param fetchImpl - Fetch implementation (default: global fetch).
+ * @returns Parsed JSON on success or a user-facing error message.
+ */
+export const callDomainCustomPost = async (
+  url: string,
+  body: Record<string, unknown>,
+  fetchImpl: typeof fetch = fetch,
+): Promise<CallDomainCustomPostResult> => {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (env.DOMAIN_INTEGRATION_AUTH_TOKEN) {
+    headers.Authorization = `Bearer ${env.DOMAIN_INTEGRATION_AUTH_TOKEN}`;
+  }
+
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  const payload = (await response.json().catch(() => null)) as unknown;
+
+  if (!response.ok) {
+    const message =
+      typeof payload === "object" &&
+      payload !== null &&
+      "message" in payload &&
+      typeof (payload as { message: unknown }).message === "string"
+        ? (payload as { message: string }).message
+        : `Domain request failed (${response.status})`;
+    return { ok: false, message };
+  }
+
+  return { ok: true, data: payload };
+};
+
+export type InvokeDomainTableCustomActionDependencies = {
+  getMeta?: typeof getDomainTableMeta;
+  getPage?: typeof getDashboardPage;
+  callPost?: typeof callDomainCustomPost;
+};
+
+/**
+ * Invokes a registered table-v1 custom action by posting a JSON payload string to the domain API.
+ *
+ * @param integrationKey - Registered integration key.
+ * @param resource - Dashboard path segment.
+ * @param actionId - Custom action `id` from manifest/meta.
+ * @param payloadJson - Raw JSON file contents as a string (validated by the domain service).
+ * @param dependencies - Optional collaborators for tests.
+ * @returns Success with parsed response data or failure with message.
+ */
+export const invokeDomainTableCustomAction = async (
+  integrationKey: string,
+  resource: string,
+  actionId: string,
+  payloadJson: string,
+  dependencies: InvokeDomainTableCustomActionDependencies = {},
+): Promise<
+  { success: true; data: unknown } | { success: false; message: string }
+> => {
+  const getMeta = dependencies.getMeta ?? getDomainTableMeta;
+  const getPage = dependencies.getPage ?? getDashboardPage;
+  const callPost = dependencies.callPost ?? callDomainCustomPost;
+
+  const meta = await getMeta(integrationKey, resource);
+  const action = meta.customActions.find((entry) => entry.id === actionId);
+  if (!action) {
+    return { success: false, message: "Unknown custom action" };
+  }
+  if (action.ui !== "json-file-upload" || action.method !== "POST") {
+    return { success: false, message: "Unsupported custom action" };
+  }
+
+  const { page, baseUrl } = await getPage(integrationKey, resource);
+  const url = `${baseUrl}${page.apiPrefix}${action.path}`;
+  const result = await callPost(url, { payloadJson });
+
+  if (!result.ok) {
+    return { success: false, message: result.message };
+  }
+
+  return { success: true, data: result.data };
 };
 
 /**

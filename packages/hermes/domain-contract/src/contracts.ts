@@ -19,6 +19,36 @@ export const dashboardPageActionsSchema = z.object({
   delete: z.boolean().default(false),
 });
 
+/**
+ * UI kind for a domain-defined custom action on a table-v1 page.
+ * Hermes renders the matching control and invokes the domain API at `apiPrefix` + `path`.
+ */
+export const dashboardPageCustomActionUiSchema = z.enum(["json-file-upload"]);
+
+/**
+ * Metadata for an optional custom action (e.g. bulk import) registered on a dashboard page.
+ *
+ * @remarks
+ * The domain service owns the HTTP handler; Hermes only renders UI from this metadata
+ * and forwards requests with the integration auth token.
+ */
+export const dashboardPageCustomActionSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().optional(),
+  ui: dashboardPageCustomActionUiSchema,
+  method: z.enum(["POST", "GET"]),
+  /** Path suffix appended to the page `apiPrefix` (must start with `/`, e.g. `/import-idx-json`). */
+  path: z
+    .string()
+    .min(1)
+    .refine((value) => value.startsWith("/"), {
+      message: "path must start with /",
+    }),
+  /** Optional `accept` attribute for file inputs (e.g. `.json,application/json`). */
+  accept: z.string().optional(),
+});
+
 export const dashboardPageSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -38,6 +68,7 @@ export const dashboardPageSchema = z.object({
   }),
   createSchema: z.record(z.unknown()).optional(),
   updateSchema: z.record(z.unknown()).optional(),
+  customActions: z.array(dashboardPageCustomActionSchema).default([]),
 });
 
 export const dashboardManifestSchema = z.object({
@@ -69,6 +100,7 @@ export const tableV1MetaResponseSchema = z.object({
   actions: dashboardPageActionsSchema,
   createSchema: z.record(z.unknown()).optional(),
   updateSchema: z.record(z.unknown()).optional(),
+  customActions: z.array(dashboardPageCustomActionSchema).default([]),
 });
 
 export const registerDomainIntegrationRequestSchema = z.object({
@@ -139,6 +171,12 @@ export type TableV1ListRequestQuery = z.infer<
 >;
 export type TableV1ListResponse = z.infer<typeof tableV1ListResponseSchema>;
 export type TableV1MetaResponse = z.infer<typeof tableV1MetaResponseSchema>;
+export type DashboardPageCustomAction = z.infer<
+  typeof dashboardPageCustomActionSchema
+>;
+export type DashboardPageCustomActionUi = z.infer<
+  typeof dashboardPageCustomActionUiSchema
+>;
 export type DomainHealthResponse = z.infer<typeof domainHealthResponseSchema>;
 export type PreviewExpansionRequest = z.infer<
   typeof previewExpansionRequestSchema

@@ -15,6 +15,7 @@ import {
   expandSingleDataSource,
 } from "@mediapulse/hermes-integration";
 import { prisma, type Prisma } from "@mediapulse/database";
+import { importIdxTickersFromRequestBody } from "./import-idx-tickers-json";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
@@ -106,6 +107,18 @@ const dashboardManifest = dashboardManifestSchema.parse({
           name: { type: "string", title: "Name" },
         },
       },
+      customActions: [
+        {
+          id: "import-idx-json",
+          label: "Import IDX JSON",
+          description:
+            "Upload a JSON file in IDX company profiles format (object with a data array).",
+          ui: "json-file-upload",
+          method: "POST",
+          path: "/import-idx-json",
+          accept: ".json,application/json",
+        },
+      ],
     },
     {
       id: "entity-types",
@@ -355,6 +368,7 @@ api.get("/hermes-dashboard/:resource/meta", (c) => {
     actions: page.actions,
     createSchema: page.createSchema,
     updateSchema: page.updateSchema,
+    customActions: page.customActions,
   });
 
   return c.json(meta);
@@ -427,6 +441,22 @@ api.post("/hermes-dashboard/tickers", async (c) => {
     },
   });
   return c.json({ id: created.id }, 201);
+});
+
+api.post("/hermes-dashboard/tickers/import-idx-json", async (c) => {
+  let jsonBody: unknown;
+  try {
+    jsonBody = await c.req.json();
+  } catch {
+    return c.json({ message: "Invalid JSON" }, 400);
+  }
+
+  const result = await importIdxTickersFromRequestBody(jsonBody);
+  if (!result.ok) {
+    return c.json({ message: result.message }, result.status);
+  }
+
+  return c.json({ added: result.added, updated: result.updated });
 });
 
 api.patch("/hermes-dashboard/tickers/:id", async (c) => {

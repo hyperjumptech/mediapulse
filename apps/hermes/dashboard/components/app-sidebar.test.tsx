@@ -70,6 +70,7 @@ const domainPages: DashboardPage[] = [
     sortableFields: [],
     actions: { create: true, update: true, delete: true },
     order: 10,
+    customActions: [],
   },
   {
     id: "search-queries",
@@ -82,6 +83,7 @@ const domainPages: DashboardPage[] = [
     sortableFields: [],
     actions: { create: false, update: false, delete: true },
     order: 20,
+    customActions: [],
   },
   {
     id: "entity-types",
@@ -94,6 +96,7 @@ const domainPages: DashboardPage[] = [
     sortableFields: [],
     actions: { create: true, update: true, delete: true },
     order: 30,
+    customActions: [],
   },
   {
     id: "relation-types",
@@ -106,6 +109,7 @@ const domainPages: DashboardPage[] = [
     sortableFields: [],
     actions: { create: true, update: true, delete: true },
     order: 40,
+    customActions: [],
   },
 ];
 

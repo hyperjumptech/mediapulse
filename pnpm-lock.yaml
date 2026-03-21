@@ -653,6 +653,9 @@ importers:
       '@mediapulse/hermes-integration':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/hermes-integration
+      '@mediapulse/idx-tickers-importer':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/idx-tickers-importer
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger

@@ -14,6 +14,7 @@ icon: Server
   - `GET /v1/health`
   - `POST /v1/preview-expansion`
   - `POST /v1/expand-step-inputs`
+- Serves **Hermes dashboard** HTTP for registered `table-v1` resources (list, meta, create/update/delete) under `/v1/hermes-dashboard/...`, including optional **custom actions** declared in the integration manifest (for example `POST /v1/hermes-dashboard/tickers/import-idx-json` with body `{ "payloadJson": "<stringified IDX JSON>" }` for IDX ticker import via `@mediapulse/idx-tickers-importer`).
 - Runs Mediapulse DB expansion logic using `@mediapulse/hermes-integration`.
 - Self-registers to Hermes via `POST /api/domain-integrations/register`.
 

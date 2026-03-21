@@ -13,13 +13,16 @@ import {
 import { ListPagination } from "@/components/list-pagination";
 import { PageHeader } from "@/components/page-header";
 import { DomainCreateModal } from "@/app/dashboard/domain-create-modal";
+import { DomainTableJsonUploadCard } from "@/app/dashboard/domain-table-json-upload-card";
 import { DomainTableSearch } from "@/app/dashboard/domain-table-search";
 import {
   createDomainTableItem,
   deleteDomainTableItem,
   getDomainTableList,
   getDomainTableMeta,
+  invokeDomainTableCustomAction,
   updateDomainTableItem,
+  type DomainTableJsonImportState,
 } from "@/lib/domain-dashboard";
 
 type DomainTablePageProps = {
@@ -177,6 +180,39 @@ export const DomainTablePage = async ({
     redirect(basePath);
   };
 
+  const jsonImportServerAction = async (
+    _prevState: DomainTableJsonImportState,
+    formData: FormData,
+  ): Promise<DomainTableJsonImportState> => {
+    "use server";
+    const actionId = String(formData.get("__actionId") ?? "");
+    const payloadJson = String(formData.get("payloadJson") ?? "");
+    if (!actionId) {
+      return { status: "error", message: "Missing action identifier." };
+    }
+    if (!payloadJson.trim()) {
+      return { status: "error", message: "Select a JSON file first." };
+    }
+    const result = await invokeDomainTableCustomAction(
+      integrationKey,
+      resource,
+      actionId,
+      payloadJson,
+    );
+    if (!result.success) {
+      return { status: "error", message: result.message };
+    }
+    const data = result.data as Record<string, unknown>;
+    const added = typeof data.added === "number" ? data.added : 0;
+    const updated = typeof data.updated === "number" ? data.updated : 0;
+    revalidatePath(basePath);
+    return { status: "success", added, updated };
+  };
+
+  const jsonImportActions = meta.customActions.filter(
+    (entry) => entry.ui === "json-file-upload",
+  );
+
   const hasRowActions = meta.actions.update || meta.actions.delete;
   const columnCount = meta.columns.length + (hasRowActions ? 1 : 0);
 
@@ -203,6 +239,18 @@ export const DomainTablePage = async ({
           ) : null}
         </div>
       </div>
+
+      {jsonImportActions.length > 0 ? (
+        <div className="flex flex-col gap-4">
+          {jsonImportActions.map((action) => (
+            <DomainTableJsonUploadCard
+              key={action.id}
+              action={action}
+              serverAction={jsonImportServerAction}
+            />
+          ))}
+        </div>
+      ) : null}
 
       <div className="rounded-md border">
         <Table>
