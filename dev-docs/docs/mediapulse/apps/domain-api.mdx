@@ -1,0 +1,31 @@
+---
+title: domain-api (Mediapulse)
+description: Domain integration API for Mediapulse expansion, Hermes dashboard tables, and preview
+icon: Server
+---
+
+## Purpose
+
+`apps/mediapulse/domain-api` (`@mediapulse/domain-api`) is the **Mediapulse-owned** HTTP service that implements the Hermes **domain integration** contract. Hermes calls it for step-input expansion and for `table-v1` dashboard resources; it is **not** part of the Hermes app tree.
+
+## Responsibilities
+
+- Exposes contract routes:
+  - `GET /v1/health`
+  - `POST /v1/preview-expansion`
+  - `POST /v1/expand-step-inputs`
+- Serves **Hermes dashboard** HTTP for registered `table-v1` resources (list, meta, create/update/delete) under `/v1/hermes-dashboard/...`, including optional **custom actions** declared in the integration manifest (for example `POST /v1/hermes-dashboard/tickers/import-idx-json` with body `{ "payloadJson": "<stringified IDX JSON>" }` for IDX ticker import via `@mediapulse/idx-tickers-importer`).
+- Runs Mediapulse DB expansion logic using `@mediapulse/hermes-integration`.
+- Self-registers to Hermes via `POST /api/domain-integrations/register`.
+
+## Key environment variables
+
+- `MEDIAPULSE_API_URL` — Public base URL this service registers in Hermes.
+- `HERMES_API_URL` — Hermes base URL for registration.
+- `DOMAIN_INTEGRATION_REGISTRATION_API_KEY` — Bearer token for registration endpoint.
+- `DOMAIN_INTEGRATION_AUTH_TOKEN` — Optional bearer token Hermes must send on contract calls.
+
+## Related
+
+- [Hermes and Mediapulse domains](/architecture/domains)
+- [mediapulse-hermes-integration](/mediapulse/packages/mediapulse-hermes-integration)

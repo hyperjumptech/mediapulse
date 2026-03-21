@@ -6,7 +6,7 @@ Hono service for agent-facing data endpoints.
 
 Before changing endpoints, read:
 
-- `dev-docs/docs/apps/agent-data-api.mdx`
+- `dev-docs/docs/mediapulse/apps/agent-data-api.mdx`
 
 That doc is the source of truth for route architecture, manifest usage, and endpoint workflow.
 

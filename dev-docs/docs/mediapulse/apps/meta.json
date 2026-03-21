@@ -1,0 +1,5 @@
+{
+  "title": "Apps",
+  "pages": ["agent-data-api", "user-registration", "domain-api", "agents"],
+  "defaultOpen": true
+}

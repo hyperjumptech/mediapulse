@@ -79,32 +79,33 @@ Use **pnpm** for install/scripts.
 | agent-auth-api           | 8080 | API key CRUD, verify, issue short-lived tokens |
 | agent-data-api           | 8081 | Agent data storage                             |
 | agent-registry-api       | 8082 | Agent registry                                 |
-| query-analysis agent     | 4011 | Generates ticker search queries                |
-| data-collection agent    | 4001 |                                                |
-| analysis agent           | 4012 | Scores relevance and updates KG                |
-| content-generation agent | 4002 |                                                |
-| delivery agent           | 4003 |                                                |
+| data-collection agent    | 4001 | Mediapulse agent                               |
+| content-generation agent | 4002 | Mediapulse agent                               |
+| delivery agent           | 4003 | Mediapulse agent                               |
 | ticker-echo agent        | 4010 | Minimal test agent                             |
+| domain-api (Mediapulse)  | 8090 | Hermes domain integration API (default in dev) |
 | hermes-worker            | —    | Background worker (no HTTP port)               |
+
+Optional **knowledge-graph** pipeline agents (**query-analysis**, **analysis**) may use other ports when deployed; see [Knowledge Graph](/architecture/knowledge-graph/knowledge-graph) and [Agents](/mediapulse/apps/agents/content-generation).
 
 ---
 
 ## Optional: Third-party API keys
 
-For full pipeline runs (data collection, content generation, delivery), add to **`packages/env/.env`**:
+For full pipeline runs (data collection, content generation, delivery), add the keys to the env file your Mediapulse apps load (typically **`packages/mediapulse/env/.env`**, merged or symlinked per `./dev-bootstrap.sh`):
 
-| Variable         | Used by                  | Where to get it                  |
-| ---------------- | ------------------------ | -------------------------------- |
-| `JINA_API_KEY`   | data-collection          | [Jina.ai](https://jina.ai)       |
-| `SERPER_API_KEY` | data-collection          | [Serper.dev](https://serper.dev) |
-| `OPENAI_API_KEY` | query-analysis, analysis | [OpenAI](https://openai.com)     |
-| `RESEND_API_KEY` | delivery                 | [Resend](https://resend.com)     |
+| Variable         | Used by                 | Where to get it                  |
+| ---------------- | ----------------------- | -------------------------------- |
+| `JINA_API_KEY`   | data-collection         | [Jina.ai](https://jina.ai)       |
+| `SERPER_API_KEY` | data-collection         | [Serper.dev](https://serper.dev) |
+| `OPENAI_API_KEY` | KG agents when deployed | [OpenAI](https://openai.com)     |
+| `RESEND_API_KEY` | delivery                | [Resend](https://resend.com)     |
 
 ---
 
 ## Optional: Agent auto-registration
 
-To let agents register with the registry on startup, set in each agent’s **`apps/agents/<name>/.env.local`**:
+To let agents register with the registry on startup, set in each agent’s **`apps/mediapulse/agents/<name>/.env.local`**:
 
 - `AGENT_REGISTRY_URL` (e.g. `http://localhost:8082`)
 - `AGENT_API_KEY` (scheduler key for worker and agents; created by `./dev-setup-local.sh` or the Hermes dashboard)
@@ -114,16 +115,16 @@ To let agents register with the registry on startup, set in each agent’s **`ap
 
 ## Troubleshooting
 
-**503 "Token issuance not configured"** — hermes-worker calls agent-auth-api to get a short-lived token; the auth API returns 503 when it has no JWT secret. Fix: open **`packages/env/.env`**, set **`AGENT_AUTH_JWT_SECRET`** to a long random string (e.g. run `openssl rand -base64 32` and paste the output). Save the file, then **restart agent-auth-api and hermes-worker** (or stop and run `pnpm dev` again). The auth API reads env from the same `.env` (via symlink); if the var is missing or shorter than 16 characters, token issuance is disabled.
+**503 "Token issuance not configured"** — hermes-worker calls agent-auth-api to get a short-lived token; the auth API returns 503 when it has no JWT secret. Fix: open **`packages/hermes/env/.env`** (or the merged env your bootstrap script produces), set **`AGENT_AUTH_JWT_SECRET`** to a long random string (e.g. run `openssl rand -base64 32` and paste the output). Save the file, then **restart agent-auth-api and hermes-worker** (or stop and run `pnpm dev` again). If the var is missing or shorter than 16 characters, token issuance is disabled.
 
-| Problem                             | Check                                                                                                                             |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| DB connection errors                | Docker is running (`docker-compose up -d`), connection string in `packages/env/.env` matches (e.g. `DATABASE_URL`).               |
-| hermes-worker can’t get token / 403 | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (the setup script creates it this way).                                |
-| Agent auto-registration 401         | Re-run `./dev-setup-local.sh` so it refreshes **`AGENT_API_KEY`** (scheduler) in `apps/mediapulse/agents/*/.env.local`.           |
-| Agent returns 401                   | Auth API is running (8080); **`AGENT_AUTH_API_URL`** is set where the agent loads env; the token or key is valid and not revoked. |
-| Env var not picked up               | Edit **`packages/env/.env`** (or the app’s `.env.local` for app-specific vars). Restart the app or `pnpm dev`.                    |
-| DataQueue / cron errors             | Run **`pnpm --filter @hermes/worker run migrate-dataqueue:dev`** once.                                                            |
+| Problem                             | Check                                                                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DB connection errors                | Docker is running (`docker-compose up -d`), `DATABASE_URL` in **`packages/hermes/env/.env`** and **`packages/mediapulse/env/.env`** matches your Postgres (see `./dev-bootstrap.sh` for how they are linked). |
+| hermes-worker can’t get token / 403 | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (the setup script creates it this way).                                                                                                            |
+| Agent auto-registration 401         | Re-run `./dev-setup-local.sh` so it refreshes **`AGENT_API_KEY`** (scheduler) in `apps/mediapulse/agents/*/.env.local`.                                                                                       |
+| Agent returns 401                   | Auth API is running (8080); **`AGENT_AUTH_API_URL`** is set where the agent loads env; the token or key is valid and not revoked.                                                                             |
+| Env var not picked up               | Edit **`packages/hermes/env/.env`** / **`packages/mediapulse/env/.env`** (or an app’s `.env.local`). Restart the app or `pnpm dev`.                                                                           |
+| DataQueue / cron errors             | Run **`pnpm --filter @hermes/worker run migrate-dataqueue:dev`** once.                                                                                                                                        |
 
 ---
 

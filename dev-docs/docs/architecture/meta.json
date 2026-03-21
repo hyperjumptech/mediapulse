@@ -1,4 +1,10 @@
 {
   "title": "Architecture",
-  "pages": ["system", "communication", "agent-hermes-contract"]
+  "pages": [
+    "domains",
+    "system",
+    "communication",
+    "agent-hermes-contract",
+    "knowledge-graph"
+  ]
 }

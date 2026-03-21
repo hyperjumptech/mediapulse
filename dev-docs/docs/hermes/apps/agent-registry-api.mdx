@@ -1,0 +1,43 @@
+---
+title: agent-registry-api
+description: API for registering agents
+icon: BookMarked
+---
+
+## Purpose
+
+agent-registry-api is a Hono server that allows **registering agents** in the system. It is protected by bearer auth: callers send **`Authorization: Bearer <jwt>`** (short-lived invocation JWT). Tokens are verified via agent-auth-api **`POST /api/verify`**, same pattern as [agent-data-api](/mediapulse/apps/agent-data-api).
+
+## Features
+
+- **Bearer auth (JWT)** — `verifyTokenViaAuthApi` from `@workspace/agent-auth-client` calls agent-auth-api `POST /api/verify`. Agents typically obtain a JWT with a **scheduler** API key via `POST /api/token` before calling register.
+- **Register agent** — POST to store agent metadata (id, version, URL, etc.) so Hermes or other services can discover and invoke agents.
+
+## Key routes
+
+| Method | Path                   | Description                                                                                             |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/agents/register` | Register an agent (body: `agentId`, `agentVersion`, `endpoint`, `inputSchema`, optional `configSchema`) |
+
+Registration requires **`inputSchema`** (JSON Schema object) and accepts optional **`configSchema`** (JSON Schema object). Hermes uses these to validate schedule params and step config. See [Agent–Hermes contract](/architecture/agent-hermes-contract).
+
+## Port
+
+- **8082** (default from `env.PORT`).
+
+## Environment
+
+- **AGENT_AUTH_API_URL** (required) — Base URL of agent-auth-api. Used to verify API keys on each request.
+
+## Workspace dependencies
+
+- `@workspace/agent-auth-client` — `verifyApiKeyViaAuthApi` for bearer auth.
+- `@workspace/api-utils` — Error helpers.
+- `@hermes/env` — Environment variables.
+- `@hermes/orchestration-database` — Prisma for agent registry storage.
+- `@workspace/logger` — Pino logger.
+
+## Related docs
+
+- [Hermes dashboard](/hermes/apps/dashboard) — Consumes registry to run pipelines.
+- [Packages: database](/hermes/packages/database).

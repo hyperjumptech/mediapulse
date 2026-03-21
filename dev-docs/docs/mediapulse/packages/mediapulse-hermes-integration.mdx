@@ -1,0 +1,26 @@
+---
+title: mediapulse-hermes-integration
+description: Mediapulse domain-side expansion helpers
+icon: Plug
+---
+
+## Purpose
+
+`@mediapulse/hermes-integration` contains Mediapulse-specific expansion helpers used by the **domain API** (`apps/mediapulse/domain-api`).
+
+The package bridges:
+
+- generic `db:` syntax parsing (`@hermes/step-input-syntax`), and
+- **Mediapulse** Prisma expansion (`expandDataSources` / `findMany`).
+
+## Main exports
+
+- `createMediapulseExpandStepInputs` — Factory helper for in-process expansion wiring.
+- `expandSingleDataSource` / `expandDataSources` — Runtime expansion against a Mediapulse `PrismaClient`.
+
+## Notes
+
+- Hermes no longer queries Mediapulse DB directly.
+- Preferred production path is HTTP: Hermes calls a domain integration API, and that service uses this package internally.
+- Domain API now self-registers a dashboard manifest (`table-v1`) so Hermes can render Mediapulse-owned pages (tickers, entity types, relation types, search queries, and data source expansions) from contract metadata.
+- Mediapulse exposes `/v1/hermes-dashboard/*` list/meta/CRUD endpoints for these pages, and Hermes calls them with bearer auth from `DOMAIN_INTEGRATION_AUTH_TOKEN`.

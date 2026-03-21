@@ -4,7 +4,7 @@ description: Environment variables required and optional per app, and how to fin
 icon: Server
 ---
 
-This page lists **required** and **optional** environment variables for each app in production, and how to obtain or configure each value. All variables are defined in `packages/env` (see [env package](/packages/env)); sensitive values must **not** use the `NEXT_PUBLIC_` prefix.
+This page lists **required** and **optional** environment variables for each app in production, and how to obtain or configure each value. Variables are defined in **`packages/hermes/env`** and **`packages/mediapulse/env`** (see [env](/hermes/packages/env)); sensitive values must **not** use the `NEXT_PUBLIC_` prefix.
 
 ## Production deployment checklist
 
@@ -66,7 +66,7 @@ Use this checklist to deploy the system in the right order. Each step assumes th
 
 ## Shared variables (main env)
 
-These come from `packages/env/env.example` and are used by multiple apps.
+Hermes-oriented keys come from **`packages/hermes/env/env.example`**. Mediapulse apps and agents use **`packages/mediapulse/env/env.example`** and the agent-specific `env.agents.*.example` files. Local development often merges these via `./dev-bootstrap.sh`.
 
 | Variable                        | Required       | How to find the value                                                                                                                                                                                                                                                                                                      |
 | ------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -80,7 +80,7 @@ These come from `packages/env/env.example` and are used by multiple apps.
 | `REQUIRE_HTTPS_AGENT_ENDPOINTS` | No             | Set to `true` in production so hermes-worker rejects agent endpoints that use `http` with a non-local host. Localhost and 127.0.0.1 are always allowed.                                                                                                                                                                    |
 | `TEMP_ADMIN_USERNAME`           | Yes            | Admin username for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                            |
 | `TEMP_ADMIN_PASSWORD`           | Yes            | Admin password for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                            |
-| `OUTLOOK_CLIENT_ID`             | No             | Azure App Registration (Microsoft Entra) → **Application (client) ID**. Used by Outlook/Microsoft Graph integrations and scripts (see [Microsoft setup](/packages/outlook-inbox/microsoft-setup)).                                                                                                                         |
+| `OUTLOOK_CLIENT_ID`             | No             | Azure App Registration (Microsoft Entra) → **Application (client) ID**. Used by Outlook/Microsoft Graph integrations and scripts (see [Microsoft setup](/mediapulse/packages/outlook-inbox/microsoft-setup)).                                                                                                                         |
 | `OUTLOOK_CLIENT_SECRET`         | No             | Azure App Registration → **Certificates & secrets** → client secret value. Store as a server-side secret.                                                                                                                                                                                                                  |
 | `OUTLOOK_TENANT_ID`             | No             | Azure App Registration → **Directory (tenant) ID**.                                                                                                                                                                                                                                                                        |
 | `OUTLOOK_USER_ID`               | No             | Mailbox identifier for app-only Graph access: usually the shared mailbox email (for example `shared@yourdomain.com`), or an Azure AD object ID.                                                                                                                                                                            |
@@ -121,7 +121,9 @@ These come from `packages/env/env.example` and are used by multiple apps.
 
 ---
 
-### hermes (Next.js app)
+### hermes (Next.js dashboard)
+
+`apps/hermes/dashboard` (`@hermes/dashboard`). Scripts (e.g. create-user) may read `.env.local` in the app directory.
 
 | Variable              | Required               | How to find the value                                                                                                                               |
 | --------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -135,7 +137,7 @@ These come from `packages/env/env.example` and are used by multiple apps.
 
 ### hermes-worker
 
-Uses **`packages/env/env.hermes-worker.example`** (merged with main env). The worker needs both the main database and the DataQueue schema.
+Uses **`packages/hermes/env/env.hermes-worker.example`** (merged with the Hermes env your deployment loads). The worker needs both the main database and the DataQueue schema.
 
 | Variable                        | Required            | How to find the value                                                                                                                                                                                                                                            |
 | ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -147,19 +149,9 @@ Uses **`packages/env/env.hermes-worker.example`** (merged with main env). The wo
 
 ---
 
-### dashboard
-
-Uses shared env. Scripts (e.g. create-user) read from `.env.local` in the app root. In production, ensure the same `DATABASE_URL` and auth-related variables are available where the app runs.
-
-| Variable       | Required | How to find the value |
-| -------------- | -------- | --------------------- |
-| `DATABASE_URL` | Yes      | Shared.               |
-
----
-
 ### data-collection agent
 
-Uses **`packages/env/env.agents.data-collection.example`** (and main env). Per-agent overrides go in `apps/agents/data-collection/.env.local` in dev; in production, set in the environment for that service.
+Uses **`packages/mediapulse/env/env.agents.data-collection.example`** (and the Mediapulse base env). Per-agent overrides go in `apps/mediapulse/agents/data-collection/.env.local` in dev; in production, set in the environment for that service.
 
 | Variable             | Required | How to find the value                                                                                                                                                                  |
 | -------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -174,26 +166,15 @@ Uses **`packages/env/env.agents.data-collection.example`** (and main env). Per-a
 
 ---
 
-### query-analysis agent
+### Knowledge-graph agents (query-analysis, analysis)
 
-Uses **`packages/env/env.agents.query-analysis.example`**.
-
-| Variable             | Required | How to find the value                                                                                   |
-| -------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `PORT`               | No       | Service default (commonly `4011` unless changed).                                                       |
-| `AGENT_DATA_API_URL` | Yes      | Shared.                                                                                                 |
-| `AGENT_AUTH_API_URL` | Yes      | Shared.                                                                                                 |
-| `OPENAI_API_KEY`     | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
-| `OPENAI_MODEL`       | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
-| `AGENT_REGISTRY_URL` | No       | Optional auto-registration endpoint.                                                                    |
-| `AGENT_API_KEY`      | No       | Optional scheduler key for auto-registration (mint JWT for registry).                                   |
-| `AGENT_PUBLIC_URL`   | No       | Public URL where this agent is reachable.                                                               |
+Pipelines may reference **query-analysis** and **analysis** steps (see [Knowledge Graph](/architecture/knowledge-graph/knowledge-graph)). If you deploy those agents as separate services, use the same pattern as other Mediapulse agents: `@mediapulse/env`, `AGENT_AUTH_API_URL`, `AGENT_DATA_API_URL`, LLM keys as required by that agent’s README, and optional auto-registration env vars. Example env files may be added under `packages/mediapulse/env` per agent as they are wired in this repo.
 
 ---
 
 ### content-generation agent
 
-Uses **`packages/env/env.agents.content-generation.example`**. **OpenAI** credentials are **not** env vars: set **`openaiApiKey`** and optional **`openaiModel`** on an [Agent config](/dashboard/agent-configs) in Hermes and attach that config to the pipeline step.
+Uses **`packages/mediapulse/env/env.agents.content-generation.example`**. **OpenAI** credentials are **not** env vars: set **`openaiApiKey`** and optional **`openaiModel`** on an **Agent config** in the Hermes dashboard (`/dashboard/agent-configs`) and attach that config to the pipeline step.
 
 | Variable             | Required | How to find the value                                                               |
 | -------------------- | -------- | ----------------------------------------------------------------------------------- |
@@ -206,26 +187,9 @@ Uses **`packages/env/env.agents.content-generation.example`**. **OpenAI** creden
 
 ---
 
-### analysis agent
-
-Uses **`packages/env/env.agents.analysis.example`**.
-
-| Variable             | Required | How to find the value                                                                                   |
-| -------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `PORT`               | No       | Service default (commonly `4012` unless changed).                                                       |
-| `AGENT_DATA_API_URL` | Yes      | Shared.                                                                                                 |
-| `AGENT_AUTH_API_URL` | Yes      | Shared.                                                                                                 |
-| `OPENAI_API_KEY`     | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
-| `OPENAI_MODEL`       | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
-| `AGENT_REGISTRY_URL` | No       | Optional auto-registration endpoint.                                                                    |
-| `AGENT_API_KEY`      | No       | Optional scheduler key for auto-registration (mint JWT for registry).                                   |
-| `AGENT_PUBLIC_URL`   | No       | Public URL where this agent is reachable.                                                               |
-
----
-
 ### delivery agent
 
-Uses **`packages/env/env.agents.delivery.example`**.
+Uses **`packages/mediapulse/env/env.agents.delivery.example`**.
 
 | Variable             | Required | How to find the value                                                                                                         |
 | -------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -242,7 +206,7 @@ Uses **`packages/env/env.agents.delivery.example`**.
 
 ### ticker-echo agent
 
-Uses **`packages/env/env.agents.ticker-echo.example`**.
+Uses **`packages/mediapulse/env/env.agents.ticker-echo.example`**.
 
 | Variable             | Required | How to find the value                                                                                                |
 | -------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -265,4 +229,4 @@ Uses **`packages/env/env.agents.ticker-echo.example`**.
 - **Required everywhere (when the app uses DB):** `DATABASE_URL`. For agent-data-api and agent-registry-api add `AGENT_AUTH_API_URL`. For Hermes and hermes-worker add `AGENT_AUTH_API_URL` and `AGENT_API_KEY`. For agent-auth-api add `AGENT_AUTH_JWT_SECRET` and `TEMP_ADMIN_*`. For Hermes add `TEMP_ADMIN_*`.
 - **Optional:** `DATABASE_CERT_BASE64` (TLS), `PORT` (override defaults), `REQUIRE_HTTPS_AGENT_ENDPOINTS` (hermes-worker), Outlook Graph vars, and for agents auto-registration (`AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `AGENT_API_KEY`, `AGENT_AUTH_API_URL`) when you want startup registration.
 - **Where to set them:** Use your host’s env config (e.g. Vercel, Railway, Docker env files). Never commit real secrets; use secrets managers or platform secret storage.
-- After changing any `env*.example` file, run `pnpm build` in `packages/env` to regenerate types.
+- After changing any `env*.example` file, run `pnpm build` in `packages/hermes/env` and/or `packages/mediapulse/env` to regenerate types.

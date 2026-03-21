@@ -1,0 +1,55 @@
+---
+title: Hermes and Mediapulse domains
+description: How orchestration (Hermes) and product data (Mediapulse) are split — apps, databases, and env
+icon: Layers
+---
+
+The monorepo contains two **product domains** that share one PostgreSQL cluster in typical deployments but keep **separate Prisma schemas**, **separate env packages**, and **separate app trees**.
+
+## Hermes domain (orchestration)
+
+**Role:** Pipelines, schedules, API keys, agent registry metadata, users for the dashboard, and the worker that runs scheduled jobs. Hermes does **not** own newsletter/ticker/KG tables; it calls the **Mediapulse domain API** over HTTP for data-source expansion and dashboard pages that need Mediapulse data.
+
+| Area                                                     | Location / package                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Dashboard & pipeline UI                                  | `apps/hermes/dashboard` (`@hermes/dashboard`)                               |
+| Background worker & DataQueue                            | `apps/hermes/worker` (`@hermes/worker`)                                     |
+| Auth API (JWT + API keys)                                | `apps/hermes/agent-auth-api` (`@hermes/agent-auth-api`)                     |
+| Agent registry API                                       | `apps/hermes/agent-registry-api` (`@hermes/agent-registry-api`)             |
+| Orchestration DB (Prisma)                                | `packages/hermes/orchestration-database` (`@hermes/orchestration-database`) |
+| Env (T3)                                                 | `packages/hermes/env` (`@hermes/env`)                                       |
+| Scheduler library                                        | `packages/hermes/scheduler` (`@hermes/scheduler`)                           |
+| Domain integration contract (HTTP client for domain API) | `packages/hermes/domain-contract` (`@hermes/domain-contract`)               |
+
+## Mediapulse domain (product data & agents)
+
+**Role:** Ticker/newsletter/knowledge-graph data, agent-data persistence API, user-facing registration app, operational **agents** (HTTP services invoked by Hermes), and the **domain API** that serves Mediapulse-specific expansion and Hermes dashboard `table-v1` resources.
+
+| Area                                                               | Location / package                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Agent data API (agents read/write run data)                        | `apps/mediapulse/agent-data-api` (`@mediapulse/agent-data-api`)                                   |
+| Domain integration API (expansion + dashboard HTTP for Mediapulse) | `apps/mediapulse/domain-api` (`@mediapulse/domain-api`)                                           |
+| User registration (Next.js)                                        | `apps/mediapulse/user-registration` (`@mediapulse/user-registration`)                             |
+| Operational agents                                                 | `apps/mediapulse/agents/*` (e.g. `@mediapulse/data-collection`, `@mediapulse/content-generation`) |
+| Mediapulse DB (Prisma)                                             | `packages/mediapulse/database` (`@mediapulse/database`)                                           |
+| Env (T3)                                                           | `packages/mediapulse/env` (`@mediapulse/env`)                                                     |
+| Hermes↔DB expansion helpers                                        | `packages/mediapulse/hermes-integration` (`@mediapulse/hermes-integration`)                       |
+
+## Shared across domains
+
+These are **not** “owned” by a single domain; both sides depend on them:
+
+| Concern                                      | Package                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------ |
+| Agent HTTP runtime, bearer auth              | `@workspace/agent-runtime`                                               |
+| Agent–data API contract & SDK                | `@workspace/agent-data-api-contract`, `@workspace/agent-data-api-client` |
+| Auth client (verify JWT with agent-auth-api) | `@workspace/agent-auth-client`                                           |
+| Logging, API helpers, UI kit                 | `@workspace/logger`, `@workspace/api-utils`, `@workspace/ui`             |
+
+## How the domains connect at runtime
+
+1. **Pipeline runs:** Hermes / hermes-worker mints a short-lived JWT via **agent-auth-api** and calls **agents** (Mediapulse apps). Agents call **agent-data-api** with the same JWT.
+2. **Data-source expansion:** Scheduler asks the registered **domain API** (`expand-step-inputs`, `preview-expansion`); that service uses **Mediapulse** Prisma via `@mediapulse/hermes-integration`, not a direct Hermes→DB shortcut.
+3. **Dashboard tables for Mediapulse entities:** Hermes renders routes from the integration manifest and proxies list/meta/CRUD to the **domain API** (`/v1/hermes-dashboard/...`), not to `@mediapulse/database` from the Next.js server.
+
+For auth flows and diagrams, see [Communication between parts](/architecture/communication). For step input and schemas, see [Agent–Hermes contract](/architecture/agent-hermes-contract).

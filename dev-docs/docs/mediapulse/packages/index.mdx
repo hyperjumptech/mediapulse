@@ -1,0 +1,27 @@
+---
+title: Mediapulse packages
+description: Prisma, env, and Mediapulse-specific libraries under packages/mediapulse and related workspace code
+icon: Package
+---
+
+Mediapulse product code lives under **`packages/mediapulse/`** and **`apps/mediapulse/`**. Shared **`@workspace/*`** packages used by agents and APIs are documented under **[Hermes → Packages](/hermes/packages)** (same monorepo packages; listed there for the agent stack and cross-cutting utilities).
+
+## Mediapulse domain packages
+
+| Package                                                                             | npm name                           | Role                                                     |
+| ----------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------- |
+| [mediapulse-database](/mediapulse/packages/mediapulse-database)                     | `@mediapulse/database`             | Prisma: tickers, newsletters, KG, Mediapulse-only tables |
+| [mediapulse-hermes-integration](/mediapulse/packages/mediapulse-hermes-integration) | `@mediapulse/hermes-integration`   | Mediapulse Prisma expansion for domain-api               |
+| [idx-tickers-importer](/mediapulse/packages/idx-tickers-importer)                   | `@mediapulse/idx-tickers-importer` | IDX listed-company import (used from domain-api)         |
+| [outlook-inbox](/mediapulse/packages/outlook-inbox)                                 | `@mediapulse/outlook-inbox`        | Outlook / Microsoft Graph helpers                        |
+
+Environment variables for Mediapulse apps and agents are built from **`packages/mediapulse/env`** — see [env (Hermes & Mediapulse)](/hermes/packages/env) for **`@mediapulse/env`** exports and build steps.
+
+## Consumers (summary)
+
+| Package                            | Typical consumers                                                |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| `@mediapulse/database`             | agent-data-api, domain-api, Mediapulse tooling                   |
+| `@mediapulse/env`                  | agent-data-api, domain-api, user-registration, Mediapulse agents |
+| `@mediapulse/hermes-integration`   | domain-api                                                       |
+| `@mediapulse/idx-tickers-importer` | domain-api (IDX import actions)                                  |

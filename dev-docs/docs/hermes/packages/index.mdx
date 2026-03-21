@@ -1,0 +1,53 @@
+---
+title: Hermes packages
+description: Orchestration database, scheduler, Hermes env, and shared workspace libraries used by the dashboard and APIs
+icon: Package
+---
+
+Hermes orchestration code uses **`packages/hermes/`** and shared **`@workspace/*`** packages. **Mediapulse-owned** Prisma and integration packages are documented under **[Mediapulse → Packages](/mediapulse/packages)**.
+
+The monorepo shares code through **workspace packages** under `packages/`. Apps depend on them via `workspace:*` in `package.json`.
+
+## Hermes domain packages
+
+| Package                                                               | npm name                           | Role                                                                |
+| --------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| [orchestration-database](/hermes/packages/orchestration-database)     | `@hermes/orchestration-database`   | Prisma: users, API keys, pipelines, schedules, executions, registry |
+| [env](/hermes/packages/env)                                           | `@hermes/env` (and worker subpath) | Type-safe env for Hermes apps and orchestration DB                  |
+| [hermes-scheduler](/hermes/packages/hermes-scheduler)                 | `@hermes/scheduler`                | Schedule execution, step expansion hooks                            |
+| [hermes-step-input-syntax](/hermes/packages/hermes-step-input-syntax) | `@hermes/step-input-syntax`        | Generic `db:table:field?…` parsing (not Mediapulse-specific)        |
+| [hermes-domain-contract](/hermes/packages/hermes-domain-contract)     | `@hermes/domain-contract`          | HTTP contract and client for Hermes ↔ domain API                    |
+
+## Database entrypoint
+
+- **[database](/hermes/packages/database)** — Short overview; use **[orchestration-database](/hermes/packages/orchestration-database)** for Hermes migrations and **[mediapulse-database](/mediapulse/packages/mediapulse-database)** for Mediapulse migrations.
+
+## Agent stack (`@workspace/*`)
+
+| Package                                                         | Role                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------- |
+| [agent-runtime](/hermes/packages/agent-runtime)                 | `createAgentApp`, bearer middleware                     |
+| [agent-types](/hermes/packages/agent-types)                     | Zod schemas for agent I/O                               |
+| [agent-auth-client](/hermes/packages/agent-auth-client)         | `verifyTokenViaAuthApi`                                 |
+| `@workspace/agent-data-api-contract`                            | Zod schemas, manifest, route helpers for agent-data-api |
+| [agent-data-api-client](/hermes/packages/agent-data-api-client) | Typed SDK for agents                                    |
+
+## Cross-cutting
+
+| Package                                               | Role                                             |
+| ----------------------------------------------------- | ------------------------------------------------ |
+| [api-utils](/hermes/packages/api-utils)               | Hono helpers                                     |
+| [logger](/hermes/packages/logger)                     | Pino logger                                      |
+| [ui](/hermes/packages/ui)                             | Shared React / Tailwind (Hermes dashboard, etc.) |
+| [utils](/hermes/packages/utils)                       | Small shared utilities                           |
+| [json-schema-form](/hermes/packages/json-schema-form) | JSON Schema forms in Hermes                      |
+| [tooling](/hermes/packages/tooling)                   | ESLint / TypeScript presets                      |
+
+## Consumers (summary)
+
+| Package                            | Typical consumers                                            |
+| ---------------------------------- | ------------------------------------------------------------ |
+| `@hermes/orchestration-database`   | Hermes dashboard, worker, agent-auth-api, agent-registry-api |
+| `@hermes/env`                      | Hermes apps, orchestration consumers                         |
+| `@workspace/agent-runtime`         | Mediapulse agents                                            |
+| `@workspace/agent-data-api-client` | Agents that call agent-data-api                              |

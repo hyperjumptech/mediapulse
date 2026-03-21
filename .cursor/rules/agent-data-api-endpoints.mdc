@@ -1,6 +1,6 @@
 ---
 description: Keep agent-data-api endpoints, contract, and SDK synchronized
-globs: "{apps/agent-data-api/**/*,packages/agent-data-api-contract/**/*,packages/agent-data-api-client/**/*}"
+globs: "{apps/mediapulse/agent-data-api/**/*,packages/shared/agent-data-api-contract/**/*,packages/shared/agent-data-api-client/**/*}"
 alwaysApply: false
 ---
 
@@ -12,10 +12,10 @@ Use this rule whenever you add, delete, or change an `agent-data-api` endpoint.
 
 1. Update or add endpoint schemas in `@workspace/agent-data-api-contract` first.
 2. Update `agentDataApiManifest` in the contract package for the resource.
-3. Update `apps/agent-data-api` routes/services and handler map to consume the shared schemas.
+3. Update `apps/mediapulse/agent-data-api` routes/services and handler map to consume the shared schemas.
 4. Update `@workspace/agent-data-api-client` behavior if the contract shape changed.
 5. Update all agent consumers and tests that call the SDK methods.
-6. Update docs in `dev-docs/docs/apps/agent-data-api.mdx`.
+6. Update docs in `dev-docs/docs/mediapulse/apps/agent-data-api.mdx`.
 7. Run `pnpm code-quality` before finishing.
 
 ## Endpoint-specific checks
@@ -29,6 +29,6 @@ Use this rule whenever you add, delete, or change an `agent-data-api` endpoint.
 - Do not add raw string-path API calls from agents.
 - Do not duplicate endpoint request/response types in agent code when contract types exist.
 - Do not skip response validation in the SDK.
-- Do not register ad-hoc routes in `apps/agent-data-api/src/index.ts`; use manifest + typed handler map.
+- Do not register ad-hoc routes in `apps/mediapulse/agent-data-api/src/index.ts`; use manifest + typed handler map.
 
 For full implementation steps, follow `.cursor/skills/agent-data-api-endpoints/SKILL.md`.
