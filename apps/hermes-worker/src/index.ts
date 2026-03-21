@@ -20,6 +20,8 @@ const processorConcurrency = Math.max(
 async function main(): Promise<void> {
   const { getJobQueue } = await import("./queue");
   const { jobHandlers } = await import("./job-handlers");
+  const { clearRegisteredDatabaseClientCache } =
+    await import("./registered-database-client-cache");
   const { logger } = await import("@workspace/logger");
 
   let jobQueue: Awaited<ReturnType<typeof getJobQueue>> | null = null;
@@ -93,6 +95,7 @@ async function main(): Promise<void> {
     if (jobQueue?.getPool?.()) {
       jobQueue.getPool().end?.();
     }
+    await clearRegisteredDatabaseClientCache();
   };
 
   const onShutdownSignal = async (): Promise<void> => {

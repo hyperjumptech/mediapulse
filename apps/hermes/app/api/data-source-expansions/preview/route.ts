@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { getDashboardSession } from "@/lib/auth-dashboard";
 import {
   expandSingleDataSource,
+  mediapulsePrisma,
   parseDataSourceString,
-} from "@workspace/hermes-scheduler";
-import { prisma } from "@workspace/database";
-
-import { getDashboardSession } from "@/lib/auth-dashboard";
+} from "@/lib/step-input-expansion";
 
 type PreviewBody = { expansionString?: string };
 
@@ -52,7 +51,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const values = await expandSingleDataSource(parsed, prisma);
+  const values = await expandSingleDataSource(parsed, mediapulsePrisma);
   if (values === null) {
     return NextResponse.json(
       {

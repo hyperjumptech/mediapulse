@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
 import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
-import { validateDataSourceExpressions } from "@workspace/hermes-scheduler";
+import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 
 const jsonObjectSchema = z
   .union([
@@ -40,6 +40,10 @@ const bodyValidator = z.object({
     .union([z.string().uuid(), z.literal("")])
     .optional()
     .transform((s) => (s === "" ? undefined : s)),
+  registeredDatabaseId: z
+    .union([z.string().uuid(), z.literal("")])
+    .optional()
+    .transform((value) => (value === "" ? undefined : value)),
   input: jsonObjectSchema,
   config: jsonObjectSchema,
 });
@@ -79,8 +83,15 @@ export const createAddStepHandler = ({
       return errorResponse("Unauthorized");
     }
 
-    const { pipelineId, agentId, agentVersion, agentConfigId, input, config } =
-      data.body;
+    const {
+      pipelineId,
+      agentId,
+      agentVersion,
+      agentConfigId,
+      registeredDatabaseId,
+      input,
+      config,
+    } = data.body;
 
     const inputObj = (input ?? {}) as Record<string, unknown>;
     const dataSourceValidation = validateDataSourceExpressions(inputObj);
@@ -127,6 +138,7 @@ export const createAddStepHandler = ({
         agentVersion,
         order: nextOrder,
         agentConfigId: agentConfigId ?? null,
+        registeredDatabaseId: registeredDatabaseId ?? null,
         input: inputObj as object,
         config: agentConfigId != null ? {} : ((config ?? {}) as object),
       },

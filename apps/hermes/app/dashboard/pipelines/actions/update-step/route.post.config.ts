@@ -10,8 +10,8 @@ import { z } from "zod";
 import { getDashboardSession } from "@/lib/auth-dashboard";
 import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 import { collectEmptyRequiredStringErrors } from "@/lib/validate-required-fields";
+import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 import { validateWithJsonSchema } from "@/lib/validate-json-schema";
-import { validateDataSourceExpressions } from "@workspace/hermes-scheduler";
 
 const jsonObjectSchema = z
   .union([
@@ -44,6 +44,11 @@ const bodyValidator = z.object({
     .nullable()
     .optional()
     .transform((s) => (s === "" ? null : (s ?? null))),
+  registeredDatabaseId: z
+    .union([z.string().uuid(), z.literal("")])
+    .nullable()
+    .optional()
+    .transform((value) => (value === "" ? null : (value ?? null))),
   input: jsonObjectSchema,
   config: jsonObjectSchema,
 });
@@ -90,6 +95,7 @@ export const createUpdateStepHandler = ({
       agentId,
       agentVersion,
       agentConfigId,
+      registeredDatabaseId,
       input,
       config,
     } = data.body;
@@ -179,6 +185,7 @@ export const createUpdateStepHandler = ({
         agentId,
         agentVersion,
         agentConfigId: agentConfigId ?? null,
+        registeredDatabaseId: registeredDatabaseId ?? null,
         input: inputObj as object,
         config:
           agentConfigId != null && agentConfigId !== ""

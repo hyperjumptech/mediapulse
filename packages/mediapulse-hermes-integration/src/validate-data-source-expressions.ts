@@ -6,10 +6,10 @@ export type ValidateDataSourceExpressionsResult =
   | { valid: false; errors: string[] };
 
 /**
- * Validates data source expressions in schedule params.
+ * Validates data source expressions in params.
  * Checks parse success and that take/limit are within bounds (0 to MAX_TAKE).
  *
- * @param params - Schedule params (values may be data source strings).
+ * @param params - Params where values may be data source strings.
  * @returns Validation result with errors if any expression is invalid.
  */
 export const validateDataSourceExpressions = (

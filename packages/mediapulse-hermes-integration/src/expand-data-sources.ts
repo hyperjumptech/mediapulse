@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@workspace/database";
+import type { PrismaClient } from "@workspace/mediapulse-database";
 import {
   isDataSourceString,
   parseDataSourceString,
@@ -31,9 +31,9 @@ export type ExpandDataSourcesDb = {
  * @param where - Key-value filters from query string.
  * @returns Prisma where object or undefined if empty.
  */
-function buildWhere(
+const buildWhere = (
   where: Record<string, string>,
-): Record<string, unknown> | undefined {
+): Record<string, unknown> | undefined => {
   if (Object.keys(where).length === 0) return undefined;
   const result: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(where)) {
@@ -43,7 +43,7 @@ function buildWhere(
     else result[k] = v;
   }
   return result;
-}
+};
 
 /**
  * Applies default and max caps to take value.
@@ -52,19 +52,19 @@ function buildWhere(
  * @param defaults - Default and max take values.
  * @returns Effective take value.
  */
-function effectiveTake(
+const effectiveTake = (
   parsed: DataSourceParsed,
   defaults: { defaultTake: number; maxTake: number } = {
     defaultTake: DEFAULT_TAKE,
     maxTake: MAX_TAKE,
   },
-): number {
+): number => {
   const requested =
     parsed.take != null && parsed.take >= 0
       ? parsed.take
       : defaults.defaultTake;
   return Math.min(requested, defaults.maxTake);
-}
+};
 
 /**
  * Expands a single data source string by querying the database.
@@ -72,14 +72,27 @@ function effectiveTake(
  *
  * @param parsed - Parsed data source.
  * @param db - Database client (any model with findMany).
- * @param options - Optional defaults for take caps.
+ * @param options - Optional defaults for take caps and table allowlist.
  * @returns Array of field values from the table, or null if model not found (caller should pass through).
  */
 export const expandSingleDataSource = async (
   parsed: DataSourceParsed,
   db: ExpandDataSourcesDb | PrismaClient,
-  options?: { defaultTake?: number; maxTake?: number },
+  options?: {
+    defaultTake?: number;
+    maxTake?: number;
+    allowlistedTables?: string[] | null;
+  },
 ): Promise<unknown[] | null> => {
+  if (
+    options?.allowlistedTables != null &&
+    !options.allowlistedTables.includes(parsed.table)
+  ) {
+    throw new Error(
+      `Data source table "${parsed.table}" is not allowlisted for expansion`,
+    );
+  }
+
   const model = (db as ExpandDataSourcesDb)[parsed.table];
   if (!model || typeof model.findMany !== "function") {
     return null;
@@ -93,7 +106,6 @@ export const expandSingleDataSource = async (
   const where = buildWhere(parsed.where);
   const select: Record<string, boolean> = { [parsed.field]: true };
   const distinctField = parsed.distinct ?? parsed.field;
-
   const orderBy = parsed.orderBy
     ? { [parsed.orderBy.field]: parsed.orderBy.dir }
     : { [parsed.field]: "asc" as const };
@@ -108,52 +120,56 @@ export const expandSingleDataSource = async (
 
   const seen = new Set<unknown>();
   const values: unknown[] = [];
-  for (const r of rows) {
-    const v = r[parsed.field];
-    if (!seen.has(v)) {
-      seen.add(v);
-      values.push(v);
+  for (const row of rows) {
+    const value = row[parsed.field];
+    if (!seen.has(value)) {
+      seen.add(value);
+      values.push(value);
     }
   }
   return values;
 };
 
 /**
- * Expands schedule params by resolving data source strings to concrete values.
+ * Expands params by resolving data source strings to concrete values.
  * Returns one param object per combination (Cartesian product if multiple params expand).
  *
- * @param params - Schedule params (values may be data source strings).
+ * @param params - Params where values may be data source strings.
  * @param db - Database client for queries.
- * @param options - Optional defaults for take caps.
- * @returns Array of param objects with data source strings replaced by actual values.
+ * @param options - Optional defaults for take caps and table allowlist.
+ * @returns Expanded param objects.
  */
 export const expandDataSources = async (
   params: Record<string, unknown>,
   db: ExpandDataSourcesDb | PrismaClient,
-  options?: { defaultTake?: number; maxTake?: number },
+  options?: {
+    defaultTake?: number;
+    maxTake?: number;
+    allowlistedTables?: string[] | null;
+  },
 ): Promise<Record<string, unknown>[]> => {
   let result: Record<string, unknown>[] = [{}];
 
   for (const [key, value] of Object.entries(params)) {
     if (!isDataSourceString(value)) {
-      result = result.map((r) => ({ ...r, [key]: value }));
+      result = result.map((entry) => ({ ...entry, [key]: value }));
       continue;
     }
 
     const parsed = parseDataSourceString(value);
     if (!parsed) {
-      result = result.map((r) => ({ ...r, [key]: value }));
+      result = result.map((entry) => ({ ...entry, [key]: value }));
       continue;
     }
 
     const values = await expandSingleDataSource(parsed, db, options);
     if (values === null) {
-      result = result.map((r) => ({ ...r, [key]: value }));
+      result = result.map((entry) => ({ ...entry, [key]: value }));
       continue;
     }
 
-    result = result.flatMap((prev) =>
-      values.map((v) => ({ ...prev, [key]: v })),
+    result = result.flatMap((entry) =>
+      values.map((expandedValue) => ({ ...entry, [key]: expandedValue })),
     );
   }
 

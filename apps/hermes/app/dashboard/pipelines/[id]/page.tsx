@@ -31,18 +31,28 @@ const PipelineDetailPage = async ({
     notFound();
   }
 
-  const [configsByAgentKey, validation, variablesPage, expansionsPage] =
-    await Promise.all([
-      getAgentConfigsByAgentKeys(
-        agents.map((a) => ({
-          agentId: a.agentId,
-          agentVersion: a.agentVersion,
-        })),
-      ),
-      validatePipeline(pipeline, prisma),
-      getVariablesPage(1, PICKER_PAGE_SIZE, undefined, prisma),
-      getDataSourceExpansionsPage(1, PICKER_PAGE_SIZE, undefined, prisma),
-    ]);
+  const [
+    configsByAgentKey,
+    validation,
+    variablesPage,
+    expansionsPage,
+    registeredDatabases,
+  ] = await Promise.all([
+    getAgentConfigsByAgentKeys(
+      agents.map((a) => ({
+        agentId: a.agentId,
+        agentVersion: a.agentVersion,
+      })),
+    ),
+    validatePipeline(pipeline, prisma),
+    getVariablesPage(1, PICKER_PAGE_SIZE, undefined, prisma),
+    getDataSourceExpansionsPage(1, PICKER_PAGE_SIZE, undefined, prisma),
+    prisma.registeredDatabase.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, isDefault: true },
+    }),
+  ]);
 
   const variableKeys = variablesPage.variables.map((v) => ({ key: v.key }));
   const expansionTemplates = expansionsPage.expansions.map((e) => ({
@@ -59,6 +69,7 @@ const PipelineDetailPage = async ({
       pipelineValidation={validation}
       variableKeys={variableKeys}
       expansionTemplates={expansionTemplates}
+      registeredDatabases={registeredDatabases}
     />
   );
 };

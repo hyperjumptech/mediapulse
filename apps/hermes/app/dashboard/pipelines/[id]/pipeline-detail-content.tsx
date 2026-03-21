@@ -37,6 +37,12 @@ export type ExpansionTemplateOption = {
   expansionString: string;
 };
 
+export type RegisteredDatabaseOption = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+};
+
 export type PipelineDetailContentProps = {
   pipeline: PipelineWithSteps;
   agents: AgentRegistryEntry[];
@@ -46,6 +52,8 @@ export type PipelineDetailContentProps = {
   variableKeys?: VariableKeyOption[];
   /** Expansion templates for the step editor picker (insert expansion string). */
   expansionTemplates?: ExpansionTemplateOption[];
+  /** Registered database options for expansion source selection. */
+  registeredDatabases?: RegisteredDatabaseOption[];
   /** Optional DI: override for tests. Defaults to the generated update pipeline form action. */
   updatePipelineFormAction?: typeof defaultUpdatePipelineFormAction;
   /** Optional DI: override for tests. Defaults to the generated update step form action. */
@@ -68,6 +76,8 @@ const usePipelineDetailState = (
   );
   const [stepInput, setStepInput] = useState<Record<string, unknown>>({});
   const [stepAgentConfigId, setStepAgentConfigId] = useState<string>("");
+  const [stepRegisteredDatabaseId, setStepRegisteredDatabaseId] =
+    useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -91,6 +101,7 @@ const usePipelineDetailState = (
     if (!selectedStep) {
       setStepInput({});
       setStepAgentConfigId("");
+      setStepRegisteredDatabaseId("");
       return;
     }
     const rawInput =
@@ -101,6 +112,13 @@ const usePipelineDetailState = (
         : {};
     setStepInput(rawInput);
     setStepAgentConfigId(selectedStep.agentConfigId ?? "");
+    setStepRegisteredDatabaseId(
+      (
+        selectedStep as {
+          registeredDatabaseId?: string | null;
+        }
+      ).registeredDatabaseId ?? "",
+    );
   }, [selectedStep]);
 
   const handleSave = useCallback(async () => {
@@ -139,6 +157,7 @@ const usePipelineDetailState = (
         stepFormData.set("body.agentId", selectedStep.agentId);
         stepFormData.set("body.agentVersion", selectedStep.agentVersion);
         stepFormData.set("body.agentConfigId", stepAgentConfigId);
+        stepFormData.set("body.registeredDatabaseId", stepRegisteredDatabaseId);
         stepFormData.set("body.input", JSON.stringify(stepInput));
         stepFormData.set("body.config", "{}");
         const stepResult = await updateStepFormAction(null, stepFormData);
@@ -185,6 +204,7 @@ const usePipelineDetailState = (
     selectedStep,
     stepInput,
     stepAgentConfigId,
+    stepRegisteredDatabaseId,
     router,
     updatePipelineFormAction,
     updateStepFormAction,
@@ -201,6 +221,8 @@ const usePipelineDetailState = (
     setStepInput,
     stepAgentConfigId,
     setStepAgentConfigId,
+    stepRegisteredDatabaseId,
+    setStepRegisteredDatabaseId,
     saveError,
     saveWarnings,
     saving,
@@ -221,6 +243,7 @@ export const PipelineDetailContent = ({
   pipelineValidation,
   variableKeys = [],
   expansionTemplates = [],
+  registeredDatabases = [],
   updatePipelineFormAction = defaultUpdatePipelineFormAction,
   updateStepFormAction = defaultUpdateStepFormAction,
 }: PipelineDetailContentProps) => {
@@ -235,6 +258,8 @@ export const PipelineDetailContent = ({
     setStepInput,
     stepAgentConfigId,
     setStepAgentConfigId,
+    stepRegisteredDatabaseId,
+    setStepRegisteredDatabaseId,
     saveError,
     saveWarnings,
     saving,
@@ -349,6 +374,9 @@ export const PipelineDetailContent = ({
             }
             stepAgentConfigId={stepAgentConfigId}
             onStepAgentConfigIdChange={setStepAgentConfigId}
+            registeredDatabases={registeredDatabases}
+            stepRegisteredDatabaseId={stepRegisteredDatabaseId}
+            onStepRegisteredDatabaseIdChange={setStepRegisteredDatabaseId}
             disabled={saving}
             variableKeys={variableKeys}
             expansionTemplates={expansionTemplates}

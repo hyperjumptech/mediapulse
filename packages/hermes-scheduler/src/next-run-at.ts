@@ -5,7 +5,7 @@ const cronParser = require("cron-parser") as {
     opts: { currentDate?: Date; tz?: string },
   ) => { next: () => { toDate: () => Date } };
 };
-import type { ScheduleRepeat } from "@workspace/database";
+import type { ScheduleRepeat } from "@workspace/orchestration-database";
 
 /** Schedule-like shape with fields needed to compute next run. */
 export type ScheduleForNextRun = {

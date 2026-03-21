@@ -89,6 +89,7 @@ const createMockPipeline = () => ({
       input: {},
       config: {},
       agentConfigId: null,
+      registeredDatabaseId: null,
       createdAt: new Date("2024-01-15"),
       updatedAt: new Date("2024-01-15"),
     },

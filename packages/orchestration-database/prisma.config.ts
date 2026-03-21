@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-root-env";
 import { defineConfig } from "prisma/config";
 import { env } from "@workspace/env";
 

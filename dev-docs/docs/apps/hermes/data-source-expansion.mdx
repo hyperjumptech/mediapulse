@@ -8,7 +8,7 @@ icon: Database
 
 **Data source expansion** lets each pipeline step's **input** use placeholders that are resolved at execution time by querying the database. Instead of hard-coding a single `tickerId`, you can use an expression like `db:userTicker:tickerId?where.enabled=true` so the scheduler runs that step **once per row** (e.g. once per enabled user ticker).
 
-Expansion is implemented in `@workspace/hermes-scheduler` and used by **hermes-worker** when it processes due schedules: for each step, the step's input is expanded, then each resulting input set triggers one invocation of that step.
+Expansion runs through the `expandStepInputs` hook in `@workspace/hermes-scheduler` and is implemented for Mediapulse in `@workspace/mediapulse-hermes-integration`. **hermes-worker** wires this integration when processing due schedules.
 
 ## Where it’s used
 
@@ -82,13 +82,23 @@ The pipeline detail page shows input and config forms per step; save validates b
 
 1. **Per step** — For each pipeline step in order, the scheduler takes that step's stored **input** (after variable substitution).
 2. **Parse** — Each input value that looks like a data-source string (`db:...`) is parsed.
-3. **Query** — For each parsed string, the scheduler calls the DB (Prisma `findMany` on the given model with `where`, `distinct`, `take`, `orderBy`).
+3. **Query** — For each parsed string, the integration calls Prisma `findMany` on the selected database with `where`, `distinct`, `take`, and `orderBy`.
 4. **Expand** — The input’s value is replaced by the list of values from the query. If the value is not a valid data-source string or the table is unknown, the value is left as-is (single run for that step).
 5. **Cartesian product (per step)** — If multiple keys in that step's input contain data-source strings, the result is one input object per combination (e.g. key A has 3 values and key B has 2 → 6 runs for that step).
 6. **Invoke** — Each resulting input set is sent as `input` to the agent for that step; hermes-worker runs the step once per set, then continues to the next step.
+
+## Registered database support
+
+Step expansion can target either:
+
+- the default Mediapulse database, or
+- a registered database selected per pipeline step.
+
+Registered databases are managed in Hermes dashboard (`/dashboard/registered-databases`), with encrypted connection strings and optional table allowlists enforced during expansion.
 
 ## Related docs
 
 - [Hermes](/apps/hermes) — Dashboard, schedule form, **Data source expansions** CRUD and preview.
 - [Agent–Hermes contract](/agent-hermes-contract) — Step input, input schema, variables.
-- [hermes-scheduler](/packages/hermes-scheduler) — Package that implements parsing, expansion, and validation.
+- [hermes-scheduler](/packages/hermes-scheduler) — Generic schedule execution runtime and `expandStepInputs` hook.
+- [mediapulse-hermes-integration](/packages/mediapulse-hermes-integration) — Mediapulse-specific parser, validator, and expansion implementation.

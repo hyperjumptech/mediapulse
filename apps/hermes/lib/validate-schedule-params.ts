@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@workspace/database";
-import { validateDataSourceExpressions } from "@workspace/hermes-scheduler";
+
+import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 
 import { validateWithJsonSchema } from "./validate-json-schema";
 

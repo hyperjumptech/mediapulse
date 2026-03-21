@@ -91,6 +91,7 @@ const selectedStep = {
   agentId: "summarizer",
   agentVersion: "1.0",
   agentConfigId: null as string | null,
+  registeredDatabaseId: null as string | null,
   input: {},
   config: {},
 };
@@ -105,6 +106,8 @@ describe("PipelineStepEditorPanel", () => {
         configsForAgent={[]}
         stepAgentConfigId=""
         onStepAgentConfigIdChange={() => {}}
+        stepRegisteredDatabaseId=""
+        onStepRegisteredDatabaseIdChange={() => {}}
       />,
     );
 
@@ -124,6 +127,8 @@ describe("PipelineStepEditorPanel", () => {
         configsForAgent={[]}
         stepAgentConfigId=""
         onStepAgentConfigIdChange={() => {}}
+        stepRegisteredDatabaseId=""
+        onStepRegisteredDatabaseIdChange={() => {}}
       />,
     );
 
@@ -160,6 +165,8 @@ describe("PipelineStepEditorPanel", () => {
         configsForAgent={configs}
         stepAgentConfigId=""
         onStepAgentConfigIdChange={onStepAgentConfigIdChange}
+        stepRegisteredDatabaseId=""
+        onStepRegisteredDatabaseIdChange={() => {}}
       />,
     );
 

@@ -1,7 +1,8 @@
 /** @vitest-environment node */
 import type { PrismaClient } from "@workspace/database";
-import { validateDataSourceExpressions } from "@workspace/hermes-scheduler";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 
 import { collectEmptyRequiredStringErrors } from "./validate-required-fields";
 import {
@@ -10,7 +11,7 @@ import {
 } from "./validate-pipeline";
 import { validateWithJsonSchema } from "./validate-json-schema";
 
-vi.mock("@workspace/hermes-scheduler", () => ({
+vi.mock("@/lib/step-input-expansion", () => ({
   validateDataSourceExpressions: vi.fn(),
 }));
 

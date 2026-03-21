@@ -12,7 +12,9 @@ The monorepo shares code through **workspace packages** under `packages/`. Apps 
 
 ### Data & config
 
-- **[database](/packages/database)** — Prisma client and schema for PostgreSQL; used by Hermes, Dashboard, all APIs, and agents that need DB access.
+- **[database](/packages/database)** — Legacy shared Prisma package; still used by some consumers during migration.
+- **[orchestration-database](/packages/orchestration-database)** — Prisma package for orchestration domain tables (pipelines, schedules, executions, users, API keys).
+- **[mediapulse-database](/packages/mediapulse-database)** — Prisma package for Mediapulse domain tables (tickers, newsletters, KG, data sources).
 - **[env](/packages/env)** — Type-safe environment variables (T3 Env / env-to-t3); per-app and per-agent env builds.
 
 ### Agent stack
@@ -29,6 +31,7 @@ The monorepo shares code through **workspace packages** under `packages/`. Apps 
 ### Server & API
 
 - **[api-utils](/packages/api-utils)** — Hono helpers: `internalError`, `notFound`, `validateBody`.
+- **[mediapulse-hermes-integration](/packages/mediapulse-hermes-integration)** — Mediapulse plug-in for Hermes input expansion/validation and registered DB crypto helpers.
 
 ### Cross-cutting
 

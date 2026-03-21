@@ -22,6 +22,7 @@ type Step = {
   agentId: string;
   agentVersion: string;
   agentConfigId?: string | null;
+  registeredDatabaseId?: string | null;
   input?: unknown;
   config?: unknown;
 };
@@ -34,6 +35,12 @@ export type ExpansionTemplateOption = {
   expansionString: string;
 };
 
+export type RegisteredDatabaseOption = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+};
+
 export type PipelineStepEditorPanelProps = {
   selectedStep: Step | null;
   stepInput: Record<string, unknown>;
@@ -42,6 +49,9 @@ export type PipelineStepEditorPanelProps = {
   configsForAgent: AgentConfigSummary[];
   stepAgentConfigId: string;
   onStepAgentConfigIdChange: (id: string) => void;
+  registeredDatabases?: RegisteredDatabaseOption[];
+  stepRegisteredDatabaseId: string;
+  onStepRegisteredDatabaseIdChange: (id: string) => void;
   disabled?: boolean;
   /** Variable keys for the insert picker ({{key}}). */
   variableKeys?: VariableKeyOption[];
@@ -60,6 +70,9 @@ export const PipelineStepEditorPanel = ({
   configsForAgent = [],
   stepAgentConfigId,
   onStepAgentConfigIdChange,
+  registeredDatabases = [],
+  stepRegisteredDatabaseId,
+  onStepRegisteredDatabaseIdChange,
   disabled = false,
   variableKeys = [],
   expansionTemplates = [],
@@ -139,24 +152,49 @@ export const PipelineStepEditorPanel = ({
               </Link>
             </div>
           ) : (
-            <div className="grid gap-2">
-              <Label htmlFor="step-agent-config-picker">Agent config</Label>
-              <select
-                id="step-agent-config-picker"
-                className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={stepAgentConfigId}
-                onChange={(e) => onStepAgentConfigIdChange(e.target.value)}
-                disabled={disabled}
-                aria-label="Choose a saved agent config"
-              >
-                <option value="">None</option>
-                {configsForAgent.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.description ? ` — ${c.description}` : ""}
-                  </option>
-                ))}
-              </select>
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="step-agent-config-picker">Agent config</Label>
+                <select
+                  id="step-agent-config-picker"
+                  className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={stepAgentConfigId}
+                  onChange={(e) => onStepAgentConfigIdChange(e.target.value)}
+                  disabled={disabled}
+                  aria-label="Choose a saved agent config"
+                >
+                  <option value="">None</option>
+                  {configsForAgent.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.description ? ` — ${c.description}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="step-registered-database-picker">
+                  Expansion database
+                </Label>
+                <select
+                  id="step-registered-database-picker"
+                  className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={stepRegisteredDatabaseId}
+                  onChange={(e) =>
+                    onStepRegisteredDatabaseIdChange(e.target.value)
+                  }
+                  disabled={disabled}
+                  aria-label="Choose a registered expansion database"
+                >
+                  <option value="">Default</option>
+                  {registeredDatabases.map((db) => (
+                    <option key={db.id} value={db.id}>
+                      {db.name}
+                      {db.isDefault ? " (default)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
         </TabsContent>

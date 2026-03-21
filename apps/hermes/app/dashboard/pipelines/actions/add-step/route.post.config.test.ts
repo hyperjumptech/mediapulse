@@ -77,6 +77,7 @@ describe("createAddStepHandler", () => {
         agentVersion: "1",
         order: 3,
         agentConfigId: null,
+        registeredDatabaseId: null,
         input: {},
         config: {},
       },

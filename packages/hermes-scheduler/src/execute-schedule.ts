@@ -2,10 +2,9 @@ import {
   AgentJobExecutionStatus,
   ScheduleExecutionStatus,
   type PrismaClient,
-} from "@workspace/database";
+} from "@workspace/orchestration-database";
 import { randomUUID } from "node:crypto";
 import type { DueSchedule } from "./get-due-schedules";
-import { expandDataSources } from "./expand-data-sources";
 import { computeNextRunAt } from "./next-run-at";
 import { AgentEndpointSchema } from "./invoke-agent";
 import { substituteVariables } from "./substitute-variables";
@@ -29,6 +28,22 @@ export type InvokeAgentJobPayload = {
   priority: number;
 };
 
+/**
+ * Context for domain-specific step input expansion.
+ */
+export type ExpandStepInputsContext = {
+  input: Record<string, unknown>;
+  scheduleId: string;
+  pipelineId: string;
+  pipelineStepId: string;
+  registeredDatabaseId: string | null;
+  orchDb: PrismaClient;
+};
+
+export type ExpandStepInputs = (
+  context: ExpandStepInputsContext,
+) => Promise<Record<string, unknown>[]>;
+
 /** Dependencies for executeSchedule (injectable for tests). */
 export type ExecuteScheduleDeps = {
   db: PrismaClient;
@@ -39,6 +54,8 @@ export type ExecuteScheduleDeps = {
   };
   /** Enqueues agent invocation jobs in a single batch per call (e.g. per step). */
   enqueueAgentInvocations: (payloads: InvokeAgentJobPayload[]) => Promise<void>;
+  /** Domain integration hook that expands a single input into one-or-many invocation inputs. */
+  expandStepInputs?: ExpandStepInputs;
   defaultTimeoutMs?: number;
   /** When true, reject agent endpoint URLs that use http with a non-local host. */
   requireHttpsAgentEndpoints?: boolean;
@@ -77,6 +94,7 @@ export const executeSchedule = async (
     db,
     logger,
     enqueueAgentInvocations,
+    expandStepInputs = async (context) => [context.input],
     defaultTimeoutMs = 300_000,
     requireHttpsAgentEndpoints = false,
   } = deps;
@@ -182,13 +200,21 @@ export const executeSchedule = async (
         continue;
       }
     }
-    const inputSets = await expandDataSources(inputSubstituted, db);
+    const inputSets = await expandStepInputs({
+      input: inputSubstituted,
+      scheduleId: schedule.id,
+      pipelineId: schedule.pipelineId,
+      pipelineStepId: step.id,
+      registeredDatabaseId: step.registeredDatabaseId,
+      orchDb: db,
+    });
     const stepPayloads: InvokeAgentJobPayload[] = [];
 
     let stepConfig: Record<string, unknown>;
     const stepWithConfig = step as {
       config?: unknown;
       agentConfigId?: string | null;
+      registeredDatabaseId?: string | null;
       agentConfig?: { config: unknown } | null;
     };
     if (

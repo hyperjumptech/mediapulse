@@ -31,44 +31,44 @@ describe("isDataSourceString", () => {
 describe("parseDataSourceString", () => {
   it("parses db:table:field without query", () => {
     // Act
-    const r = parseDataSourceString("db:ticker:id");
+    const result = parseDataSourceString("db:ticker:id");
 
     // Assert
-    expect(r).not.toBeNull();
-    expect(r?.source).toBe("db");
-    expect(r?.table).toBe("ticker");
-    expect(r?.field).toBe("id");
-    expect(r?.where).toEqual({});
+    expect(result).not.toBeNull();
+    expect(result?.source).toBe("db");
+    expect(result?.table).toBe("ticker");
+    expect(result?.field).toBe("id");
+    expect(result?.where).toEqual({});
   });
 
   it("parses with where.enabled=true", () => {
     // Act
-    const r = parseDataSourceString(
+    const result = parseDataSourceString(
       "db:userTicker:tickerId?where.enabled=true&distinct=tickerId",
     );
 
     // Assert
-    expect(r).not.toBeNull();
-    expect(r?.where).toEqual({ enabled: "true" });
-    expect(r?.distinct).toBe("tickerId");
+    expect(result).not.toBeNull();
+    expect(result?.where).toEqual({ enabled: "true" });
+    expect(result?.distinct).toBe("tickerId");
   });
 
   it("parses with take and limit", () => {
     // Act
-    const r = parseDataSourceString("db:ticker:id?take=100&limit=50");
+    const result = parseDataSourceString("db:ticker:id?take=100&limit=50");
 
     // Assert
-    expect(r).not.toBeNull();
-    expect(r?.take).toBe(50);
+    expect(result).not.toBeNull();
+    expect(result?.take).toBe(50);
   });
 
   it("parses with orderBy", () => {
     // Act
-    const r = parseDataSourceString("db:ticker:id?orderBy=id:asc");
+    const result = parseDataSourceString("db:ticker:id?orderBy=id:asc");
 
     // Assert
-    expect(r).not.toBeNull();
-    expect(r?.orderBy).toEqual({ field: "id", dir: "asc" });
+    expect(result).not.toBeNull();
+    expect(result?.orderBy).toEqual({ field: "id", dir: "asc" });
   });
 
   it("returns null for invalid format", () => {

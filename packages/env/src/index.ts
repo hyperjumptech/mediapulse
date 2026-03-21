@@ -6,6 +6,9 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
+    ORCHESTRATION_DATABASE_URL: z.string().optional(),
+    MEDIAPULSE_DATABASE_URL: z.string().optional(),
+    REGISTERED_DATABASE_ENCRYPTION_KEY: z.string().optional(),
     DATABASE_CERT_BASE64: z.string().optional(),
     PORT: z.number({ coerce: true }).optional(),
     AGENT_DATA_API_URL: z.string().optional(),

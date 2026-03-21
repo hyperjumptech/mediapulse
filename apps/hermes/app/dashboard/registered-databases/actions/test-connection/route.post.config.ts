@@ -1,8 +1,9 @@
-import { PrismaClientWithSchema } from "@workspace/mediapulse-database/client";
 import {
   decryptRegisteredDatabaseUrl,
   prisma,
 } from "@workspace/orchestration-database";
+
+import { PrismaClientWithSchema } from "@/lib/step-input-expansion";
 import {
   createRequestValidator,
   errorResponse,

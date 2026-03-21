@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@workspace/database";
+import type { PrismaClient } from "@workspace/orchestration-database";
 
 /** DB type that provides schedule queries (injectable for tests). */
 export type GetDueSchedulesDb = Pick<PrismaClient, "schedule">;
@@ -21,7 +21,7 @@ export const getDueSchedules = async (db: GetDueSchedulesDb) => {
         include: {
           steps: {
             orderBy: { order: "asc" },
-            include: { agentConfig: true },
+            include: { agentConfig: true, registeredDatabase: true },
           },
         },
       },

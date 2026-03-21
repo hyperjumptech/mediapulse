@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { AgentJobExecutionStatus } from "@workspace/database";
+import { AgentJobExecutionStatus } from "@workspace/orchestration-database";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   executeSchedule,
@@ -16,7 +16,7 @@ const mockPrisma = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@workspace/database", () => ({
+vi.mock("@workspace/orchestration-database", () => ({
   AgentJobExecutionStatus: {
     pending: "pending",
     running: "running",
@@ -24,6 +24,14 @@ vi.mock("@workspace/database", () => ({
     failed: "failed",
   },
   prisma: mockPrisma,
+}));
+
+vi.mock("@workspace/mediapulse-database", () => ({
+  prisma: {},
+}));
+
+vi.mock("@workspace/mediapulse-hermes-integration", () => ({
+  createMediapulseExpandStepInputs: () => vi.fn(),
 }));
 
 vi.mock("@workspace/env/hermes-worker", () => ({
@@ -62,6 +70,11 @@ vi.mock("./queue", () => ({
   }),
 }));
 
+vi.mock("./registered-database-client-cache", () => ({
+  getExpansionPrismaClient: vi.fn(),
+  getRegisteredDatabaseAllowlist: vi.fn(),
+}));
+
 describe("jobHandlers", () => {
   beforeEach(() => {
     vi.mocked(getDueSchedules).mockClear();
@@ -77,7 +90,7 @@ describe("jobHandlers", () => {
   describe("check_schedules", () => {
     it("calls getDueSchedules with prisma and does not call executeSchedule when no schedules are due", async () => {
       // Setup
-      const { prisma } = await import("@workspace/database");
+      const { prisma } = await import("@workspace/orchestration-database");
       vi.mocked(getDueSchedules).mockResolvedValue([]);
 
       // Act
@@ -95,7 +108,7 @@ describe("jobHandlers", () => {
 
     it("calls executeSchedule once per due schedule with correct deps", async () => {
       // Setup
-      const { prisma } = await import("@workspace/database");
+      const { prisma } = await import("@workspace/orchestration-database");
       const fakeSchedule = {
         id: "schedule-1",
         enabled: true,
@@ -128,6 +141,7 @@ describe("jobHandlers", () => {
         db: prisma,
         logger,
         enqueueAgentInvocations: expect.any(Function),
+        expandStepInputs: expect.any(Function),
         defaultTimeoutMs: 300_000,
         requireHttpsAgentEndpoints: false,
       });

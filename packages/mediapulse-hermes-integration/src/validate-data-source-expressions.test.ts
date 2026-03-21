@@ -48,7 +48,9 @@ describe("validateDataSourceExpressions", () => {
 
     // Assert
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes("exceeds max"))).toBe(true);
+    expect(result.errors.some((error) => error.includes("exceeds max"))).toBe(
+      true,
+    );
   });
 
   it("returns invalid when take is negative", () => {

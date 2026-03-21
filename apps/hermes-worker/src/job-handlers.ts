@@ -1,6 +1,8 @@
 import got from "got";
-import { AgentJobExecutionStatus } from "@workspace/database";
-import { prisma } from "@workspace/database";
+import {
+  AgentJobExecutionStatus,
+  prisma as orchestrationPrisma,
+} from "@workspace/orchestration-database";
 import { env } from "@workspace/env/hermes-worker";
 import { logger } from "@workspace/logger";
 import type { JobHandlers } from "@nicnocquee/dataqueue";
@@ -12,7 +14,12 @@ import {
   invokeAgent,
   type InvokeAgentHttpClient,
 } from "@workspace/hermes-scheduler";
+import { createMediapulseExpandStepInputs } from "@workspace/mediapulse-hermes-integration";
 import { getJobQueue } from "./queue";
+import {
+  getExpansionPrismaClient,
+  getRegisteredDatabaseAllowlist,
+} from "./registered-database-client-cache";
 
 /**
  * Creates an HTTP client that forwards the optional AbortSignal to got for request cancellation.
@@ -46,6 +53,11 @@ async function getAuthToken(): Promise<string> {
   return tokenClient.getToken();
 }
 
+const expandStepInputs = createMediapulseExpandStepInputs({
+  getPrismaForExpansion: getExpansionPrismaClient,
+  resolveAllowlistedTables: getRegisteredDatabaseAllowlist,
+});
+
 /**
  * DataQueue job handlers for Hermes.
  * check_schedules: polls due schedules and enqueues one invoke_agent job per expanded input.
@@ -54,11 +66,11 @@ async function getAuthToken(): Promise<string> {
 export const jobHandlers: JobHandlers<JobPayloadMap> = {
   check_schedules: async () => {
     const jobQueue = getJobQueue();
-    const schedules = await getDueSchedules(prisma);
+    const schedules = await getDueSchedules(orchestrationPrisma);
     for (const schedule of schedules) {
       try {
         await executeSchedule(schedule, {
-          db: prisma,
+          db: orchestrationPrisma,
           logger,
           enqueueAgentInvocations: async (payloads) => {
             await jobQueue.addJobs(
@@ -70,6 +82,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
               })),
             );
           },
+          expandStepInputs,
           defaultTimeoutMs: 300_000,
           requireHttpsAgentEndpoints:
             env.REQUIRE_HTTPS_AGENT_ENDPOINTS === "true",
@@ -93,7 +106,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       "invoke_agent started",
     );
 
-    const claimed = await prisma.agentJobExecution.updateMany({
+    const claimed = await orchestrationPrisma.agentJobExecution.updateMany({
       where: { jobId: payload.jobId, status: AgentJobExecutionStatus.pending },
       data: {
         status: AgentJobExecutionStatus.running,
@@ -131,7 +144,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
         },
         "invoke_agent failed",
       );
-      await prisma.agentJobExecution.update({
+      await orchestrationPrisma.agentJobExecution.update({
         where: { jobId: payload.jobId },
         data: {
           status: AgentJobExecutionStatus.failed,
