@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/packages/env/.env"
+ENV_FILE="$SCRIPT_DIR/packages/shared/env/.env"
 NON_INTERACTIVE="false"
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
@@ -206,7 +206,7 @@ set_agent_registry_api_key_for_all_agents() {
   local agent_dir
   local env_local_file
 
-  for agent_dir in "$SCRIPT_DIR/apps/agents"/*; do
+  for agent_dir in "$SCRIPT_DIR/apps/mediapulse/agents"/*; do
     if [[ -d "$agent_dir" ]]; then
       env_local_file="$agent_dir/.env.local"
       if [[ ! -f "$env_local_file" ]]; then
@@ -256,7 +256,7 @@ main() {
   else
     section "Database migrations"
     (
-      cd packages/database
+      cd packages/shared/database
       pnpm db:migrate:dev
       pnpm db:generate
     )
@@ -273,12 +273,12 @@ main() {
   else
     section "Create admin and API keys"
     (
-      cd apps/hermes
+      cd apps/hermes/dashboard
       pnpm create:admin "$ADMIN_EMAIL" "$ADMIN_PASSWORD" >/dev/null
     )
 
     SCHEDULER_OUTPUT="$(
-      cd apps/hermes
+      cd apps/hermes/dashboard
       pnpm generate-api-key "$ADMIN_EMAIL" "$SCHEDULER_KEY_NAME" --purpose scheduler
     )"
     SCHEDULER_API_KEY="$(extract_generated_api_key "$SCHEDULER_OUTPUT")"
@@ -289,7 +289,7 @@ main() {
     fi
 
     REGISTRY_OUTPUT="$(
-      cd apps/hermes
+      cd apps/hermes/dashboard
       pnpm generate-api-key "$ADMIN_EMAIL" "$REGISTRY_KEY_NAME" --purpose general
     )"
     REGISTRY_API_KEY="$(extract_generated_api_key "$REGISTRY_OUTPUT")"
@@ -310,7 +310,7 @@ main() {
   echo "  - AGENT_AUTH_API_URL=$AGENT_AUTH_API_URL"
   echo "  - AGENT_API_KEY"
   echo "  - AGENT_REGISTRY_API_KEY"
-  echo "Updated apps/agents/*/.env.local with:"
+  echo "Updated apps/mediapulse/agents/*/.env.local with:"
   echo "  - AGENT_REGISTRY_API_KEY"
   if [[ "$SKIP_ADMIN" == "false" ]]; then
     echo ""

@@ -16,5 +16,5 @@ ENV NODE_ENV=production
 ENV PORT=4003
 EXPOSE 4003
 
-COPY --from=builder /app/apps/agents/delivery/dist/server.js ./server.js
+COPY --from=builder /app/apps/mediapulse/agents/delivery/dist/server.js ./server.js
 CMD ["bun", "server.js"]

@@ -40,10 +40,10 @@ ENV PORT=3002
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-COPY --from=builder --chown=nextjs:nodejs /app/apps/user-registration/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/user-registration/.next/static ./apps/user-registration/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/mediapulse/user-registration/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/mediapulse/user-registration/.next/static ./apps/mediapulse/user-registration/.next/static
 
 USER nextjs
 
 EXPOSE 3002
-CMD ["node", "apps/user-registration/server.js"]
+CMD ["node", "apps/mediapulse/user-registration/server.js"]

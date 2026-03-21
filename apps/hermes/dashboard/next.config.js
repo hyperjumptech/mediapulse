@@ -1,4 +1,4 @@
-// apps/hermes/next.config.js
+// apps/hermes/dashboard/next.config.js
 import path from "path";
 import { fileURLToPath } from "url";
 import nextEnv from "@next/env";
@@ -8,10 +8,10 @@ const { loadEnvConfig } = nextEnv;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const envDir = path.resolve(__dirname, "../../packages/env");
+const envDir = path.resolve(__dirname, "../../../packages/shared/env");
 loadEnvConfig(envDir);
 
-const monorepoRoot = path.resolve(__dirname, "../..");
+const monorepoRoot = path.resolve(__dirname, "../../..");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

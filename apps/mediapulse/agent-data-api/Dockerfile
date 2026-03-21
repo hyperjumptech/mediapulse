@@ -20,5 +20,5 @@ ENV NODE_ENV=production
 ENV PORT=8081
 EXPOSE 8081
 
-COPY --from=builder /app/apps/agent-data-api/dist/server.js ./server.js
+COPY --from=builder /app/apps/mediapulse/agent-data-api/dist/server.js ./server.js
 CMD ["bun", "server.js"]

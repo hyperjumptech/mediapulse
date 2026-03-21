@@ -9,8 +9,8 @@
 #   --admin-email EMAIL Use this email when creating a new registry API key (required for create).
 #   --key-name NAME    Name for the new API key (default: "Agent registry (<agent-name>)").
 #
-# Get or create: reads AGENT_REGISTRY_API_KEY from any existing apps/agents/*/.env.local
-# or packages/env/.env; if missing, creates one via Hermes generate-api-key (requires
+# Get or create: reads AGENT_REGISTRY_API_KEY from any existing apps/mediapulse/agents/*/.env.local
+# or packages/shared/env/.env; if missing, creates one via Hermes generate-api-key (requires
 # --admin-email and Hermes .env.local with DB).
 
 set -euo pipefail
@@ -79,8 +79,8 @@ if [[ -z "$AGENT_NAME" ]]; then
   exit 1
 fi
 
-AGENT_DIR="$SCRIPT_DIR/apps/agents/$AGENT_NAME"
-ENV_PKG="$SCRIPT_DIR/packages/env"
+AGENT_DIR="$SCRIPT_DIR/apps/mediapulse/agents/$AGENT_NAME"
+ENV_PKG="$SCRIPT_DIR/packages/shared/env"
 EXAMPLE_FILE="$ENV_PKG/env.agents.${AGENT_NAME}.example"
 
 if [[ ! -d "$AGENT_DIR" ]]; then
@@ -153,7 +153,7 @@ else
   echo "Skipping bootstrap (--no-bootstrap)."
   # Ensure .env and .env.local exist for this agent
   cd "$AGENT_DIR"
-  ln -sf "../../../packages/env/.env" ".env"
+  ln -sf "$ENV_PKG/.env" ".env"
   [[ -L ".env.local" ]] && rm -f ".env.local"
   "$ENV_PKG/merge-agent-env.sh" "$EXAMPLE_FILE" ".env.local" 2>/dev/null || true
   cd - >/dev/null
@@ -164,7 +164,7 @@ section "Get or create AGENT_REGISTRY_API_KEY"
 REGISTRY_KEY=""
 
 # 1. From any existing agent .env.local
-for f in "$SCRIPT_DIR/apps/agents"/*/.env.local; do
+for f in "$SCRIPT_DIR/apps/mediapulse/agents"/*/.env.local; do
   if [[ -f "$f" ]]; then
     REGISTRY_KEY="$(get_env_value "$f" "AGENT_REGISTRY_API_KEY")"
     if [[ -n "$REGISTRY_KEY" ]]; then
@@ -174,11 +174,11 @@ for f in "$SCRIPT_DIR/apps/agents"/*/.env.local; do
   fi
 done
 
-# 2. From packages/env/.env
-if [[ -z "$REGISTRY_KEY" && -f "$SCRIPT_DIR/packages/env/.env" ]]; then
-  REGISTRY_KEY="$(get_env_value "$SCRIPT_DIR/packages/env/.env" "AGENT_REGISTRY_API_KEY")"
+# 2. From packages/shared/env/.env
+if [[ -z "$REGISTRY_KEY" && -f "$SCRIPT_DIR/packages/shared/env/.env" ]]; then
+  REGISTRY_KEY="$(get_env_value "$SCRIPT_DIR/packages/shared/env/.env" "AGENT_REGISTRY_API_KEY")"
   if [[ -n "$REGISTRY_KEY" ]]; then
-    echo "  Using key from packages/env/.env"
+    echo "  Using key from packages/shared/env/.env"
   fi
 fi
 
@@ -187,8 +187,8 @@ if [[ -z "$REGISTRY_KEY" ]]; then
   if [[ -z "$ADMIN_EMAIL" ]]; then
     # Try env
     ADMIN_EMAIL="${ADMIN_EMAIL:-}"
-    if [[ -f "$SCRIPT_DIR/packages/env/.env" ]]; then
-      ADMIN_EMAIL="$(get_env_value "$SCRIPT_DIR/packages/env/.env" "ADMIN_EMAIL")"
+    if [[ -f "$SCRIPT_DIR/packages/shared/env/.env" ]]; then
+      ADMIN_EMAIL="$(get_env_value "$SCRIPT_DIR/packages/shared/env/.env" "ADMIN_EMAIL")"
     fi
   fi
   if [[ -z "$ADMIN_EMAIL" ]]; then
@@ -200,7 +200,7 @@ if [[ -z "$REGISTRY_KEY" ]]; then
   KEY_NAME="${KEY_NAME:-Agent registry ($AGENT_NAME)}"
   echo "  Creating new API key via Hermes generate-api-key..."
   HERMES_OUTPUT="$(
-    cd "$SCRIPT_DIR/apps/hermes"
+    cd "$SCRIPT_DIR/apps/hermes/dashboard"
     pnpm generate-api-key "$ADMIN_EMAIL" "$KEY_NAME" --purpose general 2>&1
   )"
   REGISTRY_KEY="$(printf '%s\n' "$HERMES_OUTPUT" | extract_generated_api_key)"

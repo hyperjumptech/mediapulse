@@ -27,7 +27,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/env
+        working-directory: packages/shared/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -44,7 +44,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/agent-auth-api/fly.toml
+        run: flyctl deploy --remote-only -c apps/hermes/agent-auth-api/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -68,7 +68,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/env
+        working-directory: packages/shared/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -85,7 +85,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/agent-data-api/fly.toml
+        run: flyctl deploy --remote-only -c apps/mediapulse/agent-data-api/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -109,7 +109,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/env
+        working-directory: packages/shared/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -126,7 +126,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/agent-registry-api/fly.toml
+        run: flyctl deploy --remote-only -c apps/hermes/agent-registry-api/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -150,7 +150,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/env
+        working-directory: packages/shared/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -164,7 +164,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/user-registration/fly.toml
+        run: flyctl deploy --remote-only -c apps/mediapulse/user-registration/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -188,7 +188,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/env
+        working-directory: packages/shared/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -202,7 +202,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/hermes/fly.toml
+        run: flyctl deploy --remote-only -c apps/hermes/dashboard/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -226,7 +226,7 @@ jobs:
         run: |
           cp env.example .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        working-directory: packages/env
+        working-directory: packages/shared/env
 
       - name: Bootstrap env symlinks
         run: ./dev-bootstrap.sh
@@ -240,6 +240,6 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/hermes-worker/fly.toml
+        run: flyctl deploy --remote-only -c apps/hermes/worker/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -42,10 +42,10 @@ ENV PORT=3001
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/.next/static ./apps/hermes/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/dashboard/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/dashboard/.next/static ./apps/hermes/dashboard/.next/static
 
 USER nextjs
 
 EXPOSE 3001
-CMD ["node", "apps/hermes/server.js"]
+CMD ["node", "apps/hermes/dashboard/server.js"]

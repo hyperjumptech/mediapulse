@@ -20,5 +20,5 @@ ENV NODE_ENV=production
 ENV PORT=8082
 EXPOSE 8082
 
-COPY --from=builder /app/apps/agent-registry-api/dist/server.js ./server.js
+COPY --from=builder /app/apps/hermes/agent-registry-api/dist/server.js ./server.js
 CMD ["bun", "server.js"]

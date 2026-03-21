@@ -20,5 +20,5 @@ FROM oven/bun:1
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=builder /app/apps/hermes-worker/dist/server.js ./server.js
+COPY --from=builder /app/apps/hermes/worker/dist/server.js ./server.js
 CMD ["bun", "server.js"]
