@@ -225,6 +225,19 @@ model Ticker {
   @@map("ticker")
 }
 
+/// End-user / newsletter subscriber in the Mediapulse domain (distinct from Hermes orchestration `User` admins).
+model MediapulseUser {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userTickers UserTicker[]
+
+  @@map("mediapulse_user")
+}
+
 model UserTicker {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
@@ -233,7 +246,8 @@ model UserTicker {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  ticker Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  user   MediapulseUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticker Ticker         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
 
   @@unique([userId, tickerId])
   @@map("user_ticker")

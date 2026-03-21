@@ -1,0 +1,148 @@
+/** @vitest-environment node */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+/**
+ * Row shape for `userTicker.findMany({ include: { user: true } })` (Prisma 7 does not export `GetPayload` here).
+ */
+type UserTickerWithUserRow = {
+  id: string;
+  userId: string;
+  tickerId: string;
+  enabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+};
+
+vi.mock("@mediapulse/database", () => ({
+  prisma: {
+    newsletter: { findFirst: vi.fn() },
+    userTicker: { findMany: vi.fn() },
+  },
+}));
+
+describe("getDeliveryData", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns null when no newsletter exists for ticker", async () => {
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.newsletter.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.userTicker.findMany).mockResolvedValue([]);
+
+    const { getDeliveryData } = await import("./delivery.js");
+    const result = await getDeliveryData("ticker-1");
+
+    expect(result).toBeNull();
+    expect(prisma.userTicker.findMany).toHaveBeenCalledWith({
+      where: { tickerId: "ticker-1", enabled: true },
+      include: { user: true },
+    });
+  });
+
+  it("returns newsletter and subscriber emails from Mediapulse users", async () => {
+    const { prisma } = await import("@mediapulse/database");
+    const newsletter = {
+      id: "n1",
+      subject: "Subj",
+      description: null,
+      content: "Body",
+      tickerId: "t1",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    };
+    vi.mocked(prisma.newsletter.findFirst).mockResolvedValue(newsletter);
+    const rows: UserTickerWithUserRow[] = [
+      {
+        id: "ut1",
+        userId: "u1",
+        tickerId: "t1",
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        user: {
+          id: "u1",
+          email: "a@example.com",
+          name: "A",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+      {
+        id: "ut2",
+        userId: "u2",
+        tickerId: "t1",
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        user: {
+          id: "u2",
+          email: "b@example.com",
+          name: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+    ];
+    vi.mocked(prisma.userTicker.findMany).mockResolvedValue(
+      rows as unknown as Awaited<ReturnType<typeof prisma.userTicker.findMany>>,
+    );
+
+    const { getDeliveryData } = await import("./delivery.js");
+    const result = await getDeliveryData("t1");
+
+    expect(result).toEqual({
+      newsletter,
+      subscribers: [{ email: "a@example.com" }, { email: "b@example.com" }],
+    });
+  });
+
+  it("filters out empty emails", async () => {
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.newsletter.findFirst).mockResolvedValue({
+      id: "n1",
+      subject: "S",
+      description: null,
+      content: "C",
+      tickerId: "t1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const rows: UserTickerWithUserRow[] = [
+      {
+        id: "ut1",
+        userId: "u1",
+        tickerId: "t1",
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        user: {
+          id: "u1",
+          email: "",
+          name: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+    ];
+    vi.mocked(prisma.userTicker.findMany).mockResolvedValue(
+      rows as unknown as Awaited<ReturnType<typeof prisma.userTicker.findMany>>,
+    );
+
+    const { getDeliveryData } = await import("./delivery.js");
+    const result = await getDeliveryData("t1");
+
+    expect(result?.subscribers).toEqual([]);
+  });
+});

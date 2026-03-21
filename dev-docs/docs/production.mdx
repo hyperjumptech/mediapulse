@@ -26,7 +26,7 @@ Use this checklist to deploy the system in the right order. Each step assumes th
 
 ### 3. agent-data-api and agent-registry-api
 
-- [ ] **agent-data-api** is deployed with **`AGENT_AUTH_API_URL`** set to the agent-auth-api URL. **`DATABASE_URL`** set.
+- [ ] **agent-data-api** is deployed with **`AGENT_AUTH_API_URL`** set to the agent-auth-api URL. **`MEDIAPULSE_DATABASE_URL`** set (Mediapulse Prisma only; no orchestration DB).
 - [ ] **agent-registry-api** is deployed with **`AGENT_AUTH_API_URL`** set to the agent-auth-api URL. **`DATABASE_URL`** set.
 - [ ] **Smoke test:** Both APIs are reachable. They will return 401 without a valid Bearer token; that is expected.
 
@@ -80,7 +80,7 @@ Hermes-oriented keys come from **`packages/hermes/env/env.example`**. Mediapulse
 | `REQUIRE_HTTPS_AGENT_ENDPOINTS` | No             | Set to `true` in production so hermes-worker rejects agent endpoints that use `http` with a non-local host. Localhost and 127.0.0.1 are always allowed.                                                                                                                                                                    |
 | `TEMP_ADMIN_USERNAME`           | Yes            | Admin username for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                            |
 | `TEMP_ADMIN_PASSWORD`           | Yes            | Admin password for dashboard/pipeline auth. **Choose a strong value in production**; the example value is for development only.                                                                                                                                                                                            |
-| `OUTLOOK_CLIENT_ID`             | No             | Azure App Registration (Microsoft Entra) → **Application (client) ID**. Used by Outlook/Microsoft Graph integrations and scripts (see [Microsoft setup](/mediapulse/packages/outlook-inbox/microsoft-setup)).                                                                                                                         |
+| `OUTLOOK_CLIENT_ID`             | No             | Azure App Registration (Microsoft Entra) → **Application (client) ID**. Used by Outlook/Microsoft Graph integrations and scripts (see [Microsoft setup](/mediapulse/packages/outlook-inbox/microsoft-setup)).                                                                                                              |
 | `OUTLOOK_CLIENT_SECRET`         | No             | Azure App Registration → **Certificates & secrets** → client secret value. Store as a server-side secret.                                                                                                                                                                                                                  |
 | `OUTLOOK_TENANT_ID`             | No             | Azure App Registration → **Directory (tenant) ID**.                                                                                                                                                                                                                                                                        |
 | `OUTLOOK_USER_ID`               | No             | Mailbox identifier for app-only Graph access: usually the shared mailbox email (for example `shared@yourdomain.com`), or an Azure AD object ID.                                                                                                                                                                            |
@@ -103,11 +103,13 @@ Hermes-oriented keys come from **`packages/hermes/env/env.example`**. Mediapulse
 
 ### agent-data-api
 
-| Variable             | Required | How to find the value                                                        |
-| -------------------- | -------- | ---------------------------------------------------------------------------- |
-| `DATABASE_URL`       | Yes      | Shared.                                                                      |
-| `PORT`               | No       | Default `8081`.                                                              |
-| `AGENT_AUTH_API_URL` | Yes      | Shared. Used to verify invocation JWTs on each request (`POST /api/verify`). |
+| Variable                  | Required | How to find the value                                                        |
+| ------------------------- | -------- | ---------------------------------------------------------------------------- |
+| `MEDIAPULSE_DATABASE_URL` | Yes      | Mediapulse Prisma schema (see `@mediapulse/env`).                            |
+| `PORT`                    | No       | Default `8081`.                                                              |
+| `AGENT_AUTH_API_URL`      | Yes      | Shared. Used to verify invocation JWTs on each request (`POST /api/verify`). |
+
+This app does **not** use the orchestration database; subscriber data lives in **`MediapulseUser`** / `user_ticker` only.
 
 ---
 
@@ -226,7 +228,7 @@ Uses **`packages/mediapulse/env/env.agents.ticker-echo.example`**.
 
 ## Summary
 
-- **Required everywhere (when the app uses DB):** `DATABASE_URL`. For agent-data-api and agent-registry-api add `AGENT_AUTH_API_URL`. For Hermes and hermes-worker add `AGENT_AUTH_API_URL` and `AGENT_API_KEY`. For agent-auth-api add `AGENT_AUTH_JWT_SECRET` and `TEMP_ADMIN_*`. For Hermes add `TEMP_ADMIN_*`.
+- **Required everywhere (when the app uses DB):** `DATABASE_URL` (Hermes/orchestration) or `MEDIAPULSE_DATABASE_URL` (Mediapulse apps, including **agent-data-api**—it does not use orchestration DB). For agent-data-api and agent-registry-api add `AGENT_AUTH_API_URL`. For Hermes and hermes-worker add `AGENT_AUTH_API_URL` and `AGENT_API_KEY`. For agent-auth-api add `AGENT_AUTH_JWT_SECRET` and `TEMP_ADMIN_*`. For Hermes add `TEMP_ADMIN_*`.
 - **Optional:** `DATABASE_CERT_BASE64` (TLS), `PORT` (override defaults), `REQUIRE_HTTPS_AGENT_ENDPOINTS` (hermes-worker), Outlook Graph vars, and for agents auto-registration (`AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `AGENT_API_KEY`, `AGENT_AUTH_API_URL`) when you want startup registration.
 - **Where to set them:** Use your host’s env config (e.g. Vercel, Railway, Docker env files). Never commit real secrets; use secrets managers or platform secret storage.
 - After changing any `env*.example` file, run `pnpm build` in `packages/hermes/env` and/or `packages/mediapulse/env` to regenerate types.

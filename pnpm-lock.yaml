@@ -381,9 +381,6 @@ importers:
 
   apps/mediapulse/agent-data-api:
     dependencies:
-      '@hermes/orchestration-database':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/orchestration-database
       '@mediapulse/database':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/database

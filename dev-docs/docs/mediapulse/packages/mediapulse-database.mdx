@@ -23,7 +23,8 @@ icon: Database
 
 ## Key models
 
-- `Ticker`, `UserTicker`, `SearchQuery`
+- `MediapulseUser` — End users / subscribers (distinct from Hermes orchestration `User` admins).
+- `Ticker`, `UserTicker` (FK to `MediapulseUser`), `SearchQuery`
 - `Newsletter`
 - `DataSource`, `DataSourceExpansion`
 - `EntityType`, `RelationType`, `Entity`, `EntityAlias`, `TickerEntity`, `EntityRelation`

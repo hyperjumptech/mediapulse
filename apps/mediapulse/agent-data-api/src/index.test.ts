@@ -28,11 +28,7 @@ vi.mock("@workspace/agent-auth-client", () => ({
 vi.mock("@mediapulse/env", () => ({
   env: {
     AGENT_AUTH_API_URL: "http://auth.example.com",
-    ORCHESTRATION_DATABASE_URL:
-      "postgresql://localhost/test?schema=orchestration",
     MEDIAPULSE_DATABASE_URL: "postgresql://localhost/test?schema=mediapulse",
-    TEMP_ADMIN_USERNAME: "admin",
-    TEMP_ADMIN_PASSWORD: "admin",
   },
 }));
 

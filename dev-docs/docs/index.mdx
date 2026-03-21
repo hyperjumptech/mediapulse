@@ -8,7 +8,7 @@ icon: Home
 
 **MediaPulse** is the product: an AI-assisted newsletter and pipeline platform. The repo is split into two **domains**:
 
-- **Hermes** — Orchestration: dashboard, worker/scheduler, auth API, registry API, and the **orchestration** database (pipelines, schedules, API keys, users).
+- **Hermes** — Orchestration: dashboard, worker/scheduler, auth API, registry API, and the **orchestration** database (pipelines, schedules, API keys, **admin** users).
 - **Mediapulse** — Product data and runtime agents: **agent-data-api**, **domain API** (Mediapulse DB + Hermes integration), user registration, and HTTP **agents** under `apps/mediapulse/agents/*`, backed by the **Mediapulse** database (tickers, newsletters, knowledge graph, and related tables).
 
 Hermes does **not** query Mediapulse tables directly for expansion or domain UI; it calls the **Mediapulse domain API** over HTTP. See [Hermes and Mediapulse domains](/architecture/domains).

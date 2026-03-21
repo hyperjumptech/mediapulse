@@ -16,7 +16,6 @@
     "@workspace/api-utils": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@mediapulse/database": "workspace:*",
-    "@hermes/orchestration-database": "workspace:*",
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",

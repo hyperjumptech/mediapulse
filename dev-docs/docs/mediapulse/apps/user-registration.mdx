@@ -8,6 +8,8 @@ icon: UserPlus
 
 User Registration is a Next.js app that provides a user-facing registration and onboarding interface. It shares the same stack as Hermes (Next.js, `@workspace/env`, `@workspace/ui`) but is a distinct deployable app.
 
+When you implement real signups, create **`MediapulseUser`** rows (and `user_ticker` as needed) in the Mediapulse database. Do **not** create Hermes orchestration **`User`** rows for end subscribers; those are **admin** accounts only.
+
 ## Key routes / entrypoints
 
 - Home: `/` — landing page for user registration flow.

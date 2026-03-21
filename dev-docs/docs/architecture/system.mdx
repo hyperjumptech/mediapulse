@@ -8,7 +8,7 @@ icon: GitBranch
 
 **Hermes** (Next.js) is the orchestration dashboard: pipelines, schedules, API keys, and integration with the **Mediapulse domain API** for data-source expansion and domain-owned UI. The **hermes-worker** runs the DataQueue scheduler: it invokes agents over HTTP with short-lived JWTs. **Mediapulse** provides **agent-data-api** (agent persistence), **domain-api** (Mediapulse DB + Hermes contract), **user-registration**, and the **agents** in `apps/mediapulse/agents/*`.
 
-Persistent data uses **two Prisma packages** on the same PostgreSQL cluster in typical setups: **orchestration** (`@hermes/orchestration-database`) and **Mediapulse** (`@mediapulse/database`). DataQueue uses a separate schema (`dataqueue`); migrate from **hermes-worker**.
+Persistent data uses **two Prisma packages** (`@hermes/orchestration-database` and `@mediapulse/database`). They may point at the same PostgreSQL server with different schemas or at **different databases** depending on deployment. DataQueue uses a separate schema (`dataqueue`); migrate from **hermes-worker**.
 
 For domain boundaries (which app lives where), see [Hermes and Mediapulse domains](/architecture/domains).
 

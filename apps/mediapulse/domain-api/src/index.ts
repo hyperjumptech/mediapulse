@@ -80,6 +80,16 @@ const dataSourceExpansionUpdateSchema = z.object({
   description: z.string().nullable().optional(),
 });
 
+const mediapulseUserCreateSchema = z.object({
+  email: z.string().email(),
+  name: z.string().optional().nullable(),
+});
+
+const mediapulseUserUpdateSchema = z.object({
+  email: z.string().email(),
+  name: z.string().optional().nullable(),
+});
+
 /**
  * JSON Schema `properties` for ticker `metadata` (IDX-style emiten row).
  * Hermes renders one control per key; keys omitted here stay in DB via PATCH merge but are not editable in the UI.
@@ -194,6 +204,40 @@ const dashboardManifest = dashboardManifestSchema.parse({
           accept: ".json,application/json",
         },
       ],
+    },
+    {
+      id: "mediapulse-users",
+      label: "Mediapulse users",
+      description:
+        "End users and newsletter subscribers (distinct from Hermes dashboard admins).",
+      pathSegment: "mediapulse-users",
+      template: "table-v1",
+      apiPrefix: "/v1/hermes-dashboard/mediapulse-users",
+      order: 15,
+      columns: [
+        { key: "email", label: "Email", type: "text" },
+        { key: "name", label: "Name", type: "text" },
+        { key: "createdAt", label: "Created", type: "date-time" },
+      ],
+      searchableFields: ["email", "name"],
+      sortableFields: ["email", "createdAt"],
+      actions: { create: true, update: true, delete: true },
+      createSchema: {
+        type: "object",
+        required: ["email"],
+        properties: {
+          email: { type: "string", title: "Email", format: "email" },
+          name: { type: "string", title: "Name" },
+        },
+      },
+      updateSchema: {
+        type: "object",
+        required: ["email"],
+        properties: {
+          email: { type: "string", title: "Email", format: "email" },
+          name: { type: "string", title: "Name" },
+        },
+      },
     },
     {
       id: "entity-types",
@@ -613,6 +657,127 @@ api.delete("/hermes-dashboard/tickers/:id", async (c) => {
   });
   if (result.count < 1) {
     return c.json({ message: "Ticker not found" }, 404);
+  }
+  return c.json({ ok: true });
+});
+
+api.get("/hermes-dashboard/mediapulse-users", async (c) => {
+  const { page, pageSize } = parsePagination(
+    c.req.query("page"),
+    c.req.query("pageSize"),
+  );
+  const query = c.req.query("q")?.trim();
+  const sortBy = c.req.query("sortBy");
+  const sortDir: Prisma.SortOrder =
+    c.req.query("sortDir") === "desc" ? "desc" : "asc";
+  const skip = (page - 1) * pageSize;
+
+  const where = query
+    ? ({
+        OR: [
+          { email: { contains: query, mode: "insensitive" as const } },
+          { name: { contains: query, mode: "insensitive" as const } },
+        ],
+      } satisfies Prisma.MediapulseUserWhereInput)
+    : undefined;
+  const orderBy =
+    sortBy === "createdAt" ? { createdAt: sortDir } : { email: sortDir };
+
+  const [rows, total] = await Promise.all([
+    prisma.mediapulseUser.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy,
+    }),
+    prisma.mediapulseUser.count({ where }),
+  ]);
+
+  const payload = tableV1ListResponseSchema.parse({
+    items: rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    })),
+    total,
+    page,
+    pageSize,
+  });
+
+  return c.json(payload);
+});
+
+api.post("/hermes-dashboard/mediapulse-users", async (c) => {
+  const body = mediapulseUserCreateSchema.safeParse(await c.req.json());
+  if (!body.success) {
+    return c.json({ message: "Invalid request body" }, 400);
+  }
+
+  try {
+    const created = await prisma.mediapulseUser.create({
+      data: {
+        email: body.data.email.trim().toLowerCase(),
+        name: nullableText(body.data.name),
+      },
+    });
+    return c.json({ id: created.id }, 201);
+  } catch (e: unknown) {
+    if (
+      typeof e === "object" &&
+      e !== null &&
+      "code" in e &&
+      (e as { code: string }).code === "P2002"
+    ) {
+      return c.json({ message: "Email already exists" }, 409);
+    }
+    throw e;
+  }
+});
+
+api.patch("/hermes-dashboard/mediapulse-users/:id", async (c) => {
+  const body = mediapulseUserUpdateSchema.safeParse(await c.req.json());
+  if (!body.success) {
+    return c.json({ message: "Invalid request body" }, 400);
+  }
+
+  try {
+    const updated = await prisma.mediapulseUser.update({
+      where: { id: c.req.param("id") },
+      data: {
+        email: body.data.email.trim().toLowerCase(),
+        name: nullableText(body.data.name),
+      },
+    });
+    return c.json({ id: updated.id });
+  } catch (e: unknown) {
+    if (
+      typeof e === "object" &&
+      e !== null &&
+      "code" in e &&
+      (e as { code: string }).code === "P2025"
+    ) {
+      return c.json({ message: "User not found" }, 404);
+    }
+    if (
+      typeof e === "object" &&
+      e !== null &&
+      "code" in e &&
+      (e as { code: string }).code === "P2002"
+    ) {
+      return c.json({ message: "Email already exists" }, 409);
+    }
+    throw e;
+  }
+});
+
+api.delete("/hermes-dashboard/mediapulse-users/:id", async (c) => {
+  const result = await prisma.mediapulseUser.deleteMany({
+    where: { id: c.req.param("id") },
+  });
+  if (result.count < 1) {
+    return c.json({ message: "User not found" }, 404);
   }
   return c.json({ ok: true });
 });

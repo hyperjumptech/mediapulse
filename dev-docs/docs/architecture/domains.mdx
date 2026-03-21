@@ -4,11 +4,13 @@ description: How orchestration (Hermes) and product data (Mediapulse) are split 
 icon: Layers
 ---
 
-The monorepo contains two **product domains** that share one PostgreSQL cluster in typical deployments but keep **separate Prisma schemas**, **separate env packages**, and **separate app trees**.
+The monorepo contains two **product domains**. You can run them on one PostgreSQL server with **separate schemas**, or use **separate databases or hosts** by pointing `ORCHESTRATION_DATABASE_URL` and `MEDIAPULSE_DATABASE_URL` at different URLs. Env packages and app trees stay split per domain.
+
+**User identities are split:** **Hermes (orchestration) `User`** rows are **dashboard / admin** accounts (API keys, login). **Mediapulse `MediapulseUser`** rows are **end users / newsletter subscribers** (`user_ticker` references them). Do not use orchestration users as newsletter recipients.
 
 ## Hermes domain (orchestration)
 
-**Role:** Pipelines, schedules, API keys, agent registry metadata, users for the dashboard, and the worker that runs scheduled jobs. Hermes does **not** own newsletter/ticker/KG tables; it calls the **Mediapulse domain API** over HTTP for data-source expansion and dashboard pages that need Mediapulse data.
+**Role:** Pipelines, schedules, API keys, agent registry metadata, **admin** users for the dashboard, and the worker that runs scheduled jobs. Hermes does **not** own newsletter/ticker/KG tables; it calls the **Mediapulse domain API** over HTTP for data-source expansion and dashboard pages that need Mediapulse data.
 
 | Area                                                     | Location / package                                                          |
 | -------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -23,7 +25,7 @@ The monorepo contains two **product domains** that share one PostgreSQL cluster 
 
 ## Mediapulse domain (product data & agents)
 
-**Role:** Ticker/newsletter/knowledge-graph data, agent-data persistence API, user-facing registration app, operational **agents** (HTTP services invoked by Hermes), and the **domain API** that serves Mediapulse-specific expansion and Hermes dashboard `table-v1` resources.
+**Role:** Ticker/newsletter/knowledge-graph data, **Mediapulse users** (subscribers), agent-data persistence API, user-facing registration app, operational **agents** (HTTP services invoked by Hermes), and the **domain API** that serves Mediapulse-specific expansion and Hermes dashboard `table-v1` resources (including **Mediapulse users** CRUD).
 
 | Area                                                               | Location / package                                                                                |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |

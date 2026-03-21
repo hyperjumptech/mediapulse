@@ -15,7 +15,7 @@ agent-data-api is the **HTTP persistence layer between agents and the database**
 - **Bearer auth** — Requests must send `Authorization: Bearer <jwt>` (the same short-lived invocation JWT Hermes sends to agents). Verified with agent-auth-api `POST /api/verify` via `verifyTokenViaAuthApi`; agents forward the `Authorization` header from their run context to the SDK.
 - **Content generation** — Stores and loads generated newsletter-style output so downstream steps can reuse it without reshaping ad hoc payloads.
 - **Data collection** — Stores and loads crawled or gathered source material (pages, feeds, etc.) so collection and later stages see the same structured snapshot.
-- **Delivery** — Stores and loads what is needed to send a newsletter: composed content plus subscriber-oriented data, so the sending path does not re-derive everything from scratch.
+- **Delivery** — Loads newsletter content plus **subscriber emails** resolved from **`MediapulseUser`** via `user_ticker` (Mediapulse DB). Subscriber emails are **not** read from Hermes orchestration `User` (admins).
 
 **Contract-driven routing:** URL paths and the `@workspace/agent-data-api-client` method namespaces are derived from `agentDataApiManifest` plus version helpers in `@workspace/agent-data-api-contract` (resource keys → `/api/<version>/...` segments). That keeps the server, SDK, and docs aligned and avoids one-off paths in app or agent code.
 

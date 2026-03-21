@@ -8,9 +8,8 @@ RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
 
 # Generate Prisma client (Mediapulse domain DB)
-ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
-RUN pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
+RUN pnpm --filter=@mediapulse/database run db:generate
 
 RUN pnpm exec turbo build --filter=@mediapulse/agent-data-api
 
