@@ -25,5 +25,5 @@ Mediapulse agents under `apps/mediapulse/agents/*` share `packages/mediapulse/en
 
 **Scripts:**
 
-- `merge-env-examples.sh` — merges `env.example` and all `env.*.example` into `packages/mediapulse/env/.env`.
+- `merge-env-examples.sh` — merges `env.example` and all `env.*.example` into `packages/mediapulse/env/.env`. `env.agent-data-api.example` adds variables required by `@hermes/env` when agent-data-api loads `@workspace/orchestration-database` (align values with `packages/hermes/env/env.example`).
 - `merge-agent-env.sh <example-file> <output-file>` — merges one agent example into an app’s `.env.local`, preserving existing values.
