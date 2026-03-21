@@ -1,7 +1,5 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Button } from "@workspace/ui/components/button";
-import { Input } from "@workspace/ui/components/input";
 import {
   Table,
   TableBody,
@@ -13,6 +11,7 @@ import {
 import { ListPagination } from "@/components/list-pagination";
 import { PageHeader } from "@/components/page-header";
 import { DomainCreateModal } from "@/app/dashboard/domain-create-modal";
+import { DomainTableRowActions } from "@/app/dashboard/domain-table-row-actions";
 import { DomainTableJsonUploadCard } from "@/app/dashboard/domain-table-json-upload-card";
 import { DomainTableSearch } from "@/app/dashboard/domain-table-search";
 import {
@@ -285,55 +284,19 @@ export const DomainTablePage = async ({
                     ))}
                     {hasRowActions ? (
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {meta.actions.update && updateFields.length > 0 ? (
-                            <details>
-                              <summary className="cursor-pointer text-xs underline">
-                                Edit
-                              </summary>
-                              <form
-                                action={updateAction}
-                                className="mt-2 grid gap-2"
-                              >
-                                <input
-                                  type="hidden"
-                                  name="__id"
-                                  value={rowId}
-                                />
-                                {updateFields.map((field) => (
-                                  <label
-                                    key={field.key}
-                                    className="grid gap-1 text-xs"
-                                  >
-                                    <span>{field.label}</span>
-                                    <Input
-                                      name={field.key}
-                                      defaultValue={String(
-                                        row[field.key] ?? "",
-                                      )}
-                                      required={field.required}
-                                    />
-                                  </label>
-                                ))}
-                                <Button size="sm" type="submit">
-                                  Save
-                                </Button>
-                              </form>
-                            </details>
-                          ) : null}
-                          {meta.actions.delete ? (
-                            <form action={deleteAction}>
-                              <input type="hidden" name="__id" value={rowId} />
-                              <Button
-                                type="submit"
-                                size="sm"
-                                variant="outline"
-                                className="text-destructive"
-                              >
-                                Delete
-                              </Button>
-                            </form>
-                          ) : null}
+                        <div className="flex justify-end">
+                          <DomainTableRowActions
+                            rowId={rowId}
+                            row={row}
+                            updateFields={updateFields}
+                            updateAction={updateAction}
+                            deleteAction={deleteAction}
+                            showEdit={
+                              Boolean(meta.actions.update) &&
+                              updateFields.length > 0
+                            }
+                            showDelete={Boolean(meta.actions.delete)}
+                          />
                         </div>
                       </TableCell>
                     ) : null}
