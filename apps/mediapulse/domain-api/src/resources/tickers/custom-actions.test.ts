@@ -9,7 +9,7 @@ import {
   tickersCustomActionsForManifest,
   tickersTableV1CustomActionRegistrations,
   tickersTableV1CustomActions,
-} from "./tickers-table-v1-custom-actions";
+} from "./custom-actions";
 
 describe("tickersTableV1CustomActions", () => {
   it("exposes the same path and method on manifest rows and route registrations", () => {

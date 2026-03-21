@@ -7,14 +7,14 @@ import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 import { parsePagination } from "../../lib/list-pagination";
 import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
-import { mergeTickerMetadataForPatch } from "./merge-metadata";
-import { parseTickerMetadataJson } from "./parse-metadata-json";
+import { mergeTickerMetadataForPatch } from "./lib/merge-metadata";
+import { parseTickerMetadataJson } from "./lib/parse-metadata-json";
 import { mapRowToListItem } from "./list-mapper";
 import {
   tickerCreateBodySchema,
   tickerUpdateBodySchema,
 } from "./write-body-schemas";
-import { tickersTableV1CustomActionRegistrations } from "./tickers-table-v1-custom-actions";
+import { tickersTableV1CustomActionRegistrations } from "./custom-actions";
 
 /**
  * Hermes `table-v1` API for tickers plus IDX JSON import.

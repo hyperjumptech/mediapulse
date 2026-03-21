@@ -9,7 +9,7 @@ import {
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
-import { tickersCustomActionsForManifest } from "./tickers-table-v1-custom-actions";
+import { tickersCustomActionsForManifest } from "./custom-actions";
 import {
   tickerCreateFormJsonSchema,
   tickerUpdateFormJsonSchema,

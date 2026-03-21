@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 
 import { tickersRoutes } from "./routes";
-import { tickersTableV1CustomActions } from "./tickers-table-v1-custom-actions";
+import { tickersTableV1CustomActions } from "./custom-actions";
 
 describe("tickersRoutes", () => {
   it("registers POST for the IDX import path declared on the dashboard manifest", async () => {

@@ -5,7 +5,7 @@
 import type { DashboardPageCustomAction } from "@hermes/domain-contract";
 import type { Handler } from "hono";
 
-import { importIdxTickersFromRequestBody } from "./import-idx-json";
+import { importIdxTickersFromRequestBody } from "./lib/import-idx-json";
 
 /**
  * One tickers table-v1 custom action: Hermes manifest row plus the Hono handler that serves it.

@@ -12,7 +12,7 @@ import {
 } from "../../lib/hermes-form-json-schema-from-zod";
 import { buildWriteBodySchema } from "../../lib/prisma-write-schema/build-write-body-schema";
 import type { ListItem } from "./list-mapper";
-import { tickerMetadataFormProperties } from "./metadata-form-properties";
+import { tickerMetadataFormProperties } from "./lib/metadata-form-properties";
 
 const tickerMetadataBodySchema = z
   .union([z.string(), z.record(z.string(), z.unknown()), z.null()])
