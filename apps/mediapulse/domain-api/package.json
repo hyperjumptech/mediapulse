@@ -7,7 +7,7 @@
     "dev": "dotenv -e ./.env.local -- env PORT=8090 bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
     "generate": "pnpm run generate:prisma-write-field-metadata",
-    "generate:prisma-write-field-metadata": "tsx scripts/generate-prisma-write-field-metadata.ts",
+    "generate:prisma-write-field-metadata": "tsx scripts/generate-prisma-write-field-metadata.ts && pnpm exec prettier --write src/generated/prisma-write-field-metadata.ts",
     "test": "vitest run",
     "type:check": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\""

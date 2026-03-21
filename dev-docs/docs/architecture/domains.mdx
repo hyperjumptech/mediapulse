@@ -6,6 +6,38 @@ icon: Layers
 
 The repo is split into two **product domains**. You can host both on one PostgreSQL server using **separate schemas**, or run **separate databases** by pointing `ORCHESTRATION_DATABASE_URL` and `MEDIAPULSE_DATABASE_URL` at different URLs. Env packages and source trees stay aligned with each domain.
 
+### Domain overview
+
+Hermes keeps orchestration state in **one database**; Mediapulse keeps product and agent-run data in **another**. Cross-domain integration is **JWT-backed agent calls** from the worker and **HTTP to `domain-api`** for expansion and dashboard-backed tables (via `@hermes/domain-contract`).
+
+<Mermaid
+  chart={`flowchart TB
+  subgraph hermesDomain ["Hermes orchestration"]
+    dash["Dashboard & pipelines"]
+    wrk["Worker & DataQueue"]
+    aa["agent-auth-api"]
+    hdb[("Orchestration DB")]
+    dash --> wrk
+    wrk --> aa
+    aa --> hdb
+    wrk --> hdb
+  end
+
+subgraph mpDomain ["Mediapulse product"]
+ag["Operational agents"]
+ada["agent-data-api"]
+dapi["domain-api"]
+mdb[("Mediapulse DB")]
+ag --> ada
+ada --> mdb
+dapi --> mdb
+end
+
+wrk -->|"JWT Bearer"| ag
+wrk -->|"domain-contract HTTP"| dapi
+`}
+/>
+
 ### User identities
 
 **Hermes `User`** rows are **dashboard / admin** accounts (API keys, login). **Mediapulse `MediapulseUser`** rows are **end users / newsletter subscribers** (`user_ticker` references them). Do not treat orchestration users as newsletter recipients.
@@ -54,6 +86,6 @@ These are **not** “owned” by a single domain; both sides depend on them:
 
 1. **Pipeline runs:** Hermes / hermes-worker mints a short-lived JWT via **agent-auth-api** and calls **agents** (Mediapulse apps). Agents call **agent-data-api** with the same JWT.
 2. **Data-source expansion:** Scheduler asks the registered **domain API** (`expand-step-inputs`, `preview-expansion`); that service uses **Mediapulse** Prisma via `@mediapulse/hermes-integration`, not a direct Hermes→DB shortcut. See [Data source expansion](/architecture/data-source-expansion).
-3. **Dashboard tables for Mediapulse entities:** Hermes renders routes from the integration manifest and proxies list/meta/CRUD to the **domain API** (`/v1/hermes-dashboard/...`), not to `@mediapulse/database` from the Next.js server.
+3. **Dashboard tables for Mediapulse entities:** Hermes renders routes from the integration manifest and proxies list/meta/CRUD to the **domain API** (`/v1/hermes-dashboard/...`), not to `@mediapulse/database` from the Next.js server. See [Hermes domain integration dashboard pages](/architecture/hermes-domain-integration-pages) for the Next.js layout, routes, and HTTP flow.
 
 For auth flows and diagrams, see [Communication between parts](/architecture/communication). For step input and schemas, see [Agent–Hermes contract](/architecture/agent-hermes-contract).

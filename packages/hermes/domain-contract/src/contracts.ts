@@ -1,18 +1,30 @@
 import { z } from "zod";
 
+/**
+ * Capabilities supported by the domain integration. Currently only `expand-step-inputs` and `preview-expansion` are supported.
+ */
 export const domainIntegrationCapabilitySchema = z.enum([
   "expand-step-inputs",
   "preview-expansion",
 ]);
 
+/**
+ * Template type for a Hermes dashboard page. Currently only `table-v1` is supported.
+ */
 export const dashboardTemplateSchema = z.enum(["table-v1"]);
 
+/**
+ * Schema for a column in a Hermes dashboard page. A column basically needs a key, label, and type.
+ */
 export const dashboardPageColumnSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   type: z.enum(["text", "date-time"]).default("text"),
 });
 
+/**
+ * Schema for the actions on a Hermes dashboard page. Currently only create, update, and delete are supported.
+ */
 export const dashboardPageActionsSchema = z.object({
   create: z.boolean().default(false),
   update: z.boolean().default(false),
@@ -20,18 +32,10 @@ export const dashboardPageActionsSchema = z.object({
 });
 
 /**
- * UI kind for a domain-defined custom action on a table-v1 page.
- * Hermes renders the matching control and invokes the domain API at `apiPrefix` + `path`.
+ * Metadata for an optional custom action (e.g. bulk import) registered on a dashboard page.
  */
 export const dashboardPageCustomActionUiSchema = z.enum(["json-file-upload"]);
 
-/**
- * Metadata for an optional custom action (e.g. bulk import) registered on a dashboard page.
- *
- * @remarks
- * The domain service owns the HTTP handler; Hermes only renders UI from this metadata
- * and forwards requests with the integration auth token.
- */
 /** How Hermes opens create/edit flows for a table-v1 page. */
 export const dashboardPageCreateNavigationSchema = z
   .enum(["modal", "full-page"])
@@ -46,6 +50,9 @@ export const dashboardPagePreviewSchema = z.object({
   fieldKey: z.string().min(1),
 });
 
+/**
+ * Schema for a custom action registered on a dashboard page. For example, a bulk import action.
+ */
 export const dashboardPageCustomActionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -142,11 +149,23 @@ export const dashboardPageSchema = z.object({
   preview: dashboardPagePreviewSchema.optional(),
 });
 
+/**
+ * Schema for a Hermes dashboard manifest.
+ */
 export const dashboardManifestSchema = z.object({
+  /**
+   * Version of the dashboard manifest template. Currently only 1 is supported.
+   */
   templateVersion: z.literal(1).default(1),
+  /**
+   * List of pages in the dashboard manifest.
+   */
   pages: z.array(dashboardPageSchema).default([]),
 });
 
+/**
+ * Schema for the query parameters for a list request to a Hermes dashboard page.
+ */
 export const tableV1ListRequestQuerySchema = z.object({
   page: z.number().int().positive().default(1),
   pageSize: z.number().int().positive().max(100).default(15),
@@ -155,6 +174,9 @@ export const tableV1ListRequestQuerySchema = z.object({
   sortDir: z.enum(["asc", "desc"]).default("asc"),
 });
 
+/**
+ * Schema for the response from a list request to a Hermes dashboard page.
+ */
 export const tableV1ListResponseSchema = z.object({
   items: z.array(z.record(z.unknown())),
   total: z.number().int().nonnegative(),
@@ -162,6 +184,9 @@ export const tableV1ListResponseSchema = z.object({
   pageSize: z.number().int().positive(),
 });
 
+/**
+ * Schema for the response from a meta request to a Hermes dashboard page.
+ */
 export const tableV1MetaResponseSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
@@ -182,6 +207,9 @@ export const tableV1MetaResponseSchema = z.object({
   preview: dashboardPagePreviewSchema.optional(),
 });
 
+/**
+ * Schema for a request to register a domain integration.
+ */
 export const registerDomainIntegrationRequestSchema = z.object({
   key: z.string().min(1),
   name: z.string().min(1),
@@ -194,6 +222,9 @@ export const registerDomainIntegrationRequestSchema = z.object({
   }),
 });
 
+/**
+ * Schema for a response from a request to register a domain integration.
+ */
 export const registerDomainIntegrationResponseSchema = z.object({
   id: z.string().uuid(),
   key: z.string().min(1),
@@ -206,16 +237,25 @@ export const registerDomainIntegrationResponseSchema = z.object({
   dashboard: dashboardManifestSchema,
 });
 
+/**
+ * Schema for a response from a health check request to a domain integration.
+ */
 export const domainHealthResponseSchema = z.object({
   ok: z.literal(true),
   service: z.string().min(1),
   version: z.string().optional(),
 });
 
+/**
+ * Schema for a request to preview an expansion.
+ */
 export const previewExpansionRequestSchema = z.object({
   expansionString: z.string().min(1),
 });
 
+/**
+ * Schema for a response from a preview expansion request.
+ */
 export const previewExpansionResponseSchema = z.union([
   z.object({
     success: z.literal(true),
@@ -227,22 +267,37 @@ export const previewExpansionResponseSchema = z.union([
   }),
 ]);
 
+/**
+ * Schema for a request to expand step inputs.
+ */
 export const expandStepInputsRequestSchema = z.object({
   input: z.record(z.unknown()),
   maxTake: z.number().int().nonnegative().optional(),
   defaultTake: z.number().int().nonnegative().optional(),
 });
 
+/**
+ * Schema for a response from a request to expand step inputs.
+ */
 export const expandStepInputsResponseSchema = z.object({
   expandedInputs: z.array(z.record(z.unknown())),
 });
 
+/**
+ * Type for a request to register a domain integration.
+ */
 export type RegisterDomainIntegrationRequest = z.infer<
   typeof registerDomainIntegrationRequestSchema
 >;
+/**
+ * Type for a response from a request to register a domain integration.
+ */
 export type RegisterDomainIntegrationResponse = z.infer<
   typeof registerDomainIntegrationResponseSchema
 >;
+/**
+ * Type for a Hermes dashboard manifest.
+ */
 export type DashboardManifest = z.infer<typeof dashboardManifestSchema>;
 export type DashboardPage = z.infer<typeof dashboardPageSchema>;
 /**

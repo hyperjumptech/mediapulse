@@ -2,6 +2,7 @@
   "title": "Architecture",
   "pages": [
     "domains",
+    "hermes-domain-integration-pages",
     "system",
     "communication",
     "agent-hermes-contract",

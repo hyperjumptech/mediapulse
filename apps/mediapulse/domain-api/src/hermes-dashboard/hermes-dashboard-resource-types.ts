@@ -11,11 +11,15 @@ export type HermesDashboardResourceDefinition<
   K extends string = string,
   S extends string = string,
 > = {
+  /** Stable camelCase key used for the `HermesDashboardResource` segment map. */
   readonly resourceKey: K;
+  /** URL path segment (kebab-case) under `/v1/hermes-dashboard/`. */
   readonly pathSegment: S;
   /** Sort key for manifest `pages` order (must match {@link DashboardPageInput.order} on `dashboardPage`). */
   readonly order: number;
+  /** Hono sub-app mounted at `/v1/hermes-dashboard/<segment>/` (list, CRUD, resource-specific routes). */
   readonly routes: Hono;
+  /** Hermes manifest page for `table-v1` (columns, search/sort fields, form JSON Schema, actions). */
   readonly dashboardPage: DashboardPageInput;
 };
 
