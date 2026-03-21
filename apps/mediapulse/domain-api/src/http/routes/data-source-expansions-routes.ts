@@ -1,6 +1,8 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
+import { HermesDashboardResource } from "../../domain/hermes-dashboard-paths";
+import { buildTableV1MetaPayloadForPathSegment } from "../../domain/table-v1-meta-for-path-segment";
 import { parsePagination } from "../../lib/list-pagination";
 import { nullableText } from "../../lib/nullable-text";
 import {
@@ -12,6 +14,16 @@ import {
  * Hermes `table-v1` API for reusable `db:` data-source expansion aliases.
  */
 export const dataSourceExpansionsRoutes = new Hono();
+
+dataSourceExpansionsRoutes.get("/meta", (c) => {
+  const meta = buildTableV1MetaPayloadForPathSegment(
+    HermesDashboardResource.dataSourceExpansions,
+  );
+  if (!meta) {
+    return c.json({ message: "Unknown dashboard resource" }, 404);
+  }
+  return c.json(meta);
+});
 
 dataSourceExpansionsRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
