@@ -7,7 +7,7 @@ import {
   HERMES_DASHBOARD_V1_MOUNT_PATH,
   hermesDashboardTableMountPath,
 } from "../hermes-dashboard/paths";
-import { hermesDashboardTableRouteMounts } from "./hermes-table-route-mounts";
+import { hermesDashboardRouteMounts } from "./hermes-dashboard-route-mounts";
 import { registerWithHermes } from "./register-with-hermes";
 import { healthRoutes } from "./routes/health-routes";
 import { hermesDashboardManifestRoutes } from "./routes/hermes-dashboard-manifest-routes";
@@ -50,7 +50,7 @@ export const createDomainApiServer = (): {
 
   api.route("/health", healthRoutes);
 
-  for (const { segment, app: subApp } of hermesDashboardTableRouteMounts) {
+  for (const { segment, app: subApp } of hermesDashboardRouteMounts) {
     api.route(hermesDashboardTableMountPath(segment), subApp);
   }
 

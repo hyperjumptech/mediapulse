@@ -18,6 +18,18 @@ icon: Server
 - Runs Mediapulse DB expansion logic using `@mediapulse/hermes-integration`.
 - Self-registers to Hermes via `POST /api/domain-integrations/register`.
 
+## Adding or removing a Hermes dashboard resource
+
+Registration is centralized so manifest pages, URL segments, and Hono mounts stay in sync:
+
+1. Under `apps/mediapulse/domain-api/src/resources/<kebab-name>/`, add or remove the resource folder (routes, dashboard page, mappers, etc.).
+2. Export a path segment constant from `dashboard-page.ts` (e.g. `tickersHermesPathSegment`) and use it for `id`, `pathSegment`, and `hermesDashboardManifestApiPrefix(...)`.
+3. Add or remove `resource-definition.ts` that calls `defineHermesDashboardResource` from `hermes-dashboard-resource-types.ts`.
+4. In `hermes-dashboard-resource-registry.ts`, add or remove one entry in `hermesDashboardResources` and the corresponding import.
+5. Run `pnpm code-quality` from the repo root.
+
+Imports in `dashboard-page.ts` should use `hermes-dashboard-path-helpers` for URL builders (not `paths.ts`) so modules do not create a circular dependency with the registry.
+
 ## Key environment variables
 
 - `MEDIAPULSE_API_URL` — Public base URL this service registers in Hermes.

@@ -1,7 +1,7 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
-import { HermesDashboardResource } from "../../hermes-dashboard/paths";
+import { dataSourceExpansionsHermesPathSegment } from "./dashboard-page";
 import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
 import { parsePagination } from "../../lib/list-pagination";
 import { nullableText } from "../../lib/nullable-text";
@@ -18,7 +18,7 @@ export const dataSourceExpansionsRoutes = new Hono();
 
 dataSourceExpansionsRoutes.get("/meta", (c) => {
   const meta = buildMetaPayloadForPathSegment(
-    HermesDashboardResource.dataSourceExpansions,
+    dataSourceExpansionsHermesPathSegment,
   );
   if (!meta) {
     return c.json({ message: "Unknown dashboard resource" }, 404);

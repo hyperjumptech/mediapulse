@@ -1,25 +1,23 @@
 import type { DashboardPageInput } from "@hermes/domain-contract";
-import {
-  HermesDashboardResource,
-  hermesDashboardManifestApiPrefix,
-} from "../../hermes-dashboard/paths";
+import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
 
+/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
+export const relationTypesHermesPathSegment = "relation-types" as const;
+
 /** Hermes `table-v1` manifest page for relation types. */
 export const relationTypesDashboardPage = {
-  id: HermesDashboardResource.relationTypes,
+  id: relationTypesHermesPathSegment,
   label: "Relation Types",
   description:
     "Manage vocabulary used by the knowledge graph relation classifier.",
-  pathSegment: HermesDashboardResource.relationTypes,
+  pathSegment: relationTypesHermesPathSegment,
   template: "table-v1" as const,
-  apiPrefix: hermesDashboardManifestApiPrefix(
-    HermesDashboardResource.relationTypes,
-  ),
+  apiPrefix: hermesDashboardManifestApiPrefix(relationTypesHermesPathSegment),
   order: 30,
   columns: columnsFor<ListItem>()([
     { key: "name", label: "Name", type: "text" },

@@ -1,24 +1,22 @@
 import type { DashboardPageInput } from "@hermes/domain-contract";
-import {
-  HermesDashboardResource,
-  hermesDashboardManifestApiPrefix,
-} from "../../hermes-dashboard/paths";
+import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
 
+/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
+export const searchQueriesHermesPathSegment = "search-queries" as const;
+
 /** Hermes `table-v1` manifest page for search queries. */
 export const searchQueriesDashboardPage = {
-  id: HermesDashboardResource.searchQueries,
+  id: searchQueriesHermesPathSegment,
   label: "Search Query",
   description: "Manage generated search queries and remove unused rows.",
-  pathSegment: HermesDashboardResource.searchQueries,
+  pathSegment: searchQueriesHermesPathSegment,
   template: "table-v1" as const,
-  apiPrefix: hermesDashboardManifestApiPrefix(
-    HermesDashboardResource.searchQueries,
-  ),
+  apiPrefix: hermesDashboardManifestApiPrefix(searchQueriesHermesPathSegment),
   order: 40,
   columns: columnsFor<ListItem>()([
     { key: "tickerSymbol", label: "Ticker", type: "text" },

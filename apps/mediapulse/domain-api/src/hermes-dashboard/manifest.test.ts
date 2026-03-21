@@ -1,49 +1,53 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
-import { dataSourceExpansionsDashboardPage } from "../resources/data-source-expansions/dashboard-page";
-import { entityTypesDashboardPage } from "../resources/entity-types/dashboard-page";
-import { mediapulseUsersDashboardPage } from "../resources/mediapulse-users/dashboard-page";
-import { relationTypesDashboardPage } from "../resources/relation-types/dashboard-page";
-import { searchQueriesDashboardPage } from "../resources/search-queries/dashboard-page";
-import { tickersDashboardPage } from "../resources/tickers/dashboard-page";
 import { dashboardManifest } from "./manifest";
 import { HermesDashboardResource } from "./paths";
+import { hermesDashboardResources } from "./hermes-dashboard-resource-registry";
 
 describe("dashboardManifest", () => {
-  it("lists every Hermes table-v1 page using HermesDashboardResource segments", () => {
+  it("matches the registered resource list order and ids", () => {
+    // Setup
+    const sorted = [...hermesDashboardResources].sort(
+      (a, b) => a.order - b.order,
+    );
+
     // Act
-    const byId = new Map(dashboardManifest.pages.map((p) => [p.id, p]));
+    const pageIds = dashboardManifest.pages.map((p) => p.id);
 
     // Assert
-    expect(byId.get(HermesDashboardResource.tickers)?.pathSegment).toBe(
-      HermesDashboardResource.tickers,
-    );
-    expect(byId.get(HermesDashboardResource.mediapulseUsers)?.pathSegment).toBe(
-      HermesDashboardResource.mediapulseUsers,
-    );
-    expect(byId.get(HermesDashboardResource.entityTypes)?.pathSegment).toBe(
-      HermesDashboardResource.entityTypes,
-    );
-    expect(byId.get(HermesDashboardResource.relationTypes)?.pathSegment).toBe(
-      HermesDashboardResource.relationTypes,
-    );
-    expect(byId.get(HermesDashboardResource.searchQueries)?.pathSegment).toBe(
-      HermesDashboardResource.searchQueries,
-    );
-    expect(
-      byId.get(HermesDashboardResource.dataSourceExpansions)?.pathSegment,
-    ).toBe(HermesDashboardResource.dataSourceExpansions);
+    expect(pageIds).toEqual(sorted.map((r) => r.dashboardPage.id));
     expect(dashboardManifest.templateVersion).toBe(1);
   });
 
-  it("keeps manifest page order aligned with table module composition", () => {
-    expect(dashboardManifest.pages).toEqual([
-      expect.objectContaining({ id: tickersDashboardPage.id }),
-      expect.objectContaining({ id: mediapulseUsersDashboardPage.id }),
-      expect.objectContaining({ id: entityTypesDashboardPage.id }),
-      expect.objectContaining({ id: relationTypesDashboardPage.id }),
-      expect.objectContaining({ id: searchQueriesDashboardPage.id }),
-      expect.objectContaining({ id: dataSourceExpansionsDashboardPage.id }),
-    ]);
+  it("uses unique path segments for every page", () => {
+    // Setup
+    const segments = dashboardManifest.pages.map((p) => p.pathSegment);
+
+    // Assert
+    expect(new Set(segments).size).toBe(segments.length);
+  });
+
+  it("maps every HermesDashboardResource entry to a manifest page with matching id", () => {
+    // Act & Assert
+    for (const key of Object.keys(
+      HermesDashboardResource,
+    ) as (keyof typeof HermesDashboardResource)[]) {
+      const segment = HermesDashboardResource[key];
+      const page = dashboardManifest.pages.find(
+        (p) => p.pathSegment === segment,
+      );
+      expect(page, `missing page for ${String(key)}`).toBeDefined();
+      expect(page?.id).toBe(segment);
+      expect(page?.pathSegment).toBe(segment);
+    }
+  });
+
+  it("keeps manifest page order monotonic by page order field", () => {
+    // Setup
+    const orders = dashboardManifest.pages.map((p) => p.order);
+
+    // Assert
+    const sorted = [...orders].sort((a, b) => a - b);
+    expect(orders).toEqual(sorted);
   });
 });

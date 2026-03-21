@@ -7,13 +7,13 @@ import {
   hermesDashboardTableMountPath,
   type HermesDashboardSegment,
 } from "../hermes-dashboard/paths";
-import { hermesDashboardTableRouteMounts } from "./hermes-table-route-mounts";
+import { hermesDashboardRouteMounts } from "./hermes-dashboard-route-mounts";
 
 describe("Hermes dashboard routing contract", () => {
   it("registers an HTTP mount for every table-v1 manifest page", () => {
     // Setup
     const mountSegments = new Set(
-      hermesDashboardTableRouteMounts.map((m) => m.segment),
+      hermesDashboardRouteMounts.map((m) => m.segment),
     );
     const tablePages = dashboardManifest.pages.filter(
       (p) => p.template === "table-v1",
@@ -36,7 +36,7 @@ describe("Hermes dashboard routing contract", () => {
     );
 
     // Act & Assert
-    for (const { segment } of hermesDashboardTableRouteMounts) {
+    for (const { segment } of hermesDashboardRouteMounts) {
       expect(segmentsFromManifest.has(segment)).toBe(true);
     }
   });

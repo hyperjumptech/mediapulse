@@ -1,8 +1,5 @@
 import type { DashboardPageInput } from "@hermes/domain-contract";
-import {
-  HermesDashboardResource,
-  hermesDashboardManifestApiPrefix,
-} from "../../hermes-dashboard/paths";
+import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
   previewFieldFor,
@@ -10,15 +7,19 @@ import {
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
 
+/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
+export const dataSourceExpansionsHermesPathSegment =
+  "data-source-expansions" as const;
+
 /** Hermes `table-v1` manifest page for data-source expansions. */
 export const dataSourceExpansionsDashboardPage = {
-  id: HermesDashboardResource.dataSourceExpansions,
+  id: dataSourceExpansionsHermesPathSegment,
   label: "Data source expansions",
   description: "Manage reusable db: expansion aliases used in pipeline inputs.",
-  pathSegment: HermesDashboardResource.dataSourceExpansions,
+  pathSegment: dataSourceExpansionsHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(
-    HermesDashboardResource.dataSourceExpansions,
+    dataSourceExpansionsHermesPathSegment,
   ),
   order: 50,
   columns: columnsFor<ListItem>()([

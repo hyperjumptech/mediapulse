@@ -1,25 +1,23 @@
 import type { DashboardPageInput } from "@hermes/domain-contract";
-import {
-  HermesDashboardResource,
-  hermesDashboardManifestApiPrefix,
-} from "../../hermes-dashboard/paths";
+import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
 
+/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
+export const mediapulseUsersHermesPathSegment = "mediapulse-users" as const;
+
 /** Hermes `table-v1` manifest page for Mediapulse end users. */
 export const mediapulseUsersDashboardPage = {
-  id: HermesDashboardResource.mediapulseUsers,
+  id: mediapulseUsersHermesPathSegment,
   label: "Mediapulse users",
   description:
     "End users and newsletter subscribers (distinct from Hermes dashboard admins).",
-  pathSegment: HermesDashboardResource.mediapulseUsers,
+  pathSegment: mediapulseUsersHermesPathSegment,
   template: "table-v1" as const,
-  apiPrefix: hermesDashboardManifestApiPrefix(
-    HermesDashboardResource.mediapulseUsers,
-  ),
+  apiPrefix: hermesDashboardManifestApiPrefix(mediapulseUsersHermesPathSegment),
   order: 15,
   columns: columnsFor<ListItem>()([
     { key: "email", label: "Email", type: "text" },
