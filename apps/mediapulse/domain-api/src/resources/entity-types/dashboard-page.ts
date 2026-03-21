@@ -3,7 +3,10 @@
  * and create/update JSON Schema metadata. Also exports the URL path segment constant for this resource.
  */
 
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import {
+  dashboardObjectFormJsonSchemaForListRow,
+  type DashboardPageInput,
+} from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -32,20 +35,20 @@ export const entityTypesDashboardPage = {
   searchableFields: rowFieldKeysFor<ListItem>()(["name", "description"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["name", "createdAt"]),
   actions: { create: true, update: true, delete: true },
-  createSchema: {
+  createSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
     type: "object",
     required: ["name"],
     properties: {
       name: { type: "string", title: "Name" },
       description: { type: "string", title: "Description" },
     },
-  },
-  updateSchema: {
+  }),
+  updateSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
     type: "object",
     required: ["name"],
     properties: {
       name: { type: "string", title: "Name" },
       description: { type: "string", title: "Description" },
     },
-  },
+  }),
 } satisfies DashboardPageInput;

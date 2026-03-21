@@ -2,7 +2,10 @@
  * Hermes `table-v1` manifest for tickers (custom actions, metadata form) and exported path segment.
  */
 
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import {
+  dashboardObjectFormJsonSchemaForListRow,
+  type DashboardPageInput,
+} from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -32,7 +35,7 @@ export const tickersDashboardPage = {
   searchableFields: rowFieldKeysFor<ListItem>()(["symbol", "name"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["symbol", "name", "createdAt"]),
   actions: { create: true, update: true, delete: true },
-  createSchema: {
+  createSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
     type: "object",
     required: ["symbol", "name"],
     properties: {
@@ -45,8 +48,8 @@ export const tickersDashboardPage = {
         properties: tickerMetadataFormProperties,
       },
     },
-  },
-  updateSchema: {
+  }),
+  updateSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
     type: "object",
     required: ["symbol", "name"],
     properties: {
@@ -59,6 +62,6 @@ export const tickersDashboardPage = {
         properties: tickerMetadataFormProperties,
       },
     },
-  },
+  }),
   customActions: tickersCustomActionsForManifest,
 } satisfies DashboardPageInput;

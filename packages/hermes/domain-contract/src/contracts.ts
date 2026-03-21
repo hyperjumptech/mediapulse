@@ -63,6 +63,52 @@ export const dashboardPageCustomActionSchema = z.object({
   accept: z.string().optional(),
 });
 
+/**
+ * Builds a JSON Schema `type: "object"` fragment for Hermes table-v1 create/update forms.
+ * Ensures each `required` entry is a key on `properties` so typos fail at compile time.
+ *
+ * @param schema - Object schema with `properties` and optional `required` key list
+ * @returns The same object widened for {@link dashboardPageSchema} `createSchema` / `updateSchema` input
+ */
+export function dashboardObjectFormJsonSchema<
+  const P extends Record<string, unknown>,
+>(schema: {
+  type: "object";
+  required?: ReadonlyArray<Extract<keyof P, string>>;
+  properties: P;
+}): Record<string, unknown> {
+  return schema;
+}
+
+/**
+ * When used as `properties` on a form schema, rejects keys that are not present on the table list row type.
+ *
+ * @typeParam P - JSON Schema `properties` object
+ * @typeParam ListRow - List item from the domain API (same shape as {@link columnsFor} `Row`)
+ */
+export type DashboardFormPropertiesMustMatchListRowKeys<
+  P extends Record<string, unknown>,
+  ListRow extends Record<string, unknown>,
+> = [Exclude<keyof P, keyof ListRow>] extends [never] ? P : never;
+
+/**
+ * Like {@link dashboardObjectFormJsonSchema}, but every `properties` key must exist on `ListRow`
+ * (the JSON shape returned by the resource list mapper). Pass the same type as `columnsFor<ListRow>` uses
+ * so create/update forms cannot drift from list columns.
+ *
+ * @typeParam ListRow - List item record (e.g. `ListItem` from the resource `list-mapper`).
+ * @returns Curried builder: call as `dashboardObjectFormJsonSchemaForListRow<ListItem>()({ type: "object", ... })`
+ *   (same ergonomics as {@link columnsFor} so `ListRow` is fixed first, then `properties` infers `P`).
+ */
+export const dashboardObjectFormJsonSchemaForListRow =
+  <ListRow extends Record<string, unknown>>() =>
+  <const P extends Record<string, unknown>>(schema: {
+    type: "object";
+    required?: ReadonlyArray<Extract<keyof P, string>>;
+    properties: DashboardFormPropertiesMustMatchListRowKeys<P, ListRow>;
+  }): Record<string, unknown> =>
+    schema;
+
 export const dashboardPageSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),

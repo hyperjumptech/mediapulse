@@ -2,6 +2,8 @@ export { createDomainIntegrationClient } from "./client";
 export {
   dashboardManifestSchema,
   dashboardPageActionsSchema,
+  dashboardObjectFormJsonSchema,
+  dashboardObjectFormJsonSchemaForListRow,
   dashboardPageColumnSchema,
   dashboardPageCreateNavigationSchema,
   dashboardPageCustomActionSchema,
@@ -20,6 +22,7 @@ export {
   tableV1ListRequestQuerySchema,
   tableV1ListResponseSchema,
   tableV1MetaResponseSchema,
+  type DashboardFormPropertiesMustMatchListRowKeys,
   type DashboardManifest,
   type DashboardPage,
   type DashboardPageInput,

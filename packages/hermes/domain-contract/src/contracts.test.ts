@@ -1,6 +1,8 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 import {
+  dashboardObjectFormJsonSchema,
+  dashboardObjectFormJsonSchemaForListRow,
   dashboardPageCustomActionSchema,
   dashboardPageSchema,
   registerDomainIntegrationRequestSchema,
@@ -117,6 +119,60 @@ describe("tableV1MetaResponseSchema", () => {
       enabled: true,
       fieldKey: "expansionString",
     });
+  });
+});
+
+describe("dashboardObjectFormJsonSchemaForListRow", () => {
+  it("returns a createSchema value accepted by dashboardPageSchema", () => {
+    // Setup
+    type ListRow = { id: string; name: string; description: string };
+    const createSchema = dashboardObjectFormJsonSchemaForListRow<ListRow>()({
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: { type: "string", title: "Name" },
+        description: { type: "string", title: "Description" },
+      },
+    });
+
+    // Act
+    const parsed = dashboardPageSchema.parse({
+      id: "x",
+      label: "X",
+      pathSegment: "x",
+      template: "table-v1",
+      apiPrefix: "/v1/hermes-dashboard/x",
+      createSchema,
+    });
+
+    // Assert
+    expect(parsed.createSchema).toEqual(createSchema);
+  });
+});
+
+describe("dashboardObjectFormJsonSchema", () => {
+  it("returns a createSchema value accepted by dashboardPageSchema", () => {
+    // Setup
+    const createSchema = dashboardObjectFormJsonSchema({
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: { type: "string", title: "Name" },
+      },
+    });
+
+    // Act
+    const parsed = dashboardPageSchema.parse({
+      id: "x",
+      label: "X",
+      pathSegment: "x",
+      template: "table-v1",
+      apiPrefix: "/v1/hermes-dashboard/x",
+      createSchema,
+    });
+
+    // Assert
+    expect(parsed.createSchema).toEqual(createSchema);
   });
 });
 

@@ -2,7 +2,10 @@
  * Hermes `table-v1` manifest for data-source expansions (preview field, full-page create) and path segment export.
  */
 
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import {
+  dashboardObjectFormJsonSchemaForListRow,
+  type DashboardPageInput,
+} from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -41,7 +44,7 @@ export const dataSourceExpansionsDashboardPage = {
   actions: { create: true, update: true, delete: true },
   createNavigation: "full-page" as const,
   preview: previewFieldFor<ListItem>()("expansionString"),
-  createSchema: {
+  createSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
     type: "object",
     required: ["name", "expansionString"],
     properties: {
@@ -49,8 +52,8 @@ export const dataSourceExpansionsDashboardPage = {
       expansionString: { type: "string", title: "Expansion string" },
       description: { type: "string", title: "Description" },
     },
-  },
-  updateSchema: {
+  }),
+  updateSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
     type: "object",
     required: ["name", "expansionString"],
     properties: {
@@ -58,5 +61,5 @@ export const dataSourceExpansionsDashboardPage = {
       expansionString: { type: "string", title: "Expansion string" },
       description: { type: "string", title: "Description" },
     },
-  },
+  }),
 } satisfies DashboardPageInput;

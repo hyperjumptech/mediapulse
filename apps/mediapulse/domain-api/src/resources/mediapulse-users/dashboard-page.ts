@@ -2,7 +2,10 @@
  * Hermes `table-v1` manifest slice for Mediapulse end users and exported `*HermesPathSegment` for routing.
  */
 
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import {
+  dashboardObjectFormJsonSchemaForListRow,
+  type DashboardPageInput,
+} from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -31,20 +34,20 @@ export const mediapulseUsersDashboardPage = {
   searchableFields: rowFieldKeysFor<ListItem>()(["email", "name"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["email", "createdAt"]),
   actions: { create: true, update: true, delete: true },
-  createSchema: {
+  createSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
     type: "object",
     required: ["email"],
     properties: {
       email: { type: "string", title: "Email", format: "email" },
       name: { type: "string", title: "Name" },
     },
-  },
-  updateSchema: {
+  }),
+  updateSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
     type: "object",
     required: ["email"],
     properties: {
       email: { type: "string", title: "Email", format: "email" },
       name: { type: "string", title: "Name" },
     },
-  },
+  }),
 } satisfies DashboardPageInput;
