@@ -16,6 +16,19 @@ export type TickersTableV1CustomActionDefinition = {
 };
 
 /**
+ * Allowed custom-action slugs for the tickers table. Add a member here, then add the matching key
+ * on {@link tickersTableV1CustomActionRegistry}; TypeScript rejects wrong keys, missing entries, or extras.
+ */
+export type TickersTableV1CustomActionId = "import-idx-json";
+
+type TickersTableV1CustomActionRegistryValue = Omit<
+  DashboardPageCustomAction,
+  "id" | "path"
+> & {
+  handler: Handler;
+};
+
+/**
  * HTTP handler for IDX JSON bulk import; body parsing in `importIdxTickersFromRequestBody`.
  */
 const handleTickersImportIdxJsonPost: Handler = async (c) => {
@@ -35,24 +48,46 @@ const handleTickersImportIdxJsonPost: Handler = async (c) => {
 };
 
 /**
- * Single registry for tickers custom actions: manifest metadata and route handler are defined together
- * so a new action cannot be advertised without a mounted handler (and vice versa).
+ * Single registry: each slug is an object key (checked against {@link TickersTableV1CustomActionId}), so the
+ * manifest `id` and route path cannot be mistyped relative to each other. Values carry the handler and the
+ * rest of the manifest (no `id`/`path` — those come from the key).
  */
-export const tickersTableV1CustomActions = [
-  {
-    manifest: {
-      id: "import-idx-json",
-      label: "Import IDX JSON",
-      description:
-        "Upload a JSON file in IDX company profiles format (object with a data array).",
-      ui: "json-file-upload",
-      method: "POST",
-      path: "/import-idx-json",
-      accept: ".json,application/json",
-    } satisfies DashboardPageCustomAction,
+const tickersTableV1CustomActionRegistry = {
+  "import-idx-json": {
+    label: "Import IDX JSON",
+    description:
+      "Upload a JSON file in IDX company profiles format (object with a data array).",
+    ui: "json-file-upload",
+    method: "POST",
+    accept: ".json,application/json",
     handler: handleTickersImportIdxJsonPost,
   },
-] as const satisfies readonly TickersTableV1CustomActionDefinition[];
+} satisfies Record<
+  TickersTableV1CustomActionId,
+  TickersTableV1CustomActionRegistryValue
+>;
+
+/**
+ * Ordered list derived from {@link tickersTableV1CustomActionRegistry} for manifest and route wiring.
+ */
+export const tickersTableV1CustomActions = (
+  [...Object.entries(tickersTableV1CustomActionRegistry)] as [
+    TickersTableV1CustomActionId,
+    TickersTableV1CustomActionRegistryValue,
+  ][]
+)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([id, row]): TickersTableV1CustomActionDefinition => {
+    const { handler, ...manifestRest } = row;
+    return {
+      manifest: {
+        id,
+        ...manifestRest,
+        path: `/${id}`,
+      } satisfies DashboardPageCustomAction,
+      handler,
+    };
+  }) satisfies readonly TickersTableV1CustomActionDefinition[];
 
 /**
  * Manifest `customActions` slice for `tickersDashboardPage` in `dashboard-page.ts`, derived from {@link tickersTableV1CustomActions}.

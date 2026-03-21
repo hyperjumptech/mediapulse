@@ -32,6 +32,7 @@ describe("tickersTableV1CustomActions", () => {
       expect(reg!.method).toBe(def!.manifest.method);
       expect(manifestRow!.path).toBe(def!.manifest.path);
       expect(manifestRow!.id).toBe(def!.manifest.id);
+      expect(manifestRow!.path).toBe(`/${manifestRow!.id}`);
     }
   });
 });
