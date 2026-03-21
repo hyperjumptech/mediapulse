@@ -6,4 +6,6 @@ data/
 # Generated code
 **/.generated/
 packages/database/client/
+packages/mediapulse-database/client/
+packages/orchestration-database/client/
 packages/env/src

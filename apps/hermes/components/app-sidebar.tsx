@@ -54,6 +54,8 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
   const isDataSourceExpansions =
     pathname?.startsWith("/dashboard/data-source-expansions") ?? false;
+  const isRegisteredDatabases =
+    pathname?.startsWith("/dashboard/registered-databases") ?? false;
   const isEntityTypes =
     pathname?.startsWith("/dashboard/entity-types") ?? false;
   const isRelationTypes =
@@ -150,6 +152,14 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 <Link href="/dashboard/data-source-expansions">
                   <Database className="size-4" />
                   <span>Data source expansions</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isRegisteredDatabases}>
+                <Link href="/dashboard/registered-databases">
+                  <Database className="size-4" />
+                  <span>Registered databases</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

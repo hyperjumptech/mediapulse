@@ -28,6 +28,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   "api-keys": "API Keys",
   "entity-types": "Entity Types",
   pipelines: "Pipelines",
+  "registered-databases": "Registered databases",
   "relation-types": "Relation Types",
   schedules: "Schedules",
   "search-queries": "Search Query",

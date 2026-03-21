@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  apiKeys   APIKey[]
+  variables Variable[]
+
+  @@map("user")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model APIKey {
+  id        String   @id @default(uuid())
+  name      String
+  key       String   @unique
+  purpose   String?  @default("general")
+  isActive  Boolean  @default(true) @map("is_active")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("api_key")
+}
+
+model AgentRegistry {
+  id           String   @id @default(uuid())
+  agentId      String   @map("agent_id")
+  agentVersion String   @map("agent_version")
+  description  String?
+  endpoint     Json
+  inputSchema  Json?    @map("input_schema")
+  configSchema Json?    @map("config_schema")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([agentId, agentVersion])
+  @@map("agent_registry")
+}
+
+model AgentConfig {
+  id                      String   @id @default(uuid())
+  name                    String
+  description             String?
+  agentId                 String   @map("agent_id")
+  agentVersion            String   @map("agent_version")
+  config                  Json
+  configSchemaFingerprint String?  @map("config_schema_fingerprint")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  pipelineSteps PipelineStep[]
+
+  @@unique([agentId, agentVersion, name])
+  @@map("agent_config")
+}
+
+model Variable {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  note        String?
+  isSecret    Boolean  @default(false) @map("is_secret")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("variable")
+}
+
+model RegisteredDatabase {
+  id                        String   @id @default(uuid())
+  name                      String   @unique
+  encryptedConnectionString String   @map("encrypted_connection_string")
+  allowlistedTables         Json?    @map("allowlisted_tables")
+  isActive                  Boolean  @default(true) @map("is_active")
+  isDefault                 Boolean  @default(false) @map("is_default")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  pipelineSteps PipelineStep[]
+
+  @@map("registered_database")
+}
+
+model Pipeline {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  steps     PipelineStep[]
+  schedules Schedule[]
+
+  @@map("pipeline")
+}
+
+enum ScheduleRepeat {
+  once
+  repeating
+}
+
+enum ScheduleExecutionStatus {
+  enqueuing
+  success
+  partial
+  failed
+}
+
+enum AgentJobExecutionStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+model Schedule {
+  id             String         @id @default(uuid())
+  name           String
+  description    String?
+  repeat         ScheduleRepeat
+  cronExpression String?        @map("cron_expression")
+  interval       Int?
+  timezone       String         @default("America/New_York")
+  startAt        DateTime?      @map("start_at")
+  nextRunAt      DateTime?      @map("next_run_at")
+  pipelineId     String         @map("pipeline_id")
+  retryConfig    Json?          @map("retry_config")
+  timeout        Int?
+  priority       Int            @default(0)
+  enabled        Boolean        @default(true)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  createdBy      String?        @map("created_by")
+
+  pipeline           Pipeline            @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  scheduleExecutions ScheduleExecution[]
+  agentJobExecutions AgentJobExecution[]
+
+  @@map("schedule")
+}
+
+model ScheduleExecution {
+  id            String                  @id @default(uuid())
+  scheduleId    String                  @map("schedule_id")
+  executionTime DateTime                @map("execution_time")
+  status        ScheduleExecutionStatus
+  jobsCreated   Int                     @map("jobs_created")
+  jobsEnqueued  Int                     @map("jobs_enqueued")
+  errors        Json?
+  metadata      Json?
+  createdAt     DateTime                @default(now()) @map("created_at")
+
+  schedule           Schedule            @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  agentJobExecutions AgentJobExecution[]
+
+  @@map("schedule_execution")
+}
+
+model AgentJobExecution {
+  id                  String                  @id @default(uuid())
+  jobId               String                  @unique @map("job_id")
+  agentId             String                  @map("agent_id")
+  scheduleId          String?                 @map("schedule_id")
+  scheduleExecutionId String?                 @map("schedule_execution_id")
+  pipelineId          String?                 @map("pipeline_id")
+  pipelineStepId      String?                 @map("pipeline_step_id")
+  status              AgentJobExecutionStatus
+  priority            Int                     @default(0)
+  enqueuedAt          DateTime                @map("enqueued_at")
+  dependencies        Json?
+  params              Json                    @default("{}")
+  error               Json?
+  startedAt           DateTime?               @map("started_at")
+  completedAt         DateTime?               @map("completed_at")
+  createdAt           DateTime                @default(now()) @map("created_at")
+
+  schedule          Schedule?          @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  scheduleExecution ScheduleExecution? @relation(fields: [scheduleExecutionId], references: [id], onDelete: SetNull)
+
+  @@map("agent_job_execution")
+}
+
+model PipelineStep {
+  id                   String   @id @default(uuid())
+  order                Int
+  agentId              String   @map("agent_id")
+  agentVersion         String   @map("agent_version")
+  pipelineId           String   @map("pipeline_id")
+  agentConfigId        String?  @map("agent_config_id")
+  registeredDatabaseId String?  @map("registered_database_id")
+  input                Json?    @default("{}")
+  config               Json?    @default("{}")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  pipeline           Pipeline            @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  agentConfig        AgentConfig?        @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
+  registeredDatabase RegisteredDatabase? @relation(fields: [registeredDatabaseId], references: [id], onDelete: SetNull)
+
+  @@unique([pipelineId, order])
+  @@map("pipeline_step")
+}

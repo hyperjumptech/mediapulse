@@ -477,6 +477,15 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@workspace/mediapulse-database':
+        specifier: workspace:*
+        version: link:../../packages/mediapulse-database
+      '@workspace/mediapulse-hermes-integration':
+        specifier: workspace:*
+        version: link:../../packages/mediapulse-hermes-integration
+      '@workspace/orchestration-database':
+        specifier: workspace:*
+        version: link:../../packages/orchestration-database
       '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -592,6 +601,15 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@workspace/mediapulse-database':
+        specifier: workspace:*
+        version: link:../../packages/mediapulse-database
+      '@workspace/mediapulse-hermes-integration':
+        specifier: workspace:*
+        version: link:../../packages/mediapulse-hermes-integration
+      '@workspace/orchestration-database':
+        specifier: workspace:*
+        version: link:../../packages/orchestration-database
       got:
         specifier: 'catalog:'
         version: 14.6.6
@@ -952,9 +970,9 @@ importers:
 
   packages/hermes-scheduler:
     dependencies:
-      '@workspace/database':
+      '@workspace/orchestration-database':
         specifier: workspace:*
-        version: link:../database
+        version: link:../orchestration-database
       ajv:
         specifier: ^8.17.1
         version: 8.17.1
@@ -1079,6 +1097,135 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+
+  packages/mediapulse-database:
+    dependencies:
+      '@prisma/adapter-pg':
+        specifier: ^7.2.0
+        version: 7.4.0
+      '@prisma/client':
+        specifier: ^7.2.0
+        version: 7.4.0(prisma@7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
+      '@workspace/env':
+        specifier: workspace:*
+        version: link:../env
+      dotenv:
+        specifier: 'catalog:'
+        version: 17.2.3
+      pg:
+        specifier: 'catalog:'
+        version: 8.18.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.33
+      '@types/pg':
+        specifier: ^8.16.0
+        version: 8.16.0
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^9.32.0
+        version: 9.39.2(jiti@2.6.1)
+      prisma:
+        specifier: ^7.2.0
+        version: 7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.2
+      tsx:
+        specifier: ^4
+        version: 4.21.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/mediapulse-hermes-integration:
+    dependencies:
+      '@workspace/mediapulse-database':
+        specifier: workspace:*
+        version: link:../mediapulse-database
+      '@workspace/orchestration-database':
+        specifier: workspace:*
+        version: link:../orchestration-database
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.33
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      '@workspace/eslint-config':
+        specifier: workspace:^
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.6.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/orchestration-database:
+    dependencies:
+      '@prisma/adapter-pg':
+        specifier: ^7.2.0
+        version: 7.4.0
+      '@prisma/client':
+        specifier: ^7.2.0
+        version: 7.4.0(prisma@7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
+      '@workspace/env':
+        specifier: workspace:*
+        version: link:../env
+      dotenv:
+        specifier: 'catalog:'
+        version: 17.2.3
+      pg:
+        specifier: 'catalog:'
+        version: 8.18.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.33
+      '@types/pg':
+        specifier: ^8.16.0
+        version: 8.16.0
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^9.32.0
+        version: 9.39.2(jiti@2.6.1)
+      prisma:
+        specifier: ^7.2.0
+        version: 7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.2
+      tsx:
+        specifier: ^4
+        version: 4.21.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/outlook-inbox:
     dependencies:
