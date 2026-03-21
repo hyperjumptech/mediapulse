@@ -102,11 +102,8 @@ export const AgentConfigsContent = ({
   return (
     <>
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col justify-between sm:flex-row sm:items-center">
-          <h1 className="text-lg font-semibold">Agent configs</h1>
-          <div className="shrink-0 sm:ml-auto">
-            <Button onClick={openAddModal}>Add config</Button>
-          </div>
+        <div className="flex justify-end">
+          <Button onClick={openAddModal}>Add config</Button>
         </div>
         <AgentConfigsTable
           configs={configs}

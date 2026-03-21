@@ -79,57 +79,62 @@ export const AgentConfigsTable = ({
     );
   };
 
-  if (configs.length === 0) {
-    return (
-      <p className="text-muted-foreground text-sm">
-        No agent configs yet. Add one to get started.
-      </p>
-    );
-  }
-
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{sortLink("name", "Name")}</TableHead>
-          <TableHead>Description</TableHead>
-          <TableHead>{sortLink("agentId", "Agent")}</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>{sortLink("createdAt", "Created")}</TableHead>
-          <TableHead className="w-[60px]" />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {configs.map((config) => (
-          <TableRow key={config.id}>
-            <TableCell className="font-medium">{config.name}</TableCell>
-            <TableCell className="max-w-[200px] truncate text-muted-foreground">
-              {config.description ?? "—"}
-            </TableCell>
-            <TableCell className="font-mono text-sm">
-              {config.agentId}@{config.agentVersion}
-            </TableCell>
-            <TableCell>
-              {config.schemaValid ? (
-                <Badge variant="secondary">Valid</Badge>
-              ) : (
-                <Badge variant="destructive">Schema changed</Badge>
-              )}
-            </TableCell>
-            <TableCell className="text-muted-foreground text-sm">
-              {format(config.createdAt, "MMM d, yyyy")}
-            </TableCell>
-            <TableCell>
-              <AgentConfigRowActions
-                config={config}
-                configLabel={config.name}
-                onEdit={onEdit}
-                onDuplicate={onDuplicate}
-              />
-            </TableCell>
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader className="bg-muted/50">
+          <TableRow className="border-muted hover:bg-transparent">
+            <TableHead>{sortLink("name", "Name")}</TableHead>
+            <TableHead>Description</TableHead>
+            <TableHead>{sortLink("agentId", "Agent")}</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>{sortLink("createdAt", "Created")}</TableHead>
+            <TableHead className="w-[60px]" />
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {configs.length === 0 ? (
+            <TableRow>
+              <TableCell
+                colSpan={6}
+                className="text-center text-muted-foreground"
+              >
+                No agent configs yet.
+              </TableCell>
+            </TableRow>
+          ) : (
+            configs.map((config) => (
+              <TableRow key={config.id}>
+                <TableCell className="font-medium">{config.name}</TableCell>
+                <TableCell className="max-w-[200px] truncate text-muted-foreground">
+                  {config.description ?? "—"}
+                </TableCell>
+                <TableCell className="font-mono text-sm">
+                  {config.agentId}@{config.agentVersion}
+                </TableCell>
+                <TableCell>
+                  {config.schemaValid ? (
+                    <Badge variant="secondary">Valid</Badge>
+                  ) : (
+                    <Badge variant="destructive">Schema changed</Badge>
+                  )}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {format(config.createdAt, "MMM d, yyyy")}
+                </TableCell>
+                <TableCell>
+                  <AgentConfigRowActions
+                    config={config}
+                    configLabel={config.name}
+                    onEdit={onEdit}
+                    onDuplicate={onDuplicate}
+                  />
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 };
