@@ -31,7 +31,7 @@ mainApp.use(
 
 /** POST /api/verify — JWT-only invocation verification (agents). */
 mainApp.post("/api/verify", verifyJwt);
-/** POST /api/verify-api-key — API-key verification for service callers (agent-data-api, agent-registry-api). */
+/** POST /api/verify-api-key — API-key verification for service callers (e.g. dashboard); not used for agent-data-api / agent-registry-api bearer auth (JWT via /api/verify). */
 mainApp.post("/api/verify-api-key", verifyApiKey);
 
 /** POST /api/token — issue short-lived JWT; callers use Authorization: Bearer <scheduler api_key> */

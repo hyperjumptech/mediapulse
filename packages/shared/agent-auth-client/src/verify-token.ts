@@ -1,8 +1,9 @@
 /**
  * Verifies a JWT (invocation token) via agent-auth-api POST /api/verify.
- * Used by agents to verify that the caller (Hermes/Hermes-worker) is authorized to invoke them.
+ * Used by agents, agent-data-api, and agent-registry-api so the same short-lived JWT
+ * (issued by POST /api/token) is trusted for agent HTTP and Mediapulse data/registry calls.
  *
- * @param token - Bearer token (must be a short-lived JWT issued by /api/token).
+ * @param token - Raw JWT string (no `Bearer ` prefix); Hono bearer middleware passes this form.
  * @param authApiUrl - Base URL of agent-auth-api.
  * @returns true if the JWT is valid (200), false otherwise (401, 503, network error).
  */
@@ -24,7 +25,8 @@ export async function verifyTokenViaAuthApi(
 
 /**
  * Verifies an API key via agent-auth-api POST /api/verify-api-key.
- * Used by agent-data-api and agent-registry-api to validate API keys presented by agents.
+ * Used by services that accept raw API keys (e.g. Hermes dashboard domain-integration registration),
+ * not for agent-data-api or agent-registry-api bearer routes (those use JWT via `verifyTokenViaAuthApi`).
  *
  * @param apiKey - Raw API key (Bearer value).
  * @param authApiUrl - Base URL of agent-auth-api.

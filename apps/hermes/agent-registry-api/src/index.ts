@@ -1,4 +1,4 @@
-import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
 import { prisma } from "@hermes/orchestration-database";
 import { env } from "@hermes/env";
 import { logger } from "@workspace/logger";
@@ -32,7 +32,7 @@ api.use(
   "*",
   bearerAuth({
     verifyToken: (token) =>
-      verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL!),
+      verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL!),
   }),
 );
 

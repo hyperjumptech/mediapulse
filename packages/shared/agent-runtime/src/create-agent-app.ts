@@ -69,7 +69,8 @@ export function createAgentApp<
   app.use("*", bearerAuth({ verifyToken }));
 
   if (options.autoRegister) {
-    const { registryUrl, apiKey, agentUrl, fetchFn } = options.autoRegister;
+    const { registryUrl, schedulerApiKey, agentUrl, fetchFn, tokenFetchFn } =
+      options.autoRegister;
     const inputSchemaJson = zodToJsonSchema(config.inputSchema, {
       $refStrategy: "none",
     }) as Record<string, unknown>;
@@ -78,61 +79,73 @@ export function createAgentApp<
     }) as Record<string, unknown>;
     const maxAttempts = 3;
     const delayMs = 2000;
-    void (async () => {
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          await registerWithRegistry({
-            registryUrl,
-            apiKey,
-            agentId: config.agentId,
-            agentVersion: config.agentVersion,
-            agentUrl,
-            inputSchema: inputSchemaJson,
-            configSchema: configSchemaJson,
-            description: config.description,
-            fetchFn,
-          });
-          logger.info?.(
-            {
+    if (!authApiUrl) {
+      logger.error?.(
+        {
+          agentId: config.agentId,
+          agentVersion: config.agentVersion,
+        },
+        "autoRegister is set but authApiUrl is missing; cannot mint JWT for registry registration",
+      );
+    } else {
+      void (async () => {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            await registerWithRegistry({
+              registryUrl,
+              authApiUrl,
+              schedulerApiKey,
               agentId: config.agentId,
               agentVersion: config.agentVersion,
               agentUrl,
-              registryUrl,
-            },
-            "Agent registered with registry",
-          );
-          return;
-        } catch (err) {
-          if (attempt < maxAttempts) {
+              inputSchema: inputSchemaJson,
+              configSchema: configSchemaJson,
+              description: config.description,
+              fetchFn,
+              tokenFetchFn,
+            });
             logger.info?.(
-              { attempt, maxAttempts, registryUrl },
-              "Registry unreachable, retrying...",
+              {
+                agentId: config.agentId,
+                agentVersion: config.agentVersion,
+                agentUrl,
+                registryUrl,
+              },
+              "Agent registered with registry",
             );
-            await new Promise((r) => setTimeout(r, delayMs));
-          } else {
-            const code = (err as NodeJS.ErrnoException & { code?: string })
-              ?.code;
-            const msg = String((err as Error)?.message ?? "");
-            const isConnectionRefused =
-              code === "ECONNREFUSED" ||
-              code === "ConnectionRefused" ||
-              /Unable to connect|ConnectionRefused|ECONNREFUSED/i.test(msg);
-            if (isConnectionRefused) {
-              logger.warn?.(
-                { err, registryUrl },
-                "Agent auto-registration failed (registry unreachable). Ensure agent-registry-api is running if you need registration.",
+            return;
+          } catch (err) {
+            if (attempt < maxAttempts) {
+              logger.info?.(
+                { attempt, maxAttempts, registryUrl },
+                "Registry unreachable, retrying...",
               );
+              await new Promise((r) => setTimeout(r, delayMs));
             } else {
-              logger.error({ err }, "Agent auto-registration failed");
+              const code = (err as NodeJS.ErrnoException & { code?: string })
+                ?.code;
+              const msg = String((err as Error)?.message ?? "");
+              const isConnectionRefused =
+                code === "ECONNREFUSED" ||
+                code === "ConnectionRefused" ||
+                /Unable to connect|ConnectionRefused|ECONNREFUSED/i.test(msg);
+              if (isConnectionRefused) {
+                logger.warn?.(
+                  { err, registryUrl },
+                  "Agent auto-registration failed (registry unreachable). Ensure agent-registry-api is running if you need registration.",
+                );
+              } else {
+                logger.error({ err }, "Agent auto-registration failed");
+              }
             }
           }
         }
-      }
-    })();
+      })();
+    }
   } else {
     logger.warn?.(
       { agentId: config.agentId, agentVersion: config.agentVersion },
-      "Agent not auto-registering: set AGENT_REGISTRY_URL, AGENT_REGISTRY_API_KEY, and AGENT_PUBLIC_URL to register with the registry on startup",
+      "Agent not auto-registering: set AGENT_REGISTRY_URL, AGENT_API_KEY, AGENT_PUBLIC_URL, and AGENT_AUTH_API_URL to register with the registry on startup",
     );
   }
 

@@ -1,6 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+vi.mock("@workspace/agent-auth-client", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@workspace/agent-auth-client")>();
+  return {
+    ...actual,
+    createAgentTokenClient: vi.fn(() => ({
+      getToken: vi.fn().mockResolvedValue("minted-jwt"),
+    })),
+  };
+});
+
 import { createAgentApp } from "./create-agent-app.js";
 import type { AgentResult } from "./types.js";
 
@@ -342,10 +353,11 @@ describe("createAgentApp", () => {
         run: async () => ({ success: true }),
       },
       {
+        authApiUrl: "https://auth.test",
         verifyToken: async () => true,
         autoRegister: {
           registryUrl: "https://registry.test",
-          apiKey: "reg-key",
+          schedulerApiKey: "sched-key",
           agentUrl: "https://agent.test",
           fetchFn,
         },
@@ -360,7 +372,7 @@ describe("createAgentApp", () => {
       { method: string; headers: Record<string, string>; body: string },
     ];
     expect(url).toBe("https://registry.test/api/agents/register");
-    expect(options.headers.Authorization).toBe("Bearer reg-key");
+    expect(options.headers.Authorization).toBe("Bearer minted-jwt");
     const body = JSON.parse(options.body);
     expect(body.agentId).toBe("auto-agent");
     expect(body.agentVersion).toBe("2.0.0");
@@ -383,10 +395,11 @@ describe("createAgentApp", () => {
         run: async () => ({ success: true }),
       },
       {
+        authApiUrl: "https://auth.test",
         verifyToken: async () => true,
         autoRegister: {
           registryUrl: "https://registry.test",
-          apiKey: "key",
+          schedulerApiKey: "sched-key",
           agentUrl: "https://agent.test",
           fetchFn,
         },

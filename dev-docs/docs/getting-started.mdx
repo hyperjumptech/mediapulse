@@ -24,7 +24,7 @@ The setup script prompts for your admin email/password and then automatically:
 - runs DB + DataQueue migrations
 - creates an admin user
 - creates a scheduler API key and writes `AGENT_API_KEY`
-- creates a registry API key and writes `AGENT_REGISTRY_API_KEY` for all agents
+- writes the **scheduler** `AGENT_API_KEY` to mediapulse env and all agents’ `.env.local` for auto-registration / JWT minting
 
 ## Quick start (non-interactive / automation)
 
@@ -67,8 +67,8 @@ Use **pnpm** for install/scripts.
 6. `pnpm create:admin ...` in `apps/hermes/dashboard` (unless `--skip-admin`)
 7. `pnpm generate-api-key ... --purpose scheduler` in `apps/hermes` (unless `--skip-admin`)
 8. `pnpm generate-api-key ... --purpose general` in `apps/hermes` (unless `--skip-admin`)
-9. Writes `AGENT_API_KEY` and `AGENT_REGISTRY_API_KEY` to Hermes and Mediapulse env files (unless `--skip-admin`)
-10. Writes `AGENT_REGISTRY_API_KEY` to all `apps/mediapulse/agents/*/.env.local` (unless `--skip-admin`)
+9. Writes `AGENT_API_KEY` (scheduler) to Hermes and Mediapulse env files (unless `--skip-admin`)
+10. Writes the same `AGENT_API_KEY` to all `apps/mediapulse/agents/*/.env.local` (unless `--skip-admin`)
 
 ### Services and ports
 
@@ -107,7 +107,7 @@ For full pipeline runs (data collection, content generation, delivery), add to *
 To let agents register with the registry on startup, set in each agent’s **`apps/agents/<name>/.env.local`**:
 
 - `AGENT_REGISTRY_URL` (e.g. `http://localhost:8082`)
-- `AGENT_REGISTRY_API_KEY` (an API key you create)
+- `AGENT_API_KEY` (scheduler key for worker and agents; created by `./dev-setup-local.sh` or the Hermes dashboard)
 - `AGENT_PUBLIC_URL` (e.g. `http://localhost:4001` for data-collection)
 
 ---
@@ -120,7 +120,7 @@ To let agents register with the registry on startup, set in each agent’s **`ap
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | DB connection errors                | Docker is running (`docker-compose up -d`), connection string in `packages/env/.env` matches (e.g. `DATABASE_URL`).               |
 | hermes-worker can’t get token / 403 | The key in **`AGENT_API_KEY`** has **purpose `scheduler`** (the setup script creates it this way).                                |
-| Agent auto-registration 401         | Re-run `./dev-setup-local.sh` so it refreshes **`AGENT_REGISTRY_API_KEY`** in `apps/agents/*/.env.local`.                         |
+| Agent auto-registration 401         | Re-run `./dev-setup-local.sh` so it refreshes **`AGENT_API_KEY`** (scheduler) in `apps/mediapulse/agents/*/.env.local`.           |
 | Agent returns 401                   | Auth API is running (8080); **`AGENT_AUTH_API_URL`** is set where the agent loads env; the token or key is valid and not revoked. |
 | Env var not picked up               | Edit **`packages/env/.env`** (or the app’s `.env.local` for app-specific vars). Restart the app or `pnpm dev`.                    |
 | DataQueue / cron errors             | Run **`pnpm --filter @hermes/worker run migrate-dataqueue:dev`** once.                                                            |

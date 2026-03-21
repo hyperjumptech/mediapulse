@@ -1,17 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const getToken = vi.fn().mockResolvedValue("minted-jwt-abc");
+
+vi.mock("@workspace/agent-auth-client", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@workspace/agent-auth-client")>();
+  return {
+    ...actual,
+    createAgentTokenClient: vi.fn(() => ({
+      getToken,
+    })),
+  };
+});
+
 import { registerWithRegistry } from "./register-with-registry.js";
 
 describe("registerWithRegistry", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
-  it("POSTs to registry with correct body and auth", async () => {
+  it("POSTs to registry with JWT from token client and correct body", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ ok: true });
     await registerWithRegistry({
       registryUrl: "https://registry.example.com",
-      apiKey: "secret",
+      authApiUrl: "https://auth.example.com",
+      schedulerApiKey: "scheduler-secret",
       agentId: "my-agent",
       agentVersion: "1.0.0",
       agentUrl: "https://agent.example.com",
@@ -21,6 +35,7 @@ describe("registerWithRegistry", () => {
       fetchFn,
     });
 
+    expect(getToken).toHaveBeenCalledTimes(1);
     expect(fetchFn).toHaveBeenCalledTimes(1);
     const [url, options] = fetchFn.mock.calls[0] as [
       string,
@@ -28,7 +43,7 @@ describe("registerWithRegistry", () => {
     ];
     expect(url).toBe("https://registry.example.com/api/agents/register");
     expect(options.method).toBe("POST");
-    expect(options.headers.Authorization).toBe("Bearer secret");
+    expect(options.headers.Authorization).toBe("Bearer minted-jwt-abc");
     expect(options.headers["Content-Type"]).toBe("application/json");
     const body = JSON.parse(options.body);
     expect(body).toEqual({
@@ -45,7 +60,8 @@ describe("registerWithRegistry", () => {
     const fetchFn = vi.fn().mockResolvedValue({ ok: true });
     await registerWithRegistry({
       registryUrl: "https://registry.example.com/",
-      apiKey: "key",
+      authApiUrl: "https://auth.example.com",
+      schedulerApiKey: "key",
       agentId: "a",
       agentVersion: "1.0.0",
       agentUrl: "https://a.example.com",
@@ -62,7 +78,8 @@ describe("registerWithRegistry", () => {
     const fetchFn = vi.fn().mockResolvedValue({ ok: true });
     await registerWithRegistry({
       registryUrl: "https://r.example.com",
-      apiKey: "k",
+      authApiUrl: "https://auth.example.com",
+      schedulerApiKey: "k",
       agentId: "x",
       agentVersion: "2.0.0",
       agentUrl: "https://x.example.com",
@@ -85,7 +102,8 @@ describe("registerWithRegistry", () => {
     await expect(
       registerWithRegistry({
         registryUrl: "https://r.example.com",
-        apiKey: "k",
+        authApiUrl: "https://auth.example.com",
+        schedulerApiKey: "k",
         agentId: "x",
         agentVersion: "1.0.0",
         agentUrl: "https://x.example.com",

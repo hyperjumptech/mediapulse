@@ -8,7 +8,7 @@ Hermes runs pipelines of one or more agents (periodically or manually). For each
 
 - **Method:** `POST`
 - **Body:** `{ tickerId: "<uuid>" }` (and optionally more fields if the agent schema allows)
-- **Header:** `Authorization: Bearer <apiKey>`
+- **Header:** `Authorization: Bearer <jwt>` (short-lived token from `POST /api/token`)
 
 Agents must validate the body, verify the token, run their logic, and return a consistent JSON response.
 
@@ -83,11 +83,12 @@ The client includes response validation and uses shared contract schemas and rou
 - **`authApiUrl`** — Used by the default token verifier (`verifyTokenViaAuthApi`). Required in production when not supplying `verifyToken`.
 - **`verifyToken`** — Custom `(token: string) => Promise<boolean>`. Overrides the default.
 - **`logger`** — Logger-like instance (`{ error(obj, msg?) }`). Defaults to `@workspace/logger`.
+- **`autoRegister`** — Optional `{ registryUrl, schedulerApiKey, agentUrl, fetchFn?, tokenFetchFn? }`. When set with **`authApiUrl`**, mints a JWT via `createAgentTokenClient` (scheduler API key → `POST /api/token`) and registers with agent-registry-api. The key must have purpose **`scheduler`** in the Hermes dashboard.
 
 ## Types
 
 - **`AgentResult`** — `{ success: true }` or `{ success: false, statusCode?, skipped?, message? }`.
 - **`AgentRunContext<TInput>`** — `{ input: TInput, token: string | undefined }`.
 - **`AgentConfig<TInput, TSchema>`** — `agentId`, `agentVersion`, `inputSchema`, `run`.
-- **`CreateAgentAppOptions`** — `authApiUrl?`, `verifyToken?`, `logger?`.
+- **`CreateAgentAppOptions`** — `authApiUrl?`, `verifyToken?`, `logger?`, `autoRegister?`.
 - **`LoggerLike`** — Minimal logger interface for DI.

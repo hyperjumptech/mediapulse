@@ -3,7 +3,7 @@
 # Usage: merge-agent-env.sh <example-file> <output-file>
 # If output-file exists, existing values are preserved; new keys from the example
 # are added. Used so each agent app can have its own .env.local with agent-specific
-# overrides (e.g. PORT, AGENT_PUBLIC_URL, AGENT_REGISTRY_API_KEY) while sharing
+# overrides (e.g. PORT, AGENT_PUBLIC_URL, AGENT_API_KEY) while sharing
 # the rest from packages/mediapulse/env/.env. Portable for bash 3 (e.g. macOS default).
 
 set -euo pipefail

@@ -52,9 +52,8 @@ Use this checklist to deploy the system in the right order. Each step assumes th
 
 ### 7. Agents
 
-- [ ] Each **agent** (data-collection, content-generation, delivery, ticker-echo, etc.) is deployed with **`AGENT_AUTH_API_URL`** (so it can verify invocation JWTs) and **`AGENT_DATA_API_URL`** (for agents that call the data API).
-- [ ] Agents that call agent-data-api or agent-registry-api have an **API key** (created in Hermes dashboard, purpose `general` or as needed) set in their env (e.g. for registry: **`AGENT_REGISTRY_API_KEY`**; for data API the agent runtime uses the same key when calling the data API).
-- [ ] If agents **auto-register**, set **`AGENT_REGISTRY_URL`**, **`AGENT_REGISTRY_API_KEY`**, and **`AGENT_PUBLIC_URL`** per agent. Register agents in the Hermes dashboard if not auto-registering.
+- [ ] Each **agent** (data-collection, content-generation, delivery, ticker-echo, etc.) is deployed with **`AGENT_AUTH_API_URL`** (so it can verify invocation JWTs) and **`AGENT_DATA_API_URL`** (for agents that call the data API). Calls to agent-data-api use the **same invocation JWT** Hermes sends; no separate data-API key.
+- [ ] If agents **auto-register**, set **`AGENT_REGISTRY_URL`**, **`AGENT_PUBLIC_URL`**, **`AGENT_AUTH_API_URL`**, and **`AGENT_API_KEY`** (scheduler purpose, same key class as hermes-worker) so the agent can mint a JWT for `POST /api/agents/register`. Register agents in the Hermes dashboard if not auto-registering.
 - [ ] **Smoke test:** From Hermes dashboard, run a pipeline manually. Agents should receive the request (check agent logs) and return success; no 401 from agents.
 
 ### 8. Verification
@@ -74,7 +73,7 @@ These come from `packages/env/env.example` and are used by multiple apps.
 | `DATABASE_URL`                  | Yes            | PostgreSQL connection string from your database provider (e.g. [Supabase](https://supabase.com), [Neon](https://neon.tech), [Railway](https://railway.app)). Format: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public`. Get it from the provider’s dashboard under “Connection string” or “Database URL”.      |
 | `DATABASE_CERT_BASE64`          | No             | For TLS (e.g. Neon), the base64-encoded client certificate. In Neon: Project → Settings → Connection → “Download certificate”, then `base64 -i certificate.pem` (or your provider’s equivalent). Omit if your provider doesn’t use client certs.                                                                           |
 | `PORT`                          | No             | Port the app listens on. Defaults in code: agent-auth-api `8080`, agent-data-api `8081`, agent-registry-api `8082`. Override per deployment if needed.                                                                                                                                                                     |
-| `AGENT_DATA_API_URL`            | Depends on app | **Required** for agent-data-api consumers (agents, hermes-worker). Set to the **public URL** of your deployed agent-data-api (e.g. `https://agent-data-api.yourdomain.com`).                                                                                                                                               |
+| `AGENT_DATA_API_URL`            | Depends on app | **Required** for agents that call agent-data-api. Set to the **public URL** of your deployed agent-data-api (e.g. `https://agent-data-api.yourdomain.com`). hermes-worker does not call agent-data-api directly.                                                                                                           |
 | `AGENT_AUTH_API_URL`            | Depends on app | **Required** for agent-data-api, agent-registry-api, hermes, hermes-worker, and all agents. Set to the **public URL** of your deployed agent-auth-api (e.g. `https://agent-auth-api.yourdomain.com`).                                                                                                                      |
 | `AGENT_API_KEY`                 | Depends on app | **Required** for Hermes and hermes-worker. **Create in the Hermes dashboard** (API keys → Create, purpose `scheduler`). Used only to call `POST /api/token` to mint short-lived JWTs; the raw key is never sent to agents. Copy the key once at creation and set it in env; store securely and never expose to the client. |
 | `AGENT_AUTH_JWT_SECRET`         | Yes (auth API) | **Required** for agent-auth-api (JWT issuance and invocation verification). Hermes and hermes-worker call `POST /api/token` to mint short-lived JWTs and send them to agents. Use a long random value (32+ chars).                                                                                                         |
@@ -104,21 +103,21 @@ These come from `packages/env/env.example` and are used by multiple apps.
 
 ### agent-data-api
 
-| Variable             | Required | How to find the value                                                       |
-| -------------------- | -------- | --------------------------------------------------------------------------- |
-| `DATABASE_URL`       | Yes      | Shared.                                                                     |
-| `PORT`               | No       | Default `8081`.                                                             |
-| `AGENT_AUTH_API_URL` | Yes      | Shared. Used to verify API keys on each request (POST /api/verify-api-key). |
+| Variable             | Required | How to find the value                                                        |
+| -------------------- | -------- | ---------------------------------------------------------------------------- |
+| `DATABASE_URL`       | Yes      | Shared.                                                                      |
+| `PORT`               | No       | Default `8081`.                                                              |
+| `AGENT_AUTH_API_URL` | Yes      | Shared. Used to verify invocation JWTs on each request (`POST /api/verify`). |
 
 ---
 
 ### agent-registry-api
 
-| Variable             | Required | How to find the value                                                       |
-| -------------------- | -------- | --------------------------------------------------------------------------- |
-| `DATABASE_URL`       | Yes      | Shared.                                                                     |
-| `AGENT_AUTH_API_URL` | Yes      | Shared. Used to verify API keys on each request (POST /api/verify-api-key). |
-| `PORT`               | No       | Default `8082`.                                                             |
+| Variable             | Required | How to find the value                                                        |
+| -------------------- | -------- | ---------------------------------------------------------------------------- |
+| `DATABASE_URL`       | Yes      | Shared.                                                                      |
+| `AGENT_AUTH_API_URL` | Yes      | Shared. Used to verify invocation JWTs on each request (`POST /api/verify`). |
+| `PORT`               | No       | Default `8082`.                                                              |
 
 ---
 
@@ -162,16 +161,16 @@ Uses shared env. Scripts (e.g. create-user) read from `.env.local` in the app ro
 
 Uses **`packages/env/env.agents.data-collection.example`** (and main env). Per-agent overrides go in `apps/agents/data-collection/.env.local` in dev; in production, set in the environment for that service.
 
-| Variable                 | Required | How to find the value                                                                                                                                                    |
-| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `PORT`                   | No       | Default `4001`.                                                                                                                                                          |
-| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                                                                                  |
-| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                                                                                  |
-| `JINA_API_KEY`           | Yes      | [Jina.ai](https://jina.ai) → account / API keys. Used for Reader API.                                                                                                    |
-| `SERPER_API_KEY`         | Yes      | [Serper.dev](https://serper.dev) → create account → API key. Used for search.                                                                                            |
-| `AGENT_REGISTRY_URL`     | No       | When set with `AGENT_REGISTRY_API_KEY` and `AGENT_PUBLIC_URL`, agent auto-registers. Use your agent-registry-api URL (e.g. `https://agent-registry-api.yourdomain.com`). |
-| `AGENT_REGISTRY_API_KEY` | No       | API key for the registry (create/store in agent-registry-api or your auth system).                                                                                       |
-| `AGENT_PUBLIC_URL`       | No       | Public URL where this agent is reachable (e.g. `https://data-collection-agent.yourdomain.com`).                                                                          |
+| Variable             | Required | How to find the value                                                                                                                                                                  |
+| -------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`               | No       | Default `4001`.                                                                                                                                                                        |
+| `AGENT_DATA_API_URL` | Yes      | Shared.                                                                                                                                                                                |
+| `AGENT_AUTH_API_URL` | Yes      | Shared.                                                                                                                                                                                |
+| `JINA_API_KEY`       | Yes      | [Jina.ai](https://jina.ai) → account / API keys. Used for Reader API.                                                                                                                  |
+| `SERPER_API_KEY`     | Yes      | [Serper.dev](https://serper.dev) → create account → API key. Used for search.                                                                                                          |
+| `AGENT_REGISTRY_URL` | No       | When set with `AGENT_API_KEY`, `AGENT_PUBLIC_URL`, and `AGENT_AUTH_API_URL`, agent auto-registers. Use your agent-registry-api URL (e.g. `https://agent-registry-api.yourdomain.com`). |
+| `AGENT_API_KEY`      | No       | **Scheduler** API key (same as hermes-worker); used only to mint a JWT for registry registration via `POST /api/token`.                                                                |
+| `AGENT_PUBLIC_URL`   | No       | Public URL where this agent is reachable (e.g. `https://data-collection-agent.yourdomain.com`).                                                                                        |
 
 ---
 
@@ -179,16 +178,16 @@ Uses **`packages/env/env.agents.data-collection.example`** (and main env). Per-a
 
 Uses **`packages/env/env.agents.query-analysis.example`**.
 
-| Variable                 | Required | How to find the value                                                                                   |
-| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
-| `PORT`                   | No       | Service default (commonly `4011` unless changed).                                                       |
-| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                 |
-| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                 |
-| `OPENAI_API_KEY`         | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
-| `OPENAI_MODEL`           | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
-| `AGENT_REGISTRY_URL`     | No       | Optional auto-registration endpoint.                                                                    |
-| `AGENT_REGISTRY_API_KEY` | No       | Optional auto-registration API key.                                                                     |
-| `AGENT_PUBLIC_URL`       | No       | Public URL where this agent is reachable.                                                               |
+| Variable             | Required | How to find the value                                                                                   |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `PORT`               | No       | Service default (commonly `4011` unless changed).                                                       |
+| `AGENT_DATA_API_URL` | Yes      | Shared.                                                                                                 |
+| `AGENT_AUTH_API_URL` | Yes      | Shared.                                                                                                 |
+| `OPENAI_API_KEY`     | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
+| `OPENAI_MODEL`       | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
+| `AGENT_REGISTRY_URL` | No       | Optional auto-registration endpoint.                                                                    |
+| `AGENT_API_KEY`      | No       | Optional scheduler key for auto-registration (mint JWT for registry).                                   |
+| `AGENT_PUBLIC_URL`   | No       | Public URL where this agent is reachable.                                                               |
 
 ---
 
@@ -196,14 +195,14 @@ Uses **`packages/env/env.agents.query-analysis.example`**.
 
 Uses **`packages/env/env.agents.content-generation.example`**. **OpenAI** credentials are **not** env vars: set **`openaiApiKey`** and optional **`openaiModel`** on an [Agent config](/dashboard/agent-configs) in Hermes and attach that config to the pipeline step.
 
-| Variable                 | Required | How to find the value                                                               |
-| ------------------------ | -------- | ----------------------------------------------------------------------------------- |
-| `PORT`                   | No       | Default `4002`.                                                                     |
-| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                             |
-| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                             |
-| `AGENT_REGISTRY_URL`     | No       | Same as data-collection.                                                            |
-| `AGENT_REGISTRY_API_KEY` | No       | Same as data-collection.                                                            |
-| `AGENT_PUBLIC_URL`       | No       | Public URL for this agent (e.g. `https://content-generation-agent.yourdomain.com`). |
+| Variable             | Required | How to find the value                                                               |
+| -------------------- | -------- | ----------------------------------------------------------------------------------- |
+| `PORT`               | No       | Default `4002`.                                                                     |
+| `AGENT_DATA_API_URL` | Yes      | Shared.                                                                             |
+| `AGENT_AUTH_API_URL` | Yes      | Shared.                                                                             |
+| `AGENT_REGISTRY_URL` | No       | Same as data-collection.                                                            |
+| `AGENT_API_KEY`      | No       | Same as data-collection (scheduler key for auto-register).                          |
+| `AGENT_PUBLIC_URL`   | No       | Public URL for this agent (e.g. `https://content-generation-agent.yourdomain.com`). |
 
 ---
 
@@ -211,16 +210,16 @@ Uses **`packages/env/env.agents.content-generation.example`**. **OpenAI** creden
 
 Uses **`packages/env/env.agents.analysis.example`**.
 
-| Variable                 | Required | How to find the value                                                                                   |
-| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
-| `PORT`                   | No       | Service default (commonly `4012` unless changed).                                                       |
-| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                 |
-| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                 |
-| `OPENAI_API_KEY`         | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
-| `OPENAI_MODEL`           | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
-| `AGENT_REGISTRY_URL`     | No       | Optional auto-registration endpoint.                                                                    |
-| `AGENT_REGISTRY_API_KEY` | No       | Optional auto-registration API key.                                                                     |
-| `AGENT_PUBLIC_URL`       | No       | Public URL where this agent is reachable.                                                               |
+| Variable             | Required | How to find the value                                                                                   |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `PORT`               | No       | Service default (commonly `4012` unless changed).                                                       |
+| `AGENT_DATA_API_URL` | Yes      | Shared.                                                                                                 |
+| `AGENT_AUTH_API_URL` | Yes      | Shared.                                                                                                 |
+| `OPENAI_API_KEY`     | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
+| `OPENAI_MODEL`       | Yes      | Model id, e.g. `gpt-4o-mini` or `gpt-4o`. See [OpenAI models](https://platform.openai.com/docs/models). |
+| `AGENT_REGISTRY_URL` | No       | Optional auto-registration endpoint.                                                                    |
+| `AGENT_API_KEY`      | No       | Optional scheduler key for auto-registration (mint JWT for registry).                                   |
+| `AGENT_PUBLIC_URL`   | No       | Public URL where this agent is reachable.                                                               |
 
 ---
 
@@ -228,16 +227,16 @@ Uses **`packages/env/env.agents.analysis.example`**.
 
 Uses **`packages/env/env.agents.delivery.example`**.
 
-| Variable                 | Required | How to find the value                                                                                                         |
-| ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                   | No       | Default `4003`.                                                                                                               |
-| `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                                       |
-| `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                                       |
-| `RESEND_SENDER`          | Yes      | [Resend](https://resend.com) → Domains → verify a domain → use a verified sender email (e.g. `notifications@yourdomain.com`). |
-| `RESEND_API_KEY`         | Yes      | Resend dashboard → API Keys → create and copy.                                                                                |
-| `AGENT_REGISTRY_URL`     | No       | Same as data-collection.                                                                                                      |
-| `AGENT_REGISTRY_API_KEY` | No       | Same as data-collection.                                                                                                      |
-| `AGENT_PUBLIC_URL`       | No       | Public URL for this agent (e.g. `https://delivery-agent.yourdomain.com`).                                                     |
+| Variable             | Required | How to find the value                                                                                                         |
+| -------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`               | No       | Default `4003`.                                                                                                               |
+| `AGENT_DATA_API_URL` | Yes      | Shared.                                                                                                                       |
+| `AGENT_AUTH_API_URL` | Yes      | Shared.                                                                                                                       |
+| `RESEND_SENDER`      | Yes      | [Resend](https://resend.com) → Domains → verify a domain → use a verified sender email (e.g. `notifications@yourdomain.com`). |
+| `RESEND_API_KEY`     | Yes      | Resend dashboard → API Keys → create and copy.                                                                                |
+| `AGENT_REGISTRY_URL` | No       | Same as data-collection.                                                                                                      |
+| `AGENT_API_KEY`      | No       | Same as data-collection (scheduler key for auto-register).                                                                    |
+| `AGENT_PUBLIC_URL`   | No       | Public URL for this agent (e.g. `https://delivery-agent.yourdomain.com`).                                                     |
 
 ---
 
@@ -245,26 +244,25 @@ Uses **`packages/env/env.agents.delivery.example`**.
 
 Uses **`packages/env/env.agents.ticker-echo.example`**.
 
-| Variable                 | Required | How to find the value                                                                                                |
-| ------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                   | No       | Default `4010`.                                                                                                      |
-| `AGENT_AUTH_API_URL`     | No       | Auth API URL used to verify bearer tokens (recommended in production), e.g. `https://agent-auth-api.yourdomain.com`. |
-| `AGENT_REGISTRY_URL`     | No       | Optional auto-registration target; set to your agent-registry-api URL when enabling startup registration.            |
-| `AGENT_REGISTRY_API_KEY` | No       | Registry API key used together with `AGENT_REGISTRY_URL` and `AGENT_PUBLIC_URL` for auto-registration.               |
-| `AGENT_PUBLIC_URL`       | No       | Public URL where ticker-echo is reachable (e.g. `https://ticker-echo-agent.yourdomain.com`).                         |
+| Variable             | Required | How to find the value                                                                                                |
+| -------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `PORT`               | No       | Default `4010`.                                                                                                      |
+| `AGENT_AUTH_API_URL` | No       | Auth API URL used to verify bearer tokens (recommended in production), e.g. `https://agent-auth-api.yourdomain.com`. |
+| `AGENT_REGISTRY_URL` | No       | Optional auto-registration target; set to your agent-registry-api URL when enabling startup registration.            |
+| `AGENT_API_KEY`      | No       | Scheduler key used with `AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, and `AGENT_AUTH_API_URL` for auto-registration.    |
+| `AGENT_PUBLIC_URL`   | No       | Public URL where ticker-echo is reachable (e.g. `https://ticker-echo-agent.yourdomain.com`).                         |
 
 ---
 
 ## Secure agent communications
 
-- **JWT-only invocation:** Agent invocation uses **only** short-lived JWTs. Hermes and hermes-worker call `POST /api/token` with a **scheduler API key** (created by an admin in the Hermes dashboard, API keys, purpose `scheduler`) to obtain a JWT, then send `Authorization: Bearer <jwt>` to agents. Agents verify the JWT via `POST /api/verify`. Raw API keys are never sent to agents. Set `AGENT_AUTH_JWT_SECRET` on agent-auth-api (required).
-- **API keys for service calls:** Agents use admin-issued API keys to call agent-data-api and agent-registry-api; those services verify keys via `POST /api/verify-api-key`.
+- **JWT-only invocation:** Agent invocation uses **only** short-lived JWTs. Hermes and hermes-worker call `POST /api/token` with a **scheduler API key** (created by an admin in the Hermes dashboard, API keys, purpose `scheduler`) to obtain a JWT, then send `Authorization: Bearer <jwt>` to agents. Agents forward that same header to **agent-data-api** on each run. Agents, agent-data-api, and agent-registry-api verify the JWT via `POST /api/verify`. Raw API keys are never sent to agents for invocation or data API calls. For **startup registry registration**, agents mint a JWT with the same scheduler key via `POST /api/token`. Set `AGENT_AUTH_JWT_SECRET` on agent-auth-api (required).
 - **HTTPS:** Use HTTPS for all service URLs in production. Set `REQUIRE_HTTPS_AGENT_ENDPOINTS=true` so hermes-worker rejects non-HTTPS agent endpoints (except localhost).
 - **No bypass in prod:** Do not set `ALLOW_ANY_BEARER_FOR_LOCAL=true` (or equivalent) in production; keep it for local dev only.
 
 ## Summary
 
 - **Required everywhere (when the app uses DB):** `DATABASE_URL`. For agent-data-api and agent-registry-api add `AGENT_AUTH_API_URL`. For Hermes and hermes-worker add `AGENT_AUTH_API_URL` and `AGENT_API_KEY`. For agent-auth-api add `AGENT_AUTH_JWT_SECRET` and `TEMP_ADMIN_*`. For Hermes add `TEMP_ADMIN_*`.
-- **Optional:** `DATABASE_CERT_BASE64` (TLS), `PORT` (override defaults), `REQUIRE_HTTPS_AGENT_ENDPOINTS` (hermes-worker), Outlook Graph vars, and for agents the registry trio (`AGENT_REGISTRY_URL`, `AGENT_REGISTRY_API_KEY`, `AGENT_PUBLIC_URL`) if you want auto-registration.
+- **Optional:** `DATABASE_CERT_BASE64` (TLS), `PORT` (override defaults), `REQUIRE_HTTPS_AGENT_ENDPOINTS` (hermes-worker), Outlook Graph vars, and for agents auto-registration (`AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `AGENT_API_KEY`, `AGENT_AUTH_API_URL`) when you want startup registration.
 - **Where to set them:** Use your host’s env config (e.g. Vercel, Railway, Docker env files). Never commit real secrets; use secrets managers or platform secret storage.
 - After changing any `env*.example` file, run `pnpm build` in `packages/env` to regenerate types.

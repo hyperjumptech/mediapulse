@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 
 vi.mock("@workspace/agent-auth-client", () => ({
-  verifyApiKeyViaAuthApi: vi.fn().mockResolvedValue(true),
+  verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@hermes/orchestration-database", () => ({

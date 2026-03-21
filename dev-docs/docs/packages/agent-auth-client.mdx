@@ -6,12 +6,14 @@ icon: Key
 
 ## Purpose
 
-`@workspace/agent-auth-client` exposes a single function to **verify** a bearer token by calling the agent-auth-api. Used by agent-data-api and by agents (via agent-runtime’s default verifier) to validate `Authorization: Bearer <token>`.
+`@workspace/agent-auth-client` exposes helpers to verify credentials via agent-auth-api. **`verifyTokenViaAuthApi`** is used by agents, **agent-data-api**, and **agent-registry-api** to validate the same short-lived **invocation JWT** (`POST /api/verify`). **`verifyApiKeyViaAuthApi`** is for raw API keys (`POST /api/verify-api-key`), e.g. dashboard flows—not for agent→data-api traffic.
 
 ## Exports
 
 - **`verifyTokenViaAuthApi(token, authApiUrl)`** — `Promise<boolean>`. Calls `POST ${authApiUrl}/api/verify` with `Authorization: Bearer ${token}`; returns `true` if status is 200, `false` otherwise (401, network error, etc.).
+- **`verifyApiKeyViaAuthApi(apiKey, authApiUrl)`** — `Promise<boolean>`. Calls `POST ${authApiUrl}/api/verify-api-key` for raw API keys.
+- **`createAgentTokenClient({ authApiUrl, credential, fetchFn? })`** — Returns `{ getToken() }` to mint JWTs via `POST /api/token` (scheduler key).
 
 ## Consumers
 
-agent-data-api (bearer middleware), agent-runtime (default `verifyToken` when `authApiUrl` is set), and thus all three agents indirectly.
+agent-data-api and agent-registry-api (bearer middleware), agent-runtime (default `verifyToken` when `authApiUrl` is set), and Mediapulse agents that call the data API with the forwarded `Authorization` header.

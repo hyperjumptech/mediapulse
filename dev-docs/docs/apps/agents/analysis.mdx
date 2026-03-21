@@ -16,13 +16,13 @@ Core responsibilities:
 
 ## Relevance scoring signals
 
-| Signal | Weight | Description |
-| ------ | ------ | ----------- |
-| `aliasMatch` | `0.30` | Symbol/name/alias match against article text |
+| Signal          | Weight | Description                                      |
+| --------------- | ------ | ------------------------------------------------ |
+| `aliasMatch`    | `0.30` | Symbol/name/alias match against article text     |
 | `entityOverlap` | `0.30` | Overlap between extracted entities and ticker KG |
-| `freshness` | `0.20` | Recency score |
-| `sourceQuality` | `0.10` | Source trust score |
-| `novelty` | `0.10` | Dedup and diversity score |
+| `freshness`     | `0.20` | Recency score                                    |
+| `sourceQuality` | `0.10` | Source trust score                               |
+| `novelty`       | `0.10` | Dedup and diversity score                        |
 
 Formula:
 
@@ -36,16 +36,16 @@ Formula:
 
 ## Environment variables
 
-| Variable | Required | Notes |
-| -------- | -------- | ----- |
-| `PORT` | Yes | Agent HTTP port |
-| `AGENT_AUTH_API_URL` | Yes | JWT/API-key verification endpoint |
-| `AGENT_DATA_API_URL` | Yes | Base URL for data API calls |
-| `OPENAI_API_KEY` | Yes | LLM provider key |
-| `OPENAI_MODEL` | Yes | Model id for extraction/scoring prompts |
-| `AGENT_REGISTRY_URL` | No | Needed for auto-register |
-| `AGENT_REGISTRY_API_KEY` | No | Needed for auto-register |
-| `AGENT_PUBLIC_URL` | No | Needed for auto-register |
+| Variable             | Required | Notes                                      |
+| -------------------- | -------- | ------------------------------------------ |
+| `PORT`               | Yes      | Agent HTTP port                            |
+| `AGENT_AUTH_API_URL` | Yes      | JWT/API-key verification endpoint          |
+| `AGENT_DATA_API_URL` | Yes      | Base URL for data API calls                |
+| `OPENAI_API_KEY`     | Yes      | LLM provider key                           |
+| `OPENAI_MODEL`       | Yes      | Model id for extraction/scoring prompts    |
+| `AGENT_REGISTRY_URL` | No       | Needed for auto-register                   |
+| `AGENT_API_KEY`      | No       | Scheduler key for auto-register (mint JWT) |
+| `AGENT_PUBLIC_URL`   | No       | Needed for auto-register                   |
 
 ## Pipeline usage
 

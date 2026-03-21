@@ -22,7 +22,7 @@ const deliveryPath = agentDataApiPathname(
 const contentGenerationV2Path = agentDataApiPathname("v2", "contentGeneration");
 
 vi.mock("@workspace/agent-auth-client", () => ({
-  verifyApiKeyViaAuthApi: vi.fn().mockResolvedValue(true),
+  verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@mediapulse/env", () => ({

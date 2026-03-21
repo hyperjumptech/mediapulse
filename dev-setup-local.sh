@@ -202,8 +202,8 @@ collect_interactive_inputs() {
   fi
 }
 
-set_agent_registry_api_key_for_all_agents() {
-  local api_key="$1"
+set_agent_api_key_for_all_agents() {
+  local scheduler_api_key="$1"
   local agent_dir
   local env_local_file
 
@@ -213,7 +213,7 @@ set_agent_registry_api_key_for_all_agents() {
       if [[ ! -f "$env_local_file" ]]; then
         touch "$env_local_file"
       fi
-      upsert_env_var "$env_local_file" "AGENT_REGISTRY_API_KEY" "$api_key"
+      upsert_env_var "$env_local_file" "AGENT_API_KEY" "$scheduler_api_key"
     fi
   done
 }
@@ -315,22 +315,19 @@ main() {
     fi
 
     upsert_env_var "$HERMES_ENV_FILE" "AGENT_API_KEY" "$SCHEDULER_API_KEY"
-    upsert_env_var "$HERMES_ENV_FILE" "AGENT_REGISTRY_API_KEY" "$REGISTRY_API_KEY"
     upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_API_KEY" "$SCHEDULER_API_KEY"
-    upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_REGISTRY_API_KEY" "$REGISTRY_API_KEY"
     upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_REGISTRATION_API_KEY" "$REGISTRY_API_KEY"
-    set_agent_registry_api_key_for_all_agents "$REGISTRY_API_KEY"
+    set_agent_api_key_for_all_agents "$SCHEDULER_API_KEY"
   fi
 
   section "Done"
   echo "Updated $HERMES_ENV_FILE and $MEDIAPULSE_ENV_FILE with:"
   echo "  - AGENT_AUTH_JWT_SECRET"
   echo "  - AGENT_AUTH_API_URL=$AGENT_AUTH_API_URL"
-  echo "  - AGENT_API_KEY"
-  echo "  - AGENT_REGISTRY_API_KEY"
+  echo "  - AGENT_API_KEY (scheduler; shared by hermes-worker and mediapulse agents for JWT minting)"
   echo "  - DOMAIN_INTEGRATION_REGISTRATION_API_KEY"
   echo "Updated apps/mediapulse/agents/*/.env.local with:"
-  echo "  - AGENT_REGISTRY_API_KEY"
+  echo "  - AGENT_API_KEY"
   if [[ "$SKIP_ADMIN" == "false" ]]; then
     echo ""
     echo "Admin credentials:"

@@ -1,3 +1,4 @@
+import type { FetchLike } from "@workspace/agent-auth-client";
 import type { z } from "zod";
 
 /** Minimal logger interface (e.g. pino Logger) for DI. */
@@ -42,12 +43,17 @@ export type AgentRunContext<TInput, TConfig = Record<string, never>> = {
 export type AutoRegisterOptions = {
   /** Base URL of the agent-registry-api (e.g. https://registry.example.com). */
   registryUrl: string;
-  /** API key for bearer auth when calling the registry. */
-  apiKey: string;
+  /**
+   * Scheduler-purpose API key (same as hermes-worker `AGENT_API_KEY`); used to mint a JWT via
+   * agent-auth-api `POST /api/token` for registry registration.
+   */
+  schedulerApiKey: string;
   /** Public URL where this agent is reachable (e.g. https://agent.example.com). */
   agentUrl: string;
-  /** Optional fetch implementation (for tests). */
+  /** Optional fetch for the registry POST (tests). */
   fetchFn?: typeof fetch;
+  /** Optional fetch for `POST /api/token` only (tests). */
+  tokenFetchFn?: FetchLike;
 };
 
 /** Options for creating the agent Hono app (injectable for tests). */

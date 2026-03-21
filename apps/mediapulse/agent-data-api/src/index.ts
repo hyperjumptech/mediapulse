@@ -1,4 +1,4 @@
-import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
 import {
   AGENT_DATA_API_LIVE_VERSIONS,
   AGENT_DATA_API_PREFIX,
@@ -64,7 +64,7 @@ for (const version of AGENT_DATA_API_LIVE_VERSIONS) {
     "*",
     bearerAuth({
       verifyToken: (token) =>
-        verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL!),
+        verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL!),
     }),
   );
   registerAgentDataApiRoutes(

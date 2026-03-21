@@ -1,4 +1,7 @@
-export { createAgentTokenClient } from "./agent-token-client.js";
+export {
+  createAgentTokenClient,
+  type FetchLike,
+} from "./agent-token-client.js";
 export {
   verifyApiKeyViaAuthApi,
   verifyTokenViaAuthApi,

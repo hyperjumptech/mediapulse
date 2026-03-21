@@ -1,13 +1,23 @@
+import {
+  createAgentTokenClient,
+  type FetchLike,
+} from "@workspace/agent-auth-client";
+
 /**
  * Registers this agent with the agent-registry-api so Hermes can discover and invoke it.
  * Call this on startup (or use createAgentApp's autoRegister option).
  *
- * @param params - Registry URL, API key, agent metadata, and JSON schemas.
- * @param params.fetchFn - Optional fetch implementation (for tests).
+ * Mints a short-lived JWT via agent-auth-api `POST /api/token` using a scheduler-purpose API key,
+ * then sends `Authorization: Bearer &lt;JWT&gt;` to the registry (same verification as agent invocation).
+ *
+ * @param params - Registry URL, auth API URL, scheduler key, agent metadata, and JSON schemas.
+ * @param params.fetchFn - Optional fetch for the registry POST (tests).
+ * @param params.tokenFetchFn - Optional fetch for `POST /api/token` only (tests).
  */
 export async function registerWithRegistry(params: {
   registryUrl: string;
-  apiKey: string;
+  authApiUrl: string;
+  schedulerApiKey: string;
   agentId: string;
   agentVersion: string;
   agentUrl: string;
@@ -15,10 +25,12 @@ export async function registerWithRegistry(params: {
   configSchema?: Record<string, unknown>;
   description?: string;
   fetchFn?: typeof fetch;
+  tokenFetchFn?: FetchLike;
 }): Promise<void> {
   const {
     registryUrl,
-    apiKey,
+    authApiUrl,
+    schedulerApiKey,
     agentId,
     agentVersion,
     agentUrl,
@@ -26,7 +38,15 @@ export async function registerWithRegistry(params: {
     configSchema,
     description,
     fetchFn = fetch,
+    tokenFetchFn,
   } = params;
+
+  const tokenClient = createAgentTokenClient({
+    authApiUrl,
+    credential: schedulerApiKey,
+    fetchFn: tokenFetchFn ?? fetch,
+  });
+  const jwt = await tokenClient.getToken();
 
   const url = `${registryUrl.replace(/\/$/, "")}/api/agents/register`;
   const body: Record<string, unknown> = {
@@ -41,7 +61,7 @@ export async function registerWithRegistry(params: {
   const res = await fetchFn(url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${jwt}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
