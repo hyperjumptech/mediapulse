@@ -1,3 +1,7 @@
+/**
+ * Unit tests for optional ticker metadata JSON parsing.
+ */
+
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 

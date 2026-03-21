@@ -1,3 +1,7 @@
+/**
+ * Zod schemas validating JSON bodies for entity-type create (`POST /`) and update (`PATCH /:id`) handlers.
+ */
+
 import { z } from "zod";
 
 /** Validated body for creating an entity type. */

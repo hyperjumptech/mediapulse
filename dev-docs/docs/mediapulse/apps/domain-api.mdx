@@ -30,6 +30,20 @@ Registration is centralized so manifest pages, URL segments, and Hono mounts sta
 
 Imports in `dashboard-page.ts` should use `hermes-dashboard-path-helpers` for URL builders (not `paths.ts`) so modules do not create a circular dependency with the registry.
 
+## Hermes dashboard resource folder layout (`src/resources/<kebab-name>/`)
+
+This is a **team convention** (not enforced by tooling). New resources should follow it so structure stays predictable.
+
+| File                     | Purpose                                                                                                                                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dashboard-page.ts`      | Hermes manifest page for `table-v1` (columns, search/sort fields, form JSON Schema, actions) plus the exported `*HermesPathSegment` constant used for `id` / `pathSegment` / API prefix. |
+| `list-mapper.ts`         | Maps Prisma rows to the list-row shape returned by `GET /` and expected by the contract.                                                                                                 |
+| `request-schemas.ts`     | Zod schemas for JSON bodies on `POST` / `PATCH` when the resource supports create or update. **Skip this file** if the resource has no write bodies (for example list-and-delete-only).  |
+| `resource-definition.ts` | Single `defineHermesDashboardResource(...)` export wiring `routes`, `dashboardPage`, `order`, and `resourceKey`.                                                                         |
+| `routes.ts`              | Hono sub-app mounted at `/v1/hermes-dashboard/<segment>/` (list, CRUD, resource-specific routes).                                                                                        |
+
+Place **extra** domain logic beside these (for example ticker metadata merge or custom actions). Co-locate tests as `*.test.ts`.
+
 ## Key environment variables
 
 - `MEDIAPULSE_API_URL` — Public base URL this service registers in Hermes.

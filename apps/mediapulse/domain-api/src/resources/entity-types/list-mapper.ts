@@ -1,3 +1,7 @@
+/**
+ * Maps `EntityType` database rows to the list-item shape returned by the entity-types table API and used in the UI.
+ */
+
 import type { EntityType } from "@mediapulse/database";
 
 /**

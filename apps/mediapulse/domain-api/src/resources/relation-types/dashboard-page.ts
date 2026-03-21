@@ -1,3 +1,7 @@
+/**
+ * Hermes `table-v1` manifest slice for relation-types: UI metadata for the dashboard table and exported path segment.
+ */
+
 import type { DashboardPageInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {

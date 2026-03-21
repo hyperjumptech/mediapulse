@@ -1,3 +1,7 @@
+/**
+ * Maps `RelationType` rows to list items for the relation-types Hermes table API.
+ */
+
 import type { RelationType } from "@mediapulse/database";
 
 /**

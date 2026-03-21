@@ -1,3 +1,7 @@
+/**
+ * Tests for tickers custom-action manifest snippets and registration list shape.
+ */
+
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 

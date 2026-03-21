@@ -1,3 +1,7 @@
+/**
+ * Maps `DataSourceExpansion` rows to list items for the expansions Hermes table API.
+ */
+
 import type { DataSourceExpansion } from "@mediapulse/database";
 
 /**

@@ -1,3 +1,7 @@
+/**
+ * Hermes `table-v1` manifest for data-source expansions (preview field, full-page create) and path segment export.
+ */
+
 import type { DashboardPageInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {

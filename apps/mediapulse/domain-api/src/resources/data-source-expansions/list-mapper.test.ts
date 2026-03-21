@@ -1,3 +1,7 @@
+/**
+ * Unit tests for data-source-expansions list mapping.
+ */
+
 /** @vitest-environment node */
 import type { DataSourceExpansion } from "@mediapulse/database";
 import { describe, expect, it } from "vitest";

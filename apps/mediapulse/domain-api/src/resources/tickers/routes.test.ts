@@ -1,3 +1,7 @@
+/**
+ * Route wiring tests for tickers (custom action registration on the Hono app).
+ */
+
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 

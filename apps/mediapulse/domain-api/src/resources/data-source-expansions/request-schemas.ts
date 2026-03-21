@@ -1,3 +1,7 @@
+/**
+ * Zod schemas for data-source expansion create/update JSON bodies.
+ */
+
 import { z } from "zod";
 
 /** Validated body for creating a data source expansion row. */

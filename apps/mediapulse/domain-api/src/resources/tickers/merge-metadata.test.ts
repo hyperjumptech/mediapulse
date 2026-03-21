@@ -1,3 +1,7 @@
+/**
+ * Unit tests for ticker metadata shallow-merge on PATCH.
+ */
+
 /** @vitest-environment node */
 import { Prisma } from "@mediapulse/database";
 import { describe, expect, it } from "vitest";

@@ -1,3 +1,7 @@
+/**
+ * HTTP handlers for tickers: list, create, update, delete, plus manifest-driven custom actions (IDX import).
+ */
+
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
@@ -14,6 +18,7 @@ import { tickersTableV1CustomActionRegistrations } from "./tickers-table-v1-cust
  */
 export const tickersRoutes = new Hono();
 
+/** Paginated list of tickers for the Hermes dashboard table (search `q`, `sortBy`, `sortDir`). */
 tickersRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
@@ -62,6 +67,7 @@ tickersRoutes.get("/", async (c) => {
   return c.json(payload);
 });
 
+/** Creates a ticker (symbol, name, optional metadata JSON) from the table create form. */
 tickersRoutes.post("/", async (c) => {
   const body = tickerCreateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -90,11 +96,13 @@ tickersRoutes.post("/", async (c) => {
   return c.json({ id: created.id }, 201);
 });
 
+/** Registers manifest-driven custom POST routes (e.g. IDX JSON bulk import). */
 registerTableV1CustomActionRoutes(
   tickersRoutes,
   tickersTableV1CustomActionRegistrations,
 );
 
+/** Updates a ticker by id, including optional metadata merge semantics on PATCH. */
 tickersRoutes.patch("/:id", async (c) => {
   const body = tickerUpdateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -130,6 +138,7 @@ tickersRoutes.patch("/:id", async (c) => {
   return c.json({ id: updated.id });
 });
 
+/** Deletes a ticker by id (Hermes table row delete). */
 tickersRoutes.delete("/:id", async (c) => {
   const result = await prisma.ticker.deleteMany({
     where: { id: c.req.param("id") },

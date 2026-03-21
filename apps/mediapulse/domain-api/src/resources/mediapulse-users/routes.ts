@@ -1,3 +1,7 @@
+/**
+ * HTTP handlers for Mediapulse users: list, create, update, delete (with email uniqueness errors).
+ */
+
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
@@ -14,6 +18,7 @@ import {
  */
 export const mediapulseUsersRoutes = new Hono();
 
+/** Paginated list of Mediapulse end users for the Hermes dashboard table (search `q`, `sortBy`, `sortDir`). */
 mediapulseUsersRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
@@ -56,6 +61,7 @@ mediapulseUsersRoutes.get("/", async (c) => {
   return c.json(payload);
 });
 
+/** Creates a Mediapulse user (email + optional name); returns 409 when email is already taken. */
 mediapulseUsersRoutes.post("/", async (c) => {
   const body = mediapulseUserCreateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -83,6 +89,7 @@ mediapulseUsersRoutes.post("/", async (c) => {
   }
 });
 
+/** Updates a Mediapulse user by id; returns 404 if missing, 409 on duplicate email. */
 mediapulseUsersRoutes.patch("/:id", async (c) => {
   const body = mediapulseUserUpdateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -119,6 +126,7 @@ mediapulseUsersRoutes.patch("/:id", async (c) => {
   }
 });
 
+/** Deletes a Mediapulse user by id (Hermes table row delete). */
 mediapulseUsersRoutes.delete("/:id", async (c) => {
   const result = await prisma.mediapulseUser.deleteMany({
     where: { id: c.req.param("id") },

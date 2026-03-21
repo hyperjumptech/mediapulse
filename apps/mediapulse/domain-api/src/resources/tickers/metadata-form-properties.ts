@@ -1,5 +1,5 @@
 /**
- * JSON Schema `properties` for ticker `metadata` (IDX-style emiten row).
+ * Manifest JSON Schema `properties` map for ticker `metadata` (IDX-style emiten row) used in Hermes create/edit forms.
  * Hermes renders one control per key; keys omitted here stay in DB via PATCH merge but are not editable in the UI.
  */
 export const tickerMetadataFormProperties: Record<string, unknown> = {

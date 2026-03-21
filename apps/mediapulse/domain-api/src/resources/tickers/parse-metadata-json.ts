@@ -1,3 +1,7 @@
+/**
+ * Parses optional ticker `metadata` from API JSON (string or object) into Prisma JSON input or errors.
+ */
+
 import type { Prisma } from "@mediapulse/database";
 
 /** Result of parsing optional ticker metadata from a dashboard JSON body. */

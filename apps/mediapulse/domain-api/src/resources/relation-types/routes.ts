@@ -1,3 +1,7 @@
+/**
+ * HTTP handlers for the relation-types Hermes resource: list, create, update, delete.
+ */
+
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
@@ -14,6 +18,7 @@ import {
  */
 export const relationTypesRoutes = new Hono();
 
+/** Paginated list of relation types for the Hermes dashboard table (search `q`, `sortBy`, `sortDir`). */
 relationTypesRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
@@ -56,6 +61,7 @@ relationTypesRoutes.get("/", async (c) => {
   return c.json(payload);
 });
 
+/** Creates a new knowledge-graph relation type row from the table create form. */
 relationTypesRoutes.post("/", async (c) => {
   const body = relationTypeCreateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -71,6 +77,7 @@ relationTypesRoutes.post("/", async (c) => {
   return c.json({ id: created.id }, 201);
 });
 
+/** Updates a relation type by id (Hermes table edit / PATCH body matches update schema). */
 relationTypesRoutes.patch("/:id", async (c) => {
   const body = relationTypeUpdateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -91,6 +98,7 @@ relationTypesRoutes.patch("/:id", async (c) => {
   }
 });
 
+/** Deletes a relation type by id (Hermes table row delete). */
 relationTypesRoutes.delete("/:id", async (c) => {
   const result = await prisma.relationType.deleteMany({
     where: { id: c.req.param("id") },

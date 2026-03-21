@@ -1,3 +1,7 @@
+/**
+ * HTTP tests for data-source-expansions routes (mounted integration smoke).
+ */
+
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 import { dataSourceExpansionsRoutes } from "./routes";

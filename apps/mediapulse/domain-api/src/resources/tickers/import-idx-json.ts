@@ -1,3 +1,7 @@
+/**
+ * Validates IDX JSON request bodies and runs `@mediapulse/idx-tickers-importer` upserts for the custom import action.
+ */
+
 import {
   importIdxTickers,
   type TickerUpsertDb,

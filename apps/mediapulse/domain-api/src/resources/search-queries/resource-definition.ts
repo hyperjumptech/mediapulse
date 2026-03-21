@@ -1,3 +1,7 @@
+/**
+ * Registers search-queries (list + delete) with the Hermes dashboard resource registry.
+ */
+
 import { defineHermesDashboardResource } from "../../hermes-dashboard/hermes-dashboard-resource-types";
 import {
   searchQueriesDashboardPage,

@@ -1,3 +1,7 @@
+/**
+ * Unit tests for search-queries list mapping and `listInclude`.
+ */
+
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 import { mapRowToListItem, type ListRow } from "./list-mapper";

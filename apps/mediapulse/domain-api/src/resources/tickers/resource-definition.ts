@@ -1,3 +1,7 @@
+/**
+ * Registers the tickers resource (routes + manifest) in `hermesDashboardResources`.
+ */
+
 import { defineHermesDashboardResource } from "../../hermes-dashboard/hermes-dashboard-resource-types";
 import {
   tickersDashboardPage,

@@ -1,3 +1,8 @@
+/**
+ * Hermes `table-v1` manifest slice for the entity-types resource: labels, columns, sort/search fields,
+ * and create/update JSON Schema metadata. Also exports the URL path segment constant for this resource.
+ */
+
 import type { DashboardPageInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {

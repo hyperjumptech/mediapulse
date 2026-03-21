@@ -1,3 +1,7 @@
+/**
+ * Registers mediapulse-users with the central Hermes dashboard resource registry.
+ */
+
 import { defineHermesDashboardResource } from "../../hermes-dashboard/hermes-dashboard-resource-types";
 import {
   mediapulseUsersDashboardPage,

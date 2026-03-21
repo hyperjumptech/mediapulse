@@ -1,3 +1,7 @@
+/**
+ * Unit tests for tickers list mapping.
+ */
+
 /** @vitest-environment node */
 import type { Ticker } from "@mediapulse/database";
 import { describe, expect, it } from "vitest";

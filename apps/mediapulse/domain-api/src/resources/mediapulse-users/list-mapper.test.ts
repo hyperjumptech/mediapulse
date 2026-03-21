@@ -1,3 +1,7 @@
+/**
+ * Unit tests for mediapulse-users list mapping.
+ */
+
 /** @vitest-environment node */
 import type { MediapulseUser } from "@mediapulse/database";
 import { describe, expect, it } from "vitest";

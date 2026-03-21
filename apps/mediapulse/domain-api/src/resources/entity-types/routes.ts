@@ -1,3 +1,7 @@
+/**
+ * HTTP handlers for the entity-types Hermes dashboard resource: paginated list, create, update, and delete.
+ */
+
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
@@ -14,6 +18,7 @@ import {
  */
 export const entityTypesRoutes = new Hono();
 
+/** Paginated list of entity types for the Hermes dashboard table (search `q`, `sortBy`, `sortDir`). */
 entityTypesRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
@@ -56,6 +61,7 @@ entityTypesRoutes.get("/", async (c) => {
   return c.json(payload);
 });
 
+/** Creates a new knowledge-graph entity type row from the table create form. */
 entityTypesRoutes.post("/", async (c) => {
   const body = entityTypeCreateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -71,6 +77,7 @@ entityTypesRoutes.post("/", async (c) => {
   return c.json({ id: created.id }, 201);
 });
 
+/** Updates an entity type by id (Hermes table edit / PATCH body matches update schema). */
 entityTypesRoutes.patch("/:id", async (c) => {
   const body = entityTypeUpdateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -91,6 +98,7 @@ entityTypesRoutes.patch("/:id", async (c) => {
   }
 });
 
+/** Deletes an entity type by id (Hermes table row delete). */
 entityTypesRoutes.delete("/:id", async (c) => {
   const result = await prisma.entityType.deleteMany({
     where: { id: c.req.param("id") },

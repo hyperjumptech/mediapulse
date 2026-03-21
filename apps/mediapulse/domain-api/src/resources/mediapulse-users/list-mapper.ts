@@ -1,3 +1,7 @@
+/**
+ * Maps `MediapulseUser` rows to list items for the mediapulse-users Hermes table API.
+ */
+
 import type { MediapulseUser } from "@mediapulse/database";
 
 /**

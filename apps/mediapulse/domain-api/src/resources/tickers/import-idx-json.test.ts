@@ -1,3 +1,7 @@
+/**
+ * Unit tests for IDX JSON import request validation and importer wiring.
+ */
+
 /** @vitest-environment node */
 import type { TickerUpsertDb } from "@mediapulse/idx-tickers-importer";
 import { describe, expect, it, vi } from "vitest";

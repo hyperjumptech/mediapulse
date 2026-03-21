@@ -1,3 +1,7 @@
+/**
+ * Unit tests for entity-types `mapRowToListItem` list mapping.
+ */
+
 /** @vitest-environment node */
 import type { EntityType } from "@mediapulse/database";
 import { describe, expect, it } from "vitest";

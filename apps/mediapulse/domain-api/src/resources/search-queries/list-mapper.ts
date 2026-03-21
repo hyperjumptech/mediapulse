@@ -1,3 +1,7 @@
+/**
+ * Prisma `include` for search-query list rows and mapper from joined query+ticker to list items.
+ */
+
 import type { Prisma } from "@mediapulse/database";
 
 /**

@@ -1,3 +1,7 @@
+/**
+ * PATCH-time merge helper for ticker `metadata` JSON: preserve keys omitted from the dashboard form.
+ */
+
 import { Prisma } from "@mediapulse/database";
 
 /**

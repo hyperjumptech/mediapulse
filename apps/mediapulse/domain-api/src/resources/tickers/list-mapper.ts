@@ -1,3 +1,7 @@
+/**
+ * Maps `Ticker` rows (including metadata) to list items for the tickers Hermes table API.
+ */
+
 import type { Ticker } from "@mediapulse/database";
 
 /**

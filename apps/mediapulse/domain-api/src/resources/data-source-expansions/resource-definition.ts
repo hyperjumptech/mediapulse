@@ -1,3 +1,7 @@
+/**
+ * Registers data-source-expansions (routes + manifest page) in `hermesDashboardResources`.
+ */
+
 import { defineHermesDashboardResource } from "../../hermes-dashboard/hermes-dashboard-resource-types";
 import {
   dataSourceExpansionsDashboardPage,

@@ -1,3 +1,7 @@
+/**
+ * Zod schemas for Mediapulse user create/update JSON bodies (`POST /`, `PATCH /:id`).
+ */
+
 import { z } from "zod";
 
 /** Validated body for creating a Mediapulse end user. */

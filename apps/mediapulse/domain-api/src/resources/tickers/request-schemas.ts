@@ -1,3 +1,7 @@
+/**
+ * Zod schemas for ticker create/update JSON bodies, including optional `metadata` field typing.
+ */
+
 import { z } from "zod";
 
 const tickerMetadataBodySchema = z

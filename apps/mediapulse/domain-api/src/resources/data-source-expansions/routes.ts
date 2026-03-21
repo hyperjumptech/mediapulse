@@ -1,3 +1,7 @@
+/**
+ * HTTP handlers for `db:` expansion aliases: table meta, list, single-row fetch, create, update, delete.
+ */
+
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
@@ -16,6 +20,10 @@ import {
  */
 export const dataSourceExpansionsRoutes = new Hono();
 
+/**
+ * Returns `table-v1` column and form metadata for this resource.
+ * Mounted here (before `/:id`) so `meta` is not treated as an expansion id.
+ */
 dataSourceExpansionsRoutes.get("/meta", (c) => {
   const meta = buildMetaPayloadForPathSegment(
     dataSourceExpansionsHermesPathSegment,
@@ -26,6 +34,7 @@ dataSourceExpansionsRoutes.get("/meta", (c) => {
   return c.json(meta);
 });
 
+/** Paginated list of `db:` expansion aliases for the Hermes dashboard table (search `q`, `sortBy`, `sortDir`). */
 dataSourceExpansionsRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
@@ -74,6 +83,7 @@ dataSourceExpansionsRoutes.get("/", async (c) => {
   return c.json(payload);
 });
 
+/** Loads one expansion by id for the full-page create/edit flow (all scalar fields). */
 dataSourceExpansionsRoutes.get("/:id", async (c) => {
   const row = await prisma.dataSourceExpansion.findUnique({
     where: { id: c.req.param("id") },
@@ -91,6 +101,7 @@ dataSourceExpansionsRoutes.get("/:id", async (c) => {
   });
 });
 
+/** Creates a new data-source expansion alias from the table create form. */
 dataSourceExpansionsRoutes.post("/", async (c) => {
   const body = dataSourceExpansionCreateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -108,6 +119,7 @@ dataSourceExpansionsRoutes.post("/", async (c) => {
   return c.json({ id: created.id }, 201);
 });
 
+/** Updates a data-source expansion by id (Hermes full-page or modal edit). */
 dataSourceExpansionsRoutes.patch("/:id", async (c) => {
   const body = dataSourceExpansionUpdateSchema.safeParse(await c.req.json());
   if (!body.success) {
@@ -129,6 +141,7 @@ dataSourceExpansionsRoutes.patch("/:id", async (c) => {
   }
 });
 
+/** Deletes a data-source expansion by id (Hermes table row delete). */
 dataSourceExpansionsRoutes.delete("/:id", async (c) => {
   const result = await prisma.dataSourceExpansion.deleteMany({
     where: { id: c.req.param("id") },

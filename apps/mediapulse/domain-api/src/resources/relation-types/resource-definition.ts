@@ -1,3 +1,7 @@
+/**
+ * Registers the relation-types routes and manifest page with `hermesDashboardResources`.
+ */
+
 import { defineHermesDashboardResource } from "../../hermes-dashboard/hermes-dashboard-resource-types";
 import {
   relationTypesDashboardPage,

@@ -1,3 +1,7 @@
+/**
+ * Declares tickers-only `table-v1` custom actions (manifest rows + Hono handlers), e.g. IDX JSON bulk import.
+ */
+
 import type { DashboardPageCustomAction } from "@hermes/domain-contract";
 import type { Handler } from "hono";
 

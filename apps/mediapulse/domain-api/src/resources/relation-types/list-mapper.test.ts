@@ -1,3 +1,7 @@
+/**
+ * Unit tests for relation-types list mapping.
+ */
+
 /** @vitest-environment node */
 import type { RelationType } from "@mediapulse/database";
 import { describe, expect, it } from "vitest";

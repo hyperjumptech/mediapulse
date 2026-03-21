@@ -1,3 +1,7 @@
+/**
+ * Zod schemas for relation-type create and update JSON bodies on `POST /` and `PATCH /:id`.
+ */
+
 import { z } from "zod";
 
 /** Validated body for creating a relation type. */

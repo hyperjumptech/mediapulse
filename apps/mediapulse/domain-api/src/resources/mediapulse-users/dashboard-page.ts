@@ -1,3 +1,7 @@
+/**
+ * Hermes `table-v1` manifest slice for Mediapulse end users and exported `*HermesPathSegment` for routing.
+ */
+
 import type { DashboardPageInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
