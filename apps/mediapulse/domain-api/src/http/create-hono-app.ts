@@ -6,7 +6,7 @@ import { pinoLogger } from "hono-pino";
 import {
   HERMES_DASHBOARD_V1_MOUNT_PATH,
   hermesDashboardTableMountPath,
-} from "../domain/hermes-dashboard-paths";
+} from "../hermes-dashboard/paths";
 import { hermesDashboardTableRouteMounts } from "./hermes-table-route-mounts";
 import { registerWithHermes } from "./register-with-hermes";
 import { healthRoutes } from "./routes/health-routes";

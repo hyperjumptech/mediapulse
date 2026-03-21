@@ -11,7 +11,7 @@ import {
 } from "@mediapulse/hermes-integration";
 import { prisma } from "@mediapulse/database";
 import { Hono } from "hono";
-import { STEP_INPUT_DOMAIN_API_PATHS } from "../../domain/hermes-dashboard-paths";
+import { STEP_INPUT_DOMAIN_API_PATHS } from "../../hermes-dashboard/paths";
 import { truncatePreviewExpansionError } from "../../lib/preview-expansion-error";
 
 /**

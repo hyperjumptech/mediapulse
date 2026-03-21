@@ -1,12 +1,12 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
-import { dashboardManifest } from "../domain/dashboard-manifest";
+import { dashboardManifest } from "../hermes-dashboard/manifest";
 import {
   HermesDashboardResource,
   hermesDashboardManifestApiPrefix,
   hermesDashboardTableMountPath,
   type HermesDashboardSegment,
-} from "../domain/hermes-dashboard-paths";
+} from "../hermes-dashboard/paths";
 import { hermesDashboardTableRouteMounts } from "./hermes-table-route-mounts";
 
 describe("Hermes dashboard routing contract", () => {

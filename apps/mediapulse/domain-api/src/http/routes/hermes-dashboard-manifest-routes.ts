@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { dashboardManifest } from "../../domain/dashboard-manifest";
-import { buildTableV1MetaPayloadForPathSegment } from "../../domain/table-v1-meta-for-path-segment";
+import { dashboardManifest } from "../../hermes-dashboard/manifest";
+import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
 
 /**
  * Hermes dashboard manifest and per-resource table metadata (`table-v1` contract).
@@ -13,7 +13,7 @@ hermesDashboardManifestRoutes.get("/manifest", (c) => {
 
 hermesDashboardManifestRoutes.get("/:resource/meta", (c) => {
   const resource = c.req.param("resource");
-  const meta = buildTableV1MetaPayloadForPathSegment(resource);
+  const meta = buildMetaPayloadForPathSegment(resource);
   if (!meta) {
     return c.json({ message: "Unknown dashboard resource" }, 404);
   }

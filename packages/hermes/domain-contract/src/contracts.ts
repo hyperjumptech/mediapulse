@@ -199,6 +199,11 @@ export type RegisterDomainIntegrationResponse = z.infer<
 >;
 export type DashboardManifest = z.infer<typeof dashboardManifestSchema>;
 export type DashboardPage = z.infer<typeof dashboardPageSchema>;
+/**
+ * Input object for {@link dashboardPageSchema} (before defaults and coercion).
+ * Use with `satisfies` so manifest pages are checked against the contract at compile time.
+ */
+export type DashboardPageInput = z.input<typeof dashboardPageSchema>;
 export type TableV1ListRequestQuery = z.infer<
   typeof tableV1ListRequestQuerySchema
 >;

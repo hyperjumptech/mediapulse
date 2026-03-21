@@ -22,6 +22,7 @@ export {
   tableV1MetaResponseSchema,
   type DashboardManifest,
   type DashboardPage,
+  type DashboardPageInput,
   type DashboardPageCreateNavigation,
   type DashboardPagePreview,
   type DashboardPageCustomAction,

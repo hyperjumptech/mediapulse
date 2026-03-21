@@ -2,13 +2,13 @@ import type { Hono } from "hono";
 import {
   HermesDashboardResource,
   type HermesDashboardSegment,
-} from "../domain/hermes-dashboard-paths";
-import { dataSourceExpansionsRoutes } from "./routes/data-source-expansions-routes";
-import { entityTypesRoutes } from "./routes/entity-types-routes";
-import { mediapulseUsersRoutes } from "./routes/mediapulse-users-routes";
-import { relationTypesRoutes } from "./routes/relation-types-routes";
-import { searchQueriesRoutes } from "./routes/search-queries-routes";
-import { tickersRoutes } from "./routes/tickers-routes";
+} from "../hermes-dashboard/paths";
+import { dataSourceExpansionsRoutes } from "../resources/data-source-expansions/tables/routes";
+import { entityTypesRoutes } from "../resources/entity-types/tables/routes";
+import { mediapulseUsersRoutes } from "../resources/mediapulse-users/tables/routes";
+import { relationTypesRoutes } from "../resources/relation-types/tables/routes";
+import { searchQueriesRoutes } from "../resources/search-queries/tables/routes";
+import { tickersRoutes } from "../resources/tickers/tables/routes";
 
 /**
  * Hermes `table-v1` resources: each entry must match a manifest page and a mounted sub-app.

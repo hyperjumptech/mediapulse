@@ -2,7 +2,7 @@ import { registerDomainIntegrationRequestSchema } from "@hermes/domain-contract"
 import { env } from "@mediapulse/env";
 import { logger } from "@workspace/logger";
 import { z } from "zod";
-import { dashboardManifest } from "../domain/dashboard-manifest";
+import { dashboardManifest } from "../hermes-dashboard/manifest";
 import {
   getBackoffDelayMs,
   REGISTRATION_MAX_ATTEMPTS,

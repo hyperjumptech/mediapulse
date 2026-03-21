@@ -16,13 +16,12 @@ export const parsePagination = (
   pageSizeRaw: string | undefined,
 ): { page: number; pageSize: number } => {
   const page = Math.max(1, Number.parseInt(pageRaw ?? "1", 10) || 1);
-  const pageSize = Math.min(
-    MAX_PAGE_SIZE,
-    Math.max(
-      1,
-      Number.parseInt(pageSizeRaw ?? String(DEFAULT_PAGE_SIZE), 10) ||
-        DEFAULT_PAGE_SIZE,
-    ),
+  const pageSizeParsed = Number.parseInt(
+    pageSizeRaw ?? String(DEFAULT_PAGE_SIZE),
+    10,
   );
+  const pageSize = Number.isNaN(pageSizeParsed)
+    ? DEFAULT_PAGE_SIZE
+    : Math.min(MAX_PAGE_SIZE, Math.max(1, pageSizeParsed));
   return { page, pageSize };
 };
