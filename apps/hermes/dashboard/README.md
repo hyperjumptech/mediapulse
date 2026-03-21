@@ -19,14 +19,19 @@ Schedules are stored in the database (`Schedule` table). The **scheduler does no
 
 ## Knowledge graph seeding (development)
 
-With Prisma migrations applied, configure `packages/mediapulse/env/.env` (at least `MEDIAPULSE_DATABASE_URL`) for vocabulary seeding, and Hermes env (`packages/hermes/env`) for pipeline seeding. From `apps/hermes/dashboard`:
+KG **vocabulary** (entity types and relation types) lives in the Mediapulse domain database. Run it from the monorepo root with `packages/mediapulse/env` configured (`MEDIAPULSE_DATABASE_URL`):
 
 ```bash
-pnpm seed-kg-vocabulary
+pnpm --filter @mediapulse/database run seed-kg-vocabulary
+```
+
+KG **pipelines and schedules** are Hermes orchestration data. With `ORCHESTRATION_DATABASE_URL` set for the dashboard (e.g. in `apps/hermes/dashboard/.env.local`), run from `apps/hermes/dashboard`:
+
+```bash
 pnpm seed-kg-pipelines
 ```
 
-`pnpm seed-kg-vocabulary` runs the script in `@mediapulse/database` (entity and relation types). `pnpm seed-kg-pipelines` runs here (pipelines and schedules). Both are idempotent.
+Both commands are idempotent.
 
 ## Creating an admin user
 

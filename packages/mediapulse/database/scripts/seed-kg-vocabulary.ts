@@ -3,7 +3,6 @@
  * The operation is idempotent and safe to run multiple times because rows are upserted by name.
  *
  * Run from the monorepo root: `pnpm --filter @mediapulse/database run seed-kg-vocabulary`
- * (Hermes dashboard forwards `pnpm seed-kg-vocabulary` to this script).
  */
 
 import { config } from "dotenv";

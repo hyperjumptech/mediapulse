@@ -37,7 +37,7 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 - **Data source expansions** (`/dashboard/{integrationKey}/data-source-expansions`): Create, edit, delete saved expansion templates. Each has a name, expansion string (e.g. `db:userTicker:tickerId?where.enabled=true`), and optional description. Use **Run preview** on the create/edit page to test the expansion against the DB; format docs and examples are shown on the page. See [Data source expansion](/apps/data-source-expansion) for full format and behavior.
 - **Entity types** (`/dashboard/{integrationKey}/entity-types`): Manage entity classification vocabulary used by analysis prompts.
 - **Relation types** (`/dashboard/{integrationKey}/relation-types`): Manage relation vocabulary used by analysis prompts.
-- **KG dev seeding** — From `apps/hermes`, run `pnpm seed-kg-vocabulary` then `pnpm seed-kg-pipelines` to load default vocabulary rows and KG pipelines/schedules into a development database. Details in [Knowledge Graph](/knowledge-graph/knowledge-graph#schedule-configuration-default-seeds).
+- **KG dev seeding** — Run `pnpm --filter @mediapulse/database run seed-kg-vocabulary` from the monorepo root for vocabulary, then `pnpm seed-kg-pipelines` from `apps/hermes/dashboard` for pipelines/schedules. Details in [Knowledge Graph](/knowledge-graph/knowledge-graph#schedule-configuration-default-seeds).
 - API key actions: create, update, delete. Create/update via modal; list is paginated with search by name.
 - Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@hermes/scheduler`; execution runs in hermes-worker.
 - Logout: `/logout`.

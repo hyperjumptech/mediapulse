@@ -86,10 +86,10 @@ Legend:
 | 4x Daily Data Collection | `0 6,10,14,18 * * *` | `Asia/Jakarta` | repeating | `false`            |
 | Daily Newsletter         | `0 20 * * *`         | `Asia/Jakarta` | repeating | `false`            |
 
-**During development**, load default KG rows into the database from `apps/hermes` using the package scripts (wrappers around the TypeScript files in `scripts/`):
+**During development**, load default KG rows using:
 
-- `pnpm seed-kg-vocabulary` — upserts default **entity types** and **relation types**.
-- `pnpm seed-kg-pipelines` — upserts the **pipelines** and **schedules** in the table above.
+- `pnpm --filter @mediapulse/database run seed-kg-vocabulary` (from the monorepo root) — upserts default **entity types** and **relation types** in the Mediapulse domain DB.
+- `pnpm seed-kg-pipelines` — from `apps/hermes/dashboard`, upserts the **pipelines** and **schedules** in the table above in the Hermes orchestration DB.
 
 Both operations are idempotent and safe to re-run. For an empty local DB, run vocabulary first so the dashboard and analysis agents have the baseline vocabulary; then run the pipeline seed.
 
