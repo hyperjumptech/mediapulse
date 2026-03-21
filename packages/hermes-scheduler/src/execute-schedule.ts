@@ -36,7 +36,6 @@ export type ExpandStepInputsContext = {
   scheduleId: string;
   pipelineId: string;
   pipelineStepId: string;
-  registeredDatabaseId: string | null;
   orchDb: PrismaClient;
 };
 
@@ -205,7 +204,6 @@ export const executeSchedule = async (
       scheduleId: schedule.id,
       pipelineId: schedule.pipelineId,
       pipelineStepId: step.id,
-      registeredDatabaseId: step.registeredDatabaseId,
       orchDb: db,
     });
     const stepPayloads: InvokeAgentJobPayload[] = [];
@@ -214,7 +212,6 @@ export const executeSchedule = async (
     const stepWithConfig = step as {
       config?: unknown;
       agentConfigId?: string | null;
-      registeredDatabaseId?: string | null;
       agentConfig?: { config: unknown } | null;
     };
     if (

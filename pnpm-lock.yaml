@@ -465,6 +465,9 @@ importers:
       '@workspace/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@workspace/hermes-domain-contract':
+        specifier: workspace:*
+        version: link:../../packages/hermes-domain-contract
       '@workspace/hermes-scheduler':
         specifier: workspace:*
         version: link:../../packages/hermes-scheduler
@@ -480,12 +483,6 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../packages/logger
-      '@workspace/mediapulse-database':
-        specifier: workspace:*
-        version: link:../../packages/mediapulse-database
-      '@workspace/mediapulse-hermes-integration':
-        specifier: workspace:*
-        version: link:../../packages/mediapulse-hermes-integration
       '@workspace/orchestration-database':
         specifier: workspace:*
         version: link:../../packages/orchestration-database
@@ -598,9 +595,55 @@ importers:
       '@workspace/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@workspace/hermes-domain-contract':
+        specifier: workspace:*
+        version: link:../../packages/hermes-domain-contract
       '@workspace/hermes-scheduler':
         specifier: workspace:*
         version: link:../../packages/hermes-scheduler
+      '@workspace/hermes-step-input-syntax':
+        specifier: workspace:*
+        version: link:../../packages/hermes-step-input-syntax
+      '@workspace/logger':
+        specifier: workspace:*
+        version: link:../../packages/logger
+      '@workspace/orchestration-database':
+        specifier: workspace:*
+        version: link:../../packages/orchestration-database
+      got:
+        specifier: 'catalog:'
+        version: 14.6.6
+    devDependencies:
+      '@types/bun':
+        specifier: latest
+        version: 1.3.10
+      '@workspace/eslint-config':
+        specifier: workspace:^
+        version: link:../../packages/eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      dotenv-cli:
+        specifier: 'catalog:'
+        version: 7.4.4
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.6.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+
+  apps/mediapulse-domain-api:
+    dependencies:
+      '@workspace/env':
+        specifier: workspace:*
+        version: link:../../packages/env
+      '@workspace/hermes-domain-contract':
+        specifier: workspace:*
+        version: link:../../packages/hermes-domain-contract
       '@workspace/hermes-step-input-syntax':
         specifier: workspace:*
         version: link:../../packages/hermes-step-input-syntax
@@ -613,16 +656,19 @@ importers:
       '@workspace/mediapulse-hermes-integration':
         specifier: workspace:*
         version: link:../../packages/mediapulse-hermes-integration
-      '@workspace/orchestration-database':
-        specifier: workspace:*
-        version: link:../../packages/orchestration-database
-      got:
+      hono:
         specifier: 'catalog:'
-        version: 14.6.6
+        version: 4.11.9
+      hono-pino:
+        specifier: 'catalog:'
+        version: 0.6.0(hono@4.11.9)(pino@10.3.1)
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.3.10
+        version: 1.3.11
       '@workspace/eslint-config':
         specifier: workspace:^
         version: link:../../packages/eslint-config
@@ -974,6 +1020,34 @@ importers:
         specifier: 'catalog:'
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/hermes-domain-contract:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.33
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      '@workspace/eslint-config':
+        specifier: workspace:^
+        version: link:../eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.6.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+
   packages/hermes-scheduler:
     dependencies:
       '@workspace/orchestration-database':
@@ -1232,9 +1306,6 @@ importers:
       '@types/pg':
         specifier: ^8.16.0
         version: 8.16.0
-      '@vitest/coverage-v8':
-        specifier: 'catalog:'
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
       '@workspace/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
@@ -1256,9 +1327,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/outlook-inbox:
     dependencies:
@@ -4073,6 +4141,9 @@ packages:
   '@types/bun@1.3.10':
     resolution: {integrity: sha512-0+rlrUrOrTSskibryHbvQkDOWRJwJZqZlxrUs1u4oOoTln8+WIXBPmAuCF35SWB2z4Zl3E84Nl/D0P7803nigQ==}
 
+  '@types/bun@1.3.11':
+    resolution: {integrity: sha512-5vPne5QvtpjGpsGYXiFyycfpDF2ECyPcTSsFBMa0fraoxiQyMJ3SmuQIGhzPg2WJuWxVBoxWJ2kClYTcw/4fAg==}
+
   '@types/cacheable-request@6.0.3':
     resolution: {integrity: sha512-IQ3EbTzGxIigb1I3qPZc1rWJnH0BmSKv5QYTalEwweFvyBDLSAe24zP0le/hyi7ecGfZVlIVAg4BZqb8WBwKqw==}
 
@@ -4680,6 +4751,9 @@ packages:
 
   bun-types@1.3.10:
     resolution: {integrity: sha512-tcpfCCl6XWo6nCVnpcVrxQ+9AYN1iqMIzgrSKYMB/fjLtV2eyAVEg7AxQJuCq/26R6HpKWykQXuSOq/21RYcbg==}
+
+  bun-types@1.3.11:
+    resolution: {integrity: sha512-1KGPpoxQWl9f6wcZh57LvrPIInQMn2TQ7jsgxqpRzg+l0QPOFvJVH7HmvHo/AiPgwXy+/Thf6Ov3EdVn1vOabg==}
 
   bundle-name@4.1.0:
     resolution: {integrity: sha512-tjwM5exMg6BGRI+kNmTntNsvdZS1X8BFYS6tnJ2hdH0kVxM6/eVZ2xy+FqStSWvYmtfFMDLIxurorHwDKfDz5Q==}
@@ -12426,6 +12500,10 @@ snapshots:
     dependencies:
       bun-types: 1.3.10
 
+  '@types/bun@1.3.11':
+    dependencies:
+      bun-types: 1.3.11
+
   '@types/cacheable-request@6.0.3':
     dependencies:
       '@types/http-cache-semantics': 4.2.0
@@ -13246,6 +13324,10 @@ snapshots:
       semver: 7.7.4
 
   bun-types@1.3.10:
+    dependencies:
+      '@types/node': 25.2.3
+
+  bun-types@1.3.11:
     dependencies:
       '@types/node': 25.2.3
 

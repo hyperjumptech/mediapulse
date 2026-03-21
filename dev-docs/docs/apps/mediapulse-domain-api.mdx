@@ -1,0 +1,25 @@
+---
+title: mediapulse-domain-api
+description: Domain integration API for Mediapulse expansion and preview
+icon: Server
+---
+
+## Purpose
+
+`apps/mediapulse-domain-api` is the Mediapulse-owned HTTP service that implements the Hermes domain integration contract.
+
+## Responsibilities
+
+- Exposes contract routes:
+  - `GET /v1/health`
+  - `POST /v1/preview-expansion`
+  - `POST /v1/expand-step-inputs`
+- Runs Mediapulse DB expansion logic using `@workspace/mediapulse-hermes-integration`.
+- Self-registers to Hermes via `POST /api/domain-integrations/register`.
+
+## Key environment variables
+
+- `MEDIAPULSE_API_URL` — Public base URL this service registers in Hermes.
+- `HERMES_API_URL` — Hermes base URL for registration.
+- `DOMAIN_INTEGRATION_REGISTRATION_API_KEY` — Bearer token for registration endpoint.
+- `DOMAIN_INTEGRATION_AUTH_TOKEN` — Optional bearer token Hermes must send on contract calls.

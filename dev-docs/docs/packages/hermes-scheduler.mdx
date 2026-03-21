@@ -13,7 +13,7 @@ icon: CalendarClock
 - **Due schedules:** `getDueSchedules`, `DueSchedule`, `GetDueSchedulesDb`
 - **Execution:** `executeSchedule`, `ExecuteScheduleDeps`
 - **Next run:** `computeNextRunAt`, `ScheduleForNextRun`
-- **Step input expansion:** `expandStepInputs` is injected via `ExecuteScheduleDeps` (domain-specific implementation lives in `@workspace/mediapulse-hermes-integration`; syntax in `@workspace/hermes-step-input-syntax`).
+- **Step input expansion:** `expandStepInputs` is injected via `ExecuteScheduleDeps` (runtime implementation in worker; syntax in `@workspace/hermes-step-input-syntax`).
 - **Agent invocation:** `invokeAgent`, `AgentEndpointSchema`, `AgentEndpoint`, `InvokeAgentHttpClient`
 
 ## Consumers

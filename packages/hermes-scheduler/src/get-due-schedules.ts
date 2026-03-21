@@ -21,7 +21,7 @@ export const getDueSchedules = async (db: GetDueSchedulesDb) => {
         include: {
           steps: {
             orderBy: { order: "asc" },
-            include: { agentConfig: true, registeredDatabase: true },
+            include: { agentConfig: true },
           },
         },
       },

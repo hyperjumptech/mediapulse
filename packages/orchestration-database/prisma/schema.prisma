@@ -90,19 +90,20 @@ model Variable {
   @@map("variable")
 }
 
-model RegisteredDatabase {
-  id                        String   @id @default(uuid())
-  name                      String   @unique
-  encryptedConnectionString String   @map("encrypted_connection_string")
-  allowlistedTables         Json?    @map("allowlisted_tables")
-  isActive                  Boolean  @default(true) @map("is_active")
-  isDefault                 Boolean  @default(false) @map("is_default")
-  createdAt                 DateTime @default(now()) @map("created_at")
-  updatedAt                 DateTime @updatedAt @map("updated_at")
+model DomainIntegration {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  name         String
+  baseUrl      String   @map("base_url")
+  version      String?
+  capabilities Json?    @default("[]")
+  isActive     Boolean  @default(true) @map("is_active")
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  lastSeenAt   DateTime @default(now()) @map("last_seen_at")
 
-  pipelineSteps PipelineStep[]
-
-  @@map("registered_database")
+  @@map("domain_integration")
 }
 
 model Pipeline {
@@ -206,21 +207,19 @@ model AgentJobExecution {
 }
 
 model PipelineStep {
-  id                   String   @id @default(uuid())
-  order                Int
-  agentId              String   @map("agent_id")
-  agentVersion         String   @map("agent_version")
-  pipelineId           String   @map("pipeline_id")
-  agentConfigId        String?  @map("agent_config_id")
-  registeredDatabaseId String?  @map("registered_database_id")
-  input                Json?    @default("{}")
-  config               Json?    @default("{}")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  order         Int
+  agentId       String   @map("agent_id")
+  agentVersion  String   @map("agent_version")
+  pipelineId    String   @map("pipeline_id")
+  agentConfigId String?  @map("agent_config_id")
+  input         Json?    @default("{}")
+  config        Json?    @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  pipeline           Pipeline            @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  agentConfig        AgentConfig?        @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
-  registeredDatabase RegisteredDatabase? @relation(fields: [registeredDatabaseId], references: [id], onDelete: SetNull)
+  pipeline    Pipeline     @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  agentConfig AgentConfig? @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
 
   @@unique([pipelineId, order])
   @@map("pipeline_step")

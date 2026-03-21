@@ -50,11 +50,7 @@ vi.mock("@/lib/data-source-expansions", () => ({
 }));
 
 vi.mock("@workspace/database", () => ({
-  prisma: {
-    registeredDatabase: {
-      findMany: vi.fn().mockResolvedValue([]),
-    },
-  },
+  prisma: {},
 }));
 
 vi.mock("./pipeline-detail-content", () => ({

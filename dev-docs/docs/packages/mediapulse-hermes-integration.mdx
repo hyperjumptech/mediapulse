@@ -1,24 +1,24 @@
 ---
 title: mediapulse-hermes-integration
-description: Mediapulse plug-in for Hermes step input expansion and validation
+description: Mediapulse domain-side expansion helpers
 icon: Plug
 ---
 
 ## Purpose
 
-`@workspace/mediapulse-hermes-integration` contains Mediapulse-specific integration logic that plugs into the generic `@workspace/hermes-scheduler` runtime.
+`@workspace/mediapulse-hermes-integration` contains Mediapulse-specific expansion helpers that can be used by a Mediapulse-owned runtime (for example, `apps/mediapulse-domain-api`).
 
-The package is the bridge between:
+The package bridges:
 
-- orchestration execution flow (`executeSchedule` + `expandStepInputs` hook), and
-- **Mediapulse** Prisma expansion (`expandDataSources` / `findMany`), using the generic `db:` syntax from [`@workspace/hermes-step-input-syntax`](/packages/hermes-step-input-syntax).
+- generic `db:` syntax parsing (`@workspace/hermes-step-input-syntax`), and
+- **Mediapulse** Prisma expansion (`expandDataSources` / `findMany`).
 
 ## Main exports
 
-- `createMediapulseExpandStepInputs` — Factory that builds the `expandStepInputs` hook implementation.
-- `expandSingleDataSource` / `expandDataSources` — Runtime expansion against a Mediapulse `PrismaClient` (or registered DB).
+- `createMediapulseExpandStepInputs` — Factory helper for in-process expansion wiring.
+- `expandSingleDataSource` / `expandDataSources` — Runtime expansion against a Mediapulse `PrismaClient`.
 
 ## Notes
 
-- Expansion can run against the default Mediapulse Prisma client or a registered database connection resolved by the worker.
-- Allowlisted tables are enforced per registered database to constrain expansion surface area.
+- Hermes no longer queries Mediapulse DB directly.
+- Preferred production path is HTTP: Hermes calls a domain integration API, and that service uses this package internally.

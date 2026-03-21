@@ -1,23 +1,35 @@
-/**
- * Wiring layer for **step input expansion** (e.g. `db:table:field` strings): generic
- * syntax/validation comes from `@workspace/hermes-step-input-syntax`; Mediapulse
- * execution from `@workspace/mediapulse-hermes-integration`; DB clients from
- * `@workspace/mediapulse-database`.
- */
 import { env } from "@workspace/env";
-import { expandSingleDataSource } from "@workspace/mediapulse-hermes-integration";
+import { createDomainIntegrationClient } from "@workspace/hermes-domain-contract";
 import {
   MAX_TAKE,
   parseDataSourceString,
   validateDataSourceExpressions as validateDataSourceExpressionsBase,
   type ValidateDataSourceExpressionsResult,
 } from "@workspace/hermes-step-input-syntax";
+import { getDefaultDomainIntegration } from "./domain-integrations";
 
-export { PrismaClientWithSchema } from "@workspace/mediapulse-database/client";
-export { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
-export { expandSingleDataSource };
 export type { ValidateDataSourceExpressionsResult };
 export { parseDataSourceString };
+
+/**
+ * Resolves a domain integration HTTP client for expansion and preview calls.
+ *
+ * @returns Domain integration client.
+ */
+export const getDomainIntegrationClient = async () => {
+  const integration = await getDefaultDomainIntegration().catch(() => null);
+  const baseUrl = integration?.baseUrl ?? env.MEDIAPULSE_API_URL;
+  if (!baseUrl) {
+    throw new Error(
+      "No active domain integration found and MEDIAPULSE_API_URL is not configured",
+    );
+  }
+
+  return createDomainIntegrationClient({
+    baseUrl,
+    authToken: env.DOMAIN_INTEGRATION_AUTH_TOKEN,
+  });
+};
 
 /**
  * Validates `db:` expressions using the same max take/limit as runtime expansion

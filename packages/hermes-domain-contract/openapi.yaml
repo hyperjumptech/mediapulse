@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info:
+  title: Hermes Domain Integration Contract
+  version: 1.0.0
+paths:
+  /v1/health:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: Healthy
+  /v1/preview-expansion:
+    post:
+      operationId: previewExpansion
+      responses:
+        "200":
+          description: Preview response
+  /v1/expand-step-inputs:
+    post:
+      operationId: expandStepInputs
+      responses:
+        "200":
+          description: Expanded inputs

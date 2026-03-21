@@ -1,29 +1,25 @@
 {
-  "name": "hermes-worker",
+  "name": "mediapulse-domain-api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "dotenv -e ./.env.local -- bun run --hot src/index.ts",
+    "dev": "dotenv -e ./.env.local -- env PORT=8090 bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
-    "start": "bun run ./dist/server.js",
-    "migrate-dataqueue": "dataqueue-cli migrate",
-    "migrate-dataqueue:dev": "dataqueue-cli migrate --envPath ./.env.local --schema dataqueue --verbose",
-    "lint": "eslint \"src/**/*.ts\"",
+    "test": "vitest run",
     "type:check": "tsc --noEmit",
-    "test": "vitest run"
+    "lint": "eslint \"src/**/*.ts\""
   },
   "dependencies": {
-    "@nicnocquee/dataqueue": "^1.36.0",
-    "@workspace/agent-auth-client": "workspace:*",
-    "@workspace/database": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/hermes-domain-contract": "workspace:*",
-    "@workspace/hermes-scheduler": "workspace:*",
     "@workspace/hermes-step-input-syntax": "workspace:*",
-    "@workspace/orchestration-database": "workspace:*",
     "@workspace/logger": "workspace:*",
-    "got": "catalog:"
+    "@workspace/mediapulse-hermes-integration": "workspace:*",
+    "@workspace/mediapulse-database": "workspace:*",
+    "hono": "catalog:",
+    "hono-pino": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",

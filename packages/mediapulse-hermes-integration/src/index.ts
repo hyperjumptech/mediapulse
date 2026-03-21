@@ -2,7 +2,6 @@ export {
   createMediapulseExpandStepInputs,
   type ExpandStepInputsContext,
   type GetPrismaForExpansion,
-  type ResolveAllowlistedTables,
 } from "./create-mediapulse-expand-step-inputs";
 export {
   expandDataSources,

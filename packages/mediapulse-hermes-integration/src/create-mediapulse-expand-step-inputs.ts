@@ -11,17 +11,9 @@ export type ExpandStepInputsContext = {
   scheduleId: string;
   pipelineId: string;
   pipelineStepId: string;
-  registeredDatabaseId: string | null;
   orchDb: OrchestrationPrismaClient;
 };
-
-export type ResolveAllowlistedTables = (
-  registeredDatabaseId: string | null,
-) => Promise<string[] | null>;
-
-export type GetPrismaForExpansion = (
-  registeredDatabaseId: string | null,
-) => Promise<MediapulsePrismaClient>;
+export type GetPrismaForExpansion = () => Promise<MediapulsePrismaClient>;
 
 /**
  * Creates an input-expansion function that scheduler can inject.
@@ -31,7 +23,6 @@ export type GetPrismaForExpansion = (
  */
 export const createMediapulseExpandStepInputs = (deps: {
   getPrismaForExpansion: GetPrismaForExpansion;
-  resolveAllowlistedTables?: ResolveAllowlistedTables;
   /** Default take when omitted in the expression (defaults to `DEFAULT_TAKE` from syntax package). */
   defaultTake?: number;
   /** Hard cap on rows per expansion; must match validation / env (defaults to `MAX_TAKE` from syntax package). */
@@ -39,7 +30,6 @@ export const createMediapulseExpandStepInputs = (deps: {
 }) => {
   const {
     getPrismaForExpansion,
-    resolveAllowlistedTables,
     defaultTake = DEFAULT_TAKE,
     maxTake = MAX_TAKE,
   } = deps;
@@ -47,15 +37,9 @@ export const createMediapulseExpandStepInputs = (deps: {
   return async (
     context: ExpandStepInputsContext,
   ): Promise<Record<string, unknown>[]> => {
-    const expansionDb = await getPrismaForExpansion(
-      context.registeredDatabaseId,
-    );
-    const allowlistedTables = resolveAllowlistedTables
-      ? await resolveAllowlistedTables(context.registeredDatabaseId)
-      : null;
+    const expansionDb = await getPrismaForExpansion();
 
     return expandDataSources(context.input, expansionDb, {
-      allowlistedTables,
       defaultTake,
       maxTake,
     });

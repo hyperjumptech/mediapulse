@@ -6,26 +6,24 @@ icon: Database
 
 ## Purpose
 
-`@workspace/orchestration-database` is the Prisma package for the orchestration domain: users, API keys, pipelines, pipeline steps, schedules, executions, variables, and registered expansion databases.
+`@workspace/orchestration-database` is the Prisma package for the orchestration domain: users, API keys, pipelines, pipeline steps, schedules, executions, variables, and domain integration registry data.
 
 ## Exports
 
 - **Default:** Prisma client instance (`prisma`) and `Prisma` namespace.
 - **`@workspace/orchestration-database/client`** — Alternative client entry for custom instantiation and tests.
-- **`encryptRegisteredDatabaseUrl` / `decryptRegisteredDatabaseUrl`** — AES-256-GCM helpers for `RegisteredDatabase.encryptedConnectionString` (uses `REGISTERED_DATABASE_ENCRYPTION_KEY`).
 
 ## Environment variables
 
-| Variable                             | Description                                                          |
-| ------------------------------------ | -------------------------------------------------------------------- |
-| `ORCHESTRATION_DATABASE_URL`         | Primary connection string for orchestration schema/tables.           |
-| `DATABASE_URL`                       | Fallback connection string when orchestration URL is unset.          |
-| `REGISTERED_DATABASE_ENCRYPTION_KEY` | Optional; required when creating/updating registered DB credentials. |
-| `DATABASE_CERT_BASE64`               | Optional base64 CA certificate for SSL connections.                  |
+| Variable                     | Description                                                 |
+| ---------------------------- | ----------------------------------------------------------- |
+| `ORCHESTRATION_DATABASE_URL` | Primary connection string for orchestration schema/tables.  |
+| `DATABASE_URL`               | Fallback connection string when orchestration URL is unset. |
+| `DATABASE_CERT_BASE64`       | Optional base64 CA certificate for SSL connections.         |
 
 ## Key models
 
 - `User`, `APIKey`, `AgentRegistry`, `AgentConfig`
+- `DomainIntegration` (base URL + metadata for self-registered domain services)
 - `Pipeline`, `PipelineStep`, `Schedule`, `ScheduleExecution`, `AgentJobExecution`
 - `Variable`
-- `RegisteredDatabase` (encrypted expansion database registration metadata)

@@ -14,6 +14,11 @@ const mockPrisma = vi.hoisted(() => ({
     update: vi.fn().mockResolvedValue(undefined),
     updateMany: vi.fn().mockResolvedValue({ count: 1 }),
   },
+  domainIntegration: {
+    findFirst: vi.fn().mockResolvedValue({
+      baseUrl: "https://mediapulse-domain.example",
+    }),
+  },
 }));
 
 vi.mock("@workspace/orchestration-database", () => ({
@@ -26,19 +31,13 @@ vi.mock("@workspace/orchestration-database", () => ({
   prisma: mockPrisma,
 }));
 
-vi.mock("@workspace/mediapulse-database", () => ({
-  prisma: {},
-}));
-
-vi.mock("@workspace/mediapulse-hermes-integration", () => ({
-  createMediapulseExpandStepInputs: () => vi.fn(),
-}));
-
 vi.mock("@workspace/env/hermes-worker", () => ({
   env: {
     AGENT_API_KEY: "test-scheduler-key",
     AGENT_AUTH_API_URL: "https://auth.example.com",
     REQUIRE_HTTPS_AGENT_ENDPOINTS: undefined as string | undefined,
+    DOMAIN_INTEGRATION_AUTH_TOKEN: "domain-token",
+    MEDIAPULSE_API_URL: "https://mediapulse-domain.example",
   },
 }));
 
@@ -68,11 +67,6 @@ vi.mock("./queue", () => ({
   getJobQueue: () => ({
     addJobs: mockAddJobs,
   }),
-}));
-
-vi.mock("./registered-database-client-cache", () => ({
-  getExpansionPrismaClient: vi.fn(),
-  getRegisteredDatabaseAllowlist: vi.fn(),
 }));
 
 describe("jobHandlers", () => {

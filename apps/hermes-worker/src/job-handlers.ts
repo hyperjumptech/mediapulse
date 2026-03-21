@@ -3,6 +3,7 @@ import {
   AgentJobExecutionStatus,
   prisma as orchestrationPrisma,
 } from "@workspace/orchestration-database";
+import { createDomainIntegrationClient } from "@workspace/hermes-domain-contract";
 import { env } from "@workspace/env/hermes-worker";
 import { logger } from "@workspace/logger";
 import type { JobHandlers } from "@nicnocquee/dataqueue";
@@ -13,14 +14,10 @@ import {
   executeSchedule,
   getDueSchedules,
   invokeAgent,
+  type ExpandStepInputs,
   type InvokeAgentHttpClient,
 } from "@workspace/hermes-scheduler";
-import { createMediapulseExpandStepInputs } from "@workspace/mediapulse-hermes-integration";
 import { getJobQueue } from "./queue";
-import {
-  getExpansionPrismaClient,
-  getRegisteredDatabaseAllowlist,
-} from "./registered-database-client-cache";
 
 /**
  * Creates an HTTP client that forwards the optional AbortSignal to got for request cancellation.
@@ -54,12 +51,39 @@ async function getAuthToken(): Promise<string> {
   return tokenClient.getToken();
 }
 
-const expandStepInputs = createMediapulseExpandStepInputs({
-  getPrismaForExpansion: getExpansionPrismaClient,
-  resolveAllowlistedTables: getRegisteredDatabaseAllowlist,
-  defaultTake: DEFAULT_TAKE,
-  maxTake: env.HERMES_DATA_SOURCE_MAX_TAKE ?? MAX_TAKE,
-});
+/**
+ * Resolves active domain integration URL from orchestration storage.
+ *
+ * @returns Base URL for expansion HTTP calls.
+ */
+const resolveDomainIntegrationBaseUrl = async (): Promise<string> => {
+  const integration = await orchestrationPrisma.domainIntegration.findFirst({
+    where: { isActive: true },
+    orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
+    select: { baseUrl: true },
+  });
+  const baseUrl = integration?.baseUrl ?? env.MEDIAPULSE_API_URL;
+  if (!baseUrl) {
+    throw new Error(
+      "No active domain integration found and MEDIAPULSE_API_URL is missing",
+    );
+  }
+  return baseUrl;
+};
+
+const expandStepInputs: ExpandStepInputs = async (context) => {
+  const baseUrl = await resolveDomainIntegrationBaseUrl();
+  const domainClient = createDomainIntegrationClient({
+    baseUrl,
+    authToken: env.DOMAIN_INTEGRATION_AUTH_TOKEN,
+  });
+  const response = await domainClient.expandStepInputs({
+    input: context.input,
+    defaultTake: DEFAULT_TAKE,
+    maxTake: env.HERMES_DATA_SOURCE_MAX_TAKE ?? MAX_TAKE,
+  });
+  return response.expandedInputs;
+};
 
 /**
  * DataQueue job handlers for Hermes.

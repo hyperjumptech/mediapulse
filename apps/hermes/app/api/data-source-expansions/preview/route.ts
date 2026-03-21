@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
 import {
-  expandSingleDataSource,
-  mediapulsePrisma,
+  getDomainIntegrationClient,
   parseDataSourceString,
 } from "@/lib/step-input-expansion";
 
@@ -51,16 +50,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const values = await expandSingleDataSource(parsed, mediapulsePrisma);
-  if (values === null) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Unknown or unsupported table: ${parsed.table}`,
-      },
-      { status: 400 },
-    );
-  }
-
-  return NextResponse.json({ success: true, values });
+  const domainClient = await getDomainIntegrationClient();
+  const previewResult = await domainClient.previewExpansion({
+    expansionString,
+  });
+  return NextResponse.json(previewResult);
 }

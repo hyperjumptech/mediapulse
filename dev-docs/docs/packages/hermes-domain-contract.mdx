@@ -1,0 +1,21 @@
+---
+title: hermes-domain-contract
+description: Shared HTTP contract and typed client for domain integrations
+icon: Network
+---
+
+## Purpose
+
+`@workspace/hermes-domain-contract` defines the Hermes-owned API contract for domain integrations and provides a typed client.
+
+## Endpoints
+
+- `GET /v1/health`
+- `POST /v1/preview-expansion`
+- `POST /v1/expand-step-inputs`
+
+## Exports
+
+- `createDomainIntegrationClient` — Typed fetch client used by Hermes worker and preview API route.
+- Zod schemas and TS types for registration, preview, expansion, and health payloads.
+- `openapi.yaml` — Contract reference file for tooling and documentation.

@@ -7,9 +7,9 @@ export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
     ORCHESTRATION_DATABASE_URL: z.string().optional(),
-    MEDIAPULSE_DATABASE_URL: z.string().optional(),
     HERMES_DATA_SOURCE_MAX_TAKE: z.number({ coerce: true }).optional(),
-    REGISTERED_DATABASE_ENCRYPTION_KEY: z.string().min(1),
+    MEDIAPULSE_API_URL: z.string().optional(),
+    DOMAIN_INTEGRATION_AUTH_TOKEN: z.string().optional(),
     DATABASE_CERT_BASE64: z.string().optional(),
     PG_DATAQUEUE_DATABASE: z.string().min(1),
     AGENT_API_KEY: z.string().optional(),
