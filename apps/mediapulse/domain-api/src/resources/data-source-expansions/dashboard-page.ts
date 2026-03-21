@@ -2,10 +2,7 @@
  * Hermes `table-v1` manifest for data-source expansions (preview field, full-page create) and path segment export.
  */
 
-import {
-  dashboardObjectFormJsonSchemaForListRow,
-  type DashboardPageInput,
-} from "@hermes/domain-contract";
+import { type DashboardPageInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -13,6 +10,10 @@ import {
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
+import {
+  dataSourceExpansionCreateFormJsonSchema,
+  dataSourceExpansionUpdateFormJsonSchema,
+} from "./write-body-schemas";
 
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const dataSourceExpansionsHermesPathSegment =
@@ -44,22 +45,6 @@ export const dataSourceExpansionsDashboardPage = {
   actions: { create: true, update: true, delete: true },
   createNavigation: "full-page" as const,
   preview: previewFieldFor<ListItem>()("expansionString"),
-  createSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
-    type: "object",
-    required: ["name", "expansionString"],
-    properties: {
-      name: { type: "string", title: "Name" },
-      expansionString: { type: "string", title: "Expansion string" },
-      description: { type: "string", title: "Description" },
-    },
-  }),
-  updateSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
-    type: "object",
-    required: ["name", "expansionString"],
-    properties: {
-      name: { type: "string", title: "Name" },
-      expansionString: { type: "string", title: "Expansion string" },
-      description: { type: "string", title: "Description" },
-    },
-  }),
+  createSchema: dataSourceExpansionCreateFormJsonSchema,
+  updateSchema: dataSourceExpansionUpdateFormJsonSchema,
 } satisfies DashboardPageInput;

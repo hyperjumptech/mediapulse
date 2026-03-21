@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "dotenv -e ./.env.local -- env PORT=8090 bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "generate": "pnpm run generate:prisma-write-field-metadata",
+    "generate:prisma-write-field-metadata": "tsx scripts/generate-prisma-write-field-metadata.ts",
     "test": "vitest run",
     "type:check": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\""
@@ -20,14 +22,17 @@
     "@mediapulse/database": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
+    "@prisma/prisma-schema-wasm": "7.2.0-4.0c8ef2ce45c83248ab3df073180d5eda9e8be7a3",
     "@types/bun": "latest",
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:",
     "eslint": "catalog:",
+    "tsx": "^4",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

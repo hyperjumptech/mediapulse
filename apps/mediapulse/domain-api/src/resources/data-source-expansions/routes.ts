@@ -11,9 +11,9 @@ import { parsePagination } from "../../lib/list-pagination";
 import { nullableText } from "../../lib/nullable-text";
 import { mapRowToListItem } from "./list-mapper";
 import {
-  dataSourceExpansionCreateSchema,
-  dataSourceExpansionUpdateSchema,
-} from "./request-schemas";
+  dataSourceExpansionCreateBodySchema,
+  dataSourceExpansionUpdateBodySchema,
+} from "./write-body-schemas";
 
 /**
  * Hermes `table-v1` API for reusable `db:` data-source expansion aliases.
@@ -103,7 +103,9 @@ dataSourceExpansionsRoutes.get("/:id", async (c) => {
 
 /** Creates a new data-source expansion alias from the table create form. */
 dataSourceExpansionsRoutes.post("/", async (c) => {
-  const body = dataSourceExpansionCreateSchema.safeParse(await c.req.json());
+  const body = dataSourceExpansionCreateBodySchema.safeParse(
+    await c.req.json(),
+  );
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }
@@ -121,7 +123,9 @@ dataSourceExpansionsRoutes.post("/", async (c) => {
 
 /** Updates a data-source expansion by id (Hermes full-page or modal edit). */
 dataSourceExpansionsRoutes.patch("/:id", async (c) => {
-  const body = dataSourceExpansionUpdateSchema.safeParse(await c.req.json());
+  const body = dataSourceExpansionUpdateBodySchema.safeParse(
+    await c.req.json(),
+  );
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }

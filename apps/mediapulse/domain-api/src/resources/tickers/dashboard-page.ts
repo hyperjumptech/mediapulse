@@ -2,18 +2,18 @@
  * Hermes `table-v1` manifest for tickers (custom actions, metadata form) and exported path segment.
  */
 
-import {
-  dashboardObjectFormJsonSchemaForListRow,
-  type DashboardPageInput,
-} from "@hermes/domain-contract";
+import { type DashboardPageInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
-import { tickerMetadataFormProperties } from "./metadata-form-properties";
 import type { ListItem } from "./list-mapper";
 import { tickersCustomActionsForManifest } from "./tickers-table-v1-custom-actions";
+import {
+  tickerCreateFormJsonSchema,
+  tickerUpdateFormJsonSchema,
+} from "./write-body-schemas";
 
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const tickersHermesPathSegment = "tickers" as const;
@@ -35,33 +35,7 @@ export const tickersDashboardPage = {
   searchableFields: rowFieldKeysFor<ListItem>()(["symbol", "name"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["symbol", "name", "createdAt"]),
   actions: { create: true, update: true, delete: true },
-  createSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
-    type: "object",
-    required: ["symbol", "name"],
-    properties: {
-      symbol: { type: "string", title: "Symbol" },
-      name: { type: "string", title: "Name" },
-      metadata: {
-        type: "object",
-        title: "Metadata",
-        nullable: true,
-        properties: tickerMetadataFormProperties,
-      },
-    },
-  }),
-  updateSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
-    type: "object",
-    required: ["symbol", "name"],
-    properties: {
-      symbol: { type: "string", title: "Symbol" },
-      name: { type: "string", title: "Name" },
-      metadata: {
-        type: "object",
-        title: "Metadata",
-        nullable: true,
-        properties: tickerMetadataFormProperties,
-      },
-    },
-  }),
+  createSchema: tickerCreateFormJsonSchema,
+  updateSchema: tickerUpdateFormJsonSchema,
   customActions: tickersCustomActionsForManifest,
 } satisfies DashboardPageInput;

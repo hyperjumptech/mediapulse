@@ -3,16 +3,17 @@
  * and create/update JSON Schema metadata. Also exports the URL path segment constant for this resource.
  */
 
-import {
-  dashboardObjectFormJsonSchemaForListRow,
-  type DashboardPageInput,
-} from "@hermes/domain-contract";
+import { type DashboardPageInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
+import {
+  entityTypeCreateFormJsonSchema,
+  entityTypeUpdateFormJsonSchema,
+} from "./write-body-schemas";
 
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const entityTypesHermesPathSegment = "entity-types" as const;
@@ -35,20 +36,6 @@ export const entityTypesDashboardPage = {
   searchableFields: rowFieldKeysFor<ListItem>()(["name", "description"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["name", "createdAt"]),
   actions: { create: true, update: true, delete: true },
-  createSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
-    type: "object",
-    required: ["name"],
-    properties: {
-      name: { type: "string", title: "Name" },
-      description: { type: "string", title: "Description" },
-    },
-  }),
-  updateSchema: dashboardObjectFormJsonSchemaForListRow<ListItem>()({
-    type: "object",
-    required: ["name"],
-    properties: {
-      name: { type: "string", title: "Name" },
-      description: { type: "string", title: "Description" },
-    },
-  }),
+  createSchema: entityTypeCreateFormJsonSchema,
+  updateSchema: entityTypeUpdateFormJsonSchema,
 } satisfies DashboardPageInput;

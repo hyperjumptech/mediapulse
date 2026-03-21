@@ -9,9 +9,9 @@ import { parsePagination } from "../../lib/list-pagination";
 import { nullableText } from "../../lib/nullable-text";
 import { mapRowToListItem } from "./list-mapper";
 import {
-  relationTypeCreateSchema,
-  relationTypeUpdateSchema,
-} from "./request-schemas";
+  relationTypeCreateBodySchema,
+  relationTypeUpdateBodySchema,
+} from "./write-body-schemas";
 
 /**
  * Hermes `table-v1` API for knowledge-graph relation type vocabulary.
@@ -63,7 +63,7 @@ relationTypesRoutes.get("/", async (c) => {
 
 /** Creates a new knowledge-graph relation type row from the table create form. */
 relationTypesRoutes.post("/", async (c) => {
-  const body = relationTypeCreateSchema.safeParse(await c.req.json());
+  const body = relationTypeCreateBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }
@@ -79,7 +79,7 @@ relationTypesRoutes.post("/", async (c) => {
 
 /** Updates a relation type by id (Hermes table edit / PATCH body matches update schema). */
 relationTypesRoutes.patch("/:id", async (c) => {
-  const body = relationTypeUpdateSchema.safeParse(await c.req.json());
+  const body = relationTypeUpdateBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }

@@ -9,9 +9,9 @@ import { parsePagination } from "../../lib/list-pagination";
 import { nullableText } from "../../lib/nullable-text";
 import { mapRowToListItem } from "./list-mapper";
 import {
-  entityTypeCreateSchema,
-  entityTypeUpdateSchema,
-} from "./request-schemas";
+  entityTypeCreateBodySchema,
+  entityTypeUpdateBodySchema,
+} from "./write-body-schemas";
 
 /**
  * Hermes `table-v1` API for knowledge-graph entity type vocabulary.
@@ -63,7 +63,7 @@ entityTypesRoutes.get("/", async (c) => {
 
 /** Creates a new knowledge-graph entity type row from the table create form. */
 entityTypesRoutes.post("/", async (c) => {
-  const body = entityTypeCreateSchema.safeParse(await c.req.json());
+  const body = entityTypeCreateBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }
@@ -79,7 +79,7 @@ entityTypesRoutes.post("/", async (c) => {
 
 /** Updates an entity type by id (Hermes table edit / PATCH body matches update schema). */
 entityTypesRoutes.patch("/:id", async (c) => {
-  const body = entityTypeUpdateSchema.safeParse(await c.req.json());
+  const body = entityTypeUpdateBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }

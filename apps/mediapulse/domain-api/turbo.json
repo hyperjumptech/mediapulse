@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "generate": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "../../../packages/mediapulse/database/prisma/schema.prisma",
+        "scripts/generate-prisma-write-field-metadata.ts",
+        "src/lib/prisma-write-schema/prisma-write-metadata-codegen-helpers.ts",
+        "src/lib/prisma-write-schema/get-dmmf-json-from-prisma-schema.ts"
+      ],
+      "outputs": ["src/generated/prisma-write-field-metadata.ts"]
+    },
+    "type:check": {
+      "dependsOn": ["generate", "^build", "^type:check"]
+    }
+  }
+}

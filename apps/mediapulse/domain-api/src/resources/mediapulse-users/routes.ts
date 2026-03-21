@@ -9,9 +9,9 @@ import { parsePagination } from "../../lib/list-pagination";
 import { nullableText } from "../../lib/nullable-text";
 import { mapRowToListItem } from "./list-mapper";
 import {
-  mediapulseUserCreateSchema,
-  mediapulseUserUpdateSchema,
-} from "./request-schemas";
+  mediapulseUserCreateBodySchema,
+  mediapulseUserUpdateBodySchema,
+} from "./write-body-schemas";
 
 /**
  * Hermes `table-v1` API for Mediapulse end users (newsletter subscribers, etc.).
@@ -63,7 +63,7 @@ mediapulseUsersRoutes.get("/", async (c) => {
 
 /** Creates a Mediapulse user (email + optional name); returns 409 when email is already taken. */
 mediapulseUsersRoutes.post("/", async (c) => {
-  const body = mediapulseUserCreateSchema.safeParse(await c.req.json());
+  const body = mediapulseUserCreateBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }
@@ -91,7 +91,7 @@ mediapulseUsersRoutes.post("/", async (c) => {
 
 /** Updates a Mediapulse user by id; returns 404 if missing, 409 on duplicate email. */
 mediapulseUsersRoutes.patch("/:id", async (c) => {
-  const body = mediapulseUserUpdateSchema.safeParse(await c.req.json());
+  const body = mediapulseUserUpdateBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }

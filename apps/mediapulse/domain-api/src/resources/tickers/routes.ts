@@ -10,7 +10,10 @@ import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templa
 import { mergeTickerMetadataForPatch } from "./merge-metadata";
 import { parseTickerMetadataJson } from "./parse-metadata-json";
 import { mapRowToListItem } from "./list-mapper";
-import { tickerCreateSchema, tickerUpdateSchema } from "./request-schemas";
+import {
+  tickerCreateBodySchema,
+  tickerUpdateBodySchema,
+} from "./write-body-schemas";
 import { tickersTableV1CustomActionRegistrations } from "./tickers-table-v1-custom-actions";
 
 /**
@@ -69,7 +72,7 @@ tickersRoutes.get("/", async (c) => {
 
 /** Creates a ticker (symbol, name, optional metadata JSON) from the table create form. */
 tickersRoutes.post("/", async (c) => {
-  const body = tickerCreateSchema.safeParse(await c.req.json());
+  const body = tickerCreateBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }
@@ -104,7 +107,7 @@ registerTableV1CustomActionRoutes(
 
 /** Updates a ticker by id, including optional metadata merge semantics on PATCH. */
 tickersRoutes.patch("/:id", async (c) => {
-  const body = tickerUpdateSchema.safeParse(await c.req.json());
+  const body = tickerUpdateBodySchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }

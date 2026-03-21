@@ -34,15 +34,30 @@ Imports in `dashboard-page.ts` should use `hermes-dashboard-path-helpers` for UR
 
 This is a **team convention** (not enforced by tooling). New resources should follow it so structure stays predictable.
 
-| File                     | Purpose                                                                                                                                                                                  |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dashboard-page.ts`      | Hermes manifest page for `table-v1` (columns, search/sort fields, form JSON Schema, actions) plus the exported `*HermesPathSegment` constant used for `id` / `pathSegment` / API prefix. |
-| `list-mapper.ts`         | Maps Prisma rows to the list-row shape returned by `GET /` and expected by the contract.                                                                                                 |
-| `request-schemas.ts`     | Zod schemas for JSON bodies on `POST` / `PATCH` when the resource supports create or update. **Skip this file** if the resource has no write bodies (for example list-and-delete-only).  |
-| `resource-definition.ts` | Single `defineHermesDashboardResource(...)` export wiring `routes`, `dashboardPage`, `order`, and `resourceKey`.                                                                         |
-| `routes.ts`              | Hono sub-app mounted at `/v1/hermes-dashboard/<segment>/` (list, CRUD, resource-specific routes).                                                                                        |
+| File                     | Purpose                                                                                                                                                                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dashboard-page.ts`      | Hermes manifest page for `table-v1` (columns, search/sort fields, form JSON Schema, actions) plus the exported `*HermesPathSegment` constant used for `id` / `pathSegment` / API prefix.                                                       |
+| `list-mapper.ts`         | Maps Prisma rows to the list-row shape returned by `GET /` and expected by the contract.                                                                                                                                                       |
+| `write-body-schemas.ts`  | Zod write bodies derived from Prisma field metadata plus an allowlist of list-row keys; also exports Hermes `createSchema` / `updateSchema` JSON (see below). **Omit** if the resource has no write bodies (for example list-and-delete-only). |
+| `resource-definition.ts` | Single `defineHermesDashboardResource(...)` export wiring `routes`, `dashboardPage`, `order`, and `resourceKey`.                                                                                                                               |
+| `routes.ts`              | Hono sub-app mounted at `/v1/hermes-dashboard/<segment>/` (list, CRUD, resource-specific routes).                                                                                                                                              |
 
 Place **extra** domain logic beside these (for example ticker metadata merge or custom actions). Co-locate tests as `*.test.ts`.
+
+## Prisma-backed write schemas
+
+Table resources that mirror Mediapulse DB models use **`src/generated/prisma-write-field-metadata.ts`** (DMMF scalar/enum snapshot) with **`buildWriteBodySchema`** and **`hermesFormJsonSchemaFromZod`** so Zod validation and Hermes form JSON Schema stay aligned.
+
+- **Which Prisma models get codegen:** only names listed in **`PRISMA_WRITE_METADATA_MODEL_NAMES`** in `apps/mediapulse/domain-api/src/lib/prisma-write-schema/prisma-write-metadata-codegen-helpers.ts` (an explicit allowlist). Add a model there when you introduce a new dashboard resource that should use this pipeline, then run **`generate`**.
+- **Which columns are writable per resource:** an explicit allowlist typed as `keyof ListItem` in each resource’s `write-body-schemas.ts`.
+
+After changing `packages/mediapulse/database/prisma/schema.prisma`, regenerate metadata. Turbo runs **`generate`** for this app before **`build`**, **`test`**, **`test:coverage`**, and **`dev`** (see root `turbo.json`), and this package’s `type:check` also depends on `generate`.
+
+```bash
+pnpm --filter @mediapulse/domain-api generate:prisma-write-field-metadata
+```
+
+You can also run `pnpm --filter @mediapulse/domain-api generate` or rely on `turbo run build --filter=@mediapulse/domain-api` to refresh the file. Then run `pnpm code-quality` from the repo root when you are ready to ship.
 
 ## Key environment variables
 
