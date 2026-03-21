@@ -2,13 +2,13 @@ import type { DashboardPageInput } from "@hermes/domain-contract";
 import {
   HermesDashboardResource,
   hermesDashboardManifestApiPrefix,
-} from "../../../hermes-dashboard/paths";
+} from "../../hermes-dashboard/paths";
 import {
   columnsFor,
   rowFieldKeysFor,
-} from "../../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
+} from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import { tickerMetadataFormProperties } from "./metadata-form-properties";
-import type { ListItem } from "../hermes-dashboard/templates/table-v1/list-mapper";
+import type { ListItem } from "./list-mapper";
 
 /** Hermes `table-v1` manifest page for the tickers resource. */
 export const tickersDashboardPage = {

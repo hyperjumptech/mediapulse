@@ -1,11 +1,8 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
-import { parsePagination } from "../../../lib/list-pagination";
-import {
-  listInclude,
-  mapRowToListItem,
-} from "../hermes-dashboard/templates/table-v1/list-mapper";
+import { parsePagination } from "../../lib/list-pagination";
+import { listInclude, mapRowToListItem } from "./list-mapper";
 
 /**
  * Hermes `table-v1` API for generated search queries (list + delete only).

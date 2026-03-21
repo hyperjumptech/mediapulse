@@ -1,20 +1,20 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
-import { parsePagination } from "../../../lib/list-pagination";
-import { nullableText } from "../../../lib/nullable-text";
-import { mapRowToListItem } from "../hermes-dashboard/templates/table-v1/list-mapper";
+import { parsePagination } from "../../lib/list-pagination";
+import { nullableText } from "../../lib/nullable-text";
+import { mapRowToListItem } from "./list-mapper";
 import {
-  entityTypeCreateSchema,
-  entityTypeUpdateSchema,
+  relationTypeCreateSchema,
+  relationTypeUpdateSchema,
 } from "./request-schemas";
 
 /**
- * Hermes `table-v1` API for knowledge-graph entity type vocabulary.
+ * Hermes `table-v1` API for knowledge-graph relation type vocabulary.
  */
-export const entityTypesRoutes = new Hono();
+export const relationTypesRoutes = new Hono();
 
-entityTypesRoutes.get("/", async (c) => {
+relationTypesRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
     c.req.query("pageSize"),
@@ -31,19 +31,19 @@ entityTypesRoutes.get("/", async (c) => {
           { name: { contains: query, mode: "insensitive" as const } },
           { description: { contains: query, mode: "insensitive" as const } },
         ],
-      } satisfies Prisma.EntityTypeWhereInput)
+      } satisfies Prisma.RelationTypeWhereInput)
     : undefined;
   const orderBy =
     sortBy === "createdAt" ? { createdAt: sortDir } : { name: sortDir };
 
   const [rows, total] = await Promise.all([
-    prisma.entityType.findMany({
+    prisma.relationType.findMany({
       where,
       skip,
       take: pageSize,
       orderBy,
     }),
-    prisma.entityType.count({ where }),
+    prisma.relationType.count({ where }),
   ]);
 
   const payload = tableV1ListResponseSchema.parse({
@@ -56,13 +56,13 @@ entityTypesRoutes.get("/", async (c) => {
   return c.json(payload);
 });
 
-entityTypesRoutes.post("/", async (c) => {
-  const body = entityTypeCreateSchema.safeParse(await c.req.json());
+relationTypesRoutes.post("/", async (c) => {
+  const body = relationTypeCreateSchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }
 
-  const created = await prisma.entityType.create({
+  const created = await prisma.relationType.create({
     data: {
       name: body.data.name.trim(),
       description: nullableText(body.data.description),
@@ -71,14 +71,14 @@ entityTypesRoutes.post("/", async (c) => {
   return c.json({ id: created.id }, 201);
 });
 
-entityTypesRoutes.patch("/:id", async (c) => {
-  const body = entityTypeUpdateSchema.safeParse(await c.req.json());
+relationTypesRoutes.patch("/:id", async (c) => {
+  const body = relationTypeUpdateSchema.safeParse(await c.req.json());
   if (!body.success) {
     return c.json({ message: "Invalid request body" }, 400);
   }
 
   try {
-    const updated = await prisma.entityType.update({
+    const updated = await prisma.relationType.update({
       where: { id: c.req.param("id") },
       data: {
         name: body.data.name.trim(),
@@ -87,16 +87,16 @@ entityTypesRoutes.patch("/:id", async (c) => {
     });
     return c.json({ id: updated.id });
   } catch {
-    return c.json({ message: "Entity type not found" }, 404);
+    return c.json({ message: "Relation type not found" }, 404);
   }
 });
 
-entityTypesRoutes.delete("/:id", async (c) => {
-  const result = await prisma.entityType.deleteMany({
+relationTypesRoutes.delete("/:id", async (c) => {
+  const result = await prisma.relationType.deleteMany({
     where: { id: c.req.param("id") },
   });
   if (result.count < 1) {
-    return c.json({ message: "Entity type not found" }, 404);
+    return c.json({ message: "Relation type not found" }, 404);
   }
   return c.json({ ok: true });
 });

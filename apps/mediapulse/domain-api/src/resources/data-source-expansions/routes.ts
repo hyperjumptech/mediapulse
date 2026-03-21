@@ -1,11 +1,11 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
-import { HermesDashboardResource } from "../../../hermes-dashboard/paths";
-import { buildMetaPayloadForPathSegment } from "../../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
-import { parsePagination } from "../../../lib/list-pagination";
-import { nullableText } from "../../../lib/nullable-text";
-import { mapRowToListItem } from "../hermes-dashboard/templates/table-v1/list-mapper";
+import { HermesDashboardResource } from "../../hermes-dashboard/paths";
+import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
+import { parsePagination } from "../../lib/list-pagination";
+import { nullableText } from "../../lib/nullable-text";
+import { mapRowToListItem } from "./list-mapper";
 import {
   dataSourceExpansionCreateSchema,
   dataSourceExpansionUpdateSchema,

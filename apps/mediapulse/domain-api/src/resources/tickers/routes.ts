@@ -1,11 +1,11 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
-import { parsePagination } from "../../../lib/list-pagination";
+import { parsePagination } from "../../lib/list-pagination";
 import { importIdxTickersFromRequestBody } from "./import-idx-json";
 import { mergeTickerMetadataForPatch } from "./merge-metadata";
 import { parseTickerMetadataJson } from "./parse-metadata-json";
-import { mapRowToListItem } from "../hermes-dashboard/templates/table-v1/list-mapper";
+import { mapRowToListItem } from "./list-mapper";
 import { tickerCreateSchema, tickerUpdateSchema } from "./request-schemas";
 
 /**

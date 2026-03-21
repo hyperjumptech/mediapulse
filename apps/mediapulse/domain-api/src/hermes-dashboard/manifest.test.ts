@@ -1,11 +1,11 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
-import { dataSourceExpansionsDashboardPage } from "../resources/data-source-expansions/tables/dashboard-page";
-import { entityTypesDashboardPage } from "../resources/entity-types/tables/dashboard-page";
-import { mediapulseUsersDashboardPage } from "../resources/mediapulse-users/tables/dashboard-page";
-import { relationTypesDashboardPage } from "../resources/relation-types/tables/dashboard-page";
-import { searchQueriesDashboardPage } from "../resources/search-queries/tables/dashboard-page";
-import { tickersDashboardPage } from "../resources/tickers/tables/dashboard-page";
+import { dataSourceExpansionsDashboardPage } from "../resources/data-source-expansions/dashboard-page";
+import { entityTypesDashboardPage } from "../resources/entity-types/dashboard-page";
+import { mediapulseUsersDashboardPage } from "../resources/mediapulse-users/dashboard-page";
+import { relationTypesDashboardPage } from "../resources/relation-types/dashboard-page";
+import { searchQueriesDashboardPage } from "../resources/search-queries/dashboard-page";
+import { tickersDashboardPage } from "../resources/tickers/dashboard-page";
 import { dashboardManifest } from "./manifest";
 import { HermesDashboardResource } from "./paths";
 

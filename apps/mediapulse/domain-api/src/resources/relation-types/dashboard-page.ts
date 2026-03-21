@@ -2,12 +2,12 @@ import type { DashboardPageInput } from "@hermes/domain-contract";
 import {
   HermesDashboardResource,
   hermesDashboardManifestApiPrefix,
-} from "../../../hermes-dashboard/paths";
+} from "../../hermes-dashboard/paths";
 import {
   columnsFor,
   rowFieldKeysFor,
-} from "../../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
-import type { ListItem } from "../hermes-dashboard/templates/table-v1/list-mapper";
+} from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
+import type { ListItem } from "./list-mapper";
 
 /** Hermes `table-v1` manifest page for relation types. */
 export const relationTypesDashboardPage = {
