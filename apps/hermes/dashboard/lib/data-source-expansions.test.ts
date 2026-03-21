@@ -8,25 +8,14 @@ import {
   updateDataSourceExpansion,
 } from "./data-source-expansions";
 
-const createMockDb = (overrides?: {
-  findMany?: ReturnType<typeof vi.fn>;
-  count?: ReturnType<typeof vi.fn>;
-  findUnique?: ReturnType<typeof vi.fn>;
-  create?: ReturnType<typeof vi.fn>;
-  update?: ReturnType<typeof vi.fn>;
-  deleteMany?: ReturnType<typeof vi.fn>;
-}) => {
-  return {
-    dataSourceExpansion: {
-      findMany: overrides?.findMany ?? vi.fn(),
-      count: overrides?.count ?? vi.fn(),
-      findUnique: overrides?.findUnique ?? vi.fn(),
-      create: overrides?.create ?? vi.fn(),
-      update: overrides?.update ?? vi.fn(),
-      deleteMany: overrides?.deleteMany ?? vi.fn(),
-    },
-  } as never;
-};
+const IK = "mediapulse";
+
+const buildListResponse = (items: Array<Record<string, unknown>>) => ({
+  items,
+  total: items.length,
+  page: 1,
+  pageSize: 100,
+});
 
 describe("getDataSourceExpansionsPage", () => {
   afterEach(() => {
@@ -35,22 +24,27 @@ describe("getDataSourceExpansionsPage", () => {
 
   it("returns paginated expansions with total and page info", async () => {
     // Setup
-    const rows = [
+    const rows: Array<Record<string, unknown>> = [
       {
         id: "e1",
         name: "Tickers",
         expansionString: "db:ticker:id",
         description: "All ticker IDs",
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-02T00:00:00.000Z",
       },
     ];
-    const findMany = vi.fn().mockResolvedValue(rows);
-    const count = vi.fn().mockResolvedValue(1);
-    const db = createMockDb({ findMany, count });
+    const getList = vi.fn().mockResolvedValue({
+      items: rows,
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
 
     // Act
-    const result = await getDataSourceExpansionsPage(1, 10, undefined, db);
+    const result = await getDataSourceExpansionsPage(IK, 1, 10, undefined, {
+      getList,
+    });
 
     // Assert
     expect(result.expansions).toHaveLength(1);
@@ -63,58 +57,77 @@ describe("getDataSourceExpansionsPage", () => {
 
   it("applies search where when search term provided", async () => {
     // Setup
-    const findMany = vi.fn().mockResolvedValue([]);
-    const count = vi.fn().mockResolvedValue(0);
-    const db = createMockDb({ findMany, count });
+    const getList = vi.fn().mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 10,
+    });
 
     // Act
-    await getDataSourceExpansionsPage(1, 10, { search: "ticker" }, db);
+    await getDataSourceExpansionsPage(
+      IK,
+      1,
+      10,
+      { search: "ticker" },
+      {
+        getList,
+      },
+    );
 
     // Assert
-    expect(findMany).toHaveBeenCalledWith(
+    expect(getList).toHaveBeenCalledWith(
+      IK,
+      "data-source-expansions",
       expect.objectContaining({
-        where: {
-          OR: [
-            { name: { contains: "ticker", mode: "insensitive" } },
-            { description: { contains: "ticker", mode: "insensitive" } },
-          ],
-        },
+        query: "ticker",
       }),
     );
   });
 
   it("applies sort by name asc by default", async () => {
     // Setup
-    const findMany = vi.fn().mockResolvedValue([]);
-    const count = vi.fn().mockResolvedValue(0);
-    const db = createMockDb({ findMany, count });
+    const getList = vi.fn().mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 10,
+    });
 
     // Act
-    await getDataSourceExpansionsPage(1, 10, undefined, db);
+    await getDataSourceExpansionsPage(IK, 1, 10, undefined, { getList });
 
     // Assert
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { name: "asc" } }),
+    expect(getList).toHaveBeenCalledWith(
+      IK,
+      "data-source-expansions",
+      expect.objectContaining({ sortBy: "name", sortDir: "asc" }),
     );
   });
 
   it("applies sort by created desc when requested", async () => {
     // Setup
-    const findMany = vi.fn().mockResolvedValue([]);
-    const count = vi.fn().mockResolvedValue(0);
-    const db = createMockDb({ findMany, count });
+    const getList = vi.fn().mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 10,
+    });
 
     // Act
     await getDataSourceExpansionsPage(
+      IK,
       1,
       10,
       { sortBy: "created", sortDir: "desc" },
-      db,
+      { getList },
     );
 
     // Assert
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { createdAt: "desc" } }),
+    expect(getList).toHaveBeenCalledWith(
+      IK,
+      "data-source-expansions",
+      expect.objectContaining({ sortBy: "createdAt", sortDir: "desc" }),
     );
   });
 });
@@ -126,19 +139,18 @@ describe("getDataSourceExpansionById", () => {
 
   it("returns expansion when found", async () => {
     // Setup
-    const row = {
+    const row: Record<string, unknown> = {
       id: "e1",
       name: "Test",
       expansionString: "db:ticker:id",
       description: "Desc",
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-02T00:00:00.000Z",
     };
-    const findUnique = vi.fn().mockResolvedValue(row);
-    const db = createMockDb({ findUnique });
+    const getList = vi.fn().mockResolvedValue(buildListResponse([row]));
 
     // Act
-    const result = await getDataSourceExpansionById("e1", db);
+    const result = await getDataSourceExpansionById(IK, "e1", { getList });
 
     // Assert
     expect(result).not.toBeNull();
@@ -148,11 +160,12 @@ describe("getDataSourceExpansionById", () => {
 
   it("returns null when not found", async () => {
     // Setup
-    const findUnique = vi.fn().mockResolvedValue(null);
-    const db = createMockDb({ findUnique });
+    const getList = vi.fn().mockResolvedValue(buildListResponse([]));
 
     // Act
-    const result = await getDataSourceExpansionById("missing", db);
+    const result = await getDataSourceExpansionById(IK, "missing", {
+      getList,
+    });
 
     // Assert
     expect(result).toBeNull();
@@ -166,36 +179,34 @@ describe("createDataSourceExpansion", () => {
 
   it("creates expansion with trimmed name and string, optional description", async () => {
     // Setup
-    const created = {
+    const created: Record<string, unknown> = {
       id: "e1",
       name: "My expansion",
       expansionString: "db:ticker:id",
       description: "Notes",
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-02T00:00:00.000Z",
     };
-    const create = vi.fn().mockResolvedValue(created);
-    const db = createMockDb({ create });
+    const createItem = vi.fn().mockResolvedValue({ id: "e1" });
+    const getList = vi.fn().mockResolvedValue(buildListResponse([created]));
 
     // Act
     const result = await createDataSourceExpansion(
+      IK,
       {
         name: "  My expansion  ",
         expansionString: "  db:ticker:id  ",
         description: "Notes",
         createdById: "user-1",
       },
-      db,
+      { createItem, getList },
     );
 
     // Assert
-    expect(create).toHaveBeenCalledWith({
-      data: {
-        name: "My expansion",
-        expansionString: "db:ticker:id",
-        description: "Notes",
-        createdById: "user-1",
-      },
+    expect(createItem).toHaveBeenCalledWith(IK, "data-source-expansions", {
+      name: "My expansion",
+      expansionString: "db:ticker:id",
+      description: "Notes",
     });
     expect(result.id).toBe("e1");
     expect(result.name).toBe("My expansion");
@@ -203,32 +214,54 @@ describe("createDataSourceExpansion", () => {
 
   it("stores null description when empty or omitted", async () => {
     // Setup
-    const created = {
+    const created: Record<string, unknown> = {
       id: "e1",
       name: "X",
       expansionString: "db:ticker:id",
       description: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-02T00:00:00.000Z",
     };
-    const create = vi.fn().mockResolvedValue(created);
-    const db = createMockDb({ create });
+    const createItem = vi.fn().mockResolvedValue({ id: "e1" });
+    const getList = vi.fn().mockResolvedValue(buildListResponse([created]));
 
     // Act
     await createDataSourceExpansion(
+      IK,
       {
         name: "X",
         expansionString: "db:ticker:id",
         description: "   ",
         createdById: "user-1",
       },
-      db,
+      { createItem, getList },
     );
 
     // Assert
-    expect(create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ description: null }),
-    });
+    expect(createItem).toHaveBeenCalledWith(
+      IK,
+      "data-source-expansions",
+      expect.objectContaining({ description: null }),
+    );
+  });
+
+  it("throws when created item cannot be loaded", async () => {
+    // Setup
+    const createItem = vi.fn().mockResolvedValue({ id: "e1" });
+    const getList = vi.fn().mockResolvedValue(buildListResponse([]));
+
+    // Act & Assert
+    await expect(
+      createDataSourceExpansion(
+        IK,
+        {
+          name: "X",
+          expansionString: "db:ticker:id",
+          createdById: "user-1",
+        },
+        { createItem, getList },
+      ),
+    ).rejects.toThrow("Created data source expansion could not be loaded");
   });
 });
 
@@ -239,53 +272,60 @@ describe("updateDataSourceExpansion", () => {
 
   it("updates expansion and returns row", async () => {
     // Setup
-    const updated = {
-      id: "e1",
-      name: "New name",
-      expansionString: "db:userTicker:tickerId",
-      description: "New desc",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    const update = vi.fn().mockResolvedValue(updated);
-    const db = createMockDb({ update });
+    const updateItem = vi.fn().mockResolvedValue({ id: "e1" });
+    const getList = vi.fn().mockResolvedValue(
+      buildListResponse([
+        {
+          id: "e1",
+          name: "New name",
+          expansionString: "db:userTicker:tickerId",
+          description: "New desc",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-02T00:00:00.000Z",
+        },
+      ]),
+    );
 
     // Act
     const result = await updateDataSourceExpansion(
+      IK,
       "e1",
       {
         name: "New name",
         expansionString: "db:userTicker:tickerId",
         description: "New desc",
       },
-      db,
+      { updateItem, getList },
     );
 
     // Assert
     expect(result).not.toBeNull();
     expect(result?.name).toBe("New name");
-    expect(update).toHaveBeenCalledWith({
-      where: { id: "e1" },
-      data: {
+    expect(updateItem).toHaveBeenCalledWith(
+      IK,
+      "data-source-expansions",
+      "e1",
+      {
         name: "New name",
         expansionString: "db:userTicker:tickerId",
         description: "New desc",
       },
-    });
+    );
   });
 
   it("returns null when record not found", async () => {
     // Setup
-    const update = vi
+    const updateItem = vi
       .fn()
       .mockRejectedValue(new Error("Record to update not found"));
-    const db = createMockDb({ update });
+    const getList = vi.fn().mockResolvedValue(buildListResponse([]));
 
     // Act
     const result = await updateDataSourceExpansion(
+      IK,
       "missing",
       { name: "X", expansionString: "db:ticker:id" },
-      db,
+      { updateItem, getList },
     );
 
     // Assert
@@ -300,24 +340,24 @@ describe("deleteDataSourceExpansion", () => {
 
   it("returns true when record deleted", async () => {
     // Setup
-    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
-    const db = createMockDb({ deleteMany });
+    const deleteItem = vi.fn().mockResolvedValue({ ok: true });
 
     // Act
-    const result = await deleteDataSourceExpansion("e1", db);
+    const result = await deleteDataSourceExpansion(IK, "e1", { deleteItem });
 
     // Assert
     expect(result).toBe(true);
-    expect(deleteMany).toHaveBeenCalledWith({ where: { id: "e1" } });
+    expect(deleteItem).toHaveBeenCalledWith(IK, "data-source-expansions", "e1");
   });
 
   it("returns false when no record matched", async () => {
     // Setup
-    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
-    const db = createMockDb({ deleteMany });
+    const deleteItem = vi.fn().mockRejectedValue(new Error("Not found"));
 
     // Act
-    const result = await deleteDataSourceExpansion("missing", db);
+    const result = await deleteDataSourceExpansion(IK, "missing", {
+      deleteItem,
+    });
 
     // Assert
     expect(result).toBe(false);

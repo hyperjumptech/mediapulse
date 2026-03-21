@@ -23,16 +23,21 @@ import { AppSidebar } from "./app-sidebar";
 
 export type DashboardUser = { name: string; email: string };
 
+const HERMES_ROOT_SEGMENTS = new Set([
+  "pipelines",
+  "agents",
+  "agent-configs",
+  "variables",
+  "api-keys",
+  "schedules",
+]);
+
 const SEGMENT_LABELS: Record<string, string> = {
   agents: "Agents",
   "agent-configs": "Agent configs",
   "api-keys": "API Keys",
-  "entity-types": "Entity Types",
   pipelines: "Pipelines",
-  "relation-types": "Relation Types",
   schedules: "Schedules",
-  "search-queries": "Search Query",
-  tickers: "Tickers",
   variables: "Variables",
 };
 
@@ -47,16 +52,6 @@ const getPipelinesSubLabel = (
 ): string | null => {
   if (!subSegment) return null;
   if (UUID_REGEX.test(subSegment)) return "Pipeline";
-  return null;
-};
-
-/**
- * Derives the breadcrumb page label for tickers sub-routes (new, [id]).
- */
-const getTickersSubLabel = (subSegment: string | undefined): string | null => {
-  if (!subSegment) return null;
-  if (subSegment === "new") return "New ticker";
-  if (UUID_REGEX.test(subSegment)) return "Ticker";
   return null;
 };
 
@@ -81,52 +76,66 @@ const getSchedulesSubLabel = (
   return null;
 };
 
+export type DomainIntegrationNav = {
+  key: string;
+  name: string;
+  pages: DashboardPage[];
+};
+
 /**
  * Renders the dashboard shell: sidebar (with user and logout in footer), header with breadcrumb, and main content.
  */
 export const DashboardShell = ({
   children,
   user,
-  domainPages = [],
+  domainIntegrations = [],
 }: {
   children: React.ReactNode;
   user?: DashboardUser | null;
-  domainPages?: DashboardPage[];
+  domainIntegrations?: DomainIntegrationNav[];
 }) => {
   const pathname = usePathname();
   const segments = pathname?.split("/").filter(Boolean) ?? [];
-  const dashboardSegment = segments[1]; // e.g. "pipelines" for /dashboard/pipelines
-  const subSegment = segments[2];
+  const first = segments[1];
+  const second = segments[2];
+
+  const domainIntegration =
+    first && domainIntegrations.find((i) => i.key === first);
+  const isDomainKeyedRoute = Boolean(domainIntegration && second);
+
+  const domainPageLabel =
+    domainIntegration && second
+      ? domainIntegration.pages.find((p) => p.pathSegment === second)?.label
+      : undefined;
+
+  const isHermesRoot = first ? HERMES_ROOT_SEGMENTS.has(first) : false;
+
   const pipelinesSubLabel =
-    dashboardSegment === "pipelines" ? getPipelinesSubLabel(subSegment) : null;
-  const tickersSubLabel =
-    dashboardSegment === "tickers" ? getTickersSubLabel(subSegment) : null;
-  const agentsSubLabel =
-    dashboardSegment === "agents" ? getAgentsSubLabel(subSegment) : null;
+    first === "pipelines" ? getPipelinesSubLabel(second) : null;
+  const agentsSubLabel = first === "agents" ? getAgentsSubLabel(second) : null;
   const schedulesSubLabel =
-    dashboardSegment === "schedules" ? getSchedulesSubLabel(subSegment) : null;
-  const domainSegmentLabel = domainPages.find(
-    (page) => page.pathSegment === dashboardSegment,
-  )?.label;
-  const currentLabel =
-    pipelinesSubLabel ??
-    tickersSubLabel ??
-    agentsSubLabel ??
-    schedulesSubLabel ??
-    domainSegmentLabel ??
-    (dashboardSegment && SEGMENT_LABELS[dashboardSegment]) ??
-    "Dashboard";
+    first === "schedules" ? getSchedulesSubLabel(second) : null;
+
+  const hermesSegmentLabel =
+    first && !isDomainKeyedRoute ? SEGMENT_LABELS[first] : undefined;
+
+  const currentLabel = isDomainKeyedRoute
+    ? (domainPageLabel ?? second ?? "Dashboard")
+    : (pipelinesSubLabel ??
+      agentsSubLabel ??
+      schedulesSubLabel ??
+      hermesSegmentLabel ??
+      "Dashboard");
+
   const showParentLink =
-    dashboardSegment &&
-    (pipelinesSubLabel ||
-      tickersSubLabel ||
-      agentsSubLabel ||
-      schedulesSubLabel ||
-      dashboardSegment !== "pipelines");
+    Boolean(first) &&
+    (isDomainKeyedRoute ||
+      Boolean(pipelinesSubLabel || agentsSubLabel || schedulesSubLabel) ||
+      (isHermesRoot && first !== "pipelines"));
 
   return (
     <SidebarProvider>
-      <AppSidebar user={user ?? null} domainPages={domainPages} />
+      <AppSidebar user={user ?? null} domainIntegrations={domainIntegrations} />
       <Separator orientation="vertical" className="h-svh shrink-0" />
       <SidebarInset>
         <header className="flex h-16 shrink-0 flex-col transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -144,21 +153,19 @@ export const DashboardShell = ({
                     <BreadcrumbSeparator className="hidden md:block" />
                   </>
                 ) : null}
+                {isDomainKeyedRoute && domainIntegration ? (
+                  <>
+                    <BreadcrumbItem className="hidden md:block">
+                      <BreadcrumbPage>{domainIntegration.name}</BreadcrumbPage>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator className="hidden md:block" />
+                  </>
+                ) : null}
                 {pipelinesSubLabel ? (
                   <>
                     <BreadcrumbItem className="hidden md:block">
                       <BreadcrumbLink asChild>
                         <Link href="/dashboard/pipelines">Pipelines</Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                  </>
-                ) : null}
-                {tickersSubLabel ? (
-                  <>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink asChild>
-                        <Link href="/dashboard/tickers">Tickers</Link>
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />

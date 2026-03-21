@@ -144,3 +144,93 @@ export const getDefaultDomainIntegration = async (): Promise<{
     dashboard: parseDashboardManifest(integration.dashboardManifest),
   };
 };
+
+/**
+ * Shape returned for domain integration lookups (sidebar, routing, HTTP).
+ */
+export type DomainIntegrationRecord = {
+  id: string;
+  key: string;
+  name: string;
+  baseUrl: string;
+  version: string | null;
+  dashboard: DashboardManifest;
+};
+
+/**
+ * Maps a Prisma domain integration row to a typed record.
+ *
+ * @param row - Selected row from orchestration DB.
+ * @returns Normalized integration record.
+ */
+const toDomainIntegrationRecord = (row: {
+  id: string;
+  key: string;
+  name: string;
+  baseUrl: string;
+  version: string | null;
+  dashboardManifest: Prisma.JsonValue | null;
+}): DomainIntegrationRecord => ({
+  id: row.id,
+  key: row.key,
+  name: row.name,
+  baseUrl: row.baseUrl,
+  version: row.version,
+  dashboard: parseDashboardManifest(row.dashboardManifest),
+});
+
+/**
+ * Returns all active domain integrations for dashboard navigation and keyed routes.
+ *
+ * @param db - Prisma delegate (injectable for tests).
+ * @returns Ordered list of active integrations with parsed manifests.
+ */
+export const getActiveDomainIntegrations = async (
+  db: Pick<
+    typeof prisma.domainIntegration,
+    "findMany"
+  > = prisma.domainIntegration,
+): Promise<DomainIntegrationRecord[]> => {
+  const rows = await db.findMany({
+    where: { isActive: true },
+    orderBy: [{ isDefault: "desc" }, { key: "asc" }],
+    select: {
+      id: true,
+      key: true,
+      name: true,
+      baseUrl: true,
+      version: true,
+      dashboardManifest: true,
+    },
+  });
+  return rows.map(toDomainIntegrationRecord);
+};
+
+/**
+ * Loads a single active domain integration by integration key.
+ *
+ * @param integrationKey - Stable key from registration (e.g. "mediapulse").
+ * @param db - Prisma delegate (injectable for tests).
+ * @returns Integration record or null if missing or inactive.
+ */
+export const getDomainIntegrationByKey = async (
+  integrationKey: string,
+  db: Pick<
+    typeof prisma.domainIntegration,
+    "findFirst"
+  > = prisma.domainIntegration,
+): Promise<DomainIntegrationRecord | null> => {
+  const row = await db.findFirst({
+    where: { key: integrationKey, isActive: true },
+    select: {
+      id: true,
+      key: true,
+      name: true,
+      baseUrl: true,
+      version: true,
+      dashboardManifest: true,
+    },
+  });
+  if (!row) return null;
+  return toDomainIntegrationRecord(row);
+};

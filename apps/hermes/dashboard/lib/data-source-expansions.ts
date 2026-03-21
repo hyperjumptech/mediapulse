@@ -1,7 +1,10 @@
-import type { Prisma } from "@mediapulse/database";
-import { prisma } from "@mediapulse/database";
-
-type Db = typeof prisma;
+import { z } from "zod";
+import {
+  createDomainTableItem,
+  deleteDomainTableItem,
+  getDomainTableList,
+  updateDomainTableItem,
+} from "./domain-dashboard";
 
 export type DataSourceExpansionRow = {
   id: string;
@@ -19,32 +22,6 @@ export type DataSourceExpansionsPageResult = {
   pageSize: number;
 };
 
-/**
- * Builds a Prisma where clause for data source expansion search by name or description (partial, case-insensitive).
- *
- * @param search - Raw search string; trimmed and ignored if empty.
- * @returns Where clause object or undefined if no search.
- */
-const expansionSearchWhere = (
-  search: string | undefined,
-):
-  | {
-      OR: Array<
-        | { name: { contains: string; mode: "insensitive" } }
-        | { description: { contains: string; mode: "insensitive" } }
-      >;
-    }
-  | undefined => {
-  const term = search?.trim();
-  if (!term) return undefined;
-  return {
-    OR: [
-      { name: { contains: term, mode: "insensitive" } },
-      { description: { contains: term, mode: "insensitive" } },
-    ],
-  };
-};
-
 export type DataSourceExpansionSortField = "name" | "created";
 export type DataSourceExpansionSortDir = "asc" | "desc";
 
@@ -56,32 +33,73 @@ const SORT_DEFAULT: {
   sortDir: "asc",
 };
 
+const dataSourceExpansionItemSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  expansionString: z.string().min(1),
+  description: z.string().nullable().optional(),
+  createdAt: z.union([z.string().datetime(), z.date()]),
+  updatedAt: z.union([z.string().datetime(), z.date()]),
+});
+const dataSourceExpansionMutationResponseSchema = z.object({
+  id: z.string().min(1),
+});
+
+type DataSourceExpansionDependencies = {
+  getList?: typeof getDomainTableList;
+  createItem?: typeof createDomainTableItem;
+  updateItem?: typeof updateDomainTableItem;
+  deleteItem?: typeof deleteDomainTableItem;
+};
+
 /**
- * Builds Prisma orderBy from sort field and direction. "created" maps to createdAt.
+ * Maps list sort options to domain API sort names.
  *
- * @param sortBy - Field to sort by (name or created).
- * @param sortDir - asc or desc.
- * @returns Prisma orderBy object.
+ * @param sortBy - UI sort field.
+ * @returns Domain API sort field.
  */
-const expansionOrderBy = (
-  sortBy: DataSourceExpansionSortField,
-  sortDir: DataSourceExpansionSortDir,
-): Prisma.DataSourceExpansionOrderByWithRelationInput => {
-  const dir = sortDir === "asc" ? "asc" : "desc";
-  if (sortBy === "created") return { createdAt: dir };
-  return { name: dir };
+const toDomainSortBy = (sortBy: DataSourceExpansionSortField): string => {
+  return sortBy === "created" ? "createdAt" : "name";
+};
+
+/**
+ * Parses a domain table row into a typed expansion row.
+ *
+ * @param value - Raw domain response item.
+ * @returns Parsed expansion row.
+ */
+const parseExpansionItem = (
+  value: Record<string, unknown>,
+): DataSourceExpansionRow => {
+  const parsed = dataSourceExpansionItemSchema.parse(value);
+  return {
+    id: parsed.id,
+    name: parsed.name,
+    expansionString: parsed.expansionString,
+    description: parsed.description ?? null,
+    createdAt:
+      parsed.createdAt instanceof Date
+        ? parsed.createdAt
+        : new Date(parsed.createdAt),
+    updatedAt:
+      parsed.updatedAt instanceof Date
+        ? parsed.updatedAt
+        : new Date(parsed.updatedAt),
+  };
 };
 
 /**
  * Fetches a paginated list of data source expansions with optional sort and search.
  *
+ * @param integrationKey - Domain integration key (e.g. from registration).
  * @param page - 1-based page number.
  * @param pageSize - Number of items per page.
  * @param options - Optional search term and sort (sortBy: name | created, sortDir: asc | desc).
- * @param db - Prisma client (injectable for tests).
+ * @param dependencies - Optional injectable domain API collaborators.
  * @returns Expansions for the page plus total count and pagination info.
  */
 export const getDataSourceExpansionsPage = async (
+  integrationKey: string,
   page: number,
   pageSize: number,
   options?: {
@@ -89,136 +107,154 @@ export const getDataSourceExpansionsPage = async (
     sortBy?: DataSourceExpansionSortField;
     sortDir?: DataSourceExpansionSortDir;
   },
-  db: Db = prisma,
+  dependencies: DataSourceExpansionDependencies = {},
 ): Promise<DataSourceExpansionsPageResult> => {
-  const skip = (page - 1) * pageSize;
-  const where = expansionSearchWhere(options?.search);
   const sortBy = options?.sortBy ?? SORT_DEFAULT.sortBy;
   const sortDir = options?.sortDir ?? SORT_DEFAULT.sortDir;
-  const orderBy = expansionOrderBy(sortBy, sortDir);
+  const getList = dependencies.getList ?? getDomainTableList;
 
-  const [rows, total] = await Promise.all([
-    db.dataSourceExpansion.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy,
-    }),
-    db.dataSourceExpansion.count({ where }),
-  ]);
+  const response = await getList(integrationKey, "data-source-expansions", {
+    page,
+    pageSize,
+    query: options?.search,
+    sortBy: toDomainSortBy(sortBy),
+    sortDir,
+  });
 
-  const expansions: DataSourceExpansionRow[] = rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    expansionString: r.expansionString,
-    description: r.description,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-  }));
+  const expansions = response.items.map((item) => parseExpansionItem(item));
 
-  return { expansions, total, page, pageSize };
+  return {
+    expansions,
+    total: response.total,
+    page: response.page,
+    pageSize: response.pageSize,
+  };
 };
 
 /**
- * Fetches a single data source expansion by id for edit.
+ * Fetches a single data source expansion by id.
  *
+ * @param integrationKey - Domain integration key.
  * @param id - UUID of the expansion.
- * @param db - Prisma client (injectable for tests).
+ * @param dependencies - Optional injectable domain API collaborators.
  * @returns The expansion or null if not found.
  */
 export const getDataSourceExpansionById = async (
+  integrationKey: string,
   id: string,
-  db: Db = prisma,
+  dependencies: DataSourceExpansionDependencies = {},
 ): Promise<DataSourceExpansionRow | null> => {
-  const row = await db.dataSourceExpansion.findUnique({
-    where: { id },
-  });
-  if (!row) return null;
-  return {
-    id: row.id,
-    name: row.name,
-    expansionString: row.expansionString,
-    description: row.description,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
+  const getList = dependencies.getList ?? getDomainTableList;
+  let currentPage = 1;
+  const pageSize = 100;
+
+  while (true) {
+    const response = await getList(integrationKey, "data-source-expansions", {
+      page: currentPage,
+      pageSize,
+      sortBy: "name",
+      sortDir: "asc",
+    });
+
+    const matched = response.items
+      .map((item) => parseExpansionItem(item))
+      .find((item) => item.id === id);
+    if (matched) return matched;
+
+    if (currentPage * pageSize >= response.total) return null;
+    currentPage += 1;
+  }
 };
 
 /**
  * Creates a data source expansion.
  *
+ * @param integrationKey - Domain integration key.
  * @param data - Name, expansionString, optional description.
- * @param db - Prisma client (injectable for tests).
+ * @param dependencies - Optional injectable domain API collaborators.
  * @returns The created expansion.
  */
 export const createDataSourceExpansion = async (
+  integrationKey: string,
   data: {
     name: string;
     expansionString: string;
     description?: string | null;
     createdById: string;
   },
-  db: Db = prisma,
+  dependencies: DataSourceExpansionDependencies = {},
 ): Promise<DataSourceExpansionRow> => {
+  const createItem = dependencies.createItem ?? createDomainTableItem;
+  const getList = dependencies.getList ?? getDomainTableList;
   const description =
     data.description != null && String(data.description).trim().length > 0
       ? String(data.description).trim()
       : null;
 
-  const created = await db.dataSourceExpansion.create({
-    data: {
-      name: data.name.trim(),
-      expansionString: data.expansionString.trim(),
-      description,
-      createdById: data.createdById,
+  const payload = {
+    name: data.name.trim(),
+    expansionString: data.expansionString.trim(),
+    description,
+  } satisfies Record<string, unknown>;
+  const createdResponse = dataSourceExpansionMutationResponseSchema.parse(
+    await createItem(integrationKey, "data-source-expansions", payload),
+  );
+  const created = await getDataSourceExpansionById(
+    integrationKey,
+    createdResponse.id,
+    {
+      getList,
     },
-  });
+  );
+  if (!created) {
+    throw new Error("Created data source expansion could not be loaded");
+  }
 
-  return {
-    id: created.id,
-    name: created.name,
-    expansionString: created.expansionString,
-    description: created.description,
-    createdAt: created.createdAt,
-    updatedAt: created.updatedAt,
-  };
+  return created;
 };
 
 /**
  * Updates a data source expansion by id.
  *
+ * @param integrationKey - Domain integration key.
  * @param id - UUID of the expansion.
  * @param data - Name, expansionString, optional description.
- * @param db - Prisma client (injectable for tests).
+ * @param dependencies - Optional injectable domain API collaborators.
  * @returns The updated expansion or null if not found.
  */
 export const updateDataSourceExpansion = async (
+  integrationKey: string,
   id: string,
   data: { name: string; expansionString: string; description?: string | null },
-  db: Db = prisma,
+  dependencies: DataSourceExpansionDependencies = {},
 ): Promise<DataSourceExpansionRow | null> => {
+  const updateItem = dependencies.updateItem ?? updateDomainTableItem;
+  const getList = dependencies.getList ?? getDomainTableList;
   const description =
     data.description != null && String(data.description).trim().length > 0
       ? String(data.description).trim()
       : null;
 
   try {
-    const updated = await db.dataSourceExpansion.update({
-      where: { id },
-      data: {
+    const updatedResponse = dataSourceExpansionMutationResponseSchema.parse(
+      await updateItem(integrationKey, "data-source-expansions", id, {
         name: data.name.trim(),
         expansionString: data.expansionString.trim(),
         description,
+      }),
+    );
+    const updated = await getDataSourceExpansionById(
+      integrationKey,
+      updatedResponse.id,
+      {
+        getList,
       },
-    });
-    return {
-      id: updated.id,
-      name: updated.name,
-      expansionString: updated.expansionString,
-      description: updated.description,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
-    };
+    );
+    if (!updated) {
+      return null;
+    }
+
+    return updated;
   } catch {
     return null;
   }
@@ -227,16 +263,21 @@ export const updateDataSourceExpansion = async (
 /**
  * Deletes a data source expansion by id.
  *
+ * @param integrationKey - Domain integration key.
  * @param id - UUID of the expansion.
- * @param db - Prisma client (injectable for tests).
+ * @param dependencies - Optional injectable domain API collaborators.
  * @returns True if deleted, false if not found.
  */
 export const deleteDataSourceExpansion = async (
+  integrationKey: string,
   id: string,
-  db: Db = prisma,
+  dependencies: DataSourceExpansionDependencies = {},
 ): Promise<boolean> => {
-  const result = await db.dataSourceExpansion.deleteMany({
-    where: { id },
-  });
-  return result.count > 0;
+  const deleteItem = dependencies.deleteItem ?? deleteDomainTableItem;
+  try {
+    await deleteItem(integrationKey, "data-source-expansions", id);
+    return true;
+  } catch {
+    return false;
+  }
 };

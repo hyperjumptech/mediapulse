@@ -30,7 +30,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={1}
         pageSize={15}
         total={30}
@@ -48,7 +48,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={2}
         pageSize={15}
         total={45}
@@ -67,7 +67,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={1}
         pageSize={15}
         total={30}
@@ -86,7 +86,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={2}
         pageSize={15}
         total={30}
@@ -105,7 +105,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={2}
         pageSize={15}
         total={30}
@@ -124,7 +124,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={1}
         pageSize={15}
         total={30}
@@ -143,7 +143,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={3}
         pageSize={15}
         total={60}
@@ -157,7 +157,7 @@ describe("ListPagination", () => {
     const prevLink = screen.getByRole("link", { name: /Previous/ });
     expect(prevLink).toHaveAttribute(
       "href",
-      "/dashboard/tickers?page=2&size=15&sort=symbol&dir=asc",
+      "/dashboard/mediapulse/tickers?page=2&size=15&sort=symbol&dir=asc",
     );
   });
 
@@ -165,7 +165,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={1}
         pageSize={15}
         total={30}
@@ -179,7 +179,7 @@ describe("ListPagination", () => {
     const nextLink = screen.getByRole("link", { name: /Next/ });
     expect(nextLink).toHaveAttribute(
       "href",
-      "/dashboard/tickers?page=2&size=15&sort=symbol&dir=asc",
+      "/dashboard/mediapulse/tickers?page=2&size=15&sort=symbol&dir=asc",
     );
   });
 
@@ -187,7 +187,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={1}
         pageSize={15}
         total={30}
@@ -202,7 +202,7 @@ describe("ListPagination", () => {
     const nextLink = screen.getByRole("link", { name: /Next/ });
     expect(nextLink).toHaveAttribute(
       "href",
-      "/dashboard/tickers?page=2&size=15&q=AAPL&sort=symbol&dir=asc",
+      "/dashboard/mediapulse/tickers?page=2&size=15&q=AAPL&sort=symbol&dir=asc",
     );
   });
 
@@ -210,7 +210,7 @@ describe("ListPagination", () => {
     // Act
     const { container } = render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={1}
         pageSize={15}
         total={10}
@@ -228,7 +228,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/tickers"
+        basePath="/dashboard/mediapulse/tickers"
         page={1}
         pageSize={15}
         total={30}
@@ -268,7 +268,7 @@ describe("ListPagination", () => {
     // Act
     render(
       <ListPagination
-        basePath="/dashboard/search-queries"
+        basePath="/dashboard/mediapulse/search-queries"
         page={1}
         pageSize={15}
         total={30}
@@ -281,7 +281,7 @@ describe("ListPagination", () => {
     const nextLink = screen.getByRole("link", { name: /Next/ });
     expect(nextLink).toHaveAttribute(
       "href",
-      "/dashboard/search-queries?page=2&size=15&ticker=Apple",
+      "/dashboard/mediapulse/search-queries?page=2&size=15&ticker=Apple",
     );
   });
 });

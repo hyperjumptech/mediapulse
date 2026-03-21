@@ -40,6 +40,17 @@ vi.mock("@/lib/variables", () => ({
   }),
 }));
 
+vi.mock("@/lib/domain-integrations", () => ({
+  getDefaultDomainIntegration: vi.fn().mockResolvedValue({
+    key: "mediapulse",
+    id: "i1",
+    name: "Mediapulse",
+    baseUrl: "http://localhost",
+    version: "1",
+    dashboard: { templateVersion: 1, pages: [] },
+  }),
+}));
+
 vi.mock("@/lib/data-source-expansions", () => ({
   getDataSourceExpansionsPage: vi.fn().mockResolvedValue({
     expansions: [],
@@ -50,10 +61,6 @@ vi.mock("@/lib/data-source-expansions", () => ({
 }));
 
 vi.mock("@hermes/orchestration-database", () => ({
-  prisma: {},
-}));
-
-vi.mock("@mediapulse/database", () => ({
   prisma: {},
 }));
 

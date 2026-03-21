@@ -4,6 +4,7 @@ import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { ListPagination } from "@/components/list-pagination";
 import { PageHeader } from "@/components/page-header";
+import { DomainCreateModal } from "@/app/dashboard/domain-create-modal";
 import {
   createDomainTableItem,
   deleteDomainTableItem,
@@ -13,6 +14,9 @@ import {
 } from "@/lib/domain-dashboard";
 
 type DomainTablePageProps = {
+  /** Registered domain integration key (e.g. "mediapulse"). */
+  integrationKey: string;
+  /** Manifest path segment for this table (e.g. "tickers"). */
   resource: string;
   searchParams:
     | Promise<{
@@ -112,45 +116,56 @@ const getSchemaFields = (schema: unknown): SchemaField[] => {
 /**
  * Shared server-rendered table-v1 page for domain-registered resources.
  *
- * @param props - Resource key and request search params.
+ * @param props - Integration key, resource path segment, and request search params.
  * @returns Rendered page content.
  */
 export const DomainTablePage = async ({
+  integrationKey,
   resource,
   searchParams,
 }: DomainTablePageProps) => {
   const resolved = await Promise.resolve(searchParams);
   const params = parseListParams(resolved);
+  const basePath = `/dashboard/${integrationKey}/${resource}`;
   const [meta, list] = await Promise.all([
-    getDomainTableMeta(resource),
-    getDomainTableList(resource, params),
+    getDomainTableMeta(integrationKey, resource),
+    getDomainTableList(integrationKey, resource, params),
   ]);
   const createFields = getSchemaFields(meta.createSchema);
   const updateFields = getSchemaFields(meta.updateSchema);
 
   const createAction = async (formData: FormData) => {
     "use server";
-    await createDomainTableItem(resource, formDataToPayload(formData));
-    revalidatePath(`/dashboard/${resource}`);
-    redirect(`/dashboard/${resource}`);
+    await createDomainTableItem(
+      integrationKey,
+      resource,
+      formDataToPayload(formData),
+    );
+    revalidatePath(basePath);
+    redirect(basePath);
   };
 
   const updateAction = async (formData: FormData) => {
     "use server";
     const id = String(formData.get("__id") ?? "");
     if (!id) return;
-    await updateDomainTableItem(resource, id, formDataToPayload(formData));
-    revalidatePath(`/dashboard/${resource}`);
-    redirect(`/dashboard/${resource}`);
+    await updateDomainTableItem(
+      integrationKey,
+      resource,
+      id,
+      formDataToPayload(formData),
+    );
+    revalidatePath(basePath);
+    redirect(basePath);
   };
 
   const deleteAction = async (formData: FormData) => {
     "use server";
     const id = String(formData.get("__id") ?? "");
     if (!id) return;
-    await deleteDomainTableItem(resource, id);
-    revalidatePath(`/dashboard/${resource}`);
-    redirect(`/dashboard/${resource}`);
+    await deleteDomainTableItem(integrationKey, resource, id);
+    revalidatePath(basePath);
+    redirect(basePath);
   };
 
   return (
@@ -168,23 +183,8 @@ export const DomainTablePage = async ({
         <Button type="submit">Apply</Button>
       </form>
 
-      {meta.actions.create && createFields.length > 0 ? (
-        <details className="rounded-md border p-4">
-          <summary className="cursor-pointer text-sm font-medium">
-            Create new
-          </summary>
-          <form action={createAction} className="mt-4 grid gap-3">
-            {createFields.map((field) => (
-              <label key={field.key} className="grid gap-1 text-sm">
-                <span>{field.label}</span>
-                <Input name={field.key} required={field.required} />
-              </label>
-            ))}
-            <div>
-              <Button type="submit">Create</Button>
-            </div>
-          </form>
-        </details>
+      {meta.actions.create ? (
+        <DomainCreateModal fields={createFields} createAction={createAction} />
       ) : null}
 
       <div className="overflow-x-auto rounded-md border">
@@ -271,7 +271,7 @@ export const DomainTablePage = async ({
       </div>
 
       <ListPagination
-        basePath={`/dashboard/${resource}`}
+        basePath={basePath}
         page={list.page}
         pageSize={list.pageSize}
         total={list.total}

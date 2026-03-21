@@ -32,7 +32,12 @@ import type { DashboardUser } from "./dashboard-shell";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   user?: DashboardUser | null;
-  domainPages?: DashboardPage[];
+  /** Active domain integrations and their manifest pages (keyed URLs). */
+  domainIntegrations?: Array<{
+    key: string;
+    name: string;
+    pages: DashboardPage[];
+  }>;
 };
 
 /**
@@ -40,7 +45,7 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
  */
 export const AppSidebar = ({
   user,
-  domainPages = [],
+  domainIntegrations = [],
   ...props
 }: AppSidebarProps) => {
   const pathname = usePathname();
@@ -125,27 +130,31 @@ export const AppSidebar = ({
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Domain</SidebarGroupLabel>
-          <SidebarMenu>
-            {domainPages.map((page) => (
-              <SidebarMenuItem key={page.id}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname?.startsWith(`/dashboard/${page.pathSegment}`) ??
-                    false
-                  }
-                >
-                  <Link href={`/dashboard/${page.pathSegment}`}>
-                    <Database className="size-4" />
-                    <span>{page.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+        {domainIntegrations.map((integration) => (
+          <SidebarGroup key={integration.key}>
+            <SidebarGroupLabel>{integration.name}</SidebarGroupLabel>
+            <SidebarMenu>
+              {integration.pages.map((page) => {
+                const href = `/dashboard/${integration.key}/${page.pathSegment}`;
+                return (
+                  <SidebarMenuItem key={`${integration.key}-${page.id}`}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        pathname === href || pathname?.startsWith(`${href}/`)
+                      }
+                    >
+                      <Link href={href}>
+                        <Database className="size-4" />
+                        <span>{page.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

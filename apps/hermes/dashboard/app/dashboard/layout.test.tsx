@@ -1,11 +1,19 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getDashboardSessionMock = vi.fn();
 
+const { getActiveDomainIntegrationsMock } = vi.hoisted(() => ({
+  getActiveDomainIntegrationsMock: vi.fn(),
+}));
+
 vi.mock("@/lib/auth-dashboard", () => ({
   getDashboardSession: () => getDashboardSessionMock(),
+}));
+
+vi.mock("@/lib/domain-integrations", () => ({
+  getActiveDomainIntegrations: () => getActiveDomainIntegrationsMock(),
 }));
 
 vi.mock("@/components/dashboard-shell", () => ({
@@ -15,6 +23,7 @@ vi.mock("@/components/dashboard-shell", () => ({
   }: {
     children: React.ReactNode;
     user?: { name: string; email: string } | null;
+    domainIntegrations?: unknown;
   }) => (
     <div data-testid="dashboard-shell" data-user={user?.name ?? "none"}>
       {children}
@@ -23,9 +32,15 @@ vi.mock("@/components/dashboard-shell", () => ({
 }));
 
 describe("DashboardLayout", () => {
+  beforeEach(() => {
+    getActiveDomainIntegrationsMock.mockResolvedValue([]);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     getDashboardSessionMock.mockReset();
+    getActiveDomainIntegrationsMock.mockReset();
+    getActiveDomainIntegrationsMock.mockResolvedValue([]);
   });
 
   it("renders children inside DashboardShell", async () => {

@@ -135,10 +135,10 @@ In short:
 
 ### KG vocabulary (admin-curated)
 
-| Table           | Purpose                                                             | Managed from                |
-| --------------- | ------------------------------------------------------------------- | --------------------------- |
-| `entity_type`   | Allowed classes for canonical entities (`COMPANY`, `PERSON`, etc.). | `/dashboard/entity-types`   |
-| `relation_type` | Allowed labels for edges (`CEO_OF`, `PARTNER_OF`, etc.).            | `/dashboard/relation-types` |
+| Table           | Purpose                                                             | Managed from                                 |
+| --------------- | ------------------------------------------------------------------- | -------------------------------------------- |
+| `entity_type`   | Allowed classes for canonical entities (`COMPANY`, `PERSON`, etc.). | `/dashboard/{integrationKey}/entity-types`   |
+| `relation_type` | Allowed labels for edges (`CEO_OF`, `PARTNER_OF`, etc.).            | `/dashboard/{integrationKey}/relation-types` |
 
 ### KG structure tables
 
@@ -265,8 +265,8 @@ If no row crosses your practical quality threshold, content-generation should sk
 
 The KG vocabulary used by analysis prompts is managed in Hermes:
 
-- **Entity Types:** `/dashboard/entity-types` and docs at `/knowledge-graph/entity-types`
-- **Relation Types:** `/dashboard/relation-types` and docs at `/knowledge-graph/relation-types`
+- **Entity Types:** `/dashboard/{integrationKey}/entity-types` (for example `/dashboard/mediapulse/entity-types`) and docs at `/knowledge-graph/entity-types`
+- **Relation Types:** `/dashboard/{integrationKey}/relation-types` (for example `/dashboard/mediapulse/relation-types`) and docs at `/knowledge-graph/relation-types`
 
 ## Related docs
 

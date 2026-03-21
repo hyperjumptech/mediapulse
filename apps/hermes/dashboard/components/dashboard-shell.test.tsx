@@ -1,7 +1,39 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { DashboardPage } from "@hermes/domain-contract";
+
 import { DashboardShell } from "./dashboard-shell";
+
+const mediapulsePages: DashboardPage[] = [
+  {
+    id: "tickers",
+    label: "Tickers",
+    pathSegment: "tickers",
+    template: "table-v1",
+    apiPrefix: "/v1/hermes-dashboard/tickers",
+    columns: [],
+    searchableFields: [],
+    sortableFields: [],
+    actions: { create: true, update: true, delete: true },
+    order: 0,
+  },
+];
+const mediapulsePagesWithSearchQueries: DashboardPage[] = [
+  ...mediapulsePages,
+  {
+    id: "search-queries",
+    label: "Search Query",
+    pathSegment: "search-queries",
+    template: "table-v1",
+    apiPrefix: "/v1/hermes-dashboard/search-queries",
+    columns: [],
+    searchableFields: [],
+    sortableFields: [],
+    actions: { create: true, update: true, delete: true },
+    order: 1,
+  },
+];
 
 const usePathnameMock = vi.fn();
 
@@ -10,7 +42,12 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("./app-sidebar", () => ({
-  AppSidebar: ({ user }: { user?: { name: string; email: string } | null }) => (
+  AppSidebar: ({
+    user,
+  }: {
+    user?: { name: string; email: string } | null;
+    domainIntegrations?: unknown;
+  }) => (
     <aside data-testid="app-sidebar" data-user={user?.name ?? "none"}>
       Sidebar
     </aside>
@@ -182,19 +219,46 @@ describe("DashboardShell", () => {
     );
   });
 
-  it("shows Tickers breadcrumb on /dashboard/tickers", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/tickers");
+  it("shows Tickers breadcrumb on keyed /dashboard/mediapulse/tickers", () => {
+    usePathnameMock.mockReturnValue("/dashboard/mediapulse/tickers");
 
-    // Act
     render(
-      <DashboardShell>
+      <DashboardShell
+        domainIntegrations={[
+          { key: "mediapulse", name: "Mediapulse", pages: mediapulsePages },
+        ]}
+      >
         <div>Content</div>
       </DashboardShell>,
     );
 
-    // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("Tickers");
+    const breadcrumbPages = screen.getAllByTestId("breadcrumb-page");
+    expect(breadcrumbPages[breadcrumbPages.length - 1]).toHaveTextContent(
+      "Tickers",
+    );
+  });
+
+  it("shows Search Query breadcrumb on keyed /dashboard/mediapulse/search-queries", () => {
+    usePathnameMock.mockReturnValue("/dashboard/mediapulse/search-queries");
+
+    render(
+      <DashboardShell
+        domainIntegrations={[
+          {
+            key: "mediapulse",
+            name: "Mediapulse",
+            pages: mediapulsePagesWithSearchQueries,
+          },
+        ]}
+      >
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    const breadcrumbPages = screen.getAllByTestId("breadcrumb-page");
+    expect(breadcrumbPages[breadcrumbPages.length - 1]).toHaveTextContent(
+      "Search Query",
+    );
   });
 
   it("shows Agents breadcrumb on /dashboard/agents", () => {
@@ -227,23 +291,6 @@ describe("DashboardShell", () => {
     expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("API Keys");
   });
 
-  it("shows Search Query breadcrumb on /dashboard/search-queries", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/search-queries");
-
-    // Act
-    render(
-      <DashboardShell>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
-      "Search Query",
-    );
-  });
-
   it("shows Schedules breadcrumb on /dashboard/schedules", () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard/schedules");
@@ -258,40 +305,6 @@ describe("DashboardShell", () => {
     // Assert
     expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
       "Schedules",
-    );
-  });
-
-  it("shows Entity Types breadcrumb on /dashboard/entity-types", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/entity-types");
-
-    // Act
-    render(
-      <DashboardShell>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
-      "Entity Types",
-    );
-  });
-
-  it("shows Relation Types breadcrumb on /dashboard/relation-types", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/relation-types");
-
-    // Act
-    render(
-      <DashboardShell>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
-      "Relation Types",
     );
   });
 
@@ -310,40 +323,6 @@ describe("DashboardShell", () => {
 
     // Assert
     expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("Pipeline");
-  });
-
-  it("shows Ticker breadcrumb for UUID sub-route", () => {
-    // Setup
-    usePathnameMock.mockReturnValue(
-      "/dashboard/tickers/550e8400-e29b-41d4-a716-446655440000",
-    );
-
-    // Act
-    render(
-      <DashboardShell>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("Ticker");
-  });
-
-  it("shows New ticker breadcrumb for /dashboard/tickers/new", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/tickers/new");
-
-    // Act
-    render(
-      <DashboardShell>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
-      "New ticker",
-    );
   });
 
   it("shows sidebar trigger button", () => {

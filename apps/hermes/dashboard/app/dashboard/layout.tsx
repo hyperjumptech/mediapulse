@@ -1,6 +1,8 @@
+import type { DashboardPage } from "@hermes/domain-contract";
+
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getDashboardSession } from "@/lib/auth-dashboard";
-import type { DashboardPage } from "@hermes/domain-contract";
+import { getActiveDomainIntegrations } from "@/lib/domain-integrations";
 
 /**
  * Dashboard layout: sidebar, header with breadcrumb, and main content area.
@@ -12,17 +14,23 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await getDashboardSession();
-  let domainPages: DashboardPage[] = [];
+  let domainIntegrations: Array<{
+    key: string;
+    name: string;
+    pages: DashboardPage[];
+  }> = [];
   try {
-    const { getDefaultDomainIntegration } =
-      await import("@/lib/domain-integrations");
-    const integration = await getDefaultDomainIntegration();
-    domainPages = integration.dashboard.pages;
+    const integrations = await getActiveDomainIntegrations();
+    domainIntegrations = integrations.map((i) => ({
+      key: i.key,
+      name: i.name,
+      pages: i.dashboard.pages,
+    }));
   } catch {
-    domainPages = [];
+    domainIntegrations = [];
   }
   return (
-    <DashboardShell user={user} domainPages={domainPages}>
+    <DashboardShell user={user} domainIntegrations={domainIntegrations}>
       {children}
     </DashboardShell>
   );

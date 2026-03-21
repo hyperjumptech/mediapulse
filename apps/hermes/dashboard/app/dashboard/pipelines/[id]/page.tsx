@@ -6,13 +6,46 @@ import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
 import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
 import { getVariablesPage } from "@/lib/variables";
 import { validatePipeline } from "@/lib/validate-pipeline";
-import { prisma as mediapulsePrisma } from "@mediapulse/database";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
 import { PipelineDetailContent } from "./pipeline-detail-content";
 
 /** Max items to load for variable/expansion pickers on the pipeline step editor. */
 const PICKER_PAGE_SIZE = 500;
+
+/**
+ * Loads expansion templates for pipeline step inputs via domain integration HTTP.
+ * Falls back to an empty list when the domain API is unavailable.
+ *
+ * @returns Expansion templates for step editors.
+ */
+const getExpansionTemplates = async (): Promise<
+  Array<{
+    id: string;
+    name: string;
+    expansionString: string;
+  }>
+> => {
+  try {
+    const { getDefaultDomainIntegration } =
+      await import("@/lib/domain-integrations");
+    const integration = await getDefaultDomainIntegration();
+    const expansionsPage = await getDataSourceExpansionsPage(
+      integration.key,
+      1,
+      PICKER_PAGE_SIZE,
+      undefined,
+    );
+
+    return expansionsPage.expansions.map((expansion) => ({
+      id: expansion.id,
+      name: expansion.name,
+      expansionString: expansion.expansionString,
+    }));
+  } catch {
+    return [];
+  }
+};
 
 /**
  * Pipeline detail page. Loads pipeline with steps, agent registry, validation, agent configs, variables, and expansion templates for step assignment and step input/config editing.
@@ -42,20 +75,11 @@ const PipelineDetailPage = async ({
       ),
       validatePipeline(pipeline, orchestrationPrisma),
       getVariablesPage(1, PICKER_PAGE_SIZE, undefined, orchestrationPrisma),
-      getDataSourceExpansionsPage(
-        1,
-        PICKER_PAGE_SIZE,
-        undefined,
-        mediapulsePrisma,
-      ),
+      getExpansionTemplates(),
     ]);
 
   const variableKeys = variablesPage.variables.map((v) => ({ key: v.key }));
-  const expansionTemplates = expansionsPage.expansions.map((e) => ({
-    id: e.id,
-    name: e.name,
-    expansionString: e.expansionString,
-  }));
+  const expansionTemplates = expansionsPage;
 
   return (
     <PipelineDetailContent

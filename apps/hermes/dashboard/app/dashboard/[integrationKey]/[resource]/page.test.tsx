@@ -17,34 +17,42 @@ vi.mock("@/components/with-auth-protection", () => ({
   ) => Component,
 }));
 
-import TickersPage from "./page";
+import IntegrationDomainTablePage from "./page";
 
-describe("TickersPage", () => {
+describe("IntegrationDomainTablePage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     domainTablePageMock.mockReset();
   });
 
   it("renders domain table page", async () => {
-    // Act
-    const component = await TickersPage({ searchParams: {} });
+    const component = await IntegrationDomainTablePage({
+      params: Promise.resolve({
+        integrationKey: "mediapulse",
+        resource: "tickers",
+      }),
+      searchParams: {},
+    });
     render(component);
 
-    // Assert
     expect(screen.getByTestId("domain-table-page")).toBeInTheDocument();
   });
 
-  it("passes resource and search params to the shared page", async () => {
-    // Setup
+  it("passes integration key, resource and search params", async () => {
     const searchParams = { q: "AAPL" };
 
-    // Act
-    const component = await TickersPage({ searchParams });
+    const component = await IntegrationDomainTablePage({
+      params: Promise.resolve({
+        integrationKey: "mediapulse",
+        resource: "tickers",
+      }),
+      searchParams,
+    });
     render(component);
 
-    // Assert
     expect(domainTablePageMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        integrationKey: "mediapulse",
         resource: "tickers",
         searchParams,
       }),

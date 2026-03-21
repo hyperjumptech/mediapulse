@@ -4,8 +4,6 @@ import {
 } from "@hermes/domain-contract";
 import { env } from "@hermes/env";
 
-export type DomainListItem = Record<string, unknown>;
-
 export type DomainTableListParams = {
   page: number;
   pageSize: number;
@@ -15,21 +13,38 @@ export type DomainTableListParams = {
 };
 
 /**
- * Resolves a dashboard page from the active domain integration manifest.
+ * Resolves a dashboard page from a specific domain integration manifest.
  *
- * @param resource - Dashboard path segment.
+ * @param integrationKey - Registered integration key (e.g. "mediapulse").
+ * @param resource - Dashboard path segment (matches manifest `pathSegment`).
  * @returns Domain page descriptor and base URL.
  */
-const getDashboardPage = async (resource: string) => {
-  const { getDefaultDomainIntegration } =
+const getDashboardPage = async (
+  integrationKey: string,
+  resource: string,
+): Promise<{
+  page: {
+    apiPrefix: string;
+    pathSegment: string;
+  };
+  baseUrl: string;
+}> => {
+  const { getDomainIntegrationByKey } =
     await import("@/lib/domain-integrations");
-  const integration = await getDefaultDomainIntegration();
+  const integration = await getDomainIntegrationByKey(integrationKey);
+  if (!integration) {
+    throw new Error(
+      `Domain integration "${integrationKey}" is not active or not registered`,
+    );
+  }
   const page = integration.dashboard.pages.find(
     (entry) => entry.pathSegment === resource,
   );
 
   if (!page) {
-    throw new Error(`Dashboard page "${resource}" is not registered`);
+    throw new Error(
+      `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+    );
   }
 
   return { page, baseUrl: integration.baseUrl.replace(/\/$/, "") };
@@ -69,11 +84,15 @@ const callDomain = async <T>(
 /**
  * Loads table-v1 metadata for a dashboard resource.
  *
+ * @param integrationKey - Registered integration key.
  * @param resource - Dashboard path segment.
  * @returns Meta configuration used to render the page.
  */
-export const getDomainTableMeta = async (resource: string) => {
-  const { page, baseUrl } = await getDashboardPage(resource);
+export const getDomainTableMeta = async (
+  integrationKey: string,
+  resource: string,
+) => {
+  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
   return callDomain(
     `${baseUrl}${page.apiPrefix}/meta`,
     tableV1MetaResponseSchema.parse,
@@ -83,15 +102,17 @@ export const getDomainTableMeta = async (resource: string) => {
 /**
  * Loads table-v1 list data for a dashboard resource.
  *
+ * @param integrationKey - Registered integration key.
  * @param resource - Dashboard path segment.
  * @param params - Pagination, search, and sort params.
  * @returns Paginated list payload.
  */
 export const getDomainTableList = async (
+  integrationKey: string,
   resource: string,
   params: DomainTableListParams,
 ) => {
-  const { page, baseUrl } = await getDashboardPage(resource);
+  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
   const search = new URLSearchParams();
   search.set("page", String(params.page));
   search.set("pageSize", String(params.pageSize));
@@ -108,16 +129,18 @@ export const getDomainTableList = async (
 /**
  * Creates a domain table row through the registered API prefix.
  *
+ * @param integrationKey - Registered integration key.
  * @param resource - Dashboard path segment.
  * @param body - JSON payload from create form.
- * @returns Nothing; throws when request fails.
+ * @returns Parsed response payload from the domain API.
  */
 export const createDomainTableItem = async (
+  integrationKey: string,
   resource: string,
   body: Record<string, unknown>,
 ) => {
-  const { page, baseUrl } = await getDashboardPage(resource);
-  await callDomain(`${baseUrl}${page.apiPrefix}`, (value) => value, {
+  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
+  return callDomain(`${baseUrl}${page.apiPrefix}`, (value) => value, {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -126,18 +149,20 @@ export const createDomainTableItem = async (
 /**
  * Updates a domain table row through the registered API prefix.
  *
+ * @param integrationKey - Registered integration key.
  * @param resource - Dashboard path segment.
  * @param id - Row identifier.
  * @param body - JSON payload from update form.
- * @returns Nothing; throws when request fails.
+ * @returns Parsed response payload from the domain API.
  */
 export const updateDomainTableItem = async (
+  integrationKey: string,
   resource: string,
   id: string,
   body: Record<string, unknown>,
 ) => {
-  const { page, baseUrl } = await getDashboardPage(resource);
-  await callDomain(`${baseUrl}${page.apiPrefix}/${id}`, (value) => value, {
+  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
+  return callDomain(`${baseUrl}${page.apiPrefix}/${id}`, (value) => value, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
@@ -146,13 +171,18 @@ export const updateDomainTableItem = async (
 /**
  * Deletes a domain table row through the registered API prefix.
  *
+ * @param integrationKey - Registered integration key.
  * @param resource - Dashboard path segment.
  * @param id - Row identifier.
- * @returns Nothing; throws when request fails.
+ * @returns Parsed response payload from the domain API.
  */
-export const deleteDomainTableItem = async (resource: string, id: string) => {
-  const { page, baseUrl } = await getDashboardPage(resource);
-  await callDomain(`${baseUrl}${page.apiPrefix}/${id}`, (value) => value, {
+export const deleteDomainTableItem = async (
+  integrationKey: string,
+  resource: string,
+  id: string,
+) => {
+  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
+  return callDomain(`${baseUrl}${page.apiPrefix}/${id}`, (value) => value, {
     method: "DELETE",
   });
 };

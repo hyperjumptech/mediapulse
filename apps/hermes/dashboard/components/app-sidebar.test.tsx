@@ -109,6 +109,14 @@ const domainPages: DashboardPage[] = [
   },
 ];
 
+const domainIntegrations = [
+  {
+    key: "mediapulse",
+    name: "Mediapulse",
+    pages: domainPages,
+  },
+];
+
 describe("AppSidebar", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -116,26 +124,21 @@ describe("AppSidebar", () => {
   });
 
   it("renders the Hermes logo text", () => {
-    // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     expect(screen.getByText("Hermes")).toBeInTheDocument();
   });
 
-  it("renders all navigation items", () => {
-    // Setup
+  it("renders Hermes main nav and integration-grouped domain links", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Pipelines")).toBeInTheDocument();
+    expect(screen.getByText("Mediapulse")).toBeInTheDocument();
     expect(screen.getByText("Tickers")).toBeInTheDocument();
     expect(screen.getByText("Search Query")).toBeInTheDocument();
     expect(screen.getByText("Agents")).toBeInTheDocument();
@@ -146,13 +149,10 @@ describe("AppSidebar", () => {
   });
 
   it("marks Dashboard as active when on /dashboard", () => {
-    // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const dashboardButton = buttons.find((btn) =>
       btn.textContent?.includes("Dashboard"),
@@ -160,14 +160,11 @@ describe("AppSidebar", () => {
     expect(dashboardButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Tickers as active when on /dashboard/tickers", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/tickers");
+  it("marks Tickers as active when on keyed tickers path", () => {
+    usePathnameMock.mockReturnValue("/dashboard/mediapulse/tickers");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const tickersButton = buttons.find((btn) =>
       btn.textContent?.includes("Tickers"),
@@ -176,13 +173,10 @@ describe("AppSidebar", () => {
   });
 
   it("marks Agents as active when on /dashboard/agents", () => {
-    // Setup
     usePathnameMock.mockReturnValue("/dashboard/agents");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const agentsButton = buttons.find((btn) =>
       btn.textContent?.includes("Agents"),
@@ -191,13 +185,10 @@ describe("AppSidebar", () => {
   });
 
   it("marks API Keys as active when on /dashboard/api-keys", () => {
-    // Setup
     usePathnameMock.mockReturnValue("/dashboard/api-keys");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const apiKeysButton = buttons.find((btn) =>
       btn.textContent?.includes("API Keys"),
@@ -205,14 +196,11 @@ describe("AppSidebar", () => {
     expect(apiKeysButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Search Query as active when on /dashboard/search-queries", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/search-queries");
+  it("marks Search Query as active when on keyed search-queries path", () => {
+    usePathnameMock.mockReturnValue("/dashboard/mediapulse/search-queries");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const searchQueriesButton = buttons.find((btn) =>
       btn.textContent?.includes("Search Query"),
@@ -221,13 +209,10 @@ describe("AppSidebar", () => {
   });
 
   it("marks Schedules as active when on /dashboard/schedules", () => {
-    // Setup
     usePathnameMock.mockReturnValue("/dashboard/schedules");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const schedulesButton = buttons.find((btn) =>
       btn.textContent?.includes("Schedules"),
@@ -235,14 +220,11 @@ describe("AppSidebar", () => {
     expect(schedulesButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Entity Types as active when on /dashboard/entity-types", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/entity-types");
+  it("marks Entity Types as active when on keyed entity-types path", () => {
+    usePathnameMock.mockReturnValue("/dashboard/mediapulse/entity-types");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const entityTypesButton = buttons.find((btn) =>
       btn.textContent?.includes("Entity Types"),
@@ -250,14 +232,11 @@ describe("AppSidebar", () => {
     expect(entityTypesButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Relation Types as active when on /dashboard/relation-types", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/relation-types");
+  it("marks Relation Types as active when on keyed relation-types path", () => {
+    usePathnameMock.mockReturnValue("/dashboard/mediapulse/relation-types");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const relationTypesButton = buttons.find((btn) =>
       btn.textContent?.includes("Relation Types"),
@@ -266,38 +245,29 @@ describe("AppSidebar", () => {
   });
 
   it("displays user name and email when user prop provided", () => {
-    // Setup
     usePathnameMock.mockReturnValue("/dashboard");
     const user = { name: "John Doe", email: "john@example.com" };
 
-    // Act
-    render(<AppSidebar user={user} domainPages={domainPages} />);
+    render(<AppSidebar user={user} domainIntegrations={domainIntegrations} />);
 
-    // Assert
     expect(screen.getByText("John Doe")).toBeInTheDocument();
     expect(screen.getByText("john@example.com")).toBeInTheDocument();
   });
 
   it("renders logout form without user info when no user provided", () => {
-    // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
-    // Act
-    render(<AppSidebar domainPages={domainPages} />);
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
-    // Assert
     expect(screen.getByTestId("logout-form")).toBeInTheDocument();
     expect(screen.queryByText("John Doe")).not.toBeInTheDocument();
   });
 
   it("renders logout form when user is null", () => {
-    // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
-    // Act
-    render(<AppSidebar user={null} domainPages={domainPages} />);
+    render(<AppSidebar user={null} domainIntegrations={domainIntegrations} />);
 
-    // Assert
     expect(screen.getByTestId("logout-form")).toBeInTheDocument();
   });
 });
