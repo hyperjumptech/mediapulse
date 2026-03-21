@@ -1,10 +1,10 @@
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@hermes/env";
-import { prisma as mediapulsePrisma } from "@mediapulse/database";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 import { logger } from "@workspace/logger";
 import got from "got";
 
+import { fetchAllTickersForPipelineRun } from "@/lib/domain-dashboard";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
         where: { pipelineId: data.pipelineId },
         orderBy: { order: "asc" },
       }),
-      mediapulsePrisma.ticker.findMany(),
+      fetchAllTickersForPipelineRun(),
     ]);
 
     if (tickers.length === 0) {
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
     for (const ticker of tickers) {
       logger.info(
-        { pipelineName: pipeline.name, tickerSymbol: ticker.symbol },
+        { pipelineName: pipeline.name, tickerId: ticker.id },
         "Running pipeline for ticker (all steps in order)...",
       );
 
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
       }
 
       logger.info(
-        { pipelineName: pipeline.name, tickerSymbol: ticker.symbol },
+        { pipelineName: pipeline.name, tickerId: ticker.id },
         "Pipeline completed for ticker.",
       );
     }

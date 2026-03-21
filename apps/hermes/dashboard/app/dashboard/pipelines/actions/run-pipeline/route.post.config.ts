@@ -1,6 +1,5 @@
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@hermes/env";
-import { prisma as mediapulsePrisma } from "@mediapulse/database";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 import got from "got";
 import {
@@ -12,6 +11,7 @@ import {
 import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
+import { fetchAllTickersForPipelineRun } from "@/lib/domain-dashboard";
 import { validatePipeline } from "@/lib/validate-pipeline";
 
 const bodyValidator = z.object({
@@ -44,8 +44,8 @@ type RunPipelineHandlerDependencies = {
   getSession?: typeof getDashboardSession;
   /** Orchestration DB (pipelines, steps, agent registry). */
   db?: typeof orchestrationPrisma;
-  /** Mediapulse domain DB (tickers). */
-  mediapulseDb?: typeof mediapulsePrisma;
+  /** Loads ticker ids via domain HTTP API (no direct Mediapulse DB). */
+  fetchTickersForPipelineRun?: () => Promise<Array<{ id: string }>>;
   /** Returns a short-lived JWT for agent invocation. */
   getToken?: () => Promise<string>;
   post?: typeof got.post;
@@ -60,13 +60,13 @@ type RunPipelineHandler = HandlerFunc<
 /**
  * Creates the run-pipeline handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession, orchestration db, mediapulse db, getToken, and post (got.post).
+ * @param dependencies - Optional getSession, orchestration db, ticker fetch, getToken, and post (got.post).
  * @returns Handler that runs the pipeline for all tickers (each ticker gets all steps in order).
  */
 export const createRunPipelineHandler = ({
   getSession = getDashboardSession,
   db = orchestrationPrisma,
-  mediapulseDb = mediapulsePrisma,
+  fetchTickersForPipelineRun = fetchAllTickersForPipelineRun,
   getToken = defaultGetToken ??
     (async () => {
       throw new Error("AGENT_AUTH_API_URL and AGENT_API_KEY are required");
@@ -101,7 +101,7 @@ export const createRunPipelineHandler = ({
         where: { pipelineId: data.body.pipelineId },
         orderBy: { order: "asc" },
       }),
-      mediapulseDb.ticker.findMany(),
+      fetchTickersForPipelineRun(),
     ]);
     const pipelineValidation = await validatePipeline(
       {

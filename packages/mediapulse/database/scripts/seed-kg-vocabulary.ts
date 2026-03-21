@@ -1,13 +1,15 @@
 /**
  * Seed the default knowledge-graph vocabulary (entity types and relation types).
  * The operation is idempotent and safe to run multiple times because rows are upserted by name.
- * The script can be run standalone: `pnpm dlx tsx scripts/seed-kg-vocabulary.ts`
+ *
+ * Run from the monorepo root: `pnpm --filter @mediapulse/database run seed-kg-vocabulary`
+ * (Hermes dashboard forwards `pnpm seed-kg-vocabulary` to this script).
  */
 
 import { config } from "dotenv";
 import fs from "fs";
 import path from "path";
-import type { PrismaClientWithSchema } from "@mediapulse/database/client";
+import type { PrismaClientWithSchema } from "../src/client";
 import { fileURLToPath } from "url";
 
 const DEFAULT_ENTITY_TYPES = [
@@ -79,12 +81,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Loads Hermes script environment variables from the app-local .env file.
+ * Loads Mediapulse env for CLI execution (`packages/mediapulse/env/.env`).
  */
-const loadHermesScriptEnv = (): void => {
-  const envPath = path.resolve(__dirname, "../.env.local");
+const loadMediapulseScriptEnv = (): void => {
+  const envPath = path.resolve(__dirname, "../../env/.env");
   if (!fs.existsSync(envPath)) {
-    console.error("The .env.local file does not exist in the app root.");
+    console.error(
+      `Expected ${envPath} (copy from env.example and set MEDIAPULSE_DATABASE_URL).`,
+    );
     process.exit(1);
   }
 
@@ -95,11 +99,14 @@ const loadHermesScriptEnv = (): void => {
 /**
  * Seeds the default knowledge-graph vocabulary (entity types and relation types).
  * The operation is idempotent and safe to run multiple times because rows are upserted by name.
+ *
+ * @param db - Optional Prisma client (defaults to production client from `@mediapulse/database`).
+ * @returns Counts of vocabulary rows touched.
  */
 export const seedKgVocabulary = async (
   db?: PrismaClientWithSchema,
 ): Promise<SeedKgVocabularyResult> => {
-  const targetDb = db ?? (await import("@mediapulse/database")).prisma;
+  const targetDb = db ?? (await import("../src/index")).prisma;
 
   for (const entityType of DEFAULT_ENTITY_TYPES) {
     await targetDb.entityType.upsert({
@@ -137,7 +144,7 @@ export const seedKgVocabulary = async (
  * Executes the KG vocabulary seed script from CLI.
  */
 const main = async (): Promise<void> => {
-  loadHermesScriptEnv();
+  loadMediapulseScriptEnv();
   const result = await seedKgVocabulary();
   console.log(
     `Seeded ${result.entityTypesSeeded} entity types and ${result.relationTypesSeeded} relation types.`,

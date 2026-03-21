@@ -40,9 +40,7 @@ describe("createRunPipelineHandler", () => {
         pipelineStep: { findMany: vi.fn().mockResolvedValue([]) },
         agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
       } as never,
-      mediapulseDb: {
-        ticker: { findMany: vi.fn().mockResolvedValue([]) },
-      } as never,
+      fetchTickersForPipelineRun: async () => [],
     });
     const result = await handler(request({ pipelineId: "p-1" }));
     expect(result.status).toBe(false);
@@ -60,7 +58,7 @@ describe("createRunPipelineHandler", () => {
         pipelineStep: { findMany: vi.fn() },
         agentRegistry: { findMany: vi.fn() },
       } as never,
-      mediapulseDb: { ticker: { findMany: vi.fn() } } as never,
+      fetchTickersForPipelineRun: async () => [],
     });
     const result = await handler(request({ pipelineId: "p-missing" }));
     expect(result.status).toBe(false);
@@ -78,9 +76,7 @@ describe("createRunPipelineHandler", () => {
         pipelineStep: { findMany: vi.fn().mockResolvedValue([]) },
         agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
       } as never,
-      mediapulseDb: {
-        ticker: { findMany: vi.fn().mockResolvedValue([]) },
-      } as never,
+      fetchTickersForPipelineRun: async () => [],
     });
     const result = await handler(request({ pipelineId: "p-1" }));
     expect(result.status).toBe(true);
@@ -130,11 +126,7 @@ describe("createRunPipelineHandler", () => {
           ]),
         },
       } as never,
-      mediapulseDb: {
-        ticker: {
-          findMany: vi.fn().mockResolvedValue([{ id: "t1", symbol: "X" }]),
-        },
-      } as never,
+      fetchTickersForPipelineRun: async () => [{ id: "t1" }],
     });
     const result = await handler(request({ pipelineId: "p-1" }));
     expect(result.status).toBe(true);
@@ -188,11 +180,7 @@ describe("createRunPipelineHandler", () => {
           findMany: vi.fn().mockResolvedValue([]),
         },
       } as never,
-      mediapulseDb: {
-        ticker: {
-          findMany: vi.fn().mockResolvedValue([{ id: "t1", symbol: "X" }]),
-        },
-      } as never,
+      fetchTickersForPipelineRun: async () => [{ id: "t1" }],
     });
 
     // Act

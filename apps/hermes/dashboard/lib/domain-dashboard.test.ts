@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   callDomainCustomPost,
+  fetchAllTickersForPipelineRun,
   getDomainTableItemById,
   getDomainTableMeta,
   invokeDomainTableCustomAction,
@@ -380,5 +381,114 @@ describe("previewDomainExpansion", () => {
     expect(previewExpansion).toHaveBeenCalledWith({
       expansionString: "db:ticker:id",
     });
+  });
+});
+
+describe("fetchAllTickersForPipelineRun", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const injectedResolve = async () => ({
+    baseUrl: "http://localhost:8090",
+    apiPrefix: "/v1/hermes-dashboard/tickers",
+  });
+
+  it("returns string ids from a single page", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [{ id: "a1", symbol: "AAA" }, { id: "a2" }],
+        total: 2,
+        page: 1,
+        pageSize: 100,
+      }),
+    });
+
+    const result = await fetchAllTickersForPipelineRun({
+      resolveUrl: injectedResolve,
+    });
+
+    expect(result).toEqual([{ id: "a1" }, { id: "a2" }]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("paginates until the reported total is covered", async () => {
+    let page = 0;
+    fetchMock.mockImplementation(async () => {
+      page += 1;
+      if (page === 1) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: Array.from({ length: 100 }, (_, i) => ({ id: `id-${i}` })),
+            total: 150,
+            page: 1,
+            pageSize: 100,
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          items: Array.from({ length: 50 }, (_, i) => ({
+            id: `id-${100 + i}`,
+          })),
+          total: 150,
+          page: 2,
+          pageSize: 100,
+        }),
+      };
+    });
+
+    const result = await fetchAllTickersForPipelineRun({
+      resolveUrl: injectedResolve,
+    });
+
+    expect(result).toHaveLength(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips items without a string id", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [{ id: 1 }, { id: "bad" }, { symbol: "x" }],
+        total: 3,
+        page: 1,
+        pageSize: 100,
+      }),
+    });
+
+    const result = await fetchAllTickersForPipelineRun({
+      resolveUrl: injectedResolve,
+    });
+
+    expect(result).toEqual([{ id: "bad" }]);
+  });
+
+  it("returns empty when the first page has no rows", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 100,
+      }),
+    });
+
+    const result = await fetchAllTickersForPipelineRun({
+      resolveUrl: injectedResolve,
+    });
+
+    expect(result).toEqual([]);
   });
 });

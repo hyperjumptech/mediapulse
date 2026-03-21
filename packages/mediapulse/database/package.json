@@ -22,8 +22,12 @@
     "db:push": "prisma db push --skip-generate",
     "format": "prisma format",
     "generate": "prisma generate",
-    "lint": "eslint \"src/**/*.ts\"",
-    "studio": "prisma studio"
+    "lint": "eslint \"src/**/*.ts\" \"scripts/**/*.ts\"",
+    "seed-kg-vocabulary": "tsx scripts/seed-kg-vocabulary.ts",
+    "studio": "prisma studio",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "type:check": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",
@@ -35,12 +39,14 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/pg": "^8.16.0",
+    "@vitest/coverage-v8": "catalog:",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "^9.32.0",
     "prisma": "^7.2.0",
     "rimraf": "^6.0.1",
     "tsx": "^4",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

@@ -9,6 +9,15 @@ import { z } from "zod";
 
 import { getDomainIntegrationByKey } from "@/lib/domain-integrations";
 
+/** Page size for pipeline ticker fetch; must not exceed domain-api `MAX_PAGE_SIZE` (100). */
+const PIPELINE_TICKER_PAGE_SIZE = 100;
+
+/** Dashboard path segment for the mediapulse tickers table-v1 resource. */
+const TICKERS_RESOURCE = "tickers";
+
+/** Default tickers list path when resolving via `MEDIAPULSE_API_URL` without a stored manifest. */
+const DEFAULT_TICKERS_API_PREFIX = "/v1/hermes-dashboard/tickers";
+
 /** Result state for JSON file custom actions (e.g. IDX import) returned from server actions. */
 export type DomainTableJsonImportState =
   | { status: "idle" }
@@ -229,6 +238,91 @@ export const getDomainTableList = async (
     `${baseUrl}${page.apiPrefix}?${search.toString()}`,
     tableV1ListResponseSchema.parse,
   );
+};
+
+/**
+ * Resolves base URL and API prefix for the mediapulse tickers table-v1 list endpoint.
+ * Prefers the registered domain integration; falls back to `MEDIAPULSE_API_URL` (same pattern as step-input expansion).
+ *
+ * @returns Base URL without trailing slash and path prefix for GET list requests.
+ */
+const resolveMediapulseTickersListUrl = async (): Promise<{
+  baseUrl: string;
+  apiPrefix: string;
+}> => {
+  const integration = await getDomainIntegrationByKey("mediapulse");
+  if (integration) {
+    const page = integration.dashboard.pages.find(
+      (entry) => entry.pathSegment === TICKERS_RESOURCE,
+    );
+    if (!page) {
+      throw new Error(
+        `Dashboard page "tickers" is not registered for integration "mediapulse"`,
+      );
+    }
+    return {
+      baseUrl: integration.baseUrl.replace(/\/$/, ""),
+      apiPrefix: page.apiPrefix,
+    };
+  }
+
+  const baseUrl = env.MEDIAPULSE_API_URL?.replace(/\/$/, "");
+  if (!baseUrl) {
+    throw new Error(
+      "No active mediapulse domain integration and MEDIAPULSE_API_URL is not configured; cannot load tickers for pipeline run",
+    );
+  }
+
+  return { baseUrl, apiPrefix: DEFAULT_TICKERS_API_PREFIX };
+};
+
+export type FetchAllTickersForPipelineRunDependencies = {
+  /** Resolves HTTP base URL and path for tickers list (inject in tests). */
+  resolveUrl?: typeof resolveMediapulseTickersListUrl;
+};
+
+/**
+ * Loads every ticker id from the domain integration via the table-v1 HTTP API (paginated).
+ * Used by Hermes pipeline run so the dashboard does not depend on `@mediapulse/database`.
+ *
+ * @param dependencies - Optional `resolveUrl` override for tests.
+ * @returns Ticker rows with string ids suitable for agent `tickerId` payloads.
+ */
+export const fetchAllTickersForPipelineRun = async (
+  dependencies: FetchAllTickersForPipelineRunDependencies = {},
+): Promise<Array<{ id: string }>> => {
+  const resolveUrl = dependencies.resolveUrl ?? resolveMediapulseTickersListUrl;
+  const { baseUrl, apiPrefix } = await resolveUrl();
+  const all: Array<{ id: string }> = [];
+  let page = 1;
+
+  while (true) {
+    const search = new URLSearchParams();
+    search.set("page", String(page));
+    search.set("pageSize", String(PIPELINE_TICKER_PAGE_SIZE));
+
+    const payload = await callDomain(
+      `${baseUrl}${apiPrefix}?${search.toString()}`,
+      tableV1ListResponseSchema.parse,
+    );
+
+    for (const item of payload.items) {
+      const id = item.id;
+      if (typeof id === "string" && id.length > 0) {
+        all.push({ id });
+      }
+    }
+
+    if (payload.items.length === 0) {
+      break;
+    }
+    if (page * PIPELINE_TICKER_PAGE_SIZE >= payload.total) {
+      break;
+    }
+    page += 1;
+  }
+
+  return all;
 };
 
 const domainTableItemResponseSchema = z.record(z.unknown());

@@ -19,14 +19,14 @@ Schedules are stored in the database (`Schedule` table). The **scheduler does no
 
 ## Knowledge graph seeding (development)
 
-With Prisma migrations applied and `apps/hermes/.env.local` configured, you can seed default knowledge-graph data from this directory:
+With Prisma migrations applied, configure `packages/mediapulse/env/.env` (at least `MEDIAPULSE_DATABASE_URL`) for vocabulary seeding, and Hermes env (`packages/hermes/env`) for pipeline seeding. From `apps/hermes/dashboard`:
 
 ```bash
 pnpm seed-kg-vocabulary
 pnpm seed-kg-pipelines
 ```
 
-The first command loads entity types and relation types; the second loads the default KG pipelines and their schedules. Both scripts are idempotent.
+`pnpm seed-kg-vocabulary` runs the script in `@mediapulse/database` (entity and relation types). `pnpm seed-kg-pipelines` runs here (pipelines and schedules). Both are idempotent.
 
 ## Creating an admin user
 

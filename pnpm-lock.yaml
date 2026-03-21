@@ -220,12 +220,6 @@ importers:
       '@hermes/step-input-syntax':
         specifier: workspace:*
         version: link:../../../packages/hermes/step-input-syntax
-      '@mediapulse/database':
-        specifier: workspace:*
-        version: link:../../../packages/mediapulse/database
-      '@mediapulse/idx-tickers-importer':
-        specifier: workspace:*
-        version: link:../../../packages/mediapulse/idx-tickers-importer
       '@next/env':
         specifier: 'catalog:'
         version: 16.1.6
@@ -969,6 +963,9 @@ importers:
       '@types/pg':
         specifier: ^8.16.0
         version: 8.16.0
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
       '@workspace/eslint-config':
         specifier: workspace:*
         version: link:../../shared/eslint-config
@@ -990,6 +987,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/mediapulse/env:
     dependencies:

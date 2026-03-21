@@ -1,5 +1,9 @@
 {
   "extends": "@workspace/typescript-config/node16.json",
+  "compilerOptions": {
+    "module": "ES2022",
+    "moduleResolution": "Bundler"
+  },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "client"]
 }

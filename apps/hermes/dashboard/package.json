@@ -16,7 +16,7 @@
     "create:route": "route-action-gen create",
     "create:admin": "tsx scripts/create-admin.ts",
     "generate-api-key": "tsx scripts/generate-api-key.ts",
-    "seed-kg-vocabulary": "tsx scripts/seed-kg-vocabulary.ts",
+    "seed-kg-vocabulary": "pnpm --filter @mediapulse/database run seed-kg-vocabulary",
     "seed-kg-pipelines": "tsx scripts/seed-kg-pipelines.ts",
     "test": "pnpm generate && vitest --run",
     "test:coverage": "pnpm generate && vitest --run --coverage"
@@ -29,9 +29,7 @@
     "@hermes/scheduler": "workspace:*",
     "@hermes/step-input-syntax": "workspace:*",
     "@workspace/json-schema-form": "workspace:*",
-    "@mediapulse/idx-tickers-importer": "workspace:*",
     "@workspace/logger": "workspace:*",
-    "@mediapulse/database": "workspace:*",
     "@hermes/orchestration-database": "workspace:*",
     "@workspace/ui": "workspace:*",
     "bcrypt": "catalog:",
