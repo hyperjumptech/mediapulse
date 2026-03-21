@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { DashboardPage } from "@hermes/domain-contract";
 
 import {
   SidebarInset,
@@ -86,9 +87,11 @@ const getSchedulesSubLabel = (
 export const DashboardShell = ({
   children,
   user,
+  domainPages = [],
 }: {
   children: React.ReactNode;
   user?: DashboardUser | null;
+  domainPages?: DashboardPage[];
 }) => {
   const pathname = usePathname();
   const segments = pathname?.split("/").filter(Boolean) ?? [];
@@ -102,11 +105,15 @@ export const DashboardShell = ({
     dashboardSegment === "agents" ? getAgentsSubLabel(subSegment) : null;
   const schedulesSubLabel =
     dashboardSegment === "schedules" ? getSchedulesSubLabel(subSegment) : null;
+  const domainSegmentLabel = domainPages.find(
+    (page) => page.pathSegment === dashboardSegment,
+  )?.label;
   const currentLabel =
     pipelinesSubLabel ??
     tickersSubLabel ??
     agentsSubLabel ??
     schedulesSubLabel ??
+    domainSegmentLabel ??
     (dashboardSegment && SEGMENT_LABELS[dashboardSegment]) ??
     "Dashboard";
   const showParentLink =
@@ -119,7 +126,7 @@ export const DashboardShell = ({
 
   return (
     <SidebarProvider>
-      <AppSidebar user={user ?? null} />
+      <AppSidebar user={user ?? null} domainPages={domainPages} />
       <Separator orientation="vertical" className="h-svh shrink-0" />
       <SidebarInset>
         <header className="flex h-16 shrink-0 flex-col transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">

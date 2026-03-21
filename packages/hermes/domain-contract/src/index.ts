@@ -1,5 +1,10 @@
 export { createDomainIntegrationClient } from "./client";
 export {
+  dashboardManifestSchema,
+  dashboardPageActionsSchema,
+  dashboardPageColumnSchema,
+  dashboardPageSchema,
+  dashboardTemplateSchema,
   domainIntegrationCapabilitySchema,
   domainHealthResponseSchema,
   expandStepInputsRequestSchema,
@@ -8,6 +13,11 @@ export {
   previewExpansionResponseSchema,
   registerDomainIntegrationRequestSchema,
   registerDomainIntegrationResponseSchema,
+  tableV1ListRequestQuerySchema,
+  tableV1ListResponseSchema,
+  tableV1MetaResponseSchema,
+  type DashboardManifest,
+  type DashboardPage,
   type DomainHealthResponse,
   type ExpandStepInputsRequest,
   type ExpandStepInputsResponse,
@@ -15,4 +25,7 @@ export {
   type PreviewExpansionResponse,
   type RegisterDomainIntegrationRequest,
   type RegisterDomainIntegrationResponse,
+  type TableV1ListRequestQuery,
+  type TableV1ListResponse,
+  type TableV1MetaResponse,
 } from "./contracts";

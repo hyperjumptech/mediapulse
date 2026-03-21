@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { DashboardPage } from "@hermes/domain-contract";
 import {
   Bot,
   Calendar,
@@ -10,9 +11,6 @@ import {
   GitBranch,
   Key,
   LayoutDashboard,
-  Search,
-  Tags,
-  TrendingUp,
   Variable,
 } from "lucide-react";
 
@@ -34,30 +32,26 @@ import type { DashboardUser } from "./dashboard-shell";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   user?: DashboardUser | null;
+  domainPages?: DashboardPage[];
 };
 
 /**
  * Hermes app sidebar matching dashboard-01. Main nav (Dashboard, Pipelines) and footer with user and logout.
  */
-export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
+export const AppSidebar = ({
+  user,
+  domainPages = [],
+  ...props
+}: AppSidebarProps) => {
   const pathname = usePathname();
   const isDashboard = pathname === "/dashboard";
   const isPipelines = pathname === "/dashboard/pipelines";
-  const isTickers = pathname?.startsWith("/dashboard/tickers") ?? false;
   const isAgents = pathname?.startsWith("/dashboard/agents") ?? false;
   const isAgentConfigs =
     pathname?.startsWith("/dashboard/agent-configs") ?? false;
   const isVariables = pathname?.startsWith("/dashboard/variables") ?? false;
   const isApiKeys = pathname?.startsWith("/dashboard/api-keys") ?? false;
-  const isSearchQueries =
-    pathname?.startsWith("/dashboard/search-queries") ?? false;
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
-  const isDataSourceExpansions =
-    pathname?.startsWith("/dashboard/data-source-expansions") ?? false;
-  const isEntityTypes =
-    pathname?.startsWith("/dashboard/entity-types") ?? false;
-  const isRelationTypes =
-    pathname?.startsWith("/dashboard/relation-types") ?? false;
 
   return (
     <Sidebar {...props}>
@@ -106,26 +100,10 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isTickers}>
-                <Link href="/dashboard/tickers">
-                  <TrendingUp className="size-4" />
-                  <span>Tickers</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isVariables}>
                 <Link href="/dashboard/variables">
                   <Variable className="size-4" />
                   <span>Variables</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isSearchQueries}>
-                <Link href="/dashboard/search-queries">
-                  <Search className="size-4" />
-                  <span>Search Query</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -145,35 +123,27 @@ export const AppSidebar = ({ user, ...props }: AppSidebarProps) => {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isDataSourceExpansions}>
-                <Link href="/dashboard/data-source-expansions">
-                  <Database className="size-4" />
-                  <span>Data source expansions</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>Knowledge Graph</SidebarGroupLabel>
+          <SidebarGroupLabel>Domain</SidebarGroupLabel>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isEntityTypes}>
-                <Link href="/dashboard/entity-types">
-                  <Tags className="size-4" />
-                  <span>Entity Types</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isRelationTypes}>
-                <Link href="/dashboard/relation-types">
-                  <GitBranch className="size-4" />
-                  <span>Relation Types</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {domainPages.map((page) => (
+              <SidebarMenuItem key={page.id}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname?.startsWith(`/dashboard/${page.pathSegment}`) ??
+                    false
+                  }
+                >
+                  <Link href={`/dashboard/${page.pathSegment}`}>
+                    <Database className="size-4" />
+                    <span>{page.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

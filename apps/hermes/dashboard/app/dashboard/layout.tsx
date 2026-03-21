@@ -1,5 +1,6 @@
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getDashboardSession } from "@/lib/auth-dashboard";
+import type { DashboardPage } from "@hermes/domain-contract";
 
 /**
  * Dashboard layout: sidebar, header with breadcrumb, and main content area.
@@ -11,5 +12,18 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await getDashboardSession();
-  return <DashboardShell user={user}>{children}</DashboardShell>;
+  let domainPages: DashboardPage[] = [];
+  try {
+    const { getDefaultDomainIntegration } =
+      await import("@/lib/domain-integrations");
+    const integration = await getDefaultDomainIntegration();
+    domainPages = integration.dashboard.pages;
+  } catch {
+    domainPages = [];
+  }
+  return (
+    <DashboardShell user={user} domainPages={domainPages}>
+      {children}
+    </DashboardShell>
+  );
 }

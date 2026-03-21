@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppSidebar } from "./app-sidebar";
+import type { DashboardPage } from "@hermes/domain-contract";
 
 const usePathnameMock = vi.fn();
 
@@ -57,6 +58,57 @@ vi.mock("@workspace/ui/components/separator", () => ({
   ),
 }));
 
+const domainPages: DashboardPage[] = [
+  {
+    id: "tickers",
+    label: "Tickers",
+    pathSegment: "tickers",
+    template: "table-v1",
+    apiPrefix: "/v1/hermes-dashboard/tickers",
+    columns: [],
+    searchableFields: [],
+    sortableFields: [],
+    actions: { create: true, update: true, delete: true },
+    order: 10,
+  },
+  {
+    id: "search-queries",
+    label: "Search Query",
+    pathSegment: "search-queries",
+    template: "table-v1",
+    apiPrefix: "/v1/hermes-dashboard/search-queries",
+    columns: [],
+    searchableFields: [],
+    sortableFields: [],
+    actions: { create: false, update: false, delete: true },
+    order: 20,
+  },
+  {
+    id: "entity-types",
+    label: "Entity Types",
+    pathSegment: "entity-types",
+    template: "table-v1",
+    apiPrefix: "/v1/hermes-dashboard/entity-types",
+    columns: [],
+    searchableFields: [],
+    sortableFields: [],
+    actions: { create: true, update: true, delete: true },
+    order: 30,
+  },
+  {
+    id: "relation-types",
+    label: "Relation Types",
+    pathSegment: "relation-types",
+    template: "table-v1",
+    apiPrefix: "/v1/hermes-dashboard/relation-types",
+    columns: [],
+    searchableFields: [],
+    sortableFields: [],
+    actions: { create: true, update: true, delete: true },
+    order: 40,
+  },
+];
+
 describe("AppSidebar", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -68,7 +120,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     expect(screen.getByText("Hermes")).toBeInTheDocument();
@@ -79,7 +131,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
@@ -98,7 +150,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
@@ -113,7 +165,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard/tickers");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
@@ -128,7 +180,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard/agents");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
@@ -143,7 +195,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard/api-keys");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
@@ -158,7 +210,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard/search-queries");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
@@ -173,7 +225,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard/schedules");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
@@ -188,7 +240,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard/entity-types");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
@@ -203,7 +255,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard/relation-types");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     const buttons = screen.getAllByTestId("sidebar-menu-button");
@@ -219,7 +271,7 @@ describe("AppSidebar", () => {
     const user = { name: "John Doe", email: "john@example.com" };
 
     // Act
-    render(<AppSidebar user={user} />);
+    render(<AppSidebar user={user} domainPages={domainPages} />);
 
     // Assert
     expect(screen.getByText("John Doe")).toBeInTheDocument();
@@ -231,7 +283,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
     // Act
-    render(<AppSidebar />);
+    render(<AppSidebar domainPages={domainPages} />);
 
     // Assert
     expect(screen.getByTestId("logout-form")).toBeInTheDocument();
@@ -243,7 +295,7 @@ describe("AppSidebar", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
     // Act
-    render(<AppSidebar user={null} />);
+    render(<AppSidebar user={null} domainPages={domainPages} />);
 
     // Assert
     expect(screen.getByTestId("logout-form")).toBeInTheDocument();

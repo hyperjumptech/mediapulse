@@ -1,6 +1,8 @@
-import type {
-  RegisterDomainIntegrationRequest,
-  RegisterDomainIntegrationResponse,
+import {
+  dashboardManifestSchema,
+  type DashboardManifest,
+  type RegisterDomainIntegrationRequest,
+  type RegisterDomainIntegrationResponse,
 } from "@hermes/domain-contract";
 import type { Prisma } from "@hermes/orchestration-database";
 import { prisma } from "@hermes/orchestration-database";
@@ -24,6 +26,23 @@ const parseCapabilities = (
 };
 
 /**
+ * Parses a persisted dashboard manifest JSON payload.
+ *
+ * @param raw - Raw JSON value stored in Prisma.
+ * @returns Normalized dashboard manifest.
+ */
+const parseDashboardManifest = (
+  raw: Prisma.JsonValue | null,
+): DashboardManifest => {
+  return dashboardManifestSchema
+    .catch({
+      templateVersion: 1,
+      pages: [],
+    })
+    .parse(raw);
+};
+
+/**
  * Registers (or refreshes) a domain integration record in orchestration storage.
  *
  * @param payload - Integration registration payload.
@@ -33,6 +52,13 @@ export const registerDomainIntegration = async (
   payload: RegisterDomainIntegrationRequest,
 ): Promise<RegisterDomainIntegrationResponse> => {
   const capabilities = [...payload.capabilities];
+  const dashboard = {
+    templateVersion: payload.dashboard.templateVersion,
+    pages: payload.dashboard.pages,
+  };
+  const dashboardManifest = JSON.parse(
+    JSON.stringify(dashboard),
+  ) as Prisma.InputJsonValue;
 
   if (payload.key === "mediapulse") {
     await prisma.domainIntegration.updateMany({
@@ -49,6 +75,7 @@ export const registerDomainIntegration = async (
       baseUrl: payload.baseUrl,
       version: payload.version,
       capabilities,
+      dashboardManifest,
       isDefault: payload.key === "mediapulse",
       isActive: true,
       lastSeenAt: new Date(),
@@ -58,6 +85,7 @@ export const registerDomainIntegration = async (
       baseUrl: payload.baseUrl,
       version: payload.version,
       capabilities,
+      dashboardManifest,
       isActive: true,
       lastSeenAt: new Date(),
       ...(payload.key === "mediapulse" ? { isDefault: true } : {}),
@@ -73,6 +101,7 @@ export const registerDomainIntegration = async (
     capabilities: parseCapabilities(integration.capabilities),
     isActive: integration.isActive,
     isDefault: integration.isDefault,
+    dashboard: parseDashboardManifest(integration.dashboardManifest),
   };
 };
 
@@ -87,6 +116,7 @@ export const getDefaultDomainIntegration = async (): Promise<{
   name: string;
   baseUrl: string;
   version: string | null;
+  dashboard: DashboardManifest;
 }> => {
   const integration = await prisma.domainIntegration.findFirst({
     where: { isActive: true },
@@ -97,6 +127,7 @@ export const getDefaultDomainIntegration = async (): Promise<{
       name: true,
       baseUrl: true,
       version: true,
+      dashboardManifest: true,
     },
   });
 
@@ -104,5 +135,12 @@ export const getDefaultDomainIntegration = async (): Promise<{
     throw new Error("No active domain integration registered");
   }
 
-  return integration;
+  return {
+    id: integration.id,
+    key: integration.key,
+    name: integration.name,
+    baseUrl: integration.baseUrl,
+    version: integration.version,
+    dashboard: parseDashboardManifest(integration.dashboardManifest),
+  };
 };

@@ -281,6 +281,10 @@ main() {
       echo "Warning: AGENT_API_KEY is empty in $HERMES_ENV_FILE."
       echo "Hermes worker may fail until AGENT_API_KEY is set."
     fi
+    if ! awk '/^DOMAIN_INTEGRATION_REGISTRATION_API_KEY=/{ if (length($0) > 37) found=1 } END { exit(found ? 0 : 1) }' "$MEDIAPULSE_ENV_FILE"; then
+      echo "Warning: DOMAIN_INTEGRATION_REGISTRATION_API_KEY is empty in $MEDIAPULSE_ENV_FILE."
+      echo "Mediapulse domain-api will skip Hermes registration until this key is set."
+    fi
   else
     section "Create admin and API keys"
     (
@@ -314,6 +318,7 @@ main() {
     upsert_env_var "$HERMES_ENV_FILE" "AGENT_REGISTRY_API_KEY" "$REGISTRY_API_KEY"
     upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_API_KEY" "$SCHEDULER_API_KEY"
     upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_REGISTRY_API_KEY" "$REGISTRY_API_KEY"
+    upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_REGISTRATION_API_KEY" "$REGISTRY_API_KEY"
     set_agent_registry_api_key_for_all_agents "$REGISTRY_API_KEY"
   fi
 
@@ -323,6 +328,7 @@ main() {
   echo "  - AGENT_AUTH_API_URL=$AGENT_AUTH_API_URL"
   echo "  - AGENT_API_KEY"
   echo "  - AGENT_REGISTRY_API_KEY"
+  echo "  - DOMAIN_INTEGRATION_REGISTRATION_API_KEY"
   echo "Updated apps/mediapulse/agents/*/.env.local with:"
   echo "  - AGENT_REGISTRY_API_KEY"
   if [[ "$SKIP_ADMIN" == "false" ]]; then

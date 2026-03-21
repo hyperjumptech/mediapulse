@@ -91,17 +91,18 @@ model Variable {
 }
 
 model DomainIntegration {
-  id           String   @id @default(uuid())
-  key          String   @unique
-  name         String
-  baseUrl      String   @map("base_url")
-  version      String?
-  capabilities Json?    @default("[]")
-  isActive     Boolean  @default(true) @map("is_active")
-  isDefault    Boolean  @default(false) @map("is_default")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  lastSeenAt   DateTime @default(now()) @map("last_seen_at")
+  id                String   @id @default(uuid())
+  key               String   @unique
+  name              String
+  baseUrl           String   @map("base_url")
+  version           String?
+  capabilities      Json?    @default("[]")
+  dashboardManifest Json?    @map("dashboard_manifest")
+  isActive          Boolean  @default(true) @map("is_active")
+  isDefault         Boolean  @default(false) @map("is_default")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  lastSeenAt        DateTime @default(now()) @map("last_seen_at")
 
   @@map("domain_integration")
 }

@@ -16,8 +16,8 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 
 ## Features
 
-- **Dashboard UI** — Manage pipelines, pipeline steps, tickers, agents, API keys, **data source expansions**, **entity types**, **relation types**, and schedules (CRUD).
-- **Search Query management** — Admins can view generated search queries at `/dashboard/search-queries`, filter rows by ticker name, and delete queries that are not referenced by `data_source`.
+- **Dashboard UI** — Manage pipelines, pipeline steps, agents, API keys, and schedules. Domain-owned resources are rendered from a registered dashboard manifest (`table-v1`) rather than hardcoded Prisma-backed pages.
+- **Domain pages from integration manifest** — Mediapulse registration includes sidebar pages and API prefixes for tickers, entity types, relation types, search queries, and data source expansions. Hermes renders these pages with one generic table template (search/sort/pagination/create/edit/delete based on manifest + `/meta` response).
 - **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, and for each pipeline step expands that step's input (e.g. data-source expressions like `db:ticker:id`), then invokes the step via HTTP. Hermes does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
 - **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@mediapulse/idx-tickers-importer`.
@@ -72,8 +72,9 @@ See [hermes-worker](/apps/hermes-worker) for details.
 
 ## Workspace dependencies
 
-- `@hermes/orchestration-database` and `@mediapulse/database` — Prisma clients for orchestration vs Mediapulse tables (pipelines/schedules vs tickers/KG, etc.).
+- `@hermes/orchestration-database` — Prisma client for orchestration data and domain integration manifest storage.
 - `@hermes/env` — Environment variables.
+- `@hermes/domain-contract` — Shared integration contract for registration payloads and `table-v1` metadata/list responses.
 - `@hermes/scheduler` — `computeNextRunAt` (and types) for schedule create/update in the dashboard.
 - `@workspace/json-schema-form` — Renders forms from agent config schemas (create/edit agent config modals).
 - `@mediapulse/idx-tickers-importer` — IDX ticker import.
