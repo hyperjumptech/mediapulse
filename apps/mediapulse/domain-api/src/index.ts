@@ -14,8 +14,10 @@ import {
   expandDataSources,
   expandSingleDataSource,
 } from "@mediapulse/hermes-integration";
-import { prisma, type Prisma } from "@mediapulse/database";
+import { prisma, Prisma } from "@mediapulse/database";
 import { importIdxTickersFromRequestBody } from "./import-idx-tickers-json";
+import { mergeTickerMetadataForPatch } from "./merge-ticker-metadata";
+import { parseTickerMetadataJson } from "./parse-ticker-metadata-json";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
@@ -30,14 +32,20 @@ const REGISTRATION_MAX_ATTEMPTS = 6;
 const REGISTRATION_INITIAL_DELAY_MS = 1_000;
 const REGISTRATION_MAX_DELAY_MS = 30_000;
 
+const tickerMetadataBodySchema = z
+  .union([z.string(), z.record(z.string(), z.unknown()), z.null()])
+  .optional();
+
 const tickerCreateSchema = z.object({
   symbol: z.string().min(1),
   name: z.string().min(1),
+  metadata: tickerMetadataBodySchema,
 });
 
 const tickerUpdateSchema = z.object({
   symbol: z.string().min(1),
   name: z.string().min(1),
+  metadata: tickerMetadataBodySchema,
 });
 
 const entityTypeCreateSchema = z.object({
@@ -72,6 +80,61 @@ const dataSourceExpansionUpdateSchema = z.object({
   description: z.string().nullable().optional(),
 });
 
+/**
+ * JSON Schema `properties` for ticker `metadata` (IDX-style emiten row).
+ * Hermes renders one control per key; keys omitted here stay in DB via PATCH merge but are not editable in the UI.
+ */
+const tickerMetadataFormProperties: Record<string, unknown> = {
+  id: { type: "integer", title: "ID (IDX)" },
+  BAE: { type: "string", title: "BAE", nullable: true },
+  Fax: { type: "string", title: "Fax", nullable: true },
+  Logo: { type: "string", title: "Logo", nullable: true },
+  NPKP: { type: "string", title: "NPKP", nullable: true },
+  NPWP: { type: "string", title: "NPWP", nullable: true },
+  Email: { type: "string", title: "Email", nullable: true },
+  Alamat: {
+    type: "string",
+    title: "Alamat",
+    format: "textarea",
+    nullable: true,
+  },
+  DataID: { type: "integer", title: "Data ID" },
+  Divisi: { type: "string", title: "Divisi", nullable: true },
+  Sektor: { type: "string", title: "Sektor", nullable: true },
+  Status: { type: "integer", title: "Status" },
+  Telepon: { type: "string", title: "Telepon", nullable: true },
+  Website: { type: "string", title: "Website", nullable: true },
+  Industri: { type: "string", title: "Industri", nullable: true },
+  SubSektor: { type: "string", title: "Sub-sektor", nullable: true },
+  KodeDivisi: { type: "string", title: "Kode divisi", nullable: true },
+  KodeEmiten: { type: "string", title: "Kode emiten", nullable: true },
+  NamaEmiten: { type: "string", title: "Nama emiten", nullable: true },
+  JenisEmiten: { type: "string", title: "Jenis emiten", nullable: true },
+  SubIndustri: { type: "string", title: "Sub-industri", nullable: true },
+  EfekEmiten_EBA: { type: "boolean", title: "Efek: EBA" },
+  EfekEmiten_ETF: { type: "boolean", title: "Efek: ETF" },
+  EfekEmiten_SPEI: { type: "boolean", title: "Efek: SPEI" },
+  PapanPencatatan: {
+    type: "string",
+    title: "Papan pencatatan",
+    nullable: true,
+  },
+  EfekEmiten_Saham: { type: "boolean", title: "Efek: Saham" },
+  TanggalPencatatan: {
+    type: "string",
+    title: "Tanggal pencatatan",
+    format: "date-time",
+    nullable: true,
+  },
+  KegiatanUsahaUtama: {
+    type: "string",
+    title: "Kegiatan usaha utama",
+    format: "textarea",
+    nullable: true,
+  },
+  EfekEmiten_Obligasi: { type: "boolean", title: "Efek: Obligasi" },
+};
+
 const dashboardManifest = dashboardManifestSchema.parse({
   templateVersion: 1,
   pages: [
@@ -97,6 +160,12 @@ const dashboardManifest = dashboardManifestSchema.parse({
         properties: {
           symbol: { type: "string", title: "Symbol" },
           name: { type: "string", title: "Name" },
+          metadata: {
+            type: "object",
+            title: "Metadata",
+            nullable: true,
+            properties: tickerMetadataFormProperties,
+          },
         },
       },
       updateSchema: {
@@ -105,6 +174,12 @@ const dashboardManifest = dashboardManifestSchema.parse({
         properties: {
           symbol: { type: "string", title: "Symbol" },
           name: { type: "string", title: "Name" },
+          metadata: {
+            type: "object",
+            title: "Metadata",
+            nullable: true,
+            properties: tickerMetadataFormProperties,
+          },
         },
       },
       customActions: [
@@ -417,6 +492,10 @@ api.get("/hermes-dashboard/tickers", async (c) => {
       id: row.id,
       symbol: row.symbol,
       name: row.name,
+      metadata:
+        row.metadata === null || row.metadata === undefined
+          ? ""
+          : JSON.stringify(row.metadata, null, 2),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     })),
@@ -434,10 +513,23 @@ api.post("/hermes-dashboard/tickers", async (c) => {
     return c.json({ message: "Invalid request body" }, 400);
   }
 
+  const metadataParsed = parseTickerMetadataJson(body.data.metadata);
+  if (!metadataParsed.ok) {
+    return c.json({ message: metadataParsed.message }, 400);
+  }
+
   const created = await prisma.ticker.create({
     data: {
       symbol: body.data.symbol.trim(),
       name: body.data.name.trim(),
+      ...(metadataParsed.value !== undefined
+        ? {
+            metadata:
+              metadataParsed.value === null
+                ? Prisma.DbNull
+                : metadataParsed.value,
+          }
+        : {}),
     },
   });
   return c.json({ id: created.id }, 201);
@@ -465,18 +557,33 @@ api.patch("/hermes-dashboard/tickers/:id", async (c) => {
     return c.json({ message: "Invalid request body" }, 400);
   }
 
-  try {
-    const updated = await prisma.ticker.update({
-      where: { id: c.req.param("id") },
-      data: {
-        symbol: body.data.symbol.trim(),
-        name: body.data.name.trim(),
-      },
-    });
-    return c.json({ id: updated.id });
-  } catch {
+  const metadataParsed = parseTickerMetadataJson(body.data.metadata);
+  if (!metadataParsed.ok) {
+    return c.json({ message: metadataParsed.message }, 400);
+  }
+
+  const existing = await prisma.ticker.findUnique({
+    where: { id: c.req.param("id") },
+    select: { id: true, metadata: true },
+  });
+  if (!existing) {
     return c.json({ message: "Ticker not found" }, 404);
   }
+
+  const mergedMetadata = mergeTickerMetadataForPatch(
+    existing.metadata,
+    metadataParsed.ok ? metadataParsed.value : undefined,
+  );
+
+  const updated = await prisma.ticker.update({
+    where: { id: c.req.param("id") },
+    data: {
+      symbol: body.data.symbol.trim(),
+      name: body.data.name.trim(),
+      ...(mergedMetadata !== undefined ? { metadata: mergedMetadata } : {}),
+    },
+  });
+  return c.json({ id: updated.id });
 });
 
 api.delete("/hermes-dashboard/tickers/:id", async (c) => {

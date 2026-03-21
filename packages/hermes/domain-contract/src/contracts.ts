@@ -66,7 +66,16 @@ export const dashboardPageSchema = z.object({
     update: false,
     delete: false,
   }),
+  /**
+   * JSON Schema for the create form. Hermes table-v1 parses a subset: `type: "object"` with
+   * `properties` where each property may use `type` string (optional `format`: `date-time`, `textarea`),
+   * number, integer, boolean, string `enum`, nested `object` with its own `properties` (dot-joined field
+   * names in forms), or optional `nullable` / `anyOf` with `{ type: "null" }`.
+   */
   createSchema: z.record(z.unknown()).optional(),
+  /**
+   * Same shape as `createSchema` for the edit form payload (PATCH body fields).
+   */
   updateSchema: z.record(z.unknown()).optional(),
   customActions: z.array(dashboardPageCustomActionSchema).default([]),
 });
@@ -98,7 +107,13 @@ export const tableV1MetaResponseSchema = z.object({
   searchableFields: z.array(z.string().min(1)).default([]),
   sortableFields: z.array(z.string().min(1)).default([]),
   actions: dashboardPageActionsSchema,
+  /**
+   * Echoed from the manifest for Hermes to build create/edit modals (see `dashboardPageSchema.createSchema`).
+   */
   createSchema: z.record(z.unknown()).optional(),
+  /**
+   * Echoed from the manifest for Hermes to build edit modals (see `dashboardPageSchema.updateSchema`).
+   */
   updateSchema: z.record(z.unknown()).optional(),
   customActions: z.array(dashboardPageCustomActionSchema).default([]),
 });

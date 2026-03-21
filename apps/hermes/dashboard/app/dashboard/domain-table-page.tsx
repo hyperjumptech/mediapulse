@@ -23,6 +23,10 @@ import {
   updateDomainTableItem,
   type DomainTableJsonImportState,
 } from "@/lib/domain-dashboard";
+import {
+  formDataToDomainPayload,
+  parseDomainTableFormFieldsFromJsonSchema,
+} from "@/lib/domain-table-form-schema";
 
 type DomainTablePageProps = {
   /** Registered domain integration key (e.g. "mediapulse"). */
@@ -44,27 +48,6 @@ type DomainTablePageProps = {
         sort?: string;
         dir?: string;
       };
-};
-
-type SchemaField = {
-  key: string;
-  label: string;
-  required: boolean;
-};
-
-/**
- * Converts form data to a JSON payload, excluding internal fields.
- *
- * @param formData - Submitted form data.
- * @returns Object payload for domain API mutations.
- */
-const formDataToPayload = (formData: FormData): Record<string, unknown> => {
-  const payload: Record<string, unknown> = {};
-  for (const [key, value] of formData.entries()) {
-    if (key.startsWith("__")) continue;
-    payload[key] = value;
-  }
-  return payload;
 };
 
 /**
@@ -92,39 +75,6 @@ const parseListParams = (searchParams: {
 };
 
 /**
- * Extracts text fields from a JSON schema-like object for form rendering.
- *
- * @param schema - Schema object from manifest/meta.
- * @returns Ordered field descriptors.
- */
-const getSchemaFields = (schema: unknown): SchemaField[] => {
-  if (!schema || typeof schema !== "object") return [];
-  const objectSchema = schema as {
-    properties?: Record<string, unknown>;
-    required?: unknown;
-  };
-  const required = Array.isArray(objectSchema.required)
-    ? objectSchema.required.filter(
-        (entry): entry is string => typeof entry === "string",
-      )
-    : [];
-  const properties = objectSchema.properties ?? {};
-  return Object.entries(properties)
-    .filter(([, value]) => typeof value === "object" && value !== null)
-    .map(([key, value]) => {
-      const property = value as { title?: unknown };
-      return {
-        key,
-        label:
-          typeof property.title === "string" && property.title.length > 0
-            ? property.title
-            : key,
-        required: required.includes(key),
-      };
-    });
-};
-
-/**
  * Shared server-rendered table-v1 page for domain-registered resources.
  *
  * @param props - Integration key, resource path segment, and request search params.
@@ -142,15 +92,19 @@ export const DomainTablePage = async ({
     getDomainTableMeta(integrationKey, resource),
     getDomainTableList(integrationKey, resource, params),
   ]);
-  const createFields = getSchemaFields(meta.createSchema);
-  const updateFields = getSchemaFields(meta.updateSchema);
+  const createFields = parseDomainTableFormFieldsFromJsonSchema(
+    meta.createSchema,
+  );
+  const updateFields = parseDomainTableFormFieldsFromJsonSchema(
+    meta.updateSchema,
+  );
 
   const createAction = async (formData: FormData) => {
     "use server";
     await createDomainTableItem(
       integrationKey,
       resource,
-      formDataToPayload(formData),
+      formDataToDomainPayload(formData, createFields),
     );
     revalidatePath(basePath);
     redirect(basePath);
@@ -164,7 +118,7 @@ export const DomainTablePage = async ({
       integrationKey,
       resource,
       id,
-      formDataToPayload(formData),
+      formDataToDomainPayload(formData, updateFields),
     );
     revalidatePath(basePath);
     redirect(basePath);

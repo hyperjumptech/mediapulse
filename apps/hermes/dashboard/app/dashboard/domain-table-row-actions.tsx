@@ -17,22 +17,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
-import { Input } from "@workspace/ui/components/input";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+
+import { DomainTableFormFields } from "@/components/domain-table-form-fields";
+import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
 
 const DELETE_MENU_ITEM_FORM_CLASS =
   "flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-destructive/10 focus:text-destructive";
 
-type DomainTableRowField = {
-  key: string;
-  label: string;
-  required: boolean;
-};
-
 export type DomainTableRowActionsProps = {
   rowId: string;
   row: Record<string, unknown>;
-  updateFields: DomainTableRowField[];
+  updateFields: DomainTableFormField[];
   updateAction: (formData: FormData) => Promise<void>;
   deleteAction: (formData: FormData) => Promise<void>;
   showEdit: boolean;
@@ -151,26 +147,22 @@ export const DomainTableRowActions = ({
 
       {showEdit && updateFields.length > 0 ? (
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
-            <DialogHeader>
+          <DialogContent
+            className="grid max-h-[min(90vh,880px)] w-full max-w-2xl grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-2xl"
+            aria-describedby={undefined}
+          >
+            <DialogHeader className="shrink-0 border-b px-6 py-4 pr-12">
               <DialogTitle>Edit</DialogTitle>
             </DialogHeader>
-            <form action={updateAction} className="grid gap-3">
-              <input type="hidden" name="__id" value={rowId} readOnly />
-              {updateFields.map((field) => (
-                <label key={field.key} className="grid gap-1 text-sm">
-                  <span>{field.label}</span>
-                  <Input
-                    name={field.key}
-                    defaultValue={String(row[field.key] ?? "")}
-                    required={field.required}
-                  />
-                </label>
-              ))}
-              <div>
-                <Button type="submit">Save</Button>
-              </div>
-            </form>
+            <div className="min-h-0 overflow-y-auto overscroll-y-contain px-6 py-4">
+              <form action={updateAction} className="grid gap-3">
+                <input type="hidden" name="__id" value={rowId} readOnly />
+                <DomainTableFormFields fields={updateFields} defaultRow={row} />
+                <div>
+                  <Button type="submit">Save</Button>
+                </div>
+              </form>
+            </div>
           </DialogContent>
         </Dialog>
       ) : null}
