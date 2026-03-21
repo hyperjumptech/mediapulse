@@ -2,7 +2,7 @@ import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
 import {
   registerDomainIntegrationRequestSchema,
   registerDomainIntegrationResponseSchema,
-} from "@workspace/hermes-domain-contract";
+} from "@hermes/domain-contract";
 import { env } from "@hermes/env";
 import { NextResponse } from "next/server";
 import { registerDomainIntegration } from "@/lib/domain-integrations";

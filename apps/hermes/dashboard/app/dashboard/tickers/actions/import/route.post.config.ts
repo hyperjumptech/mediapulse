@@ -1,8 +1,8 @@
-import { prisma } from "@workspace/mediapulse-database";
+import { prisma } from "@mediapulse/database";
 import {
   importIdxTickers,
   type TickerUpsertDb,
-} from "@workspace/idx-tickers-importer";
+} from "@mediapulse/idx-tickers-importer";
 import {
   createRequestValidator,
   errorResponse,

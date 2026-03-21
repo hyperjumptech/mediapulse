@@ -10,9 +10,9 @@ RUN pnpm install --frozen-lockfile
 # Generate Prisma client (Mediapulse domain DB)
 ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
-RUN pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
+RUN pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
 
-RUN pnpm exec turbo build --filter=agent-data-api
+RUN pnpm exec turbo build --filter=@mediapulse/agent-data-api
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1

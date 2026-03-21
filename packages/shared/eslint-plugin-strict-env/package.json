@@ -1,5 +1,5 @@
 {
-  "name": "eslint-plugin-strict-env",
+  "name": "@workspace/eslint-plugin-strict-env",
   "version": "1.0.0",
   "type": "module",
   "description": "ESLint plugin to prevent process.env usage",

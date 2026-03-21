@@ -14,9 +14,9 @@ That doc is the source of truth for route architecture, manifest usage, and endp
 
 From repo root:
 
-- `pnpm --filter agent-data-api dev`
-- `pnpm --filter agent-data-api test`
-- `pnpm --filter agent-data-api type:check`
+- `pnpm --filter @mediapulse/agent-data-api dev`
+- `pnpm --filter @mediapulse/agent-data-api test`
+- `pnpm --filter @mediapulse/agent-data-api type:check`
 
 ## Endpoint changes (quick workflow)
 

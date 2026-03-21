@@ -2,7 +2,7 @@ import {
   AgentJobExecutionStatus,
   ScheduleExecutionStatus,
   type PrismaClient,
-} from "@workspace/orchestration-database";
+} from "@hermes/orchestration-database";
 import { randomUUID } from "node:crypto";
 import type { DueSchedule } from "./get-due-schedules";
 import { computeNextRunAt } from "./next-run-at";

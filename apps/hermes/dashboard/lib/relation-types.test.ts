@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PrismaClientWithSchema } from "@workspace/mediapulse-database/client";
+import type { PrismaClientWithSchema } from "@mediapulse/database/client";
 
 import { getRelationTypeById, getRelationTypesPage } from "./relation-types";
 

@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { prismaClient } from "@workspace/orchestration-database/client";
+import { prismaClient } from "@hermes/orchestration-database/client";
 import { cookies } from "next/headers";
 import {
   createRequestValidator,

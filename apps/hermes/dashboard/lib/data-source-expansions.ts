@@ -1,5 +1,5 @@
-import type { Prisma } from "@workspace/mediapulse-database";
-import { prisma } from "@workspace/mediapulse-database";
+import type { Prisma } from "@mediapulse/database";
+import { prisma } from "@mediapulse/database";
 
 type Db = typeof prisma;
 

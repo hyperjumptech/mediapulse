@@ -2,21 +2,21 @@ import got from "got";
 import {
   AgentJobExecutionStatus,
   prisma as orchestrationPrisma,
-} from "@workspace/orchestration-database";
-import { createDomainIntegrationClient } from "@workspace/hermes-domain-contract";
+} from "@hermes/orchestration-database";
+import { createDomainIntegrationClient } from "@hermes/domain-contract";
 import { env } from "@hermes/env/hermes-worker";
 import { logger } from "@workspace/logger";
 import type { JobHandlers } from "@nicnocquee/dataqueue";
 import type { JobPayloadMap } from "./job-payload-map";
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
-import { DEFAULT_TAKE, MAX_TAKE } from "@workspace/hermes-step-input-syntax";
+import { DEFAULT_TAKE, MAX_TAKE } from "@hermes/step-input-syntax";
 import {
   executeSchedule,
   getDueSchedules,
   invokeAgent,
   type ExpandStepInputs,
   type InvokeAgentHttpClient,
-} from "@workspace/hermes-scheduler";
+} from "@hermes/scheduler";
 import { getJobQueue } from "./queue";
 
 /**

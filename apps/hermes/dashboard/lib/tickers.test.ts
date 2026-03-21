@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getTickerById, getTickersPage } from "./tickers";
-import type { PrismaClientWithSchema } from "@workspace/mediapulse-database/client";
+import type { PrismaClientWithSchema } from "@mediapulse/database/client";
 
 type MockDb = {
   ticker: {

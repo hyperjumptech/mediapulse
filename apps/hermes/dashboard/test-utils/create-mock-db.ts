@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { PrismaClientWithSchema } from "@workspace/orchestration-database/client";
+import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
 
 type MockTicker = {
   findMany: ReturnType<typeof vi.fn>;

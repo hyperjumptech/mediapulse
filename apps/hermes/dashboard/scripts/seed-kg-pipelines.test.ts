@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PrismaClientWithSchema } from "@workspace/orchestration-database/client";
+import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
 
 import { seedKgPipelines } from "./seed-kg-pipelines";
 

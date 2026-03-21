@@ -36,10 +36,10 @@ jobs:
         run: pnpm install
 
       - name: Generate Prisma clients
-        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
+        run: pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
 
       - name: Build
-        run: pnpm build --filter=agent-auth-api
+        run: pnpm build --filter=@hermes/agent-auth-api
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -77,10 +77,10 @@ jobs:
         run: pnpm install
 
       - name: Generate Prisma clients
-        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
+        run: pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
 
       - name: Build
-        run: pnpm build --filter=agent-data-api
+        run: pnpm build --filter=@mediapulse/agent-data-api
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -118,10 +118,10 @@ jobs:
         run: pnpm install
 
       - name: Generate Prisma clients
-        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
+        run: pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
 
       - name: Build
-        run: pnpm build --filter=agent-registry-api
+        run: pnpm build --filter=@hermes/agent-registry-api
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -159,7 +159,7 @@ jobs:
         run: pnpm install
 
       - name: Generate Prisma clients
-        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
+        run: pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -197,7 +197,7 @@ jobs:
         run: pnpm install
 
       - name: Generate Prisma clients
-        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
+        run: pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -235,7 +235,7 @@ jobs:
         run: pnpm install
 
       - name: Generate Prisma clients
-        run: pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
+        run: pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 

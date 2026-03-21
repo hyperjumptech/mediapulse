@@ -20,7 +20,7 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 - **Search Query management** — Admins can view generated search queries at `/dashboard/search-queries`, filter rows by ticker name, and delete queries that are not referenced by `data_source`.
 - **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, and for each pipeline step expands that step's input (e.g. data-source expressions like `db:ticker:id`), then invokes the step via HTTP. Hermes does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
-- **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@workspace/idx-tickers-importer`.
+- **Ticker import** — Import IDX (Indonesian Stock Exchange) listed companies via `@mediapulse/idx-tickers-importer`.
 - **Session-based auth** — Dashboard uses cookie/session auth. When running pipelines (manual or scheduled), agents are invoked with **short-lived JWT bearer tokens** (minted via agent-auth-api); the scheduler API key is never sent to agents.
 - **Variable management** — Admins can CRUD **variables** (key, value, optional note, secret flag) from `/dashboard/variables`. Variables are referenced in agent config and step input as `{{VAR_KEY}}`; at pipeline execution time the placeholder is replaced with the stored value. Secret variables are never returned by the API or shown in the UI after creation (value is masked).
 - **API key management** — Admins can CRUD API keys from the dashboard. Create and update use modals; the raw key is shown once after create (stored as SHA-256 hash in DB, aligned with agent-auth-api).
@@ -39,7 +39,7 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 - **Relation types** (`/dashboard/relation-types`): Manage relation vocabulary used by analysis prompts.
 - **KG dev seeding** — From `apps/hermes`, run `pnpm seed-kg-vocabulary` then `pnpm seed-kg-pipelines` to load default vocabulary rows and KG pipelines/schedules into a development database. Details in [Knowledge Graph](/knowledge-graph/knowledge-graph#schedule-configuration-default-seeds).
 - API key actions: create, update, delete. Create/update via modal; list is paginated with search by name.
-- Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@workspace/hermes-scheduler`; execution runs in hermes-worker.
+- Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@hermes/scheduler`; execution runs in hermes-worker.
 - Logout: `/logout`.
 
 ## Pipeline status and schedules
@@ -65,18 +65,18 @@ To backfill existing data once: from `apps/hermes`, run `pnpm exec tsx scripts/b
 Hermes **does not** run the DataQueue queue or migrations. To run the scheduler:
 
 1. Run the **hermes-worker** app on a persistent server (e.g. `pnpm dev:hermes-worker` from repo root). It initializes the queue, ensures the `hermes-check-schedules` cron exists, and runs the processor + supervisor.
-2. Run DataQueue migrations from **hermes-worker**: `pnpm --filter hermes-worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`). Use the same DB as Hermes with `?schema=dataqueue`.
+2. Run DataQueue migrations from **hermes-worker**: `pnpm --filter @hermes/worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`). Use the same DB as Hermes with `?schema=dataqueue`.
 3. Set `PG_DATAQUEUE_DATABASE` (and `DATABASE_URL`, `AGENT_API_KEY`) where hermes-worker runs.
 
 See [hermes-worker](/apps/hermes-worker) for details.
 
 ## Workspace dependencies
 
-- `@workspace/database` — Prisma client for pipelines, tickers, agents, schedules, etc.
-- `@workspace/env` — Environment variables.
-- `@workspace/hermes-scheduler` — `computeNextRunAt` (and types) for schedule create/update in the dashboard.
+- `@hermes/orchestration-database` and `@mediapulse/database` — Prisma clients for orchestration vs Mediapulse tables (pipelines/schedules vs tickers/KG, etc.).
+- `@hermes/env` — Environment variables.
+- `@hermes/scheduler` — `computeNextRunAt` (and types) for schedule create/update in the dashboard.
 - `@workspace/json-schema-form` — Renders forms from agent config schemas (create/edit agent config modals).
-- `@workspace/idx-tickers-importer` — IDX ticker import.
+- `@mediapulse/idx-tickers-importer` — IDX ticker import.
 - `@workspace/logger` — Logging.
 - `@workspace/ui` — Shared UI components.
 

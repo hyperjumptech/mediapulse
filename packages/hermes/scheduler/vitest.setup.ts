@@ -1,5 +1,5 @@
 /**
- * Sets minimal env vars so @workspace/orchestration-database (and thus @hermes/env) can load in tests.
+ * Sets minimal env vars so @hermes/orchestration-database (and thus @hermes/env) can load in tests.
  * Tests use mocked DB; no real DB connection is made.
  */
 const testDbBase = "postgresql://local:local@localhost:5432/test";

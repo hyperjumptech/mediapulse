@@ -3,18 +3,15 @@ import {
   expandStepInputsRequestSchema,
   previewExpansionRequestSchema,
   registerDomainIntegrationRequestSchema,
-} from "@workspace/hermes-domain-contract";
-import {
-  MAX_TAKE,
-  parseDataSourceString,
-} from "@workspace/hermes-step-input-syntax";
+} from "@hermes/domain-contract";
+import { MAX_TAKE, parseDataSourceString } from "@hermes/step-input-syntax";
 import { env } from "@mediapulse/env";
 import { logger } from "@workspace/logger";
 import {
   expandDataSources,
   expandSingleDataSource,
-} from "@workspace/mediapulse-hermes-integration";
-import { prisma } from "@workspace/mediapulse-database";
+} from "@mediapulse/hermes-integration";
+import { prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";

@@ -11,4 +11,4 @@ After creating or editing TypeScript, JavaScript, or test files in this repo, yo
 - **Gate:** Do not mark any task, todo, or implementation as complete until `pnpm code-quality` exits with code 0.
 - **If it fails:** Fix the reported errors and run it again. Repeat until it passes. Do not hand off to the user.
 
-**New test files:** If a test imports server-side modules (e.g. `@workspace/database`, `@hermes/env`, `@mediapulse/env`, or code that uses `env.*`), add `/** @vitest-environment node */` at the top so Vitest runs in Node instead of the default browser-like environment.
+**New test files:** If a test imports server-side modules (e.g. `@hermes/orchestration-database`, `@mediapulse/database`, `@hermes/env`, `@mediapulse/env`, or code that uses `env.*`), add `/** @vitest-environment node */` at the top so Vitest runs in Node instead of the default browser-like environment.

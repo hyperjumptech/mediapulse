@@ -6,14 +6,14 @@ icon: CalendarClock
 
 ## Purpose
 
-`@workspace/hermes-scheduler` holds the **scheduler logic** used by Hermes: querying due schedules, executing them (expand params via an injected hook, invoke agents, record runs), and computing next run times. Hermes (Next.js) uses only `computeNextRunAt` for the dashboard; the long-running **hermes-worker** app uses the full API for the DataQueue `check_schedules` job.
+`@hermes/scheduler` holds the **scheduler logic** used by Hermes: querying due schedules, executing them (expand params via an injected hook, invoke agents, record runs), and computing next run times. Hermes (Next.js) uses only `computeNextRunAt` for the dashboard; the long-running **hermes-worker** app uses the full API for the DataQueue `check_schedules` job.
 
 ## Exports
 
 - **Due schedules:** `getDueSchedules`, `DueSchedule`, `GetDueSchedulesDb`
 - **Execution:** `executeSchedule`, `ExecuteScheduleDeps`
 - **Next run:** `computeNextRunAt`, `ScheduleForNextRun`
-- **Step input expansion:** `expandStepInputs` is injected via `ExecuteScheduleDeps` (runtime implementation in worker; syntax in `@workspace/hermes-step-input-syntax`).
+- **Step input expansion:** `expandStepInputs` is injected via `ExecuteScheduleDeps` (runtime implementation in worker; syntax in `@hermes/step-input-syntax`).
 - **Agent invocation:** `invokeAgent`, `AgentEndpointSchema`, `AgentEndpoint`, `InvokeAgentHttpClient`
 
 ## Consumers
@@ -23,4 +23,4 @@ icon: CalendarClock
 
 ## Dependencies
 
-`@workspace/orchestration-database`, `cron-parser`, `zod`. No HTTP client; callers pass an `InvokeAgentHttpClient` (e.g. `got`) when calling `executeSchedule` or `invokeAgent`.
+`@hermes/orchestration-database`, `cron-parser`, `zod`. No HTTP client; callers pass an `InvokeAgentHttpClient` (e.g. `got`) when calling `executeSchedule` or `invokeAgent`.

@@ -1,4 +1,4 @@
-# @workspace/idx-tickers-importer
+# @mediapulse/idx-tickers-importer
 
 Imports IDX (Indonesian Stock Exchange) listed companies data into the MediaPulse database. Accepts the JSON payload from the IDX API (e.g. listed companies table), maps each row to a `Ticker` record, and upserts by symbol (`KodeEmiten`).
 
@@ -6,7 +6,7 @@ The example payload is available in `idx.example.json`. The real payload can be 
 
 ## Prerequisites
 
-- `@workspace/database` with the `ticker` table and optional `metadata` column (run migrations so the ticker metadata migration is applied).
+- `@mediapulse/database` with the `ticker` table and optional `metadata` column (run migrations so the ticker metadata migration is applied).
 
 ## Installation
 
@@ -15,7 +15,7 @@ Use as a workspace dependency:
 ```json
 {
   "dependencies": {
-    "@workspace/idx-tickers-importer": "workspace:*"
+    "@mediapulse/idx-tickers-importer": "workspace:*"
   }
 }
 ```
@@ -23,7 +23,7 @@ Use as a workspace dependency:
 ## Usage
 
 ```ts
-import { importIdxTickers } from "@workspace/idx-tickers-importer";
+import { importIdxTickers } from "@mediapulse/idx-tickers-importer";
 
 // payload: IDX API response with { data: IdxEmitenRow[] }
 const payload = await response.json();
@@ -34,7 +34,7 @@ console.log(`Processed ${processed} tickers`);
 With a custom database client (e.g. for tests):
 
 ```ts
-import { importIdxTickers } from "@workspace/idx-tickers-importer";
+import { importIdxTickers } from "@mediapulse/idx-tickers-importer";
 
 const db = getPrismaClient(); // or a mock
 const { processed } = await importIdxTickers(payload, db);

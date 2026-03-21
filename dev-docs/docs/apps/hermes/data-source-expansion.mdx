@@ -8,7 +8,7 @@ icon: Database
 
 **Data source expansion** lets each pipeline step's **input** use placeholders that are resolved at execution time. Instead of hard-coding a single `tickerId`, you can use an expression like `db:userTicker:tickerId?where.enabled=true` so the scheduler runs that step **once per row** (e.g. once per enabled user ticker).
 
-Expansion runs through the `expandStepInputs` hook in `@workspace/hermes-scheduler`. Hermes resolves a registered **domain integration** and calls its HTTP API (`/v1/expand-step-inputs`, `/v1/preview-expansion`) using `@workspace/hermes-domain-contract`.
+Expansion runs through the `expandStepInputs` hook in `@hermes/scheduler`. Hermes resolves a registered **domain integration** and calls its HTTP API (`/v1/expand-step-inputs`, `/v1/preview-expansion`) using `@hermes/domain-contract`.
 
 ## Where it’s used
 

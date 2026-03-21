@@ -7,7 +7,7 @@ import {
   type ScheduleSortField,
 } from "@/lib/schedules";
 import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
-import { prisma } from "@workspace/orchestration-database";
+import { prisma } from "@hermes/orchestration-database";
 
 import { SchedulesWithModal } from "./schedules-with-modal";
 

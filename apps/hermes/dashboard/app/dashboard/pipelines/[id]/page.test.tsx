@@ -49,11 +49,11 @@ vi.mock("@/lib/data-source-expansions", () => ({
   }),
 }));
 
-vi.mock("@workspace/orchestration-database", () => ({
+vi.mock("@hermes/orchestration-database", () => ({
   prisma: {},
 }));
 
-vi.mock("@workspace/mediapulse-database", () => ({
+vi.mock("@mediapulse/database", () => ({
   prisma: {},
 }));
 

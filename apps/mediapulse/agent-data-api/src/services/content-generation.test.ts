@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@workspace/mediapulse-database", () => ({
+vi.mock("@mediapulse/database", () => ({
   prisma: {
     dataSource: {
       findMany: vi.fn(),

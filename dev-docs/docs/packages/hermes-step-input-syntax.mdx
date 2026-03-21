@@ -6,7 +6,7 @@ icon: Braces
 
 ## Purpose
 
-`@workspace/hermes-step-input-syntax` is **Hermes-only in scope** (not Mediapulse): it defines the shared `db:` **mini-language** used in pipeline step inputs and schedule params.
+`@hermes/step-input-syntax` is **Hermes-only in scope** (not Mediapulse): it defines the shared `db:` **mini-language** used in pipeline step inputs and schedule params.
 
 ## Exports
 
@@ -16,6 +16,6 @@ icon: Braces
 
 ## Relationship to other packages
 
-- **`@workspace/mediapulse-hermes-integration`** — Uses this syntax package and runs **Prisma** expansion against the Mediapulse schema.
+- **`@mediapulse/hermes-integration`** — Uses this syntax package and runs **Prisma** expansion against the Mediapulse schema.
 - **Hermes app** — Imports validation and parsing via `apps/hermes/lib/step-input-expansion.ts`, which applies env-driven `maxTake` for validation.
-- **`@workspace/hermes-domain-contract`** — Hermes uses this contract to call a domain integration API that performs expansion.
+- **`@hermes/domain-contract`** — Hermes uses this contract to call a domain integration API that performs expansion.

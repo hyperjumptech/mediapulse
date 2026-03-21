@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/hermes-domain-contract",
+  "name": "@hermes/domain-contract",
   "version": "0.0.1",
   "private": true,
   "type": "module",

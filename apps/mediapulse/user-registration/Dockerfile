@@ -22,7 +22,7 @@ COPY apps ./apps
 
 RUN pnpm install --frozen-lockfile
 
-RUN pnpm --filter=user-registration run build
+RUN pnpm --filter=@mediapulse/user-registration run build
 
 # Standalone runner: only copy traced output + static
 ARG NODE_VERSION=24.12.0

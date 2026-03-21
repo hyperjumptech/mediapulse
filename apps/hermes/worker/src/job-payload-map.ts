@@ -1,4 +1,4 @@
-import type { InvokeAgentJobPayload } from "@workspace/hermes-scheduler";
+import type { InvokeAgentJobPayload } from "@hermes/scheduler";
 
 /**
  * DataQueue job payload map for Hermes. Keys are job types; values are payload shapes.

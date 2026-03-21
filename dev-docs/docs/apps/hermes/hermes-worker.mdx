@@ -6,7 +6,7 @@ icon: ServerCog
 
 ## Purpose
 
-**hermes-worker** is a long-running Node/Bun app that runs the DataQueue **processor** and **supervisor** for the Hermes scheduler. It ensures the cron job `hermes-check-schedules` exists, processes `check_schedules` jobs (poll due schedules, enqueue agent invocations via `@workspace/hermes-scheduler`), and processes `invoke_agent` jobs (HTTP call to each agent). Hermes (Next.js) no longer runs the queue and can be deployed without a long-running server; run hermes-worker on a persistent host for scheduled pipeline runs.
+**hermes-worker** is a long-running Node/Bun app that runs the DataQueue **processor** and **supervisor** for the Hermes scheduler. It ensures the cron job `hermes-check-schedules` exists, processes `check_schedules` jobs (poll due schedules, enqueue agent invocations via `@hermes/scheduler`), and processes `invoke_agent` jobs (HTTP call to each agent). Hermes (Next.js) no longer runs the queue and can be deployed without a long-running server; run hermes-worker on a persistent host for scheduled pipeline runs.
 
 ## Features
 
@@ -54,7 +54,7 @@ All variables are defined in **`packages/env/env.hermes-worker.example`**. Copy 
 
 ## Workspace dependencies
 
-- `@workspace/hermes-scheduler` — Due schedules, execution, next-run logic.
-- `@workspace/database` — Prisma client for schedules and execution.
-- `@workspace/env/hermes-worker` — Env schema in `packages/env/env.hermes-worker.example`. Copy to `apps/hermes-worker/.env.local` and fill in values.
+- `@hermes/scheduler` — Due schedules, execution, next-run logic.
+- `@hermes/orchestration-database` — Prisma client for schedules and execution.
+- `@hermes/env/hermes-worker` — Env schema in `packages/hermes/env/env.hermes-worker.example`. Copy to `apps/hermes/worker/.env.local` and fill in values.
 - `@workspace/logger`, `@nicnocquee/dataqueue`, `got`.

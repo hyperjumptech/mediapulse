@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "content-generation-agent",
+  "name": "@mediapulse/content-generation",
   "version": "0.0.0",
   "private": true,
   "scripts": {

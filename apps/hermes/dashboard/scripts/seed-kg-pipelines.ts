@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import fs from "fs";
-import type { PrismaClientWithSchema } from "@workspace/orchestration-database/client";
-import type { Prisma } from "@workspace/orchestration-database";
+import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
+import type { Prisma } from "@hermes/orchestration-database";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -314,10 +314,9 @@ export const seedKgPipelines = async (
   computeNextRunAtFn?: ComputeNextRunAtFn,
 ): Promise<SeedKgPipelinesResult> => {
   const targetDb =
-    db ?? (await import("@workspace/orchestration-database")).prisma;
+    db ?? (await import("@hermes/orchestration-database")).prisma;
   const resolvedComputeNextRunAt =
-    computeNextRunAtFn ??
-    (await import("@workspace/hermes-scheduler")).computeNextRunAt;
+    computeNextRunAtFn ?? (await import("@hermes/scheduler")).computeNextRunAt;
 
   await assertAgentsRegistered(targetDb, KG_PIPELINE_DEFINITIONS);
 

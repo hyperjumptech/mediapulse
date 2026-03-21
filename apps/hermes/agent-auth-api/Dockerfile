@@ -6,7 +6,7 @@ COPY . .
 RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter agent-auth-api build
+RUN pnpm --filter @hermes/agent-auth-api build
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1

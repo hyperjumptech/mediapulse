@@ -21,10 +21,9 @@ For installation, environment setup, database migrations, and how to run each ap
 
 Quick reference:
 
-- **Database:** `docker-compose up` then `cd packages/database && pnpm db:migrate:dev && pnpm db:generate`
-- **Hermes:** `pnpm dev --filter=hermes` (port 3001)
-- **Dashboard:** `pnpm dev --filter=dashboard`
-- **APIs:** `pnpm dev --filter=agent-auth-api`, `agent-data-api`, `agent-registry-api`
+- **Database:** `docker-compose up` then run Prisma migrate/generate for `packages/hermes/orchestration-database` and `packages/mediapulse/database` (see Getting Started).
+- **Hermes (dashboard):** `pnpm dev --filter=@hermes/dashboard` (port 3001)
+- **APIs:** `pnpm dev --filter=@hermes/agent-auth-api`, `pnpm dev --filter=@mediapulse/agent-data-api`, `pnpm dev --filter=@hermes/agent-registry-api`
 - **Agents:** Run each agent app from `apps/agents/*` with its own env file
 
 ## Documentation map

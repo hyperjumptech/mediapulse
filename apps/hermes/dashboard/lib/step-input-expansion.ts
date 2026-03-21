@@ -1,11 +1,11 @@
 import { env } from "@hermes/env";
-import { createDomainIntegrationClient } from "@workspace/hermes-domain-contract";
+import { createDomainIntegrationClient } from "@hermes/domain-contract";
 import {
   MAX_TAKE,
   parseDataSourceString,
   validateDataSourceExpressions as validateDataSourceExpressionsBase,
   type ValidateDataSourceExpressionsResult,
-} from "@workspace/hermes-step-input-syntax";
+} from "@hermes/step-input-syntax";
 import { getDefaultDomainIntegration } from "./domain-integrations";
 
 export type { ValidateDataSourceExpressionsResult };

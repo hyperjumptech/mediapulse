@@ -1,6 +1,6 @@
 import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
-import strictEnv from "eslint-plugin-strict-env";
+import strictEnv from "@workspace/eslint-plugin-strict-env";
 import turboPlugin from "eslint-plugin-turbo";
 import tseslint from "typescript-eslint";
 

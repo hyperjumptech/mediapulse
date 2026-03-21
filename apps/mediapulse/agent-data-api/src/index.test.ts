@@ -36,7 +36,7 @@ vi.mock("@mediapulse/env", () => ({
   },
 }));
 
-vi.mock("@workspace/mediapulse-database", () => ({
+vi.mock("@mediapulse/database", () => ({
   prisma: {
     searchQuery: {
       findMany: vi.fn(),
@@ -60,7 +60,7 @@ vi.mock("./services/delivery.js", () => ({
 const getContentGenerationService = () =>
   import("./services/content-generation.js");
 const getDeliveryService = () => import("./services/delivery.js");
-const getDatabase = () => import("@workspace/mediapulse-database");
+const getDatabase = () => import("@mediapulse/database");
 
 describe("agent-data-api", () => {
   beforeEach(() => {

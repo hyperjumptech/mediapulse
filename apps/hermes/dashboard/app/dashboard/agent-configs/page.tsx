@@ -7,8 +7,8 @@ import {
 } from "@/lib/agent-configs";
 import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
 import { getVariablesPage } from "@/lib/variables";
-import { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
-import { prisma as orchestrationPrisma } from "@workspace/orchestration-database";
+import { prisma as mediapulsePrisma } from "@mediapulse/database";
+import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
 import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
 

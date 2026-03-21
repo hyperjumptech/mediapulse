@@ -27,9 +27,9 @@ ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
-RUN pnpm --filter=@workspace/orchestration-database run db:generate && pnpm --filter=@workspace/mediapulse-database run db:generate
+RUN pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
 
-RUN pnpm exec turbo build --filter=hermes
+RUN pnpm exec turbo build --filter=@hermes/dashboard
 
 # Standalone runner: only copy traced output + static
 ARG NODE_VERSION=24.12.0

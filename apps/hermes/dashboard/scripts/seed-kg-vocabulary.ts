@@ -7,7 +7,7 @@
 import { config } from "dotenv";
 import fs from "fs";
 import path from "path";
-import type { PrismaClientWithSchema } from "@workspace/mediapulse-database/client";
+import type { PrismaClientWithSchema } from "@mediapulse/database/client";
 import { fileURLToPath } from "url";
 
 const DEFAULT_ENTITY_TYPES = [
@@ -99,8 +99,7 @@ const loadHermesScriptEnv = (): void => {
 export const seedKgVocabulary = async (
   db?: PrismaClientWithSchema,
 ): Promise<SeedKgVocabularyResult> => {
-  const targetDb =
-    db ?? (await import("@workspace/mediapulse-database")).prisma;
+  const targetDb = db ?? (await import("@mediapulse/database")).prisma;
 
   for (const entityType of DEFAULT_ENTITY_TYPES) {
     await targetDb.entityType.upsert({

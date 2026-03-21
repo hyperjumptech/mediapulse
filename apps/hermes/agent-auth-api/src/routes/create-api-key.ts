@@ -1,5 +1,5 @@
 import { validateBody } from "@workspace/api-utils";
-import { prisma } from "@workspace/orchestration-database";
+import { prisma } from "@hermes/orchestration-database";
 import * as crypto from "crypto";
 import { Context } from "hono";
 import { z } from "zod";

@@ -3,10 +3,10 @@
  * validation invalid), disables all schedules that reference it so
  * hermes-scheduler will not run them.
  *
- * Run from repo root: pnpm --filter hermes exec tsx scripts/backfill-disable-schedules-for-invalid-pipelines.ts
+ * Run from repo root: pnpm --filter @hermes/dashboard exec tsx scripts/backfill-disable-schedules-for-invalid-pipelines.ts
  * Or from apps/hermes: pnpm exec tsx scripts/backfill-disable-schedules-for-invalid-pipelines.ts
  */
-import { prisma } from "@workspace/orchestration-database";
+import { prisma } from "@hermes/orchestration-database";
 import { getPipelinesWithSteps } from "../lib/pipelines";
 import { disableSchedulesForPipelineIfNotEnabled } from "../lib/disable-schedules-for-pipeline";
 

@@ -1,5 +1,5 @@
-import { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
-import { prisma as orchestrationPrisma } from "@workspace/orchestration-database";
+import { prisma as mediapulsePrisma } from "@mediapulse/database";
+import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
 /**
  * Loads the latest newsletter for a ticker and subscriber emails for enabled `user_ticker` rows.

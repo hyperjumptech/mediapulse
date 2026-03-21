@@ -6,7 +6,7 @@ import { issueToken } from "./issue-token";
 
 const mockFindUnique = vi.fn();
 
-vi.mock("@workspace/orchestration-database", () => ({
+vi.mock("@hermes/orchestration-database", () => ({
   prisma: {
     aPIKey: {
       findUnique: (...args: unknown[]) => mockFindUnique(...args),

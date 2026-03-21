@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/hermes-step-input-syntax",
+  "name": "@hermes/step-input-syntax",
   "version": "0.0.1",
   "private": true,
   "type": "module",

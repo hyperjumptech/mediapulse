@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@workspace/mediapulse-database";
+import { prisma, type Prisma } from "@mediapulse/database";
 
 type SearchQueriesDb = {
   searchQuery: Pick<typeof prisma.searchQuery, "findMany" | "count">;

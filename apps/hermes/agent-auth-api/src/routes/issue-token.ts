@@ -1,5 +1,5 @@
 import { env } from "@hermes/env";
-import { prisma } from "@workspace/orchestration-database";
+import { prisma } from "@hermes/orchestration-database";
 import * as crypto from "crypto";
 import { SignJWT } from "jose";
 import type { Context } from "hono";

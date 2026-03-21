@@ -110,7 +110,7 @@ const wireEnvPackage: PlopTypes.CustomActionFunction = (answers) => {
     unknown
   >;
   const rootScripts = rootPkg.scripts as Record<string, string>;
-  rootScripts[`dev:agent-${name}`] = `turbo dev --filter=${name}-agent`;
+  rootScripts[`dev:agent-${name}`] = `turbo dev --filter=@mediapulse/${name}`;
   fs.writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2));
 
   return `Wired env: ${examplePath}, updated packages/mediapulse/env/package.json and root package.json`;

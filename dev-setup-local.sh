@@ -271,7 +271,7 @@ main() {
       pnpm db:migrate:dev
       pnpm db:generate
     )
-    pnpm --filter hermes-worker run migrate-dataqueue:dev
+    pnpm --filter @hermes/worker run migrate-dataqueue:dev
   fi
 
   if [[ "$SKIP_ADMIN" == "true" ]]; then

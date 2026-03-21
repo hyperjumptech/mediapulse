@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/mediapulse-hermes-integration",
+  "name": "@mediapulse/hermes-integration",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -15,9 +15,9 @@
     "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
-    "@workspace/hermes-step-input-syntax": "workspace:*",
-    "@workspace/mediapulse-database": "workspace:*",
-    "@workspace/orchestration-database": "workspace:*"
+    "@hermes/step-input-syntax": "workspace:*",
+    "@mediapulse/database": "workspace:*",
+    "@hermes/orchestration-database": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -1,5 +1,5 @@
 {
-  "name": "hermes-worker",
+  "name": "@hermes/worker",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -17,10 +17,10 @@
     "@nicnocquee/dataqueue": "^1.36.0",
     "@workspace/agent-auth-client": "workspace:*",
     "@hermes/env": "workspace:*",
-    "@workspace/hermes-domain-contract": "workspace:*",
-    "@workspace/hermes-scheduler": "workspace:*",
-    "@workspace/hermes-step-input-syntax": "workspace:*",
-    "@workspace/orchestration-database": "workspace:*",
+    "@hermes/domain-contract": "workspace:*",
+    "@hermes/scheduler": "workspace:*",
+    "@hermes/step-input-syntax": "workspace:*",
+    "@hermes/orchestration-database": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:"
   },

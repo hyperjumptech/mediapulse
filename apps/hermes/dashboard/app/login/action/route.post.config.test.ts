@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { prismaClient } from "@workspace/orchestration-database/client";
+import { prismaClient } from "@hermes/orchestration-database/client";
 import bcrypt from "bcrypt";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
@@ -10,7 +10,7 @@ import {
   handler,
 } from "./route.post.config";
 
-vi.mock("@workspace/orchestration-database/client", () => ({
+vi.mock("@hermes/orchestration-database/client", () => ({
   prismaClient: {
     user: {
       findUnique: vi.fn(),

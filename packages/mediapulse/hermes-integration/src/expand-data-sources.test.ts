@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { parseDataSourceString } from "@workspace/hermes-step-input-syntax";
+import { parseDataSourceString } from "@hermes/step-input-syntax";
 import { describe, expect, it } from "vitest";
 
 import {

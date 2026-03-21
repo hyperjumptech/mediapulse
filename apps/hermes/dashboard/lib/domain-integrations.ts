@@ -1,9 +1,9 @@
 import type {
   RegisterDomainIntegrationRequest,
   RegisterDomainIntegrationResponse,
-} from "@workspace/hermes-domain-contract";
-import type { Prisma } from "@workspace/orchestration-database";
-import { prisma } from "@workspace/orchestration-database";
+} from "@hermes/domain-contract";
+import type { Prisma } from "@hermes/orchestration-database";
+import { prisma } from "@hermes/orchestration-database";
 
 const defaultCapabilities = [
   "expand-step-inputs",

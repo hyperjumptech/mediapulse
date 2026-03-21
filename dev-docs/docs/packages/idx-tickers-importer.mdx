@@ -6,7 +6,7 @@ icon: Download
 
 ## Purpose
 
-`@workspace/idx-tickers-importer` imports **IDX listed companies** into the MediaPulse `ticker` table. It accepts the JSON payload from the IDX API (e.g. company profiles), maps each row to a `Ticker` record, and **upserts by symbol** (`KodeEmiten`).
+`@mediapulse/idx-tickers-importer` imports **IDX listed companies** into the MediaPulse `ticker` table. It accepts the JSON payload from the IDX API (e.g. company profiles), maps each row to a `Ticker` record, and **upserts by symbol** (`KodeEmiten`).
 
 ## Exports
 
@@ -16,7 +16,7 @@ icon: Download
 
 ## Prerequisites
 
-- `@workspace/database` with the `ticker` table and migrations applied (including optional `metadata` column).
+- `@mediapulse/database` with the `ticker` table and migrations applied (including optional `metadata` column).
 
 ## Consumers
 

@@ -4,7 +4,7 @@ import { withAuthProtection } from "@/components/with-auth-protection";
 import { getPipelinesWithSteps } from "@/lib/pipelines";
 import { getScheduleById, getScheduleExecutionsPage } from "@/lib/schedules";
 import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
-import { prisma } from "@workspace/orchestration-database";
+import { prisma } from "@hermes/orchestration-database";
 
 import { ScheduleDetailContent } from "./schedule-detail-content";
 

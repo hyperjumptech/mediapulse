@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/hermes-scheduler",
+  "name": "@hermes/scheduler",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
-    "@workspace/orchestration-database": "workspace:*",
+    "@hermes/orchestration-database": "workspace:*",
     "ajv": "^8.17.1",
     "cron-parser": "^5.0.0",
     "zod": "catalog:"

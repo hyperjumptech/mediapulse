@@ -21,7 +21,7 @@ vi.mock("@/lib/validate-pipeline", () => ({
   getPipelinesValidationMap: () => getPipelinesValidationMapMock(),
 }));
 
-vi.mock("@workspace/orchestration-database", () => ({
+vi.mock("@hermes/orchestration-database", () => ({
   prisma: {},
 }));
 

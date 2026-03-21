@@ -1,4 +1,4 @@
-import { prisma } from "@workspace/orchestration-database";
+import { prisma } from "@hermes/orchestration-database";
 
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";

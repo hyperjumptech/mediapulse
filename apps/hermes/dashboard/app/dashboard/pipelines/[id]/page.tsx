@@ -6,8 +6,8 @@ import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
 import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
 import { getVariablesPage } from "@/lib/variables";
 import { validatePipeline } from "@/lib/validate-pipeline";
-import { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
-import { prisma as orchestrationPrisma } from "@workspace/orchestration-database";
+import { prisma as mediapulsePrisma } from "@mediapulse/database";
+import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
 import { PipelineDetailContent } from "./pipeline-detail-content";
 

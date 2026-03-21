@@ -1,6 +1,6 @@
-import { DEFAULT_TAKE, MAX_TAKE } from "@workspace/hermes-step-input-syntax";
-import type { PrismaClient as MediapulsePrismaClient } from "@workspace/mediapulse-database";
-import type { PrismaClient as OrchestrationPrismaClient } from "@workspace/orchestration-database";
+import { DEFAULT_TAKE, MAX_TAKE } from "@hermes/step-input-syntax";
+import type { PrismaClient as MediapulsePrismaClient } from "@mediapulse/database";
+import type { PrismaClient as OrchestrationPrismaClient } from "@hermes/orchestration-database";
 import { expandDataSources } from "./expand-data-sources";
 
 /**

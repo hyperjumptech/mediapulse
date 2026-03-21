@@ -1,4 +1,4 @@
-import { prisma, Prisma } from "@workspace/orchestration-database";
+import { prisma, Prisma } from "@hermes/orchestration-database";
 import {
   createRequestValidator,
   errorResponse,
@@ -13,7 +13,7 @@ import {
 } from "@/lib/auth-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
-import { computeNextRunAt } from "@workspace/hermes-scheduler";
+import { computeNextRunAt } from "@hermes/scheduler";
 
 const retryConfigSchema = z
   .union([

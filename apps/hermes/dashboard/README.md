@@ -1,6 +1,6 @@
 ## Running development server
 
-Run `pnpm dev --filter hermes` from the root of the monorepo (or `pnpm dev` from `apps/hermes`). Hermes listens on port 3001.
+Run `pnpm dev --filter @hermes/dashboard` from the root of the monorepo (or `pnpm dev` from `apps/hermes`). Hermes listens on port 3001.
 
 ## Dashboard
 
@@ -12,7 +12,7 @@ Schedules are stored in the database (`Schedule` table). The **scheduler does no
 
 **To run the scheduler:**
 
-1. Set `PG_DATAQUEUE_DATABASE` (e.g. same as `DATABASE_URL` with `?schema=dataqueue`). Run DataQueue migrations from **hermes-worker**: `pnpm --filter hermes-worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`).
+1. Set `PG_DATAQUEUE_DATABASE` (e.g. same as `DATABASE_URL` with `?schema=dataqueue`). Run DataQueue migrations from **hermes-worker**: `pnpm --filter @hermes/worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`).
 2. Ensure Prisma migrations are applied (including `Schedule`, `ScheduleExecution`, `AgentJobExecution`).
 3. Start **hermes-worker** (e.g. `pnpm dev:hermes-worker` from repo root).
 4. (Optional) Seed a default daily schedule: `pnpm exec tsx scripts/seed-default-schedule.ts` from `apps/hermes`.

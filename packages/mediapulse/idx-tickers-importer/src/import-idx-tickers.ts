@@ -1,4 +1,4 @@
-import { prisma } from "@workspace/mediapulse-database";
+import { prisma } from "@mediapulse/database";
 import type { IdxTickersPayload } from "./types";
 
 /** Minimal DB type: ticker.findUnique, create, and update (for DI and tests). */

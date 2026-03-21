@@ -1,5 +1,5 @@
 {
-  "name": "agent-data-api",
+  "name": "@mediapulse/agent-data-api",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -15,8 +15,8 @@
     "@workspace/agent-types": "workspace:*",
     "@workspace/api-utils": "workspace:*",
     "@mediapulse/env": "workspace:*",
-    "@workspace/mediapulse-database": "workspace:*",
-    "@workspace/orchestration-database": "workspace:*",
+    "@mediapulse/database": "workspace:*",
+    "@hermes/orchestration-database": "workspace:*",
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",

@@ -134,15 +134,15 @@ importers:
       '@hermes/env':
         specifier: workspace:*
         version: link:../../../packages/hermes/env
+      '@hermes/orchestration-database':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/orchestration-database
       '@workspace/api-utils':
         specifier: workspace:*
         version: link:../../../packages/shared/api-utils
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
-      '@workspace/orchestration-database':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/orchestration-database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -171,6 +171,9 @@ importers:
       '@hermes/env':
         specifier: workspace:*
         version: link:../../../packages/hermes/env
+      '@hermes/orchestration-database':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/orchestration-database
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
@@ -180,9 +183,6 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
-      '@workspace/orchestration-database':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/orchestration-database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -205,39 +205,39 @@ importers:
 
   apps/hermes/dashboard:
     dependencies:
+      '@hermes/domain-contract':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-contract
       '@hermes/env':
         specifier: workspace:*
         version: link:../../../packages/hermes/env
+      '@hermes/orchestration-database':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/orchestration-database
+      '@hermes/scheduler':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/scheduler
+      '@hermes/step-input-syntax':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/step-input-syntax
+      '@mediapulse/database':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/database
+      '@mediapulse/idx-tickers-importer':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/idx-tickers-importer
       '@next/env':
         specifier: 'catalog:'
         version: 16.1.6
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
-      '@workspace/hermes-domain-contract':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/domain-contract
-      '@workspace/hermes-scheduler':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/scheduler
-      '@workspace/hermes-step-input-syntax':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/step-input-syntax
-      '@workspace/idx-tickers-importer':
-        specifier: workspace:*
-        version: link:../../../packages/mediapulse/idx-tickers-importer
       '@workspace/json-schema-form':
         specifier: workspace:*
         version: link:../../../packages/shared/json-schema-form
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
-      '@workspace/mediapulse-database':
-        specifier: workspace:*
-        version: link:../../../packages/mediapulse/database
-      '@workspace/orchestration-database':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/orchestration-database
       '@workspace/ui':
         specifier: workspace:*
         version: link:../../../packages/shared/ui
@@ -335,30 +335,30 @@ importers:
 
   apps/hermes/worker:
     dependencies:
+      '@hermes/domain-contract':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-contract
       '@hermes/env':
         specifier: workspace:*
         version: link:../../../packages/hermes/env
+      '@hermes/orchestration-database':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/orchestration-database
+      '@hermes/scheduler':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/scheduler
+      '@hermes/step-input-syntax':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/step-input-syntax
       '@nicnocquee/dataqueue':
         specifier: ^1.36.0
         version: 1.36.0(pg@8.18.0)
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
-      '@workspace/hermes-domain-contract':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/domain-contract
-      '@workspace/hermes-scheduler':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/scheduler
-      '@workspace/hermes-step-input-syntax':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/step-input-syntax
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
-      '@workspace/orchestration-database':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/orchestration-database
       got:
         specifier: 'catalog:'
         version: 14.6.6
@@ -387,6 +387,12 @@ importers:
 
   apps/mediapulse/agent-data-api:
     dependencies:
+      '@hermes/orchestration-database':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/orchestration-database
+      '@mediapulse/database':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/database
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/env
@@ -405,12 +411,6 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
-      '@workspace/mediapulse-database':
-        specifier: workspace:*
-        version: link:../../../packages/mediapulse/database
-      '@workspace/orchestration-database':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/orchestration-database
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -638,24 +638,24 @@ importers:
 
   apps/mediapulse/domain-api:
     dependencies:
+      '@hermes/domain-contract':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-contract
+      '@hermes/step-input-syntax':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/step-input-syntax
+      '@mediapulse/database':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/database
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/env
-      '@workspace/hermes-domain-contract':
+      '@mediapulse/hermes-integration':
         specifier: workspace:*
-        version: link:../../../packages/hermes/domain-contract
-      '@workspace/hermes-step-input-syntax':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/step-input-syntax
+        version: link:../../../packages/mediapulse/hermes-integration
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
-      '@workspace/mediapulse-database':
-        specifier: workspace:*
-        version: link:../../../packages/mediapulse/database
-      '@workspace/mediapulse-hermes-integration':
-        specifier: workspace:*
-        version: link:../../../packages/mediapulse/hermes-integration
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -883,7 +883,7 @@ importers:
 
   packages/hermes/scheduler:
     dependencies:
-      '@workspace/orchestration-database':
+      '@hermes/orchestration-database':
         specifier: workspace:*
         version: link:../orchestration-database
       ajv:
@@ -1024,15 +1024,15 @@ importers:
 
   packages/mediapulse/hermes-integration:
     dependencies:
-      '@workspace/hermes-step-input-syntax':
-        specifier: workspace:*
-        version: link:../../hermes/step-input-syntax
-      '@workspace/mediapulse-database':
-        specifier: workspace:*
-        version: link:../database
-      '@workspace/orchestration-database':
+      '@hermes/orchestration-database':
         specifier: workspace:*
         version: link:../../hermes/orchestration-database
+      '@hermes/step-input-syntax':
+        specifier: workspace:*
+        version: link:../../hermes/step-input-syntax
+      '@mediapulse/database':
+        specifier: workspace:*
+        version: link:../database
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1058,7 +1058,7 @@ importers:
 
   packages/mediapulse/idx-tickers-importer:
     dependencies:
-      '@workspace/mediapulse-database':
+      '@mediapulse/database':
         specifier: workspace:*
         version: link:../database
     devDependencies:
@@ -1245,6 +1245,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.39.0
         version: 8.55.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      '@workspace/eslint-plugin-strict-env':
+        specifier: workspace:*
+        version: link:../eslint-plugin-strict-env
       eslint:
         specifier: ^9.32.0
         version: 9.39.2(jiti@2.6.1)
@@ -1260,9 +1263,6 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^5.2.0
         version: 5.2.0(eslint@9.39.2(jiti@2.6.1))
-      eslint-plugin-strict-env:
-        specifier: workspace:*
-        version: link:../eslint-plugin-strict-env
       eslint-plugin-turbo:
         specifier: ^2.5.5
         version: 2.8.6(eslint@9.39.2(jiti@2.6.1))(turbo@2.8.6)

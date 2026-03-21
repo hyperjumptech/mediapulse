@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/idx-tickers-importer",
+  "name": "@mediapulse/idx-tickers-importer",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -15,7 +15,7 @@
     "type:check": "tsc --noEmit"
   },
   "dependencies": {
-    "@workspace/mediapulse-database": "workspace:*"
+    "@mediapulse/database": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -1,4 +1,4 @@
-# `eslint-plugin-strict-env`
+# `@workspace/eslint-plugin-strict-env`
 
 ## Rules
 

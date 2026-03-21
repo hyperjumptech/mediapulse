@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@workspace/orchestration-database";
+import type { PrismaClient } from "@hermes/orchestration-database";
 
 /** DB type that provides schedule queries (injectable for tests). */
 export type GetDueSchedulesDb = Pick<PrismaClient, "schedule">;

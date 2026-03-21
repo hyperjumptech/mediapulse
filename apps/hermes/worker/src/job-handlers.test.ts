@@ -1,11 +1,11 @@
 /** @vitest-environment node */
-import { AgentJobExecutionStatus } from "@workspace/orchestration-database";
+import { AgentJobExecutionStatus } from "@hermes/orchestration-database";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   executeSchedule,
   getDueSchedules,
   invokeAgent,
-} from "@workspace/hermes-scheduler";
+} from "@hermes/scheduler";
 import { logger } from "@workspace/logger";
 import { jobHandlers } from "./job-handlers";
 
@@ -21,7 +21,7 @@ const mockPrisma = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@workspace/orchestration-database", () => ({
+vi.mock("@hermes/orchestration-database", () => ({
   AgentJobExecutionStatus: {
     pending: "pending",
     running: "running",
@@ -55,7 +55,7 @@ vi.mock("@workspace/logger", () => ({
   },
 }));
 
-vi.mock("@workspace/hermes-scheduler", () => ({
+vi.mock("@hermes/scheduler", () => ({
   getDueSchedules: vi.fn(),
   executeSchedule: vi.fn(),
   invokeAgent: vi.fn(),
@@ -84,7 +84,7 @@ describe("jobHandlers", () => {
   describe("check_schedules", () => {
     it("calls getDueSchedules with prisma and does not call executeSchedule when no schedules are due", async () => {
       // Setup
-      const { prisma } = await import("@workspace/orchestration-database");
+      const { prisma } = await import("@hermes/orchestration-database");
       vi.mocked(getDueSchedules).mockResolvedValue([]);
 
       // Act
@@ -102,7 +102,7 @@ describe("jobHandlers", () => {
 
     it("calls executeSchedule once per due schedule with correct deps", async () => {
       // Setup
-      const { prisma } = await import("@workspace/orchestration-database");
+      const { prisma } = await import("@hermes/orchestration-database");
       const fakeSchedule = {
         id: "schedule-1",
         enabled: true,

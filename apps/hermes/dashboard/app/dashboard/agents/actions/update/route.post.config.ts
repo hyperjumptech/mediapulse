@@ -1,4 +1,4 @@
-import { prisma, Prisma } from "@workspace/orchestration-database";
+import { prisma, Prisma } from "@hermes/orchestration-database";
 import {
   createRequestValidator,
   errorResponse,

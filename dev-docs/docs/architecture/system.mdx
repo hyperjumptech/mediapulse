@@ -61,6 +61,6 @@ api_reg --> db
 2. **hermes-worker** runs the DataQueue processor and supervisor: a cron job enqueues `check_schedules` every minute; the worker polls due schedules and runs pipeline steps (query-analysis → data-collection → analysis → content-generation → delivery), sending `POST` requests with params and `Authorization: Bearer <apiKey>` to each agent.
 3. **Agents** validate the body, verify the token via **agent-auth-api**, run their logic, and call **agent-data-api** to read/write ticker/newsletter/subscriber data.
 4. **agent-registry-api** stores agent metadata; Hermes (or tooling) can register agents there.
-5. **PostgreSQL** holds users, API keys, tickers, pipelines, agents, schedules, and all pipeline-produced data. DataQueue uses the same DB with a separate schema (`dataqueue`); run migrations from hermes-worker: `pnpm --filter hermes-worker run migrate-dataqueue`.
+5. **PostgreSQL** holds users, API keys, tickers, pipelines, agents, schedules, and all pipeline-produced data. DataQueue uses the same DB with a separate schema (`dataqueue`); run migrations from hermes-worker: `pnpm --filter @hermes/worker run migrate-dataqueue`.
 
 For the knowledge-graph pipeline split, scoring signals, and schedule details, see [Knowledge Graph Architecture](/architecture/knowledge-graph).

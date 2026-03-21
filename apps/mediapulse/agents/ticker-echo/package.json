@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "ticker-echo-agent",
+  "name": "@mediapulse/ticker-echo",
   "version": "0.0.0",
   "private": true,
   "scripts": {

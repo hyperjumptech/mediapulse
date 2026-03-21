@@ -1,14 +1,14 @@
-import type { PrismaClient } from "@workspace/mediapulse-database";
+import type { PrismaClient } from "@mediapulse/database";
 import {
   DEFAULT_TAKE,
   MAX_TAKE,
   isDataSourceString,
   parseDataSourceString,
   type DataSourceParsed,
-} from "@workspace/hermes-step-input-syntax";
+} from "@hermes/step-input-syntax";
 
-export { DEFAULT_TAKE, MAX_TAKE } from "@workspace/hermes-step-input-syntax";
-export type { DataSourceParsed } from "@workspace/hermes-step-input-syntax";
+export { DEFAULT_TAKE, MAX_TAKE } from "@hermes/step-input-syntax";
+export type { DataSourceParsed } from "@hermes/step-input-syntax";
 
 /** Minimal DB shape for data source expansion (injectable for tests). */
 export type ExpandDataSourcesDb = {

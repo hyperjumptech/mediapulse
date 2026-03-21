@@ -12,9 +12,9 @@ ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
-RUN pnpm --filter=@workspace/orchestration-database run db:generate
+RUN pnpm --filter=@hermes/orchestration-database run db:generate
 
-RUN pnpm exec turbo build --filter=hermes-worker
+RUN pnpm exec turbo build --filter=@hermes/worker
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1

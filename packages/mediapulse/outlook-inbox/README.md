@@ -1,4 +1,4 @@
-# @workspace/outlook-inbox
+# @mediapulse/outlook-inbox
 
 Connect to Microsoft Outlook inbox via Microsoft Graph API. List messages with filters (subject, date, unread) and archive or delete them.
 
@@ -7,7 +7,7 @@ Connect to Microsoft Outlook inbox via Microsoft Graph API. List messages with f
 In an app or package that consumes this library:
 
 ```bash
-pnpm add @workspace/outlook-inbox
+pnpm add @mediapulse/outlook-inbox
 ```
 
 ## Configuration
@@ -19,7 +19,7 @@ The package does **not** read `process.env` directly. Consuming apps should use 
 Use Azure AD app registration with **Application** permission `Mail.ReadWrite` (or `Mail.Read` for list-only). Pass `clientId`, `clientSecret`, `tenantId`, and optionally `userId` (the mailbox to access; omit for delegated "me").
 
 ```ts
-import { createOutlookInboxClient } from "@workspace/outlook-inbox";
+import { createOutlookInboxClient } from "@mediapulse/outlook-inbox";
 import { env } from "@mediapulse/env";
 
 const client = createOutlookInboxClient({

@@ -1,5 +1,5 @@
 {
-  "name": "agent-auth-api",
+  "name": "@hermes/agent-auth-api",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -11,7 +11,7 @@
   "dependencies": {
     "@workspace/api-utils": "workspace:*",
     "@hermes/env": "workspace:*",
-    "@workspace/orchestration-database": "workspace:*",
+    "@hermes/orchestration-database": "workspace:*",
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",

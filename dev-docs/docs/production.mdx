@@ -13,7 +13,7 @@ Use this checklist to deploy the system in the right order. Each step assumes th
 ### 1. Prerequisites and database
 
 - [ ] **PostgreSQL** is provisioned and reachable (e.g. Supabase, Neon, Railway). You have the connection string.
-- [ ] **Prisma migrations** are applied: from repo root, `pnpm --filter @workspace/database db:migrate:deploy` (or your CI/deploy step). Schema is up to date.
+- [ ] **Prisma migrations** are applied: from repo root, `pnpm --filter @hermes/orchestration-database db:migrate:deploy` and `pnpm --filter @mediapulse/database db:migrate:deploy` (or your CI/deploy step). Schemas are up to date.
 - [ ] **`DATABASE_URL`** is set everywhere it is needed (auth API, data API, registry API, Hermes, hermes-worker). Use the same DB for all except DataQueue schema (see hermes-worker).
 - [ ] **`TEMP_ADMIN_USERNAME`** and **`TEMP_ADMIN_PASSWORD`** are set to strong production values (shared by agent-auth-api and Hermes for dashboard/admin auth).
 
@@ -45,7 +45,7 @@ Use this checklist to deploy the system in the right order. Each step assumes th
 
 ### 6. hermes-worker (scheduler)
 
-- [ ] **DataQueue schema** is migrated: `pnpm --filter hermes-worker run migrate-dataqueue` (or your deploy step). Uses same DB with `?schema=dataqueue&search_path=dataqueue`.
+- [ ] **DataQueue schema** is migrated: `pnpm --filter @hermes/worker run migrate-dataqueue` (or your deploy step). Uses same DB with `?schema=dataqueue&search_path=dataqueue`.
 - [ ] **hermes-worker** is deployed with **`DATABASE_URL`**, **`PG_DATAQUEUE_DATABASE`** (same as `DATABASE_URL` with `?schema=dataqueue&search_path=dataqueue`), **`AGENT_AUTH_API_URL`**, and **`AGENT_API_KEY`** (the scheduler key from step 5).
 - [ ] In production, set **`REQUIRE_HTTPS_AGENT_ENDPOINTS=true`** so the worker only invokes agents over HTTPS (or localhost).
 - [ ] **Smoke test:** Worker starts without throwing (e.g. “AGENT_AUTH_API_URL and AGENT_API_KEY are required”). Cron runs every minute; check logs or DB for schedule execution.
@@ -141,7 +141,7 @@ Uses **`packages/env/env.hermes-worker.example`** (merged with main env). The wo
 | Variable                        | Required            | How to find the value                                                                                                                                                                                                                                            |
 | ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`                  | Yes                 | Shared. Main app database.                                                                                                                                                                                                                                       |
-| `PG_DATAQUEUE_DATABASE`         | Yes (for scheduler) | Same as `DATABASE_URL` but with `?schema=dataqueue&search_path=dataqueue`. Can use the same database; run migrations with `pnpm --filter hermes-worker run migrate-dataqueue`. See [DataQueue docs](https://docs.dataqueue.dev/usage/database-migration).        |
+| `PG_DATAQUEUE_DATABASE`         | Yes (for scheduler) | Same as `DATABASE_URL` but with `?schema=dataqueue&search_path=dataqueue`. Can use the same database; run migrations with `pnpm --filter @hermes/worker run migrate-dataqueue`. See [DataQueue docs](https://docs.dataqueue.dev/usage/database-migration).       |
 | `AGENT_API_KEY`                 | Yes (for jobs)      | Scheduler key **created by admin in the Hermes dashboard** (API keys → Create, purpose `scheduler`). Worker uses it only to call `POST /api/token`; short-lived JWTs are sent to agents. Revoking this key in the dashboard stops the worker after token expiry. |
 | `AGENT_AUTH_API_URL`            | Yes                 | **Required** with `AGENT_API_KEY`. Worker mints short-lived JWTs via `POST /api/token` and sends only JWTs to agents. Use HTTPS in production.                                                                                                                   |
 | `REQUIRE_HTTPS_AGENT_ENDPOINTS` | No                  | Set to `true` in production to reject agent endpoints that use `http` with a non-local host.                                                                                                                                                                     |
@@ -181,7 +181,7 @@ Uses **`packages/env/env.agents.query-analysis.example`**.
 
 | Variable                 | Required | How to find the value                                                                                   |
 | ------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
-| `PORT`                   | No       | Service default (commonly `4011` unless changed).                                                      |
+| `PORT`                   | No       | Service default (commonly `4011` unless changed).                                                       |
 | `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                 |
 | `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                 |
 | `OPENAI_API_KEY`         | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |
@@ -215,7 +215,7 @@ Uses **`packages/env/env.agents.analysis.example`**.
 
 | Variable                 | Required | How to find the value                                                                                   |
 | ------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
-| `PORT`                   | No       | Service default (commonly `4012` unless changed).                                                      |
+| `PORT`                   | No       | Service default (commonly `4012` unless changed).                                                       |
 | `AGENT_DATA_API_URL`     | Yes      | Shared.                                                                                                 |
 | `AGENT_AUTH_API_URL`     | Yes      | Shared.                                                                                                 |
 | `OPENAI_API_KEY`         | Yes      | [OpenAI](https://platform.openai.com) → API keys.                                                       |

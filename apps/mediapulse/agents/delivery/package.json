@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "delivery-agent",
+  "name": "@mediapulse/delivery",
   "version": "0.0.0",
   "private": true,
   "scripts": {

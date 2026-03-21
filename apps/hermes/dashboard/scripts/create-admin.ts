@@ -32,7 +32,7 @@ async function main() {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const prismaClient =
-    await import("@workspace/orchestration-database/client").then(
+    await import("@hermes/orchestration-database/client").then(
       (module) => module.prismaClient,
     );
 

@@ -61,14 +61,14 @@ Use **pnpm** for install/scripts.
 
 1. `pnpm install` (unless `--skip-install`)
 2. `./dev-bootstrap.sh`
-3. `pnpm --filter @workspace/env build`
-4. Prisma migrations + client generation in `packages/database` (unless `--skip-migrations`)
-5. `pnpm --filter hermes-worker run migrate-dataqueue:dev` (unless `--skip-migrations`)
-6. `pnpm create:admin ...` in `apps/hermes` (unless `--skip-admin`)
+3. `pnpm --filter @hermes/env build && pnpm --filter @mediapulse/env build`
+4. Prisma migrations + client generation in `packages/hermes/orchestration-database` and `packages/mediapulse/database` (unless `--skip-migrations`)
+5. `pnpm --filter @hermes/worker run migrate-dataqueue:dev` (unless `--skip-migrations`)
+6. `pnpm create:admin ...` in `apps/hermes/dashboard` (unless `--skip-admin`)
 7. `pnpm generate-api-key ... --purpose scheduler` in `apps/hermes` (unless `--skip-admin`)
 8. `pnpm generate-api-key ... --purpose general` in `apps/hermes` (unless `--skip-admin`)
-9. Writes `AGENT_API_KEY` and `AGENT_REGISTRY_API_KEY` to `packages/env/.env` (unless `--skip-admin`)
-10. Writes `AGENT_REGISTRY_API_KEY` to all `apps/agents/*/.env.local` (unless `--skip-admin`)
+9. Writes `AGENT_API_KEY` and `AGENT_REGISTRY_API_KEY` to Hermes and Mediapulse env files (unless `--skip-admin`)
+10. Writes `AGENT_REGISTRY_API_KEY` to all `apps/mediapulse/agents/*/.env.local` (unless `--skip-admin`)
 
 ### Services and ports
 
@@ -93,12 +93,12 @@ Use **pnpm** for install/scripts.
 
 For full pipeline runs (data collection, content generation, delivery), add to **`packages/env/.env`**:
 
-| Variable         | Used by            | Where to get it                  |
-| ---------------- | ------------------ | -------------------------------- |
-| `JINA_API_KEY`   | data-collection    | [Jina.ai](https://jina.ai)       |
-| `SERPER_API_KEY` | data-collection    | [Serper.dev](https://serper.dev) |
+| Variable         | Used by                                      | Where to get it                  |
+| ---------------- | -------------------------------------------- | -------------------------------- |
+| `JINA_API_KEY`   | data-collection                              | [Jina.ai](https://jina.ai)       |
+| `SERPER_API_KEY` | data-collection                              | [Serper.dev](https://serper.dev) |
 | `OPENAI_API_KEY` | query-analysis, analysis, content-generation | [OpenAI](https://openai.com)     |
-| `RESEND_API_KEY` | delivery           | [Resend](https://resend.com)     |
+| `RESEND_API_KEY` | delivery                                     | [Resend](https://resend.com)     |
 
 ---
 
@@ -123,7 +123,7 @@ To let agents register with the registry on startup, set in each agent’s **`ap
 | Agent auto-registration 401         | Re-run `./dev-setup-local.sh` so it refreshes **`AGENT_REGISTRY_API_KEY`** in `apps/agents/*/.env.local`.                         |
 | Agent returns 401                   | Auth API is running (8080); **`AGENT_AUTH_API_URL`** is set where the agent loads env; the token or key is valid and not revoked. |
 | Env var not picked up               | Edit **`packages/env/.env`** (or the app’s `.env.local` for app-specific vars). Restart the app or `pnpm dev`.                    |
-| DataQueue / cron errors             | Run **`pnpm --filter hermes-worker run migrate-dataqueue:dev`** once.                                                             |
+| DataQueue / cron errors             | Run **`pnpm --filter @hermes/worker run migrate-dataqueue:dev`** once.                                                            |
 
 ---
 

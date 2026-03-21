@@ -1,5 +1,5 @@
 {
-  "name": "mediapulse-domain-api",
+  "name": "@mediapulse/domain-api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@mediapulse/env": "workspace:*",
-    "@workspace/hermes-domain-contract": "workspace:*",
-    "@workspace/hermes-step-input-syntax": "workspace:*",
+    "@hermes/domain-contract": "workspace:*",
+    "@hermes/step-input-syntax": "workspace:*",
     "@workspace/logger": "workspace:*",
-    "@workspace/mediapulse-hermes-integration": "workspace:*",
-    "@workspace/mediapulse-database": "workspace:*",
+    "@mediapulse/hermes-integration": "workspace:*",
+    "@mediapulse/database": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",
     "zod": "catalog:"

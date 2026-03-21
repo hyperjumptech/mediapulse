@@ -9,7 +9,7 @@ icon: Sliders
 The **tooling** docs refer to shared **lint and TypeScript** configuration used across the monorepo. These are implemented as separate packages under `packages/`:
 
 - **`@workspace/eslint-config`** — Shared ESLint config; extended by apps and packages.
-- **`@workspace/eslint-plugin-strict-env`** — Custom rule(s) for env usage (e.g. forbid `process.env` outside `@workspace/env`).
+- **`@workspace/eslint-plugin-strict-env`** — Custom rule(s) for env usage (e.g. forbid `process.env` outside `@hermes/env` / `@mediapulse/env`).
 - **`@workspace/typescript-config`** — Base `tsconfig` (e.g. `next`, `library`) for consistent TypeScript settings.
 
 ## Usage

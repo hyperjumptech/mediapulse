@@ -57,7 +57,7 @@ async function main() {
   }
 
   const prismaClient =
-    await import("@workspace/orchestration-database/client").then(
+    await import("@hermes/orchestration-database/client").then(
       (m) => m.prismaClient,
     );
 

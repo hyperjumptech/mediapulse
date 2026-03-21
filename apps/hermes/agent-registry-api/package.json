@@ -1,5 +1,5 @@
 {
-  "name": "agent-registry-api",
+  "name": "@hermes/agent-registry-api",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -11,7 +11,7 @@
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/api-utils": "workspace:*",
-    "@workspace/orchestration-database": "workspace:*",
+    "@hermes/orchestration-database": "workspace:*",
     "@hermes/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",

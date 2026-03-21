@@ -1,5 +1,5 @@
 import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
-import { prisma } from "@workspace/orchestration-database";
+import { prisma } from "@hermes/orchestration-database";
 import { env } from "@hermes/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";

@@ -1,11 +1,11 @@
 /**
  * Test script: fetches emails from the shared mailbox via outlook-inbox and prints sender and subject.
- * Run from repo root: pnpm --filter @workspace/outlook-inbox run test:lib
+ * Run from repo root: pnpm --filter @mediapulse/outlook-inbox run test:lib
  * Requires OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_TENANT_ID (and optionally OUTLOOK_USER_ID for shared mailbox) in env.
  * Note: Output contains real mailbox data (sender, subject). Do not paste or commit script output.
  */
 
-import { createOutlookInboxClient } from "@workspace/outlook-inbox";
+import { createOutlookInboxClient } from "@mediapulse/outlook-inbox";
 import { env } from "@mediapulse/env";
 
 async function main(): Promise<void> {

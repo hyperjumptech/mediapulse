@@ -1,7 +1,7 @@
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@hermes/env";
-import { prisma as mediapulsePrisma } from "@workspace/mediapulse-database";
-import { prisma as orchestrationPrisma } from "@workspace/orchestration-database";
+import { prisma as mediapulsePrisma } from "@mediapulse/database";
+import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 import { logger } from "@workspace/logger";
 import got from "got";
 

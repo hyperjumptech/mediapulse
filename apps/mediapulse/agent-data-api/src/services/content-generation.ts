@@ -1,8 +1,8 @@
-import { prisma } from "@workspace/mediapulse-database";
+import { prisma } from "@mediapulse/database";
 import { logger } from "@workspace/logger";
 import type { PostContentGenerationBody } from "@workspace/agent-data-api-contract";
 
-import type { Prisma } from "@workspace/mediapulse-database";
+import type { Prisma } from "@mediapulse/database";
 
 type DataSourceWithScore = Prisma.DataSourceGetPayload<{
   include: {
