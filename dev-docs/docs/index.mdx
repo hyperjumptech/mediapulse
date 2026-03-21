@@ -6,12 +6,18 @@ icon: Home
 
 ## What is this monorepo?
 
-**MediaPulse** is the product: an AI-assisted newsletter and pipeline platform. The repo is split into two **domains**:
+**MediaPulse** is the product: an AI-assisted newsletter and pipeline platform.
+
+The codebase is organized into two **domains**:
 
 - **Hermes** — Orchestration: dashboard, worker/scheduler, auth API, registry API, and the **orchestration** database (pipelines, schedules, API keys, **admin** users).
-- **Mediapulse** — Product data and runtime agents: **agent-data-api**, **domain API** (Mediapulse DB + Hermes integration), user registration, and HTTP **agents** under `apps/mediapulse/agents/*`, backed by the **Mediapulse** database (tickers, newsletters, knowledge graph, and related tables).
+- **Mediapulse** — Product data and runtime: **agent-data-api**, **domain API** (Mediapulse DB + Hermes integration), user registration, and HTTP **agents** under `apps/mediapulse/agents/*`, backed by the **Mediapulse** database (tickers, newsletters, knowledge graph, and related tables).
 
-Hermes does **not** query Mediapulse tables directly for expansion or domain UI; it calls the **Mediapulse domain API** over HTTP. See [Hermes and Mediapulse domains](/architecture/domains).
+## How the domains connect
+
+Hermes **orchestrates** work (pipelines, schedules, invoking agents). It does **not** own newsletter, ticker, or knowledge-graph tables. When Hermes needs that kind of data—**data-source expansion**, CRUD for Mediapulse entities in the dashboard, and similar—it calls the **Mediapulse domain API** over HTTP. The Hermes app does not connect to the Mediapulse database for those features.
+
+Tables, identities, and detailed runtime flows are described in **[Hermes and Mediapulse domains](/architecture/domains)**.
 
 ## Stack
 
@@ -34,8 +40,10 @@ Quick reference:
 
 ## Documentation map
 
-- **[Hermes and Mediapulse domains](/architecture/domains)** — Which apps and packages belong to which domain.
-- **[Architecture](/architecture)** — System diagram, communication, agent–Hermes contract, and **Knowledge graph** (nested).
-- **[Communication between parts](/architecture/communication)** — JWT flows between Hermes, agents, and APIs.
-- **[Hermes](/hermes)** — Apps (dashboard, worker, auth, registry) and packages (orchestration DB, scheduler, env, shared `@workspace/*` libs).
-- **[Mediapulse](/mediapulse)** — Apps (data API, domain API, user-registration, agents) and packages (Mediapulse DB, integrations, outlook-inbox).
+| Section                                                    | What you will find                                                                                                                                                                                                     |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Hermes and Mediapulse domains](/architecture/domains)** | Which apps and packages sit in which domain, how they talk at runtime                                                                                                                                                  |
+| **[Architecture](/architecture)**                          | System diagram, [communication](/architecture/communication), [agent–Hermes contract](/architecture/agent-hermes-contract), [data source expansion](/architecture/data-source-expansion), **Knowledge graph** (nested) |
+| **[Shared](/shared)**                                      | Monorepo-wide **UI** (`@workspace/ui`) and other shared docs not scoped to Hermes only                                                                                                                                 |
+| **[Hermes](/hermes)**                                      | Deployable apps (dashboard, worker, auth, registry) and Hermes-related packages                                                                                                                                        |
+| **[Mediapulse](/mediapulse)**                              | Product apps (data API, domain API, user-registration, agents) and Mediapulse packages                                                                                                                                 |

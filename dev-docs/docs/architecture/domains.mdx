@@ -4,13 +4,15 @@ description: How orchestration (Hermes) and product data (Mediapulse) are split 
 icon: Layers
 ---
 
-The monorepo contains two **product domains**. You can run them on one PostgreSQL server with **separate schemas**, or use **separate databases or hosts** by pointing `ORCHESTRATION_DATABASE_URL` and `MEDIAPULSE_DATABASE_URL` at different URLs. Env packages and app trees stay split per domain.
+The repo is split into two **product domains**. You can host both on one PostgreSQL server using **separate schemas**, or run **separate databases** by pointing `ORCHESTRATION_DATABASE_URL` and `MEDIAPULSE_DATABASE_URL` at different URLs. Env packages and source trees stay aligned with each domain.
 
-**User identities are split:** **Hermes (orchestration) `User`** rows are **dashboard / admin** accounts (API keys, login). **Mediapulse `MediapulseUser`** rows are **end users / newsletter subscribers** (`user_ticker` references them). Do not use orchestration users as newsletter recipients.
+### User identities
+
+**Hermes `User`** rows are **dashboard / admin** accounts (API keys, login). **Mediapulse `MediapulseUser`** rows are **end users / newsletter subscribers** (`user_ticker` references them). Do not treat orchestration users as newsletter recipients.
 
 ## Hermes domain (orchestration)
 
-**Role:** Pipelines, schedules, API keys, agent registry metadata, **admin** users for the dashboard, and the worker that runs scheduled jobs. Hermes does **not** own newsletter/ticker/KG tables; it calls the **Mediapulse domain API** over HTTP for data-source expansion and dashboard pages that need Mediapulse data.
+**Role:** Pipelines, schedules, API keys, agent registry metadata, **admin** users for the dashboard, and the worker that runs scheduled jobs. Hermes does **not** store newsletter, ticker, or knowledge-graph tables. For **data-source expansion** and for dashboard UIs that need Mediapulse data, Hermes calls the **Mediapulse domain API** over HTTP (see [How the domains connect at runtime](#how-the-domains-connect-at-runtime) below).
 
 | Area                                                     | Location / package                                                          |
 | -------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -41,17 +43,17 @@ The monorepo contains two **product domains**. You can run them on one PostgreSQ
 
 These are **not** “owned” by a single domain; both sides depend on them:
 
-| Concern                                      | Package                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------ |
-| Agent HTTP runtime, bearer auth              | `@workspace/agent-runtime`                                               |
-| Agent–data API contract & SDK                | `@workspace/agent-data-api-contract`, `@workspace/agent-data-api-client` |
-| Auth client (verify JWT with agent-auth-api) | `@workspace/agent-auth-client`                                           |
-| Logging, API helpers, UI kit                 | `@workspace/logger`, `@workspace/api-utils`, `@workspace/ui`             |
+| Concern                                      | Package                                                                           |
+| -------------------------------------------- | --------------------------------------------------------------------------------- |
+| Agent HTTP runtime, bearer auth              | `@workspace/agent-runtime`                                                        |
+| Agent–data API contract & SDK                | `@workspace/agent-data-api-contract`, `@workspace/agent-data-api-client`          |
+| Auth client (verify JWT with agent-auth-api) | `@workspace/agent-auth-client`                                                    |
+| Logging, API helpers, UI kit                 | `@workspace/logger`, `@workspace/api-utils`, [`@workspace/ui` (docs)](/shared/ui) |
 
 ## How the domains connect at runtime
 
 1. **Pipeline runs:** Hermes / hermes-worker mints a short-lived JWT via **agent-auth-api** and calls **agents** (Mediapulse apps). Agents call **agent-data-api** with the same JWT.
-2. **Data-source expansion:** Scheduler asks the registered **domain API** (`expand-step-inputs`, `preview-expansion`); that service uses **Mediapulse** Prisma via `@mediapulse/hermes-integration`, not a direct Hermes→DB shortcut.
+2. **Data-source expansion:** Scheduler asks the registered **domain API** (`expand-step-inputs`, `preview-expansion`); that service uses **Mediapulse** Prisma via `@mediapulse/hermes-integration`, not a direct Hermes→DB shortcut. See [Data source expansion](/architecture/data-source-expansion).
 3. **Dashboard tables for Mediapulse entities:** Hermes renders routes from the integration manifest and proxies list/meta/CRUD to the **domain API** (`/v1/hermes-dashboard/...`), not to `@mediapulse/database` from the Next.js server.
 
 For auth flows and diagrams, see [Communication between parts](/architecture/communication). For step input and schemas, see [Agent–Hermes contract](/architecture/agent-hermes-contract).

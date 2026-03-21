@@ -1,8 +1,12 @@
 ---
 title: Data source expansion
-description: How step input expands from db:table:field strings at runtime
+description: How pipeline step input expands from db:table:field strings at runtime (scheduler + domain API)
 icon: Database
 ---
+
+## Scope
+
+At run time, Hermes expands **data source strings** in pipeline step input by calling the registered **Mediapulse domain API** (not by querying the Mediapulse database from the Hermes app). For domain boundaries and HTTP flows, see [Hermes and Mediapulse domains](/architecture/domains).
 
 ## Overview
 

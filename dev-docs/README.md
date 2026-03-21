@@ -26,7 +26,7 @@ pnpm dlx serve@latest docs-output
 
 - `config.json` — Site title and optional logo.
 - `docs/` — All documentation pages (MDX) and folder-level `meta.json` for sidebar order.
-- Top-level nav: **Overview**, **Getting Started**, **Production**, **Architecture** (includes **Knowledge graph** as a subfolder), then **Hermes** and **Mediapulse** (each with **Apps** and **Packages**; `root: true` in `meta.json` for sidebar sections).
+- Top-level nav: **Overview**, **Getting Started**, **Production**, **Architecture** (domains, communication, agent–Hermes contract, **data source expansion**, **Knowledge graph**), **Shared** (e.g. `@workspace/ui`), then **Hermes** and **Mediapulse** (each with **Apps** and **Packages**; `root: true` in `meta.json` for sidebar sections).
 - See the [create-project-docs](.cursor/skills/create-project-docs/SKILL.md) skill for content conventions and available MDX components.
 
 ## Related

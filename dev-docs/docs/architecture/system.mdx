@@ -6,13 +6,13 @@ icon: GitBranch
 
 ## System overview
 
-**Hermes** (Next.js) is the orchestration dashboard: pipelines, schedules, API keys, and integration with the **Mediapulse domain API** for data-source expansion and domain-owned UI. The **hermes-worker** runs the DataQueue scheduler: it invokes agents over HTTP with short-lived JWTs. **Mediapulse** provides **agent-data-api** (agent persistence), **domain-api** (Mediapulse DB + Hermes contract), **user-registration**, and the **agents** in `apps/mediapulse/agents/*`.
+**Hermes** (Next.js) is the orchestration dashboard: pipelines, schedules, API keys. It integrates with the **Mediapulse domain API** for data-source expansion and for domain-backed UI. **hermes-worker** runs the DataQueue scheduler and invokes agents over HTTP with short-lived JWTs.
 
-Persistent data uses **two Prisma packages** (`@hermes/orchestration-database` and `@mediapulse/database`). They may point at the same PostgreSQL server with different schemas or at **different databases** depending on deployment. DataQueue uses a separate schema (`dataqueue`); migrate from **hermes-worker**.
+**Mediapulse** provides **agent-data-api** (agent persistence), **domain-api** (Mediapulse DB + Hermes contract), **user-registration**, and the **agents** under `apps/mediapulse/agents/*`.
 
-For domain boundaries (which app lives where), see [Hermes and Mediapulse domains](/architecture/domains).
+**Databases:** Two Prisma packages (`@hermes/orchestration-database` and `@mediapulse/database`) may share one PostgreSQL server with different schemas or use **separate databases**. DataQueue lives in its own schema (`dataqueue`); migrate it from **hermes-worker**.
 
-The default pipeline agent set includes `query-analysis`, `data-collection`, `analysis`, `content-generation`, and `delivery` (ports and packages vary; see [Agents](/mediapulse/apps/agents/content-generation)).
+For which app owns what, see [Hermes and Mediapulse domains](/architecture/domains). The default pipeline agent set includes `query-analysis`, `data-collection`, `analysis`, `content-generation`, and `delivery` (ports vary; see [Agents](/mediapulse/apps/agents/content-generation)).
 
 <Mermaid
   chart={`flowchart LR

@@ -4,9 +4,9 @@ description: Orchestration database, scheduler, Hermes env, and shared workspace
 icon: Package
 ---
 
-Hermes orchestration code uses **`packages/hermes/`** and shared **`@workspace/*`** packages. **Mediapulse-owned** Prisma and integration packages are documented under **[Mediapulse → Packages](/mediapulse/packages)**.
+Hermes uses **`packages/hermes/*`** and **`packages/shared/*`** (published as **`@workspace/*`**). Mediapulse-owned Prisma and integrations are documented under **[Mediapulse → Packages](/mediapulse/packages)**. The **shared UI kit** (`@workspace/ui`) is under **[Shared](/shared)**.
 
-The monorepo shares code through **workspace packages** under `packages/`. Apps depend on them via `workspace:*` in `package.json`.
+Apps reference workspace packages with `workspace:*` in `package.json`.
 
 ## Hermes domain packages
 
@@ -34,14 +34,15 @@ The monorepo shares code through **workspace packages** under `packages/`. Apps 
 
 ## Cross-cutting
 
-| Package                                               | Role                                             |
-| ----------------------------------------------------- | ------------------------------------------------ |
-| [api-utils](/hermes/packages/api-utils)               | Hono helpers                                     |
-| [logger](/hermes/packages/logger)                     | Pino logger                                      |
-| [ui](/hermes/packages/ui)                             | Shared React / Tailwind (Hermes dashboard, etc.) |
-| [utils](/hermes/packages/utils)                       | Small shared utilities                           |
-| [json-schema-form](/hermes/packages/json-schema-form) | JSON Schema forms in Hermes                      |
-| [tooling](/hermes/packages/tooling)                   | ESLint / TypeScript presets                      |
+| Package                                               | Role                        |
+| ----------------------------------------------------- | --------------------------- |
+| [api-utils](/hermes/packages/api-utils)               | Hono helpers                |
+| [logger](/hermes/packages/logger)                     | Pino logger                 |
+| [utils](/hermes/packages/utils)                       | Small shared utilities      |
+| [json-schema-form](/hermes/packages/json-schema-form) | JSON Schema forms in Hermes |
+| [tooling](/hermes/packages/tooling)                   | ESLint / TypeScript presets |
+
+Shared **React / Tailwind UI** (`@workspace/ui`, `packages/shared/ui`) — see **[Shared → UI](/shared/ui)**.
 
 ## Consumers (summary)
 

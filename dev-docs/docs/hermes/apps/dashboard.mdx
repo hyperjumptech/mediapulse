@@ -6,7 +6,7 @@ icon: Zap
 
 ## Purpose
 
-Hermes is the main orchestration app: it manages **pipelines** (sequences of agents), **tickers**, **agents**, **agent configs**, **variables**, **API keys**, and **schedules**. It provides the dashboard and API for creating/editing schedules; the actual **scheduler** (DataQueue processor and supervisor) runs in the separate **hermes-worker** app so Hermes can stay stateless and deploy without a long-running server.
+**`@hermes/dashboard`** is the orchestration UI: **pipelines** (sequences of agents), **tickers**, **agents**, **agent configs**, **variables**, **API keys**, and **schedules**. This Next.js app exposes the dashboard and APIs for creating and editing schedules. The **scheduler** itself (DataQueue processor and supervisor) runs in **`hermes-worker`** so the dashboard stays a normal web app without owning the queue process.
 
 ## Quick overview
 
@@ -34,7 +34,7 @@ Hermes is the main orchestration app: it manages **pipelines** (sequences of age
 - Agent actions: create, update. Agent details are on a dedicated page (`/dashboard/agents/[id]`) with tabs: **General** (details and endpoint), **Input schema** (pretty-printed JSON), **Config schema** (pretty-printed JSON).
 - **Variables** (`/dashboard/variables`): Create, edit, delete. Each variable has a unique key, value, optional note, and “Secret” flag. Use `{{KEY}}` in agent config or schedule params; hermes-scheduler substitutes values at execution time. Secret values are never returned or shown after save.
 - **Search Query** (`/dashboard/{integrationKey}/search-queries`, e.g. `mediapulse`): View generated query rows from `search_query` with columns for keywords and ticker name. Filter by ticker name. Delete rows that are not linked by `data_source` (linked rows are blocked from deletion).
-- **Data source expansions** (`/dashboard/{integrationKey}/data-source-expansions`): Create, edit, delete saved expansion templates. Each has a name, expansion string (e.g. `db:userTicker:tickerId?where.enabled=true`), and optional description. Use **Run preview** on the create/edit page to test the expansion against the DB; format docs and examples are shown on the page. See [Data source expansion](/hermes/apps/data-source-expansion) for full format and behavior.
+- **Data source expansions** (`/dashboard/{integrationKey}/data-source-expansions`): Create, edit, delete saved expansion templates. Each has a name, expansion string (e.g. `db:userTicker:tickerId?where.enabled=true`), and optional description. Use **Run preview** on the create/edit page to test the expansion against the DB; format docs and examples are shown on the page. See [Data source expansion](/architecture/data-source-expansion) for full format and behavior.
 - **Entity types** (`/dashboard/{integrationKey}/entity-types`): Manage entity classification vocabulary used by analysis prompts.
 - **Relation types** (`/dashboard/{integrationKey}/relation-types`): Manage relation vocabulary used by analysis prompts.
 - **KG dev seeding** — Run `pnpm --filter @mediapulse/database run seed-kg-vocabulary` from the monorepo root for vocabulary, then `pnpm seed-kg-pipelines` from `apps/hermes/dashboard` for pipelines/schedules. Details in [Knowledge Graph](/architecture/knowledge-graph/knowledge-graph#schedule-configuration-default-seeds).

@@ -5,6 +5,7 @@
     "system",
     "communication",
     "agent-hermes-contract",
+    "data-source-expansion",
     "knowledge-graph"
   ]
 }

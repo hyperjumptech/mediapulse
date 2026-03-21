@@ -18,11 +18,11 @@ At a high level, the KG lifecycle is:
 6. **Select top articles** and generate newsletter content.
 7. **Deliver newsletters** and repeat on schedule.
 
-Ticker fan-out is driven by data source expansion in pipeline step input:
+Ticker fan-out uses [data source expansion](/architecture/data-source-expansion) in pipeline step input, for example:
 
 `{ "tickerId": "db:userTicker:tickerId?where.enabled=true" }`
 
-This means each step runs once per enabled `user_ticker` row (or per distinct ticker if you add `distinct=tickerId`).
+Each step runs once per enabled `user_ticker` row (or per distinct ticker if you add `distinct=tickerId`).
 
 ## Pipeline architecture and ownership
 
@@ -276,4 +276,4 @@ The KG vocabulary used by analysis prompts is managed in Hermes:
 - [Query Analysis Agent](/mediapulse/apps/agents/query-analysis)
 - [Analysis Agent](/mediapulse/apps/agents/analysis)
 - [Content Generation Agent](/mediapulse/apps/agents/content-generation)
-- [Data source expansion](/data-source-expansion)
+- [Data source expansion](/architecture/data-source-expansion)

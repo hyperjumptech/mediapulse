@@ -6,9 +6,15 @@ icon: Layers
 
 **Hermes** is the orchestration domain: pipelines, schedules, the dashboard, **agent-auth-api**, **agent-registry-api**, **hermes-worker**, and the orchestration database.
 
-Use the sidebar **Apps** and **Packages** groups to browse:
+## Browse
 
-- **Apps** — [Dashboard](/hermes/apps/dashboard), [Data source expansion](/hermes/apps/data-source-expansion), [Worker](/hermes/apps/hermes-worker), [agent-auth-api](/hermes/apps/agent-auth-api), [agent-registry-api](/hermes/apps/agent-registry-api).
-- **Packages** — [Overview](/hermes/packages), [orchestration-database](/hermes/packages/orchestration-database), [env](/hermes/packages/env), [scheduler](/hermes/packages/hermes-scheduler), and shared `@workspace/*` libraries.
+Use the sidebar **Apps** and **Packages** groups, or jump to:
 
-For how Hermes relates to Mediapulse, see [Hermes and Mediapulse domains](/architecture/domains).
+- **Apps** — [Dashboard](/hermes/apps/dashboard), [Worker](/hermes/apps/hermes-worker), [agent-auth-api](/hermes/apps/agent-auth-api), [agent-registry-api](/hermes/apps/agent-registry-api).
+- **Packages** — [Overview](/hermes/packages), [orchestration-database](/hermes/packages/orchestration-database), [env](/hermes/packages/env), [scheduler](/hermes/packages/hermes-scheduler), and shared `@workspace/*` libraries (agent stack, logger, and more).
+
+## Related
+
+- [Hermes and Mediapulse domains](/architecture/domains) — boundary with Mediapulse and how HTTP fits in.
+- [Data source expansion](/architecture/data-source-expansion) — how `db:…` strings expand at runtime (not a Hermes “app”).
+- [Shared UI](/shared/ui) — `@workspace/ui` (used by Hermes and other apps).
