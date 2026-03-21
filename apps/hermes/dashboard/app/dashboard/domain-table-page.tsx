@@ -2,9 +2,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/table";
 import { ListPagination } from "@/components/list-pagination";
 import { PageHeader } from "@/components/page-header";
 import { DomainCreateModal } from "@/app/dashboard/domain-create-modal";
+import { DomainTableSearch } from "@/app/dashboard/domain-table-search";
 import {
   createDomainTableItem,
   deleteDomainTableItem,
@@ -168,106 +177,124 @@ export const DomainTablePage = async ({
     redirect(basePath);
   };
 
+  const hasRowActions = meta.actions.update || meta.actions.delete;
+  const columnCount = meta.columns.length + (hasRowActions ? 1 : 0);
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={meta.title} description={meta.description ?? ""} />
 
-      <form method="get" className="flex items-end gap-2">
-        <div className="w-full max-w-md">
-          <label className="text-sm font-medium" htmlFor="q">
-            Search
-          </label>
-          <Input id="q" name="q" defaultValue={params.query ?? ""} />
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <DomainTableSearch
+          basePath={basePath}
+          initialQuery={params.query ?? ""}
+          pageSize={params.pageSize}
+          sortBy={params.sortBy}
+          sortDir={params.sortDir}
+          ariaLabel={`Search ${meta.title}`}
+        />
+        <div className="shrink-0 sm:ml-auto">
+          {meta.actions.create && createFields.length > 0 ? (
+            <DomainCreateModal
+              fields={createFields}
+              createAction={createAction}
+              triggerLabel={`Add ${meta.title}`}
+            />
+          ) : null}
         </div>
-        <input type="hidden" name="size" value={String(params.pageSize)} />
-        <Button type="submit">Apply</Button>
-      </form>
+      </div>
 
-      {meta.actions.create ? (
-        <DomainCreateModal fields={createFields} createAction={createAction} />
-      ) : null}
-
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead className="bg-muted/50">
-            <tr>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow className="border-muted hover:bg-transparent">
               {meta.columns.map((column) => (
-                <th
-                  key={column.key}
-                  className="px-3 py-2 text-left font-medium"
-                >
-                  {column.label}
-                </th>
+                <TableHead key={column.key}>{column.label}</TableHead>
               ))}
-              {(meta.actions.update || meta.actions.delete) && (
-                <th className="px-3 py-2 text-left font-medium">Actions</th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {list.items.map((item) => {
-              const row = item as Record<string, unknown>;
-              const rowId = String(row.id ?? "");
-              return (
-                <tr key={rowId} className="border-t">
-                  {meta.columns.map((column) => (
-                    <td key={`${rowId}-${column.key}`} className="px-3 py-2">
-                      {String(row[column.key] ?? "")}
-                    </td>
-                  ))}
-                  {(meta.actions.update || meta.actions.delete) && (
-                    <td className="px-3 py-2">
-                      <div className="flex gap-2">
-                        {meta.actions.update && updateFields.length > 0 ? (
-                          <details>
-                            <summary className="cursor-pointer text-xs underline">
-                              Edit
-                            </summary>
-                            <form
-                              action={updateAction}
-                              className="mt-2 grid gap-2"
-                            >
+              {hasRowActions ? <TableHead className="w-12" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.items.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columnCount}
+                  className="text-center text-muted-foreground"
+                >
+                  No {meta.title.toLowerCase()} yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              list.items.map((item) => {
+                const row = item as Record<string, unknown>;
+                const rowId = String(row.id ?? "");
+                return (
+                  <TableRow key={rowId}>
+                    {meta.columns.map((column) => (
+                      <TableCell key={`${rowId}-${column.key}`}>
+                        {String(row[column.key] ?? "")}
+                      </TableCell>
+                    ))}
+                    {hasRowActions ? (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {meta.actions.update && updateFields.length > 0 ? (
+                            <details>
+                              <summary className="cursor-pointer text-xs underline">
+                                Edit
+                              </summary>
+                              <form
+                                action={updateAction}
+                                className="mt-2 grid gap-2"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="__id"
+                                  value={rowId}
+                                />
+                                {updateFields.map((field) => (
+                                  <label
+                                    key={field.key}
+                                    className="grid gap-1 text-xs"
+                                  >
+                                    <span>{field.label}</span>
+                                    <Input
+                                      name={field.key}
+                                      defaultValue={String(
+                                        row[field.key] ?? "",
+                                      )}
+                                      required={field.required}
+                                    />
+                                  </label>
+                                ))}
+                                <Button size="sm" type="submit">
+                                  Save
+                                </Button>
+                              </form>
+                            </details>
+                          ) : null}
+                          {meta.actions.delete ? (
+                            <form action={deleteAction}>
                               <input type="hidden" name="__id" value={rowId} />
-                              {updateFields.map((field) => (
-                                <label
-                                  key={field.key}
-                                  className="grid gap-1 text-xs"
-                                >
-                                  <span>{field.label}</span>
-                                  <Input
-                                    name={field.key}
-                                    defaultValue={String(row[field.key] ?? "")}
-                                    required={field.required}
-                                  />
-                                </label>
-                              ))}
-                              <Button size="sm" type="submit">
-                                Save
+                              <Button
+                                type="submit"
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive"
+                              >
+                                Delete
                               </Button>
                             </form>
-                          </details>
-                        ) : null}
-                        {meta.actions.delete ? (
-                          <form action={deleteAction}>
-                            <input type="hidden" name="__id" value={rowId} />
-                            <Button
-                              type="submit"
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive"
-                            >
-                              Delete
-                            </Button>
-                          </form>
-                        ) : null}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       <ListPagination

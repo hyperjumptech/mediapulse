@@ -19,6 +19,8 @@ type DomainCreateField = {
 type DomainCreateModalProps = {
   fields: DomainCreateField[];
   createAction: (formData: FormData) => Promise<void>;
+  /** Label for the button that opens the dialog (e.g. "Add variable"). */
+  triggerLabel?: string;
 };
 
 /**
@@ -30,13 +32,14 @@ type DomainCreateModalProps = {
 export const DomainCreateModal = ({
   fields,
   createAction,
+  triggerLabel = "Create new",
 }: DomainCreateModalProps) => {
   if (fields.length === 0) return null;
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button type="button">Create new</Button>
+        <Button type="button">{triggerLabel}</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
         <DialogHeader>
