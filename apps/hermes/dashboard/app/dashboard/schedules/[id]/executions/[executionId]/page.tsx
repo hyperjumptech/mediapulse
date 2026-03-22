@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
+import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
 
 type PageProps = {
@@ -124,12 +125,13 @@ export default async function ScheduleExecutionDetailPage({
                 <TableHead>Job</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Semantic</TableHead>
+                <TableHead>Reason</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {detail.invocations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-muted-foreground">
+                  <TableCell colSpan={4} className="text-muted-foreground">
                     No invocations.
                   </TableCell>
                 </TableRow>
@@ -141,6 +143,9 @@ export default async function ScheduleExecutionDetailPage({
                     </TableCell>
                     <TableCell className="capitalize">{j.status}</TableCell>
                     <TableCell>{j.semanticStatus ?? "—"}</TableCell>
+                    <TableCell className="max-w-md whitespace-normal wrap-break-word text-sm text-muted-foreground">
+                      {formatInvocationErrorSummary(j.error) ?? "—"}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
