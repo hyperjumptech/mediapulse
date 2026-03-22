@@ -16,7 +16,7 @@ import { env } from "@mediapulse/env/agents-delivery";
 
 ## Agent-specific overrides (development)
 
-Mediapulse agents under `apps/mediapulse/agents/*` share `packages/mediapulse/env/.env` for most variables but need **per-agent** values for `PORT`, `AGENT_PUBLIC_URL`, and optionally `AGENT_API_KEY` (Hermes **domain_integration** key for auto-registration JWT minting).
+Mediapulse agents under `apps/mediapulse/agents/*` share `packages/mediapulse/env/.env` for most variables but need **per-agent** values for `PORT`, `AGENT_PUBLIC_URL`, and optionally `DOMAIN_INTEGRATION_API_KEY` (Hermes **domain_integration** key for auto-registration JWT minting).
 
 **How it works:**
 

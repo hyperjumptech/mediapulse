@@ -10,7 +10,7 @@ export const env = createEnv({
     ALLOW_ANY_BEARER_FOR_LOCAL: z.string().default("false").optional(),
     AGENT_REGISTRY_URL: z.string().optional(),
     AGENT_PUBLIC_URL: z.string().optional(),
-    AGENT_API_KEY: z.string().optional(),
+    DOMAIN_INTEGRATION_API_KEY: z.string().optional(),
   },
   client: {
   },

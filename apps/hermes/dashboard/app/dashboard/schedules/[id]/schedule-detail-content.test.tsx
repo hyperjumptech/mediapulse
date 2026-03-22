@@ -72,7 +72,9 @@ vi.mock("@/components/list-pagination", () => ({
   ),
 }));
 
-const createMockSchedule = (): ScheduleDetailContentProps["schedule"] =>
+const createMockSchedule = (
+  overrides?: Partial<ScheduleDetailContentProps["schedule"]>,
+): ScheduleDetailContentProps["schedule"] =>
   ({
     id: "sched-1",
     name: "Daily Run",
@@ -92,6 +94,7 @@ const createMockSchedule = (): ScheduleDetailContentProps["schedule"] =>
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: null,
+    ...overrides,
   }) as unknown as ScheduleDetailContentProps["schedule"];
 
 const createMockExecution = () => ({
@@ -141,6 +144,42 @@ describe("ScheduleDetailContent", () => {
       screen.getByRole("heading", { name: "Daily Run" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Runs every day")).toBeInTheDocument();
+  });
+
+  it("shows Enabled when the schedule is enabled", () => {
+    render(
+      <ScheduleDetailContent
+        schedule={createMockSchedule({ enabled: true })}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
+        pipelines={[]}
+        pipelineValidationById={{}}
+      />,
+    );
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("This schedule is enabled"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Disabled when the schedule is disabled", () => {
+    render(
+      <ScheduleDetailContent
+        schedule={createMockSchedule({ enabled: false })}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
+        pipelines={[]}
+        pipelineValidationById={{}}
+      />,
+    );
+    expect(screen.getByText("Disabled")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("This schedule is disabled"),
+    ).toBeInTheDocument();
   });
 
   it("renders Edit schedule button", () => {

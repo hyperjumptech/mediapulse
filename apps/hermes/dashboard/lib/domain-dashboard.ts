@@ -15,9 +15,6 @@ const PIPELINE_TICKER_PAGE_SIZE = 100;
 /** Dashboard path segment for the mediapulse tickers table-v1 resource. */
 const TICKERS_RESOURCE = "tickers";
 
-/** Default tickers list path when resolving via `MEDIAPULSE_API_URL` without a stored manifest. */
-const DEFAULT_TICKERS_API_PREFIX = "/v1/hermes-dashboard/tickers";
-
 /** Result state for JSON file custom actions (e.g. IDX import) returned from server actions. */
 export type DomainTableJsonImportState =
   | { status: "idle" }
@@ -241,8 +238,7 @@ export const getDomainTableList = async (
 };
 
 /**
- * Resolves base URL and API prefix for the mediapulse tickers table-v1 list endpoint.
- * Prefers the registered domain integration; falls back to `MEDIAPULSE_API_URL` (same pattern as step-input expansion).
+ * Resolves base URL and API prefix for the mediapulse tickers table-v1 list endpoint from the registered integration manifest.
  *
  * @returns Base URL without trailing slash and path prefix for GET list requests.
  */
@@ -250,30 +246,11 @@ const resolveMediapulseTickersListUrl = async (): Promise<{
   baseUrl: string;
   apiPrefix: string;
 }> => {
-  const integration = await getDomainIntegrationByKey("mediapulse");
-  if (integration) {
-    const page = integration.dashboard.pages.find(
-      (entry) => entry.pathSegment === TICKERS_RESOURCE,
-    );
-    if (!page) {
-      throw new Error(
-        `Dashboard page "tickers" is not registered for integration "mediapulse"`,
-      );
-    }
-    return {
-      baseUrl: integration.baseUrl.replace(/\/$/, ""),
-      apiPrefix: page.apiPrefix,
-    };
-  }
-
-  const baseUrl = env.MEDIAPULSE_API_URL?.replace(/\/$/, "");
-  if (!baseUrl) {
-    throw new Error(
-      "No active mediapulse domain integration and MEDIAPULSE_API_URL is not configured; cannot load tickers for pipeline run",
-    );
-  }
-
-  return { baseUrl, apiPrefix: DEFAULT_TICKERS_API_PREFIX };
+  const { page, baseUrl } = await getDashboardPage(
+    "mediapulse",
+    TICKERS_RESOURCE,
+  );
+  return { baseUrl, apiPrefix: page.apiPrefix };
 };
 
 export type FetchAllTickersForPipelineRunDependencies = {

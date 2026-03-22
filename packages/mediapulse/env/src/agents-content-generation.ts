@@ -10,7 +10,7 @@ export const env = createEnv({
     AGENT_AUTH_API_URL: z.string().min(1),
     AGENT_REGISTRY_URL: z.string().optional(),
     AGENT_PUBLIC_URL: z.string().optional(),
-    AGENT_API_KEY: z.string().optional(),
+    DOMAIN_INTEGRATION_API_KEY: z.string().optional(),
   },
   client: {
   },

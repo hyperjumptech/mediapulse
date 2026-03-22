@@ -9,8 +9,9 @@ NON_INTERACTIVE="false"
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
 AGENT_AUTH_API_URL="http://localhost:8080"
-DOMAIN_INTEGRATION_KEY_NAME="Local dev domain integration"
-REGISTRY_KEY_NAME="Local dev registry"
+# Single Hermes API key (purpose domain_integration) for agent JWT minting, agent-registry registration,
+# and domain-api → Hermes domain-integration registration (Bearer on POST /api/domain-integrations/register).
+LOCAL_DEV_API_KEY_NAME="Local dev Mediapulse & agents"
 JWT_SECRET=""
 SKIP_INSTALL="false"
 SKIP_MIGRATIONS="false"
@@ -126,12 +127,12 @@ Options:
   --admin-email <email>             Admin email (required in non-interactive mode).
   --admin-password <password>       Admin password (required in non-interactive mode).
   --agent-auth-api-url <url>        AGENT_AUTH_API_URL value (default: http://localhost:8080).
-  --domain-integration-key-name <n> Domain integration API key name (default: Local dev domain integration).
-  --registry-key-name <name>        Registry API key name (default: Local dev registry).
+  --local-dev-api-key-name <name>   Name for the single local dev API key (default: Local dev Mediapulse & agents).
+  --domain-integration-key-name <n> Same as --local-dev-api-key-name (deprecated alias).
   --jwt-secret <secret>             AGENT_AUTH_JWT_SECRET value (default: generated with openssl).
   --skip-install                    Skip pnpm install.
   --skip-migrations                 Skip Prisma and DataQueue migrations.
-  --skip-admin                      Skip admin creation and domain integration API key generation.
+  --skip-admin                      Skip admin creation and local dev API key generation.
   -h, --help                        Show this help text.
 
 Examples:
@@ -160,12 +161,12 @@ parse_args() {
         AGENT_AUTH_API_URL="${2:-}"
         shift 2
         ;;
-      --domain-integration-key-name)
-        DOMAIN_INTEGRATION_KEY_NAME="${2:-}"
+      --local-dev-api-key-name)
+        LOCAL_DEV_API_KEY_NAME="${2:-}"
         shift 2
         ;;
-      --registry-key-name)
-        REGISTRY_KEY_NAME="${2:-}"
+      --domain-integration-key-name)
+        LOCAL_DEV_API_KEY_NAME="${2:-}"
         shift 2
         ;;
       --jwt-secret)
@@ -217,13 +218,12 @@ collect_interactive_inputs() {
   if [[ "$SKIP_ADMIN" == "false" ]]; then
     ADMIN_EMAIL="$(prompt_non_empty "Admin email: ")"
     ADMIN_PASSWORD="$(prompt_non_empty_secret "Admin password: ")"
-    DOMAIN_INTEGRATION_KEY_NAME="$(prompt_with_default "Domain integration key name" "$DOMAIN_INTEGRATION_KEY_NAME")"
-    REGISTRY_KEY_NAME="$(prompt_with_default "Registry key name" "$REGISTRY_KEY_NAME")"
+    LOCAL_DEV_API_KEY_NAME="$(prompt_with_default "Local dev API key name (Hermes dashboard)" "$LOCAL_DEV_API_KEY_NAME")"
   fi
 }
 
-set_agent_api_key_for_all_agents() {
-  local domain_integration_api_key="$1"
+set_domain_integration_api_key_for_all_agents() {
+  local api_key="$1"
   local agent_dir
   local env_local_file
 
@@ -233,7 +233,7 @@ set_agent_api_key_for_all_agents() {
       if [[ ! -f "$env_local_file" ]]; then
         touch "$env_local_file"
       fi
-      upsert_env_var "$env_local_file" "AGENT_API_KEY" "$domain_integration_api_key"
+      upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_API_KEY" "$api_key"
     fi
   done
 }
@@ -297,48 +297,36 @@ main() {
   fi
 
   if [[ "$SKIP_ADMIN" == "true" ]]; then
-    section "Admin and domain integration API key"
+    section "Admin and local dev API key"
     echo "Skipping admin and API key generation (--skip-admin)."
     if [[ -z "$(read_dotenv_value "$HERMES_ENV_FILE" "HERMES_INTERNAL_API_KEY")" ]]; then
       echo "Warning: HERMES_INTERNAL_API_KEY is empty in $HERMES_ENV_FILE."
       echo "Hermes worker and dashboard need it to mint JWTs (run dev-setup without --skip-admin or set it manually)."
     fi
-    if [[ -z "$(read_dotenv_value "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_REGISTRATION_API_KEY")" ]]; then
-      echo "Warning: DOMAIN_INTEGRATION_REGISTRATION_API_KEY is empty in $MEDIAPULSE_ENV_FILE."
-      echo "Mediapulse domain-api will skip Hermes registration until this key is set."
+    if [[ -z "$(read_dotenv_value "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_API_KEY")" ]]; then
+      echo "Warning: DOMAIN_INTEGRATION_API_KEY is empty in $MEDIAPULSE_ENV_FILE."
+      echo "Mediapulse domain-api and agents need it (Hermes domain_integration key)."
     fi
   else
-    section "Create admin and API keys"
+    section "Create admin and local dev API key"
     (
       cd apps/hermes/dashboard
       pnpm create:admin "$ADMIN_EMAIL" "$ADMIN_PASSWORD" >/dev/null
     )
 
-    DOMAIN_INTEGRATION_OUTPUT="$(
+    LOCAL_DEV_API_KEY_OUTPUT="$(
       cd apps/hermes/dashboard
-      pnpm generate-api-key "$ADMIN_EMAIL" "$DOMAIN_INTEGRATION_KEY_NAME" --purpose domain_integration
+      pnpm generate-api-key "$ADMIN_EMAIL" "$LOCAL_DEV_API_KEY_NAME" --purpose domain_integration
     )"
-    DOMAIN_INTEGRATION_API_KEY="$(extract_generated_api_key "$DOMAIN_INTEGRATION_OUTPUT")"
-    if [[ -z "$DOMAIN_INTEGRATION_API_KEY" ]]; then
-      echo "Could not parse generated domain integration API key from output."
+    LOCAL_DEV_API_KEY="$(extract_generated_api_key "$LOCAL_DEV_API_KEY_OUTPUT")"
+    if [[ -z "$LOCAL_DEV_API_KEY" ]]; then
+      echo "Could not parse generated local dev API key from output."
       echo "Please run from apps/hermes/dashboard: pnpm generate-api-key <email> <name> --purpose domain_integration"
       exit 1
     fi
 
-    REGISTRY_OUTPUT="$(
-      cd apps/hermes/dashboard
-      pnpm generate-api-key "$ADMIN_EMAIL" "$REGISTRY_KEY_NAME" --purpose general
-    )"
-    REGISTRY_API_KEY="$(extract_generated_api_key "$REGISTRY_OUTPUT")"
-    if [[ -z "$REGISTRY_API_KEY" ]]; then
-      echo "Could not parse generated registry API key from output."
-      echo "Please run from apps/hermes/dashboard: pnpm generate-api-key <email> <name> --purpose general"
-      exit 1
-    fi
-
-    upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_API_KEY" "$DOMAIN_INTEGRATION_API_KEY"
-    upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_REGISTRATION_API_KEY" "$REGISTRY_API_KEY"
-    set_agent_api_key_for_all_agents "$DOMAIN_INTEGRATION_API_KEY"
+    upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_API_KEY" "$LOCAL_DEV_API_KEY"
+    set_domain_integration_api_key_for_all_agents "$LOCAL_DEV_API_KEY"
   fi
 
   section "Done"
@@ -346,10 +334,9 @@ main() {
   echo "  - AGENT_AUTH_JWT_SECRET"
   echo "  - AGENT_AUTH_API_URL=$AGENT_AUTH_API_URL"
   echo "  - HERMES_INTERNAL_API_KEY (Hermes worker, dashboard, agent-auth; preset secret)"
-  echo "  - AGENT_API_KEY in Mediapulse env (domain_integration key; agents + domain JWT minting)"
-  echo "  - DOMAIN_INTEGRATION_REGISTRATION_API_KEY"
+  echo "  - DOMAIN_INTEGRATION_API_KEY (Hermes domain_integration: agents, registry JWT mint, domain-api Hermes registration)"
   echo "Updated apps/mediapulse/agents/*/.env.local with:"
-  echo "  - AGENT_API_KEY"
+  echo "  - DOMAIN_INTEGRATION_API_KEY"
   if [[ "$SKIP_ADMIN" == "false" ]]; then
     echo ""
     echo "Admin credentials:"

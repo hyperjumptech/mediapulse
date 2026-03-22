@@ -150,7 +150,7 @@ Requests send `Content-Type: application/json`. When `DOMAIN_INTEGRATION_AUTH_TO
 ## Related flows outside these pages
 
 - **Step-input expansion** and **preview** in pipelines use the same registered integration and `@hermes/domain-contract` client; see [Data source expansion](/architecture/data-source-expansion).
-- **Pipeline run ticker pickers** may resolve the **mediapulse** integration (or fall back to `MEDIAPULSE_API_URL`) to list tickers through the same table-v1 list endpoint pattern (`fetchAllTickersForPipelineRun` in `domain-dashboard.ts`).
+- **Pipeline run ticker pickers** resolve the registered **mediapulse** integration (manifest + `baseUrl` from orchestration) to list tickers through the same table-v1 list endpoint pattern (`fetchAllTickersForPipelineRun` in `domain-dashboard.ts`).
 
 ## Implementing a new table on the domain side
 

@@ -49,10 +49,12 @@ const app = createAgentApp<Input, typeof BodySchema>(
   {
     authApiUrl: env.AGENT_AUTH_API_URL,
     autoRegister:
-      env.AGENT_REGISTRY_URL && env.AGENT_API_KEY && env.AGENT_PUBLIC_URL
+      env.AGENT_REGISTRY_URL &&
+      env.DOMAIN_INTEGRATION_API_KEY &&
+      env.AGENT_PUBLIC_URL
         ? {
             registryUrl: env.AGENT_REGISTRY_URL,
-            schedulerApiKey: env.AGENT_API_KEY,
+            domainIntegrationApiKey: env.DOMAIN_INTEGRATION_API_KEY,
             agentUrl: env.AGENT_PUBLIC_URL,
           }
         : undefined,

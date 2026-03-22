@@ -24,7 +24,7 @@ Hermes sends **POST** with body `{ input: <params>, config: <stepConfig> }` and 
 - **`authApiUrl`** — Used by default token verifier (required in production unless you pass `verifyToken`).
 - **`verifyToken`** — Custom `(token: string) => Promise<boolean>`.
 - **`logger`** — Logger-like instance; defaults to `@workspace/logger`.
-- **`autoRegister`** — When set (`registryUrl`, `apiKey`, `agentUrl`, optional `description`), the agent registers itself with the agent-registry-api on startup (fire-and-forget). Optional `fetchFn` for tests.
+- **`autoRegister`** — When set (`registryUrl`, `domainIntegrationApiKey`, `agentUrl`, optional `description`), the agent registers itself with the agent-registry-api on startup (fire-and-forget). Optional `fetchFn` for tests.
 
 ## Consumers
 

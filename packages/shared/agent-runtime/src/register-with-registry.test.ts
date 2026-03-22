@@ -25,7 +25,7 @@ describe("registerWithRegistry", () => {
     await registerWithRegistry({
       registryUrl: "https://registry.example.com",
       authApiUrl: "https://auth.example.com",
-      schedulerApiKey: "scheduler-secret",
+      domainIntegrationApiKey: "scheduler-secret",
       agentId: "my-agent",
       agentVersion: "1.0.0",
       agentUrl: "https://agent.example.com",
@@ -61,7 +61,7 @@ describe("registerWithRegistry", () => {
     await registerWithRegistry({
       registryUrl: "https://registry.example.com/",
       authApiUrl: "https://auth.example.com",
-      schedulerApiKey: "key",
+      domainIntegrationApiKey: "key",
       agentId: "a",
       agentVersion: "1.0.0",
       agentUrl: "https://a.example.com",
@@ -79,7 +79,7 @@ describe("registerWithRegistry", () => {
     await registerWithRegistry({
       registryUrl: "https://r.example.com",
       authApiUrl: "https://auth.example.com",
-      schedulerApiKey: "k",
+      domainIntegrationApiKey: "k",
       agentId: "x",
       agentVersion: "2.0.0",
       agentUrl: "https://x.example.com",
@@ -103,7 +103,7 @@ describe("registerWithRegistry", () => {
       registerWithRegistry({
         registryUrl: "https://r.example.com",
         authApiUrl: "https://auth.example.com",
-        schedulerApiKey: "k",
+        domainIntegrationApiKey: "k",
         agentId: "x",
         agentVersion: "1.0.0",
         agentUrl: "https://x.example.com",

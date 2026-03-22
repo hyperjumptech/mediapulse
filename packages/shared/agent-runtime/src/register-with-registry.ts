@@ -7,17 +7,17 @@ import {
  * Registers this agent with the agent-registry-api so Hermes can discover and invoke it.
  * Call this on startup (or use createAgentApp's autoRegister option).
  *
- * Mints a short-lived JWT via agent-auth-api `POST /api/token` using a scheduler-purpose API key,
+ * Mints a short-lived JWT via agent-auth-api `POST /api/token` using a domain_integration API key,
  * then sends `Authorization: Bearer &lt;JWT&gt;` to the registry (same verification as agent invocation).
  *
- * @param params - Registry URL, auth API URL, scheduler key, agent metadata, and JSON schemas.
+ * @param params - Registry URL, auth API URL, domain integration API key, agent metadata, and JSON schemas.
  * @param params.fetchFn - Optional fetch for the registry POST (tests).
  * @param params.tokenFetchFn - Optional fetch for `POST /api/token` only (tests).
  */
 export async function registerWithRegistry(params: {
   registryUrl: string;
   authApiUrl: string;
-  schedulerApiKey: string;
+  domainIntegrationApiKey: string;
   agentId: string;
   agentVersion: string;
   agentUrl: string;
@@ -30,7 +30,7 @@ export async function registerWithRegistry(params: {
   const {
     registryUrl,
     authApiUrl,
-    schedulerApiKey,
+    domainIntegrationApiKey,
     agentId,
     agentVersion,
     agentUrl,
@@ -43,7 +43,7 @@ export async function registerWithRegistry(params: {
 
   const tokenClient = createAgentTokenClient({
     authApiUrl,
-    credential: schedulerApiKey,
+    credential: domainIntegrationApiKey,
     fetchFn: tokenFetchFn ?? fetch,
   });
   const jwt = await tokenClient.getToken();

@@ -323,7 +323,7 @@ describe("createAgentApp", () => {
         verifyToken: async () => true,
         autoRegister: {
           registryUrl: "https://registry.test",
-          schedulerApiKey: "sched-key",
+          domainIntegrationApiKey: "sched-key",
           agentUrl: "https://agent.test",
           fetchFn,
         },
@@ -365,7 +365,7 @@ describe("createAgentApp", () => {
         verifyToken: async () => true,
         autoRegister: {
           registryUrl: "https://registry.test",
-          schedulerApiKey: "sched-key",
+          domainIntegrationApiKey: "sched-key",
           agentUrl: "https://agent.test",
           fetchFn,
         },

@@ -18,10 +18,10 @@ export { parseDataSourceString };
  */
 export const getDomainIntegrationClient = async () => {
   const integration = await getDefaultDomainIntegration().catch(() => null);
-  const baseUrl = integration?.baseUrl ?? env.MEDIAPULSE_API_URL;
+  const baseUrl = integration?.baseUrl?.trim();
   if (!baseUrl) {
     throw new Error(
-      "No active domain integration found and MEDIAPULSE_API_URL is not configured",
+      "No active domain integration with a base URL; register a domain integration in Hermes before using expansion or preview.",
     );
   }
 

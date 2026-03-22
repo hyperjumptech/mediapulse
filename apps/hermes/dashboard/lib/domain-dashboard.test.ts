@@ -390,10 +390,19 @@ describe("fetchAllTickersForPipelineRun", () => {
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
+    getDomainIntegrationByKey.mockReset();
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("throws when mediapulse domain integration is not registered", async () => {
+    getDomainIntegrationByKey.mockResolvedValue(null);
+
+    await expect(fetchAllTickersForPipelineRun()).rejects.toThrow(
+      'Domain integration "mediapulse"',
+    );
   });
 
   const injectedResolve = async () => ({

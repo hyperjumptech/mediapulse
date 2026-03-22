@@ -39,7 +39,6 @@ vi.mock("@hermes/env/hermes-worker", () => ({
     AGENT_AUTH_API_URL: "https://auth.example.com",
     REQUIRE_HTTPS_AGENT_ENDPOINTS: undefined as string | undefined,
     DOMAIN_INTEGRATION_AUTH_TOKEN: "domain-token",
-    MEDIAPULSE_API_URL: "https://mediapulse-domain.example",
   },
 }));
 
@@ -281,6 +280,49 @@ describe("jobHandlers", () => {
         { err: expect.any(Error), scheduleId: "schedule-fail" },
         "executeSchedule failed for schedule",
       );
+    });
+
+    it("passes expandStepInputs that rejects when no active domain integration exists", async () => {
+      const { prisma } = await import("@hermes/orchestration-database");
+      vi.mocked(mockPrisma.domainIntegration.findFirst).mockResolvedValueOnce(
+        null,
+      );
+      const fakeSchedule = {
+        id: "schedule-1",
+        enabled: true,
+        nextRunAt: new Date(),
+        pipelineId: "pipeline-1",
+        cronExpression: "0 * * * *",
+        timezone: "UTC",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        pipeline: {
+          id: "pipeline-1",
+          name: "Test",
+          executionConfig: null,
+          steps: [],
+        },
+      } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
+      vi.mocked(getDueSchedules).mockResolvedValue([fakeSchedule]);
+      vi.mocked(executeSchedule).mockImplementation(async (_schedule, deps) => {
+        await expect(
+          deps.expandStepInputs!({
+            input: {},
+            scheduleId: "s1",
+            pipelineId: "p1",
+            pipelineStepId: "st1",
+            orchDb: prisma,
+          }),
+        ).rejects.toThrow("No active domain integration");
+      });
+
+      await jobHandlers.check_schedules(
+        {},
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.check_schedules>[2],
+      );
+
+      expect(executeSchedule).toHaveBeenCalledTimes(1);
     });
   });
 

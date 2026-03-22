@@ -18,11 +18,11 @@ import {
 export const registerWithHermes = async (): Promise<void> => {
   if (
     !env.HERMES_API_URL ||
-    !env.DOMAIN_INTEGRATION_REGISTRATION_API_KEY ||
+    !env.DOMAIN_INTEGRATION_API_KEY ||
     !env.MEDIAPULSE_API_URL
   ) {
     logger.info(
-      "Skipping Hermes domain integration registration (missing HERMES_API_URL, DOMAIN_INTEGRATION_REGISTRATION_API_KEY, or MEDIAPULSE_API_URL)",
+      "Skipping Hermes domain integration registration (missing HERMES_API_URL, DOMAIN_INTEGRATION_API_KEY, or MEDIAPULSE_API_URL)",
     );
     return;
   }
@@ -44,7 +44,7 @@ export const registerWithHermes = async (): Promise<void> => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${env.DOMAIN_INTEGRATION_REGISTRATION_API_KEY}`,
+            Authorization: `Bearer ${env.DOMAIN_INTEGRATION_API_KEY}`,
           },
           body: JSON.stringify(requestBody),
         },

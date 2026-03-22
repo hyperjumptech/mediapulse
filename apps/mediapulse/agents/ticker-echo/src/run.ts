@@ -7,7 +7,6 @@ export const run = async ({
   input,
   config,
 }: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
-  await new Promise((resolve) => setTimeout(resolve, Math.random() * 10_000));
   if (config.verbose) {
     // Use logger instead of console.log to log the message
     logger.info(

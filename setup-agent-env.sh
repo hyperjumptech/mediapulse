@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Sets up .env and .env.local for a new agent: runs dev-bootstrap (so the agent
 # gets .env and .env.local from its env.agents.<name>.example), then gets or
-# creates AGENT_API_KEY (domain_integration purpose; mint JWT for registry) and sets it in the agent's .env.local.
+# creates DOMAIN_INTEGRATION_API_KEY (domain_integration purpose; mint JWT for registry) and sets it in the agent's .env.local.
 #
 # Usage: ./setup-agent-env.sh <agent-name> [options]
 # Options:
 #   --no-bootstrap     Skip running dev-bootstrap.sh (use if .env/.env.local already exist).
 #   --admin-email EMAIL Use this email when creating a new API key (required for create).
-#   --key-name NAME    Name for the new API key (default: "Agent scheduler (<agent-name>)").
+#   --key-name NAME    Name for the new API key (default: "Agent domain integration (<agent-name>)").
 #
-# Get or create: reads AGENT_API_KEY from any existing apps/mediapulse/agents/*/.env.local
+# Get or create: reads DOMAIN_INTEGRATION_API_KEY from any existing apps/mediapulse/agents/*/.env.local
 # or packages/mediapulse/env/.env; if missing, creates one via Hermes generate-api-key with
-# purpose scheduler (requires --admin-email and Hermes .env.local with DB).
+# purpose domain_integration (requires --admin-email and Hermes .env.local with DB).
 
 set -euo pipefail
 
@@ -27,8 +27,8 @@ Usage: ./setup-agent-env.sh <agent-name> [options]
 
 Options:
   --no-bootstrap       Skip dev-bootstrap (use if .env and .env.local already exist).
-  --admin-email EMAIL  Admin email for creating a new scheduler API key (required to create).
-  --key-name NAME      Name for the new API key (default: "Agent scheduler (<agent-name>)").
+  --admin-email EMAIL  Admin email for creating a new API key (required to create).
+  --key-name NAME      Name for the new API key (default: "Agent domain integration (<agent-name>)").
 
 Examples:
   ./setup-agent-env.sh user-registration
@@ -160,30 +160,30 @@ else
   echo "  ✓ Merged $EXAMPLE_FILE into $AGENT_DIR/.env.local"
 fi
 
-section "Get or create AGENT_API_KEY (domain integration)"
-SCHEDULER_KEY=""
+section "Get or create DOMAIN_INTEGRATION_API_KEY (domain integration)"
+RAW_KEY=""
 
 # 1. From any existing agent .env.local
 for f in "$SCRIPT_DIR/apps/mediapulse/agents"/*/.env.local; do
   if [[ -f "$f" ]]; then
-    SCHEDULER_KEY="$(get_env_value "$f" "AGENT_API_KEY")"
-    if [[ -n "$SCHEDULER_KEY" ]]; then
-      echo "  Using existing AGENT_API_KEY from $(dirname "$f")/.env.local"
+    RAW_KEY="$(get_env_value "$f" "DOMAIN_INTEGRATION_API_KEY")"
+    if [[ -n "$RAW_KEY" ]]; then
+      echo "  Using existing DOMAIN_INTEGRATION_API_KEY from $(dirname "$f")/.env.local"
       break
     fi
   fi
 done
 
 # 2. From packages/mediapulse/env/.env
-if [[ -z "$SCHEDULER_KEY" && -f "$SCRIPT_DIR/packages/mediapulse/env/.env" ]]; then
-  SCHEDULER_KEY="$(get_env_value "$SCRIPT_DIR/packages/mediapulse/env/.env" "AGENT_API_KEY")"
-  if [[ -n "$SCHEDULER_KEY" ]]; then
-    echo "  Using AGENT_API_KEY from packages/mediapulse/env/.env"
+if [[ -z "$RAW_KEY" && -f "$SCRIPT_DIR/packages/mediapulse/env/.env" ]]; then
+  RAW_KEY="$(get_env_value "$SCRIPT_DIR/packages/mediapulse/env/.env" "DOMAIN_INTEGRATION_API_KEY")"
+  if [[ -n "$RAW_KEY" ]]; then
+    echo "  Using DOMAIN_INTEGRATION_API_KEY from packages/mediapulse/env/.env"
   fi
 fi
 
 # 3. Create via Hermes generate-api-key (domain_integration purpose — required for POST /api/token)
-if [[ -z "$SCHEDULER_KEY" ]]; then
+if [[ -z "$RAW_KEY" ]]; then
   if [[ -z "$ADMIN_EMAIL" ]]; then
     # Try env
     ADMIN_EMAIL="${ADMIN_EMAIL:-}"
@@ -192,9 +192,9 @@ if [[ -z "$SCHEDULER_KEY" ]]; then
     fi
   fi
   if [[ -z "$ADMIN_EMAIL" ]]; then
-    echo "  No existing AGENT_API_KEY found."
+    echo "  No existing DOMAIN_INTEGRATION_API_KEY found."
     echo "  To create one, run: ./setup-agent-env.sh $AGENT_NAME --admin-email <your-admin-email>"
-    echo "  Or run ./dev-setup-local.sh first to create a domain integration key for all agents."
+    echo "  Or run ./dev-setup-local.sh first to create a key for all agents."
     exit 1
   fi
   KEY_NAME="${KEY_NAME:-Agent domain integration ($AGENT_NAME)}"
@@ -203,8 +203,8 @@ if [[ -z "$SCHEDULER_KEY" ]]; then
     cd "$SCRIPT_DIR/apps/hermes/dashboard"
     pnpm generate-api-key "$ADMIN_EMAIL" "$KEY_NAME" --purpose domain_integration 2>&1
   )"
-  SCHEDULER_KEY="$(printf '%s\n' "$HERMES_OUTPUT" | extract_generated_api_key)"
-  if [[ -z "$SCHEDULER_KEY" ]]; then
+  RAW_KEY="$(printf '%s\n' "$HERMES_OUTPUT" | extract_generated_api_key)"
+  if [[ -z "$RAW_KEY" ]]; then
     echo "  Failed to parse generated API key. Output:" >&2
     echo "$HERMES_OUTPUT" >&2
     exit 1
@@ -216,9 +216,9 @@ ENV_LOCAL="$AGENT_DIR/.env.local"
 if [[ ! -f "$ENV_LOCAL" ]]; then
   touch "$ENV_LOCAL"
 fi
-upsert_env_var "$ENV_LOCAL" "AGENT_API_KEY" "$SCHEDULER_KEY"
-echo "  ✓ Set AGENT_API_KEY in $AGENT_DIR/.env.local"
+upsert_env_var "$ENV_LOCAL" "DOMAIN_INTEGRATION_API_KEY" "$RAW_KEY"
+echo "  ✓ Set DOMAIN_INTEGRATION_API_KEY in $AGENT_DIR/.env.local"
 
 section "Done"
-echo "Agent $AGENT_NAME has .env and .env.local with correct values (PORT from example, AGENT_API_KEY set)."
+echo "Agent $AGENT_NAME has .env and .env.local with correct values (PORT from example, DOMAIN_INTEGRATION_API_KEY set)."
 echo "Run: pnpm dev:agent-$AGENT_NAME"

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { useState } from "react";
 
+import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { ChevronLeft } from "lucide-react";
 
@@ -65,9 +66,21 @@ export const ScheduleDetailContent = ({
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              {schedule.name}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold text-foreground">
+                {schedule.name}
+              </h1>
+              <Badge
+                variant={schedule.enabled ? "success" : "secondary"}
+                aria-label={
+                  schedule.enabled
+                    ? "This schedule is enabled"
+                    : "This schedule is disabled"
+                }
+              >
+                {schedule.enabled ? "Enabled" : "Disabled"}
+              </Badge>
+            </div>
             <p className="text-muted-foreground">
               {schedule.description ??
                 "View executions and edit schedule settings."}

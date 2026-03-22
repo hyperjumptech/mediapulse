@@ -68,9 +68,9 @@ async function getAuthToken(): Promise<string> {
 }
 
 /**
- * Resolves active domain integration URL from orchestration storage.
+ * Resolves the active domain integration base URL from orchestration storage (registration payload).
  *
- * @returns Base URL for expansion HTTP calls.
+ * @returns Base URL for expansion HTTP calls to domain-api.
  */
 const resolveDomainIntegrationBaseUrl = async (): Promise<string> => {
   const integration = await orchestrationPrisma.domainIntegration.findFirst({
@@ -78,10 +78,10 @@ const resolveDomainIntegrationBaseUrl = async (): Promise<string> => {
     orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
     select: { baseUrl: true },
   });
-  const baseUrl = integration?.baseUrl ?? env.MEDIAPULSE_API_URL;
+  const baseUrl = integration?.baseUrl?.trim();
   if (!baseUrl) {
     throw new Error(
-      "No active domain integration found and MEDIAPULSE_API_URL is missing",
+      "No active domain integration with a base URL; register domain-api with Hermes (domain integration) before running pipelines that need step-input expansion.",
     );
   }
   return baseUrl;
