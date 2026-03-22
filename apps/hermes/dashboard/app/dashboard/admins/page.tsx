@@ -31,58 +31,67 @@ const AdminsPage = async () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <PageHeader
-          title="Admins"
-          description="Manage who can sign in to the Hermes dashboard. Disabled admins cannot log in."
-        />
-        <AddAdminModal
-          trigger={<Button className="shrink-0">Add admin</Button>}
-        />
+      <PageHeader
+        title="Admins"
+        description="Manage who can sign in to the Hermes dashboard. Disabled admins cannot log in."
+      />
+      <div className="flex justify-end">
+        <AddAdminModal trigger={<Button>Add admin</Button>} />
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead className="w-[56px]" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {admins.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={5} className="text-muted-foreground">
-                No admins found. Use the CLI or “Add admin” to create one.
-              </TableCell>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow className="border-muted hover:bg-transparent">
+              <TableHead className="w-[160px]">Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead className="w-[100px]">Status</TableHead>
+              <TableHead className="w-[120px]">Created</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
-          ) : (
-            admins.map((admin) => (
-              <TableRow key={admin.id}>
-                <TableCell>{admin.name}</TableCell>
-                <TableCell className="text-sm">{admin.email}</TableCell>
-                <TableCell>
-                  {admin.isActive ? (
-                    <Badge variant="secondary">Active</Badge>
-                  ) : (
-                    <Badge variant="outline">Disabled</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {format(admin.createdAt, "MMM d, yyyy")}
-                </TableCell>
-                <TableCell className="text-right">
-                  <AdminRowActions
-                    admin={admin}
-                    currentUserId={currentUserId}
-                  />
+          </TableHeader>
+          <TableBody>
+            {admins.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center text-muted-foreground"
+                >
+                  No admins yet. Use the CLI or “Add admin” to create one.
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : (
+              admins.map((admin) => (
+                <TableRow key={admin.id}>
+                  <TableCell className="font-medium">{admin.name}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {admin.email}
+                  </TableCell>
+                  <TableCell>
+                    {admin.isActive ? (
+                      <Badge variant="secondary" className="font-normal">
+                        Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="font-normal">
+                        Disabled
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {format(admin.createdAt, "LLL d, yyyy")}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <AdminRowActions
+                      admin={admin}
+                      currentUserId={currentUserId}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
