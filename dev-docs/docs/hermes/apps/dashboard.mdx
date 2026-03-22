@@ -21,7 +21,7 @@ icon: Zap
 - **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, and for each pipeline step expands that step's input (e.g. data-source expressions like `db:ticker:id`), then invokes the step via HTTP. Hermes does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
 - **Ticker import** — When the domain manifest registers a `json-file-upload` custom action (e.g. IDX JSON), Hermes shows an import card on `/dashboard/{integrationKey}/tickers` and POSTs to the domain API; Mediapulse runs `@mediapulse/idx-tickers-importer` on the service side.
-- **Session-based auth** — Dashboard uses cookie/session auth. When running pipelines (manual or scheduled), agents are invoked with **short-lived JWT bearer tokens** (minted via agent-auth-api); the scheduler API key is never sent to agents.
+- **Session-based auth** — Dashboard uses cookie/session auth. When running pipelines manually, agents are invoked with **short-lived JWT bearer tokens** minted via agent-auth-api using **`HERMES_INTERNAL_API_KEY`**; that preset is never sent to agents.
 - **Variable management** — Admins can CRUD **variables** (key, value, optional note, secret flag) from `/dashboard/variables`. Variables are referenced in agent config and step input as `{{VAR_KEY}}`; at pipeline execution time the placeholder is replaced with the stored value. Secret variables are never returned by the API or shown in the UI after creation (value is masked).
 - **API key management** — Admins can CRUD API keys from the dashboard. Create and update use modals; the raw key is shown once after create (stored as SHA-256 hash in DB, aligned with agent-auth-api).
 
@@ -66,7 +66,7 @@ Hermes **does not** run the DataQueue queue or migrations. To run the scheduler:
 
 1. Run the **hermes-worker** app on a persistent server (e.g. `pnpm dev:hermes-worker` from repo root). It initializes the queue, ensures the `hermes-check-schedules` cron exists, and runs the processor + supervisor.
 2. Run DataQueue migrations from **hermes-worker**: `pnpm --filter @hermes/worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`). Use the same DB as Hermes with `?schema=dataqueue`.
-3. Set `PG_DATAQUEUE_DATABASE` (and `DATABASE_URL`, `AGENT_API_KEY`) where hermes-worker runs.
+3. Set `PG_DATAQUEUE_DATABASE` (and `DATABASE_URL`, **`HERMES_INTERNAL_API_KEY`**, **`AGENT_AUTH_API_URL`**) where hermes-worker runs.
 
 See [hermes-worker](/hermes/apps/hermes-worker) for details.
 

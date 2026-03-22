@@ -10,7 +10,7 @@ agent-registry-api is a Hono server that allows **registering agents** in the sy
 
 ## Features
 
-- **Bearer auth (JWT)** — `verifyTokenViaAuthApi` from `@workspace/agent-auth-client` calls agent-auth-api `POST /api/verify`. Agents typically obtain a JWT with a **scheduler** API key via `POST /api/token` before calling register.
+- **Bearer auth (JWT)** — `verifyTokenViaAuthApi` from `@workspace/agent-auth-client` calls agent-auth-api `POST /api/verify`. Agents typically obtain a JWT with a **domain_integration** API key via `POST /api/token` before calling register.
 - **Register agent** — POST to store agent metadata (id, version, URL, etc.) so Hermes or other services can discover and invoke agents.
 
 ## Key routes

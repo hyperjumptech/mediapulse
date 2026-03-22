@@ -19,11 +19,11 @@ Minimal agent for **local scheduler testing**. Accepts `tickerId` as input, opti
 5. Start the agent: `pnpm --filter @mediapulse/ticker-echo dev`.
 6. Start hermes-worker (and optionally Hermes). When the scheduler runs, set step config `{ "verbose": true }` to see log lines like `--> ticker-echo received verbose` for each invocation.
 
-Set the same value in hermes-worker’s `AGENT_API_KEY` (any non-empty string when `ALLOW_ANY_BEARER_FOR_LOCAL=true`).
+Set the same **`HERMES_INTERNAL_API_KEY`** in hermes-worker as in `packages/hermes/env/.env` when using the real auth API (or any non-empty string in worker when `ALLOW_ANY_BEARER_FOR_LOCAL=true` for local-only bypass).
 
 ## With agent-auth-api
 
-Set `ALLOW_ANY_BEARER_FOR_LOCAL=false` (or omit it), set `AGENT_AUTH_API_URL` to your auth API, and use a valid API key for `AGENT_API_KEY` in hermes-worker.
+Set `ALLOW_ANY_BEARER_FOR_LOCAL=false` (or omit it), set `AGENT_AUTH_API_URL` to your auth API, and set **`HERMES_INTERNAL_API_KEY`** on hermes-worker (preset shared with dashboard and agent-auth-api).
 
 ## Scripts
 

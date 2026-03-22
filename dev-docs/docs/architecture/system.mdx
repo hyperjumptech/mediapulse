@@ -68,7 +68,7 @@ domain_api --> db
 1. **Hermes** serves the dashboard and schedule/pipeline CRUD. The **scheduler** runs in **hermes-worker** (DataQueue), not inside the Next.js process.
 2. **hermes-worker** enqueues `check_schedules` on a cron; it expands step inputs (via the registered **domain API** when needed) and invokes each agent step with `POST` + `Authorization: Bearer <jwt>`.
 3. **Agents** verify the JWT via **agent-auth-api**, run their logic, and call **agent-data-api** with the **same forwarded JWT** for persistence.
-4. **agent-registry-api** stores agent metadata for Hermes discovery; agents register with a **JWT** (often minted at startup with a scheduler key).
+4. **agent-registry-api** stores agent metadata for Hermes discovery; agents register with a **JWT** (often minted at startup with a **domain_integration** API key).
 5. **PostgreSQL** holds orchestration tables, Mediapulse tables, and the DataQueue schema. Run Prisma migrations per package; DataQueue migrations: `pnpm --filter @hermes/worker run migrate-dataqueue`.
 
 For the knowledge-graph pipeline, scoring signals, and schedule details, see [Knowledge Graph](/architecture/knowledge-graph/knowledge-graph).

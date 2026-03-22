@@ -26,12 +26,14 @@ describe("createRunPipelineHandler", () => {
     expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
-  it("returns error when getToken fails (e.g. AGENT_AUTH_API_URL/AGENT_API_KEY not configured)", async () => {
+  it("returns error when getToken fails (e.g. AGENT_AUTH_API_URL/HERMES_INTERNAL_API_KEY not configured)", async () => {
     const handler = createRunPipelineHandler({
       getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       getToken: () =>
         Promise.reject(
-          new Error("AGENT_AUTH_API_URL and AGENT_API_KEY are required"),
+          new Error(
+            "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY are required",
+          ),
         ),
       db: {
         pipeline: {
@@ -45,7 +47,7 @@ describe("createRunPipelineHandler", () => {
     const result = await handler(request({ pipelineId: "p-1" }));
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toContain(
-      "AGENT_AUTH_API_URL and AGENT_API_KEY",
+      "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY",
     );
   });
 

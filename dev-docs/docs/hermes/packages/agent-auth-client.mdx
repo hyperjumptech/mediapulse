@@ -12,7 +12,7 @@ icon: Key
 
 - **`verifyTokenViaAuthApi(token, authApiUrl)`** — `Promise<boolean>`. Calls `POST ${authApiUrl}/api/verify` with `Authorization: Bearer ${token}`; returns `true` if status is 200, `false` otherwise (401, network error, etc.).
 - **`verifyApiKeyViaAuthApi(apiKey, authApiUrl)`** — `Promise<boolean>`. Calls `POST ${authApiUrl}/api/verify-api-key` for raw API keys.
-- **`createAgentTokenClient({ authApiUrl, credential, fetchFn? })`** — Returns `{ getToken() }` to mint JWTs via `POST /api/token` (scheduler key).
+- **`createAgentTokenClient({ authApiUrl, credential, fetchFn? })`** — Returns `{ getToken() }` to mint JWTs via `POST /api/token`. Pass **`HERMES_INTERNAL_API_KEY`** from Hermes worker/dashboard, or a **domain_integration** dashboard key from Mediapulse/agents, as `credential`.
 
 ## Consumers
 

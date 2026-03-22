@@ -33,7 +33,7 @@ vi.mock("@hermes/orchestration-database", () => ({
 
 vi.mock("@hermes/env/hermes-worker", () => ({
   env: {
-    AGENT_API_KEY: "test-scheduler-key",
+    HERMES_INTERNAL_API_KEY: "test-internal-hermes-key",
     AGENT_AUTH_API_URL: "https://auth.example.com",
     REQUIRE_HTTPS_AGENT_ENDPOINTS: undefined as string | undefined,
     DOMAIN_INTEGRATION_AUTH_TOKEN: "domain-token",

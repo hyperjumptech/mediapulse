@@ -12,9 +12,11 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
+import { apiKeyPurposeSchema } from "@/app/dashboard/api-keys/api-key-purposes";
 
 const bodyValidator = z.object({
   name: z.string().min(1, "Name is required"),
+  purpose: apiKeyPurposeSchema.optional(),
 });
 
 export const requestValidator = createRequestValidator({
@@ -70,6 +72,7 @@ export const createCreateApiKeyHandler = ({
         name: data.body.name,
         key: hash,
         userId: user.id,
+        purpose: data.body.purpose ?? "general",
       },
     });
 

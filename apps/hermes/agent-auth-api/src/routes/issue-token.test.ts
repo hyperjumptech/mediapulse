@@ -1,8 +1,10 @@
+/** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { decodeJwt } from "jose";
 import { Hono } from "hono";
 import { pinoLogger } from "hono-pino";
 import { logger } from "@workspace/logger";
-import { issueToken } from "./issue-token";
+import { HERMES_INTERNAL_TOKEN_SUBJECT, issueToken } from "./issue-token";
 
 const mockFindUnique = vi.fn();
 
@@ -20,6 +22,9 @@ vi.mock("@hermes/env", () => ({
     get AGENT_AUTH_JWT_SECRET() {
       return process.env.AGENT_AUTH_JWT_SECRET ?? "";
     },
+    get HERMES_INTERNAL_API_KEY() {
+      return process.env.HERMES_INTERNAL_API_KEY ?? "";
+    },
   },
 }));
 
@@ -33,6 +38,7 @@ describe("issueToken route", () => {
     process.env = {
       ...originalEnv,
       AGENT_AUTH_JWT_SECRET: "test-secret-at-least-16-chars",
+      HERMES_INTERNAL_API_KEY: "internal-preset-key-for-tests",
     };
   });
 
@@ -63,6 +69,24 @@ describe("issueToken route", () => {
     expect(body).toHaveProperty("hint");
   });
 
+  it("returns 200 with JWT when Bearer matches HERMES_INTERNAL_API_KEY without DB lookup", async () => {
+    const res = await app.request("http://localhost/api/token", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer internal-preset-key-for-tests",
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(mockFindUnique).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body).toHaveProperty("token");
+    expect(typeof body.token).toBe("string");
+    expect(body.token.split(".")).toHaveLength(3);
+    expect(body).toEqual(expect.objectContaining({ expiresIn: 900 }));
+    const claims = decodeJwt(body.token as string);
+    expect(claims.sub).toBe(HERMES_INTERNAL_TOKEN_SUBJECT);
+  });
+
   it("returns 401 when API key is not found or inactive", async () => {
     mockFindUnique.mockResolvedValue(null);
     const res = await app.request("http://localhost/api/token", {
@@ -74,7 +98,7 @@ describe("issueToken route", () => {
     expect(body).toEqual({ error: "Invalid or inactive API key" });
   });
 
-  it("returns 403 when API key purpose is not scheduler", async () => {
+  it("returns 403 when API key purpose is not domain_integration or scheduler", async () => {
     mockFindUnique.mockResolvedValue({
       id: "key-1",
       userId: "user-1",
@@ -87,11 +111,28 @@ describe("issueToken route", () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body).toEqual({
-      error: "API key must have purpose 'scheduler' to issue tokens",
+      error:
+        "API key must have purpose 'domain_integration' or 'scheduler' to issue tokens",
     });
   });
 
-  it("returns 200 with token and expiresIn when key has purpose scheduler", async () => {
+  it("returns 200 when key has purpose domain_integration", async () => {
+    mockFindUnique.mockResolvedValue({
+      id: "key-1",
+      userId: "user-domain",
+      purpose: "domain_integration",
+    });
+    const res = await app.request("http://localhost/api/token", {
+      method: "POST",
+      headers: { Authorization: "Bearer domain-key" },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const claims = decodeJwt(body.token as string);
+    expect(claims.sub).toBe("user-domain");
+  });
+
+  it("returns 200 with token when key has purpose scheduler", async () => {
     mockFindUnique.mockResolvedValue({
       id: "key-1",
       userId: "user-1",
@@ -108,5 +149,7 @@ describe("issueToken route", () => {
     expect(body.token.split(".")).toHaveLength(3);
     expect(body).toEqual(expect.objectContaining({ expiresIn: 900 }));
     expect(mockFindUnique).toHaveBeenCalledOnce();
+    const claims = decodeJwt(body.token as string);
+    expect(claims.sub).toBe("user-1");
   });
 });

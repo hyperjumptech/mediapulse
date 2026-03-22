@@ -52,13 +52,13 @@ You can reference **Hermes variables** in agent config and in schedule params. I
 
 Agents built with `createAgentApp` can **register themselves** with the agent-registry-api when they start. Pass **`autoRegister`** in the options with `registryUrl`, `apiKey`, and `agentUrl` (the public URL where the agent is reachable). The runtime will POST the agent’s metadata and schemas to the registry once at startup (fire-and-forget). If registration fails, the error is logged and the agent keeps running.
 
-Set these env vars so the agent can auto-register: `AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `AGENT_API_KEY` (scheduler), and `AGENT_AUTH_API_URL`. When all are set, the agent registers on startup; if any is missing, registration is skipped.
+Set these env vars so the agent can auto-register: `AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `AGENT_API_KEY` (Hermes **domain_integration** key), and `AGENT_AUTH_API_URL`. When all are set, the agent registers on startup; if any is missing, registration is skipped.
 
 ## Adding a new agent
 
 1. Implement the agent with `inputSchema` and optional `configSchema`; implement `run({ input, config, token })`.
 2. Expose GET /schemas (provided by `createAgentApp`).
-3. **Register the agent** — Either set `AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `AGENT_API_KEY`, and `AGENT_AUTH_API_URL` and pass `autoRegister` from env so the agent registers itself on startup (JWT mint + POST to registry), or register manually: POST to the registry with `Authorization: Bearer <jwt>` and body `agentId`, `agentVersion`, `endpoint`, `inputSchema` (and optionally `configSchema`). You can GET the agent’s `/schemas` and include that in the register payload.
+3. **Register the agent** — Either set `AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `AGENT_API_KEY` (domain_integration), and `AGENT_AUTH_API_URL` and pass `autoRegister` from env so the agent registers itself on startup (JWT mint + POST to registry), or register manually: POST to the registry with `Authorization: Bearer <jwt>` and body `agentId`, `agentVersion`, `endpoint`, `inputSchema` (and optionally `configSchema`). You can GET the agent’s `/schemas` and include that in the register payload.
 4. In Hermes, add the agent to a pipeline step and set step config if the agent has a config schema. Create schedules with params that satisfy the pipeline’s agents’ input schemas.
 
 ## Related docs

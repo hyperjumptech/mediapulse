@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sets up .env and .env.local for a new agent: runs dev-bootstrap (so the agent
 # gets .env and .env.local from its env.agents.<name>.example), then gets or
-# creates AGENT_API_KEY (scheduler purpose, same as hermes-worker) and sets it in the agent's .env.local.
+# creates AGENT_API_KEY (domain_integration purpose; mint JWT for registry) and sets it in the agent's .env.local.
 #
 # Usage: ./setup-agent-env.sh <agent-name> [options]
 # Options:
@@ -160,7 +160,7 @@ else
   echo "  ✓ Merged $EXAMPLE_FILE into $AGENT_DIR/.env.local"
 fi
 
-section "Get or create AGENT_API_KEY (scheduler)"
+section "Get or create AGENT_API_KEY (domain integration)"
 SCHEDULER_KEY=""
 
 # 1. From any existing agent .env.local
@@ -182,7 +182,7 @@ if [[ -z "$SCHEDULER_KEY" && -f "$SCRIPT_DIR/packages/mediapulse/env/.env" ]]; t
   fi
 fi
 
-# 3. Create via Hermes generate-api-key (scheduler purpose — required for POST /api/token)
+# 3. Create via Hermes generate-api-key (domain_integration purpose — required for POST /api/token)
 if [[ -z "$SCHEDULER_KEY" ]]; then
   if [[ -z "$ADMIN_EMAIL" ]]; then
     # Try env
@@ -194,14 +194,14 @@ if [[ -z "$SCHEDULER_KEY" ]]; then
   if [[ -z "$ADMIN_EMAIL" ]]; then
     echo "  No existing AGENT_API_KEY found."
     echo "  To create one, run: ./setup-agent-env.sh $AGENT_NAME --admin-email <your-admin-email>"
-    echo "  Or run ./dev-setup-local.sh first to create a scheduler key for all agents."
+    echo "  Or run ./dev-setup-local.sh first to create a domain integration key for all agents."
     exit 1
   fi
-  KEY_NAME="${KEY_NAME:-Agent scheduler ($AGENT_NAME)}"
-  echo "  Creating new scheduler API key via Hermes generate-api-key..."
+  KEY_NAME="${KEY_NAME:-Agent domain integration ($AGENT_NAME)}"
+  echo "  Creating new domain_integration API key via Hermes generate-api-key..."
   HERMES_OUTPUT="$(
     cd "$SCRIPT_DIR/apps/hermes/dashboard"
-    pnpm generate-api-key "$ADMIN_EMAIL" "$KEY_NAME" --purpose scheduler 2>&1
+    pnpm generate-api-key "$ADMIN_EMAIL" "$KEY_NAME" --purpose domain_integration 2>&1
   )"
   SCHEDULER_KEY="$(printf '%s\n' "$HERMES_OUTPUT" | extract_generated_api_key)"
   if [[ -z "$SCHEDULER_KEY" ]]; then

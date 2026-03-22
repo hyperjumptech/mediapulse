@@ -12,3 +12,5 @@ process.env.TEMP_ADMIN_USERNAME =
   process.env.TEMP_ADMIN_USERNAME ?? "test-admin";
 process.env.TEMP_ADMIN_PASSWORD =
   process.env.TEMP_ADMIN_PASSWORD ?? "test-password";
+process.env.HERMES_INTERNAL_API_KEY =
+  process.env.HERMES_INTERNAL_API_KEY ?? "test-hermes-internal-api-key";

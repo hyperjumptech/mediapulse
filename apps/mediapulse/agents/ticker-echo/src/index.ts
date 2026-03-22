@@ -32,7 +32,7 @@ const app = createAgentApp<
   },
   // Options for the agent app
   {
-    // Auto-register: AGENT_REGISTRY_URL, AGENT_PUBLIC_URL, AGENT_API_KEY (scheduler, same as hermes-worker), AGENT_AUTH_API_URL
+    // Auto-register: AGENT_REGISTRY_URL, AGENT_PUBLIC_URL, AGENT_API_KEY (Hermes domain_integration), AGENT_AUTH_API_URL
     authApiUrl: env.AGENT_AUTH_API_URL ?? "",
     verifyToken:
       env.ALLOW_ANY_BEARER_FOR_LOCAL === "true" ? async () => true : undefined,

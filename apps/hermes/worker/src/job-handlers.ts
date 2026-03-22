@@ -32,16 +32,16 @@ const createHttpClient = (signal?: AbortSignal): InvokeAgentHttpClient => ({
     }),
 });
 
-if (!env.AGENT_AUTH_API_URL || !env.AGENT_API_KEY) {
+if (!env.AGENT_AUTH_API_URL || !env.HERMES_INTERNAL_API_KEY) {
   throw new Error(
-    "AGENT_AUTH_API_URL and AGENT_API_KEY are required for hermes-worker (JWT-only agent invocation)",
+    "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY are required for hermes-worker (JWT-only agent invocation)",
   );
 }
 
-/** JWT-only: worker mints short-lived tokens from auth API; never sends raw API key to agents. */
+/** JWT-only: worker mints short-lived tokens from auth API; never sends the internal key to agents. */
 const tokenClient = createAgentTokenClient({
   authApiUrl: env.AGENT_AUTH_API_URL,
-  credential: env.AGENT_API_KEY,
+  credential: env.HERMES_INTERNAL_API_KEY,
 });
 
 /**

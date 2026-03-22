@@ -2,8 +2,8 @@
  * Generates an API key for a user and stores its hash in the database.
  * The raw key is printed once; store it securely. Use only for development or automation.
  *
- * Usage: pnpm generate-api-key <email> <name> [--purpose scheduler|general|run_pipeline]
- * Example: pnpm generate-api-key dev@example.com "Local dev scheduler" --purpose scheduler
+ * Usage: pnpm generate-api-key <email> <name> [--purpose scheduler|general|run_pipeline|domain_integration]
+ * Example: pnpm generate-api-key dev@example.com "Local dev domain" --purpose domain_integration
  */
 import { config } from "dotenv";
 import fs from "fs";
@@ -11,7 +11,12 @@ import * as crypto from "node:crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const VALID_PURPOSES = ["general", "scheduler", "run_pipeline"] as const;
+const VALID_PURPOSES = [
+  "general",
+  "scheduler",
+  "run_pipeline",
+  "domain_integration",
+] as const;
 
 function parseArgs(argv: string[]): {
   email: string;
@@ -51,7 +56,7 @@ async function main() {
 
   if (!email || !name) {
     console.error(
-      "Usage: pnpm generate-api-key <email> <name> [--purpose scheduler|general|run_pipeline]",
+      "Usage: pnpm generate-api-key <email> <name> [--purpose scheduler|general|run_pipeline|domain_integration]",
     );
     process.exit(1);
   }

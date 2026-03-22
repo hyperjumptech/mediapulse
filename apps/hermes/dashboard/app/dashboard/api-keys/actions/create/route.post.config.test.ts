@@ -81,13 +81,51 @@ describe("createCreateApiKeyHandler", () => {
 
     expect(createMock).toHaveBeenCalledTimes(1);
     const createCall = createMock.mock.calls[0] as [
-      { data: { name: string; key: string; userId: string } },
+      { data: { name: string; key: string; userId: string; purpose: string } },
     ];
     expect(createCall[0].data.name).toBe("My API Key");
     expect(createCall[0].data.userId).toBe("user-uuid");
+    expect(createCall[0].data.purpose).toBe("general");
     const storedHash = createCall[0].data.key;
     expect(storedHash).toMatch(/^[a-f0-9]{64}$/);
     expect(storedHash).not.toBe(rawKey);
+  });
+
+  it("persists purpose domain_integration when provided in body", async () => {
+    const createMock = vi.fn().mockResolvedValue({
+      id: "00000000-0000-4000-8000-000000000002",
+    });
+    const db = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "user-uuid",
+          name: "Admin",
+          email: "admin@example.com",
+        }),
+      },
+      aPIKey: { create: createMock },
+    };
+    const createHandler = createCreateApiKeyHandler({
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
+      db: db as never,
+    });
+    const result = await createHandler({
+      body: { name: "Domain key", purpose: "domain_integration" },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: undefined,
+    } as never);
+
+    expect(result.status).toBe(true);
+    const createCall = createMock.mock.calls[0] as [
+      { data: { purpose: string } },
+    ];
+    expect(createCall[0].data.purpose).toBe("domain_integration");
   });
 });
 

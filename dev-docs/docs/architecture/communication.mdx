@@ -10,22 +10,23 @@ This page explains **how the parts of the system talk to each other**: who calls
 
 ## Auth mechanisms (overview)
 
-| Flow                                            | Credential on the wire                                                                                                              | Verified by                                                         |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| **Minting** (Hermes / worker → agent-auth-api)  | Long-lived **scheduler API key** in `Authorization: Bearer …` on `POST /api/token`                                                  | Key lookup in DB (purpose `scheduler`)                              |
-| **Invocation** (Hermes / worker → agent)        | Short-lived **JWT**                                                                                                                 | Agent calls `POST /api/verify`                                      |
-| **Agent → agent-data-api / agent-registry-api** | **Same JWT** the agent received for the run (forwarded), or a **new JWT** minted with the scheduler key (e.g. startup registration) | Each API uses `POST /api/verify` via `@workspace/agent-auth-client` |
-| **Dashboard / admin** (when applicable)         | Raw API key on some routes                                                                                                          | `POST /api/verify-api-key`                                          |
+| Flow                                               | Credential on the wire                                                                                                                           | Verified by                                                           |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| **Minting** (Hermes / worker → agent-auth-api)     | Preset **`HERMES_INTERNAL_API_KEY`** in `Authorization: Bearer …` on **`POST /api/token`**                                                       | Timing-safe compare to env (not stored in DB)                         |
+| **Minting** (Mediapulse / agents → agent-auth-api) | Dashboard **`domain_integration`** API key in `Authorization: Bearer …` on **`POST /api/token`**                                                 | Key lookup in DB (purpose `domain_integration` or legacy `scheduler`) |
+| **Invocation** (Hermes / worker → agent)           | Short-lived **JWT**                                                                                                                              | Agent calls `POST /api/verify`                                        |
+| **Agent → agent-data-api / agent-registry-api**    | **Same JWT** the agent received for the run (forwarded), or a **new JWT** minted with the **domain_integration** key (e.g. startup registration) | Each API uses `POST /api/verify` via `@workspace/agent-auth-client`   |
+| **Dashboard / admin** (when applicable)            | Raw API key on some routes                                                                                                                       | `POST /api/verify-api-key`                                            |
 
-Invocation proves the scheduler may run the step. **agent-data-api** and **agent-registry-api** do not accept raw API keys from agents for normal requests—they expect a **JWT** and verify it the same way agents do.
+Invocation proves the caller is allowed to run the step. **agent-data-api** and **agent-registry-api** do not accept raw API keys from agents for normal requests—they expect a **JWT** and verify it the same way agents do.
 
 ---
 
 ## Invocation flow: Hermes or hermes-worker → Agent
 
-When a pipeline runs (from the dashboard or on a schedule), the caller **never** sends the raw scheduler API key to agents. It first gets a short-lived JWT from agent-auth-api, then sends that JWT to the agent.
+When a pipeline runs (from the dashboard or on a schedule), the caller **never** sends the preset internal secret to agents. Hermes dashboard and hermes-worker use **`HERMES_INTERNAL_API_KEY`** (same value on worker, dashboard, and agent-auth-api) only to call `POST /api/token`; they send the returned **JWT** to agents.
 
-**Where the scheduler key comes from:** An **admin** must create a long-lived API key in the **Hermes dashboard** (e.g. **API keys** in the sidebar). When creating the key, set **purpose** to `scheduler`. The raw key is shown once at creation; that value is what you set as `AGENT_API_KEY` in the environment for Hermes and hermes-worker. Hermes and hermes-worker use this key only to call `POST /api/token`; they never send it to agents.
+**Domain and agents:** To mint JWTs for **Mediapulse ↔ Hermes** or **registry auto-register**, an admin creates an API key in the dashboard with purpose **`domain_integration`** and sets the raw value as **`AGENT_API_KEY`** in Mediapulse/agent env (shown once at creation).
 
 <Mermaid
   chart={`sequenceDiagram
@@ -33,8 +34,8 @@ When a pipeline runs (from the dashboard or on a schedule), the caller **never**
   participant AuthAPI as "agent-auth-api"
   participant Agent as Agent
 
-HermesOrWorker->>AuthAPI: POST /api/token with Bearer scheduler_api_key
-AuthAPI->>AuthAPI: Validate key, purpose scheduler
+HermesOrWorker->>AuthAPI: POST /api/token with Bearer HERMES_INTERNAL_API_KEY
+AuthAPI->>AuthAPI: Match preset internal key
 AuthAPI->>HermesOrWorker: 200 + JWT, expiresIn
 HermesOrWorker->>Agent: POST / with Bearer JWT + body
 Agent->>AuthAPI: POST /api/verify with Bearer JWT
@@ -47,21 +48,21 @@ Agent->>HermesOrWorker: 200 response
 
 **Steps:**
 
-1. **Hermes** (manual run) or **hermes-worker** (scheduled run) is configured with a long-lived **scheduler API key**. This key must be **created by an admin in the Hermes dashboard** (API keys → Create, purpose `scheduler`). The admin copies the key once at creation and sets it as `AGENT_API_KEY` in the env for Hermes and hermes-worker. The caller then uses it to call **agent-auth-api** `POST /api/token` with `Authorization: Bearer <scheduler_key>`.
-2. **agent-auth-api** checks the key in the DB (active, purpose `scheduler`), signs a JWT with `AGENT_AUTH_JWT_SECRET`, and returns `{ token, expiresIn }` (e.g. 15 minutes).
+1. **Hermes** (manual run) or **hermes-worker** (scheduled run) is configured with **`HERMES_INTERNAL_API_KEY`** (deploy-time preset, not from the API keys UI). The caller uses it to call **agent-auth-api** `POST /api/token` with `Authorization: Bearer <HERMES_INTERNAL_API_KEY>`.
+2. **agent-auth-api** matches the bearer token to **`HERMES_INTERNAL_API_KEY`**, signs a JWT with `AGENT_AUTH_JWT_SECRET` (fixed internal `sub`, not tied to a DB user), and returns `{ token, expiresIn }` (e.g. 15 minutes).
 3. Hermes/hermes-worker **caches** the JWT and uses it for all agent requests until close to expiry, then fetches a new one.
 4. For each pipeline step, the caller sends `POST` to the agent URL with `Authorization: Bearer <jwt>` and the step input/config.
 5. The **agent** (via `@workspace/agent-runtime` bearer middleware) receives the request, extracts the Bearer token, and calls **agent-auth-api** `POST /api/verify` with that token.
 6. **agent-auth-api** `POST /api/verify` is **JWT-only**: it verifies signature and expiry. If the token is not a JWT or is invalid, it returns 401. The agent rejects the request unless it gets 200.
 7. The agent runs its logic and returns the result.
 
-**Important:** The scheduler API key is only ever sent to agent-auth-api. Agents only ever see the JWT, so a leaked JWT expires in minutes and the key can be revoked in the dashboard without sending it to every agent.
+**Important:** The internal preset key is only ever sent to agent-auth-api. Agents only ever see the JWT, so a leaked JWT expires in minutes. Rotate **`HERMES_INTERNAL_API_KEY`** at deploy time if it is compromised.
 
 ---
 
 ## Agent → agent-data-api / agent-registry-api (JWT)
 
-Agents call **agent-data-api** (read/write pipeline data) and optionally **agent-registry-api** (register). Both services use **bearer JWT** auth: the same **`Authorization: Bearer <jwt>`** the agent received for the pipeline step is forwarded to agent-data-api via `@workspace/agent-data-api-client`. For **registry** at startup (outside a pipeline), the agent typically mints a JWT using the **scheduler** `AGENT_API_KEY` and `POST /api/token`, then calls register with that JWT.
+Agents call **agent-data-api** (read/write pipeline data) and optionally **agent-registry-api** (register). Both services use **bearer JWT** auth: the same **`Authorization: Bearer <jwt>`** the agent received for the pipeline step is forwarded to agent-data-api via `@workspace/agent-data-api-client`. For **registry** at startup (outside a pipeline), the agent typically mints a JWT using **`AGENT_API_KEY`** (dashboard key, purpose **`domain_integration`**) and `POST /api/token`, then calls register with that JWT.
 
 <Mermaid
   chart={`sequenceDiagram
@@ -98,7 +99,7 @@ JWT verification is centralized in **agent-auth-api**; data and registry APIs do
   chart={`flowchart TB
   subgraph inv ["Invocation auth"]
     H["Hermes / hermes-worker"]
-    H -->|"Bearer scheduler_key"| T["POST /api/token"]
+    H -->|"Bearer internal preset"| T["POST /api/token"]
     T -->|"JWT"| H
     H -->|"Bearer JWT"| A["Agent"]
     A -->|"Bearer JWT"| V["POST /api/verify"]
@@ -124,7 +125,7 @@ end
 `}
 />
 
-- **Invocation:** Scheduler (Hermes/hermes-worker) → `POST /api/token` → JWT → agent → `POST /api/verify`. Raw scheduler key never goes to the agent.
+- **Invocation:** Hermes/hermes-worker → `POST /api/token` with **`HERMES_INTERNAL_API_KEY`** → JWT → agent → `POST /api/verify`. Internal preset never goes to the agent.
 - **Data / registry:** Agent → data or registry API with **JWT** → `POST /api/verify`. Same verification path as invocation.
 - **verify-api-key:** Used for flows that present a **raw API key** (e.g. some dashboard operations), not for normal agent→data-api traffic.
 
@@ -132,12 +133,12 @@ end
 
 ## Where to configure what
 
-| Component          | Needs                                                                          | Used for                                                                                                                                                                                             |
-| ------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **agent-auth-api** | `AGENT_AUTH_JWT_SECRET`                                                        | Signing/verifying JWTs (`/api/token`, `/api/verify`). Required for JWT flow.                                                                                                                         |
-| **Hermes**         | `AGENT_AUTH_API_URL`, `AGENT_API_KEY`                                          | Minting JWT when user runs a pipeline from the dashboard. `AGENT_API_KEY` = scheduler key **created by admin in Hermes dashboard** (API keys, purpose `scheduler`).                                  |
-| **hermes-worker**  | `AGENT_AUTH_API_URL`, `AGENT_API_KEY`                                          | Minting JWT for scheduled pipeline runs. Same scheduler key as Hermes; **create it in the Hermes dashboard** (API keys, purpose `scheduler`).                                                        |
-| **Agent**          | `AGENT_AUTH_API_URL`                                                           | Verifying invocation JWT via `POST /api/verify`.                                                                                                                                                     |
-| **Agent**          | Forwarded **JWT** (and optional scheduler key to mint a JWT for registry only) | Calling agent-data-api / agent-registry-api: same JWT as invocation, verified with `POST /api/verify`. Optional `AGENT_API_KEY` (scheduler) only to call `POST /api/token` for startup registration. |
+| Component          | Needs                                                                   | Used for                                                                                       |
+| ------------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **agent-auth-api** | `AGENT_AUTH_JWT_SECRET`, `HERMES_INTERNAL_API_KEY`                      | Signing/verifying JWTs; validating preset bearer for Hermes minting.                           |
+| **Hermes**         | `AGENT_AUTH_API_URL`, `HERMES_INTERNAL_API_KEY`                         | Minting JWT when user runs a pipeline from the dashboard (same preset as worker and auth API). |
+| **hermes-worker**  | `AGENT_AUTH_API_URL`, `HERMES_INTERNAL_API_KEY`                         | Minting JWT for scheduled pipeline runs.                                                       |
+| **Agent**          | `AGENT_AUTH_API_URL`                                                    | Verifying invocation JWT via `POST /api/verify`.                                               |
+| **Agent**          | Forwarded **JWT** (and optional **domain_integration** `AGENT_API_KEY`) | Data/registry: same JWT as invocation, or mint via `POST /api/token` for startup registration. |
 
 For a full list of env vars per app, see [Production](/production).

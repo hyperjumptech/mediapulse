@@ -11,6 +11,7 @@ export default defineConfig({
       TEMP_ADMIN_USERNAME: "test",
       TEMP_ADMIN_PASSWORD: "testtest",
       HERMES_DATA_SOURCE_MAX_TAKE: "5000",
+      HERMES_INTERNAL_API_KEY: "test-hermes-internal-api-key",
     },
     testTimeout: 10_000,
     hookTimeout: 30_000,

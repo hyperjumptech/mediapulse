@@ -44,8 +44,8 @@ export type AutoRegisterOptions = {
   /** Base URL of the agent-registry-api (e.g. https://registry.example.com). */
   registryUrl: string;
   /**
-   * Scheduler-purpose API key (same as hermes-worker `AGENT_API_KEY`); used to mint a JWT via
-   * agent-auth-api `POST /api/token` for registry registration.
+   * Hermes dashboard API key with purpose `domain_integration`; used to mint a JWT via
+   * agent-auth-api `POST /api/token` for registry registration (same key class as Mediapulse domain integration).
    */
   schedulerApiKey: string;
   /** Public URL where this agent is reachable (e.g. https://agent.example.com). */

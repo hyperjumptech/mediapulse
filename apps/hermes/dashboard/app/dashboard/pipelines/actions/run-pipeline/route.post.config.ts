@@ -33,10 +33,10 @@ const AgentEndpointSchema = z.object({
 });
 
 const defaultGetToken =
-  env.AGENT_AUTH_API_URL && env.AGENT_API_KEY
+  env.AGENT_AUTH_API_URL && env.HERMES_INTERNAL_API_KEY
     ? createAgentTokenClient({
         authApiUrl: env.AGENT_AUTH_API_URL,
-        credential: env.AGENT_API_KEY,
+        credential: env.HERMES_INTERNAL_API_KEY,
       }).getToken
     : null;
 
@@ -69,7 +69,9 @@ export const createRunPipelineHandler = ({
   fetchTickersForPipelineRun = fetchAllTickersForPipelineRun,
   getToken = defaultGetToken ??
     (async () => {
-      throw new Error("AGENT_AUTH_API_URL and AGENT_API_KEY are required");
+      throw new Error(
+        "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY are required",
+      );
     }),
   post = got.post,
 }: RunPipelineHandlerDependencies = {}): RunPipelineHandler => {
@@ -85,7 +87,7 @@ export const createRunPipelineHandler = ({
     } catch (err) {
       console.error("--> error getting token", err);
       return errorResponse(
-        "AGENT_AUTH_API_URL and AGENT_API_KEY are required to run pipelines (JWT-only invocation)",
+        "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY are required to run pipelines (JWT-only invocation)",
       );
     }
 

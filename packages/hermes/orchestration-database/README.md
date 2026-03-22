@@ -4,6 +4,8 @@ Prisma package for Hermes orchestration domain models (pipelines, schedules, exe
 
 ## Environment Variables
 
+Minimal template: `packages/hermes/env/env.orchestration-database.example` (merged with other Hermes env examples by `merge-env-examples.sh`).
+
 | Variable                     | Description                                           |
 | ---------------------------- | ----------------------------------------------------- |
 | `ORCHESTRATION_DATABASE_URL` | Optional direct URL for orchestration tables.         |

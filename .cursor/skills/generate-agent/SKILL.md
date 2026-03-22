@@ -18,7 +18,7 @@ New agents are scaffolded with **Turbo Gen** from the **ticker-echo** minimal te
 1. Generate: `pnpm turbo gen agent --args <agent-name>` (or `pnpm gen:agent` and enter name when prompted).
 2. Install: `pnpm install` (use `--no-frozen-lockfile` if needed).
 3. Build env package: `pnpm --filter @mediapulse/env build` (new export for the agent).
-4. Env and key: `./setup-agent-env.sh <agent-name>` — **always run this** so the agent gets `.env`/`.env.local` and `AGENT_API_KEY` (scheduler; get or create).
+4. Env and key: `./setup-agent-env.sh <agent-name>` — **always run this** so the agent gets `.env`/`.env.local` and `AGENT_API_KEY` (Hermes **domain_integration**; get or create).
 
 ## Command
 
@@ -52,7 +52,7 @@ The prompt asks for an **agent name** in kebab-case (e.g. `my-agent`). The gener
    ```bash
    ./setup-agent-env.sh <agent-name>
    ```
-   This runs `dev-bootstrap.sh` (so the agent gets `.env` and `.env.local` from `env.agents.<name>.example` with the correct PORT), then **gets or creates** `AGENT_API_KEY` (scheduler) and sets it in the agent’s `.env.local`. Key creation is automatic when an existing key is found in another agent’s `.env.local` or in **`packages/mediapulse/env/.env`**, or when `ADMIN_EMAIL` is set in **`packages/mediapulse/env/.env`**. If no key exists and no `ADMIN_EMAIL` is available, the script exits with instructions; then run again with `--admin-email <email>` or after `./dev-setup-local.sh`.
+   This runs `dev-bootstrap.sh` (so the agent gets `.env` and `.env.local` from `env.agents.<name>.example` with the correct PORT), then **gets or creates** `AGENT_API_KEY` (**domain_integration**) and sets it in the agent’s `.env.local`. Key creation is automatic when an existing key is found in another agent’s `.env.local` or in **`packages/mediapulse/env/.env`**, or when `ADMIN_EMAIL` is set in **`packages/mediapulse/env/.env`**. If no key exists and no `ADMIN_EMAIL` is available, the script exits with instructions; then run again with `--admin-email <email>` or after `./dev-setup-local.sh`.
 4. **Optional args for `setup-agent-env.sh`** — `--no-bootstrap` (skip bootstrap if .env already set up), `--admin-email EMAIL` (use when creating a new key and not in env), `--key-name NAME` (name for the new API key).
 
 ## After generation: what to customize
@@ -64,5 +64,5 @@ The prompt asks for an **agent name** in kebab-case (e.g. `my-agent`). The gener
 
 - Minimal template: **ticker-echo** — `apps/mediapulse/agents/ticker-echo/src/index.ts`.
 - Generator config: `turbo/generators/config.ts`; templates: `turbo/generators/templates/agent/`.
-- Env setup: `./setup-agent-env.sh <agent-name>` — bootstrap + get/create `AGENT_API_KEY` (scheduler).
+- Env setup: `./setup-agent-env.sh <agent-name>` — bootstrap + get/create `AGENT_API_KEY` (domain_integration).
 - Dev-docs: [Generate a new agent](/mediapulse/apps/agents/generate-agent) in the docs site.
