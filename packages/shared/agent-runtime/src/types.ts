@@ -18,6 +18,19 @@ export type AgentRunResult =
   | { success: true; message?: string }
   | { success: false; message: string };
 
+/**
+ * Hermes orchestration ids from invoke headers (`X-Schedule-Id`, etc.), grouped for `run` context.
+ * Present when hermes-worker invokes the agent; omitted for e.g. dashboard "Run now".
+ */
+export type HermesInvokeCorrelation = {
+  /** Hermes `Schedule.id` when `X-Schedule-Id` was sent. */
+  scheduleId?: string;
+  /** Hermes `ScheduleExecution.id` when `X-Schedule-Execution-Id` was sent. */
+  scheduleExecutionId?: string;
+  /** Hermes `PipelineStep.id` when `X-Pipeline-Step-Id` was sent. */
+  pipelineStepId?: string;
+};
+
 /** Context passed to the agent run function. */
 export type AgentRunContext<TInput, TConfig = Record<string, never>> = {
   /** Parsed and validated input (per-run payload). */
@@ -26,6 +39,11 @@ export type AgentRunContext<TInput, TConfig = Record<string, never>> = {
   config: TConfig;
   /** Authorization header value (e.g. "Bearer <token>"). */
   token: string | undefined;
+  /**
+   * Hermes schedule / execution / step correlation when the caller sent the corresponding headers.
+   * Omitted when no such headers are present (e.g. "Run now" in the dashboard).
+   */
+  hermesCorrelation?: HermesInvokeCorrelation;
 };
 
 /** Options for auto-registering with the agent-registry-api on startup. */

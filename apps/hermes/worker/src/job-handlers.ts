@@ -233,6 +233,9 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       {
         jobId: payload.jobId,
         executionId: payload.executionId,
+        scheduleId: payload.scheduleId,
+        scheduleExecutionId: payload.scheduleExecutionId,
+        pipelineStepId: payload.pipelineStepId,
         authToken,
         timeoutMs: payload.timeoutMs,
         signal,

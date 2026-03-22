@@ -13,6 +13,11 @@ vi.mock("@workspace/agent-auth-client", async (importOriginal) => {
 });
 
 import { createAgentApp } from "./create-agent-app.js";
+import {
+  HERMES_HEADER_PIPELINE_STEP_ID,
+  HERMES_HEADER_SCHEDULE_EXECUTION_ID,
+  HERMES_HEADER_SCHEDULE_ID,
+} from "./hermes-invoke-correlation.js";
 import type { AgentRunResult } from "./types.js";
 
 const schema = z.object({ tickerId: z.string().uuid() });
@@ -269,6 +274,42 @@ describe("createAgentApp", () => {
       input: validInput,
       config: { limit: 10 },
       token: "Bearer test-token",
+    });
+  });
+
+  it("passes Hermes schedule headers from request into run when present", async () => {
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        [HERMES_HEADER_SCHEDULE_ID]: "sched-a",
+        [HERMES_HEADER_SCHEDULE_EXECUTION_ID]: "exec-b",
+        [HERMES_HEADER_PIPELINE_STEP_ID]: "step-c",
+      },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(200);
+    expect(run).toHaveBeenCalledWith({
+      input: validInput,
+      config: {},
+      token: "Bearer test-token",
+      hermesCorrelation: {
+        scheduleId: "sched-a",
+        scheduleExecutionId: "exec-b",
+        pipelineStepId: "step-c",
+      },
     });
   });
 
