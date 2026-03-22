@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 
 import { SchemaForm } from "@workspace/json-schema-form";
 import type {
@@ -67,10 +68,14 @@ export const PipelineStepEditorPanel = ({
 }: PipelineStepEditorPanelProps) => {
   const { schemas, schemaLoading, activeTab, setActiveTab } =
     useStepEditorPanelState(selectedStep);
-  const stringFieldComponent = createVariableExpansionStringField({
-    loadVariablesPage: loadVariablePickerPage,
-    loadExpansionsPage: loadExpansionPickerPage,
-  });
+  const stringFieldComponent = useMemo(
+    () =>
+      createVariableExpansionStringField({
+        loadVariablesPage: loadVariablePickerPage,
+        loadExpansionsPage: loadExpansionPickerPage,
+      }),
+    [loadExpansionPickerPage, loadVariablePickerPage],
+  );
 
   if (!selectedStep) {
     return (
