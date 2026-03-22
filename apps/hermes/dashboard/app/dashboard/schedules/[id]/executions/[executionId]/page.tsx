@@ -132,6 +132,8 @@ export default async function ScheduleExecutionDetailPage({
             agentId: j.agentId,
             startedAtIso: j.startedAt?.toISOString() ?? null,
             completedAtIso: j.completedAt?.toISOString() ?? null,
+            dataQueueAttempts: j.dataQueueAttempts,
+            dataQueueMaxAttempts: j.dataQueueMaxAttempts,
           }))}
         />
       </section>

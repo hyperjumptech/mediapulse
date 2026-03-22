@@ -17,6 +17,9 @@ export const env = createEnv({
     PROCESSOR_CONCURRENCY: z.string().optional(),
     HERMES_INVOKE_AGENT_MAX_ATTEMPTS: z.string().optional(),
     HERMES_INVOKE_AGENT_DLQ_JOB_TYPE: z.string().optional(),
+    HERMES_INVOKE_AGENT_RETRY_DELAY: z.string().optional(),
+    HERMES_INVOKE_AGENT_RETRY_BACKOFF: z.string().optional(),
+    HERMES_INVOKE_AGENT_RETRY_DELAY_MAX: z.string().optional(),
   },
   client: {
   },

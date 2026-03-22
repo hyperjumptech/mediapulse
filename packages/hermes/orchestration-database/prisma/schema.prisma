@@ -229,28 +229,32 @@ model ScheduleExecution {
 }
 
 model AgentJobExecution {
-  id                  String                  @id @default(uuid())
-  jobId               String                  @unique @map("job_id")
-  agentId             String                  @map("agent_id")
-  scheduleId          String?                 @map("schedule_id")
-  scheduleExecutionId String?                 @map("schedule_execution_id")
-  pipelineId          String?                 @map("pipeline_id")
-  pipelineStepId      String?                 @map("pipeline_step_id")
-  status              AgentJobExecutionStatus
-  priority            Int                     @default(0)
-  enqueuedAt          DateTime                @map("enqueued_at")
-  dependencies        Json?
-  params              Json                    @default("{}")
+  id                   String                  @id @default(uuid())
+  jobId                String                  @unique @map("job_id")
+  agentId              String                  @map("agent_id")
+  scheduleId           String?                 @map("schedule_id")
+  scheduleExecutionId  String?                 @map("schedule_execution_id")
+  pipelineId           String?                 @map("pipeline_id")
+  pipelineStepId       String?                 @map("pipeline_step_id")
+  status               AgentJobExecutionStatus
+  priority             Int                     @default(0)
+  enqueuedAt           DateTime                @map("enqueued_at")
+  dependencies         Json?
+  params               Json                    @default("{}")
   /// Resolved step `config` sent with the agent body (stored for execution debugging).
-  invocationConfig    Json?                   @map("invocation_config")
-  error               Json?
+  invocationConfig     Json?                   @map("invocation_config")
+  error                Json?
   /// Parsed agent response envelope (success path or semantic failure): message, details, logs, schemaVersion.
-  agentResponse       Json?                   @map("agent_response")
+  agentResponse        Json?                   @map("agent_response")
   /// Agent envelope `status` when body was valid: "success" | "failure".
-  semanticStatus      String?                 @map("semantic_status")
-  startedAt           DateTime?               @map("started_at")
-  completedAt         DateTime?               @map("completed_at")
-  createdAt           DateTime                @default(now()) @map("created_at")
+  semanticStatus       String?                 @map("semantic_status")
+  startedAt            DateTime?               @map("started_at")
+  completedAt          DateTime?               @map("completed_at")
+  /// DataQueue `attempts` after the worker claimed this job (refreshed each processing attempt).
+  dataQueueAttempts    Int?                    @map("data_queue_attempts")
+  /// DataQueue `max_attempts` when last synced (for display, e.g. `3 / 5`).
+  dataQueueMaxAttempts Int?                    @map("data_queue_max_attempts")
+  createdAt            DateTime                @default(now()) @map("created_at")
 
   schedule          Schedule?          @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
   scheduleExecution ScheduleExecution? @relation(fields: [scheduleExecutionId], references: [id], onDelete: SetNull)

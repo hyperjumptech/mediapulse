@@ -12,7 +12,7 @@ icon: ServerCog
 
 - **Queue init** — Connects to DataQueue using `PG_DATAQUEUE_DATABASE`.
 - **Cron registration** — Ensures `hermes-check-schedules` (every minute) exists.
-- **Processor** — Runs job handlers: `check_schedules` (get due schedules, enqueue one `invoke_agent` job per expanded input); `invoke_agent` (get JWT, POST to agent, update `AgentJobExecution`). Concurrency and batch size are configurable via env so multiple agent invocations run in parallel.
+- **Processor** — Runs job handlers: `check_schedules` (get due schedules, enqueue one `invoke_agent` job per expanded input); `invoke_agent` (get JWT, POST to agent, update `AgentJobExecution`). Concurrency and batch size are configurable via env so multiple agent invocations run in parallel. Transient failures (network errors, HTTP 5xx) can be retried by DataQueue with optional exponential backoff env vars; orchestration rows are reset to `pending` between retries so the agent is called again.
 - **Supervisor** — Reclaims stuck jobs, cleans old jobs/events.
 - **JWT-only invocation** — The worker **requires** `AGENT_AUTH_API_URL` and **`HERMES_INTERNAL_API_KEY`** (same preset as the Hermes dashboard and agent-auth-api, not a dashboard API key). The worker uses it only to fetch short-lived JWTs from `POST /api/token` and sends only JWTs to agents; the preset is never sent to agents. Rotate the preset in env if it is compromised.
 - **HTTPS enforcement** — When `REQUIRE_HTTPS_AGENT_ENDPOINTS=true`, agent endpoint URLs must use HTTPS (or `http://localhost` / `http://127.0.0.1` for local dev).
@@ -42,16 +42,27 @@ If you see an error like `relation "cron_schedules" does not exist` when startin
 
 Variables are defined in **`packages/hermes/env/env.hermes-worker.example`**. Copy values into **`apps/hermes/worker/.env.local`** (or set in your deployment).
 
-| Variable                          | Required | Description                                                                                                        |
-| --------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| **DATABASE_URL**                  | Yes      | Main app database (Prisma).                                                                                        |
-| **PG_DATAQUEUE_DATABASE**         | Yes      | DataQueue connection (`?schema=dataqueue&search_path=dataqueue`). Run migrate-dataqueue before first start.        |
-| **AGENT_AUTH_API_URL**            | Yes      | **Required.** Base URL of agent-auth-api. Worker mints JWTs via POST /api/token.                                   |
-| **HERMES_INTERNAL_API_KEY**       | Yes      | Preset shared with Hermes dashboard and agent-auth-api. Used only to call `POST /api/token`; never sent to agents. |
-| **REQUIRE_HTTPS_AGENT_ENDPOINTS** | No       | Set to `true` in production to reject non-HTTPS agent endpoints (except localhost).                                |
-| **PROCESSOR_BATCH_SIZE**          | No       | Max jobs fetched per poll (default `10`). Tune for agent invocation throughput.                                    |
-| **PROCESSOR_CONCURRENCY**         | No       | Max concurrent job executions, e.g. agent HTTP calls (default `3`). Increase for more parallelism.                 |
-| **HERMES_DATA_SOURCE_MAX_TAKE**   | No       | Cap for `db:` expansion (default matches Hermes validation).                                                       |
+| Variable                                | Required | Description                                                                                                        |
+| --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| **DATABASE_URL**                        | Yes      | Main app database (Prisma).                                                                                        |
+| **PG_DATAQUEUE_DATABASE**               | Yes      | DataQueue connection (`?schema=dataqueue&search_path=dataqueue`). Run migrate-dataqueue before first start.        |
+| **AGENT_AUTH_API_URL**                  | Yes      | **Required.** Base URL of agent-auth-api. Worker mints JWTs via POST /api/token.                                   |
+| **HERMES_INTERNAL_API_KEY**             | Yes      | Preset shared with Hermes dashboard and agent-auth-api. Used only to call `POST /api/token`; never sent to agents. |
+| **REQUIRE_HTTPS_AGENT_ENDPOINTS**       | No       | Set to `true` in production to reject non-HTTPS agent endpoints (except localhost).                                |
+| **PROCESSOR_BATCH_SIZE**                | No       | Max jobs fetched per poll (default `10`). Tune for agent invocation throughput.                                    |
+| **PROCESSOR_CONCURRENCY**               | No       | Max concurrent job executions, e.g. agent HTTP calls (default `3`). Increase for more parallelism.                 |
+| **HERMES_DATA_SOURCE_MAX_TAKE**         | No       | Cap for `db:` expansion (default matches Hermes validation).                                                       |
+| **HERMES_INVOKE_AGENT_MAX_ATTEMPTS**    | No       | DataQueue `maxAttempts` for `invoke_agent` jobs. Omit for library default.                                         |
+| **HERMES_INVOKE_AGENT_DLQ_JOB_TYPE**    | No       | When set, exhausted `invoke_agent` failures enqueue a dead-letter job of this type.                                |
+| **HERMES_INVOKE_AGENT_RETRY_DELAY**     | No       | Base delay **in seconds** between retries (`retryDelay`). Enables second-based backoff when set.                   |
+| **HERMES_INVOKE_AGENT_RETRY_BACKOFF**   | No       | `"false"` for fixed delay; omit or `"true"` for exponential backoff when `HERMES_INVOKE_AGENT_RETRY_DELAY` is set. |
+| **HERMES_INVOKE_AGENT_RETRY_DELAY_MAX** | No       | Optional cap on retry delay **in seconds** (`retryDelayMax`).                                                      |
+
+### Transient invocation retries
+
+Transport failures and **HTTP 5xx** responses are treated as transient: the worker throws so DataQueue schedules another attempt (with backoff when configured). So that a retry actually runs the HTTP call again, the worker resets the corresponding `AgentJobExecution` row from **running** back to **pending** while attempts remain; after the last attempt it applies normal terminal failure (including schedule rollups) via `applyInvocationCompletion`. Each enqueued job gets `hermesDataQueueJobId` on the payload after `addJobs` so the handler can read the queue row’s `attempts` / `maxAttempts`. Jobs enqueued before this behavior (no queue id on payload) keep the previous semantics: a single terminal `failed` row when the handler throws.
+
+After each successful claim, the worker copies DataQueue **`attempts`** and **`max_attempts`** into `agent_job_execution.data_queue_attempts` and `data_queue_max_attempts` so the Hermes dashboard execution detail page can show **Attempts** (current / max) per invocation.
 
 ## Workspace dependencies
 

@@ -9,7 +9,7 @@ import { decryptDomainIntegrationApiKey } from "@hermes/domain-integration-crypt
 import { createDomainIntegrationClient } from "@hermes/domain-contract";
 import { env } from "@hermes/env/hermes-worker";
 import { logger } from "@workspace/logger";
-import type { JobHandlers } from "@nicnocquee/dataqueue";
+import type { JobContext, JobHandlers } from "@nicnocquee/dataqueue";
 import { batchDepRef } from "@nicnocquee/dataqueue";
 import type { JobPayloadMap } from "./job-payload-map";
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
@@ -21,10 +21,26 @@ import {
   invokeAgentPost,
   parseAgentResponseEnvelope,
   parseHttpErrorBodyMessage,
+  willRetryAfterTransientFailure,
   type ExpandStepInputs,
   type InvokeAgentHttpClient,
+  type InvokeAgentJobPayload,
 } from "@hermes/scheduler";
 import { getJobQueue } from "./queue";
+
+/**
+ * Parses optional positive integer env strings (DataQueue retry delay fields are in seconds).
+ *
+ * @param raw - Env value from `@hermes/env/hermes-worker`.
+ * @returns Integer >= 1, or undefined when unset/invalid.
+ */
+const parsePositiveIntEnv = (raw: string | undefined): number | undefined => {
+  if (raw == null || raw.trim() === "") {
+    return undefined;
+  }
+  const n = Number.parseInt(raw.trim(), 10);
+  return Number.isFinite(n) && n >= 1 ? n : undefined;
+};
 
 /**
  * Creates an HTTP client that forwards the optional AbortSignal to got for request cancellation.
@@ -119,6 +135,70 @@ const completionDeps = {
 };
 
 /**
+ * Transport or 5xx: reset `AgentJobExecution` to `pending` when DataQueue will retry; otherwise
+ * terminal failure via `applyInvocationCompletion`, then rethrow for the queue.
+ *
+ * @param params - Payload, user-facing message, and error to propagate to DataQueue.
+ */
+const handleTransientInvokeFailure = async (params: {
+  payload: InvokeAgentJobPayload;
+  message: string;
+  errorToThrow: Error;
+}): Promise<never> => {
+  const { payload, message, errorToThrow } = params;
+  const jobQueue = getJobQueue();
+
+  if (payload.hermesDataQueueJobId == null) {
+    await orchestrationPrisma.agentJobExecution.update({
+      where: { jobId: payload.jobId },
+      data: {
+        status: AgentJobExecutionStatus.failed,
+        error: { message, retryable: true },
+        completedAt: new Date(),
+      },
+    });
+    throw errorToThrow;
+  }
+
+  const dqJob = await jobQueue.getJob(payload.hermesDataQueueJobId);
+  if (
+    dqJob == null ||
+    !willRetryAfterTransientFailure(dqJob.attempts, dqJob.maxAttempts)
+  ) {
+    await applyInvocationCompletion(
+      {
+        jobId: payload.jobId,
+        scheduleExecutionId: payload.scheduleExecutionId,
+        pipelineStepId: payload.pipelineStepId,
+        terminal: {
+          status: AgentJobExecutionStatus.failed,
+          error: { message, retryable: true },
+        },
+      },
+      completionDeps,
+    );
+    throw errorToThrow;
+  }
+
+  await orchestrationPrisma.agentJobExecution.updateMany({
+    where: {
+      jobId: payload.jobId,
+      status: AgentJobExecutionStatus.running,
+    },
+    data: {
+      status: AgentJobExecutionStatus.pending,
+      completedAt: null,
+      error: {
+        message,
+        retryable: true,
+        transient: true,
+      },
+    },
+  });
+  throw errorToThrow;
+};
+
+/**
  * DataQueue job handlers for Hermes.
  * check_schedules: polls due schedules and enqueues invoke_agent jobs.
  * invoke_agent: performs the HTTP call to the agent and updates AgentJobExecution.
@@ -142,31 +222,63 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
               : undefined;
             const deadLetterJobType =
               env.HERMES_INVOKE_AGENT_DLQ_JOB_TYPE?.trim() || undefined;
-            await jobQueue.addJobs(
-              items.map((item) => ({
-                jobType: "invoke_agent" as const,
-                payload: item.payload,
-                priority: item.payload.priority,
-                idempotencyKey: item.payload.jobId,
-                maxAttempts,
-                deadLetterJobType,
-                dependsOn:
-                  item.dependsOnBatchIndices?.length &&
-                  item.dependsOnBatchIndices.length > 0
-                    ? {
-                        jobIds: item.dependsOnBatchIndices.map((i) =>
-                          batchDepRef(i),
-                        ),
-                      }
-                    : undefined,
-                tags: [
-                  `scheduleExecution:${item.payload.scheduleExecutionId}`,
-                  `schedule:${item.payload.scheduleId}`,
-                  `pipeline:${item.payload.pipelineId}`,
-                  `pipelineStep:${item.payload.pipelineStepId}`,
-                ],
-              })),
+            const retryDelaySec = parsePositiveIntEnv(
+              env.HERMES_INVOKE_AGENT_RETRY_DELAY,
             );
+            const retryDelayMaxSec = parsePositiveIntEnv(
+              env.HERMES_INVOKE_AGENT_RETRY_DELAY_MAX,
+            );
+            const backoffRaw = env.HERMES_INVOKE_AGENT_RETRY_BACKOFF?.trim();
+            const retryBackoff =
+              backoffRaw === "true"
+                ? true
+                : backoffRaw === "false"
+                  ? false
+                  : undefined;
+            const jobDefs = items.map((item) => ({
+              jobType: "invoke_agent" as const,
+              payload: item.payload,
+              priority: item.payload.priority,
+              idempotencyKey: item.payload.jobId,
+              maxAttempts,
+              deadLetterJobType,
+              ...(retryDelaySec !== undefined
+                ? { retryDelay: retryDelaySec }
+                : {}),
+              ...(retryBackoff !== undefined ? { retryBackoff } : {}),
+              ...(retryDelayMaxSec !== undefined
+                ? { retryDelayMax: retryDelayMaxSec }
+                : {}),
+              dependsOn:
+                item.dependsOnBatchIndices?.length &&
+                item.dependsOnBatchIndices.length > 0
+                  ? {
+                      jobIds: item.dependsOnBatchIndices.map((i) =>
+                        batchDepRef(i),
+                      ),
+                    }
+                  : undefined,
+              tags: [
+                `scheduleExecution:${item.payload.scheduleExecutionId}`,
+                `schedule:${item.payload.scheduleId}`,
+                `pipeline:${item.payload.pipelineId}`,
+                `pipelineStep:${item.payload.pipelineStepId}`,
+              ],
+            }));
+            const insertedIds = await jobQueue.addJobs(jobDefs);
+            for (let i = 0; i < insertedIds.length; i++) {
+              const queueJobId = insertedIds[i];
+              const item = items[i];
+              if (item === undefined || queueJobId === undefined) {
+                continue;
+              }
+              await jobQueue.editJob(queueJobId, {
+                payload: {
+                  ...item.payload,
+                  hermesDataQueueJobId: queueJobId,
+                },
+              });
+            }
           },
           expandStepInputs,
           defaultTimeoutMs: 300_000,
@@ -182,7 +294,8 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     }
   },
 
-  invoke_agent: async (payload, signal) => {
+  invoke_agent: async (payload, signal, _ctx: JobContext) => {
+    void _ctx;
     logger.info(
       {
         jobId: payload.jobId,
@@ -201,6 +314,26 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     });
     if (claimed.count === 0) {
       return;
+    }
+
+    if (payload.hermesDataQueueJobId != null) {
+      try {
+        const dqJob = await getJobQueue().getJob(payload.hermesDataQueueJobId);
+        if (dqJob != null) {
+          await orchestrationPrisma.agentJobExecution.update({
+            where: { jobId: payload.jobId },
+            data: {
+              dataQueueAttempts: dqJob.attempts,
+              dataQueueMaxAttempts: dqJob.maxAttempts,
+            },
+          });
+        }
+      } catch (err) {
+        logger.warn(
+          { err, jobId: payload.jobId },
+          "invoke_agent: failed to sync DataQueue attempts to agent_job_execution",
+        );
+      }
     }
 
     if (!payload.scheduleExecutionId) {
@@ -253,40 +386,105 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
         },
         "invoke_agent transport failure",
       );
-      await orchestrationPrisma.agentJobExecution.update({
-        where: { jobId: payload.jobId },
-        data: {
-          status: AgentJobExecutionStatus.failed,
-          error: {
-            message: postResult.error.message,
-            retryable: true,
-          },
-          completedAt: new Date(),
-        },
+      await handleTransientInvokeFailure({
+        payload,
+        message: postResult.error.message,
+        errorToThrow: postResult.error,
       });
-      throw postResult.error;
-    }
+    } else {
+      const { statusCode, rawBody, isEmptyBody } = postResult.response;
 
-    const { statusCode, rawBody, isEmptyBody } = postResult.response;
+      if (statusCode >= 500) {
+        const bodyMessage = parseHttpErrorBodyMessage(rawBody);
+        const message = bodyMessage ?? `Agent HTTP ${statusCode}`;
+        const err = new Error(`Agent returned HTTP ${statusCode}`);
+        await handleTransientInvokeFailure({
+          payload,
+          message,
+          errorToThrow: err,
+        });
+      }
 
-    if (statusCode >= 500) {
-      const bodyMessage = parseHttpErrorBodyMessage(rawBody);
-      await orchestrationPrisma.agentJobExecution.update({
-        where: { jobId: payload.jobId },
-        data: {
-          status: AgentJobExecutionStatus.failed,
-          error: {
-            message: bodyMessage ?? `Agent HTTP ${statusCode}`,
-            retryable: true,
+      if (statusCode >= 400) {
+        const bodyMessage = parseHttpErrorBodyMessage(rawBody);
+        await applyInvocationCompletion(
+          {
+            jobId: payload.jobId,
+            scheduleExecutionId: payload.scheduleExecutionId,
+            pipelineStepId: payload.pipelineStepId,
+            terminal: {
+              status: AgentJobExecutionStatus.failed,
+              error: {
+                message: bodyMessage ?? `HTTP ${statusCode}`,
+                retryable: false,
+              },
+            },
           },
-          completedAt: new Date(),
-        },
-      });
-      throw new Error(`Agent returned HTTP ${statusCode}`);
-    }
+          completionDeps,
+        );
+        return;
+      }
 
-    if (statusCode >= 400) {
-      const bodyMessage = parseHttpErrorBodyMessage(rawBody);
+      if (statusCode >= 200 && statusCode < 300) {
+        const parsed = parseAgentResponseEnvelope(rawBody, isEmptyBody);
+        if (!parsed.ok) {
+          await applyInvocationCompletion(
+            {
+              jobId: payload.jobId,
+              scheduleExecutionId: payload.scheduleExecutionId,
+              pipelineStepId: payload.pipelineStepId,
+              terminal: {
+                status: AgentJobExecutionStatus.failed,
+                error: {
+                  message: parsed.error.message,
+                  code: parsed.error.code,
+                  retryable: false,
+                },
+              },
+            },
+            completionDeps,
+          );
+          return;
+        }
+        if (parsed.envelope.status === "failure") {
+          await applyInvocationCompletion(
+            {
+              jobId: payload.jobId,
+              scheduleExecutionId: payload.scheduleExecutionId,
+              pipelineStepId: payload.pipelineStepId,
+              terminal: {
+                status: AgentJobExecutionStatus.failed,
+                error: {
+                  message:
+                    parsed.envelope.message ??
+                    "Agent reported semantic failure",
+                  retryable: false,
+                  semantic: true,
+                },
+                agentResponse:
+                  parsed.envelope as unknown as Prisma.InputJsonValue,
+                semanticStatus: "failure",
+              },
+            },
+            completionDeps,
+          );
+          return;
+        }
+        await applyInvocationCompletion(
+          {
+            jobId: payload.jobId,
+            scheduleExecutionId: payload.scheduleExecutionId,
+            pipelineStepId: payload.pipelineStepId,
+            terminal: {
+              status: AgentJobExecutionStatus.completed,
+              envelope: parsed.envelope,
+            },
+          },
+          completionDeps,
+        );
+        return;
+      }
+
       await applyInvocationCompletion(
         {
           jobId: payload.jobId,
@@ -295,89 +493,13 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           terminal: {
             status: AgentJobExecutionStatus.failed,
             error: {
-              message: bodyMessage ?? `HTTP ${statusCode}`,
+              message: `Unexpected HTTP status ${statusCode}`,
               retryable: false,
             },
           },
         },
         completionDeps,
       );
-      return;
     }
-
-    if (statusCode >= 200 && statusCode < 300) {
-      const parsed = parseAgentResponseEnvelope(rawBody, isEmptyBody);
-      if (!parsed.ok) {
-        await applyInvocationCompletion(
-          {
-            jobId: payload.jobId,
-            scheduleExecutionId: payload.scheduleExecutionId,
-            pipelineStepId: payload.pipelineStepId,
-            terminal: {
-              status: AgentJobExecutionStatus.failed,
-              error: {
-                message: parsed.error.message,
-                code: parsed.error.code,
-                retryable: false,
-              },
-            },
-          },
-          completionDeps,
-        );
-        return;
-      }
-      if (parsed.envelope.status === "failure") {
-        await applyInvocationCompletion(
-          {
-            jobId: payload.jobId,
-            scheduleExecutionId: payload.scheduleExecutionId,
-            pipelineStepId: payload.pipelineStepId,
-            terminal: {
-              status: AgentJobExecutionStatus.failed,
-              error: {
-                message:
-                  parsed.envelope.message ?? "Agent reported semantic failure",
-                retryable: false,
-                semantic: true,
-              },
-              agentResponse:
-                parsed.envelope as unknown as Prisma.InputJsonValue,
-              semanticStatus: "failure",
-            },
-          },
-          completionDeps,
-        );
-        return;
-      }
-      await applyInvocationCompletion(
-        {
-          jobId: payload.jobId,
-          scheduleExecutionId: payload.scheduleExecutionId,
-          pipelineStepId: payload.pipelineStepId,
-          terminal: {
-            status: AgentJobExecutionStatus.completed,
-            envelope: parsed.envelope,
-          },
-        },
-        completionDeps,
-      );
-      return;
-    }
-
-    await applyInvocationCompletion(
-      {
-        jobId: payload.jobId,
-        scheduleExecutionId: payload.scheduleExecutionId,
-        pipelineStepId: payload.pipelineStepId,
-        terminal: {
-          status: AgentJobExecutionStatus.failed,
-          error: {
-            message: `Unexpected HTTP status ${statusCode}`,
-            retryable: false,
-          },
-        },
-      },
-      completionDeps,
-    );
   },
 };

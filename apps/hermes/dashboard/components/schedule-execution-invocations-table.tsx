@@ -19,6 +19,7 @@ import {
 } from "@workspace/ui/components/table";
 import { Button } from "@workspace/ui/components/button";
 
+import { formatQueueAttemptsDisplay } from "@/lib/format-queue-attempts-display";
 import { resolveInvocationOutcomeLabel } from "@/lib/invocation-display-status";
 
 import {
@@ -124,6 +125,7 @@ export const ScheduleExecutionInvocationsTable = ({
             <TableRow>
               <TableHead>Job</TableHead>
               <TableHead>Agent</TableHead>
+              <TableHead>Attempts</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>
                 <TimestampSortHeader
@@ -149,7 +151,7 @@ export const ScheduleExecutionInvocationsTable = ({
           <TableBody>
             {invocations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground">
+                <TableCell colSpan={7} className="text-muted-foreground">
                   No invocations.
                 </TableCell>
               </TableRow>
@@ -178,6 +180,15 @@ export const ScheduleExecutionInvocationsTable = ({
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {j.agentId}
+                    </TableCell>
+                    <TableCell
+                      className="text-sm text-muted-foreground tabular-nums"
+                      title="DataQueue processing attempts (current / max)"
+                    >
+                      {formatQueueAttemptsDisplay(
+                        j.dataQueueAttempts,
+                        j.dataQueueMaxAttempts,
+                      )}
                     </TableCell>
                     <TableCell
                       className={

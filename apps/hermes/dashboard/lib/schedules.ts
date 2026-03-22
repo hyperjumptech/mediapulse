@@ -238,6 +238,10 @@ export type ScheduleExecutionDetail = {
     semanticStatus: string | null;
     startedAt: Date | null;
     completedAt: Date | null;
+    /** DataQueue `attempts` when the worker last claimed this job; null for legacy rows. */
+    dataQueueAttempts: number | null;
+    /** DataQueue `max_attempts` when last synced; null for legacy rows. */
+    dataQueueMaxAttempts: number | null;
   }>;
 };
 
@@ -283,6 +287,8 @@ export const getScheduleExecutionDetail = async (
           semanticStatus: true,
           startedAt: true,
           completedAt: true,
+          dataQueueAttempts: true,
+          dataQueueMaxAttempts: true,
         },
       },
     },
@@ -336,6 +342,8 @@ export const getScheduleExecutionDetail = async (
       semanticStatus: j.semanticStatus,
       startedAt: j.startedAt,
       completedAt: j.completedAt,
+      dataQueueAttempts: j.dataQueueAttempts,
+      dataQueueMaxAttempts: j.dataQueueMaxAttempts,
     })),
   };
 };

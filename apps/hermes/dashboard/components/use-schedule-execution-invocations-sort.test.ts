@@ -22,6 +22,8 @@ const baseRow = (
   agentId: "agent-a",
   startedAtIso,
   completedAtIso,
+  dataQueueAttempts: null,
+  dataQueueMaxAttempts: null,
 });
 
 describe("compareOptionalIsoDates", () => {
