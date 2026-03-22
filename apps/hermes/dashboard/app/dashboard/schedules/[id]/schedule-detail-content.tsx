@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
+import { format } from "date-fns";
 import { ChevronLeft } from "lucide-react";
 
 import type { getScheduleById, ScheduleExecutionRow } from "@/lib/schedules";
@@ -37,6 +38,16 @@ const useScheduleDetailContentState = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   return { editModalOpen, setEditModalOpen };
 };
+
+/**
+ * Formats `nextRunAt` for display in the schedule header (local time string + IANA timezone label).
+ *
+ * @param nextRunAt - Upcoming run instant from the schedule row.
+ * @param timezone - Schedule timezone name (e.g. `America/New_York`).
+ * @returns Formatted date/time and timezone for screen readers and UI.
+ */
+const formatNextRunAt = (nextRunAt: Date, timezone: string): string =>
+  `${format(nextRunAt, "LLL d, yyyy HH:mm:ss")} (${timezone})`;
 
 /**
  * Client wrapper for schedule detail: back link, header with Edit schedule button, executions table, and pagination.
@@ -81,6 +92,20 @@ export const ScheduleDetailContent = ({
                 {schedule.enabled ? "Enabled" : "Disabled"}
               </Badge>
             </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Next run: </span>
+              {schedule.enabled ? (
+                schedule.nextRunAt ? (
+                  <time dateTime={schedule.nextRunAt.toISOString()}>
+                    {formatNextRunAt(schedule.nextRunAt, schedule.timezone)}
+                  </time>
+                ) : (
+                  <span>None scheduled</span>
+                )
+              ) : (
+                <span>Not while disabled</span>
+              )}
+            </p>
             <p className="text-muted-foreground">
               {schedule.description ??
                 "View executions and edit schedule settings."}
