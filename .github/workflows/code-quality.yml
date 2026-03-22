@@ -46,18 +46,19 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Bootstrap env
-        run: ./dev-bootstrap.sh
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Generate Prisma clients
-        run: pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
+      - name: Set up local environment
+        env:
+          # Required by dev-setup-local.sh --non-interactive (create:admin + domain seed); CI-only placeholders.
+          DEV_SETUP_ADMIN_EMAIL: ci-setup@example.invalid
+          DEV_SETUP_ADMIN_PASSWORD: CiLocalDevSetup2024
+        run: |
+          ./dev-setup-local.sh --non-interactive \
+            --admin-email "$DEV_SETUP_ADMIN_EMAIL" \
+            --admin-password "$DEV_SETUP_ADMIN_PASSWORD"
 
       - name: Generate route actions
-        run: |
-          pnpm generate
+        run: pnpm generate
+
       - name: Build
         run: pnpm build
 
@@ -97,18 +98,15 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Bootstrap env
-        run: ./dev-bootstrap.sh
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Generate Prisma clients
-        run: pnpm --filter=@hermes/orchestration-database run db:generate && pnpm --filter=@mediapulse/database run db:generate
-
-      - name: Generate route actions
+      - name: Set up local environment
+        env:
+          # Required by dev-setup-local.sh --non-interactive (create:admin + domain seed); CI-only placeholders.
+          DEV_SETUP_ADMIN_EMAIL: ci-setup@example.invalid
+          DEV_SETUP_ADMIN_PASSWORD: CiLocalDevSetup2024
         run: |
-          pnpm generate
+          ./dev-setup-local.sh --non-interactive \
+            --admin-email "$DEV_SETUP_ADMIN_EMAIL" \
+            --admin-password "$DEV_SETUP_ADMIN_PASSWORD"
 
       - name: Code quality
         run: pnpm code-quality

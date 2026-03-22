@@ -21,15 +21,11 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Prepare env variables
-        run: cp env.agents.data-collection.example .env.agents.data-collection
-        working-directory: packages/mediapulse/env
-
-      - name: Bootstrap env symlinks
-        run: ./dev-bootstrap.sh
-
-      - name: Install dependencies
-        run: pnpm install
+      - name: Set up build environment
+        run: |
+          ./dev-bootstrap.sh
+          pnpm install
+          pnpm generate
 
       - name: Build
         run: pnpm build --filter=@mediapulse/data-collection
@@ -55,15 +51,11 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Prepare env variables
-        run: cp env.agents.content-generation.example .env.agents.content-generation
-        working-directory: packages/mediapulse/env
-
-      - name: Bootstrap env symlinks
-        run: ./dev-bootstrap.sh
-
-      - name: Install dependencies
-        run: pnpm install
+      - name: Set up build environment
+        run: |
+          ./dev-bootstrap.sh
+          pnpm install
+          pnpm generate
 
       - name: Build
         run: pnpm build --filter=@mediapulse/content-generation
@@ -89,15 +81,11 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Prepare env variables
-        run: cp env.agents.delivery.example .env.agents.delivery
-        working-directory: packages/mediapulse/env
-
-      - name: Bootstrap env symlinks
-        run: ./dev-bootstrap.sh
-
-      - name: Install dependencies
-        run: pnpm install
+      - name: Set up build environment
+        run: |
+          ./dev-bootstrap.sh
+          pnpm install
+          pnpm generate
 
       - name: Build
         run: pnpm build --filter=@mediapulse/delivery
