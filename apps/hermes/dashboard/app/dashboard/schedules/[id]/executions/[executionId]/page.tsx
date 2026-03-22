@@ -129,6 +129,9 @@ export default async function ScheduleExecutionDetailPage({
             errorSummary: formatInvocationErrorSummary(j.error) ?? null,
             inputMasked: j.params,
             configMasked: j.invocationConfig,
+            agentId: j.agentId,
+            startedAtIso: j.startedAt?.toISOString() ?? null,
+            completedAtIso: j.completedAt?.toISOString() ?? null,
           }))}
         />
       </section>

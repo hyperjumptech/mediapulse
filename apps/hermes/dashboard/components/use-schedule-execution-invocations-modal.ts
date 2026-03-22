@@ -10,6 +10,12 @@ export type ScheduleExecutionInvocationRow = {
   errorSummary: string | null;
   inputMasked: unknown;
   configMasked: unknown | null;
+  /** Agent package id for this job. */
+  agentId: string;
+  /** ISO-8601 timestamp when the job started, or null if not recorded yet. */
+  startedAtIso: string | null;
+  /** ISO-8601 timestamp when the job finished, or null if not terminal yet. */
+  completedAtIso: string | null;
 };
 
 /**

@@ -8,11 +8,12 @@ import {
 import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
+import { zFormBoolean } from "@/lib/form-boolean-schema";
 
 const bodyValidator = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
-  isActive: z.coerce.boolean().optional().default(true),
+  isActive: zFormBoolean.optional().default(true),
 });
 
 export const requestValidator = createRequestValidator({

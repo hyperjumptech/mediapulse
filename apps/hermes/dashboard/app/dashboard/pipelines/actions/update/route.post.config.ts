@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { getDashboardSession } from "@/lib/auth-dashboard";
 import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
+import { zFormBoolean } from "@/lib/form-boolean-schema";
 
 const stepItemValidator = z.object({
   agentId: z.string().min(1),
@@ -19,7 +20,7 @@ const bodyValidator = z.object({
   pipelineId: z.string().uuid(),
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
-  isActive: z.coerce.boolean().optional(),
+  isActive: zFormBoolean.optional(),
   steps: z.array(stepItemValidator).optional(),
 });
 

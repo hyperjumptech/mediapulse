@@ -38,6 +38,9 @@ describe("ScheduleExecutionInvocationsTable", () => {
         errorSummary: "err",
         inputMasked: { ticker: "ABC" },
         configMasked: { foo: 1 },
+        agentId: "my-agent",
+        startedAtIso: "2025-03-20T10:00:00.000Z",
+        completedAtIso: "2025-03-20T10:00:05.000Z",
       },
     ];
 
@@ -49,6 +52,7 @@ describe("ScheduleExecutionInvocationsTable", () => {
     expect(screen.getByTestId("dialog")).toHaveAttribute("data-open", "true");
     expect(screen.getByText(/"ticker": "ABC"/)).toBeInTheDocument();
     expect(screen.getByText(/"foo": 1/)).toBeInTheDocument();
+    expect(screen.getByText("my-agent")).toBeInTheDocument();
   });
 
   it("renders empty state when there are no invocations", () => {
@@ -57,5 +61,35 @@ describe("ScheduleExecutionInvocationsTable", () => {
 
     // Assert
     expect(screen.getByText("No invocations.")).toBeInTheDocument();
+  });
+
+  it("shows sortable started/completed headers and collapses status to outcome", () => {
+    // Setup
+    const invocations = [
+      {
+        jobId: "job-a",
+        status: "completed",
+        semanticStatus: "success" as const,
+        errorSummary: null,
+        inputMasked: {},
+        configMasked: null,
+        agentId: "alpha",
+        startedAtIso: "2025-01-02T00:00:00.000Z",
+        completedAtIso: "2025-01-02T00:01:00.000Z",
+      },
+    ];
+
+    // Act
+    render(<ScheduleExecutionInvocationsTable invocations={invocations} />);
+
+    // Assert
+    expect(
+      screen.getByRole("button", { name: /Started at/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Completed at/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("success")).toBeInTheDocument();
+    expect(screen.queryByText("Semantic")).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,8 @@
 "use client";
 
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { format } from "date-fns";
+
 import {
   Dialog,
   DialogContent,
@@ -16,6 +19,13 @@ import {
 } from "@workspace/ui/components/table";
 import { Button } from "@workspace/ui/components/button";
 
+import { resolveInvocationOutcomeLabel } from "@/lib/invocation-display-status";
+
+import {
+  useScheduleExecutionInvocationsSort,
+  type ScheduleExecutionInvocationSortField,
+  type ScheduleExecutionInvocationSortDir,
+} from "./use-schedule-execution-invocations-sort";
 import {
   useScheduleExecutionInvocationsModal,
   type ScheduleExecutionInvocationRow,
@@ -34,6 +44,63 @@ const formatJsonBlock = (value: unknown): string => {
   }
 };
 
+const DATE_DISPLAY = "LLL d, yyyy HH:mm:ss";
+
+/**
+ * Formats an ISO timestamp for the table, or an em dash when missing.
+ *
+ * @param iso - ISO-8601 string from the server, or null.
+ */
+const formatOptionalIso = (iso: string | null): string => {
+  if (iso == null) {
+    return "—";
+  }
+  return format(new Date(iso), DATE_DISPLAY);
+};
+
+type TimestampSortHeaderProps = {
+  field: ScheduleExecutionInvocationSortField;
+  label: string;
+  activeField: ScheduleExecutionInvocationSortField;
+  sortDir: ScheduleExecutionInvocationSortDir;
+  onToggle: (field: ScheduleExecutionInvocationSortField) => void;
+};
+
+/**
+ * Accessible sort control for Started at / Completed at columns.
+ */
+const TimestampSortHeader = ({
+  field,
+  label,
+  activeField,
+  sortDir,
+  onToggle,
+}: TimestampSortHeaderProps) => {
+  const isActive = activeField === field;
+  const Icon = isActive
+    ? sortDir === "asc"
+      ? ArrowUp
+      : ArrowDown
+    : ArrowUpDown;
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      className="-ml-3 h-8 gap-1 px-3 font-medium hover:text-foreground"
+      onClick={() => {
+        onToggle(field);
+      }}
+      aria-sort={
+        isActive ? (sortDir === "asc" ? "ascending" : "descending") : undefined
+      }
+    >
+      {label}
+      <Icon className="size-4 shrink-0 opacity-70" aria-hidden />
+    </Button>
+  );
+};
+
 export type ScheduleExecutionInvocationsTableProps = {
   invocations: ScheduleExecutionInvocationRow[];
 };
@@ -44,6 +111,8 @@ export type ScheduleExecutionInvocationsTableProps = {
 export const ScheduleExecutionInvocationsTable = ({
   invocations,
 }: ScheduleExecutionInvocationsTableProps) => {
+  const { sortedRows, sortField, sortDir, toggleSort } =
+    useScheduleExecutionInvocationsSort(invocations);
   const { open, selected, openModal, onOpenChange } =
     useScheduleExecutionInvocationsModal();
 
@@ -54,40 +123,83 @@ export const ScheduleExecutionInvocationsTable = ({
           <TableHeader>
             <TableRow>
               <TableHead>Job</TableHead>
+              <TableHead>Agent</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Semantic</TableHead>
+              <TableHead>
+                <TimestampSortHeader
+                  field="startedAt"
+                  label="Started at"
+                  activeField={sortField}
+                  sortDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </TableHead>
+              <TableHead>
+                <TimestampSortHeader
+                  field="completedAt"
+                  label="Completed at"
+                  activeField={sortField}
+                  sortDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </TableHead>
               <TableHead>Reason</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {invocations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-muted-foreground">
+                <TableCell colSpan={6} className="text-muted-foreground">
                   No invocations.
                 </TableCell>
               </TableRow>
             ) : (
-              invocations.map((j) => (
-                <TableRow key={j.jobId}>
-                  <TableCell className="max-w-[min(100vw,28rem)]">
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="h-auto min-h-0 p-0 font-mono text-xs wrap-break-word whitespace-normal text-left"
-                      onClick={() => {
-                        openModal(j);
-                      }}
+              sortedRows.map((j) => {
+                const outcome = resolveInvocationOutcomeLabel(
+                  j.status,
+                  j.semanticStatus,
+                );
+                const isTerminalOutcome =
+                  outcome === "success" || outcome === "failure";
+
+                return (
+                  <TableRow key={j.jobId}>
+                    <TableCell className="max-w-[min(100vw,28rem)]">
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="h-auto min-h-0 p-0 font-mono text-xs wrap-break-word whitespace-normal text-left"
+                        onClick={() => {
+                          openModal(j);
+                        }}
+                      >
+                        {j.jobId}
+                      </Button>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {j.agentId}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        isTerminalOutcome
+                          ? "text-sm lowercase"
+                          : "text-sm capitalize"
+                      }
                     >
-                      {j.jobId}
-                    </Button>
-                  </TableCell>
-                  <TableCell className="capitalize">{j.status}</TableCell>
-                  <TableCell>{j.semanticStatus ?? "—"}</TableCell>
-                  <TableCell className="max-w-md whitespace-normal wrap-break-word text-sm text-muted-foreground">
-                    {j.errorSummary ?? "—"}
-                  </TableCell>
-                </TableRow>
-              ))
+                      {outcome}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatOptionalIso(j.startedAtIso)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatOptionalIso(j.completedAtIso)}
+                    </TableCell>
+                    <TableCell className="max-w-md whitespace-normal wrap-break-word text-sm text-muted-foreground">
+                      {j.errorSummary ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
