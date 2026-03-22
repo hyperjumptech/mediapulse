@@ -420,7 +420,8 @@ export const executeSchedule = async (
           status: AgentJobExecutionStatus.pending,
           priority: schedule.priority,
           enqueuedAt: executionTime,
-          params: p.body.input as object,
+          params: p.body.input as Prisma.InputJsonValue,
+          invocationConfig: p.body.config as Prisma.InputJsonValue,
         },
       });
       p.scheduleExecutionId = se.id;

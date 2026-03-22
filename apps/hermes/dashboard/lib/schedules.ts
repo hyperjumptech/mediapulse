@@ -229,6 +229,10 @@ export type ScheduleExecutionDetail = {
     status: string;
     agentId: string;
     pipelineStepId: string | null;
+    /** Resolved step input (JSON) stored on the job row. */
+    params: unknown;
+    /** Resolved step config from enqueue time; null for rows created before this column existed. */
+    invocationConfig: unknown | null;
     error: unknown;
     agentResponse: unknown;
     semanticStatus: string | null;
@@ -272,6 +276,8 @@ export const getScheduleExecutionDetail = async (
           status: true,
           agentId: true,
           pipelineStepId: true,
+          params: true,
+          invocationConfig: true,
           error: true,
           agentResponse: true,
           semanticStatus: true,
@@ -323,6 +329,8 @@ export const getScheduleExecutionDetail = async (
       status: j.status,
       agentId: j.agentId,
       pipelineStepId: j.pipelineStepId,
+      params: j.params,
+      invocationConfig: j.invocationConfig,
       error: j.error,
       agentResponse: j.agentResponse,
       semanticStatus: j.semanticStatus,

@@ -11,7 +11,9 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
+import { ScheduleExecutionInvocationsTable } from "@/components/schedule-execution-invocations-table";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
+import { maskScheduleExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
 
 type PageProps = {
@@ -25,10 +27,11 @@ export default async function ScheduleExecutionDetailPage({
   params,
 }: PageProps) {
   const { id: scheduleId, executionId } = await params;
-  const detail = await getScheduleExecutionDetail(scheduleId, executionId);
-  if (!detail) {
+  const rawDetail = await getScheduleExecutionDetail(scheduleId, executionId);
+  if (!rawDetail) {
     notFound();
   }
+  const detail = maskScheduleExecutionDetailForDisplay(rawDetail);
 
   return (
     <div className="flex flex-col gap-6">
@@ -118,40 +121,16 @@ export default async function ScheduleExecutionDetailPage({
 
       <section>
         <h2 className="mb-2 text-lg font-medium">Invocations</h2>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Job</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Semantic</TableHead>
-                <TableHead>Reason</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {detail.invocations.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground">
-                    No invocations.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                detail.invocations.map((j) => (
-                  <TableRow key={j.jobId}>
-                    <TableCell className="font-mono text-xs">
-                      {j.jobId}
-                    </TableCell>
-                    <TableCell className="capitalize">{j.status}</TableCell>
-                    <TableCell>{j.semanticStatus ?? "—"}</TableCell>
-                    <TableCell className="max-w-md whitespace-normal wrap-break-word text-sm text-muted-foreground">
-                      {formatInvocationErrorSummary(j.error) ?? "—"}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <ScheduleExecutionInvocationsTable
+          invocations={detail.invocations.map((j) => ({
+            jobId: j.jobId,
+            status: j.status,
+            semanticStatus: j.semanticStatus,
+            errorSummary: formatInvocationErrorSummary(j.error) ?? null,
+            inputMasked: j.params,
+            configMasked: j.invocationConfig,
+          }))}
+        />
       </section>
     </div>
   );

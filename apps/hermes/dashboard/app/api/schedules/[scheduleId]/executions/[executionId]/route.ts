@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { maskScheduleExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
 import { getDashboardSession } from "@/lib/auth-dashboard";
 
@@ -24,5 +25,5 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(detail);
+  return NextResponse.json(maskScheduleExecutionDetailForDisplay(detail));
 }

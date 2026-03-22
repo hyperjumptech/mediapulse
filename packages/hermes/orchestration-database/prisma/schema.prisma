@@ -223,6 +223,8 @@ model AgentJobExecution {
   enqueuedAt          DateTime                @map("enqueued_at")
   dependencies        Json?
   params              Json                    @default("{}")
+  /// Resolved step `config` sent with the agent body (stored for execution debugging).
+  invocationConfig    Json?                   @map("invocation_config")
   error               Json?
   /// Parsed agent response envelope (success path or semantic failure): message, details, logs, schemaVersion.
   agentResponse       Json?                   @map("agent_response")
