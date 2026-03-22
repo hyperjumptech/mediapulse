@@ -17,6 +17,8 @@ export const env = createEnv({
     REQUIRE_HTTPS_AGENT_ENDPOINTS: z.string().optional(),
     PROCESSOR_BATCH_SIZE: z.string().optional(),
     PROCESSOR_CONCURRENCY: z.string().optional(),
+    HERMES_INVOKE_AGENT_MAX_ATTEMPTS: z.string().optional(),
+    HERMES_INVOKE_AGENT_DLQ_JOB_TYPE: z.string().optional(),
   },
   client: {
   },

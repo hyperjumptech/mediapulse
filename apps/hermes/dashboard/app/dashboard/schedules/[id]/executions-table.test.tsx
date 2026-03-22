@@ -4,6 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import { ExecutionsTable } from "./executions-table";
 import type { ScheduleExecutionRow } from "@/lib/schedules";
 
+vi.mock("next/link", () => ({
+  default: ({ children, href }: React.PropsWithChildren<{ href: string }>) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
 vi.mock("@workspace/ui/components/table", () => ({
   Table: ({ children }: React.PropsWithChildren) => (
     <table data-testid="table">{children}</table>
@@ -66,9 +72,12 @@ const createMockExecution = (
 ): ScheduleExecutionRow => ({
   id: "ex-1",
   executionTime: new Date("2025-01-15T10:00:00Z"),
-  status: "success",
+  enqueueStatus: "success",
+  runStatus: "succeeded",
   jobsCreated: 2,
   jobsEnqueued: 2,
+  succeededInvocationCount: 2,
+  failedInvocationCount: 0,
   errors: null,
   createdAt: new Date(),
   ...overrides,
@@ -76,26 +85,32 @@ const createMockExecution = (
 
 describe("ExecutionsTable", () => {
   it("renders table headers", () => {
-    render(<ExecutionsTable executions={[]} />);
+    render(<ExecutionsTable scheduleId="sched-1" executions={[]} />);
     expect(screen.getByText("Execution time")).toBeInTheDocument();
-    expect(screen.getByText("Status")).toBeInTheDocument();
-    expect(screen.getByText("Jobs created")).toBeInTheDocument();
-    expect(screen.getByText("Jobs enqueued")).toBeInTheDocument();
+    expect(screen.getByText("Enqueue")).toBeInTheDocument();
+    expect(screen.getByText("Run")).toBeInTheDocument();
+    expect(screen.getByText("Jobs")).toBeInTheDocument();
     expect(screen.getByText("Error log")).toBeInTheDocument();
   });
 
   it("renders empty state when no executions", () => {
-    render(<ExecutionsTable executions={[]} />);
+    render(<ExecutionsTable scheduleId="sched-1" executions={[]} />);
     expect(screen.getByText("No executions yet.")).toBeInTheDocument();
   });
 
   it("renders execution rows", () => {
     const executions = [
-      createMockExecution({ id: "ex-1", status: "success", jobsCreated: 3 }),
+      createMockExecution({
+        id: "ex-1",
+        enqueueStatus: "success",
+        runStatus: "running",
+        jobsCreated: 3,
+        jobsEnqueued: 3,
+      }),
     ];
-    render(<ExecutionsTable executions={executions} />);
+    render(<ExecutionsTable scheduleId="sched-1" executions={executions} />);
     expect(screen.getByText("success")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("running")).toBeInTheDocument();
   });
 
   it("shows View log button when execution has errors", () => {
@@ -107,20 +122,25 @@ describe("ExecutionsTable", () => {
         ],
       }),
     ];
-    render(<ExecutionsTable executions={executions} />);
+    render(<ExecutionsTable scheduleId="sched-1" executions={executions} />);
     const viewLogBtn = screen.getByRole("button", { name: "View log" });
     expect(viewLogBtn).toBeInTheDocument();
   });
 
   it("shows dash when execution has no errors", () => {
-    render(<ExecutionsTable executions={[createMockExecution()]} />);
+    render(
+      <ExecutionsTable
+        scheduleId="sched-1"
+        executions={[createMockExecution()]}
+      />,
+    );
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
   it("opens error log modal when View log is clicked", () => {
     const errors = [{ message: "Error", timestamp: "2025-01-15" }];
     const executions = [createMockExecution({ id: "ex-1", errors })];
-    render(<ExecutionsTable executions={executions} />);
+    render(<ExecutionsTable scheduleId="sched-1" executions={executions} />);
     expect(screen.getByTestId("error-log-modal")).toHaveAttribute(
       "data-open",
       "false",

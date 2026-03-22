@@ -1,19 +1,23 @@
 import got from "got";
 import {
   AgentJobExecutionStatus,
+  Prisma,
   prisma as orchestrationPrisma,
 } from "@hermes/orchestration-database";
 import { createDomainIntegrationClient } from "@hermes/domain-contract";
 import { env } from "@hermes/env/hermes-worker";
 import { logger } from "@workspace/logger";
 import type { JobHandlers } from "@nicnocquee/dataqueue";
+import { batchDepRef } from "@nicnocquee/dataqueue";
 import type { JobPayloadMap } from "./job-payload-map";
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { DEFAULT_TAKE, MAX_TAKE } from "@hermes/step-input-syntax";
 import {
+  applyInvocationCompletion,
   executeSchedule,
   getDueSchedules,
-  invokeAgent,
+  invokeAgentPost,
+  parseAgentResponseEnvelope,
   type ExpandStepInputs,
   type InvokeAgentHttpClient,
 } from "@hermes/scheduler";
@@ -21,15 +25,26 @@ import { getJobQueue } from "./queue";
 
 /**
  * Creates an HTTP client that forwards the optional AbortSignal to got for request cancellation.
+ * Uses `throwHttpErrors: false` and `responseType: 'text'` so status and body are handled per PRD §8.
  */
 const createHttpClient = (signal?: AbortSignal): InvokeAgentHttpClient => ({
-  post: (url, options) =>
-    got.post(url, {
+  post: async (url, options) => {
+    const res = await got.post(url, {
       json: options.json,
       headers: options.headers,
       timeout: options.timeout,
       signal: options.signal ?? signal,
-    }),
+      throwHttpErrors: false,
+      responseType: "text",
+    });
+    const rawBody =
+      typeof res.body === "string" ? res.body : String(res.body ?? "");
+    return {
+      statusCode: res.statusCode,
+      rawBody,
+      isEmptyBody: rawBody.length === 0,
+    };
+  },
 });
 
 if (!env.AGENT_AUTH_API_URL || !env.HERMES_INTERNAL_API_KEY) {
@@ -85,9 +100,14 @@ const expandStepInputs: ExpandStepInputs = async (context) => {
   return response.expandedInputs;
 };
 
+const completionDeps = {
+  db: orchestrationPrisma,
+  logger: { warn: logger.warn.bind(logger), error: logger.error.bind(logger) },
+};
+
 /**
  * DataQueue job handlers for Hermes.
- * check_schedules: polls due schedules and enqueues one invoke_agent job per expanded input.
+ * check_schedules: polls due schedules and enqueues invoke_agent jobs.
  * invoke_agent: performs the HTTP call to the agent and updates AgentJobExecution.
  */
 export const jobHandlers: JobHandlers<JobPayloadMap> = {
@@ -99,13 +119,39 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
         await executeSchedule(schedule, {
           db: orchestrationPrisma,
           logger,
-          enqueueAgentInvocations: async (payloads) => {
+          enqueueAgentInvocations: async (items) => {
+            const maxAttempts = env.HERMES_INVOKE_AGENT_MAX_ATTEMPTS
+              ? Math.max(
+                  1,
+                  Number.parseInt(env.HERMES_INVOKE_AGENT_MAX_ATTEMPTS, 10) ||
+                    1,
+                )
+              : undefined;
+            const deadLetterJobType =
+              env.HERMES_INVOKE_AGENT_DLQ_JOB_TYPE?.trim() || undefined;
             await jobQueue.addJobs(
-              payloads.map((p) => ({
+              items.map((item) => ({
                 jobType: "invoke_agent" as const,
-                payload: p,
-                priority: p.priority,
-                idempotencyKey: p.jobId,
+                payload: item.payload,
+                priority: item.payload.priority,
+                idempotencyKey: item.payload.jobId,
+                maxAttempts,
+                deadLetterJobType,
+                dependsOn:
+                  item.dependsOnBatchIndices?.length &&
+                  item.dependsOnBatchIndices.length > 0
+                    ? {
+                        jobIds: item.dependsOnBatchIndices.map((i) =>
+                          batchDepRef(i),
+                        ),
+                      }
+                    : undefined,
+                tags: [
+                  `scheduleExecution:${item.payload.scheduleExecutionId}`,
+                  `schedule:${item.payload.scheduleId}`,
+                  `pipeline:${item.payload.pipelineId}`,
+                  `pipelineStep:${item.payload.pipelineStepId}`,
+                ],
               })),
             );
           },
@@ -144,42 +190,174 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       return;
     }
 
-    const httpClient = createHttpClient(signal);
-    const authToken = await getAuthToken();
-    const endpoint = { url: payload.endpointUrl, method: "POST" as const };
-    try {
-      await invokeAgent(
-        endpoint,
-        payload.body as Record<string, unknown>,
-        {
-          jobId: payload.jobId,
-          executionId: payload.executionId,
-          authToken,
-          timeoutMs: payload.timeoutMs,
-          signal,
-        },
-        httpClient,
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+    if (!payload.scheduleExecutionId) {
       logger.error(
-        {
-          err,
-          jobId: payload.jobId,
-          agentId: payload.agentId,
-          scheduleId: payload.scheduleId,
-        },
-        "invoke_agent failed",
+        { jobId: payload.jobId },
+        "invoke_agent missing scheduleExecutionId on payload",
       );
       await orchestrationPrisma.agentJobExecution.update({
         where: { jobId: payload.jobId },
         data: {
           status: AgentJobExecutionStatus.failed,
-          error: { message, retryable: true },
+          error: {
+            message: "Missing scheduleExecutionId on job payload",
+            retryable: false,
+          },
           completedAt: new Date(),
         },
       });
-      throw err;
+      return;
     }
+
+    const httpClient = createHttpClient(signal);
+    const authToken = await getAuthToken();
+    const endpoint = { url: payload.endpointUrl, method: "POST" as const };
+    const postResult = await invokeAgentPost(
+      endpoint,
+      payload.body as Record<string, unknown>,
+      {
+        jobId: payload.jobId,
+        executionId: payload.executionId,
+        authToken,
+        timeoutMs: payload.timeoutMs,
+        signal,
+      },
+      httpClient,
+    );
+
+    if (postResult.kind === "transport_error") {
+      logger.error(
+        {
+          err: postResult.error,
+          jobId: payload.jobId,
+          agentId: payload.agentId,
+          scheduleId: payload.scheduleId,
+        },
+        "invoke_agent transport failure",
+      );
+      await orchestrationPrisma.agentJobExecution.update({
+        where: { jobId: payload.jobId },
+        data: {
+          status: AgentJobExecutionStatus.failed,
+          error: {
+            message: postResult.error.message,
+            retryable: true,
+          },
+          completedAt: new Date(),
+        },
+      });
+      throw postResult.error;
+    }
+
+    const { statusCode, rawBody, isEmptyBody } = postResult.response;
+
+    if (statusCode >= 500) {
+      await orchestrationPrisma.agentJobExecution.update({
+        where: { jobId: payload.jobId },
+        data: {
+          status: AgentJobExecutionStatus.failed,
+          error: {
+            message: `Agent HTTP ${statusCode}`,
+            retryable: true,
+          },
+          completedAt: new Date(),
+        },
+      });
+      throw new Error(`Agent returned HTTP ${statusCode}`);
+    }
+
+    if (statusCode >= 400) {
+      await applyInvocationCompletion(
+        {
+          jobId: payload.jobId,
+          scheduleExecutionId: payload.scheduleExecutionId,
+          pipelineStepId: payload.pipelineStepId,
+          terminal: {
+            status: AgentJobExecutionStatus.failed,
+            error: {
+              message: `HTTP ${statusCode}`,
+              retryable: false,
+            },
+          },
+        },
+        completionDeps,
+      );
+      return;
+    }
+
+    if (statusCode >= 200 && statusCode < 300) {
+      const parsed = parseAgentResponseEnvelope(rawBody, isEmptyBody);
+      if (!parsed.ok) {
+        await applyInvocationCompletion(
+          {
+            jobId: payload.jobId,
+            scheduleExecutionId: payload.scheduleExecutionId,
+            pipelineStepId: payload.pipelineStepId,
+            terminal: {
+              status: AgentJobExecutionStatus.failed,
+              error: {
+                message: parsed.error.message,
+                code: parsed.error.code,
+                retryable: false,
+              },
+            },
+          },
+          completionDeps,
+        );
+        return;
+      }
+      if (parsed.envelope.status === "failure") {
+        await applyInvocationCompletion(
+          {
+            jobId: payload.jobId,
+            scheduleExecutionId: payload.scheduleExecutionId,
+            pipelineStepId: payload.pipelineStepId,
+            terminal: {
+              status: AgentJobExecutionStatus.failed,
+              error: {
+                message:
+                  parsed.envelope.message ?? "Agent reported semantic failure",
+                retryable: false,
+                semantic: true,
+              },
+              agentResponse:
+                parsed.envelope as unknown as Prisma.InputJsonValue,
+              semanticStatus: "failure",
+            },
+          },
+          completionDeps,
+        );
+        return;
+      }
+      await applyInvocationCompletion(
+        {
+          jobId: payload.jobId,
+          scheduleExecutionId: payload.scheduleExecutionId,
+          pipelineStepId: payload.pipelineStepId,
+          terminal: {
+            status: AgentJobExecutionStatus.completed,
+            envelope: parsed.envelope,
+          },
+        },
+        completionDeps,
+      );
+      return;
+    }
+
+    await applyInvocationCompletion(
+      {
+        jobId: payload.jobId,
+        scheduleExecutionId: payload.scheduleExecutionId,
+        pipelineStepId: payload.pipelineStepId,
+        terminal: {
+          status: AgentJobExecutionStatus.failed,
+          error: {
+            message: `Unexpected HTTP status ${statusCode}`,
+            retryable: false,
+          },
+        },
+      },
+      completionDeps,
+    );
   },
 };

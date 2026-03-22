@@ -132,9 +132,12 @@ export const getScheduleById = async (
 export type ScheduleExecutionRow = {
   id: string;
   executionTime: Date;
-  status: string;
+  enqueueStatus: string;
+  runStatus: string;
   jobsCreated: number;
   jobsEnqueued: number;
+  succeededInvocationCount: number;
+  failedInvocationCount: number;
   errors: unknown;
   createdAt: Date;
 };
@@ -173,9 +176,12 @@ export const getScheduleExecutionsPage = async (
       select: {
         id: true,
         executionTime: true,
-        status: true,
+        enqueueStatus: true,
+        runStatus: true,
         jobsCreated: true,
         jobsEnqueued: true,
+        succeededInvocationCount: true,
+        failedInvocationCount: true,
         errors: true,
         createdAt: true,
       },
@@ -188,5 +194,140 @@ export const getScheduleExecutionsPage = async (
     total,
     page,
     pageSize,
+  };
+};
+
+/** Full execution detail for admin debugging (steps + invocations). */
+export type ScheduleExecutionDetail = {
+  execution: {
+    id: string;
+    executionTime: Date;
+    enqueueStatus: string;
+    runStatus: string;
+    effectiveExecutionConfig: unknown;
+    jobsCreated: number;
+    jobsEnqueued: number;
+    succeededInvocationCount: number;
+    failedInvocationCount: number;
+    errors: unknown;
+    createdAt: Date;
+  };
+  pipeline: { id: string; name: string } | null;
+  schedule: { id: string; name: string };
+  stepExecutions: Array<{
+    pipelineStepId: string;
+    stepOrder: number;
+    agentId: string;
+    agentVersion: string;
+    expectedInvocationCount: number;
+    succeededCount: number;
+    failedCount: number;
+    rollupStatus: string;
+  }>;
+  invocations: Array<{
+    jobId: string;
+    status: string;
+    agentId: string;
+    pipelineStepId: string | null;
+    error: unknown;
+    agentResponse: unknown;
+    semanticStatus: string | null;
+    startedAt: Date | null;
+    completedAt: Date | null;
+  }>;
+};
+
+/**
+ * Loads one schedule execution with pipeline/schedule context, per-step rollup rows, and invocations.
+ *
+ * @param scheduleId - Schedule id (must own the execution).
+ * @param executionId - Schedule execution id.
+ * @param db - Prisma client.
+ */
+export const getScheduleExecutionDetail = async (
+  scheduleId: string,
+  executionId: string,
+  db: Db = prisma,
+): Promise<ScheduleExecutionDetail | null> => {
+  const row = await db.scheduleExecution.findFirst({
+    where: { id: executionId, scheduleId },
+    include: {
+      schedule: { select: { id: true, name: true, pipelineId: true } },
+      scheduleStepExecutions: {
+        include: {
+          pipelineStep: {
+            select: {
+              id: true,
+              order: true,
+              agentId: true,
+              agentVersion: true,
+            },
+          },
+        },
+      },
+      agentJobExecutions: {
+        orderBy: { enqueuedAt: "asc" },
+        select: {
+          jobId: true,
+          status: true,
+          agentId: true,
+          pipelineStepId: true,
+          error: true,
+          agentResponse: true,
+          semanticStatus: true,
+          startedAt: true,
+          completedAt: true,
+        },
+      },
+    },
+  });
+  if (!row) return null;
+
+  const pipeline = await db.pipeline.findUnique({
+    where: { id: row.schedule.pipelineId },
+    select: { id: true, name: true },
+  });
+
+  const stepExecutions = row.scheduleStepExecutions
+    .map((se) => ({
+      pipelineStepId: se.pipelineStepId,
+      stepOrder: se.pipelineStep.order,
+      agentId: se.pipelineStep.agentId,
+      agentVersion: se.pipelineStep.agentVersion,
+      expectedInvocationCount: se.expectedInvocationCount,
+      succeededCount: se.succeededCount,
+      failedCount: se.failedCount,
+      rollupStatus: se.rollupStatus,
+    }))
+    .sort((a, b) => a.stepOrder - b.stepOrder);
+
+  return {
+    execution: {
+      id: row.id,
+      executionTime: row.executionTime,
+      enqueueStatus: row.enqueueStatus,
+      runStatus: row.runStatus,
+      effectiveExecutionConfig: row.effectiveExecutionConfig,
+      jobsCreated: row.jobsCreated,
+      jobsEnqueued: row.jobsEnqueued,
+      succeededInvocationCount: row.succeededInvocationCount,
+      failedInvocationCount: row.failedInvocationCount,
+      errors: row.errors,
+      createdAt: row.createdAt,
+    },
+    pipeline,
+    schedule: { id: row.schedule.id, name: row.schedule.name },
+    stepExecutions,
+    invocations: row.agentJobExecutions.map((j) => ({
+      jobId: j.jobId,
+      status: j.status,
+      agentId: j.agentId,
+      pipelineStepId: j.pipelineStepId,
+      error: j.error,
+      agentResponse: j.agentResponse,
+      semanticStatus: j.semanticStatus,
+      startedAt: j.startedAt,
+      completedAt: j.completedAt,
+    })),
   };
 };

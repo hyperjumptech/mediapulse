@@ -142,6 +142,10 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
     schedule && schedule !== "loading" && schedule.retryConfig != null
       ? JSON.stringify(schedule.retryConfig, null, 2)
       : "";
+  const defaultExecutionConfig =
+    schedule && schedule !== "loading" && schedule.executionConfig != null
+      ? JSON.stringify(schedule.executionConfig, null, 2)
+      : "";
 
   const formFieldsProps = isEdit
     ? schedule && schedule !== "loading"
@@ -158,6 +162,7 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
           initialIntervalMs: schedule.interval ?? undefined,
           initialCronExpression: schedule.cronExpression ?? undefined,
           defaultRetryConfig,
+          defaultExecutionConfig,
           defaultTimeout: schedule.timeout ?? undefined,
         }
       : null
@@ -169,6 +174,7 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
         defaultPipelineId: "",
         defaultPriority: 0,
         defaultEnabled: true,
+        defaultExecutionConfig: "",
       };
 
   const isLoadingEdit = isEdit && schedule === "loading";

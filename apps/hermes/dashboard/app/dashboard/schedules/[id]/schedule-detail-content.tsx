@@ -82,7 +82,7 @@ export const ScheduleDetailContent = ({
           <h2 className="mb-2 text-lg font-medium text-foreground">
             Executions
           </h2>
-          <ExecutionsTable executions={executions} />
+          <ExecutionsTable scheduleId={schedule.id} executions={executions} />
           <div className="mt-4">
             <ListPagination
               basePath={`/dashboard/schedules/${schedule.id}`}

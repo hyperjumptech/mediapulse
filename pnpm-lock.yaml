@@ -357,8 +357,8 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/hermes/step-input-syntax
       '@nicnocquee/dataqueue':
-        specifier: ^1.36.0
-        version: 1.36.0(pg@8.18.0)
+        specifier: ^1.39.0
+        version: 1.39.0(pg@8.18.0)
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
@@ -901,6 +901,9 @@ importers:
       '@hermes/orchestration-database':
         specifier: workspace:*
         version: link:../orchestration-database
+      '@nicnocquee/dataqueue':
+        specifier: ^1.39.0
+        version: 1.39.0(pg@8.18.0)
       ajv:
         specifier: ^8.17.1
         version: 8.17.1
@@ -2798,8 +2801,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@nicnocquee/dataqueue@1.36.0':
-    resolution: {integrity: sha512-3OFT6XWRVXLS6rhZDrdQCAevO5N2Z4hnTqz0EGSn6cbz8hzaZ3CeU0BK0Xq1ENSvITWMlMiJ3epytEGx+UJwBw==}
+  '@nicnocquee/dataqueue@1.39.0':
+    resolution: {integrity: sha512-V1CaskiyroLk9qavjxWrUAaNCJTYY6eKnHUJgyXpnNcJWRgN/Yg4xf4vHrJsY3vebwtD32Y8JgH/CHmDaWYAOA==}
     hasBin: true
     peerDependencies:
       ioredis: ^5.0.0
@@ -11123,7 +11126,7 @@ snapshots:
   '@next/swc-win32-x64-msvc@16.1.6':
     optional: true
 
-  '@nicnocquee/dataqueue@1.36.0(pg@8.18.0)':
+  '@nicnocquee/dataqueue@1.39.0(pg@8.18.0)':
     dependencies:
       '@modelcontextprotocol/sdk': 1.27.1(zod@3.25.76)
       croner: 10.0.1

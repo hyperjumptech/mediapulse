@@ -13,7 +13,7 @@ import {
 } from "@/lib/auth-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
-import { computeNextRunAt } from "@hermes/scheduler";
+import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
 
 const retryConfigSchema = z
   .union([
@@ -49,6 +49,7 @@ const bodyValidator = z
     startAt: z.coerce.date().optional().nullable(),
     pipelineId: z.string().uuid().optional(),
     retryConfig: retryConfigSchema,
+    executionConfig: retryConfigSchema,
     timeout: z
       .union([z.literal(""), z.coerce.number()])
       .optional()
@@ -126,6 +127,10 @@ export const createUpdateScheduleHandler = ({
       return errorResponse("Schedule not found");
     }
 
+    if (body.executionConfig != null) {
+      ExecutionConfigSchema.parse(body.executionConfig);
+    }
+
     if (body.pipelineId != null) {
       const pipeline = await getPipelineWithSteps(body.pipelineId, db);
       if (!pipeline) {
@@ -182,6 +187,12 @@ export const createUpdateScheduleHandler = ({
         retryConfig:
           body.retryConfig != null
             ? (body.retryConfig as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
+      }),
+      ...(body.executionConfig !== undefined && {
+        executionConfig:
+          body.executionConfig != null
+            ? (body.executionConfig as Prisma.InputJsonValue)
             : Prisma.JsonNull,
       }),
       ...(body.timeout !== undefined && { timeout: body.timeout }),

@@ -2,9 +2,11 @@
 import { AgentJobExecutionStatus } from "@hermes/orchestration-database";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  applyInvocationCompletion,
   executeSchedule,
   getDueSchedules,
-  invokeAgent,
+  invokeAgentPost,
+  parseAgentResponseEnvelope,
 } from "@hermes/scheduler";
 import { logger } from "@workspace/logger";
 import { jobHandlers } from "./job-handlers";
@@ -58,7 +60,9 @@ vi.mock("@workspace/logger", () => ({
 vi.mock("@hermes/scheduler", () => ({
   getDueSchedules: vi.fn(),
   executeSchedule: vi.fn(),
-  invokeAgent: vi.fn(),
+  invokeAgentPost: vi.fn(),
+  parseAgentResponseEnvelope: vi.fn(),
+  applyInvocationCompletion: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockAddJobs = vi.fn().mockResolvedValue([1]);
@@ -115,6 +119,7 @@ describe("jobHandlers", () => {
         pipeline: {
           id: "pipeline-1",
           name: "Test",
+          executionConfig: null,
           steps: [],
         },
       } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
@@ -144,17 +149,20 @@ describe("jobHandlers", () => {
       expect(enqueueAgentInvocations).toBeDefined();
       await enqueueAgentInvocations!([
         {
-          jobId: "j1",
-          executionId: "e1",
-          scheduleId: "s1",
-          pipelineId: "p1",
-          pipelineStepId: "st1",
-          agentId: "a1",
-          agentVersion: "1.0.0",
-          endpointUrl: "https://a.example/",
-          body: { input: {}, config: {} },
-          timeoutMs: 60_000,
-          priority: 0,
+          payload: {
+            jobId: "j1",
+            executionId: "e1",
+            scheduleExecutionId: "se-1",
+            scheduleId: "s1",
+            pipelineId: "p1",
+            pipelineStepId: "st1",
+            agentId: "a1",
+            agentVersion: "1.0.0",
+            endpointUrl: "https://a.example/",
+            body: { input: {}, config: {} },
+            timeoutMs: 60_000,
+            priority: 0,
+          },
         },
       ]);
       expect(mockAddJobs).toHaveBeenCalledTimes(1);
@@ -276,6 +284,7 @@ describe("jobHandlers", () => {
     const payload = {
       jobId: "job-1",
       executionId: "exec-1",
+      scheduleExecutionId: "se-1",
       scheduleId: "sched-1",
       pipelineId: "pipe-1",
       pipelineStepId: "step-1",
@@ -291,14 +300,31 @@ describe("jobHandlers", () => {
     const ctx = {} as Parameters<typeof jobHandlers.invoke_agent>[2];
 
     beforeEach(() => {
-      vi.mocked(invokeAgent).mockClear();
+      vi.mocked(invokeAgentPost).mockClear();
+      vi.mocked(parseAgentResponseEnvelope).mockClear();
+      vi.mocked(applyInvocationCompletion).mockClear();
       mockPrisma.agentJobExecution.update.mockClear();
       mockPrisma.agentJobExecution.updateMany.mockClear();
       mockPrisma.agentJobExecution.updateMany.mockResolvedValue({ count: 1 });
     });
 
-    it("claims pending row, calls invokeAgent with signal, and does not update again on success", async () => {
-      vi.mocked(invokeAgent).mockResolvedValue(undefined);
+    it("claims pending row, calls invokeAgentPost, and applies completion on 2xx success envelope", async () => {
+      vi.mocked(invokeAgentPost).mockResolvedValue({
+        kind: "http",
+        response: {
+          statusCode: 200,
+          rawBody: '{"schemaVersion":1,"status":"success"}',
+          isEmptyBody: false,
+        },
+      });
+      vi.mocked(parseAgentResponseEnvelope).mockReturnValue({
+        ok: true,
+        envelope: {
+          schemaVersion: 1,
+          status: "success",
+          truncated: {},
+        },
+      });
 
       await jobHandlers.invoke_agent(payload, signal, ctx);
 
@@ -312,30 +338,30 @@ describe("jobHandlers", () => {
           startedAt: expect.any(Date),
         },
       });
-      expect(invokeAgent).toHaveBeenCalledTimes(1);
-      expect(invokeAgent).toHaveBeenCalledWith(
-        { url: payload.endpointUrl, method: "POST" },
-        payload.body,
-        {
+      expect(invokeAgentPost).toHaveBeenCalledTimes(1);
+      expect(applyInvocationCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
           jobId: payload.jobId,
-          executionId: payload.executionId,
-          authToken: "test-jwt-token",
-          timeoutMs: payload.timeoutMs,
-          signal,
-        },
+          scheduleExecutionId: payload.scheduleExecutionId,
+          terminal: expect.objectContaining({
+            status: AgentJobExecutionStatus.completed,
+          }),
+        }),
         expect.any(Object),
       );
-      expect(mockPrisma.agentJobExecution.update).not.toHaveBeenCalled();
     });
 
-    it("updates to failed and rethrows when invokeAgent throws", async () => {
-      vi.mocked(invokeAgent).mockRejectedValue(new Error("Network error"));
+    it("updates to failed and rethrows on transport error from invokeAgentPost", async () => {
+      vi.mocked(invokeAgentPost).mockResolvedValue({
+        kind: "transport_error",
+        error: new Error("Network error"),
+      });
 
       await expect(
         jobHandlers.invoke_agent(payload, signal, ctx),
       ).rejects.toThrow("Network error");
 
-      expect(invokeAgent).toHaveBeenCalledTimes(1);
+      expect(invokeAgentPost).toHaveBeenCalledTimes(1);
       expect(mockPrisma.agentJobExecution.update).toHaveBeenCalledWith({
         where: { jobId: payload.jobId },
         data: {
@@ -352,7 +378,7 @@ describe("jobHandlers", () => {
       await jobHandlers.invoke_agent(payload, signal, ctx);
 
       expect(mockPrisma.agentJobExecution.updateMany).toHaveBeenCalledTimes(1);
-      expect(invokeAgent).not.toHaveBeenCalled();
+      expect(invokeAgentPost).not.toHaveBeenCalled();
       expect(mockPrisma.agentJobExecution.update).not.toHaveBeenCalled();
     });
   });

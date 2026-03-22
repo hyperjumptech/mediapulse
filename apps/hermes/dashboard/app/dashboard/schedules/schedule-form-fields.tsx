@@ -113,6 +113,8 @@ export type ScheduleFormFieldsProps = {
   scheduleId?: string;
   /** Edit only: retry config JSON string */
   defaultRetryConfig?: string;
+  /** Optional execution config JSON (pipeline schedule overrides). */
+  defaultExecutionConfig?: string;
   /** Edit only: timeout in ms */
   defaultTimeout?: number | null;
 };
@@ -178,6 +180,7 @@ export const ScheduleFormFields = ({
   initialCronExpression,
   scheduleId,
   defaultRetryConfig = "",
+  defaultExecutionConfig = "",
   defaultTimeout,
 }: ScheduleFormFieldsProps) => {
   const {
@@ -464,6 +467,27 @@ export const ScheduleFormFields = ({
           </div>
         </>
       ) : null}
+      <div className="grid gap-2">
+        <Label htmlFor={`${pre}executionConfig`}>
+          Execution config (JSON, optional)
+        </Label>
+        <textarea
+          id={`${pre}executionConfig`}
+          name={`${pre}executionConfig`}
+          defaultValue={defaultExecutionConfig}
+          rows={4}
+          disabled={pending}
+          placeholder='{"schemaVersion":1,"stepRollupPolicy":"strict","stepOrder":"sequential"}'
+          className={cn(
+            "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
+            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+            "disabled:pointer-events-none disabled:opacity-50",
+          )}
+        />
+        <p className="text-xs text-muted-foreground">
+          Optional overrides for pipeline execution (rollup policy, step order).
+        </p>
+      </div>
       <div className="grid gap-2">
         <Label htmlFor={`${pre}priority`}>
           Priority {scheduleId == null ? "(default 0)" : ""}

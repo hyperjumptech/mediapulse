@@ -97,6 +97,7 @@ const createMockPipelines = () => [
     name: "Pipeline A",
     description: null,
     isActive: true,
+    executionConfig: null,
     steps: [],
     createdAt: new Date("2024-01-15"),
     updatedAt: new Date("2024-01-15"),

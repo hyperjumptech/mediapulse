@@ -14,7 +14,7 @@ import {
 } from "@/lib/auth-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
-import { computeNextRunAt } from "@hermes/scheduler";
+import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
 
 /**
  * Parses optional JSON string into plain object or null for retryConfig.
@@ -52,6 +52,7 @@ const bodyValidator = z
     startAt: z.coerce.date().optional().nullable(),
     pipelineId: z.string().uuid(),
     retryConfig: retryConfigSchema,
+    executionConfig: retryConfigSchema,
     timeout: z
       .union([z.literal(""), z.coerce.number()])
       .optional()
@@ -172,6 +173,10 @@ export const createCreateScheduleHandler = ({
       body.timezone,
     );
 
+    if (body.executionConfig != null) {
+      ExecutionConfigSchema.parse(body.executionConfig);
+    }
+
     const schedule = await db.schedule.create({
       data: {
         name: body.name,
@@ -186,6 +191,10 @@ export const createCreateScheduleHandler = ({
         retryConfig:
           body.retryConfig != null
             ? (body.retryConfig as Prisma.InputJsonValue)
+            : undefined,
+        executionConfig:
+          body.executionConfig != null
+            ? (body.executionConfig as Prisma.InputJsonValue)
             : undefined,
         timeout: body.timeout ?? null,
         priority: body.priority ?? 0,

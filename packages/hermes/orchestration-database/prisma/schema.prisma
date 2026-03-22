@@ -108,12 +108,13 @@ model DomainIntegration {
 }
 
 model Pipeline {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  isActive        Boolean  @default(true) @map("is_active")
+  executionConfig Json?    @map("execution_config")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   steps     PipelineStep[]
   schedules Schedule[]
@@ -126,11 +127,31 @@ enum ScheduleRepeat {
   repeating
 }
 
-enum ScheduleExecutionStatus {
-  enqueuing
+/// Outcome of enqueue phase (whether jobs were created/queued as intended).
+enum ScheduleEnqueueStatus {
   success
   partial
   failed
+}
+
+/// Outcome of run phase (after invocations complete and rollups are computed).
+enum ScheduleRunStatus {
+  pending
+  running
+  succeeded
+  partial
+  failed
+}
+
+/// Aggregated outcome for invocations under one pipeline step within a schedule execution.
+enum ScheduleStepRollupStatus {
+  pending
+  running
+  success
+  partial
+  failed
+  skipped
+  cancelled
 }
 
 enum AgentJobExecutionStatus {
@@ -141,23 +162,24 @@ enum AgentJobExecutionStatus {
 }
 
 model Schedule {
-  id             String         @id @default(uuid())
-  name           String
-  description    String?
-  repeat         ScheduleRepeat
-  cronExpression String?        @map("cron_expression")
-  interval       Int?
-  timezone       String         @default("America/New_York")
-  startAt        DateTime?      @map("start_at")
-  nextRunAt      DateTime?      @map("next_run_at")
-  pipelineId     String         @map("pipeline_id")
-  retryConfig    Json?          @map("retry_config")
-  timeout        Int?
-  priority       Int            @default(0)
-  enabled        Boolean        @default(true)
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-  createdBy      String?        @map("created_by")
+  id              String         @id @default(uuid())
+  name            String
+  description     String?
+  repeat          ScheduleRepeat
+  cronExpression  String?        @map("cron_expression")
+  interval        Int?
+  timezone        String         @default("America/New_York")
+  startAt         DateTime?      @map("start_at")
+  nextRunAt       DateTime?      @map("next_run_at")
+  pipelineId      String         @map("pipeline_id")
+  retryConfig     Json?          @map("retry_config")
+  executionConfig Json?          @map("execution_config")
+  timeout         Int?
+  priority        Int            @default(0)
+  enabled         Boolean        @default(true)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  createdBy       String?        @map("created_by")
 
   pipeline           Pipeline            @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   scheduleExecutions ScheduleExecution[]
@@ -167,18 +189,23 @@ model Schedule {
 }
 
 model ScheduleExecution {
-  id            String                  @id @default(uuid())
-  scheduleId    String                  @map("schedule_id")
-  executionTime DateTime                @map("execution_time")
-  status        ScheduleExecutionStatus
-  jobsCreated   Int                     @map("jobs_created")
-  jobsEnqueued  Int                     @map("jobs_enqueued")
-  errors        Json?
-  metadata      Json?
-  createdAt     DateTime                @default(now()) @map("created_at")
+  id                       String                @id @default(uuid())
+  scheduleId               String                @map("schedule_id")
+  executionTime            DateTime              @map("execution_time")
+  enqueueStatus            ScheduleEnqueueStatus @map("enqueue_status")
+  runStatus                ScheduleRunStatus     @default(pending) @map("run_status")
+  effectiveExecutionConfig Json?                 @map("effective_execution_config")
+  jobsCreated              Int                   @map("jobs_created")
+  jobsEnqueued             Int                   @map("jobs_enqueued")
+  succeededInvocationCount Int                   @default(0) @map("succeeded_invocation_count")
+  failedInvocationCount    Int                   @default(0) @map("failed_invocation_count")
+  errors                   Json?
+  metadata                 Json?
+  createdAt                DateTime              @default(now()) @map("created_at")
 
-  schedule           Schedule            @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  agentJobExecutions AgentJobExecution[]
+  schedule               Schedule                @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  agentJobExecutions     AgentJobExecution[]
+  scheduleStepExecutions ScheduleStepExecution[]
 
   @@map("schedule_execution")
 }
@@ -197,6 +224,10 @@ model AgentJobExecution {
   dependencies        Json?
   params              Json                    @default("{}")
   error               Json?
+  /// Parsed agent response envelope (success path or semantic failure): message, details, logs, schemaVersion.
+  agentResponse       Json?                   @map("agent_response")
+  /// Agent envelope `status` when body was valid: "success" | "failure".
+  semanticStatus      String?                 @map("semantic_status")
   startedAt           DateTime?               @map("started_at")
   completedAt         DateTime?               @map("completed_at")
   createdAt           DateTime                @default(now()) @map("created_at")
@@ -219,9 +250,29 @@ model PipelineStep {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  pipeline    Pipeline     @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  agentConfig AgentConfig? @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
+  pipeline               Pipeline                @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  agentConfig            AgentConfig?            @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
+  scheduleStepExecutions ScheduleStepExecution[]
 
   @@unique([pipelineId, order])
   @@map("pipeline_step")
+}
+
+/// Per-step rollup for one schedule execution (counters and outcome).
+model ScheduleStepExecution {
+  id                      String                   @id @default(uuid())
+  scheduleExecutionId     String                   @map("schedule_execution_id")
+  pipelineStepId          String                   @map("pipeline_step_id")
+  expectedInvocationCount Int                      @map("expected_invocation_count")
+  succeededCount          Int                      @default(0) @map("succeeded_count")
+  failedCount             Int                      @default(0) @map("failed_count")
+  rollupStatus            ScheduleStepRollupStatus @default(pending) @map("rollup_status")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+
+  scheduleExecution ScheduleExecution @relation(fields: [scheduleExecutionId], references: [id], onDelete: Cascade)
+  pipelineStep      PipelineStep      @relation(fields: [pipelineStepId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleExecutionId, pipelineStepId])
+  @@map("schedule_step_execution")
 }

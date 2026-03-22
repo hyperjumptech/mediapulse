@@ -1,10 +1,31 @@
 export {
   executeSchedule,
+  type EnqueueInvokeAgentItem,
   type ExpandStepInputs,
   type ExpandStepInputsContext,
   type ExecuteScheduleDeps,
   type InvokeAgentJobPayload,
 } from "./execute-schedule";
+export {
+  mergeExecutionConfig,
+  parseEffectiveExecutionConfig,
+  ExecutionConfigSchema,
+  type ExecutionConfig,
+} from "./execution-config";
+export {
+  parseAgentResponseEnvelope,
+  type ParsedAgentResponseEnvelope,
+  type ParseEnvelopeResult,
+} from "./agent-response-envelope";
+export {
+  computeStepRollupFromCounts,
+  computeExecutionRunStatusFromStepRollups,
+} from "./schedule-rollup";
+export {
+  applyInvocationCompletion,
+  type ApplyInvocationCompletionDeps,
+  type InvocationCompletionInput,
+} from "./apply-invocation-completion";
 export {
   substituteVariables,
   substituteInString,
@@ -17,7 +38,10 @@ export {
 export { computeNextRunAt, type ScheduleForNextRun } from "./next-run-at";
 export {
   invokeAgent,
+  invokeAgentPost,
   AgentEndpointSchema,
   type AgentEndpoint,
   type InvokeAgentHttpClient,
+  type InvokeAgentHttpResponse,
+  type InvokeAgentPostResult,
 } from "./invoke-agent";

@@ -1,12 +1,16 @@
 import {
   AgentJobExecutionStatus,
-  ScheduleExecutionStatus,
+  ScheduleEnqueueStatus,
+  ScheduleRunStatus,
+  ScheduleStepRollupStatus,
+  type Prisma,
   type PrismaClient,
 } from "@hermes/orchestration-database";
 import { randomUUID } from "node:crypto";
 import type { DueSchedule } from "./get-due-schedules";
-import { computeNextRunAt } from "./next-run-at";
+import { mergeExecutionConfig } from "./execution-config";
 import { AgentEndpointSchema } from "./invoke-agent";
+import { computeNextRunAt } from "./next-run-at";
 import { substituteVariables } from "./substitute-variables";
 import { validateWithJsonSchema } from "./validate-json-schema";
 
@@ -17,6 +21,8 @@ import { validateWithJsonSchema } from "./validate-json-schema";
 export type InvokeAgentJobPayload = {
   jobId: string;
   executionId: string;
+  /** Parent schedule execution row (correlation + rollup). */
+  scheduleExecutionId: string;
   scheduleId: string;
   pipelineId: string;
   pipelineStepId: string;
@@ -26,6 +32,15 @@ export type InvokeAgentJobPayload = {
   body: { input: Record<string, unknown>; config: Record<string, unknown> };
   timeoutMs: number;
   priority: number;
+};
+
+/**
+ * One entry in the `addJobs` batch: payload plus optional same-batch dependency indices for `batchDepRef`.
+ */
+export type EnqueueInvokeAgentItem = {
+  payload: InvokeAgentJobPayload;
+  /** Indices into the same batch passed to `addJobs` (resolved with `batchDepRef` in the worker). */
+  dependsOnBatchIndices?: number[];
 };
 
 /**
@@ -51,13 +66,24 @@ export type ExecuteScheduleDeps = {
     warn: (obj: unknown, msg?: string) => void;
     error: (obj: unknown, msg?: string) => void;
   };
-  /** Enqueues agent invocation jobs in a single batch per call (e.g. per step). */
-  enqueueAgentInvocations: (payloads: InvokeAgentJobPayload[]) => Promise<void>;
+  /** Enqueues all agent jobs for the tick in one `addJobs` call (with optional `dependsOn`). */
+  enqueueAgentInvocations: (items: EnqueueInvokeAgentItem[]) => Promise<void>;
   /** Domain integration hook that expands a single input into one-or-many invocation inputs. */
   expandStepInputs?: ExpandStepInputs;
   defaultTimeoutMs?: number;
   /** When true, reject agent endpoint URLs that use http with a non-local host. */
   requireHttpsAgentEndpoints?: boolean;
+};
+
+type PlannedJob = {
+  jobId: string;
+  executionId: string;
+  pipelineStepId: string;
+  agentId: string;
+  agentVersion: string;
+  endpointUrl: string;
+  input: Record<string, unknown>;
+  config: Record<string, unknown>;
 };
 
 /**
@@ -79,11 +105,11 @@ function isAllowedAgentEndpointUrl(
 }
 
 /**
- * Executes a due schedule: for each pipeline step, substitutes variables and expands
- * data sources in the step's input, then runs that step once per expanded input set.
+ * Executes a due schedule: substitutes variables, expands inputs, persists execution rows,
+ * then enqueues all `invoke_agent` jobs in one batch with sequential cross-step `dependsOn`.
  *
  * @param schedule - Schedule with pipeline and steps (from getDueSchedules).
- * @param deps - DB, HTTP client, logger, auth, timeout.
+ * @param deps - DB, logger, enqueue hook, expansion hook, timeout.
  */
 export const executeSchedule = async (
   schedule: DueSchedule,
@@ -99,14 +125,17 @@ export const executeSchedule = async (
   } = deps;
   const executionTime = new Date();
   const errors: Array<{ message: string; timestamp: string }> = [];
-  let jobsCreated = 0;
-  let jobsEnqueued = 0;
 
   const variables = await db.variable.findMany();
   const variableMap = new Map(variables.map((v) => [v.key, v.value]));
 
   const pipeline = schedule.pipeline;
   const steps = pipeline?.steps ?? [];
+  const effectiveExecutionConfig = mergeExecutionConfig(
+    pipeline?.executionConfig,
+    schedule.executionConfig,
+  );
+
   if (steps.length === 0) {
     logger.warn(
       { scheduleId: schedule.id, pipelineId: schedule.pipelineId },
@@ -116,7 +145,9 @@ export const executeSchedule = async (
       db,
       schedule,
       executionTime,
-      status: ScheduleExecutionStatus.failed,
+      enqueueStatus: ScheduleEnqueueStatus.failed,
+      runStatus: ScheduleRunStatus.failed,
+      effectiveExecutionConfig,
       jobsCreated: 0,
       jobsEnqueued: 0,
       errors: [
@@ -139,7 +170,10 @@ export const executeSchedule = async (
     agents.map((a) => [`${a.agentId}:${a.agentVersion}`, a]),
   );
 
+  const waveList: PlannedJob[][] = [];
+
   for (const step of steps) {
+    const stepJobs: PlannedJob[] = [];
     const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
     if (!agent) {
       logger.warn(
@@ -206,7 +240,6 @@ export const executeSchedule = async (
       pipelineStepId: step.id,
       orchDb: db,
     });
-    const stepPayloads: InvokeAgentJobPayload[] = [];
 
     let stepConfig: Record<string, unknown>;
     const stepWithConfig = step as {
@@ -254,130 +287,214 @@ export const executeSchedule = async (
     }
 
     for (const inputSet of inputSets) {
-      const jobId = randomUUID();
-      const executionId = randomUUID();
-      jobsCreated += 1;
-
-      try {
-        await db.agentJobExecution.create({
-          data: {
-            jobId,
-            agentId: step.agentId,
-            scheduleId: schedule.id,
-            pipelineId: schedule.pipelineId,
-            pipelineStepId: step.id,
-            status: AgentJobExecutionStatus.pending,
-            priority: schedule.priority,
-            enqueuedAt: executionTime,
-            params: inputSet as object,
-          },
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        errors.push({
-          message: `Failed to create AgentJobExecution: ${message}`,
-          timestamp: new Date().toISOString(),
-        });
-        continue;
-      }
-
-      const payload: InvokeAgentJobPayload = {
-        jobId,
-        executionId,
-        scheduleId: schedule.id,
-        pipelineId: schedule.pipelineId,
+      stepJobs.push({
+        jobId: randomUUID(),
+        executionId: randomUUID(),
         pipelineStepId: step.id,
         agentId: step.agentId,
         agentVersion: step.agentVersion,
         endpointUrl: endpointResult.data.url,
-        body: {
-          input: inputSet as Record<string, unknown>,
-          config: stepConfig,
-        },
-        timeoutMs: schedule.timeout ?? defaultTimeoutMs,
-        priority: schedule.priority,
-      };
-      stepPayloads.push(payload);
+        input: inputSet as Record<string, unknown>,
+        config: stepConfig,
+      });
     }
-
-    if (stepPayloads.length > 0) {
-      try {
-        await enqueueAgentInvocations(stepPayloads);
-        jobsEnqueued += stepPayloads.length;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        errors.push({
-          message: `Failed to enqueue agent invocations: ${message}`,
-          timestamp: new Date().toISOString(),
-        });
-        for (const p of stepPayloads) {
-          try {
-            await db.agentJobExecution.update({
-              where: { jobId: p.jobId },
-              data: {
-                status: AgentJobExecutionStatus.failed,
-                error: { message, retryable: true },
-                completedAt: new Date(),
-              },
-            });
-          } catch (updateErr) {
-            logger.error(
-              { err: updateErr, jobId: p.jobId },
-              "Failed to update AgentJobExecution to failed after enqueue error",
-            );
-          }
-        }
-      }
+    if (stepJobs.length > 0) {
+      waveList.push(stepJobs);
     }
   }
 
-  const status =
+  const plannedJobs = waveList.flat();
+  const jobsCreated = plannedJobs.length;
+  let jobsEnqueued = 0;
+
+  const enqueueStatus =
     errors.length === 0
-      ? ScheduleExecutionStatus.success
-      : jobsEnqueued > 0
-        ? ScheduleExecutionStatus.partial
-        : ScheduleExecutionStatus.failed;
+      ? ScheduleEnqueueStatus.success
+      : jobsCreated > 0
+        ? ScheduleEnqueueStatus.partial
+        : ScheduleEnqueueStatus.failed;
 
-  await recordScheduleExecutionAndUpdateSchedule({
-    db,
-    schedule,
-    executionTime,
-    status,
-    jobsCreated,
-    jobsEnqueued,
-    errors: errors.length > 0 ? errors : undefined,
-  });
-};
+  const initialRunStatus =
+    jobsCreated === 0 ? ScheduleRunStatus.failed : ScheduleRunStatus.pending;
 
-async function recordScheduleExecutionAndUpdateSchedule(args: {
-  db: PrismaClient;
-  schedule: DueSchedule;
-  executionTime: Date;
-  status: ScheduleExecutionStatus;
-  jobsCreated: number;
-  jobsEnqueued: number;
-  errors?: Array<{ message: string; timestamp: string }>;
-}): Promise<void> {
-  const {
-    db,
-    schedule,
-    executionTime,
-    status,
-    jobsCreated,
-    jobsEnqueued,
-    errors,
-  } = args;
-  await db.scheduleExecution.create({
-    data: {
-      scheduleId: schedule.id,
+  const effectiveJson = toPrismaJson(effectiveExecutionConfig);
+
+  if (jobsCreated === 0) {
+    await recordScheduleExecutionAndUpdateSchedule({
+      db,
+      schedule,
       executionTime,
-      status,
-      jobsCreated,
+      enqueueStatus,
+      runStatus: initialRunStatus,
+      effectiveExecutionConfig: effectiveJson,
+      jobsCreated: 0,
+      jobsEnqueued: 0,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+    return;
+  }
+
+  const stepExpected = new Map<string, number>();
+  for (const j of plannedJobs) {
+    stepExpected.set(
+      j.pipelineStepId,
+      (stepExpected.get(j.pipelineStepId) ?? 0) + 1,
+    );
+  }
+
+  const enqueueItems: EnqueueInvokeAgentItem[] = [];
+  let lastWaveIndices: number[] = [];
+
+  for (const wave of waveList) {
+    const waveStart = enqueueItems.length;
+    const useSequentialDeps =
+      effectiveExecutionConfig.stepOrder === "sequential" &&
+      lastWaveIndices.length > 0;
+    for (const job of wave) {
+      enqueueItems.push({
+        payload: {
+          jobId: job.jobId,
+          executionId: job.executionId,
+          scheduleExecutionId: "",
+          scheduleId: schedule.id,
+          pipelineId: schedule.pipelineId,
+          pipelineStepId: job.pipelineStepId,
+          agentId: job.agentId,
+          agentVersion: job.agentVersion,
+          endpointUrl: job.endpointUrl,
+          body: { input: job.input, config: job.config },
+          timeoutMs: schedule.timeout ?? defaultTimeoutMs,
+          priority: schedule.priority,
+        },
+        dependsOnBatchIndices: useSequentialDeps
+          ? [...lastWaveIndices]
+          : undefined,
+      });
+    }
+    if (enqueueItems.length > waveStart) {
+      lastWaveIndices = Array.from(
+        { length: enqueueItems.length - waveStart },
+        (_, k) => waveStart + k,
+      );
+    }
+  }
+
+  const created = await db.$transaction(async (tx) => {
+    const se = await tx.scheduleExecution.create({
+      data: {
+        scheduleId: schedule.id,
+        executionTime,
+        enqueueStatus,
+        runStatus: initialRunStatus,
+        effectiveExecutionConfig: effectiveJson,
+        jobsCreated,
+        jobsEnqueued: 0,
+        errors:
+          errors.length > 0 ? (errors as Prisma.InputJsonValue) : undefined,
+      },
+    });
+
+    for (const [pipelineStepId, count] of stepExpected) {
+      await tx.scheduleStepExecution.create({
+        data: {
+          scheduleExecutionId: se.id,
+          pipelineStepId,
+          expectedInvocationCount: count,
+          succeededCount: 0,
+          failedCount: 0,
+          rollupStatus: ScheduleStepRollupStatus.pending,
+        },
+      });
+    }
+
+    for (const item of enqueueItems) {
+      const p = item.payload;
+      await tx.agentJobExecution.create({
+        data: {
+          jobId: p.jobId,
+          agentId: p.agentId,
+          scheduleId: schedule.id,
+          scheduleExecutionId: se.id,
+          pipelineId: schedule.pipelineId,
+          pipelineStepId: p.pipelineStepId,
+          status: AgentJobExecutionStatus.pending,
+          priority: schedule.priority,
+          enqueuedAt: executionTime,
+          params: p.body.input as object,
+        },
+      });
+      p.scheduleExecutionId = se.id;
+    }
+
+    return se;
+  });
+
+  try {
+    await enqueueAgentInvocations(enqueueItems);
+    jobsEnqueued = enqueueItems.length;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    errors.push({
+      message: `Failed to enqueue agent invocations: ${message}`,
+      timestamp: new Date().toISOString(),
+    });
+    for (const item of enqueueItems) {
+      try {
+        await db.agentJobExecution.update({
+          where: { jobId: item.payload.jobId },
+          data: {
+            status: AgentJobExecutionStatus.failed,
+            error: { message, retryable: true },
+            completedAt: new Date(),
+          },
+        });
+      } catch (updateErr) {
+        logger.error(
+          { err: updateErr, jobId: item.payload.jobId },
+          "Failed to update AgentJobExecution to failed after enqueue error",
+        );
+      }
+    }
+    await db.scheduleExecution.update({
+      where: { id: created.id },
+      data: {
+        enqueueStatus:
+          jobsEnqueued > 0
+            ? ScheduleEnqueueStatus.partial
+            : ScheduleEnqueueStatus.failed,
+        runStatus: ScheduleRunStatus.failed,
+        jobsEnqueued,
+        errors:
+          errors.length > 0 ? (errors as Prisma.InputJsonValue) : undefined,
+      },
+    });
+    await updateScheduleAfterExecution(db, schedule, executionTime);
+    return;
+  }
+
+  await db.scheduleExecution.update({
+    where: { id: created.id },
+    data: {
       jobsEnqueued,
-      errors: errors ?? undefined,
+      enqueueStatus:
+        errors.length === 0
+          ? ScheduleEnqueueStatus.success
+          : ScheduleEnqueueStatus.partial,
     },
   });
 
+  await updateScheduleAfterExecution(db, schedule, executionTime);
+};
+
+function toPrismaJson(value: Record<string, unknown>): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+async function updateScheduleAfterExecution(
+  db: PrismaClient,
+  schedule: DueSchedule,
+  executionTime: Date,
+): Promise<void> {
   if (schedule.repeat === "once") {
     await db.schedule.update({
       where: { id: schedule.id },
@@ -400,4 +517,42 @@ async function recordScheduleExecutionAndUpdateSchedule(args: {
     where: { id: schedule.id },
     data: { nextRunAt },
   });
+}
+
+async function recordScheduleExecutionAndUpdateSchedule(args: {
+  db: PrismaClient;
+  schedule: DueSchedule;
+  executionTime: Date;
+  enqueueStatus: ScheduleEnqueueStatus;
+  runStatus: ScheduleRunStatus;
+  effectiveExecutionConfig: Prisma.InputJsonValue;
+  jobsCreated: number;
+  jobsEnqueued: number;
+  errors?: Array<{ message: string; timestamp: string }>;
+}): Promise<void> {
+  const {
+    db,
+    schedule,
+    executionTime,
+    enqueueStatus,
+    runStatus,
+    effectiveExecutionConfig,
+    jobsCreated,
+    jobsEnqueued,
+    errors,
+  } = args;
+  await db.scheduleExecution.create({
+    data: {
+      scheduleId: schedule.id,
+      executionTime,
+      enqueueStatus,
+      runStatus,
+      effectiveExecutionConfig,
+      jobsCreated,
+      jobsEnqueued,
+      errors: errors ?? undefined,
+    },
+  });
+
+  await updateScheduleAfterExecution(db, schedule, executionTime);
 }

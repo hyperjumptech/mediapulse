@@ -61,6 +61,10 @@ Set these env vars so the agent can auto-register: `AGENT_REGISTRY_URL`, `AGENT_
 3. **Register the agent** — Either set `AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `AGENT_API_KEY` (domain_integration), and `AGENT_AUTH_API_URL` and pass `autoRegister` from env so the agent registers itself on startup (JWT mint + POST to registry), or register manually: POST to the registry with `Authorization: Bearer <jwt>` and body `agentId`, `agentVersion`, `endpoint`, `inputSchema` (and optionally `configSchema`). You can GET the agent’s `/schemas` and include that in the register payload.
 4. In Hermes, add the agent to a pipeline step and set step config if the agent has a config schema. Create schedules with params that satisfy the pipeline’s agents’ input schemas.
 
+## Response body (agent → Hermes)
+
+On **success (HTTP 2xx)**, agents should return **JSON** matching the envelope in [Schedule execution results (PRD)](/architecture/schedule-execution-results-prd): `schemaVersion`, `status` (`success` or `failure`), optional `message`, `details`, and `logs`. Hermes treats **empty 2xx bodies** as legacy success. **Semantic failures** use `status: "failure"` in the body (still 2xx) so structured errors can be returned in one response; transport failures use non-2xx or failed transport as appropriate.
+
 ## Related docs
 
 - [agent-runtime](/hermes/packages/agent-runtime) — `createAgentApp`, body validation, GET /schemas.

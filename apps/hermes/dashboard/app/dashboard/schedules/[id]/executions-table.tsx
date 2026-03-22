@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from "react";
 
+import Link from "next/link";
+
 import { Button } from "@workspace/ui/components/button";
 import {
   Table,
@@ -18,6 +20,7 @@ import type { ScheduleExecutionRow } from "@/lib/schedules";
 import { ErrorLogModal } from "./error-log-modal";
 
 type ExecutionsTableProps = {
+  scheduleId: string;
   executions: ScheduleExecutionRow[];
 };
 
@@ -50,10 +53,12 @@ const useExecutionsTableState = () => {
 };
 
 /**
- * Renders the schedule executions list as a table with Execution time, Status, Jobs created, Jobs enqueued, and Error log link.
- * Clicking "View log" opens the error log modal for that execution.
+ * Renders the schedule executions list: enqueue/run status, job counts, link to execution detail.
  */
-export const ExecutionsTable = ({ executions }: ExecutionsTableProps) => {
+export const ExecutionsTable = ({
+  scheduleId,
+  executions,
+}: ExecutionsTableProps) => {
   const { errorLogOpen, selectedErrors, openErrorLog, closeErrorLog } =
     useExecutionsTableState();
 
@@ -64,17 +69,19 @@ export const ExecutionsTable = ({ executions }: ExecutionsTableProps) => {
           <TableHeader className="bg-muted/50">
             <TableRow className="border-muted hover:bg-transparent">
               <TableHead className="w-[180px]">Execution time</TableHead>
-              <TableHead className="w-[100px]">Status</TableHead>
-              <TableHead className="w-[100px]">Jobs created</TableHead>
-              <TableHead className="w-[100px]">Jobs enqueued</TableHead>
+              <TableHead className="w-[100px]">Enqueue</TableHead>
+              <TableHead className="w-[100px]">Run</TableHead>
+              <TableHead className="w-[90px]">Jobs</TableHead>
+              <TableHead className="w-[110px]">Invocations ✓ / ✗</TableHead>
               <TableHead>Error log</TableHead>
+              <TableHead className="w-[90px]">Detail</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {executions.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={7}
                   className="text-center text-muted-foreground"
                 >
                   No executions yet.
@@ -87,13 +94,17 @@ export const ExecutionsTable = ({ executions }: ExecutionsTableProps) => {
                     {format(execution.executionTime, "LLL d, yyyy HH:mm:ss")}
                   </TableCell>
                   <TableCell className="text-sm capitalize">
-                    {execution.status}
+                    {execution.enqueueStatus}
+                  </TableCell>
+                  <TableCell className="text-sm capitalize">
+                    {execution.runStatus}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {execution.jobsCreated}
+                    {execution.jobsCreated} / {execution.jobsEnqueued}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {execution.jobsEnqueued}
+                    {execution.succeededInvocationCount} /{" "}
+                    {execution.failedInvocationCount}
                   </TableCell>
                   <TableCell>
                     {hasErrors(execution.errors) ? (
@@ -108,6 +119,14 @@ export const ExecutionsTable = ({ executions }: ExecutionsTableProps) => {
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/dashboard/schedules/${scheduleId}/executions/${execution.id}`}
+                      className="text-sm text-primary underline-offset-4 hover:underline"
+                    >
+                      View
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))

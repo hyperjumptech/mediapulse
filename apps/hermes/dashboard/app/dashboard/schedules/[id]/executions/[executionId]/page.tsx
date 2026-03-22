@@ -1,0 +1,153 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/table";
+
+import { getScheduleExecutionDetail } from "@/lib/schedules";
+
+type PageProps = {
+  params: Promise<{ id: string; executionId: string }>;
+};
+
+/**
+ * Schedule execution detail: dual-phase status, step rollups, and per-invocation outcomes.
+ */
+export default async function ScheduleExecutionDetailPage({
+  params,
+}: PageProps) {
+  const { id: scheduleId, executionId } = await params;
+  const detail = await getScheduleExecutionDetail(scheduleId, executionId);
+  if (!detail) {
+    notFound();
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <Link
+          href={`/dashboard/schedules/${scheduleId}`}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" />
+          Back to schedule
+        </Link>
+      </div>
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">
+          Execution {detail.execution.id.slice(0, 8)}…
+        </h1>
+        <p className="text-muted-foreground">
+          {detail.schedule.name}
+          {detail.pipeline ? ` · ${detail.pipeline.name}` : ""}
+        </p>
+      </div>
+
+      <section className="grid gap-2 text-sm">
+        <p>
+          <span className="text-muted-foreground">Enqueue status:</span>{" "}
+          {detail.execution.enqueueStatus}
+        </p>
+        <p>
+          <span className="text-muted-foreground">Run status:</span>{" "}
+          {detail.execution.runStatus}
+        </p>
+        <p>
+          <span className="text-muted-foreground">
+            Jobs created / enqueued:
+          </span>{" "}
+          {detail.execution.jobsCreated} / {detail.execution.jobsEnqueued}
+        </p>
+        <p>
+          <span className="text-muted-foreground">
+            Invocations succeeded / failed:
+          </span>{" "}
+          {detail.execution.succeededInvocationCount} /{" "}
+          {detail.execution.failedInvocationCount}
+        </p>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-lg font-medium">Pipeline steps</h2>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order</TableHead>
+                <TableHead>Agent</TableHead>
+                <TableHead>Rollup</TableHead>
+                <TableHead>OK / Fail</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {detail.stepExecutions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-muted-foreground">
+                    No step rows (nothing was enqueued).
+                  </TableCell>
+                </TableRow>
+              ) : (
+                detail.stepExecutions.map((s) => (
+                  <TableRow key={s.pipelineStepId}>
+                    <TableCell>{s.stepOrder}</TableCell>
+                    <TableCell>
+                      {s.agentId}@{s.agentVersion}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {s.rollupStatus}
+                    </TableCell>
+                    <TableCell>
+                      {s.succeededCount} / {s.failedCount} (expected{" "}
+                      {s.expectedInvocationCount})
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-lg font-medium">Invocations</h2>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Job</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Semantic</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {detail.invocations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-muted-foreground">
+                    No invocations.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                detail.invocations.map((j) => (
+                  <TableRow key={j.jobId}>
+                    <TableCell className="font-mono text-xs">
+                      {j.jobId}
+                    </TableCell>
+                    <TableCell className="capitalize">{j.status}</TableCell>
+                    <TableCell>{j.semanticStatus ?? "—"}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+    </div>
+  );
+}

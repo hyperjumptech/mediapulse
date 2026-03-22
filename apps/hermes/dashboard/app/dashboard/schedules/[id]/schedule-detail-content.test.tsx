@@ -97,9 +97,12 @@ const createMockSchedule = (): ScheduleDetailContentProps["schedule"] =>
 const createMockExecution = () => ({
   id: "ex-1",
   executionTime: new Date("2025-01-15T10:00:00Z"),
-  status: "success",
+  enqueueStatus: "success",
+  runStatus: "succeeded",
   jobsCreated: 2,
   jobsEnqueued: 2,
+  succeededInvocationCount: 2,
+  failedInvocationCount: 0,
   errors: null,
   createdAt: new Date(),
 });
