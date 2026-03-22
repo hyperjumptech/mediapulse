@@ -57,13 +57,17 @@ vi.mock("@workspace/logger", () => ({
   },
 }));
 
-vi.mock("@hermes/scheduler", () => ({
-  getDueSchedules: vi.fn(),
-  executeSchedule: vi.fn(),
-  invokeAgentPost: vi.fn(),
-  parseAgentResponseEnvelope: vi.fn(),
-  applyInvocationCompletion: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock("@hermes/scheduler", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@hermes/scheduler")>();
+  return {
+    ...actual,
+    getDueSchedules: vi.fn(),
+    executeSchedule: vi.fn(),
+    invokeAgentPost: vi.fn(),
+    parseAgentResponseEnvelope: vi.fn(),
+    applyInvocationCompletion: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 const mockAddJobs = vi.fn().mockResolvedValue([1]);
 
@@ -380,6 +384,36 @@ describe("jobHandlers", () => {
       expect(mockPrisma.agentJobExecution.updateMany).toHaveBeenCalledTimes(1);
       expect(invokeAgentPost).not.toHaveBeenCalled();
       expect(mockPrisma.agentJobExecution.update).not.toHaveBeenCalled();
+    });
+
+    it("on 4xx uses JSON body message when present (e.g. agent skipped + message)", async () => {
+      vi.mocked(invokeAgentPost).mockResolvedValue({
+        kind: "http",
+        response: {
+          statusCode: 404,
+          rawBody: JSON.stringify({
+            agentId: "content-generation",
+            skipped: true,
+            message: "No data sources found for this ticker",
+          }),
+          isEmptyBody: false,
+        },
+      });
+
+      await jobHandlers.invoke_agent(payload, signal, ctx);
+
+      expect(applyInvocationCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          terminal: {
+            status: AgentJobExecutionStatus.failed,
+            error: {
+              message: "No data sources found for this ticker",
+              retryable: false,
+            },
+          },
+        }),
+        expect.any(Object),
+      );
     });
   });
 });

@@ -17,6 +17,7 @@ export {
   type ParsedAgentResponseEnvelope,
   type ParseEnvelopeResult,
 } from "./agent-response-envelope";
+export { parseHttpErrorBodyMessage } from "./parse-http-error-body-message";
 export {
   computeStepRollupFromCounts,
   computeExecutionRunStatusFromStepRollups,

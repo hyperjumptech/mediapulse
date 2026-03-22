@@ -18,6 +18,7 @@ import {
   getDueSchedules,
   invokeAgentPost,
   parseAgentResponseEnvelope,
+  parseHttpErrorBodyMessage,
   type ExpandStepInputs,
   type InvokeAgentHttpClient,
 } from "@hermes/scheduler";
@@ -252,12 +253,13 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     const { statusCode, rawBody, isEmptyBody } = postResult.response;
 
     if (statusCode >= 500) {
+      const bodyMessage = parseHttpErrorBodyMessage(rawBody);
       await orchestrationPrisma.agentJobExecution.update({
         where: { jobId: payload.jobId },
         data: {
           status: AgentJobExecutionStatus.failed,
           error: {
-            message: `Agent HTTP ${statusCode}`,
+            message: bodyMessage ?? `Agent HTTP ${statusCode}`,
             retryable: true,
           },
           completedAt: new Date(),
@@ -267,6 +269,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     }
 
     if (statusCode >= 400) {
+      const bodyMessage = parseHttpErrorBodyMessage(rawBody);
       await applyInvocationCompletion(
         {
           jobId: payload.jobId,
@@ -275,7 +278,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           terminal: {
             status: AgentJobExecutionStatus.failed,
             error: {
-              message: `HTTP ${statusCode}`,
+              message: bodyMessage ?? `HTTP ${statusCode}`,
               retryable: false,
             },
           },
