@@ -1,0 +1,11 @@
+{
+  "title": "Packages",
+  "pages": [
+    "index",
+    "mediapulse-database",
+    "mediapulse-hermes-integration",
+    "idx-tickers-importer",
+    "outlook-inbox"
+  ],
+  "defaultOpen": true
+}

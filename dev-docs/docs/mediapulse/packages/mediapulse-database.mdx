@@ -1,0 +1,31 @@
+---
+title: mediapulse-database
+description: Prisma client and schema for Mediapulse domain tables
+icon: Database
+---
+
+## Purpose
+
+`@mediapulse/database` is the Prisma package for Mediapulse-specific data such as tickers, newsletters, search queries, and knowledge graph entities.
+
+## Exports
+
+- **Default:** Prisma client instance (`prisma`) and `Prisma` namespace.
+- **`@mediapulse/database/client`** — Alternative client entry for custom instantiation and tests.
+
+## Environment variables
+
+| Variable                  | Description                                              |
+| ------------------------- | -------------------------------------------------------- |
+| `MEDIAPULSE_DATABASE_URL` | Primary connection string for Mediapulse schema/tables.  |
+| `DATABASE_URL`            | Fallback connection string when Mediapulse URL is unset. |
+| `DATABASE_CERT_BASE64`    | Optional base64 CA certificate for SSL connections.      |
+
+## Key models
+
+- `MediapulseUser` — End users / subscribers (distinct from Hermes orchestration `User` admins).
+- `Ticker`, `UserTicker` (FK to `MediapulseUser`), `SearchQuery`
+- `Newsletter`
+- `DataSource`, `DataSourceExpansion`
+- `EntityType`, `RelationType`, `Entity`, `EntityAlias`, `TickerEntity`, `EntityRelation`
+- `ArticleEntity`, `ArticleRelevance`

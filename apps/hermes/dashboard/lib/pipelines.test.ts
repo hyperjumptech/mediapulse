@@ -1,0 +1,134 @@
+/** @vitest-environment node */
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  getAgentRegistryList,
+  getPipelineWithSteps,
+  getPipelinesWithSteps,
+} from "./pipelines";
+import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
+
+type MockDb = {
+  pipeline: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+  };
+  agentRegistry: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
+};
+
+const createMockDb = (): MockDb => ({
+  pipeline: {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+  },
+  agentRegistry: {
+    findMany: vi.fn(),
+  },
+});
+
+/** Cast minimal mock to PrismaClientWithSchema for tests. */
+const asDb = (db: MockDb): PrismaClientWithSchema =>
+  db as unknown as PrismaClientWithSchema;
+
+describe("getPipelinesWithSteps", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls pipeline.findMany with include steps and orderBy updatedAt desc", async () => {
+    const db = createMockDb();
+    db.pipeline.findMany.mockResolvedValue([]);
+
+    await getPipelinesWithSteps(asDb(db));
+
+    expect(db.pipeline.findMany).toHaveBeenCalledWith({
+      include: { steps: { orderBy: { order: "asc" } } },
+      orderBy: { updatedAt: "desc" },
+    });
+  });
+
+  it("returns the result of findMany", async () => {
+    const db = createMockDb();
+    const pipelines = [
+      {
+        id: "p1",
+        name: "P1",
+        steps: [{ id: "s1", order: 0 }],
+      },
+    ];
+    db.pipeline.findMany.mockResolvedValue(pipelines);
+
+    const result = await getPipelinesWithSteps(asDb(db));
+
+    expect(result).toEqual(pipelines);
+  });
+});
+
+describe("getPipelineWithSteps", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls pipeline.findUnique with id and include steps", async () => {
+    const db = createMockDb();
+    db.pipeline.findUnique.mockResolvedValue(null);
+
+    await getPipelineWithSteps("pid-1", asDb(db));
+
+    expect(db.pipeline.findUnique).toHaveBeenCalledWith({
+      where: { id: "pid-1" },
+      include: { steps: { orderBy: { order: "asc" } } },
+    });
+  });
+
+  it("returns the result of findUnique", async () => {
+    const db = createMockDb();
+    const pipeline = { id: "p1", name: "P1", steps: [] };
+    db.pipeline.findUnique.mockResolvedValue(pipeline);
+
+    const result = await getPipelineWithSteps("p1", asDb(db));
+
+    expect(result).toEqual(pipeline);
+  });
+});
+
+describe("getAgentRegistryList", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls agentRegistry.findMany with isActive true and orderBy", async () => {
+    const db = createMockDb();
+    db.agentRegistry.findMany.mockResolvedValue([]);
+
+    await getAgentRegistryList(asDb(db));
+
+    expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
+      where: { isActive: true },
+      orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
+    });
+  });
+
+  it("filters by domainIntegrationId when provided", async () => {
+    const db = createMockDb();
+    db.agentRegistry.findMany.mockResolvedValue([]);
+
+    await getAgentRegistryList(asDb(db), "di-1");
+
+    expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
+      where: { isActive: true, domainIntegrationId: "di-1" },
+      orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
+    });
+  });
+
+  it("returns the result of findMany", async () => {
+    const db = createMockDb();
+    const agents = [{ id: "a1", agentId: "ag1", agentVersion: "1" }];
+    db.agentRegistry.findMany.mockResolvedValue(agents);
+
+    const result = await getAgentRegistryList(asDb(db));
+
+    expect(result).toEqual(agents);
+  });
+});

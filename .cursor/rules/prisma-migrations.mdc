@@ -10,17 +10,31 @@ When adding or changing the Prisma schema (`schema.prisma`), **do not** create o
 
 ## Correct workflow
 
-1. Edit `packages/database/prisma/schema.prisma` only.
-2. Generate the migration by running from the repo root:
+1. Edit the Prisma schema you are changing only:
+   - **Orchestration (Hermes):** `packages/hermes/orchestration-database/prisma/schema.prisma`
+   - **Mediapulse domain:** `packages/mediapulse/database/prisma/schema.prisma`
+2. Generate the migration by running from the matching package directory:
 
    ```bash
-   cd packages/database && pnpm db:migrate:dev
+   cd packages/hermes/orchestration-database && pnpm db:migrate:dev
+   ```
+
+   or
+
+   ```bash
+   cd packages/mediapulse/database && pnpm db:migrate:dev
    ```
 
    Or from root with filter:
 
    ```bash
-   pnpm --filter @workspace/database db:migrate:dev
+   pnpm --filter @hermes/orchestration-database db:migrate:dev
+   ```
+
+   or
+
+   ```bash
+   pnpm --filter @mediapulse/database db:migrate:dev
    ```
 
 3. When prompted, give the migration a descriptive name (e.g. `add_variable_created_by`).

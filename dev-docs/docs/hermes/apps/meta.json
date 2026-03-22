@@ -1,0 +1,10 @@
+{
+  "title": "Apps",
+  "pages": [
+    "dashboard",
+    "hermes-worker",
+    "agent-auth-api",
+    "agent-registry-api"
+  ],
+  "defaultOpen": true
+}

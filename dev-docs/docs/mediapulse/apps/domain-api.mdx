@@ -1,0 +1,73 @@
+---
+title: Domain API
+description: Domain integration API for Mediapulse, Hermes dashboard tables, and preview
+icon: Server
+---
+
+## Purpose
+
+`apps/mediapulse/domain-api` (`@mediapulse/domain-api`) is the **Mediapulse-owned** HTTP service that implements the Hermes **domain integration** contract. On startup, it registers itself with Hermes so Hermes can call it for step-input expansion and for `table-v1` dashboard resources.
+
+## Responsibilities
+
+- Exposes contract routes:
+  - `GET /v1/health`
+  - `POST /v1/preview-expansion`
+  - `POST /v1/expand-step-inputs`
+- Serves **Hermes dashboard** HTTP for registered `table-v1` resources (list, meta, create/update/delete) under `/v1/hermes-dashboard/...`, including optional **custom actions** declared in the integration manifest (for example `POST /v1/hermes-dashboard/tickers/import-idx-json` with body `{ "payloadJson": "<stringified IDX JSON>" }` for IDX ticker import via `@mediapulse/idx-tickers-importer`).
+- Runs Mediapulse DB expansion logic using `@mediapulse/hermes-integration`.
+- Self-registers to Hermes via `POST /api/domain-integrations/register`.
+
+## Adding or removing a Hermes dashboard resource
+
+Registration is centralized so manifest pages, URL segments, and Hono mounts stay in sync:
+
+1. Under `apps/mediapulse/domain-api/src/resources/<kebab-name>/`, add or remove the resource folder (routes, dashboard page, mappers, etc.).
+2. Export a path segment constant from `dashboard-page.ts` (e.g. `tickersHermesPathSegment`) and use it for `id`, `pathSegment`, and `hermesDashboardManifestApiPrefix(...)`.
+3. Add or remove `resource-definition.ts` that calls `defineHermesDashboardResource` from `hermes-dashboard-resource-types.ts`.
+4. In `hermes-dashboard-resource-registry.ts`, add or remove one entry in `hermesDashboardResources` and the corresponding import.
+5. Run `pnpm code-quality` from the repo root.
+
+Imports in `dashboard-page.ts` should use `hermes-dashboard-path-helpers` for URL builders (not `paths.ts`) so modules do not create a circular dependency with the registry.
+
+## Hermes dashboard resource folder layout (`src/resources/<kebab-name>/`)
+
+This is a **team convention** (not enforced by tooling). New resources should follow it so structure stays predictable.
+
+| File                     | Purpose                                                                                                                                                                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dashboard-page.ts`      | Hermes manifest page for `table-v1` (columns, search/sort fields, form JSON Schema, actions) plus the exported `*HermesPathSegment` constant used for `id` / `pathSegment` / API prefix.                                                       |
+| `list-mapper.ts`         | Maps Prisma rows to the list-row shape returned by `GET /` and expected by the contract.                                                                                                                                                       |
+| `write-body-schemas.ts`  | Zod write bodies derived from Prisma field metadata plus an allowlist of list-row keys; also exports Hermes `createSchema` / `updateSchema` JSON (see below). **Omit** if the resource has no write bodies (for example list-and-delete-only). |
+| `resource-definition.ts` | Single `defineHermesDashboardResource(...)` export wiring `routes`, `dashboardPage`, `order`, and `resourceKey`.                                                                                                                               |
+| `routes.ts`              | Hono sub-app mounted at `/v1/hermes-dashboard/<segment>/` (list, CRUD, resource-specific routes).                                                                                                                                              |
+
+Place **extra** domain logic beside these (for example ticker metadata merge or custom actions). Co-locate tests as `*.test.ts`.
+
+## Prisma-backed write schemas
+
+Table resources that mirror Mediapulse DB models use **`src/generated/prisma-write-field-metadata.ts`** (DMMF scalar/enum snapshot) with **`buildWriteBodySchema`** and **`hermesFormJsonSchemaFromZod`** so Zod validation and Hermes form JSON Schema stay aligned.
+
+- **Which Prisma models get codegen:** only names listed in **`PRISMA_WRITE_METADATA_MODEL_NAMES`** in `apps/mediapulse/domain-api/src/lib/prisma-write-schema/prisma-write-metadata-codegen-helpers.ts` (an explicit allowlist). Add a model there when you introduce a new dashboard resource that should use this pipeline, then run **`generate`**.
+- **Which columns are writable per resource:** an explicit allowlist typed as `keyof ListItem` in each resource’s `write-body-schemas.ts`.
+
+After changing `packages/mediapulse/database/prisma/schema.prisma`, regenerate metadata. Turbo runs **`generate`** for this app before **`build`**, **`test`**, **`test:coverage`**, and **`dev`** (see root `turbo.json`), and this package’s `type:check` also depends on `generate`.
+
+```bash
+pnpm --filter @mediapulse/domain-api generate:prisma-write-field-metadata
+```
+
+You can also run `pnpm --filter @mediapulse/domain-api generate` or rely on `turbo run build --filter=@mediapulse/domain-api` to refresh the file. Then run `pnpm code-quality` from the repo root when you are ready to ship.
+
+## Key environment variables
+
+- `MEDIAPULSE_API_URL` — Public base URL this service registers in Hermes.
+- `HERMES_API_URL` — Hermes base URL for registration.
+- `DOMAIN_INTEGRATION_API_KEY` — Hermes dashboard API key (purpose `domain_integration`) for `POST /api/domain-integrations/register` and for agents (JWT mint / registry); `./dev-setup-local.sh` sets it in dev.
+- `AGENT_AUTH_API_URL` — When set, domain-api requires Hermes to send a short-lived **JWT** (`Authorization: Bearer …`) issued by **`POST /api/token`** on agent-auth-api; verification uses **`POST /api/verify`**. Omit only for local dev without auth.
+
+## Related
+
+- [Integrate a domain with Hermes](/guide/integrate-domain-with-hermes) — registration, env, and `table-v1` overview
+- [Hermes and Mediapulse domains](/architecture/domains)
+- [mediapulse-hermes-integration](/mediapulse/packages/mediapulse-hermes-integration)

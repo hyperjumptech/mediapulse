@@ -3,13 +3,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/packages/env/.env"
+HERMES_ENV_FILE="$SCRIPT_DIR/packages/hermes/env/.env"
+MEDIAPULSE_ENV_FILE="$SCRIPT_DIR/packages/mediapulse/env/.env"
 NON_INTERACTIVE="false"
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
 AGENT_AUTH_API_URL="http://localhost:8080"
-SCHEDULER_KEY_NAME="Local dev scheduler"
-REGISTRY_KEY_NAME="Local dev registry"
+# Default domain integration (same as dashboard wizard): integration key + display name; API key is generated and stored encrypted in orchestration DB.
+DOMAIN_INTEGRATION_KEY="${DOMAIN_INTEGRATION_KEY:-mediapulse}"
+DOMAIN_INTEGRATION_DISPLAY_NAME="${DOMAIN_INTEGRATION_DISPLAY_NAME:-Local dev Mediapulse}"
 JWT_SECRET=""
 SKIP_INSTALL="false"
 SKIP_MIGRATIONS="false"
@@ -83,15 +85,44 @@ upsert_env_var() {
   mv "$tmp_file" "$file"
 }
 
-extract_generated_api_key() {
-  local output="$1"
-  printf "%s\n" "$output" | awk '
-    /Raw key \(store securely, shown once\):/ {
-      getline
-      print
+# Prints the value for KEY from the first matching line in a dotenv file. Strips a trailing
+# inline comment (# …) and leading/trailing whitespace, and optional matching double quotes.
+# Use this instead of raw line length: lines like KEY= #required are long but have an empty value.
+read_dotenv_value() {
+  local file="$1"
+  local key="$2"
+  awk -v key="$key" '
+    $0 ~ "^" key "=" {
+      v = substr($0, length(key) + 2)
+      sub(/#.*/, "", v)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+      if (v ~ /^".*"$/) {
+        gsub(/^"|"$/, "", v)
+      }
+      print v
       exit
     }
-  '
+  ' "$file" 2>/dev/null
+}
+
+# Parses PLAIN_API_KEY= and INTEGRATION_KEY= lines from seed-local-domain-integration output.
+read_plain_api_key_from_seed_output() {
+  local output="$1"
+  local line
+  line="$(printf "%s\n" "$output" | grep '^PLAIN_API_KEY=' | head -n 1)"
+  printf "%s" "${line#PLAIN_API_KEY=}"
+}
+
+read_integration_key_from_seed_output() {
+  local output="$1"
+  local line
+  line="$(printf "%s\n" "$output" | grep '^INTEGRATION_KEY=' | head -n 1)"
+  printf "%s" "${line#INTEGRATION_KEY=}"
+}
+
+seed_output_has_skip_plaintext() {
+  local output="$1"
+  printf "%s\n" "$output" | grep -q '^SKIP_PLAINTEXT=1$'
 }
 
 usage() {
@@ -105,12 +136,13 @@ Options:
   --admin-email <email>             Admin email (required in non-interactive mode).
   --admin-password <password>       Admin password (required in non-interactive mode).
   --agent-auth-api-url <url>        AGENT_AUTH_API_URL value (default: http://localhost:8080).
-  --scheduler-key-name <name>       Scheduler API key name (default: Local dev scheduler).
-  --registry-key-name <name>        Registry API key name (default: Local dev registry).
+  --domain-integration-key <key>    Integration key stored in Hermes (default: mediapulse).
+  --domain-integration-name <name>  Display name for the domain integration row (default: Local dev Mediapulse).
+  --local-dev-api-key-name <name>     Deprecated alias for --domain-integration-name.
   --jwt-secret <secret>             AGENT_AUTH_JWT_SECRET value (default: generated with openssl).
   --skip-install                    Skip pnpm install.
   --skip-migrations                 Skip Prisma and DataQueue migrations.
-  --skip-admin                      Skip admin creation and scheduler API key generation.
+  --skip-admin                      Skip admin creation and domain integration seed (no DB row / env API key).
   -h, --help                        Show this help text.
 
 Examples:
@@ -139,12 +171,16 @@ parse_args() {
         AGENT_AUTH_API_URL="${2:-}"
         shift 2
         ;;
-      --scheduler-key-name)
-        SCHEDULER_KEY_NAME="${2:-}"
+      --domain-integration-key)
+        DOMAIN_INTEGRATION_KEY="${2:-}"
         shift 2
         ;;
-      --registry-key-name)
-        REGISTRY_KEY_NAME="${2:-}"
+      --domain-integration-name)
+        DOMAIN_INTEGRATION_DISPLAY_NAME="${2:-}"
+        shift 2
+        ;;
+      --local-dev-api-key-name)
+        DOMAIN_INTEGRATION_DISPLAY_NAME="${2:-}"
         shift 2
         ;;
       --jwt-secret)
@@ -196,23 +232,25 @@ collect_interactive_inputs() {
   if [[ "$SKIP_ADMIN" == "false" ]]; then
     ADMIN_EMAIL="$(prompt_non_empty "Admin email: ")"
     ADMIN_PASSWORD="$(prompt_non_empty_secret "Admin password: ")"
-    SCHEDULER_KEY_NAME="$(prompt_with_default "Scheduler key name" "$SCHEDULER_KEY_NAME")"
-    REGISTRY_KEY_NAME="$(prompt_with_default "Registry key name" "$REGISTRY_KEY_NAME")"
+    DOMAIN_INTEGRATION_KEY="$(prompt_with_default "Domain integration key (e.g. mediapulse)" "$DOMAIN_INTEGRATION_KEY")"
+    DOMAIN_INTEGRATION_DISPLAY_NAME="$(prompt_with_default "Domain integration display name" "$DOMAIN_INTEGRATION_DISPLAY_NAME")"
   fi
 }
 
-set_agent_registry_api_key_for_all_agents() {
+set_domain_integration_env_for_all_agents() {
   local api_key="$1"
+  local integration_key="$2"
   local agent_dir
   local env_local_file
 
-  for agent_dir in "$SCRIPT_DIR/apps/agents"/*; do
+  for agent_dir in "$SCRIPT_DIR/apps/mediapulse/agents"/*; do
     if [[ -d "$agent_dir" ]]; then
       env_local_file="$agent_dir/.env.local"
       if [[ ! -f "$env_local_file" ]]; then
         touch "$env_local_file"
       fi
-      upsert_env_var "$env_local_file" "AGENT_REGISTRY_API_KEY" "$api_key"
+      upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_API_KEY" "$api_key"
+      upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_KEY" "$integration_key"
     fi
   done
 }
@@ -239,16 +277,23 @@ main() {
 
   section "Bootstrap and build env"
   ./dev-bootstrap.sh
-  if [[ ! -f "$ENV_FILE" ]]; then
-    echo "Expected env file not found at $ENV_FILE after bootstrap."
+  if [[ ! -f "$HERMES_ENV_FILE" || ! -f "$MEDIAPULSE_ENV_FILE" ]]; then
+    echo "Expected env files after bootstrap:"
+    echo "  $HERMES_ENV_FILE"
+    echo "  $MEDIAPULSE_ENV_FILE"
     exit 1
   fi
   if [[ -z "$JWT_SECRET" ]]; then
     JWT_SECRET="$(openssl rand -base64 32)"
   fi
-  upsert_env_var "$ENV_FILE" "AGENT_AUTH_JWT_SECRET" "$JWT_SECRET"
-  upsert_env_var "$ENV_FILE" "AGENT_AUTH_API_URL" "$AGENT_AUTH_API_URL"
-  pnpm --filter @workspace/env build
+  upsert_env_var "$HERMES_ENV_FILE" "AGENT_AUTH_JWT_SECRET" "$JWT_SECRET"
+  upsert_env_var "$HERMES_ENV_FILE" "AGENT_AUTH_API_URL" "$AGENT_AUTH_API_URL"
+  if [[ -z "$(read_dotenv_value "$HERMES_ENV_FILE" "HERMES_INTERNAL_API_KEY")" ]]; then
+    upsert_env_var "$HERMES_ENV_FILE" "HERMES_INTERNAL_API_KEY" "$(openssl rand -base64 32)"
+  fi
+  upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_AUTH_JWT_SECRET" "$JWT_SECRET"
+  upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_AUTH_API_URL" "$AGENT_AUTH_API_URL"
+  pnpm --filter @hermes/env build && pnpm --filter @mediapulse/env build
 
   if [[ "$SKIP_MIGRATIONS" == "true" ]]; then
     section "Database migrations"
@@ -256,62 +301,79 @@ main() {
   else
     section "Database migrations"
     (
-      cd packages/database
+      cd packages/hermes/orchestration-database
       pnpm db:migrate:dev
       pnpm db:generate
     )
-    pnpm --filter hermes-worker run migrate-dataqueue:dev
+    (
+      cd packages/mediapulse/database
+      pnpm db:migrate:dev
+      pnpm db:generate
+    )
+    pnpm --filter @hermes/worker run migrate-dataqueue:dev
   fi
 
   if [[ "$SKIP_ADMIN" == "true" ]]; then
-    section "Admin and scheduler API key"
-    echo "Skipping admin and API key generation (--skip-admin)."
-    if ! awk '/^AGENT_API_KEY=/{ if (length($0) > 14) found=1 } END { exit(found ? 0 : 1) }' "$ENV_FILE"; then
-      echo "Warning: AGENT_API_KEY is empty in $ENV_FILE."
-      echo "Hermes worker may fail until AGENT_API_KEY is set."
+    section "Admin and domain integration seed"
+    echo "Skipping admin and domain integration seed (--skip-admin)."
+    if [[ -z "$(read_dotenv_value "$HERMES_ENV_FILE" "HERMES_INTERNAL_API_KEY")" ]]; then
+      echo "Warning: HERMES_INTERNAL_API_KEY is empty in $HERMES_ENV_FILE."
+      echo "Hermes worker and dashboard need it to mint JWTs (run dev-setup without --skip-admin or set it manually)."
+    fi
+    if [[ -z "$(read_dotenv_value "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_API_KEY")" ]]; then
+      echo "Warning: DOMAIN_INTEGRATION_API_KEY is empty in $MEDIAPULSE_ENV_FILE."
+      echo "Mediapulse domain-api and agents need it (Hermes domain_integration key)."
     fi
   else
-    section "Create admin and API keys"
+    section "Create admin and domain integration (encrypted API key in DB)"
     (
-      cd apps/hermes
+      cd apps/hermes/dashboard
       pnpm create:admin "$ADMIN_EMAIL" "$ADMIN_PASSWORD" >/dev/null
     )
 
-    SCHEDULER_OUTPUT="$(
-      cd apps/hermes
-      pnpm generate-api-key "$ADMIN_EMAIL" "$SCHEDULER_KEY_NAME" --purpose scheduler
+    SEED_OUTPUT="$(
+      cd apps/hermes/dashboard
+      pnpm seed-local-domain-integration "$ADMIN_EMAIL" "$DOMAIN_INTEGRATION_KEY" "$DOMAIN_INTEGRATION_DISPLAY_NAME"
     )"
-    SCHEDULER_API_KEY="$(extract_generated_api_key "$SCHEDULER_OUTPUT")"
-    if [[ -z "$SCHEDULER_API_KEY" ]]; then
-      echo "Could not parse generated API key from output."
-      echo "Please run apps/hermes/scripts/generate-api-key.ts manually."
+    RESOLVED_INTEGRATION_KEY="$(read_integration_key_from_seed_output "$SEED_OUTPUT")"
+    if [[ -z "$RESOLVED_INTEGRATION_KEY" ]]; then
+      echo "Could not parse INTEGRATION_KEY from seed-local-domain-integration output."
       exit 1
     fi
 
-    REGISTRY_OUTPUT="$(
-      cd apps/hermes
-      pnpm generate-api-key "$ADMIN_EMAIL" "$REGISTRY_KEY_NAME" --purpose general
-    )"
-    REGISTRY_API_KEY="$(extract_generated_api_key "$REGISTRY_OUTPUT")"
-    if [[ -z "$REGISTRY_API_KEY" ]]; then
-      echo "Could not parse generated registry API key from output."
-      echo "Please run apps/hermes/scripts/generate-api-key.ts manually."
-      exit 1
-    fi
+    upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_KEY" "$RESOLVED_INTEGRATION_KEY"
 
-    upsert_env_var "$ENV_FILE" "AGENT_API_KEY" "$SCHEDULER_API_KEY"
-    upsert_env_var "$ENV_FILE" "AGENT_REGISTRY_API_KEY" "$REGISTRY_API_KEY"
-    set_agent_registry_api_key_for_all_agents "$REGISTRY_API_KEY"
+    if seed_output_has_skip_plaintext "$SEED_OUTPUT"; then
+      echo "Domain integration already existed; left DOMAIN_INTEGRATION_API_KEY unchanged (set manually if missing)."
+      for agent_dir in "$SCRIPT_DIR/apps/mediapulse/agents"/*; do
+        if [[ -d "$agent_dir" ]]; then
+          env_local_file="$agent_dir/.env.local"
+          [[ -f "$env_local_file" ]] || touch "$env_local_file"
+          upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_KEY" "$RESOLVED_INTEGRATION_KEY"
+        fi
+      done
+    else
+      LOCAL_DEV_API_KEY="$(read_plain_api_key_from_seed_output "$SEED_OUTPUT")"
+      if [[ -z "$LOCAL_DEV_API_KEY" ]]; then
+        echo "Could not parse PLAIN_API_KEY from seed-local-domain-integration output."
+        exit 1
+      fi
+      upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_API_KEY" "$LOCAL_DEV_API_KEY"
+      set_domain_integration_env_for_all_agents "$LOCAL_DEV_API_KEY" "$RESOLVED_INTEGRATION_KEY"
+    fi
+    pnpm --filter @mediapulse/env build
   fi
 
   section "Done"
-  echo "Updated $ENV_FILE with:"
+  echo "Updated $HERMES_ENV_FILE and $MEDIAPULSE_ENV_FILE with:"
   echo "  - AGENT_AUTH_JWT_SECRET"
   echo "  - AGENT_AUTH_API_URL=$AGENT_AUTH_API_URL"
-  echo "  - AGENT_API_KEY"
-  echo "  - AGENT_REGISTRY_API_KEY"
-  echo "Updated apps/agents/*/.env.local with:"
-  echo "  - AGENT_REGISTRY_API_KEY"
+  echo "  - HERMES_INTERNAL_API_KEY (Hermes worker, dashboard, agent-auth; preset secret)"
+  echo "  - DOMAIN_INTEGRATION_KEY"
+  echo "  - DOMAIN_INTEGRATION_API_KEY (generated once; stored encrypted in orchestration DB)"
+  echo "Updated apps/mediapulse/agents/*/.env.local with:"
+  echo "  - DOMAIN_INTEGRATION_API_KEY"
+  echo "  - DOMAIN_INTEGRATION_KEY"
   if [[ "$SKIP_ADMIN" == "false" ]]; then
     echo ""
     echo "Admin credentials:"

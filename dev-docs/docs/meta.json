@@ -1,13 +1,4 @@
 {
   "title": "Documentation",
-  "pages": [
-    "index",
-    "getting-started",
-    "production",
-    "architecture",
-    "knowledge-graph",
-    "apps",
-    "data-source-expansion",
-    "packages"
-  ]
+  "pages": ["index", "architecture", "guide", "shared", "hermes", "mediapulse"]
 }

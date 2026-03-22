@@ -58,6 +58,57 @@ const CreatePostForm = ({
 2. **Never put `useState` or `useEffect` in a component body** — components must not contain state or effect logic directly. Extract all of it into a **custom hook** (e.g. `useStepEditorPanelState`, `useSearch`) with a single responsibility. The component only calls the hook and renders.
 3. **Memoize when needed** — use `useMemo`/`useCallback` inside the custom hook (or in the component only for render-related memoization) to prevent unnecessary re-renders.
 
+## Stable component identity (factory components & slot props)
+
+If a **factory returns a component** (a function used as `<ThatComponent />` or passed as `components={{ Field: ThatComponent }}`), the **function reference is the component’s type**. Creating a new function on every render makes React **unmount and remount** the whole subtree on each parent update. Symptoms: **inputs lose focus** while typing, cursor jumps, internal state resets.
+
+**Do not** call component factories in the render body without stabilizing the result:
+
+```tsx
+// ❌ BAD — new component type every render (focus loss in controlled fields)
+const FormSection = () => {
+  const StringField = createVariableExpansionStringField({ loadVariablesPage });
+  return <SchemaForm components={{ StringField }} />;
+};
+
+// ✅ GOOD — same component type across re-renders (deps = stable loaders/config)
+const FormSection = ({ loadVariablesPage }: Props) => {
+  const StringField = useMemo(
+    () => createVariableExpansionStringField({ loadVariablesPage }),
+    [loadVariablesPage],
+  );
+  return <SchemaForm components={{ StringField }} />;
+};
+
+// ✅ GOOD — no factory in render: fixed component + props / context
+const StringField = (props: StringFieldProps) => (
+  <VariableExpansionInput
+    {...props}
+    loadVariablesPage={loadVariablesPageFromModule}
+  />
+);
+```
+
+Apply the same rule when passing **any** component-as-prop to libraries (form field slots, table cell renderers, router `element`, etc.): the **type** must be stable unless you intentionally want a full remount.
+
+```tsx
+// ❌ BAD — component declared inside render = new type every time
+const Parent = ({ items }: { items: Row[] }) =>
+  items.map((row) => {
+    const RowCell = () => <td>{row.name}</td>;
+    return <RowCell key={row.id} />;
+  });
+```
+
+**Prefer:** define `RowCell` outside `Parent`, or one component that receives `row` as a prop (stable type).
+
+```tsx
+// ✅ GOOD — stable RowCell; data varies via props
+const RowCell = ({ name }: { name: string }) => <td>{name}</td>;
+const Parent = ({ items }: { items: Row[] }) =>
+  items.map((row) => <RowCell key={row.id} name={row.name} />);
+```
+
 ```tsx
 // ❌ BAD — useState/useEffect in the component
 const SearchList = ({ items }: { items: Item[] }) => {
@@ -129,4 +180,5 @@ Before finalizing a component, verify:
 - [ ] Suspense boundaries around async components
 - [ ] Text content HTML-escaped
 - [ ] File name in kebab-case
+- [ ] **Stable component types** — factories that return components are memoized (`useMemo` with stable deps) or defined outside the render path; slot props do not recreate component types every render
 - [ ] 100% test coverage

@@ -1,0 +1,36 @@
+---
+description: Prefer categorized folders and co-located tests under src/ and app/ instead of flat file dumps.
+globs: "**/{packages,apps}/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Organized source layout (monorepo)
+
+When **adding or moving** TypeScript/React files in `packages/` or `apps/`:
+
+## Prefer folders by responsibility
+
+Do not default to piling new files into a single flat directory as the package grows. Use clear buckets (create only what you need):
+
+| Concern                       | Typical folder                                  | Notes                                         |
+| ----------------------------- | ----------------------------------------------- | --------------------------------------------- |
+| Shared types only             | `types/` (often `types/index.ts`)               | No React imports in type-only modules.        |
+| Pure logic (no hooks, no JSX) | `lib/` or `utils/`                              | Match existing package naming.                |
+| React hooks                   | `hooks/`                                        | `use-*.ts`; co-locate `use-*.test.ts`.        |
+| UI                            | `components/`                                   | Co-locate `*.test.tsx` next to the component. |
+| Server-only / actions         | `server/`, `actions/`, or framework conventions | Follow patterns already in that app.          |
+
+**Workspace packages** with a single entry point often keep a thin **`src/index.ts`** (or package export map) that re-exports the public API only—no heavy logic in the barrel.
+
+**Next.js apps**: follow existing layout (`app/`, `components/`, `lib/` at app root); do not introduce a second competing structure.
+
+## Imports
+
+- **Extensionless** relative imports between local files in source-exported packages (see `typescript-javascript-standards`).
+- **Kebab-case** file names (see `typescript-javascript-standards`).
+
+## Tests
+
+- Co-locate **`*.test.ts`** / **`*.test.tsx`** next to the module under test unless the repo already uses a dedicated `__tests__` pattern in that area—then stay consistent with neighbors.
+
+For a fuller checklist and examples, use the **organized-src-structure** skill (`.cursor/skills/organized-src-structure/SKILL.md`).

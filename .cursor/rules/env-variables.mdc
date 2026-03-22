@@ -7,15 +7,18 @@ alwaysApply: true
 
 ## Never use `process.env` directly
 
-Import the type-safe env object from `@workspace/env` (or a per-app export like `@workspace/env/env.app1`).
+Import the type-safe env object from **`@hermes/env`** (Hermes apps and packages) or **`@mediapulse/env`** (Mediapulse apps, agents, and packages). Use subpath exports where defined (e.g. `@hermes/env/hermes-worker`, `@mediapulse/env/agents-delivery`).
 
 ```typescript
 // ❌ BAD
 const dbUrl = process.env.DATABASE_URL;
 
-// ✅ GOOD
-import { env } from "@workspace/env";
+// ✅ GOOD (Hermes)
+import { env } from "@hermes/env";
 const dbUrl = env.DATABASE_URL;
+
+// ✅ GOOD (Mediapulse)
+import { env } from "@mediapulse/env";
 ```
 
 ## Sensitive values must NOT have the `NEXT_PUBLIC_` prefix
@@ -26,9 +29,9 @@ Database passwords, API keys, tokens, and any credential used to access backend 
 
 When adding or changing an environment variable:
 
-1. Add it to the appropriate `env.example` file (root or per-app) with a descriptive comment.
+1. Add it to the correct package’s `env.example` (or per-app / per-agent example file) with a descriptive comment.
 2. Include `env-to-t3` annotations: `#required`, `#number`, `#default`, etc.
-3. Rebuild the env package: `pnpm build` in `packages/env`.
+3. Rebuild the env package: `pnpm build` in `packages/hermes/env` and/or `packages/mediapulse/env`.
 
 ```dotenv
 # The URL of the Postgres database pool

@@ -1,0 +1,38 @@
+{
+  "name": "@hermes/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ./.env.local -- bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "start": "bun run ./dist/server.js",
+    "migrate-dataqueue": "dataqueue-cli migrate",
+    "migrate-dataqueue:dev": "dataqueue-cli migrate --envPath ./.env.local --schema dataqueue --verbose",
+    "lint": "eslint \"src/**/*.ts\"",
+    "type:check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@nicnocquee/dataqueue": "^1.39.0",
+    "@workspace/agent-auth-client": "workspace:*",
+    "@hermes/env": "workspace:*",
+    "@hermes/domain-contract": "workspace:*",
+    "@hermes/scheduler": "workspace:*",
+    "@hermes/step-input-syntax": "workspace:*",
+    "@hermes/domain-integration-crypto": "workspace:*",
+    "@hermes/orchestration-database": "workspace:*",
+    "@workspace/logger": "workspace:*",
+    "got": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*",
+    "dotenv-cli": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

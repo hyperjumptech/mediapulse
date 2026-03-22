@@ -1,0 +1,7 @@
+{
+  "extends": "@workspace/typescript-config/node16.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,22 @@
+{
+  "title": "Packages",
+  "pages": [
+    "index",
+    "database",
+    "orchestration-database",
+    "env",
+    "hermes-scheduler",
+    "hermes-step-input-syntax",
+    "hermes-domain-contract",
+    "agent-runtime",
+    "agent-types",
+    "agent-auth-client",
+    "agent-data-api-client",
+    "json-schema-form",
+    "api-utils",
+    "logger",
+    "utils",
+    "tooling"
+  ],
+  "defaultOpen": true
+}

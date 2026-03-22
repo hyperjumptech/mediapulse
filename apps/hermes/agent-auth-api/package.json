@@ -1,0 +1,27 @@
+{
+  "name": "@hermes/agent-auth-api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e ./.env.local -- env PORT=8080 bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@workspace/api-utils": "workspace:*",
+    "@hermes/env": "workspace:*",
+    "@hermes/orchestration-database": "workspace:*",
+    "@workspace/logger": "workspace:*",
+    "hono": "catalog:",
+    "hono-pino": "catalog:",
+    "jose": "^6.0.11",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "dotenv-cli": "catalog:",
+    "vitest": "catalog:"
+  }
+}

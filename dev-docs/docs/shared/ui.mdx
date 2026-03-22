@@ -1,0 +1,25 @@
+---
+title: "@workspace/ui"
+description: Shared React UI components and styles for Hermes, Mediapulse, and other Next.js apps
+icon: Layout
+---
+
+## Purpose
+
+`@workspace/ui` lives in **`packages/shared/ui`**. It is the shared **UI kit** for Next.js apps: Radix UI primitives, Tailwind, themes (next-themes), and custom components. Hermes dashboard, Mediapulse user-registration, and other apps depend on it for a consistent look and behavior.
+
+## Exports
+
+- **`@workspace/ui/globals.css`** — Global styles.
+- **`@workspace/ui/postcss.config`** — PostCSS config for Tailwind.
+- **`@workspace/ui/lib/*`** — Shared lib utilities (e.g. cn, theme).
+- **`@workspace/ui/components/*`** — React components (e.g. Button, Card, Dialog, Tabs).
+- **`@workspace/ui/hooks/*`** — Shared hooks.
+
+## Stack
+
+Radix UI (collapsible, dialog, dropdown, separator, slot, tabs), Tailwind, class-variance-authority, clsx, tailwind-merge, lucide-react, next-themes, sonner, recharts, tw-animate-css.
+
+## Typical consumers
+
+Hermes dashboard, Mediapulse user-registration, and other Next.js apps in this monorepo that need the shared design system.

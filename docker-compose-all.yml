@@ -7,11 +7,13 @@ services:
     ports:
       - 5432:5432
     environment:
+      # Official image: POSTGRES_USER is the cluster superuser (full DDL, CREATE DATABASE, etc.).
       POSTGRES_PASSWORD: mediapulse
       POSTGRES_USER: mediapulse
       POSTGRES_DB: mediapulse
     volumes:
       - ./data:/var/lib/postgresql/data
+      - ./docker/postgres/initdb/01-prisma-dev.sql:/docker-entrypoint-initdb.d/01-prisma-dev.sql
     restart: unless-stopped
 
   # Next.js apps
@@ -22,8 +24,7 @@ services:
     ports:
       - 3001:3001
     env_file:
-      - packages/env/.env
-      - packages/env/.env.local
+      - packages/hermes/env/.env
     environment:
       DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
@@ -33,12 +34,11 @@ services:
   user-registration:
     build:
       context: .
-      dockerfile: apps/user-registration/Dockerfile
+      dockerfile: apps/mediapulse/user-registration/Dockerfile
     ports:
       - 3002:3002
     env_file:
-      - packages/env/.env
-      - packages/env/.env.local
+      - packages/mediapulse/env/.env
     environment:
       DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
@@ -49,12 +49,11 @@ services:
   agent-auth-api:
     build:
       context: .
-      dockerfile: apps/agent-auth-api/Dockerfile
+      dockerfile: apps/hermes/agent-auth-api/Dockerfile
     ports:
       - 8080:8080
     env_file:
-      - packages/env/.env
-      - packages/env/.env.local
+      - packages/hermes/env/.env
     environment:
       DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
@@ -64,12 +63,11 @@ services:
   agent-data-api:
     build:
       context: .
-      dockerfile: apps/agent-data-api/Dockerfile
+      dockerfile: apps/mediapulse/agent-data-api/Dockerfile
     ports:
       - 8081:8081
     env_file:
-      - packages/env/.env
-      - packages/env/.env.local
+      - packages/mediapulse/env/.env
     environment:
       DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
@@ -80,12 +78,11 @@ services:
   agent-registry-api:
     build:
       context: .
-      dockerfile: apps/agent-registry-api/Dockerfile
+      dockerfile: apps/hermes/agent-registry-api/Dockerfile
     ports:
       - 8082:8082
     env_file:
-      - packages/env/.env
-      - packages/env/.env.local
+      - packages/hermes/env/.env
     environment:
       DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
     depends_on:
@@ -96,12 +93,11 @@ services:
   agent-data-collection:
     build:
       context: .
-      dockerfile: apps/agents/data-collection/Dockerfile
+      dockerfile: apps/mediapulse/agents/data-collection/Dockerfile
     ports:
       - 4001:4001
     env_file:
-      - packages/env/.env
-      - packages/env/.env.local
+      - packages/mediapulse/env/.env
     depends_on:
       - agent-auth-api
       - agent-data-api
@@ -110,12 +106,11 @@ services:
   agent-content-generation:
     build:
       context: .
-      dockerfile: apps/agents/content-generation/Dockerfile
+      dockerfile: apps/mediapulse/agents/content-generation/Dockerfile
     ports:
       - 4002:4002
     env_file:
-      - packages/env/.env
-      - packages/env/.env.local
+      - packages/mediapulse/env/.env
     depends_on:
       - agent-auth-api
       - agent-data-api
@@ -124,12 +119,11 @@ services:
   agent-delivery:
     build:
       context: .
-      dockerfile: apps/agents/delivery/Dockerfile
+      dockerfile: apps/mediapulse/agents/delivery/Dockerfile
     ports:
       - 4003:4003
     env_file:
-      - packages/env/.env
-      - packages/env/.env.local
+      - packages/mediapulse/env/.env
     depends_on:
       - agent-auth-api
       - agent-data-api
@@ -139,10 +133,9 @@ services:
   hermes-worker:
     build:
       context: .
-      dockerfile: apps/hermes-worker/Dockerfile
+      dockerfile: apps/hermes/worker/Dockerfile
     env_file:
-      - packages/env/.env
-      - packages/env/.env.local
+      - packages/hermes/env/.env
     environment:
       # In Docker, DB is reachable by service name, not localhost
       DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public

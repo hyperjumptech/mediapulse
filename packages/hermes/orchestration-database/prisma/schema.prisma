@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  apiKeys   APIKey[]
+  variables Variable[]
+
+  @@map("user")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model APIKey {
+  id        String   @id @default(uuid())
+  name      String
+  key       String   @unique
+  purpose   String?  @default("general")
+  isActive  Boolean  @default(true) @map("is_active")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user              User               @relation(fields: [userId], references: [id])
+  domainIntegration DomainIntegration?
+
+  @@map("api_key")
+}
+
+model AgentRegistry {
+  id                  String   @id @default(uuid())
+  agentId             String   @map("agent_id")
+  agentVersion        String   @map("agent_version")
+  description         String?
+  endpoint            Json
+  inputSchema         Json?    @map("input_schema")
+  configSchema        Json?    @map("config_schema")
+  isActive            Boolean  @default(true) @map("is_active")
+  domainIntegrationId String   @map("domain_integration_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  domainIntegration DomainIntegration @relation(fields: [domainIntegrationId], references: [id], onDelete: Cascade)
+
+  @@unique([domainIntegrationId, agentId, agentVersion])
+  @@map("agent_registry")
+}
+
+model AgentConfig {
+  id                      String   @id @default(uuid())
+  name                    String
+  description             String?
+  agentId                 String   @map("agent_id")
+  agentVersion            String   @map("agent_version")
+  config                  Json
+  configSchemaFingerprint String?  @map("config_schema_fingerprint")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  pipelineSteps PipelineStep[]
+
+  @@unique([agentId, agentVersion, name])
+  @@map("agent_config")
+}
+
+model Variable {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  note        String?
+  isSecret    Boolean  @default(false) @map("is_secret")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("variable")
+}
+
+enum DomainIntegrationStatus {
+  pending
+  active
+}
+
+model DomainIntegration {
+  id                String                  @id @default(uuid())
+  key               String                  @unique
+  name              String
+  baseUrl           String?                 @map("base_url")
+  version           String?
+  capabilities      Json?                   @default("[]")
+  dashboardManifest Json?                   @map("dashboard_manifest")
+  isActive          Boolean                 @default(true) @map("is_active")
+  isDefault         Boolean                 @default(false) @map("is_default")
+  status            DomainIntegrationStatus @default(active)
+  encryptedApiKey   String?                 @map("encrypted_api_key")
+  apiKeyId          String?                 @unique @map("api_key_id")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+  lastSeenAt        DateTime                @default(now()) @map("last_seen_at")
+
+  apiKey        APIKey?         @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  agentRegistry AgentRegistry[]
+  pipelines     Pipeline[]
+
+  @@map("domain_integration")
+}
+
+model Pipeline {
+  id                  String   @id @default(uuid())
+  name                String
+  description         String?
+  isActive            Boolean  @default(true) @map("is_active")
+  executionConfig     Json?    @map("execution_config")
+  domainIntegrationId String   @map("domain_integration_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  domainIntegration DomainIntegration @relation(fields: [domainIntegrationId], references: [id], onDelete: Restrict)
+  steps             PipelineStep[]
+  schedules         Schedule[]
+
+  @@map("pipeline")
+}
+
+enum ScheduleRepeat {
+  once
+  repeating
+}
+
+/// Outcome of enqueue phase (whether jobs were created/queued as intended).
+enum ScheduleEnqueueStatus {
+  success
+  partial
+  failed
+}
+
+/// Outcome of run phase (after invocations complete and rollups are computed).
+enum ScheduleRunStatus {
+  pending
+  running
+  succeeded
+  partial
+  failed
+}
+
+/// Aggregated outcome for invocations under one pipeline step within a schedule execution.
+enum ScheduleStepRollupStatus {
+  pending
+  running
+  success
+  partial
+  failed
+  skipped
+  cancelled
+}
+
+enum AgentJobExecutionStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+model Schedule {
+  id              String         @id @default(uuid())
+  name            String
+  description     String?
+  repeat          ScheduleRepeat
+  cronExpression  String?        @map("cron_expression")
+  interval        Int?
+  timezone        String         @default("America/New_York")
+  startAt         DateTime?      @map("start_at")
+  nextRunAt       DateTime?      @map("next_run_at")
+  pipelineId      String         @map("pipeline_id")
+  retryConfig     Json?          @map("retry_config")
+  executionConfig Json?          @map("execution_config")
+  timeout         Int?
+  priority        Int            @default(0)
+  enabled         Boolean        @default(true)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  createdBy       String?        @map("created_by")
+
+  pipeline           Pipeline            @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  scheduleExecutions ScheduleExecution[]
+  agentJobExecutions AgentJobExecution[]
+
+  @@map("schedule")
+}
+
+model ScheduleExecution {
+  id                       String                @id @default(uuid())
+  scheduleId               String                @map("schedule_id")
+  executionTime            DateTime              @map("execution_time")
+  enqueueStatus            ScheduleEnqueueStatus @map("enqueue_status")
+  runStatus                ScheduleRunStatus     @default(pending) @map("run_status")
+  effectiveExecutionConfig Json?                 @map("effective_execution_config")
+  jobsCreated              Int                   @map("jobs_created")
+  jobsEnqueued             Int                   @map("jobs_enqueued")
+  succeededInvocationCount Int                   @default(0) @map("succeeded_invocation_count")
+  failedInvocationCount    Int                   @default(0) @map("failed_invocation_count")
+  errors                   Json?
+  metadata                 Json?
+  createdAt                DateTime              @default(now()) @map("created_at")
+
+  schedule               Schedule                @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  agentJobExecutions     AgentJobExecution[]
+  scheduleStepExecutions ScheduleStepExecution[]
+
+  @@map("schedule_execution")
+}
+
+model AgentJobExecution {
+  id                  String                  @id @default(uuid())
+  jobId               String                  @unique @map("job_id")
+  agentId             String                  @map("agent_id")
+  scheduleId          String?                 @map("schedule_id")
+  scheduleExecutionId String?                 @map("schedule_execution_id")
+  pipelineId          String?                 @map("pipeline_id")
+  pipelineStepId      String?                 @map("pipeline_step_id")
+  status              AgentJobExecutionStatus
+  priority            Int                     @default(0)
+  enqueuedAt          DateTime                @map("enqueued_at")
+  dependencies        Json?
+  params              Json                    @default("{}")
+  /// Resolved step `config` sent with the agent body (stored for execution debugging).
+  invocationConfig    Json?                   @map("invocation_config")
+  error               Json?
+  /// Parsed agent response envelope (success path or semantic failure): message, details, logs, schemaVersion.
+  agentResponse       Json?                   @map("agent_response")
+  /// Agent envelope `status` when body was valid: "success" | "failure".
+  semanticStatus      String?                 @map("semantic_status")
+  startedAt           DateTime?               @map("started_at")
+  completedAt         DateTime?               @map("completed_at")
+  createdAt           DateTime                @default(now()) @map("created_at")
+
+  schedule          Schedule?          @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  scheduleExecution ScheduleExecution? @relation(fields: [scheduleExecutionId], references: [id], onDelete: SetNull)
+
+  @@map("agent_job_execution")
+}
+
+model PipelineStep {
+  id            String   @id @default(uuid())
+  order         Int
+  agentId       String   @map("agent_id")
+  agentVersion  String   @map("agent_version")
+  pipelineId    String   @map("pipeline_id")
+  agentConfigId String?  @map("agent_config_id")
+  input         Json?    @default("{}")
+  config        Json?    @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  pipeline               Pipeline                @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  agentConfig            AgentConfig?            @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
+  scheduleStepExecutions ScheduleStepExecution[]
+
+  @@unique([pipelineId, order])
+  @@map("pipeline_step")
+}
+
+/// Per-step rollup for one schedule execution (counters and outcome).
+model ScheduleStepExecution {
+  id                      String                   @id @default(uuid())
+  scheduleExecutionId     String                   @map("schedule_execution_id")
+  pipelineStepId          String                   @map("pipeline_step_id")
+  expectedInvocationCount Int                      @map("expected_invocation_count")
+  succeededCount          Int                      @default(0) @map("succeeded_count")
+  failedCount             Int                      @default(0) @map("failed_count")
+  rollupStatus            ScheduleStepRollupStatus @default(pending) @map("rollup_status")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+
+  scheduleExecution ScheduleExecution @relation(fields: [scheduleExecutionId], references: [id], onDelete: Cascade)
+  pipelineStep      PipelineStep      @relation(fields: [pipelineStepId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleExecutionId, pipelineStepId])
+  @@map("schedule_step_execution")
+}

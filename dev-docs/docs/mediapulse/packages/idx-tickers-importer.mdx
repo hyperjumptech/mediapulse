@@ -1,0 +1,27 @@
+---
+title: idx-tickers-importer
+description: Import IDX (Indonesian Stock Exchange) listed companies into the ticker table
+icon: Download
+---
+
+## Purpose
+
+`@mediapulse/idx-tickers-importer` imports **IDX listed companies** into the MediaPulse `ticker` table. It accepts the JSON payload from the IDX API (e.g. company profiles), maps each row to a `Ticker` record, and **upserts by symbol** (`KodeEmiten`).
+
+## Exports
+
+- **`importIdxTickers(payload, db?)`** — Upserts `payload.data` into `ticker`; returns `{ processed }`. Optional `db` for DI (e.g. tests).
+- **`mapIdxRowToTicker(row)`** — Maps one IDX row to `{ symbol, name, metadata }`.
+- **Types:** `IdxTickersPayload`, `IdxEmitenRow`, `TickerUpsertDb`.
+
+## Prerequisites
+
+- `@mediapulse/database` with the `ticker` table and migrations applied (including optional `metadata` column).
+
+## Consumers
+
+Hermes (dashboard ticker import action). Payload can be obtained from the IDX API (e.g. GetCompanyProfiles).
+
+## More
+
+See the [package README](https://github.com/your-org/mediapulse/blob/main/packages/idx-tickers-importer/README.md) for usage, API, and script commands.

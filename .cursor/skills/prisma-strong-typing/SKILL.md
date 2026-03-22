@@ -10,7 +10,7 @@ Use this skill whenever code touches Prisma queries or Prisma-backed services.
 ## 1) Use Prisma-generated types first
 
 - Import Prisma types from the workspace database package:
-  - `import type { Prisma } from "@workspace/database";`
+  - `import type { Prisma } from "@mediapulse/database";` (or `@hermes/orchestration-database` for orchestration models)
 - Type query objects with `satisfies`:
   - `const args = { ... } satisfies Prisma.DataSourceFindManyArgs;`
 - Type query payloads with `GetPayload`:

@@ -21,23 +21,19 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Prepare env variables
-        run: cp env.agents.data-collection.example .env.agents.data-collection
-        working-directory: packages/env
-
-      - name: Bootstrap env symlinks
-        run: ./dev-bootstrap.sh
-
-      - name: Install dependencies
-        run: pnpm install
+      - name: Set up build environment
+        run: |
+          ./dev-bootstrap.sh
+          pnpm install
+          pnpm generate
 
       - name: Build
-        run: pnpm build --filter=data-collection-agent
+        run: pnpm build --filter=@mediapulse/data-collection
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/agents/data-collection/fly.toml
+        run: flyctl deploy --remote-only -c apps/mediapulse/agents/data-collection/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -55,23 +51,19 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Prepare env variables
-        run: cp env.agents.content-generation.example .env.agents.content-generation
-        working-directory: packages/env
-
-      - name: Bootstrap env symlinks
-        run: ./dev-bootstrap.sh
-
-      - name: Install dependencies
-        run: pnpm install
+      - name: Set up build environment
+        run: |
+          ./dev-bootstrap.sh
+          pnpm install
+          pnpm generate
 
       - name: Build
-        run: pnpm build --filter=content-generation-agent
+        run: pnpm build --filter=@mediapulse/content-generation
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/agents/content-generation/fly.toml
+        run: flyctl deploy --remote-only -c apps/mediapulse/agents/content-generation/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -89,22 +81,18 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Prepare env variables
-        run: cp env.agents.delivery.example .env.agents.delivery
-        working-directory: packages/env
-
-      - name: Bootstrap env symlinks
-        run: ./dev-bootstrap.sh
-
-      - name: Install dependencies
-        run: pnpm install
+      - name: Set up build environment
+        run: |
+          ./dev-bootstrap.sh
+          pnpm install
+          pnpm generate
 
       - name: Build
-        run: pnpm build --filter=delivery-agent
+        run: pnpm build --filter=@mediapulse/delivery
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/agents/delivery/fly.toml
+        run: flyctl deploy --remote-only -c apps/mediapulse/agents/delivery/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -1,0 +1,110 @@
+/**
+ * HTTP handlers for the entity-types Hermes dashboard resource: paginated list, create, update, and delete.
+ */
+
+import { tableV1ListResponseSchema } from "@hermes/domain-contract";
+import { prisma, Prisma } from "@mediapulse/database";
+import { Hono } from "hono";
+import { parsePagination } from "../../lib/list-pagination";
+import { nullableText } from "../../lib/nullable-text";
+import { mapRowToListItem } from "./list-mapper";
+import {
+  entityTypeCreateBodySchema,
+  entityTypeUpdateBodySchema,
+} from "./write-body-schemas";
+
+/**
+ * Hermes `table-v1` API for knowledge-graph entity type vocabulary.
+ */
+export const entityTypesRoutes = new Hono();
+
+/** Paginated list of entity types for the Hermes dashboard table (search `q`, `sortBy`, `sortDir`). */
+entityTypesRoutes.get("/", async (c) => {
+  const { page, pageSize } = parsePagination(
+    c.req.query("page"),
+    c.req.query("pageSize"),
+  );
+  const query = c.req.query("q")?.trim();
+  const sortBy = c.req.query("sortBy");
+  const sortDir: Prisma.SortOrder =
+    c.req.query("sortDir") === "desc" ? "desc" : "asc";
+  const skip = (page - 1) * pageSize;
+
+  const where = query
+    ? ({
+        OR: [
+          { name: { contains: query, mode: "insensitive" as const } },
+          { description: { contains: query, mode: "insensitive" as const } },
+        ],
+      } satisfies Prisma.EntityTypeWhereInput)
+    : undefined;
+  const orderBy =
+    sortBy === "createdAt" ? { createdAt: sortDir } : { name: sortDir };
+
+  const [rows, total] = await Promise.all([
+    prisma.entityType.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy,
+    }),
+    prisma.entityType.count({ where }),
+  ]);
+
+  const payload = tableV1ListResponseSchema.parse({
+    items: rows.map(mapRowToListItem),
+    total,
+    page,
+    pageSize,
+  });
+
+  return c.json(payload);
+});
+
+/** Creates a new knowledge-graph entity type row from the table create form. */
+entityTypesRoutes.post("/", async (c) => {
+  const body = entityTypeCreateBodySchema.safeParse(await c.req.json());
+  if (!body.success) {
+    return c.json({ message: "Invalid request body" }, 400);
+  }
+
+  const created = await prisma.entityType.create({
+    data: {
+      name: body.data.name.trim(),
+      description: nullableText(body.data.description),
+    },
+  });
+  return c.json({ id: created.id }, 201);
+});
+
+/** Updates an entity type by id (Hermes table edit / PATCH body matches update schema). */
+entityTypesRoutes.patch("/:id", async (c) => {
+  const body = entityTypeUpdateBodySchema.safeParse(await c.req.json());
+  if (!body.success) {
+    return c.json({ message: "Invalid request body" }, 400);
+  }
+
+  try {
+    const updated = await prisma.entityType.update({
+      where: { id: c.req.param("id") },
+      data: {
+        name: body.data.name.trim(),
+        description: nullableText(body.data.description),
+      },
+    });
+    return c.json({ id: updated.id });
+  } catch {
+    return c.json({ message: "Entity type not found" }, 404);
+  }
+});
+
+/** Deletes an entity type by id (Hermes table row delete). */
+entityTypesRoutes.delete("/:id", async (c) => {
+  const result = await prisma.entityType.deleteMany({
+    where: { id: c.req.param("id") },
+  });
+  if (result.count < 1) {
+    return c.json({ message: "Entity type not found" }, 404);
+  }
+  return c.json({ ok: true });
+});

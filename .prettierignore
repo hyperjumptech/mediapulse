@@ -5,5 +5,7 @@ data/
 
 # Generated code
 **/.generated/
-packages/database/client/
-packages/env/src
+packages/mediapulse/database/client/
+packages/hermes/orchestration-database/client/
+packages/hermes/env/src
+packages/mediapulse/env/src

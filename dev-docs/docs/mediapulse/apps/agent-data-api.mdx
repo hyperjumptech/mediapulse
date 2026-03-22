@@ -1,0 +1,93 @@
+---
+title: agent-data-api
+description: Data API for agents
+icon: Database
+---
+
+## Purpose
+
+agent-data-api is a Hono server that exposes data endpoints used by agents. **The agent gets data it needs and stores output data it produces to this API via the agent-data-api-client SDK.** All routes are protected by bearer auth; the token is verified via `@workspace/agent-auth-client` against agent-auth-api.
+
+## Features
+
+agent-data-api is the **HTTP persistence layer between agents and the database**: agents do not talk to Prisma directly. Each resource is a small, typed surface with **GET** (load state for a run or ticker) and **POST** (save the next artifact), backed by shared Zod schemas in `@workspace/agent-data-api-contract`.
+
+- **Bearer auth** — Requests must send `Authorization: Bearer <jwt>` (the same short-lived invocation JWT Hermes sends to agents). Verified with agent-auth-api `POST /api/verify` via `verifyTokenViaAuthApi`; agents forward the `Authorization` header from their run context to the SDK.
+- **Content generation** — Stores and loads generated newsletter-style output so downstream steps can reuse it without reshaping ad hoc payloads.
+- **Data collection** — Stores and loads crawled or gathered source material (pages, feeds, etc.) so collection and later stages see the same structured snapshot.
+- **Delivery** — Loads newsletter content plus **subscriber emails** resolved from **`MediapulseUser`** via `user_ticker` (Mediapulse DB). Subscriber emails are **not** read from Hermes orchestration `User` (admins).
+
+**Contract-driven routing:** URL paths and the `@workspace/agent-data-api-client` method namespaces are derived from `agentDataApiManifest` plus version helpers in `@workspace/agent-data-api-contract` (resource keys → `/api/<version>/...` segments). That keeps the server, SDK, and docs aligned and avoids one-off paths in app or agent code.
+
+## Key routes
+
+Agents should not call these HTTP paths directly. In agent code, use `@workspace/agent-data-api-client` and call SDK namespaces such as `contentGeneration`, `dataCollection`, and `delivery`. The SDK provides typed methods for each endpoint and validates responses with shared schemas.
+
+| Method | Path                         | Description                                    |
+| ------ | ---------------------------- | ---------------------------------------------- |
+| GET    | `/api/v1/content-generation` | Get content-generation data (e.g. by tickerId) |
+| POST   | `/api/v1/content-generation` | Store content-generation payload               |
+| GET    | `/api/v1/data-collection`    | Get data-collection data                       |
+| POST   | `/api/v1/data-collection`    | Store data-collection payload                  |
+| GET    | `/api/v1/delivery`           | Get delivery data (newsletter + subscribers)   |
+| POST   | `/api/v1/delivery`           | Store delivery payload                         |
+
+For example, in agents:
+
+```ts
+const dataApiClient = createAgentDataApiClient({
+  baseUrl: env.AGENT_DATA_API_URL,
+  version: "v1",
+  token,
+});
+
+await dataApiClient.contentGeneration.get({ tickerId });
+```
+
+## Versioning
+
+- `agent-data-api` can serve multiple live versions (for example `v1`, `v2`) under `/api/<version>/...`.
+- The contract package defines live versions and the default SDK version (`AGENT_DATA_API_DEFAULT_VERSION`).
+- Existing agents can pin a specific version with `createAgentDataApiClient({ version: "v1", ... })` during migrations.
+
+## Port
+
+- **8081** (default from `env.PORT`).
+
+## Workspace dependencies
+
+- `@workspace/agent-auth-client` — `verifyTokenViaAuthApi` for bearer (invocation JWT) auth.
+- `@workspace/agent-data-api-contract` — Shared Zod schemas, `agentDataApiManifest`, and derived path helpers.
+- `@workspace/agent-data-api-client` — Typed SDK used by agents.
+- `@workspace/api-utils` — Error helpers.
+- `@mediapulse/env` — Environment (including `AGENT_AUTH_API_URL`).
+- `@mediapulse/database` — Prisma for reading/writing agent data.
+- `@workspace/logger` — Pino logger.
+
+## Endpoint change workflow
+
+When the API surface changes (new endpoint, removed endpoint, or request/response changes), follow this sequence to keep contract, server routes, SDK, and agents in sync:
+
+1. **Contract first:** update schemas and exported types in `@workspace/agent-data-api-contract`.
+2. **Manifest update:** add or update the resource in `agentDataApiManifest` (this is the canonical source of route shape).
+3. **API wiring:** implement/update handlers in `apps/mediapulse/agent-data-api/src/routes` and `src/services`, then wire them in the typed handler map used by route registration.
+4. **SDK alignment:** update `@workspace/agent-data-api-client` if request/response types changed.
+5. **Consumer updates:** update agent callsites that use the SDK.
+6. **Validation:** update tests, then run `pnpm code-quality`.
+
+See `.cursor/skills/agent-data-api-endpoints/SKILL.md` for the detailed checklist.
+
+## Using the Cursor skill
+
+When you ask Cursor to add/remove/change an endpoint, explicitly reference:
+
+- `.cursor/skills/agent-data-api-endpoints/SKILL.md`
+
+This skill keeps the implementation order correct and prevents API route drift from SDK behavior. For a shorter app-local summary, see `apps/mediapulse/agent-data-api/README.md`.
+
+## Related docs
+
+- [agent-auth-api](/hermes/apps/agent-auth-api) — Token verification.
+- [Agents overview](/mediapulse/apps/agents/content-generation) — Existing consumer agents.
+- [Knowledge Graph](/mediapulse/knowledge-graph/knowledge-graph) — query-analysis and analysis context.
+- [Packages: agent-runtime](/hermes/packages/agent-runtime), [agent-data-api-client](/hermes/packages/agent-data-api-client).

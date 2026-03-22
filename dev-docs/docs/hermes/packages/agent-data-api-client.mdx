@@ -1,0 +1,62 @@
+---
+title: agent-data-api-client
+description: Typed client for calling the agent-data-api
+icon: Plug
+---
+
+## Purpose
+
+`@workspace/agent-data-api-client` provides a typed client for the agent-data-api (GET/POST to content-generation, data-collection, and delivery endpoints). Agents should use this as the default integration path.
+
+## Main API
+
+Create the client once in your agent `run` function, then call endpoint namespaces:
+
+- `contentGeneration.get(...)` / `contentGeneration.create(...)`
+- `dataCollection.get(...)` / `dataCollection.create(...)`
+- `delivery.get(...)` / `delivery.create(...)`
+
+All methods are typed from shared contract schemas and route manifest definitions.
+
+## Example
+
+```ts
+import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+
+const dataApiClient = createAgentDataApiClient({
+  baseUrl: env.AGENT_DATA_API_URL,
+  version: "v1", // optional; defaults to AGENT_DATA_API_DEFAULT_VERSION
+  token, // token forwarded from createAgentApp run context
+});
+
+const { data } = await dataApiClient.dataCollection.get({
+  tickerId: input.tickerId,
+  start: input.timeWindow?.start,
+  end: input.timeWindow?.end,
+});
+
+if (data.length > 0) {
+  await dataApiClient.contentGeneration.create({
+    tickerId: input.tickerId,
+    subject: "Daily update",
+    content: "Generated content...",
+  });
+}
+```
+
+## Auth and error behavior
+
+- The client adds `Authorization` when a token is provided.
+- The client targets versioned routes (`/api/<version>/...`) from the shared contract.
+- It throws `Agent data API error: <statusCode>` for non-2xx responses.
+- It validates JSON responses with contract schemas before returning.
+
+## Why use this package
+
+- No hand-written route paths in agents.
+- Compile-time request/response typing from shared contracts.
+- Runtime response validation for safer integrations.
+
+## Related
+
+[agent-runtime](/hermes/packages/agent-runtime) provides the invocation/runtime wrapper (`createAgentApp`); this package provides typed data API access built from shared contract schemas.

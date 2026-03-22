@@ -1,0 +1,72 @@
+---
+title: Agent–Hermes contract
+description: Strongly typed input and config between agents and Hermes
+icon: FileCode
+---
+
+Hermes invokes agents with a **typed body** (`input` + `config`) derived from schedule params, step config, and registry schemas. The sections below describe that contract end to end.
+
+## Overview
+
+Agents and Hermes communicate with a **strongly typed contract**: each agent exposes an **input schema** (per-run payload) and an optional **config schema** (static configuration). Hermes stores these schemas in the agent registry, validates schedule params and step config in the admin UI, and sends `{ input, config }` in a single request body when invoking an agent.
+
+## Request body shape
+
+When Hermes invokes an agent, it sends a **POST** body:
+
+```json
+{
+  "input": { "tickerId": "uuid", ... },
+  "config": { "webSearch": {}, "webFetch": {}, ... }
+}
+```
+
+- **`input`** — The expanded schedule params (one object per run). Must satisfy the agent’s **input schema**.
+- **`config`** — Per-step configuration from the pipeline step. Must satisfy the agent’s **config schema** (if any). Defaults to `{}` when the agent has no config schema.
+
+## Agent: exposing schemas
+
+1. **Define Zod schemas** — In your agent app, define `inputSchema` and optionally `configSchema` (e.g. `z.object({})` for no config).
+2. **Pass to `createAgentApp`** — `createAgentApp` accepts `inputSchema` and optional `configSchema`; it validates the body and passes `{ input, config, token }` to `run()`.
+3. **GET /schemas** — The agent runtime exposes **GET /schemas** (no auth) returning `{ inputSchema, configSchema }` as **JSON Schema**. Use this when registering the agent so the registry stores the schemas.
+
+## Registry: storing schemas
+
+When **registering** an agent (POST to agent-registry-api), include:
+
+- **`inputSchema`** (required) — JSON Schema object for the agent’s input.
+- **`configSchema`** (optional) — JSON Schema object for the agent’s config.
+
+The registry stores these; Hermes uses them to validate schedule params and step config in the admin UI and at create/update time.
+
+## Hermes: assigning input and config
+
+- **Schedule params** — In the schedule form, “Params (JSON)” is the **input** template. Values can be literals or **data-source expressions** that expand at runtime. See [Data source expansion](/guide/data-source-expansion) for the full format, options, and examples. Params are validated against every pipeline step’s agent **input schema** when saving. Use **Validate** to check params client-side; use **Expected shape** to see the required structure.
+- **Step config** — When adding or editing a pipeline step, you can either **use a saved agent config** (dropdown of configs for that agent) or **custom config** (JSON). Saved configs are created under **Agent configs** (`/dashboard/agent-configs`); each has a name, description, and JSON validated against the agent’s config schema. If you assign a saved config to a step, the executor uses that config at run time; updating the saved config applies to all steps that reference it. Config is validated against the step’s agent **config schema** when saving. At execution time, if a step references a saved config, the executor loads it and re-validates it against the **current** agent config schema (from the registry); if validation fails, the step fails (schema drift protection).
+
+## Variables in config and params
+
+You can reference **Hermes variables** in agent config and in schedule params. In any string value, use the placeholder `{{VAR_KEY}}` (e.g. `{{OPENAI_API_KEY}}`). At pipeline execution time, the hermes-scheduler loads all variables from the database and replaces each placeholder with the variable’s value. Variables are managed under **Variables** (`/dashboard/variables`); each has a unique key, value, optional note, and an optional “Secret” flag (secret values are never returned by the API or shown in the UI after save). This lets you keep API keys and other sensitive or environment-specific values in one place and reference them from multiple agent configs or schedules.
+
+## Auto-registration on startup
+
+Agents built with `createAgentApp` can **register themselves** with the agent-registry-api when they start. Pass **`autoRegister`** in the options with `registryUrl`, `apiKey`, and `agentUrl` (the public URL where the agent is reachable). The runtime will POST the agent’s metadata and schemas to the registry once at startup (fire-and-forget). If registration fails, the error is logged and the agent keeps running.
+
+Set these env vars so the agent can auto-register: `AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `DOMAIN_INTEGRATION_API_KEY` (Hermes **domain_integration** key), and `AGENT_AUTH_API_URL`. When all are set, the agent registers on startup; if any is missing, registration is skipped.
+
+## Adding a new agent
+
+1. Implement the agent with `inputSchema` and optional `configSchema`; implement `run({ input, config, token })`.
+2. Expose GET /schemas (provided by `createAgentApp`).
+3. **Register the agent** — Either set `AGENT_REGISTRY_URL`, `AGENT_PUBLIC_URL`, `DOMAIN_INTEGRATION_API_KEY` (domain_integration), and `AGENT_AUTH_API_URL` and pass `autoRegister` from env so the agent registers itself on startup (JWT mint + POST to registry), or register manually: POST to the registry with `Authorization: Bearer <jwt>` and body `agentId`, `agentVersion`, `endpoint`, `inputSchema` (and optionally `configSchema`). You can GET the agent’s `/schemas` and include that in the register payload.
+4. In Hermes, add the agent to a pipeline step and set step config if the agent has a config schema. Create schedules with params that satisfy the pipeline’s agents’ input schemas.
+
+## Response body (agent → Hermes)
+
+On **success (HTTP 2xx)**, agents should return **JSON** with this envelope: `schemaVersion`, `status` (`success` or `failure`), optional `message`, `details`, and `logs`. Hermes treats **empty 2xx bodies** as legacy success. **Semantic failures** use `status: "failure"` in the body (still 2xx) so structured errors can be returned in one response; transport failures use non-2xx or failed transport as appropriate.
+
+## Related docs
+
+- [agent-runtime](/hermes/packages/agent-runtime) — `createAgentApp`, body validation, GET /schemas.
+- [agent-registry-api](/hermes/apps/agent-registry-api) — Register with `inputSchema` / `configSchema`.
+- [Hermes dashboard](/hermes/apps/dashboard) — Schedule form (params, Validate, Expected shape), step config UI.

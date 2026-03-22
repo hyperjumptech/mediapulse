@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "{{agentName}}-agent",
+  "name": "@mediapulse/{{agentName}}",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -8,13 +8,14 @@
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
     "type:check": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",
-    "@workspace/env": "workspace:*",
+    "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",

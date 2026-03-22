@@ -1,0 +1,88 @@
+---
+title: Dashboard
+description: Next.js app that orchestrates pipelines and invokes agents
+icon: Zap
+---
+
+## Purpose
+
+**`@hermes/dashboard`** is the orchestration UI: **pipelines** (sequences of agents), **tickers**, **agents**, **agent configs**, **variables**, **domain integrations** (per-integration API keys and lifecycle), and **schedules**. This Next.js app exposes the dashboard and APIs for creating and editing schedules. The **scheduler** itself (DataQueue processor and supervisor) runs in **`hermes-worker`** so the dashboard stays a normal web app without owning the queue process.
+
+## Quick overview
+
+- **Agents** are executable units and can have multiple versions. An agent automatically registers itself when it starts up.
+- **Pipelines** are created by admins as an ordered series of agent steps. Admin can configure the input and config for each step.
+- **Schedules** define when a pipeline should run.
+
+## Features
+
+- **Dashboard UI** — Manage pipelines, pipeline steps, agents, domain integrations, and schedules. Domain-owned resources are rendered from a registered dashboard manifest (`table-v1`) rather than hardcoded Prisma-backed pages.
+- **Domain pages from integration manifest** — Each domain integration registers a **key** (e.g. `mediapulse`) and a list of dashboard pages (`pathSegment`, `apiPrefix`, labels). Sidebar links and routes are **`/dashboard/{integrationKey}/{pathSegment}`** (for example `/dashboard/mediapulse/tickers`). Hermes resolves the active integration by key and calls that integration’s HTTP API for `table-v1` list/meta and mutations — not hard-coded `/dashboard/tickers` routes.
+- **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, and for each pipeline step expands that step's input (e.g. data-source expressions like `db:ticker:id`), then invokes the step via HTTP. Hermes does not run the queue.
+- **Manual run** — Trigger a pipeline run from the dashboard.
+- **Ticker import** — When the domain manifest registers a `json-file-upload` custom action (e.g. IDX JSON), Hermes shows an import card on `/dashboard/{integrationKey}/tickers` and POSTs to the domain API; Mediapulse runs `@mediapulse/idx-tickers-importer` on the service side.
+- **Session-based auth** — Dashboard uses cookie/session auth. When running pipelines manually, agents are invoked with **short-lived JWT bearer tokens** minted via agent-auth-api using **`HERMES_INTERNAL_API_KEY`**; that preset is never sent to agents.
+- **Variable management** — Admins can CRUD **variables** (key, value, optional note, secret flag) from `/dashboard/variables`. Variables are referenced in agent config and step input as `{{VAR_KEY}}`; at pipeline execution time the placeholder is replaced with the stored value. Secret variables are never returned by the API or shown in the UI after creation (value is masked).
+- **Domain integrations** — Admins create an integration (stable key + description); Hermes generates an API key, shows it once, stores it encrypted, and ties pipelines/agents to that integration after domain-api registers.
+
+## Key routes / entrypoints
+
+- Dashboard: `/dashboard` (Hermes-native: pipelines, agents, **agent configs**, **variables**, **domain integrations**, schedules). Domain-owned tables live under **`/dashboard/{integrationKey}/{pathSegment}`** (see registered integration manifest).
+- Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline. **Pipeline detail** uses a three-column layout: available agents (click to add), pipeline steps (select, reorder, remove), and step editor (pipeline name/description, step **input** and **config** from agent schemas). When adding or editing a step, you can set input and config (or choose a **saved agent config**). String fields in the step editor use a **variable/expansion input**: you can type freely or use the **Insert…** picker to add variable placeholders (`{{KEY}}`) or data source expansion template strings. Save persists pipeline metadata and the selected step's input/config.
+- **Agent configs** (`/dashboard/agent-configs`): Create, edit, duplicate, or delete named configs per agent (agentId + version). Each config has a name, description, and JSON validated against the agent’s config schema. Config string fields support the same variable (`{{key}}`) and data-source expansion insert picker used by pipeline step input forms. Configs can be assigned to pipeline steps so one config is reused across steps; updating a saved config applies to all steps that reference it. If an agent’s config schema changes (same version), saved configs are marked “Schema changed” until you re-save them.
+- Ticker actions: create, update, delete, import (IDX JSON via manifest `customActions` → domain API).
+- Agent actions: create, update. Agent details are on a dedicated page (`/dashboard/agents/[id]`) with tabs: **General** (details and endpoint), **Input schema** (pretty-printed JSON), **Config schema** (pretty-printed JSON).
+- **Variables** (`/dashboard/variables`): Create, edit, delete. Each variable has a unique key, value, optional note, and “Secret” flag. Use `{{KEY}}` in agent config or schedule params; hermes-scheduler substitutes values at execution time. Secret values are never returned or shown after save.
+- **Search Query** (`/dashboard/{integrationKey}/search-queries`, e.g. `mediapulse`): View generated query rows from `search_query` with columns for keywords and ticker name. Filter by ticker name. Delete rows that are not linked by `data_source` (linked rows are blocked from deletion).
+- **Data source expansions** (`/dashboard/{integrationKey}/data-source-expansions`): Create, edit, delete saved expansion templates. Each has a name, expansion string (e.g. `db:userTicker:tickerId?where.enabled=true`), and optional description. Use **Run preview** on the create/edit page to test the expansion against the DB; format docs and examples are shown on the page. See [Data source expansion](/guide/data-source-expansion) for full format and behavior.
+- **Entity types** (`/dashboard/{integrationKey}/entity-types`): Manage entity classification vocabulary used by analysis prompts.
+- **Relation types** (`/dashboard/{integrationKey}/relation-types`): Manage relation vocabulary used by analysis prompts.
+- **KG dev seeding** — Run `pnpm --filter @mediapulse/database run seed-kg-vocabulary` from the monorepo root for vocabulary, then `pnpm seed-kg-pipelines` from `apps/hermes/dashboard` for pipelines/schedules. Details in [Knowledge Graph](/mediapulse/knowledge-graph/knowledge-graph#schedule-configuration-default-seeds).
+- **Domain integrations** (`/dashboard/domain-integrations`): Create integrations; copy the generated API key once into Mediapulse/agent env.
+- Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@hermes/scheduler`; execution runs in hermes-worker.
+- Logout: `/logout`.
+
+## Pipeline status and schedules
+
+Each pipeline has a **status** shown on `/dashboard/pipelines`:
+
+- **Incomplete** — One or more steps fail validation (e.g. missing required input/config, invalid data-source expressions). Fix in the pipeline editor.
+- **Disabled** — Pipeline is inactive (`isActive` off). Enable it in the pipeline form to use it in schedules.
+- **Enabled** — Pipeline is active and all steps pass validation. Only enabled pipelines can be assigned to schedules.
+
+When creating or editing a **schedule**, the pipeline dropdown lists all pipelines but only **enabled** ones are selectable; incomplete or disabled pipelines appear with a suffix and are disabled. The server rejects create/update if the chosen pipeline is not enabled.
+
+If a pipeline becomes not enabled (e.g. you turn it off or a step breaks validation), all schedules that reference that pipeline are **automatically marked disabled** so hermes-scheduler will not run them. Re-enable the pipeline (and fix validation if needed), then re-enable the schedule if desired.
+
+To backfill existing data once: from `apps/hermes`, run `pnpm exec tsx scripts/backfill-disable-schedules-for-invalid-pipelines.ts` to disable any schedule whose pipeline is not enabled.
+
+## Port
+
+- **3001** (via `next dev --turbopack -p 3001`).
+
+## Scheduler (hermes-worker)
+
+Hermes **does not** run the DataQueue queue or migrations. To run the scheduler:
+
+1. Run the **hermes-worker** app on a persistent server (e.g. `pnpm dev:hermes-worker` from repo root). It initializes the queue, ensures the `hermes-check-schedules` cron exists, and runs the processor + supervisor.
+2. Run DataQueue migrations from **hermes-worker**: `pnpm --filter @hermes/worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`). Use the same DB as Hermes with `?schema=dataqueue`.
+3. Set `PG_DATAQUEUE_DATABASE` (and `DATABASE_URL`, **`HERMES_INTERNAL_API_KEY`**, **`AGENT_AUTH_API_URL`**) where hermes-worker runs.
+
+See [hermes-worker](/hermes/apps/hermes-worker) for details.
+
+## Workspace dependencies
+
+- `@hermes/orchestration-database` — Prisma client for orchestration data and domain integration manifest storage.
+- `@hermes/env` — Environment variables.
+- `@hermes/domain-contract` — Shared integration contract for registration payloads and `table-v1` metadata/list responses.
+- `@hermes/scheduler` — `computeNextRunAt` (and types) for schedule create/update in the dashboard.
+- `@workspace/json-schema-form` — Renders forms from agent config schemas (create/edit agent config modals).
+- `@mediapulse/idx-tickers-importer` — IDX ticker import.
+- `@workspace/logger` — Logging.
+- `@workspace/ui` — Shared UI components.
+
+## Related docs
+
+- [Architecture](/architecture) — How Hermes and hermes-worker fit in the system.
+- [hermes-worker](/hermes/apps/hermes-worker) — Long-running scheduler process.
+- [Packages: database](/hermes/packages/database), [hermes-scheduler](/hermes/packages/hermes-scheduler), [idx-tickers-importer](/mediapulse/packages/idx-tickers-importer).

@@ -1,7 +1,16 @@
 packages:
-  - "apps/*"
-  - "apps/agents/*"
-  - "packages/*"
+  # Hermes
+  - "apps/hermes/*"
+  - "packages/hermes/*"
+
+  # Mediapulse
+  - "apps/mediapulse/*"
+  - "apps/mediapulse/agents/*"
+  - "packages/mediapulse/*"
+
+  # Shared / cross-domain
+  - "apps/shared/*"
+  - "packages/shared/*"
 
 catalog:
   "@next/env": "^16.1.1"

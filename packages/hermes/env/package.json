@@ -1,0 +1,35 @@
+{
+  "name": "@hermes/env",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "concurrently \"pnpm build:default\" \"pnpm build:hermes-worker\"",
+    "build:default": "pnpm exec env-to-t3 -i env.example -o src/index.ts",
+    "build:hermes-worker": "pnpm exec env-to-t3 -i env.hermes-worker.example -o src/hermes-worker.ts"
+  },
+  "exports": {
+    "./hermes-worker": {
+      "types": "./src/hermes-worker.ts",
+      "default": "./src/hermes-worker.ts"
+    },
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@t3-oss/env-nextjs": "^0.10.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "concurrently": "^9.2.1",
+    "dotenv-cli": "^7.3.0",
+    "env-to-t3": "^0.0.12",
+    "eslint": "catalog:",
+    "postcss": "catalog:",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

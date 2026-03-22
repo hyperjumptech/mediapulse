@@ -1,0 +1,15 @@
+---
+title: Shared packages
+description: Workspace libraries under packages/shared (@workspace/*) used by Hermes, Mediapulse, and agents
+icon: Package
+---
+
+Code under **`packages/shared/`** is published as **`@workspace/*`** and imported via `workspace:*` in `package.json`. Hermes, Mediapulse, and agents all use these libraries.
+
+This section is for documentation that is **clearly monorepo-wide** (starting with the UI kit). Most other shared packages—**agent-runtime**, **agent-data-api-client**, **logger**, **utils**, and so on—are documented under **[Hermes → Packages](/hermes/packages)** because the orchestration and agent story lives there. Mediapulse-owned packages are under **[Mediapulse → Packages](/mediapulse/packages)**.
+
+## UI kit
+
+| Page                 | Package                                          |
+| -------------------- | ------------------------------------------------ |
+| [UI kit](/shared/ui) | `@workspace/ui` — React, Radix, Tailwind, themes |

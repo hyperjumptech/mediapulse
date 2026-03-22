@@ -1,15 +1,33 @@
-# This docker-compose file is used to start the development database.
-version: "3"
+# Local Postgres for development (database name: mediapulse).
+#
+# Start before ./dev-setup-local.sh (or migrations): docker compose up -d postgres
+# ./dev-setup-local.sh runs scripts/ensure-prisma-shadow-databases.mjs to create
+# prisma_shadow_* DBs when this container is up.
+#
+# Start: docker compose up -d postgres
+#
+# First-time init runs docker/postgres/initdb/*.sql: creates prisma_shadow_orchestration and
+# prisma_shadow_mediapulse (for `prisma migrate dev` — see prisma.config.ts in each DB package).
+#
+# If ./data already existed before that init existed, recreate the volume or create the DBs manually:
+#   docker compose down && rm -rf data && docker compose up -d postgres
 
 services:
   postgres:
     image: postgres:13-alpine
     ports:
-      - 5432:5432
+      - "5432:5432"
     environment:
+      # Official image: POSTGRES_USER is the cluster superuser (full DDL, CREATE DATABASE, etc.).
       POSTGRES_PASSWORD: mediapulse
       POSTGRES_USER: mediapulse
       POSTGRES_DB: mediapulse
     volumes:
       - ./data:/var/lib/postgresql/data
+      - ./docker/postgres/initdb/01-prisma-dev.sql:/docker-entrypoint-initdb.d/01-prisma-dev.sql
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediapulse -d mediapulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

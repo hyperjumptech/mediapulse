@@ -1,38 +1,51 @@
 ---
 title: Overview
-description: MediaPulse project overview, stack, and how to run the apps
+description: MediaPulse monorepo overview — Hermes vs Mediapulse domains, stack, and how to run apps
 icon: Home
 ---
 
-## What is MediaPulse?
+## What is this monorepo?
 
-MediaPulse is an AI-powered newsletter and pipeline platform. It orchestrates **pipelines** of agents (query analysis, data collection, analysis, content generation, delivery) to produce and send newsletters for tracked tickers (e.g. listed companies from the Indonesian Stock Exchange).
+**MediaPulse** is the product: an AI-assisted newsletter and pipeline platform.
+
+The codebase is organized into two **domains**:
+
+- **Hermes** — Orchestration: dashboard, worker/scheduler, auth API, registry API, and the **orchestration** database (pipelines, schedules, domain integrations, **admin** users).
+- **Mediapulse** — Product data and runtime: **agent-data-api**, **domain API** (Mediapulse DB + Hermes integration), user registration, and HTTP **agents** under `apps/mediapulse/agents/*`, backed by the **Mediapulse** database (tickers, newsletters, knowledge graph, and related tables).
+
+## How the domains connect
+
+Hermes **orchestrates** work (pipelines, schedules, invoking agents). It does **not** own newsletter, ticker, or knowledge-graph tables. When Hermes needs that kind of data—**data-source expansion**, CRUD for Mediapulse entities in the dashboard, and similar—it calls the **Mediapulse domain API** over HTTP. The Hermes app does not connect to the Mediapulse database for those features.
+
+Tables, identities, and detailed runtime flows are described in **[Hermes and Mediapulse domains](/architecture/domains)**.
 
 ## Stack
 
 - **Monorepo:** pnpm workspaces, Turborepo
-- **Apps:** Next.js (Hermes, Dashboard), Bun + Hono (agent-auth-api, agent-data-api, agent-registry-api, and agent services)
-- **Database:** PostgreSQL with Prisma
-- **Agents:** Small HTTP services built with `@workspace/agent-runtime`, invoked by Hermes with bearer tokens
+- **Hermes apps:** Next.js dashboard, Bun worker; Bun + Hono for agent-auth-api and agent-registry-api
+- **Mediapulse apps:** Bun + Hono for agent-data-api and domain-api; Next.js for user-registration; agents as small HTTP services with `@workspace/agent-runtime`
+- **Database:** PostgreSQL with Prisma (`@hermes/orchestration-database` and `@mediapulse/database`)
+- **Env:** `@hermes/env` and `@mediapulse/env` (T3 Env / env-to-t3), not raw `process.env`
 
 ## Running the project
 
-For installation, environment setup, database migrations, and how to run each app, see the [Getting Started](/getting-started) page.
+For installation, environment setup, database migrations, and how to run each app, see [Development](/guide/development).
 
 Quick reference:
 
-- **Database:** `docker-compose up` then `cd packages/database && pnpm db:migrate:dev && pnpm db:generate`
-- **Hermes:** `pnpm dev --filter=hermes` (port 3001)
-- **Dashboard:** `pnpm dev --filter=dashboard`
-- **APIs:** `pnpm dev --filter=agent-auth-api`, `agent-data-api`, `agent-registry-api`
-- **Agents:** Run each agent app from `apps/agents/*` with its own env file
+- **Database:** `docker-compose up` then run Prisma migrate/generate for `packages/hermes/orchestration-database` and `packages/mediapulse/database` (see Development).
+- **Hermes dashboard:** `pnpm dev --filter=@hermes/dashboard` (port **3001**)
+- **APIs:** `pnpm dev --filter=@hermes/agent-auth-api`, `pnpm dev --filter=@mediapulse/agent-data-api`, `pnpm dev --filter=@hermes/agent-registry-api`
+- **Agents:** `apps/mediapulse/agents/<name>` — each has its own `.env.local` when needed
 
 ## Documentation map
 
-- **[Architecture](/architecture)** — High-level diagram (Hermes, agents, APIs, database).
-- **[Communication between parts](/communication)** — How components talk to each other (JWT invocation, API-key service auth).
-- **[Agent–Hermes contract](/agent-hermes-contract)** — Strongly typed input and config: how agents expose schemas and how Hermes validates and sends params and step config.
-- **[Apps](/apps)** — Hermes, [Data source expansion](/apps/data-source-expansion), agent-auth-api, agent-data-api, agent-registry-api, and operational agent docs.
-- **[KG Agents](/agents)** — query-analysis and analysis flow details.
-- **[KG Admin](/admin)** — entity types and relation types administration pages.
-- **[Packages](/packages)** — Shared packages: database, env, agent-runtime, agent-types, clients, idx-tickers-importer, api-utils, logger, ui, utils, tooling.
+| Section                                                                   | What you will find                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Hermes and Mediapulse domains](/architecture/domains)**                | Which apps and packages sit in which domain, how they talk at runtime                                                                                                                                                                                                                             |
+| **[Integrate a domain with Hermes](/guide/integrate-domain-with-hermes)** | Register an HTTP domain API (expansion + optional `table-v1` dashboard) with Hermes                                                                                                                                                                                                               |
+| **[Generate a new agent](/mediapulse/apps/agents/generate-agent)**        | Scaffold an agent (`pnpm gen:agent`), env, registry, Hermes pipelines                                                                                                                                                                                                                             |
+| **[Architecture](/architecture)**                                         | Domain layout and [communication](/architecture/communication); [Agent–Hermes contract](/guide/agent-hermes-contract) and [data source expansion](/guide/data-source-expansion) live under **Guide**. **[Knowledge graph](/mediapulse/knowledge-graph/knowledge-graph)** is under **Mediapulse**. |
+| **[Shared](/shared)**                                                     | Monorepo-wide **UI** (`@workspace/ui`) and other shared docs not scoped to Hermes only                                                                                                                                                                                                            |
+| **[Hermes](/hermes)**                                                     | Deployable apps (dashboard, worker, auth, registry) and Hermes-related packages                                                                                                                                                                                                                   |
+| **[Mediapulse](/mediapulse)**                                             | Product apps (data API, domain API, user-registration, agents) and Mediapulse packages                                                                                                                                                                                                            |

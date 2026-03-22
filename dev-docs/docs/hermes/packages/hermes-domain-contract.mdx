@@ -1,0 +1,30 @@
+---
+title: hermes-domain-contract
+description: Shared HTTP contract and typed client for domain integrations
+icon: Network
+---
+
+## Purpose
+
+`@hermes/domain-contract` defines the Hermes-owned API contract for domain integrations and provides a typed client.
+
+## Endpoints
+
+- `GET /v1/health`
+- `POST /v1/preview-expansion`
+- `POST /v1/expand-step-inputs`
+
+## Exports
+
+- `createDomainIntegrationClient` — Typed fetch client used by Hermes worker and preview API route.
+- Zod schemas and TS types for registration, preview, expansion, and health payloads.
+- `openapi.yaml` — Contract reference file for tooling and documentation.
+
+## Dashboard manifest (`table-v1`)
+
+Registration includes a `dashboard` object with `pages` for the generic table template. Each page may declare:
+
+- **CRUD** — `actions`, `createSchema` / `updateSchema`, `columns`, search/sort fields.
+- **Custom actions** — Optional `customActions[]` entries describe extra operations the domain service implements (for example bulk JSON import). Each entry has `id`, `label`, `ui` (e.g. `json-file-upload`), `method`, `path` (suffix after the page `apiPrefix`), and optional `accept` for file inputs.
+
+Hermes loads `GET {apiPrefix}/meta` and renders `customActions` when present. Submitting a custom action POSTs JSON to `{baseUrl}{apiPrefix}{path}` with the integration bearer token.

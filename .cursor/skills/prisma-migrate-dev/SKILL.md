@@ -5,29 +5,41 @@ description: Create and apply Prisma schema migrations using the project's db:mi
 
 # Prisma Migrate Dev in This Project
 
-Migrations are **never** created by hand. This project uses `prisma migrate dev` via the database package script.
+Migrations are **never** created by hand. This project uses `prisma migrate dev` via the **orchestration** and **Mediapulse** database package scripts (`@hermes/orchestration-database`, `@mediapulse/database`).
 
 ## When to use
 
 - User asks to add a migration, run migrations, or change the database schema.
-- You have edited `packages/database/prisma/schema.prisma` and need to persist the change.
+- You have edited `packages/hermes/orchestration-database/prisma/schema.prisma` or `packages/mediapulse/database/prisma/schema.prisma` and need to persist the change.
 
 ## Steps
 
 1. **Edit the schema only**  
-   Change `packages/database/prisma/schema.prisma` (models, fields, relations). Do not create or edit files under `prisma/migrations/`.
+   Change the appropriate `schema.prisma` (models, fields, relations). Do not create or edit files under `prisma/migrations/` by hand.
 
 2. **Run the migration command**  
-   From the repository root:
+   From the repository root (pick the package that owns the schema you edited):
 
    ```bash
-   cd packages/database && pnpm db:migrate:dev
+   cd packages/hermes/orchestration-database && pnpm db:migrate:dev
+   ```
+
+   or
+
+   ```bash
+   cd packages/mediapulse/database && pnpm db:migrate:dev
    ```
 
    Or using the workspace filter:
 
    ```bash
-   pnpm --filter @workspace/database db:migrate:dev
+   pnpm --filter @hermes/orchestration-database db:migrate:dev
+   ```
+
+   or
+
+   ```bash
+   pnpm --filter @mediapulse/database db:migrate:dev
    ```
 
 3. **Name the migration**  

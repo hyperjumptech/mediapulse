@@ -1,0 +1,12 @@
+{
+  "title": "Agents",
+  "pages": [
+    "query-analysis",
+    "analysis",
+    "content-generation",
+    "data-collection",
+    "delivery",
+    "generate-agent"
+  ],
+  "defaultOpen": true
+}
