@@ -34,6 +34,8 @@ export type InvokeAgentJobPayload = {
   body: { input: Record<string, unknown>; config: Record<string, unknown> };
   timeoutMs: number;
   priority: number;
+  /** Set by hermes-worker after `addJobs` (DataQueue numeric id) for transient retry orchestration. */
+  hermesDataQueueJobId?: number;
 };
 
 /**

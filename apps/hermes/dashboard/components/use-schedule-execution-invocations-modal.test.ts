@@ -16,6 +16,8 @@ const sampleRow: ScheduleExecutionInvocationRow = {
   agentId: "ticker-echo",
   startedAtIso: "2025-03-20T10:00:00.000Z",
   completedAtIso: "2025-03-20T10:00:01.000Z",
+  dataQueueAttempts: null,
+  dataQueueMaxAttempts: null,
 };
 
 describe("useScheduleExecutionInvocationsModal", () => {

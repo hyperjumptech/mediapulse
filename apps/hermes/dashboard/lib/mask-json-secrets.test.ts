@@ -104,6 +104,8 @@ describe("maskScheduleExecutionDetailForDisplay", () => {
           semanticStatus: null,
           startedAt: null,
           completedAt: null,
+          dataQueueAttempts: null,
+          dataQueueMaxAttempts: null,
         },
       ],
     } satisfies ScheduleExecutionDetail;

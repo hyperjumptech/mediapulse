@@ -37,6 +37,7 @@ export {
   type GetDueSchedulesDb,
 } from "./get-due-schedules";
 export { computeNextRunAt, type ScheduleForNextRun } from "./next-run-at";
+export { willRetryAfterTransientFailure } from "./will-retry-after-transient-failure";
 export {
   applyHermesInvokeCorrelationHeaders,
   invokeAgent,

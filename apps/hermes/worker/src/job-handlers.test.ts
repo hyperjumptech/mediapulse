@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import type { JobContext } from "@nicnocquee/dataqueue";
 import { AgentJobExecutionStatus } from "@hermes/orchestration-database";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -47,6 +48,9 @@ vi.mock("@hermes/env/hermes-worker", () => ({
     HERMES_INTERNAL_API_KEY: "test-internal-hermes-key",
     AGENT_AUTH_API_URL: "https://auth.example.com",
     REQUIRE_HTTPS_AGENT_ENDPOINTS: undefined as string | undefined,
+    HERMES_INVOKE_AGENT_RETRY_DELAY: undefined as string | undefined,
+    HERMES_INVOKE_AGENT_RETRY_BACKOFF: undefined as string | undefined,
+    HERMES_INVOKE_AGENT_RETRY_DELAY_MAX: undefined as string | undefined,
   },
 }));
 
@@ -77,10 +81,14 @@ vi.mock("@hermes/scheduler", async (importOriginal) => {
 });
 
 const mockAddJobs = vi.fn().mockResolvedValue([1]);
+const mockEditJob = vi.fn().mockResolvedValue(undefined);
+const mockGetJob = vi.fn();
 
 vi.mock("./queue", () => ({
   getJobQueue: () => ({
     addJobs: mockAddJobs,
+    editJob: mockEditJob,
+    getJob: mockGetJob,
   }),
 }));
 
@@ -90,6 +98,9 @@ describe("jobHandlers", () => {
     vi.mocked(executeSchedule).mockClear();
     vi.mocked(logger.error).mockClear();
     mockAddJobs.mockClear();
+    mockEditJob.mockClear();
+    mockGetJob.mockClear();
+    mockAddJobs.mockResolvedValue([1]);
   });
 
   afterEach(() => {
@@ -193,6 +204,13 @@ describe("jobHandlers", () => {
         payload: expect.objectContaining({ jobId: "j1" }),
         priority: 0,
         idempotencyKey: "j1",
+      });
+      expect(mockEditJob).toHaveBeenCalledTimes(1);
+      expect(mockEditJob).toHaveBeenCalledWith(1, {
+        payload: expect.objectContaining({
+          jobId: "j1",
+          hermesDataQueueJobId: 1,
+        }),
       });
     });
 
@@ -367,7 +385,7 @@ describe("jobHandlers", () => {
     };
 
     const signal = new AbortController().signal;
-    const ctx = {} as Parameters<typeof jobHandlers.invoke_agent>[2];
+    const jobCtx = {} as JobContext;
 
     beforeEach(() => {
       vi.mocked(invokeAgentPost).mockClear();
@@ -396,7 +414,7 @@ describe("jobHandlers", () => {
         },
       });
 
-      await jobHandlers.invoke_agent(payload, signal, ctx);
+      await jobHandlers.invoke_agent(payload, signal, jobCtx);
 
       expect(mockPrisma.agentJobExecution.updateMany).toHaveBeenCalledWith({
         where: {
@@ -433,17 +451,56 @@ describe("jobHandlers", () => {
       );
     });
 
-    it("updates to failed and rethrows on transport error from invokeAgentPost", async () => {
+    it("syncs DataQueue attempts after claim when hermesDataQueueJobId is set", async () => {
+      mockGetJob.mockResolvedValueOnce({
+        attempts: 2,
+        maxAttempts: 5,
+      });
+      vi.mocked(invokeAgentPost).mockResolvedValue({
+        kind: "http",
+        response: {
+          statusCode: 200,
+          rawBody: '{"schemaVersion":1,"status":"success"}',
+          isEmptyBody: false,
+        },
+      });
+      vi.mocked(parseAgentResponseEnvelope).mockReturnValue({
+        ok: true,
+        envelope: {
+          schemaVersion: 1,
+          status: "success",
+          truncated: {},
+        },
+      });
+
+      await jobHandlers.invoke_agent(
+        { ...payload, hermesDataQueueJobId: 42 },
+        signal,
+        jobCtx,
+      );
+
+      expect(mockGetJob).toHaveBeenCalledWith(42);
+      expect(mockPrisma.agentJobExecution.update).toHaveBeenCalledWith({
+        where: { jobId: payload.jobId },
+        data: {
+          dataQueueAttempts: 2,
+          dataQueueMaxAttempts: 5,
+        },
+      });
+    });
+
+    it("updates to failed and rethrows on transport error when hermesDataQueueJobId is absent (legacy)", async () => {
       vi.mocked(invokeAgentPost).mockResolvedValue({
         kind: "transport_error",
         error: new Error("Network error"),
       });
 
       await expect(
-        jobHandlers.invoke_agent(payload, signal, ctx),
+        jobHandlers.invoke_agent(payload, signal, jobCtx),
       ).rejects.toThrow("Network error");
 
       expect(invokeAgentPost).toHaveBeenCalledTimes(1);
+      expect(mockGetJob).not.toHaveBeenCalled();
       expect(mockPrisma.agentJobExecution.update).toHaveBeenCalledWith({
         where: { jobId: payload.jobId },
         data: {
@@ -454,10 +511,111 @@ describe("jobHandlers", () => {
       });
     });
 
+    it("resets to pending on transport error when DataQueue will retry", async () => {
+      vi.mocked(invokeAgentPost).mockResolvedValue({
+        kind: "transport_error",
+        error: new Error("Network error"),
+      });
+      mockGetJob.mockResolvedValue({
+        attempts: 1,
+        maxAttempts: 3,
+      });
+
+      await expect(
+        jobHandlers.invoke_agent(
+          { ...payload, hermesDataQueueJobId: 42 },
+          signal,
+          jobCtx,
+        ),
+      ).rejects.toThrow("Network error");
+
+      expect(mockGetJob).toHaveBeenCalledWith(42);
+      expect(mockPrisma.agentJobExecution.updateMany).toHaveBeenCalledWith({
+        where: {
+          jobId: payload.jobId,
+          status: AgentJobExecutionStatus.running,
+        },
+        data: {
+          status: AgentJobExecutionStatus.pending,
+          completedAt: null,
+          error: {
+            message: "Network error",
+            retryable: true,
+            transient: true,
+          },
+        },
+      });
+      expect(applyInvocationCompletion).not.toHaveBeenCalled();
+    });
+
+    it("applies completion and rethrows on transport error when queue attempts are exhausted", async () => {
+      vi.mocked(invokeAgentPost).mockResolvedValue({
+        kind: "transport_error",
+        error: new Error("Network error"),
+      });
+      mockGetJob.mockResolvedValue({
+        attempts: 3,
+        maxAttempts: 3,
+      });
+
+      await expect(
+        jobHandlers.invoke_agent(
+          { ...payload, hermesDataQueueJobId: 99 },
+          signal,
+          jobCtx,
+        ),
+      ).rejects.toThrow("Network error");
+
+      expect(applyInvocationCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: payload.jobId,
+          scheduleExecutionId: payload.scheduleExecutionId,
+          terminal: {
+            status: AgentJobExecutionStatus.failed,
+            error: { message: "Network error", retryable: true },
+          },
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("applies completion on 5xx when queue attempts are exhausted", async () => {
+      vi.mocked(invokeAgentPost).mockResolvedValue({
+        kind: "http",
+        response: {
+          statusCode: 503,
+          rawBody: "",
+          isEmptyBody: true,
+        },
+      });
+      mockGetJob.mockResolvedValue({
+        attempts: 2,
+        maxAttempts: 2,
+      });
+
+      await expect(
+        jobHandlers.invoke_agent(
+          { ...payload, hermesDataQueueJobId: 7 },
+          signal,
+          jobCtx,
+        ),
+      ).rejects.toThrow("Agent returned HTTP 503");
+
+      expect(applyInvocationCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          terminal: {
+            status: AgentJobExecutionStatus.failed,
+            error: { message: "Agent HTTP 503", retryable: true },
+          },
+        }),
+        expect.any(Object),
+      );
+    });
+
     it("skips HTTP call when claim returns count 0 (idempotent)", async () => {
       mockPrisma.agentJobExecution.updateMany.mockResolvedValue({ count: 0 });
 
-      await jobHandlers.invoke_agent(payload, signal, ctx);
+      await jobHandlers.invoke_agent(payload, signal, jobCtx);
 
       expect(mockPrisma.agentJobExecution.updateMany).toHaveBeenCalledTimes(1);
       expect(invokeAgentPost).not.toHaveBeenCalled();
@@ -478,7 +636,7 @@ describe("jobHandlers", () => {
         },
       });
 
-      await jobHandlers.invoke_agent(payload, signal, ctx);
+      await jobHandlers.invoke_agent(payload, signal, jobCtx);
 
       expect(applyInvocationCompletion).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -41,6 +41,8 @@ describe("ScheduleExecutionInvocationsTable", () => {
         agentId: "my-agent",
         startedAtIso: "2025-03-20T10:00:00.000Z",
         completedAtIso: "2025-03-20T10:00:05.000Z",
+        dataQueueAttempts: null,
+        dataQueueMaxAttempts: null,
       },
     ];
 
@@ -76,6 +78,8 @@ describe("ScheduleExecutionInvocationsTable", () => {
         agentId: "alpha",
         startedAtIso: "2025-01-02T00:00:00.000Z",
         completedAtIso: "2025-01-02T00:01:00.000Z",
+        dataQueueAttempts: 2,
+        dataQueueMaxAttempts: 5,
       },
     ];
 
@@ -91,5 +95,6 @@ describe("ScheduleExecutionInvocationsTable", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("success")).toBeInTheDocument();
     expect(screen.queryByText("Semantic")).not.toBeInTheDocument();
+    expect(screen.getByText("2 / 5")).toBeInTheDocument();
   });
 });

@@ -16,6 +16,10 @@ export type ScheduleExecutionInvocationRow = {
   startedAtIso: string | null;
   /** ISO-8601 timestamp when the job finished, or null if not terminal yet. */
   completedAtIso: string | null;
+  /** DataQueue `attempts` when the worker last synced; null if unknown (legacy). */
+  dataQueueAttempts: number | null;
+  /** DataQueue `max_attempts` when last synced; null if unknown. */
+  dataQueueMaxAttempts: number | null;
 };
 
 /**
