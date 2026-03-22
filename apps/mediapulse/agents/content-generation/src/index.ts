@@ -59,8 +59,6 @@ const app = createAgentApp<
       if (!sources?.length) {
         return {
           success: false,
-          statusCode: 404,
-          skipped: true,
           message: "No data sources found for this ticker",
         };
       }

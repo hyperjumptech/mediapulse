@@ -62,9 +62,13 @@ describe("delivery-agent", () => {
       }),
     );
 
-    const body = (await res.json()) as { agentId: string };
+    const body = (await res.json()) as {
+      schemaVersion: number;
+      status: string;
+    };
     expect(res.status).toBe(200);
-    expect(body.agentId).toBe("delivery");
+    expect(body.schemaVersion).toBe(1);
+    expect(body.status).toBe("success");
     expect(got.get).toHaveBeenCalled();
     const sendEmail = await getSendEmail();
     expect(sendEmail).toHaveBeenCalled();

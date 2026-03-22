@@ -13,7 +13,7 @@ vi.mock("@workspace/agent-auth-client", async (importOriginal) => {
 });
 
 import { createAgentApp } from "./create-agent-app.js";
-import type { AgentResult } from "./types.js";
+import type { AgentRunResult } from "./types.js";
 
 const schema = z.object({ tickerId: z.string().uuid() });
 type Input = z.infer<typeof schema>;
@@ -31,9 +31,9 @@ describe("createAgentApp", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns 200 and agentId/agentVersion when run returns success", async () => {
+  it("returns 200 and Hermes envelope when run returns success true", async () => {
     // Setup
-    const run = vi.fn().mockResolvedValue({ success: true } as AgentResult);
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
     const app = createAgentApp<Input, typeof schema>(
       {
         agentId: "test-agent",
@@ -51,19 +51,50 @@ describe("createAgentApp", () => {
       body: JSON.stringify(validBody),
     });
     const body = (await res.json()) as {
-      agentId: string;
-      agentVersion: string;
+      schemaVersion: number;
+      status: string;
     };
 
     // Assert
     expect(res.status).toBe(200);
-    expect(body.agentId).toBe("test-agent");
-    expect(body.agentVersion).toBe("1.0.0");
+    expect(body.schemaVersion).toBe(1);
+    expect(body.status).toBe("success");
     expect(run).toHaveBeenCalledWith({
       input: validInput,
       config: {},
       token: "Bearer test-token",
     });
+  });
+
+  it("returns 200 and envelope failure when run returns success false", async () => {
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        run: async () => ({
+          success: false,
+          message: "Nothing to do",
+        }),
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify(validBody),
+    });
+    const body = (await res.json()) as {
+      schemaVersion: number;
+      status: string;
+      message: string;
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.schemaVersion).toBe(1);
+    expect(body.status).toBe("failure");
+    expect(body.message).toBe("Nothing to do");
   });
 
   it("returns 400 when body fails validation", async () => {
@@ -145,43 +176,6 @@ describe("createAgentApp", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 404 with skipped and message when run returns success false and statusCode 404", async () => {
-    // Setup
-    const app = createAgentApp<Input, typeof schema>(
-      {
-        agentId: "test-agent",
-        agentVersion: "1.0.0",
-        inputSchema: schema,
-        run: async () => ({
-          success: false,
-          statusCode: 404,
-          skipped: true,
-          message: "No data",
-        }),
-      },
-      { verifyToken: async () => true },
-    );
-
-    // Act
-    const res = await app.request("http://localhost/", {
-      method: "POST",
-      headers: authHeaders,
-      body: JSON.stringify(validBody),
-    });
-    const body = (await res.json()) as {
-      agentId: string;
-      agentVersion: string;
-      skipped?: boolean;
-      message?: string;
-    };
-
-    // Assert
-    expect(res.status).toBe(404);
-    expect(body.agentId).toBe("test-agent");
-    expect(body.skipped).toBe(true);
-    expect(body.message).toBe("No data");
-  });
-
   it("returns 500 when run throws", async () => {
     // Setup
     const app = createAgentApp<Input, typeof schema>(
@@ -207,34 +201,6 @@ describe("createAgentApp", () => {
     // Assert
     expect(res.status).toBe(500);
     expect(body.message).toBe("Internal Server Error");
-  });
-
-  it("returns 500 and default payload when run returns success false without statusCode", async () => {
-    // Setup
-    const app = createAgentApp<Input, typeof schema>(
-      {
-        agentId: "test-agent",
-        agentVersion: "1.0.0",
-        inputSchema: schema,
-        run: async () => ({ success: false }),
-      },
-      { verifyToken: async () => true },
-    );
-
-    // Act
-    const res = await app.request("http://localhost/", {
-      method: "POST",
-      headers: authHeaders,
-      body: JSON.stringify(validBody),
-    });
-    const body = (await res.json()) as {
-      agentId: string;
-      agentVersion: string;
-    };
-
-    // Assert
-    expect(res.status).toBe(500);
-    expect(body.agentId).toBe("test-agent");
   });
 
   it("GET /schemas returns inputSchema and configSchema as JSON Schema", async () => {
@@ -273,7 +239,7 @@ describe("createAgentApp", () => {
     // Setup
     const configSchema = z.object({ limit: z.number().optional() });
     type Config = z.infer<typeof configSchema>;
-    const run = vi.fn().mockResolvedValue({ success: true } as AgentResult);
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
     const app = createAgentApp<
       Input,
       typeof schema,
@@ -310,7 +276,7 @@ describe("createAgentApp", () => {
     // Setup
     const requiredConfigSchema = z.object({ limit: z.number() });
     type RequiredConfig = z.infer<typeof requiredConfigSchema>;
-    const run = vi.fn().mockResolvedValue({ success: true } as AgentResult);
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
     const app = createAgentApp<
       Input,
       typeof schema,

@@ -13,7 +13,7 @@ icon: Cpu
 - **`createAgentApp<TInput, TSchema, TConfig?, TConfigSchema?>(config, options)`** — Creates the agent app (fetch handler + port). Config: `agentId`, `agentVersion`, `inputSchema` (Zod), optional `configSchema` (Zod), `run({ input, config, token })`. Exposes **GET /schemas** (no auth) returning input and config as JSON Schema. Option **`autoRegister`** triggers self-registration with the agent-registry-api on startup when set.
 - **`registerWithRegistry(params)`** — Registers the agent with the registry (POST with schemas and endpoint). Used internally when `autoRegister` is set; can be called explicitly if needed.
 - **`verifyTokenViaAuthApi`** — Re-exported from `@workspace/agent-auth-client`; used when `authApiUrl` is set.
-- **Types:** `AgentResult`, `AgentRunContext<TInput, TConfig>`, `AgentConfig`, `CreateAgentAppOptions`, `AutoRegisterOptions`, `LoggerLike`.
+- **Types:** `AgentRunResult` (`{ success: true }` \| `{ success: false; message }`), `HermesInvokeEnvelopeV1`, `AgentRunContext<TInput, TConfig>`, `AgentConfig`, `CreateAgentAppOptions`, `AutoRegisterOptions`, `LoggerLike`.
 
 ## Request body and how Hermes invokes agents
 

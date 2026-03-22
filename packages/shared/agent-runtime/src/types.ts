@@ -10,24 +10,13 @@ export type LoggerLike = {
   info?: (obj: unknown, msg?: string) => void;
 };
 
-/** Successful agent run. */
-export type AgentSuccess = {
-  success: true;
-};
-
-/** Failed or skipped agent run with optional status and message. */
-export type AgentFailure = {
-  success: false;
-  /** HTTP status code to return (default 500). */
-  statusCode?: number;
-  /** When true, often returned with 200 for "skipped" flows. */
-  skipped?: boolean;
-  /** Optional message for the response body. */
-  message?: string;
-};
-
-/** Result of an agent run. Drives response status and JSON body. */
-export type AgentResult = AgentSuccess | AgentFailure;
+/**
+ * Result of `run`. Becomes HTTP **200** + Hermes PRD envelope (`schemaVersion`, `status`).
+ * Use **throw** for unexpected errors (agent returns 500).
+ */
+export type AgentRunResult =
+  | { success: true; message?: string }
+  | { success: false; message: string };
 
 /** Context passed to the agent run function. */
 export type AgentRunContext<TInput, TConfig = Record<string, never>> = {
@@ -62,9 +51,9 @@ export type CreateAgentAppOptions = {
   authApiUrl?: string;
   /** Custom token verifier; overrides default verifyTokenViaAuthApi. */
   verifyToken?: (token: string) => Promise<boolean>;
-  /** Logger instance; defaults to @workspace/logger. */
+  /** Logger instance; defaults to `@workspace/logger`. */
   logger?: LoggerLike;
-  /** When set, the agent registers itself with the registry on startup (fire-and-forget). */
+  /** When set, the agent registers itself with the agent-registry-api on startup (fire-and-forget). */
   autoRegister?: AutoRegisterOptions;
 };
 
@@ -86,8 +75,7 @@ export type AgentConfig<
   /** Zod schema to parse and validate the request body's `config` field. Defaults to empty object. */
   configSchema?: TConfigSchema;
   /**
-   * Agent business logic. Receives parsed input, config, and token; returns result
-   * that drives HTTP status and response body.
+   * Agent business logic. Returns {@link AgentRunResult}; the runtime maps it to the Hermes JSON envelope on 200.
    */
-  run: (context: AgentRunContext<TInput, TConfig>) => Promise<AgentResult>;
+  run: (context: AgentRunContext<TInput, TConfig>) => Promise<AgentRunResult>;
 };

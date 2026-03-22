@@ -61,7 +61,7 @@ When all three are set, the agent POSTs its metadata and schemas to the registry
 ## Customize your agent
 
 1. **Input and config** — Edit `src/index.ts`: change the Zod `InputSchema` (and add `configSchema` if needed).
-2. **Run logic** — Implement the `run` function; it receives `{ input, config, token }` and returns `Promise<AgentResult>`.
+2. **Run logic** — Implement the `run` function; it receives `{ input, config, token }` and returns `Promise<AgentRunResult>` (e.g. `{ success: true }` or `{ success: false, message: "…" }`).
 3. **Env** — After `./setup-agent-env.sh`, the agent has `.env.local` with `PORT` and `AGENT_API_KEY`. Set `AGENT_REGISTRY_URL` in `.env.local` if you want auto-registration and the example does not already include it.
 
 The minimal template is **ticker-echo** (`apps/mediapulse/agents/ticker-echo`); the generator is based on it so you only define body, config, and what the agent does.

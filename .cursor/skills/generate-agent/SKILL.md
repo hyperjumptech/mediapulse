@@ -58,7 +58,7 @@ The prompt asks for an **agent name** in kebab-case (e.g. `my-agent`). The gener
 ## After generation: what to customize
 
 1. **Input and config** — In `src/index.ts`, replace or extend the Zod `InputSchema` and add `configSchema` on `createAgentApp` if the agent has config.
-2. **Run logic** — Implement `run`; it receives `{ input, config, token }` and returns `Promise<AgentResult>` (e.g. `{ success: true }` or `{ success: false, statusCode, message }`).
+2. **Run logic** — Implement `run`; it receives `{ input, config, token }` and returns `Promise<AgentRunResult>` (e.g. `{ success: true }` or `{ success: false, message: "…" }`).
 
 ## Reference
 

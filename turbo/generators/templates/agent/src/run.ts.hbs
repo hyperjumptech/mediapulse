@@ -1,4 +1,4 @@
-import { AgentRunContext, AgentResult } from "@workspace/agent-runtime";
+import { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { logger } from "@workspace/logger";
 import { Input, Config } from "./index.js";
 
@@ -6,7 +6,7 @@ import { Input, Config } from "./index.js";
 export const run = async ({
   input,
   config,
-}: AgentRunContext<Input, Config>): Promise<AgentResult> => {
+}: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
   if (config.verbose) {
     // Use logger instead of console.log to log the message
     logger.info(

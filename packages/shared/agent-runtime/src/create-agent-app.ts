@@ -9,6 +9,7 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 import { registerWithRegistry } from "./register-with-registry.js";
+import type { HermesInvokeEnvelopeV1 } from "./invoke-envelope.js";
 import type { AgentConfig, CreateAgentAppOptions } from "./types.js";
 
 const emptyConfigSchema = z.object({});
@@ -16,7 +17,9 @@ const emptyConfigSchema = z.object({});
 /**
  * Creates a Hono app that handles GET /schemas (no auth), POST "/" with bearer auth,
  * body validation ({ input, config }), and the agent run function.
- * Response shape: { agentId, agentVersion [, skipped, message ] }.
+ *
+ * **200:** `run` result is mapped to the Hermes PRD envelope (`schemaVersion`, `status`, optional `message`).
+ * **Throw** from `run` → 500 (or validation errors → 400).
  *
  * @param config - Agent id, version, Zod input/config schemas, and run function.
  * @param options - Optional authApiUrl, verifyToken, and logger (DI for tests).
@@ -151,39 +154,35 @@ export function createAgentApp<
 
   app.post("/", async (context) => {
     try {
-      const body = (await context.req.json()) as {
+      const requestBody = (await context.req.json()) as {
         input?: unknown;
         config?: unknown;
       };
-      const rawInput = body?.input;
+      const rawInput = requestBody?.input;
       const input = (await config.inputSchema.parseAsync(rawInput)) as TInput;
       const configParsed =
-        body?.config === undefined
+        requestBody?.config === undefined
           ? ({} as TConfig)
-          : ((await configSchema.parseAsync(body.config)) as TConfig);
+          : ((await configSchema.parseAsync(requestBody.config)) as TConfig);
       const token = context.req.header("Authorization");
 
       const result = await config.run({ input, config: configParsed, token });
 
       if (result.success) {
-        return context.json(
-          {
-            agentId: config.agentId,
-            agentVersion: config.agentVersion,
-          },
-          200,
-        );
+        const envelope: HermesInvokeEnvelopeV1 = {
+          schemaVersion: 1,
+          status: "success",
+          ...(result.message !== undefined ? { message: result.message } : {}),
+        };
+        return context.json(envelope, 200);
       }
 
-      const statusCode = result.statusCode ?? 500;
-      const payload: Record<string, unknown> = {
-        agentId: config.agentId,
-        agentVersion: config.agentVersion,
+      const envelope: HermesInvokeEnvelopeV1 = {
+        schemaVersion: 1,
+        status: "failure",
+        message: result.message,
       };
-      if (result.skipped !== undefined) payload.skipped = result.skipped;
-      if (result.message !== undefined) payload.message = result.message;
-
-      return context.json(payload, statusCode as 404 | 500);
+      return context.json(envelope, 200);
     } catch (error) {
       if (isZodError(error)) {
         const zodError = error as ZodError;

@@ -48,18 +48,10 @@ const app = createAgentApp<
     configSchema: ConfigSchema,
     run: async ({ input, config: _config, token }) => {
       if (!env.JINA_API_KEY) {
-        return {
-          success: false,
-          statusCode: 500,
-          message: "JINA_API_KEY is not configured",
-        };
+        throw new Error("JINA_API_KEY is not configured");
       }
       if (!env.SERPER_API_KEY) {
-        return {
-          success: false,
-          statusCode: 500,
-          message: "SERPER_API_KEY is not configured",
-        };
+        throw new Error("SERPER_API_KEY is not configured");
       }
 
       const dataApiClient = createAgentDataApiClient({

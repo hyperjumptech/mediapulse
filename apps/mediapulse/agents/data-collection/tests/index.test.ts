@@ -95,10 +95,14 @@ describe("data-collection-agent", () => {
       }),
     );
 
-    const body = (await res.json()) as { agentId: string };
+    const body = (await res.json()) as {
+      schemaVersion: number;
+      status: string;
+    };
 
     expect(res.status).toBe(200);
-    expect(body.agentId).toBe("data-collection");
+    expect(body.schemaVersion).toBe(1);
+    expect(body.status).toBe("success");
     expect(getMock).toHaveBeenCalled();
     expect(postMock).toHaveBeenCalled();
   });
@@ -136,7 +140,7 @@ describe("data-collection-agent", () => {
     const body = (await res.json()) as { message: string };
 
     expect(res.status).toBe(500);
-    expect(body.message).toContain("JINA_API_KEY is not configured");
+    expect(body.message).toBe("Internal Server Error");
 
     (env as any).JINA_API_KEY = originalJina;
   });

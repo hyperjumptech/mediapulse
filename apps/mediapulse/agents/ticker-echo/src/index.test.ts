@@ -35,11 +35,11 @@ describe("ticker-echo agent", () => {
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      agentId: string;
-      agentVersion: string;
+      schemaVersion: number;
+      status: string;
     };
-    expect(body.agentId).toBe("ticker-echo");
-    expect(body.agentVersion).toBe("1.0.0");
+    expect(body.schemaVersion).toBe(1);
+    expect(body.status).toBe("success");
   });
 
   it("returns 400 when tickerId is missing", async () => {

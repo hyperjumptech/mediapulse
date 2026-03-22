@@ -28,9 +28,8 @@ const app = createAgentApp<Input, typeof BodySchema>(
 
       if (!deliveryData?.newsletter) {
         return {
-          success: false,
-          statusCode: 200,
-          skipped: true,
+          success: true,
+          message: "Skipped: no newsletter to deliver",
         };
       }
 
