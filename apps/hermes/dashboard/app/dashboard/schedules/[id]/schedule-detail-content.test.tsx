@@ -72,6 +72,10 @@ vi.mock("@/components/list-pagination", () => ({
   ),
 }));
 
+vi.mock("date-fns", () => ({
+  format: () => "FORMATTED_DATE",
+}));
+
 const createMockSchedule = (
   overrides?: Partial<ScheduleDetailContentProps["schedule"]>,
 ): ScheduleDetailContentProps["schedule"] =>
@@ -180,6 +184,65 @@ describe("ScheduleDetailContent", () => {
     expect(
       screen.getByLabelText("This schedule is disabled"),
     ).toBeInTheDocument();
+  });
+
+  it("shows next run time when enabled and nextRunAt is set", () => {
+    const nextRunAt = new Date("2026-03-22T12:00:00.000Z");
+    render(
+      <ScheduleDetailContent
+        schedule={createMockSchedule({
+          enabled: true,
+          nextRunAt,
+          timezone: "UTC",
+        })}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
+        pipelines={[]}
+        pipelineValidationById={{}}
+      />,
+    );
+    const timeEl = screen.getByRole("time");
+    expect(timeEl).toHaveAttribute("dateTime", nextRunAt.toISOString());
+    expect(timeEl).toHaveTextContent("FORMATTED_DATE (UTC)");
+    expect(screen.getByText("Next run:")).toBeInTheDocument();
+  });
+
+  it("shows none scheduled when enabled but nextRunAt is null", () => {
+    render(
+      <ScheduleDetailContent
+        schedule={createMockSchedule({
+          enabled: true,
+          nextRunAt: null,
+        })}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
+        pipelines={[]}
+        pipelineValidationById={{}}
+      />,
+    );
+    expect(screen.getByText("None scheduled")).toBeInTheDocument();
+  });
+
+  it("shows disabled next-run copy when schedule is disabled", () => {
+    render(
+      <ScheduleDetailContent
+        schedule={createMockSchedule({
+          enabled: false,
+          nextRunAt: new Date(),
+        })}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
+        pipelines={[]}
+        pipelineValidationById={{}}
+      />,
+    );
+    expect(screen.getByText("Not while disabled")).toBeInTheDocument();
   });
 
   it("renders Edit schedule button", () => {

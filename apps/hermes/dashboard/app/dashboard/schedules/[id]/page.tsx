@@ -12,7 +12,7 @@ const DEFAULT_PAGE_SIZE = 15;
 
 /**
  * Schedule detail page. Loads schedule by id, paginated executions (newest first), and pipelines for the edit modal.
- * Renders schedule header with Edit button and executions table with error-log modal.
+ * Renders schedule header with Edit button, next-run summary, and executions table.
  */
 const ScheduleDetailPage = async ({
   params,

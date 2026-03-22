@@ -1,12 +1,20 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ExecutionsTable } from "./executions-table";
 import type { ScheduleExecutionRow } from "@/lib/schedules";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href }: React.PropsWithChildren<{ href: string }>) => (
-    <a href={href}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...rest
+  }: React.PropsWithChildren<
+    { href: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>
+  >) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
   ),
 }));
 
@@ -27,39 +35,6 @@ vi.mock("@workspace/ui/components/table", () => ({
     colSpan,
   }: React.PropsWithChildren<{ colSpan?: number }>) => (
     <td colSpan={colSpan}>{children}</td>
-  ),
-}));
-
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
-    <button type="button" onClick={onClick}>
-      {children}
-    </button>
-  ),
-}));
-
-vi.mock("./error-log-modal", () => ({
-  ErrorLogModal: ({
-    open,
-    onOpenChange,
-    errors,
-  }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    errors: unknown;
-  }) => (
-    <div
-      data-testid="error-log-modal"
-      data-open={open}
-      data-errors={JSON.stringify(errors)}
-    >
-      <button type="button" onClick={() => onOpenChange(false)}>
-        Close
-      </button>
-    </div>
   ),
 }));
 
@@ -90,7 +65,10 @@ describe("ExecutionsTable", () => {
     expect(screen.getByText("Enqueue")).toBeInTheDocument();
     expect(screen.getByText("Run")).toBeInTheDocument();
     expect(screen.getByText("Jobs")).toBeInTheDocument();
-    expect(screen.getByText("Error log")).toBeInTheDocument();
+    expect(
+      screen.getByText("Invocations (success / fail)"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Detail")).toBeInTheDocument();
   });
 
   it("renders empty state when no executions", () => {
@@ -113,42 +91,21 @@ describe("ExecutionsTable", () => {
     expect(screen.getByText("running")).toBeInTheDocument();
   });
 
-  it("shows View log button when execution has errors", () => {
-    const executions = [
-      createMockExecution({
-        id: "ex-1",
-        errors: [
-          { message: "Something failed", timestamp: "2025-01-15T10:00:00Z" },
-        ],
-      }),
-    ];
+  it("links execution time and detail to the execution page", () => {
+    const executions = [createMockExecution({ id: "ex-99" })];
     render(<ExecutionsTable scheduleId="sched-1" executions={executions} />);
-    const viewLogBtn = screen.getByRole("button", { name: "View log" });
-    expect(viewLogBtn).toBeInTheDocument();
-  });
-
-  it("shows dash when execution has no errors", () => {
-    render(
-      <ExecutionsTable
-        scheduleId="sched-1"
-        executions={[createMockExecution()]}
-      />,
+    const links = screen.getAllByRole("link", {
+      name: /open execution detail/i,
+    });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute(
+      "href",
+      "/dashboard/schedules/sched-1/executions/ex-99",
     );
-    expect(screen.getByText("—")).toBeInTheDocument();
-  });
-
-  it("opens error log modal when View log is clicked", () => {
-    const errors = [{ message: "Error", timestamp: "2025-01-15" }];
-    const executions = [createMockExecution({ id: "ex-1", errors })];
-    render(<ExecutionsTable scheduleId="sched-1" executions={executions} />);
-    expect(screen.getByTestId("error-log-modal")).toHaveAttribute(
-      "data-open",
-      "false",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "View log" }));
-    expect(screen.getByTestId("error-log-modal")).toHaveAttribute(
-      "data-open",
-      "true",
+    const viewLink = screen.getByRole("link", { name: "View" });
+    expect(viewLink).toHaveAttribute(
+      "href",
+      "/dashboard/schedules/sched-1/executions/ex-99",
     );
   });
 });
