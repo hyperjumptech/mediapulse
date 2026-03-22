@@ -1,14 +1,5 @@
 {
   "title": "Architecture",
-  "pages": [
-    "domains",
-    "integrate-domain-with-hermes",
-    "create-agent-for-hermes",
-    "hermes-domain-integration-pages",
-    "system",
-    "communication",
-    "agent-hermes-contract",
-    "data-source-expansion",
-    "knowledge-graph"
-  ]
+  "pages": ["domains", "hermes-domain-integration-pages", "communication"],
+  "defaultOpen": true
 }

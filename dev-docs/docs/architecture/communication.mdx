@@ -6,21 +6,16 @@ icon: MessageSquare
 
 This page explains **how the parts of the system talk to each other**: who calls whom, which credentials are on the wire, and how verification works.
 
-**See also:** [System overview](/architecture/system) for a diagram, [Hermes and Mediapulse domains](/architecture/domains) for boundaries, [Production](/production) for environment variables.
+**See also:** [Hermes and Mediapulse domains](/architecture/domains) for boundaries and runtime flows, this page for cross-service auth and data flows, and [Production](/guide/production) for environment variables.
 
 ## Auth mechanisms (overview)
 
-| Flow                                               | Credential on the wire                                                                                                                                        | Verified by                                                           |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **Minting** (Hermes / worker → agent-auth-api)     | Preset **`HERMES_INTERNAL_API_KEY`** or decrypted **domain integration** API key in `Authorization: Bearer …` on **`POST /api/token`** (depends on call site) | Preset vs DB hash + ciphertext (see agent-auth-api)                   |
-| **Minting** (Mediapulse / agents → agent-auth-api) | **`DOMAIN_INTEGRATION_API_KEY`** (same secret Hermes created for that integration) on **`POST /api/token`**                                                   | Key lookup in DB (purpose `domain_integration` or legacy `scheduler`) |
-| **Invocation** (Hermes / worker → agent)           | Short-lived **JWT**                                                                                                                                           | Agent calls `POST /api/verify`                                        |
-| **Agent → agent-data-api / agent-registry-api**    | **Same JWT** the agent received for the run (forwarded), or a **new JWT** minted with the **domain_integration** key (e.g. startup registration)              | Each API uses `POST /api/verify` via `@workspace/agent-auth-client`   |
-| **Dashboard / admin** (when applicable)            | Raw API key on some routes                                                                                                                                    | `POST /api/verify-api-key`                                            |
-
-Invocation proves the caller is allowed to run the step. **agent-data-api** and **agent-registry-api** do not accept raw API keys from agents for normal requests—they expect a **JWT** and verify it the same way agents do.
-
----
+| Flow                                               | Credential on the wire                                                                                                                                        | Verified by                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Minting** (Hermes / worker → agent-auth-api)     | Preset **`HERMES_INTERNAL_API_KEY`** or decrypted **domain integration** API key in `Authorization: Bearer …` on **`POST /api/token`** (depends on call site) | Preset vs DB hash + ciphertext (see agent-auth-api)                 |
+| **Minting** (Mediapulse / agents → agent-auth-api) | **`DOMAIN_INTEGRATION_API_KEY`** (admin-generated in Hermes) on **`POST /api/token`**                                                                         | Key lookup in DB (purpose `domain_integration`)                     |
+| **Invocation** (Hermes / worker → agent)           | Short-lived **JWT**                                                                                                                                           | Agent calls `POST /api/verify`                                      |
+| **Agent → agent-data-api / agent-registry-api**    | **Same JWT** the agent received for the run (forwarded), or a **new JWT** minted with the **domain_integration** key (e.g. startup registration)              | Each API uses `POST /api/verify` via `@workspace/agent-auth-client` |
 
 ## Invocation flow: Hermes or hermes-worker → Agent
 
@@ -133,12 +128,11 @@ end
 
 ## Where to configure what
 
-| Component          | Needs                                                                                | Used for                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| **agent-auth-api** | `AGENT_AUTH_JWT_SECRET`, `HERMES_INTERNAL_API_KEY`                                   | Signing/verifying JWTs; validating preset bearer for Hermes minting.                           |
-| **Hermes**         | `AGENT_AUTH_API_URL`, `HERMES_INTERNAL_API_KEY`                                      | Minting JWT when user runs a pipeline from the dashboard (same preset as worker and auth API). |
-| **hermes-worker**  | `AGENT_AUTH_API_URL`, `HERMES_INTERNAL_API_KEY`                                      | Minting JWT for scheduled pipeline runs.                                                       |
-| **Agent**          | `AGENT_AUTH_API_URL`                                                                 | Verifying invocation JWT via `POST /api/verify`.                                               |
-| **Agent**          | Forwarded **JWT** (and optional **domain_integration** `DOMAIN_INTEGRATION_API_KEY`) | Data/registry: same JWT as invocation, or mint via `POST /api/token` for startup registration. |
+| Component          | Needs                                              | Used for                                                                                       |
+| ------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **agent-auth-api** | `AGENT_AUTH_JWT_SECRET`, `HERMES_INTERNAL_API_KEY` | Signing/verifying JWTs; validating preset bearer for Hermes minting.                           |
+| **Hermes**         | `AGENT_AUTH_API_URL`, `HERMES_INTERNAL_API_KEY`    | Minting JWT when user runs a pipeline from the dashboard (same preset as worker and auth API). |
+| **hermes-worker**  | `AGENT_AUTH_API_URL`, `HERMES_INTERNAL_API_KEY`    | Minting JWT for scheduled pipeline runs.                                                       |
+| **Agent**          | `AGENT_AUTH_API_URL`                               | Verifying invocation JWT via `POST /api/verify`.                                               |
 
-For a full list of env vars per app, see [Production](/production).
+For a full list of env vars per app, see [Production](/guide/production).

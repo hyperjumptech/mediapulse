@@ -19,7 +19,7 @@ agent-registry-api is a Hono server that allows **registering agents** in the sy
 | ------ | ---------------------- | ------------------------------------------------------------------------------------------------------- |
 | POST   | `/api/agents/register` | Register an agent (body: `agentId`, `agentVersion`, `endpoint`, `inputSchema`, optional `configSchema`) |
 
-Registration requires **`inputSchema`** (JSON Schema object) and accepts optional **`configSchema`** (JSON Schema object). Hermes uses these to validate schedule params and step config. See [Agent–Hermes contract](/architecture/agent-hermes-contract).
+Registration requires **`inputSchema`** (JSON Schema object) and accepts optional **`configSchema`** (JSON Schema object). Hermes uses these to validate schedule params and step config. See [Agent–Hermes contract](/guide/agent-hermes-contract).
 
 ## Port
 

@@ -4,6 +4,8 @@ description: Scaffold a new agent package from the minimal ticker-echo template 
 icon: Plus
 ---
 
+Hermes **invokes agents** by sending an HTTP **POST** with a typed body (`input` + `config`) and a short-lived **JWT** from **agent-auth-api**. Agents are small HTTP services; they do not poll Hermes. The scheduler–agent contract is documented in [Agent–Hermes contract](/guide/agent-hermes-contract).
+
 ## Cursor: use the Generate agent skill
 
 In Cursor, you can use the **Generate agent** skill so the AI follows the full workflow for you. Invoke it by name (e.g. **`/generate-agent`** or by referencing the **generate-agent** skill). The skill instructs the AI to:
@@ -30,6 +32,8 @@ pnpm turbo gen agent --args my-agent
 
 You will be prompted for an **agent name** in kebab-case (e.g. `my-agent`). The generator creates a new package under **`apps/mediapulse/agents/<name>/`** with name **`@mediapulse/<name>`** and wires **`packages/mediapulse/env`** (new `env.agents.<name>.example` and export).
 
+The template matches **ticker-echo** (`apps/mediapulse/agents/ticker-echo`): **`createAgentApp`** from [`@workspace/agent-runtime`](/hermes/packages/agent-runtime), Zod schemas, and a **`run`** function.
+
 ## After generation: install and env
 
 Run these steps after the generator succeeds:
@@ -42,6 +46,19 @@ Run these steps after the generator succeeds:
 
 Optional flags for `setup-agent-env.sh`: `--no-bootstrap` (skip bootstrap if `.env` is already set up), `--admin-email EMAIL`, `--key-name NAME`.
 
+## Environment variables
+
+Agents read typed config from **`@mediapulse/env`** (never raw `process.env`). Typical variables:
+
+| Variable                         | Role                                                                                                                         |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **`AGENT_AUTH_API_URL`**         | agent-auth-api base URL (JWT verification; also used to mint a JWT for registry registration when using **`autoRegister`**). |
+| **`AGENT_REGISTRY_URL`**         | agent-registry-api base URL (e.g. `http://localhost:8082`).                                                                  |
+| **`AGENT_PUBLIC_URL`**           | URL where Hermes can reach this agent (must match how you run the service).                                                  |
+| **`DOMAIN_INTEGRATION_API_KEY`** | Hermes **domain_integration** API key — used to mint a JWT for **registry** registration (and related flows).                |
+
+Per-agent env is scaffolded under **`packages/mediapulse/env`** (`env.agents.<name>`). After `./setup-agent-env.sh`, ensure **`AGENT_REGISTRY_URL`** is set in `.env.local` if you want auto-registration and the example does not already include it.
+
 ## What gets created
 
 - **`apps/mediapulse/agents/<name>/`** — New agent package with `package.json` `@mediapulse/<name>`, `src`, tests, and `turbo.json` (same pattern as `apps/mediapulse/agents/ticker-echo`).
@@ -50,22 +67,38 @@ Optional flags for `setup-agent-env.sh`: `--no-bootstrap` (skip bootstrap if `.e
 
 ## Auto-registration with the agent registry
 
+Hermes needs **metadata** (endpoint, version, **inputSchema** / **configSchema**) to validate schedules and pipeline steps.
+
 Agents built with `createAgentApp` can **register themselves** with the agent-registry-api when they start. The generated `src/index.ts` passes **`autoRegister`** when these env vars are set:
 
+- **`AGENT_AUTH_API_URL`** — Required for minting the registry JWT when **`autoRegister`** is enabled (if it is missing, registration is skipped and an error is logged).
 - **`AGENT_REGISTRY_URL`** — URL of the agent-registry-api (e.g. `http://localhost:8082`).
 - **`DOMAIN_INTEGRATION_API_KEY`** — Hermes **domain_integration** API key used to mint a JWT for registry registration (`./setup-agent-env.sh` gets or creates it and writes it to the agent's `.env.local`).
 - **`AGENT_PUBLIC_URL`** — Public URL where the agent is reachable (e.g. `http://localhost:4010`). The env example sets this from `PORT`.
 
-When all three are set, the agent POSTs its metadata and schemas to the registry on startup (fire-and-forget, with retries). If registration fails (e.g. registry unreachable), the error is logged and the agent keeps running. If any of the three is missing, auto-registration is skipped and a warning is logged.
+When all of the above are set, the agent POSTs its metadata and schemas to the registry on startup (fire-and-forget, with retries). If registration fails (e.g. registry unreachable), the error is logged and the agent keeps running. If any required value is missing, auto-registration is skipped and a warning is logged.
+
+**Manual registration:** POST to **agent-registry-api** with a JWT and the same schema payload you can read from your agent’s **GET `/schemas`**. Details: [Agent–Hermes contract — Auto-registration](/guide/agent-hermes-contract#auto-registration-on-startup) and [agent-registry-api](/hermes/apps/agent-registry-api).
 
 ## Customize your agent
 
-1. **Input and config** — Edit `src/index.ts`: change the Zod `InputSchema` (and add `configSchema` if needed).
-2. **Run logic** — Implement the `run` function; it receives `{ input, config, token }` and returns `Promise<AgentRunResult>` (e.g. `{ success: true }` or `{ success: false, message: "…" }`).
-3. **Env** — After `./setup-agent-env.sh`, the agent has `.env.local` with `PORT` and `DOMAIN_INTEGRATION_API_KEY`. Set `AGENT_REGISTRY_URL` in `.env.local` if you want auto-registration and the example does not already include it.
+1. **Input and config** — Define **`inputSchema`** (required) and optionally **`configSchema`** for static step configuration. Pass them to **`createAgentApp`**; the runtime validates each request and exposes **GET `/schemas`** as JSON Schema for **agent-registry-api**.
+2. **Run logic** — Implement **`run({ input, config, token })`** and return a result that matches the envelope in [Agent–Hermes contract — Response body](/guide/agent-hermes-contract#response-body-agent--hermes).
+3. **Data API** — Use **`token`** to call **agent-data-api** from [`@workspace/agent-data-api-client`](/hermes/packages/agent-data-api-client) when the agent needs persisted run data.
+4. **Env** — After `./setup-agent-env.sh`, the agent has `.env.local` with `PORT` and `DOMAIN_INTEGRATION_API_KEY`. Set `AGENT_REGISTRY_URL` in `.env.local` if you want auto-registration and the example does not already include it.
 
-The minimal template is **ticker-echo** (`apps/mediapulse/agents/ticker-echo`); the generator is based on it so you only define body, config, and what the agent does.
+The minimal template is **ticker-echo**; the generator is based on it so you only define body, config, and what the agent does.
+
+## Use the agent in Hermes
+
+1. Ensure the agent process is running and reachable at **`AGENT_PUBLIC_URL`**.
+2. Confirm registration in the registry (or logs after startup).
+3. In the Hermes dashboard, add the agent to a **pipeline step**, set **step config** if the agent defines a config schema, and create **schedules** whose **params (JSON)** match the agent’s **input schema**. Use **Variables** and `{{VAR_KEY}}` in config/params where needed ([Agent–Hermes contract — Variables](/guide/agent-hermes-contract#variables-in-config-and-params)).
 
 ## See also
 
-- [Create an agent for Hermes](/architecture/create-agent-for-hermes) — end-to-end checklist (schemas, env, registry, pipelines)
+- [Agent–Hermes contract](/guide/agent-hermes-contract) — request/response envelope, auto-registration, variables.
+- [agent-runtime](/hermes/packages/agent-runtime) — `createAgentApp`, options, auth.
+- [agent-data-api-client](/hermes/packages/agent-data-api-client) — typed calls to agent-data-api from `run`.
+- [Hermes dashboard](/hermes/apps/dashboard) — schedules, pipelines, agent configs.
+- [Development](/guide/development) — local stack, ports, API keys, and `./dev-setup-local.sh`.

@@ -1,12 +1,12 @@
 ---
-title: domain-api (Mediapulse)
-description: Domain integration API for Mediapulse expansion, Hermes dashboard tables, and preview
+title: Domain API
+description: Domain integration API for Mediapulse, Hermes dashboard tables, and preview
 icon: Server
 ---
 
 ## Purpose
 
-`apps/mediapulse/domain-api` (`@mediapulse/domain-api`) is the **Mediapulse-owned** HTTP service that implements the Hermes **domain integration** contract. Hermes calls it for step-input expansion and for `table-v1` dashboard resources; it is **not** part of the Hermes app tree.
+`apps/mediapulse/domain-api` (`@mediapulse/domain-api`) is the **Mediapulse-owned** HTTP service that implements the Hermes **domain integration** contract. On startup, it registers itself with Hermes so Hermes can call it for step-input expansion and for `table-v1` dashboard resources.
 
 ## Responsibilities
 
@@ -68,6 +68,6 @@ You can also run `pnpm --filter @mediapulse/domain-api generate` or rely on `tur
 
 ## Related
 
-- [Integrate a domain with Hermes](/architecture/integrate-domain-with-hermes) — registration, env, and `table-v1` overview
+- [Integrate a domain with Hermes](/guide/integrate-domain-with-hermes) — registration, env, and `table-v1` overview
 - [Hermes and Mediapulse domains](/architecture/domains)
 - [mediapulse-hermes-integration](/mediapulse/packages/mediapulse-hermes-integration)

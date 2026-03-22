@@ -1,0 +1,11 @@
+{
+  "title": "Guide",
+  "pages": [
+    "development",
+    "production",
+    "integrate-domain-with-hermes",
+    "agent-hermes-contract",
+    "data-source-expansion"
+  ],
+  "defaultOpen": true
+}

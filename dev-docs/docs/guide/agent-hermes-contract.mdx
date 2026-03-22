@@ -41,7 +41,7 @@ The registry stores these; Hermes uses them to validate schedule params and step
 
 ## Hermes: assigning input and config
 
-- **Schedule params** — In the schedule form, “Params (JSON)” is the **input** template. Values can be literals or **data-source expressions** that expand at runtime. See [Data source expansion](/architecture/data-source-expansion) for the full format, options, and examples. Params are validated against every pipeline step’s agent **input schema** when saving. Use **Validate** to check params client-side; use **Expected shape** to see the required structure.
+- **Schedule params** — In the schedule form, “Params (JSON)” is the **input** template. Values can be literals or **data-source expressions** that expand at runtime. See [Data source expansion](/guide/data-source-expansion) for the full format, options, and examples. Params are validated against every pipeline step’s agent **input schema** when saving. Use **Validate** to check params client-side; use **Expected shape** to see the required structure.
 - **Step config** — When adding or editing a pipeline step, you can either **use a saved agent config** (dropdown of configs for that agent) or **custom config** (JSON). Saved configs are created under **Agent configs** (`/dashboard/agent-configs`); each has a name, description, and JSON validated against the agent’s config schema. If you assign a saved config to a step, the executor uses that config at run time; updating the saved config applies to all steps that reference it. Config is validated against the step’s agent **config schema** when saving. At execution time, if a step references a saved config, the executor loads it and re-validates it against the **current** agent config schema (from the registry); if validation fails, the step fails (schema drift protection).
 
 ## Variables in config and params
@@ -63,7 +63,7 @@ Set these env vars so the agent can auto-register: `AGENT_REGISTRY_URL`, `AGENT_
 
 ## Response body (agent → Hermes)
 
-On **success (HTTP 2xx)**, agents should return **JSON** matching the envelope in [Schedule execution results (PRD)](/architecture/schedule-execution-results-prd): `schemaVersion`, `status` (`success` or `failure`), optional `message`, `details`, and `logs`. Hermes treats **empty 2xx bodies** as legacy success. **Semantic failures** use `status: "failure"` in the body (still 2xx) so structured errors can be returned in one response; transport failures use non-2xx or failed transport as appropriate.
+On **success (HTTP 2xx)**, agents should return **JSON** with this envelope: `schemaVersion`, `status` (`success` or `failure`), optional `message`, `details`, and `logs`. Hermes treats **empty 2xx bodies** as legacy success. **Semantic failures** use `status: "failure"` in the body (still 2xx) so structured errors can be returned in one response; transport failures use non-2xx or failed transport as appropriate.
 
 ## Related docs
 

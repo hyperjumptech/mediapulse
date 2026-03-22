@@ -1,12 +1,4 @@
 {
   "title": "Documentation",
-  "pages": [
-    "index",
-    "getting-started",
-    "production",
-    "architecture",
-    "shared",
-    "hermes",
-    "mediapulse"
-  ]
+  "pages": ["index", "architecture", "guide", "shared", "hermes", "mediapulse"]
 }

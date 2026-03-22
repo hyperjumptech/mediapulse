@@ -18,7 +18,7 @@ At a high level, the KG lifecycle is:
 6. **Select top articles** and generate newsletter content.
 7. **Deliver newsletters** and repeat on schedule.
 
-Ticker fan-out uses [data source expansion](/architecture/data-source-expansion) in pipeline step input, for example:
+Ticker fan-out uses [data source expansion](/guide/data-source-expansion) in pipeline step input, for example:
 
 `{ "tickerId": "db:userTicker:tickerId?where.enabled=true" }`
 
@@ -265,15 +265,15 @@ If no row crosses your practical quality threshold, content-generation should sk
 
 The KG vocabulary used by analysis prompts is managed in Hermes:
 
-- **Entity Types:** `/dashboard/{integrationKey}/entity-types` (for example `/dashboard/mediapulse/entity-types`) and docs at `/architecture/knowledge-graph/entity-types`
-- **Relation Types:** `/dashboard/{integrationKey}/relation-types` (for example `/dashboard/mediapulse/relation-types`) and docs at `/architecture/knowledge-graph/relation-types`
+- **Entity Types:** `/dashboard/{integrationKey}/entity-types` (for example `/dashboard/mediapulse/entity-types`) and docs at `/mediapulse/knowledge-graph/entity-types`
+- **Relation Types:** `/dashboard/{integrationKey}/relation-types` (for example `/dashboard/mediapulse/relation-types`) and docs at `/mediapulse/knowledge-graph/relation-types`
 
 ## Related docs
 
-- [Worked Example](/architecture/knowledge-graph/worked-example)
-- [Entity Types](/architecture/knowledge-graph/entity-types)
-- [Relation Types](/architecture/knowledge-graph/relation-types)
+- [Worked Example](/mediapulse/knowledge-graph/worked-example)
+- [Entity Types](/mediapulse/knowledge-graph/entity-types)
+- [Relation Types](/mediapulse/knowledge-graph/relation-types)
 - [Query Analysis Agent](/mediapulse/apps/agents/query-analysis)
 - [Analysis Agent](/mediapulse/apps/agents/analysis)
 - [Content Generation Agent](/mediapulse/apps/agents/content-generation)
-- [Data source expansion](/architecture/data-source-expansion)
+- [Data source expansion](/guide/data-source-expansion)
