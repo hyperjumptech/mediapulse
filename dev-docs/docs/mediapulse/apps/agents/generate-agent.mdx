@@ -83,9 +83,23 @@ When all of the above are set, the agent POSTs its metadata and schemas to the r
 ## Customize your agent
 
 1. **Input and config** — Define **`inputSchema`** (required) and optionally **`configSchema`** for static step configuration. Pass them to **`createAgentApp`**; the runtime validates each request and exposes **GET `/schemas`** as JSON Schema for **agent-registry-api**.
-2. **Run logic** — Implement **`run({ input, config, token })`** and return a result that matches the envelope in [Agent–Hermes contract — Response body](/guide/agent-hermes-contract#response-body-agent--hermes).
+2. **Run logic** — Implement **`run({ input, config, token })`** and return an **`AgentRunResult`** (see **Application-level errors** below). The runtime maps it to the HTTP **200** envelope described in [Agent–Hermes contract — Response body](/guide/agent-hermes-contract#response-body-agent--hermes).
 3. **Data API** — Use **`token`** to call **agent-data-api** from [`@workspace/agent-data-api-client`](/hermes/packages/agent-data-api-client) when the agent needs persisted run data.
 4. **Env** — After `./setup-agent-env.sh`, the agent has `.env.local` with `PORT` and `DOMAIN_INTEGRATION_API_KEY`. Set `AGENT_REGISTRY_URL` in `.env.local` if you want auto-registration and the example does not already include it.
+
+### Application-level errors
+
+`createAgentApp` calls **`run`** only after the POST body passes Zod (**`input`** / **`config`**). Inside **`run`**, you choose how Hermes should treat the outcome:
+
+| Approach             | Return / behavior                                                                      | HTTP    | Hermes                                                                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Expected failure** | `{ success: false, message: "…" }`                                                     | **200** | Semantic **failure**: step/run can be marked failed using your `message` (e.g. “No rows matched”, “Provider rate limited”).                            |
+| **Success**          | `{ success: true }` or `{ success: true, message: "…" }`                               | **200** | Semantic **success**; optional `message` for logs or UI.                                                                                               |
+| **Unexpected error** | **Throw** or let a promise **reject** (bug, bad env, unknown API response shape, etc.) | **500** | Generic “Internal Server Error” body; use for cases that are not a normal business outcome. Prefer logging the real error server-side before throwing. |
+
+**`message`** on `{ success: false, … }` should be safe to surface in orchestration (clear enough for operators or downstream retries). It becomes the optional **`message`** field on the **`HermesInvokeEnvelopeV1`** response (`schemaVersion: 1`, **`status`: `"failure"`**).
+
+This is separate from **validation errors on the request**: malformed **`input`** / **`config`** for the agent’s Zod schemas is handled by the runtime and returns **400** before **`run`** is invoked.
 
 The minimal template is **ticker-echo**; the generator is based on it so you only define body, config, and what the agent does.
 

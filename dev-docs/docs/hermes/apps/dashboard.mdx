@@ -39,7 +39,7 @@ icon: Zap
 - **Relation types** (`/dashboard/{integrationKey}/relation-types`): Manage relation vocabulary used by analysis prompts.
 - **KG dev seeding** — Run `pnpm --filter @mediapulse/database run seed-kg-vocabulary` from the monorepo root for vocabulary, then `pnpm seed-kg-pipelines` from `apps/hermes/dashboard` for pipelines/schedules. Details in [Knowledge Graph](/mediapulse/knowledge-graph/knowledge-graph#schedule-configuration-default-seeds).
 - **Domain integrations** (`/dashboard/domain-integrations`): Create integrations; copy the generated API key once into Mediapulse/agent env.
-- Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@hermes/scheduler`; execution runs in hermes-worker.
+- Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@hermes/scheduler`; execution runs in hermes-worker. The schedule form includes **Execution config (JSON, optional)** — orchestration overrides (step rollup policy, sequential vs parallel step ordering, etc.) validated with `ExecutionConfigSchema`; see [hermes-scheduler → Execution config](/hermes/packages/hermes-scheduler#execution-config-pipeline-and-schedule). **Pipeline-level** defaults live on `pipeline.execution_config` in the database but are **not** exposed in the pipeline UI yet; schedule-level JSON merges on top when a run executes.
 - Logout: `/logout`.
 
 ## Pipeline status and schedules

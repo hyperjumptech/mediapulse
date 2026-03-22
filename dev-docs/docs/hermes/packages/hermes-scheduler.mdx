@@ -12,9 +12,57 @@ icon: CalendarClock
 
 - **Due schedules:** `getDueSchedules`, `DueSchedule`, `GetDueSchedulesDb`
 - **Execution:** `executeSchedule`, `ExecuteScheduleDeps`
+- **Execution config:** `ExecutionConfigSchema`, `ExecutionConfig`, `mergeExecutionConfig`, `parseEffectiveExecutionConfig` — see [Execution config: pipeline and schedule](#execution-config-pipeline-and-schedule).
 - **Next run:** `computeNextRunAt`, `ScheduleForNextRun`
 - **Step input expansion:** `expandStepInputs` is injected via `ExecuteScheduleDeps` (runtime implementation in worker; syntax in `@hermes/step-input-syntax`).
 - **Agent invocation:** `invokeAgent`, `AgentEndpointSchema`, `AgentEndpoint`, `InvokeAgentHttpClient`
+- **Rollup helpers:** `computeStepRollupFromCounts`, `computeExecutionRunStatusFromStepRollups`
+- **Invocation completion:** `applyInvocationCompletion` (worker updates job rows, step rollups, and execution `runStatus`)
+
+## Execution config: pipeline and schedule
+
+**Execution config** controls how Hermes **orchestrates** a schedule run (step ordering, job dependencies, and how per-step invocation outcomes roll up). It is **not** the `{ input, config }` body sent to an agent; that comes from each pipeline step. The canonical Zod schema lives in `@hermes/scheduler` as `ExecutionConfigSchema`.
+
+### Where it is stored
+
+| Layer        | Orchestration DB column                                   | Role                                                                                                                                                      |
+| ------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pipeline     | `pipeline.execution_config` (`Json?`)                     | Default execution settings for every schedule attached to this pipeline.                                                                                  |
+| Schedule     | `schedule.execution_config` (`Json?`)                     | Optional overrides for this schedule only.                                                                                                                |
+| Run snapshot | `schedule_execution.effective_execution_config` (`Json?`) | **Merged and validated** config copied when a run starts; rollup logic reads this so later edits to pipeline/schedule do not change in-flight executions. |
+
+### Merge semantics
+
+When a due schedule runs, `executeSchedule` builds the effective config with `mergeExecutionConfig(pipeline.executionConfig, schedule.executionConfig)`:
+
+1. **Deep merge** of plain objects: keys from the schedule override keys from the pipeline; nested objects are merged the same way. **Arrays** (if present) are replaced by the override, not merged.
+2. **Parse** with `ExecutionConfigSchema`: missing keys get defaults (same as Zod `.default()` on the schema).
+
+### JSON shape (`ExecutionConfig`)
+
+All fields are optional in stored JSON; omitted keys are filled from defaults when parsed.
+
+| Field                            | Type                           | Default        | Meaning                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------- | ------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemaVersion`                  | `1`                            | `1`            | Version tag for this object shape.                                                                                                                                                                                                                                                                                                                                                                                   |
+| `stepRollupPolicy`               | `"strict"` \| `"tolerant"`     | `"strict"`     | How to combine multiple invocations for one step, and how step outcomes combine into overall run status. **`strict`:** any failed invocation makes the step rollup `failed`; the run succeeds only if every step rollup is `success`. **`tolerant`:** a mix of successes and failures can yield `partial` at the step or run level (see `computeStepRollupFromCounts` / `computeExecutionRunStatusFromStepRollups`). |
+| `stepOrder`                      | `"sequential"` \| `"parallel"` | `"sequential"` | **`sequential`:** enqueue waves per pipeline step so later steps’ jobs depend on earlier steps’ jobs in the same batch (DataQueue `dependsOn`). **`parallel`:** steps do not get that cross-step dependency chain (steps still enqueue in pipeline order, but without sequential chaining between steps).                                                                                                            |
+| `continueSequentialAfterPartial` | boolean                        | `false`        | Parsed and stored on the execution row for forward compatibility; **not** read by current enqueue or rollup code.                                                                                                                                                                                                                                                                                                    |
+
+Example (same keys as the schedule form placeholder in the dashboard):
+
+```json
+{
+  "schemaVersion": 1,
+  "stepRollupPolicy": "strict",
+  "stepOrder": "sequential",
+  "continueSequentialAfterPartial": false
+}
+```
+
+### API validation
+
+Schedule create/update routes in the dashboard parse optional body `executionConfig` with `ExecutionConfigSchema`. Pipeline rows can carry `executionConfig` in the database for defaults; the dashboard pipeline editor does not currently expose a field for it (use DB seeds, migrations, or direct updates if you need pipeline-level defaults).
 
 ## Consumers
 
