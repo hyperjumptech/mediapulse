@@ -15,10 +15,7 @@ import { useFormAction } from "@/app/dashboard/agent-configs/actions/create/.gen
 
 import { AgentConfigFormFields } from "./agent-config-form-fields";
 import type { AgentConfigRow } from "./agent-config-row-actions";
-import type {
-  ExpansionOption,
-  VariableOption,
-} from "@/components/variable-expansion-input";
+import type { VariableExpansionStringFieldLoaders } from "@workspace/variable-expansion-picker";
 
 type AgentForDropdown = {
   id: string;
@@ -28,8 +25,7 @@ type AgentForDropdown = {
 
 type AddConfigModalProps = {
   agents: AgentForDropdown[];
-  variableKeys: VariableOption[];
-  expansionTemplates: ExpansionOption[];
+  pickerLoaders: VariableExpansionStringFieldLoaders;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   initialData?: AgentConfigRow | null;
@@ -116,8 +112,7 @@ const useAddConfigModalState = (
  */
 export const AddConfigModal = ({
   agents,
-  variableKeys,
-  expansionTemplates,
+  pickerLoaders,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   initialData,
@@ -190,8 +185,7 @@ export const AddConfigModal = ({
             }
             onAgentChange={(v) => setFormState((s) => ({ ...s, agentKey: v }))}
             onConfigChange={(v) => setFormState((s) => ({ ...s, config: v }))}
-            variableKeys={variableKeys}
-            expansionTemplates={expansionTemplates}
+            pickerLoaders={pickerLoaders}
             disabled={pending}
           />
           {errorMessage ? (

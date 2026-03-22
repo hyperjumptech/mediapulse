@@ -7,11 +7,10 @@ import { Label } from "@workspace/ui/components/label";
 import { SchemaForm, type JsonSchema } from "@workspace/json-schema-form";
 import { cn } from "@workspace/ui/lib/utils";
 
-import { createVariableExpansionStringField } from "@/components/variable-expansion-schema-string-field";
-import type {
-  ExpansionOption,
-  VariableOption,
-} from "@/components/variable-expansion-input";
+import {
+  createVariableExpansionStringField,
+  type VariableExpansionStringFieldLoaders,
+} from "@workspace/variable-expansion-picker";
 
 type AgentForDropdown = {
   id: string;
@@ -29,8 +28,7 @@ type AgentConfigFormFieldsProps = {
   onDescriptionChange: (v: string) => void;
   onAgentChange: (agentKey: string) => void;
   onConfigChange: (v: Record<string, unknown>) => void;
-  variableKeys?: VariableOption[];
-  expansionTemplates?: ExpansionOption[];
+  pickerLoaders: VariableExpansionStringFieldLoaders;
   disabled?: boolean;
   nameId?: string;
   descriptionId?: string;
@@ -97,8 +95,7 @@ export const AgentConfigFormFields = ({
   onDescriptionChange,
   onAgentChange,
   onConfigChange,
-  variableKeys = [],
-  expansionTemplates = [],
+  pickerLoaders,
   disabled = false,
   nameId = "agent-config-name",
   descriptionId = "agent-config-description",
@@ -112,8 +109,8 @@ export const AgentConfigFormFields = ({
     agentVersion,
   );
   const stringFieldComponent = useMemo(
-    () => createVariableExpansionStringField(variableKeys, expansionTemplates),
-    [variableKeys, expansionTemplates],
+    () => createVariableExpansionStringField(pickerLoaders),
+    [pickerLoaders],
   );
 
   const handleAgentChange = useCallback(

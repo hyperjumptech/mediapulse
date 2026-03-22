@@ -1,24 +1,25 @@
-"use client";
-
 import type { StringFieldProps } from "@workspace/json-schema-form";
 
 import {
   VariableExpansionInput,
-  type ExpansionOption,
-  type VariableOption,
-} from "@/components/variable-expansion-input";
+  type VariableExpansionInputProps,
+} from "./variable-expansion-input";
+
+/** Loaders and optional page size for the variable/expansion picker. */
+export type VariableExpansionStringFieldLoaders = Pick<
+  VariableExpansionInputProps,
+  "loadVariablesPage" | "loadExpansionsPage" | "pageSize"
+>;
 
 /**
  * Creates a JsonSchemaForm StringField component that supports inserting
- * variable placeholders and data-source expansion templates.
+ * variable placeholders and data-source expansion templates via the modal picker.
  *
- * @param variables - Variable placeholders available to insert ({{key}}).
- * @param expansions - Data source expansion templates available to insert.
+ * @param loaders - Server-backed loaders for variables and expansions pages.
  * @returns A StringField component for JsonSchemaForm `components.StringField`.
  */
 export const createVariableExpansionStringField = (
-  variables: VariableOption[],
-  expansions: ExpansionOption[],
+  loaders: VariableExpansionStringFieldLoaders,
 ) => {
   const VariableExpansionStringField = (props: StringFieldProps) => (
     <VariableExpansionInput
@@ -28,8 +29,9 @@ export const createVariableExpansionStringField = (
       label={props.labelText}
       description={props.description}
       disabled={props.disabled}
-      variables={variables}
-      expansions={expansions}
+      loadVariablesPage={loaders.loadVariablesPage}
+      loadExpansionsPage={loaders.loadExpansionsPage}
+      pageSize={loaders.pageSize}
     />
   );
 

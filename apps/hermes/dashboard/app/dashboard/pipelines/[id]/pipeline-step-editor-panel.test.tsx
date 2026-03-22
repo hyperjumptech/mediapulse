@@ -69,21 +69,19 @@ vi.mock("@workspace/json-schema-form", () => ({
   ),
 }));
 
-vi.mock("@/components/variable-expansion-input", () => ({
-  VariableExpansionInput: ({
-    value,
-    onChange,
-  }: {
-    value: string;
-    onChange: (v: string) => void;
-  }) => (
-    <input
-      data-testid="variable-expansion-input"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ),
+vi.mock("@workspace/variable-expansion-picker", () => ({
+  createVariableExpansionStringField: () => {
+    const Stub = () => (
+      <input data-testid="variable-expansion-input" readOnly />
+    );
+    return Stub;
+  },
 }));
+
+const noopLoaders = {
+  loadVariablePickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  loadExpansionPickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+};
 
 const selectedStep = {
   id: "step-1",
@@ -105,6 +103,7 @@ describe("PipelineStepEditorPanel", () => {
         configsForAgent={[]}
         stepAgentConfigId=""
         onStepAgentConfigIdChange={() => {}}
+        {...noopLoaders}
       />,
     );
 
@@ -124,6 +123,7 @@ describe("PipelineStepEditorPanel", () => {
         configsForAgent={[]}
         stepAgentConfigId=""
         onStepAgentConfigIdChange={() => {}}
+        {...noopLoaders}
       />,
     );
 
@@ -160,6 +160,7 @@ describe("PipelineStepEditorPanel", () => {
         configsForAgent={configs}
         stepAgentConfigId=""
         onStepAgentConfigIdChange={onStepAgentConfigIdChange}
+        {...noopLoaders}
       />,
     );
 

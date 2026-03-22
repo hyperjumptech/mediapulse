@@ -31,36 +31,6 @@ vi.mock("@/lib/validate-pipeline", () => ({
   validatePipeline: vi.fn().mockResolvedValue({ valid: true, warnings: [] }),
 }));
 
-vi.mock("@/lib/variables", () => ({
-  getVariablesPage: vi.fn().mockResolvedValue({
-    variables: [],
-    total: 0,
-    page: 1,
-    pageSize: 500,
-  }),
-}));
-
-vi.mock("@/lib/domain-integrations", () => ({
-  getDefaultDomainIntegration: vi.fn().mockResolvedValue({
-    key: "mediapulse",
-    id: "i1",
-    name: "Mediapulse",
-    baseUrl: "http://localhost",
-    version: "1",
-    capabilities: ["expand-step-inputs", "preview-expansion"],
-    dashboard: { templateVersion: 1, pages: [] },
-  }),
-}));
-
-vi.mock("@/lib/data-source-expansions", () => ({
-  getDataSourceExpansionsPage: vi.fn().mockResolvedValue({
-    expansions: [],
-    total: 0,
-    page: 1,
-    pageSize: 500,
-  }),
-}));
-
 vi.mock("@hermes/orchestration-database", () => ({
   prisma: {},
 }));

@@ -42,10 +42,12 @@ describe("AgentConfigFormFields", () => {
         onDescriptionChange={() => {}}
         onAgentChange={() => {}}
         onConfigChange={() => {}}
-        variableKeys={[{ key: "tickerId" }]}
-        expansionTemplates={[
-          { id: "e1", name: "Tickers", expansionString: "db:ticker:id" },
-        ]}
+        pickerLoaders={{
+          loadVariablesPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+          loadExpansionsPage: vi
+            .fn()
+            .mockResolvedValue({ items: [], total: 0 }),
+        }}
       />,
     );
 

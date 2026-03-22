@@ -3,6 +3,11 @@
 import Link from "next/link";
 
 import { SchemaForm } from "@workspace/json-schema-form";
+import type {
+  LoadExpansionsPageResult,
+  LoadPageArgs,
+  LoadVariablesPageResult,
+} from "@workspace/variable-expansion-picker";
 import { Label } from "@workspace/ui/components/label";
 import {
   Tabs,
@@ -11,7 +16,7 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 
-import { createVariableExpansionStringField } from "@/components/variable-expansion-schema-string-field";
+import { createVariableExpansionStringField } from "@workspace/variable-expansion-picker";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 
 import { useStepEditorPanelState } from "./use-step-editor-panel-state";
@@ -26,14 +31,6 @@ type Step = {
   config?: unknown;
 };
 
-export type VariableKeyOption = { key: string };
-
-export type ExpansionTemplateOption = {
-  id: string;
-  name: string;
-  expansionString: string;
-};
-
 export type PipelineStepEditorPanelProps = {
   selectedStep: Step | null;
   stepInput: Record<string, unknown>;
@@ -43,10 +40,14 @@ export type PipelineStepEditorPanelProps = {
   stepAgentConfigId: string;
   onStepAgentConfigIdChange: (id: string) => void;
   disabled?: boolean;
-  /** Variable keys for the insert picker ({{key}}). */
-  variableKeys?: VariableKeyOption[];
-  /** Expansion templates for the insert picker. */
-  expansionTemplates?: ExpansionTemplateOption[];
+  /** Server action: paginated variables for the insert picker. */
+  loadVariablePickerPage: (
+    args: LoadPageArgs,
+  ) => Promise<LoadVariablesPageResult>;
+  /** Server action: paginated expansions for the insert picker. */
+  loadExpansionPickerPage: (
+    args: LoadPageArgs,
+  ) => Promise<LoadExpansionsPageResult>;
 };
 
 /**
@@ -61,15 +62,15 @@ export const PipelineStepEditorPanel = ({
   stepAgentConfigId,
   onStepAgentConfigIdChange,
   disabled = false,
-  variableKeys = [],
-  expansionTemplates = [],
+  loadVariablePickerPage,
+  loadExpansionPickerPage,
 }: PipelineStepEditorPanelProps) => {
   const { schemas, schemaLoading, activeTab, setActiveTab } =
     useStepEditorPanelState(selectedStep);
-  const stringFieldComponent = createVariableExpansionStringField(
-    variableKeys,
-    expansionTemplates,
-  );
+  const stringFieldComponent = createVariableExpansionStringField({
+    loadVariablesPage: loadVariablePickerPage,
+    loadExpansionsPage: loadExpansionPickerPage,
+  });
 
   if (!selectedStep) {
     return (

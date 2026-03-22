@@ -112,6 +112,11 @@ const createMockAgents = () => [
   },
 ];
 
+const mockPickerLoaders = {
+  loadVariablePickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  loadExpansionPickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+};
+
 describe("PipelineDetailContent", () => {
   it("renders pipeline name and description inputs above the columns", () => {
     render(
@@ -120,6 +125,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        {...mockPickerLoaders}
       />,
     );
 
@@ -138,6 +144,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        {...mockPickerLoaders}
       />,
     );
 
@@ -152,6 +159,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        {...mockPickerLoaders}
       />,
     );
 
@@ -169,6 +177,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        {...mockPickerLoaders}
       />,
     );
 
@@ -190,6 +199,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        {...mockPickerLoaders}
       />,
     );
 

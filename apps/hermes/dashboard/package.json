@@ -28,6 +28,7 @@
     "@hermes/scheduler": "workspace:*",
     "@hermes/step-input-syntax": "workspace:*",
     "@workspace/json-schema-form": "workspace:*",
+    "@workspace/variable-expansion-picker": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@hermes/orchestration-database": "workspace:*",
     "@workspace/ui": "workspace:*",

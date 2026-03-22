@@ -5,53 +5,20 @@ import {
   type AgentConfigSortDir,
   type AgentConfigSortField,
 } from "@/lib/agent-configs";
-import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
-import { getVariablesPage } from "@/lib/variables";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
+import {
+  loadExpansionPickerPage,
+  loadVariablePickerPage,
+} from "@/lib/variable-expansion-picker-actions";
 
 import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
 
 import { AgentConfigsContent } from "./agent-configs-content";
 
 const DEFAULT_PAGE_SIZE = 15;
-const PICKER_PAGE_SIZE = 500;
 
 const SORT_FIELDS: AgentConfigSortField[] = ["name", "createdAt", "agentId"];
 const SORT_DIRS: AgentConfigSortDir[] = ["asc", "desc"];
-
-/**
- * Loads expansion templates for picker inputs via domain integration HTTP.
- * Falls back to an empty list when the domain API is unavailable.
- *
- * @returns Expansion templates for form pickers.
- */
-const getExpansionTemplates = async (): Promise<
-  Array<{
-    id: string;
-    name: string;
-    expansionString: string;
-  }>
-> => {
-  try {
-    const { getDefaultDomainIntegration } =
-      await import("@/lib/domain-integrations");
-    const integration = await getDefaultDomainIntegration();
-    const expansionsPage = await getDataSourceExpansionsPage(
-      integration.key,
-      1,
-      PICKER_PAGE_SIZE,
-      undefined,
-    );
-
-    return expansionsPage.expansions.map((expansion) => ({
-      id: expansion.id,
-      name: expansion.name,
-      expansionString: expansion.expansionString,
-    }));
-  } catch {
-    return [];
-  }
-};
 
 const parseSort = (
   sort?: string,
@@ -100,8 +67,6 @@ const AgentConfigsPage = async ({
   const [
     { configs, total, page: currentPage, pageSize: size },
     agentsForDropdown,
-    variablesPage,
-    expansionTemplates,
   ] = await Promise.all([
     getAgentConfigsPage(page, pageSize, { sortBy, sortDir }),
     orchestrationPrisma.agentRegistry.findMany({
@@ -109,10 +74,7 @@ const AgentConfigsPage = async ({
       select: { id: true, agentId: true, agentVersion: true },
       orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
     }),
-    getVariablesPage(1, PICKER_PAGE_SIZE, undefined, orchestrationPrisma),
-    getExpansionTemplates(),
   ]);
-  const variableKeys = variablesPage.variables.map((v) => ({ key: v.key }));
 
   const agentKeys = [
     ...new Set(configs.map((c) => `${c.agentId}\0${c.agentVersion}`)),
@@ -163,8 +125,10 @@ const AgentConfigsPage = async ({
         pageSize={size}
         sortBy={sortBy}
         sortDir={sortDir}
-        variableKeys={variableKeys}
-        expansionTemplates={expansionTemplates}
+        pickerLoaders={{
+          loadVariablesPage: loadVariablePickerPage,
+          loadExpansionsPage: loadExpansionPickerPage,
+        }}
       />
     </div>
   );

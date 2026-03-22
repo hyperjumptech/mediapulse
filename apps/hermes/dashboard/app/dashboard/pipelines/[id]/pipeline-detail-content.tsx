@@ -3,6 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import type {
+  LoadExpansionsPageResult,
+  LoadPageArgs,
+  LoadVariablesPageResult,
+} from "@workspace/variable-expansion-picker";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
@@ -29,23 +34,19 @@ type AgentRegistryEntry = Awaited<
   ReturnType<typeof getAgentRegistryList>
 >[number];
 
-export type VariableKeyOption = { key: string };
-
-export type ExpansionTemplateOption = {
-  id: string;
-  name: string;
-  expansionString: string;
-};
-
 export type PipelineDetailContentProps = {
   pipeline: PipelineWithSteps;
   agents: AgentRegistryEntry[];
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
   pipelineValidation: PipelineValidationResult;
-  /** Variable keys for the step editor picker (insert {{key}}). */
-  variableKeys?: VariableKeyOption[];
-  /** Expansion templates for the step editor picker (insert expansion string). */
-  expansionTemplates?: ExpansionTemplateOption[];
+  /** Server action: paginated variable keys for the step editor picker. */
+  loadVariablePickerPage: (
+    args: LoadPageArgs,
+  ) => Promise<LoadVariablesPageResult>;
+  /** Server action: paginated expansions for the step editor picker. */
+  loadExpansionPickerPage: (
+    args: LoadPageArgs,
+  ) => Promise<LoadExpansionsPageResult>;
   /** Optional DI: override for tests. Defaults to the generated update pipeline form action. */
   updatePipelineFormAction?: typeof defaultUpdatePipelineFormAction;
   /** Optional DI: override for tests. Defaults to the generated update step form action. */
@@ -219,8 +220,8 @@ export const PipelineDetailContent = ({
   agents,
   configsByAgentKey,
   pipelineValidation,
-  variableKeys = [],
-  expansionTemplates = [],
+  loadVariablePickerPage,
+  loadExpansionPickerPage,
   updatePipelineFormAction = defaultUpdatePipelineFormAction,
   updateStepFormAction = defaultUpdateStepFormAction,
 }: PipelineDetailContentProps) => {
@@ -350,8 +351,8 @@ export const PipelineDetailContent = ({
             stepAgentConfigId={stepAgentConfigId}
             onStepAgentConfigIdChange={setStepAgentConfigId}
             disabled={saving}
-            variableKeys={variableKeys}
-            expansionTemplates={expansionTemplates}
+            loadVariablePickerPage={loadVariablePickerPage}
+            loadExpansionPickerPage={loadExpansionPickerPage}
           />
         </div>
       </div>
