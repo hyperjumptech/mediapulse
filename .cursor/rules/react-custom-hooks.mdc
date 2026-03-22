@@ -26,6 +26,14 @@ All stateful and effectful logic must live in **custom hooks**. The component sh
 - **Allowed in a component:** `useContext`, `useMemo`/`useCallback` for render optimization only, and **calls to custom hooks** that encapsulate state/effects.
 - **Custom hook:** Create a hook (e.g. `useStepEditorPanelState`, `useSearch`) that owns all related `useState`/`useEffect` and returns the state and setters the component needs. Co-locate the hook in the same file as the component, or in a dedicated `use-*.ts` file. Add JSDoc and unit tests (100% coverage).
 
+## Stable component identity (factories & slot components)
+
+Do **not** call a **factory that returns a component** (e.g. `createXField({ ... })`) on every render and pass the result to children or libraries as `components={{ Field: ... }}` unless the reference is **stable**. A new function each render is a **new component type** → React remounts the subtree → **inputs lose focus** while typing, cursors reset, local state is lost.
+
+- **Fix:** wrap the factory result in `useMemo(() => createXField(deps), [stableDeps])`, define the component at **module scope**, or pass **data via props** into a fixed component instead of creating a new component type per render.
+- **Also avoid:** declaring a component **inside** another component’s body (same remount issue).
+- **Details and examples:** `/react-component` skill → section **Stable component identity (factory components & slot props)**.
+
 ## Example
 
 ```tsx
