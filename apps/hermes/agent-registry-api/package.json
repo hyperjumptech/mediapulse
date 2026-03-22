@@ -6,6 +6,7 @@
     "dev": "dotenv -e ./.env.local -- env PORT=8082 bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {

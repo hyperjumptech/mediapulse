@@ -48,7 +48,10 @@ describe("delivery-agent", () => {
         subscribers: [{ email: "u@example.com" }],
       }),
     });
-    (got.post as any).mockResolvedValue({ statusCode: 200, body: "" });
+    (got.post as any).mockResolvedValue({
+      statusCode: 200,
+      body: JSON.stringify({ message: "ok" }),
+    });
 
     const { default: agent } = await import("./index.js");
     const res = await agent.fetch(

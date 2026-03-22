@@ -8,6 +8,7 @@
     "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
     "type:check": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {

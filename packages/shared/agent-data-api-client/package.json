@@ -10,6 +10,7 @@
   },
   "scripts": {
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "type:check": "tsc --noEmit"
   },
   "dependencies": {

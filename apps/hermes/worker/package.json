@@ -11,7 +11,8 @@
     "migrate-dataqueue:dev": "dataqueue-cli migrate --envPath ./.env.local --schema dataqueue --verbose",
     "lint": "eslint \"src/**/*.ts\"",
     "type:check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@nicnocquee/dataqueue": "^1.36.0",
