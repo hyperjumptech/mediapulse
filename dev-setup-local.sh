@@ -127,12 +127,11 @@ Options:
   --admin-password <password>       Admin password (required in non-interactive mode).
   --agent-auth-api-url <url>        AGENT_AUTH_API_URL value (default: http://localhost:8080).
   --domain-integration-key-name <n> Domain integration API key name (default: Local dev domain integration).
-  --scheduler-key-name <name>       Deprecated alias for --domain-integration-key-name.
   --registry-key-name <name>        Registry API key name (default: Local dev registry).
   --jwt-secret <secret>             AGENT_AUTH_JWT_SECRET value (default: generated with openssl).
   --skip-install                    Skip pnpm install.
   --skip-migrations                 Skip Prisma and DataQueue migrations.
-  --skip-admin                      Skip admin creation and scheduler API key generation.
+  --skip-admin                      Skip admin creation and domain integration API key generation.
   -h, --help                        Show this help text.
 
 Examples:
@@ -162,10 +161,6 @@ parse_args() {
         shift 2
         ;;
       --domain-integration-key-name)
-        DOMAIN_INTEGRATION_KEY_NAME="${2:-}"
-        shift 2
-        ;;
-      --scheduler-key-name)
         DOMAIN_INTEGRATION_KEY_NAME="${2:-}"
         shift 2
         ;;
@@ -228,7 +223,7 @@ collect_interactive_inputs() {
 }
 
 set_agent_api_key_for_all_agents() {
-  local scheduler_api_key="$1"
+  local domain_integration_api_key="$1"
   local agent_dir
   local env_local_file
 
@@ -238,7 +233,7 @@ set_agent_api_key_for_all_agents() {
       if [[ ! -f "$env_local_file" ]]; then
         touch "$env_local_file"
       fi
-      upsert_env_var "$env_local_file" "AGENT_API_KEY" "$scheduler_api_key"
+      upsert_env_var "$env_local_file" "AGENT_API_KEY" "$domain_integration_api_key"
     fi
   done
 }
@@ -288,7 +283,6 @@ main() {
     echo "Skipping migrations (--skip-migrations)."
   else
     section "Database migrations"
-    # node "$SCRIPT_DIR/scripts/ensure-prisma-shadow-databases.mjs"
     (
       cd packages/hermes/orchestration-database
       pnpm db:migrate:dev
@@ -303,7 +297,7 @@ main() {
   fi
 
   if [[ "$SKIP_ADMIN" == "true" ]]; then
-    section "Admin and scheduler API key"
+    section "Admin and domain integration API key"
     echo "Skipping admin and API key generation (--skip-admin)."
     if [[ -z "$(read_dotenv_value "$HERMES_ENV_FILE" "HERMES_INTERNAL_API_KEY")" ]]; then
       echo "Warning: HERMES_INTERNAL_API_KEY is empty in $HERMES_ENV_FILE."
@@ -327,7 +321,7 @@ main() {
     DOMAIN_INTEGRATION_API_KEY="$(extract_generated_api_key "$DOMAIN_INTEGRATION_OUTPUT")"
     if [[ -z "$DOMAIN_INTEGRATION_API_KEY" ]]; then
       echo "Could not parse generated domain integration API key from output."
-      echo "Please run apps/hermes/scripts/generate-api-key.ts manually."
+      echo "Please run from apps/hermes/dashboard: pnpm generate-api-key <email> <name> --purpose domain_integration"
       exit 1
     fi
 
@@ -338,7 +332,7 @@ main() {
     REGISTRY_API_KEY="$(extract_generated_api_key "$REGISTRY_OUTPUT")"
     if [[ -z "$REGISTRY_API_KEY" ]]; then
       echo "Could not parse generated registry API key from output."
-      echo "Please run apps/hermes/scripts/generate-api-key.ts manually."
+      echo "Please run from apps/hermes/dashboard: pnpm generate-api-key <email> <name> --purpose general"
       exit 1
     fi
 
