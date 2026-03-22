@@ -3,13 +3,27 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getDashboardSessionMock = vi.fn();
+const resolveAccessMock = vi.fn();
 
 const { getActiveDomainIntegrationsMock } = vi.hoisted(() => ({
   getActiveDomainIntegrationsMock: vi.fn(),
 }));
 
+const { redirectMock } = vi.hoisted(() => ({
+  redirectMock: vi.fn((path: string) => {
+    void path;
+    throw new Error("NEXT_REDIRECT");
+  }),
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: (path: string) => redirectMock(path),
+}));
+
 vi.mock("@/lib/auth-dashboard", () => ({
   getDashboardSession: () => getDashboardSessionMock(),
+  resolveHermesActiveAdminDashboardAccess: () => resolveAccessMock(),
+  HERMES_DASHBOARD_CLEAR_SESSION_PATH: "/clear-hermes-dashboard-session",
 }));
 
 vi.mock("@/lib/domain-integrations", () => ({
@@ -34,65 +48,76 @@ vi.mock("@/components/dashboard-shell", () => ({
 describe("DashboardLayout", () => {
   beforeEach(() => {
     getActiveDomainIntegrationsMock.mockResolvedValue([]);
+    resolveAccessMock.mockResolvedValue({ ok: true });
+    redirectMock.mockImplementation((path: string) => {
+      void path;
+      throw new Error("NEXT_REDIRECT");
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     getDashboardSessionMock.mockReset();
+    resolveAccessMock.mockReset();
+    redirectMock.mockReset();
+    redirectMock.mockImplementation((path: string) => {
+      void path;
+      throw new Error("NEXT_REDIRECT");
+    });
     getActiveDomainIntegrationsMock.mockReset();
     getActiveDomainIntegrationsMock.mockResolvedValue([]);
   });
 
-  it("renders children inside DashboardShell", async () => {
-    // Setup
-    getDashboardSessionMock.mockResolvedValue(null);
+  it("renders children inside DashboardShell when access is allowed", async () => {
+    getDashboardSessionMock.mockResolvedValue({
+      id: "u1",
+      name: "Admin",
+      email: "a@b.com",
+    });
     const DashboardLayout = (await import("./layout")).default;
 
-    // Act
     const component = await DashboardLayout({
       children: <div data-testid="child-content">Child Content</div>,
     });
     render(component);
 
-    // Assert
     expect(screen.getByTestId("dashboard-shell")).toBeInTheDocument();
     expect(screen.getByTestId("child-content")).toBeInTheDocument();
   });
 
   it("passes user to DashboardShell when session exists", async () => {
-    // Setup
-    const user = { name: "Test User", email: "test@example.com" };
+    const user = {
+      id: "u1",
+      name: "Test User",
+      email: "test@example.com",
+    };
     getDashboardSessionMock.mockResolvedValue(user);
     const DashboardLayout = (await import("./layout")).default;
 
-    // Act
     const component = await DashboardLayout({
       children: <div>Content</div>,
     });
     render(component);
 
-    // Assert
     expect(screen.getByTestId("dashboard-shell")).toHaveAttribute(
       "data-user",
       "Test User",
     );
   });
 
-  it("passes null user when no session", async () => {
-    // Setup
+  it("redirects to clear-session route when access is denied", async () => {
+    resolveAccessMock.mockResolvedValue({ ok: false });
     getDashboardSessionMock.mockResolvedValue(null);
     const DashboardLayout = (await import("./layout")).default;
 
-    // Act
-    const component = await DashboardLayout({
-      children: <div>Content</div>,
-    });
-    render(component);
+    await expect(
+      DashboardLayout({
+        children: <div>Content</div>,
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
 
-    // Assert
-    expect(screen.getByTestId("dashboard-shell")).toHaveAttribute(
-      "data-user",
-      "none",
+    expect(redirectMock).toHaveBeenCalledWith(
+      "/clear-hermes-dashboard-session",
     );
   });
 });

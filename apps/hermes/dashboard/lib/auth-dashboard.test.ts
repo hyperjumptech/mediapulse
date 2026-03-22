@@ -1,6 +1,23 @@
 /** @vitest-environment node */
+import { prisma } from "@hermes/orchestration-database";
+import type { NextResponse } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getDashboardSession } from "./auth-dashboard";
+import {
+  applyClearHermesDashboardAuthCookies,
+  createClearDashboardAuthCookies,
+  createSessionClearCookieOptions,
+  getCookieFromHeader,
+  getDashboardSession,
+  resolveHermesActiveAdminDashboardAccess,
+} from "./auth-dashboard";
+
+vi.mock("@hermes/orchestration-database", () => ({
+  prisma: {
+    user: {
+      findUnique: vi.fn(),
+    },
+  },
+}));
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
@@ -111,5 +128,127 @@ describe("getDashboardSession", () => {
       name: "Admin",
       email: "admin@example.com",
     });
+  });
+});
+
+describe("getCookieFromHeader", () => {
+  it("returns null for empty header", () => {
+    expect(getCookieFromHeader(null, "a")).toBeNull();
+  });
+
+  it("returns decoded cookie value", () => {
+    const v = getCookieFromHeader("a=hello%20world", "a");
+    expect(v).toBe("hello world");
+  });
+});
+
+describe("createSessionClearCookieOptions", () => {
+  it("returns httpOnly lax path cookie options with maxAge 0", () => {
+    expect(createSessionClearCookieOptions()).toEqual({
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+  });
+});
+
+describe("applyClearHermesDashboardAuthCookies", () => {
+  it("sets empty auth-token and auth-user on the response", () => {
+    const set = vi.fn();
+    const response = { cookies: { set } } as unknown as NextResponse;
+    applyClearHermesDashboardAuthCookies(response);
+    const opts = createSessionClearCookieOptions();
+    expect(set).toHaveBeenCalledWith("auth-token", "", opts);
+    expect(set).toHaveBeenCalledWith("auth-user", "", opts);
+  });
+});
+
+describe("createClearDashboardAuthCookies", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("clears auth-token and auth-user", async () => {
+    const set = vi.fn();
+    const clear = createClearDashboardAuthCookies({
+      getCookieStore: async () => ({ set }),
+    });
+    await clear();
+    const opts = createSessionClearCookieOptions();
+    expect(set).toHaveBeenCalledWith("auth-token", "", opts);
+    expect(set).toHaveBeenCalledWith("auth-user", "", opts);
+  });
+});
+
+describe("resolveHermesActiveAdminDashboardAccess", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns ok false when session is null", async () => {
+    const result = await resolveHermesActiveAdminDashboardAccess({
+      getSession: async () => null,
+      findUserForDashboard: vi.fn(),
+    });
+    expect(result).toEqual({ ok: false });
+  });
+
+  it("returns ok false when user is missing", async () => {
+    const result = await resolveHermesActiveAdminDashboardAccess({
+      getSession: async () => ({
+        id: "u1",
+        name: "A",
+        email: "a@b.com",
+      }),
+      findUserForDashboard: async () => null,
+    });
+    expect(result).toEqual({ ok: false });
+  });
+
+  it("returns ok false when user is not admin or inactive", async () => {
+    const result = await resolveHermesActiveAdminDashboardAccess({
+      getSession: async () => ({
+        id: "u1",
+        name: "A",
+        email: "a@b.com",
+      }),
+      findUserForDashboard: async () => ({
+        role: "USER",
+        isActive: true,
+      }),
+    });
+    expect(result).toEqual({ ok: false });
+  });
+
+  it("returns ok true for active admin", async () => {
+    const result = await resolveHermesActiveAdminDashboardAccess({
+      getSession: async () => ({
+        id: "u1",
+        name: "A",
+        email: "a@b.com",
+      }),
+      findUserForDashboard: async () => ({
+        role: "ADMIN",
+        isActive: true,
+      }),
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("uses prisma when default findUser is used", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      role: "ADMIN",
+      isActive: true,
+    } as never);
+    const result = await resolveHermesActiveAdminDashboardAccess({
+      getSession: async () => ({
+        id: "u1",
+        name: "A",
+        email: "a@b.com",
+      }),
+    });
+    expect(result).toEqual({ ok: true });
+    expect(prisma.user.findUnique).toHaveBeenCalled();
   });
 });

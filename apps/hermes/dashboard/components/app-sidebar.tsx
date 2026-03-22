@@ -11,6 +11,7 @@ import {
   GitBranch,
   LayoutDashboard,
   Plug,
+  Users,
   Variable,
 } from "lucide-react";
 
@@ -58,6 +59,7 @@ export const AppSidebar = ({
   const isDomainIntegrations =
     pathname?.startsWith("/dashboard/domain-integrations") ?? false;
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
+  const isAdmins = pathname?.startsWith("/dashboard/admins") ?? false;
 
   return (
     <Sidebar {...props}>
@@ -126,6 +128,14 @@ export const AppSidebar = ({
                 <Link href="/dashboard/schedules">
                   <Calendar className="size-4" />
                   <span>Schedules</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isAdmins}>
+                <Link href="/dashboard/admins">
+                  <Users className="size-4" />
+                  <span>Admins</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

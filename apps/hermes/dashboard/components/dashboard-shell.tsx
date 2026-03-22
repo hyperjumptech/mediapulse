@@ -30,6 +30,7 @@ const HERMES_ROOT_SEGMENTS = new Set([
   "variables",
   "domain-integrations",
   "schedules",
+  "admins",
 ]);
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -39,6 +40,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   pipelines: "Pipelines",
   schedules: "Schedules",
   variables: "Variables",
+  admins: "Admins",
 };
 
 const UUID_REGEX =
