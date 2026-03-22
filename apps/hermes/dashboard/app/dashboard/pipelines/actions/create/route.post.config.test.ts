@@ -38,6 +38,9 @@ describe("createCreatePipelineHandler", () => {
       isActive: true,
     };
     const db = {
+      domainIntegration: {
+        findFirst: vi.fn().mockResolvedValue({ id: "di-1" }),
+      },
       pipeline: {
         create: vi.fn().mockResolvedValue(created),
       },
@@ -65,6 +68,7 @@ describe("createCreatePipelineHandler", () => {
         name: "My Pipeline",
         description: "Desc",
         isActive: true,
+        domainIntegrationId: "di-1",
       },
     });
     expect(result).toMatchObject({
@@ -81,6 +85,9 @@ describe("createCreatePipelineHandler", () => {
       isActive: true,
     };
     const db = {
+      domainIntegration: {
+        findFirst: vi.fn().mockResolvedValue({ id: "di-1" }),
+      },
       pipeline: {
         create: vi.fn().mockResolvedValue(created),
       },
@@ -104,6 +111,7 @@ describe("createCreatePipelineHandler", () => {
         name: "Minimal",
         description: null,
         isActive: true,
+        domainIntegrationId: "di-1",
       },
     });
   });
@@ -138,6 +146,9 @@ describe("handler", () => {
 
   it("is the factory with production defaults", async () => {
     const db = {
+      domainIntegration: {
+        findFirst: vi.fn().mockResolvedValue({ id: "di-1" }),
+      },
       pipeline: {
         create: vi.fn().mockResolvedValue({
           id: "default-id",

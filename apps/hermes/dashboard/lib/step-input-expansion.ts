@@ -6,6 +6,7 @@ import {
   validateDataSourceExpressions as validateDataSourceExpressionsBase,
   type ValidateDataSourceExpressionsResult,
 } from "@hermes/step-input-syntax";
+import { getBearerJwtForDomainIntegrationId } from "./domain-integration-auth-token";
 import { getDefaultDomainIntegration } from "./domain-integrations";
 
 export type { ValidateDataSourceExpressionsResult };
@@ -18,16 +19,23 @@ export { parseDataSourceString };
  */
 export const getDomainIntegrationClient = async () => {
   const integration = await getDefaultDomainIntegration().catch(() => null);
-  const baseUrl = integration?.baseUrl?.trim();
+  if (!integration) {
+    throw new Error(
+      "No active domain integration with a base URL; register a domain integration in Hermes before using expansion or preview.",
+    );
+  }
+  const baseUrl = integration.baseUrl?.trim();
   if (!baseUrl) {
     throw new Error(
       "No active domain integration with a base URL; register a domain integration in Hermes before using expansion or preview.",
     );
   }
 
+  const jwt = await getBearerJwtForDomainIntegrationId(integration.id);
+
   return createDomainIntegrationClient({
     baseUrl,
-    authToken: env.DOMAIN_INTEGRATION_AUTH_TOKEN,
+    authToken: jwt,
   });
 };
 

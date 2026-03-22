@@ -17,6 +17,7 @@ import {
 export async function registerWithRegistry(params: {
   registryUrl: string;
   authApiUrl: string;
+  domainIntegrationKey: string;
   domainIntegrationApiKey: string;
   agentId: string;
   agentVersion: string;
@@ -30,6 +31,7 @@ export async function registerWithRegistry(params: {
   const {
     registryUrl,
     authApiUrl,
+    domainIntegrationKey,
     domainIntegrationApiKey,
     agentId,
     agentVersion,
@@ -50,6 +52,7 @@ export async function registerWithRegistry(params: {
 
   const url = `${registryUrl.replace(/\/$/, "")}/api/agents/register`;
   const body: Record<string, unknown> = {
+    domainIntegrationKey,
     agentId,
     agentVersion,
     endpoint: { url: agentUrl, method: "POST" },

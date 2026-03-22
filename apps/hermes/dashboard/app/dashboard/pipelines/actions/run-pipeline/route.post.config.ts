@@ -149,6 +149,7 @@ export const createRunPipelineHandler = ({
       {
         id: pipeline.id,
         name: pipeline.name,
+        domainIntegrationId: pipeline.domainIntegrationId,
         steps: pipelineSteps.map((step) => ({
           id: step.id,
           order: step.order,
@@ -173,13 +174,18 @@ export const createRunPipelineHandler = ({
 
     const agentIds = pipelineSteps.map((step) => step.agentId);
     const agents = await db.agentRegistry.findMany({
-      where: { agentId: { in: agentIds } },
+      where: {
+        agentId: { in: agentIds },
+        domainIntegrationId: pipeline.domainIntegrationId,
+      },
     });
-    const agentById = new Map(agents.map((a) => [a.agentId, a]));
+    const agentByKey = new Map(
+      agents.map((a) => [`${a.agentId}:${a.agentVersion}`, a]),
+    );
 
     for (const ticker of tickers) {
       for (const step of pipelineSteps) {
-        const agent = agentById.get(step.agentId);
+        const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
         if (!agent) continue;
         const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
 

@@ -172,6 +172,16 @@ const upsertPipelineWithSteps = async (
   db: PrismaClientWithSchema,
   definition: PipelineDefinition,
 ): Promise<{ pipelineId: string; stepsSeeded: number }> => {
+  const defaultIntegration = await db.domainIntegration.findFirst({
+    orderBy: [{ isDefault: "desc" }, { key: "asc" }],
+    select: { id: true },
+  });
+  if (!defaultIntegration) {
+    throw new Error(
+      "No domain integration row in orchestration DB; register or create one before seeding pipelines.",
+    );
+  }
+
   const existingPipeline = await db.pipeline.findFirst({
     where: { name: definition.name },
   });
@@ -183,6 +193,8 @@ const upsertPipelineWithSteps = async (
           name: definition.name,
           description: definition.description,
           isActive: true,
+          domainIntegrationId:
+            existingPipeline.domainIntegrationId ?? defaultIntegration.id,
         },
       })
     : await db.pipeline.create({
@@ -190,6 +202,7 @@ const upsertPipelineWithSteps = async (
           name: definition.name,
           description: definition.description,
           isActive: true,
+          domainIntegrationId: defaultIntegration.id,
         },
       });
 

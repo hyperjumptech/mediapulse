@@ -35,6 +35,9 @@ describe("createCreateAgentHandler", () => {
       agentVersion: "1.0",
     });
     const db = {
+      domainIntegration: {
+        findFirst: vi.fn().mockResolvedValue({ id: "di-1" }),
+      },
       agentRegistry: {
         findUnique: findUniqueMock,
         create: vi.fn(),
@@ -70,6 +73,9 @@ describe("createCreateAgentHandler", () => {
       agentVersion: "1.0",
     });
     const db = {
+      domainIntegration: {
+        findFirst: vi.fn().mockResolvedValue({ id: "di-1" }),
+      },
       agentRegistry: {
         findUnique: findUniqueMock,
         create: createMock,
@@ -99,6 +105,7 @@ describe("createCreateAgentHandler", () => {
         description: "Test agent",
         endpoint: { url: "https://api.example.com" },
         isActive: true,
+        domainIntegrationId: "di-1",
       },
     });
     expect(result).toMatchObject({
@@ -120,6 +127,9 @@ describe("handler", () => {
       agentVersion: "1",
     });
     const db = {
+      domainIntegration: {
+        findFirst: vi.fn().mockResolvedValue({ id: "di-1" }),
+      },
       agentRegistry: {
         findUnique: vi.fn().mockResolvedValue(null),
         create: createMock,

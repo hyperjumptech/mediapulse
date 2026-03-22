@@ -74,6 +74,7 @@ export function createAgentApp<
   if (options.autoRegister) {
     const {
       registryUrl,
+      domainIntegrationKey,
       domainIntegrationApiKey,
       agentUrl,
       fetchFn,
@@ -102,6 +103,7 @@ export function createAgentApp<
             await registerWithRegistry({
               registryUrl,
               authApiUrl,
+              domainIntegrationKey,
               domainIntegrationApiKey,
               agentId: config.agentId,
               agentVersion: config.agentVersion,
@@ -153,7 +155,7 @@ export function createAgentApp<
   } else {
     logger.warn?.(
       { agentId: config.agentId, agentVersion: config.agentVersion },
-      "Agent not auto-registering: set AGENT_REGISTRY_URL, DOMAIN_INTEGRATION_API_KEY (Hermes domain_integration API key), AGENT_PUBLIC_URL, and AGENT_AUTH_API_URL to register with the registry on startup",
+      "Agent not auto-registering: set AGENT_REGISTRY_URL, DOMAIN_INTEGRATION_KEY, DOMAIN_INTEGRATION_API_KEY, AGENT_PUBLIC_URL, and AGENT_AUTH_API_URL to register with the registry on startup",
     );
   }
 

@@ -21,6 +21,7 @@ const createMockSchedule = (overrides?: Partial<DueSchedule>): DueSchedule =>
     executionConfig: null,
     pipeline: {
       id: "p1",
+      domainIntegrationId: "di-1",
       executionConfig: null,
       steps: [
         {
@@ -112,6 +113,7 @@ describe("executeSchedule", () => {
     const schedule = createMockSchedule({
       pipeline: {
         id: "p1",
+        domainIntegrationId: "di-1",
         name: "p1",
         description: null,
         isActive: true,
@@ -164,6 +166,7 @@ describe("executeSchedule", () => {
     const schedule = createMockSchedule({
       pipeline: {
         id: "p1",
+        domainIntegrationId: "di-1",
         name: "p1",
         description: null,
         isActive: true,

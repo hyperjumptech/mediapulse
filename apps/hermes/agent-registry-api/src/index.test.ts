@@ -6,12 +6,23 @@ vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
 
+const mockFindFirst = vi.fn();
+const mockUpsert = vi.fn();
+
 vi.mock("@hermes/orchestration-database", () => ({
+  DomainIntegrationStatus: { active: "active" },
   prisma: {
+    domainIntegration: {
+      findFirst: (...args: unknown[]) => mockFindFirst(...args),
+    },
     agentRegistry: {
-      upsert: vi.fn(),
+      upsert: (...args: unknown[]) => mockUpsert(...args),
     },
   },
+}));
+
+vi.mock("jose", () => ({
+  decodeJwt: () => ({ sub: "api-key-uuid-1" }),
 }));
 
 vi.mock("@hermes/env", () => ({
@@ -26,12 +37,21 @@ vi.mock("@hermes/env", () => ({
   },
 }));
 
-const getPrisma = async () =>
-  (await import("@hermes/orchestration-database")).prisma;
-
 describe("agent-registry-api", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFindFirst.mockResolvedValue({
+      id: "int-1",
+      key: "mediapulse",
+      apiKeyId: "api-key-uuid-1",
+    });
+    mockUpsert.mockResolvedValue({
+      id: "1",
+      agentId: "test-agent",
+      agentVersion: "1.0.0",
+      endpoint: { url: "http://example.com", method: "POST" },
+      domainIntegrationId: "int-1",
+    });
   });
 
   afterEach(() => {
@@ -50,20 +70,13 @@ describe("agent-registry-api", () => {
     });
 
     it("returns 200 and registers agent with valid body and token", async () => {
-      const prisma = await getPrisma();
-      (prisma.agentRegistry.upsert as any).mockResolvedValue({
-        id: "1",
-        agentId: "test-agent",
-        agentVersion: "1.0.0",
-        endpoint: { url: "http://example.com", method: "POST" },
-      });
-
       const { default: app } = await import("./index.js");
       const res = await app.fetch(
         new Request("http://localhost/api/agents/register", {
           method: "POST",
           headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
           body: JSON.stringify({
+            domainIntegrationKey: "mediapulse",
             agentId: "test-agent",
             agentVersion: "1.0.0",
             endpoint: {
@@ -79,6 +92,7 @@ describe("agent-registry-api", () => {
       expect(res.status).toBe(200);
       expect(body.message).toBe("Agent registered successfully");
       expect(body.data.agentId).toBe("test-agent");
+      expect(mockUpsert).toHaveBeenCalled();
     });
   });
 });

@@ -84,7 +84,11 @@ describe("createRunPipelineHandler", () => {
         ),
       db: {
         pipeline: {
-          findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: "p-1",
+            name: "P",
+            domainIntegrationId: "di-1",
+          }),
         },
         pipelineStep: { findMany: vi.fn().mockResolvedValue([]) },
         agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
@@ -120,7 +124,11 @@ describe("createRunPipelineHandler", () => {
       getToken: async () => "jwt",
       db: {
         pipeline: {
-          findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: "p-1",
+            name: "P",
+            domainIntegrationId: "di-1",
+          }),
         },
         pipelineStep: { findMany: vi.fn().mockResolvedValue([]) },
         agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
@@ -145,7 +153,11 @@ describe("createRunPipelineHandler", () => {
       post: postMock as never,
       db: {
         pipeline: {
-          findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: "p-1",
+            name: "P",
+            domainIntegrationId: "di-1",
+          }),
         },
         pipelineStep: {
           findMany: vi.fn().mockResolvedValue([
@@ -175,6 +187,7 @@ describe("createRunPipelineHandler", () => {
           findMany: vi.fn().mockResolvedValue([
             {
               agentId: "ag1",
+              agentVersion: "1.0.0",
               endpoint: { url: "https://agent.example/run", method: "POST" },
             },
           ]),
@@ -218,7 +231,11 @@ describe("createRunPipelineHandler", () => {
       post: postMock as never,
       db: {
         pipeline: {
-          findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: "p-1",
+            name: "P",
+            domainIntegrationId: "di-1",
+          }),
         },
         pipelineStep: {
           findMany: vi.fn().mockResolvedValue([
@@ -248,6 +265,7 @@ describe("createRunPipelineHandler", () => {
           findMany: vi.fn().mockResolvedValue([
             {
               agentId: "ag1",
+              agentVersion: "1.0.0",
               endpoint: { url: "https://agent.example/run", method: "POST" },
             },
           ]),
@@ -273,7 +291,11 @@ describe("createRunPipelineHandler", () => {
       post: vi.fn() as never,
       db: {
         pipeline: {
-          findUnique: vi.fn().mockResolvedValue({ id: "p-1", name: "P" }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: "p-1",
+            name: "P",
+            domainIntegrationId: "di-1",
+          }),
         },
         pipelineStep: {
           findMany: vi.fn().mockResolvedValue([

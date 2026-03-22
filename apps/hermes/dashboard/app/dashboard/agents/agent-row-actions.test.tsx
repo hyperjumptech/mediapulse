@@ -100,6 +100,7 @@ vi.mock("@workspace/ui/components/button", () => ({
 
 const createMockAgent = () => ({
   id: "agent-123",
+  domainIntegrationId: "di-1",
   agentId: "test-agent",
   agentVersion: "1.0",
   description: "Test description",

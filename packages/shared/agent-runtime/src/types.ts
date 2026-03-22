@@ -33,7 +33,11 @@ export type AutoRegisterOptions = {
   /** Base URL of the agent-registry-api (e.g. https://registry.example.com). */
   registryUrl: string;
   /**
-   * Hermes dashboard API key with purpose `domain_integration`; used to mint a JWT via
+   * Stable Hermes domain integration key (e.g. `mediapulse`); must match the integration row in orchestration.
+   */
+  domainIntegrationKey: string;
+  /**
+   * Hermes-generated domain integration API key; used to mint a JWT via
    * agent-auth-api `POST /api/token` for registry registration (same as `DOMAIN_INTEGRATION_API_KEY` in Mediapulse env).
    */
   domainIntegrationApiKey: string;

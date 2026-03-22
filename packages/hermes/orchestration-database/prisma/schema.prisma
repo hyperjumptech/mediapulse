@@ -37,24 +37,28 @@ model APIKey {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id])
+  user              User               @relation(fields: [userId], references: [id])
+  domainIntegration DomainIntegration?
 
   @@map("api_key")
 }
 
 model AgentRegistry {
-  id           String   @id @default(uuid())
-  agentId      String   @map("agent_id")
-  agentVersion String   @map("agent_version")
-  description  String?
-  endpoint     Json
-  inputSchema  Json?    @map("input_schema")
-  configSchema Json?    @map("config_schema")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid())
+  agentId             String   @map("agent_id")
+  agentVersion        String   @map("agent_version")
+  description         String?
+  endpoint            Json
+  inputSchema         Json?    @map("input_schema")
+  configSchema        Json?    @map("config_schema")
+  isActive            Boolean  @default(true) @map("is_active")
+  domainIntegrationId String   @map("domain_integration_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
-  @@unique([agentId, agentVersion])
+  domainIntegration DomainIntegration @relation(fields: [domainIntegrationId], references: [id], onDelete: Cascade)
+
+  @@unique([domainIntegrationId, agentId, agentVersion])
   @@map("agent_registry")
 }
 
@@ -90,34 +94,48 @@ model Variable {
   @@map("variable")
 }
 
+enum DomainIntegrationStatus {
+  pending
+  active
+}
+
 model DomainIntegration {
-  id                String   @id @default(uuid())
-  key               String   @unique
+  id                String                  @id @default(uuid())
+  key               String                  @unique
   name              String
-  baseUrl           String   @map("base_url")
+  baseUrl           String?                 @map("base_url")
   version           String?
-  capabilities      Json?    @default("[]")
-  dashboardManifest Json?    @map("dashboard_manifest")
-  isActive          Boolean  @default(true) @map("is_active")
-  isDefault         Boolean  @default(false) @map("is_default")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  lastSeenAt        DateTime @default(now()) @map("last_seen_at")
+  capabilities      Json?                   @default("[]")
+  dashboardManifest Json?                   @map("dashboard_manifest")
+  isActive          Boolean                 @default(true) @map("is_active")
+  isDefault         Boolean                 @default(false) @map("is_default")
+  status            DomainIntegrationStatus @default(active)
+  encryptedApiKey   String?                 @map("encrypted_api_key")
+  apiKeyId          String?                 @unique @map("api_key_id")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+  lastSeenAt        DateTime                @default(now()) @map("last_seen_at")
+
+  apiKey        APIKey?         @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  agentRegistry AgentRegistry[]
+  pipelines     Pipeline[]
 
   @@map("domain_integration")
 }
 
 model Pipeline {
-  id              String   @id @default(uuid())
-  name            String
-  description     String?
-  isActive        Boolean  @default(true) @map("is_active")
-  executionConfig Json?    @map("execution_config")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid())
+  name                String
+  description         String?
+  isActive            Boolean  @default(true) @map("is_active")
+  executionConfig     Json?    @map("execution_config")
+  domainIntegrationId String   @map("domain_integration_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
-  steps     PipelineStep[]
-  schedules Schedule[]
+  domainIntegration DomainIntegration @relation(fields: [domainIntegrationId], references: [id], onDelete: Restrict)
+  steps             PipelineStep[]
+  schedules         Schedule[]
 
   @@map("pipeline")
 }

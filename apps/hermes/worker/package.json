@@ -21,6 +21,7 @@
     "@hermes/domain-contract": "workspace:*",
     "@hermes/scheduler": "workspace:*",
     "@hermes/step-input-syntax": "workspace:*",
+    "@hermes/domain-integration-crypto": "workspace:*",
     "@hermes/orchestration-database": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:"

@@ -99,7 +99,8 @@ export const createUpdateAgentHandler = ({
       ) {
         const existing = await db.agentRegistry.findUnique({
           where: {
-            agentId_agentVersion: {
+            domainIntegrationId_agentId_agentVersion: {
+              domainIntegrationId: current.domainIntegrationId,
               agentId: newAgentId,
               agentVersion: newAgentVersion,
             },

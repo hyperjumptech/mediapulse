@@ -19,8 +19,13 @@ const mockPrisma = vi.hoisted(() => ({
   domainIntegration: {
     findFirst: vi.fn().mockResolvedValue({
       baseUrl: "https://mediapulse-domain.example",
+      encryptedApiKey: "{}",
     }),
   },
+}));
+
+vi.mock("@hermes/domain-integration-crypto", () => ({
+  decryptDomainIntegrationApiKey: () => "decrypted-test-key",
 }));
 
 vi.mock("@hermes/orchestration-database", () => ({
@@ -30,6 +35,10 @@ vi.mock("@hermes/orchestration-database", () => ({
     completed: "completed",
     failed: "failed",
   },
+  DomainIntegrationStatus: {
+    pending: "pending",
+    active: "active",
+  },
   prisma: mockPrisma,
 }));
 
@@ -38,7 +47,6 @@ vi.mock("@hermes/env/hermes-worker", () => ({
     HERMES_INTERNAL_API_KEY: "test-internal-hermes-key",
     AGENT_AUTH_API_URL: "https://auth.example.com",
     REQUIRE_HTTPS_AGENT_ENDPOINTS: undefined as string | undefined,
-    DOMAIN_INTEGRATION_AUTH_TOKEN: "domain-token",
   },
 }));
 
@@ -122,6 +130,7 @@ describe("jobHandlers", () => {
         pipeline: {
           id: "pipeline-1",
           name: "Test",
+          domainIntegrationId: "di-1",
           executionConfig: null,
           steps: [],
         },
@@ -159,6 +168,7 @@ describe("jobHandlers", () => {
             scheduleId: "s1",
             pipelineId: "p1",
             pipelineStepId: "st1",
+            domainIntegrationId: "di-1",
             agentId: "a1",
             agentVersion: "1.0.0",
             endpointUrl: "https://a.example/",
@@ -200,6 +210,7 @@ describe("jobHandlers", () => {
         pipeline: {
           id: "pipeline-2",
           name: "Test",
+          domainIntegrationId: "di-1",
           steps: [],
         },
       } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
@@ -238,7 +249,12 @@ describe("jobHandlers", () => {
         timezone: "UTC",
         createdAt: new Date(),
         updatedAt: new Date(),
-        pipeline: { id: "p1", name: "Ok", steps: [] },
+        pipeline: {
+          id: "p1",
+          name: "Ok",
+          domainIntegrationId: "di-1",
+          steps: [],
+        },
       } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
       const scheduleFail = {
         id: "schedule-fail",
@@ -249,7 +265,12 @@ describe("jobHandlers", () => {
         timezone: "UTC",
         createdAt: new Date(),
         updatedAt: new Date(),
-        pipeline: { id: "p2", name: "Fail", steps: [] },
+        pipeline: {
+          id: "p2",
+          name: "Fail",
+          domainIntegrationId: "di-1",
+          steps: [],
+        },
       } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
       vi.mocked(getDueSchedules).mockResolvedValue([scheduleOk, scheduleFail]);
       vi.mocked(executeSchedule)
@@ -299,6 +320,7 @@ describe("jobHandlers", () => {
         pipeline: {
           id: "pipeline-1",
           name: "Test",
+          domainIntegrationId: "di-1",
           executionConfig: null,
           steps: [],
         },
@@ -311,9 +333,10 @@ describe("jobHandlers", () => {
             scheduleId: "s1",
             pipelineId: "p1",
             pipelineStepId: "st1",
+            domainIntegrationId: "di-1",
             orchDb: prisma,
           }),
-        ).rejects.toThrow("No active domain integration");
+        ).rejects.toThrow("Domain integration has no base URL");
       });
 
       await jobHandlers.check_schedules(
@@ -334,6 +357,7 @@ describe("jobHandlers", () => {
       scheduleId: "sched-1",
       pipelineId: "pipe-1",
       pipelineStepId: "step-1",
+      domainIntegrationId: "di-1",
       agentId: "agent-a",
       agentVersion: "1.0.0",
       endpointUrl: "https://agent.example/run",

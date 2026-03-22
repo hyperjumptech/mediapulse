@@ -5,6 +5,9 @@ import type { PrismaClientWithSchema } from "@hermes/orchestration-database/clie
 import { seedKgPipelines } from "./seed-kg-pipelines";
 
 type MockDb = {
+  domainIntegration: {
+    findFirst: ReturnType<typeof vi.fn>;
+  };
   agentRegistry: {
     findFirst: ReturnType<typeof vi.fn>;
   };
@@ -30,6 +33,9 @@ const asDb = (db: MockDb): PrismaClientWithSchema =>
 const createCreateModeDb = (): MockDb => {
   let pipelineCounter = 0;
   return {
+    domainIntegration: {
+      findFirst: vi.fn().mockResolvedValue({ id: "di-1" }),
+    },
     agentRegistry: {
       findFirst: vi.fn().mockResolvedValue({ id: "agent-row" }),
     },
@@ -54,6 +60,9 @@ const createCreateModeDb = (): MockDb => {
 };
 
 const createUpdateModeDb = (): MockDb => ({
+  domainIntegration: {
+    findFirst: vi.fn().mockResolvedValue({ id: "di-1" }),
+  },
   agentRegistry: {
     findFirst: vi.fn().mockResolvedValue({ id: "agent-row" }),
   },

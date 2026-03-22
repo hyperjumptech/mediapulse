@@ -13,6 +13,7 @@ export type { PipelineValidationResult } from "./pipeline-status";
 type PipelineWithSteps = {
   id: string;
   name: string;
+  domainIntegrationId: string;
   steps: Array<{
     id: string;
     order: number;
@@ -52,6 +53,7 @@ export async function validatePipeline(
         agentId: step.agentId,
         agentVersion: step.agentVersion,
         isActive: true,
+        domainIntegrationId: pipeline.domainIntegrationId,
       },
     });
 

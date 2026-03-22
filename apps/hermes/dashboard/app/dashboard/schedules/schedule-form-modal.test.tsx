@@ -94,6 +94,7 @@ vi.mock("./schedule-form-fields", () => ({
 const createMockPipelines = () => [
   {
     id: "pipeline-1",
+    domainIntegrationId: "di-1",
     name: "Pipeline A",
     description: null,
     isActive: true,

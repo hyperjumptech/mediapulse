@@ -150,7 +150,7 @@ describe("AppSidebar", () => {
     expect(screen.getByText("Tickers")).toBeInTheDocument();
     expect(screen.getByText("Search Query")).toBeInTheDocument();
     expect(screen.getByText("Agents")).toBeInTheDocument();
-    expect(screen.getByText("API Keys")).toBeInTheDocument();
+    expect(screen.getByText("Domain integrations")).toBeInTheDocument();
     expect(screen.getByText("Schedules")).toBeInTheDocument();
     expect(screen.getByText("Entity Types")).toBeInTheDocument();
     expect(screen.getByText("Relation Types")).toBeInTheDocument();
@@ -192,16 +192,16 @@ describe("AppSidebar", () => {
     expect(agentsButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks API Keys as active when on /dashboard/api-keys", () => {
-    usePathnameMock.mockReturnValue("/dashboard/api-keys");
+  it("marks Domain integrations as active when on /dashboard/domain-integrations", () => {
+    usePathnameMock.mockReturnValue("/dashboard/domain-integrations");
 
     render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
-    const apiKeysButton = buttons.find((btn) =>
-      btn.textContent?.includes("API Keys"),
+    const domainIntegrationsButton = buttons.find((btn) =>
+      btn.textContent?.includes("Domain integrations"),
     );
-    expect(apiKeysButton).toHaveAttribute("data-active", "true");
+    expect(domainIntegrationsButton).toHaveAttribute("data-active", "true");
   });
 
   it("marks Search Query as active when on keyed search-queries path", () => {

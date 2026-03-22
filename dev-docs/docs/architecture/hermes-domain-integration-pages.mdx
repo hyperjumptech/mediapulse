@@ -117,7 +117,7 @@ end
 `}
 />
 
-Requests send `Content-Type: application/json`. When `DOMAIN_INTEGRATION_AUTH_TOKEN` is set in `@hermes/env`, Hermes adds `Authorization: Bearer …` on these fetches so the domain API can verify the caller.
+Requests send `Content-Type: application/json`. Hermes adds `Authorization: Bearer <JWT>` (minted via agent-auth-api **`POST /api/token`** using **`DOMAIN_INTEGRATION_BEARER_API_KEY`** or **`HERMES_INTERNAL_API_KEY`**) when agent auth is configured so the domain API can verify the caller (**`POST /api/verify`**).
 
 ## Rendering the list page (`DomainTablePage`)
 
@@ -156,6 +156,6 @@ Requests send `Content-Type: application/json`. When `DOMAIN_INTEGRATION_AUTH_TO
 
 1. Add HTTP handlers on the domain service for `GET …/meta`, `GET …` (list), and optional CRUD routes under your chosen `apiPrefix`.
 2. Add a `dashboard.pages[]` entry (template `table-v1`, `pathSegment`, `apiPrefix`, columns, actions, schemas, etc.) to the payload you send on registration.
-3. Ensure Hermes and the domain service share `DOMAIN_INTEGRATION_AUTH_TOKEN` (or equivalent) if the API is protected.
+3. Configure **JWT** verification on the domain service (`AGENT_AUTH_API_URL` → **`POST /api/verify`**) when the API is protected.
 
 The exact field list and validation rules live in `dashboardPageSchema` / `dashboardManifestSchema` in `packages/hermes/domain-contract/src/contracts.ts`.

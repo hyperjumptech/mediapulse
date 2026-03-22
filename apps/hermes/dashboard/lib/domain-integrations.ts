@@ -4,8 +4,15 @@ import {
   type RegisterDomainIntegrationRequest,
   type RegisterDomainIntegrationResponse,
 } from "@hermes/domain-contract";
-import type { Prisma } from "@hermes/orchestration-database";
-import { prisma } from "@hermes/orchestration-database";
+import {
+  DomainIntegrationStatus,
+  type Prisma,
+  prisma,
+} from "@hermes/orchestration-database";
+import { encryptDomainIntegrationApiKey } from "@hermes/domain-integration-crypto";
+import * as crypto from "node:crypto";
+
+import { env } from "@hermes/env";
 
 const defaultCapabilities = [
   "expand-step-inputs",
@@ -42,15 +49,41 @@ const parseDashboardManifest = (
     .parse(raw);
 };
 
+const activeIntegrationWhere = {
+  isActive: true,
+  status: DomainIntegrationStatus.active,
+  baseUrl: { not: null },
+} satisfies Prisma.DomainIntegrationWhereInput;
+
 /**
  * Registers (or refreshes) a domain integration record in orchestration storage.
+ * The Bearer token must be the plaintext API key whose hash matches the integration's linked `api_key` row.
  *
  * @param payload - Integration registration payload.
+ * @param bearerToken - Raw API key from `Authorization: Bearer`.
  * @returns Stored integration record.
  */
 export const registerDomainIntegration = async (
   payload: RegisterDomainIntegrationRequest,
+  bearerToken: string,
 ): Promise<RegisterDomainIntegrationResponse> => {
+  const hash = crypto.createHash("sha256").update(bearerToken).digest("hex");
+  const apiKeyRow = await prisma.aPIKey.findUnique({
+    where: { key: hash, isActive: true },
+    select: { id: true, purpose: true },
+  });
+  if (!apiKeyRow || apiKeyRow.purpose !== "domain_integration") {
+    throw new Error("Invalid API key for domain integration registration");
+  }
+
+  const bound = await prisma.domainIntegration.findFirst({
+    where: { key: payload.key, apiKeyId: apiKeyRow.id },
+    select: { id: true },
+  });
+  if (!bound) {
+    throw new Error("API key does not match this integration key");
+  }
+
   const capabilities = [...payload.capabilities];
   const dashboard = {
     templateVersion: payload.dashboard.templateVersion,
@@ -78,6 +111,7 @@ export const registerDomainIntegration = async (
       dashboardManifest,
       isDefault: payload.key === "mediapulse",
       isActive: true,
+      status: DomainIntegrationStatus.active,
       lastSeenAt: new Date(),
     },
     update: {
@@ -87,6 +121,7 @@ export const registerDomainIntegration = async (
       capabilities,
       dashboardManifest,
       isActive: true,
+      status: DomainIntegrationStatus.active,
       lastSeenAt: new Date(),
       ...(payload.key === "mediapulse" ? { isDefault: true } : {}),
     },
@@ -96,7 +131,7 @@ export const registerDomainIntegration = async (
     id: integration.id,
     key: integration.key,
     name: integration.name,
-    baseUrl: integration.baseUrl,
+    baseUrl: integration.baseUrl ?? "",
     version: integration.version,
     capabilities: parseCapabilities(integration.capabilities),
     isActive: integration.isActive,
@@ -120,7 +155,7 @@ export const getDefaultDomainIntegration = async (): Promise<{
   capabilities: RegisterDomainIntegrationResponse["capabilities"];
 }> => {
   const integration = await prisma.domainIntegration.findFirst({
-    where: { isActive: true },
+    where: activeIntegrationWhere,
     orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
     select: {
       id: true,
@@ -133,7 +168,7 @@ export const getDefaultDomainIntegration = async (): Promise<{
     },
   });
 
-  if (!integration) {
+  if (!integration || !integration.baseUrl) {
     throw new Error("No active domain integration registered");
   }
 
@@ -171,7 +206,7 @@ const toDomainIntegrationRecord = (row: {
   id: string;
   key: string;
   name: string;
-  baseUrl: string;
+  baseUrl: string | null;
   version: string | null;
   dashboardManifest: Prisma.JsonValue | null;
   capabilities: Prisma.JsonValue | null;
@@ -179,7 +214,7 @@ const toDomainIntegrationRecord = (row: {
   id: row.id,
   key: row.key,
   name: row.name,
-  baseUrl: row.baseUrl,
+  baseUrl: row.baseUrl ?? "",
   version: row.version,
   dashboard: parseDashboardManifest(row.dashboardManifest),
   capabilities: parseCapabilities(row.capabilities),
@@ -198,7 +233,7 @@ export const getActiveDomainIntegrations = async (
   > = prisma.domainIntegration,
 ): Promise<DomainIntegrationRecord[]> => {
   const rows = await db.findMany({
-    where: { isActive: true },
+    where: activeIntegrationWhere,
     orderBy: [{ isDefault: "desc" }, { key: "asc" }],
     select: {
       id: true,
@@ -210,7 +245,9 @@ export const getActiveDomainIntegrations = async (
       capabilities: true,
     },
   });
-  return rows.map(toDomainIntegrationRecord);
+  return rows
+    .filter((r) => r.baseUrl != null && r.baseUrl.length > 0)
+    .map(toDomainIntegrationRecord);
 };
 
 /**
@@ -228,7 +265,10 @@ export const getDomainIntegrationByKey = async (
   > = prisma.domainIntegration,
 ): Promise<DomainIntegrationRecord | null> => {
   const row = await db.findFirst({
-    where: { key: integrationKey, isActive: true },
+    where: {
+      key: integrationKey,
+      ...activeIntegrationWhere,
+    },
     select: {
       id: true,
       key: true,
@@ -241,4 +281,70 @@ export const getDomainIntegrationByKey = async (
   });
   if (!row) return null;
   return toDomainIntegrationRecord(row);
+};
+
+export type CreatePendingDomainIntegrationInput = {
+  /** Unique integration id (e.g. `mediapulse`). */
+  key: string;
+  /** Human-readable name. */
+  name: string;
+  /** Orchestration user id to own the `api_key` hash row. */
+  userId: string;
+};
+
+export type CreatePendingDomainIntegrationResult = {
+  id: string;
+  key: string;
+  name: string;
+  /** Raw API key; show once to the operator. */
+  apiKeyPlaintext: string;
+};
+
+/**
+ * Creates a pending domain integration: generates an API key, stores ciphertext + hash, links the API key row.
+ *
+ * @param input - Integration key, display name, and owning user id.
+ * @param db - Prisma client (injectable for tests).
+ * @param masterKey - `HERMES_INTERNAL_API_KEY` for encrypting the API key at rest.
+ * @returns Created row id and plaintext secret (once).
+ */
+export const createPendingDomainIntegration = async (
+  input: CreatePendingDomainIntegrationInput,
+  db: typeof prisma = prisma,
+  masterKey: string = env.HERMES_INTERNAL_API_KEY,
+): Promise<CreatePendingDomainIntegrationResult> => {
+  const rawKey = crypto.randomBytes(32).toString("base64url");
+  const hash = crypto.createHash("sha256").update(rawKey).digest("hex");
+  const encrypted = encryptDomainIntegrationApiKey(rawKey, masterKey);
+
+  return db.$transaction(async (tx) => {
+    const apiKey = await tx.aPIKey.create({
+      data: {
+        name: `Domain integration: ${input.key}`,
+        key: hash,
+        userId: input.userId,
+        purpose: "domain_integration",
+      },
+    });
+
+    const row = await tx.domainIntegration.create({
+      data: {
+        key: input.key,
+        name: input.name,
+        baseUrl: null,
+        status: DomainIntegrationStatus.pending,
+        isActive: false,
+        encryptedApiKey: encrypted,
+        apiKeyId: apiKey.id,
+        ...(input.key === "mediapulse" ? { isDefault: true } : {}),
+      },
+    });
+
+    return {
+      id: row.id,
+      key: row.key,
+      name: row.name,
+      apiKeyPlaintext: rawKey,
+    };
+  });
 };

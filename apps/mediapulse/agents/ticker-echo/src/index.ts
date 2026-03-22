@@ -32,7 +32,7 @@ const app = createAgentApp<
   },
   // Options for the agent app
   {
-    // Auto-register: AGENT_REGISTRY_URL, AGENT_PUBLIC_URL, DOMAIN_INTEGRATION_API_KEY, AGENT_AUTH_API_URL
+    // Auto-register: AGENT_REGISTRY_URL, AGENT_PUBLIC_URL, DOMAIN_INTEGRATION_API_KEY, DOMAIN_INTEGRATION_KEY, AGENT_AUTH_API_URL
     authApiUrl: env.AGENT_AUTH_API_URL ?? "",
     verifyToken:
       env.ALLOW_ANY_BEARER_FOR_LOCAL === "true" ? async () => true : undefined,
@@ -42,6 +42,7 @@ const app = createAgentApp<
       env.AGENT_PUBLIC_URL
         ? {
             registryUrl: env.AGENT_REGISTRY_URL,
+            domainIntegrationKey: env.DOMAIN_INTEGRATION_KEY ?? "mediapulse",
             domainIntegrationApiKey: env.DOMAIN_INTEGRATION_API_KEY,
             agentUrl: env.AGENT_PUBLIC_URL,
           }

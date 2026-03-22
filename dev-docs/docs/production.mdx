@@ -16,11 +16,11 @@ All **install** and **build** commands below run from the **repository root** un
 
 Provision **three** PostgreSQL logical databases (they can be three schemas on one server):
 
-| Database role              | Used for                                       | Connection env var(s)                                                                      | Deploy migrations                                                            |
-| -------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| **Hermes (orchestration)** | Pipelines, schedules, API keys, agent registry | `ORCHESTRATION_DATABASE_URL` (and optional legacy `DATABASE_URL`)                          | `pnpm --filter @hermes/orchestration-database db:migrate:deploy`             |
-| **Mediapulse (domain)**    | Tickers, newsletters, KG, subscribers, etc.    | `MEDIAPULSE_DATABASE_URL`                                                                  | `pnpm --filter @mediapulse/database db:migrate:deploy`                       |
-| **DataQueue**              | hermes-worker job queue (scheduler)            | `PG_DATAQUEUE_DATABASE` (same host is fine; use `?schema=dataqueue&search_path=dataqueue`) | `pnpm --filter @hermes/worker run migrate-dataqueue` (with queue URL in env) |
+| Database role              | Used for                                                  | Connection env var(s)                                                                      | Deploy migrations                                                            |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| **Hermes (orchestration)** | Pipelines, schedules, domain integrations, agent registry | `ORCHESTRATION_DATABASE_URL` (and optional legacy `DATABASE_URL`)                          | `pnpm --filter @hermes/orchestration-database db:migrate:deploy`             |
+| **Mediapulse (domain)**    | Tickers, newsletters, KG, subscribers, etc.               | `MEDIAPULSE_DATABASE_URL`                                                                  | `pnpm --filter @mediapulse/database db:migrate:deploy`                       |
+| **DataQueue**              | hermes-worker job queue (scheduler)                       | `PG_DATAQUEUE_DATABASE` (same host is fine; use `?schema=dataqueue&search_path=dataqueue`) | `pnpm --filter @hermes/worker run migrate-dataqueue` (with queue URL in env) |
 
 ---
 
@@ -77,16 +77,16 @@ Deploy in this order: **agent-auth-api → agent-registry-api → dashboard → 
 | Build                | `pnpm exec turbo build --filter=@hermes/dashboard` (see `apps/hermes/dashboard/Dockerfile` for Prisma generate + standalone output) |
 | Run (production)     | From app directory: `PORT=3001 pnpm start` (or `node server.js` for standalone build; see Dockerfile).                              |
 
-| Variable                        | Example value                         | Explanation                                                                                                                                                          |
-| ------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ORCHESTRATION_DATABASE_URL`    | `postgresql://…?schema=orchestration` | Orchestration DB.                                                                                                                                                    |
-| `TEMP_ADMIN_USERNAME`           | _(same as auth API)_                  | Pipeline / dashboard admin auth.                                                                                                                                     |
-| `TEMP_ADMIN_PASSWORD`           | _(same as auth API)_                  | Same as auth API.                                                                                                                                                    |
-| `AGENT_AUTH_API_URL`            | `https://agent-auth-api.example.com`  | Required with **`HERMES_INTERNAL_API_KEY`** for manual pipeline runs (JWT minting).                                                                                  |
-| `HERMES_INTERNAL_API_KEY`       | _(same preset as worker + auth API)_  | **Conditional:** shared secret for **`POST /api/token`** when a user runs a pipeline from the UI. Generate once per environment; not stored in the orchestration DB. |
-| `DOMAIN_INTEGRATION_AUTH_TOKEN` | _(shared secret)_                     | Optional; Bearer token Hermes sends to registered domain integration HTTP APIs—must match the domain-api process.                                                    |
+| Variable                            | Example value                         | Explanation                                                                                                                                                                                                                        |
+| ----------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORCHESTRATION_DATABASE_URL`        | `postgresql://…?schema=orchestration` | Orchestration DB.                                                                                                                                                                                                                  |
+| `TEMP_ADMIN_USERNAME`               | _(same as auth API)_                  | Pipeline / dashboard admin auth.                                                                                                                                                                                                   |
+| `TEMP_ADMIN_PASSWORD`               | _(same as auth API)_                  | Same as auth API.                                                                                                                                                                                                                  |
+| `AGENT_AUTH_API_URL`                | `https://agent-auth-api.example.com`  | Required with **`HERMES_INTERNAL_API_KEY`** for manual pipeline runs (JWT minting).                                                                                                                                                |
+| `HERMES_INTERNAL_API_KEY`           | _(same preset as worker + auth API)_  | **Conditional:** shared secret for **`POST /api/token`** when a user runs a pipeline from the UI. Generate once per environment; not stored in the orchestration DB.                                                               |
+| `DOMAIN_INTEGRATION_BEARER_API_KEY` | _(optional)_                          | Legacy optional override for JWT minting to domain HTTP. Prefer **Domain integrations** in the dashboard (stored API key); if omitted, Hermes uses **`HERMES_INTERNAL_API_KEY`** for **`POST /api/token`** where still applicable. |
 
-**Domain integration key (Mediapulse / agents):** In the dashboard go to **API keys → Create**, set purpose **`domain_integration`**, copy the key once into Mediapulse and agent env as **`DOMAIN_INTEGRATION_API_KEY`** (mint JWT for domain HTTP and auto-register). Hermes worker and dashboard use **`HERMES_INTERNAL_API_KEY`**, not this key.
+**Domain integration (Mediapulse / agents):** In the dashboard go to **Domain integrations → Create**, choose an integration key and copy the generated API key once into Mediapulse and agent env as **`DOMAIN_INTEGRATION_API_KEY`**, and set **`DOMAIN_INTEGRATION_KEY`** to the same integration key string. After **domain-api** registers with Hermes, Hermes decrypts the stored key to mint JWTs for domain HTTP and agent flows. **`HERMES_INTERNAL_API_KEY`** remains the deploy-time preset for Hermes-internal **`POST /api/token`** where the dashboard does not use a per-integration secret.
 
 ---
 
@@ -103,17 +103,17 @@ Merge **`packages/hermes/env/env.example`** with **`packages/hermes/env/env.herm
 | Build                | `pnpm exec turbo build --filter=@hermes/worker`                                                         |
 | Run (production)     | From app directory: `bun run ./dist/server.js` (see `package.json` `start`: `bun run ./dist/server.js`) |
 
-| Variable                        | Example value                                           | Explanation                                                                                                                                               |
-| ------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                  | `postgresql://…`                                        | Required by worker env schema (often same cluster as orchestration; schema may differ).                                                                   |
-| `ORCHESTRATION_DATABASE_URL`    | `postgresql://…?schema=orchestration`                   | Orchestration Prisma when `@hermes/env` loads.                                                                                                            |
-| `PG_DATAQUEUE_DATABASE`         | `postgresql://…?schema=dataqueue&search_path=dataqueue` | DataQueue storage after `migrate-dataqueue`.                                                                                                              |
-| `AGENT_AUTH_API_URL`            | `https://agent-auth-api.example.com`                    | Mint JWTs for scheduled agent invocations.                                                                                                                |
-| `HERMES_INTERNAL_API_KEY`       | _(same preset as dashboard + agent-auth-api)_           | Bearer credential for **`POST /api/token`** (not sent to agents).                                                                                         |
-| `REQUIRE_HTTPS_AGENT_ENDPOINTS` | `true`                                                  | Recommended in production.                                                                                                                                |
-| `DOMAIN_INTEGRATION_AUTH_TOKEN` | _(shared secret)_                                       | Bearer for domain-api calls; must match domain-api. Worker uses the **registered** integration `baseUrl` from orchestration (no separate public URL env). |
-| `PROCESSOR_BATCH_SIZE`          | `10`                                                    | Optional DataQueue tuning.                                                                                                                                |
-| `PROCESSOR_CONCURRENCY`         | `3`                                                     | Optional DataQueue tuning.                                                                                                                                |
+| Variable                            | Example value                                           | Explanation                                                                                                                             |
+| ----------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                      | `postgresql://…`                                        | Required by worker env schema (often same cluster as orchestration; schema may differ).                                                 |
+| `ORCHESTRATION_DATABASE_URL`        | `postgresql://…?schema=orchestration`                   | Orchestration Prisma when `@hermes/env` loads.                                                                                          |
+| `PG_DATAQUEUE_DATABASE`             | `postgresql://…?schema=dataqueue&search_path=dataqueue` | DataQueue storage after `migrate-dataqueue`.                                                                                            |
+| `AGENT_AUTH_API_URL`                | `https://agent-auth-api.example.com`                    | Mint JWTs for scheduled agent invocations.                                                                                              |
+| `HERMES_INTERNAL_API_KEY`           | _(same preset as dashboard + agent-auth-api)_           | Bearer credential for **`POST /api/token`** (not sent to agents).                                                                       |
+| `REQUIRE_HTTPS_AGENT_ENDPOINTS`     | `true`                                                  | Recommended in production.                                                                                                              |
+| `DOMAIN_INTEGRATION_BEARER_API_KEY` | _(optional; dashboard `domain_integration` key)_        | Same meaning as on the dashboard; JWTs for domain integration HTTP (step expansion). If omitted, **`HERMES_INTERNAL_API_KEY`** is used. |
+| `PROCESSOR_BATCH_SIZE`              | `10`                                                    | Optional DataQueue tuning.                                                                                                              |
+| `PROCESSOR_CONCURRENCY`             | `3`                                                     | Optional DataQueue tuning.                                                                                                              |
 
 ---
 
@@ -149,19 +149,19 @@ Deploy after the Hermes services you depend on (at minimum **agent-auth-api** fo
 | Build                | `pnpm exec turbo build --filter=@mediapulse/domain-api`  |
 | Run (production)     | From app directory: `PORT=8090 bun run ./dist/server.js` |
 
-| Variable                        | Example value                      | Explanation                                                                                                                        |
-| ------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `MEDIAPULSE_DATABASE_URL`       | `postgresql://…?schema=mediapulse` | Domain data.                                                                                                                       |
-| `MEDIAPULSE_API_URL`            | `https://domain-api.example.com`   | This service’s public base URL (registration + Hermes callbacks).                                                                  |
-| `DOMAIN_INTEGRATION_AUTH_TOKEN` | _(shared secret)_                  | Hermes sends `Authorization: Bearer …`; must match Hermes / worker.                                                                |
-| `HERMES_API_URL`                | `https://dashboard.example.com`    | Optional; Hermes base URL for self-registration.                                                                                   |
-| `DOMAIN_INTEGRATION_API_KEY`    | _(secret)_                         | Optional; Hermes **domain_integration** key: domain-api uses it to register; agents use the same variable for JWT mint / registry. |
-| `DOMAIN_INTEGRATION_KEY`        | `mediapulse`                       | Integration id metadata.                                                                                                           |
-| `DOMAIN_INTEGRATION_NAME`       | `Mediapulse`                       | Display name.                                                                                                                      |
-| `DOMAIN_INTEGRATION_VERSION`    | _(semver or empty)_                | Optional version string.                                                                                                           |
-| `PORT`                          | `8090`                             | HTTP port.                                                                                                                         |
+| Variable                     | Example value                        | Explanation                                                                                                                        |
+| ---------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `MEDIAPULSE_DATABASE_URL`    | `postgresql://…?schema=mediapulse`   | Domain data.                                                                                                                       |
+| `MEDIAPULSE_API_URL`         | `https://domain-api.example.com`     | This service’s public base URL (registration + Hermes callbacks).                                                                  |
+| `AGENT_AUTH_API_URL`         | `https://agent-auth-api.example.com` | Required for **JWT verification** on Hermes→domain-api requests (`POST /api/verify`). Omit only in local dev (open API).           |
+| `HERMES_API_URL`             | `https://dashboard.example.com`      | Optional; Hermes base URL for self-registration.                                                                                   |
+| `DOMAIN_INTEGRATION_API_KEY` | _(secret)_                           | Optional; Hermes **domain_integration** key: domain-api uses it to register; agents use the same variable for JWT mint / registry. |
+| `DOMAIN_INTEGRATION_KEY`     | `mediapulse`                         | Integration id metadata.                                                                                                           |
+| `DOMAIN_INTEGRATION_NAME`    | `Mediapulse`                         | Display name.                                                                                                                      |
+| `DOMAIN_INTEGRATION_VERSION` | _(semver or empty)_                  | Optional version string.                                                                                                           |
+| `PORT`                       | `8090`                               | HTTP port.                                                                                                                         |
 
-After domain-api is live, align **`DOMAIN_INTEGRATION_AUTH_TOKEN`** on Hermes (dashboard + worker) with domain-api, ensure domain integration registration has stored **`baseUrl`** (and manifest) in orchestration, and redeploy if you add or rotate secrets late. Hermes does not use a separate “domain API URL” env: URLs come from the integration rows only.
+After domain-api is live, set **`AGENT_AUTH_API_URL`** on domain-api (same auth service Hermes uses), ensure domain integration registration has stored **`baseUrl`** (and manifest) in orchestration, and configure **`DOMAIN_INTEGRATION_BEARER_API_KEY`** on Hermes if you want outbound calls to mint JWTs with a dashboard **`domain_integration`** key (optional; otherwise **`HERMES_INTERNAL_API_KEY`** is used). Hermes does not use a separate “domain API URL” env: URLs come from the integration rows only.
 
 ---
 
@@ -205,12 +205,12 @@ Annotated templates: **`packages/hermes/env/env.example`**, **`env.hermes-worker
 
 ## Secure agent communications
 
-- **JWT-only invocation:** Agent invocation uses **only** short-lived JWTs. Hermes dashboard and hermes-worker call `POST /api/token` with the preset **`HERMES_INTERNAL_API_KEY`** (same value on auth API, dashboard, and worker) to obtain a JWT, then send `Authorization: Bearer <jwt>` to agents. Agents forward that same header to **agent-data-api** on each run. Agents, agent-data-api, and agent-registry-api verify the JWT via `POST /api/verify`. The internal preset key is never sent to agents. For **startup registry registration** and **Mediapulse ↔ Hermes** HTTP, mint a JWT with a dashboard **domain_integration** API key (`DOMAIN_INTEGRATION_API_KEY` in Mediapulse/agent env). Set `AGENT_AUTH_JWT_SECRET` on agent-auth-api (required).
+- **JWT-only invocation:** Agent invocation uses **only** short-lived JWTs. Hermes **worker** and dashboard paths that target a **domain integration** decrypt that integration’s stored API key and call `POST /api/token` with that secret so the JWT is tied to the same credential as Mediapulse/agents. **`HERMES_INTERNAL_API_KEY`** remains the deploy-time preset for strictly Hermes-internal minting where no per-integration key applies. Agents forward `Authorization: Bearer <jwt>` to **agent-data-api**. Verification uses `POST /api/verify` on agent-auth-api. Set `AGENT_AUTH_JWT_SECRET` on agent-auth-api (required). Mediapulse and agents use **`DOMAIN_INTEGRATION_API_KEY`** (shown once when the admin creates the integration) plus **`DOMAIN_INTEGRATION_KEY`** for registration and token minting.
 - **HTTPS:** Use HTTPS for all service URLs in production. Set `REQUIRE_HTTPS_AGENT_ENDPOINTS=true` so hermes-worker rejects non-HTTPS agent endpoints (except localhost).
 - **No bypass in prod:** Do not set `ALLOW_ANY_BEARER_FOR_LOCAL=true` (or equivalent) in production; keep it for local dev only.
 
 ## Summary
 
 - **Order:** Prerequisites (three DB roles + migrations) → **Hermes** (auth API → registry API → dashboard → worker, with **`HERMES_INTERNAL_API_KEY`** aligned) → **Mediapulse** (agent-data-api → domain-api → agents).
-- **Secrets:** Never commit real values; use your platform’s secret storage. **`HERMES_INTERNAL_API_KEY`** is a deploy-time preset (not from the API keys UI). **`DOMAIN_INTEGRATION_API_KEY`** on Mediapulse/agents is a **domain_integration** key from the Hermes dashboard.
-- **JWTs:** Hermes mints invocation tokens with the internal preset via agent-auth-api; domain and agents mint with **domain_integration** keys; verification uses **`AGENT_AUTH_API_URL`** / **`AGENT_AUTH_JWT_SECRET`** on the auth API.
+- **Secrets:** Never commit real values; use your platform’s secret storage. **`HERMES_INTERNAL_API_KEY`** is a deploy-time preset. **`DOMAIN_INTEGRATION_API_KEY`** on Mediapulse/agents is the API key generated in **Domain integrations** (Hermes dashboard).
+- **JWTs:** agent-auth-api issues tokens for the internal preset and for **domain_integration** API keys (hash in DB); Hermes decrypts per-integration ciphertext for outbound domain/agent calls where configured. Verification uses **`AGENT_AUTH_API_URL`** / **`AGENT_AUTH_JWT_SECRET`** on the auth API.

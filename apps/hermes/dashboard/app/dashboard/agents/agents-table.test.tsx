@@ -69,6 +69,7 @@ const createMockAgent = (
   }>,
 ) => ({
   id: "agent-1",
+  domainIntegrationId: "di-1",
   agentId: "test-agent",
   agentVersion: "1.0",
   description: "Test description",

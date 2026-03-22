@@ -38,6 +38,7 @@ const createPipeline = (
 ): PipelineWithSteps => ({
   id: "p1",
   name: "Pipeline 1",
+  domainIntegrationId: "di-1",
   ...overrides,
 });
 
@@ -439,6 +440,7 @@ describe("validatePipeline", () => {
         agentId: "my-agent",
         agentVersion: "2.0.0",
         isActive: true,
+        domainIntegrationId: "di-1",
       },
     });
   });

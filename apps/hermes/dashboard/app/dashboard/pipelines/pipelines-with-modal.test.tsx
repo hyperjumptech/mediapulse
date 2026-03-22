@@ -55,6 +55,7 @@ vi.mock("./pipelines-table", () => ({
 
 const createMockPipeline = (id: string, name: string) => ({
   id,
+  domainIntegrationId: "di-1",
   name,
   description: null,
   isActive: true,

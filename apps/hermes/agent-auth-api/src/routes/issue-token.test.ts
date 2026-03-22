@@ -129,7 +129,7 @@ describe("issueToken route", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     const claims = decodeJwt(body.token as string);
-    expect(claims.sub).toBe("user-domain");
+    expect(claims.sub).toBe("key-1");
   });
 
   it("returns 200 with token when key has purpose scheduler", async () => {
@@ -150,6 +150,6 @@ describe("issueToken route", () => {
     expect(body).toEqual(expect.objectContaining({ expiresIn: 900 }));
     expect(mockFindUnique).toHaveBeenCalledOnce();
     const claims = decodeJwt(body.token as string);
-    expect(claims.sub).toBe("user-1");
+    expect(claims.sub).toBe("key-1");
   });
 });

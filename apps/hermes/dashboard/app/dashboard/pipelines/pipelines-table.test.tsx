@@ -67,6 +67,7 @@ const createMockPipeline = (
   }>,
 ) => ({
   id: "pipeline-1",
+  domainIntegrationId: "di-1",
   name: "Test Pipeline",
   description: "Test description",
   isActive: true,

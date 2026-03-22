@@ -129,10 +129,7 @@ export async function issueToken(context: Context) {
       );
     }
 
-    const { token, expiresIn } = await signInvocationJwt(
-      apiKey.userId,
-      jwtSecret,
-    );
+    const { token, expiresIn } = await signInvocationJwt(apiKey.id, jwtSecret);
     return context.json({ token, expiresIn }, 200);
   } catch (err) {
     logger.error({ err }, "Issue token error");

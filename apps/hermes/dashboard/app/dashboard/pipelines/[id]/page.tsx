@@ -21,14 +21,18 @@ const PipelineDetailPage = async ({
   params: Promise<{ id: string }>;
 }) => {
   const { id } = await params;
-  const [pipeline, agents] = await Promise.all([
-    getPipelineWithSteps(id),
-    getAgentRegistryList(),
-  ]);
+  const loaded = await getPipelineWithSteps(id);
 
-  if (!pipeline) {
+  if (!loaded) {
     notFound();
   }
+
+  const pipeline = loaded;
+
+  const agents = await getAgentRegistryList(
+    orchestrationPrisma,
+    pipeline.domainIntegrationId,
+  );
 
   const [configsByAgentKey, validation] = await Promise.all([
     getAgentConfigsByAgentKeys(

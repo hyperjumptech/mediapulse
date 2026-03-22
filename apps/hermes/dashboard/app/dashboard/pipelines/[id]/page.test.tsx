@@ -33,6 +33,7 @@ vi.mock("@/lib/validate-pipeline", () => ({
 
 vi.mock("@hermes/orchestration-database", () => ({
   prisma: {},
+  DomainIntegrationStatus: { pending: "pending", active: "active" },
 }));
 
 vi.mock("./pipeline-detail-content", () => ({
@@ -76,6 +77,7 @@ describe("PipelineDetailPage", () => {
     // Setup
     getPipelineWithStepsMock.mockResolvedValue({
       id: "pipeline-123",
+      domainIntegrationId: "di-1",
       name: "Test Pipeline",
       steps: [],
     });
@@ -102,6 +104,7 @@ describe("PipelineDetailPage", () => {
     getAgentConfigsByAgentKeysMock.mockResolvedValue({});
     getPipelineWithStepsMock.mockResolvedValue({
       id: "pipeline-123",
+      domainIntegrationId: "di-1",
       name: "Test Pipeline",
       steps: [],
     });
@@ -128,11 +131,16 @@ describe("PipelineDetailPage", () => {
     getAgentConfigsByAgentKeysMock.mockResolvedValue({});
     getPipelineWithStepsMock.mockResolvedValue(null);
     getAgentRegistryListMock.mockResolvedValue([]);
+    notFoundMock.mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
 
     // Act
-    await PipelineDetailPage({
-      params: Promise.resolve({ id: "non-existent" }),
-    });
+    await expect(
+      PipelineDetailPage({
+        params: Promise.resolve({ id: "non-existent" }),
+      }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
 
     // Assert
     expect(notFoundMock).toHaveBeenCalled();

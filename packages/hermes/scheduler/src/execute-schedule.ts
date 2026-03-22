@@ -26,6 +26,8 @@ export type InvokeAgentJobPayload = {
   scheduleId: string;
   pipelineId: string;
   pipelineStepId: string;
+  /** JWT minting scope for agent invocation. */
+  domainIntegrationId: string;
   agentId: string;
   agentVersion: string;
   endpointUrl: string;
@@ -51,6 +53,8 @@ export type ExpandStepInputsContext = {
   scheduleId: string;
   pipelineId: string;
   pipelineStepId: string;
+  /** Domain integration that owns the pipeline (JWT + expansion HTTP). */
+  domainIntegrationId: string;
   orchDb: PrismaClient;
 };
 
@@ -160,11 +164,16 @@ export const executeSchedule = async (
     return;
   }
 
+  const pipelineDomainId = schedule.pipeline.domainIntegrationId;
   const agentIds: string[] = [
     ...new Set(steps.map((s: { agentId: string }) => s.agentId)),
   ];
   const agents = await db.agentRegistry.findMany({
-    where: { agentId: { in: agentIds }, isActive: true },
+    where: {
+      agentId: { in: agentIds },
+      isActive: true,
+      domainIntegrationId: pipelineDomainId,
+    },
   });
   const agentByKey = new Map(
     agents.map((a) => [`${a.agentId}:${a.agentVersion}`, a]),
@@ -238,6 +247,7 @@ export const executeSchedule = async (
       scheduleId: schedule.id,
       pipelineId: schedule.pipelineId,
       pipelineStepId: step.id,
+      domainIntegrationId: pipelineDomainId,
       orchDb: db,
     });
 
@@ -359,6 +369,7 @@ export const executeSchedule = async (
           scheduleId: schedule.id,
           pipelineId: schedule.pipelineId,
           pipelineStepId: job.pipelineStepId,
+          domainIntegrationId: schedule.pipeline.domainIntegrationId,
           agentId: job.agentId,
           agentVersion: job.agentVersion,
           endpointUrl: job.endpointUrl,

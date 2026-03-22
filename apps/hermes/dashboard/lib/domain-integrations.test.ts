@@ -31,7 +31,11 @@ describe("getActiveDomainIntegrations", () => {
     const result = await getActiveDomainIntegrations({ findMany });
 
     expect(findMany).toHaveBeenCalledWith({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        status: "active",
+        baseUrl: { not: null },
+      },
       orderBy: [{ isDefault: "desc" }, { key: "asc" }],
       select: {
         id: true,
@@ -79,7 +83,12 @@ describe("getDomainIntegrationByKey", () => {
     });
 
     expect(findFirst).toHaveBeenCalledWith({
-      where: { key: "mediapulse", isActive: true },
+      where: {
+        key: "mediapulse",
+        isActive: true,
+        status: "active",
+        baseUrl: { not: null },
+      },
       select: {
         id: true,
         key: true,

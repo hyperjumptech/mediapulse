@@ -8,7 +8,6 @@ export const env = createEnv({
     MEDIAPULSE_DATABASE_URL: z.string().min(1),
     HERMES_DATA_SOURCE_MAX_TAKE: z.number({ coerce: true }).optional(),
     MEDIAPULSE_API_URL: z.string().optional(),
-    DOMAIN_INTEGRATION_AUTH_TOKEN: z.string().optional(),
     HERMES_API_URL: z.string().optional(),
     DOMAIN_INTEGRATION_API_KEY: z.string().optional(),
     DOMAIN_INTEGRATION_KEY: z.string().optional(),

@@ -4,9 +4,9 @@ import {
   tableV1MetaResponseSchema,
 } from "@hermes/domain-contract";
 import type { PreviewExpansionResponse } from "@hermes/domain-contract";
-import { env } from "@hermes/env";
 import { z } from "zod";
 
+import { getBearerJwtForDomainIntegrationId } from "@/lib/domain-integration-auth-token";
 import { getDomainIntegrationByKey } from "@/lib/domain-integrations";
 
 /** Page size for pipeline ticker fetch; must not exceed domain-api `MAX_PAGE_SIZE` (100). */
@@ -45,6 +45,7 @@ const getDashboardPage = async (
     pathSegment: string;
   };
   baseUrl: string;
+  integrationId: string;
 }> => {
   const integration = await getDomainIntegrationByKey(integrationKey);
   if (!integration) {
@@ -62,7 +63,11 @@ const getDashboardPage = async (
     );
   }
 
-  return { page, baseUrl: integration.baseUrl.replace(/\/$/, "") };
+  return {
+    page,
+    baseUrl: integration.baseUrl.replace(/\/$/, ""),
+    integrationId: integration.id,
+  };
 };
 
 /**
@@ -76,12 +81,14 @@ const getDashboardPage = async (
 const callDomain = async <T>(
   input: string,
   parser: (value: unknown) => T,
-  init?: RequestInit,
+  init: RequestInit | undefined,
+  domainIntegrationId: string,
 ): Promise<T> => {
   const headers = new Headers(init?.headers);
   headers.set("Content-Type", "application/json");
-  if (env.DOMAIN_INTEGRATION_AUTH_TOKEN) {
-    headers.set("Authorization", `Bearer ${env.DOMAIN_INTEGRATION_AUTH_TOKEN}`);
+  const jwt = await getBearerJwtForDomainIntegrationId(domainIntegrationId);
+  if (jwt) {
+    headers.set("Authorization", `Bearer ${jwt}`);
   }
 
   const response = await fetch(input, {
@@ -107,10 +114,15 @@ export const getDomainTableMeta = async (
   integrationKey: string,
   resource: string,
 ) => {
-  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
+  const { page, baseUrl, integrationId } = await getDashboardPage(
+    integrationKey,
+    resource,
+  );
   return callDomain(
     `${baseUrl}${page.apiPrefix}/meta`,
     tableV1MetaResponseSchema.parse,
+    undefined,
+    integrationId,
   );
 };
 
@@ -129,13 +141,15 @@ type CallDomainCustomPostResult =
 export const callDomainCustomPost = async (
   url: string,
   body: Record<string, unknown>,
+  domainIntegrationId: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<CallDomainCustomPostResult> => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (env.DOMAIN_INTEGRATION_AUTH_TOKEN) {
-    headers.Authorization = `Bearer ${env.DOMAIN_INTEGRATION_AUTH_TOKEN}`;
+  const jwt = await getBearerJwtForDomainIntegrationId(domainIntegrationId);
+  if (jwt) {
+    headers.Authorization = `Bearer ${jwt}`;
   }
 
   const response = await fetchImpl(url, {
@@ -199,9 +213,12 @@ export const invokeDomainTableCustomAction = async (
     return { success: false, message: "Unsupported custom action" };
   }
 
-  const { page, baseUrl } = await getPage(integrationKey, resource);
+  const { page, baseUrl, integrationId } = await getPage(
+    integrationKey,
+    resource,
+  );
   const url = `${baseUrl}${page.apiPrefix}${action.path}`;
-  const result = await callPost(url, { payloadJson });
+  const result = await callPost(url, { payloadJson }, integrationId);
 
   if (!result.ok) {
     return { success: false, message: result.message };
@@ -223,7 +240,10 @@ export const getDomainTableList = async (
   resource: string,
   params: DomainTableListParams,
 ) => {
-  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
+  const { page, baseUrl, integrationId } = await getDashboardPage(
+    integrationKey,
+    resource,
+  );
   const search = new URLSearchParams();
   search.set("page", String(params.page));
   search.set("pageSize", String(params.pageSize));
@@ -234,6 +254,8 @@ export const getDomainTableList = async (
   return callDomain(
     `${baseUrl}${page.apiPrefix}?${search.toString()}`,
     tableV1ListResponseSchema.parse,
+    undefined,
+    integrationId,
   );
 };
 
@@ -245,12 +267,13 @@ export const getDomainTableList = async (
 const resolveMediapulseTickersListUrl = async (): Promise<{
   baseUrl: string;
   apiPrefix: string;
+  integrationId: string;
 }> => {
-  const { page, baseUrl } = await getDashboardPage(
+  const { page, baseUrl, integrationId } = await getDashboardPage(
     "mediapulse",
     TICKERS_RESOURCE,
   );
-  return { baseUrl, apiPrefix: page.apiPrefix };
+  return { baseUrl, apiPrefix: page.apiPrefix, integrationId };
 };
 
 export type FetchAllTickersForPipelineRunDependencies = {
@@ -269,7 +292,7 @@ export const fetchAllTickersForPipelineRun = async (
   dependencies: FetchAllTickersForPipelineRunDependencies = {},
 ): Promise<Array<{ id: string }>> => {
   const resolveUrl = dependencies.resolveUrl ?? resolveMediapulseTickersListUrl;
-  const { baseUrl, apiPrefix } = await resolveUrl();
+  const { baseUrl, apiPrefix, integrationId } = await resolveUrl();
   const all: Array<{ id: string }> = [];
   let page = 1;
 
@@ -281,6 +304,8 @@ export const fetchAllTickersForPipelineRun = async (
     const payload = await callDomain(
       `${baseUrl}${apiPrefix}?${search.toString()}`,
       tableV1ListResponseSchema.parse,
+      undefined,
+      integrationId,
     );
 
     for (const item of payload.items) {
@@ -317,11 +342,15 @@ export const getDomainTableItemById = async (
   resource: string,
   id: string,
 ): Promise<Record<string, unknown> | null> => {
-  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
+  const { page, baseUrl, integrationId } = await getDashboardPage(
+    integrationKey,
+    resource,
+  );
   const headers = new Headers();
   headers.set("Content-Type", "application/json");
-  if (env.DOMAIN_INTEGRATION_AUTH_TOKEN) {
-    headers.set("Authorization", `Bearer ${env.DOMAIN_INTEGRATION_AUTH_TOKEN}`);
+  const jwt = await getBearerJwtForDomainIntegrationId(integrationId);
+  if (jwt) {
+    headers.set("Authorization", `Bearer ${jwt}`);
   }
 
   const response = await fetch(`${baseUrl}${page.apiPrefix}/${id}`, {
@@ -378,7 +407,7 @@ export const previewDomainExpansion = async (
 
   const client = createClient({
     baseUrl: integration.baseUrl,
-    authToken: env.DOMAIN_INTEGRATION_AUTH_TOKEN,
+    authToken: await getBearerJwtForDomainIntegrationId(integration.id),
   });
 
   return client.previewExpansion({ expansionString });
@@ -397,11 +426,19 @@ export const createDomainTableItem = async (
   resource: string,
   body: Record<string, unknown>,
 ) => {
-  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
-  return callDomain(`${baseUrl}${page.apiPrefix}`, (value) => value, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  const { page, baseUrl, integrationId } = await getDashboardPage(
+    integrationKey,
+    resource,
+  );
+  return callDomain(
+    `${baseUrl}${page.apiPrefix}`,
+    (value) => value,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    integrationId,
+  );
 };
 
 /**
@@ -419,11 +456,19 @@ export const updateDomainTableItem = async (
   id: string,
   body: Record<string, unknown>,
 ) => {
-  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
-  return callDomain(`${baseUrl}${page.apiPrefix}/${id}`, (value) => value, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
+  const { page, baseUrl, integrationId } = await getDashboardPage(
+    integrationKey,
+    resource,
+  );
+  return callDomain(
+    `${baseUrl}${page.apiPrefix}/${id}`,
+    (value) => value,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+    integrationId,
+  );
 };
 
 /**
@@ -439,8 +484,16 @@ export const deleteDomainTableItem = async (
   resource: string,
   id: string,
 ) => {
-  const { page, baseUrl } = await getDashboardPage(integrationKey, resource);
-  return callDomain(`${baseUrl}${page.apiPrefix}/${id}`, (value) => value, {
-    method: "DELETE",
-  });
+  const { page, baseUrl, integrationId } = await getDashboardPage(
+    integrationKey,
+    resource,
+  );
+  return callDomain(
+    `${baseUrl}${page.apiPrefix}/${id}`,
+    (value) => value,
+    {
+      method: "DELETE",
+    },
+    integrationId,
+  );
 };

@@ -20,8 +20,8 @@ Schemas and client types live in [`@hermes/domain-contract`](/hermes/packages/he
 ## Prerequisites
 
 - A **Hermes API base URL** (e.g. `https://hermes.example.com` or `http://localhost:3001` in dev).
-- A **Hermes API key** used as **Bearer** when your domain service registers itself and when Hermes calls your API (if you protect it). Local setup often uses one **`domain_integration`** key for both registration and agent-related flows; see [Getting Started](/getting-started).
-- **Shared secret (recommended):** if you set `DOMAIN_INTEGRATION_AUTH_TOKEN` in Hermes (`@hermes/env`), Hermes sends `Authorization: Bearer …` on domain-integration HTTP calls; your API should verify the same token.
+- A **domain integration API key** from Hermes (**Domain integrations → Create**): use the same value as **`DOMAIN_INTEGRATION_API_KEY`** for registration and agent flows, and set **`DOMAIN_INTEGRATION_KEY`** to the integration key string; see [Getting Started](/getting-started).
+- **JWT (recommended):** Hermes mints short-lived JWTs via agent-auth-api **`POST /api/token`** using the **decrypted per-integration secret** (or **`HERMES_INTERNAL_API_KEY`** for strictly internal minting). Your domain API should verify with agent-auth-api **`POST /api/verify`** (see `AGENT_AUTH_API_URL` on the domain service). Optional **`DOMAIN_INTEGRATION_BEARER_API_KEY`** is legacy; prefer the integration wizard.
 
 ## Registration
 
@@ -41,11 +41,11 @@ If registration fails or the integration is inactive, Hermes omits those section
 **On the domain service (caller):**
 
 - **`HERMES_API_URL`** — Hermes origin used for `POST /api/domain-integrations/register`.
-- **`DOMAIN_INTEGRATION_API_KEY`** — Bearer token for that registration request (Hermes **domain_integration** API key; valid for `POST /api/verify-api-key`).
+- **`DOMAIN_INTEGRATION_API_KEY`** — Bearer token for registration (the key shown once when the admin created the integration).
 
 **On Hermes (already configured in deployment):**
 
-- **`DOMAIN_INTEGRATION_AUTH_TOKEN`** — Optional; when set, Hermes attaches it when calling your `baseUrl` for expansion and table-v1.
+- **`DOMAIN_INTEGRATION_BEARER_API_KEY`** — Optional legacy override for JWT minting. Prefer storing the integration secret via **Domain integrations** so Hermes decrypts it for outbound calls.
 
 Exact names for Mediapulse’s **`domain-api`** are listed in [domain-api (Mediapulse)](/mediapulse/apps/domain-api).
 
@@ -55,7 +55,7 @@ To expose CRUD/list UIs in the Hermes dashboard under `/dashboard/{integrationKe
 
 1. Implement the **table-v1 HTTP surface** for your resource (meta, list, optional create/update/delete) under a chosen **`apiPrefix`**.
 2. Add a matching entry to **`dashboard.pages`** in the registration payload (`template: "table-v1"`, `pathSegment`, `label`, columns, etc.).
-3. Align **auth** with Hermes (`DOMAIN_INTEGRATION_AUTH_TOKEN` or your own verification).
+3. Align **auth** with Hermes (JWT via agent-auth-api, or leave `AGENT_AUTH_API_URL` unset on the domain service only for local dev).
 
 Full route table and sequence diagrams: [Hermes domain integration dashboard pages](/architecture/hermes-domain-integration-pages).
 

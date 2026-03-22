@@ -1,9 +1,11 @@
 import got from "got";
 import {
   AgentJobExecutionStatus,
+  DomainIntegrationStatus,
   Prisma,
   prisma as orchestrationPrisma,
 } from "@hermes/orchestration-database";
+import { decryptDomainIntegrationApiKey } from "@hermes/domain-integration-crypto";
 import { createDomainIntegrationClient } from "@hermes/domain-contract";
 import { env } from "@hermes/env/hermes-worker";
 import { logger } from "@workspace/logger";
@@ -48,50 +50,60 @@ const createHttpClient = (signal?: AbortSignal): InvokeAgentHttpClient => ({
   },
 });
 
-if (!env.AGENT_AUTH_API_URL || !env.HERMES_INTERNAL_API_KEY) {
+if (!env.HERMES_INTERNAL_API_KEY) {
   throw new Error(
-    "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY are required for hermes-worker (JWT-only agent invocation)",
+    "HERMES_INTERNAL_API_KEY is required for hermes-worker (JWT mint + decrypt)",
   );
 }
 
-/** JWT-only: worker mints short-lived tokens from auth API; never sends the internal key to agents. */
-const tokenClient = createAgentTokenClient({
-  authApiUrl: env.AGENT_AUTH_API_URL,
-  credential: env.HERMES_INTERNAL_API_KEY,
-});
-
 /**
- * Returns a short-lived JWT from the auth API for agent invocation.
+ * Mints a JWT using the decrypted domain integration API key (not the internal preset).
+ *
+ * @param domainIntegrationId - Orchestration `domain_integration.id` from the pipeline.
  */
-async function getAuthToken(): Promise<string> {
-  return tokenClient.getToken();
+async function getJwtForDomainIntegration(
+  domainIntegrationId: string,
+): Promise<string> {
+  const row = await orchestrationPrisma.domainIntegration.findFirst({
+    where: {
+      id: domainIntegrationId,
+      status: DomainIntegrationStatus.active,
+      encryptedApiKey: { not: null },
+    },
+    select: { encryptedApiKey: true },
+  });
+  if (!row?.encryptedApiKey) {
+    throw new Error(
+      `No encrypted API key for domain integration ${domainIntegrationId}; complete dashboard setup and domain registration.`,
+    );
+  }
+  const plaintext = decryptDomainIntegrationApiKey(
+    row.encryptedApiKey,
+    env.HERMES_INTERNAL_API_KEY,
+  );
+  return createAgentTokenClient({
+    authApiUrl: env.AGENT_AUTH_API_URL,
+    credential: plaintext,
+  }).getToken();
 }
 
-/**
- * Resolves the active domain integration base URL from orchestration storage (registration payload).
- *
- * @returns Base URL for expansion HTTP calls to domain-api.
- */
-const resolveDomainIntegrationBaseUrl = async (): Promise<string> => {
+const expandStepInputs: ExpandStepInputs = async (context) => {
   const integration = await orchestrationPrisma.domainIntegration.findFirst({
-    where: { isActive: true },
-    orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
+    where: {
+      id: context.domainIntegrationId,
+      status: DomainIntegrationStatus.active,
+    },
     select: { baseUrl: true },
   });
   const baseUrl = integration?.baseUrl?.trim();
   if (!baseUrl) {
     throw new Error(
-      "No active domain integration with a base URL; register domain-api with Hermes (domain integration) before running pipelines that need step-input expansion.",
+      "Domain integration has no base URL; register domain-api with Hermes before running pipelines that need step-input expansion.",
     );
   }
-  return baseUrl;
-};
-
-const expandStepInputs: ExpandStepInputs = async (context) => {
-  const baseUrl = await resolveDomainIntegrationBaseUrl();
   const domainClient = createDomainIntegrationClient({
     baseUrl,
-    authToken: env.DOMAIN_INTEGRATION_AUTH_TOKEN,
+    authToken: await getJwtForDomainIntegration(context.domainIntegrationId),
   });
   const response = await domainClient.expandStepInputs({
     input: context.input,
@@ -211,7 +223,9 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     }
 
     const httpClient = createHttpClient(signal);
-    const authToken = await getAuthToken();
+    const authToken = await getJwtForDomainIntegration(
+      payload.domainIntegrationId,
+    );
     const endpoint = { url: payload.endpointUrl, method: "POST" as const };
     const postResult = await invokeAgentPost(
       endpoint,

@@ -110,6 +110,18 @@ describe("getAgentRegistryList", () => {
     });
   });
 
+  it("filters by domainIntegrationId when provided", async () => {
+    const db = createMockDb();
+    db.agentRegistry.findMany.mockResolvedValue([]);
+
+    await getAgentRegistryList(asDb(db), "di-1");
+
+    expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
+      where: { isActive: true, domainIntegrationId: "di-1" },
+      orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
+    });
+  });
+
   it("returns the result of findMany", async () => {
     const db = createMockDb();
     const agents = [{ id: "a1", agentId: "ag1", agentVersion: "1" }];

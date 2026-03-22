@@ -32,6 +32,7 @@ const bodyValidator = z.object({
   agentVersion: z.string().min(1, "Agent version is required"),
   description: z.string().optional(),
   endpoint: endpointSchema,
+  domainIntegrationId: z.string().uuid().optional(),
   isActive: z
     .union([z.boolean(), z.literal("true"), z.literal("false")])
     .optional()
@@ -75,17 +76,41 @@ export const createCreateAgentHandler = ({
       return errorResponse("Unauthorized");
     }
 
-    const { agentId, agentVersion, description, endpoint, isActive } =
-      data.body;
+    const {
+      agentId,
+      agentVersion,
+      description,
+      endpoint,
+      isActive,
+      domainIntegrationId: bodyDomainId,
+    } = data.body;
+
+    let domainIntegrationId = bodyDomainId;
+    if (!domainIntegrationId) {
+      const first = await db.domainIntegration.findFirst({
+        orderBy: [{ isDefault: "desc" }, { key: "asc" }],
+        select: { id: true },
+      });
+      if (!first) {
+        return errorResponse(
+          "No domain integration configured; add one under Domain integrations first.",
+        );
+      }
+      domainIntegrationId = first.id;
+    }
 
     const existing = await db.agentRegistry.findUnique({
       where: {
-        agentId_agentVersion: { agentId, agentVersion },
+        domainIntegrationId_agentId_agentVersion: {
+          domainIntegrationId,
+          agentId,
+          agentVersion,
+        },
       },
     });
     if (existing) {
       return errorResponse(
-        `Agent "${agentId}" version "${agentVersion}" already exists.`,
+        `Agent "${agentId}" version "${agentVersion}" already exists for this domain integration.`,
       );
     }
 
@@ -98,6 +123,7 @@ export const createCreateAgentHandler = ({
           typeof db.agentRegistry.create
         >[0]["data"]["endpoint"],
         isActive,
+        domainIntegrationId,
       },
     });
 

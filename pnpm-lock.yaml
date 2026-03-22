@@ -198,6 +198,9 @@ importers:
       hono-pino:
         specifier: 'catalog:'
         version: 0.6.0(hono@4.11.9)(pino@10.3.1)
+      jose:
+        specifier: ^6.0.11
+        version: 6.2.0
       zod:
         specifier: 'catalog:'
         version: 3.25.76
@@ -217,6 +220,9 @@ importers:
       '@hermes/domain-contract':
         specifier: workspace:*
         version: link:../../../packages/hermes/domain-contract
+      '@hermes/domain-integration-crypto':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-integration-crypto
       '@hermes/env':
         specifier: workspace:*
         version: link:../../../packages/hermes/env
@@ -344,6 +350,9 @@ importers:
       '@hermes/domain-contract':
         specifier: workspace:*
         version: link:../../../packages/hermes/domain-contract
+      '@hermes/domain-integration-crypto':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-integration-crypto
       '@hermes/env':
         specifier: workspace:*
         version: link:../../../packages/hermes/env
@@ -793,6 +802,30 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.33
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      '@workspace/eslint-config':
+        specifier: workspace:^
+        version: link:../../shared/eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../shared/typescript-config
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.6.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/hermes/domain-integration-crypto:
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

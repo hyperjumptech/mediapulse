@@ -280,9 +280,9 @@ describe("DashboardShell", () => {
     expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("Agents");
   });
 
-  it("shows API Keys breadcrumb on /dashboard/api-keys", () => {
+  it("shows Domain integrations breadcrumb on /dashboard/domain-integrations", () => {
     // Setup
-    usePathnameMock.mockReturnValue("/dashboard/api-keys");
+    usePathnameMock.mockReturnValue("/dashboard/domain-integrations");
 
     // Act
     render(
@@ -292,7 +292,9 @@ describe("DashboardShell", () => {
     );
 
     // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("API Keys");
+    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
+      "Domain integrations",
+    );
   });
 
   it("shows Schedules breadcrumb on /dashboard/schedules", () => {

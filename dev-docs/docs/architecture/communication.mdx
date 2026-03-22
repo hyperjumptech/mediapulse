@@ -10,13 +10,13 @@ This page explains **how the parts of the system talk to each other**: who calls
 
 ## Auth mechanisms (overview)
 
-| Flow                                               | Credential on the wire                                                                                                                           | Verified by                                                           |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| **Minting** (Hermes / worker → agent-auth-api)     | Preset **`HERMES_INTERNAL_API_KEY`** in `Authorization: Bearer …` on **`POST /api/token`**                                                       | Timing-safe compare to env (not stored in DB)                         |
-| **Minting** (Mediapulse / agents → agent-auth-api) | Dashboard **`domain_integration`** API key in `Authorization: Bearer …` on **`POST /api/token`**                                                 | Key lookup in DB (purpose `domain_integration` or legacy `scheduler`) |
-| **Invocation** (Hermes / worker → agent)           | Short-lived **JWT**                                                                                                                              | Agent calls `POST /api/verify`                                        |
-| **Agent → agent-data-api / agent-registry-api**    | **Same JWT** the agent received for the run (forwarded), or a **new JWT** minted with the **domain_integration** key (e.g. startup registration) | Each API uses `POST /api/verify` via `@workspace/agent-auth-client`   |
-| **Dashboard / admin** (when applicable)            | Raw API key on some routes                                                                                                                       | `POST /api/verify-api-key`                                            |
+| Flow                                               | Credential on the wire                                                                                                                                        | Verified by                                                           |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Minting** (Hermes / worker → agent-auth-api)     | Preset **`HERMES_INTERNAL_API_KEY`** or decrypted **domain integration** API key in `Authorization: Bearer …` on **`POST /api/token`** (depends on call site) | Preset vs DB hash + ciphertext (see agent-auth-api)                   |
+| **Minting** (Mediapulse / agents → agent-auth-api) | **`DOMAIN_INTEGRATION_API_KEY`** (same secret Hermes created for that integration) on **`POST /api/token`**                                                   | Key lookup in DB (purpose `domain_integration` or legacy `scheduler`) |
+| **Invocation** (Hermes / worker → agent)           | Short-lived **JWT**                                                                                                                                           | Agent calls `POST /api/verify`                                        |
+| **Agent → agent-data-api / agent-registry-api**    | **Same JWT** the agent received for the run (forwarded), or a **new JWT** minted with the **domain_integration** key (e.g. startup registration)              | Each API uses `POST /api/verify` via `@workspace/agent-auth-client`   |
+| **Dashboard / admin** (when applicable)            | Raw API key on some routes                                                                                                                                    | `POST /api/verify-api-key`                                            |
 
 Invocation proves the caller is allowed to run the step. **agent-data-api** and **agent-registry-api** do not accept raw API keys from agents for normal requests—they expect a **JWT** and verify it the same way agents do.
 
@@ -24,9 +24,9 @@ Invocation proves the caller is allowed to run the step. **agent-data-api** and 
 
 ## Invocation flow: Hermes or hermes-worker → Agent
 
-When a pipeline runs (from the dashboard or on a schedule), the caller **never** sends the preset internal secret to agents. Hermes dashboard and hermes-worker use **`HERMES_INTERNAL_API_KEY`** (same value on worker, dashboard, and agent-auth-api) only to call `POST /api/token`; they send the returned **JWT** to agents.
+When a pipeline runs (from the dashboard or on a schedule), the caller **never** sends long-lived secrets to agents. Hermes dashboard and hermes-worker mint JWTs via `POST /api/token` using the **decrypted domain integration API key** for that pipeline’s integration (or the internal preset where the flow is Hermes-only). They send the returned **JWT** to agents.
 
-**Domain and agents:** To mint JWTs for **Mediapulse ↔ Hermes** or **registry auto-register**, an admin creates an API key in the dashboard with purpose **`domain_integration`** and sets the raw value as **`DOMAIN_INTEGRATION_API_KEY`** in Mediapulse/agent env (shown once at creation).
+**Domain and agents:** To mint JWTs for **Mediapulse ↔ Hermes** or **registry auto-register**, an admin creates a **domain integration** in Hermes (integration key + one-time API key) and sets **`DOMAIN_INTEGRATION_API_KEY`** and **`DOMAIN_INTEGRATION_KEY`** in Mediapulse/agent env.
 
 <Mermaid
   chart={`sequenceDiagram
@@ -48,8 +48,8 @@ Agent->>HermesOrWorker: 200 response
 
 **Steps:**
 
-1. **Hermes** (manual run) or **hermes-worker** (scheduled run) is configured with **`HERMES_INTERNAL_API_KEY`** (deploy-time preset, not from the API keys UI). The caller uses it to call **agent-auth-api** `POST /api/token` with `Authorization: Bearer <HERMES_INTERNAL_API_KEY>`.
-2. **agent-auth-api** matches the bearer token to **`HERMES_INTERNAL_API_KEY`**, signs a JWT with `AGENT_AUTH_JWT_SECRET` (fixed internal `sub`, not tied to a DB user), and returns `{ token, expiresIn }` (e.g. 15 minutes).
+1. **Hermes** (manual run) or **hermes-worker** (scheduled run) loads the **domain integration** credential for the pipeline (or uses **`HERMES_INTERNAL_API_KEY`** where applicable) and calls **agent-auth-api** `POST /api/token` with `Authorization: Bearer <secret>`.
+2. **agent-auth-api** matches the bearer token to the preset or a **domain_integration** key hash, signs a JWT with `AGENT_AUTH_JWT_SECRET`, and returns `{ token, expiresIn }` (e.g. 15 minutes).
 3. Hermes/hermes-worker **caches** the JWT and uses it for all agent requests until close to expiry, then fetches a new one.
 4. For each pipeline step, the caller sends `POST` to the agent URL with `Authorization: Bearer <jwt>` and the step input/config.
 5. The **agent** (via `@workspace/agent-runtime` bearer middleware) receives the request, extracts the Bearer token, and calls **agent-auth-api** `POST /api/verify` with that token.

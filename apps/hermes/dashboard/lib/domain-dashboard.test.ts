@@ -16,6 +16,10 @@ vi.mock("@/lib/domain-integrations", () => ({
     getDomainIntegrationByKey(...args),
 }));
 
+vi.mock("@/lib/domain-integration-auth-token", () => ({
+  getBearerJwtForDomainIntegrationId: vi.fn().mockResolvedValue("test-jwt"),
+}));
+
 describe("getDomainTableMeta", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -95,6 +99,7 @@ describe("callDomainCustomPost", () => {
     const result = await callDomainCustomPost(
       "http://localhost/v1/x",
       { payloadJson: "{}" },
+      "di-1",
       fetchMock,
     );
 
@@ -113,6 +118,7 @@ describe("callDomainCustomPost", () => {
     const result = await callDomainCustomPost(
       "http://localhost/v1/x",
       { payloadJson: "{}" },
+      "di-1",
       fetchMock,
     );
 
@@ -131,6 +137,7 @@ describe("callDomainCustomPost", () => {
     const result = await callDomainCustomPost(
       "http://localhost/v1/x",
       { payloadJson: "{}" },
+      "di-1",
       fetchMock,
     );
 
@@ -223,6 +230,7 @@ describe("invokeDomainTableCustomAction", () => {
         pathSegment: "tickers",
       },
       baseUrl: "http://localhost",
+      integrationId: "di-1",
     });
     const callPost = vi.fn().mockResolvedValue({
       ok: true,
@@ -244,6 +252,7 @@ describe("invokeDomainTableCustomAction", () => {
     expect(callPost).toHaveBeenCalledWith(
       "http://localhost/v1/hermes-dashboard/tickers/import-idx-json",
       { payloadJson: '{"data":[]}' },
+      "di-1",
     );
   });
 });
@@ -408,6 +417,7 @@ describe("fetchAllTickersForPipelineRun", () => {
   const injectedResolve = async () => ({
     baseUrl: "http://localhost:8090",
     apiPrefix: "/v1/hermes-dashboard/tickers",
+    integrationId: "di-1",
   });
 
   it("returns string ids from a single page", async () => {

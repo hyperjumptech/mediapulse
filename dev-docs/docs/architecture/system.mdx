@@ -6,7 +6,7 @@ icon: GitBranch
 
 ## System overview
 
-**Hermes** (Next.js) is the orchestration dashboard: pipelines, schedules, API keys. It integrates with the **Mediapulse domain API** for data-source expansion and for domain-backed UI. **hermes-worker** runs the DataQueue scheduler and invokes agents over HTTP with short-lived JWTs.
+**Hermes** (Next.js) is the orchestration dashboard: pipelines, schedules, domain integrations. It integrates with the **Mediapulse domain API** for data-source expansion and for domain-backed UI. **hermes-worker** runs the DataQueue scheduler and invokes agents over HTTP with short-lived JWTs.
 
 **Mediapulse** provides **agent-data-api** (agent persistence), **domain-api** (Mediapulse DB + Hermes contract), **user-registration**, and the **agents** under `apps/mediapulse/agents/*`.
 
@@ -18,7 +18,7 @@ For which app owns what, see [Hermes and Mediapulse domains](/architecture/domai
   chart={`flowchart LR
   subgraph hermes_sub ["Hermes domain"]
     hermes_app["Hermes dashboard (Next.js)"]
-    dashboard["Pipelines / schedules / API keys"]
+    dashboard["Pipelines / schedules / integrations"]
     hermes_app --> dashboard
   end
 

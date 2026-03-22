@@ -6,7 +6,7 @@ icon: Zap
 
 ## Purpose
 
-**`@hermes/dashboard`** is the orchestration UI: **pipelines** (sequences of agents), **tickers**, **agents**, **agent configs**, **variables**, **API keys**, and **schedules**. This Next.js app exposes the dashboard and APIs for creating and editing schedules. The **scheduler** itself (DataQueue processor and supervisor) runs in **`hermes-worker`** so the dashboard stays a normal web app without owning the queue process.
+**`@hermes/dashboard`** is the orchestration UI: **pipelines** (sequences of agents), **tickers**, **agents**, **agent configs**, **variables**, **domain integrations** (per-integration API keys and lifecycle), and **schedules**. This Next.js app exposes the dashboard and APIs for creating and editing schedules. The **scheduler** itself (DataQueue processor and supervisor) runs in **`hermes-worker`** so the dashboard stays a normal web app without owning the queue process.
 
 ## Quick overview
 
@@ -16,18 +16,18 @@ icon: Zap
 
 ## Features
 
-- **Dashboard UI** — Manage pipelines, pipeline steps, agents, API keys, and schedules. Domain-owned resources are rendered from a registered dashboard manifest (`table-v1`) rather than hardcoded Prisma-backed pages.
+- **Dashboard UI** — Manage pipelines, pipeline steps, agents, domain integrations, and schedules. Domain-owned resources are rendered from a registered dashboard manifest (`table-v1`) rather than hardcoded Prisma-backed pages.
 - **Domain pages from integration manifest** — Each domain integration registers a **key** (e.g. `mediapulse`) and a list of dashboard pages (`pathSegment`, `apiPrefix`, labels). Sidebar links and routes are **`/dashboard/{integrationKey}/{pathSegment}`** (for example `/dashboard/mediapulse/tickers`). Hermes resolves the active integration by key and calls that integration’s HTTP API for `table-v1` list/meta and mutations — not hard-coded `/dashboard/tickers` routes.
 - **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, and for each pipeline step expands that step's input (e.g. data-source expressions like `db:ticker:id`), then invokes the step via HTTP. Hermes does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
 - **Ticker import** — When the domain manifest registers a `json-file-upload` custom action (e.g. IDX JSON), Hermes shows an import card on `/dashboard/{integrationKey}/tickers` and POSTs to the domain API; Mediapulse runs `@mediapulse/idx-tickers-importer` on the service side.
 - **Session-based auth** — Dashboard uses cookie/session auth. When running pipelines manually, agents are invoked with **short-lived JWT bearer tokens** minted via agent-auth-api using **`HERMES_INTERNAL_API_KEY`**; that preset is never sent to agents.
 - **Variable management** — Admins can CRUD **variables** (key, value, optional note, secret flag) from `/dashboard/variables`. Variables are referenced in agent config and step input as `{{VAR_KEY}}`; at pipeline execution time the placeholder is replaced with the stored value. Secret variables are never returned by the API or shown in the UI after creation (value is masked).
-- **API key management** — Admins can CRUD API keys from the dashboard. Create and update use modals; the raw key is shown once after create (stored as SHA-256 hash in DB, aligned with agent-auth-api).
+- **Domain integrations** — Admins create an integration (stable key + description); Hermes generates an API key, shows it once, stores it encrypted, and ties pipelines/agents to that integration after domain-api registers.
 
 ## Key routes / entrypoints
 
-- Dashboard: `/dashboard` (Hermes-native: pipelines, agents, **agent configs**, **variables**, API keys, schedules). Domain-owned tables live under **`/dashboard/{integrationKey}/{pathSegment}`** (see registered integration manifest).
+- Dashboard: `/dashboard` (Hermes-native: pipelines, agents, **agent configs**, **variables**, **domain integrations**, schedules). Domain-owned tables live under **`/dashboard/{integrationKey}/{pathSegment}`** (see registered integration manifest).
 - Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline. **Pipeline detail** uses a three-column layout: available agents (click to add), pipeline steps (select, reorder, remove), and step editor (pipeline name/description, step **input** and **config** from agent schemas). When adding or editing a step, you can set input and config (or choose a **saved agent config**). String fields in the step editor use a **variable/expansion input**: you can type freely or use the **Insert…** picker to add variable placeholders (`{{KEY}}`) or data source expansion template strings. Save persists pipeline metadata and the selected step's input/config.
 - **Agent configs** (`/dashboard/agent-configs`): Create, edit, duplicate, or delete named configs per agent (agentId + version). Each config has a name, description, and JSON validated against the agent’s config schema. Config string fields support the same variable (`{{key}}`) and data-source expansion insert picker used by pipeline step input forms. Configs can be assigned to pipeline steps so one config is reused across steps; updating a saved config applies to all steps that reference it. If an agent’s config schema changes (same version), saved configs are marked “Schema changed” until you re-save them.
 - Ticker actions: create, update, delete, import (IDX JSON via manifest `customActions` → domain API).
@@ -38,7 +38,7 @@ icon: Zap
 - **Entity types** (`/dashboard/{integrationKey}/entity-types`): Manage entity classification vocabulary used by analysis prompts.
 - **Relation types** (`/dashboard/{integrationKey}/relation-types`): Manage relation vocabulary used by analysis prompts.
 - **KG dev seeding** — Run `pnpm --filter @mediapulse/database run seed-kg-vocabulary` from the monorepo root for vocabulary, then `pnpm seed-kg-pipelines` from `apps/hermes/dashboard` for pipelines/schedules. Details in [Knowledge Graph](/architecture/knowledge-graph/knowledge-graph#schedule-configuration-default-seeds).
-- API key actions: create, update, delete. Create/update via modal; list is paginated with search by name.
+- **Domain integrations** (`/dashboard/domain-integrations`): Create integrations; copy the generated API key once into Mediapulse/agent env.
 - Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@hermes/scheduler`; execution runs in hermes-worker.
 - Logout: `/logout`.
 

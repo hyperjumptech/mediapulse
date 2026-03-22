@@ -9,8 +9,8 @@ import {
   Database,
   FileJson,
   GitBranch,
-  Key,
   LayoutDashboard,
+  Plug,
   Variable,
 } from "lucide-react";
 
@@ -55,7 +55,8 @@ export const AppSidebar = ({
   const isAgentConfigs =
     pathname?.startsWith("/dashboard/agent-configs") ?? false;
   const isVariables = pathname?.startsWith("/dashboard/variables") ?? false;
-  const isApiKeys = pathname?.startsWith("/dashboard/api-keys") ?? false;
+  const isDomainIntegrations =
+    pathname?.startsWith("/dashboard/domain-integrations") ?? false;
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
 
   return (
@@ -113,10 +114,10 @@ export const AppSidebar = ({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isApiKeys}>
-                <Link href="/dashboard/api-keys">
-                  <Key className="size-4" />
-                  <span>API Keys</span>
+              <SidebarMenuButton asChild isActive={isDomainIntegrations}>
+                <Link href="/dashboard/domain-integrations">
+                  <Plug className="size-4" />
+                  <span>Domain integrations</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

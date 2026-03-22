@@ -14,6 +14,7 @@ const bodyValidator = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   isActive: zFormBoolean.optional().default(true),
+  domainIntegrationId: z.string().uuid().optional(),
 });
 
 export const requestValidator = createRequestValidator({
@@ -51,12 +52,33 @@ export const createCreatePipelineHandler = ({
       return errorResponse("Unauthorized");
     }
 
-    const { name, description, isActive } = data.body;
+    const {
+      name,
+      description,
+      isActive,
+      domainIntegrationId: bodyDomainId,
+    } = data.body;
+
+    let domainIntegrationId = bodyDomainId;
+    if (!domainIntegrationId) {
+      const first = await db.domainIntegration.findFirst({
+        orderBy: [{ isDefault: "desc" }, { key: "asc" }],
+        select: { id: true },
+      });
+      if (!first) {
+        return errorResponse(
+          "No domain integration configured; add one under Domain integrations before creating pipelines.",
+        );
+      }
+      domainIntegrationId = first.id;
+    }
+
     const pipeline = await db.pipeline.create({
       data: {
         name,
         description: description ?? null,
         isActive: isActive ?? true,
+        domainIntegrationId,
       },
     });
 

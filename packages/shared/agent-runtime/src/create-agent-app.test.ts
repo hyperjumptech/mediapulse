@@ -323,6 +323,7 @@ describe("createAgentApp", () => {
         verifyToken: async () => true,
         autoRegister: {
           registryUrl: "https://registry.test",
+          domainIntegrationKey: "mediapulse",
           domainIntegrationApiKey: "sched-key",
           agentUrl: "https://agent.test",
           fetchFn,
@@ -340,6 +341,7 @@ describe("createAgentApp", () => {
     expect(url).toBe("https://registry.test/api/agents/register");
     expect(options.headers.Authorization).toBe("Bearer minted-jwt");
     const body = JSON.parse(options.body);
+    expect(body.domainIntegrationKey).toBe("mediapulse");
     expect(body.agentId).toBe("auto-agent");
     expect(body.agentVersion).toBe("2.0.0");
     expect(body.endpoint).toEqual({
@@ -365,6 +367,7 @@ describe("createAgentApp", () => {
         verifyToken: async () => true,
         autoRegister: {
           registryUrl: "https://registry.test",
+          domainIntegrationKey: "mediapulse",
           domainIntegrationApiKey: "sched-key",
           agentUrl: "https://agent.test",
           fetchFn,

@@ -28,14 +28,14 @@ const HERMES_ROOT_SEGMENTS = new Set([
   "agents",
   "agent-configs",
   "variables",
-  "api-keys",
+  "domain-integrations",
   "schedules",
 ]);
 
 const SEGMENT_LABELS: Record<string, string> = {
   agents: "Agents",
   "agent-configs": "Agent configs",
-  "api-keys": "API Keys",
+  "domain-integrations": "Domain integrations",
   pipelines: "Pipelines",
   schedules: "Schedules",
   variables: "Variables",
@@ -73,6 +73,17 @@ const getSchedulesSubLabel = (
   if (!subSegment) return null;
   if (subSegment === "new") return "New schedule";
   if (UUID_REGEX.test(subSegment)) return "Schedule";
+  return null;
+};
+
+/**
+ * Breadcrumb label for domain-integrations sub-routes (e.g. create).
+ */
+const getDomainIntegrationsSubLabel = (
+  subSegment: string | undefined,
+): string | null => {
+  if (!subSegment) return null;
+  if (subSegment === "create") return "New integration";
   return null;
 };
 
@@ -115,6 +126,10 @@ export const DashboardShell = ({
   const agentsSubLabel = first === "agents" ? getAgentsSubLabel(second) : null;
   const schedulesSubLabel =
     first === "schedules" ? getSchedulesSubLabel(second) : null;
+  const domainIntegrationsSubLabel =
+    first === "domain-integrations"
+      ? getDomainIntegrationsSubLabel(second)
+      : null;
 
   const hermesSegmentLabel =
     first && !isDomainKeyedRoute ? SEGMENT_LABELS[first] : undefined;
@@ -124,13 +139,19 @@ export const DashboardShell = ({
     : (pipelinesSubLabel ??
       agentsSubLabel ??
       schedulesSubLabel ??
+      domainIntegrationsSubLabel ??
       hermesSegmentLabel ??
       "Dashboard");
 
   const showParentLink =
     Boolean(first) &&
     (isDomainKeyedRoute ||
-      Boolean(pipelinesSubLabel || agentsSubLabel || schedulesSubLabel) ||
+      Boolean(
+        pipelinesSubLabel ||
+        agentsSubLabel ||
+        schedulesSubLabel ||
+        domainIntegrationsSubLabel,
+      ) ||
       (isHermesRoot && first !== "pipelines"));
 
   return (
@@ -186,6 +207,18 @@ export const DashboardShell = ({
                     <BreadcrumbItem className="hidden md:block">
                       <BreadcrumbLink asChild>
                         <Link href="/dashboard/schedules">Schedules</Link>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator className="hidden md:block" />
+                  </>
+                ) : null}
+                {domainIntegrationsSubLabel ? (
+                  <>
+                    <BreadcrumbItem className="hidden md:block">
+                      <BreadcrumbLink asChild>
+                        <Link href="/dashboard/domain-integrations">
+                          Domain integrations
+                        </Link>
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />

@@ -39,6 +39,7 @@ vi.mock("./agents-table", () => ({
 
 const createMockAgent = (id: string, agentId: string) => ({
   id,
+  domainIntegrationId: "di-1",
   agentId,
   agentVersion: "1.0",
   description: "Test description",

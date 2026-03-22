@@ -1,7 +1,6 @@
 import { env } from "@mediapulse/env";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
-import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
 import {
   HERMES_DASHBOARD_V1_MOUNT_PATH,
@@ -12,6 +11,7 @@ import { registerWithHermes } from "./register-with-hermes";
 import { healthRoutes } from "./routes/health-routes";
 import { hermesDashboardManifestRoutes } from "./routes/hermes-dashboard-manifest-routes";
 import { stepInputExpansionRoutes } from "./routes/step-input-expansion-routes";
+import { verifyInvocationJwtFromHeader } from "./verify-invocation-jwt-middleware";
 
 /**
  * Builds the Mediapulse domain API Hono application (middleware, versioned routes, Hermes registration).
@@ -39,13 +39,20 @@ export const createDomainApiServer = (): {
     }),
   );
 
-  if (env.DOMAIN_INTEGRATION_AUTH_TOKEN) {
-    api.use(
-      "*",
-      bearerAuth({
-        verifyToken: (token) => token === env.DOMAIN_INTEGRATION_AUTH_TOKEN,
-      }),
-    );
+  if (env.AGENT_AUTH_API_URL?.trim()) {
+    api.use("*", async (c, next) => {
+      const path = new URL(c.req.url).pathname;
+      if (path.endsWith("/health")) {
+        return next();
+      }
+      const ok = await verifyInvocationJwtFromHeader(
+        c.req.header("Authorization"),
+      );
+      if (!ok) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+      return next();
+    });
   }
 
   api.route("/health", healthRoutes);

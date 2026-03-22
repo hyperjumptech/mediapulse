@@ -38,9 +38,15 @@ export const getPipelineWithSteps = async (
  * @param db - Prisma client (injectable for tests).
  * @returns Agent registry entries.
  */
-export const getAgentRegistryList = async (db: Db = prisma) => {
+export const getAgentRegistryList = async (
+  db: Db = prisma,
+  domainIntegrationId?: string,
+) => {
   return db.agentRegistry.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      ...(domainIntegrationId != null ? { domainIntegrationId } : {}),
+    },
     orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
   });
 };

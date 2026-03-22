@@ -76,6 +76,7 @@ const createMockPipelineValidation = () => ({
 
 const createMockPipeline = () => ({
   id: "pipeline-123",
+  domainIntegrationId: "di-1",
   name: "Test Pipeline",
   description: "Test description",
   isActive: true,
@@ -101,6 +102,7 @@ const createMockPipeline = () => ({
 const createMockAgents = () => [
   {
     id: "agent-1",
+    domainIntegrationId: "di-1",
     agentId: "summarizer",
     agentVersion: "1.0",
     description: "Summarizes text",

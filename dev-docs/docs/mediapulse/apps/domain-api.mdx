@@ -64,7 +64,7 @@ You can also run `pnpm --filter @mediapulse/domain-api generate` or rely on `tur
 - `MEDIAPULSE_API_URL` — Public base URL this service registers in Hermes.
 - `HERMES_API_URL` — Hermes base URL for registration.
 - `DOMAIN_INTEGRATION_API_KEY` — Hermes dashboard API key (purpose `domain_integration`) for `POST /api/domain-integrations/register` and for agents (JWT mint / registry); `./dev-setup-local.sh` sets it in dev.
-- `DOMAIN_INTEGRATION_AUTH_TOKEN` — Optional bearer token Hermes must send on contract calls.
+- `AGENT_AUTH_API_URL` — When set, domain-api requires Hermes to send a short-lived **JWT** (`Authorization: Bearer …`) issued by **`POST /api/token`** on agent-auth-api; verification uses **`POST /api/verify`**. Omit only for local dev without auth.
 
 ## Related
 

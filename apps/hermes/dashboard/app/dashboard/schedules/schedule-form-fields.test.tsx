@@ -37,6 +37,7 @@ vi.mock("@workspace/ui/lib/utils", () => ({
 const createMockPipelines = () => [
   {
     id: "pipeline-1",
+    domainIntegrationId: "di-1",
     name: "Pipeline A",
     description: null,
     isActive: true,
@@ -47,6 +48,7 @@ const createMockPipelines = () => [
   },
   {
     id: "pipeline-2",
+    domainIntegrationId: "di-1",
     name: "Pipeline B",
     description: null,
     isActive: true,

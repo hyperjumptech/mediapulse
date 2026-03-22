@@ -1,4 +1,3 @@
-import { verifyApiKeyViaAuthApi } from "@workspace/agent-auth-client";
 import {
   registerDomainIntegrationRequestSchema,
   registerDomainIntegrationResponseSchema,
@@ -34,11 +33,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const verified = await verifyApiKeyViaAuthApi(token, env.AGENT_AUTH_API_URL);
-  if (!verified) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
   const body = registerDomainIntegrationRequestSchema.safeParse(
     await request.json(),
   );
@@ -49,8 +43,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const registered = await registerDomainIntegration(body.data);
-  return NextResponse.json(
-    registerDomainIntegrationResponseSchema.parse(registered),
-  );
+  try {
+    const registered = await registerDomainIntegration(body.data, token);
+    return NextResponse.json(
+      registerDomainIntegrationResponseSchema.parse(registered),
+    );
+  } catch {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
 }
