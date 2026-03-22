@@ -82,6 +82,30 @@ describe("createAuthenticateAdmin", () => {
     expect(result).toBeNull();
   });
 
+  it("returns null when admin is inactive", async () => {
+    // Setup
+    const authenticateAdmin = createAuthenticateAdmin({
+      findUserByEmail: async () => ({
+        id: "user_1",
+        name: "Admin User",
+        email: "admin@example.com",
+        password: "hashed",
+        role: "ADMIN",
+        isActive: false,
+      }),
+      comparePassword: async () => true,
+    });
+
+    // Act
+    const result = await authenticateAdmin({
+      email: "admin@example.com",
+      password: "password123",
+    });
+
+    // Assert
+    expect(result).toBeNull();
+  });
+
   it("returns null when role is not ADMIN", async () => {
     // Setup
     const authenticateAdmin = createAuthenticateAdmin({
@@ -91,6 +115,7 @@ describe("createAuthenticateAdmin", () => {
         email: "editor@example.com",
         password: "hashed",
         role: "EDITOR",
+        isActive: true,
       }),
       comparePassword: async () => true,
     });
@@ -114,6 +139,7 @@ describe("createAuthenticateAdmin", () => {
         email: "admin@example.com",
         password: "hashed",
         role: "ADMIN",
+        isActive: true,
       }),
       comparePassword: async () => false,
     });
@@ -137,6 +163,7 @@ describe("createAuthenticateAdmin", () => {
         email: "admin@example.com",
         password: "hashed",
         role: "ADMIN",
+        isActive: true,
       }),
       comparePassword: async () => true,
     });
@@ -298,6 +325,7 @@ describe("handler", () => {
       email: "admin@example.com",
       password: "hashed-password",
       role: "ADMIN",
+      isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

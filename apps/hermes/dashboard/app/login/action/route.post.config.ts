@@ -30,6 +30,7 @@ type UserRecord = {
   email: string;
   password: string;
   role: string;
+  isActive: boolean;
 };
 
 type AuthenticatedAdmin = z.infer<typeof responseValidator>;
@@ -131,7 +132,7 @@ export const createAuthenticateAdmin = ({
     credentials: z.infer<typeof bodyValidator>,
   ): Promise<AuthenticatedAdmin | null> => {
     const user = await findUserByEmail(credentials.email);
-    if (!user || user.role !== "ADMIN") {
+    if (!user || user.role !== "ADMIN" || !user.isActive) {
       return null;
     }
 

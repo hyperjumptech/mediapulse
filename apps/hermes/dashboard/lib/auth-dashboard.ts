@@ -1,6 +1,42 @@
+import { prisma } from "@hermes/orchestration-database";
+import type { Prisma } from "@hermes/orchestration-database";
 import { cookies, headers } from "next/headers";
+import type { NextResponse } from "next/server";
 
 export type DashboardUser = { id: string; name: string; email: string };
+
+/**
+ * GET route path that clears dashboard auth cookies and redirects to login.
+ * Server Component layouts cannot call `cookies().set`; they must redirect here instead.
+ */
+export const HERMES_DASHBOARD_CLEAR_SESSION_PATH =
+  "/clear-hermes-dashboard-session" as const;
+
+export type SessionClearCookieOptions = {
+  httpOnly: boolean;
+  sameSite: "lax" | "strict" | "none";
+  path: string;
+  maxAge: number;
+};
+
+type SessionCookieStore = {
+  set: (
+    name: string,
+    value: string,
+    options: SessionClearCookieOptions,
+  ) => void;
+};
+
+type ClearDashboardAuthCookiesDependencies = {
+  getCookieStore?: () => Promise<SessionCookieStore>;
+};
+
+type HermesAdminAccessDependencies = {
+  getSession?: typeof getDashboardSession;
+  findUserForDashboard?: (
+    userId: string,
+  ) => Promise<{ role: string; isActive: boolean } | null>;
+};
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
@@ -83,6 +119,95 @@ export const getDashboardSession = async ({
     // ignore
   }
   return null;
+};
+
+/**
+ * Returns cookie options that expire the Hermes dashboard auth cookies immediately.
+ *
+ * @returns Options passed to `cookies().set` to clear `auth-token` and `auth-user`.
+ */
+export const createSessionClearCookieOptions =
+  (): SessionClearCookieOptions => {
+    return {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    };
+  };
+
+/**
+ * Clears Hermes dashboard auth cookies on a `NextResponse` (Route Handlers / middleware).
+ * Use this when `cookies().set` is not allowed (e.g. from a Server Component layout).
+ *
+ * @param response - Redirect (or other) response whose `Set-Cookie` headers will be updated.
+ */
+export const applyClearHermesDashboardAuthCookies = (
+  response: NextResponse,
+): void => {
+  const clearOpts = createSessionClearCookieOptions();
+  response.cookies.set("auth-token", "", clearOpts);
+  response.cookies.set("auth-user", "", clearOpts);
+};
+
+/**
+ * Creates a function that clears Hermes dashboard auth cookies (`auth-token`, `auth-user`).
+ *
+ * @param dependencies - Optional `getCookieStore` for tests.
+ * @returns Async function that clears both cookies.
+ */
+export const createClearDashboardAuthCookies = ({
+  getCookieStore = cookies,
+}: ClearDashboardAuthCookiesDependencies = {}) => {
+  /**
+   * Clears dashboard session cookies.
+   *
+   * @returns Promise that resolves when cookies are cleared.
+   */
+  return async () => {
+    const cookieStore = await getCookieStore();
+    const clearOpts = createSessionClearCookieOptions();
+    cookieStore.set("auth-token", "", clearOpts);
+    cookieStore.set("auth-user", "", clearOpts);
+  };
+};
+
+/** Default cookie clearer using Next.js `cookies()`. */
+export const clearDashboardAuthCookies = createClearDashboardAuthCookies();
+
+const defaultFindUserForDashboard = async (
+  userId: string,
+): Promise<{ role: string; isActive: boolean } | null> => {
+  const args = {
+    where: { id: userId },
+    select: { role: true, isActive: true },
+  } satisfies Prisma.UserFindUniqueArgs;
+  return prisma.user.findUnique(args);
+};
+
+/**
+ * Verifies the dashboard session cookie matches an active Hermes `ADMIN` user in the database.
+ *
+ * @param dependencies - Injectable session reader and user lookup (defaults use cookies + Prisma).
+ * @returns `{ ok: true }` when the user may access the dashboard; `{ ok: false }` otherwise.
+ */
+export const resolveHermesActiveAdminDashboardAccess = async ({
+  getSession = getDashboardSession,
+  findUserForDashboard = defaultFindUserForDashboard,
+}: HermesAdminAccessDependencies = {}): Promise<
+  { ok: true } | { ok: false }
+> => {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false };
+  }
+
+  const user = await findUserForDashboard(session.id);
+  if (!user || user.role !== "ADMIN" || !user.isActive) {
+    return { ok: false };
+  }
+
+  return { ok: true };
 };
 
 /**

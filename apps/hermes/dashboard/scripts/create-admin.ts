@@ -41,12 +41,14 @@ async function main() {
     update: {
       password: hashedPassword,
       role: "ADMIN",
+      isActive: true,
     },
     create: {
       email,
       name: email.split("@")[0] ?? email,
       password: hashedPassword,
       role: "ADMIN",
+      isActive: true,
     },
   });
 
