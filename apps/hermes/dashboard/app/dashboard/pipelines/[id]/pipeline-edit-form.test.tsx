@@ -128,7 +128,7 @@ describe("PipelineEditForm", () => {
     mock.mockReturnValue(createMockUseFormAction());
 
     // Act
-    render(
+    const { container } = render(
       <PipelineEditForm
         pipelineId="pipeline-123"
         initialName="Test"
@@ -139,6 +139,12 @@ describe("PipelineEditForm", () => {
 
     // Assert
     expect(screen.getByLabelText("Active")).toBeChecked();
+    const activeInputs = container.querySelectorAll(
+      'input[name="body.isActive"]',
+    );
+    expect(activeInputs).toHaveLength(2);
+    expect(activeInputs[0]).toHaveAttribute("type", "hidden");
+    expect(activeInputs[1]).toHaveAttribute("type", "checkbox");
   });
 
   it("renders Active checkbox unchecked when initially inactive", async () => {

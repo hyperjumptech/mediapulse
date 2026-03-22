@@ -82,6 +82,30 @@ describe("PipelineFormFields", () => {
     expect(screen.getByLabelText("Active")).toBeInTheDocument();
   });
 
+  it("sends isActive false when unchecked via hidden before checkbox (last duplicate wins)", () => {
+    // Act
+    const { container } = render(
+      <PipelineFormFields
+        pending={false}
+        errorMessage={null}
+        submitLabel="Create"
+        defaultName=""
+        defaultDescription=""
+        defaultIsActive={true}
+      />,
+    );
+
+    // Assert
+    const activeInputs = container.querySelectorAll(
+      'input[name="body.isActive"]',
+    );
+    expect(activeInputs).toHaveLength(2);
+    expect(activeInputs[0]).toHaveAttribute("type", "hidden");
+    expect(activeInputs[0]).toHaveValue("false");
+    expect(activeInputs[1]).toHaveAttribute("type", "checkbox");
+    expect(activeInputs[1]).toHaveAttribute("value", "true");
+  });
+
   it("renders submit button with provided label", () => {
     // Act
     render(

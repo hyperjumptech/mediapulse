@@ -67,12 +67,18 @@ export const PipelineFormFields = ({
         />
       </div>
       <div className="flex items-center gap-2">
+        {/*
+          Unchecked checkboxes are omitted from posts. Hidden "false" must come
+          before the checkbox so parseFormData (last duplicate wins) yields true
+          when checked and false when unchecked.
+        */}
+        <input type="hidden" name={`${pre}isActive`} value="false" readOnly />
         <input
           id={`${pre}isActive`}
           name={`${pre}isActive`}
           type="checkbox"
           defaultChecked={defaultIsActive}
-          value="on"
+          value="true"
           disabled={pending}
           className="h-4 w-4 rounded border border-input"
         />

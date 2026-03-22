@@ -71,12 +71,17 @@ export const PipelineEditForm = ({
         />
       </div>
       <div className="flex items-center gap-2">
+        {/*
+          Hidden before checkbox: form parser keeps last duplicate key; unchecked
+          omits checkbox so only false is sent; checked sends false then true → true.
+        */}
+        <input type="hidden" name="body.isActive" value="false" readOnly />
         <input
           id="body.isActive"
           name="body.isActive"
           type="checkbox"
           defaultChecked={initialIsActive}
-          value="on"
+          value="true"
           disabled={pending}
           className="h-4 w-4 rounded border border-input"
         />
