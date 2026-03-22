@@ -23,13 +23,17 @@
     "deploy": "turbo deploy",
     "docs:dev": "pnpm dlx speed-docs --dev ./dev-docs",
     "docs:build": "pnpm dlx speed-docs ./dev-docs",
-    "code-quality": "turbo run lint type:check test:coverage && pnpm run format:check"
+    "merge-workspace-coverage": "node scripts/merge-workspace-coverage.mjs",
+    "code-quality": "turbo run lint type:check test:coverage && pnpm run merge-workspace-coverage && pnpm run format:check"
   },
   "devDependencies": {
     "@turbo/gen": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "istanbul-lib-coverage": "^3.2.2",
+    "istanbul-lib-report": "^3.0.1",
+    "istanbul-reports": "^3.2.0",
     "netlify-cli": "^23.13.3",
     "prettier": "^3.6.2",
     "speed-docs": "^0.0.22",
