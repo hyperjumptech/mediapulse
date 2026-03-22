@@ -42,17 +42,16 @@ If you see an error like `relation "cron_schedules" does not exist` when startin
 
 Variables are defined in **`packages/hermes/env/env.hermes-worker.example`**. Copy values into **`apps/hermes/worker/.env.local`** (or set in your deployment).
 
-| Variable                              | Required | Description                                                                                                                                                                                                                                                     |
-| ------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DATABASE_URL**                      | Yes      | Main app database (Prisma).                                                                                                                                                                                                                                     |
-| **PG_DATAQUEUE_DATABASE**             | Yes      | DataQueue connection (`?schema=dataqueue&search_path=dataqueue`). Run migrate-dataqueue before first start.                                                                                                                                                     |
-| **AGENT_AUTH_API_URL**                | Yes      | **Required.** Base URL of agent-auth-api. Worker mints JWTs via POST /api/token.                                                                                                                                                                                |
-| **HERMES_INTERNAL_API_KEY**           | Yes      | Preset shared with Hermes dashboard and agent-auth-api. Used only to call `POST /api/token`; never sent to agents.                                                                                                                                              |
-| **REQUIRE_HTTPS_AGENT_ENDPOINTS**     | No       | Set to `true` in production to reject non-HTTPS agent endpoints (except localhost).                                                                                                                                                                             |
-| **PROCESSOR_BATCH_SIZE**              | No       | Max jobs fetched per poll (default `10`). Tune for agent invocation throughput.                                                                                                                                                                                 |
-| **PROCESSOR_CONCURRENCY**             | No       | Max concurrent job executions, e.g. agent HTTP calls (default `3`). Increase for more parallelism.                                                                                                                                                              |
-| **DOMAIN_INTEGRATION_BEARER_API_KEY** | No       | Optional. Dashboard API key (purpose `domain_integration`) for JWTs to domain integration HTTP. If omitted, **`HERMES_INTERNAL_API_KEY`** mints JWTs via **`POST /api/token`**. The **base URL** comes from the active domain integration row in orchestration. |
-| **HERMES_DATA_SOURCE_MAX_TAKE**       | No       | Cap for `db:` expansion (default matches Hermes validation).                                                                                                                                                                                                    |
+| Variable                          | Required | Description                                                                                                        |
+| --------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| **DATABASE_URL**                  | Yes      | Main app database (Prisma).                                                                                        |
+| **PG_DATAQUEUE_DATABASE**         | Yes      | DataQueue connection (`?schema=dataqueue&search_path=dataqueue`). Run migrate-dataqueue before first start.        |
+| **AGENT_AUTH_API_URL**            | Yes      | **Required.** Base URL of agent-auth-api. Worker mints JWTs via POST /api/token.                                   |
+| **HERMES_INTERNAL_API_KEY**       | Yes      | Preset shared with Hermes dashboard and agent-auth-api. Used only to call `POST /api/token`; never sent to agents. |
+| **REQUIRE_HTTPS_AGENT_ENDPOINTS** | No       | Set to `true` in production to reject non-HTTPS agent endpoints (except localhost).                                |
+| **PROCESSOR_BATCH_SIZE**          | No       | Max jobs fetched per poll (default `10`). Tune for agent invocation throughput.                                    |
+| **PROCESSOR_CONCURRENCY**         | No       | Max concurrent job executions, e.g. agent HTTP calls (default `3`). Increase for more parallelism.                 |
+| **HERMES_DATA_SOURCE_MAX_TAKE**   | No       | Cap for `db:` expansion (default matches Hermes validation).                                                       |
 
 ## Workspace dependencies
 

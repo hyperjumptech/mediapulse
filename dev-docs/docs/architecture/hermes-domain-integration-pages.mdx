@@ -117,7 +117,7 @@ end
 `}
 />
 
-Requests send `Content-Type: application/json`. Hermes adds `Authorization: Bearer <JWT>` (minted via agent-auth-api **`POST /api/token`** using **`DOMAIN_INTEGRATION_BEARER_API_KEY`** or **`HERMES_INTERNAL_API_KEY`**) when agent auth is configured so the domain API can verify the caller (**`POST /api/verify`**).
+Requests send `Content-Type: application/json`. Hermes adds `Authorization: Bearer <JWT>` (minted via agent-auth-api **`POST /api/token`** using that integration’s **decrypted API key**, with **`HERMES_INTERNAL_API_KEY`** used to unwrap ciphertext at rest) when agent auth is configured so the domain API can verify the caller (**`POST /api/verify`**).
 
 ## Rendering the list page (`DomainTablePage`)
 

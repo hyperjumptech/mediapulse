@@ -21,7 +21,7 @@ Schemas and client types live in [`@hermes/domain-contract`](/hermes/packages/he
 
 - A **Hermes API base URL** (e.g. `https://hermes.example.com` or `http://localhost:3001` in dev).
 - A **domain integration API key** from Hermes (**Domain integrations → Create**): use the same value as **`DOMAIN_INTEGRATION_API_KEY`** for registration and agent flows, and set **`DOMAIN_INTEGRATION_KEY`** to the integration key string; see [Getting Started](/getting-started).
-- **JWT (recommended):** Hermes mints short-lived JWTs via agent-auth-api **`POST /api/token`** using the **decrypted per-integration secret** (or **`HERMES_INTERNAL_API_KEY`** for strictly internal minting). Your domain API should verify with agent-auth-api **`POST /api/verify`** (see `AGENT_AUTH_API_URL` on the domain service). Optional **`DOMAIN_INTEGRATION_BEARER_API_KEY`** is legacy; prefer the integration wizard.
+- **JWT (recommended):** Hermes mints short-lived JWTs via agent-auth-api **`POST /api/token`** using the **decrypted per-integration API key** from the orchestration DB (or **`HERMES_INTERNAL_API_KEY`** for strictly internal minting). Your domain API should verify with agent-auth-api **`POST /api/verify`** (see `AGENT_AUTH_API_URL` on the domain service). Create the integration in **Domain integrations** so the secret is stored and decrypted for outbound calls.
 
 ## Registration
 
@@ -45,7 +45,8 @@ If registration fails or the integration is inactive, Hermes omits those section
 
 **On Hermes (already configured in deployment):**
 
-- **`DOMAIN_INTEGRATION_BEARER_API_KEY`** — Optional legacy override for JWT minting. Prefer storing the integration secret via **Domain integrations** so Hermes decrypts it for outbound calls.
+- **`HERMES_INTERNAL_API_KEY`** — Master key for encrypting integration API keys at rest and for strictly internal **`POST /api/token`** minting.
+- **`AGENT_AUTH_API_URL`** — Base URL of agent-auth-api for minting and verification.
 
 Exact names for Mediapulse’s **`domain-api`** are listed in [domain-api (Mediapulse)](/mediapulse/apps/domain-api).
 

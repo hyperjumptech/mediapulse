@@ -8,7 +8,6 @@ export const env = createEnv({
     DATABASE_URL: z.string().min(1),
     ORCHESTRATION_DATABASE_URL: z.string().optional(),
     HERMES_DATA_SOURCE_MAX_TAKE: z.number({ coerce: true }).optional(),
-    DOMAIN_INTEGRATION_BEARER_API_KEY: z.string().optional(),
     DATABASE_CERT_BASE64: z.string().optional(),
     PG_DATAQUEUE_DATABASE: z.string().min(1),
     HERMES_INTERNAL_API_KEY: z.string().min(1),
