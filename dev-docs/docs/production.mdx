@@ -196,17 +196,19 @@ Examples: **`@mediapulse/data-collection`**, **`@mediapulse/content-generation`*
 | Build                | `pnpm exec turbo build --filter=@mediapulse/data-collection` (swap package name per agent)                                    |
 | Run (production)     | From the agent app directory: `bun run ./dist/server.js` (set `PORT` per agent; defaults e.g. `4001`, `4002`, `4003`, `4010`) |
 
-| Variable             | Example value                        | Explanation                                                        |
-| -------------------- | ------------------------------------ | ------------------------------------------------------------------ |
-| `AGENT_AUTH_API_URL` | `https://agent-auth-api.example.com` | Verify invocation JWTs (recommended for all agents in production). |
-| `AGENT_DATA_API_URL` | `https://agent-data-api.example.com` | Required for agents that call the data API (not ticker-echo).      |
-| `PORT`               | `4001` (per agent)                   | Agent HTTP port.                                                   |
+| Variable                     | Example value                        | Explanation                                                                                                              |
+| ---------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `DOMAIN_INTEGRATION_API_KEY` | _(secret)_                           | Hermes **domain_integration** key: domain-api uses it to register; agents use the same variable for JWT mint / registry. |
+| `DOMAIN_INTEGRATION_KEY`     | `mediapulse`                         | Integration id metadata.                                                                                                 |
+| `AGENT_AUTH_API_URL`         | `https://agent-auth-api.example.com` | Verify invocation JWTs (recommended for all agents in production).                                                       |
+| `AGENT_DATA_API_URL`         | `https://agent-data-api.example.com` | Required for agents that call the data API (not ticker-echo).                                                            |
+| `PORT`                       | `4001` (per agent)                   | Agent HTTP port.                                                                                                         |
+| `AGENT_REGISTRY_URL`         | `http://localhost:8082`              | URL of the agent-registry-api in Hermes.                                                                                 |
+| `AGENT_PUBLIC_URL`           | `http://localhost:4001`              | URL where the agent is reachable.                                                                                        |
 
 **Agent-specific** (see each agent’s `env.agents.*.example` and README): e.g. **`JINA_API_KEY`**, **`SERPER_API_KEY`** (data-collection); **`RESEND_SENDER`**, **`RESEND_API_KEY`** (delivery); OpenAI is configured on **Agent configs** in Hermes for content-generation, not env.
 
 **Ticker-echo** does not use **`AGENT_DATA_API_URL`**; it optionally uses **`ALLOW_ANY_BEARER_FOR_LOCAL`** (dev only; never enable in production).
-
-**Auto-register** (optional): set **`AGENT_REGISTRY_URL`**, **`AGENT_PUBLIC_URL`**, **`AGENT_AUTH_API_URL`**, **`DOMAIN_INTEGRATION_API_KEY`** (Hermes dashboard key with purpose **`domain_integration`**) so the agent can call `POST /api/agents/register` on agent-registry-api.
 
 For **knowledge-graph** behaviour and data model details, see [Knowledge Graph](/architecture/knowledge-graph/knowledge-graph); additional workers or scripts may introduce their own env (documented next to those packages).
 
@@ -216,8 +218,6 @@ For **knowledge-graph** behaviour and data model details, see [Knowledge Graph](
 
 | Variable                                                                | Typical location                              | Explanation                                                                                             |
 | ----------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                          | Hermes `@hermes/env`                          | Optional legacy URL; orchestration code prefers `ORCHESTRATION_DATABASE_URL`.                           |
-| `DATABASE_CERT_BASE64`                                                  | Hermes + Mediapulse                           | Client TLS cert as base64 (e.g. Neon).                                                                  |
 | `HERMES_DATA_SOURCE_MAX_TAKE`                                           | Hermes dashboard, worker, Mediapulse base env | Max rows for `db:` expansion (default `5000`); keep the same everywhere.                                |
 | `AGENT_DATA_API_URL`                                                    | Hermes env                                    | Required on **agents** that call agent-data-api; optional on Hermes if you centralize URLs elsewhere.   |
 | `HERMES_INVOKE_AGENT_MAX_ATTEMPTS` / `HERMES_INVOKE_AGENT_DLQ_JOB_TYPE` | hermes-worker                                 | Optional DataQueue retry and dead-letter tuning for agent invocation (see `env.hermes-worker.example`). |
