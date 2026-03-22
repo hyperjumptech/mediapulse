@@ -409,6 +409,18 @@ describe("jobHandlers", () => {
         },
       });
       expect(invokeAgentPost).toHaveBeenCalledTimes(1);
+      expect(invokeAgentPost).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({
+          jobId: payload.jobId,
+          executionId: payload.executionId,
+          scheduleId: payload.scheduleId,
+          scheduleExecutionId: payload.scheduleExecutionId,
+          pipelineStepId: payload.pipelineStepId,
+        }),
+        expect.anything(),
+      );
       expect(applyInvocationCompletion).toHaveBeenCalledWith(
         expect.objectContaining({
           jobId: payload.jobId,

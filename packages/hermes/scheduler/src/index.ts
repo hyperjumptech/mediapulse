@@ -38,11 +38,13 @@ export {
 } from "./get-due-schedules";
 export { computeNextRunAt, type ScheduleForNextRun } from "./next-run-at";
 export {
+  applyHermesInvokeCorrelationHeaders,
   invokeAgent,
   invokeAgentPost,
   AgentEndpointSchema,
   type AgentEndpoint,
   type InvokeAgentHttpClient,
   type InvokeAgentHttpResponse,
+  type InvokeAgentPostOptions,
   type InvokeAgentPostResult,
 } from "./invoke-agent";

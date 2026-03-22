@@ -39,25 +39,61 @@ export type InvokeAgentPostResult =
   | { kind: "transport_error"; error: Error }
   | { kind: "http"; response: InvokeAgentHttpResponse };
 
+/** Options shared by {@link invokeAgentPost} and {@link invokeAgent} (Hermes correlation headers). */
+export type InvokeAgentPostOptions = {
+  jobId: string;
+  executionId: string;
+  /** When set, sent as `X-Schedule-Id` (e.g. hermes-worker scheduled runs). */
+  scheduleId?: string;
+  /** When set, sent as `X-Schedule-Execution-Id`. */
+  scheduleExecutionId?: string;
+  /** When set, sent as `X-Pipeline-Step-Id`. */
+  pipelineStepId?: string;
+  authToken?: string;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+};
+
+/**
+ * Adds Hermes schedule / step correlation headers when the corresponding option is a non-empty string.
+ *
+ * @param headers - Outgoing request headers (mutated).
+ * @param options - Invoke options; only defined string ids are added.
+ */
+export function applyHermesInvokeCorrelationHeaders(
+  headers: Record<string, string>,
+  options: Pick<
+    InvokeAgentPostOptions,
+    "scheduleId" | "scheduleExecutionId" | "pipelineStepId"
+  >,
+): void {
+  const scheduleId = options.scheduleId?.trim();
+  if (scheduleId) {
+    headers["X-Schedule-Id"] = scheduleId;
+  }
+  const scheduleExecutionId = options.scheduleExecutionId?.trim();
+  if (scheduleExecutionId) {
+    headers["X-Schedule-Execution-Id"] = scheduleExecutionId;
+  }
+  const pipelineStepId = options.pipelineStepId?.trim();
+  if (pipelineStepId) {
+    headers["X-Pipeline-Step-Id"] = pipelineStepId;
+  }
+}
+
 /**
  * Sends JSON to the agent endpoint and returns status + raw body (no semantic parsing).
  * Transport failures (network, DNS) are returned as `transport_error` (do not throw).
  *
  * @param endpoint - Parsed agent endpoint (url, method).
  * @param params - JSON body for the request.
- * @param options - Job IDs for headers, auth token, timeout, optional abort signal.
+ * @param options - Job and execution headers (`X-Job-Id`, `X-Execution-Id`), optional schedule/step headers, auth token, timeout, optional abort signal.
  * @param httpClient - HTTP client (e.g. got with `throwHttpErrors: false`).
  */
 export const invokeAgentPost = async (
   endpoint: AgentEndpoint,
   params: Record<string, unknown>,
-  options: {
-    jobId: string;
-    executionId: string;
-    authToken?: string;
-    timeoutMs?: number;
-    signal?: AbortSignal;
-  },
+  options: InvokeAgentPostOptions,
   httpClient: InvokeAgentHttpClient,
 ): Promise<InvokeAgentPostResult> => {
   const headers: Record<string, string> = {
@@ -65,6 +101,7 @@ export const invokeAgentPost = async (
     "X-Job-Id": options.jobId,
     "X-Execution-Id": options.executionId,
   };
+  applyHermesInvokeCorrelationHeaders(headers, options);
   if (options.authToken) {
     headers.Authorization = `Bearer ${options.authToken}`;
   }
@@ -88,13 +125,7 @@ export const invokeAgentPost = async (
 export const invokeAgent = async (
   endpoint: AgentEndpoint,
   params: Record<string, unknown>,
-  options: {
-    jobId: string;
-    executionId: string;
-    authToken?: string;
-    timeoutMs?: number;
-    signal?: AbortSignal;
-  },
+  options: InvokeAgentPostOptions,
   httpClient: InvokeAgentHttpClient,
 ): Promise<void> => {
   const result = await invokeAgentPost(endpoint, params, options, httpClient);
