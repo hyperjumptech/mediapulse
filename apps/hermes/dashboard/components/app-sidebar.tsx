@@ -11,6 +11,7 @@ import {
   GitBranch,
   LayoutDashboard,
   Plug,
+  Radio,
   Users,
   Variable,
 } from "lucide-react";
@@ -59,6 +60,8 @@ export const AppSidebar = ({
   const isDomainIntegrations =
     pathname?.startsWith("/dashboard/domain-integrations") ?? false;
   const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
+  const isHttpTriggers =
+    pathname?.startsWith("/dashboard/http-triggers") ?? false;
   const isAdmins = pathname?.startsWith("/dashboard/admins") ?? false;
 
   return (
@@ -128,6 +131,14 @@ export const AppSidebar = ({
                 <Link href="/dashboard/schedules">
                   <Calendar className="size-4" />
                   <span>Schedules</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isHttpTriggers}>
+                <Link href="/dashboard/http-triggers">
+                  <Radio className="size-4" />
+                  <span>HTTP triggers</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

@@ -238,6 +238,9 @@ importers:
       '@next/env':
         specifier: 'catalog:'
         version: 16.1.6
+      '@nicnocquee/dataqueue':
+        specifier: ^1.39.0
+        version: 1.39.0(pg@8.18.0)
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client

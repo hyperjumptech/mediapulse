@@ -7,6 +7,7 @@ export const env = createEnv({
   server: {
     ORCHESTRATION_DATABASE_URL: z.string().min(1),
     DATABASE_URL: z.string().optional(),
+    PG_DATAQUEUE_DATABASE: z.string().optional(),
     HERMES_DATA_SOURCE_MAX_TAKE: z.number({ coerce: true }).optional(),
     DATABASE_CERT_BASE64: z.string().optional(),
     PORT: z.number({ coerce: true }).optional(),

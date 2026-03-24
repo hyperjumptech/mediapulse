@@ -18,7 +18,8 @@ import {
 
 export type InvocationCompletionInput = {
   jobId: string;
-  scheduleExecutionId: string;
+  scheduleExecutionId?: string;
+  httpTriggerExecutionId?: string;
   pipelineStepId: string;
   terminal:
     | {
@@ -84,18 +85,34 @@ export const applyInvocationCompletion = async (
 ): Promise<void> => {
   const { db, logger } = deps;
 
-  const execution = await db.scheduleExecution.findUnique({
-    where: { id: input.scheduleExecutionId },
-    select: {
-      id: true,
-      runStatus: true,
-      effectiveExecutionConfig: true,
-    },
-  });
+  const executionKind = input.scheduleExecutionId ? "schedule" : "httpTrigger";
+  const execution = input.scheduleExecutionId
+    ? await db.scheduleExecution.findUnique({
+        where: { id: input.scheduleExecutionId },
+        select: {
+          id: true,
+          runStatus: true,
+          effectiveExecutionConfig: true,
+        },
+      })
+    : input.httpTriggerExecutionId
+      ? await db.httpTriggerExecution.findUnique({
+          where: { id: input.httpTriggerExecutionId },
+          select: {
+            id: true,
+            runStatus: true,
+            effectiveExecutionConfig: true,
+          },
+        })
+      : null;
   if (!execution) {
     logger.warn(
-      { scheduleExecutionId: input.scheduleExecutionId, jobId: input.jobId },
-      "applyInvocationCompletion: schedule execution not found",
+      {
+        scheduleExecutionId: input.scheduleExecutionId,
+        httpTriggerExecutionId: input.httpTriggerExecutionId,
+        jobId: input.jobId,
+      },
+      "applyInvocationCompletion: execution not found",
     );
     return;
   }
@@ -109,7 +126,7 @@ export const applyInvocationCompletion = async (
   const config = loadExecutionConfig(
     execution.effectiveExecutionConfig,
     logger,
-    input.scheduleExecutionId,
+    input.scheduleExecutionId ?? input.httpTriggerExecutionId ?? "unknown",
   );
 
   const isSuccess = input.terminal.status === AgentJobExecutionStatus.completed;
@@ -141,22 +158,42 @@ export const applyInvocationCompletion = async (
       data: agentData,
     });
 
-    await tx.scheduleExecution.update({
-      where: { id: input.scheduleExecutionId },
-      data: {
-        runStatus: ScheduleRunStatus.running,
-        ...execCountInc,
-      },
-    });
-
-    const stepRow = await tx.scheduleStepExecution.findUnique({
-      where: {
-        scheduleExecutionId_pipelineStepId: {
-          scheduleExecutionId: input.scheduleExecutionId,
-          pipelineStepId: input.pipelineStepId,
+    if (executionKind === "schedule") {
+      await tx.scheduleExecution.update({
+        where: { id: input.scheduleExecutionId },
+        data: {
+          runStatus: ScheduleRunStatus.running,
+          ...execCountInc,
         },
-      },
-    });
+      });
+    } else {
+      await tx.httpTriggerExecution.update({
+        where: { id: input.httpTriggerExecutionId },
+        data: {
+          runStatus: ScheduleRunStatus.running,
+          ...execCountInc,
+        },
+      });
+    }
+
+    const stepRow =
+      executionKind === "schedule"
+        ? await tx.scheduleStepExecution.findUnique({
+            where: {
+              scheduleExecutionId_pipelineStepId: {
+                scheduleExecutionId: input.scheduleExecutionId!,
+                pipelineStepId: input.pipelineStepId,
+              },
+            },
+          })
+        : await tx.httpTriggerStepExecution.findUnique({
+            where: {
+              httpTriggerExecutionId_pipelineStepId: {
+                httpTriggerExecutionId: input.httpTriggerExecutionId!,
+                pipelineStepId: input.pipelineStepId,
+              },
+            },
+          });
     if (!stepRow) {
       return;
     }
@@ -165,16 +202,28 @@ export const applyInvocationCompletion = async (
       ? { succeededCount: { increment: 1 } }
       : { failedCount: { increment: 1 } };
 
-    const updated = await tx.scheduleStepExecution.update({
-      where: { id: stepRow.id },
-      data: {
-        ...inc,
-        rollupStatus:
-          stepRow.rollupStatus === ScheduleStepRollupStatus.pending
-            ? ScheduleStepRollupStatus.running
-            : stepRow.rollupStatus,
-      },
-    });
+    const updated =
+      executionKind === "schedule"
+        ? await tx.scheduleStepExecution.update({
+            where: { id: stepRow.id },
+            data: {
+              ...inc,
+              rollupStatus:
+                stepRow.rollupStatus === ScheduleStepRollupStatus.pending
+                  ? ScheduleStepRollupStatus.running
+                  : stepRow.rollupStatus,
+            },
+          })
+        : await tx.httpTriggerStepExecution.update({
+            where: { id: stepRow.id },
+            data: {
+              ...inc,
+              rollupStatus:
+                stepRow.rollupStatus === ScheduleStepRollupStatus.pending
+                  ? ScheduleStepRollupStatus.running
+                  : stepRow.rollupStatus,
+            },
+          });
 
     const stepDone =
       updated.succeededCount + updated.failedCount >=
@@ -189,15 +238,28 @@ export const applyInvocationCompletion = async (
       config.stepRollupPolicy,
     );
 
-    await tx.scheduleStepExecution.update({
-      where: { id: stepRow.id },
-      data: { rollupStatus: stepRollupTerminalToPrisma(rollupTerminal) },
-    });
+    if (executionKind === "schedule") {
+      await tx.scheduleStepExecution.update({
+        where: { id: stepRow.id },
+        data: { rollupStatus: stepRollupTerminalToPrisma(rollupTerminal) },
+      });
+    } else {
+      await tx.httpTriggerStepExecution.update({
+        where: { id: stepRow.id },
+        data: { rollupStatus: stepRollupTerminalToPrisma(rollupTerminal) },
+      });
+    }
 
-    const allSteps = await tx.scheduleStepExecution.findMany({
-      where: { scheduleExecutionId: input.scheduleExecutionId },
-      select: { rollupStatus: true },
-    });
+    const allSteps =
+      executionKind === "schedule"
+        ? await tx.scheduleStepExecution.findMany({
+            where: { scheduleExecutionId: input.scheduleExecutionId! },
+            select: { rollupStatus: true },
+          })
+        : await tx.httpTriggerStepExecution.findMany({
+            where: { httpTriggerExecutionId: input.httpTriggerExecutionId! },
+            select: { rollupStatus: true },
+          });
 
     const terminalStatuses = new Set<ScheduleStepRollupStatus>([
       ScheduleStepRollupStatus.success,
@@ -222,15 +284,27 @@ export const applyInvocationCompletion = async (
       config.stepRollupPolicy,
     );
 
-    await tx.scheduleExecution.updateMany({
-      where: {
-        id: input.scheduleExecutionId,
-        runStatus: {
-          in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
+    if (executionKind === "schedule") {
+      await tx.scheduleExecution.updateMany({
+        where: {
+          id: input.scheduleExecutionId,
+          runStatus: {
+            in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
+          },
         },
-      },
-      data: { runStatus: runStatusToPrisma(run) },
-    });
+        data: { runStatus: runStatusToPrisma(run) },
+      });
+    } else {
+      await tx.httpTriggerExecution.updateMany({
+        where: {
+          id: input.httpTriggerExecutionId,
+          runStatus: {
+            in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
+          },
+        },
+        data: { runStatus: runStatusToPrisma(run) },
+      });
+    }
   });
 };
 

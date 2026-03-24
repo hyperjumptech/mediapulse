@@ -1,0 +1,32 @@
+# HTTP Triggers
+
+HTTP triggers let admins run a pipeline on demand through a dedicated endpoint.
+
+## What admins can configure
+
+- `enabled`: disables or enables the trigger without deleting it.
+- `auth`: bearer token (admin provides token value during create/update).
+- `method`: one HTTP method (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`).
+- `pipeline`: the pipeline to run when the endpoint is called.
+
+Multiple HTTP triggers can point to the same pipeline.
+
+## Invoke flow
+
+1. Caller sends request to `/api/http-triggers/:triggerId/invoke`.
+2. Hermes validates:
+   - trigger exists and is enabled
+   - request method matches trigger config
+   - `Authorization: Bearer <token>` matches configured token hash
+3. Hermes creates an execution row and returns `202 Accepted` with `executionId`.
+4. Worker picks up `execute_http_trigger` job and runs the pipeline asynchronously.
+
+## Execution history
+
+The dashboard includes:
+
+- `HTTP Triggers` list page for CRUD
+- trigger detail page with executions table
+- execution detail page with step rollups and invocation-level status/errors
+
+This mirrors the schedules execution experience, but is on-demand instead of periodic.
