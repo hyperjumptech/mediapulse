@@ -3,7 +3,7 @@ import {
   DomainIntegrationStatus,
   prisma,
 } from "@hermes/orchestration-database";
-import { decryptDomainIntegrationApiKey } from "@hermes/domain-integration-crypto";
+import { decryptDomainIntegrationApiKeyWithFallback } from "@hermes/domain-integration-crypto";
 import { env } from "@hermes/env";
 
 /**
@@ -37,9 +37,10 @@ export async function getBearerJwtForDomainIntegrationId(
     return undefined;
   }
 
-  const plaintext = decryptDomainIntegrationApiKey(
+  const plaintext = decryptDomainIntegrationApiKeyWithFallback(
     row.encryptedApiKey,
     env.HERMES_INTERNAL_API_KEY,
+    env.HERMES_INTERNAL_API_KEY_PREVIOUS,
   );
 
   return createAgentTokenClient({

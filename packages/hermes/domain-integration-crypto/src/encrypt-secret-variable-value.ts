@@ -106,3 +106,27 @@ export function decryptSecretVariableValue(
   const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   return plain.toString("utf8");
 }
+
+/**
+ * Decrypts a secret variable value using primary key first, then optional fallback key.
+ *
+ * @param encryptedJson - Stored JSON from `variable.value`.
+ * @param primaryMasterKey - Current canonical `HERMES_INTERNAL_API_KEY`.
+ * @param fallbackMasterKey - Optional previous key used only during rotation.
+ * @returns Original variable plaintext.
+ */
+export function decryptSecretVariableValueWithFallback(
+  encryptedJson: string,
+  primaryMasterKey: string,
+  fallbackMasterKey?: string,
+): string {
+  try {
+    return decryptSecretVariableValue(encryptedJson, primaryMasterKey);
+  } catch (error) {
+    const fallback = fallbackMasterKey?.trim();
+    if (!fallback || fallback === primaryMasterKey) {
+      throw error;
+    }
+    return decryptSecretVariableValue(encryptedJson, fallback);
+  }
+}

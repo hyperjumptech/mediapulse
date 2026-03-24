@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   decryptDomainIntegrationApiKey,
+  decryptDomainIntegrationApiKeyWithFallback,
   deriveDomainIntegrationEncryptionKey,
   encryptDomainIntegrationApiKey,
 } from "./encrypt-domain-integration-api-key";
@@ -44,5 +45,22 @@ describe("encryptDomainIntegrationApiKey / decryptDomainIntegrationApiKey", () =
   it("throws when decrypting with wrong master key", () => {
     const enc = encryptDomainIntegrationApiKey("s", "a".repeat(32));
     expect(() => decryptDomainIntegrationApiKey(enc, "b".repeat(32))).toThrow();
+  });
+
+  it("decrypts using fallback master key during rotation", () => {
+    // Setup
+    const oldMaster = "a".repeat(32);
+    const newMaster = "b".repeat(32);
+    const enc = encryptDomainIntegrationApiKey("rotating-secret", oldMaster);
+
+    // Act
+    const decrypted = decryptDomainIntegrationApiKeyWithFallback(
+      enc,
+      newMaster,
+      oldMaster,
+    );
+
+    // Assert
+    expect(decrypted).toBe("rotating-secret");
   });
 });

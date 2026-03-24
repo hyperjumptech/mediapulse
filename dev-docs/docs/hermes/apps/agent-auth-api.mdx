@@ -12,7 +12,7 @@ agent-auth-api is a Hono server that manages **API keys** (create, list, get, up
 
 - **POST /api/verify** — **JWT-only** invocation verification. Accepts `Authorization: Bearer <jwt>`. Verifies signature and expiry. Used by agents to verify that the caller (Hermes/hermes-worker) is authorized. Requires `AGENT_AUTH_JWT_SECRET`.
 - **POST /api/verify-api-key** — API-key verification for service callers. Accepts `Authorization: Bearer <api_key>`. Looks up hashed key in DB. Used where raw keys are required (e.g. some dashboard routes); **not** used for agent-data-api or agent-registry-api bearer auth (those use JWT verification above).
-- **POST /api/token** — Issue a short-lived JWT (e.g. 15 min) for agent invocation. Accepts **`Authorization: Bearer <HERMES_INTERNAL_API_KEY>`** (preset shared with Hermes dashboard and worker; timing-safe compare to env) **or** a dashboard API key whose hash is stored in the DB with purpose **`domain_integration`** (or legacy **`scheduler`**). Requires `AGENT_AUTH_JWT_SECRET` and, for the preset path, `HERMES_INTERNAL_API_KEY`. Hermes dashboard and worker use the preset only to mint JWTs; they never send it to agents.
+- **POST /api/token** — Issue a short-lived JWT (e.g. 15 min) for agent invocation. Accepts **`Authorization: Bearer <HERMES_INTERNAL_API_KEY>`** (preset shared with Hermes dashboard and worker; timing-safe compare to env) **or** a dashboard API key whose hash is stored in the DB with purpose **`domain_integration`** (or legacy **`scheduler`**). During key rotation it also accepts **`HERMES_INTERNAL_API_KEY_PREVIOUS`** when set. Requires `AGENT_AUTH_JWT_SECRET` and, for the preset path, `HERMES_INTERNAL_API_KEY`. Hermes dashboard and worker use the preset only to mint JWTs; they never send it to agents.
 - **API key CRUD** — Create, retrieve (list + by id), update, delete API keys. In practice, **admins create API keys in the Hermes dashboard** (which calls this API). Create accepts optional **purpose** (`general`, `scheduler`, `run_pipeline`, `domain_integration`). Use **`domain_integration`** for Mediapulse and agent auto-register token minting.
 - **Deactivate / reactivate** — Soft-disable keys without deleting. Revoking a **domain_integration** key stops that caller from obtaining new tokens after the next refresh.
 - **Temporary admin auth** — API key management is protected by HTTP Basic Auth (`TEMP_ADMIN_USERNAME` / `TEMP_ADMIN_PASSWORD`) until a proper admin flow exists.
@@ -36,6 +36,7 @@ agent-auth-api is a Hono server that manages **API keys** (create, list, get, up
 
 - **AGENT_AUTH_JWT_SECRET** (required) — Secret for signing and verifying short-lived JWTs. Required for POST /api/token and POST /api/verify. Use a long random value (e.g. 32+ chars) in production.
 - **HERMES_INTERNAL_API_KEY** — Preset bearer for Hermes dashboard/worker token minting (same value those services use). Optional only if you never use the preset path (not recommended for normal Hermes deployments).
+- **HERMES_INTERNAL_API_KEY_PREVIOUS** (optional) — Temporary previous preset used only during key rotation so `/api/token` can accept both old and new internal Bearer values during rollout.
 
 ## Port
 

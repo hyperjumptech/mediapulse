@@ -80,6 +80,27 @@ describe("secret variable transforms", () => {
     expect(map.get("PUBLIC")).toBe("visible");
     expect(map.get("SECRET")).toBe("resolved-secret");
   });
+
+  it("uses fallback key when decrypting rotated secret values", () => {
+    // Setup
+    const oldMasterKey = "x".repeat(32);
+    const newMasterKey = "y".repeat(32);
+    const encrypted = toStoredVariableValue(
+      "resolved-secret",
+      true,
+      oldMasterKey,
+    );
+
+    // Act
+    const map = buildRuntimeVariableMap(
+      [{ key: "SECRET", value: encrypted, isSecret: true }],
+      newMasterKey,
+      oldMasterKey,
+    );
+
+    // Assert
+    expect(map.get("SECRET")).toBe("resolved-secret");
+  });
 });
 
 describe("getVariablesPage", () => {

@@ -25,6 +25,9 @@ vi.mock("@hermes/env", () => ({
     get HERMES_INTERNAL_API_KEY() {
       return process.env.HERMES_INTERNAL_API_KEY ?? "";
     },
+    get HERMES_INTERNAL_API_KEY_PREVIOUS() {
+      return process.env.HERMES_INTERNAL_API_KEY_PREVIOUS ?? "";
+    },
   },
 }));
 
@@ -39,6 +42,7 @@ describe("issueToken route", () => {
       ...originalEnv,
       AGENT_AUTH_JWT_SECRET: "test-secret-at-least-16-chars",
       HERMES_INTERNAL_API_KEY: "internal-preset-key-for-tests",
+      HERMES_INTERNAL_API_KEY_PREVIOUS: "",
     };
   });
 
@@ -83,6 +87,26 @@ describe("issueToken route", () => {
     expect(typeof body.token).toBe("string");
     expect(body.token.split(".")).toHaveLength(3);
     expect(body).toEqual(expect.objectContaining({ expiresIn: 900 }));
+    const claims = decodeJwt(body.token as string);
+    expect(claims.sub).toBe(HERMES_INTERNAL_TOKEN_SUBJECT);
+  });
+
+  it("returns 200 with JWT when Bearer matches HERMES_INTERNAL_API_KEY_PREVIOUS", async () => {
+    // Setup
+    process.env.HERMES_INTERNAL_API_KEY_PREVIOUS = "previous-internal-key";
+
+    // Act
+    const res = await app.request("http://localhost/api/token", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer previous-internal-key",
+      },
+    });
+
+    // Assert
+    expect(res.status).toBe(200);
+    expect(mockFindUnique).not.toHaveBeenCalled();
+    const body = await res.json();
     const claims = decodeJwt(body.token as string);
     expect(claims.sub).toBe(HERMES_INTERNAL_TOKEN_SUBJECT);
   });

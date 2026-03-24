@@ -1,6 +1,6 @@
 import { prisma } from "@hermes/orchestration-database";
 import {
-  decryptSecretVariableValue,
+  decryptSecretVariableValueWithFallback,
   encryptSecretVariableValue,
   isEncryptedSecretVariablePayload,
 } from "@hermes/domain-integration-crypto";
@@ -99,17 +99,23 @@ export const toStoredVariableValue = (
  * Supports temporary plaintext fallback for pre-backfill secret rows.
  *
  * @param value - Raw DB value.
- * @param masterKey - Hermes master key for decryption.
+ * @param masterKey - Hermes canonical master key for decryption.
+ * @param fallbackMasterKey - Optional previous key used during key rotation.
  * @returns Plaintext variable value.
  */
 export const fromStoredSecretVariableValue = (
   value: string,
   masterKey: string,
+  fallbackMasterKey?: string,
 ): string => {
   if (!isEncryptedSecretVariablePayload(value)) {
     return value;
   }
-  return decryptSecretVariableValue(value, masterKey);
+  return decryptSecretVariableValueWithFallback(
+    value,
+    masterKey,
+    fallbackMasterKey,
+  );
 };
 
 /**
@@ -117,12 +123,14 @@ export const fromStoredSecretVariableValue = (
  * Secret rows are decrypted and non-secret rows remain plaintext.
  *
  * @param rows - Variable rows loaded from Prisma.
- * @param masterKey - Hermes master key for decryption.
+ * @param masterKey - Hermes canonical master key for decryption.
+ * @param fallbackMasterKey - Optional previous key used during key rotation.
  * @returns Key/value map with plaintext values ready for substitution.
  */
 export const buildRuntimeVariableMap = (
   rows: Array<{ key: string; value: string; isSecret: boolean }>,
   masterKey: string,
+  fallbackMasterKey?: string,
 ): Map<string, string> => {
   return new Map(
     rows.map((row) => {
@@ -131,7 +139,7 @@ export const buildRuntimeVariableMap = (
       }
       return [
         row.key,
-        fromStoredSecretVariableValue(row.value, masterKey),
+        fromStoredSecretVariableValue(row.value, masterKey, fallbackMasterKey),
       ] as const;
     }),
   );

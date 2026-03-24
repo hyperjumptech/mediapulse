@@ -1,5 +1,5 @@
 {
   "title": "Guide",
-  "pages": ["development", "production"],
+  "pages": ["development", "production", "hermes-internal-key-rotation"],
   "defaultOpen": true
 }

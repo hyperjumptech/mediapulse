@@ -100,7 +100,15 @@ export async function issueToken(context: Context) {
 
   try {
     const internalKey = env.HERMES_INTERNAL_API_KEY?.trim() ?? "";
-    if (internalKey.length > 0 && timingSafeStringEqual(rawKey, internalKey)) {
+    const previousInternalKey =
+      env.HERMES_INTERNAL_API_KEY_PREVIOUS?.trim() ?? "";
+    const matchesInternalKey =
+      internalKey.length > 0 && timingSafeStringEqual(rawKey, internalKey);
+    const matchesPreviousInternalKey =
+      previousInternalKey.length > 0 &&
+      previousInternalKey !== internalKey &&
+      timingSafeStringEqual(rawKey, previousInternalKey);
+    if (matchesInternalKey || matchesPreviousInternalKey) {
       const { token, expiresIn } = await signInvocationJwt(
         HERMES_INTERNAL_TOKEN_SUBJECT,
         jwtSecret,

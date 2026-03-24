@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@hermes/orchestration-database";
 import {
-  decryptSecretVariableValue,
+  decryptSecretVariableValueWithFallback,
   isEncryptedSecretVariablePayload,
 } from "@hermes/domain-integration-crypto";
 
@@ -45,6 +45,7 @@ type PlanPipelineInvocationsArgs = {
   sourceId: string;
   expandStepInputs: ExpandStepInputs;
   variableSecretMasterKey?: string;
+  variableSecretFallbackMasterKey?: string;
   requireHttpsAgentEndpoints?: boolean;
 };
 
@@ -76,6 +77,7 @@ export const planPipelineInvocations = async ({
   sourceId,
   expandStepInputs,
   variableSecretMasterKey,
+  variableSecretFallbackMasterKey,
   requireHttpsAgentEndpoints = false,
 }: PlanPipelineInvocationsArgs): Promise<PlanPipelineInvocationsResult> => {
   const errors: Array<{ message: string; timestamp: string }> = [];
@@ -96,9 +98,10 @@ export const planPipelineInvocations = async ({
       continue;
     }
     try {
-      const plaintext = decryptSecretVariableValue(
+      const plaintext = decryptSecretVariableValueWithFallback(
         variable.value,
         variableSecretMasterKey,
+        variableSecretFallbackMasterKey,
       );
       variableMap.set(variable.key, plaintext);
     } catch {

@@ -90,3 +90,27 @@ export function decryptDomainIntegrationApiKey(
   const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   return plain.toString("utf8");
 }
+
+/**
+ * Decrypts a domain integration API key using primary key first, then optional fallback key.
+ *
+ * @param encryptedJson - Stored JSON from `DomainIntegration.encryptedApiKey`.
+ * @param primaryMasterKey - Current canonical `HERMES_INTERNAL_API_KEY`.
+ * @param fallbackMasterKey - Optional previous key used only during rotation.
+ * @returns Original API key plaintext.
+ */
+export function decryptDomainIntegrationApiKeyWithFallback(
+  encryptedJson: string,
+  primaryMasterKey: string,
+  fallbackMasterKey?: string,
+): string {
+  try {
+    return decryptDomainIntegrationApiKey(encryptedJson, primaryMasterKey);
+  } catch (error) {
+    const fallback = fallbackMasterKey?.trim();
+    if (!fallback || fallback === primaryMasterKey) {
+      throw error;
+    }
+    return decryptDomainIntegrationApiKey(encryptedJson, fallback);
+  }
+}

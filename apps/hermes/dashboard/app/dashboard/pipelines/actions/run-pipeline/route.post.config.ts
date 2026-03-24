@@ -148,6 +148,7 @@ export const createRunPipelineHandler = ({
     const variableMap = buildRuntimeVariableMap(
       variables,
       env.HERMES_INTERNAL_API_KEY,
+      env.HERMES_INTERNAL_API_KEY_PREVIOUS,
     );
     const pipelineValidation = await validatePipeline(
       {

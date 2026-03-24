@@ -116,6 +116,7 @@ export const createUpdateVariableHandler = ({
         : fromStoredSecretVariableValue(
             existing.value,
             env.HERMES_INTERNAL_API_KEY,
+            env.HERMES_INTERNAL_API_KEY_PREVIOUS,
           );
     } else if (hasReplacementValue) {
       updateData.value = value;

@@ -157,7 +157,13 @@ When a step references **data-source** syntax or the UI needs **table-v1** data,
 
 - Existing plaintext legacy rows with `is_secret=true` must be re-encrypted once with `pnpm --filter @hermes/orchestration-database backfill:secret-variables --master-key "<HERMES_INTERNAL_API_KEY>"`.
 - The backfill is idempotent: already encrypted rows are skipped after decryptability verification.
-- If `HERMES_INTERNAL_API_KEY` rotates, run a controlled decrypt/re-encrypt maintenance window; old ciphertext cannot be decrypted after rotation without re-encryption.
+- For near-zero-downtime key rotation, use a dual-key grace period:
+  1. deploy code that can decrypt with `HERMES_INTERNAL_API_KEY` and optional `HERMES_INTERNAL_API_KEY_PREVIOUS`,
+  2. set canonical key to NEW and previous key to OLD across Hermes services,
+  3. run `pnpm --filter @hermes/orchestration-database rotate:internal-key-ciphertexts --old-master-key "<OLD>" --new-master-key "<NEW>" [--dry-run]`,
+  4. remove `HERMES_INTERNAL_API_KEY_PREVIOUS` after verification.
+- Full staging and production checklist: [Hermes internal key rotation](/guide/hermes-internal-key-rotation).
+- Without this sequence, ciphertext encrypted under the old key will fail to decrypt after cutover.
 
 Full sequence diagrams and tables: [Communication between parts](/integration/communication).
 

@@ -13,6 +13,7 @@ export const env = createEnv({
     PORT: z.number({ coerce: true }).optional(),
     AGENT_AUTH_API_URL: z.string().optional(),
     HERMES_INTERNAL_API_KEY: z.string().min(1),
+    HERMES_INTERNAL_API_KEY_PREVIOUS: z.string().optional(),
     AGENT_AUTH_JWT_SECRET: z.string().optional(),
     TEMP_ADMIN_USERNAME: z.string().min(1),
     TEMP_ADMIN_PASSWORD: z.string().min(1),
