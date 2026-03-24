@@ -21,6 +21,7 @@ import type {
   getPipelineWithSteps,
 } from "@/lib/pipelines";
 
+import { getPipelineStatus } from "@/lib/pipeline-status";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
 import { PipelineAvailableAgents } from "./pipeline-available-agents";
@@ -29,6 +30,8 @@ import { PipelineStepEditorPanel } from "./pipeline-step-editor-panel";
 import { PipelineStepsColumn } from "./pipeline-steps-column";
 import { RunPipelineButton } from "./run-pipeline-button";
 import { ListPagination } from "@/components/list-pagination";
+import { PipelineFormModal } from "../pipeline-form-modal";
+import { PipelineStatusBadge } from "../pipeline-status-badge";
 
 type PipelineWithSteps = NonNullable<
   Awaited<ReturnType<typeof getPipelineWithSteps>>
@@ -219,6 +222,14 @@ const usePipelineDetailState = (
 };
 
 /**
+ * Owns the edit-pipeline modal open state for the detail page toolbar.
+ */
+const usePipelineEditModalState = () => {
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  return { editModalOpen, setEditModalOpen };
+};
+
+/**
  * Client wrapper for pipeline detail: name/description and Save above; three-column layout
  * (available agents | pipeline steps | agent input/config only). Save beside Run pipeline.
  */
@@ -259,8 +270,37 @@ export const PipelineDetailContent = ({
     updateStepFormAction,
   );
 
+  const { editModalOpen, setEditModalOpen } = usePipelineEditModalState();
+
+  const pipelineStatus = getPipelineStatus(pipeline, pipelineValidation);
+  const statusWord =
+    pipelineStatus === "incomplete"
+      ? "Incomplete"
+      : pipelineStatus === "disabled"
+        ? "Disabled"
+        : "Enabled";
+
   return (
     <div className="flex flex-col gap-6">
+      <div
+        className="flex justify-end gap-3 items-center"
+        role="status"
+        aria-label={`Pipeline status ${statusWord}`}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Status</span>
+          <PipelineStatusBadge status={pipelineStatus} />
+        </div>
+        <Button type="button" onClick={() => setEditModalOpen(true)}>
+          Edit pipeline
+        </Button>
+      </div>
+      <PipelineFormModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        mode="edit"
+        editPipelineId={pipeline.id}
+      />
       <div className="flex flex-col gap-4">
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="grid gap-2">

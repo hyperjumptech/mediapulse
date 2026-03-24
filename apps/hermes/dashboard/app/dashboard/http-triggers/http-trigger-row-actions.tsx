@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { buildHttpTriggerInvokeCurlCommand } from "@/lib/http-trigger-invoke-curl";
 import { useRouter } from "next/navigation";
 import { Copy, MoreHorizontal, Pencil } from "lucide-react";
 
@@ -27,20 +28,6 @@ const useHttpTriggerRowActions = () => {
 };
 
 /**
- * Builds an invoke cURL command for one HTTP trigger.
- */
-const buildInvokeCurlCommand = ({
-  method,
-  triggerId,
-  origin,
-}: {
-  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-  triggerId: string;
-  origin: string;
-}): string =>
-  `curl -X ${method} "${origin}/api/http-triggers/${triggerId}/invoke" -H "Authorization: Bearer <YOUR_TRIGGER_TOKEN>"`;
-
-/**
  * Dropdown row actions for one HTTP trigger.
  */
 export const HttpTriggerRowActions = ({
@@ -56,7 +43,7 @@ export const HttpTriggerRowActions = ({
 }) => {
   const { FormWithAction, pending } = useHttpTriggerRowActions();
   const onCopyCurl = useCallback(async () => {
-    const command = buildInvokeCurlCommand({
+    const command = buildHttpTriggerInvokeCurlCommand({
       method,
       triggerId: httpTriggerId,
       origin: window.location.origin,

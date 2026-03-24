@@ -7,6 +7,7 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
+import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 import type { getPipelinesWithSteps } from "@/lib/pipelines";
 import {
   getPipelineStatus,
@@ -437,21 +438,15 @@ export const ScheduleFormFields = ({
           disabled={pending}
         />
       </div>
-      <div className="flex items-center gap-2">
-        <input type="hidden" name={`${pre}enabled`} value="false" readOnly />
-        <input
-          id={`${pre}enabled`}
-          name={`${pre}enabled`}
-          type="checkbox"
-          defaultChecked={defaultEnabled}
-          value="on"
-          disabled={pending}
-          className="size-4 rounded border-input"
-        />
-        <Label htmlFor={`${pre}enabled`} className="cursor-pointer">
-          Enabled
-        </Label>
-      </div>
+      <FormBooleanCheckboxField
+        name={`${pre}enabled`}
+        id={`${pre}enabled`}
+        defaultChecked={defaultEnabled}
+        checkedSubmitValue="on"
+        disabled={pending}
+        label="Enabled"
+        labelClassName="cursor-pointer"
+      />
       {errorMessage ? (
         <p className="text-sm text-destructive" role="alert">
           {errorMessage}

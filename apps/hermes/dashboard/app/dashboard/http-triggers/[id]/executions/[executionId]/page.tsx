@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, GitBranch } from "lucide-react";
 
 import {
   Table,
@@ -50,12 +50,23 @@ export default async function HttpTriggerExecutionDetailPage({
         </Link>
       </div>
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Execution {detail.execution.id.slice(0, 8)}...
+        <h1 className="break-all text-2xl font-semibold text-foreground">
+          Execution {detail.execution.id}
         </h1>
         <p className="text-muted-foreground">
           {detail.trigger.name}
-          {detail.pipeline ? ` · ${detail.pipeline.name}` : ""}
+          {detail.pipeline ? (
+            <>
+              {" · "}
+              <Link
+                href={`/dashboard/pipelines/${detail.pipeline.id}`}
+                className="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
+              >
+                <GitBranch className="size-4 shrink-0" aria-hidden />
+                {detail.pipeline.name}
+              </Link>
+            </>
+          ) : null}
         </p>
       </div>
 

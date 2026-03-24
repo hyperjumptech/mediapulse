@@ -7,11 +7,38 @@ const mockDashboardUser = {
   email: "a@b.com",
 } as const;
 
-import { createUpdateHttpTriggerHandler } from "./route.post.config";
+import {
+  createUpdateHttpTriggerHandler,
+  httpTriggerUpdateBodySchema,
+} from "./route.post.config";
 
 describe("createUpdateHttpTriggerHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("parses blank bearerToken as omitted so the current token is kept", async () => {
+    const parsed = await httpTriggerUpdateBodySchema.parseAsync({
+      httpTriggerId: "00000000-0000-4000-8000-000000000022",
+      bearerToken: "",
+    });
+    expect(parsed.bearerToken).toBeUndefined();
+  });
+
+  it("parses enabled false from unchecked checkbox (hidden input)", async () => {
+    const parsed = await httpTriggerUpdateBodySchema.parseAsync({
+      httpTriggerId: "00000000-0000-4000-8000-000000000022",
+      enabled: "false",
+    });
+    expect(parsed.enabled).toBe(false);
+  });
+
+  it("parses enabled true from checked checkbox", async () => {
+    const parsed = await httpTriggerUpdateBodySchema.parseAsync({
+      httpTriggerId: "00000000-0000-4000-8000-000000000022",
+      enabled: "on",
+    });
+    expect(parsed.enabled).toBe(true);
   });
 
   it("returns error when trigger does not exist", async () => {
@@ -90,6 +117,39 @@ describe("createUpdateHttpTriggerHandler", () => {
           tokenHash: expect.any(String),
           tokenHint: "...cret",
         }),
+      }),
+    );
+  });
+
+  it("persists enabled false when body includes enabled", async () => {
+    const db = {
+      httpTrigger: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "00000000-0000-4000-8000-000000000022",
+          pipelineId: "p1",
+        }),
+        update: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    const handler = createUpdateHttpTriggerHandler({
+      db: db as never,
+    });
+
+    const result = await handler({
+      body: {
+        httpTriggerId: "00000000-0000-4000-8000-000000000022",
+        enabled: false,
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(true);
+    expect(db.httpTrigger.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ enabled: false }),
       }),
     );
   });

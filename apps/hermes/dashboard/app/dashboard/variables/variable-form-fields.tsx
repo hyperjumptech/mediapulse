@@ -4,6 +4,8 @@ import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 
+import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
+
 type VariableFormFieldsBase = {
   /** Whether the form is submitting. */
   pending: boolean;
@@ -89,24 +91,14 @@ export const VariableFormFields = (props: VariableFormFieldsProps) => {
           })}
         />
       </div>
-      <div className="flex items-center gap-2">
-        <input type="hidden" name="body.isSecret" value="false" />
-        <input
-          type="checkbox"
-          id="body.isSecret"
-          name="body.isSecret"
-          value="true"
-          defaultChecked={isEdit ? props.initialIsSecret : false}
-          disabled={pending}
-          className="size-4 rounded border-input"
-        />
-        <Label
-          htmlFor="body.isSecret"
-          className="cursor-pointer text-sm font-normal"
-        >
-          Secret (value will not be shown after save)
-        </Label>
-      </div>
+      <FormBooleanCheckboxField
+        name="body.isSecret"
+        id="body.isSecret"
+        defaultChecked={isEdit ? props.initialIsSecret : false}
+        disabled={pending}
+        label="Secret (value will not be shown after save)"
+        labelClassName="cursor-pointer text-sm font-normal"
+      />
       {errorMessage ? (
         <p className="text-sm text-destructive" role="alert">
           {errorMessage}

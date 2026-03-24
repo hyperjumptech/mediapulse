@@ -3,6 +3,7 @@
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
+import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 import type { PipelineOption } from "../schedules/schedule-form-fields";
 
 const HTTP_METHOD_OPTIONS = ["GET", "POST", "PUT", "DELETE", "PATCH"] as const;
@@ -106,16 +107,15 @@ export const HttpTriggerFormFields = ({
         </select>
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          id="http-trigger-enabled"
-          type="checkbox"
-          name="body.enabled"
-          defaultChecked={defaultEnabled}
-          disabled={pending}
-        />
-        <Label htmlFor="http-trigger-enabled">Enabled</Label>
-      </div>
+      <FormBooleanCheckboxField
+        name="body.enabled"
+        id="http-trigger-enabled"
+        defaultChecked={defaultEnabled}
+        checkedSubmitValue="on"
+        disabled={pending}
+        label="Enabled"
+        labelClassName="cursor-pointer"
+      />
 
       <div className="grid gap-2">
         <Label htmlFor="http-trigger-token">
