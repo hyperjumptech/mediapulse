@@ -7,10 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 
 const bodyValidator = z.object({
   scheduleId: z.string().uuid(),
@@ -18,7 +15,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -26,7 +23,6 @@ export const responseValidator = z.object({
 });
 
 type DeleteScheduleHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -39,19 +35,13 @@ type DeleteScheduleHandler = HandlerFunc<
 /**
  * Creates the delete-schedule handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that deletes a schedule (cascades to schedule executions).
  */
 export const createDeleteScheduleHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: DeleteScheduleHandlerDependencies = {}): DeleteScheduleHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const { scheduleId } = data.body;
     const existing = await db.schedule.findUnique({
       where: { id: scheduleId },

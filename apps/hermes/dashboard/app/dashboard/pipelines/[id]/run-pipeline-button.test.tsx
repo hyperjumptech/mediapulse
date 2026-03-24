@@ -31,7 +31,12 @@ const createMockUseFormAction = (overrides?: {
   state?: {
     status: boolean;
     message?: string;
-    data?: { tickersRun?: number };
+    data?: {
+      invocationsRun?: number;
+      executionId?: string;
+      runStatus?: "succeeded" | "partial" | "failed";
+      failedInvocationCount?: number;
+    };
   } | null;
   pending?: boolean;
 }) => ({
@@ -141,12 +146,20 @@ describe("RunPipelineButton", () => {
     expect(screen.getByText("Pipeline is inactive")).toBeInTheDocument();
   });
 
-  it("displays success message with ticker count", async () => {
+  it("displays success message with invocation count", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(
       createMockUseFormAction({
-        state: { status: true, data: { tickersRun: 5 } },
+        state: {
+          status: true,
+          data: {
+            invocationsRun: 5,
+            runStatus: "succeeded",
+            failedInvocationCount: 0,
+            executionId: "00000000-0000-4000-8000-000000000005",
+          },
+        },
       }),
     );
 
@@ -154,15 +167,30 @@ describe("RunPipelineButton", () => {
     render(<RunPipelineButton pipelineId="pipeline-123" />);
 
     // Assert
-    expect(screen.getByText("Ran for 5 tickers.")).toBeInTheDocument();
+    expect(screen.getByText(/Ran 5 invocations/)).toBeInTheDocument();
+    expect(screen.getByText(/Status succeeded, 0 failed/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open execution" }),
+    ).toHaveAttribute(
+      "href",
+      "/dashboard/pipelines/pipeline-123/executions/00000000-0000-4000-8000-000000000005",
+    );
   });
 
-  it("displays singular ticker message for 1 ticker", async () => {
+  it("displays singular invocation message for 1 invocation", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(
       createMockUseFormAction({
-        state: { status: true, data: { tickersRun: 1 } },
+        state: {
+          status: true,
+          data: {
+            invocationsRun: 1,
+            runStatus: "partial",
+            failedInvocationCount: 1,
+            executionId: "00000000-0000-4000-8000-000000000001",
+          },
+        },
       }),
     );
 
@@ -170,7 +198,14 @@ describe("RunPipelineButton", () => {
     render(<RunPipelineButton pipelineId="pipeline-123" />);
 
     // Assert
-    expect(screen.getByText("Ran for 1 ticker.")).toBeInTheDocument();
+    expect(screen.getByText(/Ran 1 invocation/)).toBeInTheDocument();
+    expect(screen.getByText(/Status partial, 1 failed/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open execution" }),
+    ).toHaveAttribute(
+      "href",
+      "/dashboard/pipelines/pipeline-123/executions/00000000-0000-4000-8000-000000000001",
+    );
   });
 
   it("calls router.refresh on success", async () => {

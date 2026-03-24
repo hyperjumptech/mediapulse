@@ -7,10 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 
 const bodyValidator = z.object({
   httpTriggerId: z.string().uuid(),
@@ -18,7 +15,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -35,15 +32,11 @@ type DeleteHttpTriggerHandler = HandlerFunc<
  * Deletes one HTTP trigger by id.
  */
 export const createDeleteHttpTriggerHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 } = {}): DeleteHttpTriggerHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) return errorResponse("Unauthorized");
     const existing = await db.httpTrigger.findUnique({
       where: { id: data.body.httpTriggerId },
     });

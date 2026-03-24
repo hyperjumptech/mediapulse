@@ -22,9 +22,14 @@ vi.mock("@/lib/pipelines", () => ({
 }));
 
 const getAgentConfigsByAgentKeysMock = vi.fn();
+const getPipelineExecutionsPageMock = vi.fn();
 vi.mock("@/lib/agent-configs", () => ({
   getAgentConfigsByAgentKeys: (...args: unknown[]) =>
     getAgentConfigsByAgentKeysMock(...args),
+}));
+vi.mock("@/lib/pipeline-executions", () => ({
+  getPipelineExecutionsPage: (...args: unknown[]) =>
+    getPipelineExecutionsPageMock(...args),
 }));
 
 vi.mock("@/lib/validate-pipeline", () => ({
@@ -69,6 +74,7 @@ describe("PipelineDetailPage", () => {
     getPipelineWithStepsMock.mockReset();
     getAgentRegistryListMock.mockReset();
     getAgentConfigsByAgentKeysMock.mockReset();
+    getPipelineExecutionsPageMock.mockReset();
     notFoundMock.mockReset();
   });
 
@@ -84,10 +90,17 @@ describe("PipelineDetailPage", () => {
     getAgentRegistryListMock.mockResolvedValue([
       { id: "agent-1", agentId: "summarizer", agentVersion: "1.0" },
     ]);
+    getPipelineExecutionsPageMock.mockResolvedValue({
+      executions: [],
+      total: 0,
+      page: 1,
+      pageSize: 15,
+    });
 
     // Act
     const component = await PipelineDetailPage({
       params: Promise.resolve({ id: "pipeline-123" }),
+      searchParams: Promise.resolve({}),
     });
     render(component);
 
@@ -112,10 +125,17 @@ describe("PipelineDetailPage", () => {
       { id: "agent-1" },
       { id: "agent-2" },
     ]);
+    getPipelineExecutionsPageMock.mockResolvedValue({
+      executions: [],
+      total: 0,
+      page: 1,
+      pageSize: 15,
+    });
 
     // Act
     const component = await PipelineDetailPage({
       params: Promise.resolve({ id: "pipeline-123" }),
+      searchParams: Promise.resolve({}),
     });
     render(component);
 
@@ -131,6 +151,12 @@ describe("PipelineDetailPage", () => {
     getAgentConfigsByAgentKeysMock.mockResolvedValue({});
     getPipelineWithStepsMock.mockResolvedValue(null);
     getAgentRegistryListMock.mockResolvedValue([]);
+    getPipelineExecutionsPageMock.mockResolvedValue({
+      executions: [],
+      total: 0,
+      page: 1,
+      pageSize: 15,
+    });
     notFoundMock.mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND");
     });
@@ -139,6 +165,7 @@ describe("PipelineDetailPage", () => {
     await expect(
       PipelineDetailPage({
         params: Promise.resolve({ id: "non-existent" }),
+        searchParams: Promise.resolve({}),
       }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
 

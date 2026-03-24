@@ -7,7 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { zFormBoolean } from "@/lib/form-boolean-schema";
 
 const bodyValidator = z.object({
@@ -19,6 +19,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -26,7 +27,6 @@ export const responseValidator = z.object({
 });
 
 type CreatePipelineHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -39,19 +39,13 @@ type CreatePipelineHandler = HandlerFunc<
 /**
  * Creates the create-pipeline handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that creates a pipeline and returns its id.
  */
 export const createCreatePipelineHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: CreatePipelineHandlerDependencies = {}): CreatePipelineHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const {
       name,
       description,

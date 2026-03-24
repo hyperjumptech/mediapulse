@@ -2,25 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createUpdateAgentHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 describe("createUpdateAgentHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const updateHandler = createUpdateAgentHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await updateHandler({
-      body: { id: "00000000-0000-4000-8000-000000000001" },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when agent not found and agentId/version provided", async () => {
@@ -32,7 +22,6 @@ describe("createUpdateAgentHandler", () => {
       },
     };
     const updateHandler = createUpdateAgentHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -43,7 +32,7 @@ describe("createUpdateAgentHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Agent not found");
@@ -66,7 +55,6 @@ describe("createUpdateAgentHandler", () => {
       },
     };
     const updateHandler = createUpdateAgentHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -80,7 +68,7 @@ describe("createUpdateAgentHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "00000000-0000-4000-8000-000000000001" },
@@ -103,7 +91,6 @@ describe("createUpdateAgentHandler", () => {
       },
     };
     const updateHandler = createUpdateAgentHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     await updateHandler({
@@ -114,7 +101,7 @@ describe("createUpdateAgentHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "00000000-0000-4000-8000-000000000001" },
@@ -137,7 +124,6 @@ describe("handler", () => {
       },
     };
     const customHandler = createUpdateAgentHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({
@@ -148,7 +134,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

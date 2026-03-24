@@ -8,25 +8,15 @@ import { env } from "@hermes/env";
 import { SECRET_MASK } from "@/lib/variables";
 import { createUpdateVariableHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 describe("createUpdateVariableHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const handler = createUpdateVariableHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await handler({
-      body: { id: "v1" },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when variable not found", async () => {
@@ -37,11 +27,6 @@ describe("createUpdateVariableHandler", () => {
       },
     };
     const handler = createUpdateVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "a@b.com",
-      }),
       db: db as never,
     });
     const result = await handler({
@@ -49,7 +34,7 @@ describe("createUpdateVariableHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Variable not found");
@@ -71,11 +56,6 @@ describe("createUpdateVariableHandler", () => {
       },
     };
     const handler = createUpdateVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "a@b.com",
-      }),
       db: db as never,
     });
     const result = await handler({
@@ -83,7 +63,7 @@ describe("createUpdateVariableHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
     expect(updateMock).toHaveBeenCalledWith({
@@ -107,11 +87,6 @@ describe("createUpdateVariableHandler", () => {
       },
     };
     const handler = createUpdateVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "a@b.com",
-      }),
       db: db as never,
     });
     await handler({
@@ -119,7 +94,7 @@ describe("createUpdateVariableHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "v1" },
@@ -144,11 +119,6 @@ describe("createUpdateVariableHandler", () => {
       },
     };
     const handler = createUpdateVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "a@b.com",
-      }),
       db: db as never,
     });
 
@@ -158,7 +128,7 @@ describe("createUpdateVariableHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     // Assert
@@ -199,11 +169,6 @@ describe("createUpdateVariableHandler", () => {
       },
     };
     const handler = createUpdateVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "a@b.com",
-      }),
       db: db as never,
     });
 
@@ -213,7 +178,7 @@ describe("createUpdateVariableHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     // Assert

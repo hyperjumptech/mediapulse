@@ -2,30 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCreateAgentHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 describe("createCreateAgentHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const createHandler = createCreateAgentHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await createHandler({
-      body: {
-        agentId: "summarizer",
-        agentVersion: "1.0",
-        endpoint: "{}",
-        isActive: true,
-      },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when agentId and agentVersion already exist", async () => {
@@ -44,7 +29,6 @@ describe("createCreateAgentHandler", () => {
       },
     };
     const createHandler = createCreateAgentHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await createHandler({
@@ -57,7 +41,7 @@ describe("createCreateAgentHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toContain(
@@ -82,7 +66,6 @@ describe("createCreateAgentHandler", () => {
       },
     };
     const createHandler = createCreateAgentHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await createHandler({
@@ -96,7 +79,7 @@ describe("createCreateAgentHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(createMock).toHaveBeenCalledWith({
       data: {
@@ -136,11 +119,6 @@ describe("handler", () => {
       },
     };
     const customHandler = createCreateAgentHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "admin@test.com",
-      }),
       db: db as never,
     });
     const result = await customHandler({
@@ -153,7 +131,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

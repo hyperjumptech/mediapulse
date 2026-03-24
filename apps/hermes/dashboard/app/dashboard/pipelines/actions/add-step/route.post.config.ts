@@ -7,7 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 
@@ -46,6 +46,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -53,7 +54,6 @@ export const responseValidator = z.object({
 });
 
 type AddStepHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -66,19 +66,13 @@ type AddStepHandler = HandlerFunc<
 /**
  * Creates the add-step handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that adds a pipeline step (validates agent exists in registry).
  */
 export const createAddStepHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: AddStepHandlerDependencies = {}): AddStepHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const { pipelineId, agentId, agentVersion, agentConfigId, input, config } =
       data.body;
 

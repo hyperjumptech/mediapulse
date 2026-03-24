@@ -7,10 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 
 const bodyValidator = z.object({
   id: z.string().uuid(),
@@ -18,7 +15,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -34,7 +31,6 @@ export const responseValidator = z.object({
 });
 
 type GetAgentConfigHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -47,19 +43,13 @@ type GetAgentConfigHandler = HandlerFunc<
 /**
  * Creates the get-agent-config handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that returns a single agent config by id.
  */
 export const createGetAgentConfigHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: GetAgentConfigHandlerDependencies = {}): GetAgentConfigHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const { id } = data.body;
 
     const config = await db.agentConfig.findUnique({

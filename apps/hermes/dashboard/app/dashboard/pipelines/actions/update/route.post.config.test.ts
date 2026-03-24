@@ -2,6 +2,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createUpdatePipelineHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
   disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
 }));
@@ -11,27 +17,10 @@ describe("createUpdatePipelineHandler", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns error when session is null", async () => {
-    const updateHandler = createUpdatePipelineHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await updateHandler({
-      body: { pipelineId: "p-uuid", name: "New Name" },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
-  });
-
   it("updates pipeline and returns ok", async () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = { pipeline: { update: updateMock } };
     const updateHandler = createUpdatePipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -39,7 +28,7 @@ describe("createUpdatePipelineHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "p-1" },
@@ -74,7 +63,6 @@ describe("createUpdatePipelineHandler", () => {
       },
     };
     const updateHandler = createUpdatePipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -88,7 +76,7 @@ describe("createUpdatePipelineHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(deleteManyMock).toHaveBeenCalledWith({
       where: { pipelineId: "p-1" },
@@ -125,7 +113,6 @@ describe("createUpdatePipelineHandler", () => {
       },
     };
     const updateHandler = createUpdatePipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await updateHandler({
@@ -136,7 +123,7 @@ describe("createUpdatePipelineHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toContain("not found");
@@ -151,7 +138,6 @@ describe("handler", () => {
   it("is the factory with production defaults", async () => {
     const db = { pipeline: { update: vi.fn().mockResolvedValue(undefined) } };
     const customHandler = createUpdatePipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({
@@ -159,7 +145,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

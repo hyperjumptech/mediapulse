@@ -2,6 +2,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createReorderStepsHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
   disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
 }));
@@ -11,27 +17,10 @@ describe("createReorderStepsHandler", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns error when session is null", async () => {
-    const reorderHandler = createReorderStepsHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await reorderHandler({
-      body: { pipelineId: "p-1", stepIds: ["s1", "s2"] },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
-  });
-
   it("updates step order by index and returns ok", async () => {
     const updateManyMock = vi.fn().mockResolvedValue({ count: 1 });
     const db = { pipelineStep: { updateMany: updateManyMock } };
     const reorderHandler = createReorderStepsHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await reorderHandler({
@@ -39,7 +28,7 @@ describe("createReorderStepsHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     // Two-phase update to avoid unique constraint on (pipelineId, order)
     expect(updateManyMock).toHaveBeenCalledTimes(4);
@@ -75,7 +64,6 @@ describe("handler", () => {
       pipelineStep: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
     const customHandler = createReorderStepsHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({
@@ -83,7 +71,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

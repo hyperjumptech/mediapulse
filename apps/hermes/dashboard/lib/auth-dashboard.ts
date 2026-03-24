@@ -211,13 +211,32 @@ export const resolveHermesActiveAdminDashboardAccess = async ({
 };
 
 /**
- * Wrapper for use with route-action-gen requestValidator.user.
- * Ignores the request argument and returns the dashboard session from cookies/headers.
+ * Optional auth for route-action-gen `requestValidator.user`.
+ * Returns `null` when unauthenticated so the request can still reach the handler
+ * (use only for routes that intentionally allow anonymous access).
  *
  * @param _request - Optional request (ignored; session is read from next/headers).
- * @returns The authenticated user or null.
+ * @returns Dashboard user or `null` when not logged in.
  */
 export const getDashboardSessionForRoute = async (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature required by route-action-gen
   _request?: Request,
 ): Promise<DashboardUser | null> => getDashboardSession();
+
+/**
+ * Required auth for route-action-gen `requestValidator.user`.
+ * Throws when unauthenticated so `processRequest` / `processFormAction` return 401 and the handler does not run.
+ *
+ * @param _request - Optional request (ignored; session is read from next/headers).
+ * @returns Dashboard user (never `null`).
+ */
+export const requireDashboardSessionForRoute = async (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature required by route-action-gen
+  _request?: Request,
+): Promise<DashboardUser> => {
+  const session = await getDashboardSession();
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+  return session;
+};

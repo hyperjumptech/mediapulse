@@ -7,10 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 
 /**
  * Parses JSON string into a plain object for endpoint. Rejects arrays and non-object values.
@@ -42,7 +39,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -50,7 +47,6 @@ export const responseValidator = z.object({
 });
 
 type CreateAgentHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -63,19 +59,13 @@ type CreateAgentHandler = HandlerFunc<
 /**
  * Creates the create-agent handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that creates a single agent registry entry and returns its id.
  */
 export const createCreateAgentHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: CreateAgentHandlerDependencies = {}): CreateAgentHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const {
       agentId,
       agentVersion,
