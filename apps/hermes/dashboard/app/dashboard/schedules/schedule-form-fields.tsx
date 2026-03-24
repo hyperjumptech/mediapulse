@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -14,8 +14,10 @@ import {
   type PipelineValidationResult,
 } from "@/lib/pipeline-status";
 
-/** Common IANA timezone identifiers for schedule runs. */
-export const TIMEZONE_OPTIONS = [
+/**
+ * IANA zones used when `Intl.supportedValuesOf("timeZone")` is missing (older runtimes).
+ */
+const FALLBACK_IANA_TIMEZONES = [
   "UTC",
   "America/New_York",
   "America/Chicago",
@@ -42,6 +44,124 @@ export const TIMEZONE_OPTIONS = [
   "Australia/Melbourne",
   "Pacific/Auckland",
 ] as const;
+
+/** Cached sorted zones from the global `Intl` (populated on first use). */
+let cachedSortedZonesFromGlobalIntl: readonly string[] | null = null;
+
+/**
+ * Narrow view of `Intl` for time zone enumeration (runtime may expose
+ * `supportedValuesOf` even when older `lib` typings omit it).
+ */
+type IntlWithTimeZoneValues = {
+  supportedValuesOf?: (key: "timeZone") => string[];
+};
+
+const globalIntlForTimeZones =
+  globalThis.Intl as unknown as IntlWithTimeZoneValues;
+
+/**
+ * Reads IANA time zone ids from an `Intl` implementation, sorted lexicographically.
+ *
+ * @param intl - `Intl` or test double with optional `supportedValuesOf`.
+ * @returns Sorted zone identifiers, or the fallback list if unavailable.
+ */
+const readSortedIanaTimeZones = (
+  intl: IntlWithTimeZoneValues,
+): readonly string[] => {
+  try {
+    const supportedValuesOf = intl.supportedValuesOf;
+    if (typeof supportedValuesOf === "function") {
+      const values = supportedValuesOf.call(intl, "timeZone");
+      if (Array.isArray(values) && values.length > 0) {
+        return Object.freeze([...values].sort((a, b) => a.localeCompare(b)));
+      }
+    }
+  } catch {
+    // Invalid or unsupported Intl API in this environment.
+  }
+  return FALLBACK_IANA_TIMEZONES;
+};
+
+/**
+ * Returns all IANA time zone identifiers available in the runtime (via `Intl.supportedValuesOf`),
+ * sorted for display. Uses a small fallback list when that API is missing.
+ *
+ * @param intl - Injectable `Intl` namespace; defaults to the global one (cached).
+ * @returns Readonly sorted list of IANA time zone names.
+ */
+export const getSupportedIanaTimeZones = (
+  intl: IntlWithTimeZoneValues = globalIntlForTimeZones,
+): readonly string[] => {
+  if (intl === globalIntlForTimeZones) {
+    if (cachedSortedZonesFromGlobalIntl === null) {
+      cachedSortedZonesFromGlobalIntl = readSortedIanaTimeZones(
+        globalIntlForTimeZones,
+      );
+    }
+    return cachedSortedZonesFromGlobalIntl;
+  }
+  return readSortedIanaTimeZones(intl);
+};
+
+/**
+ * Builds the ordered list of `<option>` values for the timezone select, ensuring
+ * `defaultTimezone` appears even if it is not in `zones` (e.g. legacy DB value).
+ *
+ * @param defaultTimezone - Current schedule timezone (may be empty while creating).
+ * @param zones - Supported zones from `getSupportedIanaTimeZones`.
+ * @returns Sorted unique zone ids.
+ */
+export const buildTimezoneSelectOptions = (
+  defaultTimezone: string,
+  zones: readonly string[],
+): string[] => {
+  const set = new Set(zones);
+  const trimmed = defaultTimezone.trim();
+  if (trimmed) {
+    set.add(trimmed);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+};
+
+/**
+ * Returns the UTC offset label for an IANA zone at `referenceDate` (e.g. `GMT-05:00`, `GMT+9`).
+ *
+ * @param ianaTimeZone - IANA time zone identifier.
+ * @param referenceDate - Instant used for DST-aware offset (defaults to now).
+ * @returns Offset string from `Intl` (e.g. `GMT-05:00`, `GMT+09:00`), or empty string if the zone is invalid.
+ */
+export const getTimezoneUtcOffsetLabel = (
+  ianaTimeZone: string,
+  referenceDate: Date = new Date(),
+): string => {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: ianaTimeZone,
+      timeZoneName: "longOffset",
+    });
+    const part = formatter
+      .formatToParts(referenceDate)
+      .find((p) => p.type === "timeZoneName");
+    return part?.value ?? "";
+  } catch {
+    return "";
+  }
+};
+
+/**
+ * Label for a timezone `<option>`: IANA id plus UTC offset at `referenceDate`.
+ *
+ * @param ianaTimeZone - IANA time zone identifier.
+ * @param referenceDate - Instant used for DST-aware offset (defaults to now).
+ * @returns Display string such as `America/New_York (GMT-05:00)`.
+ */
+export const formatTimezoneSelectLabel = (
+  ianaTimeZone: string,
+  referenceDate: Date = new Date(),
+): string => {
+  const offset = getTimezoneUtcOffsetLabel(ianaTimeZone, referenceDate);
+  return offset ? `${ianaTimeZone} (${offset})` : ianaTimeZone;
+};
 
 export type PipelineOption = Awaited<
   ReturnType<typeof getPipelinesWithSteps>
@@ -191,6 +311,12 @@ export const ScheduleFormFields = ({
     defaultPipelineId,
     initialIntervalMs,
     initialCronExpression,
+  );
+
+  const timezoneOptions = useMemo(
+    () =>
+      buildTimezoneSelectOptions(defaultTimezone, getSupportedIanaTimeZones()),
+    [defaultTimezone],
   );
 
   const pre = namePrefix ? `${namePrefix}.` : "";
@@ -361,9 +487,9 @@ export const ScheduleFormFields = ({
             "disabled:pointer-events-none disabled:opacity-50",
           )}
         >
-          {TIMEZONE_OPTIONS.map((tz) => (
+          {timezoneOptions.map((tz) => (
             <option key={tz} value={tz}>
-              {tz}
+              {formatTimezoneSelectLabel(tz)}
             </option>
           ))}
         </select>
