@@ -25,6 +25,7 @@ import {
 import { z } from "zod";
 
 import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
+import { createExpandStepInputsForManualPipelineRun } from "@/lib/expand-step-inputs-for-manual-pipeline";
 import { validatePipeline } from "@/lib/validate-pipeline";
 
 const bodyValidator = z.object({
@@ -114,7 +115,7 @@ export const createRunPipelineHandler = ({
     }),
   post = got.post,
   now = () => new Date(),
-  expandStepInputs = async (context) => [context.input],
+  expandStepInputs = createExpandStepInputsForManualPipelineRun(),
 }: RunPipelineHandlerDependencies = {}): RunPipelineHandler => {
   return async (data) => {
     const session = data.user;
