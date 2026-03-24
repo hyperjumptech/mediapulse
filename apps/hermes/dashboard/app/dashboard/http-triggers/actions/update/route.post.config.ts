@@ -12,7 +12,8 @@ import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { createTokenHint, hashHttpTriggerToken } from "@/lib/http-trigger-auth";
 
-const bodyValidator = z.object({
+/** Parsed and validated HTTP trigger update form body (also used in tests). */
+export const httpTriggerUpdateBodySchema = z.object({
   httpTriggerId: z.string().uuid(),
   name: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -24,11 +25,15 @@ const bodyValidator = z.object({
       v === true || v === "on" ? true : v === "false" ? false : undefined,
     ),
   method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]).optional(),
-  bearerToken: z.string().min(1).optional(),
+  /** Empty string from an optional password input means "keep current token". */
+  bearerToken: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.string().min(1).optional(),
+  ),
 });
 
 export const requestValidator = createRequestValidator({
-  body: bodyValidator,
+  body: httpTriggerUpdateBodySchema,
   user: requireDashboardSessionForRoute,
 });
 

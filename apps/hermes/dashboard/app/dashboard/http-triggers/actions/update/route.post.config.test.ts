@@ -7,11 +7,22 @@ const mockDashboardUser = {
   email: "a@b.com",
 } as const;
 
-import { createUpdateHttpTriggerHandler } from "./route.post.config";
+import {
+  createUpdateHttpTriggerHandler,
+  httpTriggerUpdateBodySchema,
+} from "./route.post.config";
 
 describe("createUpdateHttpTriggerHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("parses blank bearerToken as omitted so the current token is kept", async () => {
+    const parsed = await httpTriggerUpdateBodySchema.parseAsync({
+      httpTriggerId: "00000000-0000-4000-8000-000000000022",
+      bearerToken: "",
+    });
+    expect(parsed.bearerToken).toBeUndefined();
   });
 
   it("returns error when trigger does not exist", async () => {
