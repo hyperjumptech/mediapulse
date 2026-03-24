@@ -4,7 +4,7 @@ import {
   prisma,
   type PrismaClient,
 } from "@hermes/orchestration-database";
-import { decryptDomainIntegrationApiKey } from "@hermes/domain-integration-crypto";
+import { decryptDomainIntegrationApiKeyWithFallback } from "@hermes/domain-integration-crypto";
 import { env } from "@hermes/env";
 
 /** Orchestration DB slice needed for JWT minting (injectable for tests and `orchDb` from expansion context). */
@@ -39,18 +39,20 @@ export async function getBearerJwtForDomainIntegrationId(
     where: {
       id: domainIntegrationId,
       status: DomainIntegrationStatus.active,
-      encryptedApiKey: { not: null },
+      NOT: { encryptedPayload: null },
     },
-    select: { encryptedApiKey: true },
+    select: { encryptedPayload: { select: { ciphertext: true } } },
   });
 
-  if (!row?.encryptedApiKey) {
+  const ciphertext = row?.encryptedPayload?.ciphertext;
+  if (!ciphertext) {
     return undefined;
   }
 
-  const plaintext = decryptDomainIntegrationApiKey(
-    row.encryptedApiKey,
+  const plaintext = decryptDomainIntegrationApiKeyWithFallback(
+    ciphertext,
     env.HERMES_INTERNAL_API_KEY,
+    env.HERMES_INTERNAL_API_KEY_PREVIOUS,
   );
 
   return createAgentTokenClient({

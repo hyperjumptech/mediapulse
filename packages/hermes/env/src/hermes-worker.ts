@@ -11,6 +11,7 @@ export const env = createEnv({
     DATABASE_CERT_BASE64: z.string().optional(),
     PG_DATAQUEUE_DATABASE: z.string().min(1),
     HERMES_INTERNAL_API_KEY: z.string().min(1),
+    HERMES_INTERNAL_API_KEY_PREVIOUS: z.string().optional(),
     AGENT_AUTH_API_URL: z.string().min(1),
     REQUIRE_HTTPS_AGENT_ENDPOINTS: z.string().optional(),
     PROCESSOR_BATCH_SIZE: z.string().optional(),

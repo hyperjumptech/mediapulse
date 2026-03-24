@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   decryptSecretVariableValue,
+  decryptSecretVariableValueWithFallback,
   deriveSecretVariableEncryptionKey,
   encryptSecretVariableValue,
   isEncryptedSecretVariablePayload,
@@ -74,6 +75,23 @@ describe("encryptSecretVariableValue / decryptSecretVariableValue", () => {
     expect(() =>
       decryptSecretVariableValue('{"v":1,"iv":"x"}', "a".repeat(32)),
     ).toThrow();
+  });
+
+  it("decrypts using fallback master key during rotation", () => {
+    // Setup
+    const oldMaster = "a".repeat(32);
+    const newMaster = "b".repeat(32);
+    const encrypted = encryptSecretVariableValue("rotate-me", oldMaster);
+
+    // Act
+    const decrypted = decryptSecretVariableValueWithFallback(
+      encrypted,
+      newMaster,
+      oldMaster,
+    );
+
+    // Assert
+    expect(decrypted).toBe("rotate-me");
   });
 });
 

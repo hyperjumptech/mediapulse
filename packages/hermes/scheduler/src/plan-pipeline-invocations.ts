@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@hermes/orchestration-database";
 import {
-  decryptSecretVariableValue,
+  decryptSecretVariableValueWithFallback,
   isEncryptedSecretVariablePayload,
 } from "@hermes/domain-integration-crypto";
 
@@ -45,6 +45,7 @@ type PlanPipelineInvocationsArgs = {
   sourceId: string;
   expandStepInputs: ExpandStepInputs;
   variableSecretMasterKey?: string;
+  variableSecretFallbackMasterKey?: string;
   requireHttpsAgentEndpoints?: boolean;
 };
 
@@ -76,10 +77,13 @@ export const planPipelineInvocations = async ({
   sourceId,
   expandStepInputs,
   variableSecretMasterKey,
+  variableSecretFallbackMasterKey,
   requireHttpsAgentEndpoints = false,
 }: PlanPipelineInvocationsArgs): Promise<PlanPipelineInvocationsResult> => {
   const errors: Array<{ message: string; timestamp: string }> = [];
-  const variables = await db.variable.findMany();
+  const variables = await db.variable.findMany({
+    include: { encryptedPayload: true },
+  });
   const variableMap = new Map<string, string>();
   for (const variable of variables) {
     if (!variable.isSecret) {
@@ -91,14 +95,21 @@ export const planPipelineInvocations = async ({
         "Secret variable substitution requires variableSecretMasterKey",
       );
     }
-    if (!isEncryptedSecretVariablePayload(variable.value)) {
-      variableMap.set(variable.key, variable.value);
+    const ciphertext = variable.encryptedPayload?.ciphertext;
+    if (ciphertext == null || ciphertext === "") {
+      throw new Error(
+        `Secret variable "${variable.key}" is missing encryptedPayload.ciphertext`,
+      );
+    }
+    if (!isEncryptedSecretVariablePayload(ciphertext)) {
+      variableMap.set(variable.key, ciphertext);
       continue;
     }
     try {
-      const plaintext = decryptSecretVariableValue(
-        variable.value,
+      const plaintext = decryptSecretVariableValueWithFallback(
+        ciphertext,
         variableSecretMasterKey,
+        variableSecretFallbackMasterKey,
       );
       variableMap.set(variable.key, plaintext);
     } catch {

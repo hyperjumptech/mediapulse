@@ -79,6 +79,7 @@ export type ExecuteScheduleDeps = {
   expandStepInputs?: ExpandStepInputs;
   defaultTimeoutMs?: number;
   variableSecretMasterKey?: string;
+  variableSecretFallbackMasterKey?: string;
   /** When true, reject agent endpoint URLs that use http with a non-local host. */
   requireHttpsAgentEndpoints?: boolean;
 };
@@ -101,6 +102,7 @@ export const executeSchedule = async (
     expandStepInputs = async (context) => [context.input],
     defaultTimeoutMs = 300_000,
     variableSecretMasterKey,
+    variableSecretFallbackMasterKey,
     requireHttpsAgentEndpoints = false,
   } = deps;
   const executionTime = new Date();
@@ -147,6 +149,7 @@ export const executeSchedule = async (
     sourceId: schedule.id,
     expandStepInputs,
     variableSecretMasterKey,
+    variableSecretFallbackMasterKey,
     requireHttpsAgentEndpoints,
   });
   errors.push(...planningResult.errors);

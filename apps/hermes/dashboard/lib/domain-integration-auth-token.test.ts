@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const envState = vi.hoisted(() => ({
   AGENT_AUTH_API_URL: undefined as string | undefined,
   HERMES_INTERNAL_API_KEY: "internal-key-for-tests-32chars!!",
+  HERMES_INTERNAL_API_KEY_PREVIOUS: undefined as string | undefined,
 }));
 
 const mockGetToken = vi.hoisted(() => vi.fn());
@@ -25,7 +26,7 @@ vi.mock("@hermes/orchestration-database", () => ({
 }));
 
 vi.mock("@hermes/domain-integration-crypto", () => ({
-  decryptDomainIntegrationApiKey: vi.fn(() => "decrypted-api-key"),
+  decryptDomainIntegrationApiKeyWithFallback: vi.fn(() => "decrypted-api-key"),
 }));
 
 vi.mock("@workspace/agent-auth-client", () => ({
@@ -38,6 +39,7 @@ describe("getBearerJwtForDomainIntegrationId", () => {
   beforeEach(() => {
     envState.AGENT_AUTH_API_URL = undefined;
     envState.HERMES_INTERNAL_API_KEY = "internal-key-for-tests-32chars!!";
+    envState.HERMES_INTERNAL_API_KEY_PREVIOUS = undefined;
     mockGetToken.mockReset();
     mockFindFirst.mockReset();
     vi.clearAllMocks();
@@ -69,7 +71,7 @@ describe("getBearerJwtForDomainIntegrationId", () => {
   it("mints a token using decrypted integration API key", async () => {
     envState.AGENT_AUTH_API_URL = "http://auth";
     mockFindFirst.mockResolvedValue({
-      encryptedApiKey: '{"v":1}',
+      encryptedPayload: { ciphertext: '{"v":1}' },
     });
     mockGetToken.mockResolvedValue("jwt-from-domain");
 
@@ -91,7 +93,7 @@ describe("getBearerJwtForDomainIntegrationId", () => {
   it("uses injected db when provided", async () => {
     envState.AGENT_AUTH_API_URL = "http://auth";
     const customFindFirst = vi.fn().mockResolvedValue({
-      encryptedApiKey: '{"v":1}',
+      encryptedPayload: { ciphertext: '{"v":1}' },
     });
     mockGetToken.mockResolvedValue("jwt-from-custom-db");
 

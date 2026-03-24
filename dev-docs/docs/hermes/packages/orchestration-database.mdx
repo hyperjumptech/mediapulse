@@ -6,7 +6,7 @@ icon: Database
 
 ## Purpose
 
-`@hermes/orchestration-database` is the Prisma package for the orchestration domain: users, API keys, pipelines, pipeline steps, schedules, executions, variables, and domain integration registry data.
+`@hermes/orchestration-database` is the Prisma package for the orchestration domain: users, pipelines, pipeline steps, schedules, executions, variables, domain integration registry data, and encrypted payloads (including domain integration credentials).
 
 ## Exports
 
@@ -23,7 +23,7 @@ icon: Database
 
 ## Key models
 
-- `User`, `APIKey`, `AgentRegistry`, `AgentConfig`
+- `User`, `EncryptedPayload`, `AgentRegistry`, `AgentConfig`
 - `DomainIntegration` (base URL + metadata for self-registered domain services)
 - `Pipeline`, `PipelineStep`, `Schedule`, `ScheduleExecution`, `AgentJobExecution`
 - `Variable`

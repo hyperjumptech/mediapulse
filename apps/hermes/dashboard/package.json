@@ -15,7 +15,6 @@
     "type:check": "tsc --noEmit",
     "create:route": "route-action-gen create",
     "create:admin": "tsx scripts/create-admin.ts",
-    "generate-api-key": "tsx scripts/generate-api-key.ts",
     "seed-local-domain-integration": "tsx scripts/seed-local-domain-integration.ts",
     "seed-kg-pipelines": "tsx scripts/seed-kg-pipelines.ts",
     "test": "pnpm generate && vitest --run",

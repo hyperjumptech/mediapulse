@@ -22,31 +22,3 @@ export async function verifyTokenViaAuthApi(
     return false;
   }
 }
-
-/**
- * Verifies an API key via agent-auth-api POST /api/verify-api-key.
- * Used by services that accept raw API keys (e.g. Hermes dashboard domain-integration registration),
- * not for agent-data-api or agent-registry-api bearer routes (those use JWT via `verifyTokenViaAuthApi`).
- *
- * @param apiKey - Raw API key (Bearer value).
- * @param authApiUrl - Base URL of agent-auth-api.
- * @returns true if the API key is valid and active (200), false otherwise (401, network error).
- */
-export async function verifyApiKeyViaAuthApi(
-  apiKey: string,
-  authApiUrl: string,
-): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `${authApiUrl.replace(/\/$/, "")}/api/verify-api-key`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}` },
-      },
-    );
-
-    return res.status === 200;
-  } catch {
-    return false;
-  }
-}

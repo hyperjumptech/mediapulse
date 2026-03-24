@@ -21,6 +21,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push --skip-generate",
     "backfill:secret-variables": "tsx scripts/backfill-secret-variables.ts",
+    "rotate:internal-key-ciphertexts": "tsx scripts/rotate-internal-key-ciphertexts.ts",
     "format": "prisma format",
     "generate": "prisma generate",
     "lint": "eslint \"src/**/*.ts\"",

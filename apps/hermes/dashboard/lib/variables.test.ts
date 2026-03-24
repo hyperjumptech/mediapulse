@@ -2,12 +2,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildRuntimeVariableMap,
+  encryptSecretVariableForPayload,
   fromStoredSecretVariableValue,
   getVariableById,
   getVariablesPage,
   maskValueIfSecret,
   SECRET_MASK,
   toStoredVariableValue,
+  type VariableRowForRuntime,
 } from "./variables";
 
 const createMockDb = (overrides?: {
@@ -38,46 +40,89 @@ describe("maskValueIfSecret", () => {
 });
 
 describe("secret variable transforms", () => {
-  it("encrypts stored value when isSecret is true", () => {
-    // Act
-    const stored = toStoredVariableValue("secret-value", true, "x".repeat(32));
+  it("stores empty value column when isSecret is true", () => {
+    const stored = toStoredVariableValue("secret-value", true);
 
-    // Assert
-    expect(stored).not.toBe("secret-value");
+    expect(stored).toBe("");
   });
 
   it("keeps plaintext when isSecret is false", () => {
-    // Act
-    const stored = toStoredVariableValue("plain-value", false, "x".repeat(32));
+    const stored = toStoredVariableValue("plain-value", false);
 
-    // Assert
     expect(stored).toBe("plain-value");
   });
 
-  it("returns plaintext as-is for legacy secret rows", () => {
-    // Act
+  it("returns plaintext as-is for legacy secret rows without envelope", () => {
     const value = fromStoredSecretVariableValue("legacy-plain", "x".repeat(32));
 
-    // Assert
     expect(value).toBe("legacy-plain");
   });
 
   it("builds runtime map with decrypted secret values", () => {
-    // Setup
     const masterKey = "x".repeat(32);
-    const encrypted = toStoredVariableValue("resolved-secret", true, masterKey);
-
-    // Act
-    const map = buildRuntimeVariableMap(
-      [
-        { key: "PUBLIC", value: "visible", isSecret: false },
-        { key: "SECRET", value: encrypted, isSecret: true },
-      ],
+    const ciphertext = encryptSecretVariableForPayload(
+      "resolved-secret",
       masterKey,
     );
 
-    // Assert
+    const map = buildRuntimeVariableMap(
+      [
+        {
+          id: "p1",
+          key: "PUBLIC",
+          value: "visible",
+          note: null,
+          isSecret: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdById: null,
+          encryptedPayload: null,
+        },
+        {
+          id: "s1",
+          key: "SECRET",
+          value: "",
+          note: null,
+          isSecret: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdById: null,
+          encryptedPayload: { ciphertext },
+        },
+      ] as VariableRowForRuntime[],
+      masterKey,
+    );
+
     expect(map.get("PUBLIC")).toBe("visible");
+    expect(map.get("SECRET")).toBe("resolved-secret");
+  });
+
+  it("uses fallback key when decrypting rotated secret values", () => {
+    const oldMasterKey = "x".repeat(32);
+    const newMasterKey = "y".repeat(32);
+    const encrypted = encryptSecretVariableForPayload(
+      "resolved-secret",
+      oldMasterKey,
+    );
+
+    const map = buildRuntimeVariableMap(
+      [
+        {
+          id: "s1",
+          key: "SECRET",
+          value: "",
+          note: null,
+          isSecret: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdById: null,
+          encryptedPayload: { ciphertext: encrypted },
+        },
+      ] as VariableRowForRuntime[],
+      newMasterKey,
+      oldMasterKey,
+    );
+
     expect(map.get("SECRET")).toBe("resolved-secret");
   });
 });
@@ -101,7 +146,7 @@ describe("getVariablesPage", () => {
       {
         id: "v2",
         key: "SECRET",
-        value: "hidden",
+        value: "",
         note: "a note",
         isSecret: true,
         createdAt: new Date(),
@@ -145,7 +190,7 @@ describe("getVariableById", () => {
     const findUnique = vi.fn().mockResolvedValue({
       id: "v1",
       key: "KEY",
-      value: "secret-val",
+      value: "",
       note: null,
       isSecret: true,
       createdAt: new Date(),

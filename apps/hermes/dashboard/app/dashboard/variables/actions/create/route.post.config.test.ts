@@ -100,10 +100,17 @@ describe("createCreateVariableHandler", () => {
     // Assert
     expect(result.status).toBe(true);
     const createArg = createMock.mock.calls[0]?.[0] as {
-      data: { value: string };
+      data: {
+        value: string;
+        encryptedPayload: { create: { ciphertext: string } };
+      };
     };
-    expect(createArg.data.value).not.toBe("s3cr3t");
-    expect(isEncryptedSecretVariablePayload(createArg.data.value)).toBe(true);
+    expect(createArg.data.value).toBe("");
+    expect(
+      isEncryptedSecretVariablePayload(
+        createArg.data.encryptedPayload.create.ciphertext,
+      ),
+    ).toBe(true);
   });
 
   it("creates variable with null note when note is empty string", async () => {

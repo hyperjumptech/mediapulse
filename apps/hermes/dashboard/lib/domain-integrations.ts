@@ -57,7 +57,7 @@ const activeIntegrationWhere = {
 
 /**
  * Registers (or refreshes) a domain integration record in orchestration storage.
- * The Bearer token must be the plaintext API key whose hash matches the integration's linked `api_key` row.
+ * The Bearer token must be the plaintext API key whose SHA-256 hex matches `encrypted_payload.credential_sha256_hex` for this integration.
  *
  * @param payload - Integration registration payload.
  * @param bearerToken - Raw API key from `Authorization: Bearer`.
@@ -68,20 +68,17 @@ export const registerDomainIntegration = async (
   bearerToken: string,
 ): Promise<RegisterDomainIntegrationResponse> => {
   const hash = crypto.createHash("sha256").update(bearerToken).digest("hex");
-  const apiKeyRow = await prisma.aPIKey.findUnique({
-    where: { key: hash, isActive: true },
-    select: { id: true, purpose: true },
-  });
-  if (!apiKeyRow || apiKeyRow.purpose !== "domain_integration") {
-    throw new Error("Invalid API key for domain integration registration");
-  }
-
   const bound = await prisma.domainIntegration.findFirst({
-    where: { key: payload.key, apiKeyId: apiKeyRow.id },
+    where: {
+      key: payload.key,
+      encryptedPayload: { credentialSha256Hex: hash },
+    },
     select: { id: true },
   });
   if (!bound) {
-    throw new Error("API key does not match this integration key");
+    throw new Error(
+      "Invalid API key for domain integration registration or key does not match this integration key",
+    );
   }
 
   const capabilities = [...payload.capabilities];
@@ -288,7 +285,7 @@ export type CreatePendingDomainIntegrationInput = {
   key: string;
   /** Human-readable name. */
   name: string;
-  /** Orchestration user id to own the `api_key` hash row. */
+  /** Orchestration user id recorded on `domain_integration.created_by_id`. */
   userId: string;
 };
 
@@ -301,7 +298,7 @@ export type CreatePendingDomainIntegrationResult = {
 };
 
 /**
- * Creates a pending domain integration: generates an API key, stores ciphertext + hash, links the API key row.
+ * Creates a pending domain integration: generates an API key, stores ciphertext and credential hash on `encrypted_payload`.
  *
  * @param input - Integration key, display name, and owning user id.
  * @param db - Prisma client (injectable for tests).
@@ -318,15 +315,6 @@ export const createPendingDomainIntegration = async (
   const encrypted = encryptDomainIntegrationApiKey(rawKey, masterKey);
 
   return db.$transaction(async (tx) => {
-    const apiKey = await tx.aPIKey.create({
-      data: {
-        name: `Domain integration: ${input.key}`,
-        key: hash,
-        userId: input.userId,
-        purpose: "domain_integration",
-      },
-    });
-
     const row = await tx.domainIntegration.create({
       data: {
         key: input.key,
@@ -334,9 +322,14 @@ export const createPendingDomainIntegration = async (
         baseUrl: null,
         status: DomainIntegrationStatus.pending,
         isActive: false,
-        encryptedApiKey: encrypted,
-        apiKeyId: apiKey.id,
+        createdById: input.userId,
         ...(input.key === "mediapulse" ? { isDefault: true } : {}),
+        encryptedPayload: {
+          create: {
+            ciphertext: encrypted,
+            credentialSha256Hex: hash,
+          },
+        },
       },
     });
 

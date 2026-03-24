@@ -12,11 +12,11 @@ In **workspace packages** that export TypeScript source (e.g. `"main": "./src/in
 ```typescript
 // ❌ BAD — .js in source breaks when package is consumed as source (no dist)
 export { createAgentTokenClient } from "./agent-token-client.js";
-export { verifyApiKeyViaAuthApi } from "./verify-token.js";
+export { verifyTokenViaAuthApi } from "./verify-token.js";
 
 // ✅ GOOD — extensionless; bundler resolves to .ts
 export { createAgentTokenClient } from "./agent-token-client";
-export { verifyApiKeyViaAuthApi } from "./verify-token";
+export { verifyTokenViaAuthApi } from "./verify-token";
 ```
 
 Use `.js` in relative imports when the package **has a build step** and exports built output (e.g. `"main": "dist/index.js"`). With `moduleResolution: "NodeNext"` / `"node16"`, tsc requires explicit `.js` extensions in ESM; the build emits real `.js` files, so consumers (and tsc) resolve them correctly.

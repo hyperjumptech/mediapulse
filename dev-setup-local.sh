@@ -9,7 +9,7 @@ NON_INTERACTIVE="false"
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
 AGENT_AUTH_API_URL="http://localhost:8080"
-# Default domain integration (same as dashboard wizard): integration key + display name; API key is generated and stored encrypted in orchestration DB.
+# Default domain integration (same as dashboard wizard): integration key + display name; credential hash + ciphertext live on encrypted_payload in the orchestration DB.
 DOMAIN_INTEGRATION_KEY="${DOMAIN_INTEGRATION_KEY:-mediapulse}"
 DOMAIN_INTEGRATION_DISPLAY_NAME="${DOMAIN_INTEGRATION_DISPLAY_NAME:-Local dev Mediapulse}"
 JWT_SECRET=""

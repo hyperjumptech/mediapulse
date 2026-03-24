@@ -20,13 +20,13 @@ const mockPrisma = vi.hoisted(() => ({
   domainIntegration: {
     findFirst: vi.fn().mockResolvedValue({
       baseUrl: "https://mediapulse-domain.example",
-      encryptedApiKey: "{}",
+      encryptedPayload: { ciphertext: "{}" },
     }),
   },
 }));
 
 vi.mock("@hermes/domain-integration-crypto", () => ({
-  decryptDomainIntegrationApiKey: () => "decrypted-test-key",
+  decryptDomainIntegrationApiKeyWithFallback: () => "decrypted-test-key",
 }));
 
 vi.mock("@hermes/orchestration-database", () => ({
@@ -46,6 +46,7 @@ vi.mock("@hermes/orchestration-database", () => ({
 vi.mock("@hermes/env/hermes-worker", () => ({
   env: {
     HERMES_INTERNAL_API_KEY: "test-internal-hermes-key",
+    HERMES_INTERNAL_API_KEY_PREVIOUS: undefined as string | undefined,
     AGENT_AUTH_API_URL: "https://auth.example.com",
     REQUIRE_HTTPS_AGENT_ENDPOINTS: undefined as string | undefined,
     HERMES_INVOKE_AGENT_RETRY_DELAY: undefined as string | undefined,
@@ -166,6 +167,7 @@ describe("jobHandlers", () => {
         expandStepInputs: expect.any(Function),
         defaultTimeoutMs: 300_000,
         variableSecretMasterKey: "test-internal-hermes-key",
+        variableSecretFallbackMasterKey: undefined,
         requireHttpsAgentEndpoints: false,
       });
       const firstCall = vi.mocked(executeSchedule).mock.calls[0];

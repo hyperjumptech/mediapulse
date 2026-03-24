@@ -5,7 +5,7 @@ import {
   Prisma,
   prisma as orchestrationPrisma,
 } from "@hermes/orchestration-database";
-import { decryptDomainIntegrationApiKey } from "@hermes/domain-integration-crypto";
+import { decryptDomainIntegrationApiKeyWithFallback } from "@hermes/domain-integration-crypto";
 import { createDomainIntegrationClient } from "@hermes/domain-contract";
 import { env } from "@hermes/env/hermes-worker";
 import { logger } from "@workspace/logger";
@@ -85,18 +85,20 @@ async function getJwtForDomainIntegration(
     where: {
       id: domainIntegrationId,
       status: DomainIntegrationStatus.active,
-      encryptedApiKey: { not: null },
+      NOT: { encryptedPayload: null },
     },
-    select: { encryptedApiKey: true },
+    select: { encryptedPayload: { select: { ciphertext: true } } },
   });
-  if (!row?.encryptedApiKey) {
+  const ciphertext = row?.encryptedPayload?.ciphertext;
+  if (!ciphertext) {
     throw new Error(
       `No encrypted API key for domain integration ${domainIntegrationId}; complete dashboard setup and domain registration.`,
     );
   }
-  const plaintext = decryptDomainIntegrationApiKey(
-    row.encryptedApiKey,
+  const plaintext = decryptDomainIntegrationApiKeyWithFallback(
+    ciphertext,
     env.HERMES_INTERNAL_API_KEY,
+    env.HERMES_INTERNAL_API_KEY_PREVIOUS,
   );
   return createAgentTokenClient({
     authApiUrl: env.AGENT_AUTH_API_URL,
@@ -285,6 +287,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           expandStepInputs,
           defaultTimeoutMs: 300_000,
           variableSecretMasterKey: env.HERMES_INTERNAL_API_KEY,
+          variableSecretFallbackMasterKey: env.HERMES_INTERNAL_API_KEY_PREVIOUS,
           requireHttpsAgentEndpoints:
             env.REQUIRE_HTTPS_AGENT_ENDPOINTS === "true",
         });
@@ -335,6 +338,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       expandStepInputs,
       defaultTimeoutMs: 300_000,
       variableSecretMasterKey: env.HERMES_INTERNAL_API_KEY,
+      variableSecretFallbackMasterKey: env.HERMES_INTERNAL_API_KEY_PREVIOUS,
     });
   },
 

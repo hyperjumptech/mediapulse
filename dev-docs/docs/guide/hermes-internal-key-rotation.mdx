@@ -1,0 +1,135 @@
+---
+title: Key rotation
+description: Near-zero-downtime procedure for rotating HERMES_INTERNAL_API_KEY using dual-key env and online DB rewrap
+icon: Key
+---
+
+This runbook rotates **`HERMES_INTERNAL_API_KEY`** without stopping **hermes-worker** or freezing the dashboard for a full database rewrite. It relies on:
+
+- **`HERMES_INTERNAL_API_KEY`** — canonical key: encryption and first decrypt attempt; sole Bearer on `POST /api/token` after rotation completes.
+- **`HERMES_INTERNAL_API_KEY_PREVIOUS`** — optional during rotation: second timing-safe Bearer on `POST /api/token` and fallback decrypt when the canonical key fails.
+
+When **`HERMES_INTERNAL_API_KEY_PREVIOUS`** is unset or empty, behavior matches a single-key deployment.
+
+Related references: [Production](/guide/production), [Architecture](/hermes/architecture) (secret variable rotation), [agent-auth-api](/hermes/apps/agent-auth-api).
+
+---
+
+## Local development
+
+After pulling a change that adds or alters orchestration schema (for example the `encrypted_payload` table), apply migrations or reset the local DB (`docker compose up -d postgres`, then `pnpm --filter @hermes/orchestration-database db:migrate:dev` or `db:migrate:reset`) so your database matches `schema.prisma`.
+
+## Preconditions
+
+1. **Deploy** the release that includes `HERMES_INTERNAL_API_KEY_PREVIOUS`, fallback decrypt for domain integration ciphertext and secret variables, and dual Bearer acceptance on **`POST /api/token`** to the target environment (staging first, then production).
+2. **Orchestration database** must be reachable from the host or job that runs the rewrap script (same connectivity you use for `pnpm --filter @hermes/orchestration-database` tasks).
+3. **Secrets**: generate a **NEW** internal key (`openssl rand -base64 32` or your secret manager). Keep the **OLD** key until the grace window ends.
+
+---
+
+## Phase A — Baseline (before changing keys)
+
+1. Confirm token mint works with the **current** internal key (replace placeholders):
+
+   ```bash
+   curl -sS -X POST "$AGENT_AUTH_API_URL/api/token" \
+     -H "Authorization: Bearer $CURRENT_INTERNAL_KEY" | jq .
+   ```
+
+2. **Smoke test**: run one **manual pipeline** from the Hermes dashboard and one **scheduled / worker** path you trust in that environment.
+3. Optionally note row counts: rows in `encrypted_payload` (domain integration API keys and secret variables), to compare against script output later.
+
+---
+
+## Phase B — Atomic env flip (grace period)
+
+Apply in **one coordinated rollout** to every service that loads the merged Hermes env and participates in token minting or decrypting orchestration secrets:
+
+- **agent-auth-api**
+- **Hermes dashboard**
+- **hermes-worker**
+- **agent-registry-api** (if it shares the same Hermes env schema; it still requires `HERMES_INTERNAL_API_KEY`)
+
+Set:
+
+- `HERMES_INTERNAL_API_KEY` = **NEW**
+- `HERMES_INTERNAL_API_KEY_PREVIOUS` = **OLD**
+
+Restart or redeploy in your usual order (for example: auth API first, then consumers that call it).
+
+**Validate immediately:**
+
+- NEW Bearer returns **200**:
+
+  ```bash
+  curl -sS -X POST "$AGENT_AUTH_API_URL/api/token" \
+    -H "Authorization: Bearer $NEW_INTERNAL_KEY" | jq .
+  ```
+
+- OLD Bearer returns **200** only while `HERMES_INTERNAL_API_KEY_PREVIOUS` is set:
+
+  ```bash
+  curl -sS -X POST "$AGENT_AUTH_API_URL/api/token" \
+    -H "Authorization: Bearer $OLD_INTERNAL_KEY" | jq .
+  ```
+
+- Repeat dashboard manual run and worker scheduling smoke tests; watch logs for decrypt errors.
+
+---
+
+## Phase C — Online rewrap (database ciphertext → NEW)
+
+From the **repository root**, with **`ORCHESTRATION_DATABASE_URL`** (and any other vars the orchestration Prisma client needs) available to the process:
+
+1. **Dry run** (no writes):
+
+   ```bash
+   pnpm --filter @hermes/orchestration-database rotate:internal-key-ciphertexts \
+     --old-master-key "$OLD_INTERNAL_KEY" \
+     --new-master-key "$NEW_INTERNAL_KEY" \
+     --dry-run
+   ```
+
+2. Inspect the printed JSON: **`encryptedPayload`** counters; ensure you do not see unexpected **`failed`** growth.
+3. **Execute** (writes):
+
+   ```bash
+   pnpm --filter @hermes/orchestration-database rotate:internal-key-ciphertexts \
+     --old-master-key "$OLD_INTERNAL_KEY" \
+     --new-master-key "$NEW_INTERNAL_KEY"
+   ```
+
+4. Optional: run **`--dry-run`** again; encrypted rows may still show non-zero **`updated`** counts when IVs differ—the important signal is **no decrypt failures** and operational acceptance.
+
+**Concurrency:** Prefer off-peak or accept rare contention if an operator edits the same secret variable row while the script updates it. The script is safe to **re-run** for idempotent rewrap of ciphertext already under the NEW key.
+
+---
+
+## Phase D — Soak
+
+- Monitor **15–60 minutes**: logs, error rates, and repeats of manual pipeline, schedule/worker path, and any domain HTTP flow that depends on a decrypted integration key.
+
+---
+
+## Phase E — Remove the previous key
+
+1. **Unset** or **empty** `HERMES_INTERNAL_API_KEY_PREVIOUS` everywhere you set it in Phase B.
+2. Restart or redeploy those services.
+
+**Validate:**
+
+- NEW Bearer still returns **200**.
+- OLD Bearer must **non-200** (preset path should reject the old secret once `PREVIOUS` is removed).
+
+---
+
+## Phase F — Production
+
+Repeat **Phases A–E** in production. Take an **orchestration database backup or snapshot** before Phase C if your policy requires a rollback point.
+
+---
+
+## Rollback (during the grace window only)
+
+- If you abort **before** removing `HERMES_INTERNAL_API_KEY_PREVIOUS` and **before** treating the rewrap as authoritative: set **`HERMES_INTERNAL_API_KEY`** back to **OLD**, clear **`HERMES_INTERNAL_API_KEY_PREVIOUS`**, restart, and verify.
+- If rewrap **partially** completed, **do not** assume env-only rollback is safe. Prefer **forward fix** or restore orchestration data from backup after consulting your incident process.

@@ -9,7 +9,10 @@ import {
 import { z } from "zod";
 
 import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
-import { toStoredVariableValue } from "@/lib/variables";
+import {
+  encryptSecretVariableForPayload,
+  toStoredVariableValue,
+} from "@/lib/variables";
 
 const bodyValidator = z.object({
   key: z.string().min(1, "Key is required"),
@@ -65,18 +68,31 @@ export const createCreateVariableHandler = ({
       return errorResponse(`Variable with key "${key}" already exists`);
     }
 
-    const created = await db.variable.create({
-      data: {
-        key,
-        value: toStoredVariableValue(
-          value,
-          isSecret,
-          env.HERMES_INTERNAL_API_KEY,
-        ),
-        note: noteValue,
-        isSecret,
-      },
-    });
+    const created = isSecret
+      ? await db.variable.create({
+          data: {
+            key,
+            value: toStoredVariableValue(value, true),
+            note: noteValue,
+            isSecret: true,
+            encryptedPayload: {
+              create: {
+                ciphertext: encryptSecretVariableForPayload(
+                  value,
+                  env.HERMES_INTERNAL_API_KEY,
+                ),
+              },
+            },
+          },
+        })
+      : await db.variable.create({
+          data: {
+            key,
+            value: toStoredVariableValue(value, false),
+            note: noteValue,
+            isSecret: false,
+          },
+        });
 
     return successResponse({ id: created.id });
   };

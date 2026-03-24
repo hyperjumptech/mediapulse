@@ -4,8 +4,6 @@ import * as crypto from "crypto";
 import { SignJWT } from "jose";
 import type { Context } from "hono";
 
-const DOMAIN_INTEGRATION_PURPOSE = "domain_integration";
-const SCHEDULER_PURPOSE = "scheduler";
 const TOKEN_EXPIRY_SECONDS = 900; // 15 minutes
 const JWT_ISSUER = "agent-auth-api";
 const JWT_AUDIENCE = "agent-invocation";
@@ -16,11 +14,6 @@ const JWT_AUDIENCE = "agent-invocation";
  */
 export const HERMES_INTERNAL_TOKEN_SUBJECT =
   "00000000-0000-4000-8000-000000000001";
-
-const TOKEN_PURPOSES_ALLOWLIST = new Set<string>([
-  DOMAIN_INTEGRATION_PURPOSE,
-  SCHEDULER_PURPOSE,
-]);
 
 /**
  * Returns true if two UTF-8 strings are equal in constant time (same length only).
@@ -67,7 +60,7 @@ async function signInvocationJwt(
  * POST /api/token — issue a short-lived JWT for agent invocation.
  * Accepts either:
  * - `Authorization: Bearer <HERMES_INTERNAL_API_KEY>` (Hermes worker/dashboard; `sub` is {@link HERMES_INTERNAL_TOKEN_SUBJECT}), or
- * - `Authorization: Bearer <dashboard_api_key>` where the key is stored hashed with purpose `domain_integration` or legacy `scheduler`.
+ * - `Authorization: Bearer <domain_integration_api_key>` where the SHA-256 hex is stored on `encrypted_payload.credential_sha256_hex` (`sub` is `domain_integration.id`).
  * Returns { token, expiresIn } or 401/403/503.
  */
 export async function issueToken(context: Context) {
@@ -100,7 +93,15 @@ export async function issueToken(context: Context) {
 
   try {
     const internalKey = env.HERMES_INTERNAL_API_KEY?.trim() ?? "";
-    if (internalKey.length > 0 && timingSafeStringEqual(rawKey, internalKey)) {
+    const previousInternalKey =
+      env.HERMES_INTERNAL_API_KEY_PREVIOUS?.trim() ?? "";
+    const matchesInternalKey =
+      internalKey.length > 0 && timingSafeStringEqual(rawKey, internalKey);
+    const matchesPreviousInternalKey =
+      previousInternalKey.length > 0 &&
+      previousInternalKey !== internalKey &&
+      timingSafeStringEqual(rawKey, previousInternalKey);
+    if (matchesInternalKey || matchesPreviousInternalKey) {
       const { token, expiresIn } = await signInvocationJwt(
         HERMES_INTERNAL_TOKEN_SUBJECT,
         jwtSecret,
@@ -109,27 +110,22 @@ export async function issueToken(context: Context) {
     }
 
     const hash = crypto.createHash("sha256").update(rawKey).digest("hex");
-    const apiKey = await prisma.aPIKey.findUnique({
-      where: { key: hash, isActive: true },
-      select: { id: true, userId: true, purpose: true },
+    const payloadRow = await prisma.encryptedPayload.findFirst({
+      where: {
+        credentialSha256Hex: hash,
+        domainIntegrationId: { not: null },
+      },
+      include: { domainIntegration: true },
     });
 
-    if (!apiKey) {
+    if (!payloadRow?.domainIntegration) {
       return context.json({ error: "Invalid or inactive API key" }, 401);
     }
 
-    const purpose = apiKey.purpose ?? "general";
-    if (!TOKEN_PURPOSES_ALLOWLIST.has(purpose)) {
-      return context.json(
-        {
-          error:
-            "API key must have purpose 'domain_integration' or 'scheduler' to issue tokens",
-        },
-        403,
-      );
-    }
-
-    const { token, expiresIn } = await signInvocationJwt(apiKey.id, jwtSecret);
+    const { token, expiresIn } = await signInvocationJwt(
+      payloadRow.domainIntegration.id,
+      jwtSecret,
+    );
     return context.json({ token, expiresIn }, 200);
   } catch (err) {
     logger.error({ err }, "Issue token error");
