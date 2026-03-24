@@ -11,7 +11,7 @@ icon: Braces
 - **Key**: Unique identifier (for example `OPENAI_API_KEY` or `BASE_URL`). Used inside `{{...}}` placeholders.
 - **Value**: Plain text for normal variables. For **secret** variables, the value is stored encrypted; the UI never shows the decrypted secret after save.
 - **Note**: Optional operator-facing comment.
-- **Secret**: When enabled, the value is treated as sensitive; decryption at run time requires the worker/scheduler secret configuration.
+- **Secret**: When enabled, the value is encrypted at rest. Resolving it for a run uses the same **Hermes internal API key** (`HERMES_INTERNAL_API_KEY`) as other orchestration crypto (worker, dashboard manual runs, and schedule execution paths).
 
 ## Substitution syntax
 
@@ -27,7 +27,7 @@ Substitution walks **all string values** in step `input` and `config` JSON recur
 
 ## Runtime behavior
 
-When a [schedule](/hermes/orchestration/schedules) or other orchestration path plans a pipeline run, the scheduler loads variables, resolves `{{KEY}}` values (decrypting secrets when configured), and then validates and enqueues agent jobs. The same substitution applies to [HTTP trigger](/hermes/orchestration/http-triggers) runs.
+Whenever Hermes **plans** a pipeline run—[scheduled](/hermes/orchestration/schedules), via an [HTTP trigger](/hermes/orchestration/http-triggers), or **Run pipeline** from the dashboard—it loads variables from the orchestration database, resolves `{{KEY}}` in step `input` and `config` (decrypting secrets with the internal key above), then continues with schema validation and job creation. Scheduled and trigger paths enqueue work for **hermes-worker**; a manual dashboard run plans with the same substitution, then invokes agents inline from the dashboard process.
 
 ## Dashboard
 

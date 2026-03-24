@@ -14,7 +14,7 @@ A **schedule** runs a [pipeline](/hermes/orchestration/pipelines) on a timer. Th
   - **Repeating**: Either a **preset** (for example hourly, daily at midnight), a **fixed interval** in minutes, or a **cron expression** for custom cadence.
 - **Timezone**: IANA zone (for example `America/New_York`, `UTC`). Stored times and “next run” use this zone.
 - **Enabled**: Turn off without deleting the schedule.
-- **Priority**: Numeric ordering when multiple schedules compete (higher runs first where applicable).
+- **Priority**: Integer stored on the schedule and forwarded to each queued `invoke_agent` job (DataQueue). Use it to prefer some scheduled work over other jobs when the queue is busy; exact ordering follows DataQueue semantics.
 - **Optional fields**: Description, timeout, retry configuration, and per-run **execution config** overrides where supported.
 
 ## Execution lifecycle

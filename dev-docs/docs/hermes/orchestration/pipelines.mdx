@@ -33,4 +33,4 @@ Empty pipelines (no steps) validate as complete; add steps before relying on the
 
 ## How schedules and HTTP triggers use pipelines
 
-[Schedules](/hermes/orchestration/schedules) and [HTTP triggers](/hermes/orchestration/http-triggers) both reference a **single pipeline** to run. Multiple schedules or triggers can point at the same pipeline. [Variables](/hermes/orchestration/variables) are resolved when a run is planned, before jobs are enqueued.
+[Schedules](/hermes/orchestration/schedules) and [HTTP triggers](/hermes/orchestration/http-triggers) both reference a **single pipeline** to run. Multiple schedules or triggers can point at the same pipeline. **Run pipeline** from the dashboard targets one pipeline as well. [Variables](/hermes/orchestration/variables) are resolved when a run is planned (including manual runs), before agent jobs are created or invoked.
