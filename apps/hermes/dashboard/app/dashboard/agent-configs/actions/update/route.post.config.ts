@@ -7,10 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
 import { validateWithJsonSchema } from "@/lib/validate-json-schema";
 
@@ -45,7 +42,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -53,7 +50,6 @@ export const responseValidator = z.object({
 });
 
 type UpdateAgentConfigHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -66,19 +62,13 @@ type UpdateAgentConfigHandler = HandlerFunc<
 /**
  * Creates the update-agent-config handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that updates an agent config and refreshes fingerprint.
  */
 export const createUpdateAgentConfigHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: UpdateAgentConfigHandlerDependencies = {}): UpdateAgentConfigHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const { id, name, description, agentId, agentVersion, config } = data.body;
 
     const existing = await db.agentConfig.findUnique({

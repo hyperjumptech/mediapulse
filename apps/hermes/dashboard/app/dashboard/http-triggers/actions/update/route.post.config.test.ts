@@ -1,32 +1,17 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 import { createUpdateHttpTriggerHandler } from "./route.post.config";
 
 describe("createUpdateHttpTriggerHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns unauthorized when session is missing", async () => {
-    // Setup
-    const handler = createUpdateHttpTriggerHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-
-    // Act
-    const result = await handler({
-      body: { httpTriggerId: "00000000-0000-4000-8000-000000000020" },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-
-    // Assert
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when trigger does not exist", async () => {
@@ -38,7 +23,6 @@ describe("createUpdateHttpTriggerHandler", () => {
       },
     };
     const handler = createUpdateHttpTriggerHandler({
-      getSession: async () => ({ id: "u1", name: "A", email: "a@test.com" }),
       db: db as never,
     });
 
@@ -48,7 +32,7 @@ describe("createUpdateHttpTriggerHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     // Assert
@@ -78,7 +62,6 @@ describe("createUpdateHttpTriggerHandler", () => {
       },
     };
     const handler = createUpdateHttpTriggerHandler({
-      getSession: async () => ({ id: "u1", name: "A", email: "a@test.com" }),
       db: db as never,
     });
 
@@ -93,7 +76,7 @@ describe("createUpdateHttpTriggerHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     // Assert

@@ -8,10 +8,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import {
   fromStoredSecretVariableValue,
   SECRET_MASK,
@@ -33,7 +30,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -41,7 +38,6 @@ export const responseValidator = z.object({
 });
 
 type UpdateVariableHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -55,19 +51,13 @@ type UpdateVariableHandler = HandlerFunc<
  * Creates the update-variable handler with injectable dependencies for tests.
  * For secret variables, value is only updated when a new value is provided (not the mask placeholder).
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that updates a variable (key, value, note, isSecret).
  */
 export const createUpdateVariableHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: UpdateVariableHandlerDependencies = {}): UpdateVariableHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const { id, key, value, note, isSecret } = data.body;
 
     const existing = await db.variable.findUnique({

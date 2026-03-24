@@ -62,10 +62,19 @@ vi.mock("./pipeline-step-editor-panel", () => ({
 }));
 
 vi.mock("./run-pipeline-button", () => ({
-  RunPipelineButton: ({ pipelineId }: { pipelineId: string }) => (
-    <button data-testid="run-pipeline-button" data-pipeline-id={pipelineId}>
-      Run
-    </button>
+  RunPipelineButton: ({
+    pipelineId,
+    trailingActions,
+  }: {
+    pipelineId: string;
+    trailingActions?: React.ReactNode;
+  }) => (
+    <div data-testid="run-pipeline-toolbar">
+      <button data-testid="run-pipeline-button" data-pipeline-id={pipelineId}>
+        Run
+      </button>
+      {trailingActions}
+    </div>
   ),
 }));
 vi.mock("./pipeline-executions-table", () => ({

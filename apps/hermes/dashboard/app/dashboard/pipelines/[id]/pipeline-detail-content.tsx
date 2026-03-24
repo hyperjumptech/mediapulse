@@ -286,14 +286,16 @@ export const PipelineDetailContent = ({
             />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-3">
           <RunPipelineButton
             pipelineId={pipeline.id}
             disabled={!pipelineValidation.valid}
+            trailingActions={
+              <Button type="button" onClick={handleSave} disabled={saving}>
+                {saving ? "Saving…" : "Save"}
+              </Button>
+            }
           />
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
-          </Button>
           {saveError ? (
             <p className="text-sm text-destructive" role="alert">
               {saveError}

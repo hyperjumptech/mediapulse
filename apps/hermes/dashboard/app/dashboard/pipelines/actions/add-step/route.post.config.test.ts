@@ -2,6 +2,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAddStepHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
   disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
 }));
@@ -11,29 +17,12 @@ describe("createAddStepHandler", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns error when session is null", async () => {
-    const addHandler = createAddStepHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await addHandler({
-      body: { pipelineId: "p-1", agentId: "ag1", agentVersion: "1" },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
-  });
-
   it("returns error when agent not in registry", async () => {
     const db = {
       agentRegistry: { findFirst: vi.fn().mockResolvedValue(null) },
       pipelineStep: {},
     };
     const addHandler = createAddStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await addHandler({
@@ -41,7 +30,7 @@ describe("createAddStepHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toContain("not found");
@@ -60,7 +49,6 @@ describe("createAddStepHandler", () => {
       },
     };
     const addHandler = createAddStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await addHandler({
@@ -68,7 +56,7 @@ describe("createAddStepHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(db.pipelineStep.create).toHaveBeenCalledWith({
       data: {
@@ -102,7 +90,6 @@ describe("handler", () => {
       },
     };
     const customHandler = createAddStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({
@@ -110,7 +97,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

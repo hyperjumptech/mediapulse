@@ -2,30 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCreateScheduleHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 describe("createCreateScheduleHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const createHandler = createCreateScheduleHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await createHandler({
-      body: {
-        name: "Daily",
-        repeat: "once",
-        timezone: "UTC",
-        pipelineId: "00000000-0000-4000-8000-000000000001",
-      },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when pipeline does not exist", async () => {
@@ -34,7 +19,6 @@ describe("createCreateScheduleHandler", () => {
       schedule: { create: vi.fn() },
     };
     const createHandler = createCreateScheduleHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await createHandler({
@@ -47,7 +31,7 @@ describe("createCreateScheduleHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Pipeline not found");
@@ -67,7 +51,6 @@ describe("createCreateScheduleHandler", () => {
       schedule: { create: vi.fn() },
     };
     const createHandler = createCreateScheduleHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await createHandler({
@@ -80,7 +63,7 @@ describe("createCreateScheduleHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toContain(
@@ -109,7 +92,6 @@ describe("createCreateScheduleHandler", () => {
       },
     };
     const createHandler = createCreateScheduleHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await createHandler({
@@ -123,7 +105,7 @@ describe("createCreateScheduleHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
     expect((result as { data?: { id: string } }).data?.id).toBe(scheduleId);
@@ -156,11 +138,6 @@ describe("handler", () => {
       schedule: { create: vi.fn().mockResolvedValue({ id: "s1" }) },
     };
     const customHandler = createCreateScheduleHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "admin@test.com",
-      }),
       db: db as never,
     });
     const result = await customHandler({
@@ -174,7 +151,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

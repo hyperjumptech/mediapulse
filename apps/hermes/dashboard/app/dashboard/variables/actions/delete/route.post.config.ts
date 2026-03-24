@@ -1,16 +1,12 @@
 import { prisma } from "@hermes/orchestration-database";
 import {
   createRequestValidator,
-  errorResponse,
   HandlerFunc,
   successResponse,
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 
 const bodyValidator = z.object({
   id: z.string().uuid(),
@@ -18,7 +14,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -26,7 +22,6 @@ export const responseValidator = z.object({
 });
 
 type DeleteVariableHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -39,19 +34,13 @@ type DeleteVariableHandler = HandlerFunc<
 /**
  * Creates the delete-variable handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that deletes a variable by id.
  */
 export const createDeleteVariableHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: DeleteVariableHandlerDependencies = {}): DeleteVariableHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const { id } = data.body;
 
     await db.variable.delete({

@@ -2,32 +2,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDeletePipelineHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 describe("createDeletePipelineHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const deleteHandler = createDeletePipelineHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await deleteHandler({
-      body: { pipelineId: "p-uuid" },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("deletes pipeline and returns ok", async () => {
     const deleteMock = vi.fn().mockResolvedValue(undefined);
     const db = { pipeline: { delete: deleteMock } };
     const deleteHandler = createDeletePipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await deleteHandler({
@@ -35,7 +24,7 @@ describe("createDeletePipelineHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(deleteMock).toHaveBeenCalledWith({ where: { id: "p-1" } });
     expect(result).toMatchObject({ status: true, data: { ok: true } });
@@ -50,7 +39,6 @@ describe("handler", () => {
   it("is the factory with production defaults", async () => {
     const db = { pipeline: { delete: vi.fn().mockResolvedValue(undefined) } };
     const customHandler = createDeletePipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({
@@ -58,7 +46,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

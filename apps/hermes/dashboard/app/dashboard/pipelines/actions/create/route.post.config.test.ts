@@ -5,29 +5,15 @@ import {
   requestValidator,
 } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 describe("createCreatePipelineHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const createHandler = createCreatePipelineHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-
-    const result = await createHandler({
-      body: { name: "Test", isActive: true },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-
-    expect(result.status).toBe(false);
-    expect((result as { status: false; message?: string }).message).toBe(
-      "Unauthorized",
-    );
   });
 
   it("creates pipeline and returns id when session exists", async () => {
@@ -47,11 +33,6 @@ describe("createCreatePipelineHandler", () => {
     };
 
     const createHandler = createCreatePipelineHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "admin@example.com",
-      }),
       db: db as never,
     });
 
@@ -60,7 +41,7 @@ describe("createCreatePipelineHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     expect(db.pipeline.create).toHaveBeenCalledWith({
@@ -94,7 +75,6 @@ describe("createCreatePipelineHandler", () => {
     };
 
     const createHandler = createCreatePipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
 
@@ -103,7 +83,7 @@ describe("createCreatePipelineHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     expect(db.pipeline.create).toHaveBeenCalledWith({
@@ -158,11 +138,7 @@ describe("handler", () => {
         }),
       },
     };
-    const getSession = vi
-      .fn()
-      .mockResolvedValue({ name: "A", email: "a@b.com" });
     const customHandler = createCreatePipelineHandler({
-      getSession,
       db: db as never,
     });
     const result = await customHandler({
@@ -170,7 +146,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     expect(result.status).toBe(true);

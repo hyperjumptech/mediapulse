@@ -2,12 +2,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGetVariableHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 const baseData = {
   body: { id: "00000000-0000-4000-8000-000000000001" },
   params: {},
   headers: new Headers(),
   searchParams: {},
-  user: undefined,
+  user: mockDashboardUser,
 };
 
 describe("createGetVariableHandler", () => {
@@ -15,24 +21,9 @@ describe("createGetVariableHandler", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns error when session is null", async () => {
-    const handler = createGetVariableHandler({
-      getSession: async () => null,
-      getById: vi.fn(),
-    });
-    const result = await handler(baseData as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
-  });
-
   it("returns error when variable not found", async () => {
     const getById = vi.fn().mockResolvedValue(null);
     const handler = createGetVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "a@b.com",
-      }),
       getById,
     });
     const result = await handler(baseData as never);
@@ -51,11 +42,6 @@ describe("createGetVariableHandler", () => {
       updatedAt: new Date(),
     });
     const handler = createGetVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "a@b.com",
-      }),
       getById,
     });
     const result = await handler(baseData as never);

@@ -8,6 +8,7 @@ import {
   createSessionClearCookieOptions,
   getCookieFromHeader,
   getDashboardSession,
+  requireDashboardSessionForRoute,
   resolveHermesActiveAdminDashboardAccess,
 } from "./auth-dashboard";
 
@@ -128,6 +129,22 @@ describe("getDashboardSession", () => {
       name: "Admin",
       email: "admin@example.com",
     });
+  });
+});
+
+describe("requireDashboardSessionForRoute", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("throws Unauthorized when auth cookies are missing", async () => {
+    const { cookies } = await import("next/headers");
+    vi.mocked(cookies).mockResolvedValue({
+      get: () => undefined,
+    } as never);
+    await expect(requireDashboardSessionForRoute()).rejects.toThrow(
+      "Unauthorized",
+    );
   });
 });
 

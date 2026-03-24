@@ -3,9 +3,13 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 
 import { createCreateAgentConfigHandler } from "./route.post.config";
 
-describe("createCreateAgentConfigHandler", () => {
-  const mockSession = { id: "u1", email: "a@b.com", role: "ADMIN" as const };
+const mockDashboardUser = {
+  id: "u1",
+  name: "Admin",
+  email: "a@b.com",
+} as const;
 
+describe("createCreateAgentConfigHandler", () => {
   const validBody = {
     name: "My Config",
     description: "Test",
@@ -18,43 +22,18 @@ describe("createCreateAgentConfigHandler", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns Unauthorized when no session", async () => {
-    const mockDb = {
-      agentRegistry: { findFirst: vi.fn() },
-      agentConfig: { create: vi.fn() },
-    };
-    const getSession = vi.fn().mockResolvedValue(null);
-    const handler = createCreateAgentConfigHandler({
-      getSession,
-      db: mockDb as never,
-    });
-
-    const result = await handler({
-      body: validBody,
-      user: undefined,
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-    } as never);
-
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
-  });
-
   it("returns error when agent not found", async () => {
     const mockDb = {
       agentRegistry: { findFirst: vi.fn().mockResolvedValue(null) },
       agentConfig: { create: vi.fn() },
     };
-    const getSession = vi.fn().mockResolvedValue(mockSession);
     const handler = createCreateAgentConfigHandler({
-      getSession,
       db: mockDb as never,
     });
 
     const result = await handler({
       body: validBody,
-      user: mockSession,
+      user: mockDashboardUser,
       params: {},
       headers: new Headers(),
       searchParams: {},
@@ -80,15 +59,13 @@ describe("createCreateAgentConfigHandler", () => {
       },
       agentConfig: { create: createMock },
     };
-    const getSession = vi.fn().mockResolvedValue(mockSession);
     const handler = createCreateAgentConfigHandler({
-      getSession,
       db: mockDb as never,
     });
 
     const result = await handler({
       body: validBody,
-      user: mockSession,
+      user: mockDashboardUser,
       params: {},
       headers: new Headers(),
       searchParams: {},

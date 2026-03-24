@@ -8,10 +8,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
@@ -87,7 +84,7 @@ const bodyValidator = z
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -95,7 +92,6 @@ export const responseValidator = z.object({
 });
 
 type CreateScheduleHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -139,19 +135,13 @@ const computeNextRun = (
 /**
  * Creates the create-schedule handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that creates a schedule and returns its id.
  */
 export const createCreateScheduleHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: CreateScheduleHandlerDependencies = {}): CreateScheduleHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const body = data.body;
 
     const pipeline = await getPipelineWithSteps(body.pipelineId, db);

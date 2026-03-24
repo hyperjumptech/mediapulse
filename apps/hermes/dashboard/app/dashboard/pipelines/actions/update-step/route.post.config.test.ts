@@ -2,6 +2,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createUpdateStepHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
   disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
 }));
@@ -9,27 +15,6 @@ vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
 describe("createUpdateStepHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const handler = createUpdateStepHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await handler({
-      body: {
-        pipelineId: "p-1",
-        stepId: "s-1",
-        agentId: "ag1",
-        agentVersion: "1",
-      },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when step not found", async () => {
@@ -40,7 +25,6 @@ describe("createUpdateStepHandler", () => {
       agentRegistry: {},
     };
     const handler = createUpdateStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await handler({
@@ -53,7 +37,7 @@ describe("createUpdateStepHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Step not found");
@@ -75,7 +59,6 @@ describe("createUpdateStepHandler", () => {
       },
     };
     const handler = createUpdateStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await handler({
@@ -88,7 +71,7 @@ describe("createUpdateStepHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toContain("not found");
@@ -116,7 +99,6 @@ describe("createUpdateStepHandler", () => {
       },
     };
     const handler = createUpdateStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await handler({
@@ -129,7 +111,7 @@ describe("createUpdateStepHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "s-1" },
@@ -187,7 +169,6 @@ describe("createUpdateStepHandler", () => {
       },
     };
     const handler = createUpdateStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
 
@@ -203,7 +184,7 @@ describe("createUpdateStepHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     // Assert
@@ -247,7 +228,6 @@ describe("handler", () => {
     };
     const { createUpdateStepHandler } = await import("./route.post.config");
     const customHandler = createUpdateStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({
@@ -260,7 +240,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

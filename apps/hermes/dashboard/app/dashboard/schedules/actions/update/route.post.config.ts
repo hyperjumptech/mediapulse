@@ -7,10 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
@@ -85,7 +82,7 @@ const bodyValidator = z
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -93,7 +90,6 @@ export const responseValidator = z.object({
 });
 
 type UpdateScheduleHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -106,19 +102,13 @@ type UpdateScheduleHandler = HandlerFunc<
 /**
  * Creates the update-schedule handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that updates a schedule.
  */
 export const createUpdateScheduleHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: UpdateScheduleHandlerDependencies = {}): UpdateScheduleHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const body = data.body;
     const existing = await db.schedule.findUnique({
       where: { id: body.scheduleId },

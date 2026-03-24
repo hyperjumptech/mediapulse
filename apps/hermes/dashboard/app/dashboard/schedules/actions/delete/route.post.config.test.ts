@@ -2,27 +2,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDeleteScheduleHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 const scheduleId = "00000000-0000-4000-8000-000000000001";
 
 describe("createDeleteScheduleHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const deleteHandler = createDeleteScheduleHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await deleteHandler({
-      body: { scheduleId },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when schedule does not exist", async () => {
@@ -33,7 +23,6 @@ describe("createDeleteScheduleHandler", () => {
       },
     };
     const deleteHandler = createDeleteScheduleHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await deleteHandler({
@@ -41,7 +30,7 @@ describe("createDeleteScheduleHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Schedule not found");
@@ -57,7 +46,6 @@ describe("createDeleteScheduleHandler", () => {
       },
     };
     const deleteHandler = createDeleteScheduleHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await deleteHandler({
@@ -65,7 +53,7 @@ describe("createDeleteScheduleHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
     expect((result as { data?: { ok: boolean } }).data?.ok).toBe(true);
@@ -86,11 +74,6 @@ describe("handler", () => {
       },
     };
     const customHandler = createDeleteScheduleHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "admin@test.com",
-      }),
       db: db as never,
     });
     const result = await customHandler({
@@ -98,7 +81,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

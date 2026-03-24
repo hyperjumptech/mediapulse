@@ -7,7 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 
 const bodyValidator = z.object({
@@ -17,6 +17,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -24,7 +25,6 @@ export const responseValidator = z.object({
 });
 
 type RemoveStepHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -37,19 +37,13 @@ type RemoveStepHandler = HandlerFunc<
 /**
  * Creates the remove-step handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that removes a pipeline step and renumbers remaining steps.
  */
 export const createRemoveStepHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: RemoveStepHandlerDependencies = {}): RemoveStepHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const { pipelineId, stepId } = data.body;
 
     const step = await db.pipelineStep.findFirst({
