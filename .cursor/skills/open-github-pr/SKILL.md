@@ -15,15 +15,22 @@ Create pull requests for this repo with `gh pr create`, and use the `/pr-title-d
 
 ## Workflow (run in order)
 
-1. Confirm branch status and pending changes:
+1. Resolve repository slug, host, and account context first:
+   - Parse `origin` remote to get `host`, `owner`, and `repo`.
+   - If the remote uses an SSH alias host (example: `github.com-somealias`), map it to the real API host (`github.com`) before calling `gh`.
+   - Determine target account from owner mapping (for example from shell mapping like `GH_OWNER_ACCOUNT`), then switch explicitly:
+     - `gh auth switch -h <host> -u <account>`
+   - Verify access before continuing:
+     - `gh api --hostname <host> repos/<owner>/<repo>`
+2. Confirm branch status and pending changes:
    - `git status`
    - `git diff`
    - `git log --oneline -n 10`
    - `git diff main...HEAD` (or the intended base branch)
-2. Ensure the branch exists and is pushed:
+3. Ensure the branch exists and is pushed:
    - If needed, create/switch to feature branch.
    - Push with upstream tracking: `git push -u origin HEAD`.
-3. Draft PR content using `/pr-title-description`:
+4. Draft PR content using `/pr-title-description`:
    - Title: short, imperative, verb-first.
    - Description sections:
      - `## Summary`
@@ -31,10 +38,10 @@ Create pull requests for this repo with `gh pr create`, and use the `/pr-title-d
      - `## Other changes`
      - `## Key files to review`
      - `## How to test`
-4. Create PR with heredoc body:
+5. Create PR with heredoc body and explicit repo:
 
 ```bash
-gh pr create --title "Add concise verb-first title" --body "$(cat <<'EOF'
+gh pr create --repo "<owner>/<repo>" --title "Add concise verb-first title" --body "$(cat <<'EOF'
 ## Summary
 
 1-3 sentences on what changed and why.
@@ -62,7 +69,7 @@ EOF
 )"
 ```
 
-5. Return the PR URL and a short test note.
+6. Return the PR URL and a short test note.
 
 ## Quality checklist
 
@@ -70,3 +77,4 @@ EOF
 - Description follows `/pr-title-description` sections exactly.
 - High-risk behavior and reviewer-critical files are explicitly called out.
 - Test steps are concrete and include expected outcomes.
+- The command uses `--repo <owner>/<repo>` and a verified account context (`gh auth switch -h <host> -u <account>` + `gh api` access check).
