@@ -65,7 +65,7 @@ jobs:
           while IFS= read -r file_path; do
             [ -z "$file_path" ] && continue
             case "$file_path" in
-              dev-docs/*|*.md|*.mdx|.github/*.md|.github/**/*.md)
+              dev-docs/*|*.md|*.mdx|.github/*.md|.github/**/*.md|.cursor/*|.cursor/**|scripts/*|scripts/**|turbo.json|turbo/*|turbo/**)
                 ;;
               *)
                 run_heavy_jobs="true"
