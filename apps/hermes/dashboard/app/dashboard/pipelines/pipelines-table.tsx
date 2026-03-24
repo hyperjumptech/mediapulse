@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { Badge } from "@workspace/ui/components/badge";
 import {
   Table,
   TableBody,
@@ -16,6 +15,7 @@ import {
 } from "@/lib/pipeline-status";
 
 import { PipelineRowActions } from "./pipeline-row-actions";
+import { PipelineStatusBadge } from "./pipeline-status-badge";
 
 type PipelineWithSteps = Awaited<
   ReturnType<typeof import("@/lib/pipelines").getPipelinesWithSteps>
@@ -64,18 +64,6 @@ export const PipelinesTable = ({
                   warnings: [],
                 },
               );
-              const statusLabel =
-                status === "incomplete"
-                  ? "Incomplete"
-                  : status === "disabled"
-                    ? "Disabled"
-                    : "Enabled";
-              const badgeVariant =
-                status === "incomplete"
-                  ? "destructive"
-                  : status === "disabled"
-                    ? "secondary"
-                    : "success";
               return (
                 <TableRow key={pipeline.id}>
                   <TableCell className="font-medium">
@@ -90,7 +78,7 @@ export const PipelinesTable = ({
                     {pipeline.description ?? "—"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={badgeVariant}>{statusLabel}</Badge>
+                    <PipelineStatusBadge status={status} />
                   </TableCell>
                   <TableCell className="text-right">
                     <PipelineRowActions

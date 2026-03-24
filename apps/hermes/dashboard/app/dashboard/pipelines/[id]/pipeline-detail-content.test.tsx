@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PipelineDetailContent } from "./pipeline-detail-content";
 
@@ -83,6 +83,22 @@ vi.mock("./pipeline-executions-table", () => ({
   ),
 }));
 
+vi.mock("../pipeline-form-modal", () => ({
+  PipelineFormModal: ({
+    open,
+    editPipelineId,
+  }: {
+    open: boolean;
+    editPipelineId: string | null;
+  }) => (
+    <div
+      data-testid="pipeline-form-modal"
+      data-open={open ? "true" : "false"}
+      data-edit-pipeline-id={editPipelineId ?? ""}
+    />
+  ),
+}));
+
 const createMockPipelineValidation = () => ({
   valid: true,
   warnings: [] as string[],
@@ -152,6 +168,14 @@ describe("PipelineDetailContent", () => {
 
     expect(screen.getByLabelText("Pipeline name")).toBeInTheDocument();
     expect(screen.getByLabelText("Pipeline name")).toHaveValue("Test Pipeline");
+    const statusRegion = screen.getByRole("status", {
+      name: "Pipeline status Enabled",
+    });
+    expect(within(statusRegion).getByText("Status")).toBeInTheDocument();
+    expect(within(statusRegion).getByText("Enabled")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Edit pipeline" }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Description (optional)")).toBeInTheDocument();
     expect(screen.getByLabelText("Description (optional)")).toHaveValue(
       "Test description",
@@ -245,5 +269,74 @@ describe("PipelineDetailContent", () => {
       "placeholder",
       "Edit pipeline and manage agent steps.",
     );
+  });
+
+  it("shows Status Disabled when pipeline is valid but inactive", () => {
+    const pipeline = { ...createMockPipeline(), isActive: false };
+
+    render(
+      <PipelineDetailContent
+        pipeline={pipeline}
+        agents={createMockAgents()}
+        configsByAgentKey={{}}
+        pipelineValidation={createMockPipelineValidation()}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
+        {...mockPickerLoaders}
+      />,
+    );
+
+    expect(
+      within(
+        screen.getByRole("status", { name: "Pipeline status Disabled" }),
+      ).getByText("Disabled"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Status Incomplete when validation fails", () => {
+    render(
+      <PipelineDetailContent
+        pipeline={createMockPipeline()}
+        agents={createMockAgents()}
+        configsByAgentKey={{}}
+        pipelineValidation={{ valid: false, warnings: ["Missing agent"] }}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
+        {...mockPickerLoaders}
+      />,
+    );
+
+    expect(
+      within(
+        screen.getByRole("status", { name: "Pipeline status Incomplete" }),
+      ).getByText("Incomplete"),
+    ).toBeInTheDocument();
+  });
+
+  it("opens edit modal when Edit pipeline is clicked", () => {
+    render(
+      <PipelineDetailContent
+        pipeline={createMockPipeline()}
+        agents={createMockAgents()}
+        configsByAgentKey={{}}
+        pipelineValidation={createMockPipelineValidation()}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
+        {...mockPickerLoaders}
+      />,
+    );
+
+    const modal = screen.getByTestId("pipeline-form-modal");
+    expect(modal).toHaveAttribute("data-open", "false");
+    expect(modal).toHaveAttribute("data-edit-pipeline-id", "pipeline-123");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit pipeline" }));
+    expect(modal).toHaveAttribute("data-open", "true");
   });
 });
