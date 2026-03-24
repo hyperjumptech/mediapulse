@@ -33,7 +33,7 @@ const BodySchema = z.object({
 
 /**
  * Registers or updates an agent for a specific domain integration.
- * JWT `sub` must be the orchestration `api_key.id` linked to that integration; internal preset tokens are rejected.
+ * JWT `sub` must be the orchestration `domain_integration.id`; internal preset tokens are rejected.
  */
 export async function registerAgent(context: Context) {
   const logger = context.get("logger");
@@ -71,7 +71,7 @@ export async function registerAgent(context: Context) {
       where: {
         key: body.domainIntegrationKey,
         status: DomainIntegrationStatus.active,
-        apiKeyId: sub,
+        id: sub,
       },
     });
 

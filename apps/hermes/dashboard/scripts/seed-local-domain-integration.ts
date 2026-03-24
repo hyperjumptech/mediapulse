@@ -1,6 +1,6 @@
 /**
  * Creates a pending domain integration for local dev (same storage as the dashboard wizard):
- * generates an API key, stores ciphertext + api_key hash, sets status pending.
+ * generates a secret, stores ciphertext + SHA-256 hash on encrypted_payload, sets status pending.
  *
  * Loads env from `apps/hermes/dashboard/.env.local` (symlink to `packages/hermes/env/.env` after bootstrap).
  *

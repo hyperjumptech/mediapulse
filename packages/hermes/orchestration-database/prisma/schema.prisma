@@ -17,8 +17,8 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  apiKeys   APIKey[]
-  variables Variable[]
+  variables                 Variable[]
+  domainIntegrationsCreated DomainIntegration[] @relation("DomainIntegrationCreatedBy")
 
   @@map("user")
 }
@@ -26,22 +26,6 @@ model User {
 enum UserRole {
   ADMIN
   USER
-}
-
-model APIKey {
-  id        String   @id @default(uuid())
-  name      String
-  key       String   @unique
-  purpose   String?  @default("general")
-  isActive  Boolean  @default(true) @map("is_active")
-  userId    String   @map("user_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user              User               @relation(fields: [userId], references: [id])
-  domainIntegration DomainIntegration?
-
-  @@map("api_key")
 }
 
 model AgentRegistry {
@@ -104,10 +88,12 @@ enum DomainIntegrationStatus {
 
 /// Hermes-internal encrypted blobs (domain integration API keys, secret variables). At most one parent per row.
 model EncryptedPayload {
-  id         String   @id @default(uuid())
-  ciphertext String   @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid())
+  ciphertext          String   @db.Text
+  /// SHA-256 hex of the raw domain integration API key; set only for `domain_integration_id` rows (lookup for registration and token mint).
+  credentialSha256Hex String?  @unique @map("credential_sha256_hex")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   domainIntegrationId String?            @unique @map("domain_integration_id")
   domainIntegration   DomainIntegration? @relation(fields: [domainIntegrationId], references: [id], onDelete: Cascade)
@@ -129,12 +115,12 @@ model DomainIntegration {
   isActive          Boolean                 @default(true) @map("is_active")
   isDefault         Boolean                 @default(false) @map("is_default")
   status            DomainIntegrationStatus @default(active)
-  apiKeyId          String?                 @unique @map("api_key_id")
+  createdById       String?                 @map("created_by_id")
   createdAt         DateTime                @default(now()) @map("created_at")
   updatedAt         DateTime                @updatedAt @map("updated_at")
   lastSeenAt        DateTime                @default(now()) @map("last_seen_at")
 
-  apiKey           APIKey?           @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  createdBy        User?             @relation("DomainIntegrationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   encryptedPayload EncryptedPayload?
   agentRegistry    AgentRegistry[]
   pipelines        Pipeline[]
@@ -152,7 +138,7 @@ model Pipeline {
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  domainIntegration DomainIntegration @relation(fields: [domainIntegrationId], references: [id], onDelete: Restrict)
+  domainIntegration DomainIntegration         @relation(fields: [domainIntegrationId], references: [id], onDelete: Restrict)
   steps             PipelineStep[]
   schedules         Schedule[]
   httpTriggers      HttpTrigger[]
@@ -292,10 +278,10 @@ model AgentJobExecution {
   dataQueueMaxAttempts   Int?                    @map("data_queue_max_attempts")
   createdAt              DateTime                @default(now()) @map("created_at")
 
-  schedule             Schedule?             @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
-  scheduleExecution    ScheduleExecution?    @relation(fields: [scheduleExecutionId], references: [id], onDelete: SetNull)
-  httpTrigger          HttpTrigger?          @relation(fields: [httpTriggerId], references: [id], onDelete: SetNull)
-  httpTriggerExecution HttpTriggerExecution? @relation(fields: [httpTriggerExecutionId], references: [id], onDelete: SetNull)
+  schedule             Schedule?                @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  scheduleExecution    ScheduleExecution?       @relation(fields: [scheduleExecutionId], references: [id], onDelete: SetNull)
+  httpTrigger          HttpTrigger?             @relation(fields: [httpTriggerId], references: [id], onDelete: SetNull)
+  httpTriggerExecution HttpTriggerExecution?    @relation(fields: [httpTriggerExecutionId], references: [id], onDelete: SetNull)
   manualExecution      ManualPipelineExecution? @relation(fields: [manualExecutionId], references: [id], onDelete: SetNull)
 
   @@map("agent_job_execution")
@@ -414,10 +400,10 @@ model PipelineStep {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  pipeline                  Pipeline                   @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  agentConfig               AgentConfig?               @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
-  scheduleStepExecutions    ScheduleStepExecution[]
-  httpTriggerStepExecutions HttpTriggerStepExecution[]
+  pipeline                     Pipeline                      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  agentConfig                  AgentConfig?                  @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
+  scheduleStepExecutions       ScheduleStepExecution[]
+  httpTriggerStepExecutions    HttpTriggerStepExecution[]
   manualPipelineStepExecutions ManualPipelineStepExecution[]
 
   @@unique([pipelineId, order])

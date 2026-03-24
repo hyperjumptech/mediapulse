@@ -94,8 +94,8 @@ DOM --> PDB
 
 A single **orchestration** Prisma database holds everything Hermes needs to **coordinate** work:
 
-- **Identity & access** — `User` (dashboard admins), `APIKey` (including keys linked to **domain integrations**).
-- **Domain integration** — `DomainIntegration` stores `key`, `baseUrl`, `capabilities`, optional **dashboard manifest**, and relations to **pipelines** and **agent registry** rows; the integration API key ciphertext lives in **`EncryptedPayload`** (one row per integration).
+- **Identity & access** — `User` (dashboard admins).
+- **Domain integration** — `DomainIntegration` stores `key`, `baseUrl`, `capabilities`, optional **dashboard manifest**, and relations to **pipelines** and **agent registry** rows; the integration secret is stored as **SHA-256 hash + ciphertext** on **`EncryptedPayload`** (one row per integration).
 - **Pipelines** — `Pipeline` (scoped to a domain integration), `PipelineStep` (ordered steps with `agentId` / `agentVersion`, input/config JSON, optional `AgentConfig` link).
 - **Registry** — `AgentRegistry` rows per integration (agent id/version, endpoint JSON, schemas).
 - **Saved configs** — `AgentConfig` for reusable validated config per agent version.

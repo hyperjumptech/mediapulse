@@ -44,8 +44,8 @@ Deploy in this order: **agent-auth-api → agent-registry-api → dashboard → 
 | `AGENT_AUTH_JWT_SECRET`            | _(random 32+ chars)_                  | Signs and verifies JWTs for `POST /api/token` and `POST /api/verify`.                                                       |
 | `HERMES_INTERNAL_API_KEY`          | _(random secret, e.g. openssl)_       | Preset shared secret: Bearer on `POST /api/token` for Hermes worker/dashboard minting (same value on dashboard and worker). |
 | `HERMES_INTERNAL_API_KEY_PREVIOUS` | _(optional; old key during rotation)_ | Temporary previous preset accepted on `POST /api/token` only during coordinated key rotation rollouts.                      |
-| `TEMP_ADMIN_USERNAME`              | _(strong username)_                   | Basic-auth admin for API key management on this service.                                                                    |
-| `TEMP_ADMIN_PASSWORD`              | _(strong password)_                   | Must match other Hermes services using the same admin pair.                                                                 |
+| `TEMP_ADMIN_USERNAME`              | _(strong username)_                   | Required by `@hermes/env` shared schema; not used for API routes on this service after removal of API-key CRUD.             |
+| `TEMP_ADMIN_PASSWORD`              | _(strong password)_                   | Required by `@hermes/env` (same pair as other Hermes services).                                                             |
 | `PORT`                             | `8080`                                | HTTP port (default in code).                                                                                                |
 
 ---

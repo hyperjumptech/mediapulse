@@ -37,7 +37,7 @@ type DeleteAdminHandler = HandlerFunc<
 >;
 
 /**
- * Creates the handler that deletes a Hermes `ADMIN` user and their API keys.
+ * Creates the handler that deletes a Hermes `ADMIN` user.
  *
  * @param dependencies - Injectable actor gate and Prisma client.
  * @returns Route handler.
@@ -74,16 +74,13 @@ export const createDeleteAdminHandler = ({
       return errorResponse("Admin not found");
     }
 
-    await db.$transaction(async (tx) => {
-      await tx.aPIKey.deleteMany({ where: { userId: id } });
-      await tx.user.delete({ where: { id } });
-    });
+    await db.user.delete({ where: { id } });
 
     return successResponse({ ok: true as const });
   };
 };
 
 /**
- * Handles delete admin: removes API keys for the user, then the user row.
+ * Handles delete admin: removes the user row.
  */
 export const handler: DeleteAdminHandler = createDeleteAdminHandler();

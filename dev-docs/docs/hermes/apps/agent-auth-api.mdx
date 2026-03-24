@@ -1,42 +1,31 @@
 ---
 title: agent-auth-api
-description: API for API key lifecycle and token verification
+description: API for issuing invocation JWTs and token verification
 icon: Key
 ---
 
 ## Purpose
 
-agent-auth-api is a Hono server that manages **API keys** (create, list, get, update, delete, deactivate, reactivate), issues **short-lived JWT tokens** for agent invocation, and exposes **verification endpoints** for other services. **Agents, agent-data-api, and agent-registry-api** all verify the **same invocation JWT** via `POST /api/verify` (see `@workspace/agent-auth-client` `verifyTokenViaAuthApi`). `POST /api/verify-api-key` is for callers that present a raw API key (e.g. dashboard flows), not for agent→data-api traffic.
+agent-auth-api is a Hono server that issues **short-lived JWT tokens** for agent invocation and exposes **JWT verification** for other services. **Agents, agent-data-api, and agent-registry-api** verify the **same invocation JWT** via `POST /api/verify` (see `@workspace/agent-auth-client` `verifyTokenViaAuthApi`). Long-lived **domain integration** secrets are stored in the orchestration DB as **SHA-256 hash + ciphertext** on `EncryptedPayload`; Hermes mints JWTs with `sub` set to **`domain_integration.id`**.
 
 ## Features
 
 - **POST /api/verify** — **JWT-only** invocation verification. Accepts `Authorization: Bearer <jwt>`. Verifies signature and expiry. Used by agents to verify that the caller (Hermes/hermes-worker) is authorized. Requires `AGENT_AUTH_JWT_SECRET`.
-- **POST /api/verify-api-key** — API-key verification for service callers. Accepts `Authorization: Bearer <api_key>`. Looks up hashed key in DB. Used where raw keys are required (e.g. some dashboard routes); **not** used for agent-data-api or agent-registry-api bearer auth (those use JWT verification above).
-- **POST /api/token** — Issue a short-lived JWT (e.g. 15 min) for agent invocation. Accepts **`Authorization: Bearer <HERMES_INTERNAL_API_KEY>`** (preset shared with Hermes dashboard and worker; timing-safe compare to env) **or** a dashboard API key whose hash is stored in the DB with purpose **`domain_integration`** (or legacy **`scheduler`**). During key rotation it also accepts **`HERMES_INTERNAL_API_KEY_PREVIOUS`** when set. Requires `AGENT_AUTH_JWT_SECRET` and, for the preset path, `HERMES_INTERNAL_API_KEY`. Hermes dashboard and worker use the preset only to mint JWTs; they never send it to agents.
-- **API key CRUD** — Create, retrieve (list + by id), update, delete API keys. In practice, **admins create API keys in the Hermes dashboard** (which calls this API). Create accepts optional **purpose** (`general`, `scheduler`, `run_pipeline`, `domain_integration`). Use **`domain_integration`** for Mediapulse and agent auto-register token minting.
-- **Deactivate / reactivate** — Soft-disable keys without deleting. Revoking a **domain_integration** key stops that caller from obtaining new tokens after the next refresh.
-- **Temporary admin auth** — API key management is protected by HTTP Basic Auth (`TEMP_ADMIN_USERNAME` / `TEMP_ADMIN_PASSWORD`) until a proper admin flow exists.
+- **POST /api/token** — Issue a short-lived JWT (e.g. 15 min). Accepts **`Authorization: Bearer <HERMES_INTERNAL_API_KEY>`** (preset shared with Hermes dashboard and worker; timing-safe compare to env) **or** a **domain integration** API key whose SHA-256 hex matches `encrypted_payload.credential_sha256_hex` (JWT `sub` is `domain_integration.id`). During key rotation it also accepts **`HERMES_INTERNAL_API_KEY_PREVIOUS`** when set. Requires `AGENT_AUTH_JWT_SECRET` and, for the preset path, `HERMES_INTERNAL_API_KEY`. Hermes dashboard and worker use the preset only to mint JWTs; they never send it to agents.
 
 ## Key routes
 
-| Method | Path                           | Description                      |
-| ------ | ------------------------------ | -------------------------------- |
-| POST   | `/api/verify`                  | Verify JWT (invocation only)     |
-| POST   | `/api/verify-api-key`          | Verify API key (service callers) |
-| POST   | `/api/token`                   | Issue short-lived JWT            |
-| POST   | `/api/api-keys`                | Create API key                   |
-| GET    | `/api/api-keys`                | List API keys                    |
-| GET    | `/api/api-keys/:id`            | Get one API key                  |
-| PATCH  | `/api/api-keys/:id`            | Update API key                   |
-| DELETE | `/api/api-keys/:id`            | Delete API key                   |
-| POST   | `/api/api-keys/:id/deactivate` | Deactivate                       |
-| POST   | `/api/api-keys/:id/reactivate` | Reactivate                       |
+| Method | Path          | Description                  |
+| ------ | ------------- | ---------------------------- |
+| POST   | `/api/verify` | Verify JWT (invocation only) |
+| POST   | `/api/token`  | Issue short-lived JWT        |
 
 ## Environment
 
 - **AGENT_AUTH_JWT_SECRET** (required) — Secret for signing and verifying short-lived JWTs. Required for POST /api/token and POST /api/verify. Use a long random value (e.g. 32+ chars) in production.
 - **HERMES_INTERNAL_API_KEY** — Preset bearer for Hermes dashboard/worker token minting (same value those services use). Optional only if you never use the preset path (not recommended for normal Hermes deployments).
 - **HERMES_INTERNAL_API_KEY_PREVIOUS** (optional) — Temporary previous preset used only during key rotation so `/api/token` can accept both old and new internal Bearer values during rollout.
+- **TEMP_ADMIN_USERNAME** / **TEMP_ADMIN_PASSWORD** — Still required by `@hermes/env` for Hermes apps that share the schema; agent-auth-api does not expose HTTP Basic API-key CRUD on this service.
 
 ## Port
 
@@ -46,7 +35,7 @@ agent-auth-api is a Hono server that manages **API keys** (create, list, get, up
 
 - `@workspace/api-utils` — Error helpers (e.g. `internalError`, `notFound`).
 - `@hermes/env` — Environment variables.
-- `@hermes/orchestration-database` — Prisma for API keys and user association.
+- `@hermes/orchestration-database` — Prisma for encrypted payloads and domain integrations.
 - `@workspace/logger` — Pino logger (hono-pino).
 
 ## Related docs

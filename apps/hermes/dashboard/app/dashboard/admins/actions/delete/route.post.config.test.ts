@@ -88,35 +88,19 @@ describe("createDeleteAdminHandler", () => {
     expect((result as { message?: string }).message).toBe("Admin not found");
   });
 
-  it("deletes api keys and user in a transaction", async () => {
+  it("deletes user when target is admin", async () => {
     const count = vi.fn().mockResolvedValue(2);
     const findUnique = vi.fn().mockResolvedValue({
       id: targetId,
       role: UserRole.ADMIN,
     });
-    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
     const deleteUser = vi.fn().mockResolvedValue({ id: targetId });
-    const tx = vi.fn(
-      async (
-        fn: (tx: {
-          aPIKey: { deleteMany: typeof deleteMany };
-          user: { delete: typeof deleteUser };
-        }) => Promise<void>,
-      ) => {
-        await fn({
-          aPIKey: { deleteMany },
-          user: { delete: deleteUser },
-        });
-      },
-    );
     const handler = createDeleteAdminHandler({
       requireHermesAdminManagementActor: async () => okGate(),
-      db: { user: { count, findUnique }, $transaction: tx } as never,
+      db: { user: { count, findUnique, delete: deleteUser } } as never,
     });
     const result = await handler(baseData as never);
     expect(result.status).toBe(true);
-    expect(tx).toHaveBeenCalledTimes(1);
-    expect(deleteMany).toHaveBeenCalledWith({ where: { userId: targetId } });
     expect(deleteUser).toHaveBeenCalledWith({ where: { id: targetId } });
   });
 });

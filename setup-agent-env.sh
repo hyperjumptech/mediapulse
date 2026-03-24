@@ -1,25 +1,21 @@
 #!/usr/bin/env bash
 # Sets up .env and .env.local for a new agent: runs dev-bootstrap (so the agent
-# gets .env and .env.local from its env.agents.<name>.example), then gets or
-# creates DOMAIN_INTEGRATION_API_KEY (domain_integration purpose; mint JWT for registry) and sets it in the agent's .env.local.
+# gets .env and .env.local from its env.agents.<name>.example), then copies
+# DOMAIN_INTEGRATION_API_KEY from another agent or packages/mediapulse/env/.env
+# into this agent's .env.local.
 #
 # Usage: ./setup-agent-env.sh <agent-name> [options]
 # Options:
 #   --no-bootstrap     Skip running dev-bootstrap.sh (use if .env/.env.local already exist).
-#   --admin-email EMAIL Use this email when creating a new API key (required for create).
-#   --key-name NAME    Name for the new API key (default: "Agent domain integration (<agent-name>)").
 #
-# Get or create: reads DOMAIN_INTEGRATION_API_KEY from any existing apps/mediapulse/agents/*/.env.local
-# or packages/mediapulse/env/.env; if missing, creates one via Hermes generate-api-key with
-# purpose domain_integration (requires --admin-email and Hermes .env.local with DB).
+# If no DOMAIN_INTEGRATION_API_KEY is found, run ./dev-setup-local.sh or from
+# apps/hermes/dashboard: pnpm seed-local-domain-integration <admin-email>
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_NAME=""
 NO_BOOTSTRAP="false"
-ADMIN_EMAIL=""
-KEY_NAME=""
 
 usage() {
   cat <<'EOF'
@@ -27,13 +23,13 @@ Usage: ./setup-agent-env.sh <agent-name> [options]
 
 Options:
   --no-bootstrap       Skip dev-bootstrap (use if .env and .env.local already exist).
-  --admin-email EMAIL  Admin email for creating a new API key (required to create).
-  --key-name NAME      Name for the new API key (default: "Agent domain integration (<agent-name>)").
 
 Examples:
   ./setup-agent-env.sh user-registration
-  ./setup-agent-env.sh user-registration --admin-email dev@example.com
   ./setup-agent-env.sh my-agent --no-bootstrap
+
+If DOMAIN_INTEGRATION_API_KEY is missing, run ./dev-setup-local.sh first, or:
+  cd apps/hermes/dashboard && pnpm seed-local-domain-integration <admin-email>
 EOF
 }
 
@@ -42,14 +38,6 @@ while [[ $# -gt 0 ]]; do
     --no-bootstrap)
       NO_BOOTSTRAP="true"
       shift
-      ;;
-    --admin-email)
-      ADMIN_EMAIL="${2:-}"
-      shift 2
-      ;;
-    --key-name)
-      KEY_NAME="${2:-}"
-      shift 2
       ;;
     -h|--help)
       usage
@@ -137,15 +125,6 @@ get_env_value() {
   ' "$file"
 }
 
-# Extract the raw API key from generate-api-key.ts output.
-extract_generated_api_key() {
-  awk '
-    /Raw key \(store securely, shown once\):/ {
-      getline; print; exit
-    }
-  '
-}
-
 section "Bootstrap env for agent: $AGENT_NAME"
 if [[ "$NO_BOOTSTRAP" != "true" ]]; then
   "$SCRIPT_DIR/dev-bootstrap.sh"
@@ -160,7 +139,7 @@ else
   echo "  ✓ Merged $EXAMPLE_FILE into $AGENT_DIR/.env.local"
 fi
 
-section "Get or create DOMAIN_INTEGRATION_API_KEY (domain integration)"
+section "Get DOMAIN_INTEGRATION_API_KEY (domain integration)"
 RAW_KEY=""
 
 # 1. From any existing agent .env.local
@@ -182,34 +161,11 @@ if [[ -z "$RAW_KEY" && -f "$SCRIPT_DIR/packages/mediapulse/env/.env" ]]; then
   fi
 fi
 
-# 3. Create via Hermes generate-api-key (domain_integration purpose — required for POST /api/token)
 if [[ -z "$RAW_KEY" ]]; then
-  if [[ -z "$ADMIN_EMAIL" ]]; then
-    # Try env
-    ADMIN_EMAIL="${ADMIN_EMAIL:-}"
-    if [[ -f "$SCRIPT_DIR/packages/mediapulse/env/.env" ]]; then
-      ADMIN_EMAIL="$(get_env_value "$SCRIPT_DIR/packages/mediapulse/env/.env" "ADMIN_EMAIL")"
-    fi
-  fi
-  if [[ -z "$ADMIN_EMAIL" ]]; then
-    echo "  No existing DOMAIN_INTEGRATION_API_KEY found."
-    echo "  To create one, run: ./setup-agent-env.sh $AGENT_NAME --admin-email <your-admin-email>"
-    echo "  Or run ./dev-setup-local.sh first to create a key for all agents."
-    exit 1
-  fi
-  KEY_NAME="${KEY_NAME:-Agent domain integration ($AGENT_NAME)}"
-  echo "  Creating new domain_integration API key via Hermes generate-api-key..."
-  HERMES_OUTPUT="$(
-    cd "$SCRIPT_DIR/apps/hermes/dashboard"
-    pnpm generate-api-key "$ADMIN_EMAIL" "$KEY_NAME" --purpose domain_integration 2>&1
-  )"
-  RAW_KEY="$(printf '%s\n' "$HERMES_OUTPUT" | extract_generated_api_key)"
-  if [[ -z "$RAW_KEY" ]]; then
-    echo "  Failed to parse generated API key. Output:" >&2
-    echo "$HERMES_OUTPUT" >&2
-    exit 1
-  fi
-  echo "  Created new key and assigned to $AGENT_NAME."
+  echo "  No DOMAIN_INTEGRATION_API_KEY found."
+  echo "  Run ./dev-setup-local.sh to create an admin and domain integration, or:"
+  echo "    cd apps/hermes/dashboard && pnpm seed-local-domain-integration <admin-email>"
+  exit 1
 fi
 
 ENV_LOCAL="$AGENT_DIR/.env.local"

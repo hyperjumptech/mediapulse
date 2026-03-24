@@ -27,11 +27,11 @@ Registration requires **`inputSchema`** (JSON Schema object) and accepts optiona
 
 ## Environment
 
-- **AGENT_AUTH_API_URL** (required) — Base URL of agent-auth-api. Used to verify API keys on each request.
+- **AGENT_AUTH_API_URL** (required) — Base URL of agent-auth-api. Used to verify JWTs on each request.
 
 ## Workspace dependencies
 
-- `@workspace/agent-auth-client` — `verifyApiKeyViaAuthApi` for bearer auth.
+- `@workspace/agent-auth-client` — `verifyTokenViaAuthApi` for bearer JWT verification.
 - `@workspace/api-utils` — Error helpers.
 - `@hermes/env` — Environment variables.
 - `@hermes/orchestration-database` — Prisma for agent registry storage.

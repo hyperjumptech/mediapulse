@@ -22,7 +22,7 @@ vi.mock("@hermes/orchestration-database", () => ({
 }));
 
 vi.mock("jose", () => ({
-  decodeJwt: () => ({ sub: "api-key-uuid-1" }),
+  decodeJwt: () => ({ sub: "int-1" }),
 }));
 
 vi.mock("@hermes/env", () => ({
@@ -43,7 +43,6 @@ describe("agent-registry-api", () => {
     mockFindFirst.mockResolvedValue({
       id: "int-1",
       key: "mediapulse",
-      apiKeyId: "api-key-uuid-1",
     });
     mockUpsert.mockResolvedValue({
       id: "1",

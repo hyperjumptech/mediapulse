@@ -122,7 +122,7 @@ end
 
 - **Invocation:** Hermes/hermes-worker → `POST /api/token` with **`HERMES_INTERNAL_API_KEY`** → JWT → agent → `POST /api/verify`. Internal preset never goes to the agent.
 - **Data / registry:** Agent → data or registry API with **JWT** → `POST /api/verify`. Same verification path as invocation.
-- **verify-api-key:** Used for flows that present a **raw API key** (e.g. some dashboard operations), not for normal agent→data-api traffic.
+- **Domain integration:** Agents mint JWTs with **`DOMAIN_INTEGRATION_API_KEY`** on `POST /api/token`; the auth API matches the key hash on `encrypted_payload` and issues a JWT whose `sub` is **`domain_integration.id`**.
 
 ---
 

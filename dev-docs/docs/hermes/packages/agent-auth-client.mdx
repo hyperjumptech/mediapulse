@@ -6,13 +6,12 @@ icon: Key
 
 ## Purpose
 
-`@workspace/agent-auth-client` exposes helpers to verify credentials via agent-auth-api. **`verifyTokenViaAuthApi`** is used by agents, **agent-data-api**, and **agent-registry-api** to validate the same short-lived **invocation JWT** (`POST /api/verify`). **`verifyApiKeyViaAuthApi`** is for raw API keys (`POST /api/verify-api-key`), e.g. dashboard flows—not for agent→data-api traffic.
+`@workspace/agent-auth-client` exposes helpers to verify credentials via agent-auth-api. **`verifyTokenViaAuthApi`** is used by agents, **agent-data-api**, and **agent-registry-api** to validate the same short-lived **invocation JWT** (`POST /api/verify`).
 
 ## Exports
 
 - **`verifyTokenViaAuthApi(token, authApiUrl)`** — `Promise<boolean>`. Calls `POST ${authApiUrl}/api/verify` with `Authorization: Bearer ${token}`; returns `true` if status is 200, `false` otherwise (401, network error, etc.).
-- **`verifyApiKeyViaAuthApi(apiKey, authApiUrl)`** — `Promise<boolean>`. Calls `POST ${authApiUrl}/api/verify-api-key` for raw API keys.
-- **`createAgentTokenClient({ authApiUrl, credential, fetchFn? })`** — Returns `{ getToken() }` to mint JWTs via `POST /api/token`. Pass **`HERMES_INTERNAL_API_KEY`** from Hermes worker/dashboard, or a **domain_integration** API key from the orchestration DB, as `credential` (used by product agents and registration flows).
+- **`createAgentTokenClient({ authApiUrl, credential, fetchFn? })`** — Returns `{ getToken() }` to mint JWTs via `POST /api/token`. Pass **`HERMES_INTERNAL_API_KEY`** from Hermes worker/dashboard, or a **domain integration** API key (hash stored on `encrypted_payload`), as `credential` (used by product agents and registration flows).
 
 ## Consumers
 
