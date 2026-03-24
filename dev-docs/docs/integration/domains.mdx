@@ -1,6 +1,6 @@
 ---
-title: Project Overview
-description: How orchestration (Hermes) and Domain Integration (Mediapulse) are split — apps, databases, and env
+title: The two domains
+description: How orchestration (Hermes) and the Mediapulse product are split — apps, databases, and env
 icon: Layers
 ---
 
@@ -8,7 +8,7 @@ The repo is split into two **product domains**. You can host both on one Postgre
 
 ## Domain overview
 
-Hermes keeps orchestration state in **one database**; Mediapulse keeps product and agent-run data in **another**. Cross-domain integration is **JWT-backed agent calls** from the worker and **HTTP to `domain-api`** for expansion and dashboard-backed tables (via `@hermes/domain-contract`).
+Hermes keeps orchestration state in **one database**; Mediapulse keeps product and agent-run data in **another**. Cross-domain integration is **JWT-backed agent calls** from the worker and **HTTP to the registered domain API** (in this repo, **Mediapulse `domain-api`**) for expansion and dashboard-backed tables (via `@hermes/domain-contract`).
 
 <Mermaid
   chart={`flowchart TB
@@ -81,10 +81,10 @@ These are **not** “owned” by a single domain; both sides depend on them:
 ## How the domains connect at runtime
 
 1. **Pipeline runs:** Hermes / hermes-worker mints a short-lived JWT via **agent-auth-api** and calls **agents** (Mediapulse apps). Agents call **agent-data-api** with the same JWT.
-2. **Data-source expansion:** Scheduler asks the registered **domain API** (`expand-step-inputs`, `preview-expansion`); that service uses **Mediapulse** Prisma via `@mediapulse/hermes-integration`, not a direct Hermes→DB shortcut. See [Data source expansion](/guide/data-source-expansion).
-3. **Dashboard tables for Mediapulse entities:** Hermes renders routes from the integration manifest and proxies list/meta/CRUD to the **domain API** (`/v1/hermes-dashboard/...`), not to `@mediapulse/database` from the Next.js server. See [Hermes domain integration dashboard pages](/architecture/hermes-domain-integration-pages) for the Next.js layout, routes, and HTTP flow.
+2. **Data-source expansion:** Scheduler asks the registered **domain API** (`expand-step-inputs`, `preview-expansion`); that service uses **Mediapulse** Prisma via `@mediapulse/hermes-integration`, not a direct Hermes→DB shortcut. See [Data source expansion](/integration/data-source-expansion).
+3. **Dashboard tables for Mediapulse entities:** Hermes renders routes from the integration manifest and proxies list/meta/CRUD to the **domain API** (e.g. `/v1/hermes-dashboard/...`), not to `@mediapulse/database` from the Next.js server. See [Domain integration dashboard](/hermes/domain-integration-dashboard) for the Next.js layout, routes, and HTTP flow.
 
-For auth flows and diagrams, see [Communication between parts](/architecture/communication). For step input and schemas, see [Agent–Hermes contract](/guide/agent-hermes-contract).
+For auth flows and diagrams, see [Communication between parts](/integration/communication). For step input and schemas, see [Agent–Hermes contract](/hermes/agent-hermes-contract).
 
 ## User identities
 

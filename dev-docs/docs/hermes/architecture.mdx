@@ -1,0 +1,175 @@
+---
+title: Architecture
+description: How Hermes fits together — apps, data stores, scheduler, auth, and domain integration
+icon: Layers
+---
+
+**Hermes** is the **orchestration** layer in this monorepo: it models **pipelines**, **schedules**, **variables**, **domain integrations**, and **agent registry** metadata; it exposes a **dashboard** for operators; and it drives **scheduled** and **manual** agent runs. It does **not** own product tables (newsletters, tickers, knowledge graph, and so on). Product domains expose HTTP APIs that implement [`@hermes/domain-contract`](/hermes/packages/hermes-domain-contract); Hermes calls those APIs for **step-input expansion** and optional **dashboard** surfaces.
+
+## Design principles
+
+- **Orchestration, not domain logic** — Hermes stores **how** work is sequenced and **when** it runs. Business rules and product data live in **domain** services and databases.
+- **Stateless web tier** — The Hermes **dashboard** (Next.js) is a normal web app. **Long-running** queue processing runs in **hermes-worker**, not inside the Next.js process.
+- **JWT to agents** — Hermes and hermes-worker **mint** short-lived JWTs via **agent-auth-api** and send only those tokens to agents. Long-lived secrets are not passed to agent HTTP handlers.
+- **Contract-based integration** — Registered **domain integrations** supply a `baseUrl` and capabilities. Hermes loads registration from the **orchestration** database and uses **HTTP** — it does not connect to a product database for expansion or manifest-driven UI.
+
+## System context
+
+<Mermaid
+  chart={`flowchart TB
+  subgraph operators ["Operators"]
+    U["Dashboard users"]
+  end
+
+subgraph hermes ["Hermes platform"]
+D["Hermes dashboard\n(Next.js)"]
+W["hermes-worker\n(DataQueue processor)"]
+AA["agent-auth-api"]
+AR["agent-registry-api"]
+end
+
+subgraph data ["Data stores"]
+OPG[("Orchestration Postgres\npipelines, schedules, registry…")]
+DQ[("Postgres + dataqueue schema\njobs, cron")]
+end
+
+subgraph agents ["Agents"]
+A1["Agent HTTP services"]
+end
+
+subgraph product ["Product domain (example)"]
+DOM["Domain API\n(expand-step-inputs, table-v1…)"]
+PDB[("Product DB")]
+end
+
+U --> D
+D --> OPG
+D --> AA
+D --> A1
+W --> OPG
+W --> DQ
+W --> AA
+W --> A1
+AR --> OPG
+AR --> AA
+A1 --> AA
+A1 --> DOM
+D --> DOM
+W --> DOM
+DOM --> PDB
+`}
+/>
+
+## Main Concepts
+
+### Integrations and agents Concepts
+
+- **Domain Integration** — A connection to an external domain: `baseUrl`, credentials, capabilities, and optional dashboard manifest. Hermes uses it for step-input expansion, domain HTTP calls, and scoping pipelines and registry data.
+- **Agent** — An HTTP service owned by the integrated domain that executes one **step** of a pipeline (invoke with JWT, return step result).
+- **Agent Registry** — Orchestration DB metadata for discovery: agent id/version, endpoint, input/output schemas, linked to a domain integration.
+- **Agent Config** — A saved, validated configuration blob for a given agent version, reusable across steps so operators do not re-enter the same JSON each time.
+
+### Pipelines, schedules, and variables Concepts
+
+- **Pipeline** — An ordered list of **steps** for one domain integration; Hermes runs them sequentially (manual or scheduled).
+- **Step** — One unit of work: references an agent (and optional **Agent Config**), plus per-step inputs; the worker invokes the agent HTTP handler.
+- **Schedule** — When and how often a pipeline runs (one-off or recurring); creates executions and enqueue behavior via **hermes-worker** / DataQueue.
+- **Variable** — A named value (often `{{KEY}}`) resolved when a run starts so the same pipeline can differ per tenant, environment, or run without editing step JSON.
+
+## Major components
+
+| Layer                      | Responsibility                                                                                                                                                    | Typical location                         |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **Dashboard**              | UI and server actions for pipelines, steps, schedules, variables, domain integrations, admins; manual pipeline runs; proxies **table-v1** requests to domain APIs | `apps/hermes/dashboard`                  |
+| **hermes-worker**          | DataQueue **processor** + **supervisor**; cron `check_schedules`; **invoke_agent** HTTP calls                                                                     | `apps/hermes/worker`                     |
+| **agent-auth-api**         | API keys, **`POST /api/token`** (JWT mint), **`POST /api/verify`** (JWT verify)                                                                                   | `apps/hermes/agent-auth-api`             |
+| **agent-registry-api**     | **`POST /api/agents/register`** — persist agent metadata (schemas, endpoint) for discovery                                                                        | `apps/hermes/agent-registry-api`         |
+| **Orchestration database** | Prisma schema: users, API keys, domain integrations, pipelines, steps, schedules, executions, agent registry                                                      | `packages/hermes/orchestration-database` |
+| **Scheduler library**      | Due-schedule polling, variable substitution, step expansion hooks, agent HTTP invocation helpers                                                                  | `packages/hermes/scheduler`              |
+| **Domain contract**        | Shared types and HTTP shapes for registration and domain routes                                                                                                   | `packages/hermes/domain-contract`        |
+
+## Data architecture
+
+### Orchestration database (PostgreSQL)
+
+A single **orchestration** Prisma database holds everything Hermes needs to **coordinate** work:
+
+- **Identity & access** — `User` (dashboard admins), `APIKey` (including keys linked to **domain integrations**).
+- **Domain integration** — `DomainIntegration` stores `key`, `baseUrl`, `capabilities`, optional **dashboard manifest**, encrypted integration secret, and relations to **pipelines** and **agent registry** rows.
+- **Pipelines** — `Pipeline` (scoped to a domain integration), `PipelineStep` (ordered steps with `agentId` / `agentVersion`, input/config JSON, optional `AgentConfig` link).
+- **Registry** — `AgentRegistry` rows per integration (agent id/version, endpoint JSON, schemas).
+- **Saved configs** — `AgentConfig` for reusable validated config per agent version.
+- **Variables** — `Variable` for `{{KEY}}` substitution at execution time.
+- **Scheduling & observability** — `Schedule`, `ScheduleExecution`, `ScheduleStepExecution`, `AgentJobExecution` (links to DataQueue jobs, invocation metadata, rollups).
+
+Hermes **does not** put newsletter or other product rows here. Product data stays in the **domain** database(s).
+
+### DataQueue (PostgreSQL `dataqueue` schema)
+
+**hermes-worker** uses **DataQueue** for durable jobs: a **cron** job runs every minute to **check schedules**; work is split into **`invoke_agent`** jobs with retries, concurrency limits, and an optional supervisor for stuck-job recovery. The dashboard **does not** run this queue — deploy worker processes separately. See [Worker](/hermes/apps/hermes-worker).
+
+## Execution paths
+
+### Manual run (dashboard)
+
+1. An admin triggers a pipeline from the dashboard.
+2. Server-side code loads the pipeline and integration from the orchestration DB, resolves variables, optionally calls the domain API to **expand** step inputs (e.g. `db:…` expressions).
+3. Hermes mints a JWT via **agent-auth-api** and invokes each agent step over HTTP in order.
+
+### Scheduled run (hermes-worker)
+
+<Mermaid
+  chart={`sequenceDiagram
+  participant Cron as "Cron: check_schedules"
+  participant Q as "DataQueue"
+  participant Sch as "@hermes/scheduler"
+  participant Auth as "agent-auth-api"
+  participant Agent as "Agent"
+
+Cron->>Q: enqueue / process
+Q->>Sch: load due schedules, expand inputs
+Sch->>Q: enqueue invoke_agent per work item
+Q->>Auth: POST /api/token
+Auth-->>Q: JWT
+Q->>Agent: POST with Bearer JWT
+Agent->>Auth: POST /api/verify
+Agent-->>Q: result / error
+`}
+/>
+
+1. **Cron** triggers **`check_schedules`** jobs.
+2. Handlers query **due** `Schedule` rows, create **`ScheduleExecution`** / **`AgentJobExecution`** records, and enqueue **`invoke_agent`** jobs (with parallelism controlled by env).
+3. Each invocation uses the pipeline’s **domain integration** credential (or internal preset where applicable) to obtain a **JWT**, then **POST**s to the agent URL. Correlation headers (`X-Schedule-Id`, `X-Job-Id`, …) are available to agents when present.
+
+### Domain HTTP calls (expansion & dashboard)
+
+When a step references **data-source** syntax or the UI needs **table-v1** data, Hermes calls the registered domain **`baseUrl`** — for example **`POST /v1/expand-step-inputs`** and routes declared in the integration’s **dashboard manifest**. See [Integrate a domain with Hermes](/hermes/integration/integrate-domain-with-hermes) and [Data source expansion](/integration/data-source-expansion).
+
+## Security model (summary)
+
+- **Dashboard** — Session-based login for orchestration `User` rows with **`ADMIN`** role and active flag.
+- **Token minting** — **`HERMES_INTERNAL_API_KEY`** (shared with agent-auth-api) or a **decrypted domain integration** API key is used **only** on **`POST /api/token`** from Hermes / worker — never sent to agents.
+- **Agent invocation** — Agents receive **Bearer JWT** only; they verify via **`POST /api/verify`**.
+- **Integration secrets** — Stored encrypted in the orchestration DB; decrypted only for outbound Hermes → auth-api and domain calls as designed.
+
+Full sequence diagrams and tables: [Communication between parts](/integration/communication).
+
+## Hermes packages (concise map)
+
+| Package                             | Role                                                                  |
+| ----------------------------------- | --------------------------------------------------------------------- |
+| `@hermes/orchestration-database`    | Prisma client and migrations for orchestration tables                 |
+| `@hermes/env`                       | Typed environment for Hermes apps (including `hermes-worker` subpath) |
+| `@hermes/scheduler`                 | Schedule execution, substitution, expansion, `invokeAgent`            |
+| `@hermes/step-input-syntax`         | Parse and validate `db:…` and related expressions                     |
+| `@hermes/domain-contract`           | HTTP contract types and client for domain APIs                        |
+| `@hermes/domain-integration-crypto` | Encrypt/decrypt integration API keys at rest                          |
+
+Workspace-wide agent stacks (`@workspace/agent-runtime`, `@workspace/agent-auth-client`, `@workspace/agent-data-api-client`, …) are documented under [Hermes packages](/hermes/packages).
+
+## Related documentation
+
+- [Hermes overview](/hermes) — scope and “no business logic” boundary
+- [Dashboard](/hermes/apps/dashboard), [Worker](/hermes/apps/hermes-worker), [agent-auth-api](/hermes/apps/agent-auth-api), [agent-registry-api](/hermes/apps/agent-registry-api)
+- [Hermes packages](/hermes/packages) — libraries and dependencies
+- [Hermes–Mediapulse integration](/integration) — two databases, `domain-api`, env

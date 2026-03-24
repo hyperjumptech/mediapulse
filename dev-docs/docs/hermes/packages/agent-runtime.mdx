@@ -17,7 +17,7 @@ icon: Cpu
 
 ## Request body and how Hermes invokes agents
 
-Hermes sends **POST** with body `{ input: <params>, config: <stepConfig> }` and header `Authorization: Bearer <jwt>` (short-lived JWT from agent-auth-api). The agent validates `input` with `inputSchema` and `config` with `configSchema` (default empty object), then runs `run({ input, config, token, hermesCorrelation? })` and returns a consistent JSON result (success/failure/skipped). When **hermes-worker** invokes the agent, optional schedule/step ids are passed as `hermesCorrelation` (see [Communication](/architecture/communication)). See [Agent–Hermes contract](/guide/agent-hermes-contract) for the full contract.
+Hermes sends **POST** with body `{ input: <params>, config: <stepConfig> }` and header `Authorization: Bearer <jwt>` (short-lived JWT from agent-auth-api). The agent validates `input` with `inputSchema` and `config` with `configSchema` (default empty object), then runs `run({ input, config, token, hermesCorrelation? })` and returns a consistent JSON result (success/failure/skipped). When **hermes-worker** invokes the agent, optional schedule/step ids are passed as `hermesCorrelation` (see [Communication between parts](/integration/communication)). See [Agent–Hermes contract](/hermes/agent-hermes-contract) for the full contract.
 
 ## Options (DI)
 
@@ -28,7 +28,7 @@ Hermes sends **POST** with body `{ input: <params>, config: <stepConfig> }` and 
 
 ## Consumers
 
-Mediapulse agents (for example `@mediapulse/content-generation`, `@mediapulse/data-collection`, `@mediapulse/delivery`).
+Pipeline agents deployed as small HTTP services (see product docs for examples in this monorepo).
 
 ## More
 

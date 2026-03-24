@@ -6,18 +6,12 @@ icon: Home
 
 ## What is this monorepo?
 
-**MediaPulse** is the product: an AI-assisted newsletter and pipeline platform.
+The codebase is organized around two main systems:
 
-The codebase is organized into two **domains**:
+- **Hermes** — **Agent orchestration**: dashboard, worker/scheduler, auth API, registry API, and the **orchestration** database (pipelines, schedules, domain integrations, **admin** users). External domains integrate over HTTP; Hermes does not embed product databases for those features.
+- **Mediapulse** — **Product data and agents**: **agent-data-api**, **domain-api** (integration with Hermes + Mediapulse DB), user registration, and HTTP **agents** under `apps/mediapulse/agents/*`, backed by the **Mediapulse** database (tickers, newsletters, knowledge graph, and related tables).
 
-- **Hermes** — Orchestration: dashboard, worker/scheduler, auth API, registry API, and the **orchestration** database (pipelines, schedules, domain integrations, **admin** users).
-- **Mediapulse** — Product data and runtime: **agent-data-api**, **domain API** (Mediapulse DB + Hermes integration), user registration, and HTTP **agents** under `apps/mediapulse/agents/*`, backed by the **Mediapulse** database (tickers, newsletters, knowledge graph, and related tables).
-
-## How the domains connect
-
-Hermes **orchestrates** work (pipelines, schedules, invoking agents). It does **not** own newsletter, ticker, or knowledge-graph tables. When Hermes needs that kind of data—**data-source expansion**, CRUD for Mediapulse entities in the dashboard, and similar—it calls the **Mediapulse domain API** over HTTP. The Hermes app does not connect to the Mediapulse database for those features.
-
-Tables, identities, and detailed runtime flows are described in **[Hermes and Mediapulse domains](/architecture/domains)**.
+**[Hermes–Mediapulse integration](/integration)** explains how Mediapulse plugs into Hermes (JWTs, registration, expansion, dashboard `table-v1` in this repo).
 
 ## Stack
 
@@ -40,12 +34,10 @@ Quick reference:
 
 ## Documentation map
 
-| Section                                                                   | What you will find                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **[Hermes and Mediapulse domains](/architecture/domains)**                | Which apps and packages sit in which domain, how they talk at runtime                                                                                                                                                                                                                             |
-| **[Integrate a domain with Hermes](/guide/integrate-domain-with-hermes)** | Register an HTTP domain API (expansion + optional `table-v1` dashboard) with Hermes                                                                                                                                                                                                               |
-| **[Generate a new agent](/mediapulse/apps/agents/generate-agent)**        | Scaffold an agent (`pnpm gen:agent`), env, registry, Hermes pipelines                                                                                                                                                                                                                             |
-| **[Architecture](/architecture)**                                         | Domain layout and [communication](/architecture/communication); [Agent–Hermes contract](/guide/agent-hermes-contract) and [data source expansion](/guide/data-source-expansion) live under **Guide**. **[Knowledge graph](/mediapulse/knowledge-graph/knowledge-graph)** is under **Mediapulse**. |
-| **[Shared](/shared)**                                                     | Monorepo-wide **UI** (`@workspace/ui`) and other shared docs not scoped to Hermes only                                                                                                                                                                                                            |
-| **[Hermes](/hermes)**                                                     | Deployable apps (dashboard, worker, auth, registry) and Hermes-related packages                                                                                                                                                                                                                   |
-| **[Mediapulse](/mediapulse)**                                             | Product apps (data API, domain API, user-registration, agents) and Mediapulse packages                                                                                                                                                                                                            |
+| Section                                           | What you will find                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **[Hermes](/hermes)**                             | Orchestration apps and packages; generic domain integration; agent–Hermes contract       |
+| **[Mediapulse](/mediapulse)**                     | Product apps, agents, knowledge graph, Mediapulse packages                               |
+| **[Hermes–Mediapulse integration](/integration)** | Two-domain runtime map, communication, data-source expansion, Mediapulse-specific wiring |
+| **[Shared](/shared)**                             | Monorepo-wide UI (`@workspace/ui`) and other cross-cutting shared docs                   |
+| **[Guide](/guide)**                               | [Development](/guide/development) and [Production](/guide/production)                    |

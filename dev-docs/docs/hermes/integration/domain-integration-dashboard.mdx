@@ -1,12 +1,55 @@
 ---
-title: Hermes domain integration dashboard pages
+title: Domain integration dashboard
 description: How the Hermes dashboard discovers integrations, builds URLs, and renders table-v1 pages by calling the domain API over HTTP
 icon: LayoutDashboard
 ---
 
-The Hermes dashboard (`apps/hermes/dashboard`) does **not** query Mediapulse (or other product) databases for these screens. Instead, each **domain integration** registers a **dashboard manifest** with Hermes. The Next.js app loads that manifest from the orchestration database, renders sidebar links and App Router pages, and **proxies** list, metadata, and CRUD requests to the integration’s `baseUrl` according to **table-v1** (see [What is table-v1](#what-is-table-v1)) as encoded in `@hermes/domain-contract`.
+The Hermes dashboard (`apps/hermes/dashboard`) does **not** query external product databases for these screens. Instead, each **domain integration** registers a **dashboard manifest** with Hermes (see [Dashboard manifest](#dashboard-manifest)). The Next.js app loads that JSON from the orchestration database, renders sidebar links and App Router pages, and **proxies** HTTP to the integration’s `baseUrl` using the UI template and API contract declared for each page. Today that template is **`table-v1`**—a specification for how a domain resource plugs into the Hermes dashboard UI and HTTP surface; see [What is the table-v1 template](#what-is-the-table-v1-template).
 
-For the split between Hermes and Mediapulse apps, see [Hermes and Mediapulse domains](/architecture/domains). For the Mediapulse service that implements the HTTP handlers, see [Domain API](/mediapulse/apps/domain-api). For the shared Zod schemas and client types, see [hermes-domain-contract](/hermes/packages/hermes-domain-contract).
+For shared Zod schemas and client types, see [hermes-domain-contract](/hermes/packages/hermes-domain-contract). For Mediapulse-specific routes and env in this repo, see [Mediapulse wiring in this repo](/integration/mediapulse-wiring).
+
+## Dashboard manifest
+
+The **dashboard manifest** is the structured JSON payload (`dashboardManifestSchema` in `@hermes/domain-contract`) that a domain integration sends when it registers with Hermes (`dashboard` field on `registerDomainIntegrationRequestSchema`). Hermes persists it on the **orchestration** `DomainIntegration` row as **`dashboardManifest`** so the dashboard can be rebuilt without re-calling the domain service.
+
+**What it is for:** It tells Hermes **which screens** to show for that integration (sidebar entries, labels, ordering), **which URL paths** under `/dashboard/{integrationKey}/…` map to which resource, and **which UI template** (`template` on each page) applies so Hermes knows how to render the page and which outbound HTTP calls to make.
+
+**What is inside:** The manifest has two top-level fields:
+
+| Field             | Role                                                                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `templateVersion` | Version of the manifest document shape (currently only `1`). Bumps here if the list of allowed fields or semantics change. |
+| `pages`           | Array of **dashboard pages** (`dashboardPageSchema`), one per sidebar entry / resource.                                    |
+
+Each **page** describes one integrated resource. Important fields include:
+
+| Field                                           | Role                                                                                                                                                       |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                            | Stable id for the page within the manifest.                                                                                                                |
+| `label`, `description`, `icon`, `order`         | Sidebar and UI copy; `order` controls sort order in the nav.                                                                                               |
+| `pathSegment`                                   | Second segment after `/dashboard/{integrationKey}/` (e.g. `tickers` → `/dashboard/{integrationKey}/tickers`).                                              |
+| `template`                                      | Which **dashboard UI specification** to use. Currently only **`table-v1`** is allowed (`dashboardTemplateSchema`; more values may be added later).         |
+| `apiPrefix`                                     | Path prefix on the domain’s `baseUrl` for this resource’s HTTP API (Hermes concatenates `baseUrl` + `apiPrefix` for meta, list, CRUD, and custom actions). |
+| `columns`, `searchableFields`, `sortableFields` | List/table configuration (columns also carry types such as `text` or `date-time`).                                                                         |
+| `actions`                                       | Whether create, update, and delete are supported for that resource.                                                                                        |
+| `createSchema` / `updateSchema`                 | Optional JSON Schema fragments for Hermes create/update forms (subset parsed by the dashboard).                                                            |
+| `customActions`                                 | Optional extra actions (e.g. file upload) with `method`, `path` suffix under `apiPrefix`, and `ui` hint.                                                   |
+| `createNavigation`                              | `modal` vs `full-page` create/edit flows.                                                                                                                  |
+| `preview`                                       | Optional preview control tied to a form field when the integration registers the `preview-expansion` capability.                                           |
+
+At runtime, Hermes merges manifest data with live **meta** responses from the domain where needed (e.g. echoed columns and schemas) so the UI stays consistent with the server.
+
+## What is the table-v1 template
+
+**table-v1** is the **first** (and currently **only**) **dashboard UI specification template** in `@hermes/domain-contract`: it defines how a **domain-owned resource** is integrated into the Hermes dashboard **in terms of** navigation, page layout (table list, modals vs full-page editors), and the **HTTP surface** the domain must implement so Hermes can load metadata, paginated lists, and optional CRUD. The `-v1` suffix versions that contract so a future **`table-v2`** or an unrelated template (e.g. a non-table layout) can be added without silently changing existing integrations.
+
+Concretely, “table-v1” refers to:
+
+1. **Manifest flag** — Each page in `dashboard.pages` sets `template: "table-v1"`. That selects this specification. Additional `template` values may be introduced later for different UI patterns.
+
+2. **HTTP API + Zod shapes** — For pages that use this template, the domain exposes the endpoints under the page’s `apiPrefix` (meta, list query, optional CRUD) documented in [Table-v1 HTTP calls](#table-v1-http-calls). Hermes validates responses with `tableV1MetaResponseSchema`, `tableV1ListResponseSchema`, and related types in the same package. In conversation, “table-v1” usually means this full bundle: **manifest choice + routes + validators**.
+
+Other templates (if added) would ship their own manifest `template` value, UI entry points, and HTTP/Zod contracts; the **dashboard manifest** remains the single registration blob that lists which template each page uses.
 
 ### Runtime data flow
 
@@ -15,21 +58,13 @@ The dashboard never opens the product database for these screens. It reads **whe
 <Mermaid
   chart={`flowchart LR
   Orch[("Orchestration DB")] -->|"manifest and baseUrl"| Dash["Hermes dashboard"]
-  Dash -->|"table-v1 HTTP"| Dom["Domain API"]
+  Dash -->|"table-v1 HTTP"| Dom["Domain HTTP API"]
 `}
 />
 
-## What is table-v1
-
-**table-v1** names two things that go together:
-
-1. **Dashboard manifest template** — Each entry in `dashboard.pages` sets `template: "table-v1"`. That value is the only option today (`dashboardTemplateSchema` in `packages/hermes/domain-contract/src/contracts.ts`). The `-v1` suffix leaves room for a future template with different behavior or URLs without breaking existing registrations.
-
-2. **HTTP surface + Zod shapes** — For that template, the domain must expose the endpoints under the page’s `apiPrefix` (meta, list query, optional CRUD) documented later in this page. Hermes parses responses with the `tableV1*` schemas in the same package (`tableV1MetaResponseSchema`, `tableV1ListResponseSchema`, and related types). “table-v1” in conversation usually means this whole bundle: manifest flag plus those routes and validators.
-
 ## Registration and storage
 
-1. A domain service (for example Mediapulse **domain-api**) calls Hermes `POST /api/domain-integrations/register` with a body that matches `registerDomainIntegrationRequestSchema` (key, name, `baseUrl`, optional capabilities, and `dashboard` manifest).
+1. A **domain service** calls Hermes `POST /api/domain-integrations/register` with a body that matches `registerDomainIntegrationRequestSchema` (key, name, `baseUrl`, optional capabilities, and a `dashboard` field containing the [dashboard manifest](#dashboard-manifest)).
 2. Hermes persists the row in the **orchestration** database (`DomainIntegration`), including `dashboardManifest` JSON.
 3. `apps/hermes/dashboard/lib/domain-integrations.ts` exposes `getActiveDomainIntegrations`, `getDomainIntegrationByKey`, and related helpers so the UI can resolve `baseUrl` and `dashboard.pages` at runtime.
 
@@ -70,7 +105,7 @@ All of these are wrapped with `withAuthProtection` so only authenticated dashboa
 `apps/hermes/dashboard/lib/domain-dashboard.ts` is the central place for server-side calls:
 
 1. **`getDashboardPage`** (internal) loads the integration with `getDomainIntegrationByKey(integrationKey)` and finds the manifest entry where `pathSegment === resource`.
-2. It returns `{ baseUrl, page }` where `page.apiPrefix` is the domain-owned HTTP prefix for that resource (for example a path under `/v1/hermes-dashboard/...` on domain-api).
+2. It returns `{ baseUrl, page }` where `page.apiPrefix` is the domain-owned HTTP prefix for that resource (whatever path your service mounts for meta/list/CRUD).
 
 If the integration is inactive, missing, or the resource is not in the manifest, the helpers throw; the page layer surfaces that as a failed request or error UI.
 
@@ -102,7 +137,7 @@ Responses are validated with `tableV1MetaResponseSchema`, `tableV1ListResponseSc
   chart={`sequenceDiagram
   participant Dash as Hermes dashboard
   participant Orch as Orchestration DB
-  participant Dom as Domain API
+  participant Dom as Domain HTTP API
 
 Dash->>Orch: Load active integrations and manifest
 Orch-->>Dash: baseUrl, dashboard.pages, apiPrefix
@@ -149,8 +184,8 @@ Requests send `Content-Type: application/json`. Hermes adds `Authorization: Bear
 
 ## Related flows outside these pages
 
-- **Step-input expansion** and **preview** in pipelines use the same registered integration and `@hermes/domain-contract` client; see [Data source expansion](/guide/data-source-expansion).
-- **Pipeline run ticker pickers** resolve the registered **mediapulse** integration (manifest + `baseUrl` from orchestration) to list tickers through the same table-v1 list endpoint pattern (`fetchAllTickersForPipelineRun` in `domain-dashboard.ts`).
+- **Step-input expansion** and **preview** in pipelines use the same registered integration and `@hermes/domain-contract` client; see [Data source expansion](/integration/data-source-expansion).
+- Product-specific dashboard behavior (e.g. which integration key and import actions this monorepo uses) is documented under [Mediapulse wiring in this repo](/integration/mediapulse-wiring).
 
 ## Implementing a new table on the domain side
 

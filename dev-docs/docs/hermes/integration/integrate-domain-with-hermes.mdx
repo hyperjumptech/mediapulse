@@ -6,7 +6,7 @@ icon: Link
 
 **Domain integration** means: your product exposes an HTTP API that implements the shared **Hermes domain contract**, and you **register** that service with Hermes so the orchestration layer knows its `baseUrl`, capabilities, and (optionally) **dashboard manifest** for `table-v1` pages. Hermes does **not** connect to your product database for these features; it loads registration from the **orchestration** database and calls your API.
 
-For how Hermes and Mediapulse split apps and databases, start with [Hermes and Mediapulse domains](/architecture/domains).
+For how **this monorepo** wires Mediapulse to Hermes (env, `domain-api`, concrete URLs), see [Hermes–Mediapulse integration](/integration).
 
 ## What you implement
 
@@ -15,7 +15,7 @@ For how Hermes and Mediapulse split apps and databases, start with [Hermes and M
 | **Step-input expansion**    | `POST /v1/expand-step-inputs` (and optionally `POST /v1/preview-expansion`)                           |
 | **Hermes dashboard tables** | For each `table-v1` manifest page: `GET …/meta`, list, and optional CRUD under the page’s `apiPrefix` |
 
-Schemas and client types live in [`@hermes/domain-contract`](/hermes/packages/hermes-domain-contract). The dashboard’s routing and HTTP shapes are described in [Hermes domain integration dashboard pages](/architecture/hermes-domain-integration-pages).
+Schemas and client types live in [`@hermes/domain-contract`](/hermes/packages/hermes-domain-contract). The dashboard’s routing and HTTP shapes are described in [Domain integration dashboard](/hermes/domain-integration-dashboard).
 
 ## Prerequisites
 
@@ -48,8 +48,6 @@ If registration fails or the integration is inactive, Hermes omits those section
 - **`HERMES_INTERNAL_API_KEY`** — Master key for encrypting integration API keys at rest and for strictly internal **`POST /api/token`** minting.
 - **`AGENT_AUTH_API_URL`** — Base URL of agent-auth-api for minting and verification.
 
-Exact names for Mediapulse’s **`domain-api`** are listed in [domain-api (Mediapulse)](/mediapulse/apps/domain-api).
-
 ## Dashboard `table-v1` pages
 
 To expose CRUD/list UIs in the Hermes dashboard under `/dashboard/{integrationKey}/{pathSegment}`:
@@ -58,13 +56,9 @@ To expose CRUD/list UIs in the Hermes dashboard under `/dashboard/{integrationKe
 2. Add a matching entry to **`dashboard.pages`** in the registration payload (`template: "table-v1"`, `pathSegment`, `label`, columns, etc.).
 3. Align **auth** with Hermes (JWT via agent-auth-api, or leave `AGENT_AUTH_API_URL` unset on the domain service only for local dev).
 
-Full route table and sequence diagrams: [Hermes domain integration dashboard pages](/architecture/hermes-domain-integration-pages).
-
-## Mediapulse reference implementation
-
-In this monorepo, **`apps/mediapulse/domain-api`** implements the contract, Mediapulse DB access via [`@mediapulse/hermes-integration`](/mediapulse/packages/mediapulse-hermes-integration), and **self-registration** on startup. Adding a new dashboard resource there follows a concrete folder layout (see [domain-api — Adding or removing a Hermes dashboard resource](/mediapulse/apps/domain-api#adding-or-removing-a-hermes-dashboard-resource)).
+Full route table and sequence diagrams: [Domain integration dashboard](/hermes/domain-integration-dashboard).
 
 ## Related
 
-- [Data source expansion](/guide/data-source-expansion) — how pipelines resolve `db:` inputs through the domain API.
-- [Communication between parts](/architecture/communication) — auth and cross-service flows.
+- [Data source expansion](/integration/data-source-expansion) — how pipelines resolve `db:` inputs through the domain API.
+- [Communication between parts](/integration/communication) — auth and cross-service flows.

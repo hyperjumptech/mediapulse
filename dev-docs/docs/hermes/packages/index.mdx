@@ -4,7 +4,7 @@ description: Orchestration database, scheduler, Hermes env, and shared workspace
 icon: Package
 ---
 
-Hermes uses **`packages/hermes/*`** and **`packages/shared/*`** (published as **`@workspace/*`**). Mediapulse-owned Prisma and integrations are documented under **[Mediapulse → Packages](/mediapulse/packages)**. The **shared UI kit** (`@workspace/ui`) is under **[Shared](/shared)**.
+Hermes uses **`packages/hermes/*`** and **`packages/shared/*`** (published as **`@workspace/*`**). Product-specific Prisma and packages for this repo are documented under **[Mediapulse](/mediapulse)**. The **shared UI kit** (`@workspace/ui`) is under **[Shared](/shared)**.
 
 Apps reference workspace packages with `workspace:*` in `package.json`.
 
@@ -15,12 +15,12 @@ Apps reference workspace packages with `workspace:*` in `package.json`.
 | [orchestration-database](/hermes/packages/orchestration-database)     | `@hermes/orchestration-database`   | Prisma: users, API keys, pipelines, schedules, executions, registry |
 | [env](/hermes/packages/env)                                           | `@hermes/env` (and worker subpath) | Type-safe env for Hermes apps and orchestration DB                  |
 | [hermes-scheduler](/hermes/packages/hermes-scheduler)                 | `@hermes/scheduler`                | Schedule execution, step expansion hooks                            |
-| [hermes-step-input-syntax](/hermes/packages/hermes-step-input-syntax) | `@hermes/step-input-syntax`        | Generic `db:table:field?…` parsing (not Mediapulse-specific)        |
+| [hermes-step-input-syntax](/hermes/packages/hermes-step-input-syntax) | `@hermes/step-input-syntax`        | Generic `db:table:field?…` parsing                                  |
 | [hermes-domain-contract](/hermes/packages/hermes-domain-contract)     | `@hermes/domain-contract`          | HTTP contract and client for Hermes ↔ domain API                    |
 
 ## Database entrypoint
 
-- **[database](/hermes/packages/database)** — Short overview; use **[orchestration-database](/hermes/packages/orchestration-database)** for Hermes migrations and **[mediapulse-database](/mediapulse/packages/mediapulse-database)** for Mediapulse migrations.
+- **[database](/hermes/packages/database)** — Overview of orchestration DB access; use **[orchestration-database](/hermes/packages/orchestration-database)** for migrations and details.
 
 ## Agent stack (`@workspace/*`)
 
@@ -50,5 +50,5 @@ Shared **React / Tailwind UI** (`@workspace/ui`, `packages/shared/ui`) — see *
 | ---------------------------------- | ------------------------------------------------------------ |
 | `@hermes/orchestration-database`   | Hermes dashboard, worker, agent-auth-api, agent-registry-api |
 | `@hermes/env`                      | Hermes apps, orchestration consumers                         |
-| `@workspace/agent-runtime`         | Mediapulse agents                                            |
+| `@workspace/agent-runtime`         | Pipeline agents (HTTP services invoked by Hermes)            |
 | `@workspace/agent-data-api-client` | Agents that call agent-data-api                              |

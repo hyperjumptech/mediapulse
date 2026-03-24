@@ -4,7 +4,7 @@ description: Scaffold a new agent package from the minimal ticker-echo template 
 icon: Plus
 ---
 
-Hermes **invokes agents** by sending an HTTP **POST** with a typed body (`input` + `config`) and a short-lived **JWT** from **agent-auth-api**. Agents are small HTTP services; they do not poll Hermes. The scheduler–agent contract is documented in [Agent–Hermes contract](/guide/agent-hermes-contract).
+Hermes **invokes agents** by sending an HTTP **POST** with a typed body (`input` + `config`) and a short-lived **JWT** from **agent-auth-api**. Agents are small HTTP services; they do not poll Hermes. The scheduler–agent contract is documented in [Agent–Hermes contract](/hermes/agent-hermes-contract).
 
 ## Cursor: use the Generate agent skill
 
@@ -78,12 +78,12 @@ Agents built with `createAgentApp` can **register themselves** with the agent-re
 
 When all of the above are set, the agent POSTs its metadata and schemas to the registry on startup (fire-and-forget, with retries). If registration fails (e.g. registry unreachable), the error is logged and the agent keeps running. If any required value is missing, auto-registration is skipped and a warning is logged.
 
-**Manual registration:** POST to **agent-registry-api** with a JWT and the same schema payload you can read from your agent’s **GET `/schemas`**. Details: [Agent–Hermes contract — Auto-registration](/guide/agent-hermes-contract#auto-registration-on-startup) and [agent-registry-api](/hermes/apps/agent-registry-api).
+**Manual registration:** POST to **agent-registry-api** with a JWT and the same schema payload you can read from your agent’s **GET `/schemas`**. Details: [Agent–Hermes contract — Auto-registration](/hermes/agent-hermes-contract#auto-registration-on-startup) and [agent-registry-api](/hermes/apps/agent-registry-api).
 
 ## Customize your agent
 
 1. **Input and config** — Define **`inputSchema`** (required) and optionally **`configSchema`** for static step configuration. Pass them to **`createAgentApp`**; the runtime validates each request and exposes **GET `/schemas`** as JSON Schema for **agent-registry-api**.
-2. **Run logic** — Implement **`run({ input, config, token })`** and return a result that matches the envelope in [Agent–Hermes contract — Response body](/guide/agent-hermes-contract#response-body-agent--hermes).
+2. **Run logic** — Implement **`run({ input, config, token })`** and return a result that matches the envelope in [Agent–Hermes contract — Response body](/hermes/agent-hermes-contract#response-body-agent--hermes).
 3. **Data API** — Use **`token`** to call **agent-data-api** from [`@workspace/agent-data-api-client`](/hermes/packages/agent-data-api-client) when the agent needs persisted run data.
 4. **Env** — After `./setup-agent-env.sh`, the agent has `.env.local` with `PORT` and `DOMAIN_INTEGRATION_API_KEY`. Set `AGENT_REGISTRY_URL` in `.env.local` if you want auto-registration and the example does not already include it.
 
@@ -93,11 +93,11 @@ The minimal template is **ticker-echo**; the generator is based on it so you onl
 
 1. Ensure the agent process is running and reachable at **`AGENT_PUBLIC_URL`**.
 2. Confirm registration in the registry (or logs after startup).
-3. In the Hermes dashboard, add the agent to a **pipeline step**, set **step config** if the agent defines a config schema, and create **schedules** whose **params (JSON)** match the agent’s **input schema**. Use **Variables** and `{{VAR_KEY}}` in config/params where needed ([Agent–Hermes contract — Variables](/guide/agent-hermes-contract#variables-in-config-and-params)).
+3. In the Hermes dashboard, add the agent to a **pipeline step**, set **step config** if the agent defines a config schema, and create **schedules** whose **params (JSON)** match the agent’s **input schema**. Use **Variables** and `{{VAR_KEY}}` in config/params where needed ([Agent–Hermes contract — Variables](/hermes/agent-hermes-contract#variables-in-config-and-params)).
 
 ## See also
 
-- [Agent–Hermes contract](/guide/agent-hermes-contract) — request/response envelope, auto-registration, variables.
+- [Agent–Hermes contract](/hermes/agent-hermes-contract) — request/response envelope, auto-registration, variables.
 - [agent-runtime](/hermes/packages/agent-runtime) — `createAgentApp`, options, auth.
 - [agent-data-api-client](/hermes/packages/agent-data-api-client) — typed calls to agent-data-api from `run`.
 - [Hermes dashboard](/hermes/apps/dashboard) — schedules, pipelines, agent configs.

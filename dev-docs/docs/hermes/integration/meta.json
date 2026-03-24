@@ -1,0 +1,9 @@
+{
+  "title": "Integration",
+  "pages": [
+    "integrate-domain-with-hermes",
+    "domain-integration-dashboard",
+    "agent-hermes-contract"
+  ],
+  "defaultOpen": true
+}

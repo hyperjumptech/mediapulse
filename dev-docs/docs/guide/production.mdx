@@ -6,7 +6,7 @@ icon: Server
 
 Use this page as a **production reference**: required and optional environment variables per app, how to obtain values, and a sensible deploy order. Variable definitions live in **`packages/hermes/env`** and **`packages/mediapulse/env`** (see [env](/hermes/packages/env)). Sensitive values must **not** use the `NEXT_PUBLIC_` prefix.
 
-**Domains:** Hermes holds **orchestration** data; Mediapulse holds **domain** data. You can use one PostgreSQL instance with separate schemas or separate databases—see [Hermes and Mediapulse domains](/architecture/domains).
+**Domains:** Hermes holds **orchestration** data; Mediapulse holds **domain** data. You can use one PostgreSQL instance with separate schemas or separate databases—see [Hermes and Mediapulse domains](/integration/domains).
 
 All **install** and **build** commands below run from the **repository root** unless noted. You need **Node 20+** (see root `package.json` `engines`), **pnpm** matching the repo’s `packageManager` field (currently **pnpm 10.x**), and **Bun** for services that run the compiled `dist/server.js` bundle.
 

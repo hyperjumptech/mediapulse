@@ -4,17 +4,12 @@ description: Orchestration domain — dashboard, worker, APIs, and Hermes-relate
 icon: Layers
 ---
 
-**Hermes** is the orchestration domain: pipelines, schedules, the dashboard, **agent-auth-api**, **agent-registry-api**, **hermes-worker**, and the orchestration database.
+**Hermes** is an advanced and efficient agent orchestration system. It is responsible for scheduling and executing agent pipelines. It also provides a dashboard for managing the orchestration of agents.
 
-## Browse
-
-Use the sidebar **Apps** and **Packages** groups, or jump to:
-
-- **Apps** — [Dashboard](/hermes/apps/dashboard), [Worker](/hermes/apps/hermes-worker), [agent-auth-api](/hermes/apps/agent-auth-api), [agent-registry-api](/hermes/apps/agent-registry-api).
-- **Packages** — [Overview](/hermes/packages), [orchestration-database](/hermes/packages/orchestration-database), [env](/hermes/packages/env), [scheduler](/hermes/packages/hermes-scheduler), and shared `@workspace/*` libraries (agent stack, logger, and more).
+**Hermes doesn't perform any business logic.** It is only responsible for orchestrating the execution of agents. The external system that owns agents are integrated with Hermes via HTTP (`@hermes/domain-contract`). This integration is called [Domain integration](#domain-integration).
 
 ## Related
 
-- [Hermes and Mediapulse domains](/architecture/domains) — boundary with Mediapulse and how HTTP fits in.
-- [Data source expansion](/guide/data-source-expansion) — how `db:…` strings expand at runtime (not a Hermes “app”).
+- [Hermes–Mediapulse integration](/integration) — how this repo’s Mediapulse product connects to Hermes (two DBs, JWTs, `domain-api`).
+- [Data source expansion](/integration/data-source-expansion) — how `db:…` strings expand at runtime via the registered domain API.
 - [Shared UI](/shared/ui) — `@workspace/ui` (used by Hermes and other apps).

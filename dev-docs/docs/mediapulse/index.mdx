@@ -4,15 +4,10 @@ description: Product domain — agent-data-api, domain-api, agents, and Mediapul
 icon: Layers
 ---
 
-**Mediapulse** is the product data domain: **agent-data-api**, **domain-api** (Hermes integration + Mediapulse DB), **user-registration**, HTTP **agents**, and Mediapulse Prisma packages.
+**Mediapulse** is the system that contains busniss logic and the agents to create daily newsletters. It is the product data domain: **agent-data-api**, **domain-api**, **user-registration**, HTTP **agents**, and Mediapulse Prisma packages (tickers, newsletters, knowledge graph, subscribers, and related tables).
 
-## Browse
+User chooses the tickers they want to keep track of and the system will create a daily newsletter for them using the agents.
 
-Use the sidebar **Apps** and **Packages** groups, or jump to:
+## How this connects to Hermes
 
-- **Apps** — [agent-data-api](/mediapulse/apps/agent-data-api), [user-registration](/mediapulse/apps/user-registration), [domain-api](/mediapulse/apps/domain-api), and [Agents](/mediapulse/apps/agents/content-generation) (pipeline agents).
-- **Packages** — [Overview](/mediapulse/packages), [mediapulse-database](/mediapulse/packages/mediapulse-database), [hermes-integration](/mediapulse/packages/mediapulse-hermes-integration), [idx-tickers-importer](/mediapulse/packages/idx-tickers-importer), [outlook-inbox](/mediapulse/packages/outlook-inbox).
-
-## Related
-
-[Hermes and Mediapulse domains](/architecture/domains) explains how Mediapulse data and APIs relate to Hermes (including the domain API boundary).
+Orchestration, JWT minting, and the domain HTTP contract live in **[Hermes](/hermes)**. **How Mediapulse integrates with Hermes** (databases, env, `domain-api` registration) is documented in **[Hermes–Mediapulse integration](/integration)** — start with [Hermes and Mediapulse domains](/integration/domains).

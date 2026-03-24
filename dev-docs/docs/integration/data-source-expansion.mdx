@@ -6,7 +6,7 @@ icon: Database
 
 ## Scope
 
-At run time, Hermes expands **data source strings** in pipeline step input by calling the registered **Mediapulse domain API** (not by querying the Mediapulse database from the Hermes app). For domain boundaries and HTTP flows, see [Hermes and Mediapulse domains](/architecture/domains).
+At run time, Hermes expands **data source strings** in pipeline step input by calling the registered **domain integration HTTP API** (not by querying the product database from the Hermes app). In this monorepo, that service is **Mediapulse `domain-api`**. For domain boundaries and HTTP flows, see [Hermes and Mediapulse domains](/integration/domains).
 
 ## Overview
 
@@ -86,7 +86,7 @@ The pipeline detail page shows input and config forms per step; save validates b
 
 1. **Per step** — For each pipeline step in order, the scheduler takes that step's stored **input** (after variable substitution).
 2. **Parse** — Each input value that looks like a data-source string (`db:...`) is parsed.
-3. **Call domain API** — For each request, Hermes calls the registered domain integration endpoint. The domain service (Mediapulse API) performs DB queries and expansion logic.
+3. **Call domain API** — For each request, Hermes calls the registered domain integration endpoint. The domain service performs DB queries and expansion logic against the **product** schema (in this repo, Mediapulse Prisma via `domain-api` and `@mediapulse/hermes-integration`).
 4. **Expand** — The input’s value is replaced by the list of values from the query. If the value is not a valid data-source string or the table is unknown, the value is left as-is (single run for that step).
 5. **Cartesian product (per step)** — If multiple keys in that step's input contain data-source strings, the result is one input object per combination (e.g. key A has 3 values and key B has 2 → 6 runs for that step).
 6. **Invoke** — Each resulting input set is sent as `input` to the agent for that step; hermes-worker runs the step once per set, then continues to the next step.
@@ -94,7 +94,7 @@ The pipeline detail page shows input and config forms per step; save validates b
 ## Related docs
 
 - [Hermes dashboard](/hermes/apps/dashboard) — Schedule form, **Data source expansions** CRUD and preview.
-- [Agent–Hermes contract](/guide/agent-hermes-contract) — Step input, input schema, variables.
+- [Agent–Hermes contract](/hermes/agent-hermes-contract) — Step input, input schema, variables.
 - [hermes-scheduler](/hermes/packages/hermes-scheduler) — Generic schedule execution runtime and `expandStepInputs` hook.
 - [hermes-step-input-syntax](/hermes/packages/hermes-step-input-syntax) — Generic `db:` string parsing and validation (including take/limit bounds).
 - [hermes-domain-contract](/hermes/packages/hermes-domain-contract) — Typed contract and HTTP client for domain integrations.

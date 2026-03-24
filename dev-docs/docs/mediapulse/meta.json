@@ -1,5 +1,5 @@
 {
   "title": "Mediapulse",
   "root": true,
-  "pages": ["index", "knowledge-graph", "apps", "packages"]
+  "pages": ["index", "apps", "knowledge-graph", "packages"]
 }
