@@ -1,4 +1,5 @@
 import { prisma } from "@hermes/orchestration-database";
+import { env } from "@hermes/env";
 import {
   createRequestValidator,
   errorResponse,
@@ -11,7 +12,11 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
-import { SECRET_MASK } from "@/lib/variables";
+import {
+  fromStoredSecretVariableValue,
+  SECRET_MASK,
+  toStoredVariableValue,
+} from "@/lib/variables";
 
 const bodyValidator = z.object({
   id: z.string().uuid(),
@@ -79,15 +84,40 @@ export const createUpdateVariableHandler = ({
       isSecret?: boolean;
     } = {};
 
-    if (key !== undefined) updateData.key = key;
-    if (note !== undefined) updateData.note = note;
-    if (isSecret !== undefined) updateData.isSecret = isSecret;
-
-    if (
-      value !== undefined &&
-      value !== SECRET_MASK &&
-      value.trim().length > 0
-    ) {
+    if (key !== undefined) {
+      updateData.key = key;
+    }
+    if (note !== undefined) {
+      updateData.note = note;
+    }
+    const targetIsSecret = isSecret ?? existing.isSecret;
+    if (isSecret !== undefined) {
+      updateData.isSecret = isSecret;
+    }
+    const hasReplacementValue =
+      value !== undefined && value !== SECRET_MASK && value.trim().length > 0;
+    if (targetIsSecret) {
+      if (hasReplacementValue) {
+        updateData.value = toStoredVariableValue(
+          value,
+          true,
+          env.HERMES_INTERNAL_API_KEY,
+        );
+      } else if (!existing.isSecret) {
+        updateData.value = toStoredVariableValue(
+          existing.value,
+          true,
+          env.HERMES_INTERNAL_API_KEY,
+        );
+      }
+    } else if (existing.isSecret) {
+      updateData.value = hasReplacementValue
+        ? value
+        : fromStoredSecretVariableValue(
+            existing.value,
+            env.HERMES_INTERNAL_API_KEY,
+          );
+    } else if (hasReplacementValue) {
       updateData.value = value;
     }
 

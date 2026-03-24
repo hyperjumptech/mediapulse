@@ -282,6 +282,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           },
           expandStepInputs,
           defaultTimeoutMs: 300_000,
+          variableSecretMasterKey: env.HERMES_INTERNAL_API_KEY,
           requireHttpsAgentEndpoints:
             env.REQUIRE_HTTPS_AGENT_ENDPOINTS === "true",
         });

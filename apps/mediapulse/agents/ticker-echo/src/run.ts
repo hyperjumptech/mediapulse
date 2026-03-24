@@ -10,7 +10,7 @@ export const run = async ({
   if (config.verbose) {
     // Use logger instead of console.log to log the message
     logger.info(
-      { tickerId: input.tickerId },
+      { tickerId: input.tickerId, secret: config.secret },
       "--> ticker-echo received verbose",
     );
   }

@@ -308,4 +308,27 @@ describe("executeSchedule", () => {
     expect(p).toBeDefined();
     expect(p!.endpointUrl).toBe("http://localhost:4010/");
   });
+
+  it("throws when secret variable decryption key is missing", async () => {
+    // Setup
+    const schedule = createMockSchedule();
+    const encryptedLikePayload =
+      '{"v":1,"iv":"aXY","ciphertext":"Y2lwaGVydGV4dA","tag":"dGFn"}';
+    const db = createMockDb();
+    db.variable.findMany = vi
+      .fn()
+      .mockResolvedValue([
+        { key: "SECRET", value: encryptedLikePayload, isSecret: true },
+      ]);
+    const deps: ExecuteScheduleDeps = {
+      db: db as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations: vi.fn().mockResolvedValue(undefined),
+    };
+
+    // Act & Assert
+    await expect(executeSchedule(schedule, deps)).rejects.toThrow(
+      "Secret variable substitution requires variableSecretMasterKey",
+    );
+  });
 });
