@@ -12,6 +12,48 @@ Create pull requests for this repo with `gh pr create`, and use the `/pr-title-d
 - User asks to open/create/submit a GitHub PR.
 - User asks to draft or publish a pull request from current changes.
 - User asks for PR title/description generation for the current branch.
+- User asks to land skill-only or docs-only changes via a **separate worktree** (branch, push, PR, then remove the worktree).
+
+## PR body: prefer `--body-file`
+
+**Do not pass the description with `--body "$PR_BODY"`** when a shell or IDE wrapper may append a footer (for example `Made with [Cursor](https://cursor.com)`). That injection can happen **after** your variable is built, so in-line sanitization never sees it.
+
+**Do this instead:**
+
+1. Write the markdown to a file (temp file or repo-relative path).
+2. Run `gh pr create ... --body-file /path/to/description.md`.
+3. Optionally delete the temp file after success.
+
+Verify the published body with `gh pr view --json body` as usual.
+
+## Optional: skill or docs changes in a dedicated worktree
+
+Use when you want a clean branch off `main` (or another base) without disturbing the user’s current worktree—common for `.cursor/skills/`, rules, or dev-docs edits.
+
+Run from the **primary repository** clone (the one that owns the worktrees), not from inside an existing linked worktree if you can avoid it.
+
+1. **Fetch the base branch**  
+   `git fetch origin <base>` (e.g. `main`).
+
+2. **Add a worktree and create a branch**  
+   `git worktree add <path> -b <branch-name> origin/<base>`  
+   Example:  
+   `git worktree add ../mediapulse-worktree/my-skill-branch -b docs/update-foo-skill origin/main`
+
+3. **Work only in that directory**  
+   Apply commits there (`cd <path>`).
+
+4. **Publish**  
+   `git push -u origin HEAD`
+
+5. **Open the PR** using **`--body-file`** (see above), with `--repo`, `--base`, and `--head` as needed.
+
+6. **Remove the worktree** (branch stays on `origin`; the PR remains open)  
+   From the primary repo:  
+   `git worktree remove <path>`  
+   If Git reports the path is locked or dirty, commit or stash in that worktree first, then retry. Use `git worktree prune` only if Git leaves stale metadata.
+
+7. **Mirror user-global skills** (if the repo ships skills under `.cursor/skills/` and the user also keeps copies under `~/.cursor/skills/`): update both so local invocations match the merged repo version.
 
 ## Workflow (run in order)
 
@@ -38,13 +80,16 @@ Create pull requests for this repo with `gh pr create`, and use the `/pr-title-d
      - `## Other changes`
      - `## Key files to review`
      - `## How to test`
-5. Create PR in one shot with a **pre-sanitized body** (no post-create edits):
-   - Build the body in a shell variable first.
-   - Remove any accidental Cursor signature lines before create.
-   - Create the PR with that sanitized value so the PR is born clean (no edited badge from body rewrites).
+5. Create PR in one shot with a **body file** (no post-create edits for footer cleanup):
+   - Write the full markdown to a file; use the template below.
+   - Remove any accidental signature lines from the file if they appear (for example lines matching `Made with [Cursor](https://cursor.com)` or `Made with Cursor`).
+   - `gh pr create --repo "<owner>/<repo>" --title "..." --body-file /path/to/body.md`
 
 ```bash
-PR_BODY="$(cat <<'EOF'
+BODY_FILE="$(mktemp -t gh-pr-body)"
+trap 'rm -f "$BODY_FILE"' EXIT
+
+cat <<'EOF' >"$BODY_FILE"
 ## Summary
 
 1-3 sentences on what changed and why.
@@ -69,12 +114,8 @@ PR_BODY="$(cat <<'EOF'
 2. Execute feature flow in app/API.
 3. Confirm expected result and edge case behavior.
 EOF
-)"
 
-# Remove any auto-signature lines before creating the PR.
-PR_BODY="$(printf '%s' "$PR_BODY" | sed '/Made with \[Cursor\](https:\/\/cursor\.com)/d;/Made with Cursor/d')"
-
-gh pr create --repo "<owner>/<repo>" --title "Add concise verb-first title" --body "$PR_BODY"
+gh pr create --repo "<owner>/<repo>" --title "Add concise verb-first title" --body-file "$BODY_FILE"
 ```
 
 6. Verify body after create (read-only check only):
@@ -88,7 +129,7 @@ gh pr create --repo "<owner>/<repo>" --title "Add concise verb-first title" --bo
 - PR title starts with a verb and has no trailing period.
 - Description follows `/pr-title-description` sections exactly.
 - Do not include any signature/footer such as `Made with Cursor` in the PR title or body.
-- Body is sanitized **before** `gh pr create` so no post-create edit is required.
+- Body is supplied via **`--body-file`** so automated footers are not injected into `--body`.
 - After creation, run a read-only body verification check (no `gh pr edit` footer cleanup).
 - High-risk behavior and reviewer-critical files are explicitly called out.
 - Test steps are concrete and include expected outcomes.
