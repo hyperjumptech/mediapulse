@@ -1,5 +1,12 @@
 {
   "title": "Hermes",
   "root": true,
-  "pages": ["index", "architecture", "integration", "apps", "packages"]
+  "pages": [
+    "index",
+    "architecture",
+    "integration",
+    "orchestration",
+    "apps",
+    "packages"
+  ]
 }

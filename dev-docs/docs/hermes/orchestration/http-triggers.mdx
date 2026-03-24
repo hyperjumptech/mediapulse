@@ -17,13 +17,13 @@ Multiple HTTP triggers can point to the same pipeline.
 
 ## Invoke flow
 
-1. Caller sends request to `/api/http-triggers/:triggerId/invoke`.
+1. Caller sends a request to `{dashboardOrigin}/api/http-triggers/:triggerId/invoke` (the Next.js API route on the Hermes dashboard app; there is no `basePath` on that app—use your deployed dashboard base URL).
 2. Hermes validates:
    - trigger exists and is enabled
    - request method matches trigger config
    - `Authorization: Bearer <token>` matches configured token hash
-3. Hermes creates an execution row and returns `202 Accepted` with `executionId`.
-4. Worker picks up `execute_http_trigger` job and runs the pipeline asynchronously.
+3. Hermes creates an execution row and returns **`202 Accepted`** with JSON `{ status: "accepted", executionId }` (wrong method → **405**, disabled trigger → **409**, bad/missing token → **401**, unknown id → **404**).
+4. Worker picks up the `execute_http_trigger` DataQueue job and runs the pipeline asynchronously (same planning and variable substitution as schedules).
 
 ## Execution history
 

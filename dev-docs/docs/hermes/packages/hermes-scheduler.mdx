@@ -12,14 +12,15 @@ icon: CalendarClock
 
 - **Due schedules:** `getDueSchedules`, `DueSchedule`, `GetDueSchedulesDb`
 - **Execution:** `executeSchedule`, `ExecuteScheduleDeps`
+- **Planning (shared):** `planPipelineInvocations` resolves variables, validates step input/config against agent schemas, and builds invocation waves; `substituteVariables` / `substituteInString` implement `{{KEY}}` replacement. Used by schedule execution, HTTP trigger execution in the worker, and manual **Run pipeline** in the dashboard (which then calls agents inline).
 - **Next run:** `computeNextRunAt`, `ScheduleForNextRun`
 - **Step input expansion:** `expandStepInputs` is injected via `ExecuteScheduleDeps` (runtime implementation in worker; syntax in `@hermes/step-input-syntax`).
 - **Agent invocation:** `invokeAgent`, `AgentEndpointSchema`, `AgentEndpoint`, `InvokeAgentHttpClient`
 
 ## Consumers
 
-- **Hermes** — Schedule create/update routes import `computeNextRunAt` and `ScheduleForNextRun`.
-- **hermes-worker** — Job handlers import `getDueSchedules`, `executeSchedule`, and types to run the scheduler.
+- **Hermes dashboard** — Schedule create/update routes import `computeNextRunAt` and `ScheduleForNextRun`; manual pipeline run and HTTP trigger invoke routes use `planPipelineInvocations`.
+- **hermes-worker** — Job handlers import `getDueSchedules`, `executeSchedule`, `executeHttpTrigger` (via `planPipelineInvocations`), and types to run the scheduler.
 
 ## Dependencies
 

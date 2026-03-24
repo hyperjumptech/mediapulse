@@ -3,8 +3,7 @@
   "pages": [
     "integrate-domain-with-hermes",
     "domain-integration-dashboard",
-    "agent-hermes-contract",
-    "http-triggers"
+    "agent-hermes-contract"
   ],
   "defaultOpen": true
 }

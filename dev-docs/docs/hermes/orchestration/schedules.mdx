@@ -1,0 +1,35 @@
+---
+title: Schedules
+description: Time-based runs of a pipeline with cron, interval, or one-shot timing
+icon: CalendarClock
+---
+
+A **schedule** runs a [pipeline](/hermes/orchestration/pipelines) on a timer. The scheduler enqueues work for the worker; each firing creates a **schedule execution** you can inspect in the dashboard.
+
+## What admins can configure
+
+- **Pipeline**: Which pipeline to run. Invalid or incomplete pipelines are blocked when creating or updating a schedule.
+- **Repeat**:
+  - **Once**: A single run at **start at** (date/time in the chosen timezone).
+  - **Repeating**: Either a **preset** (for example hourly, daily at midnight), a **fixed interval** in minutes, or a **cron expression** for custom cadence.
+- **Timezone**: IANA zone (for example `America/New_York`, `UTC`). Stored times and “next run” use this zone.
+- **Enabled**: Turn off without deleting the schedule.
+- **Priority**: Integer stored on the schedule and forwarded to each queued `invoke_agent` job (DataQueue). Use it to prefer some scheduled work over other jobs when the queue is busy; exact ordering follows DataQueue semantics.
+- **Optional fields**: Description, timeout, retry configuration, and per-run **execution config** overrides where supported.
+
+## Execution lifecycle
+
+Each run records:
+
+- **Enqueue status**: Whether jobs were created and queued as intended (`success`, `partial`, or `failed`).
+- **Run status**: Aggregate outcome after invocations finish (`pending`, `running`, `succeeded`, `partial`, or `failed`).
+
+Per-step **rollups** count expected vs succeeded vs failed invocations so you can see which step failed at scale.
+
+## Dashboard
+
+- **Schedules** list for create/edit/delete.
+- **Schedule detail** with upcoming context and an **executions** table.
+- **Execution detail** with step rollups, errors, and links into deeper job data where exposed.
+
+[Variables](/hermes/orchestration/variables) are substituted when the schedule run is planned, before jobs are created.

@@ -1,0 +1,34 @@
+---
+title: Variables
+description: Global key/value settings and secrets referenced from pipeline steps
+icon: Braces
+---
+
+**Variables** are workspace-level named values. They are not tied to a single pipeline; any step’s **input** or **config** JSON can reference them so you do not hard-code secrets or environment-specific strings in every pipeline.
+
+## Fields
+
+- **Key**: Unique identifier (for example `OPENAI_API_KEY` or `BASE_URL`). Used inside `{{...}}` placeholders.
+- **Value**: Plain text for normal variables. For **secret** variables, the value is stored encrypted; the UI never shows the decrypted secret after save.
+- **Note**: Optional operator-facing comment.
+- **Secret**: When enabled, the value is encrypted at rest. Resolving it for a run uses the same **Hermes internal API key** (`HERMES_INTERNAL_API_KEY`) as other orchestration crypto (worker, dashboard manual runs, and schedule execution paths).
+
+## Substitution syntax
+
+Use double curly braces with the key name:
+
+```text
+{{MY_VARIABLE_KEY}}
+```
+
+Whitespace inside the braces is trimmed (`{{ KEY }}` resolves the same as `{{KEY}}`).
+
+Substitution walks **all string values** in step `input` and `config` JSON recursively. If a key is missing from the variables table, the placeholder is **left unchanged** so you can spot unresolved references in logs or payloads.
+
+## Runtime behavior
+
+Whenever Hermes **plans** a pipeline run—[scheduled](/hermes/orchestration/schedules), via an [HTTP trigger](/hermes/orchestration/http-triggers), or **Run pipeline** from the dashboard—it loads variables from the orchestration database, resolves `{{KEY}}` in step `input` and `config` (decrypting secrets with the internal key above), then continues with schema validation and job creation. Scheduled and trigger paths enqueue work for **hermes-worker**; a manual dashboard run plans with the same substitution, then invokes agents inline from the dashboard process.
+
+## Dashboard
+
+The **Variables** section provides list, search, create, edit, and delete. Editing a secret only replaces the stored value when you enter a new one; leaving the value blank keeps the previous ciphertext.

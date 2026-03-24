@@ -1,0 +1,5 @@
+{
+  "title": "Orchestration",
+  "pages": ["pipelines", "schedules", "variables", "http-triggers"],
+  "defaultOpen": true
+}
