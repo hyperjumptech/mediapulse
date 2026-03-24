@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@workspace/ui/components/button";
@@ -16,6 +16,7 @@ import { Label } from "@workspace/ui/components/label";
 
 import { useFormAction } from "@/app/dashboard/admins/actions/reset-password/.generated/use-form-action";
 import type { HermesAdminListRow } from "@/lib/hermes-admins-page";
+import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
 
 type ResetAdminPasswordDialogProps = {
   admin: HermesAdminListRow;
@@ -38,16 +39,16 @@ const useResetAdminPasswordDialogState = ({
     [state],
   );
 
-  const prevPendingRef = useRef(false);
-
-  useEffect(() => {
-    const succeeded = Boolean(state && state.status === true);
-    if (open && prevPendingRef.current && !pending && succeeded) {
+  useCloseOnSuccessfulSubmit({
+    open,
+    pending,
+    state,
+    isSuccess: (nextState) => Boolean(nextState && nextState.status === true),
+    onSuccess: () => {
       onOpenChange(false);
       router.refresh();
-    }
-    prevPendingRef.current = pending;
-  }, [open, pending, state, onOpenChange, router]);
+    },
+  });
 
   return {
     FormWithAction,

@@ -212,14 +212,22 @@ describe("AddAgentModal", () => {
   it("calls router.refresh on success", async () => {
     // Setup
     const mock = await getUseFormActionMock();
-    mock.mockReturnValue(
+    mock.mockReturnValueOnce(
       createMockUseFormAction({
         state: { status: true, data: { id: "new-agent-id" } },
+        pending: true,
+      }),
+    );
+    mock.mockReturnValueOnce(
+      createMockUseFormAction({
+        state: { status: true, data: { id: "new-agent-id" } },
+        pending: false,
       }),
     );
 
     // Act
-    render(<AddAgentModal />);
+    const { rerender } = render(<AddAgentModal />);
+    rerender(<AddAgentModal />);
 
     // Assert
     expect(routerRefreshMock).toHaveBeenCalled();

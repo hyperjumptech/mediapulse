@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -16,6 +16,7 @@ import { useFormAction } from "@/app/dashboard/agent-configs/actions/create/.gen
 import { AgentConfigFormFields } from "./agent-config-form-fields";
 import type { AgentConfigRow } from "./agent-config-row-actions";
 import type { VariableExpansionStringFieldLoaders } from "@workspace/variable-expansion-picker";
+import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
 
 type AgentForDropdown = {
   id: string;
@@ -51,7 +52,6 @@ const useAddConfigModalState = (
   const [internalOpen, setInternalOpen] = useState(false);
   const [formState, setFormState] = useState(emptyForm);
   const { FormWithAction, state, pending } = useFormAction();
-  const didHandleSuccess = useRef(false);
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -64,11 +64,6 @@ const useAddConfigModalState = (
     if (state && state.status === false) return state.message as string;
     return null;
   }, [state]);
-
-  const success = useMemo(
-    () => Boolean(state && state.status === true && state.data?.id != null),
-    [state],
-  );
 
   useEffect(() => {
     if (open && initialData) {
@@ -86,14 +81,20 @@ const useAddConfigModalState = (
     }
   }, [open, initialData]);
 
-  useEffect(() => {
-    if (success && !didHandleSuccess.current) {
-      didHandleSuccess.current = true;
+  useCloseOnSuccessfulSubmit({
+    open,
+    pending,
+    state,
+    isSuccess: (nextState) =>
+      Boolean(
+        nextState && nextState.status === true && nextState.data?.id != null,
+      ),
+    onSuccess: () => {
       setOpen(false);
       setFormState(emptyForm);
       router.refresh();
-    }
-  }, [success, setOpen, router]);
+    },
+  });
 
   return {
     open,

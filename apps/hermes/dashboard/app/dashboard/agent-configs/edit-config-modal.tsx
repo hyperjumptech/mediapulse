@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -15,6 +15,7 @@ import { useFormAction } from "@/app/dashboard/agent-configs/actions/update/.gen
 import { AgentConfigFormFields } from "./agent-config-form-fields";
 import type { AgentConfigRow } from "./agent-config-row-actions";
 import type { VariableExpansionStringFieldLoaders } from "@workspace/variable-expansion-picker";
+import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
 
 type AgentForDropdown = {
   id: string;
@@ -48,17 +49,11 @@ const useEditConfigModalState = (
   const router = useRouter();
   const [formState, setFormState] = useState(initialFormState);
   const { FormWithAction, state, pending } = useFormAction();
-  const didHandleSuccess = useRef(false);
 
   const errorMessage = useMemo(() => {
     if (state && state.status === false) return state.message as string;
     return null;
   }, [state]);
-
-  const success = useMemo(
-    () => Boolean(state && state.status === true),
-    [state],
-  );
 
   useEffect(() => {
     if (config && open) {
@@ -74,13 +69,16 @@ const useEditConfigModalState = (
     }
   }, [config, open]);
 
-  useEffect(() => {
-    if (success && !didHandleSuccess.current) {
-      didHandleSuccess.current = true;
+  useCloseOnSuccessfulSubmit({
+    open,
+    pending,
+    state,
+    isSuccess: (nextState) => Boolean(nextState && nextState.status === true),
+    onSuccess: () => {
       onOpenChange(false);
       router.refresh();
-    }
-  }, [success, onOpenChange, router]);
+    },
+  });
 
   return { formState, setFormState, FormWithAction, pending, errorMessage };
 };

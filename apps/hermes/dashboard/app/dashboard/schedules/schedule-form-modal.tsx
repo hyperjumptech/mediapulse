@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -21,6 +21,7 @@ import {
   type PipelineOption,
 } from "./schedule-form-fields";
 import type { ScheduleForEdit } from "@/app/dashboard/schedules/actions/get-for-edit";
+import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
 
 export type ScheduleFormModalProps = {
   open: boolean;
@@ -85,17 +86,6 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
     return null;
   }, [state]);
 
-  const success = useMemo(
-    () =>
-      state != null &&
-      typeof state === "object" &&
-      "status" in state &&
-      state.status === true,
-    [state],
-  );
-
-  const didHandleSuccess = useRef(true);
-
   const fetchSchedule = useCallback(async (id: string) => {
     setSchedule("loading");
     const data = await getScheduleForEdit(id);
@@ -110,21 +100,22 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
     }
   }, [open, isEdit, editScheduleId, fetchSchedule]);
 
-  useEffect(() => {
-    if (open) didHandleSuccess.current = true;
-  }, [open]);
-
-  useEffect(() => {
-    if (pending) didHandleSuccess.current = false;
-  }, [pending]);
-
-  useEffect(() => {
-    if (success && !didHandleSuccess.current) {
-      didHandleSuccess.current = true;
+  useCloseOnSuccessfulSubmit({
+    open,
+    pending,
+    state,
+    isSuccess: (nextState) =>
+      Boolean(
+        nextState &&
+        typeof nextState === "object" &&
+        "status" in nextState &&
+        nextState.status === true,
+      ),
+    onSuccess: () => {
       onOpenChange(false);
       router.refresh();
-    }
-  }, [success, onOpenChange, router]);
+    },
+  });
 
   const Form = isEdit ? UpdateForm : CreateForm;
   const title = isEdit ? "Edit schedule" : "Create schedule";
@@ -146,7 +137,6 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
     schedule && schedule !== "loading" && schedule.executionConfig != null
       ? JSON.stringify(schedule.executionConfig, null, 2)
       : "";
-
   const formFieldsProps = isEdit
     ? schedule && schedule !== "loading"
       ? {

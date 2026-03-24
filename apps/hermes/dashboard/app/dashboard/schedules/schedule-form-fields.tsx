@@ -111,12 +111,6 @@ export type ScheduleFormFieldsProps = {
   initialCronExpression?: string | null;
   /** Edit only: schedule id for hidden input */
   scheduleId?: string;
-  /** Edit only: retry config JSON string */
-  defaultRetryConfig?: string;
-  /** Optional execution config JSON (pipeline schedule overrides). */
-  defaultExecutionConfig?: string;
-  /** Edit only: timeout in ms */
-  defaultTimeout?: number | null;
 };
 
 /**
@@ -159,7 +153,7 @@ const useScheduleFormFieldsState = (
 };
 
 /**
- * Shared schedule form fields: name, description, repeat group (once/repeating + schedule type), timezone, pipeline, priority, enabled. Optional edit-only: scheduleId, retryConfig, timeout.
+ * Shared schedule form fields: name, description, repeat group (once/repeating + schedule type), timezone, pipeline, priority, enabled. Optional edit-only: scheduleId.
  */
 export const ScheduleFormFields = ({
   namePrefix = "body",
@@ -179,9 +173,6 @@ export const ScheduleFormFields = ({
   initialIntervalMs,
   initialCronExpression,
   scheduleId,
-  defaultRetryConfig = "",
-  defaultExecutionConfig = "",
-  defaultTimeout,
 }: ScheduleFormFieldsProps) => {
   const {
     repeat,
@@ -433,60 +424,6 @@ export const ScheduleFormFields = ({
               or enable it.
             </p>
           )}
-      </div>
-      {scheduleId != null ? (
-        <>
-          <div className="grid gap-2">
-            <Label htmlFor={`${pre}retryConfig`}>
-              Retry config (JSON, optional)
-            </Label>
-            <textarea
-              id={`${pre}retryConfig`}
-              name={`${pre}retryConfig`}
-              defaultValue={defaultRetryConfig}
-              rows={3}
-              disabled={pending}
-              placeholder="{} or leave empty"
-              className={cn(
-                "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
-                "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-                "disabled:pointer-events-none disabled:opacity-50",
-              )}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor={`${pre}timeout`}>Timeout (ms, optional)</Label>
-            <Input
-              id={`${pre}timeout`}
-              name={`${pre}timeout`}
-              type="number"
-              min={1}
-              defaultValue={defaultTimeout ?? ""}
-              disabled={pending}
-            />
-          </div>
-        </>
-      ) : null}
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}executionConfig`}>
-          Execution config (JSON, optional)
-        </Label>
-        <textarea
-          id={`${pre}executionConfig`}
-          name={`${pre}executionConfig`}
-          defaultValue={defaultExecutionConfig}
-          rows={4}
-          disabled={pending}
-          placeholder='{"schemaVersion":1,"stepRollupPolicy":"strict","stepOrder":"sequential"}'
-          className={cn(
-            "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
-            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-            "disabled:pointer-events-none disabled:opacity-50",
-          )}
-        />
-        <p className="text-xs text-muted-foreground">
-          Optional overrides for pipeline execution (rollup policy, step order).
-        </p>
       </div>
       <div className="grid gap-2">
         <Label htmlFor={`${pre}priority`}>
