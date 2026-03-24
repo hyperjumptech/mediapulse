@@ -1,37 +1,17 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 import { createCreateHttpTriggerHandler } from "./route.post.config";
 
 describe("createCreateHttpTriggerHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns unauthorized when session is missing", async () => {
-    // Setup
-    const handler = createCreateHttpTriggerHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-
-    // Act
-    const result = await handler({
-      body: {
-        name: "Trigger",
-        pipelineId: "00000000-0000-4000-8000-000000000010",
-        method: "POST",
-        bearerToken: "secret",
-      },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-
-    // Assert
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when pipeline does not exist", async () => {
@@ -41,7 +21,6 @@ describe("createCreateHttpTriggerHandler", () => {
       httpTrigger: { create: vi.fn() },
     };
     const handler = createCreateHttpTriggerHandler({
-      getSession: async () => ({ id: "u1", name: "A", email: "a@test.com" }),
       db: db as never,
     });
 
@@ -56,7 +35,7 @@ describe("createCreateHttpTriggerHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     // Assert
@@ -82,7 +61,6 @@ describe("createCreateHttpTriggerHandler", () => {
       },
     };
     const handler = createCreateHttpTriggerHandler({
-      getSession: async () => ({ id: "u1", name: "A", email: "a@test.com" }),
       db: db as never,
     });
 
@@ -98,7 +76,7 @@ describe("createCreateHttpTriggerHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     // Assert

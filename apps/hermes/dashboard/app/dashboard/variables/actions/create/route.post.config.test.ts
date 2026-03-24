@@ -3,6 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { isEncryptedSecretVariablePayload } from "@hermes/domain-integration-crypto";
 import { createCreateVariableHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 const baseData = {
   body: {
     key: "MY_VAR",
@@ -13,22 +19,12 @@ const baseData = {
   params: {},
   headers: new Headers(),
   searchParams: {},
-  user: undefined,
+  user: mockDashboardUser,
 };
 
 describe("createCreateVariableHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const handler = createCreateVariableHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await handler(baseData as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when variable key already exists", async () => {
@@ -41,11 +37,6 @@ describe("createCreateVariableHandler", () => {
       },
     };
     const handler = createCreateVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "admin@example.com",
-      }),
       db: db as never,
     });
     const result = await handler(baseData as never);
@@ -67,11 +58,6 @@ describe("createCreateVariableHandler", () => {
       },
     };
     const handler = createCreateVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "admin@example.com",
-      }),
       db: db as never,
     });
     const result = await handler(baseData as never);
@@ -102,11 +88,6 @@ describe("createCreateVariableHandler", () => {
       },
     };
     const handler = createCreateVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "admin@example.com",
-      }),
       db: db as never,
     });
 
@@ -136,11 +117,6 @@ describe("createCreateVariableHandler", () => {
       },
     };
     const handler = createCreateVariableHandler({
-      getSession: async () => ({
-        id: "user-1",
-        name: "Admin",
-        email: "admin@example.com",
-      }),
       db: db as never,
     });
     const result = await handler({

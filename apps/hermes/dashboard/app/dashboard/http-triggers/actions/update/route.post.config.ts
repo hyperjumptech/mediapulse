@@ -7,10 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { createTokenHint, hashHttpTriggerToken } from "@/lib/http-trigger-auth";
@@ -32,7 +29,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -49,16 +46,11 @@ type UpdateHttpTriggerHandler = HandlerFunc<
  * Updates an HTTP trigger and optionally rotates bearer token.
  */
 export const createUpdateHttpTriggerHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 } = {}): UpdateHttpTriggerHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) return errorResponse("Unauthorized");
-
     const existing = await db.httpTrigger.findUnique({
       where: { id: data.body.httpTriggerId },
     });

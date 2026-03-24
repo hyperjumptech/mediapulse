@@ -8,10 +8,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { toStoredVariableValue } from "@/lib/variables";
 
 const bodyValidator = z.object({
@@ -28,7 +25,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -36,7 +33,6 @@ export const responseValidator = z.object({
 });
 
 type CreateVariableHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -49,19 +45,13 @@ type CreateVariableHandler = HandlerFunc<
 /**
  * Creates the create-variable handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that creates a variable (key, value, note, isSecret).
  */
 export const createCreateVariableHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: CreateVariableHandlerDependencies = {}): CreateVariableHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const { key, value, note, isSecret } = data.body;
     const noteValue =
       note != null && String(note).trim().length > 0

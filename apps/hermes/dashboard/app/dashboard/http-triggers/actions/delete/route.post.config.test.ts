@@ -1,32 +1,17 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 import { createDeleteHttpTriggerHandler } from "./route.post.config";
 
 describe("createDeleteHttpTriggerHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns unauthorized when session is missing", async () => {
-    // Setup
-    const handler = createDeleteHttpTriggerHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-
-    // Act
-    const result = await handler({
-      body: { httpTriggerId: "00000000-0000-4000-8000-000000000030" },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-
-    // Assert
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns not found when trigger does not exist", async () => {
@@ -38,7 +23,6 @@ describe("createDeleteHttpTriggerHandler", () => {
       },
     };
     const handler = createDeleteHttpTriggerHandler({
-      getSession: async () => ({ id: "u1", name: "A", email: "a@test.com" }),
       db: db as never,
     });
 
@@ -48,7 +32,7 @@ describe("createDeleteHttpTriggerHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     // Assert
@@ -68,7 +52,6 @@ describe("createDeleteHttpTriggerHandler", () => {
       },
     };
     const handler = createDeleteHttpTriggerHandler({
-      getSession: async () => ({ id: "u1", name: "A", email: "a@test.com" }),
       db: db as never,
     });
 
@@ -78,7 +61,7 @@ describe("createDeleteHttpTriggerHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
 
     // Assert

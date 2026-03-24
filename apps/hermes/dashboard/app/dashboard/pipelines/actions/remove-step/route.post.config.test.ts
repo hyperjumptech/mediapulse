@@ -2,6 +2,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRemoveStepHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
   disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
 }));
@@ -9,22 +15,6 @@ vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
 describe("createRemoveStepHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const removeHandler = createRemoveStepHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await removeHandler({
-      body: { pipelineId: "p-1", stepId: "s-1" },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("returns error when step not found", async () => {
@@ -35,7 +25,6 @@ describe("createRemoveStepHandler", () => {
       },
     };
     const removeHandler = createRemoveStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await removeHandler({
@@ -43,7 +32,7 @@ describe("createRemoveStepHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Step not found");
@@ -63,7 +52,6 @@ describe("createRemoveStepHandler", () => {
       },
     };
     const removeHandler = createRemoveStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await removeHandler({
@@ -71,7 +59,7 @@ describe("createRemoveStepHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(deleteMock).toHaveBeenCalledWith({ where: { id: "s-1" } });
     expect(updateMock).toHaveBeenCalledWith({
@@ -96,7 +84,6 @@ describe("handler", () => {
       },
     };
     const customHandler = createRemoveStepHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({
@@ -104,7 +91,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

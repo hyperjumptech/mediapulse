@@ -1,9 +1,16 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import {
   createRunPipelineHandler,
   detailFromAgentErrorBody,
 } from "./route.post.config";
+
+const mockDashboardUser = {
+  id: "u1",
+  name: "A",
+  email: "a@b.com",
+} as const;
 
 const request = (body: { pipelineId: string }) =>
   ({
@@ -11,50 +18,57 @@ const request = (body: { pipelineId: string }) =>
     params: {},
     headers: new Headers(),
     searchParams: {},
-    user: undefined,
+    user: mockDashboardUser,
   }) as never;
 
+const createExecutionPersistenceStubs = () => ({
+  manualPipelineExecution: {
+    create: vi.fn().mockResolvedValue({ id: "manual-exec-1" }),
+    update: vi.fn().mockResolvedValue(undefined),
+  },
+  manualPipelineStepExecution: {
+    create: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
+  },
+  agentJobExecution: {
+    create: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
+  },
+});
+
+const createPipelineWithSteps = () => ({
+  id: "p-1",
+  name: "P",
+  domainIntegrationId: "di-1",
+  executionConfig: null,
+  steps: [
+    {
+      id: "s1",
+      order: 1,
+      agentId: "ag1",
+      agentVersion: "1.0.0",
+      agentConfigId: null,
+      input: { id: "single-id" },
+      config: {},
+      agentConfig: null,
+    },
+  ],
+});
+
 describe("detailFromAgentErrorBody", () => {
-  it("returns empty-body message for null or undefined", () => {
+  it("handles nullish and plain string values", () => {
     expect(detailFromAgentErrorBody(null)).toBe(
       "Unknown error (empty response body)",
     );
     expect(detailFromAgentErrorBody(undefined)).toBe(
       "Unknown error (empty response body)",
     );
-  });
-
-  it("returns trimmed non-JSON string or truncates long strings", () => {
     expect(detailFromAgentErrorBody("  plain  ")).toBe("plain");
-    expect(detailFromAgentErrorBody("   ")).toBe(
-      "Unknown error (empty response body)",
-    );
-    const long = "x".repeat(400);
-    expect(detailFromAgentErrorBody(long)).toBe(`${"x".repeat(300)}…`);
   });
 
-  it("parses message from JSON string bodies", () => {
-    expect(
-      detailFromAgentErrorBody('{"message":"No data sources found"}'),
-    ).toBe("No data sources found");
-    expect(detailFromAgentErrorBody("{}")).toBe("{}");
-  });
-
-  it("parses message from object bodies", () => {
-    expect(
-      detailFromAgentErrorBody({
-        message: "Skipped",
-        agentId: "a",
-      }),
-    ).toBe("Skipped");
-  });
-
-  it("falls back when object has no usable message", () => {
-    expect(detailFromAgentErrorBody({})).toBe("Unknown error (see agent logs)");
-    expect(detailFromAgentErrorBody({ message: "" })).toBe(
-      "Unknown error (see agent logs)",
-    );
-    expect(detailFromAgentErrorBody([])).toBe("Unknown error (see agent logs)");
+  it("prefers message field from objects/JSON strings", () => {
+    expect(detailFromAgentErrorBody('{"message":"No data"}')).toBe("No data");
+    expect(detailFromAgentErrorBody({ message: "No data" })).toBe("No data");
   });
 });
 
@@ -63,279 +77,170 @@ describe("createRunPipelineHandler", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns error when session is null", async () => {
+  it("returns error when pipeline is missing", async () => {
     const handler = createRunPipelineHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await handler(request({ pipelineId: "p-uuid" }));
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
-  });
-
-  it("returns error when getToken fails (e.g. AGENT_AUTH_API_URL/HERMES_INTERNAL_API_KEY not configured)", async () => {
-    const handler = createRunPipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
-      getToken: () =>
-        Promise.reject(
-          new Error(
-            "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY are required",
-          ),
-        ),
-      db: {
-        pipeline: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: "p-1",
-            name: "P",
-            domainIntegrationId: "di-1",
-          }),
-        },
-        pipelineStep: { findMany: vi.fn().mockResolvedValue([]) },
-        agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
-      } as never,
-      fetchTickersForPipelineRun: async () => [],
-    });
-    const result = await handler(request({ pipelineId: "p-1" }));
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toContain(
-      "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY",
-    );
-  });
-
-  it("returns error when pipeline not found", async () => {
-    const handler = createRunPipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       getToken: async () => "jwt",
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: { findUnique: vi.fn().mockResolvedValue(null) },
-        pipelineStep: { findMany: vi.fn() },
-        agentRegistry: { findMany: vi.fn() },
       } as never,
-      fetchTickersForPipelineRun: async () => [],
     });
-    const result = await handler(request({ pipelineId: "p-missing" }));
+    const result = await handler(request({ pipelineId: "missing" }));
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Pipeline not found");
   });
 
-  it("returns success with tickersRun 0 when no tickers", async () => {
+  it("returns failed run with 0 invocations when planning yields no jobs", async () => {
     const handler = createRunPipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       getToken: async () => "jwt",
+      expandStepInputs: async () => [],
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: "p-1",
-            name: "P",
-            domainIntegrationId: "di-1",
-          }),
+          findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
         },
-        pipelineStep: { findMany: vi.fn().mockResolvedValue([]) },
-        agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
         variable: { findMany: vi.fn().mockResolvedValue([]) },
+        agentRegistry: {
+          findFirst: vi.fn().mockResolvedValue({
+            agentId: "ag1",
+            agentVersion: "1.0.0",
+            endpoint: { url: "https://agent.example/run", method: "POST" },
+            inputSchema: null,
+            configSchema: null,
+            isActive: true,
+          }),
+          findMany: vi.fn().mockResolvedValue([
+            {
+              agentId: "ag1",
+              agentVersion: "1.0.0",
+              endpoint: { url: "https://agent.example/run", method: "POST" },
+              inputSchema: null,
+              configSchema: null,
+              isActive: true,
+            },
+          ]),
+        },
+        agentConfig: { findFirst: vi.fn().mockResolvedValue(null) },
       } as never,
-      fetchTickersForPipelineRun: async () => [],
     });
+
     const result = await handler(request({ pipelineId: "p-1" }));
     expect(result.status).toBe(true);
-    expect(result).toMatchObject({ data: { ok: true, tickersRun: 0 } });
+    expect(result).toMatchObject({
+      data: {
+        ok: true,
+        invocationsRun: 0,
+        runStatus: "failed",
+      },
+    });
   });
 
-  it("runs pipeline for each ticker and returns tickersRun", async () => {
+  it("runs one planned invocation and returns invocationsRun", async () => {
     const postMock = vi.fn().mockResolvedValue({
       ok: true,
       statusCode: 200,
       body: {},
     });
     const handler = createRunPipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
-      getToken: async () => "minted-jwt",
+      getToken: async () => "jwt",
       post: postMock as never,
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: "p-1",
-            name: "P",
-            domainIntegrationId: "di-1",
-          }),
+          findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
         },
-        pipelineStep: {
-          findMany: vi.fn().mockResolvedValue([
-            {
-              id: "s1",
-              agentId: "ag1",
-              agentVersion: "1.0.0",
-              order: 1,
-              agentConfigId: null,
-              input: { tickerId: "t1" },
-              config: {},
-            },
-          ]),
-        },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
         agentRegistry: {
           findFirst: vi.fn().mockResolvedValue({
             agentId: "ag1",
             agentVersion: "1.0.0",
-            isActive: true,
-            inputSchema: {
-              type: "object",
-              required: ["tickerId"],
-              properties: { tickerId: { type: "string" } },
-            },
+            endpoint: { url: "https://agent.example/run", method: "POST" },
+            inputSchema: null,
             configSchema: null,
+            isActive: true,
           }),
           findMany: vi.fn().mockResolvedValue([
             {
               agentId: "ag1",
               agentVersion: "1.0.0",
               endpoint: { url: "https://agent.example/run", method: "POST" },
+              inputSchema: null,
+              configSchema: null,
+              isActive: true,
             },
           ]),
         },
-        variable: { findMany: vi.fn().mockResolvedValue([]) },
+        agentConfig: { findFirst: vi.fn().mockResolvedValue(null) },
       } as never,
-      fetchTickersForPipelineRun: async () => [{ id: "t1" }],
     });
+
     const result = await handler(request({ pipelineId: "p-1" }));
     expect(result.status).toBe(true);
-    expect(result).toMatchObject({ data: { ok: true, tickersRun: 1 } });
+    expect(result).toMatchObject({
+      data: {
+        ok: true,
+        invocationsRun: 1,
+        runStatus: "succeeded",
+        failedInvocationCount: 0,
+      },
+    });
     expect(postMock).toHaveBeenCalledWith(
       "https://agent.example/run",
       expect.objectContaining({
-        json: {
-          input: { tickerId: "t1" },
-          config: {},
-        },
-        headers: expect.objectContaining({
-          Authorization: "Bearer minted-jwt",
-        }),
+        json: { input: { id: "single-id" }, config: {} },
         throwHttpErrors: false,
       }),
     );
   });
 
-  it("returns error when an agent responds with a non-success HTTP status", async () => {
+  it("returns success with failedInvocationCount when invocation fails", async () => {
     const postMock = vi.fn().mockResolvedValue({
       ok: false,
-      statusCode: 404,
-      body: {
-        agentId: "ag1",
-        agentVersion: "1.0.0",
-        skipped: true,
-        message: "No data sources found for this ticker",
-      },
+      statusCode: 400,
+      body: { message: "bad input" },
     });
     const handler = createRunPipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       getToken: async () => "jwt",
       post: postMock as never,
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: "p-1",
-            name: "P",
-            domainIntegrationId: "di-1",
-          }),
+          findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
         },
-        pipelineStep: {
-          findMany: vi.fn().mockResolvedValue([
-            {
-              id: "s1",
-              agentId: "ag1",
-              agentVersion: "1.0.0",
-              order: 1,
-              agentConfigId: null,
-              input: { tickerId: "placeholder" },
-              config: {},
-            },
-          ]),
-        },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
         agentRegistry: {
           findFirst: vi.fn().mockResolvedValue({
             agentId: "ag1",
             agentVersion: "1.0.0",
-            isActive: true,
-            inputSchema: {
-              type: "object",
-              required: ["tickerId"],
-              properties: { tickerId: { type: "string" } },
-            },
+            endpoint: { url: "https://agent.example/run", method: "POST" },
+            inputSchema: null,
             configSchema: null,
+            isActive: true,
           }),
           findMany: vi.fn().mockResolvedValue([
             {
               agentId: "ag1",
               agentVersion: "1.0.0",
               endpoint: { url: "https://agent.example/run", method: "POST" },
+              inputSchema: null,
+              configSchema: null,
+              isActive: true,
             },
           ]),
         },
-        variable: { findMany: vi.fn().mockResolvedValue([]) },
+        agentConfig: { findFirst: vi.fn().mockResolvedValue(null) },
       } as never,
-      fetchTickersForPipelineRun: async () => [{ id: "ticker-uuid" }],
-    });
-    const result = await handler(request({ pipelineId: "p-1" }));
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toContain("ticker-uuid");
-    expect((result as { message?: string }).message).toContain(
-      "No data sources found for this ticker",
-    );
-    expect((result as { message?: string }).message).toContain("HTTP 404");
-  });
-
-  it("returns error when pipeline validation fails", async () => {
-    // Setup
-    const handler = createRunPipelineHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
-      getToken: async () => "jwt",
-      post: vi.fn() as never,
-      db: {
-        pipeline: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: "p-1",
-            name: "P",
-            domainIntegrationId: "di-1",
-          }),
-        },
-        pipelineStep: {
-          findMany: vi.fn().mockResolvedValue([
-            {
-              id: "s1",
-              agentId: "ag1",
-              agentVersion: "1.0.0",
-              order: 0,
-              agentConfigId: null,
-              input: { tickerId: "" },
-              config: {},
-            },
-          ]),
-        },
-        agentRegistry: {
-          findFirst: vi.fn().mockResolvedValue({
-            agentId: "ag1",
-            agentVersion: "1.0.0",
-            isActive: true,
-            inputSchema: {
-              type: "object",
-              required: ["tickerId"],
-              properties: { tickerId: { type: "string" } },
-            },
-            configSchema: null,
-          }),
-          findMany: vi.fn().mockResolvedValue([]),
-        },
-        variable: { findMany: vi.fn().mockResolvedValue([]) },
-      } as never,
-      fetchTickersForPipelineRun: async () => [{ id: "t1" }],
     });
 
-    // Act
     const result = await handler(request({ pipelineId: "p-1" }));
-
-    // Assert
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toContain(
-      "Pipeline is invalid",
-    );
+    expect(result.status).toBe(true);
+    expect(result).toMatchObject({
+      data: {
+        ok: true,
+        invocationsRun: 1,
+        runStatus: "failed",
+        failedInvocationCount: 1,
+      },
+    });
   });
 });

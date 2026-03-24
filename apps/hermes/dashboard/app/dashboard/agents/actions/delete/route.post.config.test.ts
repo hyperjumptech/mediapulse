@@ -2,25 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDeleteAgentHandler } from "./route.post.config";
 
+const mockDashboardUser = {
+  id: "user-1",
+  name: "A",
+  email: "a@b.com",
+} as const;
+
 describe("createDeleteAgentHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("returns error when session is null", async () => {
-    const deleteHandler = createDeleteAgentHandler({
-      getSession: async () => null,
-      db: {} as never,
-    });
-    const result = await deleteHandler({
-      body: { id: "00000000-0000-4000-8000-000000000001" },
-      params: {},
-      headers: new Headers(),
-      searchParams: {},
-      user: undefined,
-    } as never);
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe("Unauthorized");
   });
 
   it("deletes agent and returns ok", async () => {
@@ -29,7 +19,6 @@ describe("createDeleteAgentHandler", () => {
       agentRegistry: { delete: deleteMock },
     };
     const deleteHandler = createDeleteAgentHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await deleteHandler({
@@ -37,7 +26,7 @@ describe("createDeleteAgentHandler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(deleteMock).toHaveBeenCalledWith({
       where: { id: "00000000-0000-4000-8000-000000000001" },
@@ -55,7 +44,6 @@ describe("handler", () => {
     const deleteMock = vi.fn().mockResolvedValue(undefined);
     const db = { agentRegistry: { delete: deleteMock } };
     const customHandler = createDeleteAgentHandler({
-      getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       db: db as never,
     });
     const result = await customHandler({
@@ -63,7 +51,7 @@ describe("handler", () => {
       params: {},
       headers: new Headers(),
       searchParams: {},
-      user: undefined,
+      user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
   });

@@ -7,7 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 import { zFormBoolean } from "@/lib/form-boolean-schema";
 
@@ -26,6 +26,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -33,7 +34,6 @@ export const responseValidator = z.object({
 });
 
 type UpdatePipelineHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   db?: typeof prisma;
 };
 
@@ -86,19 +86,13 @@ async function syncPipelineSteps(
 /**
  * Creates the update-pipeline handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and db.
+ * @param dependencies - Optional db client for tests.
  * @returns Handler that updates a pipeline (and optionally syncs steps to DB).
  */
 export const createUpdatePipelineHandler = ({
-  getSession = getDashboardSession,
   db = prisma,
 }: UpdatePipelineHandlerDependencies = {}): UpdatePipelineHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const { pipelineId, name, description, isActive, steps } = data.body;
     const updateData: {
       name?: string;

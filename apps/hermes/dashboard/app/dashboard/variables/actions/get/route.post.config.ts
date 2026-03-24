@@ -7,10 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import {
-  getDashboardSession,
-  getDashboardSessionForRoute,
-} from "@/lib/auth-dashboard";
+import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { getVariableById } from "@/lib/variables";
 
 const bodyValidator = z.object({
@@ -19,7 +16,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: getDashboardSessionForRoute,
+  user: requireDashboardSessionForRoute,
 });
 
 export const responseValidator = z.object({
@@ -33,7 +30,6 @@ export const responseValidator = z.object({
 });
 
 type GetVariableHandlerDependencies = {
-  getSession?: typeof getDashboardSession;
   getById?: typeof getVariableById;
   db?: typeof prisma;
 };
@@ -47,20 +43,14 @@ type GetVariableHandler = HandlerFunc<
 /**
  * Creates the get-variable handler with injectable dependencies for tests.
  *
- * @param dependencies - Optional getSession and getById.
+ * @param dependencies - Optional getById and db for tests.
  * @returns Handler that returns a single variable by id (value masked if secret).
  */
 export const createGetVariableHandler = ({
-  getSession = getDashboardSession,
   getById = getVariableById,
   db = prisma,
 }: GetVariableHandlerDependencies = {}): GetVariableHandler => {
   return async (data) => {
-    const session = await getSession();
-    if (!session) {
-      return errorResponse("Unauthorized");
-    }
-
     const variable = await getById(data.body.id, db);
     if (!variable) {
       return errorResponse("Variable not found");
