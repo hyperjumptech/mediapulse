@@ -105,7 +105,16 @@ export const AgentConfigsTable = ({
           ) : (
             configs.map((config) => (
               <TableRow key={config.id}>
-                <TableCell className="font-medium">{config.name}</TableCell>
+                <TableCell className="font-medium">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(config)}
+                    className="text-left underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
+                    aria-label={`Edit config ${config.name}`}
+                  >
+                    {config.name}
+                  </button>
+                </TableCell>
                 <TableCell className="max-w-[200px] truncate text-muted-foreground">
                   {config.description ?? "—"}
                 </TableCell>
