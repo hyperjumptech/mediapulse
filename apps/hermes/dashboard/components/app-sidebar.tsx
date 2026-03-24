@@ -43,7 +43,8 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 };
 
 /**
- * Hermes app sidebar matching dashboard-01. Main nav (Dashboard, Pipelines) and footer with user and logout.
+ * Hermes app sidebar matching dashboard-01. Primary nav is grouped by area (overview, orchestration,
+ * agent catalog, platform); domain integration pages follow; footer has user and logout.
  */
 export const AppSidebar = ({
   user,
@@ -76,7 +77,7 @@ export const AppSidebar = ({
       </div>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Main</SidebarGroupLabel>
+          <SidebarGroupLabel>Overview</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isDashboard}>
@@ -86,6 +87,11 @@ export const AppSidebar = ({
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Orchestration</SidebarGroupLabel>
+          <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isPipelines}>
                 <Link href="/dashboard/pipelines">
@@ -94,6 +100,27 @@ export const AppSidebar = ({
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isSchedules}>
+                <Link href="/dashboard/schedules">
+                  <Calendar className="size-4" />
+                  <span>Schedules</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isHttpTriggers}>
+                <Link href="/dashboard/http-triggers">
+                  <Radio className="size-4" />
+                  <span>HTTP triggers</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Agents</SidebarGroupLabel>
+          <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isAgents}>
                 <Link href="/dashboard/agents">
@@ -118,27 +145,16 @@ export const AppSidebar = ({
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isDomainIntegrations}>
                 <Link href="/dashboard/domain-integrations">
                   <Plug className="size-4" />
                   <span>Domain integrations</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isSchedules}>
-                <Link href="/dashboard/schedules">
-                  <Calendar className="size-4" />
-                  <span>Schedules</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isHttpTriggers}>
-                <Link href="/dashboard/http-triggers">
-                  <Radio className="size-4" />
-                  <span>HTTP triggers</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
