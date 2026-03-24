@@ -17,7 +17,7 @@ Shared **`@workspace/*`** libraries used by agents and APIs are mostly documente
 | [idx-tickers-importer](/mediapulse/packages/idx-tickers-importer)                   | `@mediapulse/idx-tickers-importer` | IDX listed-company import (used from domain-api)         |
 | [outlook-inbox](/mediapulse/packages/outlook-inbox)                                 | `@mediapulse/outlook-inbox`        | Outlook / Microsoft Graph helpers                        |
 
-Environment variables for Mediapulse apps and agents are built from **`packages/mediapulse/env`** — see [env (Hermes & Mediapulse)](/hermes/packages/env) for **`@mediapulse/env`** exports and build steps.
+Environment variables for Mediapulse apps and agents are built from **`packages/mediapulse/env`** (T3 Env / env-to-t3); run `pnpm build` there after changing `env*.example` files. Hermes apps use [@hermes/env](/hermes/packages/env) separately.
 
 ## Consumers (summary)
 

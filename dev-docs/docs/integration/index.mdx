@@ -1,0 +1,24 @@
+---
+title: Hermes–Mediapulse integration
+description: How the orchestration stack and the Mediapulse product connect at runtime — databases, JWTs, domain API, and dashboard surfaces
+icon: Link
+---
+
+This section is the **bridge** between **[Hermes](/hermes)** (agent orchestration, dashboard, worker, orchestration database) and **[Mediapulse](/mediapulse)** (product data, agents, Mediapulse database). Use it when you need the full picture of how the two systems talk to each other.
+
+Hermes and Mediapulse docs are written to stand alone: Hermes describes orchestration and **generic** external-domain integration; Mediapulse describes the product and its agents. **Here** we document **this monorepo’s** wiring—env vars, registration, and concrete HTTP flows.
+
+## In this section
+
+| Page                                                             | What it covers                                                          |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [Hermes and Mediapulse domains](/integration/domains)            | Two databases, domain tables, shared packages, runtime connections      |
+| [Communication between parts](/integration/communication)        | JWT minting, agent invocation, agent → data/registry APIs               |
+| [Data source expansion](/integration/data-source-expansion)      | `db:` strings, scheduler → domain API → product DB                      |
+| [Mediapulse wiring in this repo](/integration/mediapulse-wiring) | `domain-api`, `@mediapulse/hermes-integration`, dashboard examples, env |
+
+## Related elsewhere
+
+- **Integrate any domain with Hermes (generic):** [Integrate a domain with Hermes](/hermes/integrate-domain-with-hermes)
+- **Hermes dashboard `table-v1` mechanics:** [Domain integration dashboard](/hermes/domain-integration-dashboard)
+- **Agent request/response contract:** [Agent–Hermes contract](/hermes/agent-hermes-contract)

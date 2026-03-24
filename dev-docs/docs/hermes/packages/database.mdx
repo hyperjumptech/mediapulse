@@ -1,14 +1,15 @@
 ---
 title: database
-description: Prisma packages for PostgreSQL (orchestration and Mediapulse domains)
+description: Prisma access for the Hermes orchestration database
 icon: Database
 ---
 
 ## Purpose
 
-Database access is split into two Prisma packages:
+Hermes data lives in **`@hermes/orchestration-database`** — Prisma models for **admin** users (dashboard accounts), API keys, pipelines, schedules, executions, variables, agent registry metadata, and domain integration registration.
 
-- **[orchestration-database](/hermes/packages/orchestration-database)** — `@hermes/orchestration-database` (**admin** users / dashboard accounts, API keys, pipelines, schedules, executions, variables, registry).
-- **[mediapulse-database](/mediapulse/packages/mediapulse-database)** — `@mediapulse/database` (tickers, newsletters, knowledge graph, Mediapulse-only tables).
+Use **[orchestration-database](/hermes/packages/orchestration-database)** for env vars, exports, and migrations.
 
-Use the package that owns the models you query; see each page for env vars, exports, and migrations.
+## Other databases in the monorepo
+
+Product (non-orchestration) Prisma packages are documented under **Mediapulse** — for example **[mediapulse-database](/mediapulse/packages/mediapulse-database)**. Hermes does not query those databases for domain integration features; it calls the registered domain HTTP API instead. See [Hermes–Mediapulse integration](/integration/domains).

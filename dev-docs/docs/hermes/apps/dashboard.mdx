@@ -6,40 +6,35 @@ icon: Zap
 
 ## Purpose
 
-**`@hermes/dashboard`** is the orchestration UI: **pipelines** (sequences of agents), **tickers**, **agents**, **agent configs**, **variables**, **domain integrations** (per-integration API keys and lifecycle), and **schedules**. This Next.js app exposes the dashboard and APIs for creating and editing schedules. The **scheduler** itself (DataQueue processor and supervisor) runs in **`hermes-worker`** so the dashboard stays a normal web app without owning the queue process.
+**`@hermes/dashboard`** is the orchestration UI: **pipelines** (sequences of agents), **agents**, **agent configs**, **variables**, **domain integrations** (per-integration API keys and lifecycle), and **schedules**. This Next.js app exposes the dashboard and APIs for creating and editing schedules. The **scheduler** itself (DataQueue processor and supervisor) runs in **`hermes-worker`** so the dashboard stays a normal web app without owning the queue process.
 
 ## Quick overview
 
-- **Agents** are executable units and can have multiple versions. An agent automatically registers itself when it starts up.
-- **Pipelines** are created by admins as an ordered series of agent steps. Admin can configure the input and config for each step.
+- **Agents** are executable units and can have multiple versions. An agent can register itself when it starts up (via agent-registry-api).
+- **Pipelines** are created by admins as an ordered series of agent steps. Admins configure the input and config for each step.
 - **Schedules** define when a pipeline should run.
 
 ## Features
 
-- **Dashboard UI** — Manage pipelines, pipeline steps, agents, domain integrations, and schedules. Domain-owned resources are rendered from a registered dashboard manifest (`table-v1`) rather than hardcoded Prisma-backed pages.
-- **Domain pages from integration manifest** — Each domain integration registers a **key** (e.g. `mediapulse`) and a list of dashboard pages (`pathSegment`, `apiPrefix`, labels). Sidebar links and routes are **`/dashboard/{integrationKey}/{pathSegment}`** (for example `/dashboard/mediapulse/tickers`). Hermes resolves the active integration by key and calls that integration’s HTTP API for `table-v1` list/meta and mutations — not hard-coded `/dashboard/tickers` routes.
-- **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job every minute, polls for due schedules, and for each pipeline step expands that step's input (e.g. data-source expressions like `db:ticker:id`), then invokes the step via HTTP. Hermes does not run the queue.
+- **Dashboard UI** — Manage pipelines, pipeline steps, agents, domain integrations, and schedules. Domain-owned resources are rendered from a registered dashboard manifest (`table-v1`) rather than hardcoded Prisma-backed pages in this app.
+- **Domain pages from integration manifest** — Each domain integration registers a **key** and a list of dashboard pages (`pathSegment`, `apiPrefix`, labels). Sidebar links and routes are **`/dashboard/{integrationKey}/{pathSegment}`**. Hermes resolves the active integration by key and calls that integration’s HTTP API for `table-v1` list/meta and mutations.
+- **Database-driven schedules** — Schedules are stored in the `Schedule` table. The **hermes-worker** app runs a DataQueue cron job, polls for due schedules, and for each pipeline step expands that step's input (e.g. data-source expressions like `db:ticker:id`), then invokes the step via HTTP. The dashboard does not run the queue.
 - **Manual run** — Trigger a pipeline run from the dashboard.
-- **Ticker import** — When the domain manifest registers a `json-file-upload` custom action (e.g. IDX JSON), Hermes shows an import card on `/dashboard/{integrationKey}/tickers` and POSTs to the domain API; Mediapulse runs `@mediapulse/idx-tickers-importer` on the service side.
 - **Session-based auth** — Dashboard uses cookie/session auth. When running pipelines manually, agents are invoked with **short-lived JWT bearer tokens** minted via agent-auth-api using **`HERMES_INTERNAL_API_KEY`**; that preset is never sent to agents.
 - **Admin accounts** — Users in the orchestration DB with `role = ADMIN` and `isActive = true` may log in. The dashboard layout re-checks the database on each load so disabled or demoted accounts lose access immediately (cookies are cleared). From **`/dashboard/admins`**, an active admin can add admins (email, name, initial password), reset passwords, enable/disable logins, or delete another admin. You cannot delete yourself, delete the last remaining admin row, disable yourself, or disable the last **active** admin. Deleting an admin removes their API keys first. Bootstrapping the first admin still uses `pnpm create:admin` from `apps/hermes/dashboard` when no UI is available.
 - **Variable management** — Admins can CRUD **variables** (key, value, optional note, secret flag) from `/dashboard/variables`. Variables are referenced in agent config and step input as `{{VAR_KEY}}`; at pipeline execution time the placeholder is replaced with the stored value. Secret variables are never returned by the API or shown in the UI after creation (value is masked).
-- **Domain integrations** — Admins create an integration (stable key + description); Hermes generates an API key, shows it once, stores it encrypted, and ties pipelines/agents to that integration after domain-api registers.
+- **Domain integrations** — Admins create an integration (stable key + description); Hermes generates an API key, shows it once, stores it encrypted, and ties pipelines/agents to that integration after the domain service registers with Hermes.
+
+For **this monorepo’s** Mediapulse-specific dashboard surfaces (imports, vocabulary tables, env), see [Mediapulse wiring in this repo](/integration/mediapulse-wiring).
 
 ## Key routes / entrypoints
 
-- Dashboard: `/dashboard` (Hermes-native: pipelines, agents, **agent configs**, **variables**, **domain integrations**, **schedules**, **admins**). Domain-owned tables live under **`/dashboard/{integrationKey}/{pathSegment}`** (see registered integration manifest).
+- Dashboard: `/dashboard` (Hermes-native: pipelines, agents, **agent configs**, **variables**, **domain integrations**, **schedules**, **admins**). Domain-owned tables live under **`/dashboard/{integrationKey}/{pathSegment}`** (see each integration’s manifest).
 - Pipeline actions: create, update, delete, add/remove/reorder steps, run pipeline. **Pipeline detail** uses a three-column layout: available agents (click to add), pipeline steps (select, reorder, remove), and step editor (pipeline name/description, step **input** and **config** from agent schemas). When adding or editing a step, you can set input and config (or choose a **saved agent config**). String fields in the step editor use a **variable/expansion input**: you can type freely or use the **Insert…** picker to add variable placeholders (`{{KEY}}`) or data source expansion template strings. Save persists pipeline metadata and the selected step's input/config.
 - **Agent configs** (`/dashboard/agent-configs`): Create, edit, duplicate, or delete named configs per agent (agentId + version). Each config has a name, description, and JSON validated against the agent’s config schema. Config string fields support the same variable (`{{key}}`) and data-source expansion insert picker used by pipeline step input forms. Configs can be assigned to pipeline steps so one config is reused across steps; updating a saved config applies to all steps that reference it. If an agent’s config schema changes (same version), saved configs are marked “Schema changed” until you re-save them.
-- Ticker actions: create, update, delete, import (IDX JSON via manifest `customActions` → domain API).
-- Agent actions: create, update. Agent details are on a dedicated page (`/dashboard/agents/[id]`) with tabs: **General** (details and endpoint), **Input schema** (pretty-printed JSON), **Config schema** (pretty-printed JSON).
 - **Variables** (`/dashboard/variables`): Create, edit, delete. Each variable has a unique key, value, optional note, and “Secret” flag. Use `{{KEY}}` in agent config or schedule params; hermes-scheduler substitutes values at execution time. Secret values are never returned or shown after save.
-- **Search Query** (`/dashboard/{integrationKey}/search-queries`, e.g. `mediapulse`): View generated query rows from `search_query` with columns for keywords and ticker name. Filter by ticker name. Delete rows that are not linked by `data_source` (linked rows are blocked from deletion).
-- **Data source expansions** (`/dashboard/{integrationKey}/data-source-expansions`): Create, edit, delete saved expansion templates. Each has a name, expansion string (e.g. `db:userTicker:tickerId?where.enabled=true`), and optional description. Use **Run preview** on the create/edit page to test the expansion against the DB; format docs and examples are shown on the page. See [Data source expansion](/guide/data-source-expansion) for full format and behavior.
-- **Entity types** (`/dashboard/{integrationKey}/entity-types`): Manage entity classification vocabulary used by analysis prompts.
-- **Relation types** (`/dashboard/{integrationKey}/relation-types`): Manage relation vocabulary used by analysis prompts.
-- **KG dev seeding** — Run `pnpm --filter @mediapulse/database run seed-kg-vocabulary` from the monorepo root for vocabulary, then `pnpm seed-kg-pipelines` from `apps/hermes/dashboard` for pipelines/schedules. Details in [Knowledge Graph](/mediapulse/knowledge-graph/knowledge-graph#schedule-configuration-default-seeds).
-- **Domain integrations** (`/dashboard/domain-integrations`): Create integrations; copy the generated API key once into Mediapulse/agent env.
+- **Data source expansions** (`/dashboard/{integrationKey}/data-source-expansions` when exposed by a domain): Create, edit, delete saved expansion templates. Use **Run preview** on the create/edit page where available. See [Data source expansion](/integration/data-source-expansion) for format and behavior.
+- **Domain integrations** (`/dashboard/domain-integrations`): Create integrations; copy the generated API key once into your domain service and agent env (see [Development](/guide/development) for local setup).
 - Schedule actions: create, update, delete. Schedules can run **once** (use start date as next run) or **repeating** (cron expression or interval in ms). Next-run computation uses `@hermes/scheduler`; execution runs in hermes-worker.
 - **Admins** (`/dashboard/admins`): List dashboard admins, add user with `ADMIN` role, reset password, enable/disable login, delete (with safeguards above).
 - Logout: `/logout`.
@@ -79,12 +74,11 @@ See [hermes-worker](/hermes/apps/hermes-worker) for details.
 - `@hermes/domain-contract` — Shared integration contract for registration payloads and `table-v1` metadata/list responses.
 - `@hermes/scheduler` — `computeNextRunAt` (and types) for schedule create/update in the dashboard.
 - `@workspace/json-schema-form` — Renders forms from agent config schemas (create/edit agent config modals).
-- `@mediapulse/idx-tickers-importer` — IDX ticker import.
 - `@workspace/logger` — Logging.
 - `@workspace/ui` — Shared UI components.
 
 ## Related docs
 
-- [Architecture](/architecture) — How Hermes and hermes-worker fit in the system.
+- [Hermes–Mediapulse integration](/integration) — How product domains connect to this orchestration stack in the monorepo.
 - [hermes-worker](/hermes/apps/hermes-worker) — Long-running scheduler process.
-- [Packages: database](/hermes/packages/database), [hermes-scheduler](/hermes/packages/hermes-scheduler), [idx-tickers-importer](/mediapulse/packages/idx-tickers-importer).
+- [Packages: database](/hermes/packages/database), [hermes-scheduler](/hermes/packages/hermes-scheduler).
