@@ -93,7 +93,7 @@ describe("getBearerJwtForDomainIntegrationId", () => {
   it("uses injected db when provided", async () => {
     envState.AGENT_AUTH_API_URL = "http://auth";
     const customFindFirst = vi.fn().mockResolvedValue({
-      encryptedApiKey: '{"v":1}',
+      encryptedPayload: { ciphertext: '{"v":1}' },
     });
     mockGetToken.mockResolvedValue("jwt-from-custom-db");
 
