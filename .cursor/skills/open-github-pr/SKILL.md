@@ -75,6 +75,7 @@ EOF
 
 - PR title starts with a verb and has no trailing period.
 - Description follows `/pr-title-description` sections exactly.
+- Do not include any signature/footer such as `Made with Cursor` in the PR title or body.
 - High-risk behavior and reviewer-critical files are explicitly called out.
 - Test steps are concrete and include expected outcomes.
 - The command uses `--repo <owner>/<repo>` and a verified account context (`gh auth switch -h <host> -u <account>` + `gh api` access check).
