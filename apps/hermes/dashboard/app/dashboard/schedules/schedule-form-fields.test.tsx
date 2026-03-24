@@ -3,7 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   ScheduleFormFields,
+  buildTimezoneSelectOptions,
   formatTimezoneSelectLabel,
+  getSupportedIanaTimeZones,
   getTimezoneUtcOffsetLabel,
 } from "./schedule-form-fields";
 
@@ -72,6 +74,67 @@ describe("getTimezoneUtcOffsetLabel", () => {
 
     // Assert
     expect(label).toBe("");
+  });
+});
+
+describe("getSupportedIanaTimeZones", () => {
+  it("returns sorted zones from injected supportedValuesOf", () => {
+    // Act
+    const zones = getSupportedIanaTimeZones({
+      supportedValuesOf: () => ["Zulu/Zone", "Alpha/Zone"],
+    });
+
+    // Assert
+    expect(zones).toEqual(["Alpha/Zone", "Zulu/Zone"]);
+  });
+
+  it("uses fallback when supportedValuesOf returns empty", () => {
+    // Act
+    const zones = getSupportedIanaTimeZones({
+      supportedValuesOf: () => [],
+    });
+
+    // Assert
+    expect(zones).toContain("UTC");
+    expect(zones).toContain("America/New_York");
+  });
+
+  it("uses fallback when supportedValuesOf is missing", () => {
+    // Act
+    const zones = getSupportedIanaTimeZones({});
+
+    // Assert
+    expect(zones).toContain("UTC");
+  });
+
+  it("uses fallback when supportedValuesOf throws", () => {
+    // Act
+    const zones = getSupportedIanaTimeZones({
+      supportedValuesOf: () => {
+        throw new Error("unsupported");
+      },
+    });
+
+    // Assert
+    expect(zones).toContain("UTC");
+  });
+});
+
+describe("buildTimezoneSelectOptions", () => {
+  it("merges default timezone when absent from zones and sorts", () => {
+    // Act
+    const options = buildTimezoneSelectOptions("Asia/Jakarta", ["UTC"]);
+
+    // Assert
+    expect(options).toEqual(["Asia/Jakarta", "UTC"]);
+  });
+
+  it("ignores whitespace-only default timezone", () => {
+    // Act
+    const options = buildTimezoneSelectOptions("   ", ["UTC", "Z"]);
+
+    // Assert
+    expect(options).toEqual(["UTC", "Z"]);
   });
 });
 
