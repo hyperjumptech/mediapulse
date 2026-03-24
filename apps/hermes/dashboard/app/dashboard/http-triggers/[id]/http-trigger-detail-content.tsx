@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ChevronLeft, Copy, GitBranch } from "lucide-react";
 
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { ListPagination } from "@/components/list-pagination";
+import { buildHttpTriggerInvokeCurlCommand } from "@/lib/http-trigger-invoke-curl";
 import type {
   getHttpTriggerById,
   HttpTriggerExecutionRow,
@@ -21,7 +22,11 @@ type TriggerWithPipeline = NonNullable<
 
 const useHttpTriggerDetailState = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
-  return { editModalOpen, setEditModalOpen };
+  const [siteOrigin, setSiteOrigin] = useState("");
+  useEffect(() => {
+    setSiteOrigin(window.location.origin);
+  }, []);
+  return { editModalOpen, setEditModalOpen, siteOrigin };
 };
 
 /**
@@ -42,7 +47,27 @@ export const HttpTriggerDetailContent = ({
   pageSize: number;
   pipelines: PipelineOption[];
 }) => {
-  const { editModalOpen, setEditModalOpen } = useHttpTriggerDetailState();
+  const { editModalOpen, setEditModalOpen, siteOrigin } =
+    useHttpTriggerDetailState();
+  const invokePath = `/api/http-triggers/${trigger.id}/invoke`;
+  const invokeDisplayUrl = siteOrigin
+    ? `${siteOrigin}${invokePath}`
+    : invokePath;
+
+  const onCopyInvokeCurl = useCallback(async () => {
+    const command = buildHttpTriggerInvokeCurlCommand({
+      method: trigger.method,
+      triggerId: trigger.id,
+      origin: window.location.origin,
+    });
+    try {
+      await navigator.clipboard.writeText(command);
+      window.alert("cURL command copied to clipboard.");
+    } catch {
+      window.alert("Failed to copy cURL command.");
+    }
+  }, [trigger.id, trigger.method]);
+
   return (
     <>
       <div className="flex flex-col gap-6">
@@ -66,9 +91,31 @@ export const HttpTriggerDetailContent = ({
               </Badge>
               <Badge variant="outline">{trigger.method}</Badge>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Token hint: {trigger.tokenHint ?? "not available"}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-muted-foreground">
+              <Link
+                href={`/dashboard/pipelines/${trigger.pipeline.id}`}
+                className="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
+              >
+                <GitBranch className="size-4 shrink-0" aria-hidden />
+                {trigger.pipeline.name}
+              </Link>
+              <span className="text-muted-foreground/60" aria-hidden>
+                ·
+              </span>
+              <code className="max-w-full break-all rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground">
+                {invokeDisplayUrl}
+              </code>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => void onCopyInvokeCurl()}
+              >
+                <Copy className="mr-2 size-4" aria-hidden />
+                Copy cURL
+              </Button>
+            </div>
             <p className="text-muted-foreground">
               {trigger.description ??
                 "View executions and edit HTTP trigger settings."}
