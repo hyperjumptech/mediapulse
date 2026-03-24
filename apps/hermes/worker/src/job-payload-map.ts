@@ -9,5 +9,8 @@ export type JobPayloadMap = {
   check_schedules: {
     timestamp?: string;
   };
+  execute_http_trigger: {
+    httpTriggerExecutionId: string;
+  };
   invoke_agent: InvokeAgentJobPayload;
 };

@@ -7,6 +7,11 @@ export {
   type InvokeAgentJobPayload,
 } from "./execute-schedule";
 export {
+  planPipelineInvocations,
+  type PlannedInvocation,
+  type PlanPipelineInvocationsResult,
+} from "./plan-pipeline-invocations";
+export {
   mergeExecutionConfig,
   parseEffectiveExecutionConfig,
   ExecutionConfigSchema,
