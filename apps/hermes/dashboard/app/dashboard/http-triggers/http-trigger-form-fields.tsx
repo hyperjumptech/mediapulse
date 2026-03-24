@@ -107,14 +107,19 @@ export const HttpTriggerFormFields = ({
       </div>
 
       <div className="flex items-center gap-2">
+        <input type="hidden" name="body.enabled" value="false" readOnly />
         <input
           id="http-trigger-enabled"
           type="checkbox"
           name="body.enabled"
+          value="on"
           defaultChecked={defaultEnabled}
           disabled={pending}
+          className="size-4 rounded border-input"
         />
-        <Label htmlFor="http-trigger-enabled">Enabled</Label>
+        <Label htmlFor="http-trigger-enabled" className="cursor-pointer">
+          Enabled
+        </Label>
       </div>
 
       <div className="grid gap-2">
