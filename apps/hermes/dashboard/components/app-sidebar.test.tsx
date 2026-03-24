@@ -139,17 +139,31 @@ describe("AppSidebar", () => {
     expect(screen.getByText("Hermes")).toBeInTheDocument();
   });
 
-  it("renders Hermes main nav and integration-grouped domain links", () => {
+  it("renders Hermes grouped main nav and integration-grouped domain links", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
     render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
+    const groupLabels = screen
+      .getAllByTestId("sidebar-group-label")
+      .map((el) => el.textContent);
+    expect(groupLabels).toEqual([
+      "Overview",
+      "Orchestration",
+      "Agents",
+      "Platform",
+      "Mediapulse",
+    ]);
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Pipelines")).toBeInTheDocument();
     expect(screen.getByText("Mediapulse")).toBeInTheDocument();
     expect(screen.getByText("Tickers")).toBeInTheDocument();
     expect(screen.getByText("Search Query")).toBeInTheDocument();
-    expect(screen.getByText("Agents")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Agents" })).toBeInTheDocument();
+    expect(screen.getByText("Agent configs")).toBeInTheDocument();
+    expect(screen.getByText("Variables")).toBeInTheDocument();
+    expect(screen.getByText("HTTP triggers")).toBeInTheDocument();
+    expect(screen.getByText("Admins")).toBeInTheDocument();
     expect(screen.getByText("Domain integrations")).toBeInTheDocument();
     expect(screen.getByText("Schedules")).toBeInTheDocument();
     expect(screen.getByText("Entity Types")).toBeInTheDocument();
