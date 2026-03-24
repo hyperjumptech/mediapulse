@@ -1,10 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@hermes/env";
 import {
   prisma as orchestrationPrisma,
-  type Prisma,
+  Prisma,
+  ScheduleRunStatus,
+  ScheduleStepRollupStatus,
 } from "@hermes/orchestration-database";
-import { substituteVariables } from "@hermes/scheduler";
+import {
+  computeExecutionRunStatusFromStepRollups,
+  computeStepRollupFromCounts,
+  mergeExecutionConfig,
+  substituteVariables,
+} from "@hermes/scheduler";
 import got from "got";
 import {
   createRequestValidator,
@@ -30,6 +38,9 @@ export const requestValidator = createRequestValidator({
 export const responseValidator = z.object({
   ok: z.literal(true),
   tickersRun: z.number(),
+  executionId: z.string().uuid(),
+  runStatus: z.enum(["succeeded", "partial", "failed"]),
+  failedInvocationCount: z.number(),
 });
 
 const AgentEndpointSchema = z.object({
@@ -84,7 +95,10 @@ type RunPipelineHandlerDependencies = {
   /** Returns a short-lived JWT for agent invocation. */
   getToken?: () => Promise<string>;
   post?: typeof got.post;
+  now?: () => Date;
 };
+
+type StepRollupTerminal = "success" | "partial" | "failed";
 
 type RunPipelineHandler = HandlerFunc<
   typeof requestValidator,
@@ -110,6 +124,7 @@ export const createRunPipelineHandler = ({
       );
     }),
   post = got.post,
+  now = () => new Date(),
 }: RunPipelineHandlerDependencies = {}): RunPipelineHandler => {
   return async (data) => {
     const session = await getSession();
@@ -129,6 +144,12 @@ export const createRunPipelineHandler = ({
 
     const pipeline = await db.pipeline.findUnique({
       where: { id: data.body.pipelineId },
+      select: {
+        id: true,
+        name: true,
+        executionConfig: true,
+        domainIntegrationId: true,
+      },
     });
     if (!pipeline) {
       return errorResponse("Pipeline not found");
@@ -173,7 +194,33 @@ export const createRunPipelineHandler = ({
     }
 
     if (tickers.length === 0) {
-      return successResponse({ ok: true as const, tickersRun: 0 });
+      const created = await db.manualPipelineExecution.create({
+        data: {
+          pipelineId: pipeline.id,
+          executionTime: now(),
+          enqueueStatus: "success",
+          runStatus: "succeeded",
+          effectiveExecutionConfig: mergeExecutionConfig(
+            pipeline.executionConfig,
+            null,
+          ) as Prisma.InputJsonValue,
+          jobsCreated: 0,
+          jobsEnqueued: 0,
+          metadata: {
+            source: "dashboard",
+            initiatedByUserId: session.id,
+            initiatedByUserEmail: session.email,
+          },
+        },
+        select: { id: true },
+      });
+      return successResponse({
+        ok: true as const,
+        tickersRun: 0,
+        executionId: created.id,
+        runStatus: "succeeded",
+        failedInvocationCount: 0,
+      });
     }
 
     const agentIds = pipelineSteps.map((step) => step.agentId);
@@ -187,10 +234,77 @@ export const createRunPipelineHandler = ({
       agents.map((a) => [`${a.agentId}:${a.agentVersion}`, a]),
     );
 
+    const effectiveExecutionConfig = mergeExecutionConfig(
+      pipeline.executionConfig,
+      null,
+    );
+    const executionTime = now();
+    const jobsCreated = tickers.length * pipelineSteps.length;
+
+    const execution = await db.manualPipelineExecution.create({
+      data: {
+        pipelineId: pipeline.id,
+        executionTime,
+        enqueueStatus: "success",
+        runStatus: "running",
+        effectiveExecutionConfig:
+          effectiveExecutionConfig as Prisma.InputJsonValue,
+        jobsCreated,
+        jobsEnqueued: jobsCreated,
+        metadata: {
+          source: "dashboard",
+          initiatedByUserId: session.id,
+          initiatedByUserEmail: session.email,
+        },
+      },
+      select: { id: true },
+    });
+
+    const stepStats = new Map<
+      string,
+      {
+        succeededCount: number;
+        failedCount: number;
+        expectedInvocationCount: number;
+      }
+    >();
+    for (const step of pipelineSteps) {
+      await db.manualPipelineStepExecution.create({
+        data: {
+          manualExecutionId: execution.id,
+          pipelineStepId: step.id,
+          expectedInvocationCount: tickers.length,
+          rollupStatus: "running",
+        },
+      });
+      stepStats.set(step.id, {
+        succeededCount: 0,
+        failedCount: 0,
+        expectedInvocationCount: tickers.length,
+      });
+    }
+
+    const errors: Array<{
+      tickerId: string;
+      step: string;
+      detail: string;
+      code: number | "unknown";
+    }> = [];
+
     for (const ticker of tickers) {
       for (const step of pipelineSteps) {
         const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
-        if (!agent) continue;
+        if (!agent) {
+          const stat = stepStats.get(step.id);
+          if (stat) stat.failedCount += 1;
+          errors.push({
+            tickerId: ticker.id,
+            step: `${step.agentId}@${step.agentVersion}`,
+            detail: "Agent registry entry not found",
+            code: "unknown",
+          });
+          continue;
+        }
         const endpoint = await AgentEndpointSchema.parseAsync(agent.endpoint);
 
         const rawInput =
@@ -231,34 +345,187 @@ export const createRunPipelineHandler = ({
           unknown
         >;
 
-        const agentResponse = await post(endpoint.url, {
-          json: { input: mergedInput, config: stepConfig },
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${jwt}`,
+        const jobId = randomUUID();
+        await db.agentJobExecution.create({
+          data: {
+            jobId,
+            agentId: step.agentId,
+            manualExecutionId: execution.id,
+            pipelineId: pipeline.id,
+            pipelineStepId: step.id,
+            status: "running",
+            enqueuedAt: executionTime,
+            startedAt: now(),
+            params: mergedInput as Prisma.InputJsonValue,
+            invocationConfig: stepConfig as Prisma.InputJsonValue,
           },
-          throwHttpErrors: false,
         });
-        const res = agentResponse as {
-          ok?: boolean;
-          statusCode?: number;
-          body?: unknown;
-        };
-        if (res.ok !== true) {
-          const detail = detailFromAgentErrorBody(res.body);
-          const code = res.statusCode ?? "unknown";
-          return errorResponse(
-            `Ticker ${ticker.id} — ${step.agentId}@${step.agentVersion}: ${detail} (HTTP ${code})`,
-          );
+
+        try {
+          const agentResponse = await post(endpoint.url, {
+            json: { input: mergedInput, config: stepConfig },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${jwt}`,
+            },
+            throwHttpErrors: false,
+          });
+          const res = agentResponse as {
+            ok?: boolean;
+            statusCode?: number;
+            body?: unknown;
+          };
+          if (res.ok === true) {
+            const stat = stepStats.get(step.id);
+            if (stat) stat.succeededCount += 1;
+            await db.agentJobExecution.update({
+              where: { jobId },
+              data: {
+                status: "completed",
+                completedAt: now(),
+                error: Prisma.DbNull,
+                agentResponse:
+                  (res.body as Prisma.InputJsonValue | undefined) ??
+                  Prisma.DbNull,
+                semanticStatus: "success",
+              },
+            });
+          } else {
+            const detail = detailFromAgentErrorBody(res.body);
+            const code = res.statusCode ?? "unknown";
+            const stat = stepStats.get(step.id);
+            if (stat) stat.failedCount += 1;
+            errors.push({
+              tickerId: ticker.id,
+              step: `${step.agentId}@${step.agentVersion}`,
+              detail,
+              code,
+            });
+            await db.agentJobExecution.update({
+              where: { jobId },
+              data: {
+                status: "failed",
+                completedAt: now(),
+                error: {
+                  detail,
+                  code,
+                  tickerId: ticker.id,
+                },
+                agentResponse:
+                  (res.body as Prisma.InputJsonValue | undefined) ??
+                  Prisma.DbNull,
+                semanticStatus: "failure",
+              },
+            });
+          }
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          const stat = stepStats.get(step.id);
+          if (stat) stat.failedCount += 1;
+          errors.push({
+            tickerId: ticker.id,
+            step: `${step.agentId}@${step.agentVersion}`,
+            detail,
+            code: "unknown",
+          });
+          await db.agentJobExecution.update({
+            where: { jobId },
+            data: {
+              status: "failed",
+              completedAt: now(),
+              error: {
+                detail,
+                code: "unknown",
+                tickerId: ticker.id,
+              },
+              semanticStatus: "failure",
+            },
+          });
         }
       }
     }
 
+    const stepRollups: StepRollupTerminal[] = [];
+    for (const step of pipelineSteps) {
+      const stat = stepStats.get(step.id);
+      if (!stat) continue;
+      const rollup = computeStepRollupFromCounts(
+        stat.succeededCount,
+        stat.failedCount,
+        effectiveExecutionConfig.stepRollupPolicy,
+      );
+      stepRollups.push(rollup);
+      await db.manualPipelineStepExecution.update({
+        where: {
+          manualExecutionId_pipelineStepId: {
+            manualExecutionId: execution.id,
+            pipelineStepId: step.id,
+          },
+        },
+        data: {
+          succeededCount: stat.succeededCount,
+          failedCount: stat.failedCount,
+          rollupStatus: stepTerminalToPrismaRollup(rollup),
+        },
+      });
+    }
+
+    const finalRunStatus = computeExecutionRunStatusFromStepRollups(
+      stepRollups,
+      effectiveExecutionConfig.stepRollupPolicy,
+    );
+    const failedInvocationCount = Array.from(stepStats.values()).reduce(
+      (acc, item) => acc + item.failedCount,
+      0,
+    );
+
+    await db.manualPipelineExecution.update({
+      where: { id: execution.id },
+      data: {
+        runStatus: runStatusTerminalToPrisma(finalRunStatus),
+        succeededInvocationCount: jobsCreated - failedInvocationCount,
+        failedInvocationCount,
+        errors:
+          errors.length > 0 ? (errors as Prisma.InputJsonValue) : Prisma.DbNull,
+      },
+    });
+
     return successResponse({
       ok: true as const,
       tickersRun: tickers.length,
+      executionId: execution.id,
+      runStatus: finalRunStatus,
+      failedInvocationCount,
     });
   };
+};
+
+/**
+ * Converts scheduler terminal step rollups to Prisma enum values.
+ *
+ * @param terminal - Scheduler terminal rollup.
+ * @returns Prisma rollup enum for storage.
+ */
+const stepTerminalToPrismaRollup = (
+  terminal: StepRollupTerminal,
+): ScheduleStepRollupStatus => {
+  if (terminal === "success") return ScheduleStepRollupStatus.success;
+  if (terminal === "partial") return ScheduleStepRollupStatus.partial;
+  return ScheduleStepRollupStatus.failed;
+};
+
+/**
+ * Converts scheduler run terminal value to Prisma run status.
+ *
+ * @param status - Scheduler run terminal value.
+ * @returns Prisma run status enum.
+ */
+const runStatusTerminalToPrisma = (
+  status: "succeeded" | "partial" | "failed",
+): ScheduleRunStatus => {
+  if (status === "succeeded") return ScheduleRunStatus.succeeded;
+  if (status === "partial") return ScheduleRunStatus.partial;
+  return ScheduleRunStatus.failed;
 };
 
 /**

@@ -138,6 +138,7 @@ model Pipeline {
   steps             PipelineStep[]
   schedules         Schedule[]
   httpTriggers      HttpTrigger[]
+  manualExecutions  ManualPipelineExecution[]
 
   @@map("pipeline")
 }
@@ -250,6 +251,7 @@ model AgentJobExecution {
   scheduleExecutionId    String?                 @map("schedule_execution_id")
   httpTriggerId          String?                 @map("http_trigger_id")
   httpTriggerExecutionId String?                 @map("http_trigger_execution_id")
+  manualExecutionId      String?                 @map("manual_execution_id")
   pipelineId             String?                 @map("pipeline_id")
   pipelineStepId         String?                 @map("pipeline_step_id")
   status                 AgentJobExecutionStatus
@@ -276,6 +278,7 @@ model AgentJobExecution {
   scheduleExecution    ScheduleExecution?    @relation(fields: [scheduleExecutionId], references: [id], onDelete: SetNull)
   httpTrigger          HttpTrigger?          @relation(fields: [httpTriggerId], references: [id], onDelete: SetNull)
   httpTriggerExecution HttpTriggerExecution? @relation(fields: [httpTriggerExecutionId], references: [id], onDelete: SetNull)
+  manualExecution      ManualPipelineExecution? @relation(fields: [manualExecutionId], references: [id], onDelete: SetNull)
 
   @@map("agent_job_execution")
 }
@@ -341,6 +344,46 @@ model HttpTriggerStepExecution {
   @@map("http_trigger_step_execution")
 }
 
+model ManualPipelineExecution {
+  id                       String                @id @default(uuid())
+  pipelineId               String                @map("pipeline_id")
+  executionTime            DateTime              @map("execution_time")
+  enqueueStatus            ScheduleEnqueueStatus @map("enqueue_status")
+  runStatus                ScheduleRunStatus     @default(pending) @map("run_status")
+  effectiveExecutionConfig Json?                 @map("effective_execution_config")
+  jobsCreated              Int                   @map("jobs_created")
+  jobsEnqueued             Int                   @map("jobs_enqueued")
+  succeededInvocationCount Int                   @default(0) @map("succeeded_invocation_count")
+  failedInvocationCount    Int                   @default(0) @map("failed_invocation_count")
+  errors                   Json?
+  metadata                 Json?
+  createdAt                DateTime              @default(now()) @map("created_at")
+
+  pipeline                     Pipeline                      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  agentJobExecutions           AgentJobExecution[]
+  manualPipelineStepExecutions ManualPipelineStepExecution[]
+
+  @@map("manual_pipeline_execution")
+}
+
+model ManualPipelineStepExecution {
+  id                      String                   @id @default(uuid())
+  manualExecutionId       String                   @map("manual_execution_id")
+  pipelineStepId          String                   @map("pipeline_step_id")
+  expectedInvocationCount Int                      @map("expected_invocation_count")
+  succeededCount          Int                      @default(0) @map("succeeded_count")
+  failedCount             Int                      @default(0) @map("failed_count")
+  rollupStatus            ScheduleStepRollupStatus @default(pending) @map("rollup_status")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+
+  manualExecution ManualPipelineExecution @relation(fields: [manualExecutionId], references: [id], onDelete: Cascade)
+  pipelineStep    PipelineStep            @relation(fields: [pipelineStepId], references: [id], onDelete: Cascade)
+
+  @@unique([manualExecutionId, pipelineStepId])
+  @@map("manual_pipeline_step_execution")
+}
+
 model PipelineStep {
   id            String   @id @default(uuid())
   order         Int
@@ -357,6 +400,7 @@ model PipelineStep {
   agentConfig               AgentConfig?               @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
   scheduleStepExecutions    ScheduleStepExecution[]
   httpTriggerStepExecutions HttpTriggerStepExecution[]
+  manualPipelineStepExecutions ManualPipelineStepExecution[]
 
   @@unique([pipelineId, order])
   @@map("pipeline_step")

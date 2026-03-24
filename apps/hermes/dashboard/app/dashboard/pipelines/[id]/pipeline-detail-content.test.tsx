@@ -68,6 +68,11 @@ vi.mock("./run-pipeline-button", () => ({
     </button>
   ),
 }));
+vi.mock("./pipeline-executions-table", () => ({
+  PipelineExecutionsTable: () => (
+    <div data-testid="pipeline-executions-table" />
+  ),
+}));
 
 const createMockPipelineValidation = () => ({
   valid: true,
@@ -128,6 +133,10 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
         {...mockPickerLoaders}
       />,
     );
@@ -147,6 +156,10 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
         {...mockPickerLoaders}
       />,
     );
@@ -162,6 +175,10 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
         {...mockPickerLoaders}
       />,
     );
@@ -180,6 +197,10 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
         {...mockPickerLoaders}
       />,
     );
@@ -202,6 +223,10 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
         {...mockPickerLoaders}
       />,
     );

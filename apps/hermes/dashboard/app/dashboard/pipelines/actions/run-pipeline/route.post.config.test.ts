@@ -14,6 +14,21 @@ const request = (body: { pipelineId: string }) =>
     user: undefined,
   }) as never;
 
+const createExecutionPersistenceStubs = () => ({
+  manualPipelineExecution: {
+    create: vi.fn().mockResolvedValue({ id: "manual-exec-1" }),
+    update: vi.fn().mockResolvedValue(undefined),
+  },
+  manualPipelineStepExecution: {
+    create: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
+  },
+  agentJobExecution: {
+    create: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
+  },
+});
+
 describe("detailFromAgentErrorBody", () => {
   it("returns empty-body message for null or undefined", () => {
     expect(detailFromAgentErrorBody(null)).toBe(
@@ -83,6 +98,7 @@ describe("createRunPipelineHandler", () => {
           ),
         ),
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: {
           findUnique: vi.fn().mockResolvedValue({
             id: "p-1",
@@ -107,6 +123,7 @@ describe("createRunPipelineHandler", () => {
       getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       getToken: async () => "jwt",
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: { findUnique: vi.fn().mockResolvedValue(null) },
         pipelineStep: { findMany: vi.fn() },
         agentRegistry: { findMany: vi.fn() },
@@ -123,6 +140,7 @@ describe("createRunPipelineHandler", () => {
       getSession: async () => ({ id: "user-1", name: "A", email: "a@b.com" }),
       getToken: async () => "jwt",
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: {
           findUnique: vi.fn().mockResolvedValue({
             id: "p-1",
@@ -152,6 +170,7 @@ describe("createRunPipelineHandler", () => {
       getToken: async () => "minted-jwt",
       post: postMock as never,
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: {
           findUnique: vi.fn().mockResolvedValue({
             id: "p-1",
@@ -214,7 +233,7 @@ describe("createRunPipelineHandler", () => {
     );
   });
 
-  it("returns error when an agent responds with a non-success HTTP status", async () => {
+  it("returns success with failedInvocationCount when an agent returns non-success HTTP status", async () => {
     const postMock = vi.fn().mockResolvedValue({
       ok: false,
       statusCode: 404,
@@ -230,6 +249,7 @@ describe("createRunPipelineHandler", () => {
       getToken: async () => "jwt",
       post: postMock as never,
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: {
           findUnique: vi.fn().mockResolvedValue({
             id: "p-1",
@@ -275,12 +295,15 @@ describe("createRunPipelineHandler", () => {
       fetchTickersForPipelineRun: async () => [{ id: "ticker-uuid" }],
     });
     const result = await handler(request({ pipelineId: "p-1" }));
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toContain("ticker-uuid");
-    expect((result as { message?: string }).message).toContain(
-      "No data sources found for this ticker",
-    );
-    expect((result as { message?: string }).message).toContain("HTTP 404");
+    expect(result.status).toBe(true);
+    expect(result).toMatchObject({
+      data: {
+        ok: true,
+        tickersRun: 1,
+        failedInvocationCount: 1,
+        runStatus: "failed",
+      },
+    });
   });
 
   it("returns error when pipeline validation fails", async () => {
@@ -290,6 +313,7 @@ describe("createRunPipelineHandler", () => {
       getToken: async () => "jwt",
       post: vi.fn() as never,
       db: {
+        ...createExecutionPersistenceStubs(),
         pipeline: {
           findUnique: vi.fn().mockResolvedValue({
             id: "p-1",

@@ -15,6 +15,7 @@ import { Label } from "@workspace/ui/components/label";
 import { formAction as defaultUpdatePipelineFormAction } from "@/app/dashboard/pipelines/actions/update/.generated/form.action";
 import { formAction as defaultUpdateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/form.action";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
+import type { PipelineExecutionRow } from "@/lib/pipeline-executions";
 import type {
   getAgentRegistryList,
   getPipelineWithSteps,
@@ -23,9 +24,11 @@ import type {
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
 import { PipelineAvailableAgents } from "./pipeline-available-agents";
+import { PipelineExecutionsTable } from "./pipeline-executions-table";
 import { PipelineStepEditorPanel } from "./pipeline-step-editor-panel";
 import { PipelineStepsColumn } from "./pipeline-steps-column";
 import { RunPipelineButton } from "./run-pipeline-button";
+import { ListPagination } from "@/components/list-pagination";
 
 type PipelineWithSteps = NonNullable<
   Awaited<ReturnType<typeof getPipelineWithSteps>>
@@ -39,6 +42,10 @@ export type PipelineDetailContentProps = {
   agents: AgentRegistryEntry[];
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
   pipelineValidation: PipelineValidationResult;
+  executions: PipelineExecutionRow[];
+  totalExecutions: number;
+  currentPage: number;
+  pageSize: number;
   /** Server action: paginated variable keys for the step editor picker. */
   loadVariablePickerPage: (
     args: LoadPageArgs,
@@ -220,6 +227,10 @@ export const PipelineDetailContent = ({
   agents,
   configsByAgentKey,
   pipelineValidation,
+  executions,
+  totalExecutions,
+  currentPage,
+  pageSize,
   loadVariablePickerPage,
   loadExpansionPickerPage,
   updatePipelineFormAction = defaultUpdatePipelineFormAction,
@@ -356,6 +367,22 @@ export const PipelineDetailContent = ({
           />
         </div>
       </div>
+      <section>
+        <h2 className="mb-2 text-lg font-medium text-foreground">Executions</h2>
+        <PipelineExecutionsTable
+          pipelineId={pipeline.id}
+          executions={executions}
+        />
+        <div className="mt-4">
+          <ListPagination
+            basePath={`/dashboard/pipelines/${pipeline.id}`}
+            page={currentPage}
+            pageSize={pageSize}
+            total={totalExecutions}
+            ariaLabel="Pipeline executions pagination"
+          />
+        </div>
+      </section>
     </div>
   );
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -45,6 +46,19 @@ export const RunPipelineButton = ({
     state && state.status === true && state.data
       ? (state.data as { tickersRun?: number }).tickersRun
       : null;
+  const executionId =
+    state && state.status === true && state.data
+      ? (state.data as { executionId?: string }).executionId
+      : null;
+  const runStatus =
+    state && state.status === true && state.data
+      ? (state.data as { runStatus?: "succeeded" | "partial" | "failed" })
+          .runStatus
+      : null;
+  const failedInvocationCount =
+    state && state.status === true && state.data
+      ? (state.data as { failedInvocationCount?: number }).failedInvocationCount
+      : null;
   const isDisabled = disabled || pending;
 
   return (
@@ -74,9 +88,21 @@ export const RunPipelineButton = ({
         <p className="text-sm text-destructive">{errorMessage}</p>
       )}
       {successTickers !== null && successTickers !== undefined && (
-        <p className="text-sm text-muted-foreground">
-          Ran for {successTickers} ticker{successTickers !== 1 ? "s" : ""}.
-        </p>
+        <>
+          <p className="text-sm text-muted-foreground">
+            Ran for {successTickers} ticker{successTickers !== 1 ? "s" : ""}{" "}
+            (status: {runStatus ?? "unknown"}, failures:{" "}
+            {failedInvocationCount ?? 0}).
+          </p>
+          {executionId ? (
+            <Link
+              href={`/dashboard/pipelines/${pipelineId}/executions/${executionId}`}
+              className="text-sm text-primary underline-offset-4 hover:underline"
+            >
+              View execution
+            </Link>
+          ) : null}
+        </>
       )}
     </div>
   );

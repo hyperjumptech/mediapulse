@@ -31,7 +31,12 @@ const createMockUseFormAction = (overrides?: {
   state?: {
     status: boolean;
     message?: string;
-    data?: { tickersRun?: number };
+    data?: {
+      tickersRun?: number;
+      executionId?: string;
+      runStatus?: "succeeded" | "partial" | "failed";
+      failedInvocationCount?: number;
+    };
   } | null;
   pending?: boolean;
 }) => ({
@@ -146,7 +151,14 @@ describe("RunPipelineButton", () => {
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(
       createMockUseFormAction({
-        state: { status: true, data: { tickersRun: 5 } },
+        state: {
+          status: true,
+          data: {
+            tickersRun: 5,
+            runStatus: "succeeded",
+            failedInvocationCount: 0,
+          },
+        },
       }),
     );
 
@@ -154,7 +166,9 @@ describe("RunPipelineButton", () => {
     render(<RunPipelineButton pipelineId="pipeline-123" />);
 
     // Assert
-    expect(screen.getByText("Ran for 5 tickers.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Ran for 5 tickers (status: succeeded, failures: 0)."),
+    ).toBeInTheDocument();
   });
 
   it("displays singular ticker message for 1 ticker", async () => {
@@ -162,7 +176,14 @@ describe("RunPipelineButton", () => {
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(
       createMockUseFormAction({
-        state: { status: true, data: { tickersRun: 1 } },
+        state: {
+          status: true,
+          data: {
+            tickersRun: 1,
+            runStatus: "partial",
+            failedInvocationCount: 1,
+          },
+        },
       }),
     );
 
@@ -170,7 +191,9 @@ describe("RunPipelineButton", () => {
     render(<RunPipelineButton pipelineId="pipeline-123" />);
 
     // Assert
-    expect(screen.getByText("Ran for 1 ticker.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Ran for 1 ticker (status: partial, failures: 1)."),
+    ).toBeInTheDocument();
   });
 
   it("calls router.refresh on success", async () => {
