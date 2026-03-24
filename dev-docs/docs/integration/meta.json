@@ -1,8 +1,8 @@
 {
   "title": "Hermes–Mediapulse integration",
   "pages": [
-    "domains",
     "index",
+    "domains",
     "communication",
     "data-source-expansion",
     "mediapulse-wiring"
