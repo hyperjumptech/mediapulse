@@ -22,18 +22,21 @@
     "test:coverage": "pnpm generate && vitest --run --coverage"
   },
   "dependencies": {
-    "@next/env": "catalog:",
-    "@workspace/agent-auth-client": "workspace:*",
-    "@hermes/env": "workspace:*",
     "@hermes/domain-contract": "workspace:*",
     "@hermes/domain-integration-crypto": "workspace:*",
+    "@hermes/env": "workspace:*",
+    "@hermes/orchestration-database": "workspace:*",
     "@hermes/scheduler": "workspace:*",
     "@hermes/step-input-syntax": "workspace:*",
+    "@next/env": "catalog:",
+    "@nicnocquee/dataqueue": "^1.39.0",
+    "@workspace/agent-auth-client": "workspace:*",
     "@workspace/json-schema-form": "workspace:*",
-    "@workspace/variable-expansion-picker": "workspace:*",
     "@workspace/logger": "workspace:*",
-    "@hermes/orchestration-database": "workspace:*",
     "@workspace/ui": "workspace:*",
+    "@workspace/variable-expansion-picker": "workspace:*",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "bcrypt": "catalog:",
     "date-fns": "^4.1.0",
     "dotenv": "catalog:",
@@ -45,9 +48,7 @@
     "react-dom": "catalog:",
     "route-action-gen": "catalog:",
     "sonner": "catalog:",
-    "zod": "catalog:",
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

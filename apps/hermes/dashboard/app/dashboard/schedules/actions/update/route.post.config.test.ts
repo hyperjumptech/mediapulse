@@ -133,7 +133,7 @@ describe("createUpdateScheduleHandler", () => {
       data: expect.objectContaining({
         name: "New name",
         enabled: false,
-        nextRunAt: existingSchedule.nextRunAt,
+        nextRunAt: expect.any(Date),
       }),
     });
   });

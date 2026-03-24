@@ -137,8 +137,21 @@ model Pipeline {
   domainIntegration DomainIntegration @relation(fields: [domainIntegrationId], references: [id], onDelete: Restrict)
   steps             PipelineStep[]
   schedules         Schedule[]
+  httpTriggers      HttpTrigger[]
 
   @@map("pipeline")
+}
+
+enum HttpTriggerAuthType {
+  BEARER_TOKEN
+}
+
+enum HttpMethod {
+  GET
+  POST
+  PUT
+  DELETE
+  PATCH
 }
 
 enum ScheduleRepeat {
@@ -230,37 +243,102 @@ model ScheduleExecution {
 }
 
 model AgentJobExecution {
-  id                   String                  @id @default(uuid())
-  jobId                String                  @unique @map("job_id")
-  agentId              String                  @map("agent_id")
-  scheduleId           String?                 @map("schedule_id")
-  scheduleExecutionId  String?                 @map("schedule_execution_id")
-  pipelineId           String?                 @map("pipeline_id")
-  pipelineStepId       String?                 @map("pipeline_step_id")
-  status               AgentJobExecutionStatus
-  priority             Int                     @default(0)
-  enqueuedAt           DateTime                @map("enqueued_at")
-  dependencies         Json?
-  params               Json                    @default("{}")
+  id                     String                  @id @default(uuid())
+  jobId                  String                  @unique @map("job_id")
+  agentId                String                  @map("agent_id")
+  scheduleId             String?                 @map("schedule_id")
+  scheduleExecutionId    String?                 @map("schedule_execution_id")
+  httpTriggerId          String?                 @map("http_trigger_id")
+  httpTriggerExecutionId String?                 @map("http_trigger_execution_id")
+  pipelineId             String?                 @map("pipeline_id")
+  pipelineStepId         String?                 @map("pipeline_step_id")
+  status                 AgentJobExecutionStatus
+  priority               Int                     @default(0)
+  enqueuedAt             DateTime                @map("enqueued_at")
+  dependencies           Json?
+  params                 Json                    @default("{}")
   /// Resolved step `config` sent with the agent body (stored for execution debugging).
-  invocationConfig     Json?                   @map("invocation_config")
-  error                Json?
+  invocationConfig       Json?                   @map("invocation_config")
+  error                  Json?
   /// Parsed agent response envelope (success path or semantic failure): message, details, logs, schemaVersion.
-  agentResponse        Json?                   @map("agent_response")
+  agentResponse          Json?                   @map("agent_response")
   /// Agent envelope `status` when body was valid: "success" | "failure".
-  semanticStatus       String?                 @map("semantic_status")
-  startedAt            DateTime?               @map("started_at")
-  completedAt          DateTime?               @map("completed_at")
+  semanticStatus         String?                 @map("semantic_status")
+  startedAt              DateTime?               @map("started_at")
+  completedAt            DateTime?               @map("completed_at")
   /// DataQueue `attempts` after the worker claimed this job (refreshed each processing attempt).
-  dataQueueAttempts    Int?                    @map("data_queue_attempts")
+  dataQueueAttempts      Int?                    @map("data_queue_attempts")
   /// DataQueue `max_attempts` when last synced (for display, e.g. `3 / 5`).
-  dataQueueMaxAttempts Int?                    @map("data_queue_max_attempts")
-  createdAt            DateTime                @default(now()) @map("created_at")
+  dataQueueMaxAttempts   Int?                    @map("data_queue_max_attempts")
+  createdAt              DateTime                @default(now()) @map("created_at")
 
-  schedule          Schedule?          @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
-  scheduleExecution ScheduleExecution? @relation(fields: [scheduleExecutionId], references: [id], onDelete: SetNull)
+  schedule             Schedule?             @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  scheduleExecution    ScheduleExecution?    @relation(fields: [scheduleExecutionId], references: [id], onDelete: SetNull)
+  httpTrigger          HttpTrigger?          @relation(fields: [httpTriggerId], references: [id], onDelete: SetNull)
+  httpTriggerExecution HttpTriggerExecution? @relation(fields: [httpTriggerExecutionId], references: [id], onDelete: SetNull)
 
   @@map("agent_job_execution")
+}
+
+model HttpTrigger {
+  id              String              @id @default(uuid())
+  name            String
+  description     String?
+  pipelineId      String              @map("pipeline_id")
+  enabled         Boolean             @default(true)
+  method          HttpMethod          @default(POST)
+  authType        HttpTriggerAuthType @default(BEARER_TOKEN) @map("auth_type")
+  tokenHash       String              @map("token_hash")
+  tokenHint       String?             @map("token_hint")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  lastTriggeredAt DateTime?           @map("last_triggered_at")
+
+  pipeline              Pipeline               @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  agentJobExecutions    AgentJobExecution[]
+  httpTriggerExecutions HttpTriggerExecution[]
+
+  @@map("http_trigger")
+}
+
+model HttpTriggerExecution {
+  id                       String                @id @default(uuid())
+  httpTriggerId            String                @map("http_trigger_id")
+  executionTime            DateTime              @map("execution_time")
+  enqueueStatus            ScheduleEnqueueStatus @map("enqueue_status")
+  runStatus                ScheduleRunStatus     @default(pending) @map("run_status")
+  effectiveExecutionConfig Json?                 @map("effective_execution_config")
+  jobsCreated              Int                   @map("jobs_created")
+  jobsEnqueued             Int                   @map("jobs_enqueued")
+  succeededInvocationCount Int                   @default(0) @map("succeeded_invocation_count")
+  failedInvocationCount    Int                   @default(0) @map("failed_invocation_count")
+  errors                   Json?
+  metadata                 Json?
+  createdAt                DateTime              @default(now()) @map("created_at")
+
+  httpTrigger               HttpTrigger                @relation(fields: [httpTriggerId], references: [id], onDelete: Cascade)
+  agentJobExecutions        AgentJobExecution[]
+  httpTriggerStepExecutions HttpTriggerStepExecution[]
+
+  @@map("http_trigger_execution")
+}
+
+model HttpTriggerStepExecution {
+  id                      String                   @id @default(uuid())
+  httpTriggerExecutionId  String                   @map("http_trigger_execution_id")
+  pipelineStepId          String                   @map("pipeline_step_id")
+  expectedInvocationCount Int                      @map("expected_invocation_count")
+  succeededCount          Int                      @default(0) @map("succeeded_count")
+  failedCount             Int                      @default(0) @map("failed_count")
+  rollupStatus            ScheduleStepRollupStatus @default(pending) @map("rollup_status")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+
+  httpTriggerExecution HttpTriggerExecution @relation(fields: [httpTriggerExecutionId], references: [id], onDelete: Cascade)
+  pipelineStep         PipelineStep         @relation(fields: [pipelineStepId], references: [id], onDelete: Cascade)
+
+  @@unique([httpTriggerExecutionId, pipelineStepId])
+  @@map("http_trigger_step_execution")
 }
 
 model PipelineStep {
@@ -275,9 +353,10 @@ model PipelineStep {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  pipeline               Pipeline                @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  agentConfig            AgentConfig?            @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
-  scheduleStepExecutions ScheduleStepExecution[]
+  pipeline                  Pipeline                   @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  agentConfig               AgentConfig?               @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
+  scheduleStepExecutions    ScheduleStepExecution[]
+  httpTriggerStepExecutions HttpTriggerStepExecution[]
 
   @@unique([pipelineId, order])
   @@map("pipeline_step")

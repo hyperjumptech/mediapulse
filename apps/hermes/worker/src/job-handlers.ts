@@ -27,6 +27,7 @@ import {
   type InvokeAgentJobPayload,
 } from "@hermes/scheduler";
 import { getJobQueue } from "./queue";
+import { executeHttpTrigger } from "./execute-http-trigger";
 
 /**
  * Parses optional positive integer env strings (DataQueue retry delay fields are in seconds).
@@ -169,6 +170,7 @@ const handleTransientInvokeFailure = async (params: {
       {
         jobId: payload.jobId,
         scheduleExecutionId: payload.scheduleExecutionId,
+        httpTriggerExecutionId: payload.httpTriggerExecutionId,
         pipelineStepId: payload.pipelineStepId,
         terminal: {
           status: AgentJobExecutionStatus.failed,
@@ -294,6 +296,45 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     }
   },
 
+  execute_http_trigger: async (payload) => {
+    const jobQueue = getJobQueue();
+    await executeHttpTrigger(payload.httpTriggerExecutionId, {
+      db: orchestrationPrisma,
+      enqueueAgentInvocations: async (items) => {
+        const jobDefs = items.map((item) => ({
+          jobType: "invoke_agent" as const,
+          payload: item.payload,
+          priority: item.payload.priority,
+          idempotencyKey: item.payload.jobId,
+          dependsOn:
+            item.dependsOnBatchIndices && item.dependsOnBatchIndices.length > 0
+              ? {
+                  jobIds: item.dependsOnBatchIndices.map((idx) =>
+                    batchDepRef(idx),
+                  ),
+                }
+              : undefined,
+          tags: [
+            `httpTriggerExecution:${item.payload.httpTriggerExecutionId}`,
+            `httpTrigger:${item.payload.httpTriggerId}`,
+            `pipeline:${item.payload.pipelineId}`,
+            `pipelineStep:${item.payload.pipelineStepId}`,
+          ],
+        }));
+        const insertedIds = await jobQueue.addJobs(jobDefs);
+        for (let idx = 0; idx < insertedIds.length; idx++) {
+          const queueJobId = insertedIds[idx];
+          const item = items[idx];
+          if (item === undefined || queueJobId === undefined) continue;
+          await jobQueue.editJob(queueJobId, {
+            payload: { ...item.payload, hermesDataQueueJobId: queueJobId },
+          });
+        }
+      },
+      defaultTimeoutMs: 300_000,
+    });
+  },
+
   invoke_agent: async (payload, signal, _ctx: JobContext) => {
     void _ctx;
     logger.info(
@@ -336,17 +377,18 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       }
     }
 
-    if (!payload.scheduleExecutionId) {
+    if (!payload.scheduleExecutionId && !payload.httpTriggerExecutionId) {
       logger.error(
         { jobId: payload.jobId },
-        "invoke_agent missing scheduleExecutionId on payload",
+        "invoke_agent missing execution id on payload",
       );
       await orchestrationPrisma.agentJobExecution.update({
         where: { jobId: payload.jobId },
         data: {
           status: AgentJobExecutionStatus.failed,
           error: {
-            message: "Missing scheduleExecutionId on job payload",
+            message:
+              "Missing scheduleExecutionId/httpTriggerExecutionId on job payload",
             retryable: false,
           },
           completedAt: new Date(),
@@ -366,8 +408,9 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       {
         jobId: payload.jobId,
         executionId: payload.executionId,
-        scheduleId: payload.scheduleId,
-        scheduleExecutionId: payload.scheduleExecutionId,
+        scheduleId: payload.scheduleId ?? payload.httpTriggerId,
+        scheduleExecutionId:
+          payload.scheduleExecutionId ?? payload.httpTriggerExecutionId,
         pipelineStepId: payload.pipelineStepId,
         authToken,
         timeoutMs: payload.timeoutMs,
@@ -411,6 +454,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           {
             jobId: payload.jobId,
             scheduleExecutionId: payload.scheduleExecutionId,
+            httpTriggerExecutionId: payload.httpTriggerExecutionId,
             pipelineStepId: payload.pipelineStepId,
             terminal: {
               status: AgentJobExecutionStatus.failed,
@@ -432,6 +476,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             {
               jobId: payload.jobId,
               scheduleExecutionId: payload.scheduleExecutionId,
+              httpTriggerExecutionId: payload.httpTriggerExecutionId,
               pipelineStepId: payload.pipelineStepId,
               terminal: {
                 status: AgentJobExecutionStatus.failed,
@@ -451,6 +496,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             {
               jobId: payload.jobId,
               scheduleExecutionId: payload.scheduleExecutionId,
+              httpTriggerExecutionId: payload.httpTriggerExecutionId,
               pipelineStepId: payload.pipelineStepId,
               terminal: {
                 status: AgentJobExecutionStatus.failed,
@@ -474,6 +520,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           {
             jobId: payload.jobId,
             scheduleExecutionId: payload.scheduleExecutionId,
+            httpTriggerExecutionId: payload.httpTriggerExecutionId,
             pipelineStepId: payload.pipelineStepId,
             terminal: {
               status: AgentJobExecutionStatus.completed,
@@ -489,6 +536,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
         {
           jobId: payload.jobId,
           scheduleExecutionId: payload.scheduleExecutionId,
+          httpTriggerExecutionId: payload.httpTriggerExecutionId,
           pipelineStepId: payload.pipelineStepId,
           terminal: {
             status: AgentJobExecutionStatus.failed,
