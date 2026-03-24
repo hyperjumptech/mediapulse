@@ -331,6 +331,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           });
         }
       },
+      expandStepInputs,
       defaultTimeoutMs: 300_000,
     });
   },

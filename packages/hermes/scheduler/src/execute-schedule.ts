@@ -9,10 +9,8 @@ import {
 import { randomUUID } from "node:crypto";
 import type { DueSchedule } from "./get-due-schedules";
 import { mergeExecutionConfig } from "./execution-config";
-import { AgentEndpointSchema } from "./invoke-agent";
 import { computeNextRunAt } from "./next-run-at";
-import { substituteVariables } from "./substitute-variables";
-import { validateWithJsonSchema } from "./validate-json-schema";
+import { planPipelineInvocations } from "./plan-pipeline-invocations";
 
 /**
  * Payload for a single agent invocation job (DataQueue job type `invoke_agent`).
@@ -84,35 +82,6 @@ export type ExecuteScheduleDeps = {
   requireHttpsAgentEndpoints?: boolean;
 };
 
-type PlannedJob = {
-  jobId: string;
-  executionId: string;
-  pipelineStepId: string;
-  agentId: string;
-  agentVersion: string;
-  endpointUrl: string;
-  input: Record<string, unknown>;
-  config: Record<string, unknown>;
-};
-
-/**
- * Returns false when requireHttps is true and the URL is http with a host other than localhost/127.0.0.1.
- */
-function isAllowedAgentEndpointUrl(
-  urlString: string,
-  requireHttps: boolean,
-): boolean {
-  if (!requireHttps) return true;
-  try {
-    const u = new URL(urlString);
-    if (u.protocol !== "http:") return true;
-    const h = u.hostname.toLowerCase();
-    return h === "localhost" || h === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Executes a due schedule: substitutes variables, expands inputs, persists execution rows,
  * then enqueues all `invoke_agent` jobs in one batch with sequential cross-step `dependsOn`.
@@ -134,9 +103,6 @@ export const executeSchedule = async (
   } = deps;
   const executionTime = new Date();
   const errors: Array<{ message: string; timestamp: string }> = [];
-
-  const variables = await db.variable.findMany();
-  const variableMap = new Map(variables.map((v) => [v.key, v.value]));
 
   const pipeline = schedule.pipeline;
   const steps = pipeline?.steps ?? [];
@@ -169,154 +135,25 @@ export const executeSchedule = async (
     return;
   }
 
-  const pipelineDomainId = schedule.pipeline.domainIntegrationId;
-  const agentIds: string[] = [
-    ...new Set(steps.map((s: { agentId: string }) => s.agentId)),
-  ];
-  const agents = await db.agentRegistry.findMany({
-    where: {
-      agentId: { in: agentIds },
-      isActive: true,
-      domainIntegrationId: pipelineDomainId,
+  const planningResult = await planPipelineInvocations({
+    db,
+    pipeline: {
+      id: schedule.pipelineId,
+      domainIntegrationId: schedule.pipeline.domainIntegrationId,
+      steps,
     },
+    sourceId: schedule.id,
+    expandStepInputs,
+    requireHttpsAgentEndpoints,
   });
-  const agentByKey = new Map(
-    agents.map((a) => [`${a.agentId}:${a.agentVersion}`, a]),
+  errors.push(...planningResult.errors);
+  const waveList = planningResult.waveList.map((wave) =>
+    wave.map((planned) => ({
+      ...planned,
+      jobId: randomUUID(),
+      executionId: randomUUID(),
+    })),
   );
-
-  const waveList: PlannedJob[][] = [];
-
-  for (const step of steps) {
-    const stepJobs: PlannedJob[] = [];
-    const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
-    if (!agent) {
-      logger.warn(
-        { agentId: step.agentId, agentVersion: step.agentVersion },
-        "Agent not found in registry, skipping step",
-      );
-      errors.push({
-        message: `Agent ${step.agentId}@${step.agentVersion} not found`,
-        timestamp: new Date().toISOString(),
-      });
-      continue;
-    }
-
-    const endpointResult = AgentEndpointSchema.safeParse(agent.endpoint);
-    if (!endpointResult.success) {
-      errors.push({
-        message: `Invalid endpoint for ${step.agentId}: ${endpointResult.error.message}`,
-        timestamp: new Date().toISOString(),
-      });
-      continue;
-    }
-    if (
-      !isAllowedAgentEndpointUrl(
-        endpointResult.data.url,
-        requireHttpsAgentEndpoints,
-      )
-    ) {
-      errors.push({
-        message: `Agent endpoint must use HTTPS (or localhost) for ${step.agentId}: ${endpointResult.data.url}`,
-        timestamp: new Date().toISOString(),
-      });
-      continue;
-    }
-
-    const stepWithInput = step as { input?: unknown };
-    const rawInput =
-      stepWithInput.input != null &&
-      typeof stepWithInput.input === "object" &&
-      !Array.isArray(stepWithInput.input)
-        ? (stepWithInput.input as Record<string, unknown>)
-        : {};
-    const inputSubstituted = substituteVariables(
-      rawInput,
-      variableMap,
-    ) as Record<string, unknown>;
-    const inputSchema =
-      agent.inputSchema != null && typeof agent.inputSchema === "object"
-        ? (agent.inputSchema as Record<string, unknown>)
-        : null;
-    if (inputSchema) {
-      const result = validateWithJsonSchema(inputSchema, inputSubstituted);
-      if (!result.valid) {
-        errors.push({
-          message: `Step input invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
-          timestamp: new Date().toISOString(),
-        });
-        continue;
-      }
-    }
-    const inputSets = await expandStepInputs({
-      input: inputSubstituted,
-      scheduleId: schedule.id,
-      pipelineId: schedule.pipelineId,
-      pipelineStepId: step.id,
-      domainIntegrationId: pipelineDomainId,
-      orchDb: db,
-    });
-
-    let stepConfig: Record<string, unknown>;
-    const stepWithConfig = step as {
-      config?: unknown;
-      agentConfigId?: string | null;
-      agentConfig?: { config: unknown } | null;
-    };
-    if (
-      stepWithConfig.agentConfigId != null &&
-      stepWithConfig.agentConfig != null
-    ) {
-      const referencedConfig = stepWithConfig.agentConfig.config;
-      const configObj =
-        referencedConfig != null &&
-        typeof referencedConfig === "object" &&
-        !Array.isArray(referencedConfig)
-          ? (referencedConfig as Record<string, unknown>)
-          : {};
-      stepConfig = configObj;
-    } else {
-      stepConfig =
-        stepWithConfig.config != null &&
-        typeof stepWithConfig.config === "object" &&
-        !Array.isArray(stepWithConfig.config)
-          ? (stepWithConfig.config as Record<string, unknown>)
-          : {};
-    }
-    stepConfig = substituteVariables(stepConfig, variableMap) as Record<
-      string,
-      unknown
-    >;
-    const configSchema =
-      agent.configSchema != null && typeof agent.configSchema === "object"
-        ? (agent.configSchema as Record<string, unknown>)
-        : null;
-    if (configSchema) {
-      const result = validateWithJsonSchema(configSchema, stepConfig);
-      if (!result.valid) {
-        errors.push({
-          message: `Step config invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
-          timestamp: new Date().toISOString(),
-        });
-        continue;
-      }
-    }
-
-    for (const inputSet of inputSets) {
-      stepJobs.push({
-        jobId: randomUUID(),
-        executionId: randomUUID(),
-        pipelineStepId: step.id,
-        agentId: step.agentId,
-        agentVersion: step.agentVersion,
-        endpointUrl: endpointResult.data.url,
-        input: inputSet as Record<string, unknown>,
-        config: stepConfig,
-      });
-    }
-    if (stepJobs.length > 0) {
-      waveList.push(stepJobs);
-    }
-  }
 
   const plannedJobs = waveList.flat();
   const jobsCreated = plannedJobs.length;

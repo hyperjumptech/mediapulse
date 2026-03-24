@@ -7,7 +7,10 @@ import {
   ScheduleStepRollupStatus,
   type PrismaClient,
 } from "@hermes/orchestration-database";
-import { AgentEndpointSchema, substituteVariables } from "@hermes/scheduler";
+import {
+  planPipelineInvocations,
+  type ExpandStepInputs,
+} from "@hermes/scheduler";
 import { mergeExecutionConfig } from "@hermes/scheduler";
 
 import type { JobPayloadMap } from "./job-payload-map";
@@ -20,6 +23,7 @@ type ExecuteHttpTriggerDeps = {
       dependsOnBatchIndices?: number[];
     }>,
   ) => Promise<void>;
+  expandStepInputs?: ExpandStepInputs;
   defaultTimeoutMs?: number;
 };
 
@@ -30,7 +34,12 @@ export const executeHttpTrigger = async (
   httpTriggerExecutionId: string,
   deps: ExecuteHttpTriggerDeps,
 ): Promise<void> => {
-  const { db, enqueueAgentInvocations, defaultTimeoutMs = 300_000 } = deps;
+  const {
+    db,
+    enqueueAgentInvocations,
+    expandStepInputs = async (context) => [context.input],
+    defaultTimeoutMs = 300_000,
+  } = deps;
   const execution = await db.httpTriggerExecution.findUnique({
     where: { id: httpTriggerExecutionId },
     include: {
@@ -53,8 +62,6 @@ export const executeHttpTrigger = async (
   const trigger = execution.httpTrigger;
   const pipeline = trigger.pipeline;
   const steps = pipeline.steps;
-  const variables = await db.variable.findMany();
-  const variableMap = new Map(variables.map((v) => [v.key, v.value]));
   const effectiveExecutionConfig = mergeExecutionConfig(
     pipeline.executionConfig,
     null,
@@ -78,100 +85,25 @@ export const executeHttpTrigger = async (
     return;
   }
 
-  const agentIds = [...new Set(steps.map((step) => step.agentId))];
-  const agents = await db.agentRegistry.findMany({
-    where: {
-      agentId: { in: agentIds },
-      isActive: true,
+  const planningResult = await planPipelineInvocations({
+    db,
+    pipeline: {
+      id: pipeline.id,
       domainIntegrationId: pipeline.domainIntegrationId,
+      steps,
     },
+    sourceId: trigger.id,
+    expandStepInputs,
+    requireHttpsAgentEndpoints: false,
   });
-  const agentByKey = new Map(
-    agents.map((agent) => [`${agent.agentId}:${agent.agentVersion}`, agent]),
-  );
-
-  const waveList: Array<
-    Array<{
-      jobId: string;
-      executionId: string;
-      pipelineStepId: string;
-      agentId: string;
-      agentVersion: string;
-      endpointUrl: string;
-      input: Record<string, unknown>;
-      config: Record<string, unknown>;
-    }>
-  > = [];
-
-  for (const step of steps) {
-    const stepJobs: Array<{
-      jobId: string;
-      executionId: string;
-      pipelineStepId: string;
-      agentId: string;
-      agentVersion: string;
-      endpointUrl: string;
-      input: Record<string, unknown>;
-      config: Record<string, unknown>;
-    }> = [];
-    const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
-    if (!agent) {
-      errors.push({
-        message: `Agent ${step.agentId}@${step.agentVersion} not found`,
-        timestamp: new Date().toISOString(),
-      });
-      continue;
-    }
-    const endpointResult = AgentEndpointSchema.safeParse(agent.endpoint);
-    if (!endpointResult.success) {
-      errors.push({
-        message: `Invalid endpoint for ${step.agentId}: ${endpointResult.error.message}`,
-        timestamp: new Date().toISOString(),
-      });
-      continue;
-    }
-    const rawInput =
-      step.input != null &&
-      typeof step.input === "object" &&
-      !Array.isArray(step.input)
-        ? (step.input as Record<string, unknown>)
-        : {};
-    const inputSubstituted = substituteVariables(
-      rawInput,
-      variableMap,
-    ) as Record<string, unknown>;
-    let stepConfig: Record<string, unknown>;
-    if (step.agentConfigId != null && step.agentConfig != null) {
-      stepConfig =
-        step.agentConfig.config != null &&
-        typeof step.agentConfig.config === "object" &&
-        !Array.isArray(step.agentConfig.config)
-          ? (step.agentConfig.config as Record<string, unknown>)
-          : {};
-    } else {
-      stepConfig =
-        step.config != null &&
-        typeof step.config === "object" &&
-        !Array.isArray(step.config)
-          ? (step.config as Record<string, unknown>)
-          : {};
-    }
-    stepConfig = substituteVariables(stepConfig, variableMap) as Record<
-      string,
-      unknown
-    >;
-    stepJobs.push({
+  errors.push(...planningResult.errors);
+  const waveList = planningResult.waveList.map((wave) =>
+    wave.map((planned) => ({
+      ...planned,
       jobId: randomUUID(),
       executionId: randomUUID(),
-      pipelineStepId: step.id,
-      agentId: step.agentId,
-      agentVersion: step.agentVersion,
-      endpointUrl: endpointResult.data.url,
-      input: inputSubstituted,
-      config: stepConfig,
-    });
-    if (stepJobs.length > 0) waveList.push(stepJobs);
-  }
+    })),
+  );
 
   const plannedJobs = waveList.flat();
   const jobsCreated = plannedJobs.length;

@@ -136,6 +136,7 @@ export const HttpTriggersTable = ({
                   <HttpTriggerRowActions
                     httpTriggerId={trigger.id}
                     httpTriggerName={trigger.name}
+                    method={trigger.method}
                     onEdit={onEdit}
                   />
                 </TableCell>
