@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
-import { prisma, ScheduleEnqueueStatus } from "@hermes/orchestration-database";
+import {
+  prisma,
+  type Prisma,
+  ScheduleEnqueueStatus,
+} from "@hermes/orchestration-database";
 
+import {
+  collectHttpTriggerRequestSnapshot,
+  toHttpTriggerExecutionMetadata,
+} from "@/lib/collect-http-trigger-request-snapshot";
 import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 import { verifyHttpTriggerToken } from "@/lib/http-trigger-auth";
 
@@ -74,6 +82,8 @@ const handleInvoke = async (
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const requestSnapshot = await collectHttpTriggerRequestSnapshot(request);
+
   const execution = await prisma.httpTriggerExecution.create({
     data: {
       httpTriggerId: trigger.id,
@@ -85,9 +95,9 @@ const handleInvoke = async (
         trigger.pipeline.executionConfig != null
           ? trigger.pipeline.executionConfig
           : undefined,
-      metadata: {
-        requestedMethod: request.method,
-      },
+      metadata: toHttpTriggerExecutionMetadata(
+        requestSnapshot,
+      ) as Prisma.InputJsonValue,
     },
     select: { id: true },
   });

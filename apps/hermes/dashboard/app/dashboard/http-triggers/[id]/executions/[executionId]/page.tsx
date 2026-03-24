@@ -83,6 +83,19 @@ export default async function HttpTriggerExecutionDetailPage({
         </p>
       </section>
 
+      {detail.execution.metadata != null ? (
+        <section>
+          <h2 className="mb-2 text-lg font-medium">Request snapshot</h2>
+          <pre className="max-h-[32rem] overflow-auto rounded-md border bg-muted p-4 font-mono text-xs">
+            {JSON.stringify(
+              maskSecretsInJson(detail.execution.metadata),
+              null,
+              2,
+            )}
+          </pre>
+        </section>
+      ) : null}
+
       <section>
         <h2 className="mb-2 text-lg font-medium">Pipeline steps</h2>
         <div className="rounded-md border">

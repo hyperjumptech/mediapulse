@@ -22,8 +22,9 @@ Multiple HTTP triggers can point to the same pipeline.
    - trigger exists and is enabled
    - request method matches trigger config
    - `Authorization: Bearer <token>` matches configured token hash
-3. Hermes creates an execution row and returns **`202 Accepted`** with JSON `{ status: "accepted", executionId }` (wrong method → **405**, disabled trigger → **409**, bad/missing token → **401**, unknown id → **404**).
-4. Worker picks up the `execute_http_trigger` DataQueue job and runs the pipeline asynchronously (same planning and variable substitution as schedules).
+3. Hermes captures a **request snapshot** (method, full URL, path, query string, all headers with known credential headers redacted, body when safe to read, and common client/proxy headers such as `User-Agent` and `X-Forwarded-For`) and stores it on the new execution row’s `metadata` JSON field (`requestSnapshotVersion: 1`). JSON bodies are parsed and sensitive keys are masked before storage. Bodies are capped at **256 KiB** UTF-8 (truncation is recorded in metadata). Bodies with `multipart/*`, `application/octet-stream`, or major `image`/`video`/`audio` types are not inlined; metadata records the content type and an omit reason instead. TLS version, HTTP protocol version, and the true TCP client address are **not** available from the standard `Request` object in the App Router—only what the request URL and headers provide.
+4. Hermes returns **`202 Accepted`** with JSON `{ status: "accepted", executionId }` (wrong method → **405**, disabled trigger → **409**, bad/missing token → **401**, unknown id → **404**).
+5. Worker picks up the `execute_http_trigger` DataQueue job and runs the pipeline asynchronously (same planning and variable substitution as schedules).
 
 ## Execution history
 
@@ -31,6 +32,6 @@ The dashboard includes:
 
 - `HTTP Triggers` list page for CRUD
 - trigger detail page with executions table
-- execution detail page with step rollups and invocation-level status/errors
+- execution detail page with step rollups, invocation-level status/errors, and a **Request snapshot** panel (JSON, with an extra masking pass for display)
 
 This mirrors the schedules execution experience, but is on-demand instead of periodic.
