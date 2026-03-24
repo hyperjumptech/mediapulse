@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { encryptSecretVariableValue } from "@hermes/domain-integration-crypto";
 import {
   executeSchedule,
   type EnqueueInvokeAgentItem,
@@ -330,5 +331,69 @@ describe("executeSchedule", () => {
     await expect(executeSchedule(schedule, deps)).rejects.toThrow(
       "Secret variable substitution requires variableSecretMasterKey",
     );
+  });
+
+  it("decrypts encrypted secret variables before substituting into agent payload", async () => {
+    // Setup
+    const now = new Date();
+    const masterKey = "k".repeat(32);
+    const encryptedSecret = encryptSecretVariableValue(
+      "resolved-secret",
+      masterKey,
+    );
+    const schedule = createMockSchedule({
+      pipeline: {
+        id: "p1",
+        domainIntegrationId: "di-1",
+        name: "p1",
+        description: null,
+        isActive: true,
+        executionConfig: null,
+        createdAt: now,
+        updatedAt: now,
+        steps: [
+          {
+            id: "step1",
+            order: 0,
+            agentId: "agent-a",
+            agentVersion: "1.0.0",
+            pipelineId: "p1",
+            input: { apiKey: "{{SECRET}}" },
+            config: { token: "{{SECRET}}" },
+            createdAt: now,
+            updatedAt: now,
+            agentConfigId: null,
+            agentConfig: null,
+          } as DueSchedule["pipeline"]["steps"][number],
+        ],
+      },
+    });
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+    const db = createMockDb();
+    db.variable.findMany = vi
+      .fn()
+      .mockResolvedValue([
+        { key: "SECRET", value: encryptedSecret, isSecret: true },
+      ]);
+    const deps: ExecuteScheduleDeps = {
+      db: db as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations,
+      variableSecretMasterKey: masterKey,
+    };
+
+    // Act
+    await executeSchedule(schedule, deps);
+
+    // Assert
+    expect(enqueueAgentInvocations).toHaveBeenCalledTimes(1);
+    const [items] = enqueueAgentInvocations.mock.calls[0] as [
+      EnqueueInvokeAgentItem[],
+    ];
+    expect(items).toHaveLength(1);
+    const payload = items[0]?.payload;
+    expect(payload).toBeDefined();
+    expect(payload!.body.input).toEqual({ apiKey: "resolved-secret" });
+    expect(payload!.body.config).toEqual({ token: "resolved-secret" });
   });
 });

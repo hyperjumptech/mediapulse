@@ -1,4 +1,8 @@
 import type { PrismaClient } from "@hermes/orchestration-database";
+import {
+  decryptSecretVariableValue,
+  isEncryptedSecretVariablePayload,
+} from "@hermes/domain-integration-crypto";
 
 import { AgentEndpointSchema } from "./invoke-agent";
 import { substituteVariables } from "./substitute-variables";
@@ -40,6 +44,7 @@ type PlanPipelineInvocationsArgs = {
   pipeline: PipelineForPlanning;
   sourceId: string;
   expandStepInputs: ExpandStepInputs;
+  variableSecretMasterKey?: string;
   requireHttpsAgentEndpoints?: boolean;
 };
 
@@ -70,13 +75,38 @@ export const planPipelineInvocations = async ({
   pipeline,
   sourceId,
   expandStepInputs,
+  variableSecretMasterKey,
   requireHttpsAgentEndpoints = false,
 }: PlanPipelineInvocationsArgs): Promise<PlanPipelineInvocationsResult> => {
   const errors: Array<{ message: string; timestamp: string }> = [];
   const variables = await db.variable.findMany();
-  const variableMap = new Map(
-    variables.map((variable) => [variable.key, variable.value]),
-  );
+  const variableMap = new Map<string, string>();
+  for (const variable of variables) {
+    if (!variable.isSecret) {
+      variableMap.set(variable.key, variable.value);
+      continue;
+    }
+    if (!variableSecretMasterKey) {
+      throw new Error(
+        "Secret variable substitution requires variableSecretMasterKey",
+      );
+    }
+    if (!isEncryptedSecretVariablePayload(variable.value)) {
+      variableMap.set(variable.key, variable.value);
+      continue;
+    }
+    try {
+      const plaintext = decryptSecretVariableValue(
+        variable.value,
+        variableSecretMasterKey,
+      );
+      variableMap.set(variable.key, plaintext);
+    } catch {
+      throw new Error(
+        `Failed to decrypt secret variable "${variable.key}" for invocation planning`,
+      );
+    }
+  }
   const agentIds = [...new Set(pipeline.steps.map((step) => step.agentId))];
   const agents = await db.agentRegistry.findMany({
     where: {

@@ -6,10 +6,6 @@ import {
   type Prisma,
   type PrismaClient,
 } from "@hermes/orchestration-database";
-import {
-  decryptSecretVariableValue,
-  isEncryptedSecretVariablePayload,
-} from "@hermes/domain-integration-crypto";
 import { randomUUID } from "node:crypto";
 import type { DueSchedule } from "./get-due-schedules";
 import { mergeExecutionConfig } from "./execution-config";
@@ -110,34 +106,6 @@ export const executeSchedule = async (
   const executionTime = new Date();
   const errors: Array<{ message: string; timestamp: string }> = [];
 
-  const variables = await db.variable.findMany();
-  const variableMap = new Map<string, string>();
-  for (const variable of variables) {
-    if (!variable.isSecret) {
-      variableMap.set(variable.key, variable.value);
-      continue;
-    }
-    if (!variableSecretMasterKey) {
-      throw new Error(
-        "Secret variable substitution requires variableSecretMasterKey",
-      );
-    }
-    if (!isEncryptedSecretVariablePayload(variable.value)) {
-      variableMap.set(variable.key, variable.value);
-      continue;
-    }
-    try {
-      const plaintext = decryptSecretVariableValue(
-        variable.value,
-        variableSecretMasterKey,
-      );
-      variableMap.set(variable.key, plaintext);
-    } catch {
-      throw new Error(
-        `Failed to decrypt secret variable "${variable.key}" for schedule execution`,
-      );
-    }
-  }
   const pipeline = schedule.pipeline;
   const steps = pipeline?.steps ?? [];
   const effectiveExecutionConfig = mergeExecutionConfig(
@@ -178,6 +146,7 @@ export const executeSchedule = async (
     },
     sourceId: schedule.id,
     expandStepInputs,
+    variableSecretMasterKey,
     requireHttpsAgentEndpoints,
   });
   errors.push(...planningResult.errors);
