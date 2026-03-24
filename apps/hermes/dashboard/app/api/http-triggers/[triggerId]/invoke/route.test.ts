@@ -1,6 +1,8 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { HTTP_TRIGGER_REQUEST_HEADER_REDACTED } from "@/lib/collect-http-trigger-request-snapshot";
+
 vi.mock("@/lib/hermes-job-queue", () => ({
   getHermesJobQueue: vi.fn(),
 }));
@@ -134,6 +136,21 @@ describe("http trigger invoke route", () => {
         payload: { httpTriggerExecutionId: "e1" },
       }),
     );
+    expect(prisma.httpTriggerExecution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({
+            requestSnapshotVersion: 1,
+            request: expect.objectContaining({
+              method: "POST",
+            }),
+            headers: expect.objectContaining({
+              authorization: HTTP_TRIGGER_REQUEST_HEADER_REDACTED,
+            }),
+          }),
+        }),
+      }),
+    );
   });
 
   it("supports configured GET method", async () => {
@@ -165,5 +182,17 @@ describe("http trigger invoke route", () => {
     // Assert
     expect(response.status).toBe(202);
     expect(addJob).toHaveBeenCalledTimes(1);
+    expect(prisma.httpTriggerExecution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({
+            requestSnapshotVersion: 1,
+            request: expect.objectContaining({
+              method: "GET",
+            }),
+          }),
+        }),
+      }),
+    );
   });
 });

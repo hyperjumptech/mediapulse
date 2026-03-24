@@ -164,6 +164,7 @@ export type HttpTriggerExecutionDetail = {
       succeededInvocationCount: true;
       failedInvocationCount: true;
       errors: true;
+      metadata: true;
       createdAt: true;
     };
   }>;
@@ -263,6 +264,7 @@ export const getHttpTriggerExecutionDetail = async (
       succeededInvocationCount: row.succeededInvocationCount,
       failedInvocationCount: row.failedInvocationCount,
       errors: row.errors,
+      metadata: row.metadata,
       createdAt: row.createdAt,
     },
     pipeline,

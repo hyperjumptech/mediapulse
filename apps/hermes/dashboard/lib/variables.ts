@@ -5,10 +5,11 @@ import {
   isEncryptedSecretVariablePayload,
 } from "@hermes/domain-integration-crypto";
 
+import { SECRET_MASK } from "./json-secret-mask";
+
 type Db = typeof prisma;
 
-/** Mask shown in UI for secret variable values (never expose real value). */
-export const SECRET_MASK = "••••••••";
+export { SECRET_MASK };
 
 export type VariableRow = {
   id: string;
