@@ -208,17 +208,33 @@ describe("ScheduleFormModal", () => {
   });
 
   it("calls router.refresh on success after submit", async () => {
-    // Setup: simulate success after a submit (pending was true, then success)
+    // Setup
     const mock = await getCreateUseFormActionMock();
-    mock.mockReturnValue(
+    mock.mockReturnValueOnce(
       createMockUseFormAction({
         state: { status: true },
         pending: true,
       }),
     );
+    mock.mockReturnValueOnce(
+      createMockUseFormAction({
+        state: { status: true },
+        pending: false,
+      }),
+    );
 
     // Act
-    render(
+    const { rerender } = render(
+      <ScheduleFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="create"
+        editScheduleId={null}
+        pipelines={createMockPipelines()}
+        pipelineValidationById={{}}
+      />,
+    );
+    rerender(
       <ScheduleFormModal
         open={true}
         onOpenChange={vi.fn()}
@@ -229,7 +245,7 @@ describe("ScheduleFormModal", () => {
       />,
     );
 
-    // Assert: success + pending triggers the success path (didHandleSuccess set false by pending, then success effect runs)
+    // Assert
     expect(routerRefreshMock).toHaveBeenCalled();
   });
 });

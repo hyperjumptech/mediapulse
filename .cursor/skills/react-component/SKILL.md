@@ -172,7 +172,7 @@ Before finalizing a component, verify:
 - [ ] `const` arrow function, no `React.FC`
 - [ ] Shadcn primitives + Tailwind classes
 - [ ] Server component unless interactivity is required
-- [ ] **No `useState` or `useEffect` in the component** — all state/effects in a custom hook
+- [ ] **No `useState` or `useEffect` in the component** — all state/effects in a custom hook. Make sure `useEffect` does not cause infinite re-renders!
 - [ ] All stateful logic in custom hooks (single responsibility per hook)
 - [ ] Computed state preferred over new `useState` (inside the hook)
 - [ ] Zod validation on server actions / API routes

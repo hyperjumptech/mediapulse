@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -14,6 +14,7 @@ import { Button } from "@workspace/ui/components/button";
 import { useFormAction } from "@/app/dashboard/agents/actions/create/.generated/use-form-action";
 
 import { AgentFormFields } from "./agent-form-fields";
+import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
 
 /**
  * Encapsulates create-agent form state, modal open state, and close-on-success behavior.
@@ -22,7 +23,6 @@ const useAddAgentModalState = () => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const { FormWithAction, state, pending } = useFormAction();
-  const didHandleSuccess = useRef(false);
 
   const errorMessage = useMemo(() => {
     if (state && state.status === false) {
@@ -31,23 +31,19 @@ const useAddAgentModalState = () => {
     return null;
   }, [state]);
 
-  const success = useMemo(() => {
-    return state && state.status === true && state.data?.id != null;
-  }, [state]);
-
-  useEffect(() => {
-    if (open) {
-      didHandleSuccess.current = false;
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (success && !didHandleSuccess.current) {
-      didHandleSuccess.current = true;
+  useCloseOnSuccessfulSubmit({
+    open: true,
+    pending,
+    state,
+    isSuccess: (nextState) =>
+      Boolean(
+        nextState && nextState.status === true && nextState.data?.id != null,
+      ),
+    onSuccess: () => {
       setOpen(false);
       router.refresh();
-    }
-  }, [success, router]);
+    },
+  });
 
   return { open, setOpen, FormWithAction, pending, errorMessage };
 };
