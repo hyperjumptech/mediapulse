@@ -26,7 +26,14 @@ mainApp.post("/api/verify", verifyJwt);
 /** POST /api/token — issue short-lived JWT (internal preset or domain integration API key). */
 mainApp.post("/api/token", issueToken);
 
-export default {
+/** Bun / `serve` entry shape; explicit typing so `import().default` is not inferred as the module namespace. */
+const agentAuthApiServer: {
+  port: number;
+  fetch: typeof mainApp.fetch;
+} = {
   port: env.PORT ?? 8080,
   fetch: mainApp.fetch,
 };
+
+export { agentAuthApiServer };
+export default agentAuthApiServer;

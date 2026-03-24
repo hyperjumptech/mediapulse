@@ -22,7 +22,8 @@ process.env.TEMP_ADMIN_PASSWORD ??= "test-password";
 
 describe("agent-auth-api", () => {
   it("exports a fetch handler", async () => {
-    const { default: app } = await import("./index.js");
-    expect(typeof app.fetch).toBe("function");
+    const mod = await import("./index.js");
+    expect(typeof mod.agentAuthApiServer.fetch).toBe("function");
+    expect(mod.default).toBe(mod.agentAuthApiServer);
   });
 });
