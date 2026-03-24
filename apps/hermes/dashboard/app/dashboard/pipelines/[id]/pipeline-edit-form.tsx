@@ -8,6 +8,7 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/update/.generated/use-form-action";
+import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 
 /**
  * Encapsulates pipeline edit form action state and refresh-on-success.
@@ -70,23 +71,13 @@ export const PipelineEditForm = ({
           disabled={pending}
         />
       </div>
-      <div className="flex items-center gap-2">
-        {/*
-          Hidden before checkbox: form parser keeps last duplicate key; unchecked
-          omits checkbox so only false is sent; checked sends false then true → true.
-        */}
-        <input type="hidden" name="body.isActive" value="false" readOnly />
-        <input
-          id="body.isActive"
-          name="body.isActive"
-          type="checkbox"
-          defaultChecked={initialIsActive}
-          value="true"
-          disabled={pending}
-          className="h-4 w-4 rounded border border-input"
-        />
-        <Label htmlFor="body.isActive">Active</Label>
-      </div>
+      <FormBooleanCheckboxField
+        name="body.isActive"
+        id="body.isActive"
+        defaultChecked={initialIsActive}
+        disabled={pending}
+        label="Active"
+      />
       {errorMessage ? (
         <p className="text-sm text-destructive" role="alert">
           {errorMessage}

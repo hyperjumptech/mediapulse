@@ -5,6 +5,8 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
+import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
+
 const ENDPOINT_TEXTAREA_CLASS = cn(
   "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
   "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
@@ -102,24 +104,14 @@ export const AgentFormFields = (props: AgentFormFieldsProps) => {
             : "Must be a valid JSON object. Invalid JSON will cause validation to fail."}
         </p>
       </div>
-      <div className="flex items-center gap-2">
-        <input type="hidden" name="body.isActive" value="false" />
-        <input
-          type="checkbox"
-          id="body.isActive"
-          name="body.isActive"
-          value="true"
-          defaultChecked={isEdit ? props.initialIsActive : true}
-          disabled={pending}
-          className="size-4 rounded border-input"
-        />
-        <Label
-          htmlFor="body.isActive"
-          className="cursor-pointer text-sm font-normal"
-        >
-          Active
-        </Label>
-      </div>
+      <FormBooleanCheckboxField
+        name="body.isActive"
+        id="body.isActive"
+        defaultChecked={isEdit ? props.initialIsActive : true}
+        disabled={pending}
+        label="Active"
+        labelClassName="cursor-pointer text-sm font-normal"
+      />
       {errorMessage ? (
         <p className="text-sm text-destructive" role="alert">
           {errorMessage}

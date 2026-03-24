@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { format } from "date-fns";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, GitBranch } from "lucide-react";
 
 import type { getScheduleById, ScheduleExecutionRow } from "@/lib/schedules";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
@@ -91,6 +91,15 @@ export const ScheduleDetailContent = ({
               >
                 {schedule.enabled ? "Enabled" : "Disabled"}
               </Badge>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-muted-foreground">
+              <Link
+                href={`/dashboard/pipelines/${schedule.pipeline.id}`}
+                className="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
+              >
+                <GitBranch className="size-4 shrink-0" aria-hidden />
+                {schedule.pipeline.name}
+              </Link>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Next run: </span>

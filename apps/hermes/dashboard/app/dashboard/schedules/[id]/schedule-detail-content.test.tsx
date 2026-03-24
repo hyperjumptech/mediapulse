@@ -76,14 +76,35 @@ vi.mock("date-fns", () => ({
   format: () => "FORMATTED_DATE",
 }));
 
+type ScheduleRow = ScheduleDetailContentProps["schedule"];
+type PipelineRow = ScheduleRow["pipeline"];
+
+const defaultMockPipeline: PipelineRow = {
+  id: "p1",
+  name: "Main",
+  description: null,
+  isActive: true,
+  executionConfig: null,
+  domainIntegrationId: "00000000-0000-4000-8000-000000000001",
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+};
+
+/**
+ * Builds a schedule row for tests; shallow-merges `pipeline` partials so overrides
+ * may supply only `{ id, name }`.
+ */
 const createMockSchedule = (
-  overrides?: Partial<ScheduleDetailContentProps["schedule"]>,
-): ScheduleDetailContentProps["schedule"] =>
-  ({
+  overrides?: Partial<Omit<ScheduleRow, "pipeline">> & {
+    pipeline?: Partial<PipelineRow>;
+  },
+): ScheduleRow => {
+  const { pipeline: pipelineOverrides, ...scheduleOverrides } = overrides ?? {};
+  return {
     id: "sched-1",
     name: "Daily Run",
     description: "Runs every day",
-    pipeline: { id: "p1", name: "Main" },
+    pipeline: { ...defaultMockPipeline, ...pipelineOverrides },
     repeat: "repeating",
     cronExpression: "0 6 * * *",
     interval: null,
@@ -92,14 +113,16 @@ const createMockSchedule = (
     nextRunAt: new Date(),
     pipelineId: "p1",
     retryConfig: null,
+    executionConfig: null,
     timeout: null,
     priority: 0,
     enabled: true,
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: null,
-    ...overrides,
-  }) as unknown as ScheduleDetailContentProps["schedule"];
+    ...scheduleOverrides,
+  };
+};
 
 const createMockExecution = () => ({
   id: "ex-1",
@@ -148,6 +171,22 @@ describe("ScheduleDetailContent", () => {
       screen.getByRole("heading", { name: "Daily Run" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Runs every day")).toBeInTheDocument();
+  });
+
+  it("renders link to the schedule pipeline", () => {
+    render(
+      <ScheduleDetailContent
+        schedule={createMockSchedule()}
+        executions={[]}
+        totalExecutions={0}
+        currentPage={1}
+        pageSize={15}
+        pipelines={[]}
+        pipelineValidationById={{}}
+      />,
+    );
+    const pipelineLink = screen.getByRole("link", { name: "Main" });
+    expect(pipelineLink).toHaveAttribute("href", "/dashboard/pipelines/p1");
   });
 
   it("shows Enabled when the schedule is enabled", () => {
