@@ -17,6 +17,7 @@ import { z } from "zod";
 import { getDashboardSession } from "@/lib/auth-dashboard";
 import { fetchAllTickersForPipelineRun } from "@/lib/domain-dashboard";
 import { validatePipeline } from "@/lib/validate-pipeline";
+import { buildRuntimeVariableMap } from "@/lib/variables";
 
 const bodyValidator = z.object({
   pipelineId: z.string().uuid(),
@@ -144,7 +145,10 @@ export const createRunPipelineHandler = ({
       fetchTickersForPipelineRun(),
       db.variable.findMany(),
     ]);
-    const variableMap = new Map(variables.map((v) => [v.key, v.value]));
+    const variableMap = buildRuntimeVariableMap(
+      variables,
+      env.HERMES_INTERNAL_API_KEY,
+    );
     const pipelineValidation = await validatePipeline(
       {
         id: pipeline.id,

@@ -25,6 +25,7 @@ type ExecuteHttpTriggerDeps = {
   ) => Promise<void>;
   expandStepInputs?: ExpandStepInputs;
   defaultTimeoutMs?: number;
+  variableSecretMasterKey?: string;
 };
 
 /**
@@ -39,6 +40,7 @@ export const executeHttpTrigger = async (
     enqueueAgentInvocations,
     expandStepInputs = async (context) => [context.input],
     defaultTimeoutMs = 300_000,
+    variableSecretMasterKey,
   } = deps;
   const execution = await db.httpTriggerExecution.findUnique({
     where: { id: httpTriggerExecutionId },
@@ -94,6 +96,7 @@ export const executeHttpTrigger = async (
     },
     sourceId: trigger.id,
     expandStepInputs,
+    variableSecretMasterKey,
     requireHttpsAgentEndpoints: false,
   });
   errors.push(...planningResult.errors);

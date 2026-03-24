@@ -1,10 +1,13 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildRuntimeVariableMap,
+  fromStoredSecretVariableValue,
   getVariableById,
   getVariablesPage,
   maskValueIfSecret,
   SECRET_MASK,
+  toStoredVariableValue,
 } from "./variables";
 
 const createMockDb = (overrides?: {
@@ -31,6 +34,51 @@ describe("maskValueIfSecret", () => {
 
   it("returns SECRET_MASK when isSecret is true", () => {
     expect(maskValueIfSecret("secret", true)).toBe(SECRET_MASK);
+  });
+});
+
+describe("secret variable transforms", () => {
+  it("encrypts stored value when isSecret is true", () => {
+    // Act
+    const stored = toStoredVariableValue("secret-value", true, "x".repeat(32));
+
+    // Assert
+    expect(stored).not.toBe("secret-value");
+  });
+
+  it("keeps plaintext when isSecret is false", () => {
+    // Act
+    const stored = toStoredVariableValue("plain-value", false, "x".repeat(32));
+
+    // Assert
+    expect(stored).toBe("plain-value");
+  });
+
+  it("returns plaintext as-is for legacy secret rows", () => {
+    // Act
+    const value = fromStoredSecretVariableValue("legacy-plain", "x".repeat(32));
+
+    // Assert
+    expect(value).toBe("legacy-plain");
+  });
+
+  it("builds runtime map with decrypted secret values", () => {
+    // Setup
+    const masterKey = "x".repeat(32);
+    const encrypted = toStoredVariableValue("resolved-secret", true, masterKey);
+
+    // Act
+    const map = buildRuntimeVariableMap(
+      [
+        { key: "PUBLIC", value: "visible", isSecret: false },
+        { key: "SECRET", value: encrypted, isSecret: true },
+      ],
+      masterKey,
+    );
+
+    // Assert
+    expect(map.get("PUBLIC")).toBe("visible");
+    expect(map.get("SECRET")).toBe("resolved-secret");
   });
 });
 

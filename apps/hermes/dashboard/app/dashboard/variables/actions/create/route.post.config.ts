@@ -1,4 +1,5 @@
 import { prisma } from "@hermes/orchestration-database";
+import { env } from "@hermes/env";
 import {
   createRequestValidator,
   errorResponse,
@@ -11,6 +12,7 @@ import {
   getDashboardSession,
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
+import { toStoredVariableValue } from "@/lib/variables";
 
 const bodyValidator = z.object({
   key: z.string().min(1, "Key is required"),
@@ -76,7 +78,11 @@ export const createCreateVariableHandler = ({
     const created = await db.variable.create({
       data: {
         key,
-        value,
+        value: toStoredVariableValue(
+          value,
+          isSecret,
+          env.HERMES_INTERNAL_API_KEY,
+        ),
         note: noteValue,
         isSecret,
       },

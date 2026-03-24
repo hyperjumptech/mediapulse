@@ -78,6 +78,7 @@ export type ExecuteScheduleDeps = {
   /** Domain integration hook that expands a single input into one-or-many invocation inputs. */
   expandStepInputs?: ExpandStepInputs;
   defaultTimeoutMs?: number;
+  variableSecretMasterKey?: string;
   /** When true, reject agent endpoint URLs that use http with a non-local host. */
   requireHttpsAgentEndpoints?: boolean;
 };
@@ -99,6 +100,7 @@ export const executeSchedule = async (
     enqueueAgentInvocations,
     expandStepInputs = async (context) => [context.input],
     defaultTimeoutMs = 300_000,
+    variableSecretMasterKey,
     requireHttpsAgentEndpoints = false,
   } = deps;
   const executionTime = new Date();
@@ -144,6 +146,7 @@ export const executeSchedule = async (
     },
     sourceId: schedule.id,
     expandStepInputs,
+    variableSecretMasterKey,
     requireHttpsAgentEndpoints,
   });
   errors.push(...planningResult.errors);

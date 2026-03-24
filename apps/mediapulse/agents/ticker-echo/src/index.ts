@@ -11,6 +11,7 @@ const InputSchema = z.object({
 // ConfigSchema is the schema for the config of the agent, which will be sent by Hermes to the agent when the agent is invoked
 const ConfigSchema = z.object({
   verbose: z.boolean().optional(),
+  secret: z.string().optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -24,7 +25,7 @@ const app = createAgentApp<
 >(
   {
     agentId: "ticker-echo", // this should be stable for the lifetime of the agent
-    agentVersion: "1.0.0", // this should be incremented when the agent is updated
+    agentVersion: "1.0.1", // this should be incremented when the agent is updated
     description: "Echoes ticker ID from input for testing pipelines.", // Optional description of the agent but recommended for admins to see in the agent registry
     inputSchema: InputSchema,
     configSchema: ConfigSchema,

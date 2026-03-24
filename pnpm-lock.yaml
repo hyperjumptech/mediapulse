@@ -934,6 +934,9 @@ importers:
 
   packages/hermes/scheduler:
     dependencies:
+      '@hermes/domain-integration-crypto':
+        specifier: workspace:*
+        version: link:../domain-integration-crypto
       '@hermes/orchestration-database':
         specifier: workspace:*
         version: link:../orchestration-database

@@ -1,4 +1,9 @@
 import { prisma } from "@hermes/orchestration-database";
+import {
+  decryptSecretVariableValue,
+  encryptSecretVariableValue,
+  isEncryptedSecretVariablePayload,
+} from "@hermes/domain-integration-crypto";
 
 type Db = typeof prisma;
 
@@ -69,6 +74,68 @@ const variableOrderBy = (
  */
 export const maskValueIfSecret = (value: string, isSecret: boolean): string =>
   isSecret ? SECRET_MASK : value;
+
+/**
+ * Encrypts a variable value when the target row should remain secret.
+ *
+ * @param value - Raw user-provided value.
+ * @param isSecret - Whether the variable should be stored as secret.
+ * @param masterKey - Hermes master key for encryption.
+ * @returns Persisted value (encrypted for secret rows).
+ */
+export const toStoredVariableValue = (
+  value: string,
+  isSecret: boolean,
+  masterKey: string,
+): string => {
+  if (!isSecret) {
+    return value;
+  }
+  return encryptSecretVariableValue(value, masterKey);
+};
+
+/**
+ * Resolves a stored secret variable value into plaintext.
+ * Supports temporary plaintext fallback for pre-backfill secret rows.
+ *
+ * @param value - Raw DB value.
+ * @param masterKey - Hermes master key for decryption.
+ * @returns Plaintext variable value.
+ */
+export const fromStoredSecretVariableValue = (
+  value: string,
+  masterKey: string,
+): string => {
+  if (!isEncryptedSecretVariablePayload(value)) {
+    return value;
+  }
+  return decryptSecretVariableValue(value, masterKey);
+};
+
+/**
+ * Builds substitution map for runtime execution.
+ * Secret rows are decrypted and non-secret rows remain plaintext.
+ *
+ * @param rows - Variable rows loaded from Prisma.
+ * @param masterKey - Hermes master key for decryption.
+ * @returns Key/value map with plaintext values ready for substitution.
+ */
+export const buildRuntimeVariableMap = (
+  rows: Array<{ key: string; value: string; isSecret: boolean }>,
+  masterKey: string,
+): Map<string, string> => {
+  return new Map(
+    rows.map((row) => {
+      if (!row.isSecret) {
+        return [row.key, row.value] as const;
+      }
+      return [
+        row.key,
+        fromStoredSecretVariableValue(row.value, masterKey),
+      ] as const;
+    }),
+  );
+};
 
 /**
  * Fetches a paginated list of variables with optional sort and search.

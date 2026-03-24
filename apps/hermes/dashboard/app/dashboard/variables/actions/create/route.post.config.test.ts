@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { isEncryptedSecretVariablePayload } from "@hermes/domain-integration-crypto";
 import { createCreateVariableHandler } from "./route.post.config";
 
 const baseData = {
@@ -87,6 +88,41 @@ describe("createCreateVariableHandler", () => {
         isSecret: false,
       },
     });
+  });
+
+  it("encrypts secret values before persisting", async () => {
+    // Setup
+    const createMock = vi.fn().mockResolvedValue({
+      id: "00000000-0000-4000-8000-000000000003",
+    });
+    const db = {
+      variable: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: createMock,
+      },
+    };
+    const handler = createCreateVariableHandler({
+      getSession: async () => ({
+        id: "user-1",
+        name: "Admin",
+        email: "admin@example.com",
+      }),
+      db: db as never,
+    });
+
+    // Act
+    const result = await handler({
+      ...baseData,
+      body: { key: "SECRET_VAR", value: "s3cr3t", note: "", isSecret: true },
+    } as never);
+
+    // Assert
+    expect(result.status).toBe(true);
+    const createArg = createMock.mock.calls[0]?.[0] as {
+      data: { value: string };
+    };
+    expect(createArg.data.value).not.toBe("s3cr3t");
+    expect(isEncryptedSecretVariablePayload(createArg.data.value)).toBe(true);
   });
 
   it("creates variable with null note when note is empty string", async () => {

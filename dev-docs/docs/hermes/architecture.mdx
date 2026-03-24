@@ -149,8 +149,15 @@ When a step references **data-source** syntax or the UI needs **table-v1** data,
 
 - **Dashboard** — Session-based login for orchestration `User` rows with **`ADMIN`** role and active flag.
 - **Token minting** — **`HERMES_INTERNAL_API_KEY`** (shared with agent-auth-api) or a **decrypted domain integration** API key is used **only** on **`POST /api/token`** from Hermes / worker — never sent to agents.
+- **Secret variables at rest** — `Variable.isSecret=true` values are encrypted in the orchestration DB using key material derived from `HERMES_INTERNAL_API_KEY` (AES-256-GCM + HKDF context separation). Runtime substitution decrypts just-in-time inside Hermes.
 - **Agent invocation** — Agents receive **Bearer JWT** only; they verify via **`POST /api/verify`**.
 - **Integration secrets** — Stored encrypted in the orchestration DB; decrypted only for outbound Hermes → auth-api and domain calls as designed.
+
+## Secret variable rotation and backfill
+
+- Existing plaintext legacy rows with `is_secret=true` must be re-encrypted once with `pnpm --filter @hermes/orchestration-database backfill:secret-variables --master-key "<HERMES_INTERNAL_API_KEY>"`.
+- The backfill is idempotent: already encrypted rows are skipped after decryptability verification.
+- If `HERMES_INTERNAL_API_KEY` rotates, run a controlled decrypt/re-encrypt maintenance window; old ciphertext cannot be decrypted after rotation without re-encryption.
 
 Full sequence diagrams and tables: [Communication between parts](/integration/communication).
 

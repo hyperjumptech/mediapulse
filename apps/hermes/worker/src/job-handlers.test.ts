@@ -165,6 +165,7 @@ describe("jobHandlers", () => {
         enqueueAgentInvocations: expect.any(Function),
         expandStepInputs: expect.any(Function),
         defaultTimeoutMs: 300_000,
+        variableSecretMasterKey: "test-internal-hermes-key",
         requireHttpsAgentEndpoints: false,
       });
       const firstCall = vi.mocked(executeSchedule).mock.calls[0];
