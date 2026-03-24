@@ -1,7 +1,11 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ScheduleFormFields } from "./schedule-form-fields";
+import {
+  ScheduleFormFields,
+  formatTimezoneSelectLabel,
+  getTimezoneUtcOffsetLabel,
+} from "./schedule-form-fields";
 
 vi.mock("@workspace/ui/components/button", () => ({
   Button: ({
@@ -33,6 +37,63 @@ vi.mock("@workspace/ui/components/label", () => ({
 vi.mock("@workspace/ui/lib/utils", () => ({
   cn: (...classes: string[]) => classes.filter(Boolean).join(" "),
 }));
+
+describe("getTimezoneUtcOffsetLabel", () => {
+  const winterUtc = new Date("2024-01-15T12:00:00.000Z");
+  const summerUtc = new Date("2024-07-15T12:00:00.000Z");
+
+  it("returns GMT for UTC", () => {
+    // Act
+    const label = getTimezoneUtcOffsetLabel("UTC", winterUtc);
+
+    // Assert
+    expect(label).toBe("GMT");
+  });
+
+  it("returns standard-time offset for America/New_York in January", () => {
+    // Act
+    const label = getTimezoneUtcOffsetLabel("America/New_York", winterUtc);
+
+    // Assert
+    expect(label).toBe("GMT-05:00");
+  });
+
+  it("returns daylight offset for America/New_York in July", () => {
+    // Act
+    const label = getTimezoneUtcOffsetLabel("America/New_York", summerUtc);
+
+    // Assert
+    expect(label).toBe("GMT-04:00");
+  });
+
+  it("returns empty string for an invalid IANA zone", () => {
+    // Act
+    const label = getTimezoneUtcOffsetLabel("Not/AZone", winterUtc);
+
+    // Assert
+    expect(label).toBe("");
+  });
+});
+
+describe("formatTimezoneSelectLabel", () => {
+  const winterUtc = new Date("2024-01-15T12:00:00.000Z");
+
+  it("includes IANA id and offset when offset resolves", () => {
+    // Act
+    const label = formatTimezoneSelectLabel("Asia/Tokyo", winterUtc);
+
+    // Assert
+    expect(label).toBe("Asia/Tokyo (GMT+09:00)");
+  });
+
+  it("falls back to IANA id only when offset is unavailable", () => {
+    // Act
+    const label = formatTimezoneSelectLabel("Not/AZone", winterUtc);
+
+    // Assert
+    expect(label).toBe("Not/AZone");
+  });
+});
 
 const createMockPipelines = () => [
   {
@@ -150,7 +211,9 @@ describe("ScheduleFormFields", () => {
 
     // Assert
     expect(screen.getByLabelText("Timezone")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "UTC" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "UTC (GMT)" }),
+    ).toBeInTheDocument();
   });
 
   it("renders Pipeline select with options", () => {

@@ -42,6 +42,46 @@ export const TIMEZONE_OPTIONS = [
   "Pacific/Auckland",
 ] as const;
 
+/**
+ * Returns the UTC offset label for an IANA zone at `referenceDate` (e.g. `GMT-05:00`, `GMT+9`).
+ *
+ * @param ianaTimeZone - IANA time zone identifier.
+ * @param referenceDate - Instant used for DST-aware offset (defaults to now).
+ * @returns Offset string from `Intl` (e.g. `GMT-05:00`, `GMT+09:00`), or empty string if the zone is invalid.
+ */
+export const getTimezoneUtcOffsetLabel = (
+  ianaTimeZone: string,
+  referenceDate: Date = new Date(),
+): string => {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: ianaTimeZone,
+      timeZoneName: "longOffset",
+    });
+    const part = formatter
+      .formatToParts(referenceDate)
+      .find((p) => p.type === "timeZoneName");
+    return part?.value ?? "";
+  } catch {
+    return "";
+  }
+};
+
+/**
+ * Label for a timezone `<option>`: IANA id plus UTC offset at `referenceDate`.
+ *
+ * @param ianaTimeZone - IANA time zone identifier.
+ * @param referenceDate - Instant used for DST-aware offset (defaults to now).
+ * @returns Display string such as `America/New_York (GMT-05:00)`.
+ */
+export const formatTimezoneSelectLabel = (
+  ianaTimeZone: string,
+  referenceDate: Date = new Date(),
+): string => {
+  const offset = getTimezoneUtcOffsetLabel(ianaTimeZone, referenceDate);
+  return offset ? `${ianaTimeZone} (${offset})` : ianaTimeZone;
+};
+
 export type PipelineOption = Awaited<
   ReturnType<typeof getPipelinesWithSteps>
 >[number];
@@ -362,7 +402,7 @@ export const ScheduleFormFields = ({
         >
           {TIMEZONE_OPTIONS.map((tz) => (
             <option key={tz} value={tz}>
-              {tz}
+              {formatTimezoneSelectLabel(tz)}
             </option>
           ))}
         </select>
