@@ -143,6 +143,7 @@ describe("createRunPipelineHandler", () => {
     });
     const handler = createRunPipelineHandler({
       getToken: async () => "jwt",
+      expandStepInputs: async (ctx) => [ctx.input],
       post: postMock as never,
       db: {
         ...createExecutionPersistenceStubs(),
@@ -201,6 +202,7 @@ describe("createRunPipelineHandler", () => {
     });
     const handler = createRunPipelineHandler({
       getToken: async () => "jwt",
+      expandStepInputs: async (ctx) => [ctx.input],
       post: postMock as never,
       db: {
         ...createExecutionPersistenceStubs(),

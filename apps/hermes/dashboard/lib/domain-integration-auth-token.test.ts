@@ -87,4 +87,24 @@ describe("getBearerJwtForDomainIntegrationId", () => {
       credential: "decrypted-api-key",
     });
   });
+
+  it("uses injected db when provided", async () => {
+    envState.AGENT_AUTH_API_URL = "http://auth";
+    const customFindFirst = vi.fn().mockResolvedValue({
+      encryptedApiKey: '{"v":1}',
+    });
+    mockGetToken.mockResolvedValue("jwt-from-custom-db");
+
+    const { getBearerJwtForDomainIntegrationId } =
+      await import("./domain-integration-auth-token");
+
+    await expect(
+      getBearerJwtForDomainIntegrationId("int-1", {
+        db: { domainIntegration: { findFirst: customFindFirst } },
+      }),
+    ).resolves.toBe("jwt-from-custom-db");
+
+    expect(customFindFirst).toHaveBeenCalled();
+    expect(mockFindFirst).not.toHaveBeenCalled();
+  });
 });
