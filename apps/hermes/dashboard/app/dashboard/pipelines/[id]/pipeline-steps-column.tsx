@@ -140,7 +140,7 @@ export const PipelineStepsColumn = ({
           return (
             <li
               key={step.id}
-              className={`flex flex-wrap items-center gap-2 rounded-md border p-2 ${
+              className={`flex items-start gap-2 rounded-md border p-2 ${
                 isSelected ? "ring-2 ring-primary" : ""
               }`}
             >
@@ -150,16 +150,18 @@ export const PipelineStepsColumn = ({
               <button
                 type="button"
                 onClick={() => onSelectStep(isSelected ? null : step.id)}
-                className="flex-1 min-w-0 text-left text-sm font-medium hover:underline"
+                className="min-w-0 flex-1 text-left hover:underline"
               >
-                {step.agentId}@{step.agentVersion}
+                <span className="block truncate text-sm font-medium">
+                  {step.agentId}@{step.agentVersion}
+                </span>
                 {description ? (
-                  <span className="ml-1 text-muted-foreground font-normal truncate">
+                  <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">
                     — {description}
                   </span>
                 ) : null}
               </button>
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 {canMoveUp ? (
                   <ReorderForm className="inline">
                     <input
