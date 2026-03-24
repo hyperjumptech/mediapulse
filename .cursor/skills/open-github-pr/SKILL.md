@@ -17,7 +17,7 @@ Create pull requests for this repo with `gh pr create`, and use the `/pr-title-d
 
 1. Resolve repository slug, host, and account context first:
    - Parse `origin` remote to get `host`, `owner`, and `repo`.
-   - If the remote uses an SSH alias host (example: `github.com-swift`), map it to the real API host (`github.com`) before calling `gh`.
+   - If the remote uses an SSH alias host (example: `github.com-somealias`), map it to the real API host (`github.com`) before calling `gh`.
    - Determine target account from owner mapping (for example from shell mapping like `GH_OWNER_ACCOUNT`), then switch explicitly:
      - `gh auth switch -h <host> -u <account>`
    - Verify access before continuing:
