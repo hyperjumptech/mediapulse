@@ -143,7 +143,9 @@ export const createRunPipelineHandler = ({
     const [pipelineSteps, tickers, variables] = await Promise.all([
       db.pipelineStep.findMany(pipelineStepFindArgs),
       fetchTickersForPipelineRun(),
-      db.variable.findMany(),
+      db.variable.findMany({
+        include: { encryptedPayload: true },
+      }),
     ]);
     const variableMap = buildRuntimeVariableMap(
       variables,

@@ -20,7 +20,7 @@ const mockPrisma = vi.hoisted(() => ({
   domainIntegration: {
     findFirst: vi.fn().mockResolvedValue({
       baseUrl: "https://mediapulse-domain.example",
-      encryptedApiKey: "{}",
+      encryptedPayload: { ciphertext: "{}" },
     }),
   },
 }));

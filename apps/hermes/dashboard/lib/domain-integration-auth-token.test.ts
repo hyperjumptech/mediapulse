@@ -71,7 +71,7 @@ describe("getBearerJwtForDomainIntegrationId", () => {
   it("mints a token using decrypted integration API key", async () => {
     envState.AGENT_AUTH_API_URL = "http://auth";
     mockFindFirst.mockResolvedValue({
-      encryptedApiKey: '{"v":1}',
+      encryptedPayload: { ciphertext: '{"v":1}' },
     });
     mockGetToken.mockResolvedValue("jwt-from-domain");
 

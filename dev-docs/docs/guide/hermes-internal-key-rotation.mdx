@@ -15,6 +15,10 @@ Related references: [Production](/guide/production), [Architecture](/hermes/arch
 
 ---
 
+## Local development
+
+After pulling a change that adds or alters orchestration schema (for example the `encrypted_payload` table), apply migrations or reset the local DB (`docker compose up -d postgres`, then `pnpm --filter @hermes/orchestration-database db:migrate:dev` or `db:migrate:reset`) so your database matches `schema.prisma`.
+
 ## Preconditions
 
 1. **Deploy** the release that includes `HERMES_INTERNAL_API_KEY_PREVIOUS`, fallback decrypt for domain integration ciphertext and secret variables, and dual Bearer acceptance on **`POST /api/token`** to the target environment (staging first, then production).
@@ -33,7 +37,7 @@ Related references: [Production](/guide/production), [Architecture](/hermes/arch
    ```
 
 2. **Smoke test**: run one **manual pipeline** from the Hermes dashboard and one **scheduled / worker** path you trust in that environment.
-3. Optionally note row counts: domain integrations with encrypted API keys, secret variables (`is_secret`), to compare against script output later.
+3. Optionally note row counts: rows in `encrypted_payload` (domain integration API keys and secret variables), to compare against script output later.
 
 ---
 
@@ -86,7 +90,7 @@ From the **repository root**, with **`ORCHESTRATION_DATABASE_URL`** (and any oth
      --dry-run
    ```
 
-2. Inspect the printed JSON: **`domainIntegration`** and **`secretVariables`** counters; ensure you do not see unexpected **`failed`** growth.
+2. Inspect the printed JSON: **`encryptedPayload`** counters; ensure you do not see unexpected **`failed`** growth.
 3. **Execute** (writes):
 
    ```bash

@@ -95,7 +95,7 @@ DOM --> PDB
 A single **orchestration** Prisma database holds everything Hermes needs to **coordinate** work:
 
 - **Identity & access** — `User` (dashboard admins), `APIKey` (including keys linked to **domain integrations**).
-- **Domain integration** — `DomainIntegration` stores `key`, `baseUrl`, `capabilities`, optional **dashboard manifest**, encrypted integration secret, and relations to **pipelines** and **agent registry** rows.
+- **Domain integration** — `DomainIntegration` stores `key`, `baseUrl`, `capabilities`, optional **dashboard manifest**, and relations to **pipelines** and **agent registry** rows; the integration API key ciphertext lives in **`EncryptedPayload`** (one row per integration).
 - **Pipelines** — `Pipeline` (scoped to a domain integration), `PipelineStep` (ordered steps with `agentId` / `agentVersion`, input/config JSON, optional `AgentConfig` link).
 - **Registry** — `AgentRegistry` rows per integration (agent id/version, endpoint JSON, schemas).
 - **Saved configs** — `AgentConfig` for reusable validated config per agent version.
@@ -149,14 +149,14 @@ When a step references **data-source** syntax or the UI needs **table-v1** data,
 
 - **Dashboard** — Session-based login for orchestration `User` rows with **`ADMIN`** role and active flag.
 - **Token minting** — **`HERMES_INTERNAL_API_KEY`** (shared with agent-auth-api) or a **decrypted domain integration** API key is used **only** on **`POST /api/token`** from Hermes / worker — never sent to agents.
-- **Secret variables at rest** — `Variable.isSecret=true` values are encrypted in the orchestration DB using key material derived from `HERMES_INTERNAL_API_KEY` (AES-256-GCM + HKDF context separation). Runtime substitution decrypts just-in-time inside Hermes.
+- **Secret variables at rest** — `Variable.isSecret=true` stores ciphertext on **`EncryptedPayload`** (linked from the variable row); `variable.value` is empty for secrets. Wrapping uses key material derived from `HERMES_INTERNAL_API_KEY` (AES-256-GCM + HKDF context separation). Runtime substitution decrypts just-in-time inside Hermes.
 - **Agent invocation** — Agents receive **Bearer JWT** only; they verify via **`POST /api/verify`**.
-- **Integration secrets** — Stored encrypted in the orchestration DB; decrypted only for outbound Hermes → auth-api and domain calls as designed.
+- **Integration secrets** — Stored as ciphertext on **`EncryptedPayload`**; decrypted only for outbound Hermes → auth-api and domain calls as designed.
 
 ## Secret variable rotation and backfill
 
-- Existing plaintext legacy rows with `is_secret=true` must be re-encrypted once with `pnpm --filter @hermes/orchestration-database backfill:secret-variables --master-key "<HERMES_INTERNAL_API_KEY>"`.
-- The backfill is idempotent: already encrypted rows are skipped after decryptability verification.
+- **`rotate:internal-key-ciphertexts`** rewraps every row in **`encrypted_payload`** (domain integration API keys and secret variables) in one pass.
+- Optional dev backfill: `pnpm --filter @hermes/orchestration-database backfill:secret-variables --master-key "<HERMES_INTERNAL_API_KEY>"` moves legacy plaintext or ciphertext-in-`value` secret rows onto **`encrypted_payload`**; idempotent when payloads already decrypt.
 - For near-zero-downtime key rotation, use a dual-key grace period:
   1. deploy code that can decrypt with `HERMES_INTERNAL_API_KEY` and optional `HERMES_INTERNAL_API_KEY_PREVIOUS`,
   2. set canonical key to NEW and previous key to OLD across Hermes services,

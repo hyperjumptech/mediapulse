@@ -37,7 +37,7 @@ export function deriveDomainIntegrationEncryptionKey(
 }
 
 /**
- * Encrypts a domain integration API key plaintext for storage on `DomainIntegration.encryptedApiKey`.
+ * Encrypts a domain integration API key plaintext for storage on `EncryptedPayload.ciphertext` (linked from `DomainIntegration`).
  *
  * @param plaintext - Raw API key string shown once to the operator.
  * @param masterKey - `HERMES_INTERNAL_API_KEY` used to derive the wrapping key.
@@ -67,7 +67,7 @@ export function encryptDomainIntegrationApiKey(
 /**
  * Decrypts a value produced by {@link encryptDomainIntegrationApiKey}.
  *
- * @param encryptedJson - Stored JSON from `DomainIntegration.encryptedApiKey`.
+ * @param encryptedJson - Stored JSON from `EncryptedPayload.ciphertext` for a domain integration.
  * @param masterKey - Same master key used for encryption.
  * @returns Original API key plaintext.
  */
@@ -94,7 +94,7 @@ export function decryptDomainIntegrationApiKey(
 /**
  * Decrypts a domain integration API key using primary key first, then optional fallback key.
  *
- * @param encryptedJson - Stored JSON from `DomainIntegration.encryptedApiKey`.
+ * @param encryptedJson - Stored JSON from `EncryptedPayload.ciphertext` for a domain integration.
  * @param primaryMasterKey - Current canonical `HERMES_INTERNAL_API_KEY`.
  * @param fallbackMasterKey - Optional previous key used only during rotation.
  * @returns Original API key plaintext.

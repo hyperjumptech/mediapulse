@@ -334,9 +334,13 @@ export const createPendingDomainIntegration = async (
         baseUrl: null,
         status: DomainIntegrationStatus.pending,
         isActive: false,
-        encryptedApiKey: encrypted,
         apiKeyId: apiKey.id,
         ...(input.key === "mediapulse" ? { isDefault: true } : {}),
+        encryptedPayload: {
+          create: {
+            ciphertext: encrypted,
+          },
+        },
       },
     });
 

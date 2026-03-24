@@ -28,17 +28,18 @@ export async function getBearerJwtForDomainIntegrationId(
     where: {
       id: domainIntegrationId,
       status: DomainIntegrationStatus.active,
-      encryptedApiKey: { not: null },
+      NOT: { encryptedPayload: null },
     },
-    select: { encryptedApiKey: true },
+    select: { encryptedPayload: { select: { ciphertext: true } } },
   });
 
-  if (!row?.encryptedApiKey) {
+  const ciphertext = row?.encryptedPayload?.ciphertext;
+  if (!ciphertext) {
     return undefined;
   }
 
   const plaintext = decryptDomainIntegrationApiKeyWithFallback(
-    row.encryptedApiKey,
+    ciphertext,
     env.HERMES_INTERNAL_API_KEY,
     env.HERMES_INTERNAL_API_KEY_PREVIOUS,
   );

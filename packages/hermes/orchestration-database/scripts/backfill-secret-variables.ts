@@ -12,8 +12,9 @@ type BackfillResult = {
 };
 
 /**
- * Encrypts legacy plaintext values for `variable.is_secret=true`.
- * The operation is idempotent and safe to re-run.
+ * Ensures `variable.is_secret=true` rows store ciphertext on `encrypted_payload` (empty `value`).
+ * Idempotent: rows that already have a decryptable `encryptedPayload` are skipped.
+ * Migrates legacy ciphertext still in `variable.value` into `encrypted_payload`.
  *
  * @param masterKey - Hermes master key (`HERMES_INTERNAL_API_KEY`) used for wrapping.
  * @returns Counters for scanned and updated rows.
@@ -23,15 +24,18 @@ export const backfillSecretVariables = async (
 ): Promise<BackfillResult> => {
   const rows = await prisma.variable.findMany({
     where: { isSecret: true },
-    select: { id: true, key: true, value: true },
+    include: { encryptedPayload: true },
   });
   let encrypted = 0;
   let skippedAlreadyEncrypted = 0;
 
   for (const row of rows) {
-    if (isEncryptedSecretVariablePayload(row.value)) {
+    if (row.encryptedPayload?.ciphertext) {
       try {
-        void decryptSecretVariableValue(row.value, masterKey);
+        void decryptSecretVariableValue(
+          row.encryptedPayload.ciphertext,
+          masterKey,
+        );
         skippedAlreadyEncrypted += 1;
         continue;
       } catch {
@@ -41,10 +45,29 @@ export const backfillSecretVariables = async (
       }
     }
 
+    if (isEncryptedSecretVariablePayload(row.value)) {
+      await prisma.variable.update({
+        where: { id: row.id },
+        data: {
+          value: "",
+          encryptedPayload: {
+            create: { ciphertext: row.value },
+          },
+        },
+      });
+      encrypted += 1;
+      continue;
+    }
+
     const ciphertext = encryptSecretVariableValue(row.value, masterKey);
     await prisma.variable.update({
       where: { id: row.id },
-      data: { value: ciphertext },
+      data: {
+        value: "",
+        encryptedPayload: {
+          create: { ciphertext },
+        },
+      },
     });
     encrypted += 1;
   }

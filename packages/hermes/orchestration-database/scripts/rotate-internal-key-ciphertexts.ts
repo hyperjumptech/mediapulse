@@ -22,20 +22,20 @@ type RotateBatchCounters = {
 };
 
 type RotateInternalKeyCiphertextsResult = {
-  domainIntegration: RotateBatchCounters;
-  secretVariables: RotateBatchCounters;
+  encryptedPayload: RotateBatchCounters;
 };
 
 const DEFAULT_BATCH_SIZE = 200;
 
 /**
  * Rotates ciphertext rows that are wrapped by `HERMES_INTERNAL_API_KEY`.
+ * Scans `encrypted_payload` (domain integration API keys and secret variables).
  *
  * The script is idempotent: rows already encrypted with `newMasterKey` are still read and
- * rewritten to equivalent ciphertext for consistency, and plaintext secret variables are skipped.
+ * rewritten to equivalent ciphertext for consistency. Plaintext secret variable values are skipped.
  *
  * @param options - Rotation options including old/new keys, dry-run toggle, and batch size.
- * @returns Counters for domain integration and secret variable updates.
+ * @returns Counters for `encrypted_payload` updates.
  */
 export const rotateInternalKeyCiphertexts = async (
   options: RotateInternalKeyCiphertextsOptions,
@@ -52,29 +52,23 @@ export const rotateInternalKeyCiphertexts = async (
       ? Math.floor(options.batchSize)
       : DEFAULT_BATCH_SIZE;
 
-  const domainIntegration = await rotateDomainIntegrationCiphertexts({
-    oldMasterKey,
-    newMasterKey,
-    dryRun,
-    batchSize,
-  });
-  const secretVariables = await rotateSecretVariableCiphertexts({
+  const encryptedPayload = await rotateEncryptedPayloadRows({
     oldMasterKey,
     newMasterKey,
     dryRun,
     batchSize,
   });
 
-  return { domainIntegration, secretVariables };
+  return { encryptedPayload };
 };
 
 /**
- * Rotates encrypted API keys stored on `domain_integration.encrypted_api_key`.
+ * Rewraps each `encrypted_payload` row using the correct envelope (domain API key vs secret variable).
  *
  * @param params - Rotation params for key material and execution mode.
  * @returns Batch counters for scanned/updated/failed rows.
  */
-const rotateDomainIntegrationCiphertexts = async (params: {
+const rotateEncryptedPayloadRows = async (params: {
   oldMasterKey: string;
   newMasterKey: string;
   dryRun: boolean;
@@ -90,115 +84,90 @@ const rotateDomainIntegrationCiphertexts = async (params: {
 
   while (true) {
     const findArgs = {
-      where: { encryptedApiKey: { not: null } },
       orderBy: { id: "asc" },
       take: params.batchSize,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      select: { id: true, key: true, encryptedApiKey: true },
-    } satisfies Prisma.DomainIntegrationFindManyArgs;
+      select: {
+        id: true,
+        ciphertext: true,
+        domainIntegrationId: true,
+        variableId: true,
+        domainIntegration: { select: { key: true } },
+        variable: { select: { key: true } },
+      },
+    } satisfies Prisma.EncryptedPayloadFindManyArgs;
 
-    const rows = await prisma.domainIntegration.findMany(findArgs);
+    const rows = await prisma.encryptedPayload.findMany(findArgs);
     if (rows.length === 0) {
       break;
     }
 
     for (const row of rows) {
       counters.scanned += 1;
-      const ciphertext = row.encryptedApiKey;
-      if (!ciphertext) {
+      const ciphertext = row.ciphertext;
+
+      if (row.domainIntegrationId != null) {
+        try {
+          const plaintext = decryptDomainIntegrationApiKeyWithFallback(
+            ciphertext,
+            params.newMasterKey,
+            params.oldMasterKey,
+          );
+          const rewrapped = encryptDomainIntegrationApiKey(
+            plaintext,
+            params.newMasterKey,
+          );
+          if (!params.dryRun) {
+            await prisma.encryptedPayload.update({
+              where: { id: row.id },
+              data: { ciphertext: rewrapped },
+            });
+          }
+          counters.updated += 1;
+        } catch {
+          counters.failed += 1;
+          throw new Error(
+            `Failed to rotate domain integration "${row.domainIntegration?.key ?? row.domainIntegrationId}" (${row.domainIntegrationId})`,
+          );
+        }
         continue;
       }
-      try {
-        const plaintext = decryptDomainIntegrationApiKeyWithFallback(
-          ciphertext,
-          params.newMasterKey,
-          params.oldMasterKey,
-        );
-        const rewrapped = encryptDomainIntegrationApiKey(
-          plaintext,
-          params.newMasterKey,
-        );
-        if (!params.dryRun) {
-          await prisma.domainIntegration.update({
-            where: { id: row.id },
-            data: { encryptedApiKey: rewrapped },
-          });
+
+      if (row.variableId != null) {
+        if (!isEncryptedSecretVariablePayload(ciphertext)) {
+          counters.skippedPlaintext += 1;
+          continue;
         }
-        counters.updated += 1;
-      } catch {
-        counters.failed += 1;
-        throw new Error(
-          `Failed to rotate domain integration "${row.key}" (${row.id})`,
-        );
-      }
-    }
-
-    cursor = rows[rows.length - 1]?.id ?? null;
-  }
-
-  return counters;
-};
-
-/**
- * Rotates encrypted secret variable values stored on `variable.value` where `is_secret=true`.
- *
- * @param params - Rotation params for key material and execution mode.
- * @returns Batch counters for scanned/updated/skipped/failed rows.
- */
-const rotateSecretVariableCiphertexts = async (params: {
-  oldMasterKey: string;
-  newMasterKey: string;
-  dryRun: boolean;
-  batchSize: number;
-}): Promise<RotateBatchCounters> => {
-  const counters: RotateBatchCounters = {
-    scanned: 0,
-    updated: 0,
-    skippedPlaintext: 0,
-    failed: 0,
-  };
-  let cursor: string | null = null;
-
-  while (true) {
-    const findArgs = {
-      where: { isSecret: true },
-      orderBy: { id: "asc" },
-      take: params.batchSize,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      select: { id: true, key: true, value: true },
-    } satisfies Prisma.VariableFindManyArgs;
-    const rows = await prisma.variable.findMany(findArgs);
-    if (rows.length === 0) {
-      break;
-    }
-
-    for (const row of rows) {
-      counters.scanned += 1;
-      if (!isEncryptedSecretVariablePayload(row.value)) {
-        counters.skippedPlaintext += 1;
+        try {
+          const plaintext = decryptSecretVariableValueWithFallback(
+            ciphertext,
+            params.newMasterKey,
+            params.oldMasterKey,
+          );
+          const rewrapped = encryptSecretVariableValue(
+            plaintext,
+            params.newMasterKey,
+          );
+          if (!params.dryRun) {
+            await prisma.encryptedPayload.update({
+              where: { id: row.id },
+              data: { ciphertext: rewrapped },
+            });
+          }
+          counters.updated += 1;
+        } catch {
+          counters.failed += 1;
+          throw new Error(
+            `Failed to rotate secret variable "${row.variable?.key ?? row.variableId}" (${row.variableId})`,
+          );
+        }
         continue;
       }
-      try {
-        const plaintext = decryptSecretVariableValueWithFallback(
-          row.value,
-          params.newMasterKey,
-          params.oldMasterKey,
-        );
-        const rewrapped = encryptSecretVariableValue(
-          plaintext,
-          params.newMasterKey,
-        );
-        if (!params.dryRun) {
-          await prisma.variable.update({
-            where: { id: row.id },
-            data: { value: rewrapped },
-          });
-        }
-        counters.updated += 1;
-      } catch {
-        counters.failed += 1;
-        throw new Error(`Failed to rotate secret variable "${row.key}"`);
-      }
+
+      counters.failed += 1;
+      throw new Error(
+        `Encrypted payload ${row.id} has neither domain_integration_id nor variable_id`,
+      );
     }
 
     cursor = rows[rows.length - 1]?.id ?? null;

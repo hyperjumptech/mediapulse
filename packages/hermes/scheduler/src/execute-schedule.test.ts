@@ -316,11 +316,14 @@ describe("executeSchedule", () => {
     const encryptedLikePayload =
       '{"v":1,"iv":"aXY","ciphertext":"Y2lwaGVydGV4dA","tag":"dGFn"}';
     const db = createMockDb();
-    db.variable.findMany = vi
-      .fn()
-      .mockResolvedValue([
-        { key: "SECRET", value: encryptedLikePayload, isSecret: true },
-      ]);
+    db.variable.findMany = vi.fn().mockResolvedValue([
+      {
+        key: "SECRET",
+        value: "",
+        isSecret: true,
+        encryptedPayload: { ciphertext: encryptedLikePayload },
+      },
+    ]);
     const deps: ExecuteScheduleDeps = {
       db: db as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -370,11 +373,14 @@ describe("executeSchedule", () => {
     });
     const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
     const db = createMockDb();
-    db.variable.findMany = vi
-      .fn()
-      .mockResolvedValue([
-        { key: "SECRET", value: encryptedSecret, isSecret: true },
-      ]);
+    db.variable.findMany = vi.fn().mockResolvedValue([
+      {
+        key: "SECRET",
+        value: "",
+        isSecret: true,
+        encryptedPayload: { ciphertext: encryptedSecret },
+      },
+    ]);
     const deps: ExecuteScheduleDeps = {
       db: db as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },

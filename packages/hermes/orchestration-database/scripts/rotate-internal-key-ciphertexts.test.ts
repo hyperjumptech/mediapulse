@@ -1,20 +1,14 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const domainIntegrationFindMany = vi.fn();
-const domainIntegrationUpdate = vi.fn();
-const variableFindMany = vi.fn();
-const variableUpdate = vi.fn();
+const encryptedPayloadFindMany = vi.fn();
+const encryptedPayloadUpdate = vi.fn();
 
 vi.mock("../src", () => ({
   prisma: {
-    domainIntegration: {
-      findMany: (...args: unknown[]) => domainIntegrationFindMany(...args),
-      update: (...args: unknown[]) => domainIntegrationUpdate(...args),
-    },
-    variable: {
-      findMany: (...args: unknown[]) => variableFindMany(...args),
-      update: (...args: unknown[]) => variableUpdate(...args),
+    encryptedPayload: {
+      findMany: (...args: unknown[]) => encryptedPayloadFindMany(...args),
+      update: (...args: unknown[]) => encryptedPayloadUpdate(...args),
     },
     $disconnect: vi.fn(),
   },
@@ -41,23 +35,38 @@ vi.mock("@hermes/domain-integration-crypto", () => ({
 describe("rotateInternalKeyCiphertexts", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    domainIntegrationFindMany.mockReset();
-    domainIntegrationUpdate.mockReset();
-    variableFindMany.mockReset();
-    variableUpdate.mockReset();
+    encryptedPayloadFindMany.mockReset();
+    encryptedPayloadUpdate.mockReset();
   });
 
   it("scans rows and skips writes in dry-run mode", async () => {
     // Setup
-    domainIntegrationFindMany
+    encryptedPayloadFindMany
       .mockResolvedValueOnce([
-        { id: "di-1", key: "news", encryptedApiKey: "cipher-1" },
-      ])
-      .mockResolvedValueOnce([]);
-    variableFindMany
-      .mockResolvedValueOnce([
-        { id: "v-1", key: "SECRET_ONE", value: '{"v":1}' },
-        { id: "v-2", key: "SECRET_TWO", value: "plain-value" },
+        {
+          id: "ep-di",
+          ciphertext: "cipher-di",
+          domainIntegrationId: "di-1",
+          variableId: null,
+          domainIntegration: { key: "news" },
+          variable: null,
+        },
+        {
+          id: "ep-v1",
+          ciphertext: '{"v":1}',
+          domainIntegrationId: null,
+          variableId: "v-1",
+          domainIntegration: null,
+          variable: { key: "SECRET_ONE" },
+        },
+        {
+          id: "ep-v2",
+          ciphertext: "plain-value",
+          domainIntegrationId: null,
+          variableId: "v-2",
+          domainIntegration: null,
+          variable: { key: "SECRET_TWO" },
+        },
       ])
       .mockResolvedValueOnce([]);
     const { rotateInternalKeyCiphertexts } =
@@ -72,32 +81,35 @@ describe("rotateInternalKeyCiphertexts", () => {
     });
 
     // Assert
-    expect(result.domainIntegration).toEqual({
-      scanned: 1,
-      updated: 1,
-      skippedPlaintext: 0,
-      failed: 0,
-    });
-    expect(result.secretVariables).toEqual({
-      scanned: 2,
-      updated: 1,
+    expect(result.encryptedPayload).toEqual({
+      scanned: 3,
+      updated: 2,
       skippedPlaintext: 1,
       failed: 0,
     });
-    expect(domainIntegrationUpdate).not.toHaveBeenCalled();
-    expect(variableUpdate).not.toHaveBeenCalled();
+    expect(encryptedPayloadUpdate).not.toHaveBeenCalled();
   });
 
   it("updates rewrapped ciphertext when dry-run is disabled", async () => {
     // Setup
-    domainIntegrationFindMany
+    encryptedPayloadFindMany
       .mockResolvedValueOnce([
-        { id: "di-1", key: "news", encryptedApiKey: "cipher-1" },
-      ])
-      .mockResolvedValueOnce([]);
-    variableFindMany
-      .mockResolvedValueOnce([
-        { id: "v-1", key: "SECRET_ONE", value: '{"v":1}' },
+        {
+          id: "ep-di",
+          ciphertext: "cipher-di",
+          domainIntegrationId: "di-1",
+          variableId: null,
+          domainIntegration: { key: "news" },
+          variable: null,
+        },
+        {
+          id: "ep-v1",
+          ciphertext: '{"v":1}',
+          domainIntegrationId: null,
+          variableId: "v-1",
+          domainIntegration: null,
+          variable: { key: "SECRET_ONE" },
+        },
       ])
       .mockResolvedValueOnce([]);
     const { rotateInternalKeyCiphertexts } =
@@ -112,7 +124,6 @@ describe("rotateInternalKeyCiphertexts", () => {
     });
 
     // Assert
-    expect(domainIntegrationUpdate).toHaveBeenCalledOnce();
-    expect(variableUpdate).toHaveBeenCalledOnce();
+    expect(encryptedPayloadUpdate).toHaveBeenCalledTimes(2);
   });
 });

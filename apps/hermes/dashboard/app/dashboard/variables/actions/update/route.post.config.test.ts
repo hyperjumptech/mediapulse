@@ -1,6 +1,10 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isEncryptedSecretVariablePayload } from "@hermes/domain-integration-crypto";
+import {
+  encryptSecretVariableValue,
+  isEncryptedSecretVariablePayload,
+} from "@hermes/domain-integration-crypto";
+import { env } from "@hermes/env";
 import { SECRET_MASK } from "@/lib/variables";
 import { createUpdateVariableHandler } from "./route.post.config";
 
@@ -58,9 +62,10 @@ describe("createUpdateVariableHandler", () => {
         findUnique: vi.fn().mockResolvedValue({
           id: "v1",
           key: "K",
-          value: "secret",
+          value: "",
           note: null,
           isSecret: true,
+          encryptedPayload: { ciphertext: "{}" },
         }),
         update: updateMock,
       },
@@ -130,9 +135,10 @@ describe("createUpdateVariableHandler", () => {
         findUnique: vi.fn().mockResolvedValue({
           id: "v1",
           key: "K",
-          value: "old",
+          value: "",
           note: null,
           isSecret: true,
+          encryptedPayload: { ciphertext: "{}" },
         }),
         update: updateMock,
       },
@@ -156,22 +162,38 @@ describe("createUpdateVariableHandler", () => {
     } as never);
 
     // Assert
-    const call = updateMock.mock.calls[0]?.[0] as { data: { value: string } };
-    expect(call.data.value).not.toBe("new-secret");
-    expect(isEncryptedSecretVariablePayload(call.data.value)).toBe(true);
+    const call = updateMock.mock.calls[0]?.[0] as {
+      data: {
+        value: string;
+        encryptedPayload: {
+          upsert: { update: { ciphertext: string } };
+        };
+      };
+    };
+    expect(call.data.value).toBe("");
+    expect(
+      isEncryptedSecretVariablePayload(
+        call.data.encryptedPayload.upsert.update.ciphertext,
+      ),
+    ).toBe(true);
   });
 
   it("keeps plaintext value when toggling legacy secret row off", async () => {
     // Setup
     const updateMock = vi.fn().mockResolvedValue(undefined);
+    const ciphertext = encryptSecretVariableValue(
+      "stored-secret",
+      env.HERMES_INTERNAL_API_KEY,
+    );
     const db = {
       variable: {
         findUnique: vi.fn().mockResolvedValue({
           id: "v1",
           key: "K",
-          value: "stored-secret",
+          value: "",
           note: null,
           isSecret: true,
+          encryptedPayload: { ciphertext },
         }),
         update: updateMock,
       },
@@ -200,6 +222,7 @@ describe("createUpdateVariableHandler", () => {
       data: {
         isSecret: false,
         value: "stored-secret",
+        encryptedPayload: { delete: true },
       },
     });
   });

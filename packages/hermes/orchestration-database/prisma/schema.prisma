@@ -83,6 +83,7 @@ model AgentConfig {
 model Variable {
   id          String   @id @default(uuid())
   key         String   @unique
+  /// Plaintext for non-secret variables. For `is_secret=true`, ciphertext lives on `encryptedPayload`; keep this empty.
   value       String
   note        String?
   isSecret    Boolean  @default(false) @map("is_secret")
@@ -90,7 +91,8 @@ model Variable {
   updatedAt   DateTime @updatedAt @map("updated_at")
   createdById String?  @map("created_by_id")
 
-  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy        User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  encryptedPayload EncryptedPayload?
 
   @@map("variable")
 }
@@ -98,6 +100,22 @@ model Variable {
 enum DomainIntegrationStatus {
   pending
   active
+}
+
+/// Hermes-internal encrypted blobs (domain integration API keys, secret variables). At most one parent per row.
+model EncryptedPayload {
+  id         String   @id @default(uuid())
+  ciphertext String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  domainIntegrationId String?            @unique @map("domain_integration_id")
+  domainIntegration   DomainIntegration? @relation(fields: [domainIntegrationId], references: [id], onDelete: Cascade)
+
+  variableId String?   @unique @map("variable_id")
+  variable   Variable? @relation(fields: [variableId], references: [id], onDelete: Cascade)
+
+  @@map("encrypted_payload")
 }
 
 model DomainIntegration {
@@ -111,15 +129,15 @@ model DomainIntegration {
   isActive          Boolean                 @default(true) @map("is_active")
   isDefault         Boolean                 @default(false) @map("is_default")
   status            DomainIntegrationStatus @default(active)
-  encryptedApiKey   String?                 @map("encrypted_api_key")
   apiKeyId          String?                 @unique @map("api_key_id")
   createdAt         DateTime                @default(now()) @map("created_at")
   updatedAt         DateTime                @updatedAt @map("updated_at")
   lastSeenAt        DateTime                @default(now()) @map("last_seen_at")
 
-  apiKey        APIKey?         @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
-  agentRegistry AgentRegistry[]
-  pipelines     Pipeline[]
+  apiKey           APIKey?           @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  encryptedPayload EncryptedPayload?
+  agentRegistry    AgentRegistry[]
+  pipelines        Pipeline[]
 
   @@map("domain_integration")
 }

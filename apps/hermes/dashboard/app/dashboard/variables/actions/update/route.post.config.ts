@@ -1,4 +1,4 @@
-import { prisma } from "@hermes/orchestration-database";
+import { prisma, type Prisma } from "@hermes/orchestration-database";
 import { env } from "@hermes/env";
 import {
   createRequestValidator,
@@ -13,9 +13,9 @@ import {
   getDashboardSessionForRoute,
 } from "@/lib/auth-dashboard";
 import {
+  encryptSecretVariableForPayload,
   fromStoredSecretVariableValue,
   SECRET_MASK,
-  toStoredVariableValue,
 } from "@/lib/variables";
 
 const bodyValidator = z.object({
@@ -72,17 +72,13 @@ export const createUpdateVariableHandler = ({
 
     const existing = await db.variable.findUnique({
       where: { id },
+      include: { encryptedPayload: true },
     });
     if (!existing) {
       return errorResponse("Variable not found");
     }
 
-    const updateData: {
-      key?: string;
-      value?: string;
-      note?: string | null;
-      isSecret?: boolean;
-    } = {};
+    const updateData: Prisma.VariableUpdateInput = {};
 
     if (key !== undefined) {
       updateData.key = key;
@@ -96,28 +92,56 @@ export const createUpdateVariableHandler = ({
     }
     const hasReplacementValue =
       value !== undefined && value !== SECRET_MASK && value.trim().length > 0;
+
     if (targetIsSecret) {
       if (hasReplacementValue) {
-        updateData.value = toStoredVariableValue(
-          value,
-          true,
-          env.HERMES_INTERNAL_API_KEY,
-        );
+        updateData.value = "";
+        updateData.encryptedPayload = {
+          upsert: {
+            create: {
+              ciphertext: encryptSecretVariableForPayload(
+                value,
+                env.HERMES_INTERNAL_API_KEY,
+              ),
+            },
+            update: {
+              ciphertext: encryptSecretVariableForPayload(
+                value,
+                env.HERMES_INTERNAL_API_KEY,
+              ),
+            },
+          },
+        };
       } else if (!existing.isSecret) {
-        updateData.value = toStoredVariableValue(
-          existing.value,
-          true,
-          env.HERMES_INTERNAL_API_KEY,
-        );
+        updateData.value = "";
+        updateData.encryptedPayload = {
+          upsert: {
+            create: {
+              ciphertext: encryptSecretVariableForPayload(
+                existing.value,
+                env.HERMES_INTERNAL_API_KEY,
+              ),
+            },
+            update: {
+              ciphertext: encryptSecretVariableForPayload(
+                existing.value,
+                env.HERMES_INTERNAL_API_KEY,
+              ),
+            },
+          },
+        };
       }
     } else if (existing.isSecret) {
       updateData.value = hasReplacementValue
         ? value
         : fromStoredSecretVariableValue(
-            existing.value,
+            existing.encryptedPayload?.ciphertext ?? "",
             env.HERMES_INTERNAL_API_KEY,
             env.HERMES_INTERNAL_API_KEY_PREVIOUS,
           );
+      if (existing.encryptedPayload) {
+        updateData.encryptedPayload = { delete: true };
+      }
     } else if (hasReplacementValue) {
       updateData.value = value;
     }
