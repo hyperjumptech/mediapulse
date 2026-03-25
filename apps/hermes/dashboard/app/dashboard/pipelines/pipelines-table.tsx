@@ -13,6 +13,7 @@ import {
   getPipelineStatus,
   type PipelineValidationResult,
 } from "@/lib/pipeline-status";
+import { formatCreatedBy } from "@/lib/format-created-by";
 
 import { PipelineRowActions } from "./pipeline-row-actions";
 import { PipelineStatusBadge } from "./pipeline-status-badge";
@@ -42,6 +43,7 @@ export const PipelinesTable = ({
             <TableHead className="w-[200px]">Name</TableHead>
             <TableHead>Description</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Created by</TableHead>
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
@@ -49,7 +51,7 @@ export const PipelinesTable = ({
           {pipelines.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={4}
+                colSpan={5}
                 className="text-center text-muted-foreground"
               >
                 No pipelines yet. Create one to get started.
@@ -79,6 +81,9 @@ export const PipelinesTable = ({
                   </TableCell>
                   <TableCell>
                     <PipelineStatusBadge status={status} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatCreatedBy(pipeline.createdBy, pipeline.createdById)}
                   </TableCell>
                   <TableCell className="text-right">
                     <PipelineRowActions

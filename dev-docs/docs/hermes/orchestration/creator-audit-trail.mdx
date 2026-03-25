@@ -1,0 +1,41 @@
+---
+title: Creator Audit Trail
+description: Track who created orchestration resources in Hermes dashboard
+icon: ShieldCheck
+---
+
+Hermes dashboard now stores and displays creator identity for core orchestration resources.
+
+## Scope
+
+Creator attribution is shown on list tables and detail pages for:
+
+- Agent configs
+- Pipelines
+- Pipeline steps (stored for audit and available in DB)
+- Schedules
+- HTTP triggers
+- Variables
+- Domain integrations
+
+`AgentRegistry` is intentionally excluded because entries are system-registered by domain integrations, not manually created by admins.
+
+## Display format
+
+Creator values are rendered with fallback order:
+
+1. Display name
+2. Email
+3. User id
+4. `—` when unavailable
+
+## Storage model
+
+- Most resources store `created_by_id` and relate to `User`.
+- `Schedule` keeps its existing `created_by` column but is now mapped as `createdById` relation to `User` for backward compatibility.
+- Deleting a user sets creator reference to null (`onDelete: SetNull`), preserving the resource row.
+
+## Notes
+
+- Existing rows created before this feature may show `—` when no creator id was stored.
+- New rows created from authenticated dashboard actions persist `createdById` automatically.

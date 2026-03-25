@@ -5,6 +5,7 @@ type Db = typeof prisma;
 
 const httpTriggerListInclude = {
   pipeline: { select: { id: true, name: true } },
+  createdBy: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.HttpTriggerInclude;
 
 export type HttpTriggersPageResult = {
@@ -83,11 +84,17 @@ export const getHttpTriggerById = async (
   triggerId: string,
   db: Db = prisma,
 ): Promise<Prisma.HttpTriggerGetPayload<{
-  include: { pipeline: true };
+  include: {
+    pipeline: true;
+    createdBy: { select: { id: true; name: true; email: true } };
+  };
 }> | null> => {
   return db.httpTrigger.findUnique({
     where: { id: triggerId },
-    include: { pipeline: true },
+    include: {
+      pipeline: true,
+      createdBy: { select: { id: true, name: true, email: true } },
+    },
   });
 };
 

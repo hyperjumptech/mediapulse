@@ -50,6 +50,7 @@ describe("createCreatePipelineHandler", () => {
         description: "Desc",
         isActive: true,
         domainIntegrationId: "di-1",
+        createdById: mockDashboardUser.id,
       },
     });
     expect(result).toMatchObject({
@@ -92,6 +93,7 @@ describe("createCreatePipelineHandler", () => {
         description: null,
         isActive: true,
         domainIntegrationId: "di-1",
+        createdById: mockDashboardUser.id,
       },
     });
   });

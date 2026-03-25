@@ -118,6 +118,7 @@ describe("createCreateScheduleHandler", () => {
     expect(createData.repeat).toBe("once");
     expect(createData.pipelineId).toBe(pipelineId);
     expect(createData.nextRunAt).toBeNull();
+    expect(createData.createdById).toBe(mockDashboardUser.id);
   });
 });
 

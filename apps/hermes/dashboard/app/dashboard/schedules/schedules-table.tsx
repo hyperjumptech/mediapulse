@@ -19,6 +19,7 @@ import type {
   ScheduleSortField,
   SchedulesPageResult,
 } from "@/lib/schedules";
+import { formatCreatedBy } from "@/lib/format-created-by";
 
 type ScheduleRow = SchedulesPageResult["schedules"][number];
 
@@ -113,6 +114,7 @@ export const SchedulesTable = ({
             <TableHead className="w-[120px]">
               {sortLink("created", "Created")}
             </TableHead>
+            <TableHead className="w-[180px]">Created by</TableHead>
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
@@ -120,7 +122,7 @@ export const SchedulesTable = ({
           {schedules.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={7}
+                colSpan={8}
                 className="text-center text-muted-foreground"
               >
                 No schedules yet.
@@ -153,6 +155,9 @@ export const SchedulesTable = ({
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {format(schedule.createdAt, "LLL d, yyyy")}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatCreatedBy(schedule.createdBy, schedule.createdById)}
                 </TableCell>
                 <TableCell className="text-right">
                   <ScheduleRowActions

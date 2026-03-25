@@ -43,7 +43,10 @@ describe("getPipelinesWithSteps", () => {
     await getPipelinesWithSteps(asDb(db));
 
     expect(db.pipeline.findMany).toHaveBeenCalledWith({
-      include: { steps: { orderBy: { order: "asc" } } },
+      include: {
+        steps: { orderBy: { order: "asc" } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
       orderBy: { updatedAt: "desc" },
     });
   });
@@ -78,7 +81,10 @@ describe("getPipelineWithSteps", () => {
 
     expect(db.pipeline.findUnique).toHaveBeenCalledWith({
       where: { id: "pid-1" },
-      include: { steps: { orderBy: { order: "asc" } } },
+      include: {
+        steps: { orderBy: { order: "asc" } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
     });
   });
 

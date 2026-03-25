@@ -20,6 +20,7 @@ import type {
   VariableSortDir,
   VariableSortField,
 } from "@/lib/variables";
+import { formatCreatedBy } from "@/lib/format-created-by";
 
 type VariableRow = VariablesPageResult["variables"][number];
 
@@ -112,6 +113,7 @@ export const VariablesTable = ({
             <TableHead className="w-[120px]">
               {sortLink("created", "Created")}
             </TableHead>
+            <TableHead className="w-[180px]">Created by</TableHead>
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
@@ -119,7 +121,7 @@ export const VariablesTable = ({
           {variables.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={6}
+                colSpan={7}
                 className="text-center text-muted-foreground"
               >
                 No variables yet.
@@ -157,6 +159,9 @@ export const VariablesTable = ({
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {format(variable.createdAt, "LLL d, yyyy")}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatCreatedBy(variable.createdBy)}
                 </TableCell>
                 <TableCell className="text-right">
                   <VariableRowActions

@@ -73,6 +73,8 @@ const createMockPipeline = (
   isActive: true,
   executionConfig: null,
   steps: [],
+  createdById: null,
+  createdBy: null,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
   ...overrides,
@@ -87,6 +89,7 @@ describe("PipelinesTable", () => {
     expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Description")).toBeInTheDocument();
     expect(screen.getByText("Status")).toBeInTheDocument();
+    expect(screen.getByText("Created by")).toBeInTheDocument();
   });
 
   it("renders empty state when no pipelines", () => {
@@ -196,7 +199,7 @@ describe("PipelinesTable", () => {
     );
 
     // Assert
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
   it("renders row actions for each pipeline", () => {

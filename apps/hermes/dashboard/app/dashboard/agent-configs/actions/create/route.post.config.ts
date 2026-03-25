@@ -68,6 +68,7 @@ export const createCreateAgentConfigHandler = ({
   db = prisma,
 }: CreateAgentConfigHandlerDependencies = {}): CreateAgentConfigHandler => {
   return async (data) => {
+    const userId = data.user.id;
     const { name, description, agentId, agentVersion, config } = data.body;
 
     const agent = await db.agentRegistry.findFirst({
@@ -102,6 +103,7 @@ export const createCreateAgentConfigHandler = ({
         agentVersion,
         config: config as object,
         configSchemaFingerprint: fingerprint || null,
+        createdById: userId,
       },
     });
 

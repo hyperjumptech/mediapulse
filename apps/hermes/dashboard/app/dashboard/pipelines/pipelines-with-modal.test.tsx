@@ -60,6 +60,8 @@ const createMockPipeline = (id: string, name: string) => ({
   description: null,
   isActive: true,
   executionConfig: null,
+  createdById: null,
+  createdBy: null,
   steps: [],
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),

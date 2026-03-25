@@ -50,6 +50,7 @@ export const createCreateHttpTriggerHandler = ({
   db?: typeof prisma;
 } = {}): CreateHttpTriggerHandler => {
   return async (data) => {
+    const userId = data.user.id;
     const pipeline = await getPipelineWithSteps(data.body.pipelineId, db);
     if (!pipeline) return errorResponse("Pipeline not found");
     const validation = await validatePipeline(pipeline, db);
@@ -69,6 +70,7 @@ export const createCreateHttpTriggerHandler = ({
         authType: "BEARER_TOKEN",
         tokenHash: hashHttpTriggerToken(data.body.bearerToken),
         tokenHint: createTokenHint(data.body.bearerToken),
+        createdById: userId,
       },
     });
 

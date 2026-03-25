@@ -22,6 +22,7 @@ import type {
   AgentConfigSortDir,
   AgentConfigSortField,
 } from "@/lib/agent-configs";
+import { formatCreatedBy } from "@/lib/format-created-by";
 
 const BASE_PATH = "/dashboard/agent-configs";
 
@@ -89,6 +90,7 @@ export const AgentConfigsTable = ({
             <TableHead>{sortLink("agentId", "Agent")}</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>{sortLink("createdAt", "Created")}</TableHead>
+            <TableHead>Created by</TableHead>
             <TableHead className="w-[60px]" />
           </TableRow>
         </TableHeader>
@@ -96,7 +98,7 @@ export const AgentConfigsTable = ({
           {configs.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={6}
+                colSpan={7}
                 className="text-center text-muted-foreground"
               >
                 No agent configs yet.
@@ -130,6 +132,9 @@ export const AgentConfigsTable = ({
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {format(config.createdAt, "MMM d, yyyy")}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatCreatedBy(config.createdBy)}
                 </TableCell>
                 <TableCell>
                   <AgentConfigRowActions

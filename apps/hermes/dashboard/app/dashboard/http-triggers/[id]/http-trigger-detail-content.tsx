@@ -8,6 +8,7 @@ import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { ListPagination } from "@/components/list-pagination";
 import { buildHttpTriggerInvokeCurlCommand } from "@/lib/http-trigger-invoke-curl";
+import { formatCreatedBy } from "@/lib/format-created-by";
 import type {
   getHttpTriggerById,
   HttpTriggerExecutionRow,
@@ -119,6 +120,10 @@ export const HttpTriggerDetailContent = ({
             <p className="text-muted-foreground">
               {trigger.description ??
                 "View executions and edit HTTP trigger settings."}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Created by: </span>
+              {formatCreatedBy(trigger.createdBy, trigger.createdById)}
             </p>
           </div>
           <Button variant="outline" onClick={() => setEditModalOpen(true)}>

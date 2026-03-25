@@ -24,6 +24,7 @@ export type AgentConfigRow = {
   config: unknown;
   configSchemaFingerprint: string | null;
   createdAt: Date;
+  createdBy: { name: string; email: string } | null;
   schemaValid: boolean;
 };
 

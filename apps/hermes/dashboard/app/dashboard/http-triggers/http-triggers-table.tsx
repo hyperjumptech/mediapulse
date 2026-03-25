@@ -17,6 +17,7 @@ import type {
   HttpTriggerSortField,
   HttpTriggersPageResult,
 } from "@/lib/http-triggers";
+import { formatCreatedBy } from "@/lib/format-created-by";
 import { HttpTriggerRowActions } from "./http-trigger-row-actions";
 
 type HttpTriggerRow = HttpTriggersPageResult["httpTriggers"][number];
@@ -98,6 +99,7 @@ export const HttpTriggersTable = ({
             <TableHead className="w-[130px]">
               {sortLink("created", "Created")}
             </TableHead>
+            <TableHead className="w-[180px]">Created by</TableHead>
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
@@ -105,7 +107,7 @@ export const HttpTriggersTable = ({
           {httpTriggers.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={6}
+                colSpan={7}
                 className="text-center text-muted-foreground"
               >
                 No HTTP triggers yet.
@@ -131,6 +133,9 @@ export const HttpTriggersTable = ({
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {format(trigger.createdAt, "LLL d, yyyy")}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatCreatedBy(trigger.createdBy, trigger.createdById)}
                 </TableCell>
                 <TableCell className="text-right">
                   <HttpTriggerRowActions

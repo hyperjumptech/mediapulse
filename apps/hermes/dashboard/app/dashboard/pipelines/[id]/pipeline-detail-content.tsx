@@ -23,6 +23,7 @@ import type {
 
 import { getPipelineStatus } from "@/lib/pipeline-status";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
+import { formatCreatedBy } from "@/lib/format-created-by";
 
 import { PipelineAvailableAgents } from "./pipeline-available-agents";
 import { PipelineExecutionsTable } from "./pipeline-executions-table";
@@ -326,6 +327,10 @@ export const PipelineDetailContent = ({
             />
           </div>
         </div>
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Created by: </span>
+          {formatCreatedBy(pipeline.createdBy, pipeline.createdById)}
+        </p>
         <div className="flex flex-col gap-3">
           <RunPipelineButton
             pipelineId={pipeline.id}
