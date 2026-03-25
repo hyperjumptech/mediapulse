@@ -22,5 +22,5 @@ The package bridges:
 
 - Hermes does not query Mediapulse DB directly.
 - Preferred production path is HTTP: Hermes calls a domain integration API, and that service uses this package internally.
-- Domain API now self-registers a dashboard manifest (`table-v1`) so Hermes can render Mediapulse-owned pages (tickers, entity types, relation types, search queries, and data source expansions) from contract metadata.
+- Domain API self-registers a dashboard manifest (`table-v1`) so Hermes can render Mediapulse-owned pages (tickers, entity types, relation types, search queries) from contract metadata. Saved **data source expansion templates** are stored in Hermes orchestration DB; expansion/preview still use this package via `domain-api`.
 - Mediapulse exposes `/v1/hermes-dashboard/*` list/meta/CRUD endpoints for these pages, and Hermes calls them with **`Authorization: Bearer <JWT>`** (same invocation JWT path as agents; verified by domain-api via agent-auth-api).

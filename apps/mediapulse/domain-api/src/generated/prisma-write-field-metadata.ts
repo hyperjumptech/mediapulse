@@ -88,50 +88,6 @@ export const prismaWriteFieldMetadata = {
       isList: false,
     },
   },
-  DataSourceExpansion: {
-    id: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
-    },
-    name: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
-    },
-    expansionString: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
-    },
-    description: {
-      kind: "scalar",
-      type: "String",
-      isRequired: false,
-      isList: false,
-    },
-    createdAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
-    },
-    updatedAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
-    },
-    createdById: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
-    },
-  },
   MediapulseUser: {
     id: {
       kind: "scalar",

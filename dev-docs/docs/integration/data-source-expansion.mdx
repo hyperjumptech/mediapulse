@@ -17,7 +17,7 @@ Expansion runs through the `expandStepInputs` hook in `@hermes/scheduler`. Herme
 ## Where it’s used
 
 - **Schedule params** — In the Hermes schedule form, the “Params (JSON)” field can contain **data-source expressions** as string values. At runtime, the scheduler expands each step's input; multiple expressions in that step's input produce a **Cartesian product** of input sets (one run per combination for that step). Expansion is **per step**.
-- **Saved expansion templates** — In Hermes, **Data source expansions** (`/dashboard/data-source-expansions`) let you save named templates (name, expansion string, description) for reuse. The create/edit page has **Run preview** to test an expansion against the current database.
+- **Saved expansion templates** — In Hermes, **Data source expansions** (`/dashboard/{integrationKey}/data-source-expansions` when the integration has `expand-step-inputs`) let you save named templates (name, expansion string, description) for reuse. Templates are stored in the **Hermes orchestration database** (`DataSourceExpansionTemplate`), scoped to a single **domain integration**. **Run preview** on the create/edit page calls the domain integration’s **`/v1/preview-expansion`** so validation and sample values come from the **product** database (e.g. Mediapulse via `domain-api`), not from orchestration storage.
 
 ## Format
 
@@ -93,7 +93,7 @@ The pipeline detail page shows input and config forms per step; save validates b
 
 ## Related docs
 
-- [Hermes dashboard](/hermes/apps/dashboard) — Schedule form, **Data source expansions** CRUD and preview.
+- [Hermes dashboard](/hermes/apps/dashboard) — Schedule form; **Data source expansions** list/create/edit/delete in Hermes (orchestration DB); preview still hits the domain API.
 - [Agent–Hermes contract](/hermes/agent-hermes-contract) — Step input, input schema, variables.
 - [hermes-scheduler](/hermes/packages/hermes-scheduler) — Generic schedule execution runtime and `expandStepInputs` hook.
 - [hermes-step-input-syntax](/hermes/packages/hermes-step-input-syntax) — Generic `db:` string parsing and validation (including take/limit bounds).

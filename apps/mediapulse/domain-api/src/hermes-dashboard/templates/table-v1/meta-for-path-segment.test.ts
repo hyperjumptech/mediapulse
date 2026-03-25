@@ -7,16 +7,12 @@ describe("table-v1 > buildMetaPayloadForPathSegment", () => {
   it("returns meta for a known path segment", () => {
     // Act
     const meta = buildMetaPayloadForPathSegment(
-      HermesDashboardResource.dataSourceExpansions,
+      HermesDashboardResource.tickers,
     );
 
     // Assert
     expect(meta).not.toBeNull();
-    expect(meta?.title).toBe("Data source expansions");
-    expect(meta?.preview).toEqual({
-      enabled: true,
-      fieldKey: "expansionString",
-    });
+    expect(meta?.title).toBe("Tickers");
   });
 
   it("returns null for an unknown path segment", () => {

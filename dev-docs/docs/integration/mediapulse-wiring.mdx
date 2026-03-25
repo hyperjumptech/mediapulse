@@ -29,12 +29,14 @@ This repo typically registers an integration whose **key** is `mediapulse` (conf
 
 - **Ticker import (IDX JSON)** — When the manifest registers a `json-file-upload` custom action for tickers, the dashboard shows an import card and POSTs to the domain API; Mediapulse runs [`@mediapulse/idx-tickers-importer`](/mediapulse/packages/idx-tickers-importer) on the service side.
 
-- **Search queries, entity types, relation types, data source expansions** — Product-owned tables exposed under the integration manifest (e.g. `/dashboard/mediapulse/search-queries`) are served by `domain-api`, not by the Hermes Next.js server reading the Mediapulse database.
+- **Search queries, entity types, relation types** — Product-owned tables exposed under the integration manifest (e.g. `/dashboard/mediapulse/search-queries`) are served by `domain-api`, not by the Hermes Next.js server reading the Mediapulse database.
+
+- **Data source expansion templates** — Saved template rows live in the **Hermes orchestration** database (`DataSourceExpansionTemplate`); preview and runtime expansion still go through `domain-api`. See [Data source expansion](/integration/data-source-expansion).
 
 - **KG dev seeding** — Vocabulary seeding uses Mediapulse DB scripts; pipeline/schedule seeds for KG workflows run from `apps/hermes/dashboard`. See [Knowledge Graph](/mediapulse/knowledge-graph/knowledge-graph#schedule-configuration-default-seeds).
 
 ## Related
 
 - [Communication between parts](/integration/communication) — JWT paths for agents and domain services.
-- [Data source expansion](/integration/data-source-expansion) — Scheduler → domain API → Mediapulse DB.
+- [Data source expansion](/integration/data-source-expansion) — Templates in orchestration DB; scheduler expansion and preview → domain API → Mediapulse DB.
 - [Integrate a domain with Hermes](/hermes/integrate-domain-with-hermes) — Generic registration and `table-v1` checklist.

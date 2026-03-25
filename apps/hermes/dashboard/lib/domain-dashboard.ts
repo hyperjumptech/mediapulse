@@ -8,6 +8,19 @@ import { z } from "zod";
 
 import { getBearerJwtForDomainIntegrationId } from "@/lib/domain-integration-auth-token";
 import { getDomainIntegrationByKey } from "@/lib/domain-integrations";
+import {
+  createDataSourceExpansionTemplateForIntegration,
+  deleteDataSourceExpansionTemplateForIntegration,
+  getDataSourceExpansionTemplateByIdForIntegration,
+  integrationSupportsHermesDataSourceExpansionTemplates,
+  listDataSourceExpansionTemplatesForIntegration,
+  updateDataSourceExpansionTemplateForIntegration,
+} from "@/lib/data-source-expansion-templates";
+import {
+  DATA_SOURCE_EXPANSIONS_PATH_SEGMENT,
+  getDataSourceExpansionTemplateTableMeta,
+  hermesDataSourceExpansionsManifestApiPrefix,
+} from "@/lib/data-source-expansion-template-meta";
 
 /** Page size for pipeline ticker fetch; must not exceed domain-api `MAX_PAGE_SIZE` (100). */
 const PIPELINE_TICKER_PAGE_SIZE = 100;
@@ -36,7 +49,7 @@ export type DomainTableListParams = {
  * @param resource - Dashboard path segment (matches manifest `pathSegment`).
  * @returns Domain page descriptor and base URL.
  */
-const getDashboardPage = async (
+export const getDashboardPage = async (
   integrationKey: string,
   resource: string,
 ): Promise<{
@@ -53,6 +66,23 @@ const getDashboardPage = async (
       `Domain integration "${integrationKey}" is not active or not registered`,
     );
   }
+
+  if (
+    resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT &&
+    integrationSupportsHermesDataSourceExpansionTemplates(
+      integration.capabilities,
+    )
+  ) {
+    return {
+      page: {
+        apiPrefix: hermesDataSourceExpansionsManifestApiPrefix(),
+        pathSegment: DATA_SOURCE_EXPANSIONS_PATH_SEGMENT,
+      },
+      baseUrl: integration.baseUrl.replace(/\/$/, ""),
+      integrationId: integration.id,
+    };
+  }
+
   const page = integration.dashboard.pages.find(
     (entry) => entry.pathSegment === resource,
   );
@@ -114,6 +144,25 @@ export const getDomainTableMeta = async (
   integrationKey: string,
   resource: string,
 ) => {
+  if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
+    const integration = await getDomainIntegrationByKey(integrationKey);
+    if (!integration) {
+      throw new Error(
+        `Domain integration "${integrationKey}" is not active or not registered`,
+      );
+    }
+    if (
+      !integrationSupportsHermesDataSourceExpansionTemplates(
+        integration.capabilities,
+      )
+    ) {
+      throw new Error(
+        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+      );
+    }
+    return getDataSourceExpansionTemplateTableMeta();
+  }
+
   const { page, baseUrl, integrationId } = await getDashboardPage(
     integrationKey,
     resource,
@@ -240,6 +289,28 @@ export const getDomainTableList = async (
   resource: string,
   params: DomainTableListParams,
 ) => {
+  if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
+    const integration = await getDomainIntegrationByKey(integrationKey);
+    if (!integration) {
+      throw new Error(
+        `Domain integration "${integrationKey}" is not active or not registered`,
+      );
+    }
+    if (
+      !integrationSupportsHermesDataSourceExpansionTemplates(
+        integration.capabilities,
+      )
+    ) {
+      throw new Error(
+        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+      );
+    }
+    return listDataSourceExpansionTemplatesForIntegration(
+      integrationKey,
+      params,
+    );
+  }
+
   const { page, baseUrl, integrationId } = await getDashboardPage(
     integrationKey,
     resource,
@@ -342,6 +413,25 @@ export const getDomainTableItemById = async (
   resource: string,
   id: string,
 ): Promise<Record<string, unknown> | null> => {
+  if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
+    const integration = await getDomainIntegrationByKey(integrationKey);
+    if (!integration) {
+      throw new Error(
+        `Domain integration "${integrationKey}" is not active or not registered`,
+      );
+    }
+    if (
+      !integrationSupportsHermesDataSourceExpansionTemplates(
+        integration.capabilities,
+      )
+    ) {
+      throw new Error(
+        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+      );
+    }
+    return getDataSourceExpansionTemplateByIdForIntegration(integrationKey, id);
+  }
+
   const { page, baseUrl, integrationId } = await getDashboardPage(
     integrationKey,
     resource,
@@ -426,6 +516,28 @@ export const createDomainTableItem = async (
   resource: string,
   body: Record<string, unknown>,
 ) => {
+  if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
+    const integration = await getDomainIntegrationByKey(integrationKey);
+    if (!integration) {
+      throw new Error(
+        `Domain integration "${integrationKey}" is not active or not registered`,
+      );
+    }
+    if (
+      !integrationSupportsHermesDataSourceExpansionTemplates(
+        integration.capabilities,
+      )
+    ) {
+      throw new Error(
+        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+      );
+    }
+    return createDataSourceExpansionTemplateForIntegration(
+      integrationKey,
+      body,
+    );
+  }
+
   const { page, baseUrl, integrationId } = await getDashboardPage(
     integrationKey,
     resource,
@@ -456,6 +568,29 @@ export const updateDomainTableItem = async (
   id: string,
   body: Record<string, unknown>,
 ) => {
+  if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
+    const integration = await getDomainIntegrationByKey(integrationKey);
+    if (!integration) {
+      throw new Error(
+        `Domain integration "${integrationKey}" is not active or not registered`,
+      );
+    }
+    if (
+      !integrationSupportsHermesDataSourceExpansionTemplates(
+        integration.capabilities,
+      )
+    ) {
+      throw new Error(
+        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+      );
+    }
+    return updateDataSourceExpansionTemplateForIntegration(
+      integrationKey,
+      id,
+      body,
+    );
+  }
+
   const { page, baseUrl, integrationId } = await getDashboardPage(
     integrationKey,
     resource,
@@ -484,6 +619,26 @@ export const deleteDomainTableItem = async (
   resource: string,
   id: string,
 ) => {
+  if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
+    const integration = await getDomainIntegrationByKey(integrationKey);
+    if (!integration) {
+      throw new Error(
+        `Domain integration "${integrationKey}" is not active or not registered`,
+      );
+    }
+    if (
+      !integrationSupportsHermesDataSourceExpansionTemplates(
+        integration.capabilities,
+      )
+    ) {
+      throw new Error(
+        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+      );
+    }
+    await deleteDataSourceExpansionTemplateForIntegration(integrationKey, id);
+    return { ok: true };
+  }
+
   const { page, baseUrl, integrationId } = await getDashboardPage(
     integrationKey,
     resource,

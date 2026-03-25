@@ -8,6 +8,7 @@ import {
   resolveHermesActiveAdminDashboardAccess,
 } from "@/lib/auth-dashboard";
 import { getActiveDomainIntegrations } from "@/lib/domain-integrations";
+import { mergeDomainIntegrationNavPages } from "@/lib/merge-domain-integration-nav-pages";
 
 /**
  * Dashboard layout: sidebar, header with breadcrumb, and main content area.
@@ -35,7 +36,7 @@ export default async function DashboardLayout({
     domainIntegrations = integrations.map((i) => ({
       key: i.key,
       name: i.name,
-      pages: i.dashboard.pages,
+      pages: mergeDomainIntegrationNavPages(i),
     }));
   } catch {
     domainIntegrations = [];
