@@ -38,18 +38,6 @@ model DataSource {
   @@map("data_source")
 }
 
-model DataSourceExpansion {
-  id              String   @id @default(uuid())
-  name            String
-  expansionString String   @map("expansion_string")
-  description     String?
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  createdById     String   @map("created_by_id")
-
-  @@map("data_source_expansion")
-}
-
 model Newsletter {
   id          String   @id @default(uuid())
   subject     String

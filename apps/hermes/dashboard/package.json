@@ -47,7 +47,8 @@
     "react-dom": "catalog:",
     "route-action-gen": "catalog:",
     "sonner": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

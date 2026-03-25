@@ -84,6 +84,29 @@ describe("getDomainTableMeta", () => {
       'Domain integration "missing"',
     );
   });
+
+  it("loads meta from Hermes for data-source-expansions when integration supports expand-step-inputs", async () => {
+    getDomainIntegrationByKey.mockResolvedValue({
+      id: "i1",
+      key: "mediapulse",
+      name: "Mediapulse",
+      baseUrl: "http://localhost:3001",
+      version: null,
+      dashboard: { templateVersion: 1, pages: [] },
+      capabilities: ["expand-step-inputs", "preview-expansion"],
+    });
+
+    const meta = await getDomainTableMeta(
+      "mediapulse",
+      "data-source-expansions",
+    );
+
+    expect(meta.title).toBe("Data source expansions");
+    expect(meta.preview).toEqual({
+      enabled: true,
+      fieldKey: "expansionString",
+    });
+  });
 });
 
 describe("callDomainCustomPost", () => {

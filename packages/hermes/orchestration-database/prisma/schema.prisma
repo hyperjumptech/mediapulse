@@ -17,13 +17,14 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  variables                 Variable[]
-  domainIntegrationsCreated DomainIntegration[] @relation("DomainIntegrationCreatedBy")
-  agentConfigsCreated       AgentConfig[]       @relation("AgentConfigCreatedBy")
-  pipelinesCreated          Pipeline[]          @relation("PipelineCreatedBy")
-  schedulesCreated          Schedule[]          @relation("ScheduleCreatedBy")
-  httpTriggersCreated       HttpTrigger[]       @relation("HttpTriggerCreatedBy")
-  pipelineStepsCreated      PipelineStep[]      @relation("PipelineStepCreatedBy")
+  variables                           Variable[]
+  domainIntegrationsCreated           DomainIntegration[]           @relation("DomainIntegrationCreatedBy")
+  agentConfigsCreated                 AgentConfig[]                 @relation("AgentConfigCreatedBy")
+  pipelinesCreated                    Pipeline[]                    @relation("PipelineCreatedBy")
+  schedulesCreated                    Schedule[]                    @relation("ScheduleCreatedBy")
+  httpTriggersCreated                 HttpTrigger[]                 @relation("HttpTriggerCreatedBy")
+  pipelineStepsCreated                PipelineStep[]                @relation("PipelineStepCreatedBy")
+  dataSourceExpansionTemplatesCreated DataSourceExpansionTemplate[] @relation("DataSourceExpansionTemplateCreatedBy")
 
   @@map("user")
 }
@@ -127,12 +128,30 @@ model DomainIntegration {
   updatedAt         DateTime                @updatedAt @map("updated_at")
   lastSeenAt        DateTime                @default(now()) @map("last_seen_at")
 
-  createdBy        User?             @relation("DomainIntegrationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  encryptedPayload EncryptedPayload?
-  agentRegistry    AgentRegistry[]
-  pipelines        Pipeline[]
+  createdBy                    User?                         @relation("DomainIntegrationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  encryptedPayload             EncryptedPayload?
+  agentRegistry                AgentRegistry[]
+  pipelines                    Pipeline[]
+  dataSourceExpansionTemplates DataSourceExpansionTemplate[]
 
   @@map("domain_integration")
+}
+
+/// Saved `db:…` expansion strings for Hermes UI; scoped to one domain integration.
+model DataSourceExpansionTemplate {
+  id                  String   @id @default(uuid())
+  domainIntegrationId String   @map("domain_integration_id")
+  name                String
+  expansionString     String   @map("expansion_string")
+  description         String?
+  createdById         String?  @map("created_by_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  domainIntegration DomainIntegration @relation(fields: [domainIntegrationId], references: [id], onDelete: Cascade)
+  createdBy         User?             @relation("DataSourceExpansionTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("data_source_expansion_template")
 }
 
 model Pipeline {

@@ -17,7 +17,6 @@
 export const PRISMA_WRITE_METADATA_MODEL_NAMES = [
   "EntityType",
   "RelationType",
-  "DataSourceExpansion",
   "MediapulseUser",
   "Ticker",
 ] as const;
