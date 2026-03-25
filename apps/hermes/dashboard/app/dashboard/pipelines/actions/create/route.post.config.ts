@@ -46,6 +46,7 @@ export const createCreatePipelineHandler = ({
   db = prisma,
 }: CreatePipelineHandlerDependencies = {}): CreatePipelineHandler => {
   return async (data) => {
+    const userId = data.user.id;
     const {
       name,
       description,
@@ -73,6 +74,7 @@ export const createCreatePipelineHandler = ({
         description: description ?? null,
         isActive: isActive ?? true,
         domainIntegrationId,
+        createdById: userId,
       },
     });
 

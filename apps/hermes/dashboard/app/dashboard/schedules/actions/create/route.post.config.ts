@@ -142,6 +142,7 @@ export const createCreateScheduleHandler = ({
   db = prisma,
 }: CreateScheduleHandlerDependencies = {}): CreateScheduleHandler => {
   return async (data) => {
+    const userId = data.user.id;
     const body = data.body;
 
     const pipeline = await getPipelineWithSteps(body.pipelineId, db);
@@ -189,7 +190,7 @@ export const createCreateScheduleHandler = ({
         timeout: body.timeout ?? null,
         priority: body.priority ?? 0,
         enabled: body.enabled ?? true,
-        createdBy: null,
+        createdById: userId,
       },
     });
 

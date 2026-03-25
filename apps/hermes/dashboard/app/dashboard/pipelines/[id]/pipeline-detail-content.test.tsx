@@ -121,10 +121,13 @@ const createMockPipeline = () => ({
       input: {},
       config: {},
       agentConfigId: null,
+      createdById: null,
       createdAt: new Date("2024-01-15"),
       updatedAt: new Date("2024-01-15"),
     },
   ],
+  createdById: null,
+  createdBy: null,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
 });

@@ -67,6 +67,7 @@ describe("createAddStepHandler", () => {
         agentConfigId: null,
         input: {},
         config: {},
+        createdById: mockDashboardUser.id,
       },
     });
     expect(result).toMatchObject({

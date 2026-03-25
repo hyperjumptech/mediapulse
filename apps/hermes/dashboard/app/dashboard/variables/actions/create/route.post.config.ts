@@ -55,6 +55,7 @@ export const createCreateVariableHandler = ({
   db = prisma,
 }: CreateVariableHandlerDependencies = {}): CreateVariableHandler => {
   return async (data) => {
+    const userId = data.user.id;
     const { key, value, note, isSecret } = data.body;
     const noteValue =
       note != null && String(note).trim().length > 0
@@ -75,6 +76,7 @@ export const createCreateVariableHandler = ({
             value: toStoredVariableValue(value, true),
             note: noteValue,
             isSecret: true,
+            createdById: userId,
             encryptedPayload: {
               create: {
                 ciphertext: encryptSecretVariableForPayload(
@@ -91,6 +93,7 @@ export const createCreateVariableHandler = ({
             value: toStoredVariableValue(value, false),
             note: noteValue,
             isSecret: false,
+            createdById: userId,
           },
         });
 

@@ -22,8 +22,14 @@ const createMockSchedule = (overrides?: Partial<DueSchedule>): DueSchedule =>
     executionConfig: null,
     pipeline: {
       id: "p1",
+      name: "Pipeline 1",
+      description: null,
+      isActive: true,
       domainIntegrationId: "di-1",
       executionConfig: null,
+      createdById: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       steps: [
         {
           id: "step1",
@@ -33,6 +39,10 @@ const createMockSchedule = (overrides?: Partial<DueSchedule>): DueSchedule =>
           pipelineId: "p1",
           agentConfigId: null,
           input: {},
+          config: {},
+          createdById: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
           agentConfig: null,
         },
       ],
@@ -119,6 +129,7 @@ describe("executeSchedule", () => {
         description: null,
         isActive: true,
         executionConfig: null,
+        createdById: null,
         createdAt: now,
         updatedAt: now,
         steps: [
@@ -130,6 +141,7 @@ describe("executeSchedule", () => {
             pipelineId: "p1",
             input: { tickerId: "tid-1" },
             config: { limit: 10 },
+            createdById: null,
             createdAt: now,
             updatedAt: now,
             agentConfigId: null,
@@ -172,6 +184,7 @@ describe("executeSchedule", () => {
         description: null,
         isActive: true,
         executionConfig: null,
+        createdById: null,
         createdAt: now,
         updatedAt: now,
         steps: [
@@ -183,6 +196,7 @@ describe("executeSchedule", () => {
             pipelineId: "p1",
             input: { apiKey: "{{MY_KEY}}" },
             config: { token: "{{MY_KEY}}" },
+            createdById: null,
             createdAt: now,
             updatedAt: now,
             agentConfigId: null,
@@ -352,6 +366,7 @@ describe("executeSchedule", () => {
         description: null,
         isActive: true,
         executionConfig: null,
+        createdById: null,
         createdAt: now,
         updatedAt: now,
         steps: [
@@ -363,6 +378,7 @@ describe("executeSchedule", () => {
             pipelineId: "p1",
             input: { apiKey: "{{SECRET}}" },
             config: { token: "{{SECRET}}" },
+            createdById: null,
             createdAt: now,
             updatedAt: now,
             agentConfigId: null,

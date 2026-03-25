@@ -72,6 +72,7 @@ describe("createCreateVariableHandler", () => {
         value: "my-value",
         note: "optional note",
         isSecret: false,
+        createdById: mockDashboardUser.id,
       },
     });
   });
@@ -138,6 +139,7 @@ describe("createCreateVariableHandler", () => {
         value: "v",
         note: null,
         isSecret: false,
+        createdById: mockDashboardUser.id,
       },
     });
   });

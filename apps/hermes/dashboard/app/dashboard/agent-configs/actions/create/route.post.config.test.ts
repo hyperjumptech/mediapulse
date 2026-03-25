@@ -81,6 +81,7 @@ describe("createCreateAgentConfigHandler", () => {
         agentVersion: "1.0",
         config: { limit: 10 },
         configSchemaFingerprint: expect.any(String),
+        createdById: mockDashboardUser.id,
       }),
     });
   });

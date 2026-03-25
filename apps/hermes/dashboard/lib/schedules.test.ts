@@ -52,7 +52,10 @@ describe("getSchedulesPage", () => {
       skip: 0,
       take: 10,
       orderBy: { name: "asc" },
-      include: { pipeline: { select: { id: true, name: true } } },
+      include: {
+        pipeline: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
     });
     expect(db.schedule.count).toHaveBeenCalledWith({ where: undefined });
   });
@@ -74,7 +77,10 @@ describe("getSchedulesPage", () => {
       skip: 0,
       take: 5,
       orderBy: { name: "asc" },
-      include: { pipeline: { select: { id: true, name: true } } },
+      include: {
+        pipeline: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
     });
     expect(db.schedule.count).toHaveBeenCalledWith({
       where: {
@@ -103,7 +109,10 @@ describe("getSchedulesPage", () => {
       skip: 15,
       take: 15,
       orderBy: { nextRunAt: "desc" },
-      include: { pipeline: { select: { id: true, name: true } } },
+      include: {
+        pipeline: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
     });
   });
 
@@ -124,7 +133,10 @@ describe("getSchedulesPage", () => {
       skip: 0,
       take: 10,
       orderBy: { createdAt: "desc" },
-      include: { pipeline: { select: { id: true, name: true } } },
+      include: {
+        pipeline: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
     });
 
     db.schedule.findMany.mockClear();
@@ -139,7 +151,10 @@ describe("getSchedulesPage", () => {
       skip: 0,
       take: 10,
       orderBy: { enabled: "asc" },
-      include: { pipeline: { select: { id: true, name: true } } },
+      include: {
+        pipeline: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
     });
   });
 
@@ -195,7 +210,10 @@ describe("getScheduleById", () => {
 
     expect(db.schedule.findUnique).toHaveBeenCalledWith({
       where: { id: "schedule-uuid-1" },
-      include: { pipeline: true },
+      include: {
+        pipeline: true,
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
     });
   });
 

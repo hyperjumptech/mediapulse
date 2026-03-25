@@ -5,6 +5,7 @@ type Db = typeof prisma;
 
 const scheduleListInclude = {
   pipeline: { select: { id: true, name: true } },
+  createdBy: { select: { id: true, name: true, email: true } },
 } as const;
 
 export type SchedulesPageResult = {
@@ -120,11 +121,17 @@ export const getScheduleById = async (
   scheduleId: string,
   db: Db = prisma,
 ): Promise<Prisma.ScheduleGetPayload<{
-  include: { pipeline: true };
+  include: {
+    pipeline: true;
+    createdBy: { select: { id: true; name: true; email: true } };
+  };
 }> | null> => {
   return db.schedule.findUnique({
     where: { id: scheduleId },
-    include: { pipeline: true },
+    include: {
+      pipeline: true,
+      createdBy: { select: { id: true, name: true, email: true } },
+    },
   });
 };
 

@@ -68,6 +68,8 @@ const createMockSchedule = (
     nextRunAt: new Date("2024-01-15T10:00:00Z"),
     pipeline: { id: "pipeline-1", name: "Test Pipeline" },
     createdAt: new Date("2024-01-01"),
+    createdById: null,
+    createdBy: null,
     ...overrides,
   }) as ScheduleRow;
 
@@ -91,6 +93,7 @@ describe("SchedulesTable", () => {
     expect(screen.getByText("Next run")).toBeInTheDocument();
     expect(screen.getByText("Enabled")).toBeInTheDocument();
     expect(screen.getByText("Created")).toBeInTheDocument();
+    expect(screen.getByText("Created by")).toBeInTheDocument();
   });
 
   it("renders empty state when no schedules", () => {
@@ -184,7 +187,7 @@ describe("SchedulesTable", () => {
     );
 
     // Assert
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
   it("schedule name is a link to schedule detail page", () => {

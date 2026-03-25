@@ -86,6 +86,7 @@ const defaultMockPipeline: PipelineRow = {
   isActive: true,
   executionConfig: null,
   domainIntegrationId: "00000000-0000-4000-8000-000000000001",
+  createdById: null,
   createdAt: new Date(0),
   updatedAt: new Date(0),
 };
@@ -119,6 +120,7 @@ const createMockSchedule = (
     enabled: true,
     createdAt: new Date(),
     updatedAt: new Date(),
+    createdById: null,
     createdBy: null,
     ...scheduleOverrides,
   };

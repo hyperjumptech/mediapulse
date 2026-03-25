@@ -16,6 +16,7 @@ export type AgentConfigsPageResult = {
     config: unknown;
     configSchemaFingerprint: string | null;
     createdAt: Date;
+    createdBy: { name: string; email: string } | null;
   }>;
   total: number;
   page: number;
@@ -74,6 +75,14 @@ export const getAgentConfigsPage = async (
       skip,
       take: pageSize,
       orderBy,
+      include: {
+        createdBy: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
     }),
     db.agentConfig.count({ where }),
   ]);

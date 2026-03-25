@@ -19,6 +19,11 @@ model User {
 
   variables                 Variable[]
   domainIntegrationsCreated DomainIntegration[] @relation("DomainIntegrationCreatedBy")
+  agentConfigsCreated       AgentConfig[]       @relation("AgentConfigCreatedBy")
+  pipelinesCreated          Pipeline[]          @relation("PipelineCreatedBy")
+  schedulesCreated          Schedule[]          @relation("ScheduleCreatedBy")
+  httpTriggersCreated       HttpTrigger[]       @relation("HttpTriggerCreatedBy")
+  pipelineStepsCreated      PipelineStep[]      @relation("PipelineStepCreatedBy")
 
   @@map("user")
 }
@@ -57,7 +62,9 @@ model AgentConfig {
   configSchemaFingerprint String?  @map("config_schema_fingerprint")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
+  createdById             String?  @map("created_by_id")
 
+  createdBy     User?          @relation("AgentConfigCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   pipelineSteps PipelineStep[]
 
   @@unique([agentId, agentVersion, name])
@@ -137,8 +144,10 @@ model Pipeline {
   domainIntegrationId String   @map("domain_integration_id")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
+  createdById         String?  @map("created_by_id")
 
   domainIntegration DomainIntegration         @relation(fields: [domainIntegrationId], references: [id], onDelete: Restrict)
+  createdBy         User?                     @relation("PipelineCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   steps             PipelineStep[]
   schedules         Schedule[]
   httpTriggers      HttpTrigger[]
@@ -216,8 +225,9 @@ model Schedule {
   enabled         Boolean        @default(true)
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
-  createdBy       String?        @map("created_by")
+  createdById     String?        @map("created_by")
 
+  createdBy          User?               @relation("ScheduleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   pipeline           Pipeline            @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   scheduleExecutions ScheduleExecution[]
   agentJobExecutions AgentJobExecution[]
@@ -300,7 +310,9 @@ model HttpTrigger {
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
   lastTriggeredAt DateTime?           @map("last_triggered_at")
+  createdById     String?             @map("created_by_id")
 
+  createdBy             User?                  @relation("HttpTriggerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   pipeline              Pipeline               @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   agentJobExecutions    AgentJobExecution[]
   httpTriggerExecutions HttpTriggerExecution[]
@@ -399,7 +411,9 @@ model PipelineStep {
   config        Json?    @default("{}")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
+  createdById   String?  @map("created_by_id")
 
+  createdBy                    User?                         @relation("PipelineStepCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   pipeline                     Pipeline                      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   agentConfig                  AgentConfig?                  @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
   scheduleStepExecutions       ScheduleStepExecution[]

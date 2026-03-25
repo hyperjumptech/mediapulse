@@ -1,5 +1,11 @@
 {
   "title": "Orchestration",
-  "pages": ["pipelines", "schedules", "variables", "http-triggers"],
+  "pages": [
+    "pipelines",
+    "schedules",
+    "variables",
+    "http-triggers",
+    "creator-audit-trail"
+  ],
   "defaultOpen": true
 }

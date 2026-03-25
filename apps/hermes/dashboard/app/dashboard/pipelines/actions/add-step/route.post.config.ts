@@ -73,6 +73,7 @@ export const createAddStepHandler = ({
   db = prisma,
 }: AddStepHandlerDependencies = {}): AddStepHandler => {
   return async (data) => {
+    const userId = data.user.id;
     const { pipelineId, agentId, agentVersion, agentConfigId, input, config } =
       data.body;
 
@@ -123,6 +124,7 @@ export const createAddStepHandler = ({
         agentConfigId: agentConfigId ?? null,
         input: inputObj as object,
         config: agentConfigId != null ? {} : ((config ?? {}) as object),
+        createdById: userId,
       },
     });
 

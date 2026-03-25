@@ -19,6 +19,7 @@ export type VariableRow = {
   isSecret: boolean;
   createdAt: Date;
   updatedAt: Date;
+  createdBy: { id: string; name: string; email: string } | null;
 };
 
 export type VariablesPageResult = {
@@ -199,6 +200,15 @@ export const getVariablesPage = async (
       skip,
       take: pageSize,
       orderBy,
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     }),
     db.variable.count({ where }),
   ]);
@@ -211,6 +221,7 @@ export const getVariablesPage = async (
     isSecret: r.isSecret,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+    createdBy: r.createdBy,
   }));
 
   return { variables, total, page, pageSize };
@@ -229,6 +240,15 @@ export const getVariableById = async (
 ): Promise<VariableRow | null> => {
   const row = await db.variable.findUnique({
     where: { id },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
   });
   if (!row) return null;
   return {
@@ -239,5 +259,6 @@ export const getVariableById = async (
     isSecret: row.isSecret,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    createdBy: row.createdBy,
   };
 };

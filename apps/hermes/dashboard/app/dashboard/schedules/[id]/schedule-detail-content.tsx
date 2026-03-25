@@ -11,6 +11,7 @@ import { ChevronLeft, GitBranch } from "lucide-react";
 
 import type { getScheduleById, ScheduleExecutionRow } from "@/lib/schedules";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
+import { formatCreatedBy } from "@/lib/format-created-by";
 
 import { ListPagination } from "@/components/list-pagination";
 import { ScheduleFormModal } from "../schedule-form-modal";
@@ -118,6 +119,10 @@ export const ScheduleDetailContent = ({
             <p className="text-muted-foreground">
               {schedule.description ??
                 "View executions and edit schedule settings."}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Created by: </span>
+              {formatCreatedBy(schedule.createdBy, schedule.createdById)}
             </p>
           </div>
           <Button variant="outline" onClick={() => setEditModalOpen(true)}>

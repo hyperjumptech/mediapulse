@@ -10,7 +10,10 @@ type Db = typeof prisma;
  */
 export const getPipelinesWithSteps = async (db: Db = prisma) => {
   return db.pipeline.findMany({
-    include: { steps: { orderBy: { order: "asc" } } },
+    include: {
+      steps: { orderBy: { order: "asc" } },
+      createdBy: { select: { id: true, name: true, email: true } },
+    },
     orderBy: { updatedAt: "desc" },
   });
 };
@@ -28,7 +31,10 @@ export const getPipelineWithSteps = async (
 ) => {
   return db.pipeline.findUnique({
     where: { id: pipelineId },
-    include: { steps: { orderBy: { order: "asc" } } },
+    include: {
+      steps: { orderBy: { order: "asc" } },
+      createdBy: { select: { id: true, name: true, email: true } },
+    },
   });
 };
 

@@ -92,6 +92,7 @@ describe("createCreateHttpTriggerHandler", () => {
           method: "POST",
           tokenHash: expect.any(String),
           tokenHint: "...oken",
+          createdById: mockDashboardUser.id,
         }),
       }),
     );
