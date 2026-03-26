@@ -19,7 +19,7 @@ The dashboard provides:
 
 - A **Pipelines** list with create/edit and row actions.
 - A **pipeline detail** view to add, reorder, and edit steps, pick agents from the registry, and fill inputs using the JSON schema form when available.
-- **Run pipeline** for a manual execution, plus **Executions** and per-execution detail (steps, status, errors).
+- **Run pipeline** for a manual execution (async queue-backed), plus **Executions** and per-execution detail (steps, status, errors).
 
 ## Pipeline status
 
@@ -33,4 +33,6 @@ Empty pipelines (no steps) validate as complete; add steps before relying on the
 
 ## How schedules and HTTP triggers use pipelines
 
-[Schedules](/hermes/orchestration/schedules) and [HTTP triggers](/hermes/orchestration/http-triggers) both reference a **single pipeline** to run. Multiple schedules or triggers can point at the same pipeline. **Run pipeline** from the dashboard targets one pipeline as well. [Variables](/hermes/orchestration/variables) are resolved when a run is planned (including manual runs), before agent jobs are created or invoked.
+[Schedules](/hermes/orchestration/schedules) and [HTTP triggers](/hermes/orchestration/http-triggers) both reference a **single pipeline** to run. Multiple schedules or triggers can point at the same pipeline. **Run pipeline** from the dashboard targets one pipeline as well and returns an execution id as soon as jobs are enqueued. [Variables](/hermes/orchestration/variables) are resolved when a run is planned (including manual runs), before agent jobs are created or invoked.
+
+All pipeline execution sources support cancellation while pending/running. Cancelled runs use explicit `runStatus = cancelled` and keep that terminal state even if in-flight invocation completions arrive later.

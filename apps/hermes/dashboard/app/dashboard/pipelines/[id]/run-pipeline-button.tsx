@@ -8,6 +8,7 @@ import { Button } from "@workspace/ui/components/button";
 import { Play } from "lucide-react";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/run-pipeline/.generated/use-form-action";
+import { useFormAction as useCancelExecutionFormAction } from "@/app/dashboard/pipelines/actions/cancel-execution/.generated/use-form-action";
 
 export type RunPipelineButtonProps = {
   pipelineId: string;
@@ -22,15 +23,33 @@ export type RunPipelineButtonProps = {
  */
 const useRunPipelineButtonState = () => {
   const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
+  const {
+    FormWithAction: RunFormWithAction,
+    state: runState,
+    pending: runPending,
+  } = useFormAction();
+  const {
+    FormWithAction: CancelFormWithAction,
+    state: cancelState,
+    pending: cancelPending,
+  } = useCancelExecutionFormAction();
 
   useEffect(() => {
-    if (state && state.status === true) {
+    if (
+      (runState && runState.status === true) ||
+      (cancelState && cancelState.status === true)
+    ) {
       router.refresh();
     }
-  }, [state, router]);
+  }, [runState, cancelState, router]);
 
-  return { FormWithAction, state, pending };
+  return {
+    RunFormWithAction,
+    CancelFormWithAction,
+    runState,
+    runPending,
+    cancelPending,
+  };
 };
 
 /**
@@ -42,32 +61,35 @@ export const RunPipelineButton = ({
   disabled = false,
   trailingActions = null,
 }: RunPipelineButtonProps) => {
-  const { FormWithAction, state, pending } = useRunPipelineButtonState();
+  const {
+    RunFormWithAction,
+    CancelFormWithAction,
+    runState,
+    runPending,
+    cancelPending,
+  } = useRunPipelineButtonState();
 
-  const errorMessage = state && state.status === false ? state.message : null;
-  const successInvocations =
-    state && state.status === true && state.data
-      ? (state.data as { invocationsRun?: number }).invocationsRun
+  const errorMessage =
+    runState && runState.status === false ? runState.message : null;
+  const queuedInvocations =
+    runState && runState.status === true && runState.data
+      ? (runState.data as { invocationsQueued?: number }).invocationsQueued
       : null;
   const executionId =
-    state && state.status === true && state.data
-      ? (state.data as { executionId?: string }).executionId
+    runState && runState.status === true && runState.data
+      ? (runState.data as { executionId?: string }).executionId
       : null;
   const runStatus =
-    state && state.status === true && state.data
-      ? (state.data as { runStatus?: "succeeded" | "partial" | "failed" })
-          .runStatus
+    runState && runState.status === true && runState.data
+      ? (runState.data as { runStatus?: "pending" | "failed" }).runStatus
       : null;
-  const failedInvocationCount =
-    state && state.status === true && state.data
-      ? (state.data as { failedInvocationCount?: number }).failedInvocationCount
-      : null;
-  const isDisabled = disabled || pending;
+  const isDisabled = disabled || runPending;
+  const canCancel = executionId != null && runStatus === "pending";
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <FormWithAction>
+        <RunFormWithAction>
           <input
             type="hidden"
             name="body.pipelineId"
@@ -85,22 +107,34 @@ export const RunPipelineButton = ({
             }
           >
             <Play className="mr-2 size-4" />
-            {pending ? "Running…" : "Run pipeline"}
+            {runPending ? "Running…" : "Run pipeline"}
           </Button>
-        </FormWithAction>
+        </RunFormWithAction>
+        {canCancel ? (
+          <CancelFormWithAction>
+            <input
+              type="hidden"
+              name="body.executionId"
+              value={executionId}
+              readOnly
+            />
+            <Button type="submit" variant="outline" disabled={cancelPending}>
+              {cancelPending ? "Cancelling…" : "Cancel execution"}
+            </Button>
+          </CancelFormWithAction>
+        ) : null}
         {trailingActions}
       </div>
       {errorMessage ? (
         <p className="text-sm text-destructive">{errorMessage}</p>
       ) : null}
-      {successInvocations !== null && successInvocations !== undefined ? (
+      {queuedInvocations !== null && queuedInvocations !== undefined ? (
         <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
           <p className="text-sm text-muted-foreground">
-            Ran {successInvocations} invocation
-            {successInvocations !== 1 ? "s" : ""}.{" "}
+            Queued {queuedInvocations} invocation
+            {queuedInvocations !== 1 ? "s" : ""}.{" "}
             <span className="text-foreground">
-              Status {runStatus ?? "unknown"}, {failedInvocationCount ?? 0}{" "}
-              failed.
+              Status {runStatus ?? "unknown"}.
             </span>
             {executionId ? (
               <>

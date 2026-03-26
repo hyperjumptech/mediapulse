@@ -20,6 +20,7 @@ export type InvocationCompletionInput = {
   jobId: string;
   scheduleExecutionId?: string;
   httpTriggerExecutionId?: string;
+  manualExecutionId?: string;
   pipelineStepId: string;
   terminal:
     | {
@@ -85,7 +86,11 @@ export const applyInvocationCompletion = async (
 ): Promise<void> => {
   const { db, logger } = deps;
 
-  const executionKind = input.scheduleExecutionId ? "schedule" : "httpTrigger";
+  const executionKind = input.scheduleExecutionId
+    ? "schedule"
+    : input.httpTriggerExecutionId
+      ? "httpTrigger"
+      : "manual";
   const execution = input.scheduleExecutionId
     ? await db.scheduleExecution.findUnique({
         where: { id: input.scheduleExecutionId },
@@ -104,12 +109,22 @@ export const applyInvocationCompletion = async (
             effectiveExecutionConfig: true,
           },
         })
-      : null;
+      : input.manualExecutionId
+        ? await db.manualPipelineExecution.findUnique({
+            where: { id: input.manualExecutionId },
+            select: {
+              id: true,
+              runStatus: true,
+              effectiveExecutionConfig: true,
+            },
+          })
+        : null;
   if (!execution) {
     logger.warn(
       {
         scheduleExecutionId: input.scheduleExecutionId,
         httpTriggerExecutionId: input.httpTriggerExecutionId,
+        manualExecutionId: input.manualExecutionId,
         jobId: input.jobId,
       },
       "applyInvocationCompletion: execution not found",
@@ -126,7 +141,10 @@ export const applyInvocationCompletion = async (
   const config = loadExecutionConfig(
     execution.effectiveExecutionConfig,
     logger,
-    input.scheduleExecutionId ?? input.httpTriggerExecutionId ?? "unknown",
+    input.scheduleExecutionId ??
+      input.httpTriggerExecutionId ??
+      input.manualExecutionId ??
+      "unknown",
   );
 
   const isSuccess = input.terminal.status === AgentJobExecutionStatus.completed;
@@ -167,13 +185,23 @@ export const applyInvocationCompletion = async (
         },
       });
     } else {
-      await tx.httpTriggerExecution.update({
-        where: { id: input.httpTriggerExecutionId },
-        data: {
-          runStatus: ScheduleRunStatus.running,
-          ...execCountInc,
-        },
-      });
+      if (executionKind === "manual") {
+        await tx.manualPipelineExecution.update({
+          where: { id: input.manualExecutionId },
+          data: {
+            runStatus: ScheduleRunStatus.running,
+            ...execCountInc,
+          },
+        });
+      } else {
+        await tx.httpTriggerExecution.update({
+          where: { id: input.httpTriggerExecutionId },
+          data: {
+            runStatus: ScheduleRunStatus.running,
+            ...execCountInc,
+          },
+        });
+      }
     }
 
     const stepRow =
@@ -186,14 +214,23 @@ export const applyInvocationCompletion = async (
               },
             },
           })
-        : await tx.httpTriggerStepExecution.findUnique({
-            where: {
-              httpTriggerExecutionId_pipelineStepId: {
-                httpTriggerExecutionId: input.httpTriggerExecutionId!,
-                pipelineStepId: input.pipelineStepId,
+        : executionKind === "httpTrigger"
+          ? await tx.httpTriggerStepExecution.findUnique({
+              where: {
+                httpTriggerExecutionId_pipelineStepId: {
+                  httpTriggerExecutionId: input.httpTriggerExecutionId!,
+                  pipelineStepId: input.pipelineStepId,
+                },
               },
-            },
-          });
+            })
+          : await tx.manualPipelineStepExecution.findUnique({
+              where: {
+                manualExecutionId_pipelineStepId: {
+                  manualExecutionId: input.manualExecutionId!,
+                  pipelineStepId: input.pipelineStepId,
+                },
+              },
+            });
     if (!stepRow) {
       return;
     }
@@ -214,16 +251,27 @@ export const applyInvocationCompletion = async (
                   : stepRow.rollupStatus,
             },
           })
-        : await tx.httpTriggerStepExecution.update({
-            where: { id: stepRow.id },
-            data: {
-              ...inc,
-              rollupStatus:
-                stepRow.rollupStatus === ScheduleStepRollupStatus.pending
-                  ? ScheduleStepRollupStatus.running
-                  : stepRow.rollupStatus,
-            },
-          });
+        : executionKind === "httpTrigger"
+          ? await tx.httpTriggerStepExecution.update({
+              where: { id: stepRow.id },
+              data: {
+                ...inc,
+                rollupStatus:
+                  stepRow.rollupStatus === ScheduleStepRollupStatus.pending
+                    ? ScheduleStepRollupStatus.running
+                    : stepRow.rollupStatus,
+              },
+            })
+          : await tx.manualPipelineStepExecution.update({
+              where: { id: stepRow.id },
+              data: {
+                ...inc,
+                rollupStatus:
+                  stepRow.rollupStatus === ScheduleStepRollupStatus.pending
+                    ? ScheduleStepRollupStatus.running
+                    : stepRow.rollupStatus,
+              },
+            });
 
     const stepDone =
       updated.succeededCount + updated.failedCount >=
@@ -243,8 +291,13 @@ export const applyInvocationCompletion = async (
         where: { id: stepRow.id },
         data: { rollupStatus: stepRollupTerminalToPrisma(rollupTerminal) },
       });
-    } else {
+    } else if (executionKind === "httpTrigger") {
       await tx.httpTriggerStepExecution.update({
+        where: { id: stepRow.id },
+        data: { rollupStatus: stepRollupTerminalToPrisma(rollupTerminal) },
+      });
+    } else {
+      await tx.manualPipelineStepExecution.update({
         where: { id: stepRow.id },
         data: { rollupStatus: stepRollupTerminalToPrisma(rollupTerminal) },
       });
@@ -256,10 +309,15 @@ export const applyInvocationCompletion = async (
             where: { scheduleExecutionId: input.scheduleExecutionId! },
             select: { rollupStatus: true },
           })
-        : await tx.httpTriggerStepExecution.findMany({
-            where: { httpTriggerExecutionId: input.httpTriggerExecutionId! },
-            select: { rollupStatus: true },
-          });
+        : executionKind === "httpTrigger"
+          ? await tx.httpTriggerStepExecution.findMany({
+              where: { httpTriggerExecutionId: input.httpTriggerExecutionId! },
+              select: { rollupStatus: true },
+            })
+          : await tx.manualPipelineStepExecution.findMany({
+              where: { manualExecutionId: input.manualExecutionId! },
+              select: { rollupStatus: true },
+            });
 
     const terminalStatuses = new Set<ScheduleStepRollupStatus>([
       ScheduleStepRollupStatus.success,
@@ -294,10 +352,20 @@ export const applyInvocationCompletion = async (
         },
         data: { runStatus: runStatusToPrisma(run) },
       });
-    } else {
+    } else if (executionKind === "httpTrigger") {
       await tx.httpTriggerExecution.updateMany({
         where: {
           id: input.httpTriggerExecutionId,
+          runStatus: {
+            in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
+          },
+        },
+        data: { runStatus: runStatusToPrisma(run) },
+      });
+    } else {
+      await tx.manualPipelineExecution.updateMany({
+        where: {
+          id: input.manualExecutionId,
           runStatus: {
             in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
           },

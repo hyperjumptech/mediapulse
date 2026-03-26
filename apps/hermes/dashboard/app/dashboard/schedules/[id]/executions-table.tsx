@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
+import { Button } from "@workspace/ui/components/button";
 import {
   Table,
   TableBody,
@@ -12,11 +15,28 @@ import {
 } from "@workspace/ui/components/table";
 import { format } from "date-fns";
 
+import { useFormAction } from "@/app/dashboard/schedules/actions/cancel-execution/.generated/use-form-action";
 import type { ScheduleExecutionRow } from "@/lib/schedules";
 
 type ExecutionsTableProps = {
   scheduleId: string;
   executions: ScheduleExecutionRow[];
+};
+
+/**
+ * Encapsulates schedule-execution cancellation action and refresh-on-success.
+ */
+const useCancelScheduleExecutionAction = () => {
+  const router = useRouter();
+  const { FormWithAction, pending, state } = useFormAction();
+
+  useEffect(() => {
+    if (state && state.status === true) {
+      router.refresh();
+    }
+  }, [router, state]);
+
+  return { FormWithAction, pending };
 };
 
 /**
@@ -36,6 +56,8 @@ export const ExecutionsTable = ({
   scheduleId,
   executions,
 }: ExecutionsTableProps) => {
+  const { FormWithAction, pending } = useCancelScheduleExecutionAction();
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -49,13 +71,14 @@ export const ExecutionsTable = ({
               Invocations (success / fail)
             </TableHead>
             <TableHead className="w-[90px]">Detail</TableHead>
+            <TableHead className="w-[110px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {executions.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={6}
+                colSpan={7}
                 className="text-center text-muted-foreground"
               >
                 No executions yet.
@@ -68,6 +91,9 @@ export const ExecutionsTable = ({
                 execution.executionTime,
                 "LLL d, yyyy HH:mm:ss",
               );
+              const canCancel =
+                execution.runStatus === "pending" ||
+                execution.runStatus === "running";
               return (
                 <TableRow key={execution.id}>
                   <TableCell className="text-sm">
@@ -99,6 +125,28 @@ export const ExecutionsTable = ({
                     >
                       View
                     </Link>
+                  </TableCell>
+                  <TableCell>
+                    {canCancel ? (
+                      <FormWithAction>
+                        <input
+                          type="hidden"
+                          name="body.executionId"
+                          value={execution.id}
+                          readOnly
+                        />
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          size="sm"
+                          disabled={pending}
+                        >
+                          {pending ? "Cancelling…" : "Cancel"}
+                        </Button>
+                      </FormWithAction>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                 </TableRow>
               );

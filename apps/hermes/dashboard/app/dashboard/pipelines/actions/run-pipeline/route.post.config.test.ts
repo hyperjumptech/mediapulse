@@ -1,10 +1,22 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import {
-  createRunPipelineHandler,
-  detailFromAgentErrorBody,
-} from "./route.post.config";
+  AgentJobExecutionStatus,
+  ScheduleRunStatus,
+} from "@hermes/orchestration-database";
+
+import { createRunPipelineHandler } from "./route.post.config";
+
+vi.mock("@/lib/validate-pipeline", () => ({
+  validatePipeline: vi.fn().mockResolvedValue({ valid: true, warnings: [] }),
+}));
+
+vi.mock("@/lib/expand-step-inputs-for-manual-pipeline", () => ({
+  createExpandStepInputsForManualPipelineRun:
+    () => async (context: { input: Record<string, unknown> }) => [
+      context.input,
+    ],
+}));
 
 const mockDashboardUser = {
   id: "u1",
@@ -32,8 +44,22 @@ const createExecutionPersistenceStubs = () => ({
   },
   agentJobExecution: {
     create: vi.fn().mockResolvedValue(undefined),
-    update: vi.fn().mockResolvedValue(undefined),
+    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
   },
+  $transaction: vi.fn(async (callback: (tx: unknown) => Promise<void>) =>
+    callback({
+      manualPipelineStepExecution: {
+        create: vi.fn().mockResolvedValue(undefined),
+      },
+      agentJobExecution: {
+        create: vi.fn().mockResolvedValue(undefined),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      manualPipelineExecution: {
+        update: vi.fn().mockResolvedValue(undefined),
+      },
+    }),
+  ),
 });
 
 const createPipelineWithSteps = () => ({
@@ -55,45 +81,40 @@ const createPipelineWithSteps = () => ({
   ],
 });
 
-describe("detailFromAgentErrorBody", () => {
-  it("handles nullish and plain string values", () => {
-    expect(detailFromAgentErrorBody(null)).toBe(
-      "Unknown error (empty response body)",
-    );
-    expect(detailFromAgentErrorBody(undefined)).toBe(
-      "Unknown error (empty response body)",
-    );
-    expect(detailFromAgentErrorBody("  plain  ")).toBe("plain");
-  });
-
-  it("prefers message field from objects/JSON strings", () => {
-    expect(detailFromAgentErrorBody('{"message":"No data"}')).toBe("No data");
-    expect(detailFromAgentErrorBody({ message: "No data" })).toBe("No data");
-  });
-});
-
 describe("createRunPipelineHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it("returns error when pipeline is missing", async () => {
+    // Setup
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
+      queue: {
+        addJobs: vi.fn().mockResolvedValue([]),
+        editJob: vi.fn().mockResolvedValue(undefined),
+      },
       db: {
         ...createExecutionPersistenceStubs(),
         pipeline: { findUnique: vi.fn().mockResolvedValue(null) },
       } as never,
     });
+
+    // Act
     const result = await handler(request({ pipelineId: "missing" }));
+
+    // Assert
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Pipeline not found");
   });
 
-  it("returns failed run with 0 invocations when planning yields no jobs", async () => {
+  it("returns failed run with 0 queued invocations when planning yields no jobs", async () => {
+    // Setup
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
       expandStepInputs: async () => [],
+      queue: {
+        addJobs: vi.fn().mockResolvedValue([]),
+        editJob: vi.fn().mockResolvedValue(undefined),
+      },
       db: {
         ...createExecutionPersistenceStubs(),
         pipeline: {
@@ -124,27 +145,29 @@ describe("createRunPipelineHandler", () => {
       } as never,
     });
 
+    // Act
     const result = await handler(request({ pipelineId: "p-1" }));
+
+    // Assert
     expect(result.status).toBe(true);
     expect(result).toMatchObject({
       data: {
         ok: true,
-        invocationsRun: 0,
+        invocationsQueued: 0,
         runStatus: "failed",
       },
     });
   });
 
-  it("runs one planned invocation and returns invocationsRun", async () => {
-    const postMock = vi.fn().mockResolvedValue({
-      ok: true,
-      statusCode: 200,
-      body: {},
-    });
+  it("enqueues one invocation and returns pending execution metadata", async () => {
+    // Setup
+    const queue = {
+      addJobs: vi.fn().mockResolvedValue([101]),
+      editJob: vi.fn().mockResolvedValue(undefined),
+    };
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
       expandStepInputs: async (ctx) => [ctx.input],
-      post: postMock as never,
+      queue,
       db: {
         ...createExecutionPersistenceStubs(),
         pipeline: {
@@ -175,37 +198,48 @@ describe("createRunPipelineHandler", () => {
       } as never,
     });
 
+    // Act
     const result = await handler(request({ pipelineId: "p-1" }));
+
+    // Assert
     expect(result.status).toBe(true);
     expect(result).toMatchObject({
       data: {
         ok: true,
-        invocationsRun: 1,
-        runStatus: "succeeded",
-        failedInvocationCount: 0,
+        invocationsQueued: 1,
+        runStatus: "pending",
       },
     });
-    expect(postMock).toHaveBeenCalledWith(
-      "https://agent.example/run",
+    expect(queue.addJobs).toHaveBeenCalledTimes(1);
+    expect(queue.editJob).toHaveBeenCalledWith(
+      101,
       expect.objectContaining({
-        json: { input: { id: "single-id" }, config: {} },
-        throwHttpErrors: false,
+        payload: expect.objectContaining({ hermesDataQueueJobId: 101 }),
       }),
     );
   });
 
-  it("returns success with failedInvocationCount when invocation fails", async () => {
-    const postMock = vi.fn().mockResolvedValue({
-      ok: false,
-      statusCode: 400,
-      body: { message: "bad input" },
-    });
+  it("returns error when queue enqueue fails", async () => {
+    // Setup
+    const queue = {
+      addJobs: vi.fn().mockRejectedValue(new Error("queue down")),
+      editJob: vi.fn().mockResolvedValue(undefined),
+    };
+    const manualExecutionUpdate = vi.fn().mockResolvedValue(undefined);
+    const agentJobUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
       expandStepInputs: async (ctx) => [ctx.input],
-      post: postMock as never,
+      queue,
       db: {
         ...createExecutionPersistenceStubs(),
+        $transaction: vi.fn(async () => {
+          await manualExecutionUpdate({
+            data: { runStatus: ScheduleRunStatus.failed },
+          });
+          await agentJobUpdateMany({
+            data: { status: AgentJobExecutionStatus.failed },
+          });
+        }),
         pipeline: {
           findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
         },
@@ -234,15 +268,14 @@ describe("createRunPipelineHandler", () => {
       } as never,
     });
 
+    // Act
     const result = await handler(request({ pipelineId: "p-1" }));
-    expect(result.status).toBe(true);
-    expect(result).toMatchObject({
-      data: {
-        ok: true,
-        invocationsRun: 1,
-        runStatus: "failed",
-        failedInvocationCount: 1,
-      },
-    });
+
+    // Assert
+    expect(queue.addJobs).toHaveBeenCalled();
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toBe(
+      "Failed to enqueue manual execution jobs. Please retry.",
+    );
   });
 });

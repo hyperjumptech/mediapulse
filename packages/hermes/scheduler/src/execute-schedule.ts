@@ -25,6 +25,8 @@ export type InvokeAgentJobPayload = {
   /** Parent HTTP trigger execution row (correlation + rollup). */
   httpTriggerExecutionId?: string;
   httpTriggerId?: string;
+  /** Parent manual execution row (correlation + rollup). */
+  manualExecutionId?: string;
   pipelineId: string;
   pipelineStepId: string;
   /** JWT minting scope for agent invocation. */

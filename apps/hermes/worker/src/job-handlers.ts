@@ -173,6 +173,7 @@ const handleTransientInvokeFailure = async (params: {
         jobId: payload.jobId,
         scheduleExecutionId: payload.scheduleExecutionId,
         httpTriggerExecutionId: payload.httpTriggerExecutionId,
+        manualExecutionId: payload.manualExecutionId,
         pipelineStepId: payload.pipelineStepId,
         terminal: {
           status: AgentJobExecutionStatus.failed,
@@ -384,7 +385,11 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       }
     }
 
-    if (!payload.scheduleExecutionId && !payload.httpTriggerExecutionId) {
+    if (
+      !payload.scheduleExecutionId &&
+      !payload.httpTriggerExecutionId &&
+      !payload.manualExecutionId
+    ) {
       logger.error(
         { jobId: payload.jobId },
         "invoke_agent missing execution id on payload",
@@ -395,7 +400,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           status: AgentJobExecutionStatus.failed,
           error: {
             message:
-              "Missing scheduleExecutionId/httpTriggerExecutionId on job payload",
+              "Missing scheduleExecutionId/httpTriggerExecutionId/manualExecutionId on job payload",
             retryable: false,
           },
           completedAt: new Date(),
@@ -462,6 +467,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             jobId: payload.jobId,
             scheduleExecutionId: payload.scheduleExecutionId,
             httpTriggerExecutionId: payload.httpTriggerExecutionId,
+            manualExecutionId: payload.manualExecutionId,
             pipelineStepId: payload.pipelineStepId,
             terminal: {
               status: AgentJobExecutionStatus.failed,
@@ -484,6 +490,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
               jobId: payload.jobId,
               scheduleExecutionId: payload.scheduleExecutionId,
               httpTriggerExecutionId: payload.httpTriggerExecutionId,
+              manualExecutionId: payload.manualExecutionId,
               pipelineStepId: payload.pipelineStepId,
               terminal: {
                 status: AgentJobExecutionStatus.failed,
@@ -504,6 +511,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
               jobId: payload.jobId,
               scheduleExecutionId: payload.scheduleExecutionId,
               httpTriggerExecutionId: payload.httpTriggerExecutionId,
+              manualExecutionId: payload.manualExecutionId,
               pipelineStepId: payload.pipelineStepId,
               terminal: {
                 status: AgentJobExecutionStatus.failed,
@@ -528,6 +536,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             jobId: payload.jobId,
             scheduleExecutionId: payload.scheduleExecutionId,
             httpTriggerExecutionId: payload.httpTriggerExecutionId,
+            manualExecutionId: payload.manualExecutionId,
             pipelineStepId: payload.pipelineStepId,
             terminal: {
               status: AgentJobExecutionStatus.completed,
@@ -544,6 +553,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           jobId: payload.jobId,
           scheduleExecutionId: payload.scheduleExecutionId,
           httpTriggerExecutionId: payload.httpTriggerExecutionId,
+          manualExecutionId: payload.manualExecutionId,
           pipelineStepId: payload.pipelineStepId,
           terminal: {
             status: AgentJobExecutionStatus.failed,

@@ -13,6 +13,7 @@ icon: ServerCog
 - **Queue init** — Connects to DataQueue using `PG_DATAQUEUE_DATABASE`.
 - **Cron registration** — Ensures `hermes-check-schedules` (every minute) exists.
 - **Processor** — Runs job handlers: `check_schedules` (get due schedules, enqueue one `invoke_agent` job per expanded input); `invoke_agent` (get JWT, POST to agent, update `AgentJobExecution`). Concurrency and batch size are configurable via env so multiple agent invocations run in parallel. Transient failures (network errors, HTTP 5xx) can be retried by DataQueue with optional exponential backoff env vars; orchestration rows are reset to `pending` between retries so the agent is called again.
+- **Cancellation-aware completion** — `invoke_agent` completion updates now handle schedule, HTTP trigger, and manual executions. If an execution was already cancelled, completion does not overwrite the terminal `cancelled` run status.
 - **Supervisor** — Reclaims stuck jobs, cleans old jobs/events.
 - **JWT-only invocation** — The worker **requires** `AGENT_AUTH_API_URL` and **`HERMES_INTERNAL_API_KEY`** (same preset as the Hermes dashboard and agent-auth-api, not a dashboard API key). The worker uses it only to fetch short-lived JWTs from `POST /api/token` and sends only JWTs to agents; the preset is never sent to agents. Rotate the preset in env if it is compromised.
 - **HTTPS enforcement** — When `REQUIRE_HTTPS_AGENT_ENDPOINTS=true`, agent endpoint URLs must use HTTPS (or `http://localhost` / `http://127.0.0.1` for local dev).

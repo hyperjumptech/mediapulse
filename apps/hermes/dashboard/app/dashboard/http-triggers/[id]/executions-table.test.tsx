@@ -16,7 +16,10 @@ const createMockFormWithAction = () => {
     children: React.ReactNode;
     className?: string;
   }) => (
-    <form data-testid="cancel-schedule-execution-form" className={className}>
+    <form
+      data-testid="cancel-http-trigger-execution-form"
+      className={className}
+    >
       {children}
     </form>
   );
@@ -25,7 +28,7 @@ const createMockFormWithAction = () => {
 };
 
 vi.mock(
-  "@/app/dashboard/schedules/actions/cancel-execution/.generated/use-form-action",
+  "@/app/dashboard/http-triggers/actions/cancel-execution/.generated/use-form-action",
   () => ({
     useFormAction: vi.fn(() => ({
       FormWithAction: createMockFormWithAction(),
@@ -49,16 +52,16 @@ vi.mock("@workspace/ui/components/button", () => ({
 
 const getUseFormActionMock = async () => {
   const mod =
-    await import("@/app/dashboard/schedules/actions/cancel-execution/.generated/use-form-action");
+    await import("@/app/dashboard/http-triggers/actions/cancel-execution/.generated/use-form-action");
   return mod.useFormAction as Mock;
 };
 
-describe("Schedule ExecutionsTable", () => {
+describe("Http Trigger ExecutionsTable", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("shows cancel action for pending execution", async () => {
+  it("shows cancel action for running execution", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue({
@@ -70,13 +73,13 @@ describe("Schedule ExecutionsTable", () => {
     // Act
     render(
       <ExecutionsTable
-        scheduleId="schedule-1"
+        triggerId="trigger-1"
         executions={[
           {
             id: "exec-1",
             executionTime: new Date("2026-03-26T12:00:00.000Z"),
             enqueueStatus: "success",
-            runStatus: "pending",
+            runStatus: "running",
             jobsCreated: 1,
             jobsEnqueued: 1,
             succeededInvocationCount: 0,
@@ -92,7 +95,7 @@ describe("Schedule ExecutionsTable", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
-  it("does not show cancel action for terminal execution", async () => {
+  it("does not show cancel action for failed execution", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue({
@@ -104,13 +107,13 @@ describe("Schedule ExecutionsTable", () => {
     // Act
     render(
       <ExecutionsTable
-        scheduleId="schedule-1"
+        triggerId="trigger-1"
         executions={[
           {
             id: "exec-1",
             executionTime: new Date("2026-03-26T12:00:00.000Z"),
             enqueueStatus: "success",
-            runStatus: "cancelled",
+            runStatus: "failed",
             jobsCreated: 1,
             jobsEnqueued: 1,
             succeededInvocationCount: 0,

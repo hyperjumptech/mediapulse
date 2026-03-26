@@ -1,10 +1,12 @@
 import { initJobQueue } from "@nicnocquee/dataqueue";
 import { env } from "@hermes/env";
+import type { InvokeAgentJobPayload } from "@hermes/scheduler";
 
 type DashboardJobPayloadMap = {
   execute_http_trigger: {
     httpTriggerExecutionId: string;
   };
+  invoke_agent: InvokeAgentJobPayload;
 };
 
 let queue: ReturnType<typeof initJobQueue<DashboardJobPayloadMap>> | null =

@@ -203,6 +203,7 @@ enum ScheduleEnqueueStatus {
 enum ScheduleRunStatus {
   pending
   running
+  cancelled
   succeeded
   partial
   failed
@@ -222,6 +223,7 @@ enum ScheduleStepRollupStatus {
 enum AgentJobExecutionStatus {
   pending
   running
+  cancelled
   completed
   failed
 }

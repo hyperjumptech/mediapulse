@@ -1,21 +1,21 @@
 import { randomUUID } from "node:crypto";
-import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@hermes/env";
 import {
   prisma as orchestrationPrisma,
   Prisma,
+  AgentJobExecutionStatus,
   ScheduleEnqueueStatus,
   ScheduleRunStatus,
   ScheduleStepRollupStatus,
 } from "@hermes/orchestration-database";
 import {
-  computeExecutionRunStatusFromStepRollups,
-  computeStepRollupFromCounts,
   mergeExecutionConfig,
   planPipelineInvocations,
   type ExpandStepInputs,
+  type EnqueueInvokeAgentItem,
+  type InvokeAgentJobPayload,
 } from "@hermes/scheduler";
-import got from "got";
+import { batchDepRef } from "@nicnocquee/dataqueue";
 import {
   createRequestValidator,
   errorResponse,
@@ -26,6 +26,7 @@ import { z } from "zod";
 
 import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { createExpandStepInputsForManualPipelineRun } from "@/lib/expand-step-inputs-for-manual-pipeline";
+import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 import { validatePipeline } from "@/lib/validate-pipeline";
 
 const bodyValidator = z.object({
@@ -39,56 +40,19 @@ export const requestValidator = createRequestValidator({
 
 export const responseValidator = z.object({
   ok: z.literal(true),
-  invocationsRun: z.number(),
+  invocationsQueued: z.number(),
   executionId: z.string().uuid(),
-  runStatus: z.enum(["succeeded", "partial", "failed"]),
-  failedInvocationCount: z.number(),
+  runStatus: z.enum(["pending", "failed"]),
 });
 
-/**
- * Builds a short human-readable detail from an agent error response body (JSON object or string).
- *
- * @param body - Parsed or raw body from `got` when `throwHttpErrors` is false.
- * @returns Message for dashboard users (agent `message` field when present).
- */
-export const detailFromAgentErrorBody = (body: unknown): string => {
-  if (body === null || body === undefined) {
-    return "Unknown error (empty response body)";
-  }
-  if (typeof body === "string") {
-    const trimmed = body.trim();
-    if (!trimmed) return "Unknown error (empty response body)";
-    try {
-      const parsed = JSON.parse(trimmed) as { message?: unknown };
-      if (typeof parsed.message === "string" && parsed.message.length > 0) {
-        return parsed.message;
-      }
-    } catch {
-      // Not JSON.
-    }
-    return trimmed.length > 300 ? `${trimmed.slice(0, 300)}...` : trimmed;
-  }
-  if (typeof body === "object" && !Array.isArray(body)) {
-    const msg = (body as { message?: unknown }).message;
-    if (typeof msg === "string" && msg.length > 0) return msg;
-  }
-  return "Unknown error (see agent logs)";
-};
-
-const defaultGetToken =
-  env.AGENT_AUTH_API_URL && env.HERMES_INTERNAL_API_KEY
-    ? createAgentTokenClient({
-        authApiUrl: env.AGENT_AUTH_API_URL,
-        credential: env.HERMES_INTERNAL_API_KEY,
-      }).getToken
-    : null;
-
-type StepRollupTerminal = "success" | "partial" | "failed";
+type QueueClient = Pick<
+  ReturnType<typeof getHermesJobQueue>,
+  "addJobs" | "editJob"
+>;
 
 type RunPipelineHandlerDependencies = {
   db?: typeof orchestrationPrisma;
-  getToken?: () => Promise<string>;
-  post?: typeof got.post;
+  queue?: QueueClient;
   now?: () => Date;
   expandStepInputs?: ExpandStepInputs;
 };
@@ -107,28 +71,13 @@ type RunPipelineHandler = HandlerFunc<
  */
 export const createRunPipelineHandler = ({
   db = orchestrationPrisma,
-  getToken = defaultGetToken ??
-    (async () => {
-      throw new Error(
-        "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY are required",
-      );
-    }),
-  post = got.post,
+  queue,
   now = () => new Date(),
   expandStepInputs = createExpandStepInputsForManualPipelineRun(),
 }: RunPipelineHandlerDependencies = {}): RunPipelineHandler => {
   return async (data) => {
+    const queueClient = queue ?? getHermesJobQueue();
     const session = data.user;
-
-    let jwt: string;
-    try {
-      jwt = await getToken();
-    } catch (err) {
-      console.error("--> error getting token", err);
-      return errorResponse(
-        "AGENT_AUTH_API_URL and HERMES_INTERNAL_API_KEY are required to run pipelines (JWT-only invocation)",
-      );
-    }
 
     const pipelineFindArgs = {
       where: { id: data.body.pipelineId },
@@ -171,6 +120,7 @@ export const createRunPipelineHandler = ({
       pipeline.executionConfig,
       null,
     );
+    const executionTime = now();
     const planning = await planPipelineInvocations({
       db,
       pipeline: {
@@ -181,13 +131,14 @@ export const createRunPipelineHandler = ({
       sourceId: pipeline.id,
       expandStepInputs,
       variableSecretMasterKey: env.HERMES_INTERNAL_API_KEY,
+      variableSecretFallbackMasterKey: env.HERMES_INTERNAL_API_KEY_PREVIOUS,
       requireHttpsAgentEndpoints: false,
     });
-    const executionTime = now();
     const waveList = planning.waveList.map((wave) =>
       wave.map((planned) => ({
         ...planned,
         jobId: randomUUID(),
+        executionId: randomUUID(),
       })),
     );
     const plannedJobs = waveList.flat();
@@ -204,11 +155,18 @@ export const createRunPipelineHandler = ({
         pipelineId: pipeline.id,
         executionTime,
         enqueueStatus,
-        runStatus: jobsCreated === 0 ? ScheduleRunStatus.failed : "running",
+        runStatus:
+          jobsCreated === 0
+            ? ScheduleRunStatus.failed
+            : ScheduleRunStatus.pending,
         effectiveExecutionConfig:
           effectiveExecutionConfig as Prisma.InputJsonValue,
         jobsCreated,
-        jobsEnqueued: jobsCreated,
+        jobsEnqueued: 0,
+        errors:
+          planning.errors.length > 0
+            ? (planning.errors as Prisma.InputJsonValue)
+            : undefined,
         metadata: {
           source: "dashboard",
           initiatedByUserId: session.id,
@@ -226,244 +184,160 @@ export const createRunPipelineHandler = ({
       );
     }
 
-    const stepStats = new Map<
-      string,
-      {
-        succeededCount: number;
-        failedCount: number;
-        expectedInvocationCount: number;
-      }
-    >();
-    for (const step of pipeline.steps) {
-      const expectedInvocationCount = stepExpected.get(step.id) ?? 0;
-      await db.manualPipelineStepExecution.create({
-        data: {
-          manualExecutionId: execution.id,
-          pipelineStepId: step.id,
-          expectedInvocationCount,
-          rollupStatus:
-            expectedInvocationCount > 0
-              ? ScheduleStepRollupStatus.running
-              : ScheduleStepRollupStatus.pending,
-        },
-      });
-      stepStats.set(step.id, {
-        succeededCount: 0,
-        failedCount: 0,
-        expectedInvocationCount,
-      });
-    }
-
-    const errors: Array<{
-      step: string;
-      detail: string;
-      code: number | "unknown";
-      jobId: string;
-    }> = planning.errors.map((error) => ({
-      step: "planning",
-      detail: error.message,
-      code: "unknown",
-      jobId: "planning",
-    }));
-
+    const enqueueItems: EnqueueInvokeAgentItem[] = [];
+    let lastWaveIndices: number[] = [];
     for (const wave of waveList) {
+      const waveStart = enqueueItems.length;
+      const useSequentialDeps =
+        effectiveExecutionConfig.stepOrder === "sequential" &&
+        lastWaveIndices.length > 0;
       for (const job of wave) {
-        const step = pipeline.steps.find(
-          (item) => item.id === job.pipelineStepId,
-        );
-        if (!step) {
-          errors.push({
-            step: "unknown",
-            detail: `Missing pipeline step ${job.pipelineStepId}`,
-            code: "unknown",
+        enqueueItems.push({
+          payload: {
             jobId: job.jobId,
-          });
-          continue;
-        }
-
-        await db.agentJobExecution.create({
-          data: {
-            jobId: job.jobId,
-            agentId: job.agentId,
+            executionId: job.executionId,
             manualExecutionId: execution.id,
             pipelineId: pipeline.id,
-            pipelineStepId: step.id,
-            status: "running",
-            enqueuedAt: executionTime,
-            startedAt: now(),
-            params: job.input as Prisma.InputJsonValue,
-            invocationConfig: job.config as Prisma.InputJsonValue,
+            pipelineStepId: job.pipelineStepId,
+            domainIntegrationId: pipeline.domainIntegrationId,
+            agentId: job.agentId,
+            agentVersion: job.agentVersion,
+            endpointUrl: job.endpointUrl,
+            body: { input: job.input, config: job.config },
+            timeoutMs: 300_000,
+            priority: 0,
           },
+          dependsOnBatchIndices: useSequentialDeps
+            ? [...lastWaveIndices]
+            : undefined,
         });
-
-        try {
-          const agentResponse = await post(job.endpointUrl, {
-            json: { input: job.input, config: job.config },
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${jwt}`,
-            },
-            throwHttpErrors: false,
-          });
-          const response = agentResponse as {
-            ok?: boolean;
-            statusCode?: number;
-            body?: unknown;
-          };
-          if (response.ok === true) {
-            const stats = stepStats.get(step.id);
-            if (stats) stats.succeededCount += 1;
-            await db.agentJobExecution.update({
-              where: { jobId: job.jobId },
-              data: {
-                status: "completed",
-                completedAt: now(),
-                error: Prisma.DbNull,
-                agentResponse:
-                  (response.body as Prisma.InputJsonValue | undefined) ??
-                  Prisma.DbNull,
-                semanticStatus: "success",
-              },
-            });
-            continue;
-          }
-
-          const detail = detailFromAgentErrorBody(response.body);
-          const code = response.statusCode ?? "unknown";
-          const stats = stepStats.get(step.id);
-          if (stats) stats.failedCount += 1;
-          errors.push({
-            step: `${step.agentId}@${step.agentVersion}`,
-            detail,
-            code,
-            jobId: job.jobId,
-          });
-          await db.agentJobExecution.update({
-            where: { jobId: job.jobId },
-            data: {
-              status: "failed",
-              completedAt: now(),
-              error: {
-                detail,
-                code,
-                jobId: job.jobId,
-              },
-              agentResponse:
-                (response.body as Prisma.InputJsonValue | undefined) ??
-                Prisma.DbNull,
-              semanticStatus: "failure",
-            },
-          });
-        } catch (err) {
-          const detail = err instanceof Error ? err.message : String(err);
-          const stats = stepStats.get(step.id);
-          if (stats) stats.failedCount += 1;
-          errors.push({
-            step: `${step.agentId}@${step.agentVersion}`,
-            detail,
-            code: "unknown",
-            jobId: job.jobId,
-          });
-          await db.agentJobExecution.update({
-            where: { jobId: job.jobId },
-            data: {
-              status: "failed",
-              completedAt: now(),
-              error: {
-                detail,
-                code: "unknown",
-                jobId: job.jobId,
-              },
-              semanticStatus: "failure",
-            },
-          });
-        }
+      }
+      if (enqueueItems.length > waveStart) {
+        lastWaveIndices = Array.from(
+          { length: enqueueItems.length - waveStart },
+          (_, index) => waveStart + index,
+        );
       }
     }
 
-    const stepRollups: StepRollupTerminal[] = [];
-    for (const step of pipeline.steps) {
-      const stats = stepStats.get(step.id);
-      if (!stats) continue;
-      const rollup = computeStepRollupFromCounts(
-        stats.succeededCount,
-        stats.failedCount,
-        effectiveExecutionConfig.stepRollupPolicy,
-      );
-      stepRollups.push(rollup);
-      await db.manualPipelineStepExecution.update({
-        where: {
-          manualExecutionId_pipelineStepId: {
+    await db.$transaction(async (tx) => {
+      for (const [pipelineStepId, expectedInvocationCount] of stepExpected) {
+        await tx.manualPipelineStepExecution.create({
+          data: {
             manualExecutionId: execution.id,
-            pipelineStepId: step.id,
+            pipelineStepId,
+            expectedInvocationCount,
+            rollupStatus: ScheduleStepRollupStatus.pending,
           },
-        },
-        data: {
-          succeededCount: stats.succeededCount,
-          failedCount: stats.failedCount,
-          rollupStatus: stepTerminalToPrismaRollup(rollup),
-        },
+        });
+      }
+      for (const item of enqueueItems) {
+        await tx.agentJobExecution.create({
+          data: {
+            jobId: item.payload.jobId,
+            agentId: item.payload.agentId,
+            manualExecutionId: execution.id,
+            pipelineId: pipeline.id,
+            pipelineStepId: item.payload.pipelineStepId,
+            status: AgentJobExecutionStatus.pending,
+            enqueuedAt: executionTime,
+            params: item.payload.body.input as Prisma.InputJsonValue,
+            invocationConfig: item.payload.body.config as Prisma.InputJsonValue,
+          },
+        });
+      }
+    });
+
+    let jobsEnqueued = 0;
+    try {
+      const queueJobs = enqueueItems.map((item) => ({
+        jobType: "invoke_agent" as const,
+        payload: item.payload,
+        priority: item.payload.priority,
+        idempotencyKey: item.payload.jobId,
+        dependsOn:
+          item.dependsOnBatchIndices && item.dependsOnBatchIndices.length > 0
+            ? {
+                jobIds: item.dependsOnBatchIndices.map((index) =>
+                  batchDepRef(index),
+                ),
+              }
+            : undefined,
+        tags: [
+          `manualExecution:${execution.id}`,
+          `pipeline:${item.payload.pipelineId}`,
+          `pipelineStep:${item.payload.pipelineStepId}`,
+        ],
+      }));
+      const insertedIds = await queueClient.addJobs(queueJobs);
+      jobsEnqueued = insertedIds.length;
+      for (let index = 0; index < insertedIds.length; index++) {
+        const queueJobId = insertedIds[index];
+        const item = enqueueItems[index];
+        if (queueJobId === undefined || item === undefined) continue;
+        await queueClient.editJob(queueJobId, {
+          payload: {
+            ...(item.payload as InvokeAgentJobPayload),
+            hermesDataQueueJobId: queueJobId,
+          },
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await db.$transaction(async (tx) => {
+        await tx.manualPipelineExecution.update({
+          where: { id: execution.id },
+          data: {
+            enqueueStatus: ScheduleEnqueueStatus.failed,
+            runStatus: ScheduleRunStatus.failed,
+            jobsEnqueued,
+            errors: [
+              ...planning.errors,
+              {
+                message: `Failed to enqueue manual execution: ${message}`,
+                timestamp: now().toISOString(),
+              },
+            ] as Prisma.InputJsonValue,
+          },
+        });
+        await tx.agentJobExecution.updateMany({
+          where: {
+            manualExecutionId: execution.id,
+            status: AgentJobExecutionStatus.pending,
+          },
+          data: {
+            status: AgentJobExecutionStatus.failed,
+            completedAt: now(),
+            error: {
+              message,
+              retryable: true,
+            },
+          },
+        });
       });
+      return errorResponse(
+        "Failed to enqueue manual execution jobs. Please retry.",
+      );
     }
 
-    const finalRunStatus =
-      jobsCreated === 0
-        ? "failed"
-        : computeExecutionRunStatusFromStepRollups(
-            stepRollups,
-            effectiveExecutionConfig.stepRollupPolicy,
-          );
-    const failedInvocationCount = Array.from(stepStats.values()).reduce(
-      (sum, item) => sum + item.failedCount,
-      0,
-    );
     await db.manualPipelineExecution.update({
       where: { id: execution.id },
       data: {
-        runStatus: runStatusTerminalToPrisma(finalRunStatus),
-        succeededInvocationCount: jobsCreated - failedInvocationCount,
-        failedInvocationCount,
-        errors:
-          errors.length > 0 ? (errors as Prisma.InputJsonValue) : Prisma.DbNull,
+        jobsEnqueued,
+        enqueueStatus:
+          planning.errors.length > 0
+            ? ScheduleEnqueueStatus.partial
+            : ScheduleEnqueueStatus.success,
       },
     });
 
     return successResponse({
       ok: true as const,
-      invocationsRun: jobsCreated,
+      invocationsQueued: jobsCreated,
       executionId: execution.id,
-      runStatus: finalRunStatus,
-      failedInvocationCount,
+      runStatus: jobsCreated > 0 ? ("pending" as const) : ("failed" as const),
     });
   };
-};
-
-/**
- * Converts scheduler terminal step rollups to Prisma rollup status values.
- *
- * @param terminal - Scheduler terminal rollup value.
- * @returns Prisma rollup enum.
- */
-const stepTerminalToPrismaRollup = (
-  terminal: StepRollupTerminal,
-): ScheduleStepRollupStatus => {
-  if (terminal === "success") return ScheduleStepRollupStatus.success;
-  if (terminal === "partial") return ScheduleStepRollupStatus.partial;
-  return ScheduleStepRollupStatus.failed;
-};
-
-/**
- * Converts scheduler terminal run status to Prisma run status.
- *
- * @param status - Scheduler run terminal value.
- * @returns Prisma run enum.
- */
-const runStatusTerminalToPrisma = (
-  status: "succeeded" | "partial" | "failed",
-): ScheduleRunStatus => {
-  if (status === "succeeded") return ScheduleRunStatus.succeeded;
-  if (status === "partial") return ScheduleRunStatus.partial;
-  return ScheduleRunStatus.failed;
 };
 
 /**
