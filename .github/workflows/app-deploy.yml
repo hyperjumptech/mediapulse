@@ -33,7 +33,7 @@ jobs:
       - name: Wait for orchestration DB
         run: |
           for i in {1..24}; do
-            pnpm --filter=@hermes/orchestration-database exec prisma db execute --url "$ORCHESTRATION_DATABASE_URL" --stdin <<< "SELECT 1;" && exit 0
+            pnpm --filter=@hermes/orchestration-database exec prisma db execute --stdin <<< "SELECT 1;" && exit 0
             echo "Waiting for orchestration DB ($i/24)..."
             sleep 5
           done
@@ -43,7 +43,7 @@ jobs:
       - name: Wait for mediapulse DB
         run: |
           for i in {1..24}; do
-            pnpm --filter=@mediapulse/database exec prisma db execute --url "$MEDIAPULSE_DATABASE_URL" --stdin <<< "SELECT 1;" && exit 0
+            pnpm --filter=@mediapulse/database exec prisma db execute --stdin <<< "SELECT 1;" && exit 0
             echo "Waiting for mediapulse DB ($i/24)..."
             sleep 5
           done
