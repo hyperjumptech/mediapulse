@@ -91,6 +91,58 @@ describe("getPipelinesUsingVariableKey", () => {
     vi.restoreAllMocks();
   });
 
+  it("counts matches from saved agent config used by pipeline steps", async () => {
+    // Setup
+    const findSteps = vi.fn().mockResolvedValue([
+      {
+        id: "step-1",
+        input: {},
+        config: {},
+        agentConfig: {
+          config: {
+            credentials: {
+              apiKey: "{{OPENAI_API_KEY}}",
+            },
+          },
+        },
+        pipeline: { id: "pipeline-1", name: "Alpha pipeline" },
+      },
+      {
+        id: "step-2",
+        input: null,
+        config: null,
+        agentConfig: null,
+        pipeline: { id: "pipeline-2", name: "Beta pipeline" },
+      },
+    ]);
+    const findPipelines = vi.fn().mockResolvedValue([
+      {
+        id: "pipeline-1",
+        name: "Alpha pipeline",
+        executionConfig: null,
+      },
+      {
+        id: "pipeline-2",
+        name: "Beta pipeline",
+        executionConfig: null,
+      },
+    ]);
+    const db = createUsageDb({ findSteps, findPipelines });
+
+    // Act
+    const result = await getPipelinesUsingVariableKey("OPENAI_API_KEY", db);
+
+    // Assert
+    expect(result).toEqual([
+      {
+        id: "pipeline-1",
+        name: "Alpha pipeline",
+        matchCount: 1,
+        matchedStepIds: ["step-1"],
+      },
+    ]);
+  });
+
   it("deduplicates by pipeline and aggregates matches across steps", async () => {
     // Setup
     const findSteps = vi.fn().mockResolvedValue([

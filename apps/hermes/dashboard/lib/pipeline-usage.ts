@@ -24,6 +24,11 @@ type PipelineStepUsageRow = Prisma.PipelineStepGetPayload<{
     id: true;
     input: true;
     config: true;
+    agentConfig: {
+      select: {
+        config: true;
+      };
+    };
     pipeline: {
       select: {
         id: true;
@@ -154,7 +159,8 @@ const toUsageSummaries = (
 
 /**
  * Finds pipelines that reference a variable placeholder key in step JSON
- * (`input` / `config`) and pipeline `executionConfig`.
+ * (`input` / `config`), step-linked saved agent config JSON, and pipeline
+ * `executionConfig`.
  *
  * @param variableKey - Placeholder key (without braces), e.g. `API_KEY`.
  * @param db - Injectable Prisma delegates for tests.
@@ -174,6 +180,11 @@ export const getPipelinesUsingVariableKey = async (
       id: true,
       input: true,
       config: true,
+      agentConfig: {
+        select: {
+          config: true,
+        },
+      },
       pipeline: {
         select: {
           id: true,
@@ -202,6 +213,7 @@ export const getPipelinesUsingVariableKey = async (
     const leaves = [
       ...collectStringLeaves(step.input),
       ...collectStringLeaves(step.config),
+      ...collectStringLeaves(step.agentConfig?.config),
     ];
     const stepMatchCount = leaves.reduce(
       (count, leaf) =>

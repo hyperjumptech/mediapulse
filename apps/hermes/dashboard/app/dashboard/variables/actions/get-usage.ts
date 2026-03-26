@@ -9,7 +9,7 @@ import {
 /**
  * Loads pipeline usage for a variable key in the variables edit modal.
  *
- * @param variableKey - Variable key to search in pipeline step JSON.
+ * @param variableKey - Variable key to search in step JSON, saved agent config JSON, and pipeline execution config.
  * @returns Usage rows or an empty list when unauthorized.
  */
 export const getVariablePipelineUsage = async (
