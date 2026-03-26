@@ -23,9 +23,10 @@ COPY apps ./apps
 RUN pnpm install --frozen-lockfile
 
 # next.config loads env files; provide an empty app-level .env for image builds.
-RUN touch apps/mediapulse/user-registration/.env
+RUN rm -f apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local && \
+    touch apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local
 
-RUN pnpm exec turbo build --filter=@mediapulse/user-registration --only
+RUN pnpm --filter=@mediapulse/user-registration run build
 
 # Standalone runner: only copy traced output + static
 ARG NODE_VERSION=24.12.0

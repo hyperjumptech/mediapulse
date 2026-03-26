@@ -15,7 +15,7 @@ ENV TEMP_ADMIN_PASSWORD="dummy"
 RUN pnpm --filter=@hermes/orchestration-database run db:generate
 RUN pnpm --filter=@workspace/agent-auth-client run build
 
-RUN pnpm exec turbo build --filter=@hermes/worker --only
+RUN pnpm exec turbo build --filter=@hermes/worker --only --env-mode=loose
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1
