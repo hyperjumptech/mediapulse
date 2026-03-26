@@ -21,6 +21,11 @@ The dashboard provides:
 - A **pipeline detail** view to add, reorder, and edit steps, pick agents from the registry, and fill inputs using the JSON schema form when available.
 - **Run pipeline** for a manual execution, plus **Executions** and per-execution detail (steps, status, errors).
 
+Related admin surfaces now include reverse links into pipelines:
+
+- **Variables** edit modal: **Used in pipelines** tab for `{{KEY}}` references in step JSON, saved step-linked agent configs, and pipeline `executionConfig`.
+- **Data source expansions** edit page: **Used in pipelines** section for exact `db:...` string references (scoped by domain integration).
+
 ## Pipeline status
 
 The UI derives a **status** from validation and `isActive`:

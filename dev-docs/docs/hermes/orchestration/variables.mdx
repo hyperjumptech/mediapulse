@@ -32,3 +32,5 @@ Whenever Hermes **plans** a pipeline run—[scheduled](/hermes/orchestration/sch
 ## Dashboard
 
 The **Variables** section provides list, search, create, edit, and delete. Editing a secret only replaces the stored value when you enter a new one; leaving the value blank keeps the previous ciphertext.
+
+In edit mode, the modal also includes a **Used in pipelines** tab. It lazily loads pipelines that contain the variable key in step `input`/`config` placeholders (`{{KEY}}`), in saved **agent config** JSON used by pipeline steps, or in pipeline `executionConfig`, with links to each pipeline detail page.

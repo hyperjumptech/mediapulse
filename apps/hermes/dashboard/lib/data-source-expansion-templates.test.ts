@@ -5,6 +5,7 @@ import {
   createDataSourceExpansionTemplateForIntegration,
   deleteDataSourceExpansionTemplateForIntegration,
   getDataSourceExpansionTemplateByIdForIntegration,
+  getDataSourceExpansionTemplateByIdWithUsageForIntegration,
   listDataSourceExpansionTemplatesForIntegration,
   mapDataSourceExpansionTemplateRowToListItem,
   updateDataSourceExpansionTemplateForIntegration,
@@ -153,6 +154,83 @@ describe("getDataSourceExpansionTemplateByIdForIntegration", () => {
     );
 
     expect(result).toBeNull();
+  });
+});
+
+describe("getDataSourceExpansionTemplateByIdWithUsageForIntegration", () => {
+  beforeEach(() => {
+    mockGetDomainIntegrationByKey.mockResolvedValue({
+      id: integrationId,
+      key: "mediapulse",
+      name: "Mediapulse",
+      baseUrl: "http://localhost",
+      version: null,
+      dashboard: { templateVersion: 1, pages: [] },
+      capabilities: ["expand-step-inputs"],
+    });
+  });
+
+  afterEach(() => {
+    mockGetDomainIntegrationByKey.mockReset();
+  });
+
+  it("returns template row and pipeline usage", async () => {
+    // Setup
+    const findFirst = vi.fn().mockResolvedValue({
+      id: "tpl-1",
+      name: "Ticker IDs",
+      expansionString: "db:ticker:id",
+      description: "Ticker list",
+      createdAt: new Date("2025-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+    });
+    const getUsage = vi.fn().mockResolvedValue([
+      {
+        id: "pipeline-1",
+        name: "Pipeline 1",
+        matchCount: 2,
+        matchedStepIds: ["step-1"],
+      },
+    ]);
+
+    // Act
+    const result =
+      await getDataSourceExpansionTemplateByIdWithUsageForIntegration(
+        "mediapulse",
+        "tpl-1",
+        {
+          db: {
+            findFirst,
+          } as unknown as import("./data-source-expansion-templates").DataSourceExpansionTemplateDelegate,
+          getUsage,
+        },
+      );
+
+    // Assert
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "tpl-1", domainIntegrationId: integrationId },
+      }),
+    );
+    expect(getUsage).toHaveBeenCalledWith(integrationId, "db:ticker:id");
+    expect(result).toEqual({
+      template: {
+        id: "tpl-1",
+        name: "Ticker IDs",
+        expansionString: "db:ticker:id",
+        description: "Ticker list",
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+      usage: [
+        {
+          id: "pipeline-1",
+          name: "Pipeline 1",
+          matchCount: 2,
+          matchedStepIds: ["step-1"],
+        },
+      ],
+    });
   });
 });
 
