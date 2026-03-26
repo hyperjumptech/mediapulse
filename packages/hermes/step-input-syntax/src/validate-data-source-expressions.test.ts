@@ -75,4 +75,27 @@ describe("validateDataSourceExpressions", () => {
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("max 100"))).toBe(true);
   });
+
+  it("accepts valid dse reference token", () => {
+    // Act
+    const result = validateDataSourceExpressions({
+      tickerId: "{{dse:tpl_123}}",
+    });
+
+    // Assert
+    expect(result).toEqual({ valid: true });
+  });
+
+  it("returns invalid for malformed dse reference token", () => {
+    // Act
+    const result = validateDataSourceExpressions({
+      tickerId: "{{dse:}}",
+    }) as ValidateDataSourceExpressionsResult & { valid: false };
+
+    // Assert
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'Param "tickerId": invalid data source expansion reference. Expected {{dse:<id>}}',
+    );
+  });
 });

@@ -1,4 +1,5 @@
 import { MAX_TAKE } from "./constants";
+import { parseDataSourceExpansionReference } from "./data-source-expansion-reference";
 import { parseDataSourceString } from "./data-source-string";
 
 export type ValidateDataSourceExpressionsResult =
@@ -29,7 +30,20 @@ export const validateDataSourceExpressions = (
   const errors: string[] = [];
 
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value !== "string" || !value.startsWith("db:")) continue;
+    if (typeof value !== "string") {
+      continue;
+    }
+    if (value.startsWith("{{dse:")) {
+      if (parseDataSourceExpansionReference(value) == null) {
+        errors.push(
+          `Param "${key}": invalid data source expansion reference. Expected {{dse:<id>}}`,
+        );
+      }
+      continue;
+    }
+    if (!value.startsWith("db:")) {
+      continue;
+    }
 
     const parsed = parseDataSourceString(value);
     if (!parsed) {

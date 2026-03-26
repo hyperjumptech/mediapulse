@@ -58,9 +58,11 @@ const createStep = (
 const createDb = (): {
   agentRegistry: { findFirst: ReturnType<typeof vi.fn> };
   agentConfig: { findFirst: ReturnType<typeof vi.fn> };
+  dataSourceExpansionTemplate: { findMany: ReturnType<typeof vi.fn> };
 } => ({
   agentRegistry: { findFirst: vi.fn() },
   agentConfig: { findFirst: vi.fn() },
+  dataSourceExpansionTemplate: { findMany: vi.fn().mockResolvedValue([]) },
 });
 
 const asPrisma = (db: ReturnType<typeof createDb>): PrismaClient =>
@@ -177,6 +179,62 @@ describe("validatePipeline", () => {
     expect(result.warnings.some((w) => w.includes("invalid data source"))).toBe(
       true,
     );
+  });
+
+  it("adds warning when dse reference syntax is malformed", async () => {
+    // Setup
+    const pipeline = createPipeline({
+      steps: [createStep({ input: { tickerId: "{{dse:}}" } })],
+    });
+    const db = createDb();
+    db.agentRegistry.findFirst.mockResolvedValue({
+      inputSchema: null,
+      configSchema: null,
+    });
+    validateDataSourceExpressionsMock.mockReturnValue({
+      valid: false,
+      errors: [
+        'Param "tickerId": invalid data source expansion reference. Expected {{dse:<id>}}',
+      ],
+    });
+
+    // Act
+    const result = await validatePipeline(pipeline, asPrisma(db));
+
+    // Assert
+    expect(result.valid).toBe(false);
+    expect(
+      result.warnings.some((w) =>
+        w.includes("invalid data source expansion reference"),
+      ),
+    ).toBe(true);
+  });
+
+  it("adds warning when dse reference id does not exist", async () => {
+    // Setup
+    const pipeline = createPipeline({
+      domainIntegrationId: "di-1",
+      steps: [createStep({ input: { tickerId: "{{dse:missing}}" } })],
+    });
+    const db = createDb();
+    db.agentRegistry.findFirst.mockResolvedValue({
+      inputSchema: null,
+      configSchema: null,
+    });
+    db.dataSourceExpansionTemplate.findMany.mockResolvedValue([]);
+    validateDataSourceExpressionsMock.mockReturnValue({ valid: true });
+
+    // Act
+    const result = await validatePipeline(pipeline, asPrisma(db));
+
+    // Assert
+    expect(result.valid).toBe(false);
+    expect(
+      result.warnings.some((w) =>
+        w.includes("data source expansion template id(s) not found: missing"),
+      ),
+    ).toBe(true);
+    expect(db.dataSourceExpansionTemplate.findMany).toHaveBeenCalled();
   });
 
   it("adds input warning when empty required string errors exist", async () => {

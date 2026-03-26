@@ -192,6 +192,21 @@ describe("VariableExpansionInput (integration)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Tickers" }));
 
-    expect(onChange).toHaveBeenCalledWith("db:ticker:id?take=10");
+    expect(onChange).toHaveBeenCalledWith("{{dse:e1}}");
+  });
+
+  it("renders dse references as inline badges", () => {
+    const onChange = vi.fn();
+
+    render(
+      <VariableExpansionInput
+        value="before {{dse:e1}} after"
+        onChange={onChange}
+        loadVariablesPage={loadVariablesPage}
+        loadExpansionsPage={loadExpansionsPage}
+      />,
+    );
+
+    expect(screen.getByText("dse:e1")).toBeInTheDocument();
   });
 });

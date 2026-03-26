@@ -21,6 +21,7 @@ import {
   invokeAgentPost,
   parseAgentResponseEnvelope,
   parseHttpErrorBodyMessage,
+  resolveDataSourceExpansionReferencesInInput,
   willRetryAfterTransientFailure,
   type ExpandStepInputs,
   type InvokeAgentHttpClient,
@@ -107,6 +108,11 @@ async function getJwtForDomainIntegration(
 }
 
 const expandStepInputs: ExpandStepInputs = async (context) => {
+  const resolvedInput = await resolveDataSourceExpansionReferencesInInput(
+    context.input,
+    context.domainIntegrationId,
+    orchestrationPrisma.dataSourceExpansionTemplate,
+  );
   const integration = await orchestrationPrisma.domainIntegration.findFirst({
     where: {
       id: context.domainIntegrationId,
@@ -125,7 +131,7 @@ const expandStepInputs: ExpandStepInputs = async (context) => {
     authToken: await getJwtForDomainIntegration(context.domainIntegrationId),
   });
   const response = await domainClient.expandStepInputs({
-    input: context.input,
+    input: resolvedInput,
     defaultTake: DEFAULT_TAKE,
     maxTake: env.HERMES_DATA_SOURCE_MAX_TAKE ?? MAX_TAKE,
   });

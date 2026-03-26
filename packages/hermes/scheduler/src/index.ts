@@ -43,6 +43,7 @@ export {
 } from "./get-due-schedules";
 export { computeNextRunAt, type ScheduleForNextRun } from "./next-run-at";
 export { willRetryAfterTransientFailure } from "./will-retry-after-transient-failure";
+export { resolveDataSourceExpansionReferencesInInput } from "./resolve-data-source-expansion-references";
 export {
   applyHermesInvokeCorrelationHeaders,
   invokeAgent,

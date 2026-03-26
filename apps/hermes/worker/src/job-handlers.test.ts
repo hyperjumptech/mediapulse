@@ -23,6 +23,9 @@ const mockPrisma = vi.hoisted(() => ({
       encryptedPayload: { ciphertext: "{}" },
     }),
   },
+  dataSourceExpansionTemplate: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
 }));
 
 vi.mock("@hermes/domain-integration-crypto", () => ({
@@ -102,6 +105,7 @@ describe("jobHandlers", () => {
     mockEditJob.mockClear();
     mockGetJob.mockClear();
     mockAddJobs.mockResolvedValue([1]);
+    mockPrisma.dataSourceExpansionTemplate.findMany.mockClear();
   });
 
   afterEach(() => {
@@ -367,6 +371,50 @@ describe("jobHandlers", () => {
       );
 
       expect(executeSchedule).toHaveBeenCalledTimes(1);
+    });
+
+    it("passes expandStepInputs that rejects when dse reference id is missing", async () => {
+      const fakeSchedule = {
+        id: "schedule-1",
+        enabled: true,
+        nextRunAt: new Date(),
+        pipelineId: "pipeline-1",
+        cronExpression: "0 * * * *",
+        timezone: "UTC",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        pipeline: {
+          id: "pipeline-1",
+          name: "Test",
+          domainIntegrationId: "di-1",
+          executionConfig: null,
+          steps: [],
+        },
+      } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
+      vi.mocked(getDueSchedules).mockResolvedValue([fakeSchedule]);
+      vi.mocked(executeSchedule).mockImplementation(async (_schedule, deps) => {
+        await expect(
+          deps.expandStepInputs!({
+            input: { tickerId: "{{dse:missing}}" },
+            scheduleId: "s1",
+            pipelineId: "p1",
+            pipelineStepId: "st1",
+            domainIntegrationId: "di-1",
+            orchDb: {} as never,
+          }),
+        ).rejects.toThrow(/template not found/i);
+      });
+
+      await jobHandlers.check_schedules(
+        {},
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.check_schedules>[2],
+      );
+
+      expect(executeSchedule).toHaveBeenCalledTimes(1);
+      expect(
+        mockPrisma.dataSourceExpansionTemplate.findMany,
+      ).toHaveBeenCalled();
     });
   });
 

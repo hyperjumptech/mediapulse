@@ -2,7 +2,10 @@ import { createDomainIntegrationClient } from "@hermes/domain-contract";
 import { DomainIntegrationStatus } from "@hermes/orchestration-database";
 import { env } from "@hermes/env";
 import { DEFAULT_TAKE, MAX_TAKE } from "@hermes/step-input-syntax";
-import type { ExpandStepInputs } from "@hermes/scheduler";
+import {
+  resolveDataSourceExpansionReferencesInInput,
+  type ExpandStepInputs,
+} from "@hermes/scheduler";
 
 import { getBearerJwtForDomainIntegrationId } from "./domain-integration-auth-token";
 
@@ -21,6 +24,11 @@ export const createExpandStepInputsForManualPipelineRun =
 
     return async (context) => {
       const db = context.orchDb;
+      const resolvedInput = await resolveDataSourceExpansionReferencesInInput(
+        context.input,
+        context.domainIntegrationId,
+        db.dataSourceExpansionTemplate,
+      );
       const integration = await db.domainIntegration.findFirst({
         where: {
           id: context.domainIntegrationId,
@@ -43,7 +51,7 @@ export const createExpandStepInputsForManualPipelineRun =
         ...(authToken !== undefined ? { authToken } : {}),
       });
       const response = await domainClient.expandStepInputs({
-        input: context.input,
+        input: resolvedInput,
         defaultTake,
         maxTake,
       });

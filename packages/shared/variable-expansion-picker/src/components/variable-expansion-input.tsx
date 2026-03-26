@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog";
+import { Badge } from "@workspace/ui/components/badge";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import {
@@ -21,6 +22,7 @@ import {
 import { useVariableExpansionInputCore } from "../hooks/use-variable-expansion-input-core";
 import { useVariableExpansionPickerModalShell } from "../hooks/use-variable-expansion-picker-modal-shell";
 import type {
+  ExpansionOption,
   LoadExpansionsPageResult,
   LoadPageArgs,
   LoadVariablesPageResult,
@@ -52,9 +54,55 @@ export type VariableExpansionInputProps = {
   pageSize?: number;
 };
 
+const DSE_REFERENCE_TOKEN_REGEX = /\{\{dse:([a-zA-Z0-9_-]+)\}\}/g;
+
+type DisplaySegment =
+  | { kind: "text"; value: string }
+  | { kind: "dse-reference"; id: string; raw: string };
+
+/**
+ * Builds the persisted token format for a data-source expansion template id.
+ *
+ * @param id - DataSourceExpansionTemplate row id.
+ * @returns Token in `{{dse:<id>}}` format.
+ */
+const buildDataSourceExpansionReference = (id: string): string => {
+  return `{{dse:${id}}}`;
+};
+
+/**
+ * Splits an input value into plain text and data-source reference tokens so the
+ * UI can render references as inline badges while preserving editable free text.
+ *
+ * @param value - Controlled input value.
+ * @returns Ordered display segments.
+ */
+const tokenizeDisplaySegments = (value: string): DisplaySegment[] => {
+  const segments: DisplaySegment[] = [];
+  let cursor = 0;
+  const matches = value.matchAll(DSE_REFERENCE_TOKEN_REGEX);
+  for (const match of matches) {
+    const raw = match[0];
+    const id = match[1];
+    const start = match.index;
+    if (start == null || raw == null || id == null) {
+      continue;
+    }
+    if (start > cursor) {
+      segments.push({ kind: "text", value: value.slice(cursor, start) });
+    }
+    segments.push({ kind: "dse-reference", id, raw });
+    cursor = start + raw.length;
+  }
+  if (cursor < value.length) {
+    segments.push({ kind: "text", value: value.slice(cursor) });
+  }
+  return segments;
+};
+
 /**
  * Input that supports free text plus a modal picker to insert variable placeholders ({{key}})
- * or data source expansion template strings at the cursor.
+ * or data source expansion template references (`{{dse:<id>}}`) at the cursor.
  *
  * @param props - Value, change handler, labels, loaders, optional page size.
  * @returns Labeled text field with Insert control opening the modal.
@@ -73,6 +121,10 @@ export const VariableExpansionInput = ({
   const { inputRef, insert } = useVariableExpansionInputCore(value, onChange);
   const { open, setOpen, activeTab, setActiveTab } =
     useVariableExpansionPickerModalShell();
+  const displaySegments = React.useMemo(
+    () => tokenizeDisplaySegments(value),
+    [value],
+  );
 
   const handleInsertVariable = React.useCallback(
     (key: string) => {
@@ -83,8 +135,8 @@ export const VariableExpansionInput = ({
   );
 
   const handleInsertExpansion = React.useCallback(
-    (expansion: { expansionString: string }) => {
-      insert(expansion.expansionString);
+    (expansion: ExpansionOption) => {
+      insert(buildDataSourceExpansionReference(expansion.id));
       setOpen(false);
     },
     [insert, setOpen],
@@ -101,16 +153,38 @@ export const VariableExpansionInput = ({
         </Label>
       ) : null}
       <div className="flex gap-2">
-        <Input
-          ref={inputRef}
-          id={id}
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          className="min-w-0 flex-1"
-          aria-describedby={description ? `${id ?? "input"}-desc` : undefined}
-        />
+        <div className="relative min-w-0 flex-1">
+          <Input
+            ref={inputRef}
+            id={id}
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+            className="min-w-0 flex-1 bg-transparent text-transparent caret-foreground selection:bg-primary/20"
+            aria-describedby={description ? `${id ?? "input"}-desc` : undefined}
+          />
+          <div
+            aria-hidden={true}
+            className="pointer-events-none absolute inset-0 flex items-center overflow-hidden px-3 text-sm"
+          >
+            <span className="inline-block w-full truncate whitespace-pre text-foreground">
+              {displaySegments.map((segment, index) =>
+                segment.kind === "text" ? (
+                  <span key={`text-${index}`}>{segment.value}</span>
+                ) : (
+                  <Badge
+                    key={`dse-${segment.raw}-${index}`}
+                    variant="secondary"
+                    className="mx-0.5 inline-flex max-w-[16rem] -translate-y-px truncate px-1.5 py-0 text-[10px] font-medium"
+                  >
+                    dse:{segment.id}
+                  </Badge>
+                ),
+              )}
+            </span>
+          </div>
+        </div>
         <Button
           type="button"
           variant="outline"

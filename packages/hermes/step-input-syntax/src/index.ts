@@ -1,5 +1,13 @@
 export { DEFAULT_TAKE, MAX_TAKE } from "./constants";
 export {
+  buildDataSourceExpansionReference,
+  collectDataSourceExpansionReferenceIds,
+  isDataSourceExpansionReference,
+  parseDataSourceExpansionReference,
+  replaceDataSourceExpansionReferences,
+  type DataSourceExpansionReferenceParsed,
+} from "./data-source-expansion-reference";
+export {
   isDataSourceString,
   parseDataSourceString,
   type DataSourceParsed,

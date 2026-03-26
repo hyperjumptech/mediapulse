@@ -1,4 +1,5 @@
-import type { PrismaClient } from "@hermes/orchestration-database";
+import type { Prisma, PrismaClient } from "@hermes/orchestration-database";
+import { collectDataSourceExpansionReferenceIds } from "@hermes/step-input-syntax";
 
 import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 
@@ -23,6 +24,46 @@ type PipelineWithSteps = {
     input: unknown;
     config: unknown;
   }>;
+};
+
+type DataSourceExpansionTemplateDelegate = Pick<
+  PrismaClient["dataSourceExpansionTemplate"],
+  "findMany"
+>;
+
+type DataSourceExpansionTemplateIdRow =
+  Prisma.DataSourceExpansionTemplateGetPayload<{
+    select: { id: true };
+  }>;
+
+/**
+ * Returns dse reference ids used in step input that do not exist for the pipeline integration.
+ *
+ * @param input - Step input object.
+ * @param domainIntegrationId - Pipeline domain integration id.
+ * @param db - DataSourceExpansionTemplate delegate.
+ * @returns Missing template ids.
+ */
+const findMissingDataSourceExpansionReferenceIds = async (
+  input: Record<string, unknown>,
+  domainIntegrationId: string,
+  db: DataSourceExpansionTemplateDelegate,
+): Promise<string[]> => {
+  const ids = collectDataSourceExpansionReferenceIds(input);
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const args = {
+    where: {
+      domainIntegrationId,
+      id: { in: ids },
+    },
+    select: { id: true },
+  } satisfies Prisma.DataSourceExpansionTemplateFindManyArgs;
+  const rows: DataSourceExpansionTemplateIdRow[] = await db.findMany(args);
+  const found = new Set(rows.map((row) => row.id));
+  return ids.filter((id) => !found.has(id));
 };
 
 /**
@@ -79,6 +120,17 @@ export async function validatePipeline(
     if (!dataSourceValidation.valid) {
       warnings.push(
         `${stepLabel} input: ${dataSourceValidation.errors.join("; ")}`,
+      );
+    }
+    const missingExpansionTemplateIds =
+      await findMissingDataSourceExpansionReferenceIds(
+        inputObj,
+        pipeline.domainIntegrationId,
+        db.dataSourceExpansionTemplate,
+      );
+    if (missingExpansionTemplateIds.length > 0) {
+      warnings.push(
+        `${stepLabel} input: data source expansion template id(s) not found: ${missingExpansionTemplateIds.join(", ")}`,
       );
     }
 

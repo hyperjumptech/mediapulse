@@ -17,7 +17,7 @@ Expansion runs through the `expandStepInputs` hook in `@hermes/scheduler`. Herme
 ## Where it’s used
 
 - **Schedule params** — In the Hermes schedule form, the “Params (JSON)” field can contain **data-source expressions** as string values. At runtime, the scheduler expands each step's input; multiple expressions in that step's input produce a **Cartesian product** of input sets (one run per combination for that step). Expansion is **per step**.
-- **Saved expansion templates** — In Hermes, **Data source expansions** (`/dashboard/{integrationKey}/data-source-expansions` when the integration has `expand-step-inputs`) let you save named templates (name, expansion string, description) for reuse. Templates are stored in the **Hermes orchestration database** (`DataSourceExpansionTemplate`), scoped to a single **domain integration**. **Run preview** on the create/edit page calls the domain integration’s **`/v1/preview-expansion`** so validation and sample values come from the **product** database (e.g. Mediapulse via `domain-api`), not from orchestration storage.
+- **Saved expansion templates** — In Hermes, **Data source expansions** (`/dashboard/{integrationKey}/data-source-expansions` when the integration has `expand-step-inputs`) let you save named templates (name, expansion string, description) for reuse. Templates are stored in the **Hermes orchestration database** (`DataSourceExpansionTemplate`), scoped to a single **domain integration**. In step input, picker insertion now stores the template id token format `{{dse:<id>}}` rather than copying raw `db:` text. Runtime resolves those ids back to raw expansion strings before calling domain expansion APIs. **Run preview** on the create/edit page still calls the domain integration’s **`/v1/preview-expansion`** so validation and sample values come from the **product** database (e.g. Mediapulse via `domain-api`), not from orchestration storage.
 
 ## Format
 
@@ -79,17 +79,20 @@ When saving a pipeline step (add or update step in Hermes), Hermes validates the
 
 - **Format** — Must match `db:table:field?options`; invalid format is reported per input key.
 - **Take/limit** — Must be in range 0–5000; otherwise an error is returned.
+- **Template token syntax** — `{{dse:<id>}}` must include a non-empty id.
+- **Template id existence** — For each `{{dse:<id>}}` token, Hermes checks that the id exists in `DataSourceExpansionTemplate` for that pipeline’s domain integration.
 
 The pipeline detail page shows input and config forms per step; save validates before persisting.
 
 ## Execution behavior
 
 1. **Per step** — For each pipeline step in order, the scheduler takes that step's stored **input** (after variable substitution).
-2. **Parse** — Each input value that looks like a data-source string (`db:...`) is parsed.
-3. **Call domain API** — For each request, Hermes calls the registered domain integration endpoint. The domain service performs DB queries and expansion logic against the **product** schema (in this repo, Mediapulse Prisma via `domain-api` and `@mediapulse/hermes-integration`).
-4. **Expand** — The input’s value is replaced by the list of values from the query. If the value is not a valid data-source string or the table is unknown, the value is left as-is (single run for that step).
-5. **Cartesian product (per step)** — If multiple keys in that step's input contain data-source strings, the result is one input object per combination (e.g. key A has 3 values and key B has 2 → 6 runs for that step).
-6. **Invoke** — Each resulting input set is sent as `input` to the agent for that step; hermes-worker runs the step once per set, then continues to the next step.
+2. **Resolve template references** — Any `{{dse:<id>}}` token in top-level input values is resolved via orchestration `DataSourceExpansionTemplate` to a raw `db:...` expansion string (or the run fails with a clear missing-id error).
+3. **Parse** — Each input value that looks like a data-source string (`db:...`) is parsed.
+4. **Call domain API** — For each request, Hermes calls the registered domain integration endpoint. The domain service performs DB queries and expansion logic against the **product** schema (in this repo, Mediapulse Prisma via `domain-api` and `@mediapulse/hermes-integration`).
+5. **Expand** — The input’s value is replaced by the list of values from the query. If the value is not a valid data-source string or the table is unknown, the value is left as-is (single run for that step).
+6. **Cartesian product (per step)** — If multiple keys in that step's input contain data-source strings, the result is one input object per combination (e.g. key A has 3 values and key B has 2 → 6 runs for that step).
+7. **Invoke** — Each resulting input set is sent as `input` to the agent for that step; hermes-worker runs the step once per set, then continues to the next step.
 
 ## Related docs
 
