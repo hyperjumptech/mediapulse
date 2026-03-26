@@ -71,3 +71,4 @@ export {
   type PostQueryAnalysisBody,
   type PostQueryAnalysisResponse,
 } from "./query-analysis.js";
+export * from "./user-registration.js";

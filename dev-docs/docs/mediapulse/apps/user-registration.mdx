@@ -27,3 +27,14 @@ When you implement real signups, create **`MediapulseUser`** rows (and `user_tic
 ## Related docs
 
 - [Shared: @workspace/ui](/shared/ui).
+
+## Ingesting Registrations (Agent)
+
+Signups are processed asynchronously through a dedicated Hermes-scheduled backend agent, `user-registration`.
+Because MediaPulse supports login-less registration over email, the flow works like this:
+
+1. User interacts with `@mediapulse/user-registration` front-end.
+2. The front-end generates a `mailto:` link allowing the user to send their subscription choice.
+3. The `user-registration` agent reads a shared Microsoft Outlook inbox via `@mediapulse/outlook-inbox`.
+4. The agent parses the desired ticker. Waitlist / Unknown tickers trigger an outbound email.
+5. On successful registry, a confirmation Resend email loop validates the user successfully.

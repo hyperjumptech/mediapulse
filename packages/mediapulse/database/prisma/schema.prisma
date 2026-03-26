@@ -231,6 +231,7 @@ model UserTicker {
   userId    String   @map("user_id")
   tickerId  String   @map("ticker_id")
   enabled   Boolean  @default(true)
+  registrationConfirmedAt DateTime? @map("registration_confirmed_at")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

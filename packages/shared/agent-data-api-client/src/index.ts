@@ -146,12 +146,8 @@ export const createAgentDataApiClient = <
   ): ManifestResourceClient<TResourceConfig> => {
     const path = agentDataApiPathname(version, resourceKey);
     const resourceClient: Record<string, unknown> = {};
-    const getConfig = resourceConfig.get as
-      | { query: z.ZodTypeAny; response: z.ZodTypeAny }
-      | undefined;
-    const postConfig = resourceConfig.post as
-      | { body: z.ZodTypeAny; response: z.ZodTypeAny }
-      | undefined;
+    const getConfig = (resourceConfig && 'get' in resourceConfig) ? (resourceConfig.get as { query: z.ZodTypeAny; response: z.ZodTypeAny } | undefined) : undefined;
+    const postConfig = (resourceConfig && 'post' in resourceConfig) ? (resourceConfig.post as { body: z.ZodTypeAny; response: z.ZodTypeAny } | undefined) : undefined;
 
     if (getConfig) {
       resourceClient.get = (
