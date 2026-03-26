@@ -46,7 +46,7 @@ Pass an existing `pg.Pool` or `ioredis` client instead of connection config:
 
 ```typescript
 import { Pool } from 'pg';
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({ connectionString: process.env.ORCHESTRATION_DATABASE_URL });
 jobQueue = initJobQueue<JobPayloadMap>({ pool });
 ```
 

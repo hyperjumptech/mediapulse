@@ -10,8 +10,9 @@ RUN pnpm install --frozen-lockfile
 # Generate Prisma client (Mediapulse domain DB)
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
 RUN pnpm --filter=@mediapulse/database run db:generate
+RUN pnpm --filter=@workspace/agent-auth-client run build
 
-RUN pnpm exec turbo build --filter=@mediapulse/agent-data-api
+RUN pnpm exec turbo build --filter=@mediapulse/agent-data-api --only
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1

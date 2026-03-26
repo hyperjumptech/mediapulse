@@ -17,10 +17,10 @@ export const getHermesJobQueue = (): ReturnType<
   typeof initJobQueue<DashboardJobPayloadMap>
 > => {
   if (!queue) {
-    const connectionString = env.PG_DATAQUEUE_DATABASE ?? env.DATABASE_URL;
+    const connectionString = env.PG_DATAQUEUE_DATABASE;
     if (!connectionString) {
       throw new Error(
-        "PG_DATAQUEUE_DATABASE (or DATABASE_URL fallback) is required to enqueue HTTP trigger runs.",
+        "PG_DATAQUEUE_DATABASE is required to enqueue HTTP trigger runs.",
       );
     }
     queue = initJobQueue<DashboardJobPayloadMap>({

@@ -4,7 +4,6 @@ import { defineConfig } from "prisma/config";
 
 const url =
   process.env.MEDIAPULSE_DATABASE_URL ??
-  process.env.DATABASE_URL ??
   "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=mediapulse";
 
 export default defineConfig({

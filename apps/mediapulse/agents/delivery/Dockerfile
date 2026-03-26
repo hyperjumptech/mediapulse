@@ -7,7 +7,8 @@ COPY . .
 RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
-RUN pnpm exec turbo build --filter=@mediapulse/delivery
+RUN pnpm --filter=@workspace/agent-auth-client run build
+RUN pnpm exec turbo build --filter=@mediapulse/delivery --only
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1

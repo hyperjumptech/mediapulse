@@ -27,8 +27,9 @@ ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
 RUN pnpm --filter=@hermes/orchestration-database run db:generate
+RUN pnpm --filter=@workspace/agent-auth-client run build
 
-RUN pnpm exec turbo build --filter=@hermes/dashboard
+RUN pnpm exec turbo build --filter=@hermes/dashboard --only
 
 # Standalone runner: only copy traced output + static
 ARG NODE_VERSION=24.12.0

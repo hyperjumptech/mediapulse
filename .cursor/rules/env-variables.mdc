@@ -11,11 +11,11 @@ Import the type-safe env object from **`@hermes/env`** (Hermes apps and packages
 
 ```typescript
 // ❌ BAD
-const dbUrl = process.env.DATABASE_URL;
+const dbUrl = process.env.ORCHESTRATION_DATABASE_URL;
 
 // ✅ GOOD (Hermes)
 import { env } from "@hermes/env";
-const dbUrl = env.DATABASE_URL;
+const dbUrl = env.ORCHESTRATION_DATABASE_URL;
 
 // ✅ GOOD (Mediapulse)
 import { env } from "@mediapulse/env";
@@ -35,7 +35,7 @@ When adding or changing an environment variable:
 
 ```dotenv
 # The URL of the Postgres database pool
-DATABASE_URL="postgresql://postgres:root@localhost:5432/postgres" #required
+ORCHESTRATION_DATABASE_URL="postgresql://postgres:root@localhost:5432/postgres?schema=orchestration" #required
 ```
 
 ## Static vs dynamic awareness
