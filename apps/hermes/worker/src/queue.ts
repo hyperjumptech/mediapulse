@@ -16,7 +16,7 @@ export const getJobQueue = (): ReturnType<
     const connectionString = env.PG_DATAQUEUE_DATABASE;
     if (!connectionString) {
       throw new Error(
-        "PG_DATAQUEUE_DATABASE is required for Hermes scheduler. Set it in .env (e.g. same as DATABASE_URL with ?schema=dataqueue) and run pnpm run migrate-dataqueue.",
+        "PG_DATAQUEUE_DATABASE is required for Hermes scheduler. Set it in .env (e.g. ORCHESTRATION_DATABASE_URL host with ?schema=dataqueue) and run pnpm run migrate-dataqueue.",
       );
     }
     jobQueue = initJobQueue<JobPayloadMap>({

@@ -63,7 +63,7 @@ Hermes **does not** run the DataQueue queue or migrations. To run the scheduler:
 
 1. Run the **hermes-worker** app on a persistent server (e.g. `pnpm dev:hermes-worker` from repo root). It initializes the queue, ensures the `hermes-check-schedules` cron exists, and runs the processor + supervisor.
 2. Run DataQueue migrations from **hermes-worker**: `pnpm --filter @hermes/worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`). Use the same DB as Hermes with `?schema=dataqueue`.
-3. Set `PG_DATAQUEUE_DATABASE` (and `DATABASE_URL`, **`HERMES_INTERNAL_API_KEY`**, **`AGENT_AUTH_API_URL`**) where hermes-worker runs.
+3. Set `PG_DATAQUEUE_DATABASE`, `ORCHESTRATION_DATABASE_URL`, **`HERMES_INTERNAL_API_KEY`**, and **`AGENT_AUTH_API_URL`** where hermes-worker runs.
 
 See [hermes-worker](/hermes/apps/hermes-worker) for details.
 

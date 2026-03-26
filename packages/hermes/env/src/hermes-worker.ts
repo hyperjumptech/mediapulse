@@ -5,8 +5,7 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    DATABASE_URL: z.string().min(1),
-    ORCHESTRATION_DATABASE_URL: z.string().optional(),
+    ORCHESTRATION_DATABASE_URL: z.string().min(1),
     HERMES_DATA_SOURCE_MAX_TAKE: z.number({ coerce: true }).optional(),
     DATABASE_CERT_BASE64: z.string().optional(),
     PG_DATAQUEUE_DATABASE: z.string().min(1),

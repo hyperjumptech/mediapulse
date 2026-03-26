@@ -1,6 +1,9 @@
 name: Agent Deployment
 
-# Requires GitHub secret: FLY_API_TOKEN. Agents use agent-data-api for data; no database access.
+# Requires GitHub secrets:
+# - FLY_API_TOKEN
+# - ORCHESTRATION_DATABASE_URL (needed during turbo build task chain)
+# - MEDIAPULSE_DATABASE_URL (needed during turbo build task chain)
 on:
   push:
     branches:
@@ -9,6 +12,9 @@ on:
 jobs:
   data-collection:
     runs-on: ubuntu-latest
+    env:
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -28,7 +34,7 @@ jobs:
           pnpm generate
 
       - name: Build
-        run: pnpm build --filter=@mediapulse/data-collection
+        run: pnpm exec turbo build --filter=@mediapulse/data-collection --only
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -39,6 +45,9 @@ jobs:
 
   content-generation:
     runs-on: ubuntu-latest
+    env:
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -58,7 +67,7 @@ jobs:
           pnpm generate
 
       - name: Build
-        run: pnpm build --filter=@mediapulse/content-generation
+        run: pnpm exec turbo build --filter=@mediapulse/content-generation --only
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -69,6 +78,9 @@ jobs:
 
   delivery:
     runs-on: ubuntu-latest
+    env:
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -88,7 +100,7 @@ jobs:
           pnpm generate
 
       - name: Build
-        run: pnpm build --filter=@mediapulse/delivery
+        run: pnpm exec turbo build --filter=@mediapulse/delivery --only
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 

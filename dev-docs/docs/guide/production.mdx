@@ -18,7 +18,7 @@ Provision **three** PostgreSQL logical databases (they can be three schemas on o
 
 | Database role              | Used for                                                            | Connection env var(s)                                                                      | Deploy migrations                                                            |
 | -------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| **Hermes (orchestration)** | Pipelines, schedules, domain integrations, agent registry           | `ORCHESTRATION_DATABASE_URL` (and optional legacy `DATABASE_URL`)                          | `pnpm --filter @hermes/orchestration-database db:migrate:deploy`             |
+| **Hermes (orchestration)** | Pipelines, schedules, domain integrations, agent registry           | `ORCHESTRATION_DATABASE_URL`                                                               | `pnpm --filter @hermes/orchestration-database db:migrate:deploy`             |
 | **Mediapulse (domain)**    | Tickers, newsletters, KG, subscribers, user registration data, etc. | `MEDIAPULSE_DATABASE_URL`                                                                  | `pnpm --filter @mediapulse/database db:migrate:deploy`                       |
 | **DataQueue**              | hermes-worker job queue (scheduler)                                 | `PG_DATAQUEUE_DATABASE` (same host is fine; use `?schema=dataqueue&search_path=dataqueue`) | `pnpm --filter @hermes/worker run migrate-dataqueue` (with queue URL in env) |
 
@@ -107,19 +107,18 @@ Merge **`packages/hermes/env/env.example`** with **`packages/hermes/env/env.herm
 | Build                | `pnpm exec turbo build --filter=@hermes/worker`                                                         |
 | Run (production)     | From app directory: `bun run ./dist/server.js` (see `package.json` `start`: `bun run ./dist/server.js`) |
 
-| Variable                           | Example value                                           | Explanation                                                                             |
-| ---------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                     | `postgresql://…`                                        | Required by worker env schema (often same cluster as orchestration; schema may differ). |
-| `ORCHESTRATION_DATABASE_URL`       | `postgresql://…?schema=orchestration`                   | Orchestration Prisma when `@hermes/env` loads.                                          |
-| `PG_DATAQUEUE_DATABASE`            | `postgresql://…?schema=dataqueue&search_path=dataqueue` | DataQueue storage after `migrate-dataqueue`.                                            |
-| `AGENT_AUTH_API_URL`               | `https://agent-auth-api.example.com`                    | Mint JWTs for scheduled agent invocations.                                              |
-| `HERMES_INTERNAL_API_KEY`          | _(same preset as dashboard + agent-auth-api)_           | Bearer credential for **`POST /api/token`** (not sent to agents).                       |
-| `HERMES_INTERNAL_API_KEY_PREVIOUS` | _(optional; old key during rotation)_                   | Temporary previous key used while ciphertext is re-wrapped to the new canonical key.    |
-| `REQUIRE_HTTPS_AGENT_ENDPOINTS`    | `true`                                                  | Recommended in production.                                                              |
-| `PROCESSOR_BATCH_SIZE`             | `10`                                                    | Optional DataQueue tuning.                                                              |
-| `PROCESSOR_CONCURRENCY`            | `3`                                                     | Optional DataQueue tuning.                                                              |
-| `HERMES_INVOKE_AGENT_MAX_ATTEMPTS` | _(optional)_                                            | Optional cap on DataQueue retries for `invoke_agent` jobs.                              |
-| `HERMES_INVOKE_AGENT_DLQ_JOB_TYPE` | _(optional)_                                            | Optional dead-letter job type when `invoke_agent` exhausts retries.                     |
+| Variable                           | Example value                                           | Explanation                                                                          |
+| ---------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `ORCHESTRATION_DATABASE_URL`       | `postgresql://…?schema=orchestration`                   | Orchestration Prisma when `@hermes/env` loads.                                       |
+| `PG_DATAQUEUE_DATABASE`            | `postgresql://…?schema=dataqueue&search_path=dataqueue` | DataQueue storage after `migrate-dataqueue`.                                         |
+| `AGENT_AUTH_API_URL`               | `https://agent-auth-api.example.com`                    | Mint JWTs for scheduled agent invocations.                                           |
+| `HERMES_INTERNAL_API_KEY`          | _(same preset as dashboard + agent-auth-api)_           | Bearer credential for **`POST /api/token`** (not sent to agents).                    |
+| `HERMES_INTERNAL_API_KEY_PREVIOUS` | _(optional; old key during rotation)_                   | Temporary previous key used while ciphertext is re-wrapped to the new canonical key. |
+| `REQUIRE_HTTPS_AGENT_ENDPOINTS`    | `true`                                                  | Recommended in production.                                                           |
+| `PROCESSOR_BATCH_SIZE`             | `10`                                                    | Optional DataQueue tuning.                                                           |
+| `PROCESSOR_CONCURRENCY`            | `3`                                                     | Optional DataQueue tuning.                                                           |
+| `HERMES_INVOKE_AGENT_MAX_ATTEMPTS` | _(optional)_                                            | Optional cap on DataQueue retries for `invoke_agent` jobs.                           |
+| `HERMES_INVOKE_AGENT_DLQ_JOB_TYPE` | _(optional)_                                            | Optional dead-letter job type when `invoke_agent` exhausts retries.                  |
 
 ---
 
