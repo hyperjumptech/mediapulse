@@ -24,24 +24,41 @@ const BodySchema = BodySchemaInner as unknown as z.ZodType<
 
 type Input = { maxMessagesPerRun: number; watermark?: string };
 
-const app = createAgentApp<Input, typeof BodySchema>(
+const ConfigSchema = z.object({
+  outlookClientId: z.string().min(1),
+  outlookClientSecret: z.string().min(1),
+  outlookTenantId: z.string().min(1),
+  outlookUserId: z.string().min(1),
+  resendApiKey: z.string().min(1),
+  resendSender: z.string().min(1),
+});
+
+export type Config = z.infer<typeof ConfigSchema>;
+
+const app = createAgentApp<
+  Input,
+  typeof BodySchema,
+  Config,
+  typeof ConfigSchema
+>(
   {
     agentId: "user-registration",
     agentVersion: "1.0.0",
     inputSchema: BodySchema,
-    run: async ({ input, token }) => {
+    configSchema: ConfigSchema,
+    run: async ({ input, token, config }) => {
       logger.info(
         `Running user-registration agent. Max messages: ${input.maxMessagesPerRun}`,
       );
 
       const inboxClient = createOutlookInboxClient({
-        clientId: env.OUTLOOK_CLIENT_ID,
-        clientSecret: env.OUTLOOK_CLIENT_SECRET,
-        tenantId: env.OUTLOOK_TENANT_ID,
-        userId: env.OUTLOOK_USER_ID,
+        clientId: config.outlookClientId,
+        clientSecret: config.outlookClientSecret,
+        tenantId: config.outlookTenantId,
+        userId: config.outlookUserId,
       });
 
-      const resend = new Resend(env.RESEND_API_KEY);
+      const resend = new Resend(config.resendApiKey);
 
       const dataApiClient = createAgentDataApiClient({
         baseUrl: env.AGENT_DATA_API_URL!,
@@ -54,7 +71,9 @@ const app = createAgentApp<Input, typeof BodySchema>(
         {
           subjectContains: "[MediaPulse] Newsletter Subscription",
           isUnread: true,
-          ...(input.watermark ? { receivedAfter: new Date(input.watermark) } : {}),
+          ...(input.watermark
+            ? { receivedAfter: new Date(input.watermark) }
+            : {}),
         },
         { top: input.maxMessagesPerRun },
       );
@@ -73,7 +92,10 @@ const app = createAgentApp<Input, typeof BodySchema>(
 
         if (!senderEmail || !tickerSymbol) {
           logger.warn(
-            { parseFailureReason: "Missing sender or ticker", messageId: msg.id },
+            {
+              parseFailureReason: "Missing sender or ticker",
+              messageId: msg.id,
+            },
             "Archiving unparseable message.",
           );
           await inboxClient.archiveMessage(msg.id!);
@@ -85,36 +107,43 @@ const app = createAgentApp<Input, typeof BodySchema>(
 
         // Step 2: Register via API
         try {
-          const registerResponse = await dataApiClient.userRegistrationRegister.create({
-            email: senderEmail,
-            tickerSymbol,
-            name,
-            audit: {
-              graphMessageId: msg.id,
-              receivedAt: msg.receivedDateTime,
-            },
-          });
+          const registerResponse =
+            await dataApiClient.userRegistrationRegister.create({
+              email: senderEmail,
+              tickerSymbol,
+              name,
+              audit: {
+                graphMessageId: msg.id,
+                receivedAt: msg.receivedDateTime,
+              },
+            });
 
           if (!registerResponse.tickerKnown) {
-            logger.info({ tickerSymbol, senderEmail }, "Ticker unknown, sending invalid-ticker email.");
-            
+            logger.info(
+              { tickerSymbol, senderEmail },
+              "Ticker unknown, sending invalid-ticker email.",
+            );
+
             await resend.emails.send({
-              from: env.RESEND_SENDER!,
+              from: config.resendSender,
               to: senderEmail,
               subject: "Invalid Ticker Selection - MediaPulse",
               text: `Hello,\n\nThe ticker '${tickerSymbol}' you selected is invalid or not recognized by our system.\nPlease visit the registration site and select a valid ticker.\n\nThank you,\nMediaPulse Team`,
             });
-            
+
             await inboxClient.archiveMessage(msg.id!);
             results.push({ id: msg.id, status: "invalid_ticker_archived" });
             continue;
           }
 
           if (registerResponse.confirmationNeeded) {
-            logger.info({ senderEmail, tickerSymbol }, "Sending confirmation email.");
-            
+            logger.info(
+              { senderEmail, tickerSymbol },
+              "Sending confirmation email.",
+            );
+
             await resend.emails.send({
-              from: env.RESEND_SENDER!,
+              from: config.resendSender,
               to: senderEmail,
               subject: "Subscription Confirmed - MediaPulse",
               text: `Hello,\n\nYour subscription to the '${tickerSymbol}' newsletter has been confirmed.\n\nThank you,\nMediaPulse Team`,
@@ -126,16 +155,22 @@ const app = createAgentApp<Input, typeof BodySchema>(
                 graphMessageId: msg.id,
               },
             });
-            
+
             await inboxClient.archiveMessage(msg.id!);
             results.push({ id: msg.id, status: "confirmed_archived" });
           } else {
-            logger.info({ senderEmail, tickerSymbol }, "Subscription already active, archiving with no email.");
+            logger.info(
+              { senderEmail, tickerSymbol },
+              "Subscription already active, archiving with no email.",
+            );
             await inboxClient.archiveMessage(msg.id!);
             results.push({ id: msg.id, status: "idempotent_archived" });
           }
         } catch (error) {
-          logger.error({ error, messageId: msg.id }, "Failed processing message during agent run. Leaving unarchived for retry.");
+          logger.error(
+            { error, messageId: msg.id },
+            "Failed processing message during agent run. Leaving unarchived for retry.",
+          );
           results.push({ id: msg.id, status: "failed_retry" });
         }
       }
