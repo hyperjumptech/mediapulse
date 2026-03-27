@@ -1,19 +1,58 @@
 name: App Deployment
 
-# Requires GitHub secret: DATABASE_URL (PostgreSQL URL for Prisma during CI build; same value is
-# exported as ORCHESTRATION_DATABASE_URL and MEDIAPULSE_DATABASE_URL so both Prisma configs resolve it).
+# Requires GitHub secrets:
+# - ORCHESTRATION_DATABASE_URL (PostgreSQL URL for orchestration schema)
+# - MEDIAPULSE_DATABASE_URL (PostgreSQL URL for Mediapulse schema)
 on:
   push:
     branches:
       - main
 
 jobs:
-  agent-auth-api:
+  db-ready:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      ORCHESTRATION_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      MEDIAPULSE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for orchestration DB
+        run: |
+          for i in {1..24}; do
+            pnpm --filter=@hermes/orchestration-database exec prisma db execute --stdin <<< "SELECT 1;" && exit 0
+            echo "Waiting for orchestration DB ($i/24)..."
+            sleep 5
+          done
+          echo "Orchestration DB did not become ready in time"
+          exit 1
+
+      - name: Wait for mediapulse DB
+        run: |
+          for i in {1..24}; do
+            pnpm --filter=@mediapulse/database exec prisma db execute --stdin <<< "SELECT 1;" && exit 0
+            echo "Waiting for mediapulse DB ($i/24)..."
+            sleep 5
+          done
+          echo "Mediapulse DB did not become ready in time"
+          exit 1
+
+  agent-auth-api:
+    runs-on: ubuntu-latest
+    needs: db-ready
+    env:
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -45,10 +84,10 @@ jobs:
 
   agent-data-api:
     runs-on: ubuntu-latest
+    needs: db-ready
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      ORCHESTRATION_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      MEDIAPULSE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -80,10 +119,10 @@ jobs:
 
   agent-registry-api:
     runs-on: ubuntu-latest
+    needs: db-ready
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      ORCHESTRATION_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      MEDIAPULSE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -115,10 +154,10 @@ jobs:
 
   user-registration:
     runs-on: ubuntu-latest
+    needs: db-ready
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      ORCHESTRATION_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      MEDIAPULSE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -147,10 +186,10 @@ jobs:
 
   hermes:
     runs-on: ubuntu-latest
+    needs: db-ready
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      ORCHESTRATION_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      MEDIAPULSE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -179,10 +218,10 @@ jobs:
 
   hermes-worker:
     runs-on: ubuntu-latest
+    needs: db-ready
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      ORCHESTRATION_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      MEDIAPULSE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v5
 

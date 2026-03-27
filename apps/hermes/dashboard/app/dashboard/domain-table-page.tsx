@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -50,6 +51,47 @@ type DomainTablePageProps = {
         sort?: string;
         dir?: string;
       };
+};
+
+/** Column shape from table-v1 meta (`text` or `date-time`). */
+export type DomainTableColumnForDisplay = {
+  key: string;
+  label: string;
+  type: "text" | "date-time";
+};
+
+/**
+ * Formats a raw domain table cell value for display based on column type.
+ *
+ * `date-time` columns render like other dashboard lists (e.g. `LLL d, yyyy` via date-fns).
+ * Unparseable dates fall back to the original string representation.
+ *
+ * @param column - Column descriptor from domain table meta.
+ * @param rawValue - Cell value from the list row.
+ * @returns String safe to render in a table cell.
+ */
+export const formatDomainTableCellValue = (
+  column: DomainTableColumnForDisplay,
+  rawValue: unknown,
+): string => {
+  if (column.type !== "date-time") {
+    return String(rawValue ?? "");
+  }
+  if (rawValue == null || rawValue === "") {
+    return "";
+  }
+  if (rawValue instanceof Date) {
+    return Number.isNaN(rawValue.getTime())
+      ? ""
+      : format(rawValue, "LLL d, yyyy");
+  }
+  if (typeof rawValue === "string" || typeof rawValue === "number") {
+    const parsed = new Date(rawValue);
+    return Number.isNaN(parsed.getTime())
+      ? String(rawValue)
+      : format(parsed, "LLL d, yyyy");
+  }
+  return String(rawValue);
 };
 
 /**
@@ -246,7 +288,7 @@ export const DomainTablePage = async ({
                   <TableRow key={rowId}>
                     {meta.columns.map((column) => (
                       <TableCell key={`${rowId}-${column.key}`}>
-                        {String(row[column.key] ?? "")}
+                        {formatDomainTableCellValue(column, row[column.key])}
                       </TableCell>
                     ))}
                     {hasRowActions ? (

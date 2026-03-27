@@ -6,7 +6,6 @@ LABEL fly_launch_runtime="Next.js"
 WORKDIR /app
 
 ENV NODE_ENV="production"
-ENV HOSTNAME="0.0.0.0"
 ENV CI=true
 
 RUN npm install -g pnpm
@@ -26,9 +25,14 @@ RUN pnpm install --frozen-lockfile
 ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
+ENV HERMES_INTERNAL_API_KEY="dummy-internal-key"
 RUN pnpm --filter=@hermes/orchestration-database run db:generate
+RUN pnpm --filter=@workspace/agent-auth-client run build
+# next.config loads env files; provide an empty app-level .env for image builds.
+RUN rm -f apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local && \
+    touch apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local
 
-RUN pnpm exec turbo build --filter=@hermes/dashboard
+RUN pnpm exec turbo build --filter=@hermes/dashboard --only --env-mode=loose
 
 # Standalone runner: only copy traced output + static
 ARG NODE_VERSION=24.12.0
@@ -36,7 +40,6 @@ FROM node:${NODE_VERSION}-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV="production"
-ENV HOSTNAME="0.0.0.0"
 ENV PORT=3001
 
 RUN addgroup --system --gid 1001 nodejs && \

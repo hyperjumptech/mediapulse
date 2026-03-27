@@ -15,6 +15,10 @@ import {
   dataSourceExpansionTemplateCreateBodySchema,
   dataSourceExpansionTemplateUpdateBodySchema,
 } from "./data-source-expansion-template-write-schemas";
+import {
+  getPipelinesUsingExpansionString,
+  type PipelineUsageSummary,
+} from "./pipeline-usage";
 
 /** Orchestration delegate for {@link DataSourceExpansionTemplate} (injectable in tests). */
 export type DataSourceExpansionTemplateDelegate =
@@ -199,6 +203,65 @@ export const getDataSourceExpansionTemplateByIdForIntegration = async (
     ...mapped,
     createdAt: mapped.createdAt,
     updatedAt: mapped.updatedAt,
+  };
+};
+
+export type GetDataSourceExpansionTemplateWithUsageDependencies = {
+  db?: DataSourceExpansionTemplateDelegate;
+  getIntegration?: typeof getDomainIntegrationByKey;
+  getUsage?: typeof getPipelinesUsingExpansionString;
+};
+
+export type DataSourceExpansionTemplateWithUsage = {
+  template: Record<string, unknown>;
+  usage: PipelineUsageSummary[];
+};
+
+/**
+ * Loads one template by id (scoped to integration) plus reverse usage in pipelines.
+ *
+ * @param integrationKey - Registered domain integration key.
+ * @param id - Template id.
+ * @param dependencies - Injectable collaborators.
+ * @returns Template + pipeline usage, or null if template is missing.
+ */
+export const getDataSourceExpansionTemplateByIdWithUsageForIntegration = async (
+  integrationKey: string,
+  id: string,
+  dependencies: GetDataSourceExpansionTemplateWithUsageDependencies = {},
+): Promise<DataSourceExpansionTemplateWithUsage | null> => {
+  const db = dependencies.db ?? prisma.dataSourceExpansionTemplate;
+  const getIntegration =
+    dependencies.getIntegration ?? getDomainIntegrationByKey;
+  const getUsage = dependencies.getUsage ?? getPipelinesUsingExpansionString;
+
+  const integration = await getIntegration(integrationKey);
+  if (!integration) {
+    throw new Error(
+      `Domain integration "${integrationKey}" is not active or not registered`,
+    );
+  }
+
+  const row = await db.findFirst({
+    where: {
+      id,
+      domainIntegrationId: integration.id,
+    } satisfies Prisma.DataSourceExpansionTemplateWhereInput,
+  });
+  if (!row) {
+    return null;
+  }
+
+  const mapped = mapDataSourceExpansionTemplateRowToListItem(row);
+  const usage = await getUsage(integration.id, row.expansionString);
+
+  return {
+    template: {
+      ...mapped,
+      createdAt: mapped.createdAt,
+      updatedAt: mapped.updatedAt,
+    },
+    usage,
   };
 };
 

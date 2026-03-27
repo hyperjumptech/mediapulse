@@ -26,7 +26,7 @@ services:
     env_file:
       - packages/hermes/env/.env
     environment:
-      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
+      ORCHESTRATION_DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=orchestration
     depends_on:
       - postgres
     restart: unless-stopped
@@ -40,7 +40,7 @@ services:
     env_file:
       - packages/mediapulse/env/.env
     environment:
-      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
+      MEDIAPULSE_DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=mediapulse
     depends_on:
       - postgres
     restart: unless-stopped
@@ -55,7 +55,7 @@ services:
     env_file:
       - packages/hermes/env/.env
     environment:
-      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
+      ORCHESTRATION_DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=orchestration
     depends_on:
       - postgres
     restart: unless-stopped
@@ -69,7 +69,7 @@ services:
     env_file:
       - packages/mediapulse/env/.env
     environment:
-      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
+      MEDIAPULSE_DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=mediapulse
     depends_on:
       - postgres
       - agent-auth-api
@@ -84,7 +84,7 @@ services:
     env_file:
       - packages/hermes/env/.env
     environment:
-      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
+      ORCHESTRATION_DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=orchestration
     depends_on:
       - postgres
     restart: unless-stopped
@@ -138,7 +138,7 @@ services:
       - packages/hermes/env/.env
     environment:
       # In Docker, DB is reachable by service name, not localhost
-      DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=public
+      ORCHESTRATION_DATABASE_URL: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=orchestration
       PG_DATAQUEUE_DATABASE: postgresql://mediapulse:mediapulse@postgres:5432/mediapulse?schema=dataqueue&search_path=dataqueue
     depends_on:
       - postgres
