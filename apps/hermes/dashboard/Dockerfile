@@ -6,7 +6,6 @@ LABEL fly_launch_runtime="Next.js"
 WORKDIR /app
 
 ENV NODE_ENV="production"
-ENV HOSTNAME="0.0.0.0"
 ENV CI=true
 
 RUN npm install -g pnpm
@@ -41,7 +40,6 @@ FROM node:${NODE_VERSION}-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV="production"
-ENV HOSTNAME="0.0.0.0"
 ENV PORT=3001
 
 RUN addgroup --system --gid 1001 nodejs && \

@@ -13,4 +13,18 @@ describe("clear-hermes-dashboard-session GET", () => {
     expect(raw).toContain("auth-user=");
     expect(raw).toContain("Max-Age=0");
   });
+
+  it("uses x-forwarded-host when request URL is the internal bind address", () => {
+    const res = GET(
+      new Request("http://0.0.0.0:3001/clear-hermes-dashboard-session", {
+        headers: {
+          "x-forwarded-host": "mediapulse-hermes.fly.dev",
+          "x-forwarded-proto": "https",
+        },
+      }),
+    );
+    expect(res.headers.get("location")).toBe(
+      "https://mediapulse-hermes.fly.dev/login",
+    );
+  });
 });
