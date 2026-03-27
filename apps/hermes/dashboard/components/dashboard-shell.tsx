@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { DashboardPage } from "@hermes/domain-contract";
 
@@ -9,29 +8,11 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@workspace/ui/components/sidebar";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@workspace/ui/components/breadcrumb";
 import { Separator } from "@workspace/ui/components/separator";
 
 import { AppSidebar } from "./app-sidebar";
 
 export type DashboardUser = { name: string; email: string };
-
-const HERMES_ROOT_SEGMENTS = new Set([
-  "pipelines",
-  "agents",
-  "agent-configs",
-  "variables",
-  "domain-integrations",
-  "schedules",
-  "admins",
-]);
 
 const SEGMENT_LABELS: Record<string, string> = {
   agents: "Agents",
@@ -96,7 +77,7 @@ export type DomainIntegrationNav = {
 };
 
 /**
- * Renders the dashboard shell: sidebar (with user and logout in footer), header with breadcrumb, and main content.
+ * Renders the dashboard shell: sidebar, header title, and main content.
  */
 export const DashboardShell = ({
   children,
@@ -121,8 +102,6 @@ export const DashboardShell = ({
       ? domainIntegration.pages.find((p) => p.pathSegment === second)?.label
       : undefined;
 
-  const isHermesRoot = first ? HERMES_ROOT_SEGMENTS.has(first) : false;
-
   const pipelinesSubLabel =
     first === "pipelines" ? getPipelinesSubLabel(second) : null;
   const agentsSubLabel = first === "agents" ? getAgentsSubLabel(second) : null;
@@ -145,96 +124,38 @@ export const DashboardShell = ({
       hermesSegmentLabel ??
       "Dashboard");
 
-  const showParentLink =
-    Boolean(first) &&
-    (isDomainKeyedRoute ||
-      Boolean(
-        pipelinesSubLabel ||
-        agentsSubLabel ||
-        schedulesSubLabel ||
-        domainIntegrationsSubLabel,
-      ) ||
-      (isHermesRoot && first !== "pipelines"));
-
   return (
-    <SidebarProvider>
-      <AppSidebar user={user ?? null} domainIntegrations={domainIntegrations} />
-      <Separator orientation="vertical" className="h-svh shrink-0" />
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar
+        user={user ?? null}
+        domainIntegrations={domainIntegrations}
+        variant="inset"
+      />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 flex-col transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex flex-1 items-center gap-2 px-4">
+        <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
+          <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
             <SidebarTrigger className="-ml-1" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                {showParentLink ? (
-                  <>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink asChild>
-                        <Link href="/dashboard">Dashboard</Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                  </>
-                ) : null}
-                {isDomainKeyedRoute && domainIntegration ? (
-                  <>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbPage>{domainIntegration.name}</BreadcrumbPage>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                  </>
-                ) : null}
-                {pipelinesSubLabel ? (
-                  <>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink asChild>
-                        <Link href="/dashboard/pipelines">Pipelines</Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                  </>
-                ) : null}
-                {agentsSubLabel ? (
-                  <>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink asChild>
-                        <Link href="/dashboard/agents">Agents</Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                  </>
-                ) : null}
-                {schedulesSubLabel ? (
-                  <>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink asChild>
-                        <Link href="/dashboard/schedules">Schedules</Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                  </>
-                ) : null}
-                {domainIntegrationsSubLabel ? (
-                  <>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink asChild>
-                        <Link href="/dashboard/domain-integrations">
-                          Domain integrations
-                        </Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                  </>
-                ) : null}
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{currentLabel}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
+            <Separator
+              orientation="vertical"
+              className="mx-2 data-[orientation=vertical]:h-4"
+            />
+            <h1 className="text-base font-medium">{currentLabel}</h1>
           </div>
-          <Separator className="w-full" />
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-2">
+            <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+              {children}
+            </div>
+          </div>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

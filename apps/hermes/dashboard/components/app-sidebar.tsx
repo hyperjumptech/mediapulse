@@ -21,15 +21,16 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
-  SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuItem,
 } from "@workspace/ui/components/sidebar";
-import { Separator } from "@workspace/ui/components/separator";
 
 import { LogoutForm } from "@/app/dashboard/logout-form";
-
+import { NavUser } from "./nav-user";
 import type { DashboardUser } from "./dashboard-shell";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
@@ -42,9 +43,49 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   }>;
 };
 
+const mainNavGroups = [
+  {
+    label: "Overview",
+    items: [{ href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" }],
+  },
+  {
+    label: "Orchestration",
+    items: [
+      { href: "/dashboard/pipelines", icon: GitBranch, label: "Pipelines" },
+      { href: "/dashboard/schedules", icon: Calendar, label: "Schedules" },
+      { href: "/dashboard/http-triggers", icon: Radio, label: "HTTP triggers" },
+    ],
+  },
+  {
+    label: "Agents",
+    items: [
+      { href: "/dashboard/agents", icon: Bot, label: "Agents" },
+      {
+        href: "/dashboard/agent-configs",
+        icon: FileJson,
+        label: "Agent configs",
+      },
+      { href: "/dashboard/variables", icon: Variable, label: "Variables" },
+    ],
+  },
+  {
+    label: "Platform",
+    items: [
+      {
+        href: "/dashboard/domain-integrations",
+        icon: Plug,
+        label: "Domain integrations",
+      },
+      { href: "/dashboard/admins", icon: Users, label: "Admins" },
+    ],
+  },
+] as const;
+
 /**
- * Hermes app sidebar matching dashboard-01. Primary nav is grouped by area (overview, orchestration,
- * agent catalog, platform); domain integration pages follow; footer has user and logout.
+ * Hermes app sidebar matching the Space app's design: SidebarHeader brand link, grouped nav
+ * with SidebarGroupContent, domain integration pages, and a footer NavUser dropdown.
+ *
+ * @param props - Sidebar props, optional user, and domain integration pages.
  */
 export const AppSidebar = ({
   user,
@@ -52,173 +93,84 @@ export const AppSidebar = ({
   ...props
 }: AppSidebarProps) => {
   const pathname = usePathname();
-  const isDashboard = pathname === "/dashboard";
-  const isPipelines = pathname === "/dashboard/pipelines";
-  const isAgents = pathname?.startsWith("/dashboard/agents") ?? false;
-  const isAgentConfigs =
-    pathname?.startsWith("/dashboard/agent-configs") ?? false;
-  const isVariables = pathname?.startsWith("/dashboard/variables") ?? false;
-  const isDomainIntegrations =
-    pathname?.startsWith("/dashboard/domain-integrations") ?? false;
-  const isSchedules = pathname?.startsWith("/dashboard/schedules") ?? false;
-  const isHttpTriggers =
-    pathname?.startsWith("/dashboard/http-triggers") ?? false;
-  const isAdmins = pathname?.startsWith("/dashboard/admins") ?? false;
 
   return (
-    <Sidebar {...props}>
-      <div className="flex h-16 shrink-0 flex-col transition-[height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex flex-1 items-center px-4">
-          <span className="text-lg font-semibold text-sidebar-foreground">
-            Hermes
-          </span>
-        </div>
-        <Separator className="w-full bg-sidebar-border" />
-      </div>
+    <Sidebar collapsible="offcanvas" {...props}>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className="!p-1.5">
+              <Link href="/dashboard">
+                <LayoutDashboard className="size-5!" />
+                <span className="text-base font-semibold">Hermes</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Overview</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isDashboard}>
-                <Link href="/dashboard">
-                  <LayoutDashboard className="size-4" />
-                  <span>Dashboard</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Orchestration</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isPipelines}>
-                <Link href="/dashboard/pipelines">
-                  <GitBranch className="size-4" />
-                  <span>Pipelines</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isSchedules}>
-                <Link href="/dashboard/schedules">
-                  <Calendar className="size-4" />
-                  <span>Schedules</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isHttpTriggers}>
-                <Link href="/dashboard/http-triggers">
-                  <Radio className="size-4" />
-                  <span>HTTP triggers</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Agents</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isAgents}>
-                <Link href="/dashboard/agents">
-                  <Bot className="size-4" />
-                  <span>Agents</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isAgentConfigs}>
-                <Link href="/dashboard/agent-configs">
-                  <FileJson className="size-4" />
-                  <span>Agent configs</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isVariables}>
-                <Link href="/dashboard/variables">
-                  <Variable className="size-4" />
-                  <span>Variables</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isDomainIntegrations}>
-                <Link href="/dashboard/domain-integrations">
-                  <Plug className="size-4" />
-                  <span>Domain integrations</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isAdmins}>
-                <Link href="/dashboard/admins">
-                  <Users className="size-4" />
-                  <span>Admins</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
+        {mainNavGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent className="flex flex-col gap-2">
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const isActive =
+                    item.href === "/dashboard"
+                      ? pathname === "/dashboard"
+                      : (pathname?.startsWith(item.href) ?? false);
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link href={item.href}>
+                          <item.icon className="size-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+
         {domainIntegrations.map((integration) => (
           <SidebarGroup key={integration.key}>
             <SidebarGroupLabel>{integration.name}</SidebarGroupLabel>
-            <SidebarMenu>
-              {integration.pages.map((page) => {
-                const href = `/dashboard/${integration.key}/${page.pathSegment}`;
-                return (
-                  <SidebarMenuItem key={`${integration.key}-${page.id}`}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={
-                        pathname === href || pathname?.startsWith(`${href}/`)
-                      }
-                    >
-                      <Link href={href}>
-                        <Database className="size-4" />
-                        <span>{page.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
+            <SidebarGroupContent className="flex flex-col gap-2">
+              <SidebarMenu>
+                {integration.pages.map((page) => {
+                  const href = `/dashboard/${integration.key}/${page.pathSegment}`;
+                  return (
+                    <SidebarMenuItem key={`${integration.key}-${page.id}`}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={
+                          pathname === href ||
+                          (pathname?.startsWith(`${href}/`) ?? false)
+                        }
+                      >
+                        <Link href={href}>
+                          <Database className="size-4" />
+                          <span>{page.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
           </SidebarGroup>
         ))}
       </SidebarContent>
+
       <SidebarFooter>
-        <SidebarMenu>
-          {user ? (
-            <>
-              <SidebarMenuItem>
-                <div className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm">
-                  <div className="grid flex-1 min-w-0 text-left leading-tight">
-                    <span className="truncate font-medium text-sidebar-foreground">
-                      {user.name}
-                    </span>
-                    <span className="truncate text-xs text-sidebar-foreground/80">
-                      {user.email}
-                    </span>
-                  </div>
-                </div>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <LogoutForm
-                  className="w-full"
-                  variant="ghost"
-                  buttonClassName="w-full justify-start gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                />
-              </SidebarMenuItem>
-            </>
-          ) : (
+        {user ? (
+          <NavUser user={user} />
+        ) : (
+          <SidebarMenu>
             <SidebarMenuItem>
               <LogoutForm
                 className="w-full"
@@ -226,8 +178,8 @@ export const AppSidebar = ({
                 buttonClassName="w-full justify-start gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               />
             </SidebarMenuItem>
-          )}
-        </SidebarMenu>
+          </SidebarMenu>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
