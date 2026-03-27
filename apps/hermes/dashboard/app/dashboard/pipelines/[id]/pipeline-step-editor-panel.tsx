@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { SchemaForm } from "@workspace/json-schema-form";
 import type {
@@ -34,6 +34,8 @@ type Step = {
 
 export type PipelineStepEditorPanelProps = {
   selectedStep: Step | null;
+  /** Must match the pipeline’s domain integration (DSE templates are scoped per integration). */
+  domainIntegrationKey: string;
   stepInput: Record<string, unknown>;
   onStepInputChange: (value: Record<string, unknown>) => void;
   /** Agent configs for the selected step's agent (for Config tab picker). */
@@ -49,6 +51,10 @@ export type PipelineStepEditorPanelProps = {
   loadExpansionPickerPage: (
     args: LoadPageArgs,
   ) => Promise<LoadExpansionsPageResult>;
+  /** Server action: resolves expansion id to display name for persisted dse tokens. */
+  loadExpansionNameById: (raw: unknown) => Promise<string | null>;
+  /** Prefetched DSE template id → display name for this pipeline (RSC). */
+  pipelineExpansionNames: Readonly<Record<string, string>>;
 };
 
 /**
@@ -57,6 +63,7 @@ export type PipelineStepEditorPanelProps = {
  */
 export const PipelineStepEditorPanel = ({
   selectedStep,
+  domainIntegrationKey,
   stepInput,
   onStepInputChange,
   configsForAgent = [],
@@ -65,16 +72,33 @@ export const PipelineStepEditorPanel = ({
   disabled = false,
   loadVariablePickerPage,
   loadExpansionPickerPage,
+  loadExpansionNameById,
+  pipelineExpansionNames,
 }: PipelineStepEditorPanelProps) => {
   const { schemas, schemaLoading, activeTab, setActiveTab } =
     useStepEditorPanelState(selectedStep);
+  const resolveExpansionNameById = useCallback(
+    (id: string) =>
+      loadExpansionNameById({
+        integrationKey: domainIntegrationKey,
+        id,
+      }),
+    [domainIntegrationKey, loadExpansionNameById],
+  );
   const stringFieldComponent = useMemo(
     () =>
       createVariableExpansionStringField({
         loadVariablesPage: loadVariablePickerPage,
         loadExpansionsPage: loadExpansionPickerPage,
+        resolveExpansionNameById,
+        initialExpansionNames: pipelineExpansionNames,
       }),
-    [loadExpansionPickerPage, loadVariablePickerPage],
+    [
+      loadExpansionPickerPage,
+      loadVariablePickerPage,
+      pipelineExpansionNames,
+      resolveExpansionNameById,
+    ],
   );
 
   if (!selectedStep) {

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   loadExpansionPickerPage,
+  loadExpansionNameById,
   loadVariablePickerPage,
 } from "./variable-expansion-picker-actions";
 
@@ -130,5 +131,84 @@ describe("loadExpansionPickerPage", () => {
     );
 
     expect(result).toEqual({ items: [], total: 0 });
+  });
+});
+
+describe("loadExpansionNameById", () => {
+  it("returns null when there is no session", async () => {
+    const getSession = vi.fn().mockResolvedValue(null);
+
+    const result = await loadExpansionNameById("e1", { getSession });
+
+    expect(result).toBeNull();
+  });
+
+  it("returns expansion name when found", async () => {
+    const getSession = vi.fn().mockResolvedValue({
+      id: "u1",
+      name: "Test",
+      email: "t@test.com",
+    });
+    const getIntegration = vi.fn().mockResolvedValue({ key: "mediapulse" });
+    const getExpansionTemplateById = vi.fn().mockResolvedValue({
+      id: "e1",
+      name: "Top 10 tickers",
+      expansionString: "db:ticker:id?take=10",
+      description: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const result = await loadExpansionNameById("e1", {
+      getSession,
+      getIntegration,
+      getExpansionTemplateById,
+    });
+
+    expect(getExpansionTemplateById).toHaveBeenCalledWith("mediapulse", "e1");
+    expect(result).toBe("Top 10 tickers");
+  });
+
+  it("uses explicit integration key when provided as an object", async () => {
+    const getSession = vi.fn().mockResolvedValue({
+      id: "u1",
+      name: "Test",
+      email: "t@test.com",
+    });
+    const getIntegration = vi.fn();
+    const getExpansionTemplateById = vi.fn().mockResolvedValue({
+      id: "e1",
+      name: "Scoped name",
+      expansionString: "db:x",
+      description: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const result = await loadExpansionNameById(
+      { integrationKey: "other", id: "e1" },
+      { getSession, getIntegration, getExpansionTemplateById },
+    );
+
+    expect(getIntegration).not.toHaveBeenCalled();
+    expect(getExpansionTemplateById).toHaveBeenCalledWith("other", "e1");
+    expect(result).toBe("Scoped name");
+  });
+
+  it("returns null when validation fails", async () => {
+    const getSession = vi.fn().mockResolvedValue({
+      id: "u1",
+      name: "Test",
+      email: "t@test.com",
+    });
+    const getExpansionTemplateById = vi.fn();
+
+    const result = await loadExpansionNameById("", {
+      getSession,
+      getExpansionTemplateById: getExpansionTemplateById as never,
+    });
+
+    expect(getExpansionTemplateById).not.toHaveBeenCalled();
+    expect(result).toBeNull();
   });
 });

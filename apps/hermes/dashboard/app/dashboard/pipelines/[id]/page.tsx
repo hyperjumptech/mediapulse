@@ -5,9 +5,14 @@ import { getAgentConfigsByAgentKeys } from "@/lib/agent-configs";
 import { getPipelineExecutionsPage } from "@/lib/pipeline-executions";
 import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
 import {
+  loadExpansionNameById,
   loadExpansionPickerPage,
   loadVariablePickerPage,
 } from "@/lib/variable-expansion-picker-actions";
+import {
+  collectDataSourceExpansionTemplateIdsFromPipelineSteps,
+  getExpansionDisplayNamesForPipeline,
+} from "@/lib/pipeline-expansion-display-names";
 import { validatePipeline } from "@/lib/validate-pipeline";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
@@ -46,6 +51,20 @@ const PipelineDetailPage = async ({
 
   const pipeline = loaded;
 
+  const domainIntegration =
+    await orchestrationPrisma.domainIntegration.findUnique({
+      where: { id: pipeline.domainIntegrationId },
+      select: { key: true },
+    });
+  const domainIntegrationKey = domainIntegration?.key ?? "";
+
+  const expansionTemplateIds =
+    collectDataSourceExpansionTemplateIdsFromPipelineSteps(pipeline.steps);
+  const pipelineExpansionNames = await getExpansionDisplayNamesForPipeline(
+    pipeline.domainIntegrationId,
+    expansionTemplateIds,
+  );
+
   const agents = await getAgentRegistryList(
     orchestrationPrisma,
     pipeline.domainIntegrationId,
@@ -65,6 +84,7 @@ const PipelineDetailPage = async ({
   return (
     <PipelineDetailContent
       pipeline={pipeline}
+      domainIntegrationKey={domainIntegrationKey}
       agents={agents}
       configsByAgentKey={configsByAgentKey}
       pipelineValidation={validation}
@@ -74,6 +94,8 @@ const PipelineDetailPage = async ({
       pageSize={executions.pageSize}
       loadVariablePickerPage={loadVariablePickerPage}
       loadExpansionPickerPage={loadExpansionPickerPage}
+      loadExpansionNameById={loadExpansionNameById}
+      pipelineExpansionNames={pipelineExpansionNames}
     />
   );
 };

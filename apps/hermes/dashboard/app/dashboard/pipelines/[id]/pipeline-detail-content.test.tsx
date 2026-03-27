@@ -151,6 +151,8 @@ const createMockAgents = () => [
 const mockPickerLoaders = {
   loadVariablePickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   loadExpansionPickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  loadExpansionNameById: vi.fn().mockResolvedValue(null),
+  pipelineExpansionNames: {} as Readonly<Record<string, string>>,
 };
 
 describe("PipelineDetailContent", () => {
@@ -158,6 +160,7 @@ describe("PipelineDetailContent", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
+        domainIntegrationKey="mediapulse"
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
@@ -189,6 +192,7 @@ describe("PipelineDetailContent", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
+        domainIntegrationKey="mediapulse"
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
@@ -208,6 +212,7 @@ describe("PipelineDetailContent", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
+        domainIntegrationKey="mediapulse"
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
@@ -230,6 +235,7 @@ describe("PipelineDetailContent", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
+        domainIntegrationKey="mediapulse"
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
@@ -256,6 +262,7 @@ describe("PipelineDetailContent", () => {
     render(
       <PipelineDetailContent
         pipeline={pipeline}
+        domainIntegrationKey="mediapulse"
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
@@ -280,6 +287,7 @@ describe("PipelineDetailContent", () => {
     render(
       <PipelineDetailContent
         pipeline={pipeline}
+        domainIntegrationKey="mediapulse"
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
@@ -302,6 +310,7 @@ describe("PipelineDetailContent", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
+        domainIntegrationKey="mediapulse"
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={{ valid: false, warnings: ["Missing agent"] }}
@@ -324,6 +333,7 @@ describe("PipelineDetailContent", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
+        domainIntegrationKey="mediapulse"
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}

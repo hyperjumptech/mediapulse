@@ -81,6 +81,8 @@ vi.mock("@workspace/variable-expansion-picker", () => ({
 const noopLoaders = {
   loadVariablePickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   loadExpansionPickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  loadExpansionNameById: vi.fn().mockResolvedValue(null),
+  pipelineExpansionNames: {} as Readonly<Record<string, string>>,
 };
 
 const selectedStep = {
@@ -98,6 +100,7 @@ describe("PipelineStepEditorPanel", () => {
     render(
       <PipelineStepEditorPanel
         selectedStep={null}
+        domainIntegrationKey="mediapulse"
         stepInput={{}}
         onStepInputChange={() => {}}
         configsForAgent={[]}
@@ -118,6 +121,7 @@ describe("PipelineStepEditorPanel", () => {
     render(
       <PipelineStepEditorPanel
         selectedStep={selectedStep}
+        domainIntegrationKey="mediapulse"
         stepInput={{}}
         onStepInputChange={() => {}}
         configsForAgent={[]}
@@ -155,6 +159,7 @@ describe("PipelineStepEditorPanel", () => {
     render(
       <PipelineStepEditorPanel
         selectedStep={selectedStep}
+        domainIntegrationKey="mediapulse"
         stepInput={{}}
         onStepInputChange={() => {}}
         configsForAgent={configs}

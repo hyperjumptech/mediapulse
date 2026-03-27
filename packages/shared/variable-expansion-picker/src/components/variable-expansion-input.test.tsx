@@ -1,5 +1,11 @@
 import * as React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+} from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { VariableExpansionInput } from "./variable-expansion-input";
@@ -195,7 +201,34 @@ describe("VariableExpansionInput (integration)", () => {
     expect(onChange).toHaveBeenCalledWith("{{dse:e1}}");
   });
 
-  it("renders dse references as inline badges", () => {
+  it("replaces existing text when inserting an expansion", async () => {
+    const onChange = vi.fn();
+
+    render(
+      <VariableExpansionInput
+        value="ticker-123"
+        onChange={onChange}
+        loadVariablesPage={loadVariablesPage}
+        loadExpansionsPage={loadExpansionsPage}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /insert variable or expansion/i }),
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /expansions/i }));
+
+    await waitFor(() => {
+      expect(loadExpansionsPage).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Tickers" }));
+
+    expect(onChange).toHaveBeenCalledWith("{{dse:e1}}");
+  });
+
+  it("renders cached expansion names in inline badges", async () => {
     const onChange = vi.fn();
 
     render(
@@ -207,6 +240,84 @@ describe("VariableExpansionInput (integration)", () => {
       />,
     );
 
-    expect(screen.getByText("dse:e1")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /insert variable or expansion/i }),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: /expansions/i }));
+
+    await waitFor(() => {
+      expect(loadExpansionsPage).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Tickers" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("hides the editable input when value is a dse token", () => {
+    const onChange = vi.fn();
+
+    render(
+      <VariableExpansionInput
+        value="{{dse:e1}}"
+        onChange={onChange}
+        id="ticker-id"
+        label="Ticker Id"
+        loadVariablesPage={loadVariablesPage}
+        loadExpansionsPage={loadExpansionsPage}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Ticker Id")).not.toBeInTheDocument();
+  });
+
+  it("resolves persisted dse token ids to names", async () => {
+    const onChange = vi.fn();
+    const resolveExpansionNameById = vi
+      .fn()
+      .mockResolvedValue("Top 10 tickers");
+
+    render(
+      <VariableExpansionInput
+        value="{{dse:e1}}"
+        onChange={onChange}
+        loadVariablesPage={loadVariablesPage}
+        loadExpansionsPage={loadExpansionsPage}
+        resolveExpansionNameById={resolveExpansionNameById}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(resolveExpansionNameById).toHaveBeenCalledWith("e1");
+    });
+    expect(screen.getByText("Top 10 tickers")).toBeInTheDocument();
+  });
+
+  it("uses initialExpansionNames for the pill without calling resolveExpansionNameById", async () => {
+    const onChange = vi.fn();
+    const resolveExpansionNameById = vi.fn().mockResolvedValue("ignored");
+
+    render(
+      <VariableExpansionInput
+        value="{{dse:e1}}"
+        onChange={onChange}
+        loadVariablesPage={loadVariablesPage}
+        loadExpansionsPage={loadExpansionsPage}
+        resolveExpansionNameById={resolveExpansionNameById}
+        initialExpansionNames={{ e1: "10-tickers" }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("10-tickers")).toBeInTheDocument();
+    });
+    await act(async () => {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+    expect(resolveExpansionNameById).not.toHaveBeenCalled();
   });
 });

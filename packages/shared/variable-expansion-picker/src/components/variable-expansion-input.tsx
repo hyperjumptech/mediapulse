@@ -21,6 +21,7 @@ import {
 
 import { useVariableExpansionInputCore } from "../hooks/use-variable-expansion-input-core";
 import { useVariableExpansionPickerModalShell } from "../hooks/use-variable-expansion-picker-modal-shell";
+import { useExpansionDisplayNameCache } from "../hooks/use-expansion-display-name-cache";
 import type {
   ExpansionOption,
   LoadExpansionsPageResult,
@@ -50,11 +51,15 @@ export type VariableExpansionInputProps = {
   loadVariablesPage: (args: LoadPageArgs) => Promise<LoadVariablesPageResult>;
   /** Loads a page of expansions for the Expansions tab. */
   loadExpansionsPage: (args: LoadPageArgs) => Promise<LoadExpansionsPageResult>;
+  /** Resolves an expansion id to display name for persisted tokens. */
+  resolveExpansionNameById?: (id: string) => Promise<string | null>;
+  /** Server-provided id→name map (e.g. prefetched for the pipeline) so labels work before async resolve. */
+  initialExpansionNames?: Readonly<Record<string, string>>;
   /** Items per page in the modal lists (default {@link DEFAULT_PICKER_PAGE_SIZE}). */
   pageSize?: number;
 };
 
-const DSE_REFERENCE_TOKEN_REGEX = /\{\{dse:([a-zA-Z0-9_-]+)\}\}/g;
+const DSE_REFERENCE_TOKEN_REGEX = /\{\{dse:([^}]+)\}\}/g;
 
 type DisplaySegment =
   | { kind: "text"; value: string }
@@ -116,6 +121,8 @@ export const VariableExpansionInput = ({
   disabled = false,
   loadVariablesPage,
   loadExpansionsPage,
+  resolveExpansionNameById,
+  initialExpansionNames,
   pageSize = DEFAULT_PICKER_PAGE_SIZE,
 }: VariableExpansionInputProps) => {
   const { inputRef, insert } = useVariableExpansionInputCore(value, onChange);
@@ -125,6 +132,20 @@ export const VariableExpansionInput = ({
     () => tokenizeDisplaySegments(value),
     [value],
   );
+  const hasDataSourceExpansionReference = React.useMemo(
+    () => displaySegments.some((segment) => segment.kind === "dse-reference"),
+    [displaySegments],
+  );
+  const {
+    getExpansionDisplayName,
+    rememberExpansionName,
+    loadExpansionsPageWithNameCache,
+  } = useExpansionDisplayNameCache({
+    displaySegments,
+    resolveExpansionNameById,
+    loadExpansionsPage,
+    initialExpansionNames,
+  });
 
   const handleInsertVariable = React.useCallback(
     (key: string) => {
@@ -136,10 +157,11 @@ export const VariableExpansionInput = ({
 
   const handleInsertExpansion = React.useCallback(
     (expansion: ExpansionOption) => {
-      insert(buildDataSourceExpansionReference(expansion.id));
+      rememberExpansionName(expansion.id, expansion.name);
+      onChange(buildDataSourceExpansionReference(expansion.id));
       setOpen(false);
     },
-    [insert, setOpen],
+    [onChange, rememberExpansionName, setOpen],
   );
 
   const variablesEnabled = open && activeTab === "variables";
@@ -154,36 +176,60 @@ export const VariableExpansionInput = ({
       ) : null}
       <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
-          <Input
-            ref={inputRef}
-            id={id}
-            type="text"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            className="min-w-0 flex-1 bg-transparent text-transparent caret-foreground selection:bg-primary/20"
-            aria-describedby={description ? `${id ?? "input"}-desc` : undefined}
-          />
-          <div
-            aria-hidden={true}
-            className="pointer-events-none absolute inset-0 flex items-center overflow-hidden px-3 text-sm"
-          >
-            <span className="inline-block w-full truncate whitespace-pre text-foreground">
-              {displaySegments.map((segment, index) =>
-                segment.kind === "text" ? (
-                  <span key={`text-${index}`}>{segment.value}</span>
-                ) : (
-                  <Badge
-                    key={`dse-${segment.raw}-${index}`}
-                    variant="secondary"
-                    className="mx-0.5 inline-flex max-w-[16rem] -translate-y-px truncate px-1.5 py-0 text-[10px] font-medium"
-                  >
-                    dse:{segment.id}
-                  </Badge>
-                ),
-              )}
-            </span>
-          </div>
+          {hasDataSourceExpansionReference ? (
+            <div className="border-input bg-background flex h-9 w-full items-center overflow-hidden rounded-md border px-3 py-1 shadow-xs">
+              <span className="inline-block w-full truncate whitespace-pre text-sm text-foreground">
+                {displaySegments.map((segment, index) =>
+                  segment.kind === "text" ? (
+                    <span key={`text-${index}`}>{segment.value}</span>
+                  ) : (
+                    <Badge
+                      key={`dse-${segment.raw}-${index}`}
+                      variant="secondary"
+                      className="mx-0.5 inline-flex max-w-[16rem] -translate-y-px truncate px-1.5 py-0 text-[10px] font-medium"
+                    >
+                      {getExpansionDisplayName(segment.id)}
+                    </Badge>
+                  ),
+                )}
+              </span>
+            </div>
+          ) : (
+            <>
+              <Input
+                ref={inputRef}
+                id={id}
+                type="text"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={disabled}
+                className="min-w-0 flex-1 bg-transparent text-transparent caret-foreground selection:bg-primary/20 [-webkit-text-fill-color:transparent]"
+                aria-describedby={
+                  description ? `${id ?? "input"}-desc` : undefined
+                }
+              />
+              <div
+                aria-hidden={true}
+                className="pointer-events-none absolute inset-0 flex items-center overflow-hidden px-3 text-sm"
+              >
+                <span className="inline-block w-full truncate whitespace-pre text-foreground">
+                  {displaySegments.map((segment, index) =>
+                    segment.kind === "text" ? (
+                      <span key={`text-${index}`}>{segment.value}</span>
+                    ) : (
+                      <Badge
+                        key={`dse-${segment.raw}-${index}`}
+                        variant="secondary"
+                        className="mx-0.5 inline-flex max-w-[16rem] -translate-y-px truncate px-1.5 py-0 text-[10px] font-medium"
+                      >
+                        {getExpansionDisplayName(segment.id)}
+                      </Badge>
+                    ),
+                  )}
+                </span>
+              </div>
+            </>
+          )}
         </div>
         <Button
           type="button"
@@ -230,7 +276,7 @@ export const VariableExpansionInput = ({
                 className="min-h-0 flex-1 overflow-hidden outline-none"
               >
                 <ExpansionsPickerSection
-                  loadPage={loadExpansionsPage}
+                  loadPage={loadExpansionsPageWithNameCache}
                   pageSize={pageSize}
                   enabled={expansionsEnabled}
                   onPickExpansion={handleInsertExpansion}

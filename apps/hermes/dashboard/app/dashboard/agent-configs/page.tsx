@@ -7,6 +7,7 @@ import {
 } from "@/lib/agent-configs";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 import {
+  loadExpansionNameById,
   loadExpansionPickerPage,
   loadVariablePickerPage,
 } from "@/lib/variable-expansion-picker-actions";
@@ -128,6 +129,7 @@ const AgentConfigsPage = async ({
         pickerLoaders={{
           loadVariablesPage: loadVariablePickerPage,
           loadExpansionsPage: loadExpansionPickerPage,
+          resolveExpansionNameById: loadExpansionNameById,
         }}
       />
     </div>

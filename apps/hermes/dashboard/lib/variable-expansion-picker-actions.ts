@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { getDataSourceExpansionTemplateByIdForIntegration } from "@/lib/data-source-expansion-templates";
 import { getDefaultDomainIntegration } from "@/lib/domain-integrations";
 import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
 import { getDashboardSession } from "@/lib/auth-dashboard";
@@ -13,6 +14,14 @@ const pickerPageInputSchema = z.object({
   pageSize: z.number().int().min(5).max(100),
   search: z.string().optional(),
 });
+/** Single id (uses default domain integration) or explicit integration scope. */
+const loadExpansionNameByIdInputSchema = z.union([
+  z.object({
+    integrationKey: z.string().min(1),
+    id: z.string().trim().min(1),
+  }),
+  z.string().trim().min(1),
+]);
 
 export type LoadVariablePickerPageResult = {
   items: Array<{ key: string; description: string | null }>;
@@ -38,6 +47,8 @@ type VariablePickerDependencies = {
 type ExpansionPickerDependencies = {
   getSession?: typeof getDashboardSession;
   getExpansionsPage?: typeof getDataSourceExpansionsPage;
+  /** Loads template by id from orchestration DB (same ids as `{{dse:<id>}}`). */
+  getExpansionTemplateById?: typeof getDataSourceExpansionTemplateByIdForIntegration;
   getIntegration?: typeof getDefaultDomainIntegration;
 };
 
@@ -135,5 +146,63 @@ export const loadExpansionPickerPage = async (
     };
   } catch {
     return { items: [], total: 0 };
+  }
+};
+
+/**
+ * Resolves a data source expansion template id to its display name for persisted `{{dse:<id>}}` values.
+ *
+ * @param raw - Template id string (default integration) or `{ integrationKey, id }` for the pipeline’s integration.
+ * @param dependencies - Injectable session, integration resolver, and template loader for tests.
+ * @returns Template name when found; otherwise null.
+ */
+export const loadExpansionNameById = async (
+  raw: unknown,
+  dependencies: ExpansionPickerDependencies = {},
+): Promise<string | null> => {
+  const getSession = dependencies.getSession ?? getDashboardSession;
+  const getIntegration =
+    dependencies.getIntegration ?? getDefaultDomainIntegration;
+  const getExpansionTemplateById =
+    dependencies.getExpansionTemplateById ??
+    getDataSourceExpansionTemplateByIdForIntegration;
+
+  const session = await getSession();
+  if (!session) {
+    return null;
+  }
+
+  const parsed = loadExpansionNameByIdInputSchema.safeParse(raw);
+  if (!parsed.success) {
+    return null;
+  }
+
+  let integrationKey: string;
+  let id: string;
+  if (typeof parsed.data === "string") {
+    try {
+      const integration = await getIntegration();
+      integrationKey = integration.key;
+    } catch {
+      return null;
+    }
+    id = parsed.data;
+  } else {
+    integrationKey = parsed.data.integrationKey;
+    id = parsed.data.id;
+  }
+
+  try {
+    const row = await getExpansionTemplateById(integrationKey, id);
+    if (row == null) {
+      return null;
+    }
+    const name = row["name"];
+    if (typeof name !== "string" || name.trim() === "") {
+      return null;
+    }
+    return name.trim();
+  } catch {
+    return null;
   }
 };

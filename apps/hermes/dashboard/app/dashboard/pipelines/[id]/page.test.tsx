@@ -36,8 +36,18 @@ vi.mock("@/lib/validate-pipeline", () => ({
   validatePipeline: vi.fn().mockResolvedValue({ valid: true, warnings: [] }),
 }));
 
+const { domainIntegrationFindUniqueMock } = vi.hoisted(() => ({
+  domainIntegrationFindUniqueMock: vi
+    .fn()
+    .mockResolvedValue({ key: "mediapulse" }),
+}));
+
 vi.mock("@hermes/orchestration-database", () => ({
-  prisma: {},
+  prisma: {
+    domainIntegration: {
+      findUnique: domainIntegrationFindUniqueMock,
+    },
+  },
   DomainIntegrationStatus: { pending: "pending", active: "active" },
 }));
 

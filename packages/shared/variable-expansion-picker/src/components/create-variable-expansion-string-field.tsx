@@ -8,7 +8,11 @@ import {
 /** Loaders and optional page size for the variable/expansion picker. */
 export type VariableExpansionStringFieldLoaders = Pick<
   VariableExpansionInputProps,
-  "loadVariablesPage" | "loadExpansionsPage" | "pageSize"
+  | "loadVariablesPage"
+  | "loadExpansionsPage"
+  | "resolveExpansionNameById"
+  | "initialExpansionNames"
+  | "pageSize"
 >;
 
 /**
@@ -31,6 +35,8 @@ export const createVariableExpansionStringField = (
       disabled={props.disabled}
       loadVariablesPage={loaders.loadVariablesPage}
       loadExpansionsPage={loaders.loadExpansionsPage}
+      resolveExpansionNameById={loaders.resolveExpansionNameById}
+      initialExpansionNames={loaders.initialExpansionNames}
       pageSize={loaders.pageSize}
     />
   );

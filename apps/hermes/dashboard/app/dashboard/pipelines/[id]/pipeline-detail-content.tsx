@@ -43,6 +43,8 @@ type AgentRegistryEntry = Awaited<
 
 export type PipelineDetailContentProps = {
   pipeline: PipelineWithSteps;
+  /** Domain integration key for this pipeline (templates and `{{dse:…}}` are scoped per integration). */
+  domainIntegrationKey: string;
   agents: AgentRegistryEntry[];
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
   pipelineValidation: PipelineValidationResult;
@@ -58,6 +60,10 @@ export type PipelineDetailContentProps = {
   loadExpansionPickerPage: (
     args: LoadPageArgs,
   ) => Promise<LoadExpansionsPageResult>;
+  /** Server action: resolves expansion id to display name for persisted dse tokens. */
+  loadExpansionNameById: (raw: unknown) => Promise<string | null>;
+  /** Prefetched DSE template id → display name for this pipeline (RSC). */
+  pipelineExpansionNames: Readonly<Record<string, string>>;
   /** Optional DI: override for tests. Defaults to the generated update pipeline form action. */
   updatePipelineFormAction?: typeof defaultUpdatePipelineFormAction;
   /** Optional DI: override for tests. Defaults to the generated update step form action. */
@@ -236,6 +242,7 @@ const usePipelineEditModalState = () => {
  */
 export const PipelineDetailContent = ({
   pipeline,
+  domainIntegrationKey,
   agents,
   configsByAgentKey,
   pipelineValidation,
@@ -245,6 +252,8 @@ export const PipelineDetailContent = ({
   pageSize,
   loadVariablePickerPage,
   loadExpansionPickerPage,
+  loadExpansionNameById,
+  pipelineExpansionNames,
   updatePipelineFormAction = defaultUpdatePipelineFormAction,
   updateStepFormAction = defaultUpdateStepFormAction,
 }: PipelineDetailContentProps) => {
@@ -397,6 +406,7 @@ export const PipelineDetailContent = ({
         <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/20 p-4">
           <PipelineStepEditorPanel
             selectedStep={selectedStep}
+            domainIntegrationKey={domainIntegrationKey}
             stepInput={stepInput}
             onStepInputChange={setStepInput}
             configsForAgent={
@@ -411,6 +421,8 @@ export const PipelineDetailContent = ({
             disabled={saving}
             loadVariablePickerPage={loadVariablePickerPage}
             loadExpansionPickerPage={loadExpansionPickerPage}
+            loadExpansionNameById={loadExpansionNameById}
+            pipelineExpansionNames={pipelineExpansionNames}
           />
         </div>
       </div>
