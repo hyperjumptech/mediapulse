@@ -89,7 +89,22 @@ describe("LoginForm", () => {
     render(<LoginForm />);
 
     // Assert
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Login" })).toBeEnabled();
+  });
+
+  it("renders remember me checkbox", async () => {
+    // Setup
+    const mock = await getUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+
+    // Act
+    render(<LoginForm />);
+
+    // Assert
+    expect(screen.getByLabelText("Remember me")).toHaveAttribute(
+      "type",
+      "checkbox",
+    );
   });
 
   it("shows an error message when action state fails", async () => {
