@@ -15,8 +15,8 @@ export type LoggerLike = {
  * Use **throw** for unexpected errors (agent returns 500).
  */
 export type AgentRunResult =
-  | { success: true; message?: string }
-  | { success: false; message: string };
+  | { success: true; message?: string; details?: Record<string, any> }
+  | { success: false; message: string; details?: Record<string, any> };
 
 /**
  * Hermes orchestration ids from invoke headers (`X-Schedule-Id`, etc.), grouped for `run` context.

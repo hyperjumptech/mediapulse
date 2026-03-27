@@ -18,6 +18,14 @@ import {
   getDataCollection,
   postDataCollection,
 } from "./routes/data-collection.js";
+import {
+  getDataCollectionRun,
+  postDataCollectionRun,
+} from "./routes/data-collection-run.js";
+import {
+  getDataCollectionFailure,
+  postDataCollectionFailure,
+} from "./routes/data-collection-failure.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 import {
   registerAgentDataApiRoutes,
@@ -51,6 +59,14 @@ const routeHandlers = {
   dataCollection: {
     get: getDataCollection,
     post: postDataCollection,
+  },
+  dataCollectionRun: {
+    get: getDataCollectionRun,
+    post: postDataCollectionRun,
+  },
+  dataCollectionFailure: {
+    get: getDataCollectionFailure,
+    post: postDataCollectionFailure,
   },
   delivery: {
     get: getDelivery,

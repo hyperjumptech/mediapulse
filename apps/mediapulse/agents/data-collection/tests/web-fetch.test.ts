@@ -2,6 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { performWebFetch } from "../src/utilities/web-fetch.js";
 
+const defaultConfig = {
+  baseUrl: "https://r.jina.ai/",
+  authentication: {
+    type: "bearer" as const,
+    apiKey: "jina-key",
+    headerName: "Authorization",
+  },
+  rateLimit: { requests: 2, perSeconds: 1 },
+};
+
 describe("performWebFetch", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -34,7 +44,7 @@ describe("performWebFetch", () => {
 
     // Act
     const result = await performWebFetch(searchResults, {
-      jinaApiKey: "jina-key",
+      config: defaultConfig,
       gotClient: fakeGot,
     });
 
@@ -51,16 +61,19 @@ describe("performWebFetch", () => {
     expect(result).toHaveLength(1);
 
     expect(result[0]).toMatchObject({
-      url: "http://example.com",
-      title: "Title",
-      content: "Full content",
-      tickerId: "ticker-1",
-      searchQueryId: "q1",
-      searchQueryText: "query",
+      success: true,
+      data: {
+        url: "http://example.com",
+        title: "Title",
+        content: "Full content",
+        tickerId: "ticker-1",
+        searchQueryId: "q1",
+        searchQueryText: "query",
+      },
     });
   });
 
-  it("throws when Jina returns invalid response shape", async () => {
+  it("returns failure when Jina returns invalid response shape", async () => {
     // Setup
     const postMock = vi.fn().mockReturnValue({
       json: vi.fn().mockResolvedValue({
@@ -80,12 +93,20 @@ describe("performWebFetch", () => {
       },
     ];
 
-    // Act & Assert
-    await expect(
-      performWebFetch(searchResults, {
-        jinaApiKey: "jina-key",
-        gotClient: fakeGot,
-      }),
-    ).rejects.toThrow();
+    // Act
+    const result = await performWebFetch(searchResults, {
+      config: defaultConfig,
+      gotClient: fakeGot,
+    });
+
+    // Assert
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      success: false,
+      url: "http://example.com",
+      queryId: "q1",
+      tickerId: "ticker-1",
+      errorCategory: "provider_schema_error",
+    });
   });
 });

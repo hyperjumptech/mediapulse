@@ -12,6 +12,14 @@ const webSearchSchema = z.object({
     requests: z.number(),
     perSeconds: z.number(),
   }),
+  timeoutMs: z.number().int().positive().optional(),
+  retry: z
+    .object({
+      maxAttempts: z.number().int().nonnegative(),
+      baseDelayMs: z.number().int().positive(),
+      maxDelayMs: z.number().int().positive(),
+    })
+    .optional(),
 });
 
 const webFetchSchema = z.object({
@@ -25,11 +33,25 @@ const webFetchSchema = z.object({
     requests: z.number(),
     perSeconds: z.number(),
   }),
+  timeoutMs: z.number().int().positive().optional(),
+  retry: z
+    .object({
+      maxAttempts: z.number().int().nonnegative(),
+      baseDelayMs: z.number().int().positive(),
+      maxDelayMs: z.number().int().positive(),
+    })
+    .optional(),
 });
 
 export const ConfigSchema = z.object({
   webSearch: webSearchSchema,
   webFetch: webFetchSchema,
+  runPolicy: z
+    .object({
+      minSuccessfulSources: z.number().int().nonnegative(),
+      failOnZeroSuccess: z.boolean(),
+    })
+    .optional(),
 });
 
 export const dataCollectionAgentConfigSchema = ConfigSchema;

@@ -1,6 +1,8 @@
-import got from "got";
+import got, { HTTPError, TimeoutError, RequestError } from "got";
 import { z } from "zod";
-import { sleep } from "@workspace/utils";
+import { RateLimiter, withRetry } from "./resilience.js";
+import type { DataCollectionAgentConfig } from "./config-schema.js";
+import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
 
 export interface SearchQuery {
   id: string;
@@ -17,14 +19,32 @@ export interface WebSearchResult {
   searchQueryText: string;
 }
 
+export interface WebSearchSuccess {
+  success: true;
+  data: WebSearchResult;
+}
+
+export interface WebSearchFailure {
+  success: false;
+  queryId: string;
+  queryText: string;
+  tickerId: string;
+  errorCategory: DataCollectionFailure["errorCategory"];
+  message: string;
+  retryable: boolean;
+  httpStatus?: number;
+}
+
+export type WebSearchAttemptResult = WebSearchSuccess | WebSearchFailure;
+
 export interface WebSearchDeps {
-  serperApiKey: string;
+  config: NonNullable<DataCollectionAgentConfig["webSearch"]>;
   gotClient?: typeof got;
 }
 
 /** Zod schema for Serper.dev API organic search result item. */
 const serperOrganicItemSchema = z.object({
-  link: z.string().optional(),
+  link: z.string().url().optional(),
   title: z.string().optional(),
   snippet: z.string().optional(),
 });
@@ -36,45 +56,150 @@ export const serperResponseSchema = z.object({
 
 export type SerperResponse = z.infer<typeof serperResponseSchema>;
 
+export function isRetryableError(e: unknown): boolean {
+  if (e instanceof HTTPError) {
+    const status = e.response.statusCode;
+    return status === 429 || status >= 500;
+  }
+  if (e instanceof TimeoutError) {
+    return true;
+  }
+  if (e instanceof RequestError) {
+    return [
+      "ETIMEDOUT",
+      "ECONNRESET",
+      "EADDRINUSE",
+      "ECONNREFUSED",
+      "EPIPE",
+      "ENOTFOUND",
+      "ENETUNREACH",
+      "EAI_AGAIN",
+    ].includes(e.code ?? "");
+  }
+  return false;
+}
+
+export function classifyError(e: unknown): {
+  category: DataCollectionFailure["errorCategory"];
+  message: string;
+  httpStatus?: number;
+} {
+  if (e instanceof z.ZodError) {
+    return { category: "provider_schema_error", message: e.message };
+  }
+  if (e instanceof HTTPError) {
+    return {
+      category: "provider_http_error",
+      message: e.message,
+      httpStatus: e.response.statusCode,
+    };
+  }
+  if (e instanceof TimeoutError) {
+    return { category: "timeout_error", message: e.message };
+  }
+  if (e instanceof RequestError) {
+    return { category: "network_error", message: e.message };
+  }
+  if (e instanceof Error && e.message === "Semantic validation failed") {
+    return {
+      category: "provider_data_invalid",
+      message: "Missing required fields in response",
+    };
+  }
+  return {
+    category: "internal_processing_error",
+    message: e instanceof Error ? e.message : String(e),
+  };
+}
+
 /**
- * Performs web search for each query using the Serper.dev API and returns a web search result per query.
+ * Performs web search for each query using the configured provider.
+ * Uses config-driven limits, retries, and yields partial success items.
  *
  * @param queries - Search queries retrieved from the Agent Data API.
- * @param deps - Dependencies including the Serper API key.
- * @returns A list of web search results.
+ * @param deps - Dependencies including runtime configuration.
+ * @returns A list of web search attempt results.
  */
 export async function performWebSearch(
   queries: SearchQuery[],
   deps: WebSearchDeps,
-): Promise<WebSearchResult[]> {
-  const { serperApiKey, gotClient = got } = deps;
-  const results: WebSearchResult[] = [];
+): Promise<WebSearchAttemptResult[]> {
+  const { config, gotClient = got } = deps;
+  const results: WebSearchAttemptResult[] = [];
 
-  for (const [index, query] of queries.entries()) {
-    if (index > 0 && index % 2 === 0) {
-      await sleep(1_000);
-    }
+  const rateLimiter = new RateLimiter(
+    config.rateLimit.requests,
+    config.rateLimit.perSeconds,
+  );
 
-    const raw = await gotClient
-      .post("https://google.serper.dev/search", {
-        json: { q: query.text },
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-KEY": serperApiKey,
-        },
-      })
-      .json<unknown>();
+  const authHeaders: Record<string, string> = {};
+  if (config.authentication.apiKey && config.authentication.headerName) {
+    const prefix = config.authentication.type === "bearer" ? "Bearer " : "";
+    authHeaders[config.authentication.headerName] =
+      `${prefix}${config.authentication.apiKey}`;
+  }
 
-    const response = serperResponseSchema.parse(raw);
+  for (const query of queries) {
+    try {
+      await rateLimiter.acquire();
 
-    for (const item of response.organic ?? []) {
+      const fetchTask = async () => {
+        const raw = await gotClient
+          .post(config.baseUrl, {
+            json: { q: query.text },
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeaders,
+            },
+            timeout: config.timeoutMs
+              ? { request: config.timeoutMs }
+              : undefined,
+          })
+          .json<unknown>();
+
+        const parsed = serperResponseSchema.safeParse(raw);
+        if (!parsed.success) {
+          throw parsed.error;
+        }
+
+        const organic = parsed.data.organic ?? [];
+        if (organic.length === 0) {
+          throw new Error("Semantic validation failed");
+        }
+        return organic;
+      };
+
+      const organic = config.retry
+        ? await withRetry(fetchTask, config.retry, isRetryableError)
+        : await fetchTask();
+
+      for (const item of organic) {
+        if (!item.link) {
+          continue;
+        }
+        results.push({
+          success: true,
+          data: {
+            url: item.link,
+            title: item.title ?? "",
+            content: item.snippet ?? "",
+            tickerId: query.tickerId,
+            searchQueryId: query.id,
+            searchQueryText: query.text,
+          },
+        });
+      }
+    } catch (e) {
+      const classified = classifyError(e);
       results.push({
-        url: item.link ?? "",
-        title: item.title ?? "",
-        content: item.snippet ?? "",
+        success: false,
+        queryId: query.id,
+        queryText: query.text,
         tickerId: query.tickerId,
-        searchQueryId: query.id,
-        searchQueryText: query.text,
+        errorCategory: classified.category,
+        message: classified.message,
+        retryable: isRetryableError(e),
+        httpStatus: classified.httpStatus,
       });
     }
   }

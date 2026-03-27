@@ -12,8 +12,6 @@ export const env = createEnv({
     AGENT_PUBLIC_URL: z.string().min(1),
     DOMAIN_INTEGRATION_API_KEY: z.string().min(1),
     DOMAIN_INTEGRATION_KEY: z.string().min(1),
-    JINA_API_KEY: z.string().min(1),
-    SERPER_API_KEY: z.string().min(1),
   },
   client: {
   },

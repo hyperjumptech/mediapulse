@@ -5,6 +5,16 @@ import {
   performWebSearch,
 } from "../src/utilities/web-search.js";
 
+const defaultConfig = {
+  baseUrl: "https://google.serper.dev/search",
+  authentication: {
+    type: "bearer" as const,
+    apiKey: "serper-key",
+    headerName: "X-API-KEY",
+  },
+  rateLimit: { requests: 2, perSeconds: 1 },
+};
+
 describe("performWebSearch", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -13,8 +23,8 @@ describe("performWebSearch", () => {
   it("returns empty array when there are no queries", async () => {
     // Act
     const result = await performWebSearch([], {
-      serperApiKey: "key",
-    } as WebSearchDeps);
+      config: defaultConfig,
+    });
 
     // Assert
     expect(result).toEqual([]);
@@ -39,7 +49,7 @@ describe("performWebSearch", () => {
 
     // Act
     const result = await performWebSearch(queries, {
-      serperApiKey: "serper-key",
+      config: defaultConfig,
       gotClient: fakeGot,
     });
 
@@ -49,23 +59,26 @@ describe("performWebSearch", () => {
       expect.objectContaining({
         json: { q: "search" },
         headers: expect.objectContaining({
-          "X-API-KEY": "serper-key",
+          "X-API-KEY": "Bearer serper-key",
         }),
       }),
     );
     expect(result).toHaveLength(1);
 
     expect(result[0]).toMatchObject({
-      url: "http://example.com",
-      title: "Title",
-      content: "Snippet",
-      tickerId: "ticker-1",
-      searchQueryId: "q1",
-      searchQueryText: "search",
+      success: true,
+      data: {
+        url: "http://example.com",
+        title: "Title",
+        content: "Snippet",
+        tickerId: "ticker-1",
+        searchQueryId: "q1",
+        searchQueryText: "search",
+      },
     });
   });
 
-  it("throws when Serper returns invalid response shape", async () => {
+  it("returns failure when Serper returns invalid response shape", async () => {
     // Setup
     const postMock = vi.fn().mockReturnValue({
       json: vi.fn().mockResolvedValue({
@@ -76,12 +89,19 @@ describe("performWebSearch", () => {
     const fakeGot = { post: postMock } as any;
     const queries = [{ id: "q1", text: "search", tickerId: "ticker-1" }] as any;
 
-    // Act & Assert
-    await expect(
-      performWebSearch(queries, {
-        serperApiKey: "serper-key",
-        gotClient: fakeGot,
-      }),
-    ).rejects.toThrow();
+    // Act
+    const result = await performWebSearch(queries, {
+      config: defaultConfig,
+      gotClient: fakeGot,
+    });
+
+    // Assert
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      success: false,
+      queryId: "q1",
+      tickerId: "ticker-1",
+      errorCategory: "provider_schema_error",
+    });
   });
 });

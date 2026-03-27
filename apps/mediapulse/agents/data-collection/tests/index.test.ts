@@ -18,6 +18,8 @@ vi.mock("@mediapulse/env/agents-data-collection", () => ({
 
 const getMock = vi.fn();
 const postMock = vi.fn();
+const runCreateMock = vi.fn();
+const failureCreateMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => {
   return {
@@ -26,6 +28,12 @@ vi.mock("@workspace/agent-data-api-client", () => {
         get: getMock,
         create: postMock,
       },
+      dataCollectionRun: {
+        create: runCreateMock,
+      },
+      dataCollectionFailure: {
+        create: failureCreateMock,
+      },
     })),
   };
 });
@@ -33,12 +41,15 @@ vi.mock("@workspace/agent-data-api-client", () => {
 vi.mock("../src/utilities/web-search.js", () => ({
   performWebSearch: vi.fn().mockResolvedValue([
     {
-      url: "http://example.com",
-      title: "Test",
-      content: "Snippet",
-      tickerId: TICKER_ID,
-      searchQueryId: "sq-1",
-      searchQueryText: "test query",
+      success: true,
+      data: {
+        url: "http://example.com",
+        title: "Test",
+        content: "Snippet",
+        tickerId: TICKER_ID,
+        searchQueryId: "sq-1",
+        searchQueryText: "test query",
+      },
     },
   ]),
 }));
@@ -46,12 +57,15 @@ vi.mock("../src/utilities/web-search.js", () => ({
 vi.mock("../src/utilities/web-fetch.js", () => ({
   performWebFetch: vi.fn().mockResolvedValue([
     {
-      url: "http://example.com",
-      title: "Test",
-      content: "Main content",
-      tickerId: TICKER_ID,
-      searchQueryId: "sq-1",
-      searchQueryText: "test query",
+      success: true,
+      data: {
+        url: "http://example.com",
+        title: "Test",
+        content: "Main content",
+        tickerId: TICKER_ID,
+        searchQueryId: "sq-1",
+        searchQueryText: "test query",
+      },
     },
   ]),
 }));
@@ -105,13 +119,27 @@ describe("data-collection-agent", () => {
     expect(body.status).toBe("success");
     expect(getMock).toHaveBeenCalled();
     expect(postMock).toHaveBeenCalled();
+    expect(runCreateMock).toHaveBeenCalled();
   });
 
-  it("returns 500 when API keys are missing", async () => {
-    const { env } = await import("@mediapulse/env/agents-data-collection");
-    const originalJina = env.JINA_API_KEY;
+  it("reports partial success when web-fetch fails for some results", async () => {
+    const { performWebFetch } = await import("../src/utilities/web-fetch.js");
+    vi.mocked(performWebFetch).mockResolvedValueOnce([
+      {
+        success: false,
+        url: "http://failed.com",
+        queryId: "sq-1",
+        tickerId: TICKER_ID,
+        errorCategory: "provider_http_error",
+        message: "404 Not Found",
+        retryable: false,
+        httpStatus: 404,
+      },
+    ]);
 
-    (env as any).JINA_API_KEY = "";
+    getMock.mockResolvedValue({
+      data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
+    });
 
     const { default: app } = await import("../src/index.js");
 
@@ -122,26 +150,69 @@ describe("data-collection-agent", () => {
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
           config: {
-            webSearch: {
-              baseUrl: "https://search.example",
-              authentication: { type: "bearer" },
-              rateLimit: { requests: 1, perSeconds: 1 },
-            },
-            webFetch: {
-              baseUrl: "https://fetch.example",
-              authentication: { type: "bearer" },
-              rateLimit: { requests: 1, perSeconds: 1 },
+            runPolicy: {
+              minSuccessfulSources: 0,
+              failOnZeroSuccess: false,
             },
           },
         }),
       }),
     );
 
-    const body = (await res.json()) as { message: string };
+    const body = (await res.json()) as any;
+
+    expect(body.details.summary.status).toBe("partial_success");
+    expect(failureCreateMock).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          stage: "web-fetch",
+          errorCategory: "provider_http_error",
+          httpStatus: 404,
+        }),
+      ]),
+    );
+    expect(runCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "partial_success",
+      }),
+    );
+  });
+
+  it("fails the run if minSuccessfulSources policy is not met", async () => {
+    const { performWebSearch } = await import("../src/utilities/web-search.js");
+    const { performWebFetch } = await import("../src/utilities/web-fetch.js");
+
+    // Simulate zero successes
+    vi.mocked(performWebSearch).mockResolvedValueOnce([]);
+    vi.mocked(performWebFetch).mockResolvedValueOnce([]);
+
+    getMock.mockResolvedValue({
+      data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
+    });
+
+    const { default: app } = await import("../src/index.js");
+
+    const res = await app.fetch(
+      new Request("http://localhost/", {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: {
+            runPolicy: {
+              minSuccessfulSources: 1,
+              failOnZeroSuccess: true,
+            },
+          },
+        }),
+      }),
+    );
 
     expect(res.status).toBe(500);
-    expect(body.message).toBe("Internal Server Error");
-
-    (env as any).JINA_API_KEY = originalJina;
+    expect(runCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "failed",
+      }),
+    );
   });
 });

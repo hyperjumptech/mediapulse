@@ -49,7 +49,7 @@ describe("config", () => {
     const parsed = dataCollectionAgentConfigSchema.parse(config);
 
     // Assert
-    expect(parsed.webSearch.baseUrl).toBe("https://google.serper.dev");
-    expect(parsed.webFetch.baseUrl).toBe("https://r.jina.ai");
+    expect(parsed.webSearch!.baseUrl).toBe("https://google.serper.dev");
+    expect(parsed.webFetch!.baseUrl).toBe("https://r.jina.ai");
   });
 });
