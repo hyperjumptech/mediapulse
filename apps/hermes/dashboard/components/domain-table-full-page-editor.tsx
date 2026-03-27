@@ -12,10 +12,12 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card";
 import { PageHeader } from "@/components/page-header";
+import { PipelineUsageList } from "@/components/pipeline-usage-list";
 import { DomainTableFormFields } from "@/components/domain-table-form-fields";
 import { useDomainTableFullPageEditor } from "@/hooks/use-domain-table-full-page-editor";
 import { runDomainTablePreviewExpansion } from "@/lib/domain-table-full-page-actions";
 import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
+import type { PipelineUsageSummary } from "@/lib/pipeline-usage";
 
 /**
  * Submit button that reflects pending state from the parent form action.
@@ -59,6 +61,8 @@ export type DomainTableFullPageEditorProps = {
   showPreview: boolean;
   /** Manifest `preview.fieldKey` when preview is enabled. */
   previewFieldKey?: string;
+  /** Optional reverse lookup rows for "Used in pipelines". */
+  usedInPipelines?: PipelineUsageSummary[];
 };
 
 /**
@@ -79,6 +83,7 @@ export const DomainTableFullPageEditor = ({
   integrationKey,
   showPreview,
   previewFieldKey,
+  usedInPipelines,
 }: DomainTableFullPageEditorProps) => {
   const {
     formRef,
@@ -143,7 +148,7 @@ export const DomainTableFullPageEditor = ({
           </CardHeader>
           <CardContent className="space-y-2">
             {previewError ? (
-              <p className="break-words text-sm text-destructive whitespace-pre-wrap">
+              <p className="wrap-break-word text-sm text-destructive whitespace-pre-wrap">
                 {previewError}
               </p>
             ) : null}
@@ -157,6 +162,24 @@ export const DomainTableFullPageEditor = ({
                 Run preview to see resolved values here.
               </p>
             ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {usedInPipelines ? (
+        <Card className="max-w-3xl">
+          <CardHeader>
+            <CardTitle>Used in pipelines</CardTitle>
+            <CardDescription>
+              Pipelines that reference this expansion string.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PipelineUsageList
+              usages={usedInPipelines}
+              emptyMessage="This expansion string is not referenced by any pipelines yet."
+              ariaLabel="Pipelines using this expansion string"
+            />
           </CardContent>
         </Card>
       ) : null}

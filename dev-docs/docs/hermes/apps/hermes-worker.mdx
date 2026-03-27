@@ -44,7 +44,7 @@ Variables are defined in **`packages/hermes/env/env.hermes-worker.example`**. Co
 
 | Variable                                | Required | Description                                                                                                        |
 | --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| **DATABASE_URL**                        | Yes      | Main app database (Prisma).                                                                                        |
+| **ORCHESTRATION_DATABASE_URL**          | Yes      | Orchestration app database (Prisma).                                                                               |
 | **PG_DATAQUEUE_DATABASE**               | Yes      | DataQueue connection (`?schema=dataqueue&search_path=dataqueue`). Run migrate-dataqueue before first start.        |
 | **AGENT_AUTH_API_URL**                  | Yes      | **Required.** Base URL of agent-auth-api. Worker mints JWTs via POST /api/token.                                   |
 | **HERMES_INTERNAL_API_KEY**             | Yes      | Preset shared with Hermes dashboard and agent-auth-api. Used only to call `POST /api/token`; never sent to agents. |

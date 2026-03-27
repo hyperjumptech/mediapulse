@@ -4,11 +4,10 @@ Prisma package for Mediapulse domain models (tickers, search queries, data sourc
 
 ## Environment Variables
 
-| Variable                  | Description                                        |
-| ------------------------- | -------------------------------------------------- |
-| `MEDIAPULSE_DATABASE_URL` | Optional direct URL for Mediapulse domain tables.  |
-| `DATABASE_URL`            | Fallback URL when Mediapulse-specific URL is unset |
-| `DATABASE_CERT_BASE64`    | Base64 CA cert for SSL connections                 |
+| Variable                  | Description                              |
+| ------------------------- | ---------------------------------------- |
+| `MEDIAPULSE_DATABASE_URL` | Direct URL for Mediapulse domain tables. |
+| `DATABASE_CERT_BASE64`    | Base64 CA cert for SSL connections       |
 
 ## Knowledge graph vocabulary seed
 

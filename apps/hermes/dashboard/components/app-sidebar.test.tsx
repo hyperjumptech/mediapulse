@@ -24,6 +24,9 @@ vi.mock("@workspace/ui/components/sidebar", () => ({
       {children}
     </aside>
   ),
+  SidebarHeader: ({ children }: React.PropsWithChildren) => (
+    <div data-testid="sidebar-header">{children}</div>
+  ),
   SidebarContent: ({ children }: React.PropsWithChildren) => (
     <div data-testid="sidebar-content">{children}</div>
   ),
@@ -36,6 +39,9 @@ vi.mock("@workspace/ui/components/sidebar", () => ({
   SidebarGroupLabel: ({ children }: React.PropsWithChildren) => (
     <span data-testid="sidebar-group-label">{children}</span>
   ),
+  SidebarGroupContent: ({ children }: React.PropsWithChildren) => (
+    <div data-testid="sidebar-group-content">{children}</div>
+  ),
   SidebarMenu: ({ children }: React.PropsWithChildren) => (
     <nav data-testid="sidebar-menu">{children}</nav>
   ),
@@ -45,9 +51,22 @@ vi.mock("@workspace/ui/components/sidebar", () => ({
   SidebarMenuButton: ({
     children,
     isActive,
-  }: React.PropsWithChildren<{ asChild?: boolean; isActive?: boolean }>) => (
+  }: React.PropsWithChildren<{
+    asChild?: boolean;
+    isActive?: boolean;
+    size?: string;
+  }>) => (
     <div data-testid="sidebar-menu-button" data-active={isActive}>
       {children}
+    </div>
+  ),
+}));
+
+vi.mock("./nav-user", () => ({
+  NavUser: ({ user }: { user: { name: string; email: string } }) => (
+    <div data-testid="nav-user">
+      <span>{user.name}</span>
+      <span>{user.email}</span>
     </div>
   ),
 }));
@@ -266,30 +285,32 @@ describe("AppSidebar", () => {
     expect(relationTypesButton).toHaveAttribute("data-active", "true");
   });
 
-  it("displays user name and email when user prop provided", () => {
+  it("renders NavUser with name and email when user prop provided", () => {
     usePathnameMock.mockReturnValue("/dashboard");
     const user = { name: "John Doe", email: "john@example.com" };
 
     render(<AppSidebar user={user} domainIntegrations={domainIntegrations} />);
 
+    expect(screen.getByTestId("nav-user")).toBeInTheDocument();
     expect(screen.getByText("John Doe")).toBeInTheDocument();
     expect(screen.getByText("john@example.com")).toBeInTheDocument();
   });
 
-  it("renders logout form without user info when no user provided", () => {
+  it("renders logout form (no NavUser) when no user provided", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
     render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
     expect(screen.getByTestId("logout-form")).toBeInTheDocument();
-    expect(screen.queryByText("John Doe")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("nav-user")).not.toBeInTheDocument();
   });
 
-  it("renders logout form when user is null", () => {
+  it("renders logout form (no NavUser) when user is null", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
     render(<AppSidebar user={null} domainIntegrations={domainIntegrations} />);
 
     expect(screen.getByTestId("logout-form")).toBeInTheDocument();
+    expect(screen.queryByTestId("nav-user")).not.toBeInTheDocument();
   });
 });

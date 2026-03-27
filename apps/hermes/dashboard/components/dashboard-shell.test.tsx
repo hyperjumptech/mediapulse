@@ -72,36 +72,6 @@ vi.mock("@workspace/ui/components/sidebar", () => ({
   ),
 }));
 
-vi.mock("@workspace/ui/components/breadcrumb", () => ({
-  Breadcrumb: ({ children }: React.PropsWithChildren) => (
-    <nav data-testid="breadcrumb">{children}</nav>
-  ),
-  BreadcrumbList: ({ children }: React.PropsWithChildren) => (
-    <ol data-testid="breadcrumb-list">{children}</ol>
-  ),
-  BreadcrumbItem: ({
-    children,
-    className,
-  }: React.PropsWithChildren<{ className?: string }>) => (
-    <li data-testid="breadcrumb-item" className={className}>
-      {children}
-    </li>
-  ),
-  BreadcrumbLink: ({
-    children,
-  }: React.PropsWithChildren<{ asChild?: boolean }>) => (
-    <span data-testid="breadcrumb-link">{children}</span>
-  ),
-  BreadcrumbPage: ({ children }: React.PropsWithChildren) => (
-    <span data-testid="breadcrumb-page">{children}</span>
-  ),
-  BreadcrumbSeparator: ({ className }: { className?: string }) => (
-    <span data-testid="breadcrumb-separator" className={className}>
-      /
-    </span>
-  ),
-}));
-
 vi.mock("@workspace/ui/components/separator", () => ({
   Separator: ({
     orientation,
@@ -189,7 +159,7 @@ describe("DashboardShell", () => {
     );
   });
 
-  it("shows Dashboard breadcrumb on /dashboard", () => {
+  it("shows Dashboard title on /dashboard", () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
@@ -201,12 +171,12 @@ describe("DashboardShell", () => {
     );
 
     // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
-      "Dashboard",
-    );
+    expect(
+      screen.getByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
   });
 
-  it("shows Pipelines breadcrumb on /dashboard/pipelines", () => {
+  it("shows Pipelines title on /dashboard/pipelines", () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard/pipelines");
 
@@ -218,12 +188,12 @@ describe("DashboardShell", () => {
     );
 
     // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
-      "Pipelines",
-    );
+    expect(
+      screen.getByRole("heading", { name: "Pipelines" }),
+    ).toBeInTheDocument();
   });
 
-  it("shows Tickers breadcrumb on keyed /dashboard/mediapulse/tickers", () => {
+  it("shows Tickers title on keyed /dashboard/mediapulse/tickers", () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/tickers");
 
     render(
@@ -236,13 +206,12 @@ describe("DashboardShell", () => {
       </DashboardShell>,
     );
 
-    const breadcrumbPages = screen.getAllByTestId("breadcrumb-page");
-    expect(breadcrumbPages[breadcrumbPages.length - 1]).toHaveTextContent(
-      "Tickers",
-    );
+    expect(
+      screen.getByRole("heading", { name: "Tickers" }),
+    ).toBeInTheDocument();
   });
 
-  it("shows Search Query breadcrumb on keyed /dashboard/mediapulse/search-queries", () => {
+  it("shows Search Query title on keyed /dashboard/mediapulse/search-queries", () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/search-queries");
 
     render(
@@ -259,13 +228,12 @@ describe("DashboardShell", () => {
       </DashboardShell>,
     );
 
-    const breadcrumbPages = screen.getAllByTestId("breadcrumb-page");
-    expect(breadcrumbPages[breadcrumbPages.length - 1]).toHaveTextContent(
-      "Search Query",
-    );
+    expect(
+      screen.getByRole("heading", { name: "Search Query" }),
+    ).toBeInTheDocument();
   });
 
-  it("shows Agents breadcrumb on /dashboard/agents", () => {
+  it("shows Agents title on /dashboard/agents", () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard/agents");
 
@@ -277,10 +245,10 @@ describe("DashboardShell", () => {
     );
 
     // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("Agents");
+    expect(screen.getByRole("heading", { name: "Agents" })).toBeInTheDocument();
   });
 
-  it("shows Domain integrations breadcrumb on /dashboard/domain-integrations", () => {
+  it("shows Domain integrations title on /dashboard/domain-integrations", () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard/domain-integrations");
 
@@ -292,12 +260,12 @@ describe("DashboardShell", () => {
     );
 
     // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
-      "Domain integrations",
-    );
+    expect(
+      screen.getByRole("heading", { name: "Domain integrations" }),
+    ).toBeInTheDocument();
   });
 
-  it("shows Schedules breadcrumb on /dashboard/schedules", () => {
+  it("shows Schedules title on /dashboard/schedules", () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard/schedules");
 
@@ -309,12 +277,12 @@ describe("DashboardShell", () => {
     );
 
     // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent(
-      "Schedules",
-    );
+    expect(
+      screen.getByRole("heading", { name: "Schedules" }),
+    ).toBeInTheDocument();
   });
 
-  it("shows Pipeline breadcrumb for UUID sub-route", () => {
+  it("shows Pipeline title for UUID sub-route", () => {
     // Setup
     usePathnameMock.mockReturnValue(
       "/dashboard/pipelines/550e8400-e29b-41d4-a716-446655440000",
@@ -328,7 +296,9 @@ describe("DashboardShell", () => {
     );
 
     // Assert
-    expect(screen.getByTestId("breadcrumb-page")).toHaveTextContent("Pipeline");
+    expect(
+      screen.getByRole("heading", { name: "Pipeline" }),
+    ).toBeInTheDocument();
   });
 
   it("shows sidebar trigger button", () => {

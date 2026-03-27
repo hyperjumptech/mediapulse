@@ -11,8 +11,9 @@ RUN pnpm install --frozen-lockfile
 ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
 RUN pnpm --filter=@hermes/orchestration-database run db:generate
+RUN pnpm --filter=@workspace/agent-auth-client run build
 
-RUN pnpm exec turbo build --filter=@hermes/agent-registry-api
+RUN pnpm exec turbo build --filter=@hermes/agent-registry-api --only --env-mode=loose
 
 # Stage 2: run the built bundle only
 FROM oven/bun:1

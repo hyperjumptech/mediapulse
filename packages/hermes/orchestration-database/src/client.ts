@@ -14,8 +14,7 @@ export class PrismaClientWithSchema extends PrismaClient {
   private currentSchema = "public";
 
   constructor(url?: string) {
-    const connectionString =
-      url ?? env.ORCHESTRATION_DATABASE_URL ?? env.DATABASE_URL;
+    const connectionString = url ?? env.ORCHESTRATION_DATABASE_URL;
     if (!connectionString) {
       throw new Error("Connection string is required");
     }

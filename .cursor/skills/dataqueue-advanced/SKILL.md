@@ -17,13 +17,13 @@ The job runs only after **every** listed job has reached `completed`. DataQueue 
 - **`addJobs`**: import `batchDepRef` from `@nicnocquee/dataqueue` to point at another entry in the **same** batch — e.g. `dependsOn: { jobIds: [batchDepRef(0)] }` waits for the job at index `0`.
 
 ```typescript
-import { batchDepRef } from '@nicnocquee/dataqueue';
+import { batchDepRef } from "@nicnocquee/dataqueue";
 
 const [idA, idB] = await queue.addJobs([
-  { jobType: 'ingest', payload: { fileId: '1' } },
+  { jobType: "ingest", payload: { fileId: "1" } },
   {
-    jobType: 'transform',
-    payload: { fileId: '1' },
+    jobType: "transform",
+    payload: { fileId: "1" },
     dependsOn: { jobIds: [batchDepRef(0)] },
   },
 ]);
@@ -35,10 +35,10 @@ Wait until there is **no** other active job (`pending`, `processing`, or `waitin
 
 ```typescript
 await queue.addJob({
-  jobType: 'finalize_wave',
+  jobType: "finalize_wave",
   payload: { wave: 2 },
-  tags: ['wave:2'],
-  dependsOn: { tags: ['wave:1'] },
+  tags: ["wave:2"],
+  dependsOn: { tags: ["wave:1"] },
 });
 ```
 
@@ -50,11 +50,11 @@ Wrap side-effectful work in `ctx.run(stepName, fn)`. Results are cached in the d
 
 ```typescript
 const handler = async (payload, signal, ctx) => {
-  const data = await ctx.run('fetch-data', async () => {
+  const data = await ctx.run("fetch-data", async () => {
     return await fetchFromAPI(payload.url);
   });
 
-  await ctx.run('send-notification', async () => {
+  await ctx.run("send-notification", async () => {
     await notify(data.userId, data.message);
   });
 };
@@ -72,11 +72,11 @@ const handler = async (payload, signal, ctx) => {
 
 ```typescript
 const handler = async (payload, signal, ctx) => {
-  await ctx.run('step-1', async () => {
+  await ctx.run("step-1", async () => {
     /* ... */
   });
   await ctx.waitFor({ hours: 24 });
-  await ctx.run('step-2', async () => {
+  await ctx.run("step-2", async () => {
     /* ... */
   });
 };
@@ -87,7 +87,7 @@ Duration fields: `seconds`, `minutes`, `hours`, `days`, `weeks`, `months`, `year
 ### waitUntil (date)
 
 ```typescript
-await ctx.waitUntil(new Date('2025-03-01T09:00:00Z'));
+await ctx.waitUntil(new Date("2025-03-01T09:00:00Z"));
 ```
 
 ### How waits work internally
@@ -105,17 +105,17 @@ Create a token, send it to an external actor, and wait for them to complete it.
 
 ```typescript
 const handler = async (payload, signal, ctx) => {
-  const token = await ctx.run('create-token', async () => {
-    return await ctx.createToken({ timeout: '48h', tags: ['approval'] });
+  const token = await ctx.run("create-token", async () => {
+    return await ctx.createToken({ timeout: "48h", tags: ["approval"] });
   });
 
-  await ctx.run('notify', async () => {
+  await ctx.run("notify", async () => {
     await sendSlack(`Approve: ${token.id}`);
   });
 
   const result = await ctx.waitForToken<{ approved: boolean }>(token.id);
   if (result.ok) {
-    await ctx.run('process', async () => {
+    await ctx.run("process", async () => {
       if (result.output.approved) await approve(payload.id);
     });
   }
@@ -138,11 +138,11 @@ await queue.expireTimedOutTokens();
 
 ```typescript
 const cronId = await queue.addCronJob({
-  scheduleName: 'daily-report',
-  cronExpression: '0 9 * * *',
-  jobType: 'generate_report',
-  payload: { reportId: 'daily', userId: 'system' },
-  timezone: 'America/New_York',
+  scheduleName: "daily-report",
+  cronExpression: "0 9 * * *",
+  jobType: "generate_report",
+  payload: { reportId: "daily", userId: "system" },
+  timezone: "America/New_York",
   allowOverlap: false,
 });
 ```
@@ -154,9 +154,9 @@ Manage schedules:
 ```typescript
 await queue.pauseCronJob(cronId);
 await queue.resumeCronJob(cronId);
-await queue.editCronJob(cronId, { cronExpression: '0 */2 * * *' });
+await queue.editCronJob(cronId, { cronExpression: "0 */2 * * *" });
 await queue.removeCronJob(cronId);
-const schedules = await queue.listCronJobs('active');
+const schedules = await queue.listCronJobs("active");
 ```
 
 ## Timeout Management
@@ -194,7 +194,7 @@ Both update `locked_at` in the DB, preventing premature reclamation.
 
 ```typescript
 await queue.addJob({
-  jobType: 'task',
+  jobType: "task",
   payload: {
     /* ... */
   },
@@ -216,18 +216,18 @@ Subscribe to real-time job lifecycle events. Works identically with PostgreSQL a
 ```typescript
 const queue = initJobQueue<MyPayloadMap>(config);
 
-queue.on('job:completed', ({ jobId, jobType }) => {
+queue.on("job:completed", ({ jobId, jobType }) => {
   console.log(`Job ${jobId} (${jobType}) completed`);
 });
 
-queue.on('job:failed', ({ jobId, jobType, error, willRetry }) => {
+queue.on("job:failed", ({ jobId, jobType, error, willRetry }) => {
   console.error(`Job ${jobId} failed: ${error.message}`);
   if (!willRetry) {
     alertOps(`Permanent failure for job ${jobId}`);
   }
 });
 
-queue.on('error', (error) => {
+queue.on("error", (error) => {
   Sentry.captureException(error);
 });
 ```
@@ -250,10 +250,10 @@ queue.on('error', (error) => {
 
 ```typescript
 const listener = ({ jobId }) => console.log(jobId);
-queue.on('job:completed', listener);
-queue.off('job:completed', listener);
-queue.once('job:added', ({ jobId }) => console.log('First job:', jobId));
-queue.removeAllListeners('job:completed');
+queue.on("job:completed", listener);
+queue.off("job:completed", listener);
+queue.once("job:added", ({ jobId }) => console.log("First job:", jobId));
+queue.removeAllListeners("job:completed");
 queue.removeAllListeners(); // all events
 ```
 
@@ -263,16 +263,16 @@ The `error` event fires alongside `onError` callbacks in `ProcessorOptions` and 
 
 ```typescript
 await queue.addJob({
-  jobType: 'email',
+  jobType: "email",
   payload: {
     /* ... */
   },
-  tags: ['welcome', 'onboarding'],
+  tags: ["welcome", "onboarding"],
 });
 
-const jobs = await queue.getJobsByTags(['welcome'], 'any');
+const jobs = await queue.getJobsByTags(["welcome"], "any");
 await queue.cancelAllUpcomingJobs({
-  tags: { values: ['onboarding'], mode: 'all' },
+  tags: { values: ["onboarding"], mode: "all" },
 });
 ```
 
@@ -284,11 +284,11 @@ Use job `group.id` plus processor `groupConcurrency` to enforce a global cap per
 
 ```typescript
 await queue.addJob({
-  jobType: 'email',
+  jobType: "email",
   payload: {
     /* ... */
   },
-  group: { id: 'tenant_abc', tier: 'gold' }, // tier is optional/reserved
+  group: { id: "tenant_abc", tier: "gold" }, // tier is optional/reserved
 });
 
 const processor = queue.createProcessor(handlers, {
@@ -304,8 +304,8 @@ Ungrouped jobs are unaffected by `groupConcurrency`.
 
 ```typescript
 const jobId = await queue.addJob({
-  jobType: 'email',
-  payload: { to: 'user@example.com', subject: 'Welcome', body: '...' },
+  jobType: "email",
+  payload: { to: "user@example.com", subject: "Welcome", body: "..." },
   idempotencyKey: `welcome-${userId}`,
 });
 ```
@@ -317,16 +317,18 @@ If a job with the same key exists, returns the existing job ID. Key is unique ac
 Insert a job within an existing database transaction so the job is enqueued **atomically** with other writes:
 
 ```typescript
-import { Pool } from 'pg';
+import { Pool } from "pg";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({
+  connectionString: process.env.ORCHESTRATION_DATABASE_URL,
+});
 
 async function registerUser(email: string, name: string) {
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
-    await client.query('INSERT INTO users (email, name) VALUES ($1, $2)', [
+    await client.query("INSERT INTO users (email, name) VALUES ($1, $2)", [
       email,
       name,
     ]);
@@ -334,15 +336,15 @@ async function registerUser(email: string, name: string) {
     const queue = getJobQueue();
     await queue.addJob(
       {
-        jobType: 'send_email',
-        payload: { to: email, subject: 'Welcome!', body: `Hi ${name}!` },
+        jobType: "send_email",
+        payload: { to: email, subject: "Welcome!", body: `Hi ${name}!` },
       },
       { db: client },
     );
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();
@@ -362,7 +364,7 @@ Configure how failed jobs are retried with `retryDelay`, `retryBackoff`, and `re
 
 ```typescript
 await queue.addJob({
-  jobType: 'email',
+  jobType: "email",
   payload: {
     /* ... */
   },
@@ -376,7 +378,7 @@ await queue.addJob({
 
 ```typescript
 await queue.addJob({
-  jobType: 'email',
+  jobType: "email",
   payload: {
     /* ... */
   },
@@ -391,10 +393,10 @@ await queue.addJob({
 
 ```typescript
 await queue.addCronJob({
-  scheduleName: 'daily-sync',
-  cronExpression: '0 * * * *',
-  jobType: 'sync',
-  payload: { source: 'api' },
+  scheduleName: "daily-sync",
+  cronExpression: "0 * * * *",
+  jobType: "sync",
+  payload: { source: "api" },
   retryDelay: 60,
   retryBackoff: true,
   retryDelayMax: 600,
@@ -409,10 +411,10 @@ Set `deadLetterJobType` on jobs (or cron schedules) to route exhausted failures:
 
 ```typescript
 await queue.addJob({
-  jobType: 'email',
-  payload: { to: 'user@example.com' },
+  jobType: "email",
+  payload: { to: "user@example.com" },
   maxAttempts: 3,
-  deadLetterJobType: 'email_dead_letter',
+  deadLetterJobType: "email_dead_letter",
 });
 ```
 

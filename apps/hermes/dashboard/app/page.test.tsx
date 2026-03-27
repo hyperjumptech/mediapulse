@@ -1,38 +1,64 @@
-import React from "react";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import Page from "./page";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-describe("Page (Root)", () => {
-  it("renders the Hermes heading", () => {
-    // Act
-    render(<Page />);
+const cookiesMock = vi.fn();
+const redirectMock = vi.fn();
 
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Hermes", level: 1 }),
-    ).toBeInTheDocument();
+vi.mock("next/headers", () => ({
+  cookies: () => cookiesMock(),
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: (...args: [string]) => redirectMock(...args),
+}));
+
+describe("Page (root)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cookiesMock.mockReset();
+    redirectMock.mockReset();
   });
 
-  it("renders centered container", () => {
-    // Act
-    const { container } = render(<Page />);
+  it("redirects to /login when auth-token cookie is missing", async () => {
+    cookiesMock.mockResolvedValue({
+      get: () => undefined,
+    });
+    redirectMock.mockImplementation(() => {
+      throw new Error("REDIRECT");
+    });
 
-    // Assert
-    const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper).toHaveClass("flex");
-    expect(wrapper).toHaveClass("items-center");
-    expect(wrapper).toHaveClass("justify-center");
-    expect(wrapper).toHaveClass("min-h-svh");
+    const Page = (await import("./page")).default;
+
+    await expect(Page()).rejects.toThrow("REDIRECT");
+    expect(redirectMock).toHaveBeenCalledWith("/login");
   });
 
-  it("renders heading with correct styling", () => {
-    // Act
-    render(<Page />);
+  it("redirects to /dashboard when auth-token cookie is non-empty", async () => {
+    cookiesMock.mockResolvedValue({
+      get: (name: string) =>
+        name === "auth-token" ? { value: "session-token" } : undefined,
+    });
+    redirectMock.mockImplementation(() => {
+      throw new Error("REDIRECT");
+    });
 
-    // Assert
-    const heading = screen.getByRole("heading", { name: "Hermes" });
-    expect(heading).toHaveClass("text-2xl");
-    expect(heading).toHaveClass("font-bold");
+    const Page = (await import("./page")).default;
+
+    await expect(Page()).rejects.toThrow("REDIRECT");
+    expect(redirectMock).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("redirects to /login when auth-token is whitespace only", async () => {
+    cookiesMock.mockResolvedValue({
+      get: (name: string) =>
+        name === "auth-token" ? { value: "   " } : undefined,
+    });
+    redirectMock.mockImplementation(() => {
+      throw new Error("REDIRECT");
+    });
+
+    const Page = (await import("./page")).default;
+
+    await expect(Page()).rejects.toThrow("REDIRECT");
+    expect(redirectMock).toHaveBeenCalledWith("/login");
   });
 });

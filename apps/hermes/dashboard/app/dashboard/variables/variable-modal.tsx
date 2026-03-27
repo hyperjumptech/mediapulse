@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -10,11 +10,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@workspace/ui/components/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/tabs";
+import { Button } from "@workspace/ui/components/button";
 import { useFormAction as useCreateFormAction } from "@/app/dashboard/variables/actions/create/.generated/use-form-action";
 import { useFormAction as useUpdateFormAction } from "@/app/dashboard/variables/actions/update/.generated/use-form-action";
+import { getVariablePipelineUsage } from "@/app/dashboard/variables/actions/get-usage";
 
 import { VariableFormFields } from "./variable-form-fields";
 import type { VariablesPageResult } from "@/lib/variables";
+import { PipelineUsageList } from "@/components/pipeline-usage-list";
+import type { PipelineUsageSummary } from "@/lib/pipeline-usage";
 
 type VariableRow = VariablesPageResult["variables"][number];
 
@@ -38,10 +48,39 @@ export type VariableModalProps =
   | VariableModalCreateProps
   | VariableModalEditProps;
 
+type VariableModalTab = "form" | "usage";
+
+type VariableUsageState =
+  | {
+      status: "idle" | "loading";
+      variableKey: string | null;
+      usages: PipelineUsageSummary[];
+      errorMessage: null;
+    }
+  | {
+      status: "loaded";
+      variableKey: string;
+      usages: PipelineUsageSummary[];
+      errorMessage: null;
+    }
+  | {
+      status: "error";
+      variableKey: string;
+      usages: PipelineUsageSummary[];
+      errorMessage: string;
+    };
+
 const isCreateMode = (
   props: VariableModalProps,
 ): props is VariableModalCreateProps =>
   props.variable === null && !("open" in props);
+
+const initialUsageState = (): VariableUsageState => ({
+  status: "idle",
+  variableKey: null,
+  usages: [],
+  errorMessage: null,
+});
 
 /**
  * Encapsulates create/edit variable modal state, form actions, and success effects.
@@ -144,6 +183,86 @@ const useVariableModalState = (props: VariableModalProps) => {
 };
 
 /**
+ * Lazily loads variable usage when the edit modal switches to the usage tab.
+ */
+const useVariableUsageState = ({
+  open,
+  isCreate,
+  variable,
+}: {
+  open: boolean;
+  isCreate: boolean;
+  variable: VariableRow | null;
+}) => {
+  const [activeTab, setActiveTab] = useState<VariableModalTab>("form");
+  const [usageState, setUsageState] =
+    useState<VariableUsageState>(initialUsageState());
+
+  const loadUsage = useCallback(async (variableKey: string) => {
+    setUsageState({
+      status: "loading",
+      variableKey,
+      usages: [],
+      errorMessage: null,
+    });
+    try {
+      const usages = await getVariablePipelineUsage(variableKey);
+      setUsageState({
+        status: "loaded",
+        variableKey,
+        usages,
+        errorMessage: null,
+      });
+    } catch {
+      setUsageState({
+        status: "error",
+        variableKey,
+        usages: [],
+        errorMessage: "Failed to load pipeline usage. Try again.",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setActiveTab("form");
+      setUsageState(initialUsageState());
+      return;
+    }
+    if (isCreate || variable == null) {
+      setUsageState(initialUsageState());
+    }
+  }, [open, isCreate, variable]);
+
+  useEffect(() => {
+    if (!open || isCreate || variable == null || activeTab !== "usage") {
+      return;
+    }
+    const isAlreadyLoadedForKey =
+      usageState.variableKey === variable.key &&
+      (usageState.status === "loaded" || usageState.status === "loading");
+    if (isAlreadyLoadedForKey) {
+      return;
+    }
+    void loadUsage(variable.key);
+  }, [activeTab, isCreate, loadUsage, open, usageState, variable]);
+
+  const retry = useCallback(() => {
+    if (variable == null) {
+      return;
+    }
+    void loadUsage(variable.key);
+  }, [loadUsage, variable]);
+
+  return {
+    activeTab,
+    setActiveTab,
+    usageState,
+    retry,
+  };
+};
+
+/**
  * Single modal for creating or editing a variable. Use composition:
  * - Create: <VariableModal variable={null} trigger={<Button>Add variable</Button>} />
  * - Edit: <VariableModal variable={row} open={...} onOpenChange={...} />
@@ -160,34 +279,87 @@ export const VariableModal = (props: VariableModalProps) => {
     title,
     trigger,
   } = useVariableModalState(props);
+  const { activeTab, setActiveTab, usageState, retry } = useVariableUsageState({
+    open,
+    isCreate,
+    variable,
+  });
 
   const dialogContent = (
     <DialogContent className="sm:max-w-lg">
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
       </DialogHeader>
-      <FormWithAction className="flex flex-col gap-4">
-        {isCreate ? (
+      {isCreate ? (
+        <FormWithAction className="flex flex-col gap-4">
           <VariableFormFields
             mode="create"
             pending={pending}
             errorMessage={errorMessage}
             submitLabel={pending ? "Creating…" : "Create variable"}
           />
-        ) : variable ? (
-          <VariableFormFields
-            mode="edit"
-            id={variable.id}
-            initialKey={variable.key}
-            initialValue={variable.value}
-            initialNote={variable.note}
-            initialIsSecret={variable.isSecret}
-            pending={pending}
-            errorMessage={errorMessage}
-            submitLabel={pending ? "Saving…" : "Save changes"}
-          />
-        ) : null}
-      </FormWithAction>
+        </FormWithAction>
+      ) : variable ? (
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as VariableModalTab)}
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="form">Form</TabsTrigger>
+            <TabsTrigger value="usage">Used in pipelines</TabsTrigger>
+          </TabsList>
+          <TabsContent value="form" className="mt-4">
+            <FormWithAction className="flex flex-col gap-4">
+              <VariableFormFields
+                mode="edit"
+                id={variable.id}
+                initialKey={variable.key}
+                initialValue={variable.value}
+                initialNote={variable.note}
+                initialIsSecret={variable.isSecret}
+                pending={pending}
+                errorMessage={errorMessage}
+                submitLabel={pending ? "Saving…" : "Save changes"}
+              />
+            </FormWithAction>
+          </TabsContent>
+          <TabsContent value="usage" className="mt-4 space-y-3">
+            {usageState.status === "loading" ? (
+              <p className="text-sm text-muted-foreground">
+                Loading pipeline usage…
+              </p>
+            ) : null}
+            {usageState.status === "error" ? (
+              <div className="space-y-3">
+                <p className="text-sm text-destructive" role="alert">
+                  {usageState.errorMessage}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={retry}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+            {usageState.status === "loaded" ? (
+              <PipelineUsageList
+                usages={usageState.usages}
+                emptyMessage="This variable is not referenced by any pipelines yet."
+                ariaLabel={`Pipelines using variable ${variable.key}`}
+              />
+            ) : null}
+            {usageState.status === "idle" ? (
+              <p className="text-sm text-muted-foreground">
+                Open this tab to load pipeline usage.
+              </p>
+            ) : null}
+          </TabsContent>
+        </Tabs>
+      ) : null}
     </DialogContent>
   );
 
