@@ -16,15 +16,25 @@ describe("LoginPage", () => {
     expect(screen.getByTestId("login-form")).toBeInTheDocument();
   });
 
-  it("centers the login form on the page", () => {
+  it("renders split layout with two columns on large screens", () => {
     // Act
     const { container } = render(<Page />);
 
     // Assert
     const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper).toHaveClass("flex");
+    expect(wrapper).toHaveClass("grid");
     expect(wrapper).toHaveClass("min-h-svh");
-    expect(wrapper).toHaveClass("items-center");
-    expect(wrapper).toHaveClass("justify-center");
+    expect(wrapper).toHaveClass("lg:grid-cols-2");
+  });
+
+  it("renders Hermes branding copy", () => {
+    // Act
+    render(<Page />);
+
+    // Assert
+    expect(screen.getAllByText("Hermes").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Swiftly carrying messages between worlds\./),
+    ).toBeInTheDocument();
   });
 });
