@@ -23,14 +23,16 @@ agent-data-api is the **HTTP persistence layer between agents and the database**
 
 Agents should not call these HTTP paths directly. In agent code, use `@workspace/agent-data-api-client` and call SDK namespaces such as `contentGeneration`, `dataCollection`, and `delivery`. The SDK provides typed methods for each endpoint and validates responses with shared schemas.
 
-| Method | Path                         | Description                                    |
-| ------ | ---------------------------- | ---------------------------------------------- |
-| GET    | `/api/v1/content-generation` | Get content-generation data (e.g. by tickerId) |
-| POST   | `/api/v1/content-generation` | Store content-generation payload               |
-| GET    | `/api/v1/data-collection`    | Get data-collection data                       |
-| POST   | `/api/v1/data-collection`    | Store data-collection payload                  |
-| GET    | `/api/v1/delivery`           | Get delivery data (newsletter + subscribers)   |
-| POST   | `/api/v1/delivery`           | Store delivery payload                         |
+| Method | Path                                      | Description                                    |
+| ------ | ----------------------------------------- | ---------------------------------------------- |
+| GET    | `/api/v1/content-generation`              | Get content-generation data (e.g. by tickerId) |
+| POST   | `/api/v1/content-generation`              | Store content-generation payload               |
+| GET    | `/api/v1/data-collection`                 | Get data-collection data                       |
+| POST   | `/api/v1/data-collection`                 | Store data-collection payload                  |
+| GET    | `/api/v1/delivery`                        | Get delivery data (newsletter + subscribers)   |
+| POST   | `/api/v1/delivery`                        | Store delivery payload                         |
+| POST   | `/api/v1/user-registration-register`      | Process a new or returning subscription        |
+| POST   | `/api/v1/user-registration-confirm`       | Confirm a pending subscription (double opt-in) |
 
 For example, in agents:
 

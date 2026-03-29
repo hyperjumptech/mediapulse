@@ -48,6 +48,10 @@ describe("Parser Helpers", () => {
   describe("extractSenderEmail", () => {
     it("extracts email from Graph message .from property", () => {
       const msg = {
+        id: "1",
+        subject: null,
+        receivedDateTime: "2024-01-01T00:00:00Z",
+        isRead: false,
         from: {
           emailAddress: { address: "User@Example.com", name: "User" },
         },
@@ -55,21 +59,35 @@ describe("Parser Helpers", () => {
       expect(extractSenderEmail(msg)).toBe("user@example.com");
     });
 
-    it("falls back to .sender property", () => {
+    it("returns null when from address is absent", () => {
       const msg = {
-        from: null,
-        sender: {
-          emailAddress: { address: "Sender@Example.com" },
-        },
+        id: "1",
+        subject: null,
+        receivedDateTime: "2024-01-01T00:00:00Z",
+        isRead: false,
+        from: undefined,
       };
-      expect(extractSenderEmail(msg)).toBe("sender@example.com");
+      expect(extractSenderEmail(msg)).toBeNull();
     });
 
-    it("returns null if no valid sender can be found", () => {
-      expect(extractSenderEmail({})).toBeNull();
-      expect(extractSenderEmail(null)).toBeNull();
+    it("returns null if no email address can be found", () => {
       expect(
-        extractSenderEmail({ from: { emailAddress: { name: "Only Name" } } }),
+        extractSenderEmail({
+          id: "2",
+          subject: null,
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: false,
+          from: undefined,
+        }),
+      ).toBeNull();
+      expect(
+        extractSenderEmail({
+          id: "3",
+          subject: null,
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: false,
+          from: { emailAddress: { name: "Only Name" } },
+        }),
       ).toBeNull();
     });
   });

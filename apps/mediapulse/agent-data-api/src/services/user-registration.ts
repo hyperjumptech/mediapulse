@@ -1,5 +1,15 @@
 import { prisma as mediapulsePrisma } from "@mediapulse/database";
 
+/**
+ * Processes a new or returning user registration for a given ticker.
+ * Creates or updates the user and their subscription, then returns outcome flags
+ * that the agent uses to decide whether to send an opt-in email.
+ *
+ * @returns `tickerKnown` – whether the symbol exists in the database.
+ * @returns `userTickerId` – the UserTicker row id (undefined when ticker is unknown).
+ * @returns `isNewSubscription` – true when a confirmation email should be sent.
+ * @returns `subscriptionChanged` – true when the subscription state was modified.
+ */
 export async function processRegistration({
   email,
   tickerSymbol,
@@ -79,6 +89,10 @@ export async function processRegistration({
   };
 }
 
+/**
+ * Confirms a user's subscription by recording the confirmation timestamp
+ * and ensuring the subscription remains enabled.
+ */
 export async function confirmRegistration({
   userTickerId,
 }: {

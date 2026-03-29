@@ -1,11 +1,20 @@
+import type { GraphMessage } from "@mediapulse/outlook-inbox";
+
+/** Normalizes an email address to trimmed lowercase. */
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Normalizes a ticker symbol to trimmed uppercase. */
 export function normalizeTickerSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();
 }
 
+/**
+ * Derives a display name from the local part of an email address.
+ * Splits on dots, underscores, and dashes, then title-cases the result.
+ * Returns null if a name cannot be derived.
+ */
 export function deriveNameFromEmailLocalPart(email: string): string | null {
   if (!email) return null;
   const parts = email.split("@");
@@ -21,19 +30,22 @@ export function deriveNameFromEmailLocalPart(email: string): string | null {
   return titleCased.length > 0 ? titleCased : null;
 }
 
-export function extractSenderEmail(graphMessage: any): string | null {
-  if (!graphMessage || typeof graphMessage !== "object") return null;
-
-  // Usually graphMessage.sender.emailAddress.address or graphMessage.from.emailAddress.address
+/**
+ * Extracts and normalizes the sender email address from a Graph API message.
+ * Uses the `from.emailAddress.address` field. Returns null if absent or invalid.
+ */
+export function extractSenderEmail(graphMessage: GraphMessage): string | null {
   const fromEmail = graphMessage.from?.emailAddress?.address;
-  const senderEmail = graphMessage.sender?.emailAddress?.address;
-
-  const extracted = fromEmail || senderEmail;
-  if (!extracted || typeof extracted !== "string") return null;
-
-  return normalizeEmail(extracted);
+  if (!fromEmail || typeof fromEmail !== "string") return null;
+  return normalizeEmail(fromEmail);
 }
 
+/**
+ * Extracts a normalized ticker symbol from an email subject or body.
+ * Primary: matches "Newsletter Subscription - {SYMBOL}" in the subject.
+ * Fallback: matches "Ticker: {SYMBOL}" line in the body.
+ * Returns null if no valid ticker can be extracted.
+ */
 export function extractTickerSymbol(
   subject?: string | null,
   body?: string | null,

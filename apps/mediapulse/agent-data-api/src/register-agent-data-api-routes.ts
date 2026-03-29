@@ -9,12 +9,12 @@ type RouteHandler = (context: Context) => Promise<Response>;
 
 export type AgentDataApiHandlers = {
   [K in AgentDataApiResourceKey]: {
-    get?: AgentDataApiFlatManifest[K]["get"] extends undefined
-      ? never
-      : RouteHandler;
-    post?: AgentDataApiFlatManifest[K]["post"] extends undefined
-      ? never
-      : RouteHandler;
+    get?: AgentDataApiFlatManifest[K] extends { get: NonNullable<unknown> }
+      ? RouteHandler
+      : never;
+    post?: AgentDataApiFlatManifest[K] extends { post: NonNullable<unknown> }
+      ? RouteHandler
+      : never;
   };
 };
 
@@ -42,7 +42,7 @@ export const registerAgentDataApiRoutes = (
         ? routeConfig.pathSegment
         : camelCaseResourceKeyToPathSegment(String(resourceKey));
 
-    if (routeConfig.get && routeHandlers.get) {
+    if ("get" in routeConfig && routeConfig.get && routeHandlers.get) {
       api.get(segment, routeHandlers.get);
     }
 
