@@ -47,6 +47,11 @@ const app = createAgentApp<
     inputSchema: BodySchema,
     configSchema: ConfigSchema,
     run: async ({ input, token, config }) => {
+      const configValidation = ConfigSchema.safeParse(config);
+      if (!configValidation.success) {
+        throw configValidation.error;
+      }
+
       logger.info(
         `Running user-registration agent. Max messages: ${input.maxMessagesPerRun}`,
       );
@@ -61,7 +66,7 @@ const app = createAgentApp<
       const resend = new Resend(config.resendApiKey);
 
       const dataApiClient = createAgentDataApiClient({
-        baseUrl: env.AGENT_DATA_API_URL!,
+        baseUrl: env.AGENT_DATA_API_URL,
         version: "v1",
         token,
       });
@@ -136,7 +141,7 @@ const app = createAgentApp<
             continue;
           }
 
-          if (registerResponse.confirmationNeeded) {
+          if (registerResponse.isNewSubscription) {
             logger.info(
               { senderEmail, tickerSymbol },
               "Sending confirmation email.",

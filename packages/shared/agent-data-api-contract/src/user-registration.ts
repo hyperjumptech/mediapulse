@@ -14,7 +14,7 @@ export const postUserRegistrationRegisterBodySchema = z.object({
 });
 
 export const postUserRegistrationConfirmBodySchema = z.object({
-  userTickerId: z.string(),
+  userTickerId: z.string().uuid(),
   audit: z
     .object({
       graphMessageId: z.string().optional(),
@@ -25,11 +25,24 @@ export const postUserRegistrationConfirmBodySchema = z.object({
 // Response schemas
 export const postUserRegistrationRegisterResponseSchema = z.object({
   tickerKnown: z.boolean(),
-  userTickerId: z.string().optional(),
-  confirmationNeeded: z.boolean(),
+  userTickerId: z.string().uuid().optional(),
+  isNewSubscription: z.boolean(),
   subscriptionChanged: z.boolean(),
 });
 
 export const postUserRegistrationConfirmResponseSchema = z.object({
   success: z.boolean(),
 });
+
+export type PostUserRegistrationRegisterBody = z.infer<
+  typeof postUserRegistrationRegisterBodySchema
+>;
+export type PostUserRegistrationConfirmBody = z.infer<
+  typeof postUserRegistrationConfirmBodySchema
+>;
+export type PostUserRegistrationRegisterResponse = z.infer<
+  typeof postUserRegistrationRegisterResponseSchema
+>;
+export type PostUserRegistrationConfirmResponse = z.infer<
+  typeof postUserRegistrationConfirmResponseSchema
+>;

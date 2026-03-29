@@ -17,7 +17,7 @@ export async function processRegistration({
     return {
       tickerKnown: false,
       userTickerId: undefined,
-      confirmationNeeded: false,
+      isNewSubscription: false,
       subscriptionChanged: false,
     };
   }
@@ -40,7 +40,7 @@ export async function processRegistration({
   });
 
   let userTickerId: string;
-  let confirmationNeeded: boolean;
+  let isNewSubscription: boolean;
   let subscriptionChanged: boolean;
 
   if (existingSubscription) {
@@ -49,7 +49,7 @@ export async function processRegistration({
     subscriptionChanged = !existingSubscription.enabled;
     // It's conceptually needed if never confirmed, or if it was re-enabled (depending on product requirements, typically if it hasn't been confirmed, or we want double opt-in on re-enable, but implementation plan says:
     // "if registrationConfirmedAt === null (or marker false)")
-    confirmationNeeded = existingSubscription.registrationConfirmedAt === null;
+    isNewSubscription = existingSubscription.registrationConfirmedAt === null;
 
     if (!existingSubscription.enabled) {
       await mediapulsePrisma.userTicker.update({
@@ -68,13 +68,13 @@ export async function processRegistration({
     });
     userTickerId = newSubscription.id;
     subscriptionChanged = true;
-    confirmationNeeded = true;
+    isNewSubscription = true;
   }
 
   return {
     tickerKnown: true,
     userTickerId,
-    confirmationNeeded,
+    isNewSubscription,
     subscriptionChanged,
   };
 }

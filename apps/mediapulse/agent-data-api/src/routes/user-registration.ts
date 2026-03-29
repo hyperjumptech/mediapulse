@@ -6,9 +6,14 @@ import {
   postUserRegistrationConfirmBodySchema,
   postUserRegistrationConfirmResponseSchema,
 } from "@workspace/agent-data-api-contract";
-import { processRegistration, confirmRegistration } from "../services/user-registration.js";
+import {
+  processRegistration,
+  confirmRegistration,
+} from "../services/user-registration.js";
 
-export async function postUserRegistrationRegisterHandler(context: Context): Promise<Response> {
+export async function postUserRegistrationRegisterHandler(
+  context: Context,
+): Promise<Response> {
   try {
     const body = await context.req.json();
     const data = await postUserRegistrationRegisterBodySchema.parseAsync(body);
@@ -20,7 +25,9 @@ export async function postUserRegistrationRegisterHandler(context: Context): Pro
   }
 }
 
-export async function postUserRegistrationConfirmHandler(context: Context): Promise<Response> {
+export async function postUserRegistrationConfirmHandler(
+  context: Context,
+): Promise<Response> {
   try {
     const body = await context.req.json();
     const data = await postUserRegistrationConfirmBodySchema.parseAsync(body);
