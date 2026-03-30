@@ -133,9 +133,7 @@ describe("user-registration agent – run loop", () => {
   });
 
   it("archives unparseable message when sender email is missing", async () => {
-    listMessagesMock.mockResolvedValue([
-      makeMessage({ from: undefined }),
-    ]);
+    listMessagesMock.mockResolvedValue([makeMessage({ from: undefined })]);
 
     const res = await post({ input: {}, config: VALID_CONFIG });
     const body = (await res.json()) as { status: string };
