@@ -14,6 +14,7 @@ import {
 } from "@workspace/ui/components/table";
 import { prisma } from "@hermes/orchestration-database";
 import { formatCreatedBy } from "@/lib/format-created-by";
+import { DomainIntegrationRowActions } from "./domain-integration-row-actions";
 
 /**
  * Lists domain integrations (pending and active) with links to create new.
@@ -60,13 +61,14 @@ const DomainIntegrationsPage = async () => {
               <TableHead className="w-[120px]">Status</TableHead>
               <TableHead>Base URL</TableHead>
               <TableHead>Created by</TableHead>
+              <TableHead className="w-[56px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center text-muted-foreground"
                 >
                   No integrations yet. Create one to get an API key.
@@ -94,6 +96,11 @@ const DomainIntegrationsPage = async () => {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatCreatedBy(row.createdBy, row.createdById)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DomainIntegrationRowActions
+                      row={{ id: row.id, key: row.key, name: row.name }}
+                    />
                   </TableCell>
                 </TableRow>
               ))
