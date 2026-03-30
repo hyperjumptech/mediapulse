@@ -17,145 +17,147 @@ export type PrismaWriteEnumFieldMeta = {
   isList: boolean;
 };
 
-export type PrismaWriteFieldMeta =
-  | PrismaWriteScalarFieldMeta
-  | PrismaWriteEnumFieldMeta;
+export type PrismaWriteFieldMeta = PrismaWriteScalarFieldMeta | PrismaWriteEnumFieldMeta;
 
 export type PrismaWriteFieldMetadata = typeof prismaWriteFieldMetadata;
 
 export const prismaWriteFieldMetadata = {
-  EntityType: {
-    id: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
+  "EntityType": {
+    "id": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": true,
+      "isList": false
     },
-    name: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
+    "name": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": true,
+      "isList": false
     },
-    description: {
-      kind: "scalar",
-      type: "String",
-      isRequired: false,
-      isList: false,
+    "description": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": false,
+      "isList": false
     },
-    createdAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
+    "createdAt": {
+      "kind": "scalar",
+      "type": "DateTime",
+      "isRequired": true,
+      "isList": false
     },
-    updatedAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
-    },
+    "updatedAt": {
+      "kind": "scalar",
+      "type": "DateTime",
+      "isRequired": true,
+      "isList": false
+    }
   },
-  RelationType: {
-    id: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
+  "RelationType": {
+    "id": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": true,
+      "isList": false
     },
-    name: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
+    "name": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": true,
+      "isList": false
     },
-    description: {
-      kind: "scalar",
-      type: "String",
-      isRequired: false,
-      isList: false,
+    "description": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": false,
+      "isList": false
     },
-    createdAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
+    "createdAt": {
+      "kind": "scalar",
+      "type": "DateTime",
+      "isRequired": true,
+      "isList": false
     },
-    updatedAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
-    },
+    "updatedAt": {
+      "kind": "scalar",
+      "type": "DateTime",
+      "isRequired": true,
+      "isList": false
+    }
   },
-  MediapulseUser: {
-    id: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
+  "MediapulseUser": {
+    "id": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": true,
+      "isList": false
     },
-    email: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
+    "email": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": true,
+      "isList": false
     },
-    name: {
-      kind: "scalar",
-      type: "String",
-      isRequired: false,
-      isList: false,
+    "name": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": false,
+      "isList": false
     },
-    createdAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
+    "createdAt": {
+      "kind": "scalar",
+      "type": "DateTime",
+      "isRequired": true,
+      "isList": false
     },
-    updatedAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
-    },
+    "updatedAt": {
+      "kind": "scalar",
+      "type": "DateTime",
+      "isRequired": true,
+      "isList": false
+    }
   },
-  Ticker: {
-    id: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
+  "Ticker": {
+    "id": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": true,
+      "isList": false
     },
-    symbol: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
+    "symbol": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": true,
+      "isList": false
     },
-    name: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: false,
+    "name": {
+      "kind": "scalar",
+      "type": "String",
+      "isRequired": true,
+      "isList": false
     },
-    metadata: {
-      kind: "scalar",
-      type: "Json",
-      isRequired: false,
-      isList: false,
+    "metadata": {
+      "kind": "scalar",
+      "type": "Json",
+      "isRequired": false,
+      "isList": false
     },
-    createdAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
+    "createdAt": {
+      "kind": "scalar",
+      "type": "DateTime",
+      "isRequired": true,
+      "isList": false
     },
-    updatedAt: {
-      kind: "scalar",
-      type: "DateTime",
-      isRequired: true,
-      isList: false,
-    },
-  },
-} as const satisfies Record<string, Record<string, PrismaWriteFieldMeta>>;
+    "updatedAt": {
+      "kind": "scalar",
+      "type": "DateTime",
+      "isRequired": true,
+      "isList": false
+    }
+  }
+} as const satisfies Record<
+  string,
+  Record<string, PrismaWriteFieldMeta>
+>;
+
