@@ -108,3 +108,36 @@ jobs:
         run: flyctl deploy --remote-only -c apps/mediapulse/agents/delivery/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  ticker-echo:
+    runs-on: ubuntu-latest
+    env:
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Set up build environment
+        run: |
+          ./dev-bootstrap.sh
+          pnpm install
+          pnpm generate
+
+      - name: Build
+        run: pnpm exec turbo build --filter=@mediapulse/ticker-echo --only
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to fly.io
+        run: flyctl deploy --remote-only -c apps/mediapulse/agents/ticker-echo/fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
