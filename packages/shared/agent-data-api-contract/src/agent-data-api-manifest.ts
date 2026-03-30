@@ -17,6 +17,12 @@ import {
   postDeliveryBodySchema,
   postDeliveryResponseSchema,
 } from "./delivery.js";
+import {
+  postUserRegistrationRegisterBodySchema,
+  postUserRegistrationRegisterResponseSchema,
+  postUserRegistrationConfirmBodySchema,
+  postUserRegistrationConfirmResponseSchema,
+} from "./user-registration.js";
 
 type AgentDataApiMethodSchema =
   | {
@@ -126,6 +132,34 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDeliveryBodySchema,
         response: postDeliveryResponseSchema,
+      },
+    },
+  },
+  userRegistrationRegister: {
+    v1: {
+      post: {
+        body: postUserRegistrationRegisterBodySchema,
+        response: postUserRegistrationRegisterResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postUserRegistrationRegisterBodySchema,
+        response: postUserRegistrationRegisterResponseSchema,
+      },
+    },
+  },
+  userRegistrationConfirm: {
+    v1: {
+      post: {
+        body: postUserRegistrationConfirmBodySchema,
+        response: postUserRegistrationConfirmResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postUserRegistrationConfirmBodySchema,
+        response: postUserRegistrationConfirmResponseSchema,
       },
     },
   },

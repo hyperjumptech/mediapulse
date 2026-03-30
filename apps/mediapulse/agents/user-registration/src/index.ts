@@ -1,0 +1,211 @@
+import { createAgentApp } from "@workspace/agent-runtime";
+import { env } from "@mediapulse/env/agents-user-registration";
+import { z } from "zod";
+import { createOutlookInboxClient } from "@mediapulse/outlook-inbox";
+import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import { Resend } from "resend";
+import { logger } from "@workspace/logger";
+
+import {
+  extractSenderEmail,
+  extractTickerSymbol,
+  deriveNameFromEmailLocalPart,
+} from "./lib/parser.js";
+
+const BodySchemaInner = z.object({
+  maxMessagesPerRun: z.number().default(20),
+  watermark: z.string().datetime().optional(),
+});
+const BodySchema = BodySchemaInner as unknown as z.ZodType<
+  { maxMessagesPerRun: number; watermark?: string },
+  z.ZodTypeDef,
+  { maxMessagesPerRun: number; watermark?: string }
+>;
+
+type Input = { maxMessagesPerRun: number; watermark?: string };
+
+const ConfigSchema = z.object({
+  outlookClientId: z.string().min(1),
+  outlookClientSecret: z.string().min(1),
+  outlookTenantId: z.string().min(1),
+  outlookUserId: z.string().min(1),
+  resendApiKey: z.string().min(1),
+  resendSender: z.string().min(1),
+});
+
+export type Config = z.infer<typeof ConfigSchema>;
+
+const app = createAgentApp<
+  Input,
+  typeof BodySchema,
+  Config,
+  typeof ConfigSchema
+>(
+  {
+    agentId: "user-registration",
+    agentVersion: "1.0.0",
+    inputSchema: BodySchema,
+    configSchema: ConfigSchema,
+    run: async ({ input, token, config }) => {
+      const configValidation = ConfigSchema.safeParse(config);
+      if (!configValidation.success) {
+        throw configValidation.error;
+      }
+
+      logger.info(
+        `Running user-registration agent. Max messages: ${input.maxMessagesPerRun}`,
+      );
+
+      const inboxClient = createOutlookInboxClient({
+        clientId: config.outlookClientId,
+        clientSecret: config.outlookClientSecret,
+        tenantId: config.outlookTenantId,
+        userId: config.outlookUserId,
+      });
+
+      const resend = new Resend(config.resendApiKey);
+
+      const dataApiClient = createAgentDataApiClient({
+        baseUrl: env.AGENT_DATA_API_URL!,
+        version: "v1",
+        token,
+      });
+
+      // Step 0: List messages
+      const messages = await inboxClient.listMessages(
+        {
+          subjectContains: "[MediaPulse] Newsletter Subscription",
+          isUnread: true,
+          ...(input.watermark
+            ? { receivedAfter: new Date(input.watermark) }
+            : {}),
+        },
+        { top: input.maxMessagesPerRun },
+      );
+
+      logger.info(`Found ${messages.length} messages to process.`);
+
+      const results = [];
+
+      for (const msg of messages) {
+        // Step 1: Parse
+        const senderEmail = extractSenderEmail(msg);
+        const tickerSymbol = extractTickerSymbol(
+          msg.subject,
+          msg.body?.content,
+        );
+
+        if (!senderEmail || !tickerSymbol) {
+          logger.warn(
+            {
+              parseFailureReason: "Missing sender or ticker",
+              messageId: msg.id,
+            },
+            "Archiving unparseable message.",
+          );
+          await inboxClient.archiveMessage(msg.id!);
+          results.push({ id: msg.id, status: "archived_unparseable" });
+          continue;
+        }
+
+        const name = deriveNameFromEmailLocalPart(senderEmail);
+
+        // Step 2: Register via API
+        try {
+          const registerResponse =
+            await dataApiClient.userRegistrationRegister.create({
+              email: senderEmail,
+              tickerSymbol,
+              name,
+              audit: {
+                graphMessageId: msg.id,
+                receivedAt: msg.receivedDateTime,
+              },
+            });
+
+          if (!registerResponse.tickerKnown) {
+            logger.info(
+              { tickerSymbol, senderEmail },
+              "Ticker unknown, sending invalid-ticker email.",
+            );
+
+            await resend.emails.send({
+              from: config.resendSender,
+              to: senderEmail,
+              subject: "Invalid Ticker Selection - MediaPulse",
+              text: `Hello,\n\nThe ticker '${tickerSymbol}' you selected is invalid or not recognized by our system.\nPlease visit the registration site and select a valid ticker.\n\nThank you,\nMediaPulse Team`,
+            });
+
+            await inboxClient.archiveMessage(msg.id!);
+            results.push({ id: msg.id, status: "invalid_ticker_archived" });
+            continue;
+          }
+
+          if (registerResponse.isNewSubscription) {
+            logger.info(
+              { senderEmail, tickerSymbol },
+              "Sending confirmation email.",
+            );
+
+            await resend.emails.send({
+              from: config.resendSender,
+              to: senderEmail,
+              subject: "Subscription Confirmed - MediaPulse",
+              text: `Hello,\n\nYour subscription to the '${tickerSymbol}' newsletter has been confirmed.\n\nThank you,\nMediaPulse Team`,
+            });
+
+            await dataApiClient.userRegistrationConfirm.create({
+              userTickerId: registerResponse.userTickerId!,
+              audit: {
+                graphMessageId: msg.id,
+              },
+            });
+
+            await inboxClient.archiveMessage(msg.id!);
+            results.push({ id: msg.id, status: "confirmed_archived" });
+          } else {
+            logger.info(
+              { senderEmail, tickerSymbol },
+              "Subscription already active, archiving with no email.",
+            );
+            await inboxClient.archiveMessage(msg.id!);
+            results.push({ id: msg.id, status: "idempotent_archived" });
+          }
+        } catch (error) {
+          logger.error(
+            { error, messageId: msg.id },
+            "Failed processing message during agent run. Leaving unarchived for retry.",
+          );
+          results.push({ id: msg.id, status: "failed_retry" });
+        }
+      }
+
+      return {
+        success: true,
+        processed: results.length,
+        results,
+      };
+    },
+  },
+  {
+    authApiUrl: env.AGENT_AUTH_API_URL,
+    autoRegister:
+      env.AGENT_REGISTRY_URL &&
+      env.DOMAIN_INTEGRATION_API_KEY &&
+      env.AGENT_PUBLIC_URL
+        ? {
+            registryUrl: env.AGENT_REGISTRY_URL,
+            domainIntegrationKey: env.DOMAIN_INTEGRATION_KEY ?? "mediapulse",
+            domainIntegrationApiKey: env.DOMAIN_INTEGRATION_API_KEY,
+            agentUrl: env.AGENT_PUBLIC_URL,
+          }
+        : undefined,
+  },
+);
+
+export { app };
+
+export default {
+  port: env.PORT ?? 4004,
+  fetch: app.fetch,
+};
