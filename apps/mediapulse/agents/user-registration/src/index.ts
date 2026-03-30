@@ -14,7 +14,7 @@ import {
 
 const BodySchemaInner = z.object({
   maxMessagesPerRun: z.number().default(20),
-  watermark: z.string().optional(),
+  watermark: z.string().datetime().optional(),
 });
 const BodySchema = BodySchemaInner as unknown as z.ZodType<
   { maxMessagesPerRun: number; watermark?: string },
@@ -202,6 +202,8 @@ const app = createAgentApp<
         : undefined,
   },
 );
+
+export { app };
 
 export default {
   port: env.PORT ?? 4004,

@@ -137,14 +137,12 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
   },
   userRegistrationRegister: {
     v1: {
-      pathSegment: "/user-registration/register",
       post: {
         body: postUserRegistrationRegisterBodySchema,
         response: postUserRegistrationRegisterResponseSchema,
       },
     },
     v2: {
-      pathSegment: "/user-registration/register",
       post: {
         body: postUserRegistrationRegisterBodySchema,
         response: postUserRegistrationRegisterResponseSchema,
@@ -153,14 +151,12 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
   },
   userRegistrationConfirm: {
     v1: {
-      pathSegment: "/user-registration/confirm",
       post: {
         body: postUserRegistrationConfirmBodySchema,
         response: postUserRegistrationConfirmResponseSchema,
       },
     },
     v2: {
-      pathSegment: "/user-registration/confirm",
       post: {
         body: postUserRegistrationConfirmBodySchema,
         response: postUserRegistrationConfirmResponseSchema,

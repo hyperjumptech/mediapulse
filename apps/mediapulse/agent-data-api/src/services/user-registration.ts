@@ -19,8 +19,10 @@ export async function processRegistration({
   tickerSymbol: string;
   name?: string | null;
 }) {
+  const normalizedSymbol = tickerSymbol.trim().toUpperCase();
+
   const ticker = await mediapulsePrisma.ticker.findUnique({
-    where: { symbol: tickerSymbol },
+    where: { symbol: normalizedSymbol },
   });
 
   if (!ticker) {

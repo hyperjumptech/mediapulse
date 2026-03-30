@@ -56,6 +56,25 @@ describe("processRegistration", () => {
     vi.restoreAllMocks();
   });
 
+  it.each([
+    ["lowercase", "bbca"],
+    ["mixed-case", "BbCa"],
+    ["surrounding whitespace", " BBCA "],
+  ])("normalizes %s symbol before lookup", async (_label, symbol) => {
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.ticker.findUnique).mockResolvedValue(null);
+
+    const { processRegistration } = await import("./user-registration.js");
+    await processRegistration({
+      email: "alice@example.com",
+      tickerSymbol: symbol,
+    });
+
+    expect(prisma.ticker.findUnique).toHaveBeenCalledWith({
+      where: { symbol: "BBCA" },
+    });
+  });
+
   it("returns tickerKnown: false when ticker does not exist", async () => {
     const { prisma } = await import("@mediapulse/database");
     vi.mocked(prisma.ticker.findUnique).mockResolvedValue(null);
