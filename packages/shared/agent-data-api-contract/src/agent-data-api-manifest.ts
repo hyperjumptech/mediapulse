@@ -17,6 +17,12 @@ import {
   postDeliveryBodySchema,
   postDeliveryResponseSchema,
 } from "./delivery.js";
+import {
+  getQueryAnalysisQuerySchema,
+  getQueryAnalysisResponseSchema,
+  postQueryAnalysisBodySchema,
+  postQueryAnalysisResponseSchema,
+} from "./query-analysis.js";
 
 type AgentDataApiMethodSchema =
   | {
@@ -126,6 +132,28 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDeliveryBodySchema,
         response: postDeliveryResponseSchema,
+      },
+    },
+  },
+  queryAnalysis: {
+    v1: {
+      get: {
+        query: getQueryAnalysisQuerySchema,
+        response: getQueryAnalysisResponseSchema,
+      },
+      post: {
+        body: postQueryAnalysisBodySchema,
+        response: postQueryAnalysisResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getQueryAnalysisQuerySchema,
+        response: getQueryAnalysisResponseSchema,
+      },
+      post: {
+        body: postQueryAnalysisBodySchema,
+        response: postQueryAnalysisResponseSchema,
       },
     },
   },

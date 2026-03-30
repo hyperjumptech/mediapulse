@@ -10,9 +10,16 @@ import { prisma } from "@mediapulse/database";
 export async function getDataCollection(context: Context): Promise<Response> {
   try {
     const query = dataCollectionQuerySchema.parse(context.req.query());
+
+    const activeSet = await prisma.searchQuerySet.findFirst({
+      where: { tickerId: query.tickerId, isActive: true },
+      select: { id: true },
+    });
+
     const data = await prisma.searchQuery.findMany({
       where: {
         tickerId: query.tickerId,
+        ...(activeSet ? { setId: activeSet.id } : { setId: null }),
         ...(query.start &&
           query.end && {
             createdAt: {

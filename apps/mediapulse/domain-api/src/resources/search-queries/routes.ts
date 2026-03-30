@@ -22,8 +22,8 @@ searchQueriesRoutes.get("/", async (c) => {
   const query = c.req.query("q")?.trim();
   const skip = (page - 1) * pageSize;
 
-  const where = query
-    ? ({
+  const where: Prisma.SearchQueryWhereInput | undefined = query
+    ? {
         OR: [
           { text: { contains: query, mode: "insensitive" as const } },
           {
@@ -34,8 +34,16 @@ searchQueriesRoutes.get("/", async (c) => {
               symbol: { contains: query, mode: "insensitive" as const },
             },
           },
+          {
+            set: { id: { contains: query, mode: "insensitive" as const } },
+          },
+          {
+            set: {
+              agentJobId: { contains: query, mode: "insensitive" as const },
+            },
+          },
         ],
-      } satisfies Prisma.SearchQueryWhereInput)
+      }
     : undefined;
 
   const [rows, total] = await Promise.all([

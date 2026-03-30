@@ -63,6 +63,7 @@ export {
   getQueryAnalysisResponseSchema,
   postQueryAnalysisBodySchema,
   postQueryAnalysisResponseSchema,
+  queryAnalysisQueryItemSchema,
   queryAnalysisRecentThemeSchema,
   queryAnalysisTickerSchema,
   queryAnalysisTopEntitySchema,
@@ -70,4 +71,5 @@ export {
   type GetQueryAnalysisResponse,
   type PostQueryAnalysisBody,
   type PostQueryAnalysisResponse,
+  type QueryAnalysisQueryItem,
 } from "./query-analysis.js";

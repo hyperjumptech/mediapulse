@@ -19,6 +19,21 @@ enum Sentiment {
   NEUTRAL
 }
 
+enum QuerySource {
+  DETERMINISTIC
+  LLM
+
+  @@map("query_source")
+}
+
+enum QueryIntent {
+  BREAKING
+  KG_CHANGE
+  FUNDAMENTAL
+
+  @@map("query_intent")
+}
+
 model DataSource {
   id            String   @id @default(uuid())
   url           String
@@ -182,14 +197,37 @@ model ArticleRelevance {
   @@map("article_relevance")
 }
 
-model SearchQuery {
-  id        String   @id @default(uuid())
-  text      String
-  tickerId  String   @map("ticker_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+/// Versioned container for a daily batch of generated search queries for one ticker.
+model SearchQuerySet {
+  id                String   @id @default(uuid())
+  tickerId          String   @map("ticker_id")
+  generatedAt       DateTime @default(now()) @map("generated_at")
+  isActive          Boolean  @default(false) @map("is_active")
+  strategySnapshot  Json     @map("strategy_snapshot")
+  generationSource  String   @map("generation_source")
+  agentJobId        String?  @map("agent_job_id")
+  createdAt         DateTime @default(now()) @map("created_at")
 
-  ticker      Ticker       @relation(fields: [tickerId], references: [id])
+  ticker        Ticker        @relation(fields: [tickerId], references: [id])
+  searchQueries SearchQuery[]
+
+  @@index([tickerId, isActive])
+  @@map("search_query_set")
+}
+
+model SearchQuery {
+  id        String       @id @default(uuid())
+  text      String
+  tickerId  String       @map("ticker_id")
+  setId     String?      @map("set_id")
+  source    QuerySource? @map("source")
+  intent    QueryIntent? @map("intent")
+  rank      Int?         @map("rank")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  ticker      Ticker          @relation(fields: [tickerId], references: [id])
+  set         SearchQuerySet? @relation(fields: [setId], references: [id], onDelete: SetNull)
   dataSources DataSource[]
 
   @@map("search_query")
@@ -204,6 +242,7 @@ model Ticker {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   searchQueries     SearchQuery[]
+  searchQuerySets   SearchQuerySet[]
   dataSources       DataSource[]
   newsletters       Newsletter[]
   userTickers       UserTicker[]

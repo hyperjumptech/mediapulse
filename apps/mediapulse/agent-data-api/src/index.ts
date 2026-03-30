@@ -20,6 +20,10 @@ import {
 } from "./routes/data-collection.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 import {
+  getQueryAnalysis,
+  postQueryAnalysis,
+} from "./routes/query-analysis.js";
+import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
 } from "./register-agent-data-api-routes.js";
@@ -55,6 +59,10 @@ const routeHandlers = {
   delivery: {
     get: getDelivery,
     post: postDeliveryHandler,
+  },
+  queryAnalysis: {
+    get: getQueryAnalysis,
+    post: postQueryAnalysis,
   },
 } satisfies AgentDataApiHandlers;
 

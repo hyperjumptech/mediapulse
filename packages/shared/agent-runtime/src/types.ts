@@ -29,6 +29,8 @@ export type HermesInvokeCorrelation = {
   scheduleExecutionId?: string;
   /** Hermes `PipelineStep.id` when `X-Pipeline-Step-Id` was sent. */
   pipelineStepId?: string;
+  /** Hermes `AgentJobExecution.jobId` when `X-Job-Id` was sent by the worker. */
+  agentJobId?: string;
 };
 
 /** Context passed to the agent run function. */
