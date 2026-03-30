@@ -14,7 +14,7 @@ const EditDataSourceExpansionPage = async ({
     await import("@/lib/domain-integrations");
   const integration = await getDefaultDomainIntegration();
   redirect(
-    `/dashboard/${integration.key}/data-source-expansions/${encodeURIComponent(id)}/edit`,
+    `/dashboard/${integration.integrationId}/data-source-expansions/${encodeURIComponent(id)}/edit`,
   );
 };
 

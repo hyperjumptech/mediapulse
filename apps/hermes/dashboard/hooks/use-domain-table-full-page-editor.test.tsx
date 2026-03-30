@@ -10,7 +10,7 @@ describe("useDomainTableFullPageEditor", () => {
     const { result } = renderHook(() =>
       useDomainTableFullPageEditor({
         previewFieldKey: undefined,
-        integrationKey: "k",
+        integrationId: "k",
         runPreview,
       }),
     );
@@ -29,7 +29,7 @@ describe("useDomainTableFullPageEditor", () => {
     const { result } = renderHook(() =>
       useDomainTableFullPageEditor({
         previewFieldKey: "expansionString",
-        integrationKey: "k",
+        integrationId: "k",
         runPreview,
       }),
     );

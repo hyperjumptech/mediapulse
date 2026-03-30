@@ -8,7 +8,9 @@ const NewDataSourceExpansionPage = async () => {
   const { getDefaultDomainIntegration } =
     await import("@/lib/domain-integrations");
   const integration = await getDefaultDomainIntegration();
-  redirect(`/dashboard/${integration.key}/data-source-expansions/new`);
+  redirect(
+    `/dashboard/${integration.integrationId}/data-source-expansions/new`,
+  );
 };
 
 export default withAuthProtection(NewDataSourceExpansionPage);

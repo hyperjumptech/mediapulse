@@ -11,7 +11,7 @@ export const env = createEnv({
     AGENT_REGISTRY_URL: z.string().optional(),
     AGENT_PUBLIC_URL: z.string().optional(),
     DOMAIN_INTEGRATION_API_KEY: z.string().optional(),
-    DOMAIN_INTEGRATION_KEY: z.string().optional(),
+    DOMAIN_INTEGRATION_ID: z.string().optional(),
     RESEND_SENDER: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     OUTLOOK_CLIENT_ID: z.string().optional(),

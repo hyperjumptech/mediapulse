@@ -2,13 +2,13 @@ import { DomainTablePage } from "@/app/dashboard/domain-table-page";
 import { withAuthProtection } from "@/components/with-auth-protection";
 
 /**
- * Domain integration table-v1 page. URL: /dashboard/{integrationKey}/{resource pathSegment}.
+ * Domain integration table-v1 page. URL: /dashboard/{integrationId}/{resource pathSegment}.
  */
 const IntegrationDomainTablePage = async ({
   params,
   searchParams,
 }: {
-  params: Promise<{ integrationKey: string; resource: string }>;
+  params: Promise<{ integrationId: string; resource: string }>;
   searchParams:
     | Promise<{
         page?: string;
@@ -25,10 +25,10 @@ const IntegrationDomainTablePage = async ({
         dir?: string;
       };
 }) => {
-  const { integrationKey, resource } = await params;
+  const { integrationId, resource } = await params;
   return (
     <DomainTablePage
-      integrationKey={integrationKey}
+      integrationId={integrationId}
       resource={resource}
       searchParams={searchParams}
     />

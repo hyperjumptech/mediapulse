@@ -71,7 +71,7 @@ const getDomainIntegrationsSubLabel = (
 };
 
 export type DomainIntegrationNav = {
-  key: string;
+  integrationId: string;
   name: string;
   pages: DashboardPage[];
 };
@@ -94,7 +94,7 @@ export const DashboardShell = ({
   const second = segments[2];
 
   const domainIntegration =
-    first && domainIntegrations.find((i) => i.key === first);
+    first && domainIntegrations.find((i) => i.integrationId === first);
   const isDomainKeyedRoute = Boolean(domainIntegration && second);
 
   const domainPageLabel =

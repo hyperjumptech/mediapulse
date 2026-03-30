@@ -75,7 +75,7 @@ describe("agent-registry-api", () => {
           method: "POST",
           headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
           body: JSON.stringify({
-            domainIntegrationKey: "mediapulse",
+            domainIntegrationId: "mediapulse",
             agentId: "test-agent",
             agentVersion: "1.0.0",
             endpoint: {

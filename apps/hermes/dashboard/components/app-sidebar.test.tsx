@@ -138,7 +138,7 @@ const domainPages: DashboardPage[] = [
 
 const domainIntegrations = [
   {
-    key: "mediapulse",
+    integrationId: "mediapulse",
     name: "Mediapulse",
     pages: domainPages,
   },

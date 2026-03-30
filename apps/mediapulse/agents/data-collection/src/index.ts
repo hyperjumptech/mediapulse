@@ -87,7 +87,7 @@ const app = createAgentApp<
       env.AGENT_PUBLIC_URL
         ? {
             registryUrl: env.AGENT_REGISTRY_URL,
-            domainIntegrationKey: env.DOMAIN_INTEGRATION_KEY ?? "mediapulse",
+            domainIntegrationId: env.DOMAIN_INTEGRATION_ID ?? "mediapulse",
             domainIntegrationApiKey: env.DOMAIN_INTEGRATION_API_KEY,
             agentUrl: env.AGENT_PUBLIC_URL,
           }

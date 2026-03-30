@@ -199,7 +199,11 @@ describe("DashboardShell", () => {
     render(
       <DashboardShell
         domainIntegrations={[
-          { key: "mediapulse", name: "Mediapulse", pages: mediapulsePages },
+          {
+            integrationId: "mediapulse",
+            name: "Mediapulse",
+            pages: mediapulsePages,
+          },
         ]}
       >
         <div>Content</div>
@@ -218,7 +222,7 @@ describe("DashboardShell", () => {
       <DashboardShell
         domainIntegrations={[
           {
-            key: "mediapulse",
+            integrationId: "mediapulse",
             name: "Mediapulse",
             pages: mediapulsePagesWithSearchQueries,
           },

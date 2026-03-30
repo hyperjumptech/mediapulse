@@ -6,7 +6,7 @@ import { mergeDomainIntegrationNavPages } from "./merge-domain-integration-nav-p
 
 const baseIntegration = (): DomainIntegrationRecord => ({
   id: "i1",
-  key: "mediapulse",
+  integrationId: "mediapulse",
   name: "Mediapulse",
   baseUrl: "http://localhost:3001",
   version: null,

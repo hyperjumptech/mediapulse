@@ -10,14 +10,14 @@ import {
  * Mints a short-lived JWT via agent-auth-api `POST /api/token` using a domain_integration API key,
  * then sends `Authorization: Bearer &lt;JWT&gt;` to the registry (same verification as agent invocation).
  *
- * @param params - Registry URL, auth API URL, domain integration API key, agent metadata, and JSON schemas.
+ * @param params - Registry URL, auth API URL, domain integration id + API key, agent metadata, and JSON schemas.
  * @param params.fetchFn - Optional fetch for the registry POST (tests).
  * @param params.tokenFetchFn - Optional fetch for `POST /api/token` only (tests).
  */
 export async function registerWithRegistry(params: {
   registryUrl: string;
   authApiUrl: string;
-  domainIntegrationKey: string;
+  domainIntegrationId: string;
   domainIntegrationApiKey: string;
   agentId: string;
   agentVersion: string;
@@ -31,7 +31,7 @@ export async function registerWithRegistry(params: {
   const {
     registryUrl,
     authApiUrl,
-    domainIntegrationKey,
+    domainIntegrationId,
     domainIntegrationApiKey,
     agentId,
     agentVersion,
@@ -52,7 +52,7 @@ export async function registerWithRegistry(params: {
 
   const url = `${registryUrl.replace(/\/$/, "")}/api/agents/register`;
   const body: Record<string, unknown> = {
-    domainIntegrationKey,
+    domainIntegrationId,
     agentId,
     agentVersion,
     endpoint: { url: agentUrl, method: "POST" },

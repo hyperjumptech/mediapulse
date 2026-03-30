@@ -13,7 +13,7 @@ import {
   dataSourceExpansionTemplateUpdateFormJsonSchema,
 } from "./data-source-expansion-template-write-schemas";
 
-/** Path segment under `/dashboard/{integrationKey}/…`. */
+/** Path segment under `/dashboard/{integrationId}/…`. */
 export const DATA_SOURCE_EXPANSIONS_PATH_SEGMENT = "data-source-expansions";
 
 export const hermesDataSourceExpansionsManifestApiPrefix = (): string =>

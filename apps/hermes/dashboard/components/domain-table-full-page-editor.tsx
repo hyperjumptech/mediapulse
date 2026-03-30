@@ -55,8 +55,8 @@ export type DomainTableFullPageEditorProps = {
   defaultRow?: Record<string, unknown>;
   /** Server action for the form. */
   formAction: (formData: FormData) => Promise<void>;
-  /** Registered integration key (preview). */
-  integrationKey: string;
+  /** Registered integration id (preview). */
+  integrationId: string;
   /** Whether to show preview (manifest + capability). */
   showPreview: boolean;
   /** Manifest `preview.fieldKey` when preview is enabled. */
@@ -80,7 +80,7 @@ export const DomainTableFullPageEditor = ({
   rowId,
   defaultRow,
   formAction,
-  integrationKey,
+  integrationId,
   showPreview,
   previewFieldKey,
   usedInPipelines,
@@ -93,7 +93,7 @@ export const DomainTableFullPageEditor = ({
     runPreviewClick,
   } = useDomainTableFullPageEditor({
     previewFieldKey: showPreview ? previewFieldKey : undefined,
-    integrationKey,
+    integrationId,
     runPreview: runDomainTablePreviewExpansion,
   });
 

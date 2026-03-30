@@ -9,11 +9,11 @@ import {
   previewDomainExpansion,
 } from "./domain-dashboard";
 
-const getDomainIntegrationByKey = vi.fn();
+const getDomainIntegrationByIntegrationId = vi.fn();
 
 vi.mock("@/lib/domain-integrations", () => ({
-  getDomainIntegrationByKey: (...args: unknown[]) =>
-    getDomainIntegrationByKey(...args),
+  getDomainIntegrationByIntegrationId: (...args: unknown[]) =>
+    getDomainIntegrationByIntegrationId(...args),
 }));
 
 vi.mock("@/lib/domain-integration-auth-token", () => ({
@@ -26,13 +26,13 @@ describe("getDomainTableMeta", () => {
   });
 
   beforeEach(() => {
-    getDomainIntegrationByKey.mockReset();
+    getDomainIntegrationByIntegrationId.mockReset();
   });
 
   it("loads meta from domain integration HTTP", async () => {
-    getDomainIntegrationByKey.mockResolvedValue({
+    getDomainIntegrationByIntegrationId.mockResolvedValue({
       id: "i1",
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "http://localhost:3001",
       version: "1",
@@ -72,13 +72,15 @@ describe("getDomainTableMeta", () => {
 
     const meta = await getDomainTableMeta("mediapulse", "tickers");
 
-    expect(getDomainIntegrationByKey).toHaveBeenCalledWith("mediapulse");
+    expect(getDomainIntegrationByIntegrationId).toHaveBeenCalledWith(
+      "mediapulse",
+    );
     expect(fetchMock).toHaveBeenCalled();
     expect(meta.title).toBe("Tickers");
   });
 
   it("throws when integration is missing", async () => {
-    getDomainIntegrationByKey.mockResolvedValue(null);
+    getDomainIntegrationByIntegrationId.mockResolvedValue(null);
 
     await expect(getDomainTableMeta("missing", "tickers")).rejects.toThrow(
       'Domain integration "missing"',
@@ -86,9 +88,9 @@ describe("getDomainTableMeta", () => {
   });
 
   it("loads meta from Hermes for data-source-expansions when integration supports expand-step-inputs", async () => {
-    getDomainIntegrationByKey.mockResolvedValue({
+    getDomainIntegrationByIntegrationId.mockResolvedValue({
       id: "i1",
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "http://localhost:3001",
       version: null,
@@ -253,7 +255,7 @@ describe("invokeDomainTableCustomAction", () => {
         pathSegment: "tickers",
       },
       baseUrl: "http://localhost",
-      integrationId: "di-1",
+      domainIntegrationId: "di-1",
     });
     const callPost = vi.fn().mockResolvedValue({
       ok: true,
@@ -286,13 +288,13 @@ describe("getDomainTableItemById", () => {
   });
 
   beforeEach(() => {
-    getDomainIntegrationByKey.mockReset();
+    getDomainIntegrationByIntegrationId.mockReset();
   });
 
   it("returns null when domain responds 404", async () => {
-    getDomainIntegrationByKey.mockResolvedValue({
+    getDomainIntegrationByIntegrationId.mockResolvedValue({
       id: "i1",
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "M",
       baseUrl: "http://localhost:3001",
       version: "1",
@@ -333,9 +335,9 @@ describe("getDomainTableItemById", () => {
   });
 
   it("returns parsed row on success", async () => {
-    getDomainIntegrationByKey.mockResolvedValue({
+    getDomainIntegrationByIntegrationId.mockResolvedValue({
       id: "i1",
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "M",
       baseUrl: "http://localhost:3001",
       version: "1",
@@ -376,7 +378,7 @@ describe("previewDomainExpansion", () => {
   it("throws when integration lacks preview-expansion capability", async () => {
     const getIntegration = vi.fn().mockResolvedValue({
       id: "i1",
-      key: "k",
+      integrationId: "k",
       name: "N",
       baseUrl: "http://localhost",
       version: null,
@@ -396,7 +398,7 @@ describe("previewDomainExpansion", () => {
     const createClient = vi.fn().mockReturnValue({ previewExpansion });
     const getIntegration = vi.fn().mockResolvedValue({
       id: "i1",
-      key: "k",
+      integrationId: "k",
       name: "N",
       baseUrl: "http://localhost",
       version: null,
@@ -422,7 +424,7 @@ describe("fetchAllTickersForPipelineRun", () => {
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    getDomainIntegrationByKey.mockReset();
+    getDomainIntegrationByIntegrationId.mockReset();
   });
 
   afterEach(() => {
@@ -430,7 +432,7 @@ describe("fetchAllTickersForPipelineRun", () => {
   });
 
   it("throws when mediapulse domain integration is not registered", async () => {
-    getDomainIntegrationByKey.mockResolvedValue(null);
+    getDomainIntegrationByIntegrationId.mockResolvedValue(null);
 
     await expect(fetchAllTickersForPipelineRun()).rejects.toThrow(
       'Domain integration "mediapulse"',
@@ -440,7 +442,7 @@ describe("fetchAllTickersForPipelineRun", () => {
   const injectedResolve = async () => ({
     baseUrl: "http://localhost:8090",
     apiPrefix: "/v1/hermes-dashboard/tickers",
-    integrationId: "di-1",
+    domainIntegrationId: "di-1",
   });
 
   it("returns string ids from a single page", async () => {

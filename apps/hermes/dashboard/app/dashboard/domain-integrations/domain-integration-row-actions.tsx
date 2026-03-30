@@ -17,7 +17,7 @@ import { useFormAction } from "@/app/dashboard/domain-integrations/actions/delet
 
 export type DomainIntegrationRow = {
   id: string;
-  key: string;
+  integrationId: string;
   name: string;
 };
 
@@ -47,7 +47,7 @@ export const DomainIntegrationRowActions = ({
           variant="ghost"
           size="icon"
           className="size-8"
-          aria-label={`Actions for integration ${row.key}`}
+          aria-label={`Actions for integration ${row.integrationId}`}
         >
           <MoreHorizontal className="size-4" />
         </Button>
@@ -56,7 +56,7 @@ export const DomainIntegrationRowActions = ({
         <DropdownMenuItem variant="destructive" disabled={pending} asChild>
           <DeleteConfirmForm
             FormWithAction={FormWithAction}
-            confirmMessage={`Delete domain integration "${row.key}" (${row.name})? You cannot delete it while pipelines still reference it.`}
+            confirmMessage={`Delete domain integration "${row.integrationId}" (${row.name})? You cannot delete it while pipelines still reference it.`}
             bodyField={{ name: "body.id", value: row.id }}
             pending={pending}
           />

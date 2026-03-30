@@ -9,10 +9,10 @@ type UseDomainTableFullPageEditorOptions = {
   previewFieldKey: string | undefined;
   /** Server action that runs preview for the current integration. */
   runPreview: (
-    integrationKey: string,
+    integrationId: string,
     expansionString: string,
   ) => Promise<PreviewExpansionResponse>;
-  integrationKey: string;
+  integrationId: string;
 };
 
 /**
@@ -24,7 +24,7 @@ type UseDomainTableFullPageEditorOptions = {
 export const useDomainTableFullPageEditor = (
   options: UseDomainTableFullPageEditorOptions,
 ) => {
-  const { previewFieldKey, integrationKey, runPreview } = options;
+  const { previewFieldKey, integrationId, runPreview } = options;
   const formRef = useRef<HTMLFormElement>(null);
   const [previewResult, setPreviewResult] =
     useState<PreviewExpansionResponse | null>(null);
@@ -46,7 +46,7 @@ export const useDomainTableFullPageEditor = (
     setPreviewLoading(true);
     setPreviewError(null);
     try {
-      const result = await runPreview(integrationKey, expansionString);
+      const result = await runPreview(integrationId, expansionString);
       setPreviewResult(result);
       if (result.success === false) {
         setPreviewError(result.error);
@@ -59,7 +59,7 @@ export const useDomainTableFullPageEditor = (
     } finally {
       setPreviewLoading(false);
     }
-  }, [previewFieldKey, integrationKey, runPreview]);
+  }, [previewFieldKey, integrationId, runPreview]);
 
   return {
     formRef,
