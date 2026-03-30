@@ -14,11 +14,11 @@ import { integrationSupportsHermesDataSourceExpansionTemplates } from "./data-so
 
 const integrationId = "i1";
 
-const mockGetDomainIntegrationByKey = vi.fn();
+const mockGetDomainIntegrationByIntegrationId = vi.fn();
 
 vi.mock("@/lib/domain-integrations", () => ({
-  getDomainIntegrationByKey: (...args: unknown[]) =>
-    mockGetDomainIntegrationByKey(...args),
+  getDomainIntegrationByIntegrationId: (...args: unknown[]) =>
+    mockGetDomainIntegrationByIntegrationId(...args),
 }));
 
 const mockGetSession = vi.fn();
@@ -69,9 +69,9 @@ describe("mapDataSourceExpansionTemplateRowToListItem", () => {
 
 describe("listDataSourceExpansionTemplatesForIntegration", () => {
   beforeEach(() => {
-    mockGetDomainIntegrationByKey.mockResolvedValue({
+    mockGetDomainIntegrationByIntegrationId.mockResolvedValue({
       id: integrationId,
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "http://localhost",
       version: null,
@@ -81,7 +81,7 @@ describe("listDataSourceExpansionTemplatesForIntegration", () => {
   });
 
   afterEach(() => {
-    mockGetDomainIntegrationByKey.mockReset();
+    mockGetDomainIntegrationByIntegrationId.mockReset();
   });
 
   it("returns paginated list items", async () => {
@@ -125,9 +125,9 @@ describe("listDataSourceExpansionTemplatesForIntegration", () => {
 
 describe("getDataSourceExpansionTemplateByIdForIntegration", () => {
   beforeEach(() => {
-    mockGetDomainIntegrationByKey.mockResolvedValue({
+    mockGetDomainIntegrationByIntegrationId.mockResolvedValue({
       id: integrationId,
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "http://localhost",
       version: null,
@@ -137,7 +137,7 @@ describe("getDataSourceExpansionTemplateByIdForIntegration", () => {
   });
 
   afterEach(() => {
-    mockGetDomainIntegrationByKey.mockReset();
+    mockGetDomainIntegrationByIntegrationId.mockReset();
   });
 
   it("returns null when row is missing", async () => {
@@ -159,9 +159,9 @@ describe("getDataSourceExpansionTemplateByIdForIntegration", () => {
 
 describe("getDataSourceExpansionTemplateByIdWithUsageForIntegration", () => {
   beforeEach(() => {
-    mockGetDomainIntegrationByKey.mockResolvedValue({
+    mockGetDomainIntegrationByIntegrationId.mockResolvedValue({
       id: integrationId,
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "http://localhost",
       version: null,
@@ -171,7 +171,7 @@ describe("getDataSourceExpansionTemplateByIdWithUsageForIntegration", () => {
   });
 
   afterEach(() => {
-    mockGetDomainIntegrationByKey.mockReset();
+    mockGetDomainIntegrationByIntegrationId.mockReset();
   });
 
   it("returns template row and pipeline usage", async () => {
@@ -236,9 +236,9 @@ describe("getDataSourceExpansionTemplateByIdWithUsageForIntegration", () => {
 
 describe("createDataSourceExpansionTemplateForIntegration", () => {
   beforeEach(() => {
-    mockGetDomainIntegrationByKey.mockResolvedValue({
+    mockGetDomainIntegrationByIntegrationId.mockResolvedValue({
       id: integrationId,
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "http://localhost",
       version: null,
@@ -249,7 +249,7 @@ describe("createDataSourceExpansionTemplateForIntegration", () => {
   });
 
   afterEach(() => {
-    mockGetDomainIntegrationByKey.mockReset();
+    mockGetDomainIntegrationByIntegrationId.mockReset();
     mockGetSession.mockReset();
   });
 
@@ -278,9 +278,9 @@ describe("createDataSourceExpansionTemplateForIntegration", () => {
 
 describe("updateDataSourceExpansionTemplateForIntegration", () => {
   beforeEach(() => {
-    mockGetDomainIntegrationByKey.mockResolvedValue({
+    mockGetDomainIntegrationByIntegrationId.mockResolvedValue({
       id: integrationId,
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "http://localhost",
       version: null,
@@ -290,7 +290,7 @@ describe("updateDataSourceExpansionTemplateForIntegration", () => {
   });
 
   afterEach(() => {
-    mockGetDomainIntegrationByKey.mockReset();
+    mockGetDomainIntegrationByIntegrationId.mockReset();
   });
 
   it("throws when no row matches", async () => {
@@ -313,9 +313,9 @@ describe("updateDataSourceExpansionTemplateForIntegration", () => {
 
 describe("deleteDataSourceExpansionTemplateForIntegration", () => {
   beforeEach(() => {
-    mockGetDomainIntegrationByKey.mockResolvedValue({
+    mockGetDomainIntegrationByIntegrationId.mockResolvedValue({
       id: integrationId,
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "http://localhost",
       version: null,
@@ -325,7 +325,7 @@ describe("deleteDataSourceExpansionTemplateForIntegration", () => {
   });
 
   afterEach(() => {
-    mockGetDomainIntegrationByKey.mockReset();
+    mockGetDomainIntegrationByIntegrationId.mockReset();
   });
 
   it("throws when no row matches", async () => {

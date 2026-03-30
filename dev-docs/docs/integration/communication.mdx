@@ -21,7 +21,7 @@ This page explains **how the parts of the system talk to each other**: who calls
 
 When a pipeline runs (from the dashboard or on a schedule), the caller **never** sends long-lived secrets to agents. Hermes dashboard and hermes-worker mint JWTs via `POST /api/token` using the **decrypted domain integration API key** for that pipeline’s integration (or the internal preset where the flow is Hermes-only). They send the returned **JWT** to agents.
 
-**Domain and agents:** To mint JWTs for **Mediapulse ↔ Hermes** or **registry auto-register**, an admin creates a **domain integration** in Hermes (integration key + one-time API key) and sets **`DOMAIN_INTEGRATION_API_KEY`** and **`DOMAIN_INTEGRATION_KEY`** in Mediapulse/agent env.
+**Domain and agents:** To mint JWTs for **Mediapulse ↔ Hermes** or **registry auto-register**, an admin creates a **domain integration** in Hermes (**integration id** + one-time **domain integration API key**) and sets **`DOMAIN_INTEGRATION_API_KEY`** and **`DOMAIN_INTEGRATION_ID`** in Mediapulse/agent env.
 
 <Mermaid
   chart={`sequenceDiagram

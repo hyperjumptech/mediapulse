@@ -14,18 +14,18 @@ import {
 /**
  * Creates a table row and returns to the list page.
  *
- * @param integrationKey - Registered domain integration key.
+ * @param integrationId - Registered domain integration id.
  * @param resource - Manifest path segment.
  * @param basePath - List path to revalidate and redirect to.
  * @param payload - Parsed create body.
  */
 export const submitDomainTableFullPageCreate = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
   basePath: string,
   payload: Record<string, unknown>,
 ): Promise<void> => {
-  await createDomainTableItem(integrationKey, resource, payload);
+  await createDomainTableItem(integrationId, resource, payload);
   revalidatePath(basePath);
   redirect(basePath);
 };
@@ -33,20 +33,20 @@ export const submitDomainTableFullPageCreate = async (
 /**
  * Updates a table row and returns to the list page.
  *
- * @param integrationKey - Registered domain integration key.
+ * @param integrationId - Registered domain integration id.
  * @param resource - Manifest path segment.
  * @param id - Row id.
  * @param basePath - List path to revalidate and redirect to.
  * @param payload - Parsed update body.
  */
 export const submitDomainTableFullPageUpdate = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
   id: string,
   basePath: string,
   payload: Record<string, unknown>,
 ): Promise<void> => {
-  await updateDomainTableItem(integrationKey, resource, id, payload);
+  await updateDomainTableItem(integrationId, resource, id, payload);
   revalidatePath(basePath);
   redirect(basePath);
 };
@@ -54,13 +54,13 @@ export const submitDomainTableFullPageUpdate = async (
 /**
  * Server action wrapper for the preview panel (calls domain `preview-expansion`).
  *
- * @param integrationKey - Registered domain integration key.
+ * @param integrationId - Registered domain integration id.
  * @param expansionString - Expansion string to resolve.
  * @returns Parsed preview response.
  */
 export const runDomainTablePreviewExpansion = async (
-  integrationKey: string,
+  integrationId: string,
   expansionString: string,
 ): Promise<PreviewExpansionResponse> => {
-  return previewDomainExpansion(integrationKey, expansionString);
+  return previewDomainExpansion(integrationId, expansionString);
 };

@@ -28,7 +28,7 @@ describe("IntegrationDomainTablePage", () => {
   it("renders domain table page", async () => {
     const component = await IntegrationDomainTablePage({
       params: Promise.resolve({
-        integrationKey: "mediapulse",
+        integrationId: "mediapulse",
         resource: "tickers",
       }),
       searchParams: {},
@@ -38,12 +38,12 @@ describe("IntegrationDomainTablePage", () => {
     expect(screen.getByTestId("domain-table-page")).toBeInTheDocument();
   });
 
-  it("passes integration key, resource and search params", async () => {
+  it("passes integration id, resource and search params", async () => {
     const searchParams = { q: "AAPL" };
 
     const component = await IntegrationDomainTablePage({
       params: Promise.resolve({
-        integrationKey: "mediapulse",
+        integrationId: "mediapulse",
         resource: "tickers",
       }),
       searchParams,
@@ -52,7 +52,7 @@ describe("IntegrationDomainTablePage", () => {
 
     expect(domainTablePageMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        integrationKey: "mediapulse",
+        integrationId: "mediapulse",
         resource: "tickers",
         searchParams,
       }),

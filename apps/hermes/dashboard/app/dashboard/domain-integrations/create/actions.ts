@@ -10,7 +10,7 @@ export type CreateDomainIntegrationState =
   | {
       ok: true;
       apiKeyPlaintext: string;
-      key: string;
+      integrationId: string;
       name: string;
     };
 
@@ -18,8 +18,8 @@ export type CreateDomainIntegrationState =
  * Creates a pending domain integration and returns the API key once (for copy UX).
  *
  * @param _prev - Previous action state from `useActionState`.
- * @param formData - Form fields `key` and `name`.
- * @returns Success with plaintext key or error message.
+ * @param formData - Form fields `integrationId` and `name`.
+ * @returns Success with plaintext API key or error message.
  */
 export async function createDomainIntegrationAction(
   _prev: CreateDomainIntegrationState | null,
@@ -30,10 +30,10 @@ export async function createDomainIntegrationAction(
     return { ok: false, error: "Unauthorized" };
   }
 
-  const key = String(formData.get("key") ?? "").trim();
+  const integrationId = String(formData.get("integrationId") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
-  if (!key || !name) {
-    return { ok: false, error: "Integration key and name are required." };
+  if (!integrationId || !name) {
+    return { ok: false, error: "Integration id and name are required." };
   }
 
   const user = await prisma.user.findUnique({
@@ -46,14 +46,14 @@ export async function createDomainIntegrationAction(
 
   try {
     const result = await createPendingDomainIntegration({
-      key,
+      integrationId,
       name,
       userId: user.id,
     });
     return {
       ok: true,
       apiKeyPlaintext: result.apiKeyPlaintext,
-      key: result.key,
+      integrationId: result.integrationId,
       name: result.name,
     };
   } catch (err) {

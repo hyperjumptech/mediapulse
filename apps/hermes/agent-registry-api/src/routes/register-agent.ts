@@ -19,7 +19,7 @@ const jsonSchemaObject = z
   });
 
 const BodySchema = z.object({
-  domainIntegrationKey: z.string().min(1),
+  domainIntegrationId: z.string().min(1),
   agentId: z.string(),
   agentVersion: z.string(),
   description: z.string().optional(),
@@ -69,7 +69,7 @@ export async function registerAgent(context: Context) {
 
     const integration = await prisma.domainIntegration.findFirst({
       where: {
-        key: body.domainIntegrationKey,
+        integrationId: body.domainIntegrationId,
         status: DomainIntegrationStatus.active,
         id: sub,
       },
@@ -79,7 +79,7 @@ export async function registerAgent(context: Context) {
       return context.json(
         {
           message:
-            "No active domain integration matches this credential and integration key",
+            "No active domain integration matches this credential and integration id",
         },
         403,
       );

@@ -27,14 +27,14 @@ export default async function DashboardLayout({
 
   const user = await getDashboardSession();
   let domainIntegrations: Array<{
-    key: string;
+    integrationId: string;
     name: string;
     pages: DashboardPage[];
   }> = [];
   try {
     const integrations = await getActiveDomainIntegrations();
     domainIntegrations = integrations.map((i) => ({
-      key: i.key,
+      integrationId: i.integrationId,
       name: i.name,
       pages: mergeDomainIntegrationNavPages(i),
     }));

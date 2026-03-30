@@ -32,8 +32,8 @@ import {
 } from "@/lib/domain-table-form-schema";
 
 type DomainTablePageProps = {
-  /** Registered domain integration key (e.g. "mediapulse"). */
-  integrationKey: string;
+  /** Registered domain integration id (e.g. "mediapulse", URL segment). */
+  integrationId: string;
   /** Manifest path segment for this table (e.g. "tickers"). */
   resource: string;
   searchParams:
@@ -121,20 +121,20 @@ const parseListParams = (searchParams: {
 /**
  * Shared server-rendered table-v1 page for domain-registered resources.
  *
- * @param props - Integration key, resource path segment, and request search params.
+ * @param props - Integration id, resource path segment, and request search params.
  * @returns Rendered page content.
  */
 export const DomainTablePage = async ({
-  integrationKey,
+  integrationId,
   resource,
   searchParams,
 }: DomainTablePageProps) => {
   const resolved = await Promise.resolve(searchParams);
   const params = parseListParams(resolved);
-  const basePath = `/dashboard/${integrationKey}/${resource}`;
+  const basePath = `/dashboard/${integrationId}/${resource}`;
   const [meta, list] = await Promise.all([
-    getDomainTableMeta(integrationKey, resource),
-    getDomainTableList(integrationKey, resource, params),
+    getDomainTableMeta(integrationId, resource),
+    getDomainTableList(integrationId, resource, params),
   ]);
   const createFields = parseDomainTableFormFieldsFromJsonSchema(
     meta.createSchema,
@@ -146,7 +146,7 @@ export const DomainTablePage = async ({
   const createAction = async (formData: FormData) => {
     "use server";
     await createDomainTableItem(
-      integrationKey,
+      integrationId,
       resource,
       formDataToDomainPayload(formData, createFields),
     );
@@ -159,7 +159,7 @@ export const DomainTablePage = async ({
     const id = String(formData.get("__id") ?? "");
     if (!id) return;
     await updateDomainTableItem(
-      integrationKey,
+      integrationId,
       resource,
       id,
       formDataToDomainPayload(formData, updateFields),
@@ -172,7 +172,7 @@ export const DomainTablePage = async ({
     "use server";
     const id = String(formData.get("__id") ?? "");
     if (!id) return;
-    await deleteDomainTableItem(integrationKey, resource, id);
+    await deleteDomainTableItem(integrationId, resource, id);
     revalidatePath(basePath);
     redirect(basePath);
   };
@@ -191,7 +191,7 @@ export const DomainTablePage = async ({
       return { status: "error", message: "Select a JSON file first." };
     }
     const result = await invokeDomainTableCustomAction(
-      integrationKey,
+      integrationId,
       resource,
       actionId,
       payloadJson,

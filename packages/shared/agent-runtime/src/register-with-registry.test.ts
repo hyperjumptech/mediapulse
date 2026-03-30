@@ -25,7 +25,7 @@ describe("registerWithRegistry", () => {
     await registerWithRegistry({
       registryUrl: "https://registry.example.com",
       authApiUrl: "https://auth.example.com",
-      domainIntegrationKey: "mediapulse",
+      domainIntegrationId: "mediapulse",
       domainIntegrationApiKey: "scheduler-secret",
       agentId: "my-agent",
       agentVersion: "1.0.0",
@@ -48,7 +48,7 @@ describe("registerWithRegistry", () => {
     expect(options.headers["Content-Type"]).toBe("application/json");
     const body = JSON.parse(options.body);
     expect(body).toEqual({
-      domainIntegrationKey: "mediapulse",
+      domainIntegrationId: "mediapulse",
       agentId: "my-agent",
       agentVersion: "1.0.0",
       endpoint: { url: "https://agent.example.com", method: "POST" },
@@ -63,7 +63,7 @@ describe("registerWithRegistry", () => {
     await registerWithRegistry({
       registryUrl: "https://registry.example.com/",
       authApiUrl: "https://auth.example.com",
-      domainIntegrationKey: "k",
+      domainIntegrationId: "k",
       domainIntegrationApiKey: "key",
       agentId: "a",
       agentVersion: "1.0.0",
@@ -82,7 +82,7 @@ describe("registerWithRegistry", () => {
     await registerWithRegistry({
       registryUrl: "https://r.example.com",
       authApiUrl: "https://auth.example.com",
-      domainIntegrationKey: "k",
+      domainIntegrationId: "k",
       domainIntegrationApiKey: "k",
       agentId: "x",
       agentVersion: "2.0.0",
@@ -107,7 +107,7 @@ describe("registerWithRegistry", () => {
       registerWithRegistry({
         registryUrl: "https://r.example.com",
         authApiUrl: "https://auth.example.com",
-        domainIntegrationKey: "k",
+        domainIntegrationId: "k",
         domainIntegrationApiKey: "k",
         agentId: "x",
         agentVersion: "1.0.0",

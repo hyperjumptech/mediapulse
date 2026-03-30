@@ -7,7 +7,7 @@ import type { PreviewExpansionResponse } from "@hermes/domain-contract";
 import { z } from "zod";
 
 import { getBearerJwtForDomainIntegrationId } from "@/lib/domain-integration-auth-token";
-import { getDomainIntegrationByKey } from "@/lib/domain-integrations";
+import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
 import {
   createDataSourceExpansionTemplateForIntegration,
   deleteDataSourceExpansionTemplateForIntegration,
@@ -45,12 +45,12 @@ export type DomainTableListParams = {
 /**
  * Resolves a dashboard page from a specific domain integration manifest.
  *
- * @param integrationKey - Registered integration key (e.g. "mediapulse").
+ * @param integrationId - Registered integration id (e.g. "mediapulse", URL segment).
  * @param resource - Dashboard path segment (matches manifest `pathSegment`).
  * @returns Domain page descriptor and base URL.
  */
 export const getDashboardPage = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
 ): Promise<{
   page: {
@@ -58,12 +58,13 @@ export const getDashboardPage = async (
     pathSegment: string;
   };
   baseUrl: string;
-  integrationId: string;
+  /** Orchestration `domain_integration.id` (UUID); used for JWT minting. */
+  domainIntegrationId: string;
 }> => {
-  const integration = await getDomainIntegrationByKey(integrationKey);
+  const integration = await getDomainIntegrationByIntegrationId(integrationId);
   if (!integration) {
     throw new Error(
-      `Domain integration "${integrationKey}" is not active or not registered`,
+      `Domain integration "${integrationId}" is not active or not registered`,
     );
   }
 
@@ -79,7 +80,7 @@ export const getDashboardPage = async (
         pathSegment: DATA_SOURCE_EXPANSIONS_PATH_SEGMENT,
       },
       baseUrl: integration.baseUrl.replace(/\/$/, ""),
-      integrationId: integration.id,
+      domainIntegrationId: integration.id,
     };
   }
 
@@ -89,14 +90,14 @@ export const getDashboardPage = async (
 
   if (!page) {
     throw new Error(
-      `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+      `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
     );
   }
 
   return {
     page,
     baseUrl: integration.baseUrl.replace(/\/$/, ""),
-    integrationId: integration.id,
+    domainIntegrationId: integration.id,
   };
 };
 
@@ -136,19 +137,20 @@ const callDomain = async <T>(
 /**
  * Loads table-v1 metadata for a dashboard resource.
  *
- * @param integrationKey - Registered integration key.
+ * @param integrationId - Registered integration id (URL segment).
  * @param resource - Dashboard path segment.
  * @returns Meta configuration used to render the page.
  */
 export const getDomainTableMeta = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
 ) => {
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration = await getDomainIntegrationByKey(integrationKey);
+    const integration =
+      await getDomainIntegrationByIntegrationId(integrationId);
     if (!integration) {
       throw new Error(
-        `Domain integration "${integrationKey}" is not active or not registered`,
+        `Domain integration "${integrationId}" is not active or not registered`,
       );
     }
     if (
@@ -157,21 +159,21 @@ export const getDomainTableMeta = async (
       )
     ) {
       throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
       );
     }
     return getDataSourceExpansionTemplateTableMeta();
   }
 
-  const { page, baseUrl, integrationId } = await getDashboardPage(
-    integrationKey,
+  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
+    integrationId,
     resource,
   );
   return callDomain(
     `${baseUrl}${page.apiPrefix}/meta`,
     tableV1MetaResponseSchema.parse,
     undefined,
-    integrationId,
+    domainIntegrationId,
   );
 };
 
@@ -233,7 +235,7 @@ export type InvokeDomainTableCustomActionDependencies = {
 /**
  * Invokes a registered table-v1 custom action by posting a JSON payload string to the domain API.
  *
- * @param integrationKey - Registered integration key.
+ * @param integrationId - Registered integration id (URL segment).
  * @param resource - Dashboard path segment.
  * @param actionId - Custom action `id` from manifest/meta.
  * @param payloadJson - Raw JSON file contents as a string (validated by the domain service).
@@ -241,7 +243,7 @@ export type InvokeDomainTableCustomActionDependencies = {
  * @returns Success with parsed response data or failure with message.
  */
 export const invokeDomainTableCustomAction = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
   actionId: string,
   payloadJson: string,
@@ -253,7 +255,7 @@ export const invokeDomainTableCustomAction = async (
   const getPage = dependencies.getPage ?? getDashboardPage;
   const callPost = dependencies.callPost ?? callDomainCustomPost;
 
-  const meta = await getMeta(integrationKey, resource);
+  const meta = await getMeta(integrationId, resource);
   const action = meta.customActions.find((entry) => entry.id === actionId);
   if (!action) {
     return { success: false, message: "Unknown custom action" };
@@ -262,12 +264,12 @@ export const invokeDomainTableCustomAction = async (
     return { success: false, message: "Unsupported custom action" };
   }
 
-  const { page, baseUrl, integrationId } = await getPage(
-    integrationKey,
+  const { page, baseUrl, domainIntegrationId } = await getPage(
+    integrationId,
     resource,
   );
   const url = `${baseUrl}${page.apiPrefix}${action.path}`;
-  const result = await callPost(url, { payloadJson }, integrationId);
+  const result = await callPost(url, { payloadJson }, domainIntegrationId);
 
   if (!result.ok) {
     return { success: false, message: result.message };
@@ -279,21 +281,22 @@ export const invokeDomainTableCustomAction = async (
 /**
  * Loads table-v1 list data for a dashboard resource.
  *
- * @param integrationKey - Registered integration key.
+ * @param integrationId - Registered integration id (URL segment).
  * @param resource - Dashboard path segment.
  * @param params - Pagination, search, and sort params.
  * @returns Paginated list payload.
  */
 export const getDomainTableList = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
   params: DomainTableListParams,
 ) => {
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration = await getDomainIntegrationByKey(integrationKey);
+    const integration =
+      await getDomainIntegrationByIntegrationId(integrationId);
     if (!integration) {
       throw new Error(
-        `Domain integration "${integrationKey}" is not active or not registered`,
+        `Domain integration "${integrationId}" is not active or not registered`,
       );
     }
     if (
@@ -302,17 +305,17 @@ export const getDomainTableList = async (
       )
     ) {
       throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
       );
     }
     return listDataSourceExpansionTemplatesForIntegration(
-      integrationKey,
+      integrationId,
       params,
     );
   }
 
-  const { page, baseUrl, integrationId } = await getDashboardPage(
-    integrationKey,
+  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
+    integrationId,
     resource,
   );
   const search = new URLSearchParams();
@@ -326,7 +329,7 @@ export const getDomainTableList = async (
     `${baseUrl}${page.apiPrefix}?${search.toString()}`,
     tableV1ListResponseSchema.parse,
     undefined,
-    integrationId,
+    domainIntegrationId,
   );
 };
 
@@ -338,13 +341,13 @@ export const getDomainTableList = async (
 const resolveMediapulseTickersListUrl = async (): Promise<{
   baseUrl: string;
   apiPrefix: string;
-  integrationId: string;
+  domainIntegrationId: string;
 }> => {
-  const { page, baseUrl, integrationId } = await getDashboardPage(
+  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
     "mediapulse",
     TICKERS_RESOURCE,
   );
-  return { baseUrl, apiPrefix: page.apiPrefix, integrationId };
+  return { baseUrl, apiPrefix: page.apiPrefix, domainIntegrationId };
 };
 
 export type FetchAllTickersForPipelineRunDependencies = {
@@ -363,7 +366,7 @@ export const fetchAllTickersForPipelineRun = async (
   dependencies: FetchAllTickersForPipelineRunDependencies = {},
 ): Promise<Array<{ id: string }>> => {
   const resolveUrl = dependencies.resolveUrl ?? resolveMediapulseTickersListUrl;
-  const { baseUrl, apiPrefix, integrationId } = await resolveUrl();
+  const { baseUrl, apiPrefix, domainIntegrationId } = await resolveUrl();
   const all: Array<{ id: string }> = [];
   let page = 1;
 
@@ -376,7 +379,7 @@ export const fetchAllTickersForPipelineRun = async (
       `${baseUrl}${apiPrefix}?${search.toString()}`,
       tableV1ListResponseSchema.parse,
       undefined,
-      integrationId,
+      domainIntegrationId,
     );
 
     for (const item of payload.items) {
@@ -403,21 +406,22 @@ const domainTableItemResponseSchema = z.record(z.unknown());
 /**
  * Loads a single table-v1 row by id when the domain API exposes GET `{apiPrefix}/{id}`.
  *
- * @param integrationKey - Registered integration key.
+ * @param integrationId - Registered integration id (URL segment).
  * @param resource - Dashboard path segment.
  * @param id - Row id.
  * @returns Parsed row or null when the domain returns 404.
  */
 export const getDomainTableItemById = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
   id: string,
 ): Promise<Record<string, unknown> | null> => {
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration = await getDomainIntegrationByKey(integrationKey);
+    const integration =
+      await getDomainIntegrationByIntegrationId(integrationId);
     if (!integration) {
       throw new Error(
-        `Domain integration "${integrationKey}" is not active or not registered`,
+        `Domain integration "${integrationId}" is not active or not registered`,
       );
     }
     if (
@@ -426,19 +430,19 @@ export const getDomainTableItemById = async (
       )
     ) {
       throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
       );
     }
-    return getDataSourceExpansionTemplateByIdForIntegration(integrationKey, id);
+    return getDataSourceExpansionTemplateByIdForIntegration(integrationId, id);
   }
 
-  const { page, baseUrl, integrationId } = await getDashboardPage(
-    integrationKey,
+  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
+    integrationId,
     resource,
   );
   const headers = new Headers();
   headers.set("Content-Type", "application/json");
-  const jwt = await getBearerJwtForDomainIntegrationId(integrationId);
+  const jwt = await getBearerJwtForDomainIntegrationId(domainIntegrationId);
   if (jwt) {
     headers.set("Authorization", `Bearer ${jwt}`);
   }
@@ -461,37 +465,37 @@ export const getDomainTableItemById = async (
 };
 
 type PreviewDomainExpansionDependencies = {
-  getIntegration?: typeof getDomainIntegrationByKey;
+  getIntegration?: typeof getDomainIntegrationByIntegrationId;
   createClient?: typeof createDomainIntegrationClient;
 };
 
 /**
  * Calls the domain integration `preview-expansion` endpoint for a single expansion string.
  *
- * @param integrationKey - Registered integration key.
+ * @param integrationId - Registered integration id (URL segment).
  * @param expansionString - Value to preview (e.g. db:table:field).
  * @param dependencies - Optional collaborators for tests.
  * @returns Parsed preview response from the domain contract.
  */
 export const previewDomainExpansion = async (
-  integrationKey: string,
+  integrationId: string,
   expansionString: string,
   dependencies: PreviewDomainExpansionDependencies = {},
 ): Promise<PreviewExpansionResponse> => {
   const getIntegration =
-    dependencies.getIntegration ?? getDomainIntegrationByKey;
+    dependencies.getIntegration ?? getDomainIntegrationByIntegrationId;
   const createClient =
     dependencies.createClient ?? createDomainIntegrationClient;
 
-  const integration = await getIntegration(integrationKey);
+  const integration = await getIntegration(integrationId);
   if (!integration) {
     throw new Error(
-      `Domain integration "${integrationKey}" is not active or not registered`,
+      `Domain integration "${integrationId}" is not active or not registered`,
     );
   }
   if (!integration.capabilities.includes("preview-expansion")) {
     throw new Error(
-      `Domain integration "${integrationKey}" does not support preview-expansion`,
+      `Domain integration "${integrationId}" does not support preview-expansion`,
     );
   }
 
@@ -506,21 +510,22 @@ export const previewDomainExpansion = async (
 /**
  * Creates a domain table row through the registered API prefix.
  *
- * @param integrationKey - Registered integration key.
+ * @param integrationId - Registered integration id (URL segment).
  * @param resource - Dashboard path segment.
  * @param body - JSON payload from create form.
  * @returns Parsed response payload from the domain API.
  */
 export const createDomainTableItem = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
   body: Record<string, unknown>,
 ) => {
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration = await getDomainIntegrationByKey(integrationKey);
+    const integration =
+      await getDomainIntegrationByIntegrationId(integrationId);
     if (!integration) {
       throw new Error(
-        `Domain integration "${integrationKey}" is not active or not registered`,
+        `Domain integration "${integrationId}" is not active or not registered`,
       );
     }
     if (
@@ -529,17 +534,14 @@ export const createDomainTableItem = async (
       )
     ) {
       throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
       );
     }
-    return createDataSourceExpansionTemplateForIntegration(
-      integrationKey,
-      body,
-    );
+    return createDataSourceExpansionTemplateForIntegration(integrationId, body);
   }
 
-  const { page, baseUrl, integrationId } = await getDashboardPage(
-    integrationKey,
+  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
+    integrationId,
     resource,
   );
   return callDomain(
@@ -549,30 +551,31 @@ export const createDomainTableItem = async (
       method: "POST",
       body: JSON.stringify(body),
     },
-    integrationId,
+    domainIntegrationId,
   );
 };
 
 /**
  * Updates a domain table row through the registered API prefix.
  *
- * @param integrationKey - Registered integration key.
+ * @param integrationId - Registered integration id (URL segment).
  * @param resource - Dashboard path segment.
  * @param id - Row identifier.
  * @param body - JSON payload from update form.
  * @returns Parsed response payload from the domain API.
  */
 export const updateDomainTableItem = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
   id: string,
   body: Record<string, unknown>,
 ) => {
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration = await getDomainIntegrationByKey(integrationKey);
+    const integration =
+      await getDomainIntegrationByIntegrationId(integrationId);
     if (!integration) {
       throw new Error(
-        `Domain integration "${integrationKey}" is not active or not registered`,
+        `Domain integration "${integrationId}" is not active or not registered`,
       );
     }
     if (
@@ -581,18 +584,18 @@ export const updateDomainTableItem = async (
       )
     ) {
       throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
       );
     }
     return updateDataSourceExpansionTemplateForIntegration(
-      integrationKey,
+      integrationId,
       id,
       body,
     );
   }
 
-  const { page, baseUrl, integrationId } = await getDashboardPage(
-    integrationKey,
+  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
+    integrationId,
     resource,
   );
   return callDomain(
@@ -602,28 +605,29 @@ export const updateDomainTableItem = async (
       method: "PATCH",
       body: JSON.stringify(body),
     },
-    integrationId,
+    domainIntegrationId,
   );
 };
 
 /**
  * Deletes a domain table row through the registered API prefix.
  *
- * @param integrationKey - Registered integration key.
+ * @param integrationId - Registered integration id (URL segment).
  * @param resource - Dashboard path segment.
  * @param id - Row identifier.
  * @returns Parsed response payload from the domain API.
  */
 export const deleteDomainTableItem = async (
-  integrationKey: string,
+  integrationId: string,
   resource: string,
   id: string,
 ) => {
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration = await getDomainIntegrationByKey(integrationKey);
+    const integration =
+      await getDomainIntegrationByIntegrationId(integrationId);
     if (!integration) {
       throw new Error(
-        `Domain integration "${integrationKey}" is not active or not registered`,
+        `Domain integration "${integrationId}" is not active or not registered`,
       );
     }
     if (
@@ -632,15 +636,15 @@ export const deleteDomainTableItem = async (
       )
     ) {
       throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationKey}"`,
+        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
       );
     }
-    await deleteDataSourceExpansionTemplateForIntegration(integrationKey, id);
+    await deleteDataSourceExpansionTemplateForIntegration(integrationId, id);
     return { ok: true };
   }
 
-  const { page, baseUrl, integrationId } = await getDashboardPage(
-    integrationKey,
+  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
+    integrationId,
     resource,
   );
   return callDomain(
@@ -649,6 +653,6 @@ export const deleteDomainTableItem = async (
     {
       method: "DELETE",
     },
-    integrationId,
+    domainIntegrationId,
   );
 };

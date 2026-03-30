@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { DomainTableFullPageEditor } from "@/components/domain-table-full-page-editor";
 import { withAuthProtection } from "@/components/with-auth-protection";
-import { getDomainIntegrationByKey } from "@/lib/domain-integrations";
+import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
 import {
   getDomainTableItemById,
   getDomainTableMeta,
@@ -23,16 +23,16 @@ const EditDomainTablePage = async ({
   params,
 }: {
   params: Promise<{
-    integrationKey: string;
+    integrationId: string;
     resource: string;
     itemId: string;
   }>;
 }) => {
-  const { integrationKey, resource, itemId } = await params;
-  const integration = await getDomainIntegrationByKey(integrationKey);
+  const { integrationId, resource, itemId } = await params;
+  const integration = await getDomainIntegrationByIntegrationId(integrationId);
   if (!integration) notFound();
 
-  const meta = await getDomainTableMeta(integrationKey, resource);
+  const meta = await getDomainTableMeta(integrationId, resource);
   if (meta.createNavigation !== "full-page") notFound();
   if (!meta.actions.update) notFound();
 
@@ -42,7 +42,7 @@ const EditDomainTablePage = async ({
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
     const templateWithUsage =
       await getDataSourceExpansionTemplateByIdWithUsageForIntegration(
-        integrationKey,
+        integrationId,
         itemId,
       );
     if (!templateWithUsage) {
@@ -51,7 +51,7 @@ const EditDomainTablePage = async ({
     row = templateWithUsage.template;
     usedInPipelines = templateWithUsage.usage;
   } else {
-    row = await getDomainTableItemById(integrationKey, resource, itemId);
+    row = await getDomainTableItemById(integrationId, resource, itemId);
     if (!row) {
       notFound();
     }
@@ -62,14 +62,14 @@ const EditDomainTablePage = async ({
   );
   if (updateFields.length === 0) notFound();
 
-  const basePath = `/dashboard/${integrationKey}/${resource}`;
+  const basePath = `/dashboard/${integrationId}/${resource}`;
 
   const updateAction = async (formData: FormData) => {
     "use server";
     const id = String(formData.get("__id") ?? "");
     if (!id) return;
     await submitDomainTableFullPageUpdate(
-      integrationKey,
+      integrationId,
       resource,
       id,
       basePath,
@@ -91,7 +91,7 @@ const EditDomainTablePage = async ({
       rowId={itemId}
       defaultRow={row}
       formAction={updateAction}
-      integrationKey={integrationKey}
+      integrationId={integrationId}
       showPreview={showPreview}
       previewFieldKey={meta.preview?.fieldKey}
       usedInPipelines={usedInPipelines}

@@ -114,7 +114,7 @@ model EncryptedPayload {
 
 model DomainIntegration {
   id                String                  @id @default(uuid())
-  key               String                  @unique
+  integrationId     String                  @unique @map("integration_id")
   name              String
   baseUrl           String?                 @map("base_url")
   version           String?

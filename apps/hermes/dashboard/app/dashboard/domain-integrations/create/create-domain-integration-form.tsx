@@ -14,7 +14,7 @@ import {
 const initialState: CreateDomainIntegrationState | null = null;
 
 /**
- * Client form: submit integration key + name; on success shows the generated API key once.
+ * Client form: submit integration id + name; on success shows the generated API key once.
  */
 export const CreateDomainIntegrationForm = () => {
   const [state, formAction, pending] = useActionState(
@@ -26,14 +26,18 @@ export const CreateDomainIntegrationForm = () => {
     return (
       <div className="max-w-lg space-y-4 rounded-lg border border-border p-4">
         <p className="text-sm font-medium">
-          Integration <strong>{state.name}</strong> ({state.key}) is pending.
+          Integration <strong>{state.name}</strong> (id{" "}
+          <strong>{state.integrationId}</strong>) is pending.
         </p>
         <p className="text-sm text-muted-foreground">
-          Copy this API key now. It is not shown again. Set{" "}
+          Copy this domain integration API key now. It is not shown again. It is
+          a secret—do not confuse it with the integration id above. Set{" "}
           <code className="rounded bg-muted px-1">
             DOMAIN_INTEGRATION_API_KEY
           </code>{" "}
-          in your system and register it with Hermes.
+          in Mediapulse/agent env and{" "}
+          <code className="rounded bg-muted px-1">DOMAIN_INTEGRATION_ID</code>{" "}
+          to <strong>{state.integrationId}</strong>.
         </p>
         <pre className="whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-sm">
           {state.apiKeyPlaintext}
@@ -45,17 +49,18 @@ export const CreateDomainIntegrationForm = () => {
   return (
     <form action={formAction} className="max-w-lg space-y-4">
       <div className="grid gap-2">
-        <Label htmlFor="key">Integration key</Label>
+        <Label htmlFor="integrationId">Integration id</Label>
         <Input
-          id="key"
-          name="key"
+          id="integrationId"
+          name="integrationId"
           required
-          placeholder="Unique identifier, can be your app name or domain, e.g. 'mediapulse'"
+          placeholder="Stable id for env and URLs, e.g. 'mediapulse'"
           disabled={pending}
           autoComplete="off"
         />
         <p className="text-xs text-muted-foreground">
-          Unique id used in env and registration (letters, numbers, hyphens).
+          Public identifier (not secret). Use letters, numbers, hyphens. This is
+          not the API key.
         </p>
       </div>
       <div className="grid gap-2">

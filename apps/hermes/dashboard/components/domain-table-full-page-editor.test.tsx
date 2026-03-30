@@ -65,7 +65,7 @@ const baseProps = {
   rowId: "row-1",
   defaultRow: { name: "n" },
   formAction: async () => undefined,
-  integrationKey: "mediapulse",
+  integrationId: "mediapulse",
   showPreview: false,
 };
 

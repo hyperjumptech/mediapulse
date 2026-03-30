@@ -12,7 +12,7 @@ For shared Zod schemas and client types, see [hermes-domain-contract](/hermes/pa
 
 The **dashboard manifest** is the structured JSON payload (`dashboardManifestSchema` in `@hermes/domain-contract`) that a domain integration sends when it registers with Hermes (`dashboard` field on `registerDomainIntegrationRequestSchema`). Hermes persists it on the **orchestration** `DomainIntegration` row as **`dashboardManifest`** so the dashboard can be rebuilt without re-calling the domain service.
 
-**What it is for:** It tells Hermes **which screens** to show for that integration (sidebar entries, labels, ordering), **which URL paths** under `/dashboard/{integrationKey}/…` map to which resource, and **which UI template** (`template` on each page) applies so Hermes knows how to render the page and which outbound HTTP calls to make.
+**What it is for:** It tells Hermes **which screens** to show for that integration (sidebar entries, labels, ordering), **which URL paths** under `/dashboard/{integrationId}/…` map to which resource, and **which UI template** (`template` on each page) applies so Hermes knows how to render the page and which outbound HTTP calls to make.
 
 **What is inside:** The manifest has two top-level fields:
 
@@ -27,7 +27,7 @@ Each **page** describes one integrated resource. Important fields include:
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`                                            | Stable id for the page within the manifest.                                                                                                                |
 | `label`, `description`, `icon`, `order`         | Sidebar and UI copy; `order` controls sort order in the nav.                                                                                               |
-| `pathSegment`                                   | Second segment after `/dashboard/{integrationKey}/` (e.g. `tickers` → `/dashboard/{integrationKey}/tickers`).                                              |
+| `pathSegment`                                   | Second segment after `/dashboard/{integrationId}/` (e.g. `tickers` → `/dashboard/{integrationId}/tickers`).                                              |
 | `template`                                      | Which **dashboard UI specification** to use. Currently only **`table-v1`** is allowed (`dashboardTemplateSchema`; more values may be added later).         |
 | `apiPrefix`                                     | Path prefix on the domain’s `baseUrl` for this resource’s HTTP API (Hermes concatenates `baseUrl` + `apiPrefix` for meta, list, CRUD, and custom actions). |
 | `columns`, `searchableFields`, `sortableFields` | List/table configuration (columns also carry types such as `text` or `date-time`).                                                                         |
@@ -64,9 +64,9 @@ The dashboard never opens the product database for these screens. It reads **whe
 
 ## Registration and storage
 
-1. A **domain service** calls Hermes `POST /api/domain-integrations/register` with a body that matches `registerDomainIntegrationRequestSchema` (key, name, `baseUrl`, optional capabilities, and a `dashboard` field containing the [dashboard manifest](#dashboard-manifest)).
+1. A **domain service** calls Hermes `POST /api/domain-integrations/register` with a body that matches `registerDomainIntegrationRequestSchema` (`integrationId`, name, `baseUrl`, optional capabilities, and a `dashboard` field containing the [dashboard manifest](#dashboard-manifest)).
 2. Hermes persists the row in the **orchestration** database (`DomainIntegration`), including `dashboardManifest` JSON.
-3. `apps/hermes/dashboard/lib/domain-integrations.ts` exposes `getActiveDomainIntegrations`, `getDomainIntegrationByKey`, and related helpers so the UI can resolve `baseUrl` and `dashboard.pages` at runtime.
+3. `apps/hermes/dashboard/lib/domain-integrations.ts` exposes `getActiveDomainIntegrations`, `getDomainIntegrationByIntegrationId`, and related helpers so the UI can resolve `baseUrl` and `dashboard.pages` at runtime.
 
 <Mermaid
   chart={`flowchart LR
@@ -77,7 +77,7 @@ The dashboard never opens the product database for these screens. It reads **whe
 `}
 />
 
-If registration fails or the DB is empty, the sidebar simply omits domain sections; individual routes return errors or `notFound()` when the key or resource is unknown.
+If registration fails or the DB is empty, the sidebar simply omits domain sections; individual routes return errors or `notFound()` when the integration id or resource is unknown.
 
 ## Sidebar and layout
 
@@ -85,18 +85,18 @@ If registration fails or the DB is empty, the sidebar simply omits domain sectio
 
 For each integration, the sidebar renders one link per manifest page:
 
-- **URL pattern:** `/dashboard/{integrationKey}/{pathSegment}`
+- **URL pattern:** `/dashboard/{integrationId}/{pathSegment}`
 - **Labels** come from each page’s `label` in the manifest (`DashboardPage` in `@hermes/domain-contract`).
 
-The **second** path segment after `/dashboard/` must match a page’s `pathSegment` for that integration. Hermes core routes (pipelines, agents, …) live outside this pattern, so they do not collide as long as integration keys and `pathSegment` values are chosen carefully.
+The **second** path segment after `/dashboard/` must match a page’s `pathSegment` for that integration. Hermes core routes (pipelines, agents, …) live outside this pattern, so they do not collide as long as integration ids and `pathSegment` values are chosen carefully.
 
 ## App Router entry points
 
 | Route                                                | Role                                                                 |
 | ---------------------------------------------------- | -------------------------------------------------------------------- |
-| `[integrationKey]/[resource]/page.tsx`               | Default **table-v1** list view; delegates to `DomainTablePage`.      |
-| `[integrationKey]/[resource]/new/page.tsx`           | **Full-page create** when meta says `createNavigation: "full-page"`. |
-| `[integrationKey]/[resource]/[itemId]/edit/page.tsx` | **Full-page edit** for the same navigation mode.                     |
+| `[integrationId]/[resource]/page.tsx`               | Default **table-v1** list view; delegates to `DomainTablePage`.      |
+| `[integrationId]/[resource]/new/page.tsx`           | **Full-page create** when meta says `createNavigation: "full-page"`. |
+| `[integrationId]/[resource]/[itemId]/edit/page.tsx` | **Full-page edit** for the same navigation mode.                     |
 
 All of these are wrapped with `withAuthProtection` so only authenticated dashboard users can open them.
 
@@ -104,14 +104,14 @@ All of these are wrapped with `withAuthProtection` so only authenticated dashboa
 
 `apps/hermes/dashboard/lib/domain-dashboard.ts` is the central place for server-side calls:
 
-1. **`getDashboardPage`** (internal) loads the integration with `getDomainIntegrationByKey(integrationKey)` and finds the manifest entry where `pathSegment === resource`.
+1. **`getDashboardPage`** (internal) loads the integration with `getDomainIntegrationByIntegrationId(integrationId)` and finds the manifest entry where `pathSegment === resource`.
 2. It returns `{ baseUrl, page }` where `page.apiPrefix` is the domain-owned HTTP prefix for that resource (whatever path your service mounts for meta/list/CRUD).
 
 If the integration is inactive, missing, or the resource is not in the manifest, the helpers throw; the page layer surfaces that as a failed request or error UI.
 
 <Mermaid
   chart={`flowchart TD
-  URL["URL /dashboard/integrationKey/pathSegment"] --> Resolve["getDashboardPage"]
+  URL["URL /dashboard/integrationId/pathSegment"] --> Resolve["getDashboardPage"]
   Resolve --> Match{"pathSegment matches manifest page?"}
   Match -->|Yes| Calls["HTTP calls use baseUrl plus apiPrefix"]
   Match -->|No| Err["Error or notFound"]
@@ -185,7 +185,7 @@ Requests send `Content-Type: application/json`. Hermes adds `Authorization: Bear
 ## Related flows outside these pages
 
 - **Step-input expansion** and **preview** in pipelines use the same registered integration and `@hermes/domain-contract` client; see [Data source expansion](/integration/data-source-expansion).
-- Product-specific dashboard behavior (e.g. which integration key and import actions this monorepo uses) is documented under [Mediapulse wiring in this repo](/integration/mediapulse-wiring).
+- Product-specific dashboard behavior (e.g. which integration id and import actions this monorepo uses) is documented under [Mediapulse wiring in this repo](/integration/mediapulse-wiring).
 
 ## Implementing a new table on the domain side
 
