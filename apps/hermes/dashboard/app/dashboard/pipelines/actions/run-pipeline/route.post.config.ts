@@ -381,6 +381,8 @@ export const createRunPipelineHandler = ({
       }
     }
 
+    console.log("errors", JSON.stringify(errors, null, 2));
+
     const stepRollups: StepRollupTerminal[] = [];
     for (const step of pipeline.steps) {
       const stats = stepStats.get(step.id);

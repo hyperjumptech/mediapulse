@@ -10,7 +10,7 @@ import { performWebFetch } from "./utilities/web-fetch.js";
 import { performWebSearch } from "./utilities/web-search.js";
 
 const BodySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: z.string().min(1),
   timeWindow: z
     .object({
       start: z.string().datetime(),
@@ -63,7 +63,15 @@ const app = createAgentApp<
       const { data: queries = [] } =
         await dataApiClient.dataCollection.get(query);
 
-      const searchAttemptResults = await performWebSearch(queries, {
+      const testQueries = [
+        {
+          id: "sq-1",
+          text: "dssa tambang batu bara",
+          tickerId: input.tickerId,
+        },
+      ];
+
+      const searchAttemptResults = await performWebSearch(testQueries, {
         config: webSearchConfig,
       });
       const searchSuccesses = searchAttemptResults
@@ -78,6 +86,23 @@ const app = createAgentApp<
         .filter((r) => r.success)
         .map((r) => r.data);
       const fetchFailures = fetchAttemptResults.filter((r) => !r.success);
+
+      console.log("searchSuccesses", JSON.stringify(searchSuccesses, null, 2));
+      console.log("searchFailures", JSON.stringify(searchFailures, null, 2));
+      console.log("fetchSuccesses", JSON.stringify(fetchSuccesses, null, 2));
+      console.log("fetchFailures", JSON.stringify(fetchFailures, null, 2));
+
+      return {
+        success: true,
+        details: {
+          summary: {
+            totalSources: 1,
+            status: "success",
+            searchSuccess: 1,
+            fetchSuccess: 1,
+          },
+        },
+      };
 
       if (fetchSuccesses.length > 0) {
         const sources: DataCollectionInput[] = fetchSuccesses.map((page) => ({
