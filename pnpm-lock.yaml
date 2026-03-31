@@ -625,9 +625,6 @@ importers:
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
-      '@workspace/agent-types':
-        specifier: workspace:*
-        version: link:../../../../packages/shared/agent-types
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
