@@ -19,6 +19,10 @@ import {
 } from "@workspace/ui/components/table";
 import { Button } from "@workspace/ui/components/button";
 
+import {
+  computeJobElapsedDisplay,
+  formatJobElapsedCell,
+} from "@/lib/compute-execution-elapsed";
 import { formatQueueAttemptsDisplay } from "@/lib/format-queue-attempts-display";
 import { resolveInvocationOutcomeLabel } from "@/lib/invocation-display-status";
 
@@ -145,13 +149,14 @@ export const ScheduleExecutionInvocationsTable = ({
                   onToggle={toggleSort}
                 />
               </TableHead>
+              <TableHead>Duration</TableHead>
               <TableHead>Reason</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {invocations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground">
+                <TableCell colSpan={8} className="text-muted-foreground">
                   No invocations.
                 </TableCell>
               </TableRow>
@@ -163,6 +168,13 @@ export const ScheduleExecutionInvocationsTable = ({
                 );
                 const isTerminalOutcome =
                   outcome === "success" || outcome === "failure";
+                const startedAt =
+                  j.startedAtIso != null ? new Date(j.startedAtIso) : null;
+                const completedAt =
+                  j.completedAtIso != null ? new Date(j.completedAtIso) : null;
+                const durationLabel = formatJobElapsedCell(
+                  computeJobElapsedDisplay(startedAt, completedAt),
+                );
 
                 return (
                   <TableRow key={j.jobId}>
@@ -204,6 +216,9 @@ export const ScheduleExecutionInvocationsTable = ({
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatOptionalIso(j.completedAtIso)}
+                    </TableCell>
+                    <TableCell className="text-sm tabular-nums text-muted-foreground">
+                      {durationLabel}
                     </TableCell>
                     <TableCell className="max-w-md whitespace-normal wrap-break-word text-sm text-muted-foreground">
                       {j.errorSummary ?? "—"}
