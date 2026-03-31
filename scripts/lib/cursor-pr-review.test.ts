@@ -88,6 +88,29 @@ describe("runCursorPrReview", () => {
     expect(result.findings).toEqual([]);
   });
 
+  it("does not enforce kebab-case for new Markdown files (.md / .mdx)", async () => {
+    // Setup
+    const listChangedFiles = async () => [
+      { status: "A", filePath: ".github/pull_request_template.md" },
+      { status: "A", filePath: "dev-docs/docs/SomeTopic.mdx" },
+    ];
+    const readTextFile = async () => "";
+
+    // Act
+    const result = await runCursorPrReview(
+      { listChangedFiles, readTextFile },
+      { baseRef: "origin/main", headRef: "HEAD" },
+    );
+
+    // Assert
+    const kebabErrors = result.findings.filter(
+      (f) =>
+        f.ruleId === "typescript-javascript-standards" &&
+        f.message.includes("kebab-case"),
+    );
+    expect(kebabErrors).toEqual([]);
+  });
+
   it("allows conventional filenames that are not kebab-case (Dockerfile, *.test.ts, *.config.ts, env.*.example)", async () => {
     // Setup
     const listChangedFiles = async () => [

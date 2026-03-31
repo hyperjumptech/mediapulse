@@ -34,6 +34,9 @@ const isTsOrTsx = (filePath) =>
 
 const isTsx = (filePath) => /\.tsx$/.test(filePath);
 
+/** Markdown docs are excluded from the kebab-case new-file check (naming varies by tool conventions). */
+const isKebabCheckSkippedPath = (filePath) => /\.mdx?$/i.test(filePath);
+
 const isReviewableSourceFile = (filePath) =>
   isTsJsLike(filePath) && !/\.test\.(ts|tsx|js|jsx)$/.test(filePath);
 
@@ -259,6 +262,7 @@ export const runCursorPrReview = async (collaborators, options) => {
   // typescript-javascript-standards: kebab-case for new files
   for (const f of changed) {
     if (f.status !== "A") continue;
+    if (isKebabCheckSkippedPath(f.filePath)) continue;
     if (!isKebabCaseBasename(f.filePath)) {
       findings.push({
         ruleId: "typescript-javascript-standards",
