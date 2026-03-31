@@ -34,7 +34,7 @@ export const mediapulseUsersDashboardPage = {
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["email", "name"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["email", "createdAt"]),
-  actions: { create: true, update: true, delete: true },
+  actions: { create: true, update: true, delete: true, view: false },
   createSchema: mediapulseUserCreateFormJsonSchema,
   updateSchema: mediapulseUserUpdateFormJsonSchema,
 } satisfies DashboardPageInput;

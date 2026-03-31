@@ -49,7 +49,7 @@ describe("getDomainTableMeta", () => {
             columns: [],
             searchableFields: [],
             sortableFields: [],
-            actions: { create: true, update: true, delete: true },
+            actions: { create: true, update: true, delete: true, view: false },
             order: 0,
           },
         ],
@@ -64,7 +64,7 @@ describe("getDomainTableMeta", () => {
         columns: [{ key: "symbol", label: "Symbol", type: "text" }],
         searchableFields: [],
         sortableFields: [],
-        actions: { create: true, update: true, delete: true },
+        actions: { create: true, update: true, delete: true, view: false },
         createNavigation: "modal",
       }),
     });
@@ -180,7 +180,7 @@ describe("invokeDomainTableCustomAction", () => {
       columns: [],
       searchableFields: [],
       sortableFields: [],
-      actions: { create: false, update: false, delete: false },
+      actions: { create: false, update: false, delete: false, view: false },
       customActions: [],
     });
 
@@ -204,7 +204,7 @@ describe("invokeDomainTableCustomAction", () => {
       columns: [],
       searchableFields: [],
       sortableFields: [],
-      actions: { create: false, update: false, delete: false },
+      actions: { create: false, update: false, delete: false, view: false },
       customActions: [
         {
           id: "x",
@@ -238,7 +238,7 @@ describe("invokeDomainTableCustomAction", () => {
       columns: [],
       searchableFields: [],
       sortableFields: [],
-      actions: { create: false, update: false, delete: false },
+      actions: { create: false, update: false, delete: false, view: false },
       customActions: [
         {
           id: "import-idx-json",
@@ -311,7 +311,7 @@ describe("getDomainTableItemById", () => {
             columns: [],
             searchableFields: [],
             sortableFields: [],
-            actions: { create: true, update: true, delete: true },
+            actions: { create: true, update: true, delete: true, view: false },
             order: 0,
           },
         ],
@@ -354,7 +354,7 @@ describe("getDomainTableItemById", () => {
             columns: [],
             searchableFields: [],
             sortableFields: [],
-            actions: { create: true, update: true, delete: true },
+            actions: { create: true, update: true, delete: true, view: false },
             order: 0,
           },
         ],

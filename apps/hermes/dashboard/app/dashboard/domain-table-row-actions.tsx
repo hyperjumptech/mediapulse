@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { DomainTableFormFields } from "@/components/domain-table-form-fields";
 import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
@@ -36,6 +36,10 @@ export type DomainTableRowActionsProps = {
   showDelete: boolean;
   /** When set, Edit navigates here instead of opening the edit modal. */
   editHref?: string;
+  /** When set with `viewHref`, shows a read-only detail link (manifest `actions.view`). */
+  showView?: boolean;
+  /** Target for the View action (typically `${basePath}/${rowId}`). */
+  viewHref?: string;
 };
 
 /**
@@ -100,6 +104,8 @@ export const DomainTableRowActions = ({
   showEdit,
   showDelete,
   editHref,
+  showView = false,
+  viewHref,
 }: DomainTableRowActionsProps) => {
   const { editOpen, setEditOpen } = useDomainTableRowEditDialog();
   const deleteLabel = getDomainTableRowDeleteLabel(row, rowId);
@@ -119,6 +125,22 @@ export const DomainTableRowActions = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
+          {showView && viewHref ? (
+            <DropdownMenuItem asChild>
+              <Link
+                href={viewHref}
+                className="flex cursor-pointer items-center"
+              >
+                <Eye className="mr-2 size-4" />
+                View
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+          {showView &&
+          viewHref &&
+          ((showEdit && updateFields.length > 0) || showDelete) ? (
+            <DropdownMenuSeparator />
+          ) : null}
           {showEdit && updateFields.length > 0 ? (
             editHref ? (
               <DropdownMenuItem asChild>

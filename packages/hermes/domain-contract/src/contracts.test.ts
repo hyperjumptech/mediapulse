@@ -83,6 +83,7 @@ describe("tableV1MetaResponseSchema", () => {
 
     expect(parsed.customActions).toEqual([]);
     expect(parsed.createNavigation).toBe("modal");
+    expect(parsed.actions.view).toBe(false);
   });
 
   it("parses meta with customActions", () => {
@@ -119,6 +120,21 @@ describe("tableV1MetaResponseSchema", () => {
       enabled: true,
       fieldKey: "expansionString",
     });
+  });
+
+  it("parses meta with view action for read-only detail", () => {
+    const parsed = tableV1MetaResponseSchema.parse({
+      title: "Data sources",
+      columns: [{ key: "title", label: "Title" }],
+      actions: {
+        create: false,
+        update: false,
+        delete: false,
+        view: true,
+      },
+    });
+
+    expect(parsed.actions.view).toBe(true);
   });
 });
 

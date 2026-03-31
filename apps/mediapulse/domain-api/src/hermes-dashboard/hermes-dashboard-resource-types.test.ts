@@ -15,7 +15,7 @@ const minimalDashboardPage = {
   apiPrefix: "/v1/hermes-dashboard/test-seg",
   order: 0,
   columns: [],
-  actions: { create: false, update: false, delete: false },
+  actions: { create: false, update: false, delete: false, view: false },
 } satisfies DashboardPageInput;
 
 describe("defineHermesDashboardResource", () => {

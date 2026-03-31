@@ -34,7 +34,7 @@ export const tickersDashboardPage = {
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["symbol", "name"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["symbol", "name", "createdAt"]),
-  actions: { create: true, update: true, delete: true },
+  actions: { create: true, update: true, delete: true, view: false },
   createSchema: tickerCreateFormJsonSchema,
   updateSchema: tickerUpdateFormJsonSchema,
   customActions: tickersCustomActionsForManifest,

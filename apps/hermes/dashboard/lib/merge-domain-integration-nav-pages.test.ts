@@ -23,7 +23,7 @@ const baseIntegration = (): DomainIntegrationRecord => ({
         columns: [],
         searchableFields: [],
         sortableFields: [],
-        actions: { create: true, update: true, delete: true },
+        actions: { create: true, update: true, delete: true, view: false },
         customActions: [],
         createNavigation: "modal",
       },
