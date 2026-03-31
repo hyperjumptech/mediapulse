@@ -19,7 +19,8 @@ import {
  * persist sources and failures, and record run metadata.
  *
  * @param context - Validated `input` and `config`, plus the bearer `token` for the Agent Data API.
- * @returns A success envelope with summary counts. Throws when the derived run status is `failed`.
+ * @returns Success with summary counts, or semantic failure (`success: false`) when the run status is `failed`
+ *   (Hermes maps this to HTTP 200 + envelope so pipeline execution shows the message; do not throw for this case).
  */
 export async function runDataCollection(
   context: AgentRunContext<BodySchemaType, ConfigSchemaType>,
@@ -109,10 +110,6 @@ export async function runDataCollection(
     })),
   ];
 
-  if (failuresPayload.length > 0) {
-    await dataApiClient.dataCollectionFailure.create(failuresPayload);
-  }
-
   const totalSources = fetchSuccesses.length;
   const status = deriveRunStatus({
     totalSources,
@@ -141,21 +138,28 @@ export async function runDataCollection(
 
   await dataApiClient.dataCollectionRun.create(runPayload);
 
+  if (failuresPayload.length > 0) {
+    await dataApiClient.dataCollectionFailure.create(failuresPayload);
+  }
+
+  const summary = {
+    totalSources,
+    status,
+    searchSuccess: searchSuccesses.length,
+    fetchSuccess: fetchSuccesses.length,
+  };
+
   if (status === "failed") {
-    throw new Error(
-      "Data collection run failed due to validation or zero successes.",
-    );
+    return {
+      success: false,
+      message:
+        "Data collection run failed due to validation or zero successes.",
+      details: { summary },
+    };
   }
 
   return {
     success: true,
-    details: {
-      summary: {
-        totalSources,
-        status,
-        searchSuccess: searchSuccesses.length,
-        fetchSuccess: fetchSuccesses.length,
-      },
-    },
+    details: { summary },
   };
 }

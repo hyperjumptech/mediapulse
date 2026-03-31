@@ -256,15 +256,28 @@ describe("runDataCollection", () => {
     );
   });
 
-  it("throws when run policy requires successes but none were collected", async () => {
+  it("returns semantic failure when run policy requires successes but none were collected", async () => {
     // Setup
     vi.mocked(performWebSearch).mockResolvedValueOnce([]);
     vi.mocked(performWebFetch).mockResolvedValueOnce([]);
 
-    // Act & Assert
-    await expect(runDataCollection(createContext())).rejects.toThrow(
-      "Data collection run failed due to validation or zero successes.",
-    );
+    // Act
+    const result = await runDataCollection(createContext());
+
+    // Assert — Hermes maps `success: false` to HTTP 200 + failure envelope (not 500), so pipeline UIs get the message
+    expect(result).toEqual({
+      success: false,
+      message:
+        "Data collection run failed due to validation or zero successes.",
+      details: {
+        summary: {
+          totalSources: 0,
+          status: "failed",
+          searchSuccess: 0,
+          fetchSuccess: 0,
+        },
+      },
+    });
     expect(runCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "failed",

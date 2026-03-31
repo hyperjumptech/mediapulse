@@ -18,6 +18,11 @@ vi.mock("@mediapulse/env/agents-data-collection", () => ({
   },
 }));
 
+const { performWebSearchMock, performWebFetchMock } = vi.hoisted(() => ({
+  performWebSearchMock: vi.fn(),
+  performWebFetchMock: vi.fn(),
+}));
+
 const getMock = vi.fn();
 const postMock = vi.fn();
 const runCreateMock = vi.fn();
@@ -41,40 +46,46 @@ vi.mock("@workspace/agent-data-api-client", () => {
 });
 
 vi.mock("./utilities/web-search", () => ({
-  performWebSearch: vi.fn().mockResolvedValue([
-    {
-      success: true,
-      data: {
-        url: "http://example.com",
-        title: "Test",
-        content: "Snippet",
-        tickerId: TICKER_ID,
-        searchQueryId: "sq-1",
-        searchQueryText: "test query",
-      },
-    },
-  ]),
+  performWebSearch: (...args: unknown[]) => performWebSearchMock(...args),
 }));
 
 vi.mock("./utilities/web-fetch", () => ({
-  performWebFetch: vi.fn().mockResolvedValue([
-    {
-      success: true,
-      data: {
-        url: "http://example.com",
-        title: "Test",
-        content: "Main content",
-        tickerId: TICKER_ID,
-        searchQueryId: "sq-1",
-        searchQueryText: "test query",
-      },
-    },
-  ]),
+  performWebFetch: (...args: unknown[]) => performWebFetchMock(...args),
 }));
+
+const defaultSearchSuccess = [
+  {
+    success: true,
+    data: {
+      url: "http://example.com",
+      title: "Test",
+      content: "Snippet",
+      tickerId: TICKER_ID,
+      searchQueryId: "sq-1",
+      searchQueryText: "test query",
+    },
+  },
+];
+
+const defaultFetchSuccess = [
+  {
+    success: true,
+    data: {
+      url: "http://example.com",
+      title: "Test",
+      content: "Main content",
+      tickerId: TICKER_ID,
+      searchQueryId: "sq-1",
+      searchQueryText: "test query",
+    },
+  },
+];
 
 describe("data-collection agent (HTTP)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    performWebSearchMock.mockResolvedValue(defaultSearchSuccess);
+    performWebFetchMock.mockResolvedValue(defaultFetchSuccess);
   });
 
   afterEach(() => {
@@ -151,5 +162,53 @@ describe("data-collection agent (HTTP)", () => {
     expect(res.status).toBe(400);
     expect(failureCreateMock).not.toHaveBeenCalled();
     expect(runCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 and a Hermes failure envelope when the run is policy-failed", async () => {
+    // Setup
+    getMock.mockResolvedValue({
+      data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
+    });
+    postMock.mockResolvedValue("{}");
+    performWebSearchMock.mockResolvedValueOnce([]);
+    performWebFetchMock.mockResolvedValueOnce([]);
+
+    // Act
+    const { default: app } = await import("./index");
+    const res = await app.fetch(
+      new Request("http://localhost/", {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: {
+            webSearch: {
+              baseUrl: "https://search.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+            webFetch: {
+              baseUrl: "https://fetch.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+          },
+        }),
+      }),
+    );
+
+    const body = (await res.json()) as {
+      schemaVersion: number;
+      status: string;
+      message?: string;
+    };
+
+    // Assert — semantic failure must not use HTTP 500 so Hermes can surface `message` on the invocation
+    expect(res.status).toBe(200);
+    expect(body.schemaVersion).toBe(1);
+    expect(body.status).toBe("failure");
+    expect(body.message).toBe(
+      "Data collection run failed due to validation or zero successes.",
+    );
   });
 });
