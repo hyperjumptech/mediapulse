@@ -17,6 +17,144 @@ const DEFAULT_SKILL_CONTEXT_RESERVE_RATIO = 0.38;
 /** @param {string} relPath */
 const normalizeRelPath = (relPath) => relPath.replaceAll("\\", "/");
 
+/** Repo-root `scripts/` only (not e.g. `packages/foo/scripts/`). */
+const isRepoRootScriptsPath = (filePath) => {
+  const n = normalizeRelPath(filePath).trim();
+  return n === "scripts" || n.startsWith("scripts/");
+};
+
+/**
+ * True when a Findings **File** or **Line** cell is an em/en dash, hyphen stub, empty, or "N/A".
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+const isFindingsTablePlaceholderCell = (value) => {
+  const t = value.replaceAll("`", "").trim();
+  if (t.length === 0) return true;
+  if (/^n\/a$/iu.test(t)) return true;
+  return /^[\u2014\u2013\-—]+$/u.test(t);
+};
+
+/**
+ * Parses a single GFM table row into cells (excluding leading/trailing pipes).
+ *
+ * @param {string} line
+ * @returns {readonly string[] | null}
+ */
+const parseGfmTableRowCells = (line) => {
+  const raw = line.trim();
+  if (!raw.startsWith("|")) return null;
+  const parts = raw.split("|");
+  if (parts.length < 3) return null;
+  return parts.slice(1, -1).map((c) => c.trim());
+};
+
+/**
+ * Drops low-signal AI review Finding rows: missing a concrete **File** path, placeholder **File**,
+ * or repo-root `scripts/` paths (tooling; not product code under review).
+ *
+ * Removes the entire `## Findings` section when the findings table has zero data rows left.
+ *
+ * @param {string} markdown
+ * @returns {string}
+ */
+export const filterAiReviewMarkdownFindings = (markdown) => {
+  const findingsHeading = /^## Findings(\s*\r?\n)/m;
+  const m = findingsHeading.exec(markdown);
+  if (m === null || m.index === undefined) return markdown;
+
+  const before = markdown.slice(0, m.index);
+  const afterHeading = markdown.slice(m.index + m[0].length);
+  const nextHeadingIdx = afterHeading.search(/^## /m);
+  const findingsBody =
+    nextHeadingIdx === -1
+      ? afterHeading
+      : afterHeading.slice(0, nextHeadingIdx);
+  const afterSection =
+    nextHeadingIdx === -1 ? "" : afterHeading.slice(nextHeadingIdx);
+
+  const lines = findingsBody.split(/\r?\n/);
+  /** @type {string[]} */
+  const prefix = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i] ?? "";
+    const nextLine = lines[i + 1] ?? "";
+    const cells = parseGfmTableRowCells(line);
+    const nextCells = parseGfmTableRowCells(nextLine);
+    const isHeader =
+      cells !== null &&
+      cells.length >= 5 &&
+      /\bTier\b/u.test(cells[0] ?? "") &&
+      /\bRule\b/u.test(cells[1] ?? "") &&
+      /\bFile\b/u.test(cells[2] ?? "") &&
+      /\bLine\b/u.test(cells[3] ?? "") &&
+      /\bFinding\b/u.test(cells[4] ?? "");
+    const isSeparator =
+      nextCells !== null &&
+      nextCells.length >= 5 &&
+      nextCells.every((c) => /^:?-{3,}:?$/.test((c ?? "").trim()));
+
+    if (!(isHeader && isSeparator)) {
+      prefix.push(line);
+      i += 1;
+      continue;
+    }
+
+    let modified = false;
+    i += 2;
+    /** @type {string[]} */
+    const kept = [];
+    while (i < lines.length) {
+      const rowLine = lines[i] ?? "";
+      const rowCells = parseGfmTableRowCells(rowLine);
+      if (rowCells === null || rowCells.length < 5) break;
+      const fileRaw = rowCells[2] ?? "";
+      const filePh = isFindingsTablePlaceholderCell(fileRaw);
+      const dropForMissingAnchors = filePh;
+      const dropForScripts = !filePh && isRepoRootScriptsPath(fileRaw);
+
+      if (dropForMissingAnchors || dropForScripts) {
+        modified = true;
+        i += 1;
+        continue;
+      }
+
+      kept.push(rowLine);
+      i += 1;
+    }
+
+    const suffix = lines.slice(i);
+    if (kept.length === 0) {
+      const joinBetween = (a, b) => {
+        if (a.length === 0) return b;
+        if (b.length === 0) return a;
+        return `${a.replace(/\s+$/, "")}\n\n${b.replace(/^\s+/, "")}`;
+      };
+      const trimmedPrefix = prefix.join("\n").trimEnd();
+      const rest = suffix.join("\n").trimEnd();
+      return joinBetween(
+        joinBetween(before.trimEnd(), trimmedPrefix),
+        afterSection,
+      );
+    }
+
+    const rebuiltFindings = [
+      ...prefix,
+      line,
+      nextLine,
+      ...kept,
+      ...suffix,
+    ].join("\n");
+    const out = `${before}## Findings\n${rebuiltFindings}${afterSection}`;
+    return modified ? out : markdown;
+  }
+
+  return markdown;
+};
+
 /**
  * Selects relevant skill markdown files based on changed paths (best-effort).
  *
@@ -255,8 +393,8 @@ When present, output **only** a single markdown table under this heading—no ex
 **Row rules (fixed layout):**
 - **Tier** must be exactly one of: \`must-fix\` | \`should-fix\` | \`nice-to-have\`.
 - **Rule** is a short id (e.g. \`env-variables\`, \`prisma-strong-typing\`, or the rule filename like \`typescript-javascript-standards.mdc\`).
-- **File** is a repo-relative path from the diff, or \`—\` if not file-specific.
-- **Line** is a single line number, or \`—\` if unknown or N/A.
+- **File** must be a **concrete** repo-relative path present in the PR diff. **Never** use \`—\`. **Never** use repo-root \`scripts/**\` paths (tooling); findings must target product code under \`apps/**\` / \`packages/**\` (or other non-\`scripts/\` roots if the diff touches them).
+- **Line** is a single line number when you can tie the issue to a specific changed line; use \`—\` **only** for genuinely file-scoped issues (still requires a real **File** path).
 - **Finding** is plain text in a single table cell: **one or two short sentences**, no pipe characters, no newlines. Be specific (what to change and why).
 
 ## Possible false positives
@@ -267,6 +405,7 @@ Include **only if** there is a **concrete**, diff- or rules-grounded action **no
 
 ### Reviewer discipline (follow strictly)
 - Every Finding row must be grounded in a clear diff observation and mapped to a specific rule/skill. Do not require verbatim quotes; paraphrase is fine.
+- **Do not** emit vague "process compliance" rows tied only to workflow rules like \`read-rules-and-skills-first.mdc\`, \`run-code-quality-after-changes.mdc\`, or \`planning-ts-js-standards.mdc\` unless you can cite a concrete non-\`scripts/\` file path from the diff that demonstrates the violation.
 - **No hollow praise** and no PR recap unless it directly supports a finding.
 - **Test location (this monorepo)**: Default expectation is \`*.test.ts\` / \`*.test.tsx\` **next to the module under test**. A top-level \`tests/\` tree separate from \`src/\` is not the default—flag only when the diff actually adds such a mismatch per neighboring patterns.
 - **Nice-to-have** rows: only when a real, minor improvement is rules-grounded; no filler.

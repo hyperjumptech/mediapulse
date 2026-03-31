@@ -5,6 +5,7 @@ import process from "node:process";
 
 import {
   buildAiReviewPrompt,
+  filterAiReviewMarkdownFindings,
   selectSkillRelativePaths,
   truncateMiddle,
 } from "./lib/ai-pr-review.mjs";
@@ -207,7 +208,7 @@ const main = async () => {
           {
             role: "system",
             content:
-              "You are an automated PR reviewer for this monorepo. Check the diff against the pasted rules and skills honestly. Keep output minimal, but do not be overly conservative: if there is any reasonably supported rules/skills violation in the diff, you must include a Finding row. Never invent findings or generic follow-up advice. Findings must be tied to an observable diff issue and mapped to a specific rule/skill id; exact quotes and exact line numbers are not required. Prefer should-fix over nice-to-have when a real process gap exists. Use the Findings table with exactly the five columns from the user prompt when and only when you have at least one such row; do not add or rename columns.",
+              'You are an automated PR reviewer for this monorepo. Check the diff against the pasted rules and skills honestly. Keep output minimal, but do not be overly conservative: if there is any reasonably supported rules/skills violation in apps/ or packages/ code, include a Finding row. Every Finding must anchor to a concrete repo-relative file path from the diff (never "—" for File), and never target repo-root scripts/ paths. Do not emit vague workflow-only compliance rows (for example "did not read rules first" / "did not run code-quality") unless tied to a specific product-file diff violation. Never invent findings or generic follow-up advice. Prefer should-fix over nice-to-have when a real process gap exists. Use the Findings table with exactly the five columns from the user prompt when and only when you have at least one such row; do not add or rename columns.',
           },
           { role: "user", content: prompt },
         ],
@@ -223,7 +224,9 @@ const main = async () => {
 
   /** @type {{ choices?: ReadonlyArray<{ message?: { content?: string } }> }} */
   const completionJson = await completionRes.json();
-  const reviewMd = completionJson.choices?.[0]?.message?.content ?? "";
+  const reviewMd = filterAiReviewMarkdownFindings(
+    completionJson.choices?.[0]?.message?.content ?? "",
+  );
 
   const body = `${MARKER}\n## Cursor AI Review\n\n${reviewMd}`;
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAiReviewPrompt,
+  filterAiReviewMarkdownFindings,
   selectSkillRelativePaths,
   truncateContextChunks,
   truncateMiddle,
@@ -171,5 +172,42 @@ describe("buildAiReviewPrompt", () => {
     expect(prompt).toContain("Prisma migrations");
     expect(prompt.toLowerCase()).toContain("omit this entire section");
     expect(prompt).toContain("Forbidden:");
+  });
+});
+
+describe("filterAiReviewMarkdownFindings", () => {
+  const tableHeader =
+    "| Tier | Rule | File | Line | Finding |\n| :--- | :--- | :--- | :--- | :--- |";
+
+  it("removes rows with placeholder File and removes repo-root scripts paths", () => {
+    // Act
+    const out = filterAiReviewMarkdownFindings(
+      `## Summary\n\nok\n\n## Findings\n\n${tableHeader}\n| must-fix | read-rules | — | — | vague |\n| should-fix | run-code-quality | scripts/lib/x.mjs | 12 | vague |\n| must-fix | env-variables | apps/a.ts | 3 | real |\n`,
+    );
+
+    // Assert
+    expect(out).toContain("apps/a.ts");
+    expect(out).not.toContain("read-rules");
+    expect(out).not.toContain("scripts/lib/x.mjs");
+    expect(out).not.toContain("| — | — |");
+  });
+
+  it("removes the entire Findings section when no rows remain", () => {
+    // Act
+    const out = filterAiReviewMarkdownFindings(
+      `## Summary\n\nok\n\n## Findings\n\n${tableHeader}\n| must-fix | x | — | — | vague |\n`,
+    );
+
+    // Assert
+    expect(out).not.toContain("## Findings");
+  });
+
+  it("does not touch markdown when there is no Findings heading", () => {
+    // Act
+    const md = "## Summary\n\nOnly summary.";
+    const out = filterAiReviewMarkdownFindings(md);
+
+    // Assert
+    expect(out).toBe(md);
   });
 });
