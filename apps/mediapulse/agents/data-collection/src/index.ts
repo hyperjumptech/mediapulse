@@ -86,53 +86,6 @@ const app = createAgentApp<
       const webSearchConfig = _config.webSearch;
       const webFetchConfig = _config.webFetch;
 
-      if (!webSearchConfig || !webFetchConfig) {
-        const completedAt = new Date().toISOString();
-        const message = !webSearchConfig
-          ? "Missing required config: webSearch"
-          : "Missing required config: webFetch";
-
-        const stage = !webSearchConfig
-          ? ("web-search" as const)
-          : ("web-fetch" as const);
-        const provider = !webSearchConfig
-          ? ("serper" as const)
-          : ("jina" as const);
-
-        await dataApiClient.dataCollectionFailure.create([
-          {
-            id: crypto.randomUUID(),
-            runId,
-            tickerId: input.tickerId,
-            stage,
-            provider,
-            errorCategory: "internal_processing_error",
-            retryable: false,
-            message,
-            createdAt: completedAt,
-          },
-        ]);
-
-        await dataApiClient.dataCollectionRun.create({
-          id: runId,
-          tickerId: input.tickerId,
-          startedAt: startedAt.toISOString(),
-          completedAt,
-          status: "failed",
-          counters: {
-            queriesTotal: 0,
-            urlsTotal: 0,
-            searchSuccess: 0,
-            searchFailed: 0,
-            fetchSuccess: 0,
-            fetchFailed: 0,
-            retryCount: 0,
-          },
-        });
-
-        throw new Error(message);
-      }
-
       const query: { tickerId: string; start?: string; end?: string } = {
         tickerId: input.tickerId,
       };
