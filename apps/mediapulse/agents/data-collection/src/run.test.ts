@@ -37,6 +37,16 @@ vi.mock("@mediapulse/env/agents-data-collection", () => ({
   },
 }));
 
+const { mockRunLog } = vi.hoisted(() => ({
+  mockRunLog: { info: vi.fn(), warn: vi.fn() },
+}));
+
+vi.mock("@workspace/logger", () => ({
+  logger: {
+    child: vi.fn(() => mockRunLog),
+  },
+}));
+
 const getMock = vi.fn();
 const createMock = vi.fn();
 const runCreateMock = vi.fn();

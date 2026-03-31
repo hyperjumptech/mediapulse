@@ -3,6 +3,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type got from "got";
 
+vi.mock("@workspace/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
 import type { WebSearchResult } from "./web-search";
 import { performWebFetch } from "./web-fetch";
 
@@ -112,5 +119,47 @@ describe("performWebFetch", () => {
       tickerId: "ticker-1",
       errorCategory: "provider_schema_error",
     });
+  });
+
+  it("logs a warning with a truncated URL when fetch fails and the URL is very long", async () => {
+    // Setup
+    const warnMock = vi.fn();
+    const infoMock = vi.fn();
+    const postMock = vi.fn().mockReturnValue({
+      json: vi.fn().mockResolvedValue({
+        data: "not-an-object",
+      }),
+    });
+
+    const fakeGot = { post: postMock } as unknown as typeof got;
+    const longPath = "a".repeat(130);
+    const longUrl = `https://example.com/${longPath}`;
+    const searchResults: WebSearchResult[] = [
+      {
+        url: longUrl,
+        title: "Snippet",
+        content: "Snippet",
+        tickerId: "ticker-1",
+        searchQueryId: "q1",
+        searchQueryText: "query",
+      },
+    ];
+
+    // Act
+    await performWebFetch(searchResults, {
+      config: defaultConfig,
+      gotClient: fakeGot,
+      logger: { info: infoMock, warn: warnMock },
+    });
+
+    // Assert
+    expect(warnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        searchQueryId: "q1",
+        url: `${longUrl.slice(0, 120)}…`,
+        errorCategory: "provider_schema_error",
+      }),
+      "web fetch: URL failed",
+    );
   });
 });

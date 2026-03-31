@@ -3,6 +3,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type got from "got";
 
+vi.mock("@workspace/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
 import { type SearchQuery, performWebSearch } from "./web-search";
 
 const defaultConfig = {
@@ -107,5 +114,37 @@ describe("performWebSearch", () => {
       tickerId: "ticker-1",
       errorCategory: "provider_schema_error",
     });
+  });
+
+  it("logs a warning when a query fails", async () => {
+    // Setup
+    const warnMock = vi.fn();
+    const infoMock = vi.fn();
+    const postMock = vi.fn().mockReturnValue({
+      json: vi.fn().mockResolvedValue({
+        organic: "not-an-array",
+      }),
+    });
+
+    const fakeGot = { post: postMock } as unknown as typeof got;
+    const queries: SearchQuery[] = [
+      { id: "q1", text: "search", tickerId: "ticker-1" },
+    ];
+
+    // Act
+    await performWebSearch(queries, {
+      config: defaultConfig,
+      gotClient: fakeGot,
+      logger: { info: infoMock, warn: warnMock },
+    });
+
+    // Assert
+    expect(warnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryId: "q1",
+        errorCategory: "provider_schema_error",
+      }),
+      "web search: query failed",
+    );
   });
 });

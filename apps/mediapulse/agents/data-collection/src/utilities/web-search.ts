@@ -1,5 +1,6 @@
 import got from "got";
 import { z } from "zod";
+import { logger as defaultLogger } from "@workspace/logger";
 import { RateLimiter, withRetry } from "./resilience";
 import { classifyError, isRetryableError } from "./error-classification";
 import type { ConfigSchemaType } from "./config-schema";
@@ -38,9 +39,17 @@ export interface WebSearchFailure {
 
 export type WebSearchAttemptResult = WebSearchSuccess | WebSearchFailure;
 
+/** Minimal structured logger for web-search (e.g. pino or pino child). */
+export type WebSearchLogger = {
+  info: (obj: object, msg?: string) => void;
+  warn: (obj: object, msg?: string) => void;
+};
+
 export interface WebSearchDeps {
   config: NonNullable<ConfigSchemaType["webSearch"]>;
   gotClient?: typeof got;
+  /** Logger with run correlation; defaults to workspace logger. */
+  logger?: WebSearchLogger;
 }
 
 /** Zod schema for Serper.dev API organic search result item. */
@@ -62,15 +71,18 @@ export type SerperResponse = z.infer<typeof serperResponseSchema>;
  * Uses config-driven limits, retries, and yields partial success items.
  *
  * @param queries - Search queries retrieved from the Agent Data API.
- * @param deps - Dependencies including runtime configuration.
+ * @param deps - Dependencies including runtime configuration and optional correlated `logger`.
  * @returns A list of web search attempt results.
  */
 export async function performWebSearch(
   queries: SearchQuery[],
   deps: WebSearchDeps,
 ): Promise<WebSearchAttemptResult[]> {
-  const { config, gotClient = got } = deps;
+  const { config, gotClient = got, logger: logOpt } = deps;
+  const log = logOpt ?? defaultLogger;
   const results: WebSearchAttemptResult[] = [];
+
+  log.info({ queryCount: queries.length }, "web search: starting");
 
   const rateLimiter = new RateLimiter(
     config.rateLimit.requests,
@@ -136,6 +148,17 @@ export async function performWebSearch(
       }
     } catch (e) {
       const classified = classifyError(e);
+      log.warn(
+        {
+          queryId: query.id,
+          errorCategory: classified.category,
+          retryable: isRetryableError(e),
+          ...(classified.httpStatus !== undefined
+            ? { httpStatus: classified.httpStatus }
+            : {}),
+        },
+        "web search: query failed",
+      );
       results.push({
         success: false,
         queryId: query.id,

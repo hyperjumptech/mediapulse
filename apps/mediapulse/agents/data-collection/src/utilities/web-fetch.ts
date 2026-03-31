@@ -1,5 +1,6 @@
 import got from "got";
 import { z } from "zod";
+import { logger as defaultLogger } from "@workspace/logger";
 import { RateLimiter, withRetry } from "./resilience";
 import { classifyError, isRetryableError } from "./error-classification";
 
@@ -25,9 +26,31 @@ export interface WebFetchFailure {
 
 export type WebFetchAttemptResult = WebFetchSuccess | WebFetchFailure;
 
+/** Minimal structured logger for web-fetch (e.g. pino or pino child). */
+export type WebFetchLogger = {
+  info: (obj: object, msg?: string) => void;
+  warn: (obj: object, msg?: string) => void;
+};
+
 export interface WebFetchDeps {
   config: NonNullable<ConfigSchemaType["webFetch"]>;
   gotClient?: typeof got;
+  /** Logger with run correlation; defaults to workspace logger. */
+  logger?: WebFetchLogger;
+}
+
+/**
+ * Truncates a URL for log fields so long query strings do not flood logs.
+ *
+ * @param url - Full URL.
+ * @param maxChars - Maximum length before truncation.
+ * @returns Shortened URL with an ellipsis when truncated.
+ */
+function truncateUrlForLog(url: string, maxChars = 120): string {
+  if (url.length <= maxChars) {
+    return url;
+  }
+  return `${url.slice(0, maxChars)}…`;
 }
 
 /** Zod schema for Jina AI Reader API response data object. */
@@ -49,15 +72,18 @@ export type WebFetchResponse = z.infer<typeof webFetchResponseSchema>;
  * Uses config-driven limits, retries, and yields partial success items.
  *
  * @param searchResults - Search results without full content.
- * @param deps - Dependencies including runtime configuration.
+ * @param deps - Dependencies including runtime configuration and optional correlated `logger`.
  * @returns A list of web fetch attempt results.
  */
 export async function performWebFetch(
   searchResults: WebSearchResult[],
   deps: WebFetchDeps,
 ): Promise<WebFetchAttemptResult[]> {
-  const { config, gotClient = got } = deps;
+  const { config, gotClient = got, logger: logOpt } = deps;
+  const log = logOpt ?? defaultLogger;
   const results: WebFetchAttemptResult[] = [];
+
+  log.info({ urlCount: searchResults.length }, "web fetch: starting");
 
   const rateLimiter = new RateLimiter(
     config.rateLimit.requests,
@@ -123,6 +149,18 @@ export async function performWebFetch(
       });
     } catch (e) {
       const classified = classifyError(e);
+      log.warn(
+        {
+          searchQueryId: result.searchQueryId,
+          url: truncateUrlForLog(result.url),
+          errorCategory: classified.category,
+          retryable: isRetryableError(e),
+          ...(classified.httpStatus !== undefined
+            ? { httpStatus: classified.httpStatus }
+            : {}),
+        },
+        "web fetch: URL failed",
+      );
       results.push({
         success: false,
         url: result.url,
