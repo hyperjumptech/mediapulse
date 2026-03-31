@@ -47,11 +47,6 @@ const app = createAgentApp<
     inputSchema: BodySchema,
     configSchema: ConfigSchema,
     run: async ({ input, token, config }) => {
-      const configValidation = ConfigSchema.safeParse(config);
-      if (!configValidation.success) {
-        throw configValidation.error;
-      }
-
       logger.info(
         `Running user-registration agent. Max messages: ${input.maxMessagesPerRun}`,
       );
