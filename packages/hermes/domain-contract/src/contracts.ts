@@ -23,12 +23,14 @@ export const dashboardPageColumnSchema = z.object({
 });
 
 /**
- * Schema for the actions on a Hermes dashboard page. Currently only create, update, and delete are supported.
+ * Schema for the actions on a Hermes dashboard page (create/update/delete plus optional read-only row detail).
  */
 export const dashboardPageActionsSchema = z.object({
   create: z.boolean().default(false),
   update: z.boolean().default(false),
   delete: z.boolean().default(false),
+  /** When true, Hermes may link each row to a read-only detail page (`GET {apiPrefix}/{id}`). */
+  view: z.boolean().default(false),
 });
 
 /**

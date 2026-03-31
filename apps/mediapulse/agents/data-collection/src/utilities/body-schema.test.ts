@@ -1,8 +1,10 @@
+/** @vitest-environment node */
+
 import { describe, expect, it } from "vitest";
 
-import { BodySchema } from "../src/utilities/body-schema.js";
+import { BodySchema } from "./body-schema";
 
-describe("body", () => {
+describe("BodySchema", () => {
   it("parses a valid body with tickerId only", async () => {
     // Act
     const result = await BodySchema.parseAsync({ tickerId: "123" });

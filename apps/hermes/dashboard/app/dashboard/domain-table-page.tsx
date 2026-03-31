@@ -210,7 +210,8 @@ export const DomainTablePage = async ({
     (entry) => entry.ui === "json-file-upload",
   );
 
-  const hasRowActions = meta.actions.update || meta.actions.delete;
+  const hasRowActions =
+    meta.actions.update || meta.actions.delete || meta.actions.view;
   const columnCount = meta.columns.length + (hasRowActions ? 1 : 0);
   const fullPage = meta.createNavigation === "full-page";
 
@@ -284,6 +285,9 @@ export const DomainTablePage = async ({
                   updateFields.length > 0
                     ? `${basePath}/${encodeURIComponent(rowId)}/edit`
                     : undefined;
+                const viewHref = meta.actions.view
+                  ? `${basePath}/${encodeURIComponent(rowId)}`
+                  : undefined;
                 return (
                   <TableRow key={rowId}>
                     {meta.columns.map((column) => (
@@ -306,6 +310,8 @@ export const DomainTablePage = async ({
                             }
                             showDelete={Boolean(meta.actions.delete)}
                             editHref={editHref}
+                            showView={Boolean(meta.actions.view)}
+                            viewHref={viewHref}
                           />
                         </div>
                       </TableCell>

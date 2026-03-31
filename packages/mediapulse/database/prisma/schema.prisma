@@ -191,6 +191,7 @@ model SearchQuery {
 
   ticker      Ticker       @relation(fields: [tickerId], references: [id])
   dataSources DataSource[]
+  dataCollectionFailures  DataCollectionFailure[]
 
   @@map("search_query")
 }
@@ -209,6 +210,8 @@ model Ticker {
   userTickers       UserTicker[]
   tickerEntities    TickerEntity[]
   articleRelevances ArticleRelevance[]
+  dataCollectionRuns      DataCollectionRun[]
+  dataCollectionFailures  DataCollectionFailure[]
 
   @@map("ticker")
 }
@@ -240,4 +243,73 @@ model UserTicker {
 
   @@unique([userId, tickerId])
   @@map("user_ticker")
+}
+
+enum DataCollectionRunStatus {
+  success
+  partial_success
+  failed
+}
+
+enum DataCollectionProviderStage {
+  web_search @map("web-search")
+  web_fetch  @map("web-fetch")
+}
+
+enum DataCollectionProvider {
+  serper
+  jina
+}
+
+enum DataCollectionErrorCategory {
+  network_error
+  timeout_error
+  provider_http_error
+  provider_schema_error
+  provider_data_invalid
+  internal_processing_error
+}
+
+model DataCollectionRun {
+  id            String   @id @default(uuid())
+  tickerId      String   @map("ticker_id")
+  startedAt     DateTime @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  status        DataCollectionRunStatus
+  
+  queriesTotal  Int      @default(0) @map("queries_total")
+  urlsTotal     Int      @default(0) @map("urls_total")
+  searchSuccess Int      @default(0) @map("search_success")
+  searchFailed  Int      @default(0) @map("search_failed")
+  fetchSuccess  Int      @default(0) @map("fetch_success")
+  fetchFailed   Int      @default(0) @map("fetch_failed")
+  retryCount    Int      @default(0) @map("retry_count")
+
+  ticker        Ticker   @relation(fields: [tickerId], references: [id])
+  failures      DataCollectionFailure[]
+
+  @@map("data_collection_run")
+}
+
+model DataCollectionFailure {
+  id            String   @id @default(uuid())
+  runId         String   @map("run_id")
+  tickerId      String   @map("ticker_id")
+  stage         DataCollectionProviderStage
+  provider      DataCollectionProvider
+  
+  searchQueryId String?  @map("search_query_id")
+  url           String?
+  
+  errorCategory DataCollectionErrorCategory @map("error_category")
+  retryable     Boolean
+  httpStatus    Int?     @map("http_status")
+  message       String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  run           DataCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ticker        Ticker            @relation(fields: [tickerId], references: [id])
+  searchQuery   SearchQuery?      @relation(fields: [searchQueryId], references: [id])
+
+  @@map("data_collection_failure")
 }

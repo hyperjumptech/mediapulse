@@ -34,5 +34,5 @@ export const searchQueriesDashboardPage = {
     "text",
   ]),
   sortableFields: rowFieldKeysFor<ListItem>()(["createdAt"]),
-  actions: { create: false, update: false, delete: true },
+  actions: { create: false, update: false, delete: true, view: false },
 } satisfies DashboardPageInput;

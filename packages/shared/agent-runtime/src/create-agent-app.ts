@@ -195,6 +195,7 @@ export function createAgentApp<
           schemaVersion: 1,
           status: "success",
           ...(result.message !== undefined ? { message: result.message } : {}),
+          ...(result.details !== undefined ? { details: result.details } : {}),
         };
         return context.json(envelope, 200);
       }
@@ -203,6 +204,7 @@ export function createAgentApp<
         schemaVersion: 1,
         status: "failure",
         message: result.message,
+        ...(result.details !== undefined ? { details: result.details } : {}),
       };
       return context.json(envelope, 200);
     } catch (error) {

@@ -18,6 +18,18 @@ import {
   postDeliveryResponseSchema,
 } from "./delivery.js";
 import {
+  dataCollectionRunQuerySchema,
+  getDataCollectionRunResponseSchema,
+  postDataCollectionRunBodySchema,
+  postDataCollectionRunResponseSchema,
+} from "./data-collection-run.js";
+import {
+  dataCollectionFailureQuerySchema,
+  getDataCollectionFailureResponseSchema,
+  postDataCollectionFailureBodySchema,
+  postDataCollectionFailureResponseSchema,
+} from "./data-collection-failure.js";
+import {
   postUserRegistrationRegisterBodySchema,
   postUserRegistrationRegisterResponseSchema,
   postUserRegistrationConfirmBodySchema,
@@ -110,6 +122,50 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: dataCollectionBodySchema,
         response: postDataCollectionResponseSchema,
+      },
+    },
+  },
+  dataCollectionRun: {
+    v1: {
+      get: {
+        query: dataCollectionRunQuerySchema,
+        response: getDataCollectionRunResponseSchema,
+      },
+      post: {
+        body: postDataCollectionRunBodySchema,
+        response: postDataCollectionRunResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: dataCollectionRunQuerySchema,
+        response: getDataCollectionRunResponseSchema,
+      },
+      post: {
+        body: postDataCollectionRunBodySchema,
+        response: postDataCollectionRunResponseSchema,
+      },
+    },
+  },
+  dataCollectionFailure: {
+    v1: {
+      get: {
+        query: dataCollectionFailureQuerySchema,
+        response: getDataCollectionFailureResponseSchema,
+      },
+      post: {
+        body: postDataCollectionFailureBodySchema,
+        response: postDataCollectionFailureResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: dataCollectionFailureQuerySchema,
+        response: getDataCollectionFailureResponseSchema,
+      },
+      post: {
+        body: postDataCollectionFailureBodySchema,
+        response: postDataCollectionFailureResponseSchema,
       },
     },
   },

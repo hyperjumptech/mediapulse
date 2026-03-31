@@ -1,0 +1,52 @@
+---
+title: Data collection agent
+description: Configuration-driven search and fetch with robust error handling and diagnostics
+icon: MagnifyingGlass
+---
+
+## Overview
+
+The **Data collection agent** is responsible for retrieving and cleaning web content for further processing. It has been hardened to support configuration-driven provider settings, isolation of partial failures, and persistent diagnostic recording via the `agent-data-api`.
+
+## Configuration Schema
+
+The agent uses a nested `ConfigSchema` that can be overridden per run via the Hermes dashboard or schedule execution config.
+
+### Provider Settings (`webSearch`, `webFetch`)
+
+Each provider (search and fetch) supports:
+
+- **`baseUrl`**: The API endpoint to use.
+- **`authentication`**: `type` (`bearer` or `none`), plus optional `headerName` and `apiKey`.
+- **`rateLimit`**: `requests` per `perSeconds`.
+- **`retry`**: `maxAttempts`, `baseDelayMs`, and `maxDelayMs`.
+- **`timeoutMs`**: Request timeout.
+
+### Run Policy
+
+Determines how the agent handles success/failure aggregation:
+
+- **`minSuccessfulSources`**: Minimum number of successful items required to mark the run as successful.
+- **`failOnZeroSuccess`**: If true, throws an error (marking the run as failed) if no items were successfully processed.
+
+## Partial Failure Isolation
+
+The agent does not fail the entire run if a single search query or fetch URL fails. Instead, it:
+
+1.  **Aggregates Successes**: All valid items are collected and saved to the data store.
+2.  **Records Failures**: Each failed attempt is categorized (e.g., `provider_http_error`, `timeout_error`) and persisted as a `DataCollectionFailure` record.
+3.  **Reports Status**: The run status maps to:
+    - `success`: All items succeeded.
+    - `partial_success`: Some items failed but the run policy was met.
+    - `failed`: The run policy (e.g., `minSuccessfulSources`) was not met.
+
+## Persistent Diagnostics
+
+Every agent execution creates a `DataCollectionRun` record in the database, capturing:
+
+- **Total Sources**: Number of successful items retrieved.
+- **Success/Fetch counts**: Breakdown of provider performance.
+- **Duration**: Execution time of the run.
+- **Status**: Final run status.
+
+Individual item failures are linked to the run record for detailed analysis via the dashboard or API.

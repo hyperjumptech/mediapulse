@@ -35,7 +35,7 @@ export const entityTypesDashboardPage = {
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["name", "description"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["name", "createdAt"]),
-  actions: { create: true, update: true, delete: true },
+  actions: { create: true, update: true, delete: true, view: false },
   createSchema: entityTypeCreateFormJsonSchema,
   updateSchema: entityTypeUpdateFormJsonSchema,
 } satisfies DashboardPageInput;

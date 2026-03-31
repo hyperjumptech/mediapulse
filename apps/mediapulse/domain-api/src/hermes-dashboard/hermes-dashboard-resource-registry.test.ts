@@ -17,7 +17,7 @@ const pageA = {
   apiPrefix: "/v1/hermes-dashboard/seg-a",
   order: 0,
   columns: [],
-  actions: { create: false, update: false, delete: false },
+  actions: { create: false, update: false, delete: false, view: false },
 } satisfies DashboardPageInput;
 
 const pageB = {
@@ -28,7 +28,7 @@ const pageB = {
   apiPrefix: "/v1/hermes-dashboard/seg-b",
   order: 0,
   columns: [],
-  actions: { create: false, update: false, delete: false },
+  actions: { create: false, update: false, delete: false, view: false },
 } satisfies DashboardPageInput;
 
 describe("buildHermesDashboardResourceConst", () => {
