@@ -169,6 +169,7 @@ describe("buildAiReviewPrompt", () => {
     expect(prompt).toContain("Reviewer discipline");
     expect(prompt).toContain("No hollow praise");
     expect(prompt).toContain("Prisma migrations");
-    expect(prompt).toContain("Systematically");
+    expect(prompt.toLowerCase()).toContain("omit this entire section");
+    expect(prompt).toContain("Forbidden:");
   });
 });
