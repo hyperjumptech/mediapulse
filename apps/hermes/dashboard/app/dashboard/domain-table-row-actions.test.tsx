@@ -1,12 +1,6 @@
-/** @vitest-environment jsdom */
+import { describe, expect, it } from "vitest";
 
-import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-import {
-  getDomainTableRowDeleteLabel,
-  useDomainTableRowEditDialog,
-} from "./domain-table-row-actions";
+import { getDomainTableRowDeleteLabel } from "./domain-table-row-actions";
 
 describe("getDomainTableRowDeleteLabel", () => {
   it("uses trimmed name when present", () => {
@@ -33,27 +27,5 @@ describe("getDomainTableRowDeleteLabel", () => {
 
     // Assert
     expect(label).toBe("row-4");
-  });
-});
-
-describe("useDomainTableRowEditDialog", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("starts closed and toggles via setEditOpen", () => {
-    // Setup
-    const { result } = renderHook(() => useDomainTableRowEditDialog());
-
-    // Assert
-    expect(result.current.editOpen).toBe(false);
-
-    // Act
-    act(() => {
-      result.current.setEditOpen(true);
-    });
-
-    // Assert
-    expect(result.current.editOpen).toBe(true);
   });
 });

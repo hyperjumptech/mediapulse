@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@workspace/ui/components/button";
@@ -22,6 +21,8 @@ import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { DomainTableFormFields } from "@/components/domain-table-form-fields";
 import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
+
+import { useDomainTableRowEditDialog } from "./use-domain-table-row-edit-dialog";
 
 const DELETE_MENU_ITEM_FORM_CLASS =
   "flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-destructive/10 focus:text-destructive";
@@ -58,16 +59,6 @@ export const getDomainTableRowDeleteLabel = (
     return candidate.trim();
   }
   return rowId;
-};
-
-/**
- * Manages visibility of the edit dialog for a domain table row.
- *
- * @returns `editOpen` flag and `setEditOpen` setter for the dialog.
- */
-export const useDomainTableRowEditDialog = () => {
-  const [editOpen, setEditOpen] = useState(false);
-  return { editOpen, setEditOpen };
 };
 
 /**
