@@ -57,4 +57,19 @@ describe("validateWithJsonSchema", () => {
       ).toBe(true);
     }
   });
+
+  it("accepts date-time format when ajv-formats is registered", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        watermark: { type: "string", format: "date-time" },
+      },
+      required: ["watermark"],
+    };
+    expect(
+      validateWithJsonSchema(schema, { watermark: "2025-03-13T12:00:00Z" }),
+    ).toEqual({ valid: true });
+    const invalid = validateWithJsonSchema(schema, { watermark: "not-a-date" });
+    expect(invalid.valid).toBe(false);
+  });
 });
