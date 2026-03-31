@@ -1,7 +1,7 @@
 import got from "got";
 import { z } from "zod";
 import { RateLimiter, withRetry } from "./resilience";
-import { classifyError, isRetryableError } from "./web-search";
+import { classifyError, isRetryableError } from "./error-classification";
 
 import type { WebSearchResult } from "./web-search";
 import type { ConfigSchemaType } from "./config-schema";

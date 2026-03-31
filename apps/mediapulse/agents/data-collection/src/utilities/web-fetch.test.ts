@@ -1,6 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+/** @vitest-environment node */
 
-import { performWebFetch } from "../src/utilities/web-fetch.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type got from "got";
+
+import type { WebSearchResult } from "./web-search";
+import { performWebFetch } from "./web-fetch";
 
 const defaultConfig = {
   baseUrl: "https://r.jina.ai/",
@@ -29,9 +33,9 @@ describe("performWebFetch", () => {
       }),
     });
 
-    const fakeGot = { post: postMock } as any;
+    const fakeGot = { post: postMock } as unknown as typeof got;
 
-    const searchResults = [
+    const searchResults: WebSearchResult[] = [
       {
         url: "http://example.com",
         title: "Snippet title",
@@ -81,8 +85,8 @@ describe("performWebFetch", () => {
       }),
     });
 
-    const fakeGot = { post: postMock } as any;
-    const searchResults = [
+    const fakeGot = { post: postMock } as unknown as typeof got;
+    const searchResults: WebSearchResult[] = [
       {
         url: "http://example.com",
         title: "Snippet",

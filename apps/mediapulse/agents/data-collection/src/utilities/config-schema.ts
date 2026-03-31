@@ -43,6 +43,7 @@ const webFetchSchema = z.object({
     .optional(),
 });
 
+/** Zod schema for agent config: web search/fetch providers, optional run policy. */
 export const ConfigSchema = z.object({
   webSearch: webSearchSchema,
   webFetch: webFetchSchema,

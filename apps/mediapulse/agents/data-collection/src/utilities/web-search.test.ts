@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+/** @vitest-environment node */
 
-import {
-  type WebSearchDeps,
-  performWebSearch,
-} from "../src/utilities/web-search.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type got from "got";
+
+import { type SearchQuery, performWebSearch } from "./web-search";
 
 const defaultConfig = {
   baseUrl: "https://google.serper.dev/search",
@@ -44,8 +44,10 @@ describe("performWebSearch", () => {
       }),
     });
 
-    const fakeGot = { post: postMock } as any;
-    const queries = [{ id: "q1", text: "search", tickerId: "ticker-1" }] as any;
+    const fakeGot = { post: postMock } as unknown as typeof got;
+    const queries: SearchQuery[] = [
+      { id: "q1", text: "search", tickerId: "ticker-1" },
+    ];
 
     // Act
     const result = await performWebSearch(queries, {
@@ -86,8 +88,10 @@ describe("performWebSearch", () => {
       }),
     });
 
-    const fakeGot = { post: postMock } as any;
-    const queries = [{ id: "q1", text: "search", tickerId: "ticker-1" }] as any;
+    const fakeGot = { post: postMock } as unknown as typeof got;
+    const queries: SearchQuery[] = [
+      { id: "q1", text: "search", tickerId: "ticker-1" },
+    ];
 
     // Act
     const result = await performWebSearch(queries, {

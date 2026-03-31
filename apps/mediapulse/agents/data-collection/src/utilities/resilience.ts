@@ -18,6 +18,8 @@ export class RateLimiter {
 
   /**
    * Blocks until a request slot is available in the current window.
+   *
+   * @returns Resolves when the caller may send a request.
    */
   async acquire(): Promise<void> {
     const now = Date.now();

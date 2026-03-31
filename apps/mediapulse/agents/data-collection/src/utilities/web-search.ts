@@ -1,6 +1,7 @@
-import got, { HTTPError, TimeoutError, RequestError } from "got";
+import got from "got";
 import { z } from "zod";
 import { RateLimiter, withRetry } from "./resilience";
+import { classifyError, isRetryableError } from "./error-classification";
 import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
 
@@ -55,62 +56,6 @@ export const serperResponseSchema = z.object({
 });
 
 export type SerperResponse = z.infer<typeof serperResponseSchema>;
-
-export function isRetryableError(e: unknown): boolean {
-  if (e instanceof HTTPError) {
-    const status = e.response.statusCode;
-    return status === 429 || status >= 500;
-  }
-  if (e instanceof TimeoutError) {
-    return true;
-  }
-  if (e instanceof RequestError) {
-    return [
-      "ETIMEDOUT",
-      "ECONNRESET",
-      "EADDRINUSE",
-      "ECONNREFUSED",
-      "EPIPE",
-      "ENOTFOUND",
-      "ENETUNREACH",
-      "EAI_AGAIN",
-    ].includes(e.code ?? "");
-  }
-  return false;
-}
-
-export function classifyError(e: unknown): {
-  category: DataCollectionFailure["errorCategory"];
-  message: string;
-  httpStatus?: number;
-} {
-  if (e instanceof z.ZodError) {
-    return { category: "provider_schema_error", message: e.message };
-  }
-  if (e instanceof HTTPError) {
-    return {
-      category: "provider_http_error",
-      message: e.message,
-      httpStatus: e.response.statusCode,
-    };
-  }
-  if (e instanceof TimeoutError) {
-    return { category: "timeout_error", message: e.message };
-  }
-  if (e instanceof RequestError) {
-    return { category: "network_error", message: e.message };
-  }
-  if (e instanceof Error && e.message === "Semantic validation failed") {
-    return {
-      category: "provider_data_invalid",
-      message: "Missing required fields in response",
-    };
-  }
-  return {
-    category: "internal_processing_error",
-    message: e instanceof Error ? e.message : String(e),
-  };
-}
 
 /**
  * Performs web search for each query using the configured provider.
