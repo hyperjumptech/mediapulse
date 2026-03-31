@@ -313,8 +313,7 @@ describe("createAgentApp", () => {
     });
   });
 
-  it("accepts missing config even when configSchema has required fields", async () => {
-    // Setup
+  it("returns 400 when config is omitted and configSchema has required fields", async () => {
     const requiredConfigSchema = z.object({ limit: z.number() });
     type RequiredConfig = z.infer<typeof requiredConfigSchema>;
     const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
@@ -334,19 +333,285 @@ describe("createAgentApp", () => {
       { verifyToken: async () => true },
     );
 
-    // Act
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ input: validInput }),
+    });
+    const body = (await res.json()) as {
+      message: string;
+      requiredFields: string[];
+    };
+
+    expect(res.status).toBe(400);
+    expect(body.message).toContain("missing required field(s): limit");
+    expect(body.requiredFields).toContain("limit");
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("parses omitted config as {} when configSchema allows an empty object", async () => {
+    const optionalFieldsConfigSchema = z.object({
+      limit: z.number().optional(),
+    });
+    type OptionalFieldsConfig = z.infer<typeof optionalFieldsConfigSchema>;
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<
+      Input,
+      typeof schema,
+      OptionalFieldsConfig,
+      typeof optionalFieldsConfigSchema
+    >(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        configSchema: optionalFieldsConfigSchema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
     const res = await app.request("http://localhost/", {
       method: "POST",
       headers: authHeaders,
       body: JSON.stringify({ input: validInput }),
     });
 
-    // Assert
     expect(res.status).toBe(200);
     expect(run).toHaveBeenCalledWith({
       input: validInput,
       config: {},
       token: "Bearer test-token",
+    });
+  });
+
+  it("returns 400 when config is JSON null and configSchema has required fields", async () => {
+    const requiredConfigSchema = z.object({ limit: z.number() });
+    type RequiredConfig = z.infer<typeof requiredConfigSchema>;
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<
+      Input,
+      typeof schema,
+      RequiredConfig,
+      typeof requiredConfigSchema
+    >(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        configSchema: requiredConfigSchema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ input: validInput, config: null }),
+    });
+    const body = (await res.json()) as {
+      message: string;
+      requiredFields: string[];
+    };
+
+    expect(res.status).toBe(400);
+    expect(body.message).toContain("missing required field(s): limit");
+    expect(body.requiredFields).toContain("limit");
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when config is an empty object and configSchema has required fields", async () => {
+    const requiredConfigSchema = z.object({ limit: z.number() });
+    type RequiredConfig = z.infer<typeof requiredConfigSchema>;
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<
+      Input,
+      typeof schema,
+      RequiredConfig,
+      typeof requiredConfigSchema
+    >(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        configSchema: requiredConfigSchema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ input: validInput, config: {} }),
+    });
+    const body = (await res.json()) as {
+      message: string;
+      requiredFields: string[];
+    };
+
+    expect(res.status).toBe(400);
+    expect(body.message).toContain("missing required field(s): limit");
+    expect(body.requiredFields).toContain("limit");
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when config has wrong types for configSchema", async () => {
+    const requiredConfigSchema = z.object({ limit: z.number() });
+    type RequiredConfig = z.infer<typeof requiredConfigSchema>;
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<
+      Input,
+      typeof schema,
+      RequiredConfig,
+      typeof requiredConfigSchema
+    >(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        configSchema: requiredConfigSchema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        input: validInput,
+        config: { limit: "not-a-number" },
+      }),
+    });
+    const body = (await res.json()) as {
+      message: string;
+      requiredFields: string[];
+    };
+
+    expect(res.status).toBe(400);
+    expect(body.message).toBe("Validation failed");
+    expect(body.requiredFields).toEqual([]);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 with nested required path when nested config field is missing", async () => {
+    const nestedConfigSchema = z.object({
+      api: z.object({ key: z.string().min(1) }),
+    });
+    type NestedConfig = z.infer<typeof nestedConfigSchema>;
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<
+      Input,
+      typeof schema,
+      NestedConfig,
+      typeof nestedConfigSchema
+    >(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        configSchema: nestedConfigSchema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ input: validInput, config: {} }),
+    });
+    const body = (await res.json()) as {
+      message: string;
+      requiredFields: string[];
+    };
+
+    expect(res.status).toBe(400);
+    expect(body.requiredFields).toContain("api");
+    expect(body.message).toContain("api");
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("passes parsed config and Hermes correlation together when both are present", async () => {
+    const configSchema = z.object({ limit: z.number() });
+    type Config = z.infer<typeof configSchema>;
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<
+      Input,
+      typeof schema,
+      Config,
+      typeof configSchema
+    >(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        configSchema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        [HERMES_HEADER_SCHEDULE_ID]: "sched-z",
+        [HERMES_HEADER_SCHEDULE_EXECUTION_ID]: "exec-z",
+        [HERMES_HEADER_PIPELINE_STEP_ID]: "step-z",
+      },
+      body: JSON.stringify({
+        input: validInput,
+        config: { limit: 42 },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(run).toHaveBeenCalledWith({
+      input: validInput,
+      config: { limit: 42 },
+      token: "Bearer test-token",
+      hermesCorrelation: {
+        scheduleId: "sched-z",
+        scheduleExecutionId: "exec-z",
+        pipelineStepId: "step-z",
+      },
+    });
+  });
+
+  it("GET /schemas includes custom configSchema JSON when configSchema is provided", async () => {
+    const customConfigSchema = z.object({
+      feature: z.boolean(),
+    });
+    type CustomConfig = z.infer<typeof customConfigSchema>;
+    const app = createAgentApp<
+      Input,
+      typeof schema,
+      CustomConfig,
+      typeof customConfigSchema
+    >(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        configSchema: customConfigSchema,
+        run: async () => ({ success: true }),
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/schemas", {
+      method: "GET",
+    });
+    const body = (await res.json()) as {
+      configSchema: { properties?: Record<string, unknown> };
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.configSchema.properties).toMatchObject({
+      feature: expect.objectContaining({ type: "boolean" }),
     });
   });
 
