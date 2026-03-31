@@ -40,6 +40,14 @@ pnpm cursor:review -- --base origin/main --head HEAD
 
 To review an arbitrary PR, pass that PR’s `baseRefOid` / `headRefOid` from `gh pr view <n> --json baseRefOid,headRefOid`, then `git fetch` so those commits exist locally. File contents are read from **`git show <head>:path`**, so your working tree does not need to be checked out to the PR branch.
 
+**`cursor:review` notes**
+
+- Files under repo-root **`scripts/`** are exempt from the **`process.env`** check (CLI tooling may read env directly; app/package code under `packages/.../scripts/` is still checked).
+- To skip a deterministic rule for a specific file, add a directive in the **first 40 lines** (after an optional shebang on line 1):
+  - **TypeScript/JavaScript:** `// cursor-pr-review-disable: <rule-id>[, ...]` or a one-line block `/* cursor-pr-review-disable: all */`.
+  - **SQL** (paths ending in `.sql`): `-- cursor-pr-review-disable: <rule-id>[, ...]`.
+- Rule ids: `env-variables`, `typescript-javascript-standards`, `react-custom-hooks`, `prisma-migrations`, `prisma-strong-typing`. Use `all` to disable every check for that file.
+
 Optional, non-deterministic AI commentary (requires `OPENAI_API_KEY`, and in CI `OPENAI_MODEL` if you want to override the default):
 
 ```bash

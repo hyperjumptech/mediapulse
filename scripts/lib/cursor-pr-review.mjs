@@ -37,6 +37,13 @@ const isTsx = (filePath) => /\.tsx$/.test(filePath);
 /** Markdown docs are excluded from the kebab-case new-file check (naming varies by tool conventions). */
 const isKebabCheckSkippedPath = (filePath) => /\.mdx?$/i.test(filePath);
 
+/** Repo-root `scripts/` only (not e.g. `packages/foo/scripts/`). */
+const normalizeRepoPath = (filePath) => filePath.replaceAll("\\", "/");
+const isRepoRootScriptsPath = (filePath) => {
+  const n = normalizeRepoPath(filePath);
+  return n === "scripts" || n.startsWith("scripts/");
+};
+
 const isReviewableSourceFile = (filePath) =>
   isTsJsLike(filePath) && !/\.test\.(ts|tsx|js|jsx)$/.test(filePath);
 
@@ -119,6 +126,69 @@ const firstLineWhere = (text, predicate) => {
     if (predicate(lines[i] ?? "")) return i + 1;
   }
   return undefined;
+};
+
+const CURSOR_PR_REVIEW_DIRECTIVE_MAX_LINES = 40;
+
+/**
+ * Reads file-top directives to skip named rule IDs (or all rules) for this file.
+ * Scans the first {@link CURSOR_PR_REVIEW_DIRECTIVE_MAX_LINES} lines for:
+ * - `// cursor-pr-review-disable: <ids>` (TypeScript/JavaScript)
+ * - `/* cursor-pr-review-disable: <ids> *\/` (single-line block)
+ * - `-- cursor-pr-review-disable: <ids>` when `filePath` ends with `.sql`
+ *
+ * Use comma-separated rule ids (e.g. `env-variables`, `typescript-javascript-standards`)
+ * or the token `all`. Matching is case-insensitive for the keyword and ids.
+ *
+ * @param {string} text
+ * @param {string} [filePath]
+ * @returns {{ all: boolean; rules: ReadonlySet<string> }}
+ */
+export const parseCursorPrReviewDirectives = (text, filePath = "") => {
+  const lines = text.split("\n");
+  const allowSqlDash = /\.sql$/i.test(filePath);
+  let all = false;
+  /** @type {Set<string>} */
+  const rules = new Set();
+  const limit = Math.min(CURSOR_PR_REVIEW_DIRECTIVE_MAX_LINES, lines.length);
+
+  for (let i = 0; i < limit; i++) {
+    const raw = lines[i] ?? "";
+    const trimmed = raw.trim();
+    if (i === 0 && trimmed.startsWith("#!")) continue;
+
+    const slashSlash = trimmed.match(
+      /^\/\/\s*cursor-pr-review-disable:\s*(.+)$/i,
+    );
+    const block = trimmed.match(
+      /^\/\*\s*cursor-pr-review-disable:\s*([^*]+?)\s*\*\/\s*$/i,
+    );
+    const sqlDash =
+      allowSqlDash && trimmed.match(/^--\s*cursor-pr-review-disable:\s*(.+)$/i);
+
+    const payload = slashSlash?.[1] ?? block?.[1] ?? sqlDash?.[1];
+    if (!payload) continue;
+
+    for (const part of payload.split(",")) {
+      const token = part.trim().toLowerCase();
+      if (token === "all") all = true;
+      else if (token.length > 0) rules.add(token);
+    }
+  }
+
+  return { all, rules };
+};
+
+/**
+ * @param {string} text
+ * @param {CursorPrReviewFinding["ruleId"]} ruleId
+ * @param {string} [filePath]
+ * @returns {boolean}
+ */
+const isRuleDisabledInFile = (text, ruleId, filePath = "") => {
+  const { all, rules } = parseCursorPrReviewDirectives(text, filePath);
+  if (all) return true;
+  return rules.has(ruleId);
 };
 
 /**
@@ -263,6 +333,15 @@ export const runCursorPrReview = async (collaborators, options) => {
   for (const f of changed) {
     if (f.status !== "A") continue;
     if (isKebabCheckSkippedPath(f.filePath)) continue;
+    const kebabText = await collaborators.readTextFile(f.filePath);
+    if (
+      isRuleDisabledInFile(
+        kebabText,
+        "typescript-javascript-standards",
+        f.filePath,
+      )
+    )
+      continue;
     if (!isKebabCaseBasename(f.filePath)) {
       findings.push({
         ruleId: "typescript-javascript-standards",
@@ -273,11 +352,13 @@ export const runCursorPrReview = async (collaborators, options) => {
     }
   }
 
-  // env-variables: never use process.env directly
+  // env-variables: never use process.env directly (repo app/packages code; not repo-root scripts/)
   for (const f of changed) {
     if (f.status === "D") continue;
     if (!isTsJsLike(f.filePath)) continue;
+    if (isRepoRootScriptsPath(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
+    if (isRuleDisabledInFile(text, "env-variables", f.filePath)) continue;
     if (/\bprocess\.env\b/.test(text)) {
       const line = firstLineOfRegexMatch(text, /\bprocess\.env\b/);
       findings.push({
@@ -297,6 +378,10 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (!isReviewableSourceFile(f.filePath)) continue;
 
     const text = await collaborators.readTextFile(f.filePath);
+    if (
+      isRuleDisabledInFile(text, "typescript-javascript-standards", f.filePath)
+    )
+      continue;
 
     if (f.status === "A") {
       findings.push(...collectMissingJsDocFindingsForExports(text, f.filePath));
@@ -318,6 +403,7 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (f.status === "D") continue;
     if (!isTsx(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
+    if (isRuleDisabledInFile(text, "react-custom-hooks", f.filePath)) continue;
     if (/\buseState\s*\(/.test(text) || /\buseEffect\s*\(/.test(text)) {
       const line = firstLineWhere(
         text,
@@ -348,6 +434,9 @@ export const runCursorPrReview = async (collaborators, options) => {
       return !isAdded && f.status !== "D";
     });
     for (const f of editedMigrationSql) {
+      const migText = await collaborators.readTextFile(f.filePath);
+      if (isRuleDisabledInFile(migText, "prisma-migrations", f.filePath))
+        continue;
       findings.push({
         ruleId: "prisma-migrations",
         severity: "error",
@@ -363,6 +452,8 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (f.status === "D") continue;
     if (!/\.ts$/.test(f.filePath) && !/\.tsx$/.test(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
+    if (isRuleDisabledInFile(text, "prisma-strong-typing", f.filePath))
+      continue;
     const looksLikePrisma = /\bPrisma\b/.test(text) || /\bprisma\./.test(text);
     if (!looksLikePrisma) continue;
 

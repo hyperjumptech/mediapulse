@@ -1,9 +1,58 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  parseCursorPrReviewDirectives,
   parseGitDiffNameStatus,
   runCursorPrReview,
 } from "./cursor-pr-review.mjs";
+
+describe("parseCursorPrReviewDirectives", () => {
+  it("parses // disable lines with comma-separated rule ids", () => {
+    const text = `// cursor-pr-review-disable: env-variables, prisma-strong-typing
+export const x = 1;
+`;
+    const { all, rules } = parseCursorPrReviewDirectives(text);
+
+    expect(all).toBe(false);
+    expect([...rules].sort()).toEqual(
+      ["env-variables", "prisma-strong-typing"].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    );
+  });
+
+  it("sets all when the all token appears", () => {
+    const text = "/* cursor-pr-review-disable: all */";
+
+    const { all, rules } = parseCursorPrReviewDirectives(text);
+
+    expect(all).toBe(true);
+    expect(rules.size).toBe(0);
+  });
+
+  it("parses SQL line comments when filePath ends with .sql", () => {
+    const text = `-- cursor-pr-review-disable: prisma-migrations
+SELECT 1;
+`;
+
+    const { all, rules } = parseCursorPrReviewDirectives(
+      text,
+      "packages/x/migrations/a/migration.sql",
+    );
+
+    expect(all).toBe(false);
+    expect(rules.has("prisma-migrations")).toBe(true);
+  });
+
+  it("does not treat SQL dashes as directives for .ts files", () => {
+    const text = `-- cursor-pr-review-disable: env-variables
+`;
+
+    const { rules } = parseCursorPrReviewDirectives(text, "apps/x/src/a.ts");
+
+    expect(rules.has("env-variables")).toBe(false);
+  });
+});
 
 describe("parseGitDiffNameStatus", () => {
   it("parses add/modify/delete rows", () => {
@@ -148,6 +197,68 @@ describe("runCursorPrReview", () => {
     expect(kebabErrors).toEqual([]);
   });
 
+  it("does not flag process.env under repo-root scripts/", async () => {
+    // Setup
+    const listChangedFiles = async () => [
+      { status: "M", filePath: "scripts/lib/cursor-pr-review.test.ts" },
+    ];
+    const readTextFile = async () =>
+      'const x = process.env.CURSOR_REVIEW_BASE_SHA ?? "";';
+
+    // Act
+    const result = await runCursorPrReview(
+      { listChangedFiles, readTextFile },
+      { baseRef: "origin/main", headRef: "HEAD" },
+    );
+
+    // Assert
+    expect(result.findings.some((f) => f.ruleId === "env-variables")).toBe(
+      false,
+    );
+  });
+
+  it('still flags process.env under packages/ even when path contains "scripts"', async () => {
+    // Setup
+    const listChangedFiles = async () => [
+      { status: "M", filePath: "packages/foo/scripts/tool.ts" },
+    ];
+    const readTextFile = async () => "const x = process.env.X;";
+
+    // Act
+    const result = await runCursorPrReview(
+      { listChangedFiles, readTextFile },
+      { baseRef: "origin/main", headRef: "HEAD" },
+    );
+
+    // Assert
+    expect(
+      result.findings.some(
+        (f) => f.ruleId === "env-variables" && f.filePath.endsWith("tool.ts"),
+      ),
+    ).toBe(true);
+  });
+
+  it("honors // cursor-pr-review-disable for env-variables", async () => {
+    // Setup
+    const listChangedFiles = async () => [
+      { status: "M", filePath: "apps/x/src/legacy.ts" },
+    ];
+    const readTextFile = async () => `// cursor-pr-review-disable: env-variables
+const x = process.env.ALLOWED_HERE;
+`;
+
+    // Act
+    const result = await runCursorPrReview(
+      { listChangedFiles, readTextFile },
+      { baseRef: "origin/main", headRef: "HEAD" },
+    );
+
+    // Assert
+    expect(result.findings.some((f) => f.ruleId === "env-variables")).toBe(
+      false,
+    );
+  });
+
   it("flags process.env usage in changed TS/JS-like files", async () => {
     // Setup
     const listChangedFiles = async () => [
@@ -249,6 +360,38 @@ describe("runCursorPrReview", () => {
         severity: "error",
       }),
     ]);
+  });
+
+  it("honors -- cursor-pr-review-disable in migration.sql for prisma-migrations", async () => {
+    // Setup
+    const listChangedFiles = async () => [
+      {
+        status: "M",
+        filePath: "packages/mediapulse/database/prisma/schema.prisma",
+      },
+      {
+        status: "M",
+        filePath:
+          "packages/mediapulse/database/prisma/migrations/20260101010101_test/migration.sql",
+      },
+    ];
+    const readTextFile = async (filePath: string) =>
+      filePath.endsWith("migration.sql")
+        ? `-- cursor-pr-review-disable: prisma-migrations
+ALTER TABLE "X" ADD COLUMN "y" text;
+`
+        : "model X { id String @id }";
+
+    // Act
+    const result = await runCursorPrReview(
+      { listChangedFiles, readTextFile },
+      { baseRef: "origin/main", headRef: "HEAD" },
+    );
+
+    // Assert
+    expect(result.findings.some((f) => f.ruleId === "prisma-migrations")).toBe(
+      false,
+    );
   });
 
   it("does not add a prisma-migrations error when schema.prisma is not touched", async () => {
