@@ -59,6 +59,7 @@ export const PipelineExecutionsTable = ({
             <TableHead className="min-w-[140px] whitespace-normal">
               Invocations (success / fail)
             </TableHead>
+            <TableHead className="w-[120px]">Elapsed</TableHead>
             <TableHead className="w-[90px]">Detail</TableHead>
           </TableRow>
         </TableHeader>
@@ -66,7 +67,7 @@ export const PipelineExecutionsTable = ({
           {executions.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={7}
+                colSpan={8}
                 className="text-center text-muted-foreground"
               >
                 No executions yet.
@@ -102,6 +103,9 @@ export const PipelineExecutionsTable = ({
                   <TableCell className="text-sm">
                     {execution.succeededInvocationCount} /{" "}
                     {execution.failedInvocationCount}
+                  </TableCell>
+                  <TableCell className="text-sm tabular-nums text-muted-foreground">
+                    {execution.elapsedLabel}
                   </TableCell>
                   <TableCell>
                     <Link

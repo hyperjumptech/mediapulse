@@ -6,6 +6,7 @@ import { getPipelineExecutionsPage } from "./pipeline-executions";
 const scheduleExecutionFindManyMock = vi.fn();
 const httpTriggerExecutionFindManyMock = vi.fn();
 const manualPipelineExecutionFindManyMock = vi.fn();
+const agentJobExecutionFindManyMock = vi.fn();
 
 vi.mock("@hermes/orchestration-database", () => ({
   prisma: {
@@ -20,6 +21,9 @@ vi.mock("@hermes/orchestration-database", () => ({
       findMany: (...args: unknown[]) =>
         manualPipelineExecutionFindManyMock(...args),
     },
+    agentJobExecution: {
+      findMany: (...args: unknown[]) => agentJobExecutionFindManyMock(...args),
+    },
   },
 }));
 
@@ -29,6 +33,7 @@ describe("getPipelineExecutionsPage", () => {
     scheduleExecutionFindManyMock.mockReset();
     httpTriggerExecutionFindManyMock.mockReset();
     manualPipelineExecutionFindManyMock.mockReset();
+    agentJobExecutionFindManyMock.mockReset();
   });
 
   it("merges rows across sources and sorts by execution time desc", async () => {
@@ -78,6 +83,7 @@ describe("getPipelineExecutionsPage", () => {
         createdAt: new Date("2026-03-20T12:00:00.000Z"),
       },
     ]);
+    agentJobExecutionFindManyMock.mockResolvedValue([]);
 
     // Act
     const result = await getPipelineExecutionsPage("pipe-1", 1, 10);
@@ -93,6 +99,11 @@ describe("getPipelineExecutionsPage", () => {
       "manual",
       "http-trigger",
       "schedule",
+    ]);
+    expect(result.executions.map((item) => item.elapsedLabel)).toEqual([
+      "—",
+      "—",
+      "—",
     ]);
   });
 
@@ -142,6 +153,16 @@ describe("getPipelineExecutionsPage", () => {
         createdAt: new Date("2026-03-20T11:00:00.000Z"),
       },
     ]);
+    agentJobExecutionFindManyMock.mockResolvedValue([
+      {
+        scheduleExecutionId: "sch-exec-1",
+        httpTriggerExecutionId: null,
+        manualExecutionId: null,
+        enqueuedAt: new Date("2026-03-20T10:00:00.000Z"),
+        startedAt: new Date("2026-03-20T10:00:05.000Z"),
+        completedAt: new Date("2026-03-20T10:01:00.000Z"),
+      },
+    ]);
 
     // Act
     const result = await getPipelineExecutionsPage("pipe-1", 2, 2);
@@ -150,5 +171,6 @@ describe("getPipelineExecutionsPage", () => {
     expect(result.total).toBe(3);
     expect(result.executions).toHaveLength(1);
     expect(result.executions[0]?.id).toBe("sch-exec-1");
+    expect(result.executions[0]?.elapsedLabel).toBe("55s");
   });
 });

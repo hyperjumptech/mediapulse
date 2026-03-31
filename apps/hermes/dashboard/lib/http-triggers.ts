@@ -197,6 +197,7 @@ export type HttpTriggerExecutionDetail = {
     error: unknown;
     agentResponse: unknown;
     semanticStatus: string | null;
+    enqueuedAt: Date;
     startedAt: Date | null;
     completedAt: Date | null;
     dataQueueAttempts: number | null;
@@ -246,6 +247,7 @@ export const getHttpTriggerExecutionDetail = async (
           error: true,
           agentResponse: true,
           semanticStatus: true,
+          enqueuedAt: true,
           startedAt: true,
           completedAt: true,
           dataQueueAttempts: true,
@@ -301,6 +303,7 @@ export const getHttpTriggerExecutionDetail = async (
       error: job.error,
       agentResponse: job.agentResponse,
       semanticStatus: job.semanticStatus,
+      enqueuedAt: job.enqueuedAt,
       startedAt: job.startedAt,
       completedAt: job.completedAt,
       dataQueueAttempts: job.dataQueueAttempts,

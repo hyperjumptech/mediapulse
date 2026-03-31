@@ -1,6 +1,11 @@
 import type { Prisma } from "@hermes/orchestration-database";
 import { prisma } from "@hermes/orchestration-database";
 
+import {
+  computePipelineWallElapsed,
+  formatPipelineElapsedLabel,
+} from "./compute-execution-elapsed";
+
 type Db = typeof prisma;
 
 export type PipelineExecutionSource = "manual" | "schedule" | "http-trigger";
@@ -18,6 +23,8 @@ export type PipelineExecutionRow = {
   failedInvocationCount: number;
   errors: unknown;
   createdAt: Date;
+  /** Wall-clock elapsed label for this execution (derived from job rows). */
+  elapsedLabel: string;
 };
 
 export type PipelineExecutionsPageResult = {
@@ -100,7 +107,7 @@ export const getPipelineExecutionsPage = async (
     db.manualPipelineExecution.findMany(manualArgs),
   ]);
 
-  const merged: PipelineExecutionRow[] = [
+  const merged: Array<Omit<PipelineExecutionRow, "elapsedLabel">> = [
     ...scheduleRows.map((row) => ({
       id: row.id,
       source: "schedule" as const,
@@ -150,12 +157,144 @@ export const getPipelineExecutionsPage = async (
 
   const start = Math.max(0, (page - 1) * pageSize);
   const end = start + pageSize;
+  const slice = merged.slice(start, end);
+  const executionsWithElapsed = await attachPipelineExecutionElapsedLabels(
+    slice,
+    db,
+  );
+
   return {
-    executions: merged.slice(start, end),
+    executions: executionsWithElapsed,
     total: merged.length,
     page,
     pageSize,
   };
+};
+
+/**
+ * Groups agent jobs by execution id for pipeline execution list rows.
+ *
+ * @param rows - One page of merged execution rows (no id collisions across sources).
+ * @param jobs - Job rows from Prisma for those executions only.
+ * @returns Map from `source:id` to invocation inputs for {@link computePipelineWallElapsed}.
+ */
+const groupJobsByPipelineExecutionRow = (
+  rows: Array<Pick<PipelineExecutionRow, "id" | "source" | "runStatus">>,
+  jobs: Array<{
+    scheduleExecutionId: string | null;
+    httpTriggerExecutionId: string | null;
+    manualExecutionId: string | null;
+    enqueuedAt: Date;
+    startedAt: Date | null;
+    completedAt: Date | null;
+  }>,
+): Map<
+  string,
+  Array<{ enqueuedAt: Date; startedAt: Date | null; completedAt: Date | null }>
+> => {
+  const map = new Map<
+    string,
+    Array<{
+      enqueuedAt: Date;
+      startedAt: Date | null;
+      completedAt: Date | null;
+    }>
+  >();
+  const keyForRow = (source: PipelineExecutionSource, id: string) =>
+    `${source}:${id}`;
+
+  for (const row of rows) {
+    map.set(keyForRow(row.source, row.id), []);
+  }
+
+  for (const job of jobs) {
+    let key: string | null = null;
+    if (job.scheduleExecutionId != null) {
+      key = keyForRow("schedule", job.scheduleExecutionId);
+    } else if (job.httpTriggerExecutionId != null) {
+      key = keyForRow("http-trigger", job.httpTriggerExecutionId);
+    } else if (job.manualExecutionId != null) {
+      key = keyForRow("manual", job.manualExecutionId);
+    }
+    if (key == null || !map.has(key)) {
+      continue;
+    }
+    const list = map.get(key);
+    if (list) {
+      list.push({
+        enqueuedAt: job.enqueuedAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+      });
+    }
+  }
+
+  return map;
+};
+
+/**
+ * Fetches job timestamps for the current page and attaches formatted elapsed labels.
+ *
+ * @param slice - Paginated execution rows (still without elapsed).
+ * @param db - Prisma client.
+ * @returns Rows including {@link PipelineExecutionRow.elapsedLabel}.
+ */
+const attachPipelineExecutionElapsedLabels = async (
+  slice: Array<Omit<PipelineExecutionRow, "elapsedLabel">>,
+  db: Db,
+): Promise<PipelineExecutionRow[]> => {
+  const now = new Date();
+  if (slice.length === 0) {
+    return [];
+  }
+
+  const scheduleIds = slice
+    .filter((row) => row.source === "schedule")
+    .map((row) => row.id);
+  const httpIds = slice
+    .filter((row) => row.source === "http-trigger")
+    .map((row) => row.id);
+  const manualIds = slice
+    .filter((row) => row.source === "manual")
+    .map((row) => row.id);
+
+  const or: Prisma.AgentJobExecutionWhereInput[] = [];
+  if (scheduleIds.length > 0) {
+    or.push({ scheduleExecutionId: { in: scheduleIds } });
+  }
+  if (httpIds.length > 0) {
+    or.push({ httpTriggerExecutionId: { in: httpIds } });
+  }
+  if (manualIds.length > 0) {
+    or.push({ manualExecutionId: { in: manualIds } });
+  }
+
+  const jobs =
+    or.length === 0
+      ? []
+      : await db.agentJobExecution.findMany({
+          where: { OR: or },
+          select: {
+            scheduleExecutionId: true,
+            httpTriggerExecutionId: true,
+            manualExecutionId: true,
+            enqueuedAt: true,
+            startedAt: true,
+            completedAt: true,
+          },
+        });
+
+  const grouped = groupJobsByPipelineExecutionRow(slice, jobs);
+
+  return slice.map((row) => {
+    const key = `${row.source}:${row.id}`;
+    const invocations = grouped.get(key) ?? [];
+    const elapsed = computePipelineWallElapsed(invocations, row.runStatus, now);
+    return {
+      ...row,
+      elapsedLabel: formatPipelineElapsedLabel(elapsed),
+    };
+  });
 };
 
 export type ManualPipelineExecutionDetail = {
@@ -193,6 +332,7 @@ export type ManualPipelineExecutionDetail = {
     error: unknown;
     agentResponse: unknown;
     semanticStatus: string | null;
+    enqueuedAt: Date;
     startedAt: Date | null;
     completedAt: Date | null;
     dataQueueAttempts: number | null;
@@ -241,6 +381,7 @@ export const getManualPipelineExecutionDetail = async (
           error: true,
           agentResponse: true,
           semanticStatus: true,
+          enqueuedAt: true,
           startedAt: true,
           completedAt: true,
           dataQueueAttempts: true,
@@ -288,6 +429,7 @@ export const getManualPipelineExecutionDetail = async (
       error: job.error,
       agentResponse: job.agentResponse,
       semanticStatus: job.semanticStatus,
+      enqueuedAt: job.enqueuedAt,
       startedAt: job.startedAt,
       completedAt: job.completedAt,
       dataQueueAttempts: job.dataQueueAttempts,

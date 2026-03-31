@@ -243,6 +243,7 @@ export type ScheduleExecutionDetail = {
     error: unknown;
     agentResponse: unknown;
     semanticStatus: string | null;
+    enqueuedAt: Date;
     startedAt: Date | null;
     completedAt: Date | null;
     /** DataQueue `attempts` when the worker last claimed this job; null for legacy rows. */
@@ -292,6 +293,7 @@ export const getScheduleExecutionDetail = async (
           error: true,
           agentResponse: true,
           semanticStatus: true,
+          enqueuedAt: true,
           startedAt: true,
           completedAt: true,
           dataQueueAttempts: true,
@@ -347,6 +349,7 @@ export const getScheduleExecutionDetail = async (
       error: j.error,
       agentResponse: j.agentResponse,
       semanticStatus: j.semanticStatus,
+      enqueuedAt: j.enqueuedAt,
       startedAt: j.startedAt,
       completedAt: j.completedAt,
       dataQueueAttempts: j.dataQueueAttempts,

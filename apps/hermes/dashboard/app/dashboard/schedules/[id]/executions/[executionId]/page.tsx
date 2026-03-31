@@ -12,6 +12,10 @@ import {
 } from "@workspace/ui/components/table";
 
 import { ScheduleExecutionInvocationsTable } from "@/components/schedule-execution-invocations-table";
+import {
+  computePipelineWallElapsed,
+  formatPipelineElapsedLabel,
+} from "@/lib/compute-execution-elapsed";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
 import { maskScheduleExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
@@ -31,6 +35,14 @@ export default async function ScheduleExecutionDetailPage({
   if (!rawDetail) {
     notFound();
   }
+  const pipelineElapsed = computePipelineWallElapsed(
+    rawDetail.invocations.map((job) => ({
+      enqueuedAt: job.enqueuedAt,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+    })),
+    rawDetail.execution.runStatus,
+  );
   const detail = maskScheduleExecutionDetailForDisplay(rawDetail);
 
   return (
@@ -73,6 +85,10 @@ export default async function ScheduleExecutionDetailPage({
         <p>
           <span className="text-muted-foreground">Run status:</span>{" "}
           {detail.execution.runStatus}
+        </p>
+        <p>
+          <span className="text-muted-foreground">Elapsed:</span>{" "}
+          {formatPipelineElapsedLabel(pipelineElapsed)}
         </p>
         <p>
           <span className="text-muted-foreground">
