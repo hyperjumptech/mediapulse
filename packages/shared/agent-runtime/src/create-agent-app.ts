@@ -17,7 +17,11 @@ const emptyConfigSchema = z.object({});
 
 /**
  * Creates a Hono app that handles GET /schemas (no auth), POST "/" with bearer auth,
- * body validation ({ input, config }), and the agent run function.
+ * body validation (`input` and `config`), and the agent run function.
+ *
+ * When a `configSchema` is provided, the posted `config` object is validated on every request.
+ * If the JSON body omits `config`, it is treated as `{}` — so required fields in the schema
+ * fail validation before `run` is called (400).
  *
  * **200:** `run` result is mapped to the Hermes PRD envelope (`schemaVersion`, `status`, optional `message`).
  * **Throw** from `run` → 500 (or validation errors → 400).
@@ -171,10 +175,9 @@ export function createAgentApp<
       };
       const rawInput = requestBody?.input;
       const input = (await config.inputSchema.parseAsync(rawInput)) as TInput;
-      const configParsed =
-        requestBody?.config === undefined
-          ? ({} as TConfig)
-          : ((await configSchema.parseAsync(requestBody.config)) as TConfig);
+      const configParsed = (await configSchema.parseAsync(
+        requestBody?.config ?? {},
+      )) as TConfig;
       const token = context.req.header("Authorization");
       const hermesCorrelation = hermesInvokeCorrelationFromGetHeader((name) =>
         context.req.header(name),
@@ -234,7 +237,7 @@ export function createAgentApp<
             errors: flattenedErrors,
             requiredFields,
           },
-          "Agent input validation failed",
+          "Agent request validation failed",
         );
         return context.json(
           {
