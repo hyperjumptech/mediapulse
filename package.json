@@ -24,6 +24,8 @@
     "docs:dev": "pnpm dlx speed-docs --dev ./dev-docs",
     "docs:build": "pnpm dlx speed-docs ./dev-docs",
     "merge-workspace-coverage": "node scripts/merge-workspace-coverage.mjs",
+    "cursor:review": "node scripts/cursor-pr-review.mjs",
+    "ai:review": "node scripts/ai-pr-review.mjs",
     "code-quality": "turbo run lint type:check test:coverage && pnpm run merge-workspace-coverage && pnpm run format:check"
   },
   "devDependencies": {
