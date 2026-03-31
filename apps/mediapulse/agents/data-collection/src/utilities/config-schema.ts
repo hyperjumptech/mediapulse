@@ -56,7 +56,7 @@ export const ConfigSchema = z.object({
 
 export const dataCollectionAgentConfigSchema = ConfigSchema;
 
-export type DataCollectionAgentConfig = z.infer<typeof ConfigSchema>;
+export type ConfigSchemaType = z.infer<typeof ConfigSchema>;
 
 /**
  * Minimal JSON Schema type used for the /config response.

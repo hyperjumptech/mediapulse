@@ -4,23 +4,10 @@ import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-data-collection";
 import crypto from "node:crypto";
 
-import { z } from "zod";
-import { ConfigSchema } from "./utilities/config-schema.js";
-import { performWebFetch } from "./utilities/web-fetch.js";
-import { performWebSearch } from "./utilities/web-search.js";
-
-const BodySchema = z.object({
-  tickerId: z.string().min(1),
-  timeWindow: z
-    .object({
-      start: z.string().datetime(),
-      end: z.string().datetime(),
-    })
-    .optional(),
-});
-
-type Input = z.infer<typeof BodySchema>;
-type Config = z.infer<typeof ConfigSchema>;
+import { ConfigSchema, type ConfigSchemaType } from "./utilities/config-schema";
+import { performWebFetch } from "./utilities/web-fetch";
+import { performWebSearch } from "./utilities/web-search";
+import { BodySchema, type BodySchemaType } from "./utilities/body-schema";
 
 type RunStatus = "success" | "partial_success" | "failed";
 
@@ -71,9 +58,9 @@ const deriveRunStatus = ({
 };
 
 const app = createAgentApp<
-  Input,
+  BodySchemaType,
   typeof BodySchema,
-  Config,
+  ConfigSchemaType,
   typeof ConfigSchema
 >(
   {

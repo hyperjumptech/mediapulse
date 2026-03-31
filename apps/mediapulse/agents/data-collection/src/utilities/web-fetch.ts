@@ -1,10 +1,10 @@
 import got from "got";
 import { z } from "zod";
-import { RateLimiter, withRetry } from "./resilience.js";
-import { classifyError, isRetryableError } from "./web-search.js";
+import { RateLimiter, withRetry } from "./resilience";
+import { classifyError, isRetryableError } from "./web-search";
 
-import type { WebSearchResult } from "./web-search.js";
-import type { DataCollectionAgentConfig } from "./config-schema.js";
+import type { WebSearchResult } from "./web-search";
+import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
 
 export interface WebFetchSuccess {
@@ -26,7 +26,7 @@ export interface WebFetchFailure {
 export type WebFetchAttemptResult = WebFetchSuccess | WebFetchFailure;
 
 export interface WebFetchDeps {
-  config: NonNullable<DataCollectionAgentConfig["webFetch"]>;
+  config: NonNullable<ConfigSchemaType["webFetch"]>;
   gotClient?: typeof got;
 }
 

@@ -1,7 +1,7 @@
 import got, { HTTPError, TimeoutError, RequestError } from "got";
 import { z } from "zod";
-import { RateLimiter, withRetry } from "./resilience.js";
-import type { DataCollectionAgentConfig } from "./config-schema.js";
+import { RateLimiter, withRetry } from "./resilience";
+import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
 
 export interface SearchQuery {
@@ -38,7 +38,7 @@ export interface WebSearchFailure {
 export type WebSearchAttemptResult = WebSearchSuccess | WebSearchFailure;
 
 export interface WebSearchDeps {
-  config: NonNullable<DataCollectionAgentConfig["webSearch"]>;
+  config: NonNullable<ConfigSchemaType["webSearch"]>;
   gotClient?: typeof got;
 }
 
