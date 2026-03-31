@@ -208,7 +208,7 @@ describe("data-collection agent (HTTP)", () => {
     expect(body.schemaVersion).toBe(1);
     expect(body.status).toBe("failure");
     expect(body.message).toBe(
-      "Data collection run failed due to validation or zero successes.",
+      "Data collection run failed: no sources were successfully collected, but the run policy requires at least 1 successful source.",
     );
   });
 });

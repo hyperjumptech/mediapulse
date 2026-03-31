@@ -20,7 +20,8 @@ import {
  *
  * @param context - Validated `input` and `config`, plus the bearer `token` for the Agent Data API.
  * @returns Success with summary counts, or semantic failure (`success: false`) when the run status is `failed`
- *   (Hermes maps this to HTTP 200 + envelope so pipeline execution shows the message; do not throw for this case).
+ *   (run policy required more successful sources than were collected; Hermes maps this to HTTP 200 + envelope
+ *   so pipeline execution shows the message; do not throw for this case).
  */
 export async function runDataCollection(
   context: AgentRunContext<BodySchemaType, ConfigSchemaType>,
@@ -150,11 +151,21 @@ export async function runDataCollection(
   };
 
   if (status === "failed") {
+    const minRequired = runPolicy.minSuccessfulSources;
+    const message =
+      totalSources === 0
+        ? `Data collection run failed: no sources were successfully collected, but the run policy requires at least ${minRequired} successful source${minRequired === 1 ? "" : "s"}.`
+        : `Data collection run failed: only ${totalSources} successful source${totalSources === 1 ? "" : "s"} collected, but the run policy requires at least ${minRequired}.`;
+
     return {
       success: false,
-      message:
-        "Data collection run failed due to validation or zero successes.",
-      details: { summary },
+      message,
+      details: {
+        summary,
+        failureReason: "insufficient_successful_sources" as const,
+        requiredSuccessfulSources: minRequired,
+        collectedSuccessfulSources: totalSources,
+      },
     };
   }
 

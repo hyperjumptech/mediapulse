@@ -268,7 +268,7 @@ describe("runDataCollection", () => {
     expect(result).toEqual({
       success: false,
       message:
-        "Data collection run failed due to validation or zero successes.",
+        "Data collection run failed: no sources were successfully collected, but the run policy requires at least 1 successful source.",
       details: {
         summary: {
           totalSources: 0,
@@ -276,6 +276,9 @@ describe("runDataCollection", () => {
           searchSuccess: 0,
           fetchSuccess: 0,
         },
+        failureReason: "insufficient_successful_sources",
+        requiredSuccessfulSources: 1,
+        collectedSuccessfulSources: 0,
       },
     });
     expect(runCreateMock).toHaveBeenCalledWith(
@@ -283,5 +286,55 @@ describe("runDataCollection", () => {
         status: "failed",
       }),
     );
+  });
+
+  it("returns semantic failure when collected sources are below the policy minimum (non-zero)", async () => {
+    // Setup
+    vi.mocked(performWebSearch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: searchSuccessPage,
+      },
+    ]);
+    vi.mocked(performWebFetch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          content: "Main content",
+        },
+      },
+    ]);
+
+    // Act
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          runPolicy: {
+            minSuccessfulSources: 2,
+            failOnZeroSuccess: true,
+          },
+        },
+      }),
+    );
+
+    // Assert
+    expect(result).toEqual({
+      success: false,
+      message:
+        "Data collection run failed: only 1 successful source collected, but the run policy requires at least 2.",
+      details: {
+        summary: {
+          totalSources: 1,
+          status: "failed",
+          searchSuccess: 1,
+          fetchSuccess: 1,
+        },
+        failureReason: "insufficient_successful_sources",
+        requiredSuccessfulSources: 2,
+        collectedSuccessfulSources: 1,
+      },
+    });
   });
 });
