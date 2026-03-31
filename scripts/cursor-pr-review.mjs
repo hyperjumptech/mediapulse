@@ -31,7 +31,31 @@ const listChangedFiles = async ({ baseRef: base, headRef: head }) => {
   return parseGitDiffNameStatus(stdout);
 };
 
-const readTextFile = async (filePath) => readFile(filePath, "utf8");
+/**
+ * Reads the version of a path at `headRef` so reviews work even when the
+ * working tree is not checked out to the PR head (matches CI).
+ *
+ * @param {string} filePath
+ * @returns {Promise<string>}
+ */
+const readTextFile = async (filePath) => {
+  const posixPath = filePath.replaceAll("\\", "/");
+  try {
+    return execFileSync("git", ["show", `${headRef}:${posixPath}`], {
+      encoding: "utf8",
+      maxBuffer: 50 * 1024 * 1024,
+    });
+  } catch (gitErr) {
+    try {
+      return await readFile(filePath, "utf8");
+    } catch {
+      throw new Error(
+        `cursor-pr-review: cannot read "${posixPath}" at "${headRef}" (${String(gitErr)})`,
+        { cause: gitErr },
+      );
+    }
+  }
+};
 
 const printFindings = (findings) => {
   if (findings.length === 0) {
@@ -43,9 +67,13 @@ const printFindings = (findings) => {
   // eslint-disable-next-line no-console
   console.log("cursor-pr-review: findings");
   for (const f of findings) {
-    const loc = f.filePath ? ` (${f.filePath})` : "";
+    const pathPart = f.filePath
+      ? f.line !== undefined
+        ? ` (${f.filePath}:${f.line})`
+        : ` (${f.filePath})`
+      : "";
     // eslint-disable-next-line no-console
-    console.log(`- [${f.severity}] ${f.ruleId}${loc}: ${f.message}`);
+    console.log(`- [${f.severity}] ${f.ruleId}${pathPart}: ${f.message}`);
   }
 };
 

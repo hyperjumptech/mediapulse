@@ -88,6 +88,43 @@ describe("runCursorPrReview", () => {
     expect(result.findings).toEqual([]);
   });
 
+  it("allows conventional filenames that are not kebab-case (Dockerfile, *.test.ts, *.config.ts, env.*.example)", async () => {
+    // Setup
+    const listChangedFiles = async () => [
+      {
+        status: "A",
+        filePath: "apps/mediapulse/agents/query-analysis/Dockerfile",
+      },
+      {
+        status: "A",
+        filePath: "apps/mediapulse/agents/query-analysis/tests/index.test.ts",
+      },
+      {
+        status: "A",
+        filePath: "apps/mediapulse/agents/query-analysis/vitest.config.ts",
+      },
+      {
+        status: "A",
+        filePath: "packages/mediapulse/env/env.agents.query-analysis.example",
+      },
+    ];
+    const readTextFile = async () => "// placeholder: no exports";
+
+    // Act
+    const result = await runCursorPrReview(
+      { listChangedFiles, readTextFile },
+      { baseRef: "origin/main", headRef: "HEAD" },
+    );
+
+    // Assert
+    const kebabErrors = result.findings.filter(
+      (f) =>
+        f.ruleId === "typescript-javascript-standards" &&
+        f.message.includes("kebab-case"),
+    );
+    expect(kebabErrors).toEqual([]);
+  });
+
   it("flags process.env usage in changed TS/JS-like files", async () => {
     // Setup
     const listChangedFiles = async () => [
@@ -99,7 +136,7 @@ describe("runCursorPrReview", () => {
     const readTextFile = async (filePath: string) =>
       filePath.endsWith(".d.ts")
         ? "declare const x: string;"
-        : "const x = process.env.SECRET;";
+        : "const line1 = 1;\nconst x = process.env.SECRET;";
 
     // Act
     const result = await runCursorPrReview(
@@ -113,16 +150,19 @@ describe("runCursorPrReview", () => {
         ruleId: "env-variables",
         severity: "error",
         filePath: "apps/x/src/foo.ts",
+        line: 2,
       }),
       expect.objectContaining({
         ruleId: "env-variables",
         severity: "error",
         filePath: "apps/x/src/bar.tsx",
+        line: 2,
       }),
       expect.objectContaining({
         ruleId: "env-variables",
         severity: "error",
         filePath: "apps/x/src/baz.js",
+        line: 2,
       }),
     ]);
   });
@@ -153,6 +193,7 @@ describe("runCursorPrReview", () => {
         ruleId: "react-custom-hooks",
         severity: "error",
         filePath: "apps/x/src/component.tsx",
+        line: 4,
       }),
     ]);
   });
@@ -263,11 +304,13 @@ describe("runCursorPrReview", () => {
         ruleId: "prisma-strong-typing",
         severity: "warning",
         filePath: "packages/x/src/query.ts",
+        line: 3,
       }),
       expect.objectContaining({
         ruleId: "prisma-strong-typing",
         severity: "warning",
         filePath: "packages/x/src/query.ts",
+        line: 3,
       }),
     ]);
   });
@@ -290,7 +333,9 @@ describe("runCursorPrReview", () => {
 
     // Assert
     expect(
-      result.findings.some((f) => f.ruleId === "prisma-strong-typing"),
+      result.findings.some(
+        (f) => f.ruleId === "prisma-strong-typing" && f.line === 3,
+      ),
     ).toBe(true);
   });
 

@@ -11,6 +11,7 @@
  *   severity: CursorPrReviewSeverity;
  *   message: string;
  *   filePath?: string;
+ *   line?: number;
  * }>} CursorPrReviewFinding
  *
  * @typedef {Readonly<{ findings: readonly CursorPrReviewFinding[] }>} CursorPrReviewResult
@@ -36,12 +37,85 @@ const isTsx = (filePath) => /\.tsx$/.test(filePath);
 const isReviewableSourceFile = (filePath) =>
   isTsJsLike(filePath) && !/\.test\.(ts|tsx|js|jsx)$/.test(filePath);
 
+const KEBAB_STEM_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** Basenames that are conventionally not kebab-case filenames. */
+const EXEMPT_BASE_NAMES_LOWER = new Set([
+  "dockerfile",
+  "containerfile",
+  "makefile",
+  "gemfile",
+  "rakefile",
+]);
+
+/**
+ * Returns the stem that must satisfy {@link KEBAB_STEM_RE}, or `null` when exempt.
+ * Uses the real basename casing so `BadName.ts` does not become a false negative.
+ *
+ * @param {string} base
+ * @returns {string | null}
+ */
+const kebabStemOrExempt = (base) => {
+  const baseLower = base.toLowerCase();
+  if (EXEMPT_BASE_NAMES_LOWER.has(baseLower)) return null;
+  if (baseLower === "dockerfile" || baseLower.startsWith("dockerfile."))
+    return null;
+
+  // Env example fragments: `env.<pkg-id>.example`
+  if (/^env\.[a-z0-9.-]+\.example$/i.test(base)) return null;
+
+  const testMatch = base.match(/^(.+)\.test\.(ts|tsx|js|jsx)$/i);
+  if (testMatch?.[1]) return testMatch[1];
+
+  const specMatch = base.match(/^(.+)\.spec\.(ts|tsx|js|jsx)$/i);
+  if (specMatch?.[1]) return specMatch[1];
+
+  const configMatch = base.match(/^(.+)\.config\.(ts|tsx|mjs|cjs|js)$/i);
+  if (configMatch?.[1]) return configMatch[1];
+
+  return base.replace(/\.[^.]+$/, "");
+};
+
+/**
+ * @param {string} filePath
+ * @returns {boolean}
+ */
 const isKebabCaseBasename = (filePath) => {
   const base = filePath.split("/").at(-1) ?? "";
   if (base.length === 0) return true;
   if (base.startsWith(".")) return true;
-  const stem = base.replace(/\.[^.]+$/, "");
-  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(stem);
+
+  const stem = kebabStemOrExempt(base);
+  if (stem === null) return true;
+  if (stem.length === 0) return true;
+  return KEBAB_STEM_RE.test(stem);
+};
+
+/**
+ * 1-based line number of the first match of `re` in `text` (non-global `re` recommended).
+ *
+ * @param {string} text
+ * @param {RegExp} re
+ * @returns {number | undefined}
+ */
+const firstLineOfRegexMatch = (text, re) => {
+  const flags = re.flags.replaceAll("g", "");
+  const m = new RegExp(re.source, flags).exec(text);
+  if (!m || m.index === undefined) return undefined;
+  return text.slice(0, m.index).split("\n").length;
+};
+
+/**
+ * @param {string} text
+ * @param {(line: string) => boolean} predicate
+ * @returns {number | undefined}
+ */
+const firstLineWhere = (text, predicate) => {
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (predicate(lines[i] ?? "")) return i + 1;
+  }
+  return undefined;
 };
 
 /**
@@ -117,6 +191,7 @@ const collectMissingJsDocFindingsForExports = (text, filePath) => {
       ruleId: "typescript-javascript-standards",
       severity: "warning",
       filePath,
+      line: idx + 1,
       message:
         "Exported functions should have a preceding JSDoc block (typescript-javascript-standards).",
     });
@@ -150,11 +225,14 @@ const collectMissingCoLocatedTestFindings = (filePath, changed, text) => {
 
   if (hasTest) return [];
 
+  const exportLine = firstLineWhere(text, (line) => /\bexport\b/.test(line));
+
   return [
     {
       ruleId: "typescript-javascript-standards",
       severity: "warning",
       filePath,
+      ...(exportLine !== undefined ? { line: exportLine } : {}),
       message:
         "New module exports but has no co-located *.test.ts / *.test.tsx next to it (typescript-javascript-standards).",
     },
@@ -197,10 +275,12 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (!isTsJsLike(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
     if (/\bprocess\.env\b/.test(text)) {
+      const line = firstLineOfRegexMatch(text, /\bprocess\.env\b/);
       findings.push({
         ruleId: "env-variables",
         severity: "error",
         filePath: f.filePath,
+        ...(line !== undefined ? { line } : {}),
         message:
           "Do not use process.env directly; use @hermes/env or @mediapulse/env.",
       });
@@ -235,10 +315,15 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (!isTsx(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
     if (/\buseState\s*\(/.test(text) || /\buseEffect\s*\(/.test(text)) {
+      const line = firstLineWhere(
+        text,
+        (ln) => /\buseState\s*\(/.test(ln) || /\buseEffect\s*\(/.test(ln),
+      );
       findings.push({
         ruleId: "react-custom-hooks",
         severity: "error",
         filePath: f.filePath,
+        ...(line !== undefined ? { line } : {}),
         message:
           "React components must not use useState/useEffect directly; move state/effects into custom hooks.",
       });
@@ -277,34 +362,38 @@ export const runCursorPrReview = async (collaborators, options) => {
     const looksLikePrisma = /\bPrisma\b/.test(text) || /\bprisma\./.test(text);
     if (!looksLikePrisma) continue;
 
-    if (
-      /\bprisma\.\w+\.(findMany|findFirst|findUnique|createMany|create|updateMany|update|deleteMany|delete|upsert|count|aggregate|groupBy)\s*\(\s*\{/.test(
-        text,
-      )
-    ) {
+    const prismaInlineRe =
+      /\bprisma\.\w+\.(findMany|findFirst|findUnique|createMany|create|updateMany|update|deleteMany|delete|upsert|count|aggregate|groupBy)\s*\(\s*\{/;
+    if (prismaInlineRe.test(text)) {
+      const line = firstLineOfRegexMatch(text, prismaInlineRe);
       findings.push({
         ruleId: "prisma-strong-typing",
         severity: "warning",
         filePath: f.filePath,
+        ...(line !== undefined ? { line } : {}),
         message:
           "Prefer extracting Prisma query args into a variable typed with `satisfies Prisma.*Args` instead of inline `{ ... }` objects in delegate calls.",
       });
     }
 
     if (/\bas unknown as\b/.test(text)) {
+      const line = firstLineOfRegexMatch(text, /\bas unknown as\b/);
       findings.push({
         ruleId: "prisma-strong-typing",
         severity: "warning",
         filePath: f.filePath,
+        ...(line !== undefined ? { line } : {}),
         message:
           "Avoid broad `as unknown as` casts around Prisma types; prefer generated Prisma helpers and `satisfies`.",
       });
     }
     if (/\b:\s*any\b/.test(text)) {
+      const line = firstLineOfRegexMatch(text, /\b:\s*any\b/);
       findings.push({
         ruleId: "prisma-strong-typing",
         severity: "warning",
         filePath: f.filePath,
+        ...(line !== undefined ? { line } : {}),
         message:
           "Avoid `any` in Prisma-related code; use generated Prisma args/payload helpers and typed delegates.",
       });

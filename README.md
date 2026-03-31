@@ -38,6 +38,8 @@ For a fast, diff-scoped check against `.cursor/rules` (kebab-case filenames, `pr
 pnpm cursor:review -- --base origin/main --head HEAD
 ```
 
+To review an arbitrary PR, pass that PR’s `baseRefOid` / `headRefOid` from `gh pr view <n> --json baseRefOid,headRefOid`, then `git fetch` so those commits exist locally. File contents are read from **`git show <head>:path`**, so your working tree does not need to be checked out to the PR branch.
+
 Optional, non-deterministic AI commentary (requires `OPENAI_API_KEY`, and in CI `OPENAI_MODEL` if you want to override the default):
 
 ```bash
