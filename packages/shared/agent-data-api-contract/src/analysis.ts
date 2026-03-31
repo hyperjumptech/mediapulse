@@ -3,7 +3,7 @@ import { z } from "zod";
 const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
 
 export const getAnalysisQuerySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
   unanalyzed: z
     .enum(["true", "false"])
     .optional()
@@ -11,7 +11,7 @@ export const getAnalysisQuerySchema = z.object({
 });
 
 export const postAnalysisBodySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
   entities: z
     .array(
       z.object({
@@ -59,7 +59,7 @@ export const analysisDataSourceSchema = z.object({
   url: z.string(),
   title: z.string(),
   content: z.string(),
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
   createdAt: z.coerce.date(),
 });
 

@@ -1,11 +1,13 @@
+/** @vitest-environment node */
+
 import { describe, expect, it } from "vitest";
 
 import {
   dataCollectionAgentConfigSchema,
   getConfigSchema,
-} from "../src/utilities/config-schema.js";
+} from "./config-schema";
 
-describe("config", () => {
+describe("getConfigSchema", () => {
   it("returns wrapped JSON schema with agentId", () => {
     // Act
     const result = getConfigSchema();
@@ -15,7 +17,9 @@ describe("config", () => {
     expect(result.schema).toHaveProperty("type", "object");
     expect(result.schema).toHaveProperty("properties");
   });
+});
 
+describe("dataCollectionAgentConfigSchema", () => {
   it("accepts a minimal valid config object", () => {
     // Setup
     const config = {

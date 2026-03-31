@@ -1,11 +1,13 @@
+/** @vitest-environment node */
+
 import { describe, expect, it } from "vitest";
 
-import { toDataSources } from "../src/utilities/data-sources.js";
+import { type CollectedPageForSource, toDataSources } from "./data-sources";
 
 describe("toDataSources", () => {
   it("maps collected pages to DataCollectionInput with metadata", () => {
     // Setup
-    const pages = [
+    const pages: CollectedPageForSource[] = [
       {
         url: "http://example.com",
         title: "Title",
@@ -14,7 +16,7 @@ describe("toDataSources", () => {
         searchQueryId: "q1",
         searchQueryText: "query",
       },
-    ] as any;
+    ];
 
     const fixedDate = new Date("2024-01-01T00:00:00.000Z");
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const dataCollectionQuerySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
   start: z.string().datetime().optional(),
   end: z.string().datetime().optional(),
 });
@@ -11,7 +11,7 @@ const dataCollectionInputSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
   content: z.string(),
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
   searchQueryId: z.string().uuid(),
 });
 
@@ -22,7 +22,7 @@ export const getDataCollectionResponseSchema = z.object({
     z.object({
       id: z.string().uuid(),
       text: z.string(),
-      tickerId: z.string().uuid(),
+      tickerId: z.string().trim().min(1),
     }),
   ),
 });

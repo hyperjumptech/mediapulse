@@ -12,6 +12,14 @@ const webSearchSchema = z.object({
     requests: z.number(),
     perSeconds: z.number(),
   }),
+  timeoutMs: z.number().int().positive().optional(),
+  retry: z
+    .object({
+      maxAttempts: z.number().int().nonnegative(),
+      baseDelayMs: z.number().int().positive(),
+      maxDelayMs: z.number().int().positive(),
+    })
+    .optional(),
 });
 
 const webFetchSchema = z.object({
@@ -25,16 +33,31 @@ const webFetchSchema = z.object({
     requests: z.number(),
     perSeconds: z.number(),
   }),
+  timeoutMs: z.number().int().positive().optional(),
+  retry: z
+    .object({
+      maxAttempts: z.number().int().nonnegative(),
+      baseDelayMs: z.number().int().positive(),
+      maxDelayMs: z.number().int().positive(),
+    })
+    .optional(),
 });
 
+/** Zod schema for agent config: web search/fetch providers, optional run policy. */
 export const ConfigSchema = z.object({
   webSearch: webSearchSchema,
   webFetch: webFetchSchema,
+  runPolicy: z
+    .object({
+      minSuccessfulSources: z.number().int().nonnegative(),
+      failOnZeroSuccess: z.boolean(),
+    })
+    .optional(),
 });
 
 export const dataCollectionAgentConfigSchema = ConfigSchema;
 
-export type DataCollectionAgentConfig = z.infer<typeof ConfigSchema>;
+export type ConfigSchemaType = z.infer<typeof ConfigSchema>;
 
 /**
  * Minimal JSON Schema type used for the /config response.

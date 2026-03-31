@@ -34,7 +34,7 @@ export const relationTypesDashboardPage = {
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["name", "description"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["name", "createdAt"]),
-  actions: { create: true, update: true, delete: true },
+  actions: { create: true, update: true, delete: true, view: false },
   createSchema: relationTypeCreateFormJsonSchema,
   updateSchema: relationTypeUpdateFormJsonSchema,
 } satisfies DashboardPageInput;

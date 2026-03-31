@@ -1,23 +1,61 @@
 import got from "got";
 import { z } from "zod";
-import { sleep } from "@workspace/utils";
+import { logger as defaultLogger } from "@workspace/logger";
+import { RateLimiter, withRetry } from "./resilience";
+import { classifyError, isRetryableError } from "./error-classification";
 
-import type { WebSearchResult } from "./web-search.js";
+import type { WebSearchResult } from "./web-search";
+import type { ConfigSchemaType } from "./config-schema";
+import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
+
+export interface WebFetchSuccess {
+  success: true;
+  data: WebSearchResult;
+}
+
+export interface WebFetchFailure {
+  success: false;
+  url: string;
+  queryId: string;
+  tickerId: string;
+  errorCategory: DataCollectionFailure["errorCategory"];
+  message: string;
+  retryable: boolean;
+  httpStatus?: number;
+}
+
+export type WebFetchAttemptResult = WebFetchSuccess | WebFetchFailure;
+
+/** Minimal structured logger for web-fetch (e.g. pino or pino child). */
+export type WebFetchLogger = {
+  info: (obj: object, msg?: string) => void;
+  warn: (obj: object, msg?: string) => void;
+};
 
 export interface WebFetchDeps {
-  /**
-   * Jina AI API key used for content extraction.
-   */
-  jinaApiKey: string;
-  /**
-   * HTTP client implementation; defaults to got.
-   */
+  config: NonNullable<ConfigSchemaType["webFetch"]>;
   gotClient?: typeof got;
+  /** Logger with run correlation; defaults to workspace logger. */
+  logger?: WebFetchLogger;
+}
+
+/**
+ * Truncates a URL for log fields so long query strings do not flood logs.
+ *
+ * @param url - Full URL.
+ * @param maxChars - Maximum length before truncation.
+ * @returns Shortened URL with an ellipsis when truncated.
+ */
+function truncateUrlForLog(url: string, maxChars = 120): string {
+  if (url.length <= maxChars) {
+    return url;
+  }
+  return `${url.slice(0, maxChars)}…`;
 }
 
 /** Zod schema for Jina AI Reader API response data object. */
 const jinaDataSchema = z.object({
-  url: z.string().optional(),
+  url: z.string().url().optional(),
   title: z.string().optional(),
   content: z.string().optional(),
 });
@@ -31,52 +69,110 @@ export type WebFetchResponse = z.infer<typeof webFetchResponseSchema>;
 
 /**
  * Fetches and enriches web page contents for each search result using the Jina AI API.
+ * Uses config-driven limits, retries, and yields partial success items.
  *
  * @param searchResults - Search results without full content.
- * @param deps - Dependencies including the Jina API key and HTTP client.
- * @returns A list of collected pages with full content populated.
+ * @param deps - Dependencies including runtime configuration and optional correlated `logger`.
+ * @returns A list of web fetch attempt results.
  */
 export async function performWebFetch(
   searchResults: WebSearchResult[],
   deps: WebFetchDeps,
-): Promise<WebSearchResult[]> {
-  const { jinaApiKey, gotClient = got } = deps;
+): Promise<WebFetchAttemptResult[]> {
+  const { config, gotClient = got, logger: logOpt } = deps;
+  const log = logOpt ?? defaultLogger;
+  const results: WebFetchAttemptResult[] = [];
 
-  const pages: WebSearchResult[] = [];
+  log.info({ urlCount: searchResults.length }, "web fetch: starting");
 
-  for (let index = 0; index < searchResults.length; index++) {
-    if (index > 0 && index % 2 === 0) {
-      await sleep(1_000);
-    }
+  const rateLimiter = new RateLimiter(
+    config.rateLimit.requests,
+    config.rateLimit.perSeconds,
+  );
 
-    const result = searchResults[index];
-
-    if (!result) {
-      continue;
-    }
-
-    const raw = await gotClient
-      .post("https://r.jina.ai/", {
-        json: { url: result.url },
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jinaApiKey}`,
-        },
-      })
-      .json<unknown>();
-
-    const json = webFetchResponseSchema.parse(raw);
-
-    pages.push({
-      url: json.data?.url ?? result.url,
-      title: json.data?.title ?? result.title,
-      content: json.data?.content ?? "",
-      tickerId: result.tickerId,
-      searchQueryId: result.searchQueryId,
-      searchQueryText: result.searchQueryText,
-    });
+  const authHeaders: Record<string, string> = {};
+  if (config.authentication.apiKey && config.authentication.headerName) {
+    const prefix = config.authentication.type === "bearer" ? "Bearer " : "";
+    authHeaders[config.authentication.headerName] =
+      `${prefix}${config.authentication.apiKey}`;
   }
 
-  return pages;
+  // ensure trailing slash if required by fetcher or handle path correctly
+  const endpoint = config.baseUrl;
+
+  for (const result of searchResults) {
+    try {
+      await rateLimiter.acquire();
+
+      const fetchTask = async () => {
+        const raw = await gotClient
+          .post(endpoint, {
+            json: { url: result.url },
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              ...authHeaders,
+            },
+            timeout: config.timeoutMs
+              ? { request: config.timeoutMs }
+              : undefined,
+          })
+          .json<unknown>();
+
+        const parsed = webFetchResponseSchema.safeParse(raw);
+        if (!parsed.success) {
+          throw parsed.error;
+        }
+
+        const data = parsed.data.data;
+        if (!data || !data.content || data.content.trim() === "") {
+          throw new Error("Semantic validation failed");
+        }
+
+        return data;
+      };
+
+      const data = config.retry
+        ? await withRetry(fetchTask, config.retry, isRetryableError)
+        : await fetchTask();
+
+      results.push({
+        success: true,
+        data: {
+          url: data.url ?? result.url,
+          title: data.title ?? result.title,
+          content: data.content ?? "",
+          tickerId: result.tickerId,
+          searchQueryId: result.searchQueryId,
+          searchQueryText: result.searchQueryText,
+        },
+      });
+    } catch (e) {
+      const classified = classifyError(e);
+      log.warn(
+        {
+          searchQueryId: result.searchQueryId,
+          url: truncateUrlForLog(result.url),
+          errorCategory: classified.category,
+          retryable: isRetryableError(e),
+          ...(classified.httpStatus !== undefined
+            ? { httpStatus: classified.httpStatus }
+            : {}),
+        },
+        "web fetch: URL failed",
+      );
+      results.push({
+        success: false,
+        url: result.url,
+        queryId: result.searchQueryId,
+        tickerId: result.tickerId,
+        errorCategory: classified.category,
+        message: classified.message,
+        retryable: isRetryableError(e),
+        httpStatus: classified.httpStatus,
+      });
+    }
+  }
+
+  return results;
 }

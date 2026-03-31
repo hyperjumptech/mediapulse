@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+/** Validates the agent run body: required ticker and optional ISO time window. */
 export const BodySchema = z.object({
   tickerId: z.string(),
   timeWindow: z

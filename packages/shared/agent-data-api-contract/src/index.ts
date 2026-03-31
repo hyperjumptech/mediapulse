@@ -71,4 +71,30 @@ export {
   type PostQueryAnalysisBody,
   type PostQueryAnalysisResponse,
 } from "./query-analysis.js";
+export {
+  dataCollectionFailureErrorCategorySchema,
+  dataCollectionFailureInputSchema,
+  dataCollectionFailureQuerySchema,
+  getDataCollectionFailureResponseSchema,
+  postDataCollectionFailureBodySchema,
+  postDataCollectionFailureResponseSchema,
+  type DataCollectionFailure,
+  type DataCollectionFailureBody,
+  type DataCollectionFailureQuery,
+  type GetDataCollectionFailureResponse,
+  type PostDataCollectionFailureResponse,
+} from "./data-collection-failure.js";
+export {
+  dataCollectionRunInputSchema,
+  dataCollectionRunQuerySchema,
+  dataCollectionRunStatusSchema,
+  getDataCollectionRunResponseSchema,
+  postDataCollectionRunBodySchema,
+  postDataCollectionRunResponseSchema,
+  type DataCollectionRun,
+  type DataCollectionRunBody,
+  type DataCollectionRunQuery,
+  type GetDataCollectionRunResponse,
+  type PostDataCollectionRunResponse,
+} from "./data-collection-run.js";
 export * from "./user-registration.js";

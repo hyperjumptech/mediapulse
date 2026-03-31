@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 export const getQueryAnalysisQuerySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
 });
 
 export const postQueryAnalysisBodySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
   queries: z.array(
     z.object({
       text: z.string().trim().min(1),

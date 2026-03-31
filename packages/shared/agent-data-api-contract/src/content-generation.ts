@@ -1,14 +1,14 @@
 import { z } from "zod";
 
 export const getContentGenerationQuerySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
 });
 
 export const postContentGenerationBodySchema = z.object({
   subject: z.string(),
   description: z.string().optional(),
   content: z.string(),
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
 });
 
 export const contentGenerationDataSourceSchema = z
@@ -16,7 +16,7 @@ export const contentGenerationDataSourceSchema = z
     url: z.string(),
     title: z.string(),
     content: z.string(),
-    tickerId: z.string().uuid(),
+    tickerId: z.string().trim().min(1),
     searchQueryId: z.string().uuid(),
     description: z.string().nullable().optional(),
   })

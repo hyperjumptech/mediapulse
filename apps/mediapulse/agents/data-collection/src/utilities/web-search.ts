@@ -1,6 +1,10 @@
 import got from "got";
 import { z } from "zod";
-import { sleep } from "@workspace/utils";
+import { logger as defaultLogger } from "@workspace/logger";
+import { RateLimiter, withRetry } from "./resilience";
+import { classifyError, isRetryableError } from "./error-classification";
+import type { ConfigSchemaType } from "./config-schema";
+import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
 
 export interface SearchQuery {
   id: string;
@@ -21,14 +25,40 @@ export interface WebSearchResult {
   searchQueryText: string;
 }
 
+export interface WebSearchSuccess {
+  success: true;
+  data: WebSearchResult;
+}
+
+export interface WebSearchFailure {
+  success: false;
+  queryId: string;
+  queryText: string;
+  tickerId: string;
+  errorCategory: DataCollectionFailure["errorCategory"];
+  message: string;
+  retryable: boolean;
+  httpStatus?: number;
+}
+
+export type WebSearchAttemptResult = WebSearchSuccess | WebSearchFailure;
+
+/** Minimal structured logger for web-search (e.g. pino or pino child). */
+export type WebSearchLogger = {
+  info: (obj: object, msg?: string) => void;
+  warn: (obj: object, msg?: string) => void;
+};
+
 export interface WebSearchDeps {
-  serperApiKey: string;
+  config: NonNullable<ConfigSchemaType["webSearch"]>;
   gotClient?: typeof got;
+  /** Logger with run correlation; defaults to workspace logger. */
+  logger?: WebSearchLogger;
 }
 
 /** Zod schema for Serper.dev API organic search result item. */
 const serperOrganicItemSchema = z.object({
-  link: z.string().optional(),
+  link: z.string().url().optional(),
   title: z.string().optional(),
   snippet: z.string().optional(),
 });
@@ -41,44 +71,107 @@ export const serperResponseSchema = z.object({
 export type SerperResponse = z.infer<typeof serperResponseSchema>;
 
 /**
- * Performs web search for each query using the Serper.dev API and returns a web search result per query.
+ * Performs web search for each query using the configured provider.
+ * Uses config-driven limits, retries, and yields partial success items.
  *
  * @param queries - Search queries retrieved from the Agent Data API.
- * @param deps - Dependencies including the Serper API key.
- * @returns A list of web search results.
+ * @param deps - Dependencies including runtime configuration and optional correlated `logger`.
+ * @returns A list of web search attempt results.
  */
 export async function performWebSearch(
   queries: SearchQuery[],
   deps: WebSearchDeps,
-): Promise<WebSearchResult[]> {
-  const { serperApiKey, gotClient = got } = deps;
-  const results: WebSearchResult[] = [];
+): Promise<WebSearchAttemptResult[]> {
+  const { config, gotClient = got, logger: logOpt } = deps;
+  const log = logOpt ?? defaultLogger;
+  const results: WebSearchAttemptResult[] = [];
 
-  for (const [index, query] of queries.entries()) {
-    if (index > 0 && index % 2 === 0) {
-      await sleep(1_000);
-    }
+  log.info({ queryCount: queries.length }, "web search: starting");
 
-    const raw = await gotClient
-      .post("https://google.serper.dev/search", {
-        json: { q: query.text },
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-KEY": serperApiKey,
+  const rateLimiter = new RateLimiter(
+    config.rateLimit.requests,
+    config.rateLimit.perSeconds,
+  );
+
+  const authHeaders: Record<string, string> = {};
+  if (config.authentication.apiKey && config.authentication.headerName) {
+    const prefix = config.authentication.type === "bearer" ? "Bearer " : "";
+    authHeaders[config.authentication.headerName] =
+      `${prefix}${config.authentication.apiKey}`;
+  }
+
+  for (const query of queries) {
+    try {
+      await rateLimiter.acquire();
+
+      const fetchTask = async () => {
+        const raw = await gotClient
+          .post(config.baseUrl, {
+            json: { q: query.text },
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeaders,
+            },
+            timeout: config.timeoutMs
+              ? { request: config.timeoutMs }
+              : undefined,
+          })
+          .json<unknown>();
+
+        const parsed = serperResponseSchema.safeParse(raw);
+        if (!parsed.success) {
+          throw parsed.error;
+        }
+
+        const organic = parsed.data.organic ?? [];
+        if (organic.length === 0) {
+          throw new Error("Semantic validation failed");
+        }
+        return organic;
+      };
+
+      const organic = config.retry
+        ? await withRetry(fetchTask, config.retry, isRetryableError)
+        : await fetchTask();
+
+      for (const item of organic) {
+        if (!item.link) {
+          continue;
+        }
+        results.push({
+          success: true,
+          data: {
+            url: item.link,
+            title: item.title ?? "",
+            content: item.snippet ?? "",
+            tickerId: query.tickerId,
+            searchQueryId: query.id,
+            searchQueryText: query.text,
+          },
+        });
+      }
+    } catch (e) {
+      const classified = classifyError(e);
+      log.warn(
+        {
+          queryId: query.id,
+          errorCategory: classified.category,
+          retryable: isRetryableError(e),
+          ...(classified.httpStatus !== undefined
+            ? { httpStatus: classified.httpStatus }
+            : {}),
         },
-      })
-      .json<unknown>();
-
-    const response = serperResponseSchema.parse(raw);
-
-    for (const item of response.organic ?? []) {
+        "web search: query failed",
+      );
       results.push({
-        url: item.link ?? "",
-        title: item.title ?? "",
-        content: item.snippet ?? "",
+        success: false,
+        queryId: query.id,
+        queryText: query.text,
         tickerId: query.tickerId,
-        searchQueryId: query.id,
-        searchQueryText: query.text,
+        errorCategory: classified.category,
+        message: classified.message,
+        retryable: isRetryableError(e),
+        httpStatus: classified.httpStatus,
       });
     }
   }

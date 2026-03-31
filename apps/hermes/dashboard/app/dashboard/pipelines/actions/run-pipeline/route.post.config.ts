@@ -12,6 +12,7 @@ import {
   computeExecutionRunStatusFromStepRollups,
   computeStepRollupFromCounts,
   mergeExecutionConfig,
+  parseAgentResponseEnvelope,
   planPipelineInvocations,
   type ExpandStepInputs,
 } from "@hermes/scheduler";
@@ -104,6 +105,24 @@ export const detailFromAgentErrorBody = (body: unknown): string => {
     if (typeof msg === "string" && msg.length > 0) return msg;
   }
   return "Unknown error (see agent logs)";
+};
+
+/**
+ * Normalizes a `got` response body to a string for {@link parseAgentResponseEnvelope}.
+ *
+ * @param body - Raw string, parsed JSON, or nullish from `throwHttpErrors: false` responses.
+ */
+export const agentHttpBodyToRawString = (
+  body: unknown,
+): { raw: string; isEmpty: boolean } => {
+  if (body === null || body === undefined) {
+    return { raw: "", isEmpty: true };
+  }
+  if (typeof body === "string") {
+    const trimmed = body.trim();
+    return { raw: body, isEmpty: trimmed === "" };
+  }
+  return { raw: JSON.stringify(body), isEmpty: false };
 };
 
 const defaultGetToken =
@@ -397,6 +416,92 @@ export const createRunPipelineHandler = ({
               body?: unknown;
             };
             if (response.ok === true) {
+              const { raw: rawBody, isEmpty: isEmptyBody } =
+                agentHttpBodyToRawString(response.body);
+              const parsed = parseAgentResponseEnvelope(rawBody, isEmptyBody);
+              if (!parsed.ok) {
+                const detail = parsed.error.message;
+                logRunPipelineIssue(
+                  "agent-envelope",
+                  pipeline.id,
+                  "Agent HTTP 200 but response body is not a valid Hermes envelope",
+                  {
+                    jobId: job.jobId,
+                    pipelineStepId: step.id,
+                    agentId: step.agentId,
+                    agentVersion: step.agentVersion,
+                    endpointUrl: job.endpointUrl,
+                    code: parsed.error.code,
+                    detail,
+                  },
+                );
+                const stats = stepStats.get(step.id);
+                if (stats) stats.failedCount += 1;
+                errors.push({
+                  step: `${step.agentId}@${step.agentVersion}`,
+                  detail,
+                  code: 200,
+                  jobId: job.jobId,
+                });
+                await db.agentJobExecution.update({
+                  where: { jobId: job.jobId },
+                  data: {
+                    status: "failed",
+                    completedAt: now(),
+                    error: {
+                      message: detail,
+                      code: parsed.error.code,
+                      jobId: job.jobId,
+                      retryable: false,
+                    },
+                    agentResponse: Prisma.DbNull,
+                    semanticStatus: "failure",
+                  },
+                });
+                continue;
+              }
+              if (parsed.envelope.status === "failure") {
+                const detail =
+                  parsed.envelope.message ?? "Agent reported semantic failure";
+                logRunPipelineIssue(
+                  "agent-semantic",
+                  pipeline.id,
+                  "Agent returned HTTP 200 with envelope status failure",
+                  {
+                    jobId: job.jobId,
+                    pipelineStepId: step.id,
+                    agentId: step.agentId,
+                    agentVersion: step.agentVersion,
+                    endpointUrl: job.endpointUrl,
+                    detail,
+                  },
+                );
+                const stats = stepStats.get(step.id);
+                if (stats) stats.failedCount += 1;
+                errors.push({
+                  step: `${step.agentId}@${step.agentVersion}`,
+                  detail,
+                  code: 200,
+                  jobId: job.jobId,
+                });
+                await db.agentJobExecution.update({
+                  where: { jobId: job.jobId },
+                  data: {
+                    status: "failed",
+                    completedAt: now(),
+                    error: {
+                      message: detail,
+                      retryable: false,
+                      semantic: true,
+                      jobId: job.jobId,
+                    },
+                    agentResponse:
+                      parsed.envelope as unknown as Prisma.InputJsonValue,
+                    semanticStatus: "failure",
+                  },
+                });
+                continue;
+              }
               const stats = stepStats.get(step.id);
               if (stats) stats.succeededCount += 1;
               await db.agentJobExecution.update({
@@ -406,8 +511,7 @@ export const createRunPipelineHandler = ({
                   completedAt: now(),
                   error: Prisma.DbNull,
                   agentResponse:
-                    (response.body as Prisma.InputJsonValue | undefined) ??
-                    Prisma.DbNull,
+                    parsed.envelope as unknown as Prisma.InputJsonValue,
                   semanticStatus: "success",
                 },
               });
