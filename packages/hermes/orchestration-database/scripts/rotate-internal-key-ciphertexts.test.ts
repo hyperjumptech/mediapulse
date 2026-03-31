@@ -48,7 +48,7 @@ describe("rotateInternalKeyCiphertexts", () => {
           ciphertext: "cipher-di",
           domainIntegrationId: "di-1",
           variableId: null,
-          domainIntegration: { key: "news" },
+          domainIntegration: { integrationId: "news" },
           variable: null,
         },
         {
@@ -99,7 +99,7 @@ describe("rotateInternalKeyCiphertexts", () => {
           ciphertext: "cipher-di",
           domainIntegrationId: "di-1",
           variableId: null,
-          domainIntegration: { key: "news" },
+          domainIntegration: { integrationId: "news" },
           variable: null,
         },
         {

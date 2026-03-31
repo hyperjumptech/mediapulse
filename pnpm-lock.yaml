@@ -657,6 +657,58 @@ importers:
         specifier: 'catalog:'
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
+  apps/mediapulse/agents/user-registration:
+    dependencies:
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../../../../packages/mediapulse/env
+      '@mediapulse/outlook-inbox':
+        specifier: workspace:*
+        version: link:../../../../packages/mediapulse/outlook-inbox
+      '@workspace/agent-auth-client':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-auth-client
+      '@workspace/agent-data-api-client':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-data-api-client
+      '@workspace/agent-runtime':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-runtime
+      '@workspace/logger':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/logger
+      got:
+        specifier: 'catalog:'
+        version: 14.6.6
+      hono:
+        specifier: 'catalog:'
+        version: 4.11.9
+      hono-pino:
+        specifier: 'catalog:'
+        version: 0.6.0(hono@4.11.9)(pino@10.3.1)
+      resend:
+        specifier: ^6.9.1
+        version: 6.9.2
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/bun':
+        specifier: latest
+        version: 1.3.11
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/typescript-config
+      dotenv-cli:
+        specifier: 'catalog:'
+        version: 7.4.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+
   apps/mediapulse/domain-api:
     dependencies:
       '@hermes/domain-contract':
@@ -952,6 +1004,9 @@ importers:
       ajv:
         specifier: ^8.17.1
         version: 8.17.1
+      ajv-formats:
+        specifier: ^3.0.1
+        version: 3.0.1(ajv@8.17.1)
       cron-parser:
         specifier: ^5.0.0
         version: 5.5.0

@@ -35,9 +35,9 @@ import type { DashboardUser } from "./dashboard-shell";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   user?: DashboardUser | null;
-  /** Active domain integrations and their manifest pages (keyed URLs). */
+  /** Active domain integrations and their manifest pages (integration id in URL). */
   domainIntegrations?: Array<{
-    key: string;
+    integrationId: string;
     name: string;
     pages: DashboardPage[];
   }>;
@@ -137,14 +137,16 @@ export const AppSidebar = ({
         ))}
 
         {domainIntegrations.map((integration) => (
-          <SidebarGroup key={integration.key}>
+          <SidebarGroup key={integration.integrationId}>
             <SidebarGroupLabel>{integration.name}</SidebarGroupLabel>
             <SidebarGroupContent className="flex flex-col gap-2">
               <SidebarMenu>
                 {integration.pages.map((page) => {
-                  const href = `/dashboard/${integration.key}/${page.pathSegment}`;
+                  const href = `/dashboard/${integration.integrationId}/${page.pathSegment}`;
                   return (
-                    <SidebarMenuItem key={`${integration.key}-${page.id}`}>
+                    <SidebarMenuItem
+                      key={`${integration.integrationId}-${page.id}`}
+                    >
                       <SidebarMenuButton
                         asChild
                         isActive={

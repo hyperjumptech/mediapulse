@@ -10,7 +10,7 @@ import {
 } from "@hermes/orchestration-database";
 
 import { getDashboardSession } from "./auth-dashboard";
-import { getDomainIntegrationByKey } from "./domain-integrations";
+import { getDomainIntegrationByIntegrationId } from "./domain-integrations";
 import {
   dataSourceExpansionTemplateCreateBodySchema,
   dataSourceExpansionTemplateUpdateBodySchema,
@@ -75,30 +75,30 @@ const nullableText = (value: unknown): string | null => {
 
 export type ListDataSourceExpansionTemplatesDependencies = {
   db?: DataSourceExpansionTemplateDelegate;
-  getIntegration?: typeof getDomainIntegrationByKey;
+  getIntegration?: typeof getDomainIntegrationByIntegrationId;
 };
 
 /**
  * Loads a paginated list of templates for the given integration key.
  *
- * @param integrationKey - Registered domain integration key.
+ * @param integrationId - Registered domain integration key.
  * @param params - Pagination, search, sort.
  * @param dependencies - Injectable DB and integration resolver.
  * @returns Parsed table-v1 list response.
  */
 export const listDataSourceExpansionTemplatesForIntegration = async (
-  integrationKey: string,
+  integrationId: string,
   params: DataSourceExpansionTemplateListParams,
   dependencies: ListDataSourceExpansionTemplatesDependencies = {},
 ): Promise<ReturnType<typeof tableV1ListResponseSchema.parse>> => {
   const db = dependencies.db ?? prisma.dataSourceExpansionTemplate;
   const getIntegration =
-    dependencies.getIntegration ?? getDomainIntegrationByKey;
+    dependencies.getIntegration ?? getDomainIntegrationByIntegrationId;
 
-  const integration = await getIntegration(integrationKey);
+  const integration = await getIntegration(integrationId);
   if (!integration) {
     throw new Error(
-      `Domain integration "${integrationKey}" is not active or not registered`,
+      `Domain integration "${integrationId}" is not active or not registered`,
     );
   }
 
@@ -162,30 +162,30 @@ export const listDataSourceExpansionTemplatesForIntegration = async (
 
 export type GetDataSourceExpansionTemplateByIdDependencies = {
   db?: DataSourceExpansionTemplateDelegate;
-  getIntegration?: typeof getDomainIntegrationByKey;
+  getIntegration?: typeof getDomainIntegrationByIntegrationId;
 };
 
 /**
  * Loads one template by id, scoped to the integration.
  *
- * @param integrationKey - Registered domain integration key.
+ * @param integrationId - Registered domain integration key.
  * @param id - Template id.
  * @param dependencies - Injectable collaborators.
  * @returns Row fields for the edit form, or null if missing.
  */
 export const getDataSourceExpansionTemplateByIdForIntegration = async (
-  integrationKey: string,
+  integrationId: string,
   id: string,
   dependencies: GetDataSourceExpansionTemplateByIdDependencies = {},
 ): Promise<Record<string, unknown> | null> => {
   const db = dependencies.db ?? prisma.dataSourceExpansionTemplate;
   const getIntegration =
-    dependencies.getIntegration ?? getDomainIntegrationByKey;
+    dependencies.getIntegration ?? getDomainIntegrationByIntegrationId;
 
-  const integration = await getIntegration(integrationKey);
+  const integration = await getIntegration(integrationId);
   if (!integration) {
     throw new Error(
-      `Domain integration "${integrationKey}" is not active or not registered`,
+      `Domain integration "${integrationId}" is not active or not registered`,
     );
   }
 
@@ -208,7 +208,7 @@ export const getDataSourceExpansionTemplateByIdForIntegration = async (
 
 export type GetDataSourceExpansionTemplateWithUsageDependencies = {
   db?: DataSourceExpansionTemplateDelegate;
-  getIntegration?: typeof getDomainIntegrationByKey;
+  getIntegration?: typeof getDomainIntegrationByIntegrationId;
   getUsage?: typeof getPipelinesUsingExpansionString;
 };
 
@@ -220,25 +220,25 @@ export type DataSourceExpansionTemplateWithUsage = {
 /**
  * Loads one template by id (scoped to integration) plus reverse usage in pipelines.
  *
- * @param integrationKey - Registered domain integration key.
+ * @param integrationId - Registered domain integration key.
  * @param id - Template id.
  * @param dependencies - Injectable collaborators.
  * @returns Template + pipeline usage, or null if template is missing.
  */
 export const getDataSourceExpansionTemplateByIdWithUsageForIntegration = async (
-  integrationKey: string,
+  integrationId: string,
   id: string,
   dependencies: GetDataSourceExpansionTemplateWithUsageDependencies = {},
 ): Promise<DataSourceExpansionTemplateWithUsage | null> => {
   const db = dependencies.db ?? prisma.dataSourceExpansionTemplate;
   const getIntegration =
-    dependencies.getIntegration ?? getDomainIntegrationByKey;
+    dependencies.getIntegration ?? getDomainIntegrationByIntegrationId;
   const getUsage = dependencies.getUsage ?? getPipelinesUsingExpansionString;
 
-  const integration = await getIntegration(integrationKey);
+  const integration = await getIntegration(integrationId);
   if (!integration) {
     throw new Error(
-      `Domain integration "${integrationKey}" is not active or not registered`,
+      `Domain integration "${integrationId}" is not active or not registered`,
     );
   }
 
@@ -267,26 +267,26 @@ export const getDataSourceExpansionTemplateByIdWithUsageForIntegration = async (
 
 export type CreateDataSourceExpansionTemplateDependencies = {
   db?: DataSourceExpansionTemplateDelegate;
-  getIntegration?: typeof getDomainIntegrationByKey;
+  getIntegration?: typeof getDomainIntegrationByIntegrationId;
   getSession?: typeof getDashboardSession;
 };
 
 /**
  * Creates a template row for the integration.
  *
- * @param integrationKey - Registered domain integration key.
+ * @param integrationId - Registered domain integration key.
  * @param body - Raw JSON body from the create form.
  * @param dependencies - Injectable DB, session, integration resolver.
  * @returns `{ id }` for the table-v1 create flow.
  */
 export const createDataSourceExpansionTemplateForIntegration = async (
-  integrationKey: string,
+  integrationId: string,
   body: Record<string, unknown>,
   dependencies: CreateDataSourceExpansionTemplateDependencies = {},
 ): Promise<{ id: string }> => {
   const db = dependencies.db ?? prisma.dataSourceExpansionTemplate;
   const getIntegration =
-    dependencies.getIntegration ?? getDomainIntegrationByKey;
+    dependencies.getIntegration ?? getDomainIntegrationByIntegrationId;
   const getSession = dependencies.getSession ?? getDashboardSession;
 
   const parsed = dataSourceExpansionTemplateCreateBodySchema.safeParse(body);
@@ -294,10 +294,10 @@ export const createDataSourceExpansionTemplateForIntegration = async (
     throw new Error("Invalid request body");
   }
 
-  const integration = await getIntegration(integrationKey);
+  const integration = await getIntegration(integrationId);
   if (!integration) {
     throw new Error(
-      `Domain integration "${integrationKey}" is not active or not registered`,
+      `Domain integration "${integrationId}" is not active or not registered`,
     );
   }
 
@@ -317,37 +317,37 @@ export const createDataSourceExpansionTemplateForIntegration = async (
 
 export type UpdateDataSourceExpansionTemplateDependencies = {
   db?: DataSourceExpansionTemplateDelegate;
-  getIntegration?: typeof getDomainIntegrationByKey;
+  getIntegration?: typeof getDomainIntegrationByIntegrationId;
 };
 
 /**
  * Updates a template by id (scoped to integration).
  *
- * @param integrationKey - Registered domain integration key.
+ * @param integrationId - Registered domain integration key.
  * @param id - Template id.
  * @param body - Raw JSON body from the edit form.
  * @param dependencies - Injectable collaborators.
  * @returns `{ id }` on success.
  */
 export const updateDataSourceExpansionTemplateForIntegration = async (
-  integrationKey: string,
+  integrationId: string,
   id: string,
   body: Record<string, unknown>,
   dependencies: UpdateDataSourceExpansionTemplateDependencies = {},
 ): Promise<{ id: string }> => {
   const db = dependencies.db ?? prisma.dataSourceExpansionTemplate;
   const getIntegration =
-    dependencies.getIntegration ?? getDomainIntegrationByKey;
+    dependencies.getIntegration ?? getDomainIntegrationByIntegrationId;
 
   const parsed = dataSourceExpansionTemplateUpdateBodySchema.safeParse(body);
   if (!parsed.success) {
     throw new Error("Invalid request body");
   }
 
-  const integration = await getIntegration(integrationKey);
+  const integration = await getIntegration(integrationId);
   if (!integration) {
     throw new Error(
-      `Domain integration "${integrationKey}" is not active or not registered`,
+      `Domain integration "${integrationId}" is not active or not registered`,
     );
   }
 
@@ -372,29 +372,29 @@ export const updateDataSourceExpansionTemplateForIntegration = async (
 
 export type DeleteDataSourceExpansionTemplateDependencies = {
   db?: DataSourceExpansionTemplateDelegate;
-  getIntegration?: typeof getDomainIntegrationByKey;
+  getIntegration?: typeof getDomainIntegrationByIntegrationId;
 };
 
 /**
  * Deletes a template by id (scoped to integration).
  *
- * @param integrationKey - Registered domain integration key.
+ * @param integrationId - Registered domain integration key.
  * @param id - Template id.
  * @param dependencies - Injectable collaborators.
  */
 export const deleteDataSourceExpansionTemplateForIntegration = async (
-  integrationKey: string,
+  integrationId: string,
   id: string,
   dependencies: DeleteDataSourceExpansionTemplateDependencies = {},
 ): Promise<void> => {
   const db = dependencies.db ?? prisma.dataSourceExpansionTemplate;
   const getIntegration =
-    dependencies.getIntegration ?? getDomainIntegrationByKey;
+    dependencies.getIntegration ?? getDomainIntegrationByIntegrationId;
 
-  const integration = await getIntegration(integrationKey);
+  const integration = await getIntegration(integrationId);
   if (!integration) {
     throw new Error(
-      `Domain integration "${integrationKey}" is not active or not registered`,
+      `Domain integration "${integrationId}" is not active or not registered`,
     );
   }
 

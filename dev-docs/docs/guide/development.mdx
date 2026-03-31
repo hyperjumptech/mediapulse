@@ -65,7 +65,7 @@ Use **pnpm** for install/scripts.
 5. `pnpm --filter @hermes/worker run migrate-dataqueue:dev` (unless `--skip-migrations`)
 6. `pnpm create:admin ...` in `apps/hermes/dashboard` (unless `--skip-admin`)
 7. `pnpm seed-local-domain-integration ...` in `apps/hermes/dashboard` — creates a **pending** domain integration row (encrypted API key in DB), same as the dashboard wizard (unless `--skip-admin`)
-8. Writes **`DOMAIN_INTEGRATION_KEY`** and **`DOMAIN_INTEGRATION_API_KEY`** (plaintext once) to **`packages/mediapulse/env/.env`** (unless `--skip-admin` or integration already existed)
+8. Writes **`DOMAIN_INTEGRATION_ID`** and **`DOMAIN_INTEGRATION_API_KEY`** (plaintext once) to **`packages/mediapulse/env/.env`** (unless `--skip-admin` or integration already existed)
 9. Writes the same vars to all `apps/mediapulse/agents/*/.env.local` (unless `--skip-admin` / same caveat as step 8)
 
 ### Services and ports
@@ -106,7 +106,7 @@ For full pipeline runs (data collection, content generation, delivery), add the 
 To let agents register with the registry on startup, set in each agent’s **`apps/mediapulse/agents/<name>/.env.local`**:
 
 - `AGENT_REGISTRY_URL` (e.g. `http://localhost:8082`)
-- `DOMAIN_INTEGRATION_KEY` / `DOMAIN_INTEGRATION_API_KEY` (from **Domain integrations**; `./dev-setup-local.sh` seeds the same as the dashboard wizard)
+- `DOMAIN_INTEGRATION_ID` / `DOMAIN_INTEGRATION_API_KEY` (from **Domain integrations**; `./dev-setup-local.sh` seeds the same as the dashboard wizard)
 - `AGENT_PUBLIC_URL` (e.g. `http://localhost:4001` for data-collection)
 
 ---
@@ -119,7 +119,7 @@ To let agents register with the registry on startup, set in each agent’s **`ap
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | DB connection errors                | Docker is running (`docker-compose up -d`), `ORCHESTRATION_DATABASE_URL` in **`packages/hermes/env/.env`** and `MEDIAPULSE_DATABASE_URL` in **`packages/mediapulse/env/.env`** match your Postgres (see `./dev-bootstrap.sh` for how they are linked). |
 | hermes-worker can’t get token / 403 | **`HERMES_INTERNAL_API_KEY`** must match on worker, dashboard, and agent-auth-api (not **`DOMAIN_INTEGRATION_API_KEY`**).                                                                                                                              |
-| Agent auto-registration 401         | Re-run `./dev-setup-local.sh` or ensure **`DOMAIN_INTEGRATION_API_KEY`** / **`DOMAIN_INTEGRATION_KEY`** match the **Domain integrations** entry in Hermes (same secret and integration key as in the dashboard).                                       |
+| Agent auto-registration 401         | Re-run `./dev-setup-local.sh` or ensure **`DOMAIN_INTEGRATION_API_KEY`** / **`DOMAIN_INTEGRATION_ID`** match the **Domain integrations** entry in Hermes (same API secret and integration id as in the dashboard).                                       |
 | Agent returns 401                   | Auth API is running (8080); **`AGENT_AUTH_API_URL`** is set where the agent loads env; the token or key is valid and not revoked.                                                                                                                      |
 | Env var not picked up               | Edit **`packages/hermes/env/.env`** / **`packages/mediapulse/env/.env`** (or an app’s `.env.local`). Restart the app or `pnpm dev`.                                                                                                                    |
 | DataQueue / cron errors             | Run **`pnpm --filter @hermes/worker run migrate-dataqueue:dev`** once.                                                                                                                                                                                 |

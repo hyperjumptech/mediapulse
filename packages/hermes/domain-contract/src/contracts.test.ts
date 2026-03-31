@@ -14,7 +14,7 @@ describe("registerDomainIntegrationRequestSchema", () => {
   it("defaults dashboard manifest when omitted", () => {
     // Act
     const parsed = registerDomainIntegrationRequestSchema.parse({
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "https://domain.example",
       capabilities: [],

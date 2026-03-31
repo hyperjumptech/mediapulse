@@ -173,7 +173,7 @@ const upsertPipelineWithSteps = async (
   definition: PipelineDefinition,
 ): Promise<{ pipelineId: string; stepsSeeded: number }> => {
   const defaultIntegration = await db.domainIntegration.findFirst({
-    orderBy: [{ isDefault: "desc" }, { key: "asc" }],
+    orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
     select: { id: true },
   });
   if (!defaultIntegration) {

@@ -97,3 +97,4 @@ export {
   type GetDataCollectionRunResponse,
   type PostDataCollectionRunResponse,
 } from "./data-collection-run.js";
+export * from "./user-registration.js";

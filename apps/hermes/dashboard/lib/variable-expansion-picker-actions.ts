@@ -117,9 +117,14 @@ export const loadExpansionPickerPage = async (
 
   try {
     const integration = await getIntegration();
-    const result = await getExpansionsPage(integration.key, page, pageSize, {
-      search: search?.trim() || undefined,
-    });
+    const result = await getExpansionsPage(
+      integration.integrationId,
+      page,
+      pageSize,
+      {
+        search: search?.trim() || undefined,
+      },
+    );
 
     return {
       items: result.expansions.map((e) => ({

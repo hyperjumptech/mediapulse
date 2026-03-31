@@ -1,0 +1,34 @@
+{
+  "type": "module",
+  "name": "@mediapulse/user-registration-agent",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e .env.local -e .env -- bun run --no-env-file --hot src/index.ts",
+    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "type:check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-data-api-client": "workspace:*",
+    "@workspace/agent-runtime": "workspace:*",
+    "@mediapulse/outlook-inbox": "workspace:*",
+    "@mediapulse/env": "workspace:*",
+    "@workspace/logger": "workspace:*",
+    "got": "catalog:",
+    "hono": "catalog:",
+    "hono-pino": "catalog:",
+    "resend": "^6.9.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@workspace/typescript-config": "workspace:*",
+    "dotenv-cli": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -78,7 +78,7 @@ export function createAgentApp<
   if (options.autoRegister) {
     const {
       registryUrl,
-      domainIntegrationKey,
+      domainIntegrationId,
       domainIntegrationApiKey,
       agentUrl,
       fetchFn,
@@ -107,7 +107,7 @@ export function createAgentApp<
             await registerWithRegistry({
               registryUrl,
               authApiUrl,
-              domainIntegrationKey,
+              domainIntegrationId,
               domainIntegrationApiKey,
               agentId: config.agentId,
               agentVersion: config.agentVersion,
@@ -159,7 +159,7 @@ export function createAgentApp<
   } else {
     logger.warn?.(
       { agentId: config.agentId, agentVersion: config.agentVersion },
-      "Agent not auto-registering: set AGENT_REGISTRY_URL, DOMAIN_INTEGRATION_KEY, DOMAIN_INTEGRATION_API_KEY, AGENT_PUBLIC_URL, and AGENT_AUTH_API_URL to register with the registry on startup",
+      "Agent not auto-registering: set AGENT_REGISTRY_URL, DOMAIN_INTEGRATION_ID, DOMAIN_INTEGRATION_API_KEY, AGENT_PUBLIC_URL, and AGENT_AUTH_API_URL to register with the registry on startup",
     );
   }
 

@@ -1,0 +1,24 @@
+# fly.toml app configuration file generated for mediapulse-user-registration-agent on 2026-03-30T19:33:01+07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'mediapulse-user-registration-agent'
+primary_region = 'sin'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[http_service]
+  internal_port = 4004
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256

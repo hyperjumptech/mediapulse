@@ -17,13 +17,13 @@ Implementation detail and code layout: [domain-api](/mediapulse/apps/domain-api)
 
 ## Environment variables (Mediapulse side)
 
-Exact names for **`domain-api`** (including `MEDIAPULSE_API_URL`, `HERMES_API_URL`, `DOMAIN_INTEGRATION_API_KEY`, `AGENT_AUTH_API_URL`) are documented on [domain-api](/mediapulse/apps/domain-api). **`DOMAIN_INTEGRATION_API_KEY`** and **`DOMAIN_INTEGRATION_KEY`** must match the integration created in the Hermes dashboard (**Domain integrations**).
+Exact names for **`domain-api`** (including `MEDIAPULSE_API_URL`, `HERMES_API_URL`, `DOMAIN_INTEGRATION_API_KEY`, `AGENT_AUTH_API_URL`) are documented on [domain-api](/mediapulse/apps/domain-api). **`DOMAIN_INTEGRATION_API_KEY`** and **`DOMAIN_INTEGRATION_ID`** must match the integration created in the Hermes dashboard (**Domain integrations**).
 
 Admins copy the generated API key once into Mediapulse and agent env (see [Development](/guide/development) for local bootstrap).
 
 ## Hermes dashboard: examples that use the Mediapulse integration
 
-This repo typically registers an integration whose **key** is `mediapulse` (configurable). Routes are **`/dashboard/{integrationKey}/{pathSegment}`**.
+This repo typically registers an integration whose **integration id** is `mediapulse` (configurable). Routes are **`/dashboard/{integrationId}/{pathSegment}`**.
 
 - **Pipeline run helpers** — Some Hermes UI flows resolve the registered **Mediapulse** integration (manifest + `baseUrl` from orchestration) to list tickers via the same `table-v1` list pattern as other domain tables (`fetchAllTickersForPipelineRun` in `domain-dashboard.ts`). See [Domain integration dashboard](/hermes/domain-integration-dashboard).
 

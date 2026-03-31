@@ -5,13 +5,13 @@
  * Loads env from `apps/hermes/dashboard/.env.local` (symlink to `packages/hermes/env/.env` after bootstrap).
  *
  * Usage:
- *   pnpm seed-local-domain-integration <admin-email> [integration-key] [display-name]
+ *   pnpm seed-local-domain-integration <admin-email> [integration-id] [display-name]
  *
- * Defaults: integration-key `mediapulse`, display-name `Local dev Mediapulse`.
+ * Defaults: integration id `mediapulse`, display-name `Local dev Mediapulse`.
  *
  * Machine-readable footer (for dev-setup-local.sh):
  *   PLAIN_API_KEY=<secret>
- *   INTEGRATION_KEY=<integration-key>
+ *   INTEGRATION_ID=<integration-id>
  */
 import { config } from "dotenv";
 import fs from "fs";
@@ -28,7 +28,7 @@ if (!fs.existsSync(envPath)) {
 }
 config({ path: envPath });
 
-const DEFAULT_INTEGRATION_KEY = "mediapulse";
+const DEFAULT_INTEGRATION_ID = "mediapulse";
 const DEFAULT_NAME = "Local dev Mediapulse";
 
 /**
@@ -37,12 +37,12 @@ const DEFAULT_NAME = "Local dev Mediapulse";
 async function main(): Promise<void> {
   const { env } = await import("@hermes/env");
   const email = process.argv[2];
-  const integrationKey = process.argv[3] ?? DEFAULT_INTEGRATION_KEY;
+  const integrationId = process.argv[3] ?? DEFAULT_INTEGRATION_ID;
   const displayName = process.argv[4] ?? DEFAULT_NAME;
 
   if (!email) {
     console.error(
-      "Usage: pnpm seed-local-domain-integration <admin-email> [integration-key] [display-name]",
+      "Usage: pnpm seed-local-domain-integration <admin-email> [integration-id] [display-name]",
     );
     process.exit(1);
   }
@@ -68,17 +68,17 @@ async function main(): Promise<void> {
   }
 
   const existing = await prismaClient.domainIntegration.findUnique({
-    where: { key: integrationKey },
+    where: { integrationId },
   });
   if (existing) {
     console.warn(
-      `Domain integration "${integrationKey}" already exists (id=${existing.id}).`,
+      `Domain integration "${integrationId}" already exists (id=${existing.id}).`,
     );
     console.warn(
       "Cannot print the API key again. Keep DOMAIN_INTEGRATION_API_KEY in your env or delete the domain_integration row and re-run dev-setup.",
     );
     console.log(`SKIP_PLAINTEXT=1`);
-    console.log(`INTEGRATION_KEY=${integrationKey}`);
+    console.log(`INTEGRATION_ID=${integrationId}`);
     await prismaClient.$disconnect();
     process.exit(0);
   }
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     await import("../lib/domain-integrations");
   const result = await createPendingDomainIntegration(
     {
-      key: integrationKey,
+      integrationId,
       name: displayName,
       userId: user.id,
     },
@@ -100,14 +100,14 @@ async function main(): Promise<void> {
     "Domain integration created (pending until domain-api registers).",
   );
   console.log(`  id: ${result.id}`);
-  console.log(`  key: ${result.key}`);
+  console.log(`  integrationId: ${result.integrationId}`);
   console.log(`  name: ${result.name}`);
   console.log("");
   console.log("Raw API key (store securely, shown once):");
   console.log(result.apiKeyPlaintext);
   console.log("");
   console.log(`PLAIN_API_KEY=${result.apiKeyPlaintext}`);
-  console.log(`INTEGRATION_KEY=${result.key}`);
+  console.log(`INTEGRATION_ID=${result.integrationId}`);
 
   await prismaClient.$disconnect();
   process.exit(0);

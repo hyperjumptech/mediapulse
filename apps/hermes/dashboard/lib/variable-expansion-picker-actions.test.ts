@@ -85,7 +85,9 @@ describe("loadExpansionPickerPage", () => {
       name: "Test",
       email: "t@test.com",
     });
-    const getIntegration = vi.fn().mockResolvedValue({ key: "mediapulse" });
+    const getIntegration = vi
+      .fn()
+      .mockResolvedValue({ integrationId: "mediapulse" });
     const getExpansionsPage = vi.fn().mockResolvedValue({
       expansions: [
         {

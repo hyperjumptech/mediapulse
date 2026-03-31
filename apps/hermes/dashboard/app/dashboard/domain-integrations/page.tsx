@@ -14,16 +14,17 @@ import {
 } from "@workspace/ui/components/table";
 import { prisma } from "@hermes/orchestration-database";
 import { formatCreatedBy } from "@/lib/format-created-by";
+import { DomainIntegrationRowActions } from "./domain-integration-row-actions";
 
 /**
  * Lists domain integrations (pending and active) with links to create new.
  */
 const DomainIntegrationsPage = async () => {
   const rows = await prisma.domainIntegration.findMany({
-    orderBy: [{ isDefault: "desc" }, { key: "asc" }],
+    orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
     select: {
       id: true,
-      key: true,
+      integrationId: true,
       name: true,
       status: true,
       baseUrl: true,
@@ -42,7 +43,7 @@ const DomainIntegrationsPage = async () => {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Domain integrations"
-        description="Create integrations and API keys for Mediapulse, domain-api, and agents. Registration activates a pending integration."
+        description="Each row has an integration id (stable string for env and URLs) and a separate domain integration API key, shown once when you create the integration—not the same value."
       />
       <div className="flex justify-end">
         <Button asChild>
@@ -55,18 +56,19 @@ const DomainIntegrationsPage = async () => {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow className="border-muted hover:bg-transparent">
-              <TableHead className="w-[200px]">Key</TableHead>
+              <TableHead className="w-[200px]">Integration id</TableHead>
               <TableHead className="min-w-[140px]">Name</TableHead>
               <TableHead className="w-[120px]">Status</TableHead>
               <TableHead>Base URL</TableHead>
               <TableHead>Created by</TableHead>
+              <TableHead className="w-[56px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center text-muted-foreground"
                 >
                   No integrations yet. Create one to get an API key.
@@ -76,7 +78,7 @@ const DomainIntegrationsPage = async () => {
               rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="font-mono text-sm font-medium">
-                    {row.key}
+                    {row.integrationId}
                   </TableCell>
                   <TableCell className="font-medium">{row.name}</TableCell>
                   <TableCell>
@@ -94,6 +96,15 @@ const DomainIntegrationsPage = async () => {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatCreatedBy(row.createdBy, row.createdById)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DomainIntegrationRowActions
+                      row={{
+                        id: row.id,
+                        integrationId: row.integrationId,
+                        name: row.name,
+                      }}
+                    />
                   </TableCell>
                 </TableRow>
               ))

@@ -9,8 +9,8 @@ NON_INTERACTIVE="false"
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
 AGENT_AUTH_API_URL="http://localhost:8080"
-# Default domain integration (same as dashboard wizard): integration key + display name; credential hash + ciphertext live on encrypted_payload in the orchestration DB.
-DOMAIN_INTEGRATION_KEY="${DOMAIN_INTEGRATION_KEY:-mediapulse}"
+# Default domain integration (same as dashboard wizard): integration id + display name; credential hash + ciphertext live on encrypted_payload in the orchestration DB.
+DOMAIN_INTEGRATION_ID="${DOMAIN_INTEGRATION_ID:-${DOMAIN_INTEGRATION_KEY:-mediapulse}}"
 DOMAIN_INTEGRATION_DISPLAY_NAME="${DOMAIN_INTEGRATION_DISPLAY_NAME:-Local dev Mediapulse}"
 JWT_SECRET=""
 SKIP_INSTALL="false"
@@ -105,7 +105,7 @@ read_dotenv_value() {
   ' "$file" 2>/dev/null
 }
 
-# Parses PLAIN_API_KEY= and INTEGRATION_KEY= lines from seed-local-domain-integration output.
+# Parses PLAIN_API_KEY= and INTEGRATION_ID= lines from seed-local-domain-integration output.
 read_plain_api_key_from_seed_output() {
   local output="$1"
   local line
@@ -113,11 +113,11 @@ read_plain_api_key_from_seed_output() {
   printf "%s" "${line#PLAIN_API_KEY=}"
 }
 
-read_integration_key_from_seed_output() {
+read_integration_id_from_seed_output() {
   local output="$1"
   local line
-  line="$(printf "%s\n" "$output" | grep '^INTEGRATION_KEY=' | head -n 1)"
-  printf "%s" "${line#INTEGRATION_KEY=}"
+  line="$(printf "%s\n" "$output" | grep '^INTEGRATION_ID=' | head -n 1)"
+  printf "%s" "${line#INTEGRATION_ID=}"
 }
 
 seed_output_has_skip_plaintext() {
@@ -136,7 +136,8 @@ Options:
   --admin-email <email>             Admin email (required in non-interactive mode).
   --admin-password <password>       Admin password (required in non-interactive mode).
   --agent-auth-api-url <url>        AGENT_AUTH_API_URL value (default: http://localhost:8080).
-  --domain-integration-key <key>    Integration key stored in Hermes (default: mediapulse).
+  --domain-integration-id <id>      Integration id stored in Hermes (default: mediapulse).
+  --domain-integration-key <id>     Deprecated alias for --domain-integration-id.
   --domain-integration-name <name>  Display name for the domain integration row (default: Local dev Mediapulse).
   --local-dev-api-key-name <name>     Deprecated alias for --domain-integration-name.
   --jwt-secret <secret>             AGENT_AUTH_JWT_SECRET value (default: generated with openssl).
@@ -171,8 +172,12 @@ parse_args() {
         AGENT_AUTH_API_URL="${2:-}"
         shift 2
         ;;
+      --domain-integration-id)
+        DOMAIN_INTEGRATION_ID="${2:-}"
+        shift 2
+        ;;
       --domain-integration-key)
-        DOMAIN_INTEGRATION_KEY="${2:-}"
+        DOMAIN_INTEGRATION_ID="${2:-}"
         shift 2
         ;;
       --domain-integration-name)
@@ -232,14 +237,14 @@ collect_interactive_inputs() {
   if [[ "$SKIP_ADMIN" == "false" ]]; then
     ADMIN_EMAIL="$(prompt_non_empty "Admin email: ")"
     ADMIN_PASSWORD="$(prompt_non_empty_secret "Admin password: ")"
-    DOMAIN_INTEGRATION_KEY="$(prompt_with_default "Domain integration key (e.g. mediapulse)" "$DOMAIN_INTEGRATION_KEY")"
+    DOMAIN_INTEGRATION_ID="$(prompt_with_default "Domain integration id (e.g. mediapulse)" "$DOMAIN_INTEGRATION_ID")"
     DOMAIN_INTEGRATION_DISPLAY_NAME="$(prompt_with_default "Domain integration display name" "$DOMAIN_INTEGRATION_DISPLAY_NAME")"
   fi
 }
 
 set_domain_integration_env_for_all_agents() {
   local api_key="$1"
-  local integration_key="$2"
+  local integration_id="$2"
   local agent_dir
   local env_local_file
 
@@ -250,7 +255,7 @@ set_domain_integration_env_for_all_agents() {
         touch "$env_local_file"
       fi
       upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_API_KEY" "$api_key"
-      upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_KEY" "$integration_key"
+      upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_ID" "$integration_id"
     fi
   done
 }
@@ -322,7 +327,7 @@ main() {
     fi
     if [[ -z "$(read_dotenv_value "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_API_KEY")" ]]; then
       echo "Warning: DOMAIN_INTEGRATION_API_KEY is empty in $MEDIAPULSE_ENV_FILE."
-      echo "Mediapulse domain-api and agents need it (Hermes domain_integration key)."
+      echo "Mediapulse domain-api and agents need it (Hermes domain integration API key)."
     fi
   else
     section "Create admin and domain integration (encrypted API key in DB)"
@@ -333,15 +338,15 @@ main() {
 
     SEED_OUTPUT="$(
       cd apps/hermes/dashboard
-      pnpm seed-local-domain-integration "$ADMIN_EMAIL" "$DOMAIN_INTEGRATION_KEY" "$DOMAIN_INTEGRATION_DISPLAY_NAME"
+      pnpm seed-local-domain-integration "$ADMIN_EMAIL" "$DOMAIN_INTEGRATION_ID" "$DOMAIN_INTEGRATION_DISPLAY_NAME"
     )"
-    RESOLVED_INTEGRATION_KEY="$(read_integration_key_from_seed_output "$SEED_OUTPUT")"
-    if [[ -z "$RESOLVED_INTEGRATION_KEY" ]]; then
-      echo "Could not parse INTEGRATION_KEY from seed-local-domain-integration output."
+    RESOLVED_INTEGRATION_ID="$(read_integration_id_from_seed_output "$SEED_OUTPUT")"
+    if [[ -z "$RESOLVED_INTEGRATION_ID" ]]; then
+      echo "Could not parse INTEGRATION_ID from seed-local-domain-integration output."
       exit 1
     fi
 
-    upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_KEY" "$RESOLVED_INTEGRATION_KEY"
+    upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_ID" "$RESOLVED_INTEGRATION_ID"
 
     if seed_output_has_skip_plaintext "$SEED_OUTPUT"; then
       echo "Domain integration already existed; left DOMAIN_INTEGRATION_API_KEY unchanged (set manually if missing)."
@@ -349,7 +354,7 @@ main() {
         if [[ -d "$agent_dir" ]]; then
           env_local_file="$agent_dir/.env.local"
           [[ -f "$env_local_file" ]] || touch "$env_local_file"
-          upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_KEY" "$RESOLVED_INTEGRATION_KEY"
+          upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_ID" "$RESOLVED_INTEGRATION_ID"
         fi
       done
     else
@@ -359,7 +364,7 @@ main() {
         exit 1
       fi
       upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_API_KEY" "$LOCAL_DEV_API_KEY"
-      set_domain_integration_env_for_all_agents "$LOCAL_DEV_API_KEY" "$RESOLVED_INTEGRATION_KEY"
+      set_domain_integration_env_for_all_agents "$LOCAL_DEV_API_KEY" "$RESOLVED_INTEGRATION_ID"
     fi
     pnpm --filter @mediapulse/env build
   fi
@@ -369,11 +374,11 @@ main() {
   echo "  - AGENT_AUTH_JWT_SECRET"
   echo "  - AGENT_AUTH_API_URL=$AGENT_AUTH_API_URL"
   echo "  - HERMES_INTERNAL_API_KEY (Hermes worker, dashboard, agent-auth; preset secret)"
-  echo "  - DOMAIN_INTEGRATION_KEY"
+  echo "  - DOMAIN_INTEGRATION_ID"
   echo "  - DOMAIN_INTEGRATION_API_KEY (generated once; stored encrypted in orchestration DB)"
   echo "Updated apps/mediapulse/agents/*/.env.local with:"
   echo "  - DOMAIN_INTEGRATION_API_KEY"
-  echo "  - DOMAIN_INTEGRATION_KEY"
+  echo "  - DOMAIN_INTEGRATION_ID"
   if [[ "$SKIP_ADMIN" == "false" ]]; then
     echo ""
     echo "Admin credentials:"

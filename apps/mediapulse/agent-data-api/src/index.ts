@@ -28,6 +28,10 @@ import {
 } from "./routes/data-collection-failure.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 import {
+  postUserRegistrationRegisterHandler,
+  postUserRegistrationConfirmHandler,
+} from "./routes/user-registration.js";
+import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
 } from "./register-agent-data-api-routes.js";
@@ -71,6 +75,12 @@ const routeHandlers = {
   delivery: {
     get: getDelivery,
     post: postDeliveryHandler,
+  },
+  userRegistrationRegister: {
+    post: postUserRegistrationRegisterHandler,
+  },
+  userRegistrationConfirm: {
+    post: postUserRegistrationConfirmHandler,
   },
 } satisfies AgentDataApiHandlers;
 

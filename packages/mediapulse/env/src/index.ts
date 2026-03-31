@@ -10,7 +10,7 @@ export const env = createEnv({
     MEDIAPULSE_API_URL: z.string().optional(),
     HERMES_API_URL: z.string().optional(),
     DOMAIN_INTEGRATION_API_KEY: z.string().min(1),
-    DOMAIN_INTEGRATION_KEY: z.string().min(1),
+    DOMAIN_INTEGRATION_ID: z.string().min(1),
     DOMAIN_INTEGRATION_NAME: z.string().optional(),
     DOMAIN_INTEGRATION_VERSION: z.string().optional(),
     DATABASE_CERT_BASE64: z.string().optional(),

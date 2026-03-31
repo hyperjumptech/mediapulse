@@ -92,7 +92,7 @@ const rotateEncryptedPayloadRows = async (params: {
         ciphertext: true,
         domainIntegrationId: true,
         variableId: true,
-        domainIntegration: { select: { key: true } },
+        domainIntegration: { select: { integrationId: true } },
         variable: { select: { key: true } },
       },
     } satisfies Prisma.EncryptedPayloadFindManyArgs;
@@ -127,7 +127,7 @@ const rotateEncryptedPayloadRows = async (params: {
         } catch {
           counters.failed += 1;
           throw new Error(
-            `Failed to rotate domain integration "${row.domainIntegration?.key ?? row.domainIntegrationId}" (${row.domainIntegrationId})`,
+            `Failed to rotate domain integration "${row.domainIntegration?.integrationId ?? row.domainIntegrationId}" (${row.domainIntegrationId})`,
           );
         }
         continue;

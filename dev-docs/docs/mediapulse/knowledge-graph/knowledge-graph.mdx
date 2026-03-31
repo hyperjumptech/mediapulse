@@ -137,8 +137,8 @@ In short:
 
 | Table           | Purpose                                                             | Managed from                                 |
 | --------------- | ------------------------------------------------------------------- | -------------------------------------------- |
-| `entity_type`   | Allowed classes for canonical entities (`COMPANY`, `PERSON`, etc.). | `/dashboard/{integrationKey}/entity-types`   |
-| `relation_type` | Allowed labels for edges (`CEO_OF`, `PARTNER_OF`, etc.).            | `/dashboard/{integrationKey}/relation-types` |
+| `entity_type`   | Allowed classes for canonical entities (`COMPANY`, `PERSON`, etc.). | `/dashboard/{integrationId}/entity-types`   |
+| `relation_type` | Allowed labels for edges (`CEO_OF`, `PARTNER_OF`, etc.).            | `/dashboard/{integrationId}/relation-types` |
 
 ### KG structure tables
 
@@ -246,7 +246,7 @@ If no row crosses your practical quality threshold, content-generation should sk
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
 - `AGENT_REGISTRY_URL` (optional auto-register)
-- `DOMAIN_INTEGRATION_API_KEY` (optional domain_integration key for auto-register)
+- `DOMAIN_INTEGRATION_API_KEY` (optional Hermes domain integration API key for auto-register)
 - `AGENT_PUBLIC_URL` (optional auto-register)
 - `PORT`
 
@@ -257,7 +257,7 @@ If no row crosses your practical quality threshold, content-generation should sk
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
 - `AGENT_REGISTRY_URL` (optional auto-register)
-- `DOMAIN_INTEGRATION_API_KEY` (optional domain_integration key for auto-register)
+- `DOMAIN_INTEGRATION_API_KEY` (optional Hermes domain integration API key for auto-register)
 - `AGENT_PUBLIC_URL` (optional auto-register)
 - `PORT`
 
@@ -265,8 +265,8 @@ If no row crosses your practical quality threshold, content-generation should sk
 
 The KG vocabulary used by analysis prompts is managed in Hermes:
 
-- **Entity Types:** `/dashboard/{integrationKey}/entity-types` (for example `/dashboard/mediapulse/entity-types`) and docs at `/mediapulse/knowledge-graph/entity-types`
-- **Relation Types:** `/dashboard/{integrationKey}/relation-types` (for example `/dashboard/mediapulse/relation-types`) and docs at `/mediapulse/knowledge-graph/relation-types`
+- **Entity Types:** `/dashboard/{integrationId}/entity-types` (for example `/dashboard/mediapulse/entity-types`) and docs at `/mediapulse/knowledge-graph/entity-types`
+- **Relation Types:** `/dashboard/{integrationId}/relation-types` (for example `/dashboard/mediapulse/relation-types`) and docs at `/mediapulse/knowledge-graph/relation-types`
 
 ## Related docs
 

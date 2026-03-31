@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getActiveDomainIntegrations,
-  getDomainIntegrationByKey,
+  getDomainIntegrationByIntegrationId,
 } from "./domain-integrations";
 
 const emptyManifest = {
@@ -19,7 +19,7 @@ describe("getActiveDomainIntegrations", () => {
     const findMany = vi.fn().mockResolvedValue([
       {
         id: "i1",
-        key: "mediapulse",
+        integrationId: "mediapulse",
         name: "Mediapulse",
         baseUrl: "http://localhost:3001",
         version: "1",
@@ -36,10 +36,10 @@ describe("getActiveDomainIntegrations", () => {
         status: "active",
         baseUrl: { not: null },
       },
-      orderBy: [{ isDefault: "desc" }, { key: "asc" }],
+      orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
       select: {
         id: true,
-        key: true,
+        integrationId: true,
         name: true,
         baseUrl: true,
         version: true,
@@ -48,7 +48,7 @@ describe("getActiveDomainIntegrations", () => {
       },
     });
     expect(result).toHaveLength(1);
-    expect(result[0]?.key).toBe("mediapulse");
+    expect(result[0]?.integrationId).toBe("mediapulse");
     expect(result[0]?.dashboard.templateVersion).toBe(1);
     expect(result[0]?.capabilities).toContain("preview-expansion");
   });
@@ -62,7 +62,7 @@ describe("getActiveDomainIntegrations", () => {
   });
 });
 
-describe("getDomainIntegrationByKey", () => {
+describe("getDomainIntegrationByIntegrationId", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -70,7 +70,7 @@ describe("getDomainIntegrationByKey", () => {
   it("returns record when findFirst finds active integration", async () => {
     const findFirst = vi.fn().mockResolvedValue({
       id: "i1",
-      key: "mediapulse",
+      integrationId: "mediapulse",
       name: "Mediapulse",
       baseUrl: "http://localhost:3001",
       version: "1",
@@ -78,20 +78,20 @@ describe("getDomainIntegrationByKey", () => {
       capabilities: ["preview-expansion", "expand-step-inputs"],
     });
 
-    const result = await getDomainIntegrationByKey("mediapulse", {
+    const result = await getDomainIntegrationByIntegrationId("mediapulse", {
       findFirst,
     });
 
     expect(findFirst).toHaveBeenCalledWith({
       where: {
-        key: "mediapulse",
+        integrationId: "mediapulse",
         isActive: true,
         status: "active",
         baseUrl: { not: null },
       },
       select: {
         id: true,
-        key: true,
+        integrationId: true,
         name: true,
         baseUrl: true,
         version: true,
@@ -99,13 +99,15 @@ describe("getDomainIntegrationByKey", () => {
         capabilities: true,
       },
     });
-    expect(result?.key).toBe("mediapulse");
+    expect(result?.integrationId).toBe("mediapulse");
   });
 
   it("returns null when not found", async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
 
-    const result = await getDomainIntegrationByKey("missing", { findFirst });
+    const result = await getDomainIntegrationByIntegrationId("missing", {
+      findFirst,
+    });
 
     expect(result).toBeNull();
   });

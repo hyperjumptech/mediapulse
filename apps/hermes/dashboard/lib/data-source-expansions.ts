@@ -91,7 +91,7 @@ const parseExpansionItem = (
 /**
  * Fetches a paginated list of data source expansions with optional sort and search.
  *
- * @param integrationKey - Domain integration key (e.g. from registration).
+ * @param integrationId - Domain integration id (e.g. from registration).
  * @param page - 1-based page number.
  * @param pageSize - Number of items per page.
  * @param options - Optional search term and sort (sortBy: name | created, sortDir: asc | desc).
@@ -99,7 +99,7 @@ const parseExpansionItem = (
  * @returns Expansions for the page plus total count and pagination info.
  */
 export const getDataSourceExpansionsPage = async (
-  integrationKey: string,
+  integrationId: string,
   page: number,
   pageSize: number,
   options?: {
@@ -113,7 +113,7 @@ export const getDataSourceExpansionsPage = async (
   const sortDir = options?.sortDir ?? SORT_DEFAULT.sortDir;
   const getList = dependencies.getList ?? getDomainTableList;
 
-  const response = await getList(integrationKey, "data-source-expansions", {
+  const response = await getList(integrationId, "data-source-expansions", {
     page,
     pageSize,
     query: options?.search,
@@ -134,13 +134,13 @@ export const getDataSourceExpansionsPage = async (
 /**
  * Fetches a single data source expansion by id.
  *
- * @param integrationKey - Domain integration key.
+ * @param integrationId - Domain integration id.
  * @param id - UUID of the expansion.
  * @param dependencies - Optional injectable domain API collaborators.
  * @returns The expansion or null if not found.
  */
 export const getDataSourceExpansionById = async (
-  integrationKey: string,
+  integrationId: string,
   id: string,
   dependencies: DataSourceExpansionDependencies = {},
 ): Promise<DataSourceExpansionRow | null> => {
@@ -149,7 +149,7 @@ export const getDataSourceExpansionById = async (
   const pageSize = 100;
 
   while (true) {
-    const response = await getList(integrationKey, "data-source-expansions", {
+    const response = await getList(integrationId, "data-source-expansions", {
       page: currentPage,
       pageSize,
       sortBy: "name",
@@ -169,13 +169,13 @@ export const getDataSourceExpansionById = async (
 /**
  * Creates a data source expansion.
  *
- * @param integrationKey - Domain integration key.
+ * @param integrationId - Domain integration id.
  * @param data - Name, expansionString, optional description.
  * @param dependencies - Optional injectable domain API collaborators.
  * @returns The created expansion.
  */
 export const createDataSourceExpansion = async (
-  integrationKey: string,
+  integrationId: string,
   data: {
     name: string;
     expansionString: string;
@@ -197,10 +197,10 @@ export const createDataSourceExpansion = async (
     description,
   } satisfies Record<string, unknown>;
   const createdResponse = dataSourceExpansionMutationResponseSchema.parse(
-    await createItem(integrationKey, "data-source-expansions", payload),
+    await createItem(integrationId, "data-source-expansions", payload),
   );
   const created = await getDataSourceExpansionById(
-    integrationKey,
+    integrationId,
     createdResponse.id,
     {
       getList,
@@ -216,14 +216,14 @@ export const createDataSourceExpansion = async (
 /**
  * Updates a data source expansion by id.
  *
- * @param integrationKey - Domain integration key.
+ * @param integrationId - Domain integration id.
  * @param id - UUID of the expansion.
  * @param data - Name, expansionString, optional description.
  * @param dependencies - Optional injectable domain API collaborators.
  * @returns The updated expansion or null if not found.
  */
 export const updateDataSourceExpansion = async (
-  integrationKey: string,
+  integrationId: string,
   id: string,
   data: { name: string; expansionString: string; description?: string | null },
   dependencies: DataSourceExpansionDependencies = {},
@@ -237,14 +237,14 @@ export const updateDataSourceExpansion = async (
 
   try {
     const updatedResponse = dataSourceExpansionMutationResponseSchema.parse(
-      await updateItem(integrationKey, "data-source-expansions", id, {
+      await updateItem(integrationId, "data-source-expansions", id, {
         name: data.name.trim(),
         expansionString: data.expansionString.trim(),
         description,
       }),
     );
     const updated = await getDataSourceExpansionById(
-      integrationKey,
+      integrationId,
       updatedResponse.id,
       {
         getList,
@@ -263,19 +263,19 @@ export const updateDataSourceExpansion = async (
 /**
  * Deletes a data source expansion by id.
  *
- * @param integrationKey - Domain integration key.
+ * @param integrationId - Domain integration id.
  * @param id - UUID of the expansion.
  * @param dependencies - Optional injectable domain API collaborators.
  * @returns True if deleted, false if not found.
  */
 export const deleteDataSourceExpansion = async (
-  integrationKey: string,
+  integrationId: string,
   id: string,
   dependencies: DataSourceExpansionDependencies = {},
 ): Promise<boolean> => {
   const deleteItem = dependencies.deleteItem ?? deleteDomainTableItem;
   try {
-    await deleteItem(integrationKey, "data-source-expansions", id);
+    await deleteItem(integrationId, "data-source-expansions", id);
     return true;
   } catch {
     return false;

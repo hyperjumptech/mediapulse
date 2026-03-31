@@ -211,7 +211,8 @@ export const tableV1MetaResponseSchema = z.object({
  * Schema for a request to register a domain integration.
  */
 export const registerDomainIntegrationRequestSchema = z.object({
-  key: z.string().min(1),
+  /** Stable public identifier (not the integration API secret). */
+  integrationId: z.string().min(1),
   name: z.string().min(1),
   baseUrl: z.string().url(),
   version: z.string().optional(),
@@ -227,7 +228,7 @@ export const registerDomainIntegrationRequestSchema = z.object({
  */
 export const registerDomainIntegrationResponseSchema = z.object({
   id: z.string().uuid(),
-  key: z.string().min(1),
+  integrationId: z.string().min(1),
   name: z.string().min(1),
   baseUrl: z.string().url(),
   version: z.string().nullable(),

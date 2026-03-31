@@ -78,7 +78,7 @@ export const createCreateAgentHandler = ({
     let domainIntegrationId = bodyDomainId;
     if (!domainIntegrationId) {
       const first = await db.domainIntegration.findFirst({
-        orderBy: [{ isDefault: "desc" }, { key: "asc" }],
+        orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
         select: { id: true },
       });
       if (!first) {
