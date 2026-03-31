@@ -9,6 +9,26 @@ import {
   vi,
 } from "vitest";
 
+// --- Interfaces untuk Typing yang Aman ---
+interface MockQuery {
+  id: string;
+  text: string;
+  source: string;
+  intent: string;
+  rank: number;
+  setId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface MockCreateArgs {
+  queries: MockQuery[];
+  activate: boolean;
+  generationSource: string;
+  agentJobId: string | null;
+  strategySnapshot: Record<string, unknown>;
+}
+
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const AUTH_HEADERS = {
   Authorization: "Bearer test-token",
@@ -176,9 +196,8 @@ describe("query-analysis agent – deterministic-only run (no OpenAI key)", () =
     await post({ input: { tickerId: TICKER_ID } });
 
     expect(queryAnalysisCreateMock).toHaveBeenCalledOnce();
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      queries: Array<{ source: string }>;
-    };
+    // FIX: Added non-null assertion (!) and interface
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.queries.length).toBeGreaterThan(0);
     expect(args.queries.every((q) => q.source === "deterministic")).toBe(true);
   });
@@ -186,10 +205,7 @@ describe("query-analysis agent – deterministic-only run (no OpenAI key)", () =
   it("sets activate: true and generationSource: hybrid_v1", async () => {
     await post({ input: { tickerId: TICKER_ID } });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      activate: boolean;
-      generationSource: string;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.activate).toBe(true);
     expect(args.generationSource).toBe("hybrid_v1");
   });
@@ -197,9 +213,7 @@ describe("query-analysis agent – deterministic-only run (no OpenAI key)", () =
   it("all generated queries have a valid intent", async () => {
     await post({ input: { tickerId: TICKER_ID } });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      queries: Array<{ intent: string }>;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     const validIntents = ["breaking", "kg_change", "fundamental"];
     for (const q of args.queries) {
       expect(validIntents).toContain(q.intent);
@@ -209,9 +223,7 @@ describe("query-analysis agent – deterministic-only run (no OpenAI key)", () =
   it("queries have monotonically increasing rank starting at 1", async () => {
     await post({ input: { tickerId: TICKER_ID } });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      queries: Array<{ rank: number }>;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     const ranks = args.queries.map((q) => q.rank);
     expect(ranks[0]).toBe(1);
     for (let i = 1; i < ranks.length; i++) {
@@ -222,9 +234,7 @@ describe("query-analysis agent – deterministic-only run (no OpenAI key)", () =
   it("passes agentJobId from input body to queryAnalysis.create", async () => {
     await post({ input: { tickerId: TICKER_ID, agentJobId: "job-input-123" } });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      agentJobId: string | null;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.agentJobId).toBe("job-input-123");
   });
 
@@ -234,27 +244,21 @@ describe("query-analysis agent – deterministic-only run (no OpenAI key)", () =
       { "X-Job-Id": "job-from-header" },
     );
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      agentJobId: string | null;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.agentJobId).toBe("job-from-header");
   });
 
   it("sets agentJobId to null when neither header nor input provides it", async () => {
     await post({ input: { tickerId: TICKER_ID } });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      agentJobId: string | null;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.agentJobId).toBeNull();
   });
 
   it("strategySnapshot includes the effective config values", async () => {
     await post({ input: { tickerId: TICKER_ID } });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      strategySnapshot: Record<string, unknown>;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.strategySnapshot).toMatchObject({
       queryCount: expect.any(Number),
       allowedLanguages: expect.any(Array),
@@ -322,24 +326,19 @@ describe("query-analysis agent – LLM-assisted run (openaiApiKey in config)", (
 
     await post({ input: { tickerId: TICKER_ID }, config: LLM_CONFIG });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      queries: Array<{ source: string }>;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.queries.some((q) => q.source === "llm")).toBe(true);
   });
 
   it("deduplicates: an llm query identical to a deterministic baseline is dropped", async () => {
-    // Deterministic baseline always produces "{symbol} latest news" (i.e. "AAPL latest news")
     stubOpenAiSuccess([
-      { text: "AAPL latest news", intent: "breaking" }, // exact case-insensitive match
+      { text: "AAPL latest news", intent: "breaking" },
       { text: "Apple Inc. supply chain concerns", intent: "breaking" },
     ]);
 
     await post({ input: { tickerId: TICKER_ID }, config: LLM_CONFIG });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      queries: Array<{ text: string }>;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     const lowered = args.queries.map((q) => q.text.toLowerCase());
     const dupeCount = lowered.filter((t) => t === "aapl latest news").length;
     expect(dupeCount).toBe(1);
@@ -359,9 +358,7 @@ describe("query-analysis agent – LLM-assisted run (openaiApiKey in config)", (
       config: { ...LLM_CONFIG, queryCount },
     });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      queries: Array<unknown>;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.queries.length).toBeLessThanOrEqual(queryCount);
   });
 
@@ -376,9 +373,7 @@ describe("query-analysis agent – LLM-assisted run (openaiApiKey in config)", (
     };
     await post({ input: { tickerId: TICKER_ID }, config: configOverride });
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      strategySnapshot: Record<string, unknown>;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.strategySnapshot.queryCount).toBe(7);
     expect(args.strategySnapshot.model).toBe("gpt-4o-mini");
     expect(args.strategySnapshot.weightBreaking).toBe(0.8);
@@ -399,9 +394,7 @@ describe("query-analysis agent – LLM-assisted run (openaiApiKey in config)", (
     expect(res.status).toBe(200);
     expect(body.status).toBe("success");
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      queries: Array<{ source: string }>;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.queries.every((q) => q.source === "deterministic")).toBe(true);
   });
 
@@ -424,9 +417,7 @@ describe("query-analysis agent – LLM-assisted run (openaiApiKey in config)", (
     expect(res.status).toBe(200);
     expect(body.status).toBe("success");
 
-    const args = queryAnalysisCreateMock.mock.calls[0][0] as {
-      queries: Array<{ source: string }>;
-    };
+    const args = queryAnalysisCreateMock.mock.calls[0]![0] as MockCreateArgs;
     expect(args.queries.every((q) => q.source === "deterministic")).toBe(true);
   });
 
