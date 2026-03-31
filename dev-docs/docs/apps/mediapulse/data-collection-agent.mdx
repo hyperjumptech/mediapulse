@@ -17,9 +17,9 @@ The agent uses a nested `ConfigSchema` that can be overridden per run via the He
 Each provider (search and fetch) supports:
 
 - **`baseUrl`**: The API endpoint to use.
-- **`authentication`**: `type` (bearer/query), `headerName`, and `apiKey`.
+- **`authentication`**: `type` (`bearer` or `none`), plus optional `headerName` and `apiKey`.
 - **`rateLimit`**: `requests` per `perSeconds`.
-- **`retry`**: `attempts`, `backoff` (linear/exponential/off), and `delayMs`.
+- **`retry`**: `maxAttempts`, `baseDelayMs`, and `maxDelayMs`.
 - **`timeoutMs`**: Request timeout.
 
 ### Run Policy
@@ -32,7 +32,8 @@ Determines how the agent handles success/failure aggregation:
 ## Partial Failure Isolation
 
 The agent does not fail the entire run if a single search query or fetch URL fails. Instead, it:
-1.  **Aggreggates Successes**: All valid items are collected and saved to the data store.
+
+1.  **Aggregates Successes**: All valid items are collected and saved to the data store.
 2.  **Records Failures**: Each failed attempt is categorized (e.g., `provider_http_error`, `timeout_error`) and persisted as a `DataCollectionFailure` record.
 3.  **Reports Status**: The run status maps to:
     - `success`: All items succeeded.
@@ -42,6 +43,7 @@ The agent does not fail the entire run if a single search query or fetch URL fai
 ## Persistent Diagnostics
 
 Every agent execution creates a `DataCollectionRun` record in the database, capturing:
+
 - **Total Sources**: Number of successful items retrieved.
 - **Success/Fetch counts**: Breakdown of provider performance.
 - **Duration**: Execution time of the run.

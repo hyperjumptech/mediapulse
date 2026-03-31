@@ -8,7 +8,7 @@ export const dataCollectionRunStatusSchema = z.enum([
 
 export const dataCollectionRunInputSchema = z.object({
   id: z.string().uuid(),
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
   startedAt: z.string().datetime(),
   completedAt: z.string().datetime(),
   status: dataCollectionRunStatusSchema,
@@ -34,7 +34,7 @@ export const getDataCollectionRunResponseSchema = z.object({
 });
 
 export const dataCollectionRunQuerySchema = z.object({
-  tickerId: z.string().uuid().optional(),
+  tickerId: z.string().trim().min(1).optional(),
   start: z.string().datetime().optional(),
   end: z.string().datetime().optional(),
 });

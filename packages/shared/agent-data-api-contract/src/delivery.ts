@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const getDeliveryQuerySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: z.string().trim().min(1),
 });
 
 export const postDeliveryBodySchema = z.object({

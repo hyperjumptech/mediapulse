@@ -22,6 +22,54 @@ const BodySchema = z.object({
 type Input = z.infer<typeof BodySchema>;
 type Config = z.infer<typeof ConfigSchema>;
 
+type RunStatus = "success" | "partial_success" | "failed";
+
+type RunPolicy = {
+  minSuccessfulSources: number;
+  failOnZeroSuccess: boolean;
+};
+
+type RunCounters = {
+  queriesTotal: number;
+  urlsTotal: number;
+  searchSuccess: number;
+  searchFailed: number;
+  fetchSuccess: number;
+  fetchFailed: number;
+  retryCount: number;
+};
+
+/**
+ * Returns the derived run status based on successes, failures, and policy.
+ *
+ * @param totalSources - Number of successfully collected sources.
+ * @param failureCount - Number of item-level failures recorded during the run.
+ * @param runPolicy - Policy controlling when a run is considered failed.
+ * @returns The derived run status.
+ */
+const deriveRunStatus = ({
+  totalSources,
+  failureCount,
+  runPolicy,
+}: {
+  totalSources: number;
+  failureCount: number;
+  runPolicy: RunPolicy;
+}): RunStatus => {
+  if (
+    runPolicy.failOnZeroSuccess &&
+    totalSources < runPolicy.minSuccessfulSources
+  ) {
+    return "failed";
+  }
+
+  if (failureCount > 0) {
+    return "partial_success";
+  }
+
+  return "success";
+};
+
 const app = createAgentApp<
   Input,
   typeof BodySchema,
@@ -34,11 +82,10 @@ const app = createAgentApp<
     inputSchema: BodySchema,
     configSchema: ConfigSchema,
     run: async ({ input, config: _config, token }) => {
-      const webSearchConfig = _config?.webSearch;
+      const startedAt = new Date();
+      const runId = crypto.randomUUID();
 
-      const webFetchConfig = _config?.webFetch;
-
-      const runPolicy = _config?.runPolicy ?? {
+      const runPolicy: RunPolicy = _config?.runPolicy ?? {
         minSuccessfulSources: 1,
         failOnZeroSuccess: true,
       };
@@ -49,8 +96,55 @@ const app = createAgentApp<
         token,
       });
 
-      const startedAt = new Date();
-      const runId = crypto.randomUUID();
+      const webSearchConfig = _config?.webSearch;
+      const webFetchConfig = _config?.webFetch;
+
+      if (!webSearchConfig || !webFetchConfig) {
+        const completedAt = new Date().toISOString();
+        const message = !webSearchConfig
+          ? "Missing required config: webSearch"
+          : "Missing required config: webFetch";
+
+        const stage = !webSearchConfig
+          ? ("web-search" as const)
+          : ("web-fetch" as const);
+        const provider = !webSearchConfig
+          ? ("serper" as const)
+          : ("jina" as const);
+
+        await dataApiClient.dataCollectionFailure.create([
+          {
+            id: crypto.randomUUID(),
+            runId,
+            tickerId: input.tickerId,
+            stage,
+            provider,
+            errorCategory: "internal_processing_error",
+            retryable: false,
+            message,
+            createdAt: completedAt,
+          },
+        ]);
+
+        await dataApiClient.dataCollectionRun.create({
+          id: runId,
+          tickerId: input.tickerId,
+          startedAt: startedAt.toISOString(),
+          completedAt,
+          status: "failed",
+          counters: {
+            queriesTotal: 0,
+            urlsTotal: 0,
+            searchSuccess: 0,
+            searchFailed: 0,
+            fetchSuccess: 0,
+            fetchFailed: 0,
+            retryCount: 0,
+          },
+        });
+
+        throw new Error(message);
+      }
 
       const query: { tickerId: string; start?: string; end?: string } = {
         tickerId: input.tickerId,
@@ -63,15 +157,7 @@ const app = createAgentApp<
       const { data: queries = [] } =
         await dataApiClient.dataCollection.get(query);
 
-      const testQueries = [
-        {
-          id: "sq-1",
-          text: "dssa tambang batu bara",
-          tickerId: input.tickerId,
-        },
-      ];
-
-      const searchAttemptResults = await performWebSearch(testQueries, {
+      const searchAttemptResults = await performWebSearch(queries, {
         config: webSearchConfig,
       });
       const searchSuccesses = searchAttemptResults
@@ -86,23 +172,6 @@ const app = createAgentApp<
         .filter((r) => r.success)
         .map((r) => r.data);
       const fetchFailures = fetchAttemptResults.filter((r) => !r.success);
-
-      console.log("searchSuccesses", JSON.stringify(searchSuccesses, null, 2));
-      console.log("searchFailures", JSON.stringify(searchFailures, null, 2));
-      console.log("fetchSuccesses", JSON.stringify(fetchSuccesses, null, 2));
-      console.log("fetchFailures", JSON.stringify(fetchFailures, null, 2));
-
-      return {
-        success: true,
-        details: {
-          summary: {
-            totalSources: 1,
-            status: "success",
-            searchSuccess: 1,
-            fetchSuccess: 1,
-          },
-        },
-      };
 
       if (fetchSuccesses.length > 0) {
         const sources: DataCollectionInput[] = fetchSuccesses.map((page) => ({
@@ -150,18 +219,21 @@ const app = createAgentApp<
       }
 
       const totalSources = fetchSuccesses.length;
-      let status: "success" | "partial_success" | "failed" = "success";
+      const status = deriveRunStatus({
+        totalSources,
+        failureCount: failuresPayload.length,
+        runPolicy,
+      });
 
-      if (failuresPayload.length > 0) {
-        status = "partial_success";
-      }
-
-      if (
-        totalSources < (runPolicy.minSuccessfulSources ?? 1) &&
-        (runPolicy.failOnZeroSuccess ?? true)
-      ) {
-        status = "failed";
-      }
+      const counters: RunCounters = {
+        queriesTotal: queries.length,
+        urlsTotal: searchSuccesses.length,
+        searchSuccess: searchSuccesses.length,
+        searchFailed: searchFailures.length,
+        fetchSuccess: fetchSuccesses.length,
+        fetchFailed: fetchFailures.length,
+        retryCount: 0,
+      };
 
       const runPayload = {
         id: runId,
@@ -169,15 +241,7 @@ const app = createAgentApp<
         startedAt: startedAt.toISOString(),
         completedAt: new Date().toISOString(),
         status,
-        counters: {
-          queriesTotal: queries.length,
-          urlsTotal: searchSuccesses.length,
-          searchSuccess: searchSuccesses.length,
-          searchFailed: searchFailures.length,
-          fetchSuccess: fetchSuccesses.length,
-          fetchFailed: fetchFailures.length,
-          retryCount: 0,
-        },
+        counters,
       };
 
       await dataApiClient.dataCollectionRun.create(runPayload);
@@ -209,7 +273,7 @@ const app = createAgentApp<
       env.AGENT_PUBLIC_URL
         ? {
             registryUrl: env.AGENT_REGISTRY_URL,
-            domainIntegrationId: env.DOMAIN_INTEGRATION_ID ?? "mediapulse",
+            domainIntegrationId: env.DOMAIN_INTEGRATION_KEY ?? "mediapulse",
             domainIntegrationApiKey: env.DOMAIN_INTEGRATION_API_KEY,
             agentUrl: env.AGENT_PUBLIC_URL,
           }

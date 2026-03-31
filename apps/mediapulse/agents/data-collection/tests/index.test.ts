@@ -122,6 +122,34 @@ describe("data-collection-agent", () => {
     expect(runCreateMock).toHaveBeenCalled();
   });
 
+  it("returns 400 when required provider config is missing", async () => {
+    getMock.mockResolvedValue({
+      data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
+    });
+
+    const { default: app } = await import("../src/index.js");
+
+    const res = await app.fetch(
+      new Request("http://localhost/", {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: {
+            runPolicy: {
+              minSuccessfulSources: 1,
+              failOnZeroSuccess: true,
+            },
+          },
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(failureCreateMock).not.toHaveBeenCalled();
+    expect(runCreateMock).not.toHaveBeenCalled();
+  });
+
   it("reports partial success when web-fetch fails for some results", async () => {
     const { performWebFetch } = await import("../src/utilities/web-fetch.js");
     vi.mocked(performWebFetch).mockResolvedValueOnce([
@@ -153,6 +181,16 @@ describe("data-collection-agent", () => {
             runPolicy: {
               minSuccessfulSources: 0,
               failOnZeroSuccess: false,
+            },
+            webSearch: {
+              baseUrl: "https://search.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+            webFetch: {
+              baseUrl: "https://fetch.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
             },
           },
         }),
@@ -202,6 +240,16 @@ describe("data-collection-agent", () => {
             runPolicy: {
               minSuccessfulSources: 1,
               failOnZeroSuccess: true,
+            },
+            webSearch: {
+              baseUrl: "https://search.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+            webFetch: {
+              baseUrl: "https://fetch.example",
+              authentication: { type: "bearer" },
+              rateLimit: { requests: 1, perSeconds: 1 },
             },
           },
         }),
