@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  agentHttpBodyToRawString,
   createRunPipelineHandler,
   detailFromAgentErrorBody,
 } from "./route.post.config";
@@ -53,6 +54,17 @@ const createPipelineWithSteps = () => ({
       agentConfig: null,
     },
   ],
+});
+
+describe("agentHttpBodyToRawString", () => {
+  it("stringifies objects and detects empty strings", () => {
+    expect(agentHttpBodyToRawString({ a: 1 })).toEqual({
+      raw: '{"a":1}',
+      isEmpty: false,
+    });
+    expect(agentHttpBodyToRawString("")).toEqual({ raw: "", isEmpty: true });
+    expect(agentHttpBodyToRawString(null)).toEqual({ raw: "", isEmpty: true });
+  });
 });
 
 describe("detailFromAgentErrorBody", () => {
@@ -177,7 +189,11 @@ describe("createRunPipelineHandler", () => {
     const postMock = vi.fn().mockResolvedValue({
       ok: true,
       statusCode: 200,
-      body: {},
+      body: {
+        schemaVersion: 1,
+        status: "success",
+        details: { ok: true },
+      },
     });
     const handler = createRunPipelineHandler({
       getToken: async () => "jwt",
@@ -291,6 +307,73 @@ describe("createRunPipelineHandler", () => {
         pipelineId: "p-1",
         detail: "bad input",
         statusCode: 400,
+      }),
+    );
+    logSpy.mockRestore();
+  });
+
+  it("treats HTTP 200 with envelope status failure as a failed invocation", async () => {
+    const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const postMock = vi.fn().mockResolvedValue({
+      ok: true,
+      statusCode: 200,
+      body: {
+        schemaVersion: 1,
+        status: "failure",
+        message: "No rows collected",
+      },
+    });
+    const handler = createRunPipelineHandler({
+      getToken: async () => "jwt",
+      expandStepInputs: async (ctx) => [ctx.input],
+      post: postMock as never,
+      db: {
+        ...createExecutionPersistenceStubs(),
+        pipeline: {
+          findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
+        },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
+        agentRegistry: {
+          findFirst: vi.fn().mockResolvedValue({
+            agentId: "ag1",
+            agentVersion: "1.0.0",
+            endpoint: { url: "https://agent.example/run", method: "POST" },
+            inputSchema: null,
+            configSchema: null,
+            isActive: true,
+          }),
+          findMany: vi.fn().mockResolvedValue([
+            {
+              agentId: "ag1",
+              agentVersion: "1.0.0",
+              endpoint: { url: "https://agent.example/run", method: "POST" },
+              inputSchema: null,
+              configSchema: null,
+              isActive: true,
+            },
+          ]),
+        },
+        agentConfig: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+    });
+
+    const result = await handler(request({ pipelineId: "p-1" }));
+    expect(result.status).toBe(true);
+    expect(result).toMatchObject({
+      data: {
+        ok: true,
+        invocationsRun: 1,
+        runStatus: "failed",
+        failedInvocationCount: 1,
+      },
+    });
+    expect(logSpy).toHaveBeenCalledWith(
+      "[hermes-dashboard:run-pipeline]",
+      "Agent returned HTTP 200 with envelope status failure",
+      expect.objectContaining({
+        phase: "agent-semantic",
+        pipelineId: "p-1",
+        detail: "No rows collected",
       }),
     );
     logSpy.mockRestore();
