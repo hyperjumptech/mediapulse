@@ -83,8 +83,8 @@ const app = createAgentApp<
         token,
       });
 
-      const webSearchConfig = _config?.webSearch;
-      const webFetchConfig = _config?.webFetch;
+      const webSearchConfig = _config.webSearch;
+      const webFetchConfig = _config.webFetch;
 
       if (!webSearchConfig || !webFetchConfig) {
         const completedAt = new Date().toISOString();
