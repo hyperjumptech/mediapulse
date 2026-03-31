@@ -78,6 +78,7 @@ describe("createRunPipelineHandler", () => {
   });
 
   it("returns error when pipeline is missing", async () => {
+    const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const handler = createRunPipelineHandler({
       getToken: async () => "jwt",
       db: {
@@ -88,6 +89,43 @@ describe("createRunPipelineHandler", () => {
     const result = await handler(request({ pipelineId: "missing" }));
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toBe("Pipeline not found");
+    expect(logSpy).toHaveBeenCalledWith(
+      "[hermes-dashboard:run-pipeline]",
+      "Pipeline not found",
+      expect.objectContaining({
+        phase: "load-pipeline",
+        pipelineId: "missing",
+      }),
+    );
+    logSpy.mockRestore();
+  });
+
+  it("returns error and logs when an unexpected error is thrown", async () => {
+    const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const handler = createRunPipelineHandler({
+      getToken: async () => "jwt",
+      db: {
+        ...createExecutionPersistenceStubs(),
+        pipeline: {
+          findUnique: vi.fn().mockRejectedValue(new Error("db down")),
+        },
+      } as never,
+    });
+    const result = await handler(request({ pipelineId: "p-1" }));
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toBe(
+      "Run pipeline failed: db down",
+    );
+    expect(logSpy).toHaveBeenCalledWith(
+      "[hermes-dashboard:run-pipeline]",
+      "Unexpected error while running pipeline",
+      expect.objectContaining({
+        phase: "unhandled",
+        pipelineId: "p-1",
+      }),
+      expect.any(Error),
+    );
+    logSpy.mockRestore();
   });
 
   it("returns failed run with 0 invocations when planning yields no jobs", async () => {
@@ -195,6 +233,7 @@ describe("createRunPipelineHandler", () => {
   });
 
   it("returns success with failedInvocationCount when invocation fails", async () => {
+    const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const postMock = vi.fn().mockResolvedValue({
       ok: false,
       statusCode: 400,
@@ -244,5 +283,16 @@ describe("createRunPipelineHandler", () => {
         failedInvocationCount: 1,
       },
     });
+    expect(logSpy).toHaveBeenCalledWith(
+      "[hermes-dashboard:run-pipeline]",
+      "Agent HTTP response was not OK",
+      expect.objectContaining({
+        phase: "agent-http",
+        pipelineId: "p-1",
+        detail: "bad input",
+        statusCode: 400,
+      }),
+    );
+    logSpy.mockRestore();
   });
 });
