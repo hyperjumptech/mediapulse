@@ -6,7 +6,9 @@ alwaysApply: false
 
 # Prisma Migrations
 
-When adding or changing the Prisma schema (`schema.prisma`), **do not** create or edit migration SQL files manually.
+When adding or changing the Prisma schema (`schema.prisma`), **do not write or edit `migration.sql` by hand** (no ad-hoc SQL files, no pasting SQL into migrations instead of using Prisma).
+
+**Committing** new directories under `prisma/migrations/<timestamp>_<name>/migration.sql` that **Prisma created** when you run `db:migrate:dev` is the correct workflow—those files belong in the repo.
 
 ## Correct workflow
 

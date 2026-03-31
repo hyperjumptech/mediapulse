@@ -5,7 +5,7 @@ description: Create and apply Prisma schema migrations using the project's db:mi
 
 # Prisma Migrate Dev in This Project
 
-Migrations are **never** created by hand. This project uses `prisma migrate dev` via the **orchestration** and **Mediapulse** database package scripts (`@hermes/orchestration-database`, `@mediapulse/database`).
+Migrations are **never authored by typing SQL yourself**—always go through Prisma. This project uses `prisma migrate dev` via the **orchestration** and **Mediapulse** database package scripts (`@hermes/orchestration-database`, `@mediapulse/database`). **Checking in** the generated `prisma/migrations/.../migration.sql` after running the command is expected.
 
 ## When to use
 
@@ -15,7 +15,7 @@ Migrations are **never** created by hand. This project uses `prisma migrate dev`
 ## Steps
 
 1. **Edit the schema only**  
-   Change the appropriate `schema.prisma` (models, fields, relations). Do not create or edit files under `prisma/migrations/` by hand.
+   Change the appropriate `schema.prisma` (models, fields, relations). Do not create migration folders or edit `migration.sql` **yourself**—let Prisma generate them when you run the command below.
 
 2. **Run the migration command**  
    From the repository root (pick the package that owns the schema you edited):
@@ -50,5 +50,9 @@ Migrations are **never** created by hand. This project uses `prisma migrate dev`
 
 ## Do not
 
-- Create `migrations/<timestamp>_<name>/migration.sql` yourself.
-- Paste or write raw SQL into migration files unless the user explicitly asks to modify an existing, undeployed migration.
+- Hand-write new `migrations/<timestamp>_<name>/migration.sql` files or paste SQL without running `db:migrate:dev`.
+- Hand-edit migration files that Prisma already generated unless the user explicitly asks to adjust an undeployed migration.
+
+## Do
+
+- Commit the new migration folder and `migration.sql` that Prisma produced, alongside the `schema.prisma` change.
