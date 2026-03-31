@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "concurrently \"pnpm build:default\" \"pnpm build:agents.data-collection\" \"pnpm build:agents.content-generation\" \"pnpm build:agents.delivery\" \"pnpm build:agents.ticker-echo\" \"pnpm build:agents.user-registration\"",
+    "build": "concurrently \"pnpm build:default\" \"pnpm build:agents.data-collection\" \"pnpm build:agents.content-generation\" \"pnpm build:agents.delivery\" \"pnpm build:agents.ticker-echo\" \"pnpm build:agents.user-registration\" \"pnpm build:agents.query-analysis\"",
     "build:default": "pnpm exec env-to-t3 -i env.example -o src/index.ts",
     "build:agents.data-collection": "pnpm exec env-to-t3 -i env.agents.data-collection.example -o src/agents-data-collection.ts",
     "build:agents.content-generation": "pnpm exec env-to-t3 -i env.agents.content-generation.example -o src/agents-content-generation.ts",
     "build:agents.delivery": "pnpm exec env-to-t3 -i env.agents.delivery.example -o src/agents-delivery.ts",
     "build:agents.ticker-echo": "pnpm exec env-to-t3 -i env.agents.ticker-echo.example -o src/agents-ticker-echo.ts",
-    "build:agents.user-registration": "pnpm exec env-to-t3 -i env.agents.user-registration.example -o src/agents-user-registration.ts"
+    "build:agents.user-registration": "pnpm exec env-to-t3 -i env.agents.user-registration.example -o src/agents-user-registration.ts",
+    "build:agents.query-analysis": "pnpm exec env-to-t3 -i env.agents.query-analysis.example -o src/agents-query-analysis.ts"
   },
   "exports": {
     "./agents-content-generation": {
@@ -32,6 +33,10 @@
     "./agents-user-registration": {
       "types": "./src/agents-user-registration.ts",
       "default": "./src/agents-user-registration.ts"
+    },
+    "./agents-query-analysis": {
+      "types": "./src/agents-query-analysis.ts",
+      "default": "./src/agents-query-analysis.ts"
     },
     ".": {
       "types": "./src/index.ts",

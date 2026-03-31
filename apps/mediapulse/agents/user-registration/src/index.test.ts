@@ -1,5 +1,13 @@
 /** @vitest-environment node */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
@@ -70,8 +78,14 @@ const makeMessage = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+let app: Awaited<typeof import("./index.js")>["app"];
+
+beforeAll(async () => {
+  const module = await import("./index.js");
+  app = module.app;
+}, 30_000);
+
 const post = async (body: unknown) => {
-  const { app } = await import("./index.js");
   return app.request("http://localhost/", {
     method: "POST",
     headers: AUTH_HEADERS,

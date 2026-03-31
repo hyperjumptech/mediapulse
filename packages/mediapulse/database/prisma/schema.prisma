@@ -182,14 +182,35 @@ model ArticleRelevance {
   @@map("article_relevance")
 }
 
+model SearchQuerySet {
+  id               String   @id @default(uuid())
+  tickerId         String   @map("ticker_id")
+  generatedAt      DateTime @map("generated_at")
+  isActive         Boolean  @default(false) @map("is_active")
+  strategySnapshot Json     @map("strategy_snapshot")
+  generationSource String   @map("generation_source")
+  agentJobId       String?  @map("agent_job_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  ticker        Ticker        @relation(fields: [tickerId], references: [id])
+  searchQueries SearchQuery[]
+
+  @@map("search_query_set")
+}
+
 model SearchQuery {
   id        String   @id @default(uuid())
+  setId     String?  @map("set_id")
   text      String
+  source    String?
+  intent    String?
+  rank      Int?
   tickerId  String   @map("ticker_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  ticker      Ticker       @relation(fields: [tickerId], references: [id])
+  set         SearchQuerySet? @relation(fields: [setId], references: [id])
+  ticker      Ticker          @relation(fields: [tickerId], references: [id])
   dataSources DataSource[]
 
   @@map("search_query")
@@ -203,6 +224,7 @@ model Ticker {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  searchQuerySets   SearchQuerySet[]
   searchQueries     SearchQuery[]
   dataSources       DataSource[]
   newsletters       Newsletter[]

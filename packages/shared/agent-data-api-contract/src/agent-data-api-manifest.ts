@@ -18,6 +18,12 @@ import {
   postDeliveryResponseSchema,
 } from "./delivery.js";
 import {
+  getQueryAnalysisQuerySchema,
+  getQueryAnalysisResponseSchema,
+  postQueryAnalysisBodySchema,
+  postQueryAnalysisResponseSchema,
+} from "./query-analysis.js";
+import {
   postUserRegistrationRegisterBodySchema,
   postUserRegistrationRegisterResponseSchema,
   postUserRegistrationConfirmBodySchema,
@@ -69,6 +75,28 @@ export const AGENT_DATA_API_PREFIX = "/api" as const;
 export const AGENT_DATA_API_DEFAULT_VERSION = "v1" as const;
 
 export const agentDataApiManifest = defineAgentDataApiManifest({
+  queryAnalysis: {
+    v1: {
+      get: {
+        query: getQueryAnalysisQuerySchema,
+        response: getQueryAnalysisResponseSchema,
+      },
+      post: {
+        body: postQueryAnalysisBodySchema,
+        response: postQueryAnalysisResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getQueryAnalysisQuerySchema,
+        response: getQueryAnalysisResponseSchema,
+      },
+      post: {
+        body: postQueryAnalysisBodySchema,
+        response: postQueryAnalysisResponseSchema,
+      },
+    },
+  },
   contentGeneration: {
     v1: {
       get: {
