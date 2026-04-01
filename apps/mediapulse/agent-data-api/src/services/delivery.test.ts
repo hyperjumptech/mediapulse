@@ -24,6 +24,7 @@ vi.mock("@mediapulse/database", () => ({
   prisma: {
     newsletter: { findFirst: vi.fn() },
     userTicker: { findMany: vi.fn() },
+    newsletterDeliveryCheckpoint: { findMany: vi.fn() },
   },
 }));
 
@@ -36,22 +37,22 @@ describe("getDeliveryData", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns null when no newsletter exists for ticker", async () => {
+  it("returns empty newsletter payload when no newsletter exists for ticker", async () => {
     const { prisma } = await import("@mediapulse/database");
     vi.mocked(prisma.newsletter.findFirst).mockResolvedValue(null);
-    vi.mocked(prisma.userTicker.findMany).mockResolvedValue([]);
 
     const { getDeliveryData } = await import("./delivery.js");
     const result = await getDeliveryData("ticker-1");
 
-    expect(result).toBeNull();
-    expect(prisma.userTicker.findMany).toHaveBeenCalledWith({
-      where: { tickerId: "ticker-1", enabled: true },
-      include: { user: true },
+    expect(result).toEqual({
+      newsletter: null,
+      subscribers: [],
+      deliveredUserTickerIds: [],
     });
+    expect(prisma.userTicker.findMany).not.toHaveBeenCalled();
   });
 
-  it("returns newsletter and subscriber emails from Mediapulse users", async () => {
+  it("returns newsletter, subscribers with userTickerId, and checkpoint ids", async () => {
     const { prisma } = await import("@mediapulse/database");
     const newsletter = {
       id: "n1",
@@ -63,6 +64,15 @@ describe("getDeliveryData", () => {
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     };
     vi.mocked(prisma.newsletter.findFirst).mockResolvedValue(newsletter);
+    vi.mocked(prisma.newsletterDeliveryCheckpoint.findMany).mockResolvedValue([
+      {
+        id: "cp1",
+        newsletterId: "n1",
+        userTickerId: "ut2",
+        deliveredAt: new Date(),
+        resendEmailId: null,
+      },
+    ]);
     const rows: UserTickerWithUserRow[] = [
       {
         id: "ut1",
@@ -103,8 +113,16 @@ describe("getDeliveryData", () => {
     const result = await getDeliveryData("t1");
 
     expect(result).toEqual({
-      newsletter,
-      subscribers: [{ email: "a@example.com" }, { email: "b@example.com" }],
+      newsletter: {
+        id: "n1",
+        subject: "Subj",
+        content: "Body",
+      },
+      subscribers: [
+        { userTickerId: "ut1", email: "a@example.com" },
+        { userTickerId: "ut2", email: "b@example.com" },
+      ],
+      deliveredUserTickerIds: ["ut2"],
     });
   });
 
@@ -119,6 +137,9 @@ describe("getDeliveryData", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    vi.mocked(prisma.newsletterDeliveryCheckpoint.findMany).mockResolvedValue(
+      [],
+    );
     const rows: UserTickerWithUserRow[] = [
       {
         id: "ut1",

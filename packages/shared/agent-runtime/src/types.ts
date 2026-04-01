@@ -19,10 +19,14 @@ export type AgentRunResult =
   | { success: false; message: string; details?: Record<string, any> };
 
 /**
- * Hermes orchestration ids from invoke headers (`X-Schedule-Id`, etc.), grouped for `run` context.
+ * Hermes orchestration ids from invoke headers (`X-Job-Id`, `X-Schedule-Id`, etc.), grouped for `run` context.
  * Present when hermes-worker invokes the agent; omitted for e.g. dashboard "Run now".
  */
 export type HermesInvokeCorrelation = {
+  /** Hermes job id when `X-Job-Id` was sent (DataQueue / invoke job). */
+  jobId?: string;
+  /** Hermes execution id when `X-Execution-Id` was sent. */
+  executionId?: string;
   /** Hermes `Schedule.id` when `X-Schedule-Id` was sent. */
   scheduleId?: string;
   /** Hermes `ScheduleExecution.id` when `X-Schedule-Execution-Id` was sent. */
@@ -40,7 +44,8 @@ export type AgentRunContext<TInput, TConfig = Record<string, never>> = {
   /** Authorization header value (e.g. "Bearer <token>"). */
   token: string | undefined;
   /**
-   * Hermes schedule / execution / step correlation when the caller sent the corresponding headers.
+   * Hermes job / execution / schedule / step correlation when the caller sent the corresponding headers
+   * (`X-Job-Id`, `X-Execution-Id`, `X-Schedule-Id`, etc.).
    * Omitted when no such headers are present (e.g. "Run now" in the dashboard).
    */
   hermesCorrelation?: HermesInvokeCorrelation;

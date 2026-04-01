@@ -9,6 +9,12 @@ describe("RateLimiter", () => {
     vi.useRealTimers();
   });
 
+  it("throws when requests or perSeconds are invalid", () => {
+    expect(() => new RateLimiter(0, 1)).toThrow(/requests/);
+    expect(() => new RateLimiter(1, 0)).toThrow(/perSeconds/);
+    expect(() => new RateLimiter(Number.NaN, 1)).toThrow();
+  });
+
   it("blocks until the window advances when the limit is exceeded", async () => {
     // Setup
     vi.useFakeTimers();

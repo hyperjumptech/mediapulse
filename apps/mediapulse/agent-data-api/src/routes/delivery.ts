@@ -1,6 +1,6 @@
 import { Context } from "hono";
 
-import { internalError, notFound } from "@workspace/api-utils";
+import { internalError } from "@workspace/api-utils";
 import {
   getDeliveryQuerySchema,
   getDeliveryResponseSchema,
@@ -13,9 +13,6 @@ export async function getDelivery(context: Context): Promise<Response> {
   try {
     const query = getDeliveryQuerySchema.parse(context.req.query());
     const result = await getDeliveryData(query.tickerId);
-    if (!result) {
-      return notFound(context, "No newsletter found for this ticker");
-    }
     const response = getDeliveryResponseSchema.parse(result);
     return context.json(response, 200);
   } catch (error) {

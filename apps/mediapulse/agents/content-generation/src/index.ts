@@ -63,7 +63,10 @@ const app = createAgentApp<
         };
       }
 
-      const openai = new OpenAI({ apiKey: config.openaiApiKey });
+      const openai = new OpenAI({
+        apiKey: config.openaiApiKey,
+        ...(config.openaiBaseUrl ? { baseURL: config.openaiBaseUrl } : {}),
+      });
       const model = config.openaiModel ?? "gpt-4o-mini";
       const generated = await generateContentWithOpenAI(sources, {
         openai,

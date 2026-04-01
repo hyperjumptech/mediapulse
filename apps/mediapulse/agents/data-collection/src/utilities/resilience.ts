@@ -12,6 +12,16 @@ export class RateLimiter {
    * @param perSeconds - Time window in seconds.
    */
   constructor(requests: number, perSeconds: number) {
+    if (
+      !Number.isFinite(requests) ||
+      requests < 1 ||
+      !Number.isFinite(perSeconds) ||
+      perSeconds <= 0
+    ) {
+      throw new Error(
+        `RateLimiter: requests and perSeconds must be finite with requests >= 1 and perSeconds > 0 (got requests=${String(requests)}, perSeconds=${String(perSeconds)})`,
+      );
+    }
     this.maxRequests = requests;
     this.windowMs = perSeconds * 1000;
   }
@@ -31,8 +41,13 @@ export class RateLimiter {
     }
 
     const oldest = this.timestamps[0];
-    const waitTime = this.windowMs - (now - oldest!);
-    await sleep(waitTime);
+    if (oldest === undefined) {
+      this.timestamps.push(now);
+      return Promise.resolve();
+    }
+    const waitTime = this.windowMs - (now - oldest);
+    const waitMs = Number.isFinite(waitTime) && waitTime > 0 ? waitTime : 0;
+    await sleep(waitMs);
     return this.acquire();
   }
 }
@@ -70,7 +85,8 @@ export async function withRetry<T>(
         config.maxDelayMs,
         config.baseDelayMs * Math.pow(2, attempt - 1),
       );
-      await sleep(delay);
+      const delayMs = Number.isFinite(delay) && delay >= 0 ? delay : 0;
+      await sleep(delayMs);
       attempt++;
     }
   }

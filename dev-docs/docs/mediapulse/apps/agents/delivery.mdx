@@ -15,6 +15,23 @@ The delivery agent reads **newsletter content and subscribers** from agent-data-
 - **Sends email** to each subscriber using the configured provider (e.g. Resend).
 - **Skips** cleanly if no newsletter or no subscribers.
 - **Marks completion** — POSTs to agent-data-api (e.g. `userTickerId`) so the pipeline can track delivery.
+- **Diagnostics** — Persists **delivery runs** with Hermes correlation when present (`X-Job-Id`, `X-Execution-Id`, `X-Schedule-Id`, execution/step ids), skip reasons (`skipped_no_newsletter`, `skipped_no_subscribers`, `skipped_invalid_config`), and per-recipient **`errorCategory`** (e.g. `resend_rate_limited`, `skipped_already_delivered`).
+
+### Newsletter `content` (plain text in storage)
+
+Content-generation stores **`newsletter.content` as plain text** (often markdown-style prose from the model). The delivery path **does not treat it as trusted HTML**: the React Email template in `@workspace/email-templates` renders it into **email-safe HTML and a plain-text part** for Resend. Do not put raw subscriber-controlled HTML into `content`; treat the field as **editorial copy** only.
+
+### Hermes config (`config` JSON)
+
+Besides env fallbacks for `RESEND_API_KEY` / `RESEND_SENDER`, the pipeline may pass:
+
+- **`resend.tags`** — Optional `{ name, value }[]` forwarded to Resend (dashboard filtering / analytics).
+- **`send.includeHtml` / `send.includeText`** — Default `true` each; you may turn one off for experiments, but **at least one must stay `true`** (Resend requires a body part).
+- **`rateLimit` / `retry` / `template`** — As documented in [agent-data-api](/mediapulse/apps/agent-data-api#delivery-agent-hermes-config--semantics).
+
+### Rate limiting
+
+The **min-interval / per-minute** limiter is **in-memory per agent process**. It coordinates sends within one running instance; it does **not** synchronize across multiple replicas. For hard global caps, rely on **Resend quotas** and **`retry`** backoff (including **`Retry-After`** from Resend responses when provided).
 
 ## Entrypoint
 
