@@ -19,6 +19,17 @@ enum Sentiment {
   NEUTRAL
 }
 
+enum SearchQuerySource {
+  deterministic
+  llm
+}
+
+enum SearchQueryIntent {
+  breaking
+  kg_change
+  fundamental
+}
+
 model DataSource {
   id            String   @id @default(uuid())
   url           String
@@ -186,14 +197,39 @@ model SearchQuery {
   id        String   @id @default(uuid())
   text      String
   tickerId  String   @map("ticker_id")
+  setId     String?  @map("set_id")
+  source    SearchQuerySource @default(deterministic)
+  intent    SearchQueryIntent @default(breaking)
+  rank      Int      @default(1)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   ticker      Ticker       @relation(fields: [tickerId], references: [id])
+  set         SearchQuerySet? @relation(fields: [setId], references: [id], onDelete: SetNull)
   dataSources DataSource[]
   dataCollectionFailures  DataCollectionFailure[]
 
+  @@unique([setId, text])
+  @@index([tickerId, setId])
   @@map("search_query")
+}
+
+model SearchQuerySet {
+  id               String   @id @default(uuid())
+  tickerId         String   @map("ticker_id")
+  generatedAt      DateTime @default(now()) @map("generated_at")
+  isActive         Boolean  @default(false) @map("is_active")
+  strategySnapshot Json     @map("strategy_snapshot")
+  generationSource String   @map("generation_source")
+  agentJobId       String?  @map("agent_job_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  ticker       Ticker        @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  searchQueries SearchQuery[]
+
+  @@index([tickerId, isActive])
+  @@map("search_query_set")
 }
 
 model Ticker {
@@ -205,6 +241,7 @@ model Ticker {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   searchQueries     SearchQuery[]
+  searchQuerySets   SearchQuerySet[]
   dataSources       DataSource[]
   newsletters       Newsletter[]
   userTickers       UserTicker[]

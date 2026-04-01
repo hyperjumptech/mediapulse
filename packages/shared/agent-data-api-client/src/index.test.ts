@@ -151,6 +151,60 @@ describe("createAgentDataApiClient", () => {
       expect.anything(),
     );
   });
+
+  it("supports query-analysis GET and POST", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        ticker: {
+          id: "11111111-1111-4111-a111-111111111111",
+          symbol: "AAPL",
+          name: "Apple Inc.",
+          metadata: null,
+        },
+        topEntities: [],
+        recentThemes: [],
+      }),
+      statusCode: 200,
+    });
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        created: 1,
+        createdSetId: "22222222-2222-4222-a222-222222222222",
+        activeSetId: "22222222-2222-4222-a222-222222222222",
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
+      postFn,
+    });
+
+    // Act
+    const getResponse = await client.queryAnalysis.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+    });
+    const postResponse = await client.queryAnalysis.create({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      generationSource: "hybrid_v1",
+      strategySnapshot: { queryCount: 10 },
+      activate: true,
+      queries: [
+        {
+          text: "AAPL latest news",
+          source: "deterministic",
+          intent: "breaking",
+          rank: 1,
+        },
+      ],
+    });
+
+    // Assert
+    expect(getResponse.ticker.symbol).toBe("AAPL");
+    expect(postResponse.created).toBe(1);
+  });
 });
 
 describe("agent-data-api path helpers", () => {

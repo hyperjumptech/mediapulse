@@ -29,8 +29,14 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/content-generation`              | Store content-generation payload               |
 | GET    | `/api/v1/data-collection`                 | Get data-collection data                       |
 | POST   | `/api/v1/data-collection`                 | Store data-collection payload                  |
+| GET    | `/api/v1/query-analysis`                  | Get query-analysis context by ticker           |
+| POST   | `/api/v1/query-analysis`                  | Store and activate a versioned query set       |
 | GET    | `/api/v1/delivery`                        | Get delivery data (newsletter + subscribers)   |
 | POST   | `/api/v1/delivery`                        | Store delivery payload                         |
+| GET    | `/api/v1/data-collection-run`             | Get data-collection run metadata               |
+| POST   | `/api/v1/data-collection-run`             | Store a data-collection run                    |
+| GET    | `/api/v1/data-collection-failure`         | Get run failure records                        |
+| POST   | `/api/v1/data-collection-failure`         | Store run failure records                      |
 | POST   | `/api/v1/user-registration-register`      | Process a new or returning subscription        |
 | POST   | `/api/v1/user-registration-confirm`       | Confirm a pending subscription (double opt-in) |
 

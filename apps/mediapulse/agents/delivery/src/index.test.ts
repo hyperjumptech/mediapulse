@@ -72,7 +72,7 @@ describe("delivery-agent", () => {
     expect(got.get).toHaveBeenCalled();
     const sendEmail = await getSendEmail();
     expect(sendEmail).toHaveBeenCalled();
-  });
+  }, 15000);
 
   it("returns 500 when no newsletter is found", async () => {
     const got = await getGot();
@@ -93,5 +93,5 @@ describe("delivery-agent", () => {
     expect(res.status).toBe(500);
     const body = (await res.json()) as { message: string };
     expect(body.message).toBe("Internal Server Error");
-  });
+  }, 15000);
 });

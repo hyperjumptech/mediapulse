@@ -1,16 +1,52 @@
 import { z } from "zod";
 
+export const queryAnalysisIntentSchema = z.enum([
+  "breaking",
+  "kg_change",
+  "fundamental",
+]);
+
+export const queryAnalysisSourceSchema = z.enum(["deterministic", "llm"]);
+
 export const getQueryAnalysisQuerySchema = z.object({
   tickerId: z.string().trim().min(1),
 });
 
+export const queryAnalysisConfigSnapshotSchema = z.object({
+  queryCount: z.number().int().positive(),
+  allowedLanguages: z.array(z.string().trim().min(1)),
+  minDeterministicCount: z.number().int().nonnegative(),
+  weights: z.object({
+    breaking: z.number().nonnegative(),
+    kgChange: z.number().nonnegative(),
+    fundamental: z.number().nonnegative(),
+  }),
+  model: z.string().trim().min(1).optional(),
+  maxTokens: z.number().int().positive().optional(),
+});
+
+export const queryAnalysisRelationDeltaSchema = z.object({
+  fromEntity: z.string().trim().min(1),
+  toEntity: z.string().trim().min(1),
+  relationType: z.string().trim().min(1),
+  change: z.enum(["added", "removed", "updated"]),
+  weight: z.number().optional(),
+});
+
+export const queryAnalysisPostQuerySchema = z.object({
+  text: z.string().trim().min(1),
+  source: queryAnalysisSourceSchema,
+  intent: queryAnalysisIntentSchema,
+  rank: z.number().int().positive(),
+});
+
 export const postQueryAnalysisBodySchema = z.object({
   tickerId: z.string().trim().min(1),
-  queries: z.array(
-    z.object({
-      text: z.string().trim().min(1),
-    }),
-  ),
+  queries: z.array(queryAnalysisPostQuerySchema).min(1),
+  strategySnapshot: z.record(z.string(), z.unknown()),
+  generationSource: z.string().trim().min(1),
+  activate: z.boolean().default(true),
+  agentJobId: z.string().trim().min(1).optional(),
 });
 
 export const queryAnalysisTickerSchema = z.object({
@@ -35,10 +71,14 @@ export const getQueryAnalysisResponseSchema = z.object({
   ticker: queryAnalysisTickerSchema,
   topEntities: z.array(queryAnalysisTopEntitySchema),
   recentThemes: z.array(queryAnalysisRecentThemeSchema),
+  recentRelationDeltas: z.array(queryAnalysisRelationDeltaSchema).optional(),
+  configSnapshot: queryAnalysisConfigSnapshotSchema.optional(),
 });
 
 export const postQueryAnalysisResponseSchema = z.object({
   created: z.number().int().nonnegative(),
+  createdSetId: z.string().uuid(),
+  activeSetId: z.string().uuid(),
 });
 
 export type GetQueryAnalysisQuery = z.infer<typeof getQueryAnalysisQuerySchema>;
@@ -49,3 +89,5 @@ export type GetQueryAnalysisResponse = z.infer<
 export type PostQueryAnalysisResponse = z.infer<
   typeof postQueryAnalysisResponseSchema
 >;
+export type QueryAnalysisIntent = z.infer<typeof queryAnalysisIntentSchema>;
+export type QueryAnalysisSource = z.infer<typeof queryAnalysisSourceSchema>;

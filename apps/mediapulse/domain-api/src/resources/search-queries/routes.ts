@@ -34,6 +34,18 @@ searchQueriesRoutes.get("/", async (c) => {
               symbol: { contains: query, mode: "insensitive" as const },
             },
           },
+          {
+            set: {
+              is: { id: { contains: query, mode: "insensitive" as const } },
+            },
+          },
+          {
+            set: {
+              is: {
+                agentJobId: { contains: query, mode: "insensitive" as const },
+              },
+            },
+          },
         ],
       } satisfies Prisma.SearchQueryWhereInput)
     : undefined;

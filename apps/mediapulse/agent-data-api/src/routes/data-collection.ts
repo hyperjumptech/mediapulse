@@ -13,6 +13,9 @@ export async function getDataCollection(context: Context): Promise<Response> {
     const data = await prisma.searchQuery.findMany({
       where: {
         tickerId: query.tickerId,
+        set: {
+          isActive: true,
+        },
         ...(query.start &&
           query.end && {
             createdAt: {
