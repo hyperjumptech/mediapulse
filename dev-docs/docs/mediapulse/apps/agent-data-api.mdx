@@ -37,6 +37,40 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/user-registration-register` | Process a new or returning subscription                               |
 | POST   | `/api/v1/user-registration-confirm`  | Confirm a pending subscription (double opt-in)                        |
 
+### Delivery run (`/api/v1/delivery-run`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/delivery-run.ts`. Contract types and Zod schemas live in `@workspace/agent-data-api-contract` (`delivery-run.ts`).
+
+- **GET** — Lists persisted runs. **Query** (all optional, validated by `deliveryRunQuerySchema`):
+  - `tickerId` — UUID, filter by ticker.
+  - `outcome` — One of `success`, `skipped`, `failed`, `partial_success`.
+  - `start` — ISO 8601 datetime; when set, only rows with `createdAt >= start` (inclusive).
+  - `end` — ISO 8601 datetime; when set, only rows with `createdAt <= end` (inclusive).
+- **POST** — Inserts one run and nested recipient rows (`postDeliveryRunBodySchema`). Body includes run id, agent id/version, ticker id, optional `newsletterId`, `outcome`, optional `stage`, counts, `durationMs`, optional Hermes correlation fields (`jobId`, `hermesExecutionId`, `hermesScheduleId`, `pipelineStepId`, `scheduleExecutionId`), optional `runSkipReason` / `recipientErrorSummary` / `resendMessageIds`, and a `recipients` array (per-`userTickerId` status, attempts, optional Resend/error fields).
+
+From agents, use the SDK namespace **`deliveryRun`**: `get` for the query object, **`create`** for POST (manifest maps POST to `create`).
+
+```ts
+await dataApiClient.deliveryRun.get({
+  tickerId,
+  outcome: "success",
+});
+
+await dataApiClient.deliveryRun.create({
+  id: runId,
+  agentId: "delivery",
+  agentVersion: "1.0.0",
+  tickerId,
+  outcome: "success",
+  successCount: 1,
+  failureCount: 0,
+  skippedCount: 0,
+  durationMs: 1200,
+  recipients: [],
+  createdAt: new Date().toISOString(),
+});
+```
+
 For example, in agents:
 
 ```ts
@@ -51,7 +85,7 @@ await dataApiClient.contentGeneration.get({ tickerId });
 
 ### Delivery agent (Hermes config + semantics)
 
-- **Config (`configSchema`):** `resendApiKey` (optional; overrides `RESEND_API_KEY`), `resend.from` / `resend.replyTo` / optional **`resend.tags`**, **`send.includeHtml` / `send.includeText`** (defaults `true`; at least one required), `rateLimit.minIntervalMs` + `maxSendsPerMinute`, `retry` (`maxAttempts`, `baseDelayMs`, `maxDelayMs`, `jitter`), `template.newsletterVariant` (`default` only in v1).
+- **Config (`configSchema`):** required **`resendApiKey`** and **`resend.from`** (no env fallback); optional `resend.replyTo` / **`resend.tags`**, **`send.includeHtml` / `send.includeText`** (defaults `true`; at least one required), `rateLimit.minIntervalMs` + `maxSendsPerMinute`, `retry` (`maxAttempts`, `baseDelayMs`, `maxDelayMs`, `jitter`), `template.newsletterVariant` (`default` only in v1).
 - **Pipeline HTTP outcome:** Partial delivery still returns **invoke envelope `status: success`** with `details.outcome: "partial_success"`; full diagnostics live in **delivery runs** (DB + Hermes Mediapulse **Delivery runs** table). All recipients failing returns `status: failure` on the agent response.
 - **PII:** Logs use hashed `userTickerId` fragments; persisted diagnostics store `userTickerId` and sanitized error text (not raw emails in optional summary fields).
 

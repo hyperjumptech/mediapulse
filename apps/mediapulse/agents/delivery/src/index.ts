@@ -44,23 +44,6 @@ function hermesRunFields(c: HermesInvokeCorrelation | undefined): {
 }
 
 /**
- * Merges Hermes config with env fallbacks for Resend credentials and sender.
- *
- * @param config - Validated request config from the pipeline step.
- */
-function resolveDeliveryConfig(config: DeliveryConfig): DeliveryConfig {
-  return {
-    ...config,
-    resend: {
-      from: config.resend?.from ?? env.RESEND_SENDER,
-      replyTo: config.resend?.replyTo,
-      tags: config.resend?.tags,
-    },
-    resendApiKey: config.resendApiKey ?? env.RESEND_API_KEY,
-  };
-}
-
-/**
  * Derives aggregate HTTP / diagnostics outcome from per-recipient rows.
  *
  * @param results - Recipient rows after send pass (may be empty).
@@ -109,73 +92,6 @@ const app = createAgentApp<
         version: "v1",
         token,
       });
-
-      const effective = resolveDeliveryConfig(config);
-
-      if (!effective.resendApiKey?.trim()) {
-        try {
-          await dataApiClient.deliveryRun.create({
-            id: runId,
-            agentId: "delivery",
-            agentVersion: "1.0.0",
-            tickerId: input.tickerId,
-            newsletterId: null,
-            outcome: "failed",
-            successCount: 0,
-            failureCount: 0,
-            skippedCount: 0,
-            durationMs: Date.now() - startedAt,
-            ...hx,
-            runSkipReason: "skipped_invalid_config",
-            resendMessageIds: [],
-            recipientErrorSummary: "missing_resend_api_key",
-            recipients: [],
-            createdAt: new Date().toISOString(),
-          });
-        } catch (persistErr) {
-          logger.error(
-            { persistErr },
-            "Failed to persist invalid-config delivery run",
-          );
-        }
-        return {
-          success: false,
-          message: "Missing Resend API key (config or RESEND_API_KEY).",
-          details: { runId },
-        };
-      }
-      if (!effective.resend?.from?.trim()) {
-        try {
-          await dataApiClient.deliveryRun.create({
-            id: runId,
-            agentId: "delivery",
-            agentVersion: "1.0.0",
-            tickerId: input.tickerId,
-            newsletterId: null,
-            outcome: "failed",
-            successCount: 0,
-            failureCount: 0,
-            skippedCount: 0,
-            durationMs: Date.now() - startedAt,
-            ...hx,
-            runSkipReason: "skipped_invalid_config",
-            resendMessageIds: [],
-            recipientErrorSummary: "missing_resend_from",
-            recipients: [],
-            createdAt: new Date().toISOString(),
-          });
-        } catch (persistErr) {
-          logger.error(
-            { persistErr },
-            "Failed to persist invalid-config delivery run",
-          );
-        }
-        return {
-          success: false,
-          message: "Missing sender `from` (config or RESEND_SENDER).",
-          details: { runId },
-        };
-      }
 
       let stage: "fetch" | "render" | "send" | "persist_delivery_record" =
         "fetch";
@@ -255,14 +171,14 @@ const app = createAgentApp<
         }
 
         stage = "render";
-        const resend = new Resend(effective.resendApiKey);
+        const resend = new Resend(config.resendApiKey);
 
         stage = "send";
         const sendResult = await deliverNewsletterToSubscribers(
           deliveryData.newsletter,
           deliveryData.subscribers,
           deliveryData.deliveredUserTickerIds,
-          effective,
+          config,
           { resend, logger },
         );
         recipientRows = sendResult.results;

@@ -113,12 +113,7 @@ export async function deliverNewsletterToSubscribers(
     "delivery newsletter render timing",
   );
 
-  const from = config.resend?.from ?? "";
-  if (!from) {
-    throw new Error(
-      "Missing resend.from in config and no env fallback applied",
-    );
-  }
+  const from = config.resend.from;
 
   const results: RecipientSendResult[] = [];
   const resendMessageIds: string[] = [];

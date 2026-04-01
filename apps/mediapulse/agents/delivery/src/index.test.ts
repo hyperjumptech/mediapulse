@@ -6,6 +6,12 @@ const NL_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const UT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 
+/** Minimal valid Hermes step config (Resend is config-only, not env). */
+const DELIVERY_CONFIG = {
+  resendApiKey: "re_test_key",
+  resend: { from: "sender@example.com" },
+};
+
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
@@ -14,8 +20,10 @@ vi.mock("@mediapulse/env/agents-delivery", () => ({
   env: {
     AGENT_DATA_API_URL: "http://agent-data-api",
     AGENT_AUTH_API_URL: "http://agent-auth-api",
-    RESEND_SENDER: "sender@example.com",
-    RESEND_API_KEY: "re_test_key",
+    AGENT_REGISTRY_URL: "http://registry",
+    AGENT_PUBLIC_URL: "http://delivery",
+    DOMAIN_INTEGRATION_API_KEY: "key",
+    DOMAIN_INTEGRATION_ID: "mediapulse",
   },
 }));
 
@@ -77,7 +85,10 @@ describe("delivery-agent", () => {
       new Request("http://localhost/", {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ input: { tickerId: TICKER_ID }, config: {} }),
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: DELIVERY_CONFIG,
+        }),
       }),
     );
 
@@ -115,7 +126,10 @@ describe("delivery-agent", () => {
       new Request("http://localhost/", {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ input: { tickerId: TICKER_ID }, config: {} }),
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: DELIVERY_CONFIG,
+        }),
       }),
     );
 
@@ -133,7 +147,10 @@ describe("delivery-agent", () => {
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
-          config: { rateLimit: { minIntervalMs: -1, maxSendsPerMinute: 8 } },
+          config: {
+            ...DELIVERY_CONFIG,
+            rateLimit: { minIntervalMs: -1, maxSendsPerMinute: 8 },
+          },
         }),
       }),
     );

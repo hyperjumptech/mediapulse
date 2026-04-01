@@ -23,7 +23,9 @@ Content-generation stores **`newsletter.content` as plain text** (often markdown
 
 ### Hermes config (`config` JSON)
 
-Besides env fallbacks for `RESEND_API_KEY` / `RESEND_SENDER`, the pipeline may pass:
+**Resend API key and `from` address:** required on every run — set `resendApiKey` and `resend.from` on the delivery **Agent config** (use Hermes variables / secrets for the key). There is **no** `RESEND_*` environment fallback in the delivery agent.
+
+The pipeline may also pass:
 
 - **`resend.tags`** — Optional `{ name, value }[]` forwarded to Resend (dashboard filtering / analytics).
 - **`send.includeHtml` / `send.includeText`** — Default `true` each; you may turn one off for experiments, but **at least one must stay `true`** (Resend requires a body part).
@@ -35,7 +37,7 @@ The **min-interval / per-minute** limiter is **in-memory per agent process**. It
 
 ## Entrypoint
 
-- **Main:** `src/_main.ts` — Exports a Bun/Hono-compatible `fetch` and `port` (default **4003**).
+- **Main:** `src/index.ts` — Exports a Bun/Hono-compatible `fetch` and `port` (default **4003**).
 
 ## Port
 

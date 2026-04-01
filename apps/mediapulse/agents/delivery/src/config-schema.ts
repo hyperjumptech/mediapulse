@@ -6,20 +6,19 @@ const resendTagSchema = z.object({
 });
 
 /**
- * Runtime config for the delivery agent (Hermes global config + env fallbacks for secrets/sender).
+ * Runtime config for the delivery agent, supplied by Hermes on each invocation.
+ * Resend credentials and sender must come from this config (e.g. variables / secrets in Hermes).
  */
 export const DeliveryConfigSchema = z
   .object({
-    /** When set, overrides `RESEND_API_KEY` from env for this invocation. */
-    resendApiKey: z.string().min(1).optional(),
-    resend: z
-      .object({
-        from: z.string().min(1).optional(),
-        replyTo: z.string().email().optional(),
-        /** Optional Resend email tags (observability / routing in Resend dashboard). */
-        tags: z.array(resendTagSchema).max(10).optional(),
-      })
-      .optional(),
+    /** Resend API key for this step (use a Hermes secret variable in production). */
+    resendApiKey: z.string().min(1),
+    resend: z.object({
+      from: z.string().min(1),
+      replyTo: z.string().email().optional(),
+      /** Optional Resend email tags (observability / routing in Resend dashboard). */
+      tags: z.array(resendTagSchema).max(10).optional(),
+    }),
     /** When both false, validation fails (at least one part must be sent). */
     send: z
       .object({
