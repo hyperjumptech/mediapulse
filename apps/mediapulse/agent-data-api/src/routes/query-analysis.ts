@@ -1,36 +1,51 @@
 import { Context } from "hono";
 
-import { internalError } from "@workspace/api-utils";
 import {
   getQueryAnalysisQuerySchema,
-  getQueryAnalysisResponseSchema,
   postQueryAnalysisBodySchema,
-  postQueryAnalysisResponseSchema,
 } from "@workspace/agent-data-api-contract";
-import {
-  getQueryAnalysisContext,
-  createQueryAnalysisSet,
-} from "../services/query-analysis.js";
+import { internalError } from "@workspace/api-utils";
+import { prisma } from "@mediapulse/database";
+import { env } from "@mediapulse/env";
 
+import { getQueryAnalysisContext } from "../services/get-query-analysis-context.js";
+import { persistQueryAnalysisSet } from "../services/persist-query-analysis-set.js";
+
+/**
+ * Returns query-generation context for a ticker (GET /query-analysis).
+ *
+ * @param context - Hono context with bearer auth already applied.
+ * @returns JSON response or 404 when the ticker is unknown.
+ */
 export async function getQueryAnalysis(context: Context): Promise<Response> {
   try {
     const query = getQueryAnalysisQuerySchema.parse(context.req.query());
-    const contextData = await getQueryAnalysisContext(query.tickerId);
-    const response = getQueryAnalysisResponseSchema.parse(contextData);
-    return context.json(response, 200);
+    const data = await getQueryAnalysisContext(prisma, query.tickerId, env);
+    if (!data) {
+      return context.json({ message: "Ticker not found" }, 404);
+    }
+    return context.json(data, 200);
   } catch (error) {
     return internalError(context, error);
   }
 }
 
+/**
+ * Persists a versioned query set and optional activation (POST /query-analysis).
+ *
+ * @param context - Hono context with JSON body.
+ * @returns Created counts and set identifiers.
+ */
 export async function postQueryAnalysis(context: Context): Promise<Response> {
   try {
     const body = await context.req.json();
-    const data = await postQueryAnalysisBodySchema.parseAsync(body);
-    const result = await createQueryAnalysisSet(data);
-    const response = postQueryAnalysisResponseSchema.parse(result);
-    return context.json(response, 200);
+    const parsed = await postQueryAnalysisBodySchema.parseAsync(body);
+    const data = await persistQueryAnalysisSet(prisma, parsed);
+    return context.json(data, 200);
   } catch (error) {
+    if (error instanceof Error && error.message === "TICKER_NOT_FOUND") {
+      return context.json({ message: "Ticker not found" }, 404);
+    }
     return internalError(context, error);
   }
 }

@@ -28,13 +28,13 @@ import {
 } from "./routes/data-collection-failure.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 import {
-  getQueryAnalysis,
-  postQueryAnalysis,
-} from "./routes/query-analysis.js";
-import {
   postUserRegistrationRegisterHandler,
   postUserRegistrationConfirmHandler,
 } from "./routes/user-registration.js";
+import {
+  getQueryAnalysis,
+  postQueryAnalysis,
+} from "./routes/query-analysis.js";
 import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
@@ -60,10 +60,6 @@ app.use(
   }),
 );
 const routeHandlers = {
-  queryAnalysis: {
-    get: getQueryAnalysis,
-    post: postQueryAnalysis,
-  },
   contentGeneration: {
     get: getContentGeneration,
     post: postContentGeneration,
@@ -89,6 +85,10 @@ const routeHandlers = {
   },
   userRegistrationConfirm: {
     post: postUserRegistrationConfirmHandler,
+  },
+  queryAnalysis: {
+    get: getQueryAnalysis,
+    post: postQueryAnalysis,
   },
 } satisfies AgentDataApiHandlers;
 

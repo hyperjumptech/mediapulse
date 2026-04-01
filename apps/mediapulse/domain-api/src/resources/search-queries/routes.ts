@@ -6,7 +6,9 @@ import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 import { parsePagination } from "../../lib/list-pagination";
+import { buildSearchQueryListOr } from "./build-search-query-list-where";
 import { listInclude, mapRowToListItem } from "./list-mapper";
+import { resolveSearchQueryListOrderBy } from "./resolve-search-query-list-order-by";
 
 /**
  * Hermes `table-v1` API for generated search queries (list + delete only).
@@ -20,23 +22,17 @@ searchQueriesRoutes.get("/", async (c) => {
     c.req.query("pageSize"),
   );
   const query = c.req.query("q")?.trim();
+  const sortBy = c.req.query("sortBy");
+  const sortDir: Prisma.SortOrder =
+    c.req.query("sortDir") === "desc" ? "desc" : "asc";
   const skip = (page - 1) * pageSize;
 
-  const where = query
-    ? ({
-        OR: [
-          { text: { contains: query, mode: "insensitive" as const } },
-          {
-            ticker: { name: { contains: query, mode: "insensitive" as const } },
-          },
-          {
-            ticker: {
-              symbol: { contains: query, mode: "insensitive" as const },
-            },
-          },
-        ],
-      } satisfies Prisma.SearchQueryWhereInput)
+  const searchOr = query ? buildSearchQueryListOr(query) : undefined;
+  const where = searchOr
+    ? ({ OR: searchOr } satisfies Prisma.SearchQueryWhereInput)
     : undefined;
+
+  const orderBy = resolveSearchQueryListOrderBy(sortBy, sortDir);
 
   const [rows, total] = await Promise.all([
     prisma.searchQuery.findMany({
@@ -44,7 +40,7 @@ searchQueriesRoutes.get("/", async (c) => {
       include: listInclude,
       skip,
       take: pageSize,
-      orderBy: { createdAt: "desc" },
+      orderBy,
     } satisfies Prisma.SearchQueryFindManyArgs),
     prisma.searchQuery.count({ where }),
   ]);

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  HERMES_HEADER_JOB_ID,
   HERMES_HEADER_PIPELINE_STEP_ID,
   HERMES_HEADER_SCHEDULE_EXECUTION_ID,
   HERMES_HEADER_SCHEDULE_ID,
@@ -33,5 +34,14 @@ describe("hermesInvokeCorrelationFromGetHeader", () => {
     };
 
     expect(hermesInvokeCorrelationFromGetHeader(getHeader)).toBeUndefined();
+  });
+
+  it("returns jobId when only X-Job-Id is present", () => {
+    const getHeader = (name: string): string | undefined =>
+      name === HERMES_HEADER_JOB_ID ? "job-exec-1" : undefined;
+
+    expect(hermesInvokeCorrelationFromGetHeader(getHeader)).toEqual({
+      jobId: "job-exec-1",
+    });
   });
 });

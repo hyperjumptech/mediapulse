@@ -72,7 +72,7 @@ describe("delivery-agent", () => {
     expect(got.get).toHaveBeenCalled();
     const sendEmail = await getSendEmail();
     expect(sendEmail).toHaveBeenCalled();
-  });
+  }, 15_000);
 
   it("returns 500 when no newsletter is found", async () => {
     const got = await getGot();

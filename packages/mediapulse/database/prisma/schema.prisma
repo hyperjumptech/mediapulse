@@ -182,38 +182,52 @@ model ArticleRelevance {
   @@map("article_relevance")
 }
 
+enum SearchQuerySource {
+  deterministic
+  llm
+}
+
+enum SearchQueryIntent {
+  breaking
+  kg_change
+  fundamental
+}
+
+/// Versioned batch of search queries produced by the query-analysis agent (one active set per ticker in app logic).
 model SearchQuerySet {
   id               String   @id @default(uuid())
   tickerId         String   @map("ticker_id")
   generatedAt      DateTime @map("generated_at")
-  isActive         Boolean  @default(false) @map("is_active")
+  isActive         Boolean  @map("is_active")
   strategySnapshot Json     @map("strategy_snapshot")
   generationSource String   @map("generation_source")
   agentJobId       String?  @map("agent_job_id")
   createdAt        DateTime @default(now()) @map("created_at")
 
-  ticker        Ticker        @relation(fields: [tickerId], references: [id])
+  ticker        Ticker        @relation(fields: [tickerId], references: [id], onDelete: Cascade)
   searchQueries SearchQuery[]
 
+  @@index([tickerId])
   @@map("search_query_set")
 }
 
 model SearchQuery {
   id        String   @id @default(uuid())
-  setId     String?  @map("set_id")
   text      String
-  source    String?
-  intent    String?
-  rank      Int?
   tickerId  String   @map("ticker_id")
+  setId     String?  @map("set_id")
+  source    SearchQuerySource @default(deterministic)
+  intent    SearchQueryIntent @default(fundamental)
+  rank      Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  set         SearchQuerySet? @relation(fields: [setId], references: [id])
-  ticker      Ticker          @relation(fields: [tickerId], references: [id])
+  ticker      Ticker       @relation(fields: [tickerId], references: [id])
+  querySet    SearchQuerySet? @relation(fields: [setId], references: [id], onDelete: Restrict)
   dataSources DataSource[]
   dataCollectionFailures  DataCollectionFailure[]
 
+  @@index([setId])
   @@map("search_query")
 }
 
@@ -225,8 +239,8 @@ model Ticker {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  searchQuerySets   SearchQuerySet[]
   searchQueries     SearchQuery[]
+  searchQuerySets   SearchQuerySet[]
   dataSources       DataSource[]
   newsletters       Newsletter[]
   userTickers       UserTicker[]

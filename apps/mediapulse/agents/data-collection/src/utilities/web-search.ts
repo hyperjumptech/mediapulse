@@ -10,10 +10,6 @@ export interface SearchQuery {
   id: string;
   text: string;
   tickerId: string;
-  source?: string;
-  intent?: string;
-  rank?: number;
-  setId?: string;
 }
 
 export interface WebSearchResult {

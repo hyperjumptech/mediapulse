@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type DataCollectionLocalDb,
+  DATA_COLLECTION_LOCAL_SET_AAPL_ID,
   DATA_COLLECTION_LOCAL_TICKER_ID,
   DATA_COLLECTION_LOCAL_TICKER_MSFT_ID,
   DATA_COLLECTION_LOCAL_TICKERS,
@@ -12,6 +13,9 @@ type MockDb = {
   ticker: {
     upsert: ReturnType<typeof vi.fn>;
   };
+  searchQuerySet: {
+    upsert: ReturnType<typeof vi.fn>;
+  };
   searchQuery: {
     upsert: ReturnType<typeof vi.fn>;
   };
@@ -19,6 +23,9 @@ type MockDb = {
 
 const createMockDb = (): MockDb => ({
   ticker: {
+    upsert: vi.fn().mockResolvedValue(undefined),
+  },
+  searchQuerySet: {
     upsert: vi.fn().mockResolvedValue(undefined),
   },
   searchQuery: {
@@ -45,6 +52,7 @@ describe("seedDataCollectionLocal", () => {
       DATA_COLLECTION_LOCAL_TICKER_MSFT_ID,
     );
     expect(db.ticker.upsert).toHaveBeenCalledTimes(2);
+    expect(db.searchQuerySet.upsert).toHaveBeenCalledTimes(2);
     expect(db.searchQuery.upsert).toHaveBeenCalledTimes(4);
   });
 
@@ -58,6 +66,7 @@ describe("seedDataCollectionLocal", () => {
         where: { id: "22222222-2222-4222-a222-222222222222" },
         create: expect.objectContaining({
           tickerId: DATA_COLLECTION_LOCAL_TICKER_ID,
+          setId: DATA_COLLECTION_LOCAL_SET_AAPL_ID,
           text: "Apple AAPL quarterly earnings revenue iPhone Services",
         }),
         update: expect.objectContaining({

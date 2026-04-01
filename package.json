@@ -13,6 +13,7 @@
     "dev:user-registration": "turbo dev --filter=@mediapulse/user-registration",
     "dev:agent-auth-api": "turbo dev --filter=@hermes/agent-auth-api",
     "dev:agent-data-api": "turbo dev --filter=@mediapulse/agent-data-api",
+    "dev:agent-query-analysis": "turbo dev --filter=@mediapulse/query-analysis",
     "dev:agent-registry-api": "turbo dev --filter=@hermes/agent-registry-api",
     "dev:hermes-worker": "turbo dev --filter=@hermes/worker",
     "dev:email-ingest": "turbo dev --filter=email-ingest",

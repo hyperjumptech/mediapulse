@@ -85,4 +85,45 @@ describe("createCreateAgentConfigHandler", () => {
       }),
     });
   });
+
+  it("strips additional properties before persisting config", async () => {
+    const createMock = vi.fn().mockResolvedValue({ id: "ac2" });
+    const mockDb = {
+      agentRegistry: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "ar1",
+          configSchema: {
+            type: "object",
+            properties: { openaiModel: { type: "string" } },
+            additionalProperties: false,
+          },
+        }),
+      },
+      agentConfig: { create: createMock },
+    };
+    const handler = createCreateAgentConfigHandler({
+      db: mockDb as never,
+    });
+
+    const result = await handler({
+      body: {
+        ...validBody,
+        config: {
+          openaiModel: "gpt-4o-mini",
+          staleField: "legacy-value",
+        },
+      },
+      user: mockDashboardUser,
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+    } as never);
+
+    expect(result.status).toBe(true);
+    expect(createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        config: { openaiModel: "gpt-4o-mini" },
+      }),
+    });
+  });
 });

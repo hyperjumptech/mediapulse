@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
-import { validateWithJsonSchema } from "@/lib/validate-json-schema";
+import { validateAndSanitizeWithJsonSchema } from "@/lib/validate-json-schema";
 
 const configBody = z
   .union([
@@ -70,6 +70,7 @@ export const createCreateAgentConfigHandler = ({
   return async (data) => {
     const userId = data.user.id;
     const { name, description, agentId, agentVersion, config } = data.body;
+    let configToSave: Record<string, unknown> = config;
 
     const agent = await db.agentRegistry.findFirst({
       where: { agentId, agentVersion, isActive: true },
@@ -85,12 +86,13 @@ export const createCreateAgentConfigHandler = ({
         ? (agent.configSchema as Record<string, unknown>)
         : null;
     if (configSchema) {
-      const result = validateWithJsonSchema(configSchema, config);
+      const result = validateAndSanitizeWithJsonSchema(configSchema, config);
       if (!result.valid) {
         return errorResponse(
           `Config validation failed: ${result.errors.join("; ")}`,
         );
       }
+      configToSave = result.data;
     }
 
     const fingerprint = configSchemaFingerprint(configSchema ?? undefined);
@@ -101,7 +103,7 @@ export const createCreateAgentConfigHandler = ({
         description: description ?? null,
         agentId,
         agentVersion,
-        config: config as object,
+        config: configToSave as object,
         configSchemaFingerprint: fingerprint || null,
         createdById: userId,
       },

@@ -619,36 +619,24 @@ importers:
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../../packages/mediapulse/env
-      '@workspace/agent-auth-client':
-        specifier: workspace:*
-        version: link:../../../../packages/shared/agent-auth-client
       '@workspace/agent-data-api-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-data-api-client
+      '@workspace/agent-data-api-contract':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-data-api-contract
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
-      '@workspace/utils':
-        specifier: workspace:*
-        version: link:../../../../packages/shared/utils
-      got:
-        specifier: 'catalog:'
-        version: 14.6.6
-      hono:
-        specifier: 'catalog:'
-        version: 4.11.9
-      hono-pino:
-        specifier: 'catalog:'
-        version: 0.6.0(hono@4.11.9)(pino@10.3.1)
+      openai:
+        specifier: ^6.21.0
+        version: 6.21.0(ws@8.18.3)(zod@3.25.76)
       zod:
         specifier: 'catalog:'
         version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.25.1
-        version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@types/bun':
         specifier: latest

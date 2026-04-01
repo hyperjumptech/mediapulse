@@ -13,7 +13,7 @@ export async function getDataCollection(context: Context): Promise<Response> {
     const data = await prisma.searchQuery.findMany({
       where: {
         tickerId: query.tickerId,
-        OR: [{ set: { isActive: true } }, { setId: null }],
+        OR: [{ querySet: { isActive: true } }, { setId: null }],
         ...(query.start &&
           query.end && {
             createdAt: {

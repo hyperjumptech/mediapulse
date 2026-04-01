@@ -11,11 +11,8 @@ export const HERMES_HEADER_SCHEDULE_EXECUTION_ID = "X-Schedule-Execution-Id";
 /** Hermes pipeline step id (header name). */
 export const HERMES_HEADER_PIPELINE_STEP_ID = "X-Pipeline-Step-Id";
 
-/** Hermes job id (header name). */
+/** Hermes agent job execution id for orchestration joins (`AgentJobExecution.jobId`). */
 export const HERMES_HEADER_JOB_ID = "X-Job-Id";
-
-/** Hermes execution id (header name). */
-export const HERMES_HEADER_EXECUTION_ID = "X-Execution-Id";
 
 /**
  * Reads Hermes schedule / step correlation from HTTP headers (e.g. Hono `req.header` lookup).
@@ -33,20 +30,17 @@ export function hermesInvokeCorrelationFromGetHeader(
   )?.trim();
   const pipelineStepId = getHeader(HERMES_HEADER_PIPELINE_STEP_ID)?.trim();
   const jobId = getHeader(HERMES_HEADER_JOB_ID)?.trim();
-  const executionId = getHeader(HERMES_HEADER_EXECUTION_ID)?.trim();
-  const correlation: any = {
+  const correlation: HermesInvokeCorrelation = {
     ...(scheduleId ? { scheduleId } : {}),
     ...(scheduleExecutionId ? { scheduleExecutionId } : {}),
     ...(pipelineStepId ? { pipelineStepId } : {}),
     ...(jobId ? { jobId } : {}),
-    ...(executionId ? { executionId } : {}),
   };
   if (
     correlation.scheduleId === undefined &&
     correlation.scheduleExecutionId === undefined &&
     correlation.pipelineStepId === undefined &&
-    correlation.jobId === undefined &&
-    correlation.executionId === undefined
+    correlation.jobId === undefined
   ) {
     return undefined;
   }

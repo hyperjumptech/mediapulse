@@ -15,7 +15,7 @@ export const listInclude = {
       name: true,
     },
   },
-  set: {
+  querySet: {
     select: {
       id: true,
       isActive: true,
@@ -44,14 +44,15 @@ export const mapRowToListItem = (row: ListRow) => ({
   text: row.text,
   tickerSymbol: row.ticker.symbol,
   tickerName: row.ticker.name,
-  activeSet: row.set?.isActive ? "Yes" : "No",
-  intent: row.intent || "",
-  rank: row.rank !== null && row.rank !== undefined ? String(row.rank) : "",
-  source: row.source || "",
-  setGeneratedAt: row.set?.generatedAt ? row.set.generatedAt.toISOString() : "",
-  generationPipeline: row.set?.generationSource || "",
-  querySetId: row.set?.id || "",
-  agentJobId: row.set?.agentJobId || "",
+  activeSet:
+    row.setId === null || row.querySet?.isActive === true ? "Yes" : "No",
+  intent: row.intent,
+  rank: String(row.rank),
+  source: row.source,
+  setGeneratedAt: (row.querySet?.generatedAt ?? row.createdAt).toISOString(),
+  generationPipeline: row.querySet?.generationSource ?? "",
+  querySetId: row.querySet?.id ?? "",
+  agentJobId: row.querySet?.agentJobId ?? "",
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });

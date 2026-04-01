@@ -26,8 +26,8 @@ const emptyConfigSchema = z.object({});
  * **200:** `run` result is mapped to the Hermes PRD envelope (`schemaVersion`, `status`, optional `message`).
  * **Throw** from `run` → 500 (or validation errors → 400).
  *
- * When **hermes-worker** invokes the agent, it may send `X-Schedule-Id`, `X-Schedule-Execution-Id`, and
- * `X-Pipeline-Step-Id`; those are passed to `run` on `context.hermesCorrelation` when present.
+ * When **hermes-worker** invokes the agent, it may send `X-Schedule-Id`, `X-Schedule-Execution-Id`,
+ * `X-Pipeline-Step-Id`, and `X-Job-Id`; those are passed to `run` on `context.hermesCorrelation` when present.
  *
  * @param config - Agent id, version, Zod input/config schemas, and run function.
  * @param options - Optional authApiUrl, verifyToken, and logger (DI for tests).

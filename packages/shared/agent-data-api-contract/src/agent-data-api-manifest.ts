@@ -87,28 +87,6 @@ export const AGENT_DATA_API_PREFIX = "/api" as const;
 export const AGENT_DATA_API_DEFAULT_VERSION = "v1" as const;
 
 export const agentDataApiManifest = defineAgentDataApiManifest({
-  queryAnalysis: {
-    v1: {
-      get: {
-        query: getQueryAnalysisQuerySchema,
-        response: getQueryAnalysisResponseSchema,
-      },
-      post: {
-        body: postQueryAnalysisBodySchema,
-        response: postQueryAnalysisResponseSchema,
-      },
-    },
-    v2: {
-      get: {
-        query: getQueryAnalysisQuerySchema,
-        response: getQueryAnalysisResponseSchema,
-      },
-      post: {
-        body: postQueryAnalysisBodySchema,
-        response: postQueryAnalysisResponseSchema,
-      },
-    },
-  },
   contentGeneration: {
     v1: {
       get: {
@@ -244,6 +222,28 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postUserRegistrationConfirmBodySchema,
         response: postUserRegistrationConfirmResponseSchema,
+      },
+    },
+  },
+  queryAnalysis: {
+    v1: {
+      get: {
+        query: getQueryAnalysisQuerySchema,
+        response: getQueryAnalysisResponseSchema,
+      },
+      post: {
+        body: postQueryAnalysisBodySchema,
+        response: postQueryAnalysisResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getQueryAnalysisQuerySchema,
+        response: getQueryAnalysisResponseSchema,
+      },
+      post: {
+        body: postQueryAnalysisBodySchema,
+        response: postQueryAnalysisResponseSchema,
       },
     },
   },

@@ -19,6 +19,10 @@ const deliveryPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "delivery",
 );
+const queryAnalysisPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "queryAnalysis",
+);
 const contentGenerationV2Path = agentDataApiPathname("v2", "contentGeneration");
 
 vi.mock("@workspace/agent-auth-client", () => ({
@@ -29,6 +33,14 @@ vi.mock("@mediapulse/env", () => ({
   env: {
     AGENT_AUTH_API_URL: "http://auth.example.com",
     MEDIAPULSE_DATABASE_URL: "postgresql://localhost/test?schema=mediapulse",
+    QUERY_ANALYSIS_ALLOWED_LANGUAGES: '["en"]',
+    QUERY_ANALYSIS_QUERY_COUNT: 10,
+    QUERY_ANALYSIS_MIN_DETERMINISTIC_COUNT: 3,
+    QUERY_ANALYSIS_WEIGHT_BREAKING: 0.5,
+    QUERY_ANALYSIS_WEIGHT_KG_CHANGE: 0.3,
+    QUERY_ANALYSIS_WEIGHT_FUNDAMENTAL: 0.2,
+    QUERY_ANALYSIS_MODEL: "gpt-4o-mini",
+    QUERY_ANALYSIS_MAX_TOKENS: 1000,
   },
 }));
 
@@ -39,7 +51,15 @@ vi.mock("@mediapulse/database", () => ({
     },
     dataSource: {
       createMany: vi.fn(),
+      findMany: vi.fn(),
     },
+    ticker: {
+      findUnique: vi.fn(),
+    },
+    tickerEntity: {
+      findMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -171,10 +191,10 @@ describe("agent-data-api", () => {
           id: "sq-1",
           text: "query one",
           tickerId: TICKER_ID,
-          source: "default-source",
-          intent: "default-intent",
+          setId: null,
+          source: "deterministic",
+          intent: "fundamental",
           rank: 0,
-          setId: "default-set-id",
           createdAt: new Date("2026-03-19T00:00:00.000Z"),
           updatedAt: new Date("2026-03-19T00:00:00.000Z"),
         },
@@ -191,6 +211,117 @@ describe("agent-data-api", () => {
       expect(body).toHaveProperty("data");
       expect(body.data).toHaveLength(1);
       expect(body.data[0].text).toBe("query one");
+      expect(prisma.searchQuery.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tickerId: TICKER_ID,
+            OR: [{ querySet: { isActive: true } }, { setId: null }],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe(`GET ${queryAnalysisPath}`, () => {
+    it("returns 404 when ticker is unknown", async () => {
+      const { prisma } = await getDatabase();
+      vi.mocked(prisma.ticker.findUnique).mockResolvedValue(null);
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${queryAnalysisPath}?tickerId=${TICKER_ID}`,
+        { headers: AUTH_HEADERS },
+      );
+
+      expect(res.status).toBe(404);
+    });
+
+    it("returns 200 with context when ticker exists", async () => {
+      const { prisma } = await getDatabase();
+      vi.mocked(prisma.ticker.findUnique).mockResolvedValue({
+        id: TICKER_ID,
+        symbol: "ACME",
+        name: "Acme",
+        metadata: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      vi.mocked(prisma.tickerEntity.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.dataSource.findMany).mockResolvedValue([]);
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${queryAnalysisPath}?tickerId=${TICKER_ID}`,
+        { headers: AUTH_HEADERS },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ticker.symbol).toBe("ACME");
+      expect(body.configSnapshot.queryCount).toBe(10);
+      expect(body.relationDeltas).toEqual([]);
+    });
+  });
+
+  describe(`POST ${queryAnalysisPath}`, () => {
+    it("returns 200 when persistence succeeds", async () => {
+      const { prisma } = await getDatabase();
+      vi.mocked(prisma.ticker.findUnique).mockResolvedValue({
+        id: TICKER_ID,
+        symbol: "ACME",
+        name: "Acme",
+        metadata: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn) => {
+        const tx = {
+          searchQuerySet: {
+            updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+            create: vi.fn().mockResolvedValue({
+              id: "set-new",
+              tickerId: TICKER_ID,
+              generatedAt: new Date(),
+              isActive: true,
+              strategySnapshot: {},
+              generationSource: "hybrid_v1",
+              agentJobId: null,
+              createdAt: new Date(),
+            }),
+            findFirst: vi.fn().mockResolvedValue(null),
+          },
+          searchQuery: {
+            createMany: vi.fn().mockResolvedValue({ count: 1 }),
+          },
+        };
+        return fn(tx as never);
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(`http://localhost${queryAnalysisPath}`, {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerId: TICKER_ID,
+          queries: [
+            {
+              text: "ACME news",
+              source: "deterministic",
+              intent: "breaking",
+              rank: 0,
+            },
+          ],
+          strategySnapshot: { ok: true },
+          generationSource: "hybrid_v1",
+          activate: true,
+        }),
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.created).toBe(1);
+      expect(body.setId).toBe("set-new");
+      expect(body.activeSetId).toBe("set-new");
     });
   });
 

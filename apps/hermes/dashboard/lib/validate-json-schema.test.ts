@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { validateWithJsonSchema } from "./validate-json-schema";
+import {
+  validateAndSanitizeWithJsonSchema,
+  validateWithJsonSchema,
+} from "./validate-json-schema";
 
 describe("validateWithJsonSchema", () => {
   it("returns valid: true when data satisfies schema", () => {
@@ -75,5 +78,26 @@ describe("validateWithJsonSchema", () => {
     const invalidData = { end: "not-a-date" };
     const invalidResult = validateWithJsonSchema(schema, invalidData);
     expect(invalidResult.valid).toBe(false);
+  });
+});
+
+describe("validateAndSanitizeWithJsonSchema", () => {
+  it("removes additional properties and returns sanitized data", () => {
+    const schema = {
+      type: "object",
+      properties: { openaiModel: { type: "string" } },
+      additionalProperties: false,
+    };
+    const data = {
+      openaiModel: "gpt-4o-mini",
+      staleKey: "remove-me",
+    };
+
+    const result = validateAndSanitizeWithJsonSchema(schema, data);
+
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.data).toEqual({ openaiModel: "gpt-4o-mini" });
+    }
   });
 });

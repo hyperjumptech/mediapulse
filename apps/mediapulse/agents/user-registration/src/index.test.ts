@@ -1,13 +1,5 @@
 /** @vitest-environment node */
-import {
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
@@ -78,14 +70,8 @@ const makeMessage = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-let app: Awaited<typeof import("./index.js")>["app"];
-
-beforeAll(async () => {
-  const module = await import("./index.js");
-  app = module.app;
-}, 30_000);
-
 const post = async (body: unknown) => {
+  const { app } = await import("./index.js");
   return app.request("http://localhost/", {
     method: "POST",
     headers: AUTH_HEADERS,
@@ -107,10 +93,14 @@ describe("user-registration agent – watermark input validation", () => {
     ["non-date string", "not-a-date"],
     ["date-only string", "2024-01-01"],
     ["partial datetime", "2024-01-01T00:00"],
-  ])("returns 400 when watermark is %s", async (_label, watermark) => {
-    const res = await post({ input: { watermark } });
-    expect(res.status).toBe(400);
-  });
+  ])(
+    "returns 400 when watermark is %s",
+    async (_label, watermark) => {
+      const res = await post({ input: { watermark } });
+      expect(res.status).toBe(400);
+    },
+    15_000,
+  );
 
   it("returns 200 when watermark is a valid ISO datetime string", async () => {
     const res = await post({

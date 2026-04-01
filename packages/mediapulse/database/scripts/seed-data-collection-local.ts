@@ -25,6 +25,12 @@ export const DATA_COLLECTION_LOCAL_TICKER_ID =
 export const DATA_COLLECTION_LOCAL_TICKER_MSFT_ID =
   "44444444-4444-4444-a444-444444444444";
 
+/** Stable active query-set ids for seeded tickers (versioned query model). */
+export const DATA_COLLECTION_LOCAL_SET_AAPL_ID =
+  "aaaaaaaa-1111-4111-a111-111111111111";
+export const DATA_COLLECTION_LOCAL_SET_MSFT_ID =
+  "aaaaaaaa-4444-4444-a444-444444444444";
+
 /**
  * Two liquid US equities with realistic display names and web-style search strings.
  * IDs are fixed so re-seeding updates the same rows.
@@ -32,6 +38,7 @@ export const DATA_COLLECTION_LOCAL_TICKER_MSFT_ID =
 export const DATA_COLLECTION_LOCAL_TICKERS = [
   {
     id: DATA_COLLECTION_LOCAL_TICKER_ID,
+    querySetId: DATA_COLLECTION_LOCAL_SET_AAPL_ID,
     symbol: "AAPL",
     name: "Apple Inc.",
     queries: [
@@ -47,6 +54,7 @@ export const DATA_COLLECTION_LOCAL_TICKERS = [
   },
   {
     id: DATA_COLLECTION_LOCAL_TICKER_MSFT_ID,
+    querySetId: DATA_COLLECTION_LOCAL_SET_MSFT_ID,
     symbol: "MSFT",
     name: "Microsoft Corporation",
     queries: [
@@ -76,6 +84,7 @@ export type SeedDataCollectionLocalResult = {
 /** Minimal Prisma delegate shape for {@link seedDataCollectionLocal} (inject for tests). */
 export type DataCollectionLocalDb = {
   ticker: Pick<PrismaClientWithSchema["ticker"], "upsert">;
+  searchQuerySet: Pick<PrismaClientWithSchema["searchQuerySet"], "upsert">;
   searchQuery: Pick<PrismaClientWithSchema["searchQuery"], "upsert">;
 };
 
@@ -127,6 +136,25 @@ export const seedDataCollectionLocal = async (
 
     await targetDb.ticker.upsert(tickerUpsert);
 
+    const setUpsert = {
+      where: { id: tickerRow.querySetId },
+      create: {
+        id: tickerRow.querySetId,
+        tickerId: tickerRow.id,
+        generatedAt: new Date(),
+        isActive: true,
+        strategySnapshot: { seeded: true },
+        generationSource: "seed_local",
+        agentJobId: null,
+      },
+      update: {
+        isActive: true,
+        tickerId: tickerRow.id,
+      },
+    } satisfies Prisma.SearchQuerySetUpsertArgs;
+
+    await targetDb.searchQuerySet.upsert(setUpsert);
+
     const searchQueryIds: string[] = [];
 
     for (const row of tickerRow.queries) {
@@ -135,10 +163,15 @@ export const seedDataCollectionLocal = async (
         create: {
           id: row.id,
           tickerId: tickerRow.id,
+          setId: tickerRow.querySetId,
           text: row.text,
+          source: "deterministic",
+          intent: "fundamental",
+          rank: 0,
         },
         update: {
           tickerId: tickerRow.id,
+          setId: tickerRow.querySetId,
           text: row.text,
         },
       } satisfies Prisma.SearchQueryUpsertArgs;
