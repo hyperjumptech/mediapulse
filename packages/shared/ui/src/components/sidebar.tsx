@@ -6,17 +6,13 @@ import { Slot } from "@radix-ui/react-slot";
 
 import { cn } from "@workspace/ui/lib/utils";
 
+import {
+  useSidebarProviderState,
+  type SidebarContextValue,
+} from "../hooks/use-sidebar-provider-state.js";
+
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
-
-type SidebarState = "expanded" | "collapsed";
-
-type SidebarContextValue = {
-  state: SidebarState;
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  toggleSidebar: () => void;
-};
 
 const SidebarContext = React.createContext<SidebarContextValue | null>(null);
 
@@ -47,26 +43,11 @@ const SidebarProvider = ({
   className,
   ...props
 }: SidebarProviderProps & React.ComponentProps<"div">) => {
-  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
-  const isControlled = controlledOpen !== undefined;
-  const open = isControlled ? controlledOpen : uncontrolledOpen;
-  const state: SidebarState = open ? "expanded" : "collapsed";
-
-  const setOpen = React.useCallback(
-    (value: boolean) => {
-      if (!isControlled) setUncontrolledOpen(value);
-      onOpenChange?.(value);
-    },
-    [isControlled, onOpenChange],
-  );
-  const toggleSidebar = React.useCallback(
-    () => setOpen(!open),
-    [open, setOpen],
-  );
-  const value = React.useMemo(
-    () => ({ state, open, setOpen, toggleSidebar }),
-    [state, open, setOpen, toggleSidebar],
-  );
+  const value = useSidebarProviderState({
+    defaultOpen,
+    open: controlledOpen,
+    onOpenChange,
+  });
 
   return (
     <SidebarContext.Provider value={value}>
