@@ -10,7 +10,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest-setup.ts"],
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "vitest.config.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "vitest-config.test.ts"],
     coverage: {
       provider: "v8",
       include: ["src/hooks/use-sidebar-provider-state.ts"],
