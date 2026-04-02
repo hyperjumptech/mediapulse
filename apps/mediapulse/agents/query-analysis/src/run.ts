@@ -1,9 +1,14 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { logger } from "@workspace/logger";
-import OpenAI from "openai";
 import { env } from "@mediapulse/env/agents-query-analysis";
 import type { QueryAnalysisConfig } from "./config-schema";
+import {
+  buildQueryAnalysisSystemContent,
+  buildQueryAnalysisUserContent,
+  fetchLlmQueryCandidates,
+} from "./llm-queries";
+import { mergeQueryCandidates } from "./merge-query-candidates";
 
 type QueryAnalysisInput = { tickerId: string };
 
@@ -37,7 +42,7 @@ export const buildDeterministicQueries = (
 export const runQueryAnalysis = async (
   context: AgentRunContext<QueryAnalysisInput, QueryAnalysisConfig>,
 ): Promise<AgentRunResult> => {
-  const { input, config, token } = context;
+  const { input, config, token, hermesCorrelation } = context;
   const client = createAgentDataApiClient({
     baseUrl: env.AGENT_DATA_API_URL,
     version: "v1",
@@ -52,7 +57,6 @@ export const runQueryAnalysis = async (
     queryContext.ticker.name,
   );
 
-  const llm = new OpenAI({ apiKey: config.openaiApiKey });
   const queryCount = config.queryCount ?? 10;
   const allowedLanguages = config.allowedLanguages ?? ["en"];
   const minDeterministicCount = config.minDeterministicCount ?? 4;
@@ -60,43 +64,49 @@ export const runQueryAnalysis = async (
   const weightKgChange = config.weightKgChange ?? 0.8;
   const weightFundamental = config.weightFundamental ?? 0.6;
   const openaiModel = config.openaiModel ?? "gpt-4o-mini";
-  const llmResult = await llm.chat.completions.create({
-    model: openaiModel,
-    max_tokens: config.maxTokens,
-    messages: [
-      {
-        role: "system",
-        content:
-          "Generate concise finance search queries as a JSON array of strings.",
-      },
-      {
-        role: "user",
-        content: `Ticker: ${queryContext.ticker.symbol} ${queryContext.ticker.name}`,
-      },
-    ],
-    response_format: { type: "json_object" },
+  const maxTokens = config.maxTokens ?? 800;
+
+  const systemContent = buildQueryAnalysisSystemContent({
+    queryCount,
+    allowedLanguages,
+    minDeterministicCount,
+    weights: {
+      breaking: weightBreaking,
+      kgChange: weightKgChange,
+      fundamental: weightFundamental,
+    },
   });
+  const userContent = buildQueryAnalysisUserContent(queryContext);
 
-  const llmText = llmResult.choices[0]?.message?.content ?? '{"queries":[]}';
-  const parsed = JSON.parse(llmText) as { queries?: string[] };
-  const llmQueries = (parsed.queries ?? [])
-    .map((text, index) => ({
-      text: text.trim(),
-      source: "llm" as const,
-      intent: "breaking" as const,
-      rank: deterministic.length + index + 1,
-    }))
-    .filter((item) => item.text.length > 0);
+  let llmCandidates: Awaited<ReturnType<typeof fetchLlmQueryCandidates>> = [];
+  try {
+    llmCandidates = await fetchLlmQueryCandidates({
+      apiKey: config.openaiApiKey,
+      model: openaiModel,
+      maxOutputTokens: maxTokens,
+      messages: [
+        { role: "system", content: systemContent },
+        { role: "user", content: userContent },
+      ],
+    });
+  } catch (error) {
+    logger.warn(
+      { error, tickerId: input.tickerId },
+      "query-analysis LLM failed; using deterministic candidates only",
+    );
+  }
 
-  const merged = [
-    ...deterministic.map((item, index) => ({
-      text: item.text,
-      source: "deterministic" as const,
-      intent: item.intent,
-      rank: index + 1,
-    })),
-    ...llmQueries,
-  ].slice(0, queryCount);
+  const merged = mergeQueryCandidates({
+    deterministic,
+    llm: llmCandidates,
+    queryCount,
+    minDeterministicCount,
+    weights: {
+      breaking: weightBreaking,
+      kgChange: weightKgChange,
+      fundamental: weightFundamental,
+    },
+  });
 
   const strategySnapshot = {
     queryCount,
@@ -108,7 +118,7 @@ export const runQueryAnalysis = async (
       fundamental: weightFundamental,
     },
     model: openaiModel,
-    maxTokens: config.maxTokens,
+    maxTokens,
   };
 
   const response = await client.queryAnalysis.create({
@@ -117,6 +127,9 @@ export const runQueryAnalysis = async (
     strategySnapshot,
     activate: true,
     queries: merged,
+    ...(hermesCorrelation?.jobId !== undefined
+      ? { agentJobId: hermesCorrelation.jobId }
+      : {}),
   });
 
   logger.info(

@@ -1,18 +1,20 @@
 import { z } from "zod";
 
 /**
- * Runtime configuration for query generation weights and limits.
+ * Runtime configuration from Hermes invoke `config` (variable substitution).
+ * OpenAI credentials and strategy knobs are not read from process env.
+ * Optional fields use agent defaults when Hermes omits them.
  */
 export const queryAnalysisConfigSchema = z.object({
   openaiApiKey: z.string().min(1),
-  openaiModel: z.string().min(1).default("gpt-4o-mini"),
-  queryCount: z.number().int().positive().default(10),
-  minDeterministicCount: z.number().int().nonnegative().default(4),
-  allowedLanguages: z.array(z.string().min(1)).default(["en"]),
-  weightBreaking: z.number().nonnegative().default(1),
-  weightKgChange: z.number().nonnegative().default(0.8),
-  weightFundamental: z.number().nonnegative().default(0.6),
+  openaiModel: z.string().min(1).optional(),
+  queryCount: z.number().int().positive().optional(),
+  minDeterministicCount: z.number().int().nonnegative().optional(),
+  allowedLanguages: z.array(z.string().min(1)).optional(),
+  weightBreaking: z.number().nonnegative().optional(),
+  weightKgChange: z.number().nonnegative().optional(),
+  weightFundamental: z.number().nonnegative().optional(),
   maxTokens: z.number().int().positive().optional(),
 });
 
-export type QueryAnalysisConfig = z.input<typeof queryAnalysisConfigSchema>;
+export type QueryAnalysisConfig = z.infer<typeof queryAnalysisConfigSchema>;

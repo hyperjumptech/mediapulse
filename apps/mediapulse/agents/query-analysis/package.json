@@ -12,14 +12,16 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.49",
+    "@mediapulse/env": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
+    "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/logger": "workspace:*",
-    "@mediapulse/env": "workspace:*",
+    "ai": "^6.0.142",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "openai": "^6.21.0",
     "zod": "catalog:"
   },
   "devDependencies": {

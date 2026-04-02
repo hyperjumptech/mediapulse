@@ -23,6 +23,14 @@ export type AgentRunResult =
  * Present when hermes-worker invokes the agent; omitted for e.g. dashboard "Run now".
  */
 export type HermesInvokeCorrelation = {
+  /**
+   * Hermes agent job id when `X-Job-Id` was sent (see `invokeAgentPost` in `@hermes/scheduler`).
+   */
+  jobId?: string;
+  /**
+   * Hermes execution id when `X-Execution-Id` was sent (paired with `jobId` for worker runs).
+   */
+  executionId?: string;
   /** Hermes `Schedule.id` when `X-Schedule-Id` was sent. */
   scheduleId?: string;
   /** Hermes `ScheduleExecution.id` when `X-Schedule-Execution-Id` was sent. */

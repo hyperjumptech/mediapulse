@@ -1,24 +1,142 @@
 /** @vitest-environment node */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { mockGet, mockCreate, mockFetchLlm } = vi.hoisted(() => ({
+  mockGet: vi.fn(),
+  mockCreate: vi.fn(),
+  mockFetchLlm: vi.fn(),
+}));
 
 vi.mock("@mediapulse/env/agents-query-analysis", () => ({
   env: {
     AGENT_DATA_API_URL: "http://agent-data-api",
     AGENT_AUTH_API_URL: "http://agent-auth-api",
-    OPENAI_API_KEY: "test",
   },
 }));
 
-import { buildDeterministicQueries } from "./run";
+vi.mock("@workspace/agent-data-api-client", () => ({
+  createAgentDataApiClient: vi.fn(() => ({
+    queryAnalysis: {
+      get: mockGet,
+      create: mockCreate,
+    },
+  })),
+}));
 
-describe("buildDeterministicQueries", () => {
-  it("creates deterministic baseline queries", () => {
+vi.mock("./llm-queries", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./llm-queries")>();
+  return {
+    ...actual,
+    fetchLlmQueryCandidates: mockFetchLlm,
+  };
+});
+
+vi.mock("@workspace/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+import { buildDeterministicQueries, runQueryAnalysis } from "./run";
+
+const ctxResponse = {
+  ticker: {
+    id: "22222222-2222-4222-a222-222222222222",
+    symbol: "ABC",
+    name: "ABC Ltd",
+    metadata: null as null,
+  },
+  topEntities: [] as [],
+  recentThemes: [] as [],
+};
+
+describe("query-analysis run", () => {
+  beforeEach(() => {
+    mockGet.mockReset();
+    mockCreate.mockReset();
+    mockFetchLlm.mockReset();
+
+    mockGet.mockResolvedValue(ctxResponse);
+    mockCreate.mockResolvedValue({
+      created: 3,
+      createdSetId: "33333333-3333-4333-a333-333333333333",
+      activeSetId: "44444444-4444-4444-a444-444444444444",
+    });
+    mockFetchLlm.mockResolvedValue([
+      { text: "LLM extra", intent: "kg_change" as const },
+    ]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("buildDeterministicQueries", () => {
+    it("creates deterministic baseline queries", () => {
+      // Act
+      const queries = buildDeterministicQueries("AAPL", "Apple Inc.");
+
+      // Assert
+      expect(queries.length).toBeGreaterThan(0);
+      expect(queries[0]?.text).toContain("AAPL");
+      expect(queries.some((query) => query.intent === "fundamental")).toBe(
+        true,
+      );
+    });
+  });
+
+  it("calls create with agentJobId when Hermes job id is present", async () => {
     // Act
-    const queries = buildDeterministicQueries("AAPL", "Apple Inc.");
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: { openaiApiKey: "sk" },
+      token: "Bearer t",
+      hermesCorrelation: { jobId: "job-abc" },
+    });
 
     // Assert
-    expect(queries.length).toBeGreaterThan(0);
-    expect(queries[0]?.text).toContain("AAPL");
-    expect(queries.some((query) => query.intent === "fundamental")).toBe(true);
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ agentJobId: "job-abc" }),
+    );
+  });
+
+  it("omits agentJobId when correlation is absent", async () => {
+    // Act
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: { openaiApiKey: "sk" },
+      token: "Bearer t",
+    });
+
+    // Assert
+    const payload = mockCreate.mock.calls.at(-1)?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(payload).toBeDefined();
+    expect(Object.keys(payload as Record<string, unknown>)).not.toContain(
+      "agentJobId",
+    );
+  });
+
+  it("continues with deterministic merge when LLM throws", async () => {
+    // Setup
+    mockFetchLlm.mockRejectedValue(new Error("LLM down"));
+
+    // Act
+    const result = await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: { openaiApiKey: "sk" },
+      token: "Bearer t",
+    });
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(mockCreate).toHaveBeenCalled();
+    const queries = (
+      mockCreate.mock.calls.at(-1)?.[0] as { queries: { source: string }[] }
+    ).queries;
+    expect(queries.every((q) => q.source === "deterministic")).toBe(true);
   });
 });
