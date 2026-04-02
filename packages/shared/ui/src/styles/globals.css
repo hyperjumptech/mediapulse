@@ -81,7 +81,8 @@
 @theme {
   /* shadcn-style shadows so shadow-xs, shadow-sm work like shadcn */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-sm: 0 2px 4px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  --shadow-sm:
+    0 2px 4px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.06);
 }
 
 @theme inline {
@@ -131,5 +132,34 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Sidebar scroll: thin themed scrollbar (Firefox + WebKit). */
+@layer components {
+  [data-sidebar="content"] {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sidebar-border) transparent;
+  }
+
+  [data-sidebar="content"]::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  [data-sidebar="content"]::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  [data-sidebar="content"]::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: var(--sidebar-border);
+  }
+
+  [data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(
+      in oklch,
+      var(--sidebar-foreground) 25%,
+      var(--sidebar-border)
+    );
   }
 }
