@@ -15,7 +15,7 @@ The delivery agent reads **newsletter content and subscribers** from agent-data-
 - **Sends email** to each subscriber using the configured provider (e.g. Resend).
 - **Skips** cleanly if no newsletter or no subscribers.
 - **Marks completion** — POSTs to agent-data-api (e.g. `userTickerId`) so the pipeline can track delivery.
-- **Diagnostics** — Persists **delivery runs** with Hermes correlation when present (`X-Job-Id`, `X-Execution-Id`, `X-Schedule-Id`, execution/step ids), skip reasons (`skipped_no_newsletter`, `skipped_no_subscribers`, `skipped_invalid_config`), and per-recipient **`errorCategory`** (e.g. `resend_rate_limited`, `skipped_already_delivered`).
+- **Diagnostics** — Persists **delivery runs** with Hermes correlation when present (`X-Job-Id`, `X-Execution-Id`, `X-Schedule-Id`, execution/step ids), skip reasons (`skipped_no_newsletter`, `skipped_no_subscribers`), and per-recipient **`errorCategory`** (e.g. `resend_rate_limited`, `skipped_already_delivered`). Invalid **agent config** is rejected with **HTTP 400** before a run starts, so no delivery-run row is written for that case.
 
 ### Newsletter `content` (plain text in storage)
 

@@ -139,6 +139,57 @@ describe("delivery-agent", () => {
     expect(body.message).toContain("Skipped");
   });
 
+  it("returns 200 with skipped_all_already_delivered when every recipient was skipped", async () => {
+    const got = await getGot();
+    (got.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      statusCode: 200,
+      body: JSON.stringify({
+        newsletter: { id: NL_ID, subject: "News", content: "Body" },
+        subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
+        deliveredUserTickerIds: [UT_ID],
+      }),
+    });
+    (got.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      statusCode: 200,
+      body: JSON.stringify({ message: "ok" }),
+    });
+
+    const deliver = await getDeliver();
+    vi.mocked(deliver).mockResolvedValue({
+      results: [
+        {
+          userTickerId: UT_ID,
+          status: "skipped",
+          attempts: 0,
+        },
+      ],
+      resendMessageIds: [],
+    });
+
+    const { default: agent } = await import("./index.js");
+    const res = await agent.fetch(
+      new Request("http://localhost/", {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: { tickerId: TICKER_ID },
+          config: DELIVERY_CONFIG,
+        }),
+      }),
+    );
+
+    const body = (await res.json()) as {
+      status: string;
+      message?: string;
+      details?: { outcome?: string };
+    };
+    expect(res.status).toBe(200);
+    expect(body.status).toBe("success");
+    expect(body.details?.outcome).toBe("skipped_all_already_delivered");
+    expect(body.message).toContain("already delivered");
+  });
+
   it("returns 400 when config validation fails", async () => {
     const { default: agent } = await import("./index.js");
     const res = await agent.fetch(

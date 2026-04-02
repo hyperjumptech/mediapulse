@@ -10,7 +10,7 @@ import {
   Section,
   Text,
 } from "@react-email/components";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 export interface DefaultNewsletterEmailProps {
   /** Shown as the main title inside the email body (typically matches the message subject). */
@@ -22,6 +22,10 @@ export interface DefaultNewsletterEmailProps {
   bodyText: string;
   /** Optional footer line (e.g. unsubscribe placeholder). */
   footerNote?: string;
+  /**
+   * Absolute HTTPS URL for account/preferences; when omitted, the “Manage preferences” link is omitted.
+   */
+  preferencesUrl?: string;
 }
 
 /**
@@ -30,13 +34,15 @@ export interface DefaultNewsletterEmailProps {
  * @param props.title - Heading text in the body.
  * @param props.bodyText - Main content; treated as plain text with preserved line breaks.
  * @param props.footerNote - Optional footer copy.
+ * @param props.preferencesUrl - Optional URL for the preferences link.
  * @returns React Email document tree.
  */
 export const DefaultNewsletterEmail = ({
   title,
   bodyText,
   footerNote = "You are receiving this because you subscribed to updates.",
-}: DefaultNewsletterEmailProps): React.JSX.Element => {
+  preferencesUrl,
+}: DefaultNewsletterEmailProps): ReactElement => {
   return (
     <Html>
       <Head />
@@ -50,11 +56,13 @@ export const DefaultNewsletterEmail = ({
           <Text style={bodyParagraph}>{bodyText}</Text>
           <Hr style={hr} />
           <Text style={footer}>{footerNote}</Text>
-          <Text style={footerMuted}>
-            <Link href="https://example.com/preferences" style={link}>
-              Manage preferences
-            </Link>
-          </Text>
+          {preferencesUrl !== undefined && preferencesUrl !== "" ? (
+            <Text style={footerMuted}>
+              <Link href={preferencesUrl} style={link}>
+                Manage preferences
+              </Link>
+            </Text>
+          ) : null}
         </Container>
       </Body>
     </Html>

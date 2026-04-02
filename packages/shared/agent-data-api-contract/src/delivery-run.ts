@@ -5,6 +5,7 @@ export const deliveryRunOutcomeSchema = z.enum([
   "skipped",
   "failed",
   "partial_success",
+  "skipped_all_already_delivered",
 ]);
 
 export const deliveryRunStageSchema = z.enum([
@@ -45,7 +46,6 @@ export const postDeliveryRunBodySchema = z.object({
   resendMessageIds: z.array(z.string()).optional(),
   recipientErrorSummary: z.string().nullable().optional(),
   recipients: z.array(deliveryRecipientOutcomeInputSchema),
-  createdAt: z.string().datetime(),
 });
 
 export const postDeliveryRunResponseSchema = z.object({

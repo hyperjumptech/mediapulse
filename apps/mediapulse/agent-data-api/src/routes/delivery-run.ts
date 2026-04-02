@@ -94,7 +94,6 @@ export async function postDeliveryRun(context: Context): Promise<Response> {
         errorCategory: r.errorCategory ?? null,
         resendEmailId: r.resendEmailId ?? null,
       })),
-      createdAt: new Date(data.createdAt),
     });
 
     const response = postDeliveryRunResponseSchema.parse({

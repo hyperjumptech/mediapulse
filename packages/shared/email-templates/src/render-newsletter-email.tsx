@@ -31,6 +31,7 @@ function newsletterElementForVariant(
           title={props.title}
           bodyText={props.bodyText}
           footerNote={props.footerNote}
+          preferencesUrl={props.preferencesUrl}
         />
       );
     default: {
@@ -53,6 +54,7 @@ export async function renderNewsletterEmail(
     title: input.title,
     bodyText: input.bodyText,
     footerNote: input.footerNote,
+    preferencesUrl: input.preferencesUrl,
   });
 
   const [html, text] = await Promise.all([

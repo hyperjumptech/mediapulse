@@ -1,4 +1,5 @@
 import type { CreateEmailOptions, Resend } from "resend";
+import { withRetryCustomDelay } from "@workspace/utils";
 
 import {
   classifyResendError,
@@ -60,60 +61,65 @@ export async function sendWithResendRetry(
   retry: DeliveryConfig["retry"],
   dependencies: { sleepFn?: (ms: number) => Promise<void> } = {},
 ): Promise<{ id: string | undefined; attempts: number }> {
-  const sleep = dependencies.sleepFn ?? sleepMs;
-  let attempt = 0;
-  let lastErr: unknown;
-  while (attempt < retry.maxAttempts) {
-    attempt += 1;
-    try {
-      if (payload.html === undefined && payload.text === undefined) {
-        throw new Error("Send payload requires html and/or text");
-      }
-      const emailPayload = {
-        from: payload.from,
-        to: payload.to,
-        subject: payload.subject,
-        ...(payload.html !== undefined ? { html: payload.html } : {}),
-        ...(payload.text !== undefined ? { text: payload.text } : {}),
-        ...(payload.replyTo !== undefined ? { replyTo: payload.replyTo } : {}),
-        ...(payload.tags !== undefined && payload.tags.length > 0
-          ? { tags: payload.tags }
-          : {}),
-      } as CreateEmailOptions;
-      const { data, error, headers } = await resend.emails.send(emailPayload);
-      if (error) {
-        throwWithResendContext(error.message, error, headers);
-      }
-      return { id: data?.id, attempts: attempt };
-    } catch (err) {
-      lastErr = err;
-      const kind = classifyResendError(err);
-      if (kind === "non_retryable" || attempt >= retry.maxAttempts) {
-        throw Object.assign(
-          err instanceof Error ? err : new Error(String(err)),
-          {
-            attempts: attempt,
-          },
-        );
-      }
-      const hdr =
-        typeof err === "object" && err !== null && "resendHeaders" in err
-          ? (err as { resendHeaders?: Record<string, string> | null })
-              .resendHeaders
-          : undefined;
-      const retryAfter =
-        retryAfterMsFromHeaders(hdr ?? undefined) ?? retryAfterMsFromError(err);
-      const base =
-        retry.baseDelayMs * 2 ** (attempt - 1) > retry.maxDelayMs
-          ? retry.maxDelayMs
-          : retry.baseDelayMs * 2 ** (attempt - 1);
-      let delay = Math.min(retry.maxDelayMs, retryAfter ?? base);
-      if (retry.jitter) {
-        delay = Math.floor(delay * (0.5 + Math.random() * 0.5));
-      }
-      await sleep(delay);
-    }
+  const sleepFn = dependencies.sleepFn ?? sleepMs;
+  let sendCount = 0;
+
+  const isRetryable = (e: unknown): boolean =>
+    classifyResendError(e) !== "non_retryable";
+
+  try {
+    const id = await withRetryCustomDelay(
+      async () => {
+        sendCount += 1;
+        if (payload.html === undefined && payload.text === undefined) {
+          throw new Error("Send payload requires html and/or text");
+        }
+        const emailPayload = {
+          from: payload.from,
+          to: payload.to,
+          subject: payload.subject,
+          ...(payload.html !== undefined ? { html: payload.html } : {}),
+          ...(payload.text !== undefined ? { text: payload.text } : {}),
+          ...(payload.replyTo !== undefined
+            ? { replyTo: payload.replyTo }
+            : {}),
+          ...(payload.tags !== undefined && payload.tags.length > 0
+            ? { tags: payload.tags }
+            : {}),
+        } as CreateEmailOptions;
+        const { data, error, headers } = await resend.emails.send(emailPayload);
+        if (error) {
+          throwWithResendContext(error.message, error, headers);
+        }
+        return data?.id;
+      },
+      retry.maxAttempts,
+      ({ attempt, error: err }) => {
+        const hdr =
+          typeof err === "object" && err !== null && "resendHeaders" in err
+            ? (err as { resendHeaders?: Record<string, string> | null })
+                .resendHeaders
+            : undefined;
+        const retryAfter =
+          retryAfterMsFromHeaders(hdr ?? undefined) ??
+          retryAfterMsFromError(err);
+        const exp =
+          retry.baseDelayMs * 2 ** (attempt - 1) > retry.maxDelayMs
+            ? retry.maxDelayMs
+            : retry.baseDelayMs * 2 ** (attempt - 1);
+        let delay = Math.min(retry.maxDelayMs, retryAfter ?? exp);
+        if (retry.jitter) {
+          delay = Math.floor(delay * (0.5 + Math.random() * 0.5));
+        }
+        return delay;
+      },
+      isRetryable,
+      { sleepFn },
+    );
+    return { id, attempts: sendCount };
+  } catch (err) {
+    throw Object.assign(err instanceof Error ? err : new Error(String(err)), {
+      attempts: sendCount,
+    });
   }
-  const e = lastErr instanceof Error ? lastErr : new Error(String(lastErr));
-  throw Object.assign(e, { attempts: retry.maxAttempts });
 }

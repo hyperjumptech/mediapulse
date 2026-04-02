@@ -37,4 +37,27 @@ describe("DeliveryConfigSchema", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  it("accepts optional template.preferencesUrl when valid absolute URL", () => {
+    const r = DeliveryConfigSchema.safeParse({
+      ...minimalResendConfig,
+      template: {
+        newsletterVariant: "default" as const,
+        preferencesUrl: "https://example.com/prefs",
+      },
+    });
+    expect(r.success).toBe(true);
+    expect(r.data?.template.preferencesUrl).toBe("https://example.com/prefs");
+  });
+
+  it("rejects invalid template.preferencesUrl", () => {
+    const r = DeliveryConfigSchema.safeParse({
+      ...minimalResendConfig,
+      template: {
+        newsletterVariant: "default" as const,
+        preferencesUrl: "not-a-url",
+      },
+    });
+    expect(r.success).toBe(false);
+  });
 });

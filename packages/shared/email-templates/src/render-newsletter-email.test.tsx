@@ -12,4 +12,22 @@ describe("renderNewsletterEmail", () => {
     expect(text.toLowerCase()).toContain("hello digest");
     expect(text).toMatch(/first line/i);
   });
+
+  it("omits manage-preferences link when preferencesUrl is not set", async () => {
+    const { html } = await renderNewsletterEmail({
+      title: "T",
+      bodyText: "B",
+    });
+    expect(html).not.toMatch(/manage preferences/i);
+  });
+
+  it("includes manage-preferences link when preferencesUrl is set", async () => {
+    const { html } = await renderNewsletterEmail({
+      title: "T",
+      bodyText: "B",
+      preferencesUrl: "https://app.example.com/settings/email",
+    });
+    expect(html).toMatch(/manage preferences/i);
+    expect(html).toContain("https://app.example.com/settings/email");
+  });
 });

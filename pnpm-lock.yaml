@@ -576,6 +576,9 @@ importers:
       '@workspace/agent-data-api-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-data-api-client
+      '@workspace/agent-data-api-contract':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-data-api-contract
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
@@ -585,6 +588,9 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
+      '@workspace/utils':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/utils
       got:
         specifier: 'catalog:'
         version: 14.6.6

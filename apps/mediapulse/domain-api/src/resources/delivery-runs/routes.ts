@@ -17,6 +17,7 @@ const deliveryRunOutcomeFilterSchema = z.enum([
   "skipped",
   "failed",
   "partial_success",
+  "skipped_all_already_delivered",
 ]);
 
 /**

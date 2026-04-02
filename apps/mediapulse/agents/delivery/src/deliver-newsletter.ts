@@ -104,6 +104,9 @@ export async function deliverNewsletterToSubscribers(
     title: newsletter.subject,
     bodyText: newsletter.content,
     variant: config.template.newsletterVariant,
+    ...(config.template.preferencesUrl !== undefined
+      ? { preferencesUrl: config.template.preferencesUrl }
+      : {}),
   });
   logger?.info?.(
     {
@@ -145,10 +148,10 @@ export async function deliverNewsletterToSubscribers(
       subject: newsletter.subject,
       ...(config.send.includeHtml ? { html } : {}),
       ...(config.send.includeText ? { text } : {}),
-      ...(config.resend?.replyTo !== undefined
+      ...(config.resend.replyTo !== undefined
         ? { replyTo: config.resend.replyTo }
         : {}),
-      ...(config.resend?.tags !== undefined && config.resend.tags.length > 0
+      ...(config.resend.tags !== undefined && config.resend.tags.length > 0
         ? { tags: config.resend.tags }
         : {}),
     };

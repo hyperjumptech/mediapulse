@@ -269,6 +269,7 @@ enum DeliveryRunOutcome {
   skipped
   failed
   partial_success
+  skipped_all_already_delivered
 }
 
 enum DeliveryRunStage {
@@ -276,6 +277,12 @@ enum DeliveryRunStage {
   render
   send
   persist_delivery_record
+}
+
+enum DeliveryRecipientOutcomeStatus {
+  success
+  failed
+  skipped
 }
 
 model DeliveryRun {
@@ -311,10 +318,10 @@ model DeliveryRun {
 }
 
 model DeliveryRecipientOutcome {
-  id               String  @id @default(uuid())
-  runId            String  @map("run_id")
-  userTickerId     String  @map("user_ticker_id")
-  status           String
+  id               String                         @id @default(uuid())
+  runId            String                         @map("run_id")
+  userTickerId     String                         @map("user_ticker_id")
+  status           DeliveryRecipientOutcomeStatus
   attempts         Int     @default(0)
   lastErrorCode    String? @map("last_error_code")
   lastErrorMessage String? @map("last_error_message")

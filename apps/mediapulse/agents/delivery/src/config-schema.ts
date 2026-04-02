@@ -48,6 +48,11 @@ export const DeliveryConfigSchema = z
     template: z
       .object({
         newsletterVariant: z.enum(["default"]).default("default"),
+        /**
+         * Absolute URL for the “Manage preferences” link in the default newsletter template.
+         * Omit to hide that link (recommended until a real preferences URL exists).
+         */
+        preferencesUrl: z.string().url().optional(),
       })
       .default({ newsletterVariant: "default" }),
   })

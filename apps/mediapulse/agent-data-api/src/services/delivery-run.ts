@@ -6,7 +6,8 @@ export type DeliveryRunOutcomeFilter =
   | "success"
   | "skipped"
   | "failed"
-  | "partial_success";
+  | "partial_success"
+  | "skipped_all_already_delivered";
 
 /**
  * Lists delivery diagnostic runs with optional ticker, outcome, and time range filters.
@@ -48,6 +49,7 @@ export async function listDeliveryRuns(query: {
 
 /**
  * Persists one delivery run and its per-recipient outcomes (transactional).
+ * `createdAt` is set by the database (`@default(now())`), not from the client.
  *
  * @param data - Validated POST body from the delivery agent.
  */
@@ -79,14 +81,13 @@ export async function createDeliveryRun(data: {
   recipientErrorSummary: string | null | undefined;
   recipients: Array<{
     userTickerId: string;
-    status: string;
+    status: "success" | "failed" | "skipped";
     attempts: number;
     lastErrorCode: string | null | undefined;
     lastErrorMessage: string | null | undefined;
     errorCategory: string | null | undefined;
     resendEmailId: string | null | undefined;
   }>;
-  createdAt: Date;
 }) {
   await mediapulsePrisma.deliveryRun.create({
     data: {
@@ -110,7 +111,6 @@ export async function createDeliveryRun(data: {
       resendMessageIds:
         data.resendMessageIds !== undefined ? data.resendMessageIds : undefined,
       recipientErrorSummary: data.recipientErrorSummary ?? null,
-      createdAt: data.createdAt,
       recipients: {
         create: data.recipients.map((r) => ({
           userTickerId: r.userTickerId,

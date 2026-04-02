@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 
+import {
+  deliveryRunOutcomeSchema,
+  deliveryRunStageSchema,
+} from "@workspace/agent-data-api-contract";
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import {
   createAgentApp,
@@ -21,6 +25,9 @@ const BodySchema = z.object({
 });
 
 type Input = z.infer<typeof BodySchema>;
+
+type DeliveryRunOutcome = z.infer<typeof deliveryRunOutcomeSchema>;
+type DeliveryRunStage = z.infer<typeof deliveryRunStageSchema>;
 
 /**
  * Maps Hermes invoke headers to persisted delivery run correlation fields.
@@ -48,9 +55,7 @@ function hermesRunFields(c: HermesInvokeCorrelation | undefined): {
  *
  * @param results - Recipient rows after send pass (may be empty).
  */
-function aggregateOutcome(
-  results: RecipientSendResult[],
-): "success" | "partial_success" | "failed" | "skipped" {
+function aggregateOutcome(results: RecipientSendResult[]): DeliveryRunOutcome {
   if (results.length === 0) {
     return "skipped";
   }
@@ -64,7 +69,7 @@ function aggregateOutcome(
     return "failed";
   }
   if (success === 0 && skipped === results.length) {
-    return "success";
+    return "skipped_all_already_delivered";
   }
   return "success";
 }
@@ -93,13 +98,11 @@ const app = createAgentApp<
         token,
       });
 
-      let stage: "fetch" | "render" | "send" | "persist_delivery_record" =
-        "fetch";
+      let stage: DeliveryRunStage = "fetch";
       let newsletterId: string | null = null;
       let recipientRows: RecipientSendResult[] = [];
       let resendMessageIds: string[] = [];
-      let runOutcome: "success" | "partial_success" | "failed" | "skipped" =
-        "skipped";
+      let runOutcome: DeliveryRunOutcome = "skipped";
       let errorSummary: string | null = null;
 
       try {
@@ -131,7 +134,6 @@ const app = createAgentApp<
             recipientErrorSummary: null,
             runSkipReason: "skipped_no_newsletter",
             recipients: [],
-            createdAt: new Date().toISOString(),
           });
           return {
             success: true,
@@ -161,7 +163,6 @@ const app = createAgentApp<
             recipientErrorSummary: "no_subscribers",
             runSkipReason: "skipped_no_subscribers",
             recipients: [],
-            createdAt: new Date().toISOString(),
           });
           return {
             success: true,
@@ -235,7 +236,6 @@ const app = createAgentApp<
             errorCategory: r.errorCategory ?? null,
             resendEmailId: r.resendEmailId ?? null,
           })),
-          createdAt: new Date().toISOString(),
         });
 
         if (runOutcome === "failed") {
@@ -251,7 +251,9 @@ const app = createAgentApp<
           message:
             runOutcome === "partial_success"
               ? "Partial delivery: some recipients failed"
-              : "Delivery completed",
+              : runOutcome === "skipped_all_already_delivered"
+                ? "All recipients skipped (already delivered)"
+                : "Delivery completed",
           details: { outcome: runOutcome, runId },
         };
       } catch (err) {
@@ -285,7 +287,6 @@ const app = createAgentApp<
               errorCategory: r.errorCategory ?? null,
               resendEmailId: r.resendEmailId ?? null,
             })),
-            createdAt: new Date().toISOString(),
           });
         } catch (persistErr) {
           logger.error(
