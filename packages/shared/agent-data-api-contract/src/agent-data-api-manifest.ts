@@ -12,6 +12,12 @@ import {
   postDataCollectionResponseSchema,
 } from "./data-collection.js";
 import {
+  deliveryRunQuerySchema,
+  getDeliveryRunResponseSchema,
+  postDeliveryRunBodySchema,
+  postDeliveryRunResponseSchema,
+} from "./delivery-run.js";
+import {
   getDeliveryQuerySchema,
   getDeliveryResponseSchema,
   postDeliveryBodySchema,
@@ -188,6 +194,28 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDeliveryBodySchema,
         response: postDeliveryResponseSchema,
+      },
+    },
+  },
+  deliveryRun: {
+    v1: {
+      get: {
+        query: deliveryRunQuerySchema,
+        response: getDeliveryRunResponseSchema,
+      },
+      post: {
+        body: postDeliveryRunBodySchema,
+        response: postDeliveryRunResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: deliveryRunQuerySchema,
+        response: getDeliveryRunResponseSchema,
+      },
+      post: {
+        body: postDeliveryRunBodySchema,
+        response: postDeliveryRunResponseSchema,
       },
     },
   },

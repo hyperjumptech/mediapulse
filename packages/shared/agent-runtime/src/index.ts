@@ -1,6 +1,8 @@
 export { createAgentApp } from "./create-agent-app.js";
 export {
   hermesInvokeCorrelationFromGetHeader,
+  HERMES_HEADER_EXECUTION_ID,
+  HERMES_HEADER_JOB_ID,
   HERMES_HEADER_PIPELINE_STEP_ID,
   HERMES_HEADER_SCHEDULE_EXECUTION_ID,
   HERMES_HEADER_SCHEDULE_ID,

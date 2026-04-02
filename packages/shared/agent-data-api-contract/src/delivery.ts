@@ -5,21 +5,27 @@ export const getDeliveryQuerySchema = z.object({
 });
 
 export const postDeliveryBodySchema = z.object({
-  userTickerId: z.string(),
+  userTickerId: z.string().uuid(),
+  newsletterId: z.string().uuid(),
+  resendEmailId: z.string().min(1).optional(),
 });
 
 export const deliveryNewsletterSchema = z.object({
+  id: z.string().uuid(),
   subject: z.string(),
   content: z.string(),
 });
 
 export const deliverySubscriberSchema = z.object({
+  userTickerId: z.string().uuid(),
   email: z.string().email(),
 });
 
 export const getDeliveryResponseSchema = z.object({
-  newsletter: deliveryNewsletterSchema,
+  newsletter: deliveryNewsletterSchema.nullable(),
   subscribers: z.array(deliverySubscriberSchema),
+  /** User-ticker ids that already have a delivery checkpoint for the latest newsletter (skip send on replay). */
+  deliveredUserTickerIds: z.array(z.string().uuid()),
 });
 
 export const postDeliveryResponseSchema = z.object({

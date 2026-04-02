@@ -5,15 +5,13 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    PORT: z.string().optional(),
-    AGENT_DATA_API_URL: z.string().optional(),
-    AGENT_AUTH_API_URL: z.string().optional(),
-    AGENT_REGISTRY_URL: z.string().optional(),
-    AGENT_PUBLIC_URL: z.string().optional(),
-    DOMAIN_INTEGRATION_API_KEY: z.string().optional(),
-    DOMAIN_INTEGRATION_ID: z.string().optional(),
-    RESEND_SENDER: z.string().optional(),
-    RESEND_API_KEY: z.string().optional(),
+    PORT: z.number({ coerce: true }).optional(),
+    AGENT_DATA_API_URL: z.string().min(1),
+    AGENT_AUTH_API_URL: z.string().min(1),
+    AGENT_REGISTRY_URL: z.string().min(1),
+    AGENT_PUBLIC_URL: z.string().min(1),
+    DOMAIN_INTEGRATION_API_KEY: z.string().min(1),
+    DOMAIN_INTEGRATION_ID: z.string().min(1),
     OUTLOOK_CLIENT_ID: z.string().optional(),
     OUTLOOK_CLIENT_SECRET: z.string().optional(),
     OUTLOOK_TENANT_ID: z.string().optional(),

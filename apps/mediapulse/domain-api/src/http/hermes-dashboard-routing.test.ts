@@ -68,6 +68,7 @@ describe("Hermes dashboard routing contract", () => {
     expect(HermesDashboardResource.tickers).toBe("tickers");
     expect(HermesDashboardResource.mediapulseUsers).toBe("mediapulse-users");
     expect(HermesDashboardResource.dataSources).toBe("data-sources");
+    expect(HermesDashboardResource.deliveryRuns).toBe("delivery-runs");
     expect(hermesDashboardTableMountPath(HermesDashboardResource.tickers)).toBe(
       "/hermes-dashboard/tickers",
     );

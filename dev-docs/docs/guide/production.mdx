@@ -208,7 +208,7 @@ Examples: **`@mediapulse/data-collection`**, **`@mediapulse/content-generation`*
 | `AGENT_REGISTRY_URL`         | `http://localhost:8082`              | URL of the agent-registry-api in Hermes.                                                                                 |
 | `AGENT_PUBLIC_URL`           | `http://localhost:4001`              | URL where the agent is reachable.                                                                                        |
 
-**Agent-specific** (see each agent’s `env.agents.*.example` and README): e.g. **`JINA_API_KEY`**, **`SERPER_API_KEY`** (data-collection); **`RESEND_SENDER`**, **`RESEND_API_KEY`** (delivery); OpenAI is configured on **Agent configs** in Hermes for content-generation, not env.
+**Agent-specific** (see each agent’s `env.agents.*.example` and README): e.g. **`JINA_API_KEY`**, **`SERPER_API_KEY`** (data-collection); **delivery** uses **Hermes Agent config** for Resend (`resendApiKey`, `resend.from`), not env; OpenAI is configured on **Agent configs** in Hermes for content-generation, not env.
 
 **Ticker-echo** does not use **`AGENT_DATA_API_URL`**; it optionally uses **`ALLOW_ANY_BEARER_FOR_LOCAL`** (dev only; never enable in production).
 

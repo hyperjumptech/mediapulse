@@ -19,6 +19,12 @@ const deliveryPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "delivery",
 );
+const deliveryRunPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "deliveryRun",
+);
+const NL_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const UT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const contentGenerationV2Path = agentDataApiPathname("v2", "contentGeneration");
 
 vi.mock("@workspace/agent-auth-client", () => ({
@@ -53,9 +59,15 @@ vi.mock("./services/delivery.js", () => ({
   postDelivery: vi.fn(),
 }));
 
+vi.mock("./services/delivery-run.js", () => ({
+  listDeliveryRuns: vi.fn(),
+  createDeliveryRun: vi.fn(),
+}));
+
 const getContentGenerationService = () =>
   import("./services/content-generation.js");
 const getDeliveryService = () => import("./services/delivery.js");
+const getDeliveryRunService = () => import("./services/delivery-run.js");
 const getDatabase = () => import("@mediapulse/database");
 
 describe("agent-data-api", () => {
@@ -228,9 +240,13 @@ describe("agent-data-api", () => {
   });
 
   describe(`GET ${deliveryPath}`, () => {
-    it("returns 404 when no newsletter exists", async () => {
+    it("returns 200 with null newsletter when none exists", async () => {
       const mod = await getDeliveryService();
-      vi.mocked(mod.getDeliveryData).mockResolvedValue(null);
+      vi.mocked(mod.getDeliveryData).mockResolvedValue({
+        newsletter: null,
+        subscribers: [],
+        deliveredUserTickerIds: [],
+      });
 
       const { app } = await import("./index.js");
       const res = await app.request(
@@ -239,8 +255,9 @@ describe("agent-data-api", () => {
       );
       const body = await res.json();
 
-      expect(res.status).toBe(404);
-      expect(body.message).toContain("newsletter");
+      expect(res.status).toBe(200);
+      expect(body.newsletter).toBeNull();
+      expect(body.deliveredUserTickerIds).toEqual([]);
     });
 
     it("returns 200 and newsletter + subscribers when data exists", async () => {
@@ -249,13 +266,10 @@ describe("agent-data-api", () => {
         newsletter: {
           subject: "News",
           content: "Body",
-          id: "n1",
-          tickerId: TICKER_ID,
-          description: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          id: NL_ID,
         },
-        subscribers: [{ email: "u@example.com" }],
+        subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
+        deliveredUserTickerIds: [],
       });
 
       const { app } = await import("./index.js");
@@ -269,11 +283,12 @@ describe("agent-data-api", () => {
       expect(body.newsletter.subject).toBe("News");
       expect(body.subscribers).toHaveLength(1);
       expect(body.subscribers[0].email).toBe("u@example.com");
+      expect(body.subscribers[0].userTickerId).toBe(UT_ID);
     });
   });
 
   describe(`POST ${deliveryPath}`, () => {
-    it("returns 200 when body has userTickerId", async () => {
+    it("returns 200 when body has userTickerId and newsletterId", async () => {
       const mod = await getDeliveryService();
       vi.mocked(mod.postDelivery).mockResolvedValue(undefined);
 
@@ -281,12 +296,55 @@ describe("agent-data-api", () => {
       const res = await app.request(`http://localhost${deliveryPath}`, {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ userTickerId: TICKER_ID }),
+        body: JSON.stringify({ userTickerId: UT_ID, newsletterId: NL_ID }),
       });
       const body = await res.json();
 
       expect(res.status).toBe(200);
       expect(body.message).toBe("Success");
+    });
+  });
+
+  describe(`GET ${deliveryRunPath}`, () => {
+    it("returns 200 with data array", async () => {
+      const mod = await getDeliveryRunService();
+      vi.mocked(mod.listDeliveryRuns).mockResolvedValue([
+        {
+          id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          agentId: "delivery",
+          agentVersion: "1.0.0",
+          tickerId: TICKER_ID,
+          newsletterId: NL_ID,
+          outcome: "success",
+          stage: "persist_delivery_record",
+          successCount: 1,
+          failureCount: 0,
+          skippedCount: 0,
+          durationMs: 100,
+          scheduleExecutionId: null,
+          hermesScheduleId: null,
+          pipelineStepId: null,
+          jobId: null,
+          hermesExecutionId: null,
+          runSkipReason: null,
+          recipientErrorSummary: null,
+          resendMessageIds: null,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          ticker: { symbol: "ACME" },
+        },
+      ] as never);
+
+      const { app } = await import("./index.js");
+      const res = await app.request(`http://localhost${deliveryRunPath}`, {
+        headers: AUTH_HEADERS,
+      });
+      const body = (await res.json()) as {
+        data: Array<{ tickerSymbol?: string }>;
+      };
+
+      expect(res.status).toBe(200);
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0]?.tickerSymbol).toBe("ACME");
     });
   });
 });

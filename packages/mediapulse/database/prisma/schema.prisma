@@ -47,7 +47,9 @@ model Newsletter {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  ticker Ticker @relation(fields: [tickerId], references: [id])
+  ticker               Ticker                         @relation(fields: [tickerId], references: [id])
+  deliveryCheckpoints  NewsletterDeliveryCheckpoint[]
+  deliveryRuns         DeliveryRun[]
 
   @@map("newsletter")
 }
@@ -212,6 +214,7 @@ model Ticker {
   articleRelevances ArticleRelevance[]
   dataCollectionRuns      DataCollectionRun[]
   dataCollectionFailures  DataCollectionFailure[]
+  deliveryRuns            DeliveryRun[]
 
   @@map("ticker")
 }
@@ -238,11 +241,97 @@ model UserTicker {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user   MediapulseUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ticker Ticker         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  user                MediapulseUser                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticker              Ticker                         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  deliveryCheckpoints NewsletterDeliveryCheckpoint[]
 
   @@unique([userId, tickerId])
   @@map("user_ticker")
+}
+
+/// Idempotent record that a newsletter was delivered to a subscriber (avoids duplicate sends on job replay).
+model NewsletterDeliveryCheckpoint {
+  id            String   @id @default(uuid())
+  newsletterId  String   @map("newsletter_id")
+  userTickerId  String   @map("user_ticker_id")
+  deliveredAt   DateTime @default(now()) @map("delivered_at")
+  resendEmailId String?  @map("resend_email_id")
+
+  newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  userTicker UserTicker @relation(fields: [userTickerId], references: [id], onDelete: Cascade)
+
+  @@unique([newsletterId, userTickerId])
+  @@map("newsletter_delivery_checkpoint")
+}
+
+enum DeliveryRunOutcome {
+  success
+  skipped
+  failed
+  partial_success
+  skipped_all_already_delivered
+}
+
+enum DeliveryRunStage {
+  fetch
+  render
+  send
+  persist_delivery_record
+}
+
+enum DeliveryRecipientOutcomeStatus {
+  success
+  failed
+  skipped
+}
+
+model DeliveryRun {
+  id                    String              @id @default(uuid())
+  agentId               String              @map("agent_id")
+  agentVersion          String              @map("agent_version")
+  tickerId              String              @map("ticker_id")
+  newsletterId          String?             @map("newsletter_id")
+  outcome               DeliveryRunOutcome
+  stage                 DeliveryRunStage?
+  successCount          Int                 @default(0) @map("success_count")
+  failureCount          Int                 @default(0) @map("failure_count")
+  skippedCount          Int                 @default(0) @map("skipped_count")
+  durationMs            Int                 @map("duration_ms")
+  scheduleExecutionId   String?             @map("schedule_execution_id")
+  /// Hermes `Schedule.id` from `X-Schedule-Id` (distinct from schedule execution row).
+  hermesScheduleId      String?             @map("hermes_schedule_id")
+  pipelineStepId        String?             @map("pipeline_step_id")
+  jobId                 String?             @map("job_id")
+  hermesExecutionId     String?             @map("hermes_execution_id")
+  runSkipReason         String?             @map("run_skip_reason")
+  resendMessageIds      Json?               @map("resend_message_ids")
+  recipientErrorSummary String?             @map("recipient_error_summary")
+  createdAt             DateTime            @default(now()) @map("created_at")
+
+  ticker     Ticker                     @relation(fields: [tickerId], references: [id])
+  newsletter Newsletter?                @relation(fields: [newsletterId], references: [id], onDelete: SetNull)
+  recipients DeliveryRecipientOutcome[]
+
+  @@index([tickerId, createdAt])
+  @@index([outcome, createdAt])
+  @@map("delivery_run")
+}
+
+model DeliveryRecipientOutcome {
+  id               String                         @id @default(uuid())
+  runId            String                         @map("run_id")
+  userTickerId     String                         @map("user_ticker_id")
+  status           DeliveryRecipientOutcomeStatus
+  attempts         Int     @default(0)
+  lastErrorCode    String? @map("last_error_code")
+  lastErrorMessage String? @map("last_error_message")
+  errorCategory    String? @map("error_category")
+  resendEmailId    String? @map("resend_email_id")
+
+  run DeliveryRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@map("delivery_recipient_outcome")
 }
 
 enum DataCollectionRunStatus {

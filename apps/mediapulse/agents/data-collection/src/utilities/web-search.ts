@@ -84,6 +84,21 @@ export async function performWebSearch(
 
   log.info({ queryCount: queries.length }, "web search: starting");
 
+  try {
+    const hostname = new URL(config.baseUrl).hostname;
+    if (hostname === "r.jina.ai" || hostname.endsWith(".jina.ai")) {
+      log.warn(
+        {
+          baseUrl: config.baseUrl,
+          hint: "webSearch uses Serper-shaped POST { q }; Jina Reader belongs on webFetch.baseUrl",
+        },
+        "data-collection webSearch misconfiguration: Jina URL in webSearch.baseUrl",
+      );
+    }
+  } catch {
+    // Invalid baseUrl: the HTTP client will fail with a clearer error.
+  }
+
   const rateLimiter = new RateLimiter(
     config.rateLimit.requests,
     config.rateLimit.perSeconds,

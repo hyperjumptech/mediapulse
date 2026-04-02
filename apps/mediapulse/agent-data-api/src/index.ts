@@ -26,6 +26,7 @@ import {
   getDataCollectionFailure,
   postDataCollectionFailure,
 } from "./routes/data-collection-failure.js";
+import { getDeliveryRun, postDeliveryRun } from "./routes/delivery-run.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 import {
   postUserRegistrationRegisterHandler,
@@ -75,6 +76,10 @@ const routeHandlers = {
   delivery: {
     get: getDelivery,
     post: postDeliveryHandler,
+  },
+  deliveryRun: {
+    get: getDeliveryRun,
+    post: postDeliveryRun,
   },
   userRegistrationRegister: {
     post: postUserRegistrationRegisterHandler,
