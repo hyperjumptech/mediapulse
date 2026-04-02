@@ -4,12 +4,11 @@ import * as React from "react";
 import { PanelLeft } from "lucide-react";
 import { Slot } from "@radix-ui/react-slot";
 
-import { cn } from "@workspace/ui/lib/utils";
-
 import {
   useSidebarProviderState,
   type SidebarContextValue,
-} from "../hooks/use-sidebar-provider-state.js";
+} from "@workspace/ui/hooks/use-sidebar-provider-state";
+import { cn } from "@workspace/ui/lib/utils";
 
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
