@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sleep } from "./index.js";
+import { sleep } from "./sleep.js";
 
 describe("sleep", () => {
   it("resolves after approximately the given delay", async () => {

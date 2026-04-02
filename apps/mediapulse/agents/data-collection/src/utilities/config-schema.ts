@@ -9,8 +9,8 @@ const webSearchSchema = z.object({
     headerName: z.string().optional(),
   }),
   rateLimit: z.object({
-    requests: z.number(),
-    perSeconds: z.number(),
+    requests: z.number().int().positive(),
+    perSeconds: z.number().positive(),
   }),
   timeoutMs: z.number().int().positive().optional(),
   retry: z
@@ -30,8 +30,8 @@ const webFetchSchema = z.object({
     headerName: z.string().optional(),
   }),
   rateLimit: z.object({
-    requests: z.number(),
-    perSeconds: z.number(),
+    requests: z.number().int().positive(),
+    perSeconds: z.number().positive(),
   }),
   timeoutMs: z.number().int().positive().optional(),
   retry: z

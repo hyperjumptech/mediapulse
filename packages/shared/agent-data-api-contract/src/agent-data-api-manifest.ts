@@ -12,6 +12,12 @@ import {
   postDataCollectionResponseSchema,
 } from "./data-collection.js";
 import {
+  deliveryRunQuerySchema,
+  getDeliveryRunResponseSchema,
+  postDeliveryRunBodySchema,
+  postDeliveryRunResponseSchema,
+} from "./delivery-run.js";
+import {
   getDeliveryQuerySchema,
   getDeliveryResponseSchema,
   postDeliveryBodySchema,
@@ -197,7 +203,30 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       },
     },
   },
-  queryAnalysis: {
+ 
+  deliveryRun: {
+    v1: {
+      get: {
+        query: deliveryRunQuerySchema,
+        response: getDeliveryRunResponseSchema,
+      },
+      post: {
+        body: postDeliveryRunBodySchema,
+        response: postDeliveryRunResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: deliveryRunQuerySchema,
+        response: getDeliveryRunResponseSchema,
+      },
+      post: {
+        body: postDeliveryRunBodySchema,
+        response: postDeliveryRunResponseSchema,
+      },
+    },
+  },
+   queryAnalysis: {
     v1: {
       get: {
         query: getQueryAnalysisQuerySchema,
@@ -208,8 +237,8 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
         response: postQueryAnalysisResponseSchema,
       },
     },
-    v2: {
-      get: {
+    v2: { 
+       get: {
         query: getQueryAnalysisQuerySchema,
         response: getQueryAnalysisResponseSchema,
       },
@@ -218,7 +247,7 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
         response: postQueryAnalysisResponseSchema,
       },
     },
-  },
+   },
   userRegistrationRegister: {
     v1: {
       post: {

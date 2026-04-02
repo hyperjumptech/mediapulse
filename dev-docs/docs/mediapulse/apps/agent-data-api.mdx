@@ -15,7 +15,8 @@ agent-data-api is the **HTTP persistence layer between agents and the database**
 - **Bearer auth** — Requests must send `Authorization: Bearer <jwt>` (the same short-lived invocation JWT Hermes sends to agents). Verified with agent-auth-api `POST /api/verify` via `verifyTokenViaAuthApi`; agents forward the `Authorization` header from their run context to the SDK.
 - **Content generation** — Stores and loads generated newsletter-style output so downstream steps can reuse it without reshaping ad hoc payloads.
 - **Data collection** — Stores and loads crawled or gathered source material (pages, feeds, etc.) so collection and later stages see the same structured snapshot.
-- **Delivery** — Loads newsletter content plus **subscriber emails** resolved from **`MediapulseUser`** via `user_ticker` (Mediapulse DB). Subscriber emails are **not** read from Hermes orchestration `User` (admins).
+- **Delivery** — Loads the latest newsletter for a ticker, **subscriber emails** and **`userTickerId`** from enabled `user_ticker` rows, plus **`deliveredUserTickerIds`** (existing checkpoints for idempotent replays). When there is no newsletter, **GET returns 200** with `newsletter: null`, `subscribers: []`, and empty checkpoint ids (agents skip without treating the call as an error). **POST** records a **`newsletter_delivery_checkpoint`** after a successful send (`userTickerId`, `newsletterId`, optional Resend id).
+- **Delivery run** — **POST** persists one diagnostic run and per-recipient rows (including optional **`runSkipReason`**, Hermes **`jobId` / `hermesExecutionId` / `hermesScheduleId`**, and per-recipient **`errorCategory`**). **GET** lists runs with optional filters (`tickerId`, `outcome`, `start`, `end` — each of `start` / `end` applies **`createdAt` `gte` / `lte` independently** when provided). Used by the delivery agent for Hermes-visible outcomes (`success`, `skipped`, `failed`, `partial_success`, `skipped_all_already_delivered`). The Mediapulse Hermes **Delivery runs** table supports the same filters via query string (`tickerId`, `outcome`, `start`, `end`) in addition to search (`q`) and sort.
 
 **Contract-driven routing:** URL paths and the `@workspace/agent-data-api-client` method namespaces are derived from `agentDataApiManifest` plus version helpers in `@workspace/agent-data-api-contract` (resource keys → `/api/<version>/...` segments). That keeps the server, SDK, and docs aligned and avoids one-off paths in app or agent code.
 
@@ -23,22 +24,56 @@ agent-data-api is the **HTTP persistence layer between agents and the database**
 
 Agents should not call these HTTP paths directly. In agent code, use `@workspace/agent-data-api-client` and call SDK namespaces such as `contentGeneration`, `dataCollection`, and `delivery`. The SDK provides typed methods for each endpoint and validates responses with shared schemas.
 
-| Method | Path                                      | Description                                    |
-| ------ | ----------------------------------------- | ---------------------------------------------- |
-| GET    | `/api/v1/content-generation`              | Get content-generation data (e.g. by tickerId) |
-| POST   | `/api/v1/content-generation`              | Store content-generation payload               |
-| GET    | `/api/v1/data-collection`                 | Get data-collection data                       |
-| POST   | `/api/v1/data-collection`                 | Store data-collection payload                  |
+| Method | Path                                 | Description                                                           |
+| ------ | ------------------------------------ | --------------------------------------------------------------------- |
+| GET    | `/api/v1/content-generation`         | Get content-generation data (e.g. by tickerId)                        |
+| POST   | `/api/v1/content-generation`         | Store content-generation payload                                      |
+| GET    | `/api/v1/data-collection`            | Get data-collection data                                              |
+| POST   | `/api/v1/data-collection`            | Store data-collection payload                                         |
+| GET    | `/api/v1/delivery`                   | Get delivery payload (nullable newsletter, subscribers + checkpoints) |
+| POST   | `/api/v1/delivery`                   | Upsert delivery checkpoint after successful send                      |
+| GET    | `/api/v1/delivery-run`               | List delivery diagnostic runs (filters optional)                      |
+| POST   | `/api/v1/delivery-run`               | Persist one delivery run + recipient outcomes                         |
+| POST   | `/api/v1/user-registration-register` | Process a new or returning subscription                               |
+| POST   | `/api/v1/user-registration-confirm`  | Confirm a pending subscription (double opt-in)                        |
 | GET    | `/api/v1/query-analysis`                  | Get query-analysis context by ticker           |
 | POST   | `/api/v1/query-analysis`                  | Store and activate a versioned query set       |
-| GET    | `/api/v1/delivery`                        | Get delivery data (newsletter + subscribers)   |
-| POST   | `/api/v1/delivery`                        | Store delivery payload                         |
-| GET    | `/api/v1/data-collection-run`             | Get data-collection run metadata               |
-| POST   | `/api/v1/data-collection-run`             | Store a data-collection run                    |
-| GET    | `/api/v1/data-collection-failure`         | Get run failure records                        |
-| POST   | `/api/v1/data-collection-failure`         | Store run failure records                      |
-| POST   | `/api/v1/user-registration-register`      | Process a new or returning subscription        |
-| POST   | `/api/v1/user-registration-confirm`       | Confirm a pending subscription (double opt-in) |
+
+
+### Delivery run (`/api/v1/delivery-run`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/delivery-run.ts`. Contract types and Zod schemas live in `@workspace/agent-data-api-contract` (`delivery-run.ts`).
+
+- **GET** — Lists persisted runs. **Query** (all optional, validated by `deliveryRunQuerySchema`):
+  - `tickerId` — UUID, filter by ticker.
+  - `outcome` — One of `success`, `skipped`, `failed`, `partial_success`, `skipped_all_already_delivered`.
+  - `start` — ISO 8601 datetime; when set, only rows with `createdAt >= start` (inclusive).
+  - `end` — ISO 8601 datetime; when set, only rows with `createdAt <= end` (inclusive).
+- **POST** — Inserts one run and nested recipient rows (`postDeliveryRunBodySchema`). Body includes run id, agent id/version, ticker id, optional `newsletterId`, `outcome`, optional `stage`, counts, `durationMs`, optional Hermes correlation fields (`jobId`, `hermesExecutionId`, `hermesScheduleId`, `pipelineStepId`, `scheduleExecutionId`), optional `runSkipReason` / `recipientErrorSummary` / `resendMessageIds`, and a `recipients` array (per-`userTickerId` status, attempts, optional Resend/error fields). **`createdAt` is not accepted in the body**; the API sets it at insert time.
+
+From agents, use the SDK namespace **`deliveryRun`**: `get` for the query object, **`create`** for POST (manifest maps POST to `create`).
+
+```ts
+await dataApiClient.deliveryRun.get({
+  tickerId,
+  outcome: "success",
+});
+
+await dataApiClient.deliveryRun.create({
+  id: runId,
+  agentId: "delivery",
+  agentVersion: "1.0.0",
+  tickerId,
+  outcome: "success",
+  successCount: 1,
+  failureCount: 0,
+  skippedCount: 0,
+  durationMs: 1200,
+  recipients: [],
+});
+```
+
+`createdAt` on the stored row is set by the **server** when the POST is handled (callers must not supply it in the body).
 
 For example, in agents:
 
@@ -51,6 +86,12 @@ const dataApiClient = createAgentDataApiClient({
 
 await dataApiClient.contentGeneration.get({ tickerId });
 ```
+
+### Delivery agent (Hermes config + semantics)
+
+- **Config (`configSchema`):** required **`resendApiKey`** and **`resend.from`** (no env fallback); optional `resend.replyTo` / **`resend.tags`**, **`send.includeHtml` / `send.includeText`** (defaults `true`; at least one required), `rateLimit.minIntervalMs` + `maxSendsPerMinute`, `retry` (`maxAttempts`, `baseDelayMs`, `maxDelayMs`, `jitter`), `template.newsletterVariant` (`default` only in v1), optional **`template.preferencesUrl`** (absolute URL; when set, the default newsletter template shows a “Manage preferences” link).
+- **Pipeline HTTP outcome:** Partial delivery still returns **invoke envelope `status: success`** with `details.outcome: "partial_success"`; full diagnostics live in **delivery runs** (DB + Hermes Mediapulse **Delivery runs** table). All recipients failing returns `status: failure` on the agent response.
+- **PII:** Logs use hashed `userTickerId` fragments; persisted diagnostics store `userTickerId` and sanitized error text (not raw emails in optional summary fields).
 
 ## Versioning
 

@@ -11,10 +11,10 @@ export const HERMES_HEADER_SCHEDULE_EXECUTION_ID = "X-Schedule-Execution-Id";
 /** Hermes pipeline step id (header name). */
 export const HERMES_HEADER_PIPELINE_STEP_ID = "X-Pipeline-Step-Id";
 
-/** Hermes agent job id (header name); sent by `invokeAgentPost`. */
+/** Hermes job id (header name). */
 export const HERMES_HEADER_JOB_ID = "X-Job-Id";
 
-/** Hermes execution id (header name); sent by `invokeAgentPost`. */
+/** Hermes execution id (header name). */
 export const HERMES_HEADER_EXECUTION_ID = "X-Execution-Id";
 
 /**

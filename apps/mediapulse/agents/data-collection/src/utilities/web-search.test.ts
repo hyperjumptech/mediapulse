@@ -37,6 +37,39 @@ describe("performWebSearch", () => {
     expect(result).toEqual([]);
   });
 
+  it("warns when webSearch.baseUrl is Jina (expects Serper for { q } POSTs)", async () => {
+    const warnMock = vi.fn();
+    const infoMock = vi.fn();
+    const postMock = vi.fn().mockReturnValue({
+      json: vi.fn().mockResolvedValue({
+        organic: [{ link: "https://a.com", title: "t", snippet: "s" }],
+      }),
+    });
+    const fakeGot = { post: postMock } as unknown as typeof got;
+
+    await performWebSearch([{ id: "q1", text: "x", tickerId: "t-1" }], {
+      config: {
+        ...defaultConfig,
+        baseUrl: "https://r.jina.ai/",
+        authentication: {
+          type: "bearer",
+          apiKey: "k",
+          headerName: "Authorization",
+        },
+      },
+      gotClient: fakeGot,
+      logger: { info: infoMock, warn: warnMock },
+    });
+
+    expect(warnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseUrl: "https://r.jina.ai/",
+        hint: expect.stringContaining("webFetch"),
+      }),
+      expect.stringContaining("misconfiguration"),
+    );
+  });
+
   it("calls Serper and maps the first organic result", async () => {
     // Setup
     const postMock = vi.fn().mockReturnValue({

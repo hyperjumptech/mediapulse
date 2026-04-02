@@ -8,7 +8,14 @@ export const ContentGenerationConfigSchema = z.object({
   /** OpenAI API key for newsletter generation. */
   openaiApiKey: z.string().min(1),
   /**
-   * Chat model id (e.g. gpt-4o-mini). When omitted, the agent uses `gpt-4o-mini`.
+   * Base URL for the OpenAI-compatible HTTP API (e.g. Azure OpenAI or a proxy).
+   * When omitted, the official OpenAI endpoint is used.
+   */
+  openaiBaseUrl: z.string().url().optional(),
+  /**
+   * Chat completions **model id** only (e.g. `gpt-4o-mini`). Do not put the API base URL here;
+   * use `openaiBaseUrl` for a non-default host (Azure OpenAI, proxies, etc.).
+   * When omitted, the agent uses `gpt-4o-mini`.
    */
   openaiModel: z.string().min(1).optional(),
 });

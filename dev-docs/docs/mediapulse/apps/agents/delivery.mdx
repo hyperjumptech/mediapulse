@@ -15,10 +15,29 @@ The delivery agent reads **newsletter content and subscribers** from agent-data-
 - **Sends email** to each subscriber using the configured provider (e.g. Resend).
 - **Skips** cleanly if no newsletter or no subscribers.
 - **Marks completion** — POSTs to agent-data-api (e.g. `userTickerId`) so the pipeline can track delivery.
+- **Diagnostics** — Persists **delivery runs** with Hermes correlation when present (`X-Job-Id`, `X-Execution-Id`, `X-Schedule-Id`, execution/step ids), skip reasons (`skipped_no_newsletter`, `skipped_no_subscribers`), and per-recipient **`errorCategory`** (e.g. `resend_rate_limited`, `skipped_already_delivered`). Invalid **agent config** is rejected with **HTTP 400** before a run starts, so no delivery-run row is written for that case.
+
+### Newsletter `content` (plain text in storage)
+
+Content-generation stores **`newsletter.content` as plain text** (often markdown-style prose from the model). The delivery path **does not treat it as trusted HTML**: the React Email template in `@workspace/email-templates` renders it into **email-safe HTML and a plain-text part** for Resend. Do not put raw subscriber-controlled HTML into `content`; treat the field as **editorial copy** only.
+
+### Hermes config (`config` JSON)
+
+**Resend API key and `from` address:** required on every run — set `resendApiKey` and `resend.from` on the delivery **Agent config** (use Hermes variables / secrets for the key). There is **no** `RESEND_*` environment fallback in the delivery agent.
+
+The pipeline may also pass:
+
+- **`resend.tags`** — Optional `{ name, value }[]` forwarded to Resend (dashboard filtering / analytics).
+- **`send.includeHtml` / `send.includeText`** — Default `true` each; you may turn one off for experiments, but **at least one must stay `true`** (Resend requires a body part).
+- **`rateLimit` / `retry` / `template`** — As documented in [agent-data-api](/mediapulse/apps/agent-data-api#delivery-agent-hermes-config--semantics).
+
+### Rate limiting
+
+The **min-interval / per-minute** limiter is **in-memory per agent process**. It coordinates sends within one running instance; it does **not** synchronize across multiple replicas. For hard global caps, rely on **Resend quotas** and **`retry`** backoff (including **`Retry-After`** from Resend responses when provided).
 
 ## Entrypoint
 
-- **Main:** `src/_main.ts` — Exports a Bun/Hono-compatible `fetch` and `port` (default **4003**).
+- **Main:** `src/index.ts` — Exports a Bun/Hono-compatible `fetch` and `port` (default **4003**).
 
 ## Port
 

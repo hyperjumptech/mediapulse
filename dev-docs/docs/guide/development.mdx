@@ -90,14 +90,15 @@ Optional **knowledge-graph** pipeline agents (**query-analysis**, **analysis**) 
 
 ## Optional: Third-party API keys
 
-For full pipeline runs (data collection, content generation, delivery), add the keys to the env file your Mediapulse apps load (typically **`packages/mediapulse/env/.env`**, merged or symlinked per `./dev-bootstrap.sh`):
+For pipeline stages that read third-party keys from env (e.g. data collection, some KG agents), add the keys to the env file your Mediapulse apps load (typically **`packages/mediapulse/env/.env`**, merged or symlinked per `./dev-bootstrap.sh`). Delivery uses Hermes Agent config for Resend (see below).
 
 | Variable         | Used by                 | Where to get it                  |
 | ---------------- | ----------------------- | -------------------------------- |
 | `JINA_API_KEY`   | data-collection         | [Jina.ai](https://jina.ai)       |
 | `SERPER_API_KEY` | data-collection         | [Serper.dev](https://serper.dev) |
 | `OPENAI_API_KEY` | KG agents when deployed | [OpenAI](https://openai.com)     |
-| `RESEND_API_KEY` | delivery                | [Resend](https://resend.com)     |
+
+**Delivery (Resend):** configure `resendApiKey` and `resend.from` on the **delivery Agent config** in Hermes (variables/secrets), not in this env file.
 
 ---
 
