@@ -57,14 +57,15 @@ export const runQueryAnalysis = async (
     queryContext.ticker.name,
   );
 
-  const queryCount = config.queryCount ?? 10;
-  const allowedLanguages = config.allowedLanguages ?? ["en"];
-  const minDeterministicCount = config.minDeterministicCount ?? 4;
-  const weightBreaking = config.weightBreaking ?? 1;
-  const weightKgChange = config.weightKgChange ?? 0.8;
-  const weightFundamental = config.weightFundamental ?? 0.6;
-  const openaiModel = config.openaiModel ?? "gpt-4o-mini";
-  const maxTokens = config.maxTokens ?? 800;
+  // Zod applies defaults in `createAgentApp` before calling `run`.
+  const queryCount = config.queryCount!;
+  const allowedLanguages = config.allowedLanguages!;
+  const minDeterministicCount = config.minDeterministicCount!;
+  const weightBreaking = config.weightBreaking!;
+  const weightKgChange = config.weightKgChange!;
+  const weightFundamental = config.weightFundamental!;
+  const openaiModel = config.openaiModel!;
+  const maxTokens = config.maxTokens!;
 
   const systemContent = buildQueryAnalysisSystemContent({
     queryCount,

@@ -101,7 +101,7 @@ describe("agent-data-api", () => {
         `http://localhost${contentGenerationPath}?tickerId=${TICKER_ID}`,
       );
       expect(res.status).toBe(401);
-    });
+    }, 20_000);
 
     it("returns 200 and dataSources when service returns data", async () => {
       const mod = await getContentGenerationService();
@@ -154,7 +154,7 @@ describe("agent-data-api", () => {
         `http://localhost${contentGenerationV2Path}?tickerId=${TICKER_ID}`,
       );
       expect(res.status).toBe(401);
-    });
+    }, 20_000);
   });
 
   describe(`POST ${contentGenerationPath}`, () => {

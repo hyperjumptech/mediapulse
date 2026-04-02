@@ -203,7 +203,7 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       },
     },
   },
- 
+
   deliveryRun: {
     v1: {
       get: {
@@ -226,7 +226,7 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       },
     },
   },
-   queryAnalysis: {
+  queryAnalysis: {
     v1: {
       get: {
         query: getQueryAnalysisQuerySchema,
@@ -237,8 +237,8 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
         response: postQueryAnalysisResponseSchema,
       },
     },
-    v2: { 
-       get: {
+    v2: {
+      get: {
         query: getQueryAnalysisQuerySchema,
         response: getQueryAnalysisResponseSchema,
       },
@@ -247,7 +247,7 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
         response: postQueryAnalysisResponseSchema,
       },
     },
-   },
+  },
   userRegistrationRegister: {
     v1: {
       post: {

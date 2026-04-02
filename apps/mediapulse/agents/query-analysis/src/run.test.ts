@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { queryAnalysisConfigSchema } from "./config-schema";
 
 const { mockGet, mockCreate, mockFetchLlm } = vi.hoisted(() => ({
   mockGet: vi.fn(),
@@ -52,6 +53,8 @@ const ctxResponse = {
   recentThemes: [] as [],
 };
 
+const baseConfig = queryAnalysisConfigSchema.parse({ openaiApiKey: "sk" });
+
 describe("query-analysis run", () => {
   beforeEach(() => {
     mockGet.mockReset();
@@ -91,7 +94,7 @@ describe("query-analysis run", () => {
     // Act
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: { openaiApiKey: "sk" },
+      config: baseConfig,
       token: "Bearer t",
       hermesCorrelation: { jobId: "job-abc" },
     });
@@ -106,7 +109,7 @@ describe("query-analysis run", () => {
     // Act
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: { openaiApiKey: "sk" },
+      config: baseConfig,
       token: "Bearer t",
     });
 
@@ -127,7 +130,7 @@ describe("query-analysis run", () => {
     // Act
     const result = await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: { openaiApiKey: "sk" },
+      config: baseConfig,
       token: "Bearer t",
     });
 
