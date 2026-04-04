@@ -37,7 +37,14 @@ export function deriveNameFromEmailLocalPart(email: string): string | null {
 export function extractSenderEmail(graphMessage: GraphMessage): string | null {
   const fromEmail = graphMessage.from?.emailAddress?.address;
   if (!fromEmail || typeof fromEmail !== "string") return null;
-  return normalizeEmail(fromEmail);
+  
+  const normalized = normalizeEmail(fromEmail);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(normalized)) {
+    return null;
+  }
+  
+  return normalized;
 }
 
 /**
