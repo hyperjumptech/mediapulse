@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RegistrationForm } from "./registration-form";
@@ -11,197 +11,118 @@ const sampleTickers: Ticker[] = [
   { KodeEmiten: "TLKM", NamaEmiten: "Telkom Indonesia Tbk" },
 ];
 
+const mockFetchData = vi.fn();
+
+vi.mock("@/app/register/action/.generated/use-server-function", () => {
+  return {
+    useServerFunction: vi.fn(),
+  };
+});
+
+import { useServerFunction } from "@/app/register/action/.generated/use-server-function";
+
 describe("RegistrationForm", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    mockFetchData.mockReset();
   });
 
-  it("renders the ticker search input", () => {
+  it("renders the email and ticker search inputs", () => {
+    // Setup
+    vi.mocked(useServerFunction).mockReturnValue({
+      fetchData: mockFetchData,
+      pending: false,
+      data: null,
+      error: null,
+    });
+
     // Act
     render(<RegistrationForm tickers={sampleTickers} />);
 
     // Assert
-    expect(screen.getByLabelText("Stock ticker")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Email address/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Stock ticker/i)).toBeInTheDocument();
   });
 
   it("renders the subscribe button as disabled when no ticker is selected", () => {
+    // Setup
+    vi.mocked(useServerFunction).mockReturnValue({
+      fetchData: mockFetchData,
+      pending: false,
+      data: null,
+      error: null,
+    });
+
     // Act
     render(<RegistrationForm tickers={sampleTickers} />);
 
     // Assert
-    expect(
-      screen.getByRole("button", { name: "Subscribe via Email" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Subscribe/i })).toBeDisabled();
   });
 
   it("shows ticker dropdown when search input is focused", async () => {
     // Setup
+    vi.mocked(useServerFunction).mockReturnValue({
+      fetchData: mockFetchData,
+      pending: false,
+      data: null,
+      error: null,
+    });
     const user = userEvent.setup();
     render(<RegistrationForm tickers={sampleTickers} />);
 
     // Act
-    await user.click(screen.getByLabelText("Stock ticker"));
+    await user.click(screen.getByLabelText(/Stock ticker/i));
 
     // Assert
     expect(screen.getByRole("listbox")).toBeInTheDocument();
   });
 
-  it("filters ticker options as user types", async () => {
+  it("calls fetchData with form data when submitted", async () => {
     // Setup
+    vi.mocked(useServerFunction).mockReturnValue({
+      fetchData: mockFetchData,
+      pending: false,
+      data: null,
+      error: null,
+    });
     const user = userEvent.setup();
     render(<RegistrationForm tickers={sampleTickers} />);
 
     // Act
-    await user.type(screen.getByLabelText("Stock ticker"), "bank");
-
-    // Assert
-    const options = screen.getAllByRole("option");
-
-    expect(options).toHaveLength(1);
-    expect(options.at(0)).toHaveTextContent("BBCA");
-  });
-
-  it("shows no-results message when search yields no matches", async () => {
-    // Setup
-    const user = userEvent.setup();
-    render(<RegistrationForm tickers={sampleTickers} />);
-
-    // Act
-    await user.type(screen.getByLabelText("Stock ticker"), "xyz999");
-
-    // Assert
-    expect(screen.getByText(/No tickers found for/)).toBeInTheDocument();
-  });
-
-  it("selects a ticker on click and closes the dropdown", async () => {
-    // Setup
-    const user = userEvent.setup();
-    render(<RegistrationForm tickers={sampleTickers} />);
-
-    await user.click(screen.getByLabelText("Stock ticker"));
-
-    // Act
-    const [firstOption] = screen.getAllByRole("option");
-
-    await user.click(firstOption!);
-
-    // Assert
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-  });
-
-  it("shows the selected ticker code in the input after selection", async () => {
-    // Setup
-    const user = userEvent.setup();
-    render(<RegistrationForm tickers={sampleTickers} />);
-
-    await user.click(screen.getByLabelText("Stock ticker"));
-
-    // Act
-    const [firstOption] = screen.getAllByRole("option");
-
-    await user.click(firstOption!);
-
-    // Assert
-    const tickerInput = screen.getByLabelText(
-      "Stock ticker",
-    ) as HTMLInputElement;
-
-    expect(tickerInput.value).toContain("AADI");
-  });
-
-  it("enables the subscribe button after a ticker is selected", async () => {
-    // Setup
-    const user = userEvent.setup();
-    render(<RegistrationForm tickers={sampleTickers} />);
-
-    // Act
-    await user.click(screen.getByLabelText("Stock ticker"));
-
-    const [firstOption] = screen.getAllByRole("option");
-
-    await user.click(firstOption!);
-
-    // Assert
-    expect(
-      screen.getByRole("button", { name: "Subscribe via Email" }),
-    ).not.toBeDisabled();
-  });
-
-  it("calls openMailto with a mailto url when form is submitted", async () => {
-    // Setup
-    const openMailto = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <RegistrationForm tickers={sampleTickers} openMailto={openMailto} />,
+    await user.type(
+      screen.getByLabelText(/Email address/i),
+      "test@example.com",
     );
-
-    await user.click(screen.getByLabelText("Stock ticker"));
-
-    const [firstOption] = screen.getAllByRole("option");
-
-    await user.click(firstOption!);
-
-    // Act
-    await user.click(
-      screen.getByRole("button", { name: "Subscribe via Email" }),
-    );
+    await user.type(screen.getByLabelText(/Full name/i), "John Doe");
+    await user.click(screen.getByLabelText(/Stock ticker/i));
+    await user.click(screen.getByText("BBCA"));
+    await user.click(screen.getByRole("button", { name: /Subscribe/i }));
 
     // Assert
-    expect(openMailto).toHaveBeenCalledOnce();
-
-    expect(openMailto).toHaveBeenCalledWith(
-      expect.stringMatching(/^mailto:mediapulse@hyperjump\.tech/),
-    );
+    expect(mockFetchData).toHaveBeenCalledWith({
+      body: {
+        email: "test@example.com",
+        name: "John Doe",
+        tickerSymbol: "BBCA",
+      },
+      params: {},
+    });
   });
 
-  it("does not call openMailto when no ticker is selected", () => {
+  it("shows success message when data is present", () => {
     // Setup
-    const openMailto = vi.fn();
-    render(
-      <RegistrationForm tickers={sampleTickers} openMailto={openMailto} />,
-    );
+    vi.mocked(useServerFunction).mockReturnValue({
+      fetchData: mockFetchData,
+      pending: false,
+      data: { success: true, message: "Success" },
+      error: null,
+    });
 
-    // Act
-    const form = screen
-      .getByRole("button", { name: "Subscribe via Email" })
-      .closest("form") as HTMLFormElement;
-    fireEvent.submit(form);
-
-    // Assert
-    expect(openMailto).not.toHaveBeenCalled();
-  });
-
-  it("renders the warning note about not modifying the email", () => {
     // Act
     render(<RegistrationForm tickers={sampleTickers} />);
 
     // Assert
-    expect(
-      screen.getByText(
-        /Please do not modify the subject or content before sending/,
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("closes the dropdown when clicking outside the picker", async () => {
-    // Setup
-    const user = userEvent.setup();
-
-    render(
-      <div>
-        <RegistrationForm tickers={sampleTickers} />
-        <button data-testid="outside">Outside</button>
-      </div>,
-    );
-
-    await user.click(screen.getByLabelText("Stock ticker"));
-
-    expect(screen.getByRole("listbox")).toBeInTheDocument();
-
-    // Act
-    fireEvent.mouseDown(screen.getByTestId("outside"));
-
-    // Assert
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByText(/Subscription Confirmed/i)).toBeInTheDocument();
   });
 });

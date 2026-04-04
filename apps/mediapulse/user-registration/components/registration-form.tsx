@@ -2,39 +2,33 @@
 
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, CheckCircle2 } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
-import {
-  filterTickers,
-  formatTicker,
-  buildMailtoUrl,
-  type Ticker,
-} from "@/lib/tickers";
+import { toast } from "sonner";
+import { filterTickers, formatTicker, type Ticker } from "@/lib/tickers";
+import { useServerFunction } from "@/app/register/action/.generated/use-server-function";
 
 type Props = {
   tickers: Ticker[];
-  /** Injectable for tests — defaults to opening the mailto URL in the current tab. */
-  openMailto?: (url: string) => void;
 };
 
 /**
  * Newsletter subscription registration form.
- * Collects a single ticker selection, then opens a prefilled mailto draft.
- * Accepts openMailto as a dependency injection point for testing.
+ * Collects email, name, and ticker selection, then submits via server action.
  */
-const RegistrationForm = ({
-  tickers,
-  openMailto = (url) => {
-    window.location.href = url;
-  },
-}: Props) => {
+const RegistrationForm = ({ tickers }: Props) => {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [query, setQuery] = useState("");
   const [selectedTicker, setSelectedTicker] = useState<Ticker | null>(null);
   const [open, setOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const { fetchData, pending: isPending, data, error } = useServerFunction();
 
   const filtered = filterTickers(tickers, query);
 
@@ -50,6 +44,19 @@ const RegistrationForm = ({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
+  useEffect(() => {
+    if (data) {
+      setSubmitted(true);
+      toast.success(data.message);
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
   /** Selects a ticker, sets display string in the input, and closes the dropdown. */
   const handleTickerSelect = (ticker: Ticker) => {
     setSelectedTicker(ticker);
@@ -64,40 +71,93 @@ const RegistrationForm = ({
     setOpen(true);
   };
 
-  /** Opens the prefilled mailto URL for the selected ticker. */
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  /** Submits the registration via server action. */
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!selectedTicker) return;
-    openMailto(buildMailtoUrl(selectedTicker));
+    if (!selectedTicker || !email) return;
+
+    fetchData({
+      body: {
+        email,
+        name: name || undefined,
+        tickerSymbol: selectedTicker.KodeEmiten,
+      },
+      params: {},
+    });
   };
+
+  if (submitted) {
+    return (
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <CheckCircle2 className="size-8" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-xl font-bold">Subscription Confirmed!</h1>
+          <p className="text-sm text-muted-foreground">
+            You&rsquo;ve successfully subscribed to news for{" "}
+            <strong>{selectedTicker?.KodeEmiten}</strong>.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSubmitted(false);
+            setEmail("");
+            setName("");
+            setQuery("");
+            setSelectedTicker(null);
+          }}
+        >
+          Subscribe to another ticker
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-2">
-        <a
-          href="#"
-          className="flex flex-col items-center gap-2 font-medium"
-          tabIndex={-1}
-          aria-hidden="true"
-        >
-          <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <TrendingUp className="size-5" />
-          </div>
-        </a>
+        <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <TrendingUp className="size-5" />
+        </div>
         <h1 className="text-xl font-bold">Subscribe to MediaPulse</h1>
         <p className="text-balance text-center text-sm text-muted-foreground">
           Get the latest stock news delivered to your inbox.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="email">Email address</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="name">Full name (optional)</Label>
+          <Input
+            id="name"
+            placeholder="John Doe"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+
         <div className="flex flex-col gap-2">
           <Label htmlFor="ticker-search">Stock ticker</Label>
           <div ref={containerRef} className="relative">
             <Input
               id="ticker-search"
               placeholder="Search by code or company name…"
+              required
               value={query}
               onFocus={() => setOpen(true)}
               onChange={handleQueryChange}
@@ -144,16 +204,19 @@ const RegistrationForm = ({
           </div>
         </div>
 
-        <Button type="submit" className="w-full" disabled={!selectedTicker}>
-          Subscribe via Email
+        <Button
+          type="submit"
+          className="mt-2 w-full"
+          disabled={!selectedTicker || !email || isPending}
+        >
+          {isPending ? "Subscribing..." : "Subscribe"}
         </Button>
       </form>
 
       <p className="text-balance text-center text-xs text-muted-foreground">
-        This will open your email client with a pre-filled message.{" "}
-        <strong>
-          Please do not modify the subject or content before sending.
-        </strong>
+        By subscribing, you agree to receive daily stock updates.
+        <br />
+        You can unsubscribe at any time.
       </p>
     </div>
   );

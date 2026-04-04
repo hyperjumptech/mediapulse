@@ -1,6 +1,9 @@
 import { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-user-registration";
-import { createOutlookInboxClient, type GraphMessage } from "@mediapulse/outlook-inbox";
+import {
+  createOutlookInboxClient,
+  type GraphMessage,
+} from "@mediapulse/outlook-inbox";
 import {
   createAgentDataApiClient,
   type AgentDataApiClient,
@@ -50,14 +53,14 @@ const isRetryable = () => true;
 function checkRateLimit(email: string): boolean {
   const now = Date.now();
   let attempts = registrationAttempts.get(email) ?? [];
-  
+
   // Clean up old attempts
   attempts = attempts.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
-  
+
   if (attempts.length >= MAX_ATTEMPTS_IN_WINDOW) {
     return false;
   }
-  
+
   attempts.push(now);
   registrationAttempts.set(email, attempts);
   return true;
@@ -132,14 +135,18 @@ export const run = async ({
             dataApiClient,
             config,
           });
-          
+
           if (result.status !== "failed_retry") {
             // Track the latest receivedDateTime for watermark management.
-            if (!latestProcessedDate || (msg.receivedDateTime && msg.receivedDateTime > latestProcessedDate)) {
+            if (
+              !latestProcessedDate ||
+              (msg.receivedDateTime &&
+                msg.receivedDateTime > latestProcessedDate)
+            ) {
               latestProcessedDate = msg.receivedDateTime ?? latestProcessedDate;
             }
           }
-          
+
           return result;
         } catch (error) {
           logger.error(
@@ -260,10 +267,7 @@ async function processMessage({
     }
 
     if (registerResponse.isNewSubscription) {
-      logger.info(
-        { senderEmail, tickerSymbol },
-        "Sending confirmation email.",
-      );
+      logger.info({ senderEmail, tickerSymbol }, "Sending confirmation email.");
 
       const { html, text } = await renderNewsletterEmail({
         variant: "registration-confirmation",

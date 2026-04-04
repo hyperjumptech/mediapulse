@@ -38,7 +38,8 @@ export const RegistrationConfirmationEmail = ({
           <Text style={bodyParagraph}>
             Hello,
             {"\n\n"}
-            Your subscription to the '{tickerSymbol}' newsletter has been confirmed.
+            Your subscription to the '{tickerSymbol}' newsletter has been
+            confirmed.
             {"\n\n"}
             Thank you,
             {"\n"}
@@ -46,7 +47,8 @@ export const RegistrationConfirmationEmail = ({
           </Text>
           <Hr style={hr} />
           <Text style={footer}>
-            You are receiving this because you subscribed to updates on MediaPulse.
+            You are receiving this because you subscribed to updates on
+            MediaPulse.
           </Text>
         </Container>
       </Body>

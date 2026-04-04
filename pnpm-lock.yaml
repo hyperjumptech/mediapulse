@@ -291,7 +291,7 @@ importers:
         version: 19.2.3(react@19.2.3)
       route-action-gen:
         specifier: 'catalog:'
-        version: 0.0.10(next@16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76)
+        version: 0.0.10(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76)
       sonner:
         specifier: 'catalog:'
         version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -793,6 +793,9 @@ importers:
 
   apps/mediapulse/user-registration:
     dependencies:
+      '@mediapulse/database':
+        specifier: workspace:*
+        version: link:../../../packages/mediapulse/database
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/env
@@ -866,6 +869,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
+      route-action-gen:
+        specifier: 'catalog:'
+        version: 0.0.10(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -18054,7 +18060,7 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.57.1
       fsevents: 2.3.3
 
-  route-action-gen@0.0.10(next@16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76):
+  route-action-gen@0.0.10(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76):
     dependencies:
       glob: 13.0.2
       zod: 3.25.76

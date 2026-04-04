@@ -1,12 +1,20 @@
 import { RegistrationForm } from "@/components/registration-form";
-import { readTickers } from "@/lib/read-tickers";
+import { prisma } from "@mediapulse/database";
+import type { Ticker } from "@/lib/tickers";
 
 /**
  * User registration page using a login-05 style centered layout.
- * Reads ticker data from public/tickers.json at request time.
+ * Reads ticker data from the database at request time.
  */
 const Page = async () => {
-  const tickers = await readTickers();
+  const dbTickers = await prisma.ticker.findMany({
+    orderBy: { symbol: "asc" },
+  });
+
+  const tickers: Ticker[] = dbTickers.map((t) => ({
+    KodeEmiten: t.symbol,
+    NamaEmiten: t.name,
+  }));
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 md:p-10">

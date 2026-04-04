@@ -110,7 +110,7 @@ describe("user-registration agent – improved run loop", () => {
     expect(res.status).toBe(200);
     expect(body.status).toBe("success");
     expect(body.details.newWatermark).toBe("2024-01-01T12:00:00Z");
-    
+
     expect(emailSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         html: expect.stringContaining("Mocked HTML"),
@@ -138,14 +138,32 @@ describe("user-registration agent – improved run loop", () => {
 
   it("handles rate limiting by leaving message unarchived", async () => {
     listMessagesMock.mockResolvedValue([
-      makeMessage({ id: "msg-1", from: { emailAddress: { address: "spammer@example.com" } } }),
-      makeMessage({ id: "msg-2", from: { emailAddress: { address: "spammer@example.com" } } }),
-      makeMessage({ id: "msg-3", from: { emailAddress: { address: "spammer@example.com" } } }),
-      makeMessage({ id: "msg-4", from: { emailAddress: { address: "spammer@example.com" } } }),
-      makeMessage({ id: "msg-5", from: { emailAddress: { address: "spammer@example.com" } } }),
-      makeMessage({ id: "msg-6", from: { emailAddress: { address: "spammer@example.com" } } }),
+      makeMessage({
+        id: "msg-1",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-2",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-3",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-4",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-5",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-6",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
     ]);
-    
+
     registerCreateMock.mockResolvedValue({
       tickerKnown: true,
       isNewSubscription: false,
@@ -156,7 +174,9 @@ describe("user-registration agent – improved run loop", () => {
     const body = (await res.json()) as any;
 
     expect(body.details.processed).toBe(6);
-    const failed = body.details.results.filter((r: any) => r.status === "failed_retry");
+    const failed = body.details.results.filter(
+      (r: any) => r.status === "failed_retry",
+    );
     expect(failed.length).toBe(1); // 6th attempt should fail (limit is 5)
     expect(archiveMessageMock).toHaveBeenCalledTimes(5);
   });

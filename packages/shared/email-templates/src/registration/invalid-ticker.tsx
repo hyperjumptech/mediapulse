@@ -38,7 +38,8 @@ export const InvalidTickerEmail = ({
           <Text style={bodyParagraph}>
             Hello,
             {"\n\n"}
-            The ticker '{tickerSymbol}' you selected is invalid or not recognized by our system.
+            The ticker '{tickerSymbol}' you selected is invalid or not
+            recognized by our system.
             {"\n\n"}
             Please visit the registration site and select a valid ticker.
             {"\n\n"}
@@ -48,7 +49,8 @@ export const InvalidTickerEmail = ({
           </Text>
           <Hr style={hr} />
           <Text style={footer}>
-            You are receiving this because you attempted to subscribe to updates on MediaPulse.
+            You are receiving this because you attempted to subscribe to updates
+            on MediaPulse.
           </Text>
         </Container>
       </Body>

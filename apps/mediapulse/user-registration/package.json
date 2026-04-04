@@ -16,8 +16,9 @@
     "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
-    "@next/env": "catalog:",
+    "@mediapulse/database": "workspace:*",
     "@mediapulse/env": "workspace:*",
+    "@next/env": "catalog:",
     "@workspace/logger": "workspace:*",
     "@workspace/ui": "workspace:*",
     "dotenv": "catalog:",
@@ -42,6 +43,7 @@
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "catalog:",
+    "route-action-gen": "catalog:",
     "typescript": "catalog:",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "catalog:"
