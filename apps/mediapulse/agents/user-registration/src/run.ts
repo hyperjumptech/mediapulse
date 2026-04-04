@@ -90,7 +90,7 @@ export const run = async ({
   const resend = new Resend(config.resendApiKey);
 
   const dataApiClient = createAgentDataApiClient({
-    baseUrl: env.AGENT_DATA_API_URL!,
+    baseUrl: env.AGENT_DATA_API_URL,
     version: "v1",
     token,
   });
