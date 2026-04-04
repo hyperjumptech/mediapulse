@@ -3,6 +3,14 @@ export {
   type DefaultNewsletterEmailProps,
 } from "./newsletter/default-newsletter.js";
 export {
+  RegistrationConfirmationEmail,
+  type RegistrationConfirmationEmailProps,
+} from "./registration/registration-confirmation.js";
+export {
+  InvalidTickerEmail,
+  type InvalidTickerEmailProps,
+} from "./registration/invalid-ticker.js";
+export {
   renderNewsletterEmail,
   type NewsletterTemplateVariant,
   type RenderNewsletterEmailInput,

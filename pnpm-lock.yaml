@@ -686,9 +686,15 @@ importers:
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
+      '@workspace/email-templates':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/email-templates
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
+      '@workspace/utils':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/utils
       got:
         specifier: 'catalog:'
         version: 14.6.6
