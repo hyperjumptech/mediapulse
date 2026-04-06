@@ -3,6 +3,7 @@ import { UserRole } from "@hermes/orchestration-database";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetMemorySlidingRateLimitForTests } from "@/lib/memory-sliding-rate-limit";
 import {
+  bodyValidator,
   buildHermesAdminResetPasswordUrl,
   createForgotPasswordHandler,
 } from "./route.post.config";
@@ -32,7 +33,7 @@ describe("createForgotPasswordHandler", () => {
       sendResetEmail: vi.fn(),
     });
     const result = await handler({
-      body: { email: "nobody@example.com" },
+      body: bodyValidator.parse({ email: "nobody@example.com" }),
       params: {},
       headers: new Headers(),
       searchParams: {},
@@ -65,7 +66,7 @@ describe("createForgotPasswordHandler", () => {
       sendResetEmail,
     });
     const result = await handler({
-      body: { email: "Admin@Example.com" },
+      body: bodyValidator.parse({ email: "  Admin@Example.com  " }),
       params: {},
       headers: new Headers(),
       searchParams: {},
@@ -104,7 +105,7 @@ describe("createForgotPasswordHandler", () => {
       sendResetEmail: vi.fn(),
     });
     await handler({
-      body: { email: "u@example.com" },
+      body: bodyValidator.parse({ email: "u@example.com" }),
       params: {},
       headers: new Headers(),
       searchParams: {},
@@ -154,7 +155,7 @@ describe("createForgotPasswordHandler", () => {
       sendResetEmail: vi.fn().mockRejectedValue(sendErr),
     });
     const result = await handler({
-      body: { email: "admin@example.com" },
+      body: bodyValidator.parse({ email: "admin@example.com" }),
       params: {},
       headers: new Headers(),
       searchParams: {},

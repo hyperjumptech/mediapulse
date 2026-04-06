@@ -18,10 +18,7 @@ export type LookupHermesAdminResetTokenResult =
     }
   | { ok: false; reason: LookupHermesAdminResetTokenReason };
 
-type Db = Pick<
-  typeof prismaClient,
-  "hermesAdminPasswordResetToken"
->;
+type Db = Pick<typeof prismaClient, "hermesAdminPasswordResetToken">;
 
 /**
  * Resolves a raw reset token from the email link to a usable row and eligible admin user.
@@ -54,10 +51,7 @@ export const lookupHermesAdminResetToken = async (
   if (row.expiresAt <= now) {
     return { ok: false, reason: "expired" };
   }
-  if (
-    row.user.role !== UserRole.ADMIN ||
-    row.user.isActive !== true
-  ) {
+  if (row.user.role !== UserRole.ADMIN || row.user.isActive !== true) {
     return { ok: false, reason: "not_eligible" };
   }
 
