@@ -5,6 +5,7 @@ import { env } from "@hermes/env";
 import { Resend } from "resend";
 import {
   createRequestValidator,
+  errorResponse,
   HandlerFunc,
   successResponse,
 } from "route-action-gen/lib";
@@ -14,6 +15,7 @@ import {
   generateHermesAdminResetToken,
   HERMES_ADMIN_RESET_TOKEN_TTL_MS,
 } from "@/lib/hermes-admin-reset-token";
+import { checkMemorySlidingRateLimit } from "@/lib/memory-sliding-rate-limit";
 
 const bodyValidator = z.object({
   email: z.string().email(),
@@ -83,12 +85,22 @@ export const sendHermesAdminPasswordResetEmailDefault = async (input: {
   }
 };
 
+/** Default: 5 submissions per 15 minutes per normalized email (in-process only). */
+export const checkHermesForgotPasswordRateLimitDefault = (
+  emailNormalized: string,
+): boolean =>
+  checkMemorySlidingRateLimit(`hermes-pw-forgot:${emailNormalized}`, {
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+  });
+
 type ForgotPasswordHandlerDependencies = {
   db?: DbClient;
   getPublicBaseUrl?: () => string;
   generateToken?: typeof generateHermesAdminResetToken;
   now?: () => number;
   sendResetEmail?: SendHermesAdminPasswordResetEmail;
+  checkForgotRateLimit?: (emailNormalized: string) => boolean;
 };
 
 /**
@@ -119,9 +131,16 @@ export const createForgotPasswordHandler = ({
   generateToken = generateHermesAdminResetToken,
   now = () => Date.now(),
   sendResetEmail = sendHermesAdminPasswordResetEmailDefault,
+  checkForgotRateLimit = checkHermesForgotPasswordRateLimitDefault,
 }: ForgotPasswordHandlerDependencies = {}): ForgotPasswordHandler => {
   return async (data) => {
     const emailNormalized = data.body.email.trim().toLowerCase();
+
+    if (!checkForgotRateLimit(emailNormalized)) {
+      return errorResponse(
+        "Too many requests. Please wait before trying again.",
+      );
+    }
 
     const args = {
       where: { email: emailNormalized },

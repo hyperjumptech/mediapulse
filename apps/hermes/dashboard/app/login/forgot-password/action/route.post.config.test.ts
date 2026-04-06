@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 import { UserRole } from "@hermes/orchestration-database";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { resetMemorySlidingRateLimitForTests } from "@/lib/memory-sliding-rate-limit";
 import {
   buildHermesAdminResetPasswordUrl,
   createForgotPasswordHandler,
@@ -21,6 +22,7 @@ describe("buildHermesAdminResetPasswordUrl", () => {
 describe("createForgotPasswordHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    resetMemorySlidingRateLimitForTests();
   });
 
   it("returns ok true when user is not found (anti-enumeration)", async () => {
@@ -111,6 +113,28 @@ describe("createForgotPasswordHandler", () => {
       user: undefined,
     } as never);
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("returns error when forgot-password rate limit is exceeded", async () => {
+    const handler = createForgotPasswordHandler({
+      db: {
+        user: { findUnique: vi.fn() },
+        hermesAdminPasswordResetToken: { create: vi.fn() },
+      } as never,
+      checkForgotRateLimit: () => false,
+      sendResetEmail: vi.fn(),
+    });
+    const result = await handler({
+      body: { email: "a@b.com" },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: undefined,
+    } as never);
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toBe(
+      "Too many requests. Please wait before trying again.",
+    );
   });
 
   it("still returns ok when sendResetEmail throws", async () => {

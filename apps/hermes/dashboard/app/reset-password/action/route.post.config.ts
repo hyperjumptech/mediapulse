@@ -7,7 +7,9 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
+import { hashHermesAdminResetToken } from "@/lib/hermes-admin-reset-token";
 import { lookupHermesAdminResetToken } from "@/lib/lookup-hermes-admin-reset-token";
+import { checkMemorySlidingRateLimit } from "@/lib/memory-sliding-rate-limit";
 import { updateHermesAdminPasswordWithCredentialBump } from "@/lib/update-hermes-admin-password";
 
 const bodyValidator = z
@@ -37,8 +39,21 @@ type CompleteResetHandler = HandlerFunc<
 
 const genericInvalidMessage = "Invalid or expired reset link.";
 
+/** Default: 25 attempts per 15 minutes per token hash (in-process only). */
+export const checkHermesResetPasswordRateLimitDefault = (
+  rawToken: string,
+): boolean =>
+  checkMemorySlidingRateLimit(
+    `hermes-pw-reset:${hashHermesAdminResetToken(rawToken)}`,
+    {
+      windowMs: 15 * 60 * 1000,
+      max: 25,
+    },
+  );
+
 type CompleteResetDependencies = {
   db?: typeof prismaClient;
+  checkResetRateLimit?: (rawToken: string) => boolean;
 };
 
 /**
@@ -48,9 +63,16 @@ type CompleteResetDependencies = {
  */
 export const createCompleteSelfServicePasswordResetHandler = ({
   db = prismaClient,
+  checkResetRateLimit = checkHermesResetPasswordRateLimitDefault,
 }: CompleteResetDependencies = {}): CompleteResetHandler => {
   return async (data) => {
     const { token, newPassword } = data.body;
+
+    if (!checkResetRateLimit(token)) {
+      return errorResponse(
+        "Too many requests. Please wait before trying again.",
+      );
+    }
 
     const resolved = await lookupHermesAdminResetToken(db, token);
     if (!resolved.ok) {
