@@ -49,6 +49,17 @@ const isReviewableSourceFile = (filePath) =>
 
 const KEBAB_STEM_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/**
+ * True when `stem` is empty, a single kebab-case token, or dot-separated kebab-case tokens
+ * (e.g. `route.post` before `.config.ts`).
+ *
+ * @param {string} stem
+ * @returns {boolean}
+ */
+const isKebabStemOrDotJoinedKebab = (stem) =>
+  stem.length === 0 ||
+  stem.split(".").every((part) => part.length > 0 && KEBAB_STEM_RE.test(part));
+
 /** Basenames that are conventionally not kebab-case filenames. */
 const EXEMPT_BASE_NAMES_LOWER = new Set([
   "dockerfile",
@@ -59,7 +70,7 @@ const EXEMPT_BASE_NAMES_LOWER = new Set([
 ]);
 
 /**
- * Returns the stem that must satisfy {@link KEBAB_STEM_RE}, or `null` when exempt.
+ * Returns the basename stem to validate with {@link isKebabStemOrDotJoinedKebab}, or `null` when exempt.
  * Uses the real basename casing so `BadName.ts` does not become a false negative.
  *
  * @param {string} base
@@ -97,8 +108,7 @@ const isKebabCaseBasename = (filePath) => {
 
   const stem = kebabStemOrExempt(base);
   if (stem === null) return true;
-  if (stem.length === 0) return true;
-  return KEBAB_STEM_RE.test(stem);
+  return isKebabStemOrDotJoinedKebab(stem);
 };
 
 /**
