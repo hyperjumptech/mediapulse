@@ -114,7 +114,8 @@ export const buildHermesAdminResetPasswordUrl = (
  */
 export const createForgotPasswordHandler = ({
   db = prismaClient,
-  getPublicBaseUrl = () => env.HERMES_DASHBOARD_PUBLIC_URL,
+  getPublicBaseUrl = () =>
+    env.HERMES_DASHBOARD_PUBLIC_URL ?? "http://localhost:3001",
   generateToken = generateHermesAdminResetToken,
   now = () => Date.now(),
   sendResetEmail = sendHermesAdminPasswordResetEmailDefault,
