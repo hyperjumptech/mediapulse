@@ -29,6 +29,12 @@ export type Config = {
   resendSender: string;
 };
 
+type RunDependencies = {
+  createInbox?: typeof createOutlookInboxClient;
+  ResendClient?: typeof Resend;
+  createDataApi?: typeof createAgentDataApiClient;
+};
+
 // Per-email rate limiter: max 5 attempts per 1 hour per email address.
 const registrationAttempts = new Map<string, number[]>();
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
@@ -76,107 +82,119 @@ function checkRateLimit(email: string): boolean {
  * Processes unread newsletter subscription emails from Outlook,
  * registers users in the MediaPulse system, and sends confirmation emails.
  *
- * @param {AgentRunContext<Input, Config>} context - The agent run context.
- * @returns {Promise<AgentRunResult>} The result of the agent run.
+ * @param {RunDependencies} deps - The injected dependencies.
+ * @returns {Function} The agent run function.
  */
-export const run = async ({
-  input,
-  token,
-  config,
-}: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
-  logger.info(
-    `Running user-registration agent. Max messages: ${input.maxMessagesPerRun}`,
-  );
-
-  const inboxClient = createOutlookInboxClient({
-    clientId: config.outlookClientId,
-    clientSecret: config.outlookClientSecret,
-    tenantId: config.outlookTenantId,
-    userId: config.outlookUserId,
-  });
-
-  const resend = new Resend(config.resendApiKey);
-
-  const dataApiClient = createAgentDataApiClient({
-    baseUrl: env.AGENT_DATA_API_URL,
-    version: "v1",
+export const createRunHandler =
+  ({
+    createInbox = createOutlookInboxClient,
+    ResendClient = Resend,
+    createDataApi = createAgentDataApiClient,
+  }: RunDependencies = {}) =>
+  async ({
+    input,
     token,
-  });
-
-  // Step 0: List messages
-  const messages = await withRetry(
-    () =>
-      inboxClient.listMessages(
-        {
-          subjectContains: "[MediaPulse] Newsletter Subscription",
-          isUnread: true,
-          ...(input.watermark
-            ? { receivedAfter: new Date(input.watermark) }
-            : {}),
-        },
-        { top: input.maxMessagesPerRun },
-      ),
-    DEFAULT_RETRY_CONFIG,
-    isRetryable,
-  );
-
-  logger.info(`Found ${messages.length} messages to process.`);
-
-  if (messages.length === 0) {
-    return { success: true, details: { processed: 0, results: [] } };
-  }
-
-  // Process messages in parallel with a concurrency limit of 5.
-  const CONCURRENCY = 5;
-  const results: any[] = [];
-  let latestProcessedDate: string | undefined = input.watermark;
-
-  for (let i = 0; i < messages.length; i += CONCURRENCY) {
-    const batch = messages.slice(i, i + CONCURRENCY);
-    const batchResults = await Promise.all(
-      batch.map(async (msg) => {
-        try {
-          const result = await processMessage({
-            msg,
-            inboxClient,
-            resend,
-            dataApiClient,
-            config,
-          });
-
-          if (result.status !== "failed_retry") {
-            // Track the latest receivedDateTime for watermark management.
-            if (
-              !latestProcessedDate ||
-              (msg.receivedDateTime &&
-                msg.receivedDateTime > latestProcessedDate)
-            ) {
-              latestProcessedDate = msg.receivedDateTime ?? latestProcessedDate;
-            }
-          }
-
-          return result;
-        } catch (error) {
-          logger.error(
-            { error, messageId: msg.id },
-            "Unexpected error processing message.",
-          );
-          return { id: msg.id, status: "failed_retry" };
-        }
-      }),
+    config,
+  }: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
+    logger.info(
+      `Running user-registration agent. Max messages: ${input.maxMessagesPerRun}`,
     );
-    results.push(...batchResults);
-  }
 
-  return {
-    success: true,
-    details: {
-      processed: results.length,
-      results,
-      newWatermark: latestProcessedDate,
-    },
+    const inboxClient = createInbox({
+      clientId: config.outlookClientId,
+      clientSecret: config.outlookClientSecret,
+      tenantId: config.outlookTenantId,
+      userId: config.outlookUserId,
+    });
+
+    const resend = new ResendClient(config.resendApiKey);
+
+    const dataApiClient = createDataApi({
+      baseUrl: env.AGENT_DATA_API_URL,
+      version: "v1",
+      token,
+    });
+
+    // Step 0: List messages
+    const messages = await withRetry(
+      () =>
+        inboxClient.listMessages(
+          {
+            subjectContains: "[MediaPulse] Newsletter Subscription",
+            isUnread: true,
+            ...(input.watermark
+              ? { receivedAfter: new Date(input.watermark) }
+              : {}),
+          },
+          { top: input.maxMessagesPerRun },
+        ),
+      DEFAULT_RETRY_CONFIG,
+      isRetryable,
+    );
+
+    logger.info(`Found ${messages.length} messages to process.`);
+
+    if (messages.length === 0) {
+      return { success: true, details: { processed: 0, results: [] } };
+    }
+
+    // Process messages in parallel with a concurrency limit of 5.
+    const CONCURRENCY = 5;
+    const results: any[] = [];
+    let latestProcessedDate: string | undefined = input.watermark;
+
+    for (let i = 0; i < messages.length; i += CONCURRENCY) {
+      const batch = messages.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.all(
+        batch.map(async (msg) => {
+          try {
+            const result = await processMessage({
+              msg,
+              inboxClient,
+              resend,
+              dataApiClient,
+              config,
+            });
+
+            if (result.status !== "failed_retry") {
+              // Track the latest receivedDateTime for watermark management.
+              if (
+                !latestProcessedDate ||
+                (msg.receivedDateTime &&
+                  msg.receivedDateTime > latestProcessedDate)
+              ) {
+                latestProcessedDate =
+                  msg.receivedDateTime ?? latestProcessedDate;
+              }
+            }
+
+            return result;
+          } catch (error) {
+            logger.error(
+              { error, messageId: msg.id },
+              "Unexpected error processing message.",
+            );
+            return { id: msg.id, status: "failed_retry" };
+          }
+        }),
+      );
+      results.push(...batchResults);
+    }
+
+    return {
+      success: true,
+      details: {
+        processed: results.length,
+        results,
+        newWatermark: latestProcessedDate,
+      },
+    };
   };
-};
+
+/**
+ * The default exported agent run handler.
+ */
+export const run = createRunHandler();
 
 /**
  * Processes a single subscription message.

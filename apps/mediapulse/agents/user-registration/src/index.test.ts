@@ -180,4 +180,54 @@ describe("user-registration agent – improved run loop", () => {
     expect(failed.length).toBe(1); // 6th attempt should fail (limit is 5)
     expect(archiveMessageMock).toHaveBeenCalledTimes(5);
   });
+
+  it("handles missing sender or ticker symbol gracefully", async () => {
+    const msg = makeMessage({
+      subject: "No ticker here",
+      body: { content: "Nothing useful" },
+    });
+    listMessagesMock.mockResolvedValue([msg]);
+
+    const res = await post({ input: {}, config: VALID_CONFIG });
+    const body = (await res.json()) as any;
+
+    expect(res.status).toBe(200);
+    expect(body.details.results[0].status).toBe("archived_unparseable");
+    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
+  });
+
+  it("handles unknown ticker selection by sending invalid-ticker email", async () => {
+    const msg = makeMessage({ receivedDateTime: "2024-01-01T12:00:00Z" });
+    listMessagesMock.mockResolvedValue([msg]);
+    registerCreateMock.mockResolvedValue({
+      tickerKnown: false,
+    });
+
+    const res = await post({ input: {}, config: VALID_CONFIG });
+    const body = (await res.json()) as any;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe("success");
+    expect(body.details.results[0].status).toBe("invalid_ticker_archived");
+
+    expect(emailSendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: "Invalid Ticker Selection - MediaPulse",
+      }),
+    );
+    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
+  });
+
+  it("returns failed_retry on unexpected error during processing", async () => {
+    const msg = makeMessage();
+    listMessagesMock.mockResolvedValue([msg]);
+    registerCreateMock.mockRejectedValue(new Error("Network Error"));
+
+    const res = await post({ input: {}, config: VALID_CONFIG });
+    const body = (await res.json()) as any;
+
+    expect(body.details.results[0].status).toBe("failed_retry");
+    // Should NOT archive the message so it can be retried
+    expect(archiveMessageMock).not.toHaveBeenCalled();
+  });
 });

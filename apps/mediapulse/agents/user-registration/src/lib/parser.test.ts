@@ -101,7 +101,7 @@ describe("Parser Helpers", () => {
           from: { emailAddress: { address: "invalid-email" } },
         }),
       ).toBeNull();
-      
+
       expect(
         extractSenderEmail({
           id: "5",
