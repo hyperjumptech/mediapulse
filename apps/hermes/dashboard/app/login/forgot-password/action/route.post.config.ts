@@ -18,8 +18,8 @@ import {
 /** Prefix for server logs when Resend or the mail path fails (stderr / Docker / Vercel logs). */
 const FORGOT_PASSWORD_LOG_PREFIX = "[hermes-dashboard:forgot-password]";
 
-const bodyValidator = z.object({
-  email: z.string().email(),
+export const bodyValidator = z.object({
+  email: z.string().trim().toLowerCase().email(),
 });
 
 export const requestValidator = createRequestValidator({
@@ -127,17 +127,14 @@ export const buildHermesAdminResetPasswordUrl = (
  */
 export const createForgotPasswordHandler = ({
   db = prismaClient,
-  getPublicBaseUrl = () =>
-    env.HERMES_DASHBOARD_PUBLIC_URL ?? "http://localhost:3001",
+  getPublicBaseUrl = () => env.HERMES_DASHBOARD_PUBLIC_URL,
   generateToken = generateHermesAdminResetToken,
   now = () => Date.now(),
   sendResetEmail = sendHermesAdminPasswordResetEmailDefault,
 }: ForgotPasswordHandlerDependencies = {}): ForgotPasswordHandler => {
   return async (data) => {
-    const emailNormalized = data.body.email.trim().toLowerCase();
-
     const args = {
-      where: { email: emailNormalized },
+      where: { email: data.body.email },
     } satisfies Prisma.UserFindUniqueArgs;
 
     const user = await db.user.findUnique(args);
