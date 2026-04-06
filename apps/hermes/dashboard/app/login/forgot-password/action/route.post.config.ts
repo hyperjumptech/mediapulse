@@ -19,8 +19,8 @@ import {
 } from "@/lib/hermes-admin-reset-token";
 import { checkMemorySlidingRateLimit } from "@/lib/memory-sliding-rate-limit";
 
-const bodyValidator = z.object({
-  email: z.string().email(),
+export const bodyValidator = z.object({
+  email: z.string().trim().toLowerCase().email(),
 });
 
 export const requestValidator = createRequestValidator({
@@ -137,23 +137,20 @@ export const buildHermesAdminResetPasswordUrl = (
 
 /**
  * Creates the forgot-password handler: always returns success; sends email only for active admins.
- * If sending mail fails, the response stays generic while the error is logged server-side (prefix `[hermes-dashboard:forgot-password]`).
+ * If sending mail fails, the response stays generic while the error is logged server-side (structured events).
  *
  * @param dependencies - DB, URL builder, Resend email, and clock for tests.
  */
 export const createForgotPasswordHandler = ({
   db = prismaClient,
-  getPublicBaseUrl = () =>
-    env.HERMES_DASHBOARD_PUBLIC_URL ?? "http://localhost:3001",
+  getPublicBaseUrl = () => env.HERMES_DASHBOARD_PUBLIC_URL,
   generateToken = generateHermesAdminResetToken,
   now = () => Date.now(),
   sendResetEmail = sendHermesAdminPasswordResetEmailDefault,
   checkForgotRateLimit = checkHermesForgotPasswordRateLimitDefault,
 }: ForgotPasswordHandlerDependencies = {}): ForgotPasswordHandler => {
   return async (data) => {
-    const emailNormalized = data.body.email.trim().toLowerCase();
-
-    if (!checkForgotRateLimit(emailNormalized)) {
+    if (!checkForgotRateLimit(data.body.email)) {
       logger.warn(
         { event: "hermes_admin_forgot_password_rate_limited" },
         "hermes_admin_forgot_password_rate_limited",
@@ -164,7 +161,7 @@ export const createForgotPasswordHandler = ({
     }
 
     const args = {
-      where: { email: emailNormalized },
+      where: { email: data.body.email },
     } satisfies Prisma.UserFindUniqueArgs;
 
     const user = await db.user.findUnique(args);

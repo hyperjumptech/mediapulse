@@ -1,8 +1,10 @@
 /** @vitest-environment node */
 import { UserRole } from "@hermes/orchestration-database";
+import { logger } from "@workspace/logger";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetMemorySlidingRateLimitForTests } from "@/lib/memory-sliding-rate-limit";
 import {
+  bodyValidator,
   buildHermesAdminResetPasswordUrl,
   createForgotPasswordHandler,
 } from "./route.post.config";
@@ -32,7 +34,7 @@ describe("createForgotPasswordHandler", () => {
       sendResetEmail: vi.fn(),
     });
     const result = await handler({
-      body: { email: "nobody@example.com" },
+      body: bodyValidator.parse({ email: "nobody@example.com" }),
       params: {},
       headers: new Headers(),
       searchParams: {},
@@ -65,7 +67,7 @@ describe("createForgotPasswordHandler", () => {
       sendResetEmail,
     });
     const result = await handler({
-      body: { email: "Admin@Example.com" },
+      body: bodyValidator.parse({ email: "  Admin@Example.com  " }),
       params: {},
       headers: new Headers(),
       searchParams: {},
@@ -104,7 +106,7 @@ describe("createForgotPasswordHandler", () => {
       sendResetEmail: vi.fn(),
     });
     await handler({
-      body: { email: "u@example.com" },
+      body: bodyValidator.parse({ email: "u@example.com" }),
       params: {},
       headers: new Headers(),
       searchParams: {},
@@ -136,7 +138,7 @@ describe("createForgotPasswordHandler", () => {
   });
 
   it("still returns ok when sendResetEmail throws", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
     const findUnique = vi.fn().mockResolvedValue({
       id: "u1",
       email: "admin@example.com",
@@ -154,18 +156,20 @@ describe("createForgotPasswordHandler", () => {
       sendResetEmail: vi.fn().mockRejectedValue(sendErr),
     });
     const result = await handler({
-      body: { email: "admin@example.com" },
+      body: bodyValidator.parse({ email: "admin@example.com" }),
       params: {},
       headers: new Headers(),
       searchParams: {},
       user: undefined,
     } as never);
     expect(result).toMatchObject({ status: true, data: { ok: true } });
-    expect(errorSpy).toHaveBeenCalledWith(
-      "[hermes-dashboard:forgot-password]",
-      "Failed to send Hermes admin password reset email.",
-      { userId: "u1" },
-      sendErr,
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "hermes_admin_forgot_password_email_failed",
+        userId: "u1",
+        error: sendErr,
+      }),
+      "hermes_admin_forgot_password_email_failed",
     );
   });
 });
