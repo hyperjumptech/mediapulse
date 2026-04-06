@@ -8,14 +8,16 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      UserRole @default(USER)
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  name               String
+  email              String   @unique
+  password           String
+  role               UserRole @default(USER)
+  isActive           Boolean  @default(true) @map("is_active")
+  /// Bumped on password change to invalidate dashboard cookies that embed this version.
+  credentialVersion  Int      @default(0) @map("credential_version")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   variables                           Variable[]
   domainIntegrationsCreated           DomainIntegration[]           @relation("DomainIntegrationCreatedBy")
@@ -25,8 +27,25 @@ model User {
   httpTriggersCreated                 HttpTrigger[]                 @relation("HttpTriggerCreatedBy")
   pipelineStepsCreated                PipelineStep[]                @relation("PipelineStepCreatedBy")
   dataSourceExpansionTemplatesCreated DataSourceExpansionTemplate[] @relation("DataSourceExpansionTemplateCreatedBy")
+  hermesAdminPasswordResetTokens      HermesAdminPasswordResetToken[]
 
   @@map("user")
+}
+
+/// Single-use token for Hermes dashboard admin self-service password reset (secret stored hashed only).
+model HermesAdminPasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  /// SHA-256 hex digest of the raw token from the email link.
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("hermes_admin_password_reset_token")
 }
 
 enum UserRole {
