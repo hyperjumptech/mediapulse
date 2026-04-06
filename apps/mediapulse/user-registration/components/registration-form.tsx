@@ -18,6 +18,10 @@ type Props = {
 /**
  * Newsletter subscription registration form.
  * Collects email, name, and ticker selection, then submits via server action.
+ *
+ * @param {Props} props - The component props.
+ * @param {Ticker[]} props.tickers - List of available tickers.
+ * @returns {JSX.Element} The registration form component.
  */
 const RegistrationForm = ({ tickers }: Props) => {
   const [email, setEmail] = useState("");
@@ -57,21 +61,33 @@ const RegistrationForm = ({ tickers }: Props) => {
     }
   }, [error]);
 
-  /** Selects a ticker, sets display string in the input, and closes the dropdown. */
+  /**
+   * Selects a ticker, sets display string in the input, and closes the dropdown.
+   *
+   * @param {Ticker} ticker - The selected ticker object.
+   */
   const handleTickerSelect = (ticker: Ticker) => {
     setSelectedTicker(ticker);
     setQuery(formatTicker(ticker));
     setOpen(false);
   };
 
-  /** Updates search query, clears current selection, and opens the dropdown. */
+  /**
+   * Updates search query, clears current selection, and opens the dropdown.
+   *
+   * @param {React.ChangeEvent<HTMLInputElement>} e - The change event.
+   */
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
     setSelectedTicker(null);
     setOpen(true);
   };
 
-  /** Submits the registration via server action. */
+  /**
+   * Submits the registration via server action.
+   *
+   * @param {React.FormEvent<HTMLFormElement>} e - The form event.
+   */
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 

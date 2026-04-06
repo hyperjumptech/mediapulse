@@ -5,6 +5,8 @@ import type { Ticker } from "@/lib/tickers";
 /**
  * User registration page using a login-05 style centered layout.
  * Reads ticker data from the database at request time.
+ *
+ * @returns {Promise<JSX.Element>} The rendered registration page.
  */
 const Page = async () => {
   const dbTickers = await prisma.ticker.findMany({

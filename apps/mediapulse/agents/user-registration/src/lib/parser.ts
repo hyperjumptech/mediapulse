@@ -1,11 +1,21 @@
 import type { GraphMessage } from "@mediapulse/outlook-inbox";
 
-/** Normalizes an email address to trimmed lowercase. */
+/**
+ * Normalizes an email address to trimmed lowercase.
+ *
+ * @param {string} email - The email address to normalize.
+ * @returns {string} The normalized email address.
+ */
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-/** Normalizes a ticker symbol to trimmed uppercase. */
+/**
+ * Normalizes a ticker symbol to trimmed uppercase.
+ *
+ * @param {string} symbol - The ticker symbol to normalize.
+ * @returns {string} The normalized ticker symbol.
+ */
 export function normalizeTickerSymbol(symbol: string): string {
   return symbol.trim().toUpperCase();
 }
@@ -14,6 +24,9 @@ export function normalizeTickerSymbol(symbol: string): string {
  * Derives a display name from the local part of an email address.
  * Splits on dots, underscores, and dashes, then title-cases the result.
  * Returns null if a name cannot be derived.
+ *
+ * @param {string} email - The email address to derive the name from.
+ * @returns {string | null} The derived name or null.
  */
 export function deriveNameFromEmailLocalPart(email: string): string | null {
   if (!email) return null;
@@ -33,17 +46,20 @@ export function deriveNameFromEmailLocalPart(email: string): string | null {
 /**
  * Extracts and normalizes the sender email address from a Graph API message.
  * Uses the `from.emailAddress.address` field. Returns null if absent or invalid.
+ *
+ * @param {GraphMessage} graphMessage - The Graph API message object.
+ * @returns {string | null} The extracted email or null.
  */
 export function extractSenderEmail(graphMessage: GraphMessage): string | null {
   const fromEmail = graphMessage.from?.emailAddress?.address;
   if (!fromEmail || typeof fromEmail !== "string") return null;
-  
+
   const normalized = normalizeEmail(fromEmail);
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(normalized)) {
     return null;
   }
-  
+
   return normalized;
 }
 
@@ -52,6 +68,10 @@ export function extractSenderEmail(graphMessage: GraphMessage): string | null {
  * Primary: matches "Newsletter Subscription - {SYMBOL}" in the subject.
  * Fallback: matches "Ticker: {SYMBOL}" line in the body.
  * Returns null if no valid ticker can be extracted.
+ *
+ * @param {string | null} subject - The email subject.
+ * @param {string | null} body - The email body content.
+ * @returns {string | null} The extracted ticker symbol or null.
  */
 export function extractTickerSymbol(
   subject?: string | null,

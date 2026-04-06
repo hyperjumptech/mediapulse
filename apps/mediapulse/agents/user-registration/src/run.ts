@@ -43,12 +43,17 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 /**
  * Predicate to determine if an error should be retried.
  * Retries all errors for now, assuming they are transient network/API issues.
+ *
+ * @returns {boolean} True if the error is retryable.
  */
 const isRetryable = () => true;
 
 /**
  * Checks if a sender email has exceeded its rate limit.
  * Fail-fast: returns false if the limit is exceeded.
+ *
+ * @param {string} email - The email address to check.
+ * @returns {boolean} True if within rate limits, false otherwise.
  */
 function checkRateLimit(email: string): boolean {
   const now = Date.now();
@@ -70,6 +75,9 @@ function checkRateLimit(email: string): boolean {
  * Core business logic for the user-registration agent.
  * Processes unread newsletter subscription emails from Outlook,
  * registers users in the MediaPulse system, and sends confirmation emails.
+ *
+ * @param {AgentRunContext<Input, Config>} context - The agent run context.
+ * @returns {Promise<AgentRunResult>} The result of the agent run.
  */
 export const run = async ({
   input,
@@ -173,6 +181,14 @@ export const run = async ({
 /**
  * Processes a single subscription message.
  * Handles parsing, rate limiting, registration, and email communication.
+ *
+ * @param {object} params - The processing parameters.
+ * @param {GraphMessage} params.msg - The Graph API message object.
+ * @param {any} params.inboxClient - The Outlook inbox client.
+ * @param {Resend} params.resend - The Resend email client.
+ * @param {AgentDataApiClient<"v1">} params.dataApiClient - The MediaPulse Data API client.
+ * @param {Config} params.config - Agent configuration settings.
+ * @returns {Promise<object>} The processing result for this message.
  */
 async function processMessage({
   msg,
