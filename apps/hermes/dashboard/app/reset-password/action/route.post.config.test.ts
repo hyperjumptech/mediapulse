@@ -36,6 +36,18 @@ describe("createCompleteSelfServicePasswordResetHandler", () => {
     );
   });
 
+  it("returns error when reset rate limit is exceeded", async () => {
+    const handler = createCompleteSelfServicePasswordResetHandler({
+      db: {} as never,
+      checkResetRateLimit: () => false,
+    });
+    const result = await handler(baseData as never);
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toBe(
+      "Too many requests. Please wait before trying again.",
+    );
+  });
+
   it("runs transaction to update password and mark token used", async () => {
     const findUnique = vi.fn().mockResolvedValue({
       id: "tok1",
