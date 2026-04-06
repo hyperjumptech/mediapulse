@@ -1,4 +1,5 @@
 import { prismaClient } from "@hermes/orchestration-database/client";
+import { logger } from "@workspace/logger";
 import {
   createRequestValidator,
   errorResponse,
@@ -69,6 +70,10 @@ export const createCompleteSelfServicePasswordResetHandler = ({
     const { token, newPassword } = data.body;
 
     if (!checkResetRateLimit(token)) {
+      logger.warn(
+        { event: "hermes_admin_reset_password_rate_limited" },
+        "hermes_admin_reset_password_rate_limited",
+      );
       return errorResponse(
         "Too many requests. Please wait before trying again.",
       );
@@ -76,6 +81,13 @@ export const createCompleteSelfServicePasswordResetHandler = ({
 
     const resolved = await lookupHermesAdminResetToken(db, token);
     if (!resolved.ok) {
+      logger.warn(
+        {
+          event: "hermes_admin_reset_password_rejected",
+          reason: resolved.reason,
+        },
+        "hermes_admin_reset_password_rejected",
+      );
       return errorResponse(genericInvalidMessage);
     }
 
@@ -91,9 +103,18 @@ export const createCompleteSelfServicePasswordResetHandler = ({
           data: { usedAt: new Date() },
         });
       });
-    } catch {
+    } catch (err) {
+      logger.error(
+        { event: "hermes_admin_reset_password_transaction_failed", err },
+        "hermes_admin_reset_password_transaction_failed",
+      );
       return errorResponse(genericInvalidMessage);
     }
+
+    logger.info(
+      { event: "hermes_admin_reset_password_completed" },
+      "hermes_admin_reset_password_completed",
+    );
 
     return successResponse({ ok: true as const });
   };

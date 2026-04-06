@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { UserRole } from "@hermes/orchestration-database";
+import { logger } from "@workspace/logger";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetMemorySlidingRateLimitForTests } from "@/lib/memory-sliding-rate-limit";
 import {
@@ -137,7 +138,7 @@ describe("createForgotPasswordHandler", () => {
   });
 
   it("still returns ok when sendResetEmail throws", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
     const findUnique = vi.fn().mockResolvedValue({
       id: "u1",
       email: "admin@example.com",
@@ -162,11 +163,13 @@ describe("createForgotPasswordHandler", () => {
       user: undefined,
     } as never);
     expect(result).toMatchObject({ status: true, data: { ok: true } });
-    expect(errorSpy).toHaveBeenCalledWith(
-      "[hermes-dashboard:forgot-password]",
-      "Failed to send Hermes admin password reset email.",
-      { userId: "u1" },
-      sendErr,
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "hermes_admin_forgot_password_email_failed",
+        userId: "u1",
+        error: sendErr,
+      }),
+      "hermes_admin_forgot_password_email_failed",
     );
   });
 });
