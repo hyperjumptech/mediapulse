@@ -17,6 +17,9 @@ import {
 } from "@/lib/hermes-admin-reset-token";
 import { checkMemorySlidingRateLimit } from "@/lib/memory-sliding-rate-limit";
 
+/** Prefix for server logs when Resend or the mail path fails (stderr / Docker / Vercel logs). */
+const FORGOT_PASSWORD_LOG_PREFIX = "[hermes-dashboard:forgot-password]";
+
 const bodyValidator = z.object({
   email: z.string().email(),
 });
@@ -35,7 +38,10 @@ type ForgotPasswordHandler = HandlerFunc<
   undefined
 >;
 
-type DbClient = Pick<typeof prismaClient, "user" | "hermesAdminPasswordResetToken">;
+type DbClient = Pick<
+  typeof prismaClient,
+  "user" | "hermesAdminPasswordResetToken"
+>;
 
 export type SendHermesAdminPasswordResetEmail = (input: {
   to: string;
@@ -54,6 +60,12 @@ export const sendHermesAdminPasswordResetEmailDefault = async (input: {
   const apiKey = env.HERMES_RESEND_API_KEY;
   const from = env.HERMES_RESEND_FROM;
   if (!apiKey?.trim() || !from?.trim()) {
+    console.log(
+      FORGOT_PASSWORD_LOG_PREFIX,
+      "Resend credentials missing; skipping email.",
+      input.to,
+      input.resetUrl,
+    );
     return;
   }
 
@@ -121,6 +133,7 @@ export const buildHermesAdminResetPasswordUrl = (
 
 /**
  * Creates the forgot-password handler: always returns success; sends email only for active admins.
+ * If sending mail fails, the response stays generic while the error is logged server-side (prefix `[hermes-dashboard:forgot-password]`).
  *
  * @param dependencies - DB, URL builder, Resend email, and clock for tests.
  */
@@ -148,11 +161,7 @@ export const createForgotPasswordHandler = ({
 
     const user = await db.user.findUnique(args);
 
-    if (
-      user &&
-      user.role === UserRole.ADMIN &&
-      user.isActive === true
-    ) {
+    if (user && user.role === UserRole.ADMIN && user.isActive === true) {
       const { rawToken, tokenHash } = generateToken();
       const expiresAt = new Date(now() + HERMES_ADMIN_RESET_TOKEN_TTL_MS);
 
@@ -171,8 +180,14 @@ export const createForgotPasswordHandler = ({
 
       try {
         await sendResetEmail({ to: user.email, resetUrl });
-      } catch {
-        // Intentionally generic client response; do not leak email existence.
+      } catch (error: unknown) {
+        // Client always gets generic success (anti-enumeration); log for ops/debugging.
+        console.error(
+          FORGOT_PASSWORD_LOG_PREFIX,
+          "Failed to send Hermes admin password reset email.",
+          { userId: user.id },
+          error,
+        );
       }
     }
 
