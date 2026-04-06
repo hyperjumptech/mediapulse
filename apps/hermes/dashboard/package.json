@@ -45,6 +45,7 @@
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "resend": "^6.9.1",
     "route-action-gen": "catalog:",
     "sonner": "catalog:",
     "zod": "catalog:",
