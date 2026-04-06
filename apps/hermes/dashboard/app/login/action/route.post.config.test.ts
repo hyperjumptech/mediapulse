@@ -58,6 +58,7 @@ const createAuthenticatedAdmin = () => {
     id: "user_1",
     name: "Admin User",
     email: "admin@example.com",
+    credentialVersion: 0,
   };
 };
 
@@ -92,6 +93,7 @@ describe("createAuthenticateAdmin", () => {
         password: "hashed",
         role: "ADMIN",
         isActive: false,
+        credentialVersion: 0,
       }),
       comparePassword: async () => true,
     });
@@ -116,6 +118,7 @@ describe("createAuthenticateAdmin", () => {
         password: "hashed",
         role: "EDITOR",
         isActive: true,
+        credentialVersion: 0,
       }),
       comparePassword: async () => true,
     });
@@ -140,6 +143,7 @@ describe("createAuthenticateAdmin", () => {
         password: "hashed",
         role: "ADMIN",
         isActive: true,
+        credentialVersion: 0,
       }),
       comparePassword: async () => false,
     });
@@ -164,6 +168,7 @@ describe("createAuthenticateAdmin", () => {
         password: "hashed",
         role: "ADMIN",
         isActive: true,
+        credentialVersion: 0,
       }),
       comparePassword: async () => true,
     });
@@ -179,6 +184,7 @@ describe("createAuthenticateAdmin", () => {
       id: "user_1",
       name: "Admin User",
       email: "admin@example.com",
+      credentialVersion: 0,
     });
   });
 });
@@ -210,6 +216,7 @@ describe("createPersistAdminSession", () => {
         name: "Admin User",
         email: "admin@example.com",
         id: "user_1",
+        credentialVersion: 0,
       }),
       opts,
     );
@@ -326,6 +333,7 @@ describe("handler", () => {
       password: "hashed-password",
       role: "ADMIN",
       isActive: true,
+      credentialVersion: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -350,6 +358,7 @@ describe("handler", () => {
         id: "user_1",
         name: "Admin User",
         email: "admin@example.com",
+        credentialVersion: 0,
       },
     });
     expect(setCookieMock).toHaveBeenCalledTimes(2);
@@ -359,6 +368,7 @@ describe("handler", () => {
         name: "Admin User",
         email: "admin@example.com",
         id: "user_1",
+        credentialVersion: 0,
       }),
       expect.any(Object),
     );

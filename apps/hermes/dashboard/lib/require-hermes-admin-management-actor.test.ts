@@ -23,6 +23,7 @@ describe("createRequireHermesAdminManagementActor", () => {
         id: "u1",
         name: "A",
         email: "a@b.com",
+        credentialVersion: 0,
       }),
       db: { findUnique },
     });
@@ -35,12 +36,14 @@ describe("createRequireHermesAdminManagementActor", () => {
       id: "u1",
       role: "USER",
       isActive: true,
+      credentialVersion: 0,
     });
     const requireActor = createRequireHermesAdminManagementActor({
       getSession: async () => ({
         id: "u1",
         name: "A",
         email: "a@b.com",
+        credentialVersion: 0,
       }),
       db: { findUnique },
     });
@@ -53,12 +56,34 @@ describe("createRequireHermesAdminManagementActor", () => {
       id: "u1",
       role: "ADMIN",
       isActive: false,
+      credentialVersion: 0,
     });
     const requireActor = createRequireHermesAdminManagementActor({
       getSession: async () => ({
         id: "u1",
         name: "A",
         email: "a@b.com",
+        credentialVersion: 0,
+      }),
+      db: { findUnique },
+    });
+    const result = await requireActor();
+    expect(result).toEqual({ ok: false });
+  });
+
+  it("returns ok false when credentialVersion does not match DB", async () => {
+    const findUnique = vi.fn().mockResolvedValue({
+      id: "u1",
+      role: "ADMIN",
+      isActive: true,
+      credentialVersion: 2,
+    });
+    const requireActor = createRequireHermesAdminManagementActor({
+      getSession: async () => ({
+        id: "u1",
+        name: "A",
+        email: "a@b.com",
+        credentialVersion: 1,
       }),
       db: { findUnique },
     });
@@ -67,9 +92,19 @@ describe("createRequireHermesAdminManagementActor", () => {
   });
 
   it("returns ok true with session and actor when admin is active", async () => {
-    const actorRow = { id: "u1", role: "ADMIN", isActive: true };
+    const actorRow = {
+      id: "u1",
+      role: "ADMIN",
+      isActive: true,
+      credentialVersion: 0,
+    };
     const findUnique = vi.fn().mockResolvedValue(actorRow);
-    const session = { id: "u1", name: "A", email: "a@b.com" };
+    const session = {
+      id: "u1",
+      name: "A",
+      email: "a@b.com",
+      credentialVersion: 0,
+    };
     const requireActor = createRequireHermesAdminManagementActor({
       getSession: async () => session,
       db: { findUnique },

@@ -69,7 +69,10 @@ export const createResetAdminPasswordHandler = ({
     const hashed = await hashPassword(newPassword);
     await db.user.update({
       where: { id },
-      data: { password: hashed },
+      data: {
+        password: hashed,
+        credentialVersion: { increment: 1 },
+      },
     });
 
     return successResponse({ ok: true as const });

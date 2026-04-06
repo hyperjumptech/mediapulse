@@ -7,6 +7,7 @@ export type HermesAdminManagementActor = {
   id: string;
   role: string;
   isActive: boolean;
+  credentialVersion: number;
 };
 
 type HermesAdminManagementActorDb = Pick<typeof prisma.user, "findUnique">;
@@ -42,11 +43,19 @@ export const createRequireHermesAdminManagementActor = ({
 
     const args = {
       where: { id: session.id },
-      select: { id: true, role: true, isActive: true },
+      select: {
+        id: true,
+        role: true,
+        isActive: true,
+        credentialVersion: true,
+      },
     } satisfies Prisma.UserFindUniqueArgs;
 
     const actor = await db.findUnique(args);
     if (!actor || actor.role !== "ADMIN" || !actor.isActive) {
+      return { ok: false };
+    }
+    if (actor.credentialVersion !== session.credentialVersion) {
       return { ok: false };
     }
 

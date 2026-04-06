@@ -5,13 +5,18 @@ import { createSetActiveAdminHandler } from "./route.post.config";
 
 const targetId = "00000000-0000-4000-8000-000000000099";
 
-const sessionUser = { id: "actor", name: "A", email: "a@b.com" };
+const sessionUser = {
+  id: "actor",
+  name: "A",
+  email: "a@b.com",
+  credentialVersion: 0,
+};
 
 const okGate = () =>
   ({
     ok: true as const,
     session: sessionUser,
-    actor: { id: "actor", role: "ADMIN", isActive: true },
+    actor: { id: "actor", role: "ADMIN", isActive: true, credentialVersion: 0 },
   }) as const;
 
 describe("createSetActiveAdminHandler", () => {
@@ -40,7 +45,12 @@ describe("createSetActiveAdminHandler", () => {
       requireHermesAdminManagementActor: async () => ({
         ok: true,
         session: { ...sessionUser, id: targetId },
-        actor: { id: targetId, role: "ADMIN", isActive: true },
+        actor: {
+          id: targetId,
+          role: "ADMIN",
+          isActive: true,
+          credentialVersion: 0,
+        },
       }),
       db: {} as never,
     });
