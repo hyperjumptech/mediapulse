@@ -2,14 +2,23 @@ import { prisma } from "@hermes/orchestration-database";
 import type { Prisma } from "@hermes/orchestration-database";
 import { cookies, headers } from "next/headers";
 import type { NextResponse } from "next/server";
+import { z } from "zod";
+
+/**
+ * Zod schema for the JSON stored in the `auth-user` cookie.
+ * Legacy payloads omit `credentialVersion`; non-integer values are treated as `0`.
+ */
+const dashboardAuthUserCookieSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  credentialVersion: z
+    .unknown()
+    .transform((v) => (typeof v === "number" && Number.isInteger(v) ? v : 0)),
+});
 
 /** Session payload stored in `auth-user` and validated against `User.credentialVersion` in the DB. */
-export type DashboardUser = {
-  id: string;
-  name: string;
-  email: string;
-  credentialVersion: number;
-};
+export type DashboardUser = z.infer<typeof dashboardAuthUserCookieSchema>;
 
 /**
  * Parses the `auth-user` cookie JSON into a {@link DashboardUser}.
@@ -22,34 +31,9 @@ export const parseDashboardUserFromAuthCookie = (
   raw: string,
 ): DashboardUser | null => {
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      !parsed ||
-      typeof parsed !== "object" ||
-      !("id" in parsed) ||
-      !("name" in parsed) ||
-      !("email" in parsed) ||
-      typeof (parsed as DashboardUser).id !== "string" ||
-      typeof (parsed as DashboardUser).name !== "string" ||
-      typeof (parsed as DashboardUser).email !== "string"
-    ) {
-      return null;
-    }
-    const o = parsed as Record<string, unknown>;
-    let credentialVersion = 0;
-    if (
-      "credentialVersion" in o &&
-      typeof o.credentialVersion === "number" &&
-      Number.isInteger(o.credentialVersion)
-    ) {
-      credentialVersion = o.credentialVersion;
-    }
-    return {
-      id: (parsed as DashboardUser).id,
-      name: (parsed as DashboardUser).name,
-      email: (parsed as DashboardUser).email,
-      credentialVersion,
-    };
+    const parsed: unknown = JSON.parse(raw);
+    const result = dashboardAuthUserCookieSchema.safeParse(parsed);
+    return result.success ? result.data : null;
   } catch {
     return null;
   }
