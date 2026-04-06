@@ -16,7 +16,7 @@ export const env = createEnv({
     AGENT_AUTH_JWT_SECRET: z.string().optional(),
     TEMP_ADMIN_USERNAME: z.string().min(1),
     TEMP_ADMIN_PASSWORD: z.string().min(1),
-    HERMES_DASHBOARD_PUBLIC_URL: z.string().default("http://localhost:3001").optional(),
+    HERMES_DASHBOARD_PUBLIC_URL: z.string().min(1).default("http://localhost:3001"),
     HERMES_RESEND_API_KEY: z.string().optional(),
     HERMES_RESEND_FROM: z.string().optional(),
   },

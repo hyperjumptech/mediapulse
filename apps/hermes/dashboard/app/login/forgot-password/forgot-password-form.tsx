@@ -77,7 +77,10 @@ export const ForgotPasswordForm = () => {
           {pending ? "Sending…" : "Send reset link"}
         </Button>
         <p className="text-center text-sm">
-          <Link href="/login" className="text-primary underline-offset-4 hover:underline">
+          <Link
+            href="/login"
+            className="text-primary underline-offset-4 hover:underline"
+          >
             Back to login
           </Link>
         </p>
