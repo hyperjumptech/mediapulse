@@ -177,6 +177,11 @@ describe("runCursorPrReview", () => {
       },
       {
         status: "A",
+        filePath:
+          "apps/hermes/dashboard/app/login/forgot-password/action/route.post.config.ts",
+      },
+      {
+        status: "A",
         filePath: "packages/mediapulse/env/env.agents.query-analysis.example",
       },
     ];
@@ -195,6 +200,29 @@ describe("runCursorPrReview", () => {
         f.message.includes("kebab-case"),
     );
     expect(kebabErrors).toEqual([]);
+  });
+
+  it("flags new *.config.ts when a dot-separated stem segment is not kebab-case", async () => {
+    const listChangedFiles = async () => [
+      {
+        status: "A",
+        filePath: "apps/x/BadSegment.post.config.ts",
+      },
+    ];
+    const readTextFile = async () => "";
+
+    const result = await runCursorPrReview(
+      { listChangedFiles, readTextFile },
+      { baseRef: "origin/main", headRef: "HEAD" },
+    );
+
+    expect(
+      result.findings.some(
+        (f) =>
+          f.ruleId === "typescript-javascript-standards" &&
+          f.message.includes("kebab-case"),
+      ),
+    ).toBe(true);
   });
 
   it("does not flag process.env under repo-root scripts/", async () => {
