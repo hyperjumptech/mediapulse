@@ -58,6 +58,12 @@ export const sendHermesAdminPasswordResetEmailDefault = async (input: {
   const apiKey = env.HERMES_RESEND_API_KEY;
   const from = env.HERMES_RESEND_FROM;
   if (!apiKey?.trim() || !from?.trim()) {
+    console.log(
+      FORGOT_PASSWORD_LOG_PREFIX,
+      "Resend credentials missing; skipping email.",
+      input.to,
+      input.resetUrl,
+    );
     return;
   }
 
