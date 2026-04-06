@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormAction } from "./action/.generated/use-form-action";
 import { Button } from "@workspace/ui/components/button";
@@ -113,6 +114,14 @@ export const LoginForm = () => {
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? "Signing in..." : "Login"}
         </Button>
+        <p className="text-center text-sm">
+          <Link
+            href="/login/forgot-password"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </p>
       </div>
     </FormWithAction>
   );
