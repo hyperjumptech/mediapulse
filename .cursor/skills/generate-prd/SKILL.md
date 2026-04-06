@@ -1,6 +1,6 @@
 ---
 name: generate-prd
-description: Drafts and refines Product Requirements Documents (PRDs) using a 100-point quality rubric covering clarity, completeness, prioritization, testability, stakeholders, user focus, visuals, flexibility, and versioning. Use when writing or improving a PRD, product requirements, feature spec, or when the user asks for PRD quality, scoring, or acceptance criteria.
+description: Drafts and refines Product Requirements Documents (PRDs) using a 100-point quality rubric covering clarity, completeness, prioritization, testability, stakeholders, user focus, visuals, flexibility, and versioning. Asks the user for clarification when goals, scope, audience, or success criteria are ambiguous before producing a full draft. Use when writing or improving a PRD, product requirements, feature spec, or when the user asks for PRD quality, scoring, or acceptance criteria.
 ---
 
 # Generate a High-Quality PRD
@@ -112,18 +112,47 @@ Use this outline unless the user specifies another format. Fill every section th
 - Question — owner — target date
 ```
 
+## When to ask for clarification
+
+**Default:** If something material is missing or contradictory, **stop and ask** before writing a long PRD. Guessing lowers **Comprehensiveness**, **User-centric focus**, and **Testability**.
+
+### Ask before the first full draft when any of these are unclear
+
+- **Problem and outcome:** What user or business problem is being solved, and what “done” looks like for the business.
+- **Primary audience:** Who the main users are (role, context, constraints) — not just “users.”
+- **Scope boundary:** What is explicitly **out** of scope or deferred, if the request could be interpreted broadly.
+- **Constraints:** Hard deadlines, compliance, platforms, or integrations that would change the design.
+- **Success measures:** How the user or team will know the release succeeded (metrics, milestones, or qualitative signals).
+
+### Prefer structured questions
+
+- If the **Cursor AskQuestion tool** is available, use it for multiple-choice or pick-one decisions (e.g. audience, timeline band, must-have vs exploration).
+- Otherwise ask in **one short message** with **numbered questions**; keep each question specific and answerable.
+
+### When not to block
+
+- **Review-only** tasks (“score this PRD,” “improve wording”): proceed on the text provided; ask only if the doc is incomplete for the stated task.
+- **Minor gaps:** If one or two details are missing, you may draft with **`[TBD]`** and list those items under **Open questions** — but still **ask** if the gap blocks prioritization or acceptance criteria (e.g. unknown primary user).
+
+### After answers arrive
+
+- Integrate responses into the PRD; remove stale `[TBD]` where resolved.
+- If new ambiguity appears mid-draft (e.g. conflicting requirements), **ask again** rather than silently picking one path.
+
 ## Agent workflow
 
-1. **Clarify** minimal inputs if missing: product name, audience, deadline, and whether this is greenfield or iteration.
-2. **Draft** using the template; align language to **Clarity** and **User-centric focus** first.
-3. **Add** acceptance criteria under **Testability**; prioritize with **Prioritization**.
-4. **Stakeholder** section: if unknown, use placeholders (`[TBD with PM]`) and list questions to resolve.
-5. **Visuals**: suggest 1–3 Mermaid diagrams (flow, sequence, or simple architecture) where they reduce ambiguity; reference wireframes as `[placeholder]` if none exist.
-6. **Score** the draft against the rubric (estimate per row, sum to 100). If the total is below 80, list the **top gaps** and revise.
-7. **Deliver** the PRD plus a short **rubric summary**: table of scores, total, band, and 3–5 concrete next steps to reach 90+.
+1. **Assess gaps:** Compare the user’s request against “When to ask for clarification.” If critical gaps exist, **ask first** (see above); do not produce a full PRD on assumptions alone.
+2. **Minimal inputs:** When not blocked, confirm or infer: product or initiative name, audience, timeline, greenfield vs iteration — ask if inference would be weak.
+3. **Draft** using the template; align language to **Clarity** and **User-centric focus** first.
+4. **Add** acceptance criteria under **Testability**; prioritize with **Prioritization**.
+5. **Stakeholders:** use named roles when known; use placeholders only where non-blocking and list follow-ups under **Open questions**.
+6. **Visuals:** suggest 1–3 Mermaid diagrams (flow, sequence, or simple architecture) where they reduce ambiguity; reference wireframes as `[placeholder]` if none exist.
+7. **Score** the draft against the rubric (estimate per row, sum to 100). If the total is below 80, list the **top gaps**; if gaps need user input, **ask** before claiming the doc is final.
+8. **Deliver** the PRD plus a short **rubric summary**: table of scores, total, band, and 3–5 concrete next steps to reach 90+.
 
 ## Anti-patterns
 
+- Drafting a full PRD while **goals, primary user, or scope** are still vague — ask first.
 - Requirements without acceptance criteria.
 - Features listed without user problem or priority.
 - Jargon-heavy prose with no glossary or rewrite.
