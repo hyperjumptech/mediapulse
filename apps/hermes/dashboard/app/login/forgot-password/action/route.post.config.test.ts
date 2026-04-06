@@ -13,9 +13,7 @@ describe("buildHermesAdminResetPasswordUrl", () => {
       "http://localhost:3001/",
       "abc/def+",
     );
-    expect(url).toBe(
-      "http://localhost:3001/reset-password?token=abc%2Fdef%2B",
-    );
+    expect(url).toBe("http://localhost:3001/reset-password?token=abc%2Fdef%2B");
   });
 });
 

@@ -2,6 +2,7 @@ import { prismaClient } from "@hermes/orchestration-database/client";
 import type { Prisma } from "@hermes/orchestration-database";
 import { UserRole } from "@hermes/orchestration-database";
 import { env } from "@hermes/env";
+import { logger } from "@workspace/logger";
 import { Resend } from "resend";
 import {
   createRequestValidator,
@@ -11,6 +12,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
+import { buildHermesAdminPasswordResetEmailContent } from "@/lib/hermes-admin-password-reset-email-content";
 import {
   generateHermesAdminResetToken,
   HERMES_ADMIN_RESET_TOKEN_TTL_MS,
@@ -35,7 +37,10 @@ type ForgotPasswordHandler = HandlerFunc<
   undefined
 >;
 
-type DbClient = Pick<typeof prismaClient, "user" | "hermesAdminPasswordResetToken">;
+type DbClient = Pick<
+  typeof prismaClient,
+  "user" | "hermesAdminPasswordResetToken"
+>;
 
 export type SendHermesAdminPasswordResetEmail = (input: {
   to: string;
@@ -54,23 +59,17 @@ export const sendHermesAdminPasswordResetEmailDefault = async (input: {
   const apiKey = env.HERMES_RESEND_API_KEY;
   const from = env.HERMES_RESEND_FROM;
   if (!apiKey?.trim() || !from?.trim()) {
+    logger.debug(
+      { event: "hermes_admin_forgot_password_email_skipped_no_resend" },
+      "hermes_admin_forgot_password_email_skipped_no_resend",
+    );
     return;
   }
 
   const resend = new Resend(apiKey);
-  const subject = "Reset your Hermes admin password";
-  const text = [
-    "You requested a password reset for your Hermes admin account.",
-    "",
-    `Open this link to choose a new password (valid for 1 hour):`,
+  const { subject, text, html } = buildHermesAdminPasswordResetEmailContent(
     input.resetUrl,
-    "",
-    "If you did not request this, you can ignore this email.",
-  ].join("\n");
-
-  const html = `<p>You requested a password reset for your Hermes admin account.</p>
-<p><a href="${input.resetUrl}">Reset your password</a> (link valid for 1 hour).</p>
-<p>If you did not request this, you can ignore this email.</p>`;
+  );
 
   const result = await resend.emails.send({
     from,
@@ -81,8 +80,20 @@ export const sendHermesAdminPasswordResetEmailDefault = async (input: {
   });
 
   if (result.error) {
+    logger.warn(
+      {
+        event: "hermes_admin_forgot_password_resend_error",
+        resendMessage: result.error.message,
+      },
+      "hermes_admin_forgot_password_resend_error",
+    );
     throw new Error(result.error.message);
   }
+
+  logger.info(
+    { event: "hermes_admin_forgot_password_email_sent" },
+    "hermes_admin_forgot_password_email_sent",
+  );
 };
 
 /** Default: 5 submissions per 15 minutes per normalized email (in-process only). */
@@ -137,6 +148,10 @@ export const createForgotPasswordHandler = ({
     const emailNormalized = data.body.email.trim().toLowerCase();
 
     if (!checkForgotRateLimit(emailNormalized)) {
+      logger.warn(
+        { event: "hermes_admin_forgot_password_rate_limited" },
+        "hermes_admin_forgot_password_rate_limited",
+      );
       return errorResponse(
         "Too many requests. Please wait before trying again.",
       );
@@ -148,11 +163,7 @@ export const createForgotPasswordHandler = ({
 
     const user = await db.user.findUnique(args);
 
-    if (
-      user &&
-      user.role === UserRole.ADMIN &&
-      user.isActive === true
-    ) {
+    if (user && user.role === UserRole.ADMIN && user.isActive === true) {
       const { rawToken, tokenHash } = generateToken();
       const expiresAt = new Date(now() + HERMES_ADMIN_RESET_TOKEN_TTL_MS);
 
@@ -164,6 +175,11 @@ export const createForgotPasswordHandler = ({
         },
       });
 
+      logger.info(
+        { event: "hermes_admin_forgot_password_token_created" },
+        "hermes_admin_forgot_password_token_created",
+      );
+
       const resetUrl = buildHermesAdminResetPasswordUrl(
         getPublicBaseUrl(),
         rawToken,
@@ -171,7 +187,11 @@ export const createForgotPasswordHandler = ({
 
       try {
         await sendResetEmail({ to: user.email, resetUrl });
-      } catch {
+      } catch (err) {
+        logger.warn(
+          { event: "hermes_admin_forgot_password_email_failed", err },
+          "hermes_admin_forgot_password_email_failed",
+        );
         // Intentionally generic client response; do not leak email existence.
       }
     }

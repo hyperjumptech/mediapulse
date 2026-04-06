@@ -83,9 +83,7 @@ type ClearDashboardAuthCookiesDependencies = {
 
 type HermesAdminAccessDependencies = {
   getSession?: typeof getDashboardSession;
-  findUserForDashboard?: (
-    userId: string,
-  ) => Promise<{
+  findUserForDashboard?: (userId: string) => Promise<{
     role: string;
     isActive: boolean;
     credentialVersion: number;

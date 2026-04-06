@@ -15,7 +15,7 @@ type ResetPasswordFormProps = {
 /**
  * Derives reset-password form state from the generated form action hook and redirects on success.
  */
-const useResetPasswordFormState = ({ token }: ResetPasswordFormProps) => {
+const useResetPasswordFormState = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -48,9 +48,7 @@ const useResetPasswordFormState = ({ token }: ResetPasswordFormProps) => {
  * Renders the self-service password reset form (token from email link).
  */
 export const ResetPasswordForm = ({ token }: ResetPasswordFormProps) => {
-  const { FormWithAction, pending, errorMessage } = useResetPasswordFormState({
-    token,
-  });
+  const { FormWithAction, pending, errorMessage } = useResetPasswordFormState();
 
   return (
     <FormWithAction className="flex flex-col gap-6">
