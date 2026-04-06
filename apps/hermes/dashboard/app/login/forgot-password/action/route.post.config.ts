@@ -60,7 +60,12 @@ export const sendHermesAdminPasswordResetEmailDefault = async (input: {
   const from = env.HERMES_RESEND_FROM;
   if (!apiKey?.trim() || !from?.trim()) {
     logger.debug(
-      { event: "hermes_admin_forgot_password_email_skipped_no_resend" },
+      {
+        event: "hermes_admin_forgot_password_email_skipped_no_resend",
+        message: "Resend credentials missing; skipping email.",
+        to: input.to,
+        resetUrl: input.resetUrl,
+      },
       "hermes_admin_forgot_password_email_skipped_no_resend",
     );
     return;
@@ -132,6 +137,7 @@ export const buildHermesAdminResetPasswordUrl = (
 
 /**
  * Creates the forgot-password handler: always returns success; sends email only for active admins.
+ * If sending mail fails, the response stays generic while the error is logged server-side (prefix `[hermes-dashboard:forgot-password]`).
  *
  * @param dependencies - DB, URL builder, Resend email, and clock for tests.
  */
@@ -187,12 +193,16 @@ export const createForgotPasswordHandler = ({
 
       try {
         await sendResetEmail({ to: user.email, resetUrl });
-      } catch (err) {
+      } catch (error: unknown) {
+        // Client always gets generic success (anti-enumeration); log for ops/debugging.
         logger.warn(
-          { event: "hermes_admin_forgot_password_email_failed", err },
+          {
+            event: "hermes_admin_forgot_password_email_failed",
+            userId: user.id,
+            error,
+          },
           "hermes_admin_forgot_password_email_failed",
         );
-        // Intentionally generic client response; do not leak email existence.
       }
     }
 

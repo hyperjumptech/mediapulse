@@ -136,12 +136,14 @@ describe("createForgotPasswordHandler", () => {
   });
 
   it("still returns ok when sendResetEmail throws", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const findUnique = vi.fn().mockResolvedValue({
       id: "u1",
       email: "admin@example.com",
       role: UserRole.ADMIN,
       isActive: true,
     });
+    const sendErr = new Error("resend down");
     const handler = createForgotPasswordHandler({
       db: {
         user: { findUnique },
@@ -149,7 +151,7 @@ describe("createForgotPasswordHandler", () => {
       } as never,
       getPublicBaseUrl: () => "http://localhost:3001",
       generateToken: () => ({ rawToken: "x", tokenHash: "h" }),
-      sendResetEmail: vi.fn().mockRejectedValue(new Error("resend down")),
+      sendResetEmail: vi.fn().mockRejectedValue(sendErr),
     });
     const result = await handler({
       body: { email: "admin@example.com" },
@@ -159,5 +161,11 @@ describe("createForgotPasswordHandler", () => {
       user: undefined,
     } as never);
     expect(result).toMatchObject({ status: true, data: { ok: true } });
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[hermes-dashboard:forgot-password]",
+      "Failed to send Hermes admin password reset email.",
+      { userId: "u1" },
+      sendErr,
+    );
   });
 });
