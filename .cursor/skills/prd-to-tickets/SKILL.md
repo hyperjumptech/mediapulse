@@ -1,6 +1,6 @@
 ---
 name: prd-to-tickets
-description: Breaks a Product Requirements Document (PRD) into actionable implementation tickets (issues) as markdown files with titles, priority, scope, acceptance criteria, and traceability to PRD requirement IDs. **By default writes files under `~/.cursor/plans/tickets/`** (override when the user gives another directory). Uses a **representative ticket prefix** (not generic `TICKET-`) and a **shared group slug/label** so related tickets stay filterable. Use when turning a PRD into work items, GitHub issues, Linear-style tasks, sprint tickets, or when the user asks for tickets from a PRD or feature spec.
+description: Breaks a Product Requirements Document (PRD) into actionable implementation tickets (issues) as markdown files with titles, priority, scope, acceptance criteria, and traceability to PRD requirement IDs. **By default writes files under `~/.cursor/plans/tickets/`** (override when the user gives another directory). Uses a **representative ticket prefix** (not generic `TICKET-`) and a **shared group slug/label** so related tickets stay filterable. When work will ship as stacked PRs with horizontal splits (UI before API), tickets should document feature-flag gating and enabling order. Use when turning a PRD into work items, GitHub issues, Linear-style tasks, sprint tickets, or when the user asks for tickets from a PRD or feature spec.
 ---
 
 # PRD → Tickets
@@ -58,7 +58,8 @@ Every ticket in the **same PRD batch** shares metadata so tools can filter or ta
 4. **Do not** merge unrelated requirements into one ticket; **do** merge duplicate or overlapping bullets from the PRD into a single ticket with a clear combined AC.
 5. **Traceability:** Each ticket must reference the PRD (`prd_source:` with file path or `"inline PRD"`) and **requirement IDs** when present (`prd_refs: [REQ-001, …]`).
 6. **Dependencies:** If the PRD orders work, add a **Depends on:** section using **same-batch ids** (`HERMES-ADM-PWRESET-001`) or REQ ids where tickets are not yet numbered.
-7. **Non-goals:** Do not create tickets for items explicitly out of scope unless the user asks to “include deferred items” as a separate backlog file.
+7. **Stacked / horizontal splits:** If the user plans **Git Town stacked PRs** and separates layers (e.g. UI ticket before API ticket), add the optional **Stacked delivery** section to affected tickets and specify **feature-flag** expectations so merged-but-incomplete work does not surface to users ([git-town-stacked-changes](../git-town-stacked-changes/SKILL.md)).
+8. **Non-goals:** Do not create tickets for items explicitly out of scope unless the user asks to “include deferred items” as a separate backlog file.
 
 ## File naming
 
@@ -105,6 +106,16 @@ status: draft
 - Depends on: [none | HERMES-ADM-PWRESET-xxx | REQ-xxx]
 - Blocks: …
 
+## Stacked delivery (optional)
+
+Use when tickets will ship as **Git Town stacked PRs** and work is split so an **earlier** ticket is incomplete without a **later** one (e.g. UI in `…-002`, API in `…-003`):
+
+- In **Acceptance criteria**, state that user-visible behavior stays **hidden or non-functional until enabled** (feature flag or equivalent), and name the **enabling** ticket (e.g. “Feature hidden behind `FEATURE_X_ENABLED` until `…-003` merges.”).
+- Add AC that the **temporary** flag (and env key, if any) is **removed** after the initiative is fully merged—either in the **last** ticket of the stack or a small follow-up ticket—unless the PRD requires a **permanent** flag.
+- In **Notes**, record the **flag/env key** (if known) or “TBD—see …-003,” and call out **merge order** risks for reviewers.
+
+See [git-town-stacked-changes](../git-town-stacked-changes/SKILL.md) for implementation guidance.
+
 ## Notes
 
 [APIs, flags, analytics, migration, rollout — only if PRD calls for it.]
@@ -117,6 +128,7 @@ Adjust the example `HERMES-ADM-PWRESET-*` values to match the actual `ticket_pre
 - Every **P0 / must-have** requirement maps to at least one ticket **or** is explicitly listed under a parent ticket’s AC with PRD ref.
 - No ticket without **testable** acceptance criteria (mirror the PRD’s given/when/then or checklist).
 - **`ticket_prefix`, `group_slug`, and `group_label` are consistent** across all files in the batch.
+- If **Stacked delivery** and a **merge-order-only** flag are documented, at least one ticket’s AC covers **flag removal** (or states the flag is intentionally permanent).
 - Filenames sort in execution order when the PRD implies an order; otherwise sort by **priority** then **id**.
 
 ## After writing
