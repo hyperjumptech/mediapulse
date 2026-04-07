@@ -5,7 +5,7 @@ import {
   successResponse,
   errorResponse,
 } from "route-action-gen/lib";
-import { prisma as defaultPrisma } from "@mediapulse/database";
+import { prisma as defaultPrisma, Prisma } from "@mediapulse/database";
 
 export const requestValidator = createRequestValidator({
   body: z.object({
@@ -44,9 +44,11 @@ export const createRegistrationHandler = ({
     const normalizedSymbol = tickerSymbol.trim().toUpperCase();
 
     try {
-      const ticker = await prisma.ticker.findUnique({
+      const tickerArgs = {
         where: { symbol: normalizedSymbol },
-      });
+      } satisfies Prisma.TickerFindUniqueArgs;
+
+      const ticker = await prisma.ticker.findUnique(tickerArgs);
 
       if (!ticker) {
         return errorResponse("Ticker not found");
@@ -54,15 +56,16 @@ export const createRegistrationHandler = ({
 
       // Use a transaction for atomic user and subscription creation
       const result = await prisma.$transaction(async (tx) => {
-        // Find or create user
-        const user = await tx.mediapulseUser.upsert({
+        const userUpsertArgs = {
           where: { email },
           update: {}, // Don't override existing names
           create: { email, name },
-        });
+        } satisfies Prisma.MediapulseUserUpsertArgs;
 
-        // Create or enable subscription
-        await tx.userTicker.upsert({
+        // Find or create user
+        const user = await tx.mediapulseUser.upsert(userUpsertArgs);
+
+        const userTickerUpsertArgs = {
           where: {
             userId_tickerId: {
               userId: user.id,
@@ -77,7 +80,10 @@ export const createRegistrationHandler = ({
             tickerId: ticker.id,
             enabled: true,
           },
-        });
+        } satisfies Prisma.UserTickerUpsertArgs;
+
+        // Create or enable subscription
+        await tx.userTicker.upsert(userTickerUpsertArgs);
 
         return { user, ticker };
       });

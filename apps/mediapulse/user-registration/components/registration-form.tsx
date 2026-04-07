@@ -15,15 +15,7 @@ type Props = {
   tickers: Ticker[];
 };
 
-/**
- * Newsletter subscription registration form.
- * Collects email, name, and ticker selection, then submits via server action.
- *
- * @param {Props} props - The component props.
- * @param {Ticker[]} props.tickers - List of available tickers.
- * @returns {JSX.Element} The registration form component.
- */
-const RegistrationForm = ({ tickers }: Props) => {
+const useRegistrationForm = (tickers: Ticker[]) => {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
@@ -90,9 +82,7 @@ const RegistrationForm = ({ tickers }: Props) => {
    */
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (!selectedTicker || !email) return;
-
     fetchData({
       body: {
         email,
@@ -102,6 +92,62 @@ const RegistrationForm = ({ tickers }: Props) => {
       params: {},
     });
   };
+
+  const resetForm = () => {
+    setSubmitted(false);
+    setEmail("");
+    setName("");
+    setQuery("");
+    setSelectedTicker(null);
+  };
+
+  return {
+    email,
+    setEmail,
+    name,
+    setName,
+    query,
+    handleQueryChange,
+    selectedTicker,
+    handleTickerSelect,
+    open,
+    setOpen,
+    submitted,
+    containerRef,
+    isPending,
+    filtered,
+    handleSubmit,
+    resetForm,
+  };
+};
+
+/**
+ * Newsletter subscription registration form.
+ * Collects email, name, and ticker selection, then submits via server action.
+ *
+ * @param {Props} props - The component props.
+ * @param {Ticker[]} props.tickers - List of available tickers.
+ * @returns {JSX.Element} The registration form component.
+ */
+const RegistrationForm = ({ tickers }: Props) => {
+  const {
+    email,
+    setEmail,
+    name,
+    setName,
+    query,
+    handleQueryChange,
+    selectedTicker,
+    handleTickerSelect,
+    open,
+    setOpen,
+    submitted,
+    containerRef,
+    isPending,
+    filtered,
+    handleSubmit,
+    resetForm,
+  } = useRegistrationForm(tickers);
 
   if (submitted) {
     return (
@@ -116,16 +162,7 @@ const RegistrationForm = ({ tickers }: Props) => {
             <strong>{selectedTicker?.KodeEmiten}</strong>.
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setSubmitted(false);
-            setEmail("");
-            setName("");
-            setQuery("");
-            setSelectedTicker(null);
-          }}
-        >
+        <Button variant="outline" onClick={resetForm}>
           Subscribe to another ticker
         </Button>
       </div>
@@ -143,7 +180,6 @@ const RegistrationForm = ({ tickers }: Props) => {
           Get the latest stock news delivered to your inbox.
         </p>
       </div>
-
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email address</Label>
@@ -156,7 +192,6 @@ const RegistrationForm = ({ tickers }: Props) => {
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
-
         <div className="flex flex-col gap-2">
           <Label htmlFor="name">Full name (optional)</Label>
           <Input
@@ -166,7 +201,6 @@ const RegistrationForm = ({ tickers }: Props) => {
             onChange={(e) => setName(e.target.value)}
           />
         </div>
-
         <div className="flex flex-col gap-2">
           <Label htmlFor="ticker-search">Stock ticker</Label>
           <div ref={containerRef} className="relative">
@@ -182,7 +216,6 @@ const RegistrationForm = ({ tickers }: Props) => {
               aria-expanded={open}
               aria-haspopup="listbox"
             />
-
             {open && filtered.length > 0 && (
               <ul
                 role="listbox"
@@ -211,7 +244,6 @@ const RegistrationForm = ({ tickers }: Props) => {
                 ))}
               </ul>
             )}
-
             {open && query.length > 0 && filtered.length === 0 && (
               <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground shadow-md">
                 No tickers found for &ldquo;{query}&rdquo;
@@ -219,7 +251,6 @@ const RegistrationForm = ({ tickers }: Props) => {
             )}
           </div>
         </div>
-
         <Button
           type="submit"
           className="mt-2 w-full"
@@ -228,7 +259,6 @@ const RegistrationForm = ({ tickers }: Props) => {
           {isPending ? "Subscribing..." : "Subscribe"}
         </Button>
       </form>
-
       <p className="text-balance text-center text-xs text-muted-foreground">
         By subscribing, you agree to receive daily stock updates.
         <br />

@@ -17,7 +17,7 @@ const getArgValue = (name, defaultValue) => {
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
 
-const baseRef = getArgValue("base", "origin/main");
+const baseRef = getArgValue("base", "main");
 const headRef = getArgValue("head", "HEAD");
 const failOnWarnings = hasFlag("fail-on-warnings");
 

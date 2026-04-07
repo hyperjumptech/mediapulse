@@ -1,5 +1,5 @@
 import { RegistrationForm } from "@/components/registration-form";
-import { prisma } from "@mediapulse/database";
+import { prisma, Prisma } from "@mediapulse/database";
 import type { Ticker } from "@/lib/tickers";
 
 /**
@@ -9,9 +9,11 @@ import type { Ticker } from "@/lib/tickers";
  * @returns {Promise<JSX.Element>} The rendered registration page.
  */
 const Page = async () => {
-  const dbTickers = await prisma.ticker.findMany({
+  const dbTickersArgs = {
     orderBy: { symbol: "asc" },
-  });
+  } satisfies Prisma.TickerFindManyArgs;
+
+  const dbTickers = await prisma.ticker.findMany(dbTickersArgs);
 
   const tickers: Ticker[] = dbTickers.map((t) => ({
     KodeEmiten: t.symbol,
