@@ -1,135 +1,33 @@
 "use client";
 
 import * as React from "react";
-import { useState, useRef, useEffect } from "react";
 import { TrendingUp, CheckCircle2 } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
-import { toast } from "sonner";
-import { filterTickers, formatTicker, type Ticker } from "@/lib/tickers";
-import { useServerFunction } from "@/app/register/action/.generated/use-server-function";
+import { type Ticker } from "@/lib/tickers";
+import { useRegistrationForm } from "@/hooks/use-registration-form";
 
 type Props = {
   tickers: Ticker[];
-};
-
-const useRegistrationForm = (tickers: Ticker[]) => {
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [query, setQuery] = useState("");
-  const [selectedTicker, setSelectedTicker] = useState<Ticker | null>(null);
-  const [open, setOpen] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const { fetchData, pending: isPending, data, error } = useServerFunction();
-
-  const filtered = filterTickers(tickers, query);
-
-  useEffect(() => {
-    /** Closes the ticker dropdown when clicking outside the container. */
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
-
-  useEffect(() => {
-    if (data) {
-      setSubmitted(true);
-      toast.success(data.message);
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-    }
-  }, [error]);
-
-  /**
-   * Selects a ticker, sets display string in the input, and closes the dropdown.
-   *
-   * @param {Ticker} ticker - The selected ticker object.
-   */
-  const handleTickerSelect = (ticker: Ticker) => {
-    setSelectedTicker(ticker);
-    setQuery(formatTicker(ticker));
-    setOpen(false);
-  };
-
-  /**
-   * Updates search query, clears current selection, and opens the dropdown.
-   *
-   * @param {React.ChangeEvent<HTMLInputElement>} e - The change event.
-   */
-  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
-    setSelectedTicker(null);
-    setOpen(true);
-  };
-
-  /**
-   * Submits the registration via server action.
-   *
-   * @param {React.FormEvent<HTMLFormElement>} e - The form event.
-   */
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!selectedTicker || !email) return;
-    fetchData({
-      body: {
-        email,
-        name: name || undefined,
-        tickerSymbol: selectedTicker.KodeEmiten,
-      },
-      params: {},
-    });
-  };
-
-  const resetForm = () => {
-    setSubmitted(false);
-    setEmail("");
-    setName("");
-    setQuery("");
-    setSelectedTicker(null);
-  };
-
-  return {
-    email,
-    setEmail,
-    name,
-    setName,
-    query,
-    handleQueryChange,
-    selectedTicker,
-    handleTickerSelect,
-    open,
-    setOpen,
-    submitted,
-    containerRef,
-    isPending,
-    filtered,
-    handleSubmit,
-    resetForm,
-  };
+  openMailto?: (url: string) => void;
 };
 
 /**
  * Newsletter subscription registration form.
- * Collects email, name, and ticker selection, then submits via server action.
+ * Collects email, name, and ticker selection, then submits via mailto.
  *
  * @param {Props} props - The component props.
  * @param {Ticker[]} props.tickers - List of available tickers.
  * @returns {JSX.Element} The registration form component.
  */
-const RegistrationForm = ({ tickers }: Props) => {
+const RegistrationForm = ({
+  tickers,
+  openMailto = (url) => {
+    window.location.href = url;
+  },
+}: Props) => {
   const {
     email,
     setEmail,
@@ -143,11 +41,10 @@ const RegistrationForm = ({ tickers }: Props) => {
     setOpen,
     submitted,
     containerRef,
-    isPending,
     filtered,
     handleSubmit,
     resetForm,
-  } = useRegistrationForm(tickers);
+  } = useRegistrationForm(tickers, openMailto);
 
   if (submitted) {
     return (
@@ -254,9 +151,9 @@ const RegistrationForm = ({ tickers }: Props) => {
         <Button
           type="submit"
           className="mt-2 w-full"
-          disabled={!selectedTicker || !email || isPending}
+          disabled={!selectedTicker || !email}
         >
-          {isPending ? "Subscribing..." : "Subscribe"}
+          Subscribe
         </Button>
       </form>
       <p className="text-balance text-center text-xs text-muted-foreground">

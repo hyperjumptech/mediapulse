@@ -11,33 +11,14 @@ const sampleTickers: Ticker[] = [
   { KodeEmiten: "TLKM", NamaEmiten: "Telkom Indonesia Tbk" },
 ];
 
-const mockFetchData = vi.fn();
-
-vi.mock("@/app/register/action/.generated/use-server-function", () => {
-  return {
-    useServerFunction: vi.fn(),
-  };
-});
-
-import { useServerFunction } from "@/app/register/action/.generated/use-server-function";
-
 describe("RegistrationForm", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    mockFetchData.mockReset();
   });
 
   it("renders the email and ticker search inputs", () => {
-    // Setup
-    vi.mocked(useServerFunction).mockReturnValue({
-      fetchData: mockFetchData,
-      pending: false,
-      data: null,
-      error: null,
-    });
-
     // Act
-    render(<RegistrationForm tickers={sampleTickers} />);
+    render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
 
     // Assert
     expect(screen.getByLabelText(/Email address/i)).toBeInTheDocument();
@@ -45,16 +26,8 @@ describe("RegistrationForm", () => {
   });
 
   it("renders the subscribe button as disabled when no ticker is selected", () => {
-    // Setup
-    vi.mocked(useServerFunction).mockReturnValue({
-      fetchData: mockFetchData,
-      pending: false,
-      data: null,
-      error: null,
-    });
-
     // Act
-    render(<RegistrationForm tickers={sampleTickers} />);
+    render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
 
     // Assert
     expect(screen.getByRole("button", { name: /Subscribe/i })).toBeDisabled();
@@ -62,14 +35,8 @@ describe("RegistrationForm", () => {
 
   it("shows ticker dropdown when search input is focused", async () => {
     // Setup
-    vi.mocked(useServerFunction).mockReturnValue({
-      fetchData: mockFetchData,
-      pending: false,
-      data: null,
-      error: null,
-    });
     const user = userEvent.setup();
-    render(<RegistrationForm tickers={sampleTickers} />);
+    render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
 
     // Act
     await user.click(screen.getByLabelText(/Stock ticker/i));
@@ -78,16 +45,13 @@ describe("RegistrationForm", () => {
     expect(screen.getByRole("listbox")).toBeInTheDocument();
   });
 
-  it("calls fetchData with form data when submitted", async () => {
+  it("calls openMailto with formed URL when submitted and shows success", async () => {
     // Setup
-    vi.mocked(useServerFunction).mockReturnValue({
-      fetchData: mockFetchData,
-      pending: false,
-      data: null,
-      error: null,
-    });
     const user = userEvent.setup();
-    render(<RegistrationForm tickers={sampleTickers} />);
+    const mockOpenMailto = vi.fn();
+    render(
+      <RegistrationForm tickers={sampleTickers} openMailto={mockOpenMailto} />
+    );
 
     // Act
     await user.type(
@@ -95,34 +59,25 @@ describe("RegistrationForm", () => {
       "test@example.com",
     );
     await user.type(screen.getByLabelText(/Full name/i), "John Doe");
+    
+    // Select Ticker
     await user.click(screen.getByLabelText(/Stock ticker/i));
-    await user.click(screen.getByText("BBCA"));
-    await user.click(screen.getByRole("button", { name: /Subscribe/i }));
+    await user.click(screen.getByText(/Bank Central Asia Tbk/i));
+    
+    // Submit
+    const subscribeBtn = screen.getByRole("button", { name: /Subscribe/i });
+    expect(subscribeBtn).not.toBeDisabled();
+    await user.click(subscribeBtn);
 
-    // Assert
-    expect(mockFetchData).toHaveBeenCalledWith({
-      body: {
-        email: "test@example.com",
-        name: "John Doe",
-        tickerSymbol: "BBCA",
-      },
-      params: {},
-    });
-  });
+    // Assert mailto was called
+    expect(mockOpenMailto).toHaveBeenCalledTimes(1);
+    const calledUrl = mockOpenMailto.mock.calls[0]![0]!;
+    expect(calledUrl).toContain("mailto:registration@mediapulse.example");
+    expect(calledUrl).toContain(encodeURIComponent("[MediaPulse] Newsletter Subscription - BBCA"));
+    expect(calledUrl).toContain(encodeURIComponent("test@example.com"));
 
-  it("shows success message when data is present", () => {
-    // Setup
-    vi.mocked(useServerFunction).mockReturnValue({
-      fetchData: mockFetchData,
-      pending: false,
-      data: { success: true, message: "Success" },
-      error: null,
-    });
-
-    // Act
-    render(<RegistrationForm tickers={sampleTickers} />);
-
-    // Assert
-    expect(screen.getByText(/Subscription Confirmed/i)).toBeInTheDocument();
+    // Assert Success screen rendered
+    expect(screen.getByText(/Subscription Confirmed!/i)).toBeInTheDocument();
   });
 });
+
