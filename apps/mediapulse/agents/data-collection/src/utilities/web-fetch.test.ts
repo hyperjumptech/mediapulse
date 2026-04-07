@@ -155,6 +155,7 @@ describe("performWebFetch", () => {
     // Assert
     expect(warnMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        err: expect.anything(),
         searchQueryId: "q1",
         url: `${longUrl.slice(0, 120)}…`,
         errorCategory: "provider_schema_error",

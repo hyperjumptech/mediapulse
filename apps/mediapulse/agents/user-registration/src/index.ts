@@ -168,7 +168,7 @@ const app = createAgentApp<
           }
         } catch (error) {
           logger.error(
-            { error, messageId: msg.id },
+            { err: error, messageId: msg.id },
             "Failed processing message during agent run. Leaving unarchived for retry.",
           );
           results.push({ id: msg.id, status: "failed_retry" });

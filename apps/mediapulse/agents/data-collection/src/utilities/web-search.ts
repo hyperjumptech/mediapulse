@@ -165,6 +165,7 @@ export async function performWebSearch(
       const classified = classifyError(e);
       log.warn(
         {
+          err: e,
           queryId: query.id,
           errorCategory: classified.category,
           retryable: isRetryableError(e),

@@ -174,6 +174,7 @@ describe("performWebSearch", () => {
     // Assert
     expect(warnMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        err: expect.anything(),
         queryId: "q1",
         errorCategory: "provider_schema_error",
       }),

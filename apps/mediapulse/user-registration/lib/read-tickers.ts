@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { logger } from "@workspace/logger";
 import type { Ticker } from "./tickers";
 import { tickersArraySchema } from "./tickers";
 
@@ -16,8 +17,19 @@ export const readTickers = async (
     const raw = await fs.readFile(filePath, "utf8");
     const parsed = JSON.parse(raw) as unknown;
     const result = tickersArraySchema.safeParse(parsed);
-    return result.success ? result.data : [];
-  } catch {
+    if (!result.success) {
+      logger.error(
+        { err: result.error, filePath },
+        "Invalid tickers.json structure",
+      );
+      return [];
+    }
+    return result.data;
+  } catch (error) {
+    logger.error(
+      { err: error, filePath },
+      "Failed to read or parse tickers.json",
+    );
     return [];
   }
 };

@@ -5,6 +5,15 @@ vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
 
+export const loggerErrorMock = vi.fn();
+vi.mock("@workspace/logger", () => ({
+  logger: {
+    error: loggerErrorMock,
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
 vi.mock("@mediapulse/env/agents-user-registration", () => ({
   env: {
     AGENT_DATA_API_URL: "http://data-api.example.com",
@@ -239,6 +248,13 @@ describe("user-registration agent – run loop", () => {
     expect(res.status).toBe(200);
     expect(body.status).toBe("success");
     expect(archiveMessageMock).not.toHaveBeenCalled();
+    expect(loggerErrorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        err: expect.anything(),
+        messageId: "msg-1",
+      }),
+      "Failed processing message during agent run. Leaving unarchived for retry.",
+    );
   });
 
   it("processes multiple messages independently", async () => {

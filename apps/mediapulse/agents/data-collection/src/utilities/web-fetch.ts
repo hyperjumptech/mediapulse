@@ -151,6 +151,7 @@ export async function performWebFetch(
       const classified = classifyError(e);
       log.warn(
         {
+          err: e,
           searchQueryId: result.searchQueryId,
           url: truncateUrlForLog(result.url),
           errorCategory: classified.category,
