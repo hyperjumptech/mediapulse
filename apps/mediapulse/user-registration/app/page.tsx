@@ -2,6 +2,8 @@ import { RegistrationForm } from "@/components/registration-form";
 import { prisma, Prisma } from "@mediapulse/database";
 import type { Ticker } from "@/lib/tickers";
 
+export const dynamic = "force-dynamic";
+
 /**
  * User registration page using a login-05 style centered layout.
  * Reads ticker data from the database at request time.
