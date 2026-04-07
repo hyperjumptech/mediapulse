@@ -41,6 +41,7 @@ export const createRegistrationHandler = ({
 }: RegistrationDependencies = {}): RegistrationHandler => {
   return async (data) => {
     const { email, name, tickerSymbol } = data.body;
+    const normalizedEmail = email.trim().toLowerCase();
     const normalizedSymbol = tickerSymbol.trim().toUpperCase();
 
     try {
@@ -57,9 +58,9 @@ export const createRegistrationHandler = ({
       // Use a transaction for atomic user and subscription creation
       const result = await prisma.$transaction(async (tx) => {
         const userUpsertArgs = {
-          where: { email },
+          where: { email: normalizedEmail },
           update: {}, // Don't override existing names
-          create: { email, name },
+          create: { email: normalizedEmail, name },
         } satisfies Prisma.MediapulseUserUpsertArgs;
 
         // Find or create user

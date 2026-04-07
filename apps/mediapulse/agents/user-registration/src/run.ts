@@ -48,11 +48,49 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 
 /**
  * Predicate to determine if an error should be retried.
- * Retries all errors for now, assuming they are transient network/API issues.
+ * Evaluates HTTP status codes and Node.js network error codes to determine if 
+ * the error is likely a transient network or server issue.
  *
+ * @param {any} error - The error object to evaluate.
  * @returns {boolean} True if the error is retryable.
  */
-const isRetryable = () => true;
+const isRetryable = (error: any): boolean => {
+  // Network connection anomalies
+  const networkErrors = ["ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "ECONNREFUSED", "ECONNABORTED"];
+  if (error?.code && networkErrors.includes(error.code)) {
+    return true;
+  }
+
+  // HTTP Status evaluations
+  const status = error?.status || error?.response?.status;
+  if (typeof status === "number") {
+    // Retry on Server Errors (5xx), Too Many Requests (429), and Request Timeout (408)
+    if (status >= 500 || status === 429 || status === 408) {
+      return true;
+    }
+    // Fail fast on standard client errors (4xx) like bad requests, unauthorized, validation failure
+    return false;
+  }
+
+  // If we can't determine the error type, default to not retrying 
+  // to avoid infinite loops on unexpected error objects.
+  return false;
+};
+
+/**
+ * Purges expired rate limit entries to prevent memory leaks over time.
+ */
+function sweepRateLimits(): void {
+  const now = Date.now();
+  for (const [email, attempts] of registrationAttempts.entries()) {
+    const valid = attempts.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+    if (valid.length === 0) {
+      registrationAttempts.delete(email);
+    } else if (valid.length < attempts.length) {
+      registrationAttempts.set(email, valid);
+    }
+  }
+}
 
 /**
  * Checks if a sender email has exceeded its rate limit.
@@ -69,6 +107,7 @@ function checkRateLimit(email: string): boolean {
   attempts = attempts.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
 
   if (attempts.length >= MAX_ATTEMPTS_IN_WINDOW) {
+    registrationAttempts.set(email, attempts);
     return false;
   }
 
@@ -96,6 +135,9 @@ export const createRunHandler =
     token,
     config,
   }: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
+    // Proactively clear stale items from the rate limiting map
+    sweepRateLimits();
+
     logger.info(
       `Running user-registration agent. Max messages: ${input.maxMessagesPerRun}`,
     );
@@ -158,13 +200,15 @@ export const createRunHandler =
 
             if (result.status !== "failed_retry") {
               // Track the latest receivedDateTime for watermark management.
-              if (
-                !latestProcessedDate ||
-                (msg.receivedDateTime &&
-                  msg.receivedDateTime > latestProcessedDate)
-              ) {
-                latestProcessedDate =
-                  msg.receivedDateTime ?? latestProcessedDate;
+              if (msg.receivedDateTime) {
+                const msgTime = new Date(msg.receivedDateTime).getTime();
+                const latestTime = latestProcessedDate
+                  ? new Date(latestProcessedDate).getTime()
+                  : 0;
+
+                if (!latestProcessedDate || msgTime > latestTime) {
+                  latestProcessedDate = new Date(msgTime).toISOString();
+                }
               }
             }
 

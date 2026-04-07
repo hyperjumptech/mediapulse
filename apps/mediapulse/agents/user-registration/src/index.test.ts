@@ -109,7 +109,7 @@ describe("user-registration agent – improved run loop", () => {
 
     expect(res.status).toBe(200);
     expect(body.status).toBe("success");
-    expect(body.details.newWatermark).toBe("2024-01-01T12:00:00Z");
+    expect(body.details.newWatermark).toBe("2024-01-01T12:00:00.000Z");
 
     expect(emailSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -133,7 +133,7 @@ describe("user-registration agent – improved run loop", () => {
     const res = await post({ input: {}, config: VALID_CONFIG });
     const body = (await res.json()) as any;
 
-    expect(body.details.newWatermark).toBe("2024-01-01T11:00:00Z");
+    expect(body.details.newWatermark).toBe("2024-01-01T11:00:00.000Z");
   });
 
   it("handles rate limiting by leaving message unarchived", async () => {
