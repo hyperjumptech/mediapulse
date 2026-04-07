@@ -68,11 +68,11 @@ If unsure whether intermediate merges close issues in your org, prefer **`Refs`*
 
 **Do this instead:**
 
-1. Write the markdown to a file (temp file or repo-relative path).
-2. Run `gh pr create ... --body-file /path/to/description.md`.
-3. Optionally delete the temp file after success.
+1. Create a **system temp file** with `mktemp` (uses `$TMPDIR` on macOS, `/tmp` when unset — **never** write PR bodies under the repo, e.g. do not use `.cursor/tmp-pr-body.md`, which pollutes `git status`).
+2. Register cleanup so the file is always removed: `trap 'rm -f "$BODY_FILE"' EXIT` (and after a successful `gh pr create`, you may `rm -f "$BODY_FILE"` and `trap - EXIT` if you want it gone before the shell exits).
+3. Write the markdown to that path, then run `gh pr create ... --body-file "$BODY_FILE"`.
 
-Verify the published body with `gh pr view --json body` as usual.
+Verify the published body with `gh pr view --json body` as usual. The temp file should not remain on disk after the workflow finishes.
 
 ## Optional: skill or docs changes in a dedicated worktree
 
@@ -132,17 +132,18 @@ Run from the **primary repository** clone (the one that owns the worktrees), not
      - `## Key files to review`
      - `## How to test`
 6. Create PR in one shot with a **body file** (no post-create edits for footer cleanup):
-   - Write the full markdown to a file; use the template below.
-   - Remove any accidental signature lines from the file if they appear (for example lines matching `Made with [Cursor](https://cursor.com)` or `Made with Cursor`).
-   - `gh pr create --repo "<owner>/<repo>" --title "..." --body-file /path/to/body.md`
+   - Create a temp file with `mktemp` under the system temp directory only; use the template below (not a path inside the clone).
+   - Write the full markdown to `$BODY_FILE`. Remove any accidental signature lines if they appear (for example lines matching `Made with [Cursor](https://cursor.com)` or `Made with Cursor`).
+   - `gh pr create --repo "<owner>/<repo>" --title "..." --body-file "$BODY_FILE"`
    - Add `--base <base>` when the PR must not target the repo default (stacked branches). Add `--head <head>` if the head branch name is not inferred correctly (e.g. fork or multiple remotes).
+   - When verification (step 7) finishes in the same shell, exiting the shell runs the `trap` and deletes the file. If you run `gh` in separate tool invocations without a persistent shell, run `rm -f "$BODY_FILE"` after step 7.
 
 ```bash
 # Set BASE to the parent branch for stacked PRs, or the repo default for the root of the stack.
 # Example (Git Town): BASE="$(git town config get-parent)"
 # Example (single PR off main): BASE="main"  # or output of gh repo view --json defaultBranchRef ...
 
-BODY_FILE="$(mktemp -t gh-pr-body)"
+BODY_FILE="$(mktemp "${TMPDIR:-/tmp}/gh-pr-body.XXXXXX")"
 trap 'rm -f "$BODY_FILE"' EXIT
 
 cat <<'EOF' >"$BODY_FILE"
@@ -192,7 +193,7 @@ Set `BASE` before this command so it matches the three-dot range in step 3: **st
 - PR title starts with a verb and has no trailing period.
 - Description follows `/pr-title-description` sections, with **`## Related issues`** inserted after **Summary** when work is tracked in GitHub issues.
 - Do not include any signature/footer such as `Made with Cursor` in the PR title or body.
-- Body is supplied via **`--body-file`** so automated footers are not injected into `--body`.
+- Body is supplied via **`--body-file`** so automated footers are not injected into `--body`; the body file is created with **`mktemp`** under the system temp dir and **removed** (`trap` and/or explicit `rm`), never left as `.cursor/tmp-pr-body.md` (or any path inside the repo).
 - After creation, run a read-only body verification check (no `gh pr edit` footer cleanup).
 - High-risk behavior and reviewer-critical files are explicitly called out.
 - Test steps are concrete and include expected outcomes.
