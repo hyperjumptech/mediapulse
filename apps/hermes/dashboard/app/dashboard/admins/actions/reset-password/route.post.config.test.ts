@@ -16,8 +16,8 @@ const baseData = {
 const okGate = () =>
   ({
     ok: true as const,
-    session: { id: "actor", name: "A", email: "a@b.com" },
-    actor: { id: "actor", role: "ADMIN", isActive: true },
+    session: { id: "actor", name: "A", email: "a@b.com", credentialVersion: 0 },
+    actor: { id: "actor", role: "ADMIN", isActive: true, credentialVersion: 0 },
   }) as const;
 
 describe("createResetAdminPasswordHandler", () => {
@@ -68,7 +68,10 @@ describe("createResetAdminPasswordHandler", () => {
     expect(hashPassword).toHaveBeenCalledWith("newsecret");
     expect(update).toHaveBeenCalledWith({
       where: { id: targetId },
-      data: { password: "hashed-new" },
+      data: {
+        password: "hashed-new",
+        credentialVersion: { increment: 1 },
+      },
     });
   });
 });

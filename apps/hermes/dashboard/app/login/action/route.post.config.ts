@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import { prismaClient } from "@hermes/orchestration-database/client";
+import type { Prisma } from "@hermes/orchestration-database";
 import { cookies } from "next/headers";
 import {
   createRequestValidator,
@@ -22,6 +23,7 @@ export const responseValidator = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
+  credentialVersion: z.number().int(),
 });
 
 type UserRecord = {
@@ -31,6 +33,7 @@ type UserRecord = {
   password: string;
   role: string;
   isActive: boolean;
+  credentialVersion: number;
 };
 
 type AuthenticatedAdmin = z.infer<typeof responseValidator>;
@@ -101,7 +104,7 @@ export const createPersistAdminSession = ({
   createSessionToken: createToken = createSessionToken,
 }: PersistAdminSessionDependencies = {}) => {
   /**
-   * Persists session cookie and user payload (id, name, email) for the authenticated admin.
+   * Persists session cookie and user payload (id, name, email, credentialVersion) for the authenticated admin.
    */
   return async (admin: AuthenticatedAdmin) => {
     const cookieStore = await getCookieStore();
@@ -109,7 +112,12 @@ export const createPersistAdminSession = ({
     cookieStore.set("auth-token", createToken(), opts);
     cookieStore.set(
       "auth-user",
-      JSON.stringify({ name: admin.name, email: admin.email, id: admin.id }),
+      JSON.stringify({
+        name: admin.name,
+        email: admin.email,
+        id: admin.id,
+        credentialVersion: admin.credentialVersion,
+      }),
       opts,
     );
   };
@@ -119,10 +127,12 @@ export const createPersistAdminSession = ({
  * Creates an admin-authentication function with injectable dependencies for tests.
  */
 export const createAuthenticateAdmin = ({
-  findUserByEmail = async (email) =>
-    prismaClient.user.findUnique({
+  findUserByEmail = async (email) => {
+    const args = {
       where: { email },
-    }),
+    } satisfies Prisma.UserFindUniqueArgs;
+    return prismaClient.user.findUnique(args);
+  },
   comparePassword = bcrypt.compare,
 }: AuthenticateAdminDependencies = {}) => {
   /**
@@ -148,6 +158,7 @@ export const createAuthenticateAdmin = ({
       id: user.id,
       name: user.name,
       email: user.email,
+      credentialVersion: user.credentialVersion,
     };
   };
 };

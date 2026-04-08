@@ -8,16 +8,14 @@ import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 
-type LoginActionData = {
-  id: string;
-  name: string;
-  email: string;
+type ResetPasswordFormProps = {
+  token: string;
 };
 
 /**
- * Derives login form state from the generated form action hook and handles redirect on success.
+ * Derives reset-password form state from the generated form action hook and redirects on success.
  */
-const useLoginFormState = () => {
+const useResetPasswordFormState = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -25,25 +23,19 @@ const useLoginFormState = () => {
     if (state && state.status === false) {
       return state.message;
     }
-
     return null;
   }, [state]);
 
-  const data = useMemo<LoginActionData | null>(() => {
-    if (state && state.status === true) {
-      return state.data;
-    }
-
-    return null;
+  const success = useMemo(() => {
+    return state && state.status === true;
   }, [state]);
 
   useEffect(() => {
-    if (!data) {
+    if (!success) {
       return;
     }
-
-    router.push("/dashboard");
-  }, [data, router]);
+    router.push("/login");
+  }, [success, router]);
 
   return {
     FormWithAction,
@@ -53,17 +45,18 @@ const useLoginFormState = () => {
 };
 
 /**
- * Renders the admin login form and redirects on success.
+ * Renders the self-service password reset form (token from email link).
  */
-export const LoginForm = () => {
-  const { FormWithAction, pending, errorMessage } = useLoginFormState();
+export const ResetPasswordForm = ({ token }: ResetPasswordFormProps) => {
+  const { FormWithAction, pending, errorMessage } = useResetPasswordFormState();
 
   return (
     <FormWithAction className="flex flex-col gap-6">
+      <input type="hidden" name="body.token" value={token} />
       <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-2xl font-bold">Welcome to Hermes</h1>
+        <h1 className="text-2xl font-bold">Set a new password</h1>
         <p className="text-sm text-muted-foreground text-balance">
-          Enter your admin email and password to log in.
+          Choose a new password for your Hermes admin account.
         </p>
       </div>
       <div className="flex flex-col gap-4">
@@ -73,53 +66,38 @@ export const LoginForm = () => {
           </p>
         ) : null}
         <div className="grid gap-2">
-          <Label htmlFor="body.email">Email</Label>
+          <Label htmlFor="body.newPassword">New password</Label>
           <Input
-            id="body.email"
-            name="body.email"
-            type="email"
-            placeholder="admin@example.com"
-            required
-            autoComplete="email"
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="body.password">Password</Label>
-          <Input
-            id="body.password"
-            name="body.password"
+            id="body.newPassword"
+            name="body.newPassword"
             type="password"
             placeholder="********"
             required
-            autoComplete="current-password"
+            minLength={4}
+            autoComplete="new-password"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            id="rememberMe"
-            name="rememberMe"
-            type="checkbox"
-            value="on"
-            aria-describedby="rememberMe-description"
-            className="size-4 rounded border border-input"
+        <div className="grid gap-2">
+          <Label htmlFor="body.confirmPassword">Confirm password</Label>
+          <Input
+            id="body.confirmPassword"
+            name="body.confirmPassword"
+            type="password"
+            placeholder="********"
+            required
+            minLength={4}
+            autoComplete="new-password"
           />
-          <Label
-            id="rememberMe-description"
-            htmlFor="rememberMe"
-            className="cursor-pointer text-sm font-normal"
-          >
-            Remember me
-          </Label>
         </div>
         <Button type="submit" disabled={pending} className="w-full">
-          {pending ? "Signing in..." : "Login"}
+          {pending ? "Saving…" : "Update password"}
         </Button>
         <p className="text-center text-sm">
           <Link
             href="/login/forgot-password"
             className="text-primary underline-offset-4 hover:underline"
           >
-            Forgot password?
+            Request a new link
           </Link>
         </p>
       </div>

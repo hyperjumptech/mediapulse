@@ -49,6 +49,17 @@ const isReviewableSourceFile = (filePath) =>
 
 const KEBAB_STEM_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/**
+ * True when `stem` is empty, a single kebab-case token, or dot-separated kebab-case tokens
+ * (e.g. `route.post` before `.config.ts`).
+ *
+ * @param {string} stem
+ * @returns {boolean}
+ */
+const isKebabStemOrDotJoinedKebab = (stem) =>
+  stem.length === 0 ||
+  stem.split(".").every((part) => part.length > 0 && KEBAB_STEM_RE.test(part));
+
 /** Basenames that are conventionally not kebab-case filenames. */
 const EXEMPT_BASE_NAMES_LOWER = new Set([
   "dockerfile",
@@ -59,7 +70,7 @@ const EXEMPT_BASE_NAMES_LOWER = new Set([
 ]);
 
 /**
- * Returns the stem that must satisfy {@link KEBAB_STEM_RE}, or `null` when exempt.
+ * Returns the basename stem to validate with {@link isKebabStemOrDotJoinedKebab}, or `null` when exempt.
  * Uses the real basename casing so `BadName.ts` does not become a false negative.
  *
  * @param {string} base
@@ -97,8 +108,7 @@ const isKebabCaseBasename = (filePath) => {
 
   const stem = kebabStemOrExempt(base);
   if (stem === null) return true;
-  if (stem.length === 0) return true;
-  return KEBAB_STEM_RE.test(stem);
+  return isKebabStemOrDotJoinedKebab(stem);
 };
 
 /**
@@ -126,6 +136,209 @@ const firstLineWhere = (text, predicate) => {
     if (predicate(lines[i] ?? "")) return i + 1;
   }
   return undefined;
+};
+
+/** Max characters before `{` to inspect for hook vs component (handles a few wrapped lines). */
+const REACT_HOOK_PRELUDE_MAX_CHARS = 1200;
+
+/**
+ * Classifies `{` at `openBraceIdx`: custom hook body, component (or PascalCase) body, or inherits parent scope.
+ *
+ * @param {string} s
+ * @param {number} openBraceIdx
+ * @returns {"hook"|"component"|"inherit"}
+ */
+const classifyReactOpeningBrace = (s, openBraceIdx) => {
+  const preludeStart = Math.max(0, openBraceIdx - REACT_HOOK_PRELUDE_MAX_CHARS);
+  const prelude = s
+    .slice(preludeStart, openBraceIdx)
+    .replace(/[\s\uFEFF]+$/g, "");
+
+  const arrowHook = prelude.match(
+    /(?:export\s+)?(?:const|let|var)\s+(use[A-Z][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*$/s,
+  );
+  if (arrowHook) return "hook";
+
+  const arrowComp = prelude.match(
+    /(?:export\s+)?(?:const|let|var)\s+([A-Z][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*$/s,
+  );
+  if (arrowComp && !arrowComp[1].startsWith("use")) return "component";
+
+  const funcHook = prelude.match(
+    /(?:export\s+)?function\s+(use[A-Z][\w$]*)\s*\([^)]*\)\s*$/s,
+  );
+  if (funcHook) return "hook";
+
+  const funcComp = prelude.match(
+    /(?:export\s+)?function\s+([A-Z][\w$]*)\s*\([^)]*\)\s*$/s,
+  );
+  if (funcComp && !funcComp[1].startsWith("use")) return "component";
+
+  return "inherit";
+};
+
+/**
+ * 1-based line numbers where `useState(` / `useEffect(` appear in a non–custom-hook scope (heuristic).
+ *
+ * @param {string} text
+ * @returns {readonly number[]}
+ */
+const collectReactCustomHooksViolationLines = (text) => {
+  /** @type {number[]} */
+  const violations = [];
+  /** @type {{ inHook: boolean }[]} */
+  const stack = [{ inHook: false }];
+
+  let i = 0;
+  let line = 1;
+  let state = "code";
+
+  const atIdentifierBoundary = (idx) =>
+    idx === 0 || !/[\w$]/.test(text[idx - 1] ?? "");
+
+  const tryRecordHookCall = (idx) => {
+    if (!atIdentifierBoundary(idx)) return;
+    const slice = text.slice(idx);
+    const m = slice.match(/^use(State|Effect)\s*\(/i);
+    if (!m) return;
+    if (!stack[stack.length - 1].inHook) {
+      violations.push(line);
+    }
+  };
+
+  while (i < text.length) {
+    const c = text[i] ?? "";
+    const next = text[i + 1] ?? "";
+
+    if (state === "code") {
+      if (c === "/" && next === "/") {
+        i += 2;
+        while (i < text.length && text[i] !== "\n") i++;
+        continue;
+      }
+      if (c === "/" && next === "*") {
+        i += 2;
+        state = "block_comment";
+        continue;
+      }
+      if (c === '"') {
+        i++;
+        state = "string_dq";
+        continue;
+      }
+      if (c === "'") {
+        i++;
+        state = "string_sq";
+        continue;
+      }
+      if (c === "`") {
+        i++;
+        state = "template";
+        continue;
+      }
+
+      if (c === "\n") {
+        line++;
+        i++;
+        continue;
+      }
+
+      if (c === "{") {
+        const kind = classifyReactOpeningBrace(text, i);
+        const parent = stack[stack.length - 1].inHook;
+        const inHook =
+          kind === "hook" ? true : kind === "component" ? false : parent;
+        stack.push({ inHook });
+        i++;
+        continue;
+      }
+
+      if (c === "}") {
+        if (stack.length > 1) stack.pop();
+        i++;
+        continue;
+      }
+
+      if (c === "u" || c === "U") {
+        tryRecordHookCall(i);
+      }
+
+      i++;
+      continue;
+    }
+
+    if (state === "block_comment") {
+      if (c === "\n") line++;
+      if (c === "*" && next === "/") {
+        i += 2;
+        state = "code";
+        continue;
+      }
+      i++;
+      continue;
+    }
+
+    if (state === "string_dq") {
+      if (c === "\\") {
+        i += 2;
+        continue;
+      }
+      if (c === "\n") line++;
+      if (c === '"') {
+        i++;
+        state = "code";
+        continue;
+      }
+      i++;
+      continue;
+    }
+
+    if (state === "string_sq") {
+      if (c === "\\") {
+        i += 2;
+        continue;
+      }
+      if (c === "\n") line++;
+      if (c === "'") {
+        i++;
+        state = "code";
+        continue;
+      }
+      i++;
+      continue;
+    }
+
+    if (state === "template") {
+      if (c === "\\") {
+        i += 2;
+        continue;
+      }
+      if (c === "\n") line++;
+      if (c === "`") {
+        i++;
+        state = "code";
+        continue;
+      }
+      if (c === "$" && next === "{") {
+        i += 2;
+        let depth = 1;
+        while (i < text.length && depth > 0) {
+          const ch = text[i] ?? "";
+          if (ch === "\n") line++;
+          if (ch === "{") depth++;
+          else if (ch === "}") depth--;
+          i++;
+        }
+        continue;
+      }
+      i++;
+      continue;
+    }
+
+    i++;
+  }
+
+  return violations;
 };
 
 const CURSOR_PR_REVIEW_DIRECTIVE_MAX_LINES = 40;
@@ -404,16 +617,14 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (!isTsx(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "react-custom-hooks", f.filePath)) continue;
-    if (/\buseState\s*\(/.test(text) || /\buseEffect\s*\(/.test(text)) {
-      const line = firstLineWhere(
-        text,
-        (ln) => /\buseState\s*\(/.test(ln) || /\buseEffect\s*\(/.test(ln),
-      );
+    const violationLines = collectReactCustomHooksViolationLines(text);
+    const uniqueLines = [...new Set(violationLines)].sort((a, b) => a - b);
+    for (const line of uniqueLines) {
       findings.push({
         ruleId: "react-custom-hooks",
         severity: "error",
         filePath: f.filePath,
-        ...(line !== undefined ? { line } : {}),
+        line,
         message:
           "React components must not use useState/useEffect directly; move state/effects into custom hooks.",
       });
