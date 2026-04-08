@@ -13,7 +13,7 @@ describe("useRegistrationForm", () => {
   it("initializes with default state", () => {
     const mockOpenMailto = vi.fn();
     const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto)
+      useRegistrationForm(sampleTickers, mockOpenMailto),
     );
 
     expect(result.current.email).toBe("");
@@ -27,7 +27,7 @@ describe("useRegistrationForm", () => {
   it("handles query changes and toggles dropdown", () => {
     const mockOpenMailto = vi.fn();
     const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto)
+      useRegistrationForm(sampleTickers, mockOpenMailto),
     );
 
     act(() => {
@@ -44,7 +44,7 @@ describe("useRegistrationForm", () => {
   it("selects a ticker and formats the query", () => {
     const mockOpenMailto = vi.fn();
     const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto)
+      useRegistrationForm(sampleTickers, mockOpenMailto),
     );
 
     act(() => {
@@ -59,7 +59,7 @@ describe("useRegistrationForm", () => {
   it("submits the form if both email and ticker exist", async () => {
     const mockOpenMailto = vi.fn();
     const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto)
+      useRegistrationForm(sampleTickers, mockOpenMailto),
     );
 
     act(() => {
@@ -69,7 +69,9 @@ describe("useRegistrationForm", () => {
     });
 
     await act(async () => {
-      const e = { preventDefault: vi.fn() } as unknown as React.FormEvent<HTMLFormElement>;
+      const e = {
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent<HTMLFormElement>;
       await result.current.handleSubmit(e);
     });
 
@@ -80,11 +82,13 @@ describe("useRegistrationForm", () => {
   it("does not submit if email or ticker are missing", async () => {
     const mockOpenMailto = vi.fn();
     const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto)
+      useRegistrationForm(sampleTickers, mockOpenMailto),
     );
 
     await act(async () => {
-      const e = { preventDefault: vi.fn() } as unknown as React.FormEvent<HTMLFormElement>;
+      const e = {
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent<HTMLFormElement>;
       await result.current.handleSubmit(e);
     });
 
@@ -95,7 +99,7 @@ describe("useRegistrationForm", () => {
   it("resets form when resetForm is called", () => {
     const mockOpenMailto = vi.fn();
     const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto)
+      useRegistrationForm(sampleTickers, mockOpenMailto),
     );
 
     act(() => {

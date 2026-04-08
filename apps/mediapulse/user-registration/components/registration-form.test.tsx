@@ -50,7 +50,7 @@ describe("RegistrationForm", () => {
     const user = userEvent.setup();
     const mockOpenMailto = vi.fn();
     render(
-      <RegistrationForm tickers={sampleTickers} openMailto={mockOpenMailto} />
+      <RegistrationForm tickers={sampleTickers} openMailto={mockOpenMailto} />,
     );
 
     // Act
@@ -59,11 +59,11 @@ describe("RegistrationForm", () => {
       "test@example.com",
     );
     await user.type(screen.getByLabelText(/Full name/i), "John Doe");
-    
+
     // Select Ticker
     await user.click(screen.getByLabelText(/Stock ticker/i));
     await user.click(screen.getByText(/Bank Central Asia Tbk/i));
-    
+
     // Submit
     const subscribeBtn = screen.getByRole("button", { name: /Subscribe/i });
     expect(subscribeBtn).not.toBeDisabled();
@@ -73,11 +73,12 @@ describe("RegistrationForm", () => {
     expect(mockOpenMailto).toHaveBeenCalledTimes(1);
     const calledUrl = mockOpenMailto.mock.calls[0]![0]!;
     expect(calledUrl).toContain("mailto:registration@mediapulse.example");
-    expect(calledUrl).toContain(encodeURIComponent("[MediaPulse] Newsletter Subscription - BBCA"));
+    expect(calledUrl).toContain(
+      encodeURIComponent("[MediaPulse] Newsletter Subscription - BBCA"),
+    );
     expect(calledUrl).toContain(encodeURIComponent("test@example.com"));
 
     // Assert Success screen rendered
     expect(screen.getByText(/Subscription Confirmed!/i)).toBeInTheDocument();
   });
 });
-

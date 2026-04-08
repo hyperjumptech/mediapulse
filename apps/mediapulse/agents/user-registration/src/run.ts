@@ -48,7 +48,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 
 /**
  * Predicate to determine if an error should be retried.
- * Evaluates HTTP status codes and Node.js network error codes to determine if 
+ * Evaluates HTTP status codes and Node.js network error codes to determine if
  * the error is likely a transient network or server issue.
  *
  * @param {any} error - The error object to evaluate.
@@ -56,7 +56,13 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
  */
 const isRetryable = (error: any): boolean => {
   // Network connection anomalies
-  const networkErrors = ["ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "ECONNREFUSED", "ECONNABORTED"];
+  const networkErrors = [
+    "ECONNRESET",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "ECONNREFUSED",
+    "ECONNABORTED",
+  ];
   if (error?.code && networkErrors.includes(error.code)) {
     return true;
   }
@@ -72,7 +78,7 @@ const isRetryable = (error: any): boolean => {
     return false;
   }
 
-  // If we can't determine the error type, default to not retrying 
+  // If we can't determine the error type, default to not retrying
   // to avoid infinite loops on unexpected error objects.
   return false;
 };

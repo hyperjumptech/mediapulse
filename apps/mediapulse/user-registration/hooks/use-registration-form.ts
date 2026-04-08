@@ -12,7 +12,7 @@ import { filterTickers, formatTicker, type Ticker } from "@/lib/tickers";
  */
 export const useRegistrationForm = (
   tickers: Ticker[],
-  openMailto: (url: string) => void
+  openMailto: (url: string) => void,
 ) => {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -68,10 +68,10 @@ export const useRegistrationForm = (
     if (!selectedTicker || !email) return;
 
     const subject = encodeURIComponent(
-      `[MediaPulse] Newsletter Subscription - ${selectedTicker.KodeEmiten}`
+      `[MediaPulse] Newsletter Subscription - ${selectedTicker.KodeEmiten}`,
     );
     const body = encodeURIComponent(
-      `I would like to subscribe to updates for ${selectedTicker.KodeEmiten} - ${selectedTicker.NamaEmiten}.\n\nName: ${name || "Not provided"}\nEmail: ${email}\nReference: ${Date.now()}`
+      `I would like to subscribe to updates for ${selectedTicker.KodeEmiten} - ${selectedTicker.NamaEmiten}.\n\nName: ${name || "Not provided"}\nEmail: ${email}\nReference: ${Date.now()}`,
     );
 
     const mailtoUrl = `mailto:registration@mediapulse.example?subject=${subject}&body=${body}`;
