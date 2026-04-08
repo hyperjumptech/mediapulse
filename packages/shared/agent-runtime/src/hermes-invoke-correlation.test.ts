@@ -32,6 +32,15 @@ describe("hermesInvokeCorrelationFromGetHeader", () => {
     });
   });
 
+  it("returns correlation when only X-Job-Id is present", () => {
+    const getHeader = (name: string): string | undefined =>
+      name === HERMES_HEADER_JOB_ID ? "j-only" : undefined;
+
+    expect(hermesInvokeCorrelationFromGetHeader(getHeader)).toEqual({
+      jobId: "j-only",
+    });
+  });
+
   it("returns undefined when no usable header values remain", () => {
     const getHeader = (name: string): string | undefined => {
       if (name === HERMES_HEADER_SCHEDULE_ID) return "   ";

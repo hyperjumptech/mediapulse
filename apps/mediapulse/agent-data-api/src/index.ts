@@ -33,6 +33,10 @@ import {
   postUserRegistrationConfirmHandler,
 } from "./routes/user-registration.js";
 import {
+  getQueryAnalysis,
+  postQueryAnalysis,
+} from "./routes/query-analysis.js";
+import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
 } from "./register-agent-data-api-routes.js";
@@ -76,6 +80,10 @@ const routeHandlers = {
   delivery: {
     get: getDelivery,
     post: postDeliveryHandler,
+  },
+  queryAnalysis: {
+    get: getQueryAnalysis,
+    post: postQueryAnalysis,
   },
   deliveryRun: {
     get: getDeliveryRun,

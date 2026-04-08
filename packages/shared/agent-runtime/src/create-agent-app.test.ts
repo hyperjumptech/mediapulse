@@ -14,6 +14,8 @@ vi.mock("@workspace/agent-auth-client", async (importOriginal) => {
 
 import { createAgentApp } from "./create-agent-app.js";
 import {
+  HERMES_HEADER_EXECUTION_ID,
+  HERMES_HEADER_JOB_ID,
   HERMES_HEADER_PIPELINE_STEP_ID,
   HERMES_HEADER_SCHEDULE_EXECUTION_ID,
   HERMES_HEADER_SCHEDULE_ID,
@@ -293,6 +295,8 @@ describe("createAgentApp", () => {
       method: "POST",
       headers: {
         ...authHeaders,
+        [HERMES_HEADER_JOB_ID]: "job-a",
+        [HERMES_HEADER_EXECUTION_ID]: "exec-h",
         [HERMES_HEADER_SCHEDULE_ID]: "sched-a",
         [HERMES_HEADER_SCHEDULE_EXECUTION_ID]: "exec-b",
         [HERMES_HEADER_PIPELINE_STEP_ID]: "step-c",
@@ -306,6 +310,8 @@ describe("createAgentApp", () => {
       config: {},
       token: "Bearer test-token",
       hermesCorrelation: {
+        jobId: "job-a",
+        executionId: "exec-h",
         scheduleId: "sched-a",
         scheduleExecutionId: "exec-b",
         pipelineStepId: "step-c",

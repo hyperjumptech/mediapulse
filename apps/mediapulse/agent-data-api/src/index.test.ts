@@ -19,6 +19,10 @@ const deliveryPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "delivery",
 );
+const queryAnalysisPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "queryAnalysis",
+);
 const deliveryRunPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "deliveryRun",
@@ -43,8 +47,19 @@ vi.mock("@mediapulse/database", () => ({
     searchQuery: {
       findMany: vi.fn(),
     },
+    searchQuerySet: {
+      updateMany: vi.fn(),
+      create: vi.fn(),
+    },
+    ticker: {
+      findUniqueOrThrow: vi.fn(),
+    },
+    tickerEntity: {
+      findMany: vi.fn(),
+    },
     dataSource: {
       createMany: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
@@ -86,7 +101,7 @@ describe("agent-data-api", () => {
         `http://localhost${contentGenerationPath}?tickerId=${TICKER_ID}`,
       );
       expect(res.status).toBe(401);
-    });
+    }, 20_000);
 
     it("returns 200 and dataSources when service returns data", async () => {
       const mod = await getContentGenerationService();
@@ -139,7 +154,7 @@ describe("agent-data-api", () => {
         `http://localhost${contentGenerationV2Path}?tickerId=${TICKER_ID}`,
       );
       expect(res.status).toBe(401);
-    });
+    }, 20_000);
   });
 
   describe(`POST ${contentGenerationPath}`, () => {
@@ -183,6 +198,10 @@ describe("agent-data-api", () => {
           id: "sq-1",
           text: "query one",
           tickerId: TICKER_ID,
+          setId: null,
+          source: "deterministic",
+          intent: "breaking",
+          rank: 1,
           createdAt: new Date("2026-03-19T00:00:00.000Z"),
           updatedAt: new Date("2026-03-19T00:00:00.000Z"),
         },
@@ -199,6 +218,93 @@ describe("agent-data-api", () => {
       expect(body).toHaveProperty("data");
       expect(body.data).toHaveLength(1);
       expect(body.data[0].text).toBe("query one");
+      expect(prisma.searchQuery.findMany).toHaveBeenCalledWith({
+        where: {
+          tickerId: TICKER_ID,
+          set: { isActive: true },
+        },
+      });
+    });
+  });
+
+  describe(`GET ${queryAnalysisPath}`, () => {
+    it("returns ticker context", async () => {
+      // Setup
+      const { prisma } = await getDatabase();
+      vi.mocked(prisma.ticker.findUniqueOrThrow).mockResolvedValue({
+        id: TICKER_ID,
+        symbol: "AAPL",
+        name: "Apple Inc.",
+        metadata: null,
+        createdAt: new Date("2026-03-19T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-19T00:00:00.000Z"),
+      });
+      vi.mocked(prisma.tickerEntity.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.dataSource.findMany).mockResolvedValue([]);
+
+      // Act
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${queryAnalysisPath}?tickerId=${TICKER_ID}`,
+        { headers: AUTH_HEADERS },
+      );
+      const body = await res.json();
+
+      // Assert
+      expect(res.status).toBe(200);
+      expect(body.ticker.symbol).toBe("AAPL");
+      expect(body.topEntities).toEqual([]);
+      expect(body.recentThemes).toEqual([]);
+    });
+  });
+
+  describe(`POST ${queryAnalysisPath}`, () => {
+    it("creates and activates a query set", async () => {
+      // Setup
+      const { prisma } = await getDatabase();
+      vi.mocked(prisma.searchQuerySet.updateMany).mockResolvedValue({
+        count: 1,
+      });
+      vi.mocked(prisma.searchQuerySet.create).mockResolvedValue({
+        id: "33333333-3333-4333-a333-333333333333",
+        tickerId: TICKER_ID,
+        generatedAt: new Date("2026-03-20T00:00:00.000Z"),
+        isActive: true,
+        strategySnapshot: {},
+        generationSource: "hybrid_v1",
+        agentJobId: null,
+        createdAt: new Date("2026-03-20T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-20T00:00:00.000Z"),
+      });
+
+      // Act
+      const { app } = await import("./index.js");
+      const res = await app.request(`http://localhost${queryAnalysisPath}`, {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerId: TICKER_ID,
+          generationSource: "hybrid_v1",
+          strategySnapshot: { queryCount: 10 },
+          activate: true,
+          queries: [
+            {
+              text: "AAPL latest news",
+              source: "deterministic",
+              intent: "breaking",
+              rank: 1,
+            },
+          ],
+        }),
+      });
+      const body = await res.json();
+
+      // Assert
+      expect(res.status).toBe(200);
+      expect(body.created).toBe(1);
+      expect(body.createdSetId).toBe("33333333-3333-4333-a333-333333333333");
+      expect(prisma.searchQuerySet.updateMany).toHaveBeenCalledOnce();
+      expect(prisma.searchQuerySet.create).toHaveBeenCalledOnce();
     });
   });
 

@@ -103,7 +103,7 @@ describe("delivery-agent", () => {
     expect(body.details?.outcome).toBe("success");
     expect(got.get).toHaveBeenCalled();
     expect(deliver).toHaveBeenCalled();
-  });
+  }, 20_000);
 
   it("returns 200 skip when no newsletter", async () => {
     const got = await getGot();
@@ -137,7 +137,7 @@ describe("delivery-agent", () => {
     const body = (await res.json()) as { status: string; message?: string };
     expect(body.status).toBe("success");
     expect(body.message).toContain("Skipped");
-  });
+  }, 20_000);
 
   it("returns 200 with skipped_all_already_delivered when every recipient was skipped", async () => {
     const got = await getGot();

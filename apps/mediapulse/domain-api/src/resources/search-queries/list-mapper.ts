@@ -15,6 +15,15 @@ export const listInclude = {
       name: true,
     },
   },
+  set: {
+    select: {
+      id: true,
+      isActive: true,
+      generatedAt: true,
+      generationSource: true,
+      agentJobId: true,
+    },
+  },
 } satisfies Prisma.SearchQueryInclude;
 
 /**
@@ -35,6 +44,14 @@ export const mapRowToListItem = (row: ListRow) => ({
   text: row.text,
   tickerSymbol: row.ticker.symbol,
   tickerName: row.ticker.name,
+  activeSet: row.set?.isActive ? "Yes" : "No",
+  intent: row.intent,
+  rank: String(row.rank),
+  source: row.source,
+  setGeneratedAt: (row.set?.generatedAt ?? row.createdAt).toISOString(),
+  generationPipeline: row.set?.generationSource ?? "",
+  querySetId: row.set?.id ?? "",
+  agentJobId: row.set?.agentJobId ?? "",
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });

@@ -15,9 +15,14 @@ describe("mapRowToListItem", () => {
       id: "sq-1",
       text: "earnings",
       tickerId: "t-9",
+      setId: null,
+      source: "deterministic",
+      intent: "breaking",
+      rank: 1,
       createdAt,
       updatedAt,
       ticker: { symbol: "ACME", name: "Acme Inc" },
+      set: null,
     } satisfies ListRow;
 
     // Act
@@ -29,6 +34,14 @@ describe("mapRowToListItem", () => {
       text: "earnings",
       tickerSymbol: "ACME",
       tickerName: "Acme Inc",
+      activeSet: "No",
+      intent: "breaking",
+      rank: "1",
+      source: "deterministic",
+      setGeneratedAt: createdAt.toISOString(),
+      generationPipeline: "",
+      querySetId: "",
+      agentJobId: "",
       createdAt: createdAt.toISOString(),
       updatedAt: updatedAt.toISOString(),
     });

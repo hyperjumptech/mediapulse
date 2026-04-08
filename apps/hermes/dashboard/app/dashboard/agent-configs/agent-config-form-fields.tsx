@@ -167,7 +167,7 @@ export const AgentConfigFormFields = ({
         <p className="text-muted-foreground text-sm">Loading schema…</p>
       ) : isObjectSchema ? (
         <div className="grid gap-1.5">
-          <Label>Config</Label>
+          <Label className="mb-2">Config</Label>
           <SchemaForm
             schema={configSchema as JsonSchema}
             value={config}
