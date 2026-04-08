@@ -38,7 +38,9 @@ export const run = async ({
     };
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "agent-data-api analysis GET failed";
+      error instanceof Error
+        ? error.message
+        : "agent-data-api analysis GET failed";
     logger.error({ tickerId: input.tickerId, err: error }, message);
     return { success: false, message };
   }

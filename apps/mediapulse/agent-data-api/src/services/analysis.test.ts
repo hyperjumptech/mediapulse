@@ -31,7 +31,11 @@ describe("loadAnalysisContext", () => {
       dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
-      entity: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn(), create: vi.fn() },
+      entity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+      },
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
@@ -65,7 +69,11 @@ describe("loadAnalysisContext", () => {
       dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
-      entity: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn(), create: vi.fn() },
+      entity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+      },
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
@@ -88,7 +96,11 @@ describe("loadAnalysisContext", () => {
 
   it("maps existing entities with alias strings", async () => {
     const db = {
-      dataSource: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn(), findFirst: vi.fn() },
+      dataSource: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+      },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
       entity: {
@@ -132,16 +144,22 @@ describe("applyAnalysisPost", () => {
     const DS_BAD = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const tx = {
       dataSource: {
-        findUnique: vi.fn().mockImplementation(({ where: { id } }: { where: { id: string } }) =>
-          Promise.resolve(
-            id === DS_BAD ? { tickerId: "other-ticker" } : null,
+        findUnique: vi
+          .fn()
+          .mockImplementation(({ where: { id } }: { where: { id: string } }) =>
+            Promise.resolve(
+              id === DS_BAD ? { tickerId: "other-ticker" } : null,
+            ),
           ),
-        ),
       },
     };
 
     const db = {
-      dataSource: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
+      dataSource: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+      },
       entityType: { findMany: vi.fn() },
       relationType: { findMany: vi.fn() },
       entity: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },

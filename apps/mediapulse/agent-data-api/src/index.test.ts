@@ -69,7 +69,8 @@ vi.mock("@mediapulse/database", () => ({
 }));
 
 vi.mock("./services/analysis.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./services/analysis.js")>();
+  const actual =
+    await importOriginal<typeof import("./services/analysis.js")>();
   return {
     ...actual,
     loadAnalysisContext: vi.fn(),

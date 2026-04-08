@@ -27,16 +27,10 @@ type AnalysisDb = {
   >;
   entityType: Pick<typeof prisma.entityType, "findMany">;
   relationType: Pick<typeof prisma.relationType, "findMany">;
-  entity: Pick<
-    typeof prisma.entity,
-    "findFirst" | "findMany" | "create"
-  >;
+  entity: Pick<typeof prisma.entity, "findFirst" | "findMany" | "create">;
   entityAlias: Pick<typeof prisma.entityAlias, "createMany">;
   tickerEntity: Pick<typeof prisma.tickerEntity, "create" | "findFirst">;
-  entityRelation: Pick<
-    typeof prisma.entityRelation,
-    "create" | "findUnique"
-  >;
+  entityRelation: Pick<typeof prisma.entityRelation, "create" | "findUnique">;
   articleEntity: Pick<typeof prisma.articleEntity, "upsert">;
   articleRelevance: Pick<typeof prisma.articleRelevance, "upsert">;
   $transaction: typeof prisma.$transaction;
@@ -168,10 +162,12 @@ export const applyAnalysisPost = async (
     let entitiesReused = 0;
 
     for (const ent of body.entities) {
-      const existing = await findReusableEntity(tx, ent.typeId, ent.canonicalName, [
+      const existing = await findReusableEntity(
+        tx,
+        ent.typeId,
         ent.canonicalName,
-        ...ent.aliases,
-      ]);
+        [ent.canonicalName, ...ent.aliases],
+      );
 
       let entityId: string;
       if (existing) {
@@ -245,7 +241,9 @@ export const applyAnalysisPost = async (
 
     let relationsCreated = 0;
     for (const rel of body.relations) {
-      const fromId = nameToEntityId.get(normalizeAnalysisName(rel.fromEntityName));
+      const fromId = nameToEntityId.get(
+        normalizeAnalysisName(rel.fromEntityName),
+      );
       const toId = nameToEntityId.get(normalizeAnalysisName(rel.toEntityName));
       if (!fromId || !toId) {
         throw new AnalysisPostValidationError(
@@ -342,8 +340,9 @@ export const applyAnalysisPost = async (
       articlesScored += 1;
     }
 
-    const articlesSelected = body.articleRelevances.filter((r) => r.selected)
-      .length;
+    const articlesSelected = body.articleRelevances.filter(
+      (r) => r.selected,
+    ).length;
 
     return {
       entitiesCreated,
