@@ -2,8 +2,42 @@ import { prisma } from "@hermes/orchestration-database";
 import type { Prisma } from "@hermes/orchestration-database";
 import { cookies, headers } from "next/headers";
 import type { NextResponse } from "next/server";
+import { z } from "zod";
 
-export type DashboardUser = { id: string; name: string; email: string };
+/**
+ * Zod schema for the JSON stored in the `auth-user` cookie.
+ * Legacy payloads omit `credentialVersion`; non-integer values are treated as `0`.
+ */
+const dashboardAuthUserCookieSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  credentialVersion: z
+    .unknown()
+    .transform((v) => (typeof v === "number" && Number.isInteger(v) ? v : 0)),
+});
+
+/** Session payload stored in `auth-user` and validated against `User.credentialVersion` in the DB. */
+export type DashboardUser = z.infer<typeof dashboardAuthUserCookieSchema>;
+
+/**
+ * Parses the `auth-user` cookie JSON into a {@link DashboardUser}.
+ * Legacy cookies without `credentialVersion` are treated as version `0`.
+ *
+ * @param raw - Decoded cookie string.
+ * @returns Parsed user or `null` when invalid.
+ */
+export const parseDashboardUserFromAuthCookie = (
+  raw: string,
+): DashboardUser | null => {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    const result = dashboardAuthUserCookieSchema.safeParse(parsed);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+};
 
 /**
  * GET route path that clears dashboard auth cookies and redirects to login.
@@ -33,9 +67,11 @@ type ClearDashboardAuthCookiesDependencies = {
 
 type HermesAdminAccessDependencies = {
   getSession?: typeof getDashboardSession;
-  findUserForDashboard?: (
-    userId: string,
-  ) => Promise<{ role: string; isActive: boolean } | null>;
+  findUserForDashboard?: (userId: string) => Promise<{
+    role: string;
+    isActive: boolean;
+    credentialVersion: number;
+  } | null>;
 };
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
@@ -101,24 +137,7 @@ export const getDashboardSession = async ({
 
   if (!token || !raw) return null;
 
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      "id" in parsed &&
-      "name" in parsed &&
-      "email" in parsed &&
-      typeof (parsed as DashboardUser).id === "string" &&
-      typeof (parsed as DashboardUser).name === "string" &&
-      typeof (parsed as DashboardUser).email === "string"
-    ) {
-      return parsed as DashboardUser;
-    }
-  } catch {
-    // ignore
-  }
-  return null;
+  return parseDashboardUserFromAuthCookie(raw);
 };
 
 /**
@@ -177,10 +196,14 @@ export const clearDashboardAuthCookies = createClearDashboardAuthCookies();
 
 const defaultFindUserForDashboard = async (
   userId: string,
-): Promise<{ role: string; isActive: boolean } | null> => {
+): Promise<{
+  role: string;
+  isActive: boolean;
+  credentialVersion: number;
+} | null> => {
   const args = {
     where: { id: userId },
-    select: { role: true, isActive: true },
+    select: { role: true, isActive: true, credentialVersion: true },
   } satisfies Prisma.UserFindUniqueArgs;
   return prisma.user.findUnique(args);
 };
@@ -207,6 +230,10 @@ export const resolveHermesActiveAdminDashboardAccess = async ({
     return { ok: false };
   }
 
+  if (user.credentialVersion !== session.credentialVersion) {
+    return { ok: false };
+  }
+
   return { ok: true };
 };
 
@@ -225,7 +252,8 @@ export const getDashboardSessionForRoute = async (
 
 /**
  * Required auth for route-action-gen `requestValidator.user`.
- * Throws when unauthenticated so `processRequest` / `processFormAction` return 401 and the handler does not run.
+ * Throws when unauthenticated, inactive, non-admin, or when the cookie's
+ * `credentialVersion` does not match the database (password changed elsewhere).
  *
  * @param _request - Optional request (ignored; session is read from next/headers).
  * @returns Dashboard user (never `null`).
@@ -238,5 +266,14 @@ export const requireDashboardSessionForRoute = async (
   if (!session) {
     throw new Error("Unauthorized");
   }
+
+  const user = await defaultFindUserForDashboard(session.id);
+  if (!user || user.role !== "ADMIN" || !user.isActive) {
+    throw new Error("Unauthorized");
+  }
+  if (user.credentialVersion !== session.credentialVersion) {
+    throw new Error("Unauthorized");
+  }
+
   return session;
 };

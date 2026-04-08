@@ -20,8 +20,13 @@ const baseData = {
 const okGate = () =>
   ({
     ok: true as const,
-    session: { id: "actor", name: "A", email: "a@b.com" },
-    actor: { id: "actor", role: "ADMIN", isActive: true },
+    session: {
+      id: "actor",
+      name: "A",
+      email: "a@b.com",
+      credentialVersion: 0,
+    },
+    actor: { id: "actor", role: "ADMIN", isActive: true, credentialVersion: 0 },
   }) as const;
 
 describe("createCreateAdminHandler", () => {

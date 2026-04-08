@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { createRequireHermesAdminManagementActor } from "@/lib/require-hermes-admin-management-actor";
+import { updateHermesAdminPasswordWithCredentialBump } from "@/lib/update-hermes-admin-password";
 
 const bodyValidator = z.object({
   id: z.string().uuid(),
@@ -66,11 +67,12 @@ export const createResetAdminPasswordHandler = ({
       return errorResponse("Admin not found");
     }
 
-    const hashed = await hashPassword(newPassword);
-    await db.user.update({
-      where: { id },
-      data: { password: hashed },
-    });
+    await updateHermesAdminPasswordWithCredentialBump(
+      db,
+      id,
+      newPassword,
+      hashPassword,
+    );
 
     return successResponse({ ok: true as const });
   };

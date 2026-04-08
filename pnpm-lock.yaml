@@ -289,6 +289,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
+      resend:
+        specifier: ^6.9.1
+        version: 6.9.2(@react-email/render@1.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))
       route-action-gen:
         specifier: 'catalog:'
         version: 0.0.10(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(zod@3.25.76)
@@ -17948,6 +17951,13 @@ snapshots:
   require-package-name@2.0.1: {}
 
   requires-port@1.0.0: {}
+
+  resend@6.9.2(@react-email/render@1.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)):
+    dependencies:
+      postal-mime: 2.7.3
+      svix: 1.84.1
+    optionalDependencies:
+      '@react-email/render': 1.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
 
   resend@6.9.2(@react-email/render@1.4.0(react-dom@19.2.4(react@19.2.3))(react@19.2.3)):
     dependencies:

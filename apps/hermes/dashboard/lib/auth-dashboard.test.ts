@@ -8,6 +8,7 @@ import {
   createSessionClearCookieOptions,
   getCookieFromHeader,
   getDashboardSession,
+  parseDashboardUserFromAuthCookie,
   requireDashboardSessionForRoute,
   resolveHermesActiveAdminDashboardAccess,
 } from "./auth-dashboard";
@@ -24,6 +25,55 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(),
   headers: vi.fn().mockResolvedValue(new Headers()),
 }));
+
+describe("parseDashboardUserFromAuthCookie", () => {
+  it("returns null for invalid JSON", () => {
+    expect(parseDashboardUserFromAuthCookie("not-json")).toBeNull();
+  });
+
+  it("returns null when id name email are not strings", () => {
+    expect(parseDashboardUserFromAuthCookie("{}")).toBeNull();
+  });
+
+  it("defaults credentialVersion to 0 when omitted", () => {
+    expect(
+      parseDashboardUserFromAuthCookie(
+        '{"id":"u1","name":"A","email":"a@b.com"}',
+      ),
+    ).toEqual({
+      id: "u1",
+      name: "A",
+      email: "a@b.com",
+      credentialVersion: 0,
+    });
+  });
+
+  it("reads integer credentialVersion when present", () => {
+    expect(
+      parseDashboardUserFromAuthCookie(
+        '{"id":"u1","name":"A","email":"a@b.com","credentialVersion":3}',
+      ),
+    ).toEqual({
+      id: "u1",
+      name: "A",
+      email: "a@b.com",
+      credentialVersion: 3,
+    });
+  });
+
+  it("ignores non-integer credentialVersion", () => {
+    expect(
+      parseDashboardUserFromAuthCookie(
+        '{"id":"u1","name":"A","email":"a@b.com","credentialVersion":1.5}',
+      ),
+    ).toEqual({
+      id: "u1",
+      name: "A",
+      email: "a@b.com",
+      credentialVersion: 0,
+    });
+  });
+});
 
 describe("getDashboardSession", () => {
   afterEach(() => {
@@ -103,6 +153,7 @@ describe("getDashboardSession", () => {
       id: "user-1",
       name: "Admin",
       email: "admin@example.com",
+      credentialVersion: 0,
     });
   });
 
@@ -128,6 +179,7 @@ describe("getDashboardSession", () => {
       id: "user-1",
       name: "Admin",
       email: "admin@example.com",
+      credentialVersion: 0,
     });
   });
 });
@@ -144,6 +196,59 @@ describe("requireDashboardSessionForRoute", () => {
     } as never);
     await expect(requireDashboardSessionForRoute()).rejects.toThrow(
       "Unauthorized",
+    );
+  });
+
+  it("throws when credentialVersion does not match database", async () => {
+    const { cookies } = await import("next/headers");
+    vi.mocked(cookies).mockResolvedValue({
+      get: (name: string) =>
+        name === "auth-token"
+          ? { value: "t" }
+          : name === "auth-user"
+            ? {
+                value: JSON.stringify({
+                  id: "u1",
+                  name: "A",
+                  email: "a@b.com",
+                  credentialVersion: 0,
+                }),
+              }
+            : undefined,
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      role: "ADMIN",
+      isActive: true,
+      credentialVersion: 1,
+    } as never);
+    await expect(requireDashboardSessionForRoute()).rejects.toThrow(
+      "Unauthorized",
+    );
+  });
+
+  it("returns session when credentialVersion matches active admin", async () => {
+    const { cookies } = await import("next/headers");
+    const sessionPayload = {
+      id: "u1",
+      name: "A",
+      email: "a@b.com",
+      credentialVersion: 2,
+    };
+    vi.mocked(cookies).mockResolvedValue({
+      get: (name: string) =>
+        name === "auth-token"
+          ? { value: "t" }
+          : name === "auth-user"
+            ? { value: JSON.stringify(sessionPayload) }
+            : undefined,
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      role: "ADMIN",
+      isActive: true,
+      credentialVersion: 2,
+    } as never);
+    await expect(requireDashboardSessionForRoute()).resolves.toEqual(
+      sessionPayload,
     );
   });
 });
@@ -217,6 +322,7 @@ describe("resolveHermesActiveAdminDashboardAccess", () => {
         id: "u1",
         name: "A",
         email: "a@b.com",
+        credentialVersion: 0,
       }),
       findUserForDashboard: async () => null,
     });
@@ -229,10 +335,29 @@ describe("resolveHermesActiveAdminDashboardAccess", () => {
         id: "u1",
         name: "A",
         email: "a@b.com",
+        credentialVersion: 0,
       }),
       findUserForDashboard: async () => ({
         role: "USER",
         isActive: true,
+        credentialVersion: 0,
+      }),
+    });
+    expect(result).toEqual({ ok: false });
+  });
+
+  it("returns ok false when credentialVersion mismatches", async () => {
+    const result = await resolveHermesActiveAdminDashboardAccess({
+      getSession: async () => ({
+        id: "u1",
+        name: "A",
+        email: "a@b.com",
+        credentialVersion: 0,
+      }),
+      findUserForDashboard: async () => ({
+        role: "ADMIN",
+        isActive: true,
+        credentialVersion: 1,
       }),
     });
     expect(result).toEqual({ ok: false });
@@ -244,10 +369,12 @@ describe("resolveHermesActiveAdminDashboardAccess", () => {
         id: "u1",
         name: "A",
         email: "a@b.com",
+        credentialVersion: 0,
       }),
       findUserForDashboard: async () => ({
         role: "ADMIN",
         isActive: true,
+        credentialVersion: 0,
       }),
     });
     expect(result).toEqual({ ok: true });
@@ -257,12 +384,14 @@ describe("resolveHermesActiveAdminDashboardAccess", () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       role: "ADMIN",
       isActive: true,
+      credentialVersion: 0,
     } as never);
     const result = await resolveHermesActiveAdminDashboardAccess({
       getSession: async () => ({
         id: "u1",
         name: "A",
         email: "a@b.com",
+        credentialVersion: 0,
       }),
     });
     expect(result).toEqual({ ok: true });
