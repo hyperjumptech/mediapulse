@@ -190,13 +190,13 @@ Public-facing newsletter signup UI. The current implementation serves ticker cho
 
 ### 4. Mediapulse agents
 
-Examples: **`@mediapulse/data-collection`**, **`@mediapulse/content-generation`**, **`@mediapulse/delivery`**, **`@mediapulse/ticker-echo`** under `apps/mediapulse/agents/*`. Merge **`packages/mediapulse/env/env.example`** with the matching **`packages/mediapulse/env/env.agents.*.example`**.
+Examples: **`@mediapulse/data-collection`**, **`@mediapulse/content-generation`**, **`@mediapulse/article-analysis`**, **`@mediapulse/delivery`**, **`@mediapulse/ticker-echo`** under `apps/mediapulse/agents/*`. Merge **`packages/mediapulse/env/env.example`** with the matching **`packages/mediapulse/env/env.agents.*.example`**. Each agent may ship **`Dockerfile`** and **`fly.toml`**; merges to **`main`** trigger **`Agent Deployment`** (`.github/workflows/agent-deploy.yml`) for the configured apps.
 
 | Step                 | Command                                                                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Install dependencies | `pnpm install --frozen-lockfile`                                                                                              |
 | Build                | `pnpm exec turbo build --filter=@mediapulse/data-collection` (swap package name per agent)                                    |
-| Run (production)     | From the agent app directory: `bun run ./dist/server.js` (set `PORT` per agent; defaults e.g. `4001`, `4002`, `4003`, `4010`) |
+| Run (production)     | From the agent app directory: `bun run ./dist/server.js` (set `PORT` per agent; defaults e.g. `4001`, `4002`, `4003`, `4010`, `4011`) |
 
 | Variable                     | Example value                        | Explanation                                                                                                              |
 | ---------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |

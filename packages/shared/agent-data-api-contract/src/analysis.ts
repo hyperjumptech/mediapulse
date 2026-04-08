@@ -4,9 +4,10 @@ const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
 
 export const getAnalysisQuerySchema = z.object({
   tickerId: z.string().trim().min(1),
+  /** Omitted query param defaults to incremental unanalyzed-only runs (PRD FR2). */
   unanalyzed: z
     .enum(["true", "false"])
-    .optional()
+    .default("true")
     .transform((value) => value === "true"),
 });
 
