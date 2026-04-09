@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
