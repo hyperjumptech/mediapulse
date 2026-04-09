@@ -16,6 +16,7 @@ Official reference: [Stacked changes (Git Town)](https://www.git-town.com/stacke
 ## Prerequisites
 
 - [Git Town](https://www.git-town.com/) installed and configured for this repo (parent branch, remote, per-project settings as needed).
+  - **Verify installation:** run `git town --version` (prints the Git Town version). Do **not** run `git town version`—that is not the supported check and can fail or exit non-zero, so agents may incorrectly assume Git Town is not installed.
 - User (or CI) can merge **oldest PR first** when branches depend on each other.
 
 ## How this pairs with `/prd-to-tickets`
