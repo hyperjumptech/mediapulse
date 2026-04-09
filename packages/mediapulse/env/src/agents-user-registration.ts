@@ -18,7 +18,9 @@ export const env = createEnv({
     OUTLOOK_USER_ID: z.string().optional(),
   },
   client: {
+    NEXT_PUBLIC_REGISTRATION_EMAIL: z.string().min(1),
   },
   experimental__runtimeEnv: {
+    NEXT_PUBLIC_REGISTRATION_EMAIL: process.env.NEXT_PUBLIC_REGISTRATION_EMAIL,
   }
 });

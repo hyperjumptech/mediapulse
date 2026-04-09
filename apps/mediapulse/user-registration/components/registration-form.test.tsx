@@ -5,6 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RegistrationForm } from "./registration-form";
 import type { Ticker } from "@/lib/tickers";
 
+vi.mock("@mediapulse/env/agents-user-registration", () => ({
+  env: { NEXT_PUBLIC_REGISTRATION_EMAIL: "registration@test.example" },
+}));
+
 const sampleTickers: Ticker[] = [
   { KodeEmiten: "AADI", NamaEmiten: "PT Adaro Andalan Indonesia Tbk" },
   { KodeEmiten: "BBCA", NamaEmiten: "Bank Central Asia Tbk" },
@@ -72,13 +76,15 @@ describe("RegistrationForm", () => {
     // Assert mailto was called
     expect(mockOpenMailto).toHaveBeenCalledTimes(1);
     const calledUrl = mockOpenMailto.mock.calls[0]![0]!;
-    expect(calledUrl).toContain("mailto:registration@mediapulse.example");
+    expect(calledUrl).toContain("mailto:registration@test.example");
     expect(calledUrl).toContain(
       encodeURIComponent("[MediaPulse] Newsletter Subscription - BBCA"),
     );
     expect(calledUrl).toContain(encodeURIComponent("test@example.com"));
 
     // Assert Success screen rendered
-    expect(screen.getByText(/Subscription Confirmed!/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Your subscription request is being processed/i),
+    ).toBeInTheDocument();
   });
 });

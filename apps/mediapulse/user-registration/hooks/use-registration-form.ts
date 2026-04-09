@@ -1,7 +1,13 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { filterTickers, formatTicker, type Ticker } from "@/lib/tickers";
+import {
+  filterTickers,
+  formatTicker,
+  buildMailtoUrl,
+  type Ticker,
+} from "@/lib/tickers";
+import { env } from "@mediapulse/env/agents-user-registration";
 
 /**
  * Custom hook to manage state and logic for the registration form.
@@ -67,14 +73,12 @@ export const useRegistrationForm = (
     e.preventDefault();
     if (!selectedTicker || !email) return;
 
-    const subject = encodeURIComponent(
-      `[MediaPulse] Newsletter Subscription - ${selectedTicker.KodeEmiten}`,
+    const mailtoUrl = buildMailtoUrl(
+      selectedTicker,
+      name,
+      email,
+      env.NEXT_PUBLIC_REGISTRATION_EMAIL,
     );
-    const body = encodeURIComponent(
-      `I would like to subscribe to updates for ${selectedTicker.KodeEmiten} - ${selectedTicker.NamaEmiten}.\n\nName: ${name || "Not provided"}\nEmail: ${email}\nReference: ${Date.now()}`,
-    );
-
-    const mailtoUrl = `mailto:registration@mediapulse.example?subject=${subject}&body=${body}`;
     openMailto(mailtoUrl);
     setSubmitted(true);
     toast.success("Please check your email client to complete registration.");

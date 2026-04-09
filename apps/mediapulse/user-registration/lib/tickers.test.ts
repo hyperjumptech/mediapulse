@@ -1,3 +1,4 @@
+/** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 import {
   filterTickers,
@@ -90,60 +91,66 @@ describe("formatTicker", () => {
 });
 
 describe("buildMailtoUrl", () => {
-  it("targets mediapulse@hyperjump.tech", () => {
-    // Setup
-    const ticker: Ticker = {
-      KodeEmiten: "BBCA",
-      NamaEmiten: "Bank Central Asia Tbk",
-    };
+  const ticker: Ticker = {
+    KodeEmiten: "BBCA",
+    NamaEmiten: "Bank Central Asia Tbk",
+  };
+  const REG_EMAIL = "registration@test.example";
 
+  it("targets the given registration email", () => {
     // Act
-    const url = buildMailtoUrl(ticker);
+    const url = buildMailtoUrl(ticker, "", "sender@example.com", REG_EMAIL);
 
     // Assert
-    expect(url.startsWith("mailto:mediapulse@hyperjump.tech")).toBe(true);
+    expect(url.startsWith(`mailto:${REG_EMAIL}`)).toBe(true);
   });
 
   it("includes encoded subject with ticker code", () => {
     // Setup
-    const ticker: Ticker = {
+    const t: Ticker = {
       KodeEmiten: "TLKM",
       NamaEmiten: "Telkom Indonesia Tbk",
     };
 
     // Act
-    const url = buildMailtoUrl(ticker);
+    const url = buildMailtoUrl(t, "", "sender@example.com", REG_EMAIL);
 
     // Assert
     expect(url).toContain("subject=");
     expect(url).toContain(encodeURIComponent("TLKM"));
   });
 
-  it("includes the ticker name in the encoded body", () => {
+  it("includes the ticker name and sender email in the encoded body", () => {
     // Setup
-    const ticker: Ticker = {
+    const t: Ticker = {
       KodeEmiten: "AADI",
       NamaEmiten: "PT Adaro Andalan Indonesia Tbk",
     };
 
     // Act
-    const url = buildMailtoUrl(ticker);
+    const url = buildMailtoUrl(t, "Alice", "alice@example.com", REG_EMAIL);
 
     // Assert
     expect(url).toContain(encodeURIComponent("AADI"));
     expect(url).toContain(encodeURIComponent("PT Adaro Andalan Indonesia Tbk"));
+    expect(url).toContain(encodeURIComponent("alice@example.com"));
+    expect(url).toContain(encodeURIComponent("Alice"));
   });
 
-  it("does not modify the fixed recipient address", () => {
-    // Setup
-    const ticker: Ticker = { KodeEmiten: "AADI", NamaEmiten: "PT Adaro" };
-
+  it("uses 'Not provided' when name is empty", () => {
     // Act
-    const url = buildMailtoUrl(ticker);
+    const url = buildMailtoUrl(ticker, "", "sender@example.com", REG_EMAIL);
+
+    // Assert
+    expect(url).toContain(encodeURIComponent("Not provided"));
+  });
+
+  it("does not modify the recipient address", () => {
+    // Act
+    const url = buildMailtoUrl(ticker, "", "sender@example.com", REG_EMAIL);
 
     // Assert
     const recipient = url.split("?").at(0)?.replace("mailto:", "");
-
-    expect(recipient).toBe("mediapulse@hyperjump.tech");
+    expect(recipient).toBe(REG_EMAIL);
   });
 });

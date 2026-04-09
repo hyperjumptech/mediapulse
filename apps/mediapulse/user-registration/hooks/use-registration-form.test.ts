@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import { useRegistrationForm } from "./use-registration-form";
 import type { Ticker } from "@/lib/tickers";
 
+vi.mock("@mediapulse/env/agents-user-registration", () => ({
+  env: { NEXT_PUBLIC_REGISTRATION_EMAIL: "registration@test.example" },
+}));
+
 const sampleTickers: Ticker[] = [
   { KodeEmiten: "AADI", NamaEmiten: "PT Adaro Andalan Indonesia Tbk" },
   { KodeEmiten: "BBCA", NamaEmiten: "Bank Central Asia Tbk" },
