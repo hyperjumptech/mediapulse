@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
 
+import { getAnalysis, postAnalysis } from "./routes/analysis.js";
 import {
   getContentGeneration,
   postContentGeneration,
@@ -32,6 +33,10 @@ import {
   postUserRegistrationRegisterHandler,
   postUserRegistrationConfirmHandler,
 } from "./routes/user-registration.js";
+import {
+  getQueryAnalysis,
+  postQueryAnalysis,
+} from "./routes/query-analysis.js";
 import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
@@ -57,6 +62,10 @@ app.use(
   }),
 );
 const routeHandlers = {
+  analysis: {
+    get: getAnalysis,
+    post: postAnalysis,
+  },
   contentGeneration: {
     get: getContentGeneration,
     post: postContentGeneration,
@@ -76,6 +85,10 @@ const routeHandlers = {
   delivery: {
     get: getDelivery,
     post: postDeliveryHandler,
+  },
+  queryAnalysis: {
+    get: getQueryAnalysis,
+    post: postQueryAnalysis,
   },
   deliveryRun: {
     get: getDeliveryRun,

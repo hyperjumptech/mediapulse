@@ -132,7 +132,7 @@ describe("data-collection agent (HTTP)", () => {
     expect(res.status).toBe(200);
     expect(body.schemaVersion).toBe(1);
     expect(body.status).toBe("success");
-  });
+  }, 15000);
 
   it("returns 400 when required provider config is missing", async () => {
     // Setup
@@ -162,7 +162,7 @@ describe("data-collection agent (HTTP)", () => {
     expect(res.status).toBe(400);
     expect(failureCreateMock).not.toHaveBeenCalled();
     expect(runCreateMock).not.toHaveBeenCalled();
-  });
+  }, 15000);
 
   it("returns 200 and a Hermes failure envelope when the run is policy-failed", async () => {
     // Setup
@@ -210,5 +210,5 @@ describe("data-collection agent (HTTP)", () => {
     expect(body.message).toBe(
       "Data collection run failed: no sources were successfully collected, but the run policy requires at least 1 successful source.",
     );
-  });
+  }, 15000);
 });

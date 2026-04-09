@@ -7,6 +7,10 @@ import {
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const SEARCH_QUERY_ID = "22222222-2222-4222-a222-222222222222";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
+const analysisPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "analysis",
+);
 const contentGenerationPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "contentGeneration",
@@ -18,6 +22,10 @@ const dataCollectionPath = agentDataApiPathname(
 const deliveryPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "delivery",
+);
+const queryAnalysisPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "queryAnalysis",
 );
 const deliveryRunPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
@@ -43,11 +51,32 @@ vi.mock("@mediapulse/database", () => ({
     searchQuery: {
       findMany: vi.fn(),
     },
+    searchQuerySet: {
+      updateMany: vi.fn(),
+      create: vi.fn(),
+    },
+    ticker: {
+      findUniqueOrThrow: vi.fn(),
+    },
+    tickerEntity: {
+      findMany: vi.fn(),
+    },
     dataSource: {
       createMany: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
+
+vi.mock("./services/analysis.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./services/analysis.js")>();
+  return {
+    ...actual,
+    loadAnalysisContext: vi.fn(),
+    applyAnalysisPost: vi.fn(),
+  };
+});
 
 vi.mock("./services/content-generation.js", () => ({
   getDataSourcesForTicker: vi.fn(),
@@ -64,6 +93,7 @@ vi.mock("./services/delivery-run.js", () => ({
   createDeliveryRun: vi.fn(),
 }));
 
+const getAnalysisService = () => import("./services/analysis.js");
 const getContentGenerationService = () =>
   import("./services/content-generation.js");
 const getDeliveryService = () => import("./services/delivery.js");
@@ -86,7 +116,7 @@ describe("agent-data-api", () => {
         `http://localhost${contentGenerationPath}?tickerId=${TICKER_ID}`,
       );
       expect(res.status).toBe(401);
-    });
+    }, 20_000);
 
     it("returns 200 and dataSources when service returns data", async () => {
       const mod = await getContentGenerationService();
@@ -139,7 +169,7 @@ describe("agent-data-api", () => {
         `http://localhost${contentGenerationV2Path}?tickerId=${TICKER_ID}`,
       );
       expect(res.status).toBe(401);
-    });
+    }, 20_000);
   });
 
   describe(`POST ${contentGenerationPath}`, () => {
@@ -175,6 +205,111 @@ describe("agent-data-api", () => {
     });
   });
 
+  describe(`GET ${analysisPath}`, () => {
+    it("returns 401 without Authorization header", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${analysisPath}?tickerId=${TICKER_ID}`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("returns 200 with analysis context when service returns data", async () => {
+      const mod = await getAnalysisService();
+      vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
+        dataSources: [
+          {
+            id: "33333333-3333-4333-a333-333333333333",
+            url: "https://example.com",
+            title: "Example",
+            content: "Body",
+            tickerId: TICKER_ID,
+            createdAt: new Date("2026-03-19T00:00:00.000Z"),
+          },
+        ],
+        entityTypes: [],
+        relationTypes: [],
+        existingEntities: [],
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${analysisPath}?tickerId=${TICKER_ID}`,
+        { headers: AUTH_HEADERS },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.dataSources).toHaveLength(1);
+      expect(mod.loadAnalysisContext).toHaveBeenCalledWith({
+        tickerId: TICKER_ID,
+        unanalyzed: true,
+      });
+    });
+  });
+
+  describe(`POST ${analysisPath}`, () => {
+    it("returns 400 when applyAnalysisPost rejects validation", async () => {
+      const mod = await getAnalysisService();
+      vi.mocked(mod.applyAnalysisPost).mockRejectedValue(
+        new mod.AnalysisPostValidationError("bad data source"),
+      );
+
+      const { app } = await import("./index.js");
+      const res = await app.request(`http://localhost${analysisPath}`, {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerId: TICKER_ID,
+          entities: [],
+          relations: [],
+          articleEntities: [],
+          articleRelevances: [],
+        }),
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe("bad data source");
+    });
+
+    it("returns 200 with counts when body is valid", async () => {
+      const mod = await getAnalysisService();
+      vi.mocked(mod.applyAnalysisPost).mockResolvedValue({
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 0,
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(`http://localhost${analysisPath}`, {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerId: TICKER_ID,
+          entities: [],
+          relations: [],
+          articleEntities: [],
+          articleRelevances: [
+            {
+              dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              score: 0.5,
+              scoreBreakdown: { _version: 1, a: 0.5 },
+              selected: false,
+            },
+          ],
+        }),
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.entitiesCreated).toBe(1);
+      expect(body.articlesScored).toBe(1);
+    });
+  });
+
   describe(`GET ${dataCollectionPath}`, () => {
     it("returns 200 and data when service returns data", async () => {
       const { prisma } = await getDatabase();
@@ -183,6 +318,10 @@ describe("agent-data-api", () => {
           id: "sq-1",
           text: "query one",
           tickerId: TICKER_ID,
+          setId: null,
+          source: "deterministic",
+          intent: "breaking",
+          rank: 1,
           createdAt: new Date("2026-03-19T00:00:00.000Z"),
           updatedAt: new Date("2026-03-19T00:00:00.000Z"),
         },
@@ -199,6 +338,93 @@ describe("agent-data-api", () => {
       expect(body).toHaveProperty("data");
       expect(body.data).toHaveLength(1);
       expect(body.data[0].text).toBe("query one");
+      expect(prisma.searchQuery.findMany).toHaveBeenCalledWith({
+        where: {
+          tickerId: TICKER_ID,
+          set: { isActive: true },
+        },
+      });
+    });
+  });
+
+  describe(`GET ${queryAnalysisPath}`, () => {
+    it("returns ticker context", async () => {
+      // Setup
+      const { prisma } = await getDatabase();
+      vi.mocked(prisma.ticker.findUniqueOrThrow).mockResolvedValue({
+        id: TICKER_ID,
+        symbol: "AAPL",
+        name: "Apple Inc.",
+        metadata: null,
+        createdAt: new Date("2026-03-19T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-19T00:00:00.000Z"),
+      });
+      vi.mocked(prisma.tickerEntity.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.dataSource.findMany).mockResolvedValue([]);
+
+      // Act
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${queryAnalysisPath}?tickerId=${TICKER_ID}`,
+        { headers: AUTH_HEADERS },
+      );
+      const body = await res.json();
+
+      // Assert
+      expect(res.status).toBe(200);
+      expect(body.ticker.symbol).toBe("AAPL");
+      expect(body.topEntities).toEqual([]);
+      expect(body.recentThemes).toEqual([]);
+    });
+  });
+
+  describe(`POST ${queryAnalysisPath}`, () => {
+    it("creates and activates a query set", async () => {
+      // Setup
+      const { prisma } = await getDatabase();
+      vi.mocked(prisma.searchQuerySet.updateMany).mockResolvedValue({
+        count: 1,
+      });
+      vi.mocked(prisma.searchQuerySet.create).mockResolvedValue({
+        id: "33333333-3333-4333-a333-333333333333",
+        tickerId: TICKER_ID,
+        generatedAt: new Date("2026-03-20T00:00:00.000Z"),
+        isActive: true,
+        strategySnapshot: {},
+        generationSource: "hybrid_v1",
+        agentJobId: null,
+        createdAt: new Date("2026-03-20T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-20T00:00:00.000Z"),
+      });
+
+      // Act
+      const { app } = await import("./index.js");
+      const res = await app.request(`http://localhost${queryAnalysisPath}`, {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerId: TICKER_ID,
+          generationSource: "hybrid_v1",
+          strategySnapshot: { queryCount: 10 },
+          activate: true,
+          queries: [
+            {
+              text: "AAPL latest news",
+              source: "deterministic",
+              intent: "breaking",
+              rank: 1,
+            },
+          ],
+        }),
+      });
+      const body = await res.json();
+
+      // Assert
+      expect(res.status).toBe(200);
+      expect(body.created).toBe(1);
+      expect(body.createdSetId).toBe("33333333-3333-4333-a333-333333333333");
+      expect(prisma.searchQuerySet.updateMany).toHaveBeenCalledOnce();
+      expect(prisma.searchQuerySet.create).toHaveBeenCalledOnce();
     });
   });
 

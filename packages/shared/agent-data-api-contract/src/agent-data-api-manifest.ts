@@ -1,5 +1,11 @@
 import { z } from "zod";
 import {
+  getAnalysisQuerySchema,
+  getAnalysisResponseSchema,
+  postAnalysisBodySchema,
+  postAnalysisResponseSchema,
+} from "./analysis.js";
+import {
   getContentGenerationQuerySchema,
   getContentGenerationResponseSchema,
   postContentGenerationBodySchema,
@@ -41,6 +47,12 @@ import {
   postUserRegistrationConfirmBodySchema,
   postUserRegistrationConfirmResponseSchema,
 } from "./user-registration.js";
+import {
+  getQueryAnalysisQuerySchema,
+  getQueryAnalysisResponseSchema,
+  postQueryAnalysisBodySchema,
+  postQueryAnalysisResponseSchema,
+} from "./query-analysis.js";
 
 type AgentDataApiMethodSchema =
   | {
@@ -87,6 +99,28 @@ export const AGENT_DATA_API_PREFIX = "/api" as const;
 export const AGENT_DATA_API_DEFAULT_VERSION = "v1" as const;
 
 export const agentDataApiManifest = defineAgentDataApiManifest({
+  analysis: {
+    v1: {
+      get: {
+        query: getAnalysisQuerySchema,
+        response: getAnalysisResponseSchema,
+      },
+      post: {
+        body: postAnalysisBodySchema,
+        response: postAnalysisResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getAnalysisQuerySchema,
+        response: getAnalysisResponseSchema,
+      },
+      post: {
+        body: postAnalysisBodySchema,
+        response: postAnalysisResponseSchema,
+      },
+    },
+  },
   contentGeneration: {
     v1: {
       get: {
@@ -197,6 +231,7 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       },
     },
   },
+
   deliveryRun: {
     v1: {
       get: {
@@ -216,6 +251,28 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDeliveryRunBodySchema,
         response: postDeliveryRunResponseSchema,
+      },
+    },
+  },
+  queryAnalysis: {
+    v1: {
+      get: {
+        query: getQueryAnalysisQuerySchema,
+        response: getQueryAnalysisResponseSchema,
+      },
+      post: {
+        body: postQueryAnalysisBodySchema,
+        response: postQueryAnalysisResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getQueryAnalysisQuerySchema,
+        response: getQueryAnalysisResponseSchema,
+      },
+      post: {
+        body: postQueryAnalysisBodySchema,
+        response: postQueryAnalysisResponseSchema,
       },
     },
   },

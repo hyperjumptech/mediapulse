@@ -1,0 +1,4 @@
+# flyctl launch added from .gitignore
+# deps
+**/node_modules
+fly.toml

@@ -27,11 +27,23 @@ It uses:
 | `PORT`                       | Yes      | Agent HTTP port                                            |
 | `AGENT_AUTH_API_URL`         | Yes      | JWT/API-key verification endpoint                          |
 | `AGENT_DATA_API_URL`         | Yes      | Base URL for data API calls                                |
-| `OPENAI_API_KEY`             | Yes      | LLM provider key                                           |
-| `OPENAI_MODEL`               | Yes      | Model id used for query generation                         |
 | `AGENT_REGISTRY_URL`         | No       | Needed for auto-register                                   |
 | `DOMAIN_INTEGRATION_API_KEY` | No       | Hermes domain integration API key for auto-register (mint JWT) |
 | `AGENT_PUBLIC_URL`           | No       | Needed for auto-register                                   |
+
+## Hermes agent `config` (strategy + LLM)
+
+This agent is configured per pipeline step via the Hermes invoke request body `config`.
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `openaiApiKey` | Yes | OpenAI API key (never stored in `packages/mediapulse/env` for this agent). |
+| `openaiModel` | No | Defaults to `gpt-4o-mini`. |
+| `queryCount` | No | Total queries to persist (default `10`). |
+| `minDeterministicCount` | No | Deterministic “floor” before LLM complement (default `4`). |
+| `allowedLanguages` | No | Target languages as BCP-47 codes (default `["en"]`). |
+| `weightBreaking` / `weightKgChange` / `weightFundamental` | No | Intent mix weights (default `1`, `0.8`, `0.6`). |
+| `maxTokens` | No | LLM output token budget (default `800`). |
 
 ## Pipeline usage
 
