@@ -109,6 +109,39 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+  query-analysis:
+    runs-on: ubuntu-latest
+    env:
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Set up build environment
+        run: |
+          ./dev-bootstrap.sh
+          pnpm install
+          pnpm generate
+
+      - name: Build
+        run: pnpm exec turbo build --filter=@mediapulse/query-analysis --only
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to fly.io
+        run: flyctl deploy --remote-only -c apps/mediapulse/agents/query-analysis/fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
   delivery:
     runs-on: ubuntu-latest
     env:
