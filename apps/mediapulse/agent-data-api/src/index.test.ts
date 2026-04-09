@@ -7,6 +7,10 @@ import {
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const SEARCH_QUERY_ID = "22222222-2222-4222-a222-222222222222";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
+const analysisPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "analysis",
+);
 const contentGenerationPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "contentGeneration",
@@ -64,6 +68,16 @@ vi.mock("@mediapulse/database", () => ({
   },
 }));
 
+vi.mock("./services/analysis.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./services/analysis.js")>();
+  return {
+    ...actual,
+    loadAnalysisContext: vi.fn(),
+    applyAnalysisPost: vi.fn(),
+  };
+});
+
 vi.mock("./services/content-generation.js", () => ({
   getDataSourcesForTicker: vi.fn(),
   createNewsletter: vi.fn(),
@@ -79,6 +93,7 @@ vi.mock("./services/delivery-run.js", () => ({
   createDeliveryRun: vi.fn(),
 }));
 
+const getAnalysisService = () => import("./services/analysis.js");
 const getContentGenerationService = () =>
   import("./services/content-generation.js");
 const getDeliveryService = () => import("./services/delivery.js");
@@ -187,6 +202,111 @@ describe("agent-data-api", () => {
 
       expect(res.status).toBe(200);
       expect(body.message).toBe("Success");
+    });
+  });
+
+  describe(`GET ${analysisPath}`, () => {
+    it("returns 401 without Authorization header", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${analysisPath}?tickerId=${TICKER_ID}`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("returns 200 with analysis context when service returns data", async () => {
+      const mod = await getAnalysisService();
+      vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
+        dataSources: [
+          {
+            id: "33333333-3333-4333-a333-333333333333",
+            url: "https://example.com",
+            title: "Example",
+            content: "Body",
+            tickerId: TICKER_ID,
+            createdAt: new Date("2026-03-19T00:00:00.000Z"),
+          },
+        ],
+        entityTypes: [],
+        relationTypes: [],
+        existingEntities: [],
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${analysisPath}?tickerId=${TICKER_ID}`,
+        { headers: AUTH_HEADERS },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.dataSources).toHaveLength(1);
+      expect(mod.loadAnalysisContext).toHaveBeenCalledWith({
+        tickerId: TICKER_ID,
+        unanalyzed: true,
+      });
+    });
+  });
+
+  describe(`POST ${analysisPath}`, () => {
+    it("returns 400 when applyAnalysisPost rejects validation", async () => {
+      const mod = await getAnalysisService();
+      vi.mocked(mod.applyAnalysisPost).mockRejectedValue(
+        new mod.AnalysisPostValidationError("bad data source"),
+      );
+
+      const { app } = await import("./index.js");
+      const res = await app.request(`http://localhost${analysisPath}`, {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerId: TICKER_ID,
+          entities: [],
+          relations: [],
+          articleEntities: [],
+          articleRelevances: [],
+        }),
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe("bad data source");
+    });
+
+    it("returns 200 with counts when body is valid", async () => {
+      const mod = await getAnalysisService();
+      vi.mocked(mod.applyAnalysisPost).mockResolvedValue({
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 0,
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(`http://localhost${analysisPath}`, {
+        method: "POST",
+        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tickerId: TICKER_ID,
+          entities: [],
+          relations: [],
+          articleEntities: [],
+          articleRelevances: [
+            {
+              dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              score: 0.5,
+              scoreBreakdown: { _version: 1, a: 0.5 },
+              selected: false,
+            },
+          ],
+        }),
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.entitiesCreated).toBe(1);
+      expect(body.articlesScored).toBe(1);
     });
   });
 

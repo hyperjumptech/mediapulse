@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
 
+import { getAnalysis, postAnalysis } from "./routes/analysis.js";
 import {
   getContentGeneration,
   postContentGeneration,
@@ -61,6 +62,10 @@ app.use(
   }),
 );
 const routeHandlers = {
+  analysis: {
+    get: getAnalysis,
+    post: postAnalysis,
+  },
   contentGeneration: {
     get: getContentGeneration,
     post: postContentGeneration,

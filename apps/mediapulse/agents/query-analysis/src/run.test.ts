@@ -114,7 +114,8 @@ describe("query-analysis run", () => {
     });
 
     // Assert
-    const payload = mockCreate.mock.calls.at(-1)?.[0] as
+    const calls = mockCreate.mock.calls;
+    const payload = calls[calls.length - 1]?.[0] as
       | Record<string, unknown>
       | undefined;
     expect(payload).toBeDefined();
@@ -137,8 +138,11 @@ describe("query-analysis run", () => {
     // Assert
     expect(result.success).toBe(true);
     expect(mockCreate).toHaveBeenCalled();
+    const createCalls = mockCreate.mock.calls;
     const queries = (
-      mockCreate.mock.calls.at(-1)?.[0] as { queries: { source: string }[] }
+      createCalls[createCalls.length - 1]?.[0] as {
+        queries: { source: string }[];
+      }
     ).queries;
     expect(queries.every((q) => q.source === "deterministic")).toBe(true);
   });

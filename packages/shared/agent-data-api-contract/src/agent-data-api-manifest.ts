@@ -1,5 +1,11 @@
 import { z } from "zod";
 import {
+  getAnalysisQuerySchema,
+  getAnalysisResponseSchema,
+  postAnalysisBodySchema,
+  postAnalysisResponseSchema,
+} from "./analysis.js";
+import {
   getContentGenerationQuerySchema,
   getContentGenerationResponseSchema,
   postContentGenerationBodySchema,
@@ -93,6 +99,28 @@ export const AGENT_DATA_API_PREFIX = "/api" as const;
 export const AGENT_DATA_API_DEFAULT_VERSION = "v1" as const;
 
 export const agentDataApiManifest = defineAgentDataApiManifest({
+  analysis: {
+    v1: {
+      get: {
+        query: getAnalysisQuerySchema,
+        response: getAnalysisResponseSchema,
+      },
+      post: {
+        body: postAnalysisBodySchema,
+        response: postAnalysisResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getAnalysisQuerySchema,
+        response: getAnalysisResponseSchema,
+      },
+      post: {
+        body: postAnalysisBodySchema,
+        response: postAnalysisResponseSchema,
+      },
+    },
+  },
   contentGeneration: {
     v1: {
       get: {
