@@ -31,6 +31,8 @@ vi.mock("@mediapulse/outlook-inbox", () => ({
   createOutlookInboxClient: () => ({
     listMessages: async () => [],
     archiveMessage: async () => {},
+    processMessages: vi.fn(),
+    deleteMessage: vi.fn(),
   }),
 }));
 
@@ -95,7 +97,12 @@ describe("createRunHandler", () => {
     const archiveMessage = vi.fn();
 
     const run = createRunHandler({
-      createInbox: () => ({ listMessages: async () => [], archiveMessage }),
+      createInbox: () => ({
+        listMessages: async () => [],
+        archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
       ResendClient: class {
         emails = { send: vi.fn() };
         constructor() {}
@@ -129,6 +136,8 @@ describe("createRunHandler", () => {
           }),
         ],
         archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
       }),
       ResendClient: class {
         emails = { send: emailSend };
@@ -174,6 +183,8 @@ describe("createRunHandler", () => {
           }),
         ],
         archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
       }),
       ResendClient: class {
         emails = { send: emailSend };
@@ -182,7 +193,10 @@ describe("createRunHandler", () => {
       createDataApi: () =>
         ({
           userRegistrationRegister: {
-            create: async () => ({ tickerKnown: true, isNewSubscription: false }),
+            create: async () => ({
+              tickerKnown: true,
+              isNewSubscription: false,
+            }),
           },
           userRegistrationConfirm: { create: vi.fn() },
         }) as any,
@@ -207,6 +221,8 @@ describe("createRunHandler", () => {
           }),
         ],
         archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
       }),
       ResendClient: class {
         emails = { send: emailSend };
@@ -246,6 +262,8 @@ describe("createRunHandler", () => {
           }),
         ],
         archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
       }),
       ResendClient: class {
         emails = { send: vi.fn() };
@@ -278,7 +296,12 @@ describe("createRunHandler", () => {
     );
 
     const run = createRunHandler({
-      createInbox: () => ({ listMessages: async () => messages, archiveMessage }),
+      createInbox: () => ({
+        listMessages: async () => messages,
+        archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
       ResendClient: class {
         emails = { send: vi.fn().mockResolvedValue({ data: { id: "e" } }) };
         constructor() {}
@@ -286,7 +309,10 @@ describe("createRunHandler", () => {
       createDataApi: () =>
         ({
           userRegistrationRegister: {
-            create: async () => ({ tickerKnown: true, isNewSubscription: false }),
+            create: async () => ({
+              tickerKnown: true,
+              isNewSubscription: false,
+            }),
           },
           userRegistrationConfirm: { create: vi.fn() },
         }) as any,
@@ -312,6 +338,8 @@ describe("createRunHandler", () => {
           }),
         ],
         archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
       }),
       ResendClient: class {
         emails = { send: vi.fn() };
@@ -357,6 +385,8 @@ describe("createRunHandler", () => {
           }),
         ],
         archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
       }),
       ResendClient: class {
         emails = { send: vi.fn().mockResolvedValue({ data: { id: "e" } }) };
@@ -365,7 +395,10 @@ describe("createRunHandler", () => {
       createDataApi: () =>
         ({
           userRegistrationRegister: {
-            create: async () => ({ tickerKnown: true, isNewSubscription: false }),
+            create: async () => ({
+              tickerKnown: true,
+              isNewSubscription: false,
+            }),
           },
           userRegistrationConfirm: { create: vi.fn() },
         }) as any,

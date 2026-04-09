@@ -53,9 +53,12 @@ const RegistrationForm = ({
           <CheckCircle2 className="size-8" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-xl font-bold">Your subscription request is being processed</h1>
+          <h1 className="text-xl font-bold">
+            Your subscription request is being processed
+          </h1>
           <p className="text-sm text-muted-foreground">
-           Look for a confirmation email to <strong>{email}</strong> and new stock news updates for 
+            Look for a confirmation email to <strong>{email}</strong> and new
+            stock news updates for
             <strong>{selectedTicker?.KodeEmiten}</strong>.
           </p>
         </div>
