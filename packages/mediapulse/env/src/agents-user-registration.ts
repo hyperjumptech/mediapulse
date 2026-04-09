@@ -21,6 +21,7 @@ export const env = createEnv({
     NEXT_PUBLIC_REGISTRATION_EMAIL: z.string().min(1),
   },
   experimental__runtimeEnv: {
+    // eslint-disable-next-line strict-env/no-process-env -- env definition file; t3-env requires direct process.env for NEXT_PUBLIC_ vars
     NEXT_PUBLIC_REGISTRATION_EMAIL: process.env.NEXT_PUBLIC_REGISTRATION_EMAIL,
   }
 });
