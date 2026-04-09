@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import { getAnalysisQuerySchema } from "@workspace/agent-data-api-contract";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@mediapulse/database", () => ({
@@ -21,6 +22,38 @@ beforeAll(async () => {
 describe("normalizeAnalysisName", () => {
   it("trims and lowercases", () => {
     expect(normalizeAnalysisName("  Acme Corp  ")).toBe("acme corp");
+  });
+});
+
+describe("getAnalysisQuerySchema", () => {
+  it("rejects when start is after end", () => {
+    const result = getAnalysisQuerySchema.safeParse({
+      tickerId: "ticker-1",
+      unanalyzed: "true",
+      start: "2026-02-01T00:00:00.000Z",
+      end: "2026-01-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("treats empty string bounds as omitted", () => {
+    const parsed = getAnalysisQuerySchema.parse({
+      tickerId: "ticker-1",
+      start: "",
+      end: "",
+    });
+    expect(parsed.start).toBeUndefined();
+    expect(parsed.end).toBeUndefined();
+  });
+
+  it("accepts start without end", () => {
+    const parsed = getAnalysisQuerySchema.parse({
+      tickerId: "ticker-1",
+      start: "2026-01-01T00:00:00.000Z",
+    });
+    expect(parsed.start).toBe("2026-01-01T00:00:00.000Z");
+    expect(parsed.end).toBeUndefined();
+    expect(parsed.unanalyzed).toBe(true);
   });
 });
 
@@ -90,6 +123,121 @@ describe("loadAnalysisContext", () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { tickerId: "ticker-2" },
+      }),
+    );
+  });
+
+  it("filters by createdAt gte when start is set", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const db = {
+      dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
+      entityType: { findMany: vi.fn().mockResolvedValue([]) },
+      relationType: { findMany: vi.fn().mockResolvedValue([]) },
+      entity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+      },
+      entityAlias: { createMany: vi.fn() },
+      tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
+      entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      articleEntity: { upsert: vi.fn() },
+      articleRelevance: { upsert: vi.fn() },
+      $transaction: vi.fn(),
+    };
+
+    await loadAnalysisContext(
+      {
+        tickerId: "ticker-w",
+        unanalyzed: true,
+        start: "2026-01-01T00:00:00.000Z",
+      },
+      { db: db as never },
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: { gte: new Date("2026-01-01T00:00:00.000Z") },
+        }),
+      }),
+    );
+  });
+
+  it("filters by createdAt lte when end is set", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const db = {
+      dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
+      entityType: { findMany: vi.fn().mockResolvedValue([]) },
+      relationType: { findMany: vi.fn().mockResolvedValue([]) },
+      entity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+      },
+      entityAlias: { createMany: vi.fn() },
+      tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
+      entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      articleEntity: { upsert: vi.fn() },
+      articleRelevance: { upsert: vi.fn() },
+      $transaction: vi.fn(),
+    };
+
+    await loadAnalysisContext(
+      {
+        tickerId: "ticker-w",
+        unanalyzed: false,
+        end: "2026-12-31T23:59:59.999Z",
+      },
+      { db: db as never },
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: { lte: new Date("2026-12-31T23:59:59.999Z") },
+        }),
+      }),
+    );
+  });
+
+  it("filters by createdAt gte and lte when both bounds are set", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const db = {
+      dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
+      entityType: { findMany: vi.fn().mockResolvedValue([]) },
+      relationType: { findMany: vi.fn().mockResolvedValue([]) },
+      entity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+      },
+      entityAlias: { createMany: vi.fn() },
+      tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
+      entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      articleEntity: { upsert: vi.fn() },
+      articleRelevance: { upsert: vi.fn() },
+      $transaction: vi.fn(),
+    };
+
+    await loadAnalysisContext(
+      {
+        tickerId: "ticker-w",
+        unanalyzed: true,
+        start: "2026-01-01T00:00:00.000Z",
+        end: "2026-01-15T00:00:00.000Z",
+      },
+      { db: db as never },
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: {
+            gte: new Date("2026-01-01T00:00:00.000Z"),
+            lte: new Date("2026-01-15T00:00:00.000Z"),
+          },
+        }),
       }),
     );
   });
