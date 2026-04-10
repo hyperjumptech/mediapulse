@@ -53,7 +53,7 @@ Every run emits a structured **info** log with message `article_analysis.run.sum
 | Area | Fields (examples) |
 | ---- | ----------------- |
 | Correlation | Log child bindings: `component`, `runId`, `tickerId`, and optional Hermes ids (`jobId`, `executionId`, `scheduleId`, `scheduleExecutionId`, `pipelineStepId`) when invoke headers are present |
-| Outcome | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy) |
+| Outcome | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy, **`debounce_min_unanalyzed_count`**, **`debounce_min_minutes_since_last_score`**) |
 | Extraction | `articlesProcessed`, `extractionSuccessCount`, `extractionFailureCount`, **`extractionFailuresVocabulary`** vs **`extractionFailuresLlm`** |
 | Validation | **`relevanceRowValidationFailures`** (pre-POST row checks), **`chunkParseErrors*`** (entity/relation chunks, `articleEntities`, `articleRelevances` chunk-build / Zod issues) |
 | Persist | `postFailureCount`, **`postFailuresByChunkKind`**, **`postFailuresByErrorCategory`** (`agent_data_api_http` vs `unknown`) |
@@ -72,30 +72,44 @@ Every run emits a structured **info** log with message `article_analysis.run.sum
 
 Structured logs use **`tickerId`**, **`dataSourceId`**, and chunk indices—**not** full article bodies or secrets.
 
+## Debounce (Hermes config)
+
+Optional guards reduce thrash when schedules fire more often than needed. All are **Hermes agent config** keys on **article-analysis** (see `articleAnalysisConfigSchema`):
+
+- **`debounceMinUnanalyzedCount`** — When greater than zero, the run exits **success** with no POST if the incremental GET returns **fewer** unanalyzed sources than this threshold (but at least one).
+- **`debounceMinMinutesSinceLastScore`** — When greater than zero, the run exits **success** with no POST if **`GET /api/v1/analysis`** reports **`lastRelevanceScoredAtIso`** within the last N minutes and there is at least one eligible source.
+
+These are **additive** to calendar staggering: prefer running **data-collection** before **article-analysis** so backlog exists when analysis runs.
+
 ## I/O contract
 
 - **Input:** `{ tickerId: string }`
 - **Reads:** `GET /api/analysis?tickerId=...&unanalyzed=true`
 - **Writes:** `POST /api/analysis` (bulk KG + relevance updates)
 
-## Environment variables
+## Hermes agent configuration (operational tuning)
+
+Tuning for extraction, chunking, **`scoreBreakdownVersion`** (maps to `_version` in stored breakdowns), relevance weights, selection caps, **`runPolicy`**, POST retries, **`defaultMaxBatchSize`** (incremental runs when input omits `maxBatchSize`), and **debounce** fields lives in the **article-analysis** agent config in Hermes (Zod schema `articleAnalysisConfigSchema`). **`openaiApiKey`** and model limits are set there—**not** via `OPENAI_*` process env on the agent container.
+
+## Deployment environment (`@mediapulse/env/agents-article-analysis`)
 
 | Variable                     | Required | Notes                                                      |
 | ---------------------------- | -------- | ---------------------------------------------------------- |
 | `PORT`                       | Yes      | Agent HTTP port                                            |
 | `AGENT_AUTH_API_URL`         | Yes      | JWT/API-key verification endpoint                          |
-| `AGENT_DATA_API_URL`         | Yes      | Base URL for data API calls                                |
-| `OPENAI_API_KEY`             | Yes      | LLM provider key                                           |
-| `OPENAI_MODEL`               | Yes      | Model id for extraction/scoring prompts                    |
+| `AGENT_DATA_API_URL`         | Yes      | Base URL for agent-data-api                                |
 | `AGENT_REGISTRY_URL`         | No       | Needed for auto-register                                   |
 | `DOMAIN_INTEGRATION_API_KEY` | No       | Hermes domain integration API key for auto-register (mint JWT) |
 | `AGENT_PUBLIC_URL`           | No       | Needed for auto-register                                   |
+| `DOMAIN_INTEGRATION_ID`      | No       | Domain id (default `mediapulse`)                           |
+| `ALLOW_ANY_BEARER_FOR_LOCAL` | No       | Local-only; never use in production                        |
 
 ## Pipeline usage
 
-- Included in **Pipeline C: Analysis & Newsletter**
-- Order: `analysis -> content-generation -> delivery`
-- Schedule: `0 20 * * *` in `Asia/Jakarta`
+Mediapulse KG flow order: **query-analysis** → **data-collection** → **article-analysis** → **content-generation** → **delivery**. Stagger collection ahead of analysis (for example by cron) so analysis sees fresh **`data_source`** rows.
+
+- Included in **Pipeline C: Analysis & Newsletter** for the newsletter tail: `article-analysis -> content-generation -> delivery`
+- Example newsletter schedule: `0 20 * * *` in `Asia/Jakarta`
 - Input fan-out: `{ "tickerId": "db:userTicker:tickerId?where.enabled=true" }`
 
 ## Related docs

@@ -106,6 +106,7 @@ describe("run", () => {
       relationTypes: [],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
@@ -176,6 +177,7 @@ describe("run", () => {
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
@@ -198,6 +200,7 @@ describe("run", () => {
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource")
@@ -285,6 +288,7 @@ describe("run", () => {
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
@@ -366,6 +370,7 @@ describe("run", () => {
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
@@ -694,6 +699,7 @@ describe("run", () => {
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     let extractCall = 0;
@@ -781,6 +787,7 @@ describe("run", () => {
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
@@ -851,6 +858,7 @@ describe("run", () => {
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
@@ -890,6 +898,7 @@ describe("run", () => {
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockRejectedValue(
@@ -925,6 +934,7 @@ describe("run", () => {
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
@@ -966,6 +976,7 @@ describe("run", () => {
       relationTypes: [],
       existingEntities: [],
       relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
     });
 
     await run(
@@ -976,5 +987,157 @@ describe("run", () => {
     );
 
     expect(mockLog.info).toHaveBeenCalled();
+  });
+
+  it("applies defaultMaxBatchSize on incremental runs when input omits maxBatchSize", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u1",
+          title: "T1",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+        {
+          id: DS_ID_2,
+          url: "u2",
+          title: "T2",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
+    });
+
+    const extractSpy = vi
+      .spyOn(Llm, "extractEntitiesAndRelationsForSource")
+      .mockResolvedValue(
+        llmResult({
+          entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+          relations: [],
+          articleMentions: [],
+        }),
+      );
+
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 1,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 0,
+      });
+
+    await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { defaultMaxBatchSize: 1 },
+      }),
+    );
+
+    expect(extractSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips run when unanalyzed backlog is below debounceMinUnanalyzedCount", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+        {
+          id: DS_ID_2,
+          url: "u2",
+          title: "T2",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { debounceMinUnanalyzedCount: 5 },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("debounce");
+    expect(analysisCreate).not.toHaveBeenCalled();
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { semanticFailureReason?: string }).semanticFailureReason ===
+          "debounce_min_unanalyzed_count",
+    );
+    expect(summaryCall).toBeDefined();
+  });
+
+  it("skips run when last relevance scored within debounceMinMinutesSinceLastScore", async () => {
+    const lastScored = new Date(Date.now() - 30 * 60_000).toISOString();
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+      lastRelevanceScoredAtIso: lastScored,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { debounceMinMinutesSinceLastScore: 60 },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("debounce");
+    expect(analysisCreate).not.toHaveBeenCalled();
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { semanticFailureReason?: string }).semanticFailureReason ===
+          "debounce_min_minutes_since_last_score",
+    );
+    expect(summaryCall).toBeDefined();
   });
 });

@@ -8,8 +8,8 @@ const articleAnalysisRunPolicySchema = z.object({
 });
 
 /**
- * Hermes agent config for article-analysis (extraction, caps, chunking).
- * Placeholder numeric defaults until MP-ART-ANALYSIS-009 env alignment.
+ * Hermes agent config for article-analysis (extraction, caps, chunking, relevance, debounce).
+ * Operational defaults are filled by {@link resolveArticleAnalysisConfig}.
  */
 export const articleAnalysisConfigSchema = z.object({
   verbose: z.boolean().optional(),
@@ -33,7 +33,7 @@ export const articleAnalysisConfigSchema = z.object({
   maxArticleEntitiesPerRun: z.number().int().positive().optional(),
   /** Max `articleEntities` rows per POST chunk. */
   postChunkArticleEntityBatchSize: z.number().int().positive().optional(),
-  /** Stored in `scoreBreakdown._version` (MP-ART-ANALYSIS-009 env mirror later). */
+  /** Stored in `scoreBreakdown._version` (must match Hermes when bumping breakdown schema). */
   scoreBreakdownVersion: z.number().int().min(1).optional(),
   relevanceWeightBreakingNews: z.number().nonnegative().optional(),
   relevanceWeightKgRelation: z.number().nonnegative().optional(),
@@ -61,6 +61,18 @@ export const articleAnalysisConfigSchema = z.object({
   postTransientRetries: z.number().int().nonnegative().optional(),
   /** Initial backoff in ms; delay doubles each retry (`base * 2^attempt`). */
   postTransientRetryBaseDelayMs: z.number().int().positive().optional(),
+  /**
+   * Incremental runs only: when Hermes input omits `maxBatchSize`, cap eligible sources to this count (unset = no cap).
+   */
+  defaultMaxBatchSize: z.number().int().positive().optional(),
+  /**
+   * When greater than zero, skip the run (success no-op) if GET returns fewer unanalyzed sources than this threshold.
+   */
+  debounceMinUnanalyzedCount: z.number().int().nonnegative().optional(),
+  /**
+   * When greater than zero, skip the run (success no-op) if any relevance was scored for this ticker within the last N minutes (requires GET `lastRelevanceScoredAtIso`).
+   */
+  debounceMinMinutesSinceLastScore: z.number().int().nonnegative().optional(),
 });
 
 export type ArticleAnalysisConfig = z.infer<typeof articleAnalysisConfigSchema>;
@@ -90,6 +102,8 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   runPolicy: ArticleAnalysisRunPolicy;
   postTransientRetries: number;
   postTransientRetryBaseDelayMs: number;
+  debounceMinUnanalyzedCount: number;
+  debounceMinMinutesSinceLastScore: number;
 };
 
 /** Production-oriented defaults merged onto parsed Hermes config. */
@@ -120,10 +134,13 @@ export const articleAnalysisConfigDefaults = {
   },
   postTransientRetries: 0,
   postTransientRetryBaseDelayMs: 500,
+  debounceMinUnanalyzedCount: 0,
+  debounceMinMinutesSinceLastScore: 0,
 } as const;
 
 /**
- * Returns effective config with defaults applied for optional numeric/string fields.
+ * Returns effective config with defaults applied for optional numeric/string fields,
+ * including debounce knobs and optional `defaultMaxBatchSize` passthrough from Hermes.
  *
  * @param config - Parsed Hermes config.
  * @returns Config safe to use at runtime.
@@ -204,6 +221,12 @@ export const resolveArticleAnalysisConfig = (
     postTransientRetryBaseDelayMs:
       config.postTransientRetryBaseDelayMs ??
       articleAnalysisConfigDefaults.postTransientRetryBaseDelayMs,
+    debounceMinUnanalyzedCount:
+      config.debounceMinUnanalyzedCount ??
+      articleAnalysisConfigDefaults.debounceMinUnanalyzedCount,
+    debounceMinMinutesSinceLastScore:
+      config.debounceMinMinutesSinceLastScore ??
+      articleAnalysisConfigDefaults.debounceMinMinutesSinceLastScore,
   };
 };
 

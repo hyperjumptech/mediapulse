@@ -234,6 +234,7 @@ describe("agent-data-api", () => {
           utcDayStartIso: "2026-03-19T00:00:00.000Z",
           selectedCountToday: 0,
         },
+        lastRelevanceScoredAtIso: null,
       });
 
       const { app } = await import("./index.js");
@@ -262,6 +263,7 @@ describe("agent-data-api", () => {
           utcDayStartIso: "2026-03-19T00:00:00.000Z",
           selectedCountToday: 0,
         },
+        lastRelevanceScoredAtIso: null,
       });
 
       const start = "2026-01-01T00:00:00.000Z";

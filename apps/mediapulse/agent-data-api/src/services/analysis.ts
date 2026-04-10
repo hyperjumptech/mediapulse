@@ -32,7 +32,10 @@ type AnalysisDb = {
   tickerEntity: Pick<typeof prisma.tickerEntity, "create" | "findFirst">;
   entityRelation: Pick<typeof prisma.entityRelation, "create" | "findUnique">;
   articleEntity: Pick<typeof prisma.articleEntity, "upsert">;
-  articleRelevance: Pick<typeof prisma.articleRelevance, "upsert" | "count">;
+  articleRelevance: Pick<
+    typeof prisma.articleRelevance,
+    "upsert" | "count" | "findFirst"
+  >;
   $transaction: typeof prisma.$transaction;
 };
 
@@ -122,18 +125,26 @@ export const loadAnalysisContext = async (
     },
   } satisfies Prisma.ArticleRelevanceCountArgs;
 
+  const lastRelevanceArgs = {
+    where: { tickerId: query.tickerId },
+    orderBy: { scoredAt: "desc" as const },
+    select: { scoredAt: true },
+  } satisfies Prisma.ArticleRelevanceFindFirstArgs;
+
   const [
     dataSources,
     entityTypes,
     relationTypes,
     existingEntityRows,
     selectedCountToday,
+    lastRelevanceRow,
   ] = await Promise.all([
     db.dataSource.findMany(dataSourceArgs),
     db.entityType.findMany(entityTypeArgs),
     db.relationType.findMany(relationTypeArgs),
     db.entity.findMany(existingEntityArgs),
     db.articleRelevance.count(relevanceCountArgs),
+    db.articleRelevance.findFirst(lastRelevanceArgs),
   ]);
 
   return {
@@ -150,6 +161,9 @@ export const loadAnalysisContext = async (
       utcDayStartIso: utcDayStart.toISOString(),
       selectedCountToday,
     },
+    lastRelevanceScoredAtIso: lastRelevanceRow
+      ? lastRelevanceRow.scoredAt.toISOString()
+      : null,
   };
 };
 
