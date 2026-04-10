@@ -131,6 +131,11 @@ export const getAnalysisResponseSchema = z.object({
   relationTypes: z.array(analysisRelationTypeSchema),
   existingEntities: z.array(analysisExistingEntitySchema),
   relevanceSelectionState: analysisRelevanceSelectionStateSchema,
+  /**
+   * ISO 8601 instant of the most recent `article_relevance.scored_at` for this ticker,
+   * or `null` if no relevance row exists (debounce support for article-analysis).
+   */
+  lastRelevanceScoredAtIso: z.string().datetime().nullable(),
 });
 
 export const postAnalysisResponseSchema = z.object({

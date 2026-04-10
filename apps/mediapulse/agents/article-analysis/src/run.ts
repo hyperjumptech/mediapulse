@@ -172,6 +172,15 @@ const resolveAgainstExistingEntities = (
 const sleepMs = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Minutes elapsed from an ISO 8601 instant to now (floating).
+ *
+ * @param iso - UTC instant from the analysis GET payload.
+ * @returns Non-negative when `iso` is in the past.
+ */
+const minutesSinceUtcIso = (iso: string): number =>
+  (Date.now() - new Date(iso).getTime()) / 60_000;
+
 const emptyChunkParseCounts = (): ChunkBuildParseCounts => ({
   entityRelationChunkParseErrors: 0,
   articleEntityChunkParseErrors: 0,
@@ -286,8 +295,112 @@ export const run = async ({
     const query = buildAnalysisGetQuery(inputForQuery);
     const ctx = await dataApiClient.analysis.get(query);
 
+    const backlogSources = ctx.dataSources.length;
+    if (
+      backlogSources > 0 &&
+      cfg.debounceMinUnanalyzedCount > 0 &&
+      backlogSources < cfg.debounceMinUnanalyzedCount
+    ) {
+      emitRunSummary({
+        outcome: "success",
+        articlesProcessed: 0,
+        extractionSuccessCount: 0,
+        extractionFailures: [],
+        relevanceRowValidationFailures: 0,
+        chunkParseCounts: emptyChunkParseCounts(),
+        postFailures: [],
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+        relevanceAggregate: null,
+        llmUsage: null,
+        extractionLatencyMsTotal: 0,
+        extractionCalls: 0,
+        runStatusLabel: "success",
+        semanticFailureReason: "debounce_min_unanalyzed_count",
+      });
+      return {
+        success: true,
+        message: `debounce: ${backlogSources} unanalyzed source(s) below min ${cfg.debounceMinUnanalyzedCount}; skipping run`,
+        details: {
+          dataSourcesReturned: backlogSources,
+          dataSourcesSelected: 0,
+          reanalyze,
+          runStatus: "success" as const,
+          extractionFailures: [] as ArticleAnalysisExtractionFailureRecord[],
+          extractionSuccessCount: 0,
+          postFailures: [] as ArticleAnalysisPostFailureRecord[],
+          entitiesCreated: 0,
+          entitiesReused: 0,
+          relationsCreated: 0,
+          postChunks: 0,
+          articleEntityRowsPosted: 0,
+          mentionPostChunks: 0,
+          articlesScored: 0,
+          articlesSelected: 0,
+          relevancePostChunks: 0,
+        },
+      };
+    }
+
+    if (
+      backlogSources > 0 &&
+      cfg.debounceMinMinutesSinceLastScore > 0 &&
+      ctx.lastRelevanceScoredAtIso !== null &&
+      minutesSinceUtcIso(ctx.lastRelevanceScoredAtIso) <
+        cfg.debounceMinMinutesSinceLastScore
+    ) {
+      emitRunSummary({
+        outcome: "success",
+        articlesProcessed: 0,
+        extractionSuccessCount: 0,
+        extractionFailures: [],
+        relevanceRowValidationFailures: 0,
+        chunkParseCounts: emptyChunkParseCounts(),
+        postFailures: [],
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+        relevanceAggregate: null,
+        llmUsage: null,
+        extractionLatencyMsTotal: 0,
+        extractionCalls: 0,
+        runStatusLabel: "success",
+        semanticFailureReason: "debounce_min_minutes_since_last_score",
+      });
+      return {
+        success: true,
+        message: `debounce: last relevance scored at ${ctx.lastRelevanceScoredAtIso} is within ${cfg.debounceMinMinutesSinceLastScore} minute(s); skipping run`,
+        details: {
+          dataSourcesReturned: backlogSources,
+          dataSourcesSelected: 0,
+          reanalyze,
+          runStatus: "success" as const,
+          extractionFailures: [] as ArticleAnalysisExtractionFailureRecord[],
+          extractionSuccessCount: 0,
+          postFailures: [] as ArticleAnalysisPostFailureRecord[],
+          entitiesCreated: 0,
+          entitiesReused: 0,
+          relationsCreated: 0,
+          postChunks: 0,
+          articleEntityRowsPosted: 0,
+          mentionPostChunks: 0,
+          articlesScored: 0,
+          articlesSelected: 0,
+          relevancePostChunks: 0,
+        },
+      };
+    }
+
     const sorted = sortAnalysisDataSourcesByCreatedAt(ctx.dataSources);
-    const batch = applyMaxBatchSizeCap(sorted, inputForQuery.maxBatchSize);
+    const effectiveMaxBatchSize = reanalyze
+      ? input.maxBatchSize
+      : (input.maxBatchSize ?? cfg.defaultMaxBatchSize);
+    const batch = applyMaxBatchSizeCap(sorted, effectiveMaxBatchSize);
     articlesProcessedForSummary = batch.length;
 
     if (batch.length === 0) {

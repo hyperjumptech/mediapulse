@@ -180,9 +180,9 @@ The **article-analysis** agent computes a **weighted composite score** in `[0, 1
 | `fundamental`     | Filings, earnings, guidance, and similar keywords |
 | `tickerSalience`  | Mentions and extracted entity coverage |
 | `sourceQuality`   | Host-tier trust prior |
-| `_version`        | Integer breakdown version (Hermes `scoreBreakdownVersion`; env alignment in MP-ART-ANALYSIS-009) |
+| `_version`        | Integer breakdown version — set via Hermes agent config **`scoreBreakdownVersion`** (must match stored JSON when bumping schema) |
 
-`score = sum_k relevanceWeight_k * scoreBreakdown[k]` over the five dimensions (default weights `0.2` each via Hermes).
+`score = sum_k relevanceWeight_k * scoreBreakdown[k]` over the five dimensions (default weights `0.2` each; tune via Hermes **`relevanceWeight*`** keys on article-analysis).
 
 Top-scoring rows that pass **`relevanceMinScore`** are candidates for **`selected = true`**, up to the **remaining daily budget**: `maxSelectedRelevancePerTickerPerDay - selectedCountToday`, where `selectedCountToday` is returned on **`GET /api/v1/analysis`** as **`relevanceSelectionState.selectedCountToday`** (UTC day start in **`utcDayStartIso`**). Content-generation consumes **`selected`** rows scored today.
 

@@ -76,6 +76,7 @@ describe("loadAnalysisContext", () => {
       articleRelevance: {
         upsert: vi.fn(),
         count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
       },
       $transaction: vi.fn(),
     };
@@ -98,6 +99,13 @@ describe("loadAnalysisContext", () => {
       }),
     );
     expect(db.articleRelevance.count).toHaveBeenCalled();
+    expect(db.articleRelevance.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tickerId: "ticker-1" },
+        orderBy: { scoredAt: "desc" },
+        select: { scoredAt: true },
+      }),
+    );
   });
 
   it("loads all ticker sources when unanalyzed is false", async () => {
@@ -118,6 +126,7 @@ describe("loadAnalysisContext", () => {
       articleRelevance: {
         upsert: vi.fn(),
         count: vi.fn().mockResolvedValue(2),
+        findFirst: vi.fn().mockResolvedValue(null),
       },
       $transaction: vi.fn(),
     };
@@ -133,6 +142,42 @@ describe("loadAnalysisContext", () => {
       }),
     );
     expect(result.relevanceSelectionState.selectedCountToday).toBe(2);
+    expect(result.lastRelevanceScoredAtIso).toBeNull();
+  });
+
+  it("returns lastRelevanceScoredAtIso from the latest scored row", async () => {
+    const scoredAt = new Date("2026-03-10T12:00:00.000Z");
+    const db = {
+      dataSource: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+      },
+      entityType: { findMany: vi.fn().mockResolvedValue([]) },
+      relationType: { findMany: vi.fn().mockResolvedValue([]) },
+      entity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+      },
+      entityAlias: { createMany: vi.fn() },
+      tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
+      entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      articleEntity: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue({ scoredAt }),
+      },
+      $transaction: vi.fn(),
+    };
+
+    const result = await loadAnalysisContext(
+      { tickerId: "ticker-debounce", unanalyzed: true },
+      { db: db as never },
+    );
+
+    expect(result.lastRelevanceScoredAtIso).toBe(scoredAt.toISOString());
   });
 
   it("filters by createdAt gte when start is set", async () => {
@@ -153,6 +198,7 @@ describe("loadAnalysisContext", () => {
       articleRelevance: {
         upsert: vi.fn(),
         count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
       },
       $transaction: vi.fn(),
     };
@@ -193,6 +239,7 @@ describe("loadAnalysisContext", () => {
       articleRelevance: {
         upsert: vi.fn(),
         count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
       },
       $transaction: vi.fn(),
     };
@@ -233,6 +280,7 @@ describe("loadAnalysisContext", () => {
       articleRelevance: {
         upsert: vi.fn(),
         count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
       },
       $transaction: vi.fn(),
     };
@@ -287,6 +335,7 @@ describe("loadAnalysisContext", () => {
       articleRelevance: {
         upsert: vi.fn(),
         count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
       },
       $transaction: vi.fn(),
     };
