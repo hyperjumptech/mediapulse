@@ -258,6 +258,40 @@ describe("user-registration agent – run loop", () => {
     expect(archiveMessageMock).not.toHaveBeenCalled();
   });
 
+  it("retries register once and archives when the retry succeeds", async () => {
+    listMessagesMock.mockResolvedValue([makeMessage()]);
+    registerCreateMock
+      .mockRejectedValueOnce(new Error("Agent data API error: 503"))
+      .mockResolvedValueOnce({
+        tickerKnown: true,
+        isNewSubscription: false,
+        userTickerId: "ut-uuid-1",
+      });
+
+    const res = await post({ input: {}, config: VALID_CONFIG });
+    const body = (await res.json()) as { status: string };
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe("success");
+    expect(registerCreateMock).toHaveBeenCalledTimes(2);
+    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
+  });
+
+  it("does not retry register for non-retryable status codes", async () => {
+    listMessagesMock.mockResolvedValue([makeMessage()]);
+    registerCreateMock.mockRejectedValue(
+      new Error("Agent data API error: 400"),
+    );
+
+    const res = await post({ input: {}, config: VALID_CONFIG });
+    const body = (await res.json()) as { status: string };
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe("success");
+    expect(registerCreateMock).toHaveBeenCalledTimes(1);
+    expect(archiveMessageMock).not.toHaveBeenCalled();
+  });
+
   it("processes multiple messages independently", async () => {
     listMessagesMock.mockResolvedValue([
       makeMessage({ id: "msg-1" }),
