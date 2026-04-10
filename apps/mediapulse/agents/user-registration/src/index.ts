@@ -149,12 +149,19 @@ const app = createAgentApp<
               text: `Hello,\n\nYour subscription to the '${tickerSymbol}' newsletter has been confirmed.\n\nThank you,\nMediaPulse Team`,
             });
 
-            await dataApiClient.userRegistrationConfirm.create({
-              userTickerId: registerResponse.userTickerId!,
-              audit: {
-                graphMessageId: msg.id,
-              },
-            });
+            try {
+              await dataApiClient.userRegistrationConfirm.create({
+                userTickerId: registerResponse.userTickerId!,
+                audit: {
+                  graphMessageId: msg.id,
+                },
+              });
+            } catch (confirmError) {
+              logger.error(
+                { confirmError, messageId: msg.id },
+                "Failed to call confirm API; archiving anyway to clear inbox.",
+              );
+            }
 
             await inboxClient.archiveMessage(msg.id!);
             results.push({ id: msg.id, status: "confirmed_archived" });
