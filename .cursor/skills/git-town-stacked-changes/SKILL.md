@@ -96,7 +96,7 @@ git town sync --all
 ## PRs and review
 
 - **Base branch:** Git Town usually sets the PR base to the **parent branch** so reviewers see a **small diff** (not the whole stack in one PR). After the parent merges, **update or retarget** the next PR to `main` per your hosting provider (or via Git Town ship/sync workflow).
-- **Title/body:** Reference the ticket `id`, `group_slug`, and `prd_refs` from the ticket file. For `gh pr create`, follow the repo’s [open-github-pr](../open-github-pr/SKILL.md) skill (`--body-file`, etc.).
+- **Title/body:** Reference the ticket `id`, `group_slug`, and `prd_refs` from the ticket file. For GitHub issues before PRs, follow [create-github-issue](../create-github-issue/SKILL.md); for `gh pr create`, follow the repo’s [open-github-pr](../open-github-pr/SKILL.md) skill (`--body-file`, etc.).
 - Optional: [Git Town GitHub Action](https://www.git-town.com/) for a visible stack graph on PRs (if enabled in the project).
 
 ## Agent checklist (implementation follow-up)
