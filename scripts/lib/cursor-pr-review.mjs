@@ -43,6 +43,8 @@ const isRepoRootScriptsPath = (filePath) => {
   const n = normalizeRepoPath(filePath);
   return n === "scripts" || n.startsWith("scripts/");
 };
+const isMediapulseEnvGeneratedPath = (filePath) =>
+  /^packages\/mediapulse\/env\/src\/[^/]+\.ts$/.test(normalizeRepoPath(filePath));
 
 const isReviewableSourceFile = (filePath) =>
   isTsJsLike(filePath) && !/\.test\.(ts|tsx|js|jsx)$/.test(filePath);
@@ -570,6 +572,7 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (f.status === "D") continue;
     if (!isTsJsLike(f.filePath)) continue;
     if (isRepoRootScriptsPath(f.filePath)) continue;
+    if (isMediapulseEnvGeneratedPath(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "env-variables", f.filePath)) continue;
     if (/\bprocess\.env\b/.test(text)) {
