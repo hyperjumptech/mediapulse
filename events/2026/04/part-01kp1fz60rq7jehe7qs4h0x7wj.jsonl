@@ -1,0 +1,1 @@
+{"schema":1,"type":"TicketCreated","id":"01KP1FZ60R2ZZ65YK1HHXZQDC5","ts":"2026-04-12T18:41:21.944Z","actor":"cli:Nico Prananta <311343+nicnocquee@users.noreply.github.com>","payload":{"id":"01KP1FZ60RN9GKP3GM81JTZRQD","title":"Add agents page in Hermes","body":"The agents are queried from the agent registry","state":"closed","assignee":"kevinhermawan","labels":["enhancement"]}}

@@ -1,0 +1,1 @@
+{"schema":1,"type":"TicketCreated","id":"01KP1FZ60WA5100CT1ZS9CJEFN","ts":"2026-04-12T18:41:21.948Z","actor":"cli:Nico Prananta <311343+nicnocquee@users.noreply.github.com>","payload":{"id":"01KP1FZ60WQQQVZ2T99C1NKVZY","title":"Each user should have their own ticker","body":"Implement user ticker","state":"closed","assignee":"kevinhermawan","labels":["enhancement"]}}

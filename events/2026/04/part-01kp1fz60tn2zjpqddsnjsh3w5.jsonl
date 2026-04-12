@@ -1,0 +1,1 @@
+{"schema":1,"type":"TicketCreated","id":"01KP1FZ60TBTK60TSBB14VNPBA","ts":"2026-04-12T18:41:21.946Z","actor":"cli:Nico Prananta <311343+nicnocquee@users.noreply.github.com>","payload":{"id":"01KP1FZ60TPAF796G4EF0498FJ","title":"Implement Admin Hermes Dashboard","body":"- Allow admin to logs in\n- Redirect to dashboard on successful auth","state":"closed"}}
