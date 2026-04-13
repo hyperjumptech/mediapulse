@@ -1,0 +1,1 @@
+{"schema":1,"type":"GithubPrActivity","id":"01KP3E87KZZ2EGHK3J7T2WJHD5","ts":"2026-04-09T08:05:33Z","actor":"github:kevinhermawan","payload":{"ticketId":"01KP1FZ60FD6CXCZV52GTW9SGZ","prNumber":225,"kind":"opened","sourceId":"hyper-pm:pr-open:01KP1FZ60FD6CXCZV52GTW9SGZ:225","occurredAt":"2026-04-09T08:05:33Z","url":"https://github.com/hyperjumptech/mediapulse/pull/225"}}
