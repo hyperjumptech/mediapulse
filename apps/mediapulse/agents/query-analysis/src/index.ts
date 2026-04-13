@@ -28,17 +28,12 @@ const app = createAgentApp<
   },
   {
     authApiUrl: env.AGENT_AUTH_API_URL,
-    autoRegister:
-      env.AGENT_REGISTRY_URL &&
-      env.DOMAIN_INTEGRATION_API_KEY &&
-      env.AGENT_PUBLIC_URL
-        ? {
-            registryUrl: env.AGENT_REGISTRY_URL,
-            domainIntegrationId: env.DOMAIN_INTEGRATION_ID,
-            domainIntegrationApiKey: env.DOMAIN_INTEGRATION_API_KEY,
-            agentUrl: env.AGENT_PUBLIC_URL,
-          }
-        : undefined,
+    autoRegister: {
+      registryUrl: env.AGENT_REGISTRY_URL,
+      domainIntegrationId: env.DOMAIN_INTEGRATION_ID,
+      domainIntegrationApiKey: env.DOMAIN_INTEGRATION_API_KEY,
+      agentUrl: env.AGENT_PUBLIC_URL,
+    },
   },
 );
 

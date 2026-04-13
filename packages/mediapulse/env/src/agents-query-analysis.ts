@@ -8,9 +8,9 @@ export const env = createEnv({
     PORT: z.number({ coerce: true }).optional(),
     AGENT_DATA_API_URL: z.string().min(1),
     AGENT_AUTH_API_URL: z.string().min(1),
-    AGENT_REGISTRY_URL: z.string().optional(),
-    AGENT_PUBLIC_URL: z.string().optional(),
-    DOMAIN_INTEGRATION_API_KEY: z.string().optional(),
+    AGENT_REGISTRY_URL: z.string().min(1),
+    AGENT_PUBLIC_URL: z.string().min(1),
+    DOMAIN_INTEGRATION_API_KEY: z.string().min(1),
     DOMAIN_INTEGRATION_ID: z.string().min(1),
   },
   client: {
