@@ -14,10 +14,12 @@ export async function processRegistration({
   email,
   tickerSymbol,
   name,
+  confirmed,
 }: {
   email: string;
   tickerSymbol: string;
   name?: string | null;
+  confirmed?: boolean;
 }) {
   const normalizedSymbol = tickerSymbol.trim().toUpperCase();
 
@@ -55,18 +57,24 @@ export async function processRegistration({
   let isNewSubscription: boolean;
   let subscriptionChanged: boolean;
 
+  const registrationConfirmedAt = confirmed ? new Date() : null;
+
   if (existingSubscription) {
     userTickerId = existingSubscription.id;
     // If it exists, but was disabled, we enable it. That counts as a change.
     subscriptionChanged = !existingSubscription.enabled;
-    // It's conceptually needed if never confirmed, or if it was re-enabled (depending on product requirements, typically if it hasn't been confirmed, or we want double opt-in on re-enable, but implementation plan says:
-    // "if registrationConfirmedAt === null (or marker false)")
+    // It's conceptually needed if never confirmed, or if it was re-enabled
     isNewSubscription = existingSubscription.registrationConfirmedAt === null;
 
-    if (!existingSubscription.enabled) {
+    if (!existingSubscription.enabled || (confirmed && !existingSubscription.registrationConfirmedAt)) {
       await mediapulsePrisma.userTicker.update({
         where: { id: existingSubscription.id },
-        data: { enabled: true },
+        data: {
+          enabled: true,
+          ...(confirmed && !existingSubscription.registrationConfirmedAt
+            ? { registrationConfirmedAt : new Date() }
+            : {}),
+        },
       });
     }
   } else {
@@ -76,6 +84,7 @@ export async function processRegistration({
         userId: user.id,
         tickerId: ticker.id,
         enabled: true,
+        registrationConfirmedAt: confirmed ? new Date() : null,
       },
     });
     userTickerId = newSubscription.id;

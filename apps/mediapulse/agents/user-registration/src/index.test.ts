@@ -185,7 +185,7 @@ describe("user-registration agent – run loop", () => {
     expect(confirmCreateMock).not.toHaveBeenCalled();
   });
 
-  it("sends confirmation email, calls confirm API, and archives for new subscription", async () => {
+  it("sends confirmation email and archives for new subscription", async () => {
     listMessagesMock.mockResolvedValue([makeMessage()]);
     registerCreateMock.mockResolvedValue({
       tickerKnown: true,
@@ -198,15 +198,15 @@ describe("user-registration agent – run loop", () => {
 
     expect(res.status).toBe(200);
     expect(body.status).toBe("success");
+    expect(registerCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmed: true }),
+    );
     expect(emailSendMock).toHaveBeenCalledOnce();
     expect(emailSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "user@example.com",
         subject: "Subscription Confirmed - MediaPulse",
       }),
-    );
-    expect(confirmCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ userTickerId: "ut-uuid-1" }),
     );
     expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
   });
@@ -229,22 +229,6 @@ describe("user-registration agent – run loop", () => {
     expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
   });
 
-  it("archives message even if confirm API throws", async () => {
-    listMessagesMock.mockResolvedValue([makeMessage()]);
-    registerCreateMock.mockResolvedValue({
-      tickerKnown: true,
-      isNewSubscription: true,
-      userTickerId: "ut-uuid-1",
-    });
-    confirmCreateMock.mockRejectedValue(new Error("API timeout"));
-
-    const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
-
-    expect(res.status).toBe(200);
-    expect(body.status).toBe("success");
-    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
-  });
 
   it("marks message as failed_retry and leaves it unarchived when register API throws", async () => {
     listMessagesMock.mockResolvedValue([makeMessage()]);
