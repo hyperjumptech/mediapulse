@@ -13,7 +13,7 @@ vi.mock("@mediapulse/env/agents-user-registration", () => ({
     AGENT_REGISTRY_URL: undefined,
     AGENT_PUBLIC_URL: undefined,
     DOMAIN_INTEGRATION_API_KEY: undefined,
-    DOMAIN_INTEGRATION_KEY: undefined,
+    DOMAIN_INTEGRATION_ID: undefined,
   },
 }));
 
