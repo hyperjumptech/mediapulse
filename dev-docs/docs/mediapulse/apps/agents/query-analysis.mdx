@@ -27,9 +27,10 @@ It uses:
 | `PORT`                       | Yes      | Agent HTTP port                                            |
 | `AGENT_AUTH_API_URL`         | Yes      | JWT/API-key verification endpoint                          |
 | `AGENT_DATA_API_URL`         | Yes      | Base URL for data API calls                                |
-| `AGENT_REGISTRY_URL`         | No       | Needed for auto-register                                   |
-| `DOMAIN_INTEGRATION_API_KEY` | No       | Hermes domain integration API key for auto-register (mint JWT) |
-| `AGENT_PUBLIC_URL`           | No       | Needed for auto-register                                   |
+| `AGENT_REGISTRY_URL`         | Yes      | Agent-registry-api base URL (startup auto-register)        |
+| `AGENT_PUBLIC_URL`           | Yes      | Public URL of this agent (registry `endpoint`)             |
+| `DOMAIN_INTEGRATION_API_KEY` | Yes      | Hermes domain integration API key for auto-register (mint JWT) |
+| `DOMAIN_INTEGRATION_ID`      | Yes      | Stable Hermes domain integration id (e.g. `mediapulse`)      |
 
 ## Hermes agent `config` (strategy + LLM)
 

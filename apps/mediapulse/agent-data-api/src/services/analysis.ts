@@ -50,7 +50,7 @@ export const normalizeAnalysisName = (value: string): string =>
 /**
  * Loads ticker-scoped analysis context: eligible data sources, vocabulary, and existing KG entities.
  *
- * @param query - Parsed GET query (`unanalyzed` defaults to incremental backlog only).
+ * @param query - Parsed GET query (`unanalyzed` defaults to incremental backlog only; optional `start` / `end` bound `DataSource.createdAt` inclusively when set).
  * @param deps - Injectable database delegates for tests.
  * @returns Payload matching `getAnalysisResponseSchema`.
  */
@@ -60,8 +60,17 @@ export const loadAnalysisContext = async (
 ): Promise<GetAnalysisResponse> => {
   const db = deps.db ?? defaultDb;
 
+  const createdAtWhere =
+    query.start !== undefined || query.end !== undefined
+      ? ({
+          ...(query.start !== undefined ? { gte: new Date(query.start) } : {}),
+          ...(query.end !== undefined ? { lte: new Date(query.end) } : {}),
+        } satisfies Prisma.DateTimeFilter)
+      : undefined;
+
   const dataSourceWhere = {
     tickerId: query.tickerId,
+    ...(createdAtWhere ? { createdAt: createdAtWhere } : {}),
     ...(query.unanalyzed
       ? {
           NOT: {

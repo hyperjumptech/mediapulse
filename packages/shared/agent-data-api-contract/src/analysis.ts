@@ -2,14 +2,38 @@ import { z } from "zod";
 
 const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
 
-export const getAnalysisQuerySchema = z.object({
-  tickerId: z.string().trim().min(1),
-  /** Omitted query param defaults to incremental unanalyzed-only runs (PRD FR2). */
-  unanalyzed: z
-    .enum(["true", "false"])
-    .default("true")
-    .transform((value) => value === "true"),
-});
+export const getAnalysisQuerySchema = z
+  .object({
+    tickerId: z.string().trim().min(1),
+    /** Omitted query param defaults to incremental unanalyzed-only runs (PRD FR2). */
+    unanalyzed: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((value) => value === "true"),
+    /** Inclusive lower bound on `DataSource.createdAt` (ISO 8601), FR1 eligibility window. */
+    start: z.preprocess(
+      (v) => (v === "" || v === undefined ? undefined : v),
+      z.string().datetime().optional(),
+    ),
+    /** Inclusive upper bound on `DataSource.createdAt` (ISO 8601), FR1 eligibility window. */
+    end: z.preprocess(
+      (v) => (v === "" || v === undefined ? undefined : v),
+      z.string().datetime().optional(),
+    ),
+  })
+  .superRefine((data, ctx) => {
+    if (data.start !== undefined && data.end !== undefined) {
+      const startMs = new Date(data.start).getTime();
+      const endMs = new Date(data.end).getTime();
+      if (startMs > endMs) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "start must be before or equal to end",
+          path: ["start"],
+        });
+      }
+    }
+  });
 
 export const postAnalysisBodySchema = z.object({
   tickerId: z.string().trim().min(1),
