@@ -31,7 +31,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/content-generation`         | Store content-generation payload                                      |
 | GET    | `/api/v1/data-collection`            | Get data-collection data                                              |
 | POST   | `/api/v1/data-collection`            | Store data-collection payload                                         |
-| GET    | `/api/v1/analysis`                   | Get analysis context (sources + KG vocabulary) for a ticker         |
+| GET    | `/api/v1/analysis`                   | Get analysis context (sources + KG vocabulary) for a ticker           |
 | POST   | `/api/v1/analysis`                   | Persist analysis results (entities, relations, mentions, relevance)   |
 | GET    | `/api/v1/delivery`                   | Get delivery payload (nullable newsletter, subscribers + checkpoints) |
 | POST   | `/api/v1/delivery`                   | Upsert delivery checkpoint after successful send                      |
@@ -39,9 +39,28 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/delivery-run`               | Persist one delivery run + recipient outcomes                         |
 | POST   | `/api/v1/user-registration-register` | Process a new or returning subscription                               |
 | POST   | `/api/v1/user-registration-confirm`  | Confirm a pending subscription (double opt-in)                        |
-| GET    | `/api/v1/query-analysis`                  | Get query-analysis context by ticker           |
-| POST   | `/api/v1/query-analysis`                  | Store and activate a versioned query set       |
+| GET    | `/api/v1/query-analysis`             | Get query-analysis context by ticker                                  |
+| POST   | `/api/v1/query-analysis`             | Store and activate a versioned query set                              |
 
+### Content generation (`/api/v1/content-generation`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`. Schemas live in `@workspace/agent-data-api-contract` (`content-generation.ts`).
+
+- **GET** — Query: `tickerId` (required). Returns today's selected data sources for the ticker ordered by relevance score.
+- **POST** — Body validated by `postContentGenerationBodySchema`. Required fields: `subject`, `content`, `tickerId`. Optional field: `description`. The following optional provenance and token-usage fields are also accepted; all are stored as `null` when omitted (backward-compatible — existing callers that omit these fields continue to work):
+
+| Field              | Type               | Description                                |
+| ------------------ | ------------------ | ------------------------------------------ |
+| `model`            | `string`           | LLM model name used for generation         |
+| `agentVersion`     | `string`           | Agent semver at generation time            |
+| `configVersion`    | `string`           | Hermes config version string               |
+| `promptHash`       | `string`           | Short hash of effective prompt             |
+| `configSnapshotId` | `string`           | Immutable Hermes config snapshot reference |
+| `promptTokens`     | `number` (integer) | Prompt token count from LLM response       |
+| `completionTokens` | `number` (integer) | Completion token count from LLM response   |
+| `totalTokens`      | `number` (integer) | Total token count from LLM response        |
+
+From agents, use the SDK namespace **`contentGeneration`**: `get` for the query object, **`create`** for POST.
 
 ### Analysis (`/api/v1/analysis`)
 

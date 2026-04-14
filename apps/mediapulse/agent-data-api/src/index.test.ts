@@ -181,6 +181,14 @@ describe("agent-data-api", () => {
         subject: "Test Subject",
         description: null,
         content: "Test content",
+        model: null,
+        agentVersion: null,
+        configVersion: null,
+        promptHash: null,
+        configSnapshotId: null,
+        promptTokens: null,
+        completionTokens: null,
+        totalTokens: null,
         createdAt: new Date("2026-03-19T00:00:00.000Z"),
         updatedAt: new Date("2026-03-19T00:00:00.000Z"),
       });
@@ -195,6 +203,53 @@ describe("agent-data-api", () => {
             subject: "Test Subject",
             content: "Test content",
             tickerId: TICKER_ID,
+          }),
+        },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.message).toBe("Success");
+    });
+
+    it("returns 200 when body includes provenance fields", async () => {
+      const mod = await getContentGenerationService();
+      vi.mocked(mod.createNewsletter).mockResolvedValue({
+        id: "newsletter-2",
+        tickerId: TICKER_ID,
+        subject: "Provenance Subject",
+        description: null,
+        content: "Provenance content",
+        model: "gpt-4o",
+        agentVersion: "1.2.3",
+        configVersion: "hermes-v3",
+        promptHash: "abc12345",
+        configSnapshotId: "snap-001",
+        promptTokens: 512,
+        completionTokens: 256,
+        totalTokens: 768,
+        createdAt: new Date("2026-04-14T00:00:00.000Z"),
+        updatedAt: new Date("2026-04-14T00:00:00.000Z"),
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: "Provenance Subject",
+            content: "Provenance content",
+            tickerId: TICKER_ID,
+            model: "gpt-4o",
+            agentVersion: "1.2.3",
+            configVersion: "hermes-v3",
+            promptHash: "abc12345",
+            configSnapshotId: "snap-001",
+            promptTokens: 512,
+            completionTokens: 256,
+            totalTokens: 768,
           }),
         },
       );
