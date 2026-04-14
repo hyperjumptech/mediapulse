@@ -1,12 +1,11 @@
 import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-article-analysis";
 import { z } from "zod";
+import {
+  articleAnalysisInputSchema,
+  type ArticleAnalysisInput,
+} from "./input-schema.js";
 import { run } from "./run";
-
-// InputSchema is the schema for the input of the agent, which will be sent by Hermes to the agent when the agent is invoked
-const InputSchema = z.object({
-  tickerId: z.string().trim().min(1),
-});
 
 // ConfigSchema is the schema for the config of the agent, which will be sent by Hermes to the agent when the agent is invoked
 const ConfigSchema = z.object({
@@ -14,11 +13,11 @@ const ConfigSchema = z.object({
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
-export type Input = z.infer<typeof InputSchema>;
+export type Input = ArticleAnalysisInput;
 
 const app = createAgentApp<
   Input,
-  typeof InputSchema,
+  typeof articleAnalysisInputSchema,
   Config,
   typeof ConfigSchema
 >(
@@ -26,8 +25,8 @@ const app = createAgentApp<
     agentId: "article-analysis", // this should be stable for the lifetime of the agent
     agentVersion: "1.0.0", // this should be incremented when the agent is updated
     description:
-      "Loads analysis context from agent-data-api (unanalyzed sources) per ticker. Extraction and scoring follow in later milestones.", // Optional description of the agent but recommended for admins to see in the agent registry
-    inputSchema: InputSchema,
+      "Loads analysis context from agent-data-api: incremental (unanalyzed) or re-scoring (`reanalyze`), optional `timeWindow` (ISO start/end) and `maxBatchSize`. Extraction and scoring follow in later milestones.",
+    inputSchema: articleAnalysisInputSchema,
     configSchema: ConfigSchema,
     run,
   },
