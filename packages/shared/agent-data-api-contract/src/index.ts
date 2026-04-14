@@ -119,4 +119,20 @@ export {
   type GetDataCollectionRunResponse,
   type PostDataCollectionRunResponse,
 } from "./data-collection-run.js";
+export {
+  contentGenerationRunListItemSchema,
+  contentGenerationRunOutcomeSchema,
+  contentGenerationRunQuerySchema,
+  contentGenerationRunStageSchema,
+  getContentGenerationRunResponseSchema,
+  postContentGenerationRunBodySchema,
+  postContentGenerationRunResponseSchema,
+  type ContentGenerationRunListItem,
+  type ContentGenerationRunOutcome,
+  type ContentGenerationRunQuery,
+  type ContentGenerationRunStage,
+  type GetContentGenerationRunResponse,
+  type PostContentGenerationRunBody,
+  type PostContentGenerationRunResponse,
+} from "./content-generation-run.js";
 export * from "./user-registration.js";
