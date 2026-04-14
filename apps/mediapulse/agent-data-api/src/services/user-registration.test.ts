@@ -121,7 +121,12 @@ describe("processRegistration", () => {
       subscriptionChanged: true,
     });
     expect(prisma.userTicker.create).toHaveBeenCalledWith({
-      data: { userId: USER.id, tickerId: TICKER.id, enabled: true },
+      data: {
+        userId: USER.id,
+        tickerId: TICKER.id,
+        enabled: true,
+        registrationConfirmedAt: null,
+      },
     });
     expect(prisma.userTicker.update).not.toHaveBeenCalled();
   });
@@ -250,6 +255,76 @@ describe("confirmRegistration", () => {
       data: {
         registrationConfirmedAt: expect.any(Date),
         enabled: true,
+      },
+    });
+  });
+});
+
+describe("processRegistration with immediate confirmation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sets registrationConfirmedAt when confirmed: true is passed for new subscription", async () => {
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.ticker.findUnique).mockResolvedValue(TICKER);
+    vi.mocked(prisma.mediapulseUser.upsert).mockResolvedValue(USER);
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue(null);
+    const newUserTicker = makeUserTicker({ registrationConfirmedAt: new Date() });
+    vi.mocked(prisma.userTicker.create).mockResolvedValue(
+      newUserTicker as unknown as Awaited<
+        ReturnType<typeof prisma.userTicker.create>
+      >,
+    );
+
+    const { processRegistration } = await import("./user-registration.js");
+    const result = await processRegistration({
+      email: "alice@example.com",
+      tickerSymbol: "BBCA",
+      confirmed: true,
+    });
+
+    expect(result.isNewSubscription).toBe(true);
+    expect(prisma.userTicker.create).toHaveBeenCalledWith({
+      data: {
+        userId: USER.id,
+        tickerId: TICKER.id,
+        enabled: true,
+        registrationConfirmedAt: expect.any(Date),
+      },
+    });
+  });
+
+  it("updates registrationConfirmedAt when confirmed: true is passed for existing unconfirmed subscription", async () => {
+    const { prisma } = await import("@mediapulse/database");
+    const unconfirmedUserTicker = makeUserTicker({
+      enabled: true,
+      registrationConfirmedAt: null,
+    });
+    vi.mocked(prisma.ticker.findUnique).mockResolvedValue(TICKER);
+    vi.mocked(prisma.mediapulseUser.upsert).mockResolvedValue(USER);
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue(
+      unconfirmedUserTicker as unknown as Awaited<
+        ReturnType<typeof prisma.userTicker.findUnique>
+      >,
+    );
+
+    const { processRegistration } = await import("./user-registration.js");
+    await processRegistration({
+      email: "alice@example.com",
+      tickerSymbol: "BBCA",
+      confirmed: true,
+    });
+
+    expect(prisma.userTicker.update).toHaveBeenCalledWith({
+      where: { id: unconfirmedUserTicker.id },
+      data: {
+        enabled: true,
+        registrationConfirmedAt: expect.any(Date),
       },
     });
   });

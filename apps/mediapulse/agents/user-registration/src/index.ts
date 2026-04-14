@@ -164,6 +164,7 @@ const app = createAgentApp<
                   email: senderEmail,
                   tickerSymbol,
                   name,
+                  confirmed: true,
                   audit: {
                     graphMessageId: msg.id,
                     receivedAt: msg.receivedDateTime,
@@ -223,20 +224,6 @@ const app = createAgentApp<
               subject: "Subscription Confirmed - MediaPulse",
               text: `Hello,\n\nYour subscription to the '${tickerSymbol}' newsletter has been confirmed.\n\nThank you,\nMediaPulse Team`,
             });
-
-            try {
-              await dataApiClient.userRegistrationConfirm.create({
-                userTickerId: registerResponse.userTickerId!,
-                audit: {
-                  graphMessageId: msg.id,
-                },
-              });
-            } catch (confirmError) {
-              logger.error(
-                { confirmError, messageId: msg.id },
-                "Failed to call confirm API; archiving anyway to clear inbox.",
-              );
-            }
 
             await inboxClient.archiveMessage(msg.id!);
             results.push({
