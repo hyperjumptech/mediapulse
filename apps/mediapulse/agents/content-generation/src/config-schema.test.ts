@@ -1,52 +1,186 @@
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { describe, expect, it } from "vitest";
 
 import { ContentGenerationConfigSchema } from "./config-schema.js";
 
 describe("ContentGenerationConfigSchema", () => {
-  it("parses required openaiApiKey and omits optional fields when unset", () => {
+  it("parses minimal config with legacy openaiApiKey and applies all defaults", () => {
+    // Act
     const parsed = ContentGenerationConfigSchema.parse({
       openaiApiKey: "sk-test",
     });
+
+    // Assert
     expect(parsed.openaiApiKey).toBe("sk-test");
     expect(parsed.openaiBaseUrl).toBeUndefined();
     expect(parsed.openaiModel).toBeUndefined();
+
+    // Check defaults
+    expect(parsed.openai.model).toBe("gpt-4o-mini");
+    expect(parsed.openai.temperature).toBe(0.4);
+    expect(parsed.openai.timeoutMs).toBe(120000);
+    expect(parsed.output.topNewsCount).toBe(3);
+    expect(parsed.context.maxCharsPerSource).toBe(8000);
+    expect(parsed.context.maxTotalContextChars).toBe(100000);
+    expect(parsed.llmRetry.maxAttempts).toBe(3);
+    expect(parsed.llmRetry.baseDelayMs).toBe(500);
+    expect(parsed.llmRetry.maxDelayMs).toBe(8000);
+    expect(parsed.llmRetry.jitter).toBe(true);
+    expect(parsed.freshness.strategy).toBe("calendar_day");
+    expect(parsed.freshness.timezone).toBe("Asia/Jakarta");
+    expect(parsed.persistRetry.maxAttempts).toBe(2);
+    expect(parsed.persistRetry.baseDelayMs).toBe(200);
+    expect(parsed.persistRetry.maxDelayMs).toBe(2000);
   });
 
-  it("accepts explicit openaiModel", () => {
+  it("parses valid full config", () => {
+    // Act
+    const parsed = ContentGenerationConfigSchema.parse({
+      openai: {
+        apiKey: "sk-test-new",
+        baseUrl: "https://example.com",
+        model: "gpt-4",
+        temperature: 0.8,
+        maxTokens: 1000,
+        timeoutMs: 60000,
+      },
+      prompts: {
+        systemPrompt: "You are a bot",
+        userPromptTemplate: "Hello {{tickerId}}",
+      },
+      output: {
+        topNewsCount: 5,
+      },
+      context: {
+        maxCharsPerSource: 1000,
+        maxTotalContextChars: 10000,
+      },
+      llmRetry: {
+        maxAttempts: 1,
+        baseDelayMs: 100,
+        maxDelayMs: 1000,
+        jitter: false,
+      },
+      freshness: {
+        strategy: "calendar_day",
+        timezone: "America/New_York",
+      },
+      persistRetry: {
+        maxAttempts: 1,
+        baseDelayMs: 50,
+        maxDelayMs: 500,
+      },
+    });
+
+    // Assert
+    expect(parsed.openai.apiKey).toBe("sk-test-new");
+    expect(parsed.openai.baseUrl).toBe("https://example.com");
+    expect(parsed.openai.model).toBe("gpt-4");
+    expect(parsed.output.topNewsCount).toBe(5);
+    expect(parsed.prompts.userPromptTemplate).toBe("Hello {{tickerId}}");
+    expect(parsed.freshness.timezone).toBe("America/New_York");
+  });
+
+  it("accepts legacy explicit openaiModel and new openai.model", () => {
+    // Act
     const parsed = ContentGenerationConfigSchema.parse({
       openaiApiKey: "sk-test",
       openaiModel: "gpt-4o",
+      openai: {
+        model: "gpt-4-turbo",
+      },
     });
+
+    // Assert
     expect(parsed.openaiModel).toBe("gpt-4o");
+    expect(parsed.openai.model).toBe("gpt-4-turbo");
   });
 
-  it("accepts optional openaiBaseUrl", () => {
-    const parsed = ContentGenerationConfigSchema.parse({
-      openaiApiKey: "sk-test",
-      openaiBaseUrl:
-        "https://example.openai.azure.com/openai/deployments/my-deployment",
+  it("rejects empty openaiApiKey if no openai.apiKey provided", () => {
+    // Act & Assert
+    const result = ContentGenerationConfigSchema.safeParse({
+      openaiApiKey: "",
     });
-    expect(parsed.openaiBaseUrl).toBe(
-      "https://example.openai.azure.com/openai/deployments/my-deployment",
-    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(["openaiApiKey"]);
+    }
   });
 
-  it("rejects invalid openaiBaseUrl", () => {
-    expect(() =>
-      ContentGenerationConfigSchema.parse({
-        openaiApiKey: "sk-test",
-        openaiBaseUrl: "not-a-url",
-      }),
-    ).toThrow();
+  it("rejects missing api key", () => {
+    // Act & Assert
+    const result = ContentGenerationConfigSchema.safeParse({});
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(["openai", "apiKey"]);
+    }
   });
 
-  it("rejects empty openaiApiKey", () => {
-    expect(() =>
-      ContentGenerationConfigSchema.parse({ openaiApiKey: "" }),
-    ).toThrow();
+  it("parses config with openai.apiKey only (no legacy openaiApiKey)", () => {
+    // Act
+    const parsed = ContentGenerationConfigSchema.parse({
+      openai: {
+        apiKey: "sk-new-style",
+      },
+    });
+
+    // Assert
+    expect(parsed.openai.apiKey).toBe("sk-new-style");
+    expect(parsed.openaiApiKey).toBeUndefined();
   });
 
-  it("rejects missing openaiApiKey", () => {
-    expect(() => ContentGenerationConfigSchema.parse({})).toThrow();
+  it("rejects topNewsCount of 0", () => {
+    // Act & Assert
+    const result = ContentGenerationConfigSchema.safeParse({
+      openaiApiKey: "sk-test",
+      output: { topNewsCount: 0 },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects negative topNewsCount", () => {
+    // Act & Assert
+    const result = ContentGenerationConfigSchema.safeParse({
+      openaiApiKey: "sk-test",
+      output: { topNewsCount: -1 },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid freshness timezone", () => {
+    // Act & Assert
+    const result = ContentGenerationConfigSchema.safeParse({
+      openaiApiKey: "sk-test",
+      freshness: { timezone: "Not/ATimezone" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects wrong type for topNewsCount", () => {
+    // Act & Assert
+    const result = ContentGenerationConfigSchema.safeParse({
+      openaiApiKey: "sk-test",
+      output: { topNewsCount: "three" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("generates correct JSON schema containing all fields", () => {
+    // Act
+    const jsonSchema = zodToJsonSchema(ContentGenerationConfigSchema, {
+      $refStrategy: "none",
+    });
+
+    // Assert
+    // Using stringify checks because the object is complex.
+    const schemaStr = JSON.stringify(jsonSchema);
+    expect(schemaStr).toContain("openaiApiKey");
+    expect(schemaStr).toContain("openaiModel");
+    expect(schemaStr).toContain("topNewsCount");
+    expect(schemaStr).toContain("systemPrompt");
+    expect(schemaStr).toContain("userPromptTemplate");
+    expect(schemaStr).toContain("calendar_day");
+    expect(schemaStr).toContain("maxCharsPerSource");
+    expect(schemaStr).toContain("maxTotalContextChars");
   });
 });
