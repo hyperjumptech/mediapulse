@@ -3,6 +3,8 @@ import { generateObject, type ModelMessage } from "ai";
 import type { GetAnalysisResponse } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
+const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
+
 /** Structured extraction result validated by the AI SDK. */
 export const llmExtractionOutputSchema = z.object({
   entities: z.array(
@@ -20,6 +22,17 @@ export const llmExtractionOutputSchema = z.object({
       relationTypeId: z.string().uuid(),
     }),
   ),
+  /** Per-article entity mention signals (aligned with `postAnalysisBodySchema.articleEntities`, without `dataSourceId`). */
+  articleMentions: z
+    .array(
+      z.object({
+        entityName: z.string().trim().min(1),
+        mentionCount: z.number().int().positive(),
+        confidence: z.number().min(0).max(1),
+        sentiment: sentimentSchema.optional(),
+      }),
+    )
+    .default([]),
 });
 
 export type LlmExtractionOutput = z.infer<typeof llmExtractionOutputSchema>;
@@ -47,7 +60,9 @@ export const buildExtractionSystemContent = (
     "Use ONLY entity typeId values listed under ENTITY TYPES and ONLY relationTypeId values under RELATION TYPES.",
     "Relation fromEntityName and toEntityName must match canonicalName strings of entities you output (not aliases).",
     "Prefer high-precision entities; omit uncertain extractions.",
-    "Return JSON object with keys entities and relations (arrays, possibly empty).",
+    "Also populate articleMentions: for entities in your entities array that appear in the article text, estimate mentionCount (positive integer), confidence (0–1), and optional sentiment POSITIVE | NEGATIVE | NEUTRAL.",
+    "Each articleMentions.entityName must exactly match the canonicalName of one row in your entities array (same spelling as canonicalName).",
+    "Return JSON object with keys entities, relations, and articleMentions (arrays; articleMentions may be empty).",
     "ENTITY TYPES (uuid — label):\n" + et,
     "RELATION TYPES (uuid — label):\n" + rt,
   ].join("\n\n");

@@ -179,6 +179,7 @@ describe("run", () => {
           },
         ],
         relations: [],
+        articleMentions: [],
       })
       .mockResolvedValueOnce({
         entities: [
@@ -200,6 +201,7 @@ describe("run", () => {
             relationTypeId: REL_ID,
           },
         ],
+        articleMentions: [],
       });
 
     analysisCreate.mockResolvedValueOnce({
@@ -216,6 +218,8 @@ describe("run", () => {
     expect(result.details).toMatchObject({
       vocabularyFailures: 1,
       entitiesCreated: 1,
+      articleEntityRowsPosted: 0,
+      mentionPostChunks: 0,
     });
     expect(analysisCreate).toHaveBeenCalledTimes(1);
   });
@@ -238,6 +242,7 @@ describe("run", () => {
         { fromEntityName: "A", toEntityName: "B", relationTypeId: REL_ID },
         { fromEntityName: "B", toEntityName: "C", relationTypeId: REL_ID },
       ],
+      articleMentions: [],
     });
 
     analysisCreate
@@ -270,7 +275,135 @@ describe("run", () => {
       entitiesCreated: 2,
       entitiesReused: 2,
       relationsCreated: 2,
+      articleEntityRowsPosted: 0,
+      mentionPostChunks: 0,
     });
+  });
+
+  it("posts articleEntities after ER chunks when LLM returns articleMentions", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+    });
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
+      entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+      relations: [],
+      articleMentions: [
+        {
+          entityName: "A",
+          mentionCount: 2,
+          confidence: 0.91,
+          sentiment: "POSITIVE",
+        },
+      ],
+    });
+
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      });
+
+    const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    expect(result.success).toBe(true);
+    expect(analysisCreate).toHaveBeenCalledTimes(2);
+    expect(analysisCreate.mock.calls[0]?.[0]?.articleEntities).toEqual([]);
+    expect(analysisCreate.mock.calls[1]?.[0]?.articleEntities).toHaveLength(1);
+    expect(
+      analysisCreate.mock.calls[1]?.[0]?.articleEntities?.[0],
+    ).toMatchObject({
+      dataSourceId: DS_ID,
+      entityName: "A",
+      mentionCount: 2,
+      confidence: 0.91,
+      sentiment: "POSITIVE",
+    });
+    expect(result.details).toMatchObject({
+      postChunks: 1,
+      mentionPostChunks: 1,
+      articleEntityRowsPosted: 1,
+    });
+  });
+
+  it("surfaces article entity parse errors in run details", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+    });
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
+      entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+      relations: [],
+      articleMentions: [
+        {
+          entityName: "A",
+          mentionCount: 2,
+          confidence: 1.5,
+          sentiment: "POSITIVE",
+        },
+      ],
+    });
+
+    analysisCreate.mockResolvedValueOnce({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 0,
+      articlesSelected: 0,
+    });
+
+    const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    expect(result.success).toBe(true);
+    expect(analysisCreate).toHaveBeenCalledTimes(1);
+    expect(result.details).toMatchObject({
+      mentionPostChunks: 0,
+      articleEntityRowsPosted: 0,
+    });
+    expect(
+      Array.isArray(
+        (result.details as { articleEntityParseErrors?: unknown[] })
+          .articleEntityParseErrors,
+      ),
+    ).toBe(true);
+    expect(
+      (result.details as { articleEntityParseErrors?: unknown[] })
+        .articleEntityParseErrors?.length,
+    ).toBeGreaterThan(0);
   });
 
   it("returns failure when analysis GET throws", async () => {
@@ -312,6 +445,7 @@ describe("run", () => {
           relationTypeId: REL_ID,
         },
       ],
+      articleMentions: [],
     });
 
     analysisCreate.mockResolvedValueOnce({

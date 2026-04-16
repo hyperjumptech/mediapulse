@@ -21,6 +21,7 @@ describe("buildExtractionSystemContent", () => {
     expect(text).toContain("Company");
     expect(text).toContain(RID);
     expect(text).toContain("PART_OF");
+    expect(text).toContain("articleMentions");
   });
 });
 

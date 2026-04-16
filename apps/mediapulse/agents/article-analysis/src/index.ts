@@ -22,7 +22,7 @@ const app = createAgentApp<
     agentId: "article-analysis",
     agentVersion: "1.0.0",
     description:
-      "Loads analysis context (incremental or reanalyze), extracts KG entities/relations via LLM with vocabulary constraints, and persists in chunked POSTs to agent-data-api.",
+      "Loads analysis context (incremental or reanalyze), extracts KG entities/relations and per-article entity mentions via LLM with vocabulary constraints, and persists in chunked POSTs to agent-data-api.",
     inputSchema: articleAnalysisInputSchema,
     configSchema: articleAnalysisConfigSchema,
     run,
