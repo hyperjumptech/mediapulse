@@ -81,7 +81,7 @@ Use **pnpm** for install/scripts.
 | content-generation agent | 4002 | Mediapulse agent                               |
 | delivery agent           | 4003 | Mediapulse agent                               |
 | ticker-echo agent        | 4010 | Minimal test agent                             |
-| article-analysis agent   | 4011 | Mediapulse agent (KG analysis)                 |
+| article-analysis agent   | 4011 | Mediapulse agent (KG analysis) — invoke `input`: `tickerId` (required); optional `reanalyze` (default false); optional `timeWindow` with ISO `start` / `end`; optional `maxBatchSize` (positive int). When `reanalyze` is true, Hermes must send at least one of `timeWindow` bounds or `maxBatchSize`. Uses `AGENT_DATA_API_URL` + bearer token like other agents. |
 | domain-api (Mediapulse)  | 8090 | Hermes domain integration API (default in dev) |
 | hermes-worker            | —    | Background worker (no HTTP port)               |
 
@@ -100,6 +100,8 @@ For pipeline stages that read third-party keys from env (e.g. data collection, s
 | `OPENAI_API_KEY` | KG agents when deployed | [OpenAI](https://openai.com)     |
 
 **Delivery (Resend):** configure `resendApiKey` and `resend.from` on the **delivery Agent config** in Hermes (variables/secrets), not in this env file.
+
+**Article analysis:** configure the **article-analysis** agent in Hermes with `openaiApiKey` (required). Optional tuning: `openaiModel`, `maxOutputTokens`, `maxContentChars`, per-article caps `maxEntitiesPerArticle` / `maxRelationsPerArticle`, per-run caps `maxEntitiesPerRun` / `maxRelationsPerRun`, and `postChunkRelationBatchSize` for POST chunking (each chunk’s body includes endpoint entities so relation names resolve in one `analysis.create` transaction). Mention rows use `maxArticleEntitiesPerArticle`, `maxArticleEntitiesPerRun`, and `postChunkArticleEntityBatchSize` for `articleEntities` POST batching after entities/relations are committed.
 
 ---
 

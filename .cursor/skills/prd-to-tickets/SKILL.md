@@ -46,7 +46,7 @@ Every ticket in the **same PRD batch** shares metadata so tools can filter or ta
 | `group_slug`    | Yes         | **Stable machine id** for the initiative: `kebab-case`, no spaces (e.g. `hermes-admin-password-reset`). Use for GitHub **label** names, Linear project keys, Jira epic links, branch naming hints. |
 | `group_label`   | Recommended | **Human-readable** title for the same group (e.g. `Hermes admin password reset`). Shown in tables and when creating issues.                                                                        |
 
-**When exporting to GitHub (or similar):** create or apply a **label** equal to `group_slug`, or use `group_slug` as a namespace prefix (e.g. label `epic:hermes-admin-password-reset`)—**stay consistent within the batch** and document the choice in the chat reply.
+**When exporting to GitHub (or similar):** create or apply a **label** equal to `group_slug`, or use `group_slug` as a namespace prefix (e.g. label `epic:hermes-admin-password-reset`)—**stay consistent within the batch** and document the choice in the chat reply. When creating the GitHub issue from a ticket, use the body structure and `gh` patterns in [create-github-issue](../create-github-issue/SKILL.md).
 
 **Optional sub-batch:** If the PRD defines phases, add `phase: 1` (or `discovery` / `build`) in frontmatter so ordering is clear without splitting `group_slug`.
 

@@ -206,6 +206,37 @@ describe("createAgentDataApiClient", () => {
     );
   });
 
+  it("serializes optional start and end on analysis GET", async () => {
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        dataSources: [],
+        entityTypes: [],
+        relationTypes: [],
+        existingEntities: [],
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
+    });
+
+    await client.analysis.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      unanalyzed: true,
+      start: "2026-01-01T00:00:00.000Z",
+      end: "2026-01-31T00:00:00.000Z",
+    });
+
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "analysis")}?tickerId=11111111-1111-4111-a111-111111111111&unanalyzed=true&start=2026-01-01T00%3A00%3A00.000Z&end=2026-01-31T00%3A00%3A00.000Z`,
+      expect.objectContaining({
+        headers: { Authorization: "Bearer sdk-token" },
+      }),
+    );
+  });
+
   it("posts analysis payload and parses response", async () => {
     const postFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({

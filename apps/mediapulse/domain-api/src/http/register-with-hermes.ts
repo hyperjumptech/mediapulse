@@ -28,7 +28,7 @@ export const registerWithHermes = async (): Promise<void> => {
   }
 
   const requestBody = registerDomainIntegrationRequestSchema.parse({
-    integrationId: env.DOMAIN_INTEGRATION_ID ?? "mediapulse",
+    integrationId: env.DOMAIN_INTEGRATION_ID,
     name: env.DOMAIN_INTEGRATION_NAME ?? "Mediapulse",
     baseUrl: env.MEDIAPULSE_API_URL,
     version: env.DOMAIN_INTEGRATION_VERSION,

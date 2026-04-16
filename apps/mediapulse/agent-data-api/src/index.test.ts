@@ -301,6 +301,39 @@ describe("agent-data-api", () => {
         unanalyzed: true,
       });
     });
+
+    it("forwards start and end query params to loadAnalysisContext", async () => {
+      const mod = await getAnalysisService();
+      vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
+        dataSources: [],
+        entityTypes: [],
+        relationTypes: [],
+        existingEntities: [],
+      });
+
+      const start = "2026-01-01T00:00:00.000Z";
+      const end = "2026-01-31T00:00:00.000Z";
+      const qs = new URLSearchParams({
+        tickerId: TICKER_ID,
+        unanalyzed: "true",
+        start,
+        end,
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${analysisPath}?${qs.toString()}`,
+        { headers: AUTH_HEADERS },
+      );
+
+      expect(res.status).toBe(200);
+      expect(mod.loadAnalysisContext).toHaveBeenCalledWith({
+        tickerId: TICKER_ID,
+        unanalyzed: true,
+        start,
+        end,
+      });
+    });
   });
 
   describe(`POST ${analysisPath}`, () => {

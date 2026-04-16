@@ -1,11 +1,13 @@
 ---
 name: open-github-pr
-description: Open a GitHub pull request for this repository using gh CLI, including branch checks, push, a reviewer-friendly PR body, and verified GitHub issue links (Closes/Fixes/Refs). Always resolve or create related issues before gh pr create so the PR can link to tickets. Use when the user asks to create/open/submit a PR or pull request, and format title and description with the pr-title-description skill structure (including Related issues).
+description: Open a GitHub pull request for this repository using gh CLI, including branch checks, push, a reviewer-friendly PR body, and verified GitHub issue links (Closes/Fixes/Refs). Always resolve or create related issues before gh pr create so the PR can link to tickets; when drafting new issues, follow the create-github-issue skill for title and body structure. Use when the user asks to create/open/submit a PR or pull request, and format title and description with the pr-title-description skill structure (including Related issues).
 ---
 
 # Open GitHub Pull Request
 
 Create pull requests for this repo with `gh pr create`, and use the `/pr-title-description` structure for the title and body. **Do not run `gh pr create` until at least one related GitHub issue exists, is open, and is verified** (see **Mandatory: resolve or create issues before the PR**). Then include **`## Related issues`** with `Closes`/`Fixes`/`Refs` so the PR appears under each issue’s Development section.
+
+**Creating or drafting GitHub issues** (title, body sections, `gh issue create`): use [create-github-issue](../create-github-issue/SKILL.md).
 
 ## When to use this skill
 
@@ -52,7 +54,7 @@ Run this **after** you have the same `<base>` used for `git diff <base>...HEAD` 
 
 2. **Select or create**
    - If one or more issues clearly match: run `gh issue view <n|url> --repo "<owner>/<repo>" --json number,state,title,url` and require **`state` is `OPEN`**. If the issue is closed, stop and resolve with the user (reopen, new issue, or different ticket)—do not open a PR that only links to a closed issue unless they explicitly want that.
-   - If **no** suitable open issue exists in this repo (and the user did not point to external-repo-only tracking): **draft** an issue whose title aligns with the upcoming PR title intent and whose body includes short **context**, **scope**, and **acceptance** / expected outcome—grounded in `git diff <base>...HEAD` and the commit story, not an empty placeholder. Create with **`gh issue create --repo "<owner>/<repo>" -t "..." --body-file "$ISSUE_FILE"`**, where **`$ISSUE_FILE`** is from **`mktemp`** under the system temp dir only, with **`trap 'rm -f "$ISSUE_FILE"' EXIT`** (same rules as PR bodies—**never** write under the clone). Add **`-l name`** when team conventions or the user specify labels.
+   - If **no** suitable open issue exists in this repo (and the user did not point to external-repo-only tracking): **draft** an issue whose title aligns with the upcoming PR title intent and whose body follows [create-github-issue](../create-github-issue/SKILL.md) (Summary, Scope, Acceptance criteria, Dependencies, Notes)—grounded in `git diff <base>...HEAD` and the commit story, not an empty placeholder. Create with **`gh issue create --repo "<owner>/<repo>" -t "..." --body-file "$ISSUE_FILE"`**, where **`$ISSUE_FILE`** is from **`mktemp`** under the system temp dir only, with **`trap 'rm -f "$ISSUE_FILE"' EXIT`** (same rules as PR bodies—**never** write under the clone). Add **`-l name`** when team conventions or the user specify labels.
 
 3. **Capture number** — `gh issue create` prints the new issue URL. Resolve the number reliably:  
    `ISSUE_NUM="$(gh issue view "<printed-url>" --repo "<owner>/<repo>" --json number -q .number)"`  

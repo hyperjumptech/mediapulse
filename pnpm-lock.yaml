@@ -460,6 +460,9 @@ importers:
 
   apps/mediapulse/agents/article-analysis:
     dependencies:
+      '@ai-sdk/openai':
+        specifier: ^3.0.49
+        version: 3.0.49(zod@3.25.76)
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../../packages/mediapulse/env
@@ -469,6 +472,9 @@ importers:
       '@workspace/agent-data-api-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-data-api-client
+      '@workspace/agent-data-api-contract':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-data-api-contract
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
@@ -478,6 +484,9 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
+      ai:
+        specifier: ^6.0.142
+        version: 6.0.142(zod@3.25.76)
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -5169,6 +5178,7 @@ packages:
   basic-ftp@5.1.0:
     resolution: {integrity: sha512-RkaJzeJKDbaDWTIPiJwubyljaEPwpVWkm9Rt5h9Nd6h7tEXTJ3VB4qxdZBioV7JO5yLUaOKwz7vDOzlncUsegw==}
     engines: {node: '>=10.0.0'}
+    deprecated: Security vulnerability fixed in 5.2.1, please upgrade
 
   bcrypt@6.0.0:
     resolution: {integrity: sha512-cU8v/EGSrnH+HnxV2z0J7/blxH8gq7Xh2JFT6Aroax7UohdmiJJlxApMxtKfuI7z68NvvVcmR78k2LbT6efhRg==}
