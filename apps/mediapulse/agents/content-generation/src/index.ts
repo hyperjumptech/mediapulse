@@ -9,27 +9,13 @@ import {
   ContentGenerationConfigSchema,
   type ContentGenerationConfig,
 } from "./config-schema.js";
-import { formatNewsletterContent } from "./format-newsletter-content.js";
-import { parseNewsletterJson } from "./parse-newsletter-json.js";
+import { generateContentWithOpenAI } from "./lib/generate-content.js";
 
 const BodySchema = z.object({
   tickerId: z.string(),
 });
 
 type Input = z.infer<typeof BodySchema>;
-
-type SourceForGeneration = {
-  url: string;
-  title: string;
-  content: string;
-};
-
-interface GeneratedContent {
-  subject: string;
-  content: string;
-  /** Optional executive summary, e.g. for newsletter preview or listing. */
-  description?: string;
-}
 
 const app = createAgentApp<
   Input,
@@ -71,6 +57,13 @@ const app = createAgentApp<
       const generated = await generateContentWithOpenAI(sources, {
         openai,
         model,
+        topNewsCount: config.output.topNewsCount,
+        maxCharsPerSource: config.context.maxCharsPerSource,
+        maxTotalContextChars: config.context.maxTotalContextChars,
+        systemPrompt: config.prompts?.systemPrompt,
+        userPromptTemplate: config.prompts?.userPromptTemplate,
+        tickerId: input.tickerId,
+        date: new Date().toISOString().split("T")[0],
       });
       try {
         await dataApiClient.contentGeneration.create({
@@ -108,65 +101,6 @@ const app = createAgentApp<
         : undefined,
   },
 );
-
-/**
- * Calls OpenAI to generate a newsletter with an executive summary and top 3 news items.
- *
- * @param sources - Fetched articles/sources to summarize.
- * @param deps - OpenAI client and model from pipeline agent config.
- * @returns Subject and formatted plain-text content for the newsletter.
- */
-async function generateContentWithOpenAI(
-  sources: SourceForGeneration[],
-  deps: { openai: OpenAI; model: string },
-): Promise<GeneratedContent> {
-  const sourceSummaries = sources
-    .map(
-      (source) => `Source: ${source.title} (${source.url})\n${source.content}`,
-    )
-    .join("\n\n---\n\n");
-
-  const response = await deps.openai.chat.completions.create({
-    model: deps.model,
-    messages: [
-      {
-        role: "system",
-        content: `You are a newsletter writer for busy executives. Given multiple data sources, produce a structured newsletter.
-
-Return a JSON object with:
-- "subject": a compelling email subject line (short, under ~60 chars).
-- "executiveSummary": 2–3 sentences summarizing the main themes and why they matter. No bullet points; use clear prose.
-- "topNews": an array of exactly 3 items. Each item has "title" (short headline) and "summary" (2–4 sentences). Pick the 3 most important or impactful stories. Keep summaries concise and actionable.`,
-      },
-      {
-        role: "user",
-        content: `Create a newsletter from these data sources. Include an executive summary and the top 3 news items with brief summaries.\n\n${sourceSummaries}`,
-      },
-    ],
-    response_format: { type: "json_object" },
-  });
-
-  const result = response.choices[0]?.message?.content;
-
-  if (!result) {
-    throw new Error("OpenAI returned an empty response");
-  }
-
-  const validated = parseNewsletterJson(result);
-  const topNews = Array.isArray(validated.topNews)
-    ? validated.topNews.slice(0, 3)
-    : [];
-  const content = formatNewsletterContent(
-    validated.executiveSummary ?? "",
-    topNews,
-  );
-
-  return {
-    subject: validated.subject ?? "Your daily briefing",
-    content,
-    description: validated.executiveSummary?.trim() || undefined,
-  };
-}
 
 export default {
   port: env.PORT ?? 4002,
