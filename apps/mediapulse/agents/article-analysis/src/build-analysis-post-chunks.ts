@@ -57,6 +57,25 @@ export const buildAnalysisPostChunks = (
   let droppedRelations = 0;
   const nameLookup = buildEntityNameLookup(entities);
 
+  if (relations.length === 0) {
+    if (entities.length > 0) {
+      const body: PostAnalysisBody = {
+        tickerId,
+        entities: [...entities],
+        relations: [],
+        articleEntities: [],
+        articleRelevances: [],
+      };
+      const parsed = postAnalysisBodySchema.safeParse(body);
+      if (!parsed.success) {
+        parseErrors.push(parsed.error.flatten().formErrors.join("; "));
+      } else {
+        chunks.push(parsed.data);
+      }
+    }
+    return { chunks, droppedRelations, parseErrors };
+  }
+
   for (let i = 0; i < relations.length; i += postChunkRelationBatchSize) {
     const relWindow = relations.slice(i, i + postChunkRelationBatchSize);
     const filtered = relWindow.filter((r) => {

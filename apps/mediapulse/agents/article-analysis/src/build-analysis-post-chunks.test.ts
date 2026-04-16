@@ -95,6 +95,21 @@ describe("buildAnalysisPostChunks", () => {
     expect(droppedRelations).toBe(1);
   });
 
+  it("emits one chunk with entities only when there are no relations", () => {
+    // Setup
+    const tickerId = "t1";
+    const entities = [
+      { canonicalName: "A", typeId: TID, aliases: [] as string[] },
+      { canonicalName: "B", typeId: TID, aliases: [] as string[] },
+    ];
+    // Act
+    const { chunks } = buildAnalysisPostChunks(tickerId, entities, [], 10);
+    // Assert
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]?.entities).toHaveLength(2);
+    expect(chunks[0]?.relations).toHaveLength(0);
+  });
+
   it("reports parse error when chunk body fails schema validation", () => {
     // Act
     const { chunks, parseErrors } = buildAnalysisPostChunks(

@@ -20,6 +20,12 @@ export const articleAnalysisConfigSchema = z.object({
   maxRelationsPerRun: z.number().int().positive().optional(),
   /** Max relations per POST chunk (FR9); entity closure is added per chunk. */
   postChunkRelationBatchSize: z.number().int().positive().optional(),
+  /** Max `articleEntities` rows per source after LLM extract (before run merge). */
+  maxArticleEntitiesPerArticle: z.number().int().positive().optional(),
+  /** Max `articleEntities` rows for the run after dedupe (before POST). */
+  maxArticleEntitiesPerRun: z.number().int().positive().optional(),
+  /** Max `articleEntities` rows per POST chunk. */
+  postChunkArticleEntityBatchSize: z.number().int().positive().optional(),
 });
 
 export type ArticleAnalysisConfig = z.infer<typeof articleAnalysisConfigSchema>;
@@ -34,6 +40,9 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   maxEntitiesPerRun: number;
   maxRelationsPerRun: number;
   postChunkRelationBatchSize: number;
+  maxArticleEntitiesPerArticle: number;
+  maxArticleEntitiesPerRun: number;
+  postChunkArticleEntityBatchSize: number;
 };
 
 /** Production-oriented defaults merged onto parsed Hermes config. */
@@ -46,6 +55,9 @@ export const articleAnalysisConfigDefaults = {
   maxEntitiesPerRun: 200,
   maxRelationsPerRun: 200,
   postChunkRelationBatchSize: 25,
+  maxArticleEntitiesPerArticle: 30,
+  maxArticleEntitiesPerRun: 500,
+  postChunkArticleEntityBatchSize: 50,
 } as const;
 
 /**
@@ -80,5 +92,14 @@ export const resolveArticleAnalysisConfig = (
     postChunkRelationBatchSize:
       config.postChunkRelationBatchSize ??
       articleAnalysisConfigDefaults.postChunkRelationBatchSize,
+    maxArticleEntitiesPerArticle:
+      config.maxArticleEntitiesPerArticle ??
+      articleAnalysisConfigDefaults.maxArticleEntitiesPerArticle,
+    maxArticleEntitiesPerRun:
+      config.maxArticleEntitiesPerRun ??
+      articleAnalysisConfigDefaults.maxArticleEntitiesPerRun,
+    postChunkArticleEntityBatchSize:
+      config.postChunkArticleEntityBatchSize ??
+      articleAnalysisConfigDefaults.postChunkArticleEntityBatchSize,
   };
 };
