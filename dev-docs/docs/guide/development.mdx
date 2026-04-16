@@ -101,6 +101,8 @@ For pipeline stages that read third-party keys from env (e.g. data collection, s
 
 **Delivery (Resend):** configure `resendApiKey` and `resend.from` on the **delivery Agent config** in Hermes (variables/secrets), not in this env file.
 
+**Article analysis:** configure the **article-analysis** agent in Hermes with `openaiApiKey` (required). Optional tuning: `openaiModel`, `maxOutputTokens`, `maxContentChars`, per-article caps `maxEntitiesPerArticle` / `maxRelationsPerArticle`, per-run caps `maxEntitiesPerRun` / `maxRelationsPerRun`, and `postChunkRelationBatchSize` for POST chunking (each chunk’s body includes endpoint entities so relation names resolve in one `analysis.create` transaction).
+
 ---
 
 ## Optional: Agent auto-registration

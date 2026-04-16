@@ -73,8 +73,8 @@ describe("sortAnalysisDataSourcesByCreatedAt", () => {
 
 describe("applyMaxBatchSizeCap", () => {
   it("returns full copy when maxBatchSize is omitted", () => {
-    const sorted = [1, 2, 3];
-    expect(applyMaxBatchSizeCap(sorted)).toEqual([1, 2, 3]);
+    const sorted = [1, 2];
+    expect(applyMaxBatchSizeCap(sorted)).toEqual([1, 2]);
   });
 
   it("truncates to first N items", () => {

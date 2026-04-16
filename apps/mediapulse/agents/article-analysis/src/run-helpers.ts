@@ -11,9 +11,10 @@ import type { ArticleAnalysisInput } from "./input-schema.js";
 export const buildAnalysisGetQuery = (
   input: ArticleAnalysisInput,
 ): GetAnalysisQuery => {
+  const reanalyze = input.reanalyze ?? false;
   const base = {
     tickerId: input.tickerId,
-    unanalyzed: !input.reanalyze,
+    unanalyzed: !reanalyze,
   } satisfies Pick<GetAnalysisQuery, "tickerId" | "unanalyzed">;
 
   const start = input.timeWindow?.start;
