@@ -1,38 +1,33 @@
 import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-article-analysis";
 import { z } from "zod";
+
+import { articleAnalysisConfigSchema } from "./config-schema.js";
 import {
   articleAnalysisInputSchema,
   type ArticleAnalysisInput,
 } from "./input-schema.js";
-import { run } from "./run";
+import { run } from "./run.js";
 
-// ConfigSchema is the schema for the config of the agent, which will be sent by Hermes to the agent when the agent is invoked
-const ConfigSchema = z.object({
-  verbose: z.boolean().optional(),
-});
-
-export type Config = z.infer<typeof ConfigSchema>;
 export type Input = ArticleAnalysisInput;
+export type Config = z.infer<typeof articleAnalysisConfigSchema>;
 
 const app = createAgentApp<
   Input,
   typeof articleAnalysisInputSchema,
   Config,
-  typeof ConfigSchema
+  typeof articleAnalysisConfigSchema
 >(
   {
-    agentId: "article-analysis", // this should be stable for the lifetime of the agent
-    agentVersion: "1.0.0", // this should be incremented when the agent is updated
+    agentId: "article-analysis",
+    agentVersion: "1.0.0",
     description:
-      "Loads analysis context from agent-data-api: incremental (unanalyzed) or re-scoring (`reanalyze`), optional `timeWindow` (ISO start/end) and `maxBatchSize`. Extraction and scoring follow in later milestones.",
+      "Loads analysis context (incremental or reanalyze), extracts KG entities/relations via LLM with vocabulary constraints, and persists in chunked POSTs to agent-data-api.",
     inputSchema: articleAnalysisInputSchema,
-    configSchema: ConfigSchema,
+    configSchema: articleAnalysisConfigSchema,
     run,
   },
-  // Options for the agent app
   {
-    // Auto-register: AGENT_REGISTRY_URL, AGENT_PUBLIC_URL, DOMAIN_INTEGRATION_API_KEY, AGENT_AUTH_API_URL
     authApiUrl: env.AGENT_AUTH_API_URL ?? "",
     autoRegister:
       env.AGENT_REGISTRY_URL &&
@@ -48,7 +43,6 @@ const app = createAgentApp<
   },
 );
 
-// Export the agent app as a default export
 export default {
   port: env.PORT ?? 4010,
   fetch: app.fetch,
