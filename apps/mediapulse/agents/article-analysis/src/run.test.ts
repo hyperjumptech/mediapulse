@@ -245,6 +245,14 @@ describe("run", () => {
       articlesSelected: 1,
       relevancePostChunks: 1,
     });
+    expect(
+      (result.details as { extractionFailures?: { stage: string }[] })
+        .extractionFailures,
+    ).toHaveLength(1);
+    expect(
+      (result.details as { extractionFailures?: { stage: string }[] })
+        .extractionFailures?.[0]?.stage,
+    ).toBe("vocabulary");
     expect(analysisCreate).toHaveBeenCalledTimes(2);
   });
 
@@ -626,6 +634,189 @@ describe("run", () => {
         (relation: { fromEntityName: string }) => relation.fromEntityName,
       ),
     ).toContain("Alpha Incorporated");
+  });
+
+  it("continues after vocabulary failure on one source when another succeeds (partial_success)", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u1",
+          title: "T1",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+        {
+          id: DS_ID_2,
+          url: "u2",
+          title: "T2",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+    });
+
+    let extractCall = 0;
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockImplementation(
+      async () => {
+        extractCall += 1;
+        if (extractCall === 1) {
+          return {
+            entities: [
+              {
+                canonicalName: "Bad",
+                typeId: "99999999-9999-4999-a999-999999999999",
+                aliases: [],
+              },
+            ],
+            relations: [],
+            articleMentions: [],
+          };
+        }
+        return {
+          entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+          relations: [],
+          articleMentions: [],
+        };
+      },
+    );
+
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 0,
+      });
+
+    const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    expect(result.success).toBe(true);
+    expect(result.details?.runStatus).toBe("partial_success");
+    expect(result.details?.extractionFailures).toHaveLength(1);
+    expect(
+      (result.details?.extractionFailures as { stage: string }[])[0]?.stage,
+    ).toBe("vocabulary");
+    expect(analysisCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops POST phases after ER chunk failure and records postFailures", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+    });
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
+      entities: [
+        { canonicalName: "A", typeId: TYPE_ID, aliases: [] },
+        { canonicalName: "B", typeId: TYPE_ID, aliases: [] },
+        { canonicalName: "C", typeId: TYPE_ID, aliases: [] },
+      ],
+      relations: [
+        { fromEntityName: "A", toEntityName: "B", relationTypeId: REL_ID },
+        { fromEntityName: "B", toEntityName: "C", relationTypeId: REL_ID },
+      ],
+      articleMentions: [],
+    });
+
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 1,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockRejectedValueOnce(new Error("Agent data API error: 500"));
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { postChunkRelationBatchSize: 1 },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.details?.runStatus).toBe("partial_success");
+    expect(result.details?.postFailures).toHaveLength(1);
+    expect(
+      (result.details?.postFailures as { chunkKind: string }[])[0]?.chunkKind,
+    ).toBe("entities_relations");
+    expect(analysisCreate).toHaveBeenCalledTimes(2);
+    expect(result.details?.postChunks).toBe(1);
+    expect(result.details?.relevancePostChunks).toBe(0);
+    expect(result.details?.mentionPostChunks).toBe(0);
+  });
+
+  it("fails run when extraction successes are below runPolicy minimum", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+        {
+          id: DS_ID_2,
+          url: "u2",
+          title: "T2",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+    });
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
+      entities: [
+        {
+          canonicalName: "Bad",
+          typeId: "99999999-9999-4999-a999-999999999999",
+          aliases: [],
+        },
+      ],
+      relations: [],
+      articleMentions: [],
+    });
+
+    const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("run policy");
+    expect(analysisCreate).not.toHaveBeenCalled();
   });
 
   it("logs verbose start", async () => {

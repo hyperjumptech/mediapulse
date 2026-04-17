@@ -1,5 +1,11 @@
 import type { RelevanceWeightMapV1 } from "./analysis-relevance-scoring.js";
+import type { ArticleAnalysisRunPolicy } from "./article-analysis-run-policy.js";
 import { z } from "zod";
+
+const articleAnalysisRunPolicySchema = z.object({
+  minSuccessfulSources: z.number().int().nonnegative().optional(),
+  failOnZeroSuccess: z.boolean().optional(),
+});
 
 /**
  * Hermes agent config for article-analysis (extraction, caps, chunking).
@@ -44,6 +50,17 @@ export const articleAnalysisConfigSchema = z.object({
     .optional(),
   /** Max `articleRelevances` rows per POST chunk. */
   postChunkArticleRelevanceBatchSize: z.number().int().positive().optional(),
+  /**
+   * When `failOnZeroSuccess` is true, require at least this many sources to complete extraction
+   * (LLM + vocabulary) before POST (MP-ART-ANALYSIS-007).
+   */
+  runPolicy: articleAnalysisRunPolicySchema.optional(),
+  /**
+   * Retries after the first attempt for `analysis.create` when the API returns 429 or 5xx.
+   */
+  postTransientRetries: z.number().int().nonnegative().optional(),
+  /** Initial backoff in ms; delay doubles each retry (`base * 2^attempt`). */
+  postTransientRetryBaseDelayMs: z.number().int().positive().optional(),
 });
 
 export type ArticleAnalysisConfig = z.infer<typeof articleAnalysisConfigSchema>;
@@ -70,6 +87,9 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   relevanceMinScore: number;
   maxSelectedRelevancePerTickerPerDay: number;
   postChunkArticleRelevanceBatchSize: number;
+  runPolicy: ArticleAnalysisRunPolicy;
+  postTransientRetries: number;
+  postTransientRetryBaseDelayMs: number;
 };
 
 /** Production-oriented defaults merged onto parsed Hermes config. */
@@ -94,6 +114,12 @@ export const articleAnalysisConfigDefaults = {
   relevanceMinScore: 0.35,
   maxSelectedRelevancePerTickerPerDay: 10,
   postChunkArticleRelevanceBatchSize: 40,
+  runPolicy: {
+    minSuccessfulSources: 1,
+    failOnZeroSuccess: true,
+  },
+  postTransientRetries: 0,
+  postTransientRetryBaseDelayMs: 500,
 } as const;
 
 /**
@@ -164,6 +190,20 @@ export const resolveArticleAnalysisConfig = (
     postChunkArticleRelevanceBatchSize:
       config.postChunkArticleRelevanceBatchSize ??
       articleAnalysisConfigDefaults.postChunkArticleRelevanceBatchSize,
+    runPolicy: {
+      minSuccessfulSources:
+        config.runPolicy?.minSuccessfulSources ??
+        articleAnalysisConfigDefaults.runPolicy.minSuccessfulSources,
+      failOnZeroSuccess:
+        config.runPolicy?.failOnZeroSuccess ??
+        articleAnalysisConfigDefaults.runPolicy.failOnZeroSuccess,
+    },
+    postTransientRetries:
+      config.postTransientRetries ??
+      articleAnalysisConfigDefaults.postTransientRetries,
+    postTransientRetryBaseDelayMs:
+      config.postTransientRetryBaseDelayMs ??
+      articleAnalysisConfigDefaults.postTransientRetryBaseDelayMs,
   };
 };
 

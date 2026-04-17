@@ -31,6 +31,28 @@ Optional additional numeric keys may appear for experiments. **Weighted `score`*
 
 **Selection:** `GET /api/v1/analysis` includes `relevanceSelectionState` (`utcDayStartIso`, `selectedCountToday`) so the agent can enforce **max additional `selected` rows per UTC day** after applying **`relevanceMinScore`**. Tie-break: higher `score`, then newer article `createdAt`.
 
+## Partial failure, POST phases, and diagnostics (MP-ART-ANALYSIS-007, [#217](https://github.com/hyperjumptech/mediapulse/issues/217))
+
+Hermes config **`runPolicy`** mirrors data-collection semantics:
+
+| Field | Default | Meaning |
+| ----- | ------- | ------- |
+| `minSuccessfulSources` | `1` | Minimum sources that must complete LLM + vocabulary validation before any `POST` |
+| `failOnZeroSuccess` | `true` | When true, the run returns **`success: false`** if fewer than `minSuccessfulSources` extract successfully |
+
+Per-source **LLM** or **vocabulary** errors are **skipped** (no whole-run abort); the response includes **`extractionFailures`** (`dataSourceId`, `stage`, `message`) and **`extractionSuccessCount`**. If some sources succeed, the run can continue with **`details.runStatus`: `partial_success`**.
+
+**`analysis.create` (POST) phases** run in order: **entities/relations** chunks → **articleEntities** → **articleRelevances**. If any chunk in a phase throws, **remaining chunks in that phase are skipped** and **later phases are not started** (avoids inconsistent KG + relevance). Only **API-confirmed** tallies are aggregated. Failures are listed in **`postFailures`** (`chunkKind`, `chunkIndex`, `errorCategory`, optional `httpStatus`, `message`).
+
+**Retries:** `postTransientRetries` (default `0`) and `postTransientRetryBaseDelayMs` (default `500`) retry the same chunk on **429** or **5xx** from agent-data-api, with exponential backoff (`base * 2^attempt`).
+
+## Idempotency and incremental runs
+
+- **`unanalyzed=true` (default on GET):** `loadAnalysisContext` returns only data sources that do **not** yet have an **`article_relevance`** row for the ticker—routine re-runs skip already-scored articles.
+- **Reanalyze** with bounds uses the same `POST` handler; **`article_entity`** and **`article_relevance`** are **upserted** on stable keys (`data_source_id` + `entity_id`, and `data_source_id` + `ticker_id`), so repeat POSTs update rows instead of creating duplicates.
+
+Structured logs use **`tickerId`**, **`dataSourceId`**, and chunk indices—**not** full article bodies or secrets.
+
 ## I/O contract
 
 - **Input:** `{ tickerId: string }`

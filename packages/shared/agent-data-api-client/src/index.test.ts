@@ -169,7 +169,7 @@ describe("createAgentDataApiClient", () => {
         relationTypes: [],
         existingEntities: [],
         relevanceSelectionState: {
-          utcDayStartIso: "2026-04-09T00:00:00.000Z",
+          utcDayStartIso: "2026-01-01T00:00:00.000Z",
           selectedCountToday: 0,
         },
       }),
