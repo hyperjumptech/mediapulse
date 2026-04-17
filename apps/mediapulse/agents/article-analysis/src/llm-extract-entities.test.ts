@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildExtractionSystemContent,
   buildExtractionUserContent,
+  normalizeLlmUsageFromSdk,
 } from "./llm-extract-entities.js";
 
 const TID = "11111111-1111-4111-a111-111111111111";
@@ -35,5 +36,46 @@ describe("buildExtractionUserContent", () => {
     expect(u).toContain("T");
     expect(u).toContain("Hello");
     expect(u).toContain("Body text");
+  });
+});
+
+describe("normalizeLlmUsageFromSdk", () => {
+  it("returns null when all token fields are absent", () => {
+    expect(normalizeLlmUsageFromSdk({})).toBeNull();
+    expect(
+      normalizeLlmUsageFromSdk({
+        inputTokens: undefined,
+        outputTokens: undefined,
+        totalTokens: undefined,
+      }),
+    ).toBeNull();
+  });
+
+  it("coalesces partial usage into a numeric triple", () => {
+    expect(
+      normalizeLlmUsageFromSdk({
+        inputTokens: 3,
+        outputTokens: 2,
+        totalTokens: undefined,
+      }),
+    ).toEqual({
+      inputTokens: 3,
+      outputTokens: 2,
+      totalTokens: 5,
+    });
+  });
+
+  it("respects explicit totalTokens", () => {
+    expect(
+      normalizeLlmUsageFromSdk({
+        inputTokens: 1,
+        outputTokens: 1,
+        totalTokens: 99,
+      }),
+    ).toEqual({
+      inputTokens: 1,
+      outputTokens: 1,
+      totalTokens: 99,
+    });
   });
 });

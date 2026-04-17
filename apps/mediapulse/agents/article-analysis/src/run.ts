@@ -2,6 +2,7 @@ import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-article-analysis";
 import { logger } from "@workspace/logger";
+import crypto from "node:crypto";
 
 import {
   applyPerArticleExtractionCaps,
@@ -25,6 +26,7 @@ import { buildArticleRelevancePostChunks } from "./analysis-relevance-post-chunk
 import {
   buildDraftRelevanceRow,
   validateRelevanceRowForPost,
+  type ArticleRelevanceRow,
   type PerSourceRelevanceSignals,
 } from "./analysis-relevance-scoring.js";
 import { applyRelevanceSelection } from "./analysis-relevance-selection.js";
@@ -37,6 +39,15 @@ import {
   executeAnalysisCreateWithTransientRetries,
   toArticleAnalysisPostFailureRecord,
 } from "./article-analysis-agent-data-api-post.js";
+import {
+  ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+  aggregateRelevanceObservability,
+  buildArticleAnalysisRunSummaryPayload,
+  toSafeLogError,
+  type ArticleAnalysisRunSummaryInput,
+  type ChunkBuildParseCounts,
+  type LlmUsageTotals,
+} from "./article-analysis-observability.js";
 import {
   deriveArticleAnalysisRunStatusLabel,
   isArticleAnalysisExtractionPolicyFailure,
@@ -54,6 +65,7 @@ import {
   buildExtractionSystemContent,
   buildExtractionUserContent,
   extractEntitiesAndRelationsForSource,
+  type LlmExtractionUsage,
 } from "./llm-extract-entities.js";
 import {
   buildAnalysisGetQuery,
@@ -160,6 +172,12 @@ const resolveAgainstExistingEntities = (
 const sleepMs = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+const emptyChunkParseCounts = (): ChunkBuildParseCounts => ({
+  entityRelationChunkParseErrors: 0,
+  articleEntityChunkParseErrors: 0,
+  articleRelevanceChunkParseErrors: 0,
+});
+
 /**
  * Runs analysis: GET context, optional batch cap, LLM extraction per source,
  * vocabulary validation, caps, chunked POST of entities/relations, then chunked POST of
@@ -171,6 +189,9 @@ const sleepMs = (ms: number): Promise<void> =>
  * POST failures stop later phases and only API-confirmed counts are aggregated.
  * Successful extractions are canonicalized against existing KG entities (mainline behavior).
  *
+ * Observability (MP-ART-ANALYSIS-008): structured run summary log (`article_analysis.run.summary`)
+ * with per-stage counters, optional LLM usage, and safe error fields (no raw `Error` objects).
+ *
  * @param context - Hermes input/config and bearer token.
  * @returns Aggregated success with POST tallies or structured failure.
  */
@@ -178,6 +199,7 @@ export const run = async ({
   input,
   config,
   token,
+  hermesCorrelation,
 }: AgentRunContext<
   ArticleAnalysisInput,
   ArticleAnalysisConfig
@@ -185,11 +207,37 @@ export const run = async ({
   const reanalyze = input.reanalyze ?? false;
   const inputForQuery = { ...input, reanalyze };
   const cfg = resolveArticleAnalysisConfig(config);
+  const runId = crypto.randomUUID();
+
+  const log = logger.child({
+    component: "article-analysis",
+    runId,
+    tickerId: input.tickerId,
+    ...(hermesCorrelation?.jobId ? { jobId: hermesCorrelation.jobId } : {}),
+    ...(hermesCorrelation?.executionId
+      ? { executionId: hermesCorrelation.executionId }
+      : {}),
+    ...(hermesCorrelation?.scheduleId
+      ? { scheduleId: hermesCorrelation.scheduleId }
+      : {}),
+    ...(hermesCorrelation?.scheduleExecutionId
+      ? { scheduleExecutionId: hermesCorrelation.scheduleExecutionId }
+      : {}),
+    ...(hermesCorrelation?.pipelineStepId
+      ? { pipelineStepId: hermesCorrelation.pipelineStepId }
+      : {}),
+  });
+
+  const emitRunSummary = (summary: ArticleAnalysisRunSummaryInput): void => {
+    log.info(
+      buildArticleAnalysisRunSummaryPayload(summary),
+      ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+  };
 
   if (cfg.verbose) {
-    logger.info(
+    log.info(
       {
-        tickerId: input.tickerId,
         openaiModel: cfg.openaiModel,
         maxContentChars: cfg.maxContentChars,
       },
@@ -203,14 +251,65 @@ export const run = async ({
     token,
   });
 
+  let articlesProcessedForSummary = 0;
+  const chunkParseCounts = emptyChunkParseCounts();
+  let relevanceRowValidationFailures = 0;
+  const llmUsageTotals: LlmUsageTotals = {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+  };
+  let llmUsageAccumulated = false;
+  let extractionLatencyMsTotal = 0;
+  let extractionCalls = 0;
+  let relevanceRowsForObservability: ArticleRelevanceRow[] | null = null;
+  const extractionFailures: ArticleAnalysisExtractionFailureRecord[] = [];
+  let extractionSuccessCount = 0;
+  const postFailures: ArticleAnalysisPostFailureRecord[] = [];
+  let entitiesCreated = 0;
+  let entitiesReused = 0;
+  let relationsCreated = 0;
+  let articlesScoredTotal = 0;
+  let articlesSelectedTotal = 0;
+
+  const accumulateLlmUsage = (usage: LlmExtractionUsage | null): void => {
+    if (!usage) {
+      return;
+    }
+    llmUsageAccumulated = true;
+    llmUsageTotals.promptTokens += usage.inputTokens;
+    llmUsageTotals.completionTokens += usage.outputTokens;
+    llmUsageTotals.totalTokens += usage.totalTokens;
+  };
+
   try {
     const query = buildAnalysisGetQuery(inputForQuery);
     const ctx = await dataApiClient.analysis.get(query);
 
     const sorted = sortAnalysisDataSourcesByCreatedAt(ctx.dataSources);
     const batch = applyMaxBatchSizeCap(sorted, inputForQuery.maxBatchSize);
+    articlesProcessedForSummary = batch.length;
 
     if (batch.length === 0) {
+      emitRunSummary({
+        outcome: "success",
+        articlesProcessed: 0,
+        extractionSuccessCount: 0,
+        extractionFailures: [],
+        relevanceRowValidationFailures: 0,
+        chunkParseCounts: emptyChunkParseCounts(),
+        postFailures: [],
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+        relevanceAggregate: null,
+        llmUsage: null,
+        extractionLatencyMsTotal: 0,
+        extractionCalls: 0,
+        runStatusLabel: "success",
+      });
       return {
         success: true,
         message: "analysis context loaded (0 source(s)); nothing to process",
@@ -222,7 +321,6 @@ export const run = async ({
           extractionFailures: [] as ArticleAnalysisExtractionFailureRecord[],
           extractionSuccessCount: 0,
           postFailures: [] as ArticleAnalysisPostFailureRecord[],
-          vocabularyFailures: 0,
           entitiesCreated: 0,
           entitiesReused: 0,
           relationsCreated: 0,
@@ -232,11 +330,31 @@ export const run = async ({
           articlesScored: 0,
           articlesSelected: 0,
           relevancePostChunks: 0,
+          vocabularyFailures: 0,
         },
       };
     }
 
     if (ctx.entityTypes.length === 0 || ctx.relationTypes.length === 0) {
+      emitRunSummary({
+        outcome: "failure",
+        articlesProcessed: batch.length,
+        extractionSuccessCount: 0,
+        extractionFailures: [],
+        relevanceRowValidationFailures: 0,
+        chunkParseCounts: emptyChunkParseCounts(),
+        postFailures: [],
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+        relevanceAggregate: null,
+        llmUsage: null,
+        extractionLatencyMsTotal: 0,
+        extractionCalls: 0,
+        semanticFailureReason: "empty_kg_vocabulary",
+      });
       return {
         success: false,
         message:
@@ -254,12 +372,11 @@ export const run = async ({
     const systemContent = buildExtractionSystemContent(ctx);
     const existingLookup = buildExistingEntityLookup(ctx.existingEntities);
 
-    const extractionFailures: ArticleAnalysisExtractionFailureRecord[] = [];
-    let vocabularyFailures = 0;
     const mergedEntities: EntityProposal[] = [];
     const mergedRelations: RelationProposal[] = [];
     const mergedArticleEntityRows: ArticleEntityRow[] = [];
     const perSourceSignals: PerSourceRelevanceSignals[] = [];
+    let vocabularyFailures = 0;
 
     for (const source of batch) {
       const truncated =
@@ -268,7 +385,8 @@ export const run = async ({
           : source.content;
 
       try {
-        const extracted = await extractEntitiesAndRelationsForSource({
+        const t0 = Date.now();
+        const extractedResult = await extractEntitiesAndRelationsForSource({
           apiKey: cfg.openaiApiKey,
           model: cfg.openaiModel,
           maxOutputTokens: cfg.maxOutputTokens,
@@ -284,6 +402,10 @@ export const run = async ({
             },
           ],
         });
+        extractionLatencyMsTotal += Date.now() - t0;
+        extractionCalls += 1;
+        accumulateLlmUsage(extractedResult.usage);
+        const extracted = extractedResult.object;
 
         const vocab = validateExtractionVocabulary(
           extracted.entities,
@@ -297,9 +419,8 @@ export const run = async ({
             stage: "vocabulary",
             message: vocab.message,
           });
-          logger.warn(
+          log.warn(
             {
-              tickerId: input.tickerId,
               dataSourceId: source.id,
               stage: "vocabulary",
             },
@@ -360,9 +481,8 @@ export const run = async ({
           stage: "llm",
           message,
         });
-        logger.warn(
+        log.warn(
           {
-            tickerId: input.tickerId,
             dataSourceId: source.id,
             stage: "llm",
             message,
@@ -372,7 +492,7 @@ export const run = async ({
       }
     }
 
-    const extractionSuccessCount = perSourceSignals.length;
+    extractionSuccessCount = perSourceSignals.length;
 
     if (
       isArticleAnalysisExtractionPolicyFailure(
@@ -380,6 +500,25 @@ export const run = async ({
         cfg.runPolicy,
       )
     ) {
+      emitRunSummary({
+        outcome: "failure",
+        articlesProcessed: batch.length,
+        extractionSuccessCount,
+        extractionFailures,
+        relevanceRowValidationFailures: 0,
+        chunkParseCounts: { ...chunkParseCounts },
+        postFailures: [],
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+        relevanceAggregate: null,
+        llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
+        extractionLatencyMsTotal,
+        extractionCalls,
+        semanticFailureReason: "extraction_run_policy",
+      });
       return {
         success: false,
         message: `Article analysis run failed: only ${extractionSuccessCount} source(s) extracted successfully, but run policy requires at least ${cfg.runPolicy.minSuccessfulSources}.`,
@@ -387,13 +526,13 @@ export const run = async ({
           extractionFailures,
           extractionSuccessCount,
           runPolicy: cfg.runPolicy,
-          vocabularyFailures,
           articlesScored: 0,
           articlesSelected: 0,
           relevancePostChunks: 0,
           postFailures: [] as ArticleAnalysisPostFailureRecord[],
           dataSourcesProcessed: batch.length,
           reanalyze,
+          vocabularyFailures,
         },
       };
     }
@@ -414,7 +553,29 @@ export const run = async ({
     ).length;
 
     if (entities.length === 0 && relations.length === 0) {
-      const postFailures: ArticleAnalysisPostFailureRecord[] = [];
+      const runStatus = deriveArticleAnalysisRunStatusLabel(
+        extractionFailures.length,
+        postFailures.length,
+      );
+      emitRunSummary({
+        outcome: "success",
+        articlesProcessed: batch.length,
+        extractionSuccessCount,
+        extractionFailures,
+        relevanceRowValidationFailures: 0,
+        chunkParseCounts: { ...chunkParseCounts },
+        postFailures,
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+        relevanceAggregate: null,
+        llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
+        extractionLatencyMsTotal,
+        extractionCalls,
+        runStatusLabel: runStatus,
+      });
       return {
         success: true,
         message:
@@ -427,11 +588,7 @@ export const run = async ({
           extractionSuccessCount,
           postFailures,
           llmFailures: llmFailureCount,
-          vocabularyFailures,
-          runStatus: deriveArticleAnalysisRunStatusLabel(
-            extractionFailures.length,
-            postFailures.length,
-          ),
+          runStatus,
           entitiesCreated: 0,
           entitiesReused: 0,
           relationsCreated: 0,
@@ -442,6 +599,7 @@ export const run = async ({
           articlesSelected: 0,
           relevancePostChunks: 0,
           reanalyze,
+          vocabularyFailures,
         },
       };
     }
@@ -455,9 +613,8 @@ export const run = async ({
       entityCatalog,
     );
     if (droppedArticleMentionsNotInRunCatalog > 0) {
-      logger.warn(
+      log.warn(
         {
-          tickerId: input.tickerId,
           droppedArticleMentionsNotInRunCatalog,
         },
         "article-analysis dropped article entity mentions not in run entity catalog",
@@ -476,11 +633,11 @@ export const run = async ({
       relations,
       cfg.postChunkRelationBatchSize,
     );
+    chunkParseCounts.entityRelationChunkParseErrors = parseErrors.length;
 
     if (parseErrors.length > 0) {
-      logger.warn(
+      log.warn(
         {
-          tickerId: input.tickerId,
           parseErrorCount: parseErrors.length,
           droppedRelations,
         },
@@ -489,7 +646,29 @@ export const run = async ({
     }
 
     if (chunks.length === 0) {
-      const postFailures: ArticleAnalysisPostFailureRecord[] = [];
+      const runStatus = deriveArticleAnalysisRunStatusLabel(
+        extractionFailures.length,
+        postFailures.length,
+      );
+      emitRunSummary({
+        outcome: "success",
+        articlesProcessed: batch.length,
+        extractionSuccessCount,
+        extractionFailures,
+        relevanceRowValidationFailures: 0,
+        chunkParseCounts: { ...chunkParseCounts },
+        postFailures,
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+        relevanceAggregate: null,
+        llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
+        extractionLatencyMsTotal,
+        extractionCalls,
+        runStatusLabel: runStatus,
+      });
       return {
         success: true,
         message:
@@ -503,11 +682,7 @@ export const run = async ({
           extractionSuccessCount,
           postFailures,
           llmFailures: llmFailureCount,
-          vocabularyFailures,
-          runStatus: deriveArticleAnalysisRunStatusLabel(
-            extractionFailures.length,
-            postFailures.length,
-          ),
+          runStatus,
           articleEntityRowsPosted: 0,
           mentionPostChunks: 0,
           droppedArticleMentionsNotInRunCatalog,
@@ -515,22 +690,18 @@ export const run = async ({
           articlesSelected: 0,
           relevancePostChunks: 0,
           reanalyze,
+          vocabularyFailures,
         },
       };
     }
 
-    const postFailures: ArticleAnalysisPostFailureRecord[] = [];
-    let entitiesCreated = 0;
-    let entitiesReused = 0;
-    let relationsCreated = 0;
     let erPostChunksCompleted = 0;
     let erPhaseFailed = false;
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]!;
-      logger.info(
+      log.info(
         {
-          tickerId: input.tickerId,
           chunkKind: "entities_relations",
           chunkIndex: i,
           chunkEntities: chunk.entities.length,
@@ -556,12 +727,11 @@ export const run = async ({
         postFailures.push(
           toArticleAnalysisPostFailureRecord("entities_relations", i, err),
         );
-        logger.warn(
+        log.warn(
           {
-            tickerId: input.tickerId,
             chunkKind: "entities_relations",
             chunkIndex: i,
-            err,
+            err: toSafeLogError(err),
           },
           "article-analysis entities/relations POST failed; aborting remaining POST phases",
         );
@@ -583,12 +753,13 @@ export const run = async ({
           cfg.postChunkArticleEntityBatchSize,
         );
       articleEntityParseErrors = parseErrors;
+      chunkParseCounts.articleEntityChunkParseErrors =
+        articleEntityParseErrors.length;
 
       if (articleEntityParseErrors.length > 0) {
-        logger.warn(
+        log.warn(
           {
-            tickerId: input.tickerId,
-            parseErrorSample: articleEntityParseErrors.slice(0, 10),
+            parseErrorCount: articleEntityParseErrors.length,
           },
           "article-analysis articleEntity chunk build reported parse issues",
         );
@@ -596,9 +767,8 @@ export const run = async ({
 
       for (let j = 0; j < articleEntityChunks.length; j++) {
         const mentionChunk = articleEntityChunks[j]!;
-        logger.info(
+        log.info(
           {
-            tickerId: input.tickerId,
             chunkKind: "article_entities",
             chunkIndex: j,
             chunkArticleEntities: mentionChunk.articleEntities.length,
@@ -621,12 +791,11 @@ export const run = async ({
           postFailures.push(
             toArticleAnalysisPostFailureRecord("article_entities", j, err),
           );
-          logger.warn(
+          log.warn(
             {
-              tickerId: input.tickerId,
               chunkKind: "article_entities",
               chunkIndex: j,
-              err,
+              err: toSafeLogError(err),
             },
             "article-analysis articleEntities POST failed; aborting relevance phase",
           );
@@ -636,8 +805,6 @@ export const run = async ({
       }
     }
 
-    let articlesScoredTotal = 0;
-    let articlesSelectedTotal = 0;
     let relevancePostChunksCompleted = 0;
 
     if (!erPhaseFailed && !mentionPhaseFailed && perSourceSignals.length > 0) {
@@ -649,11 +816,12 @@ export const run = async ({
       for (const row of relevanceDrafts) {
         const vErr = validateRelevanceRowForPost(row, weightMap);
         if (vErr) {
-          relevanceValidationErrors.push(`${row.dataSourceId}: ${vErr}`);
-          logger.warn(
-            { tickerId: input.tickerId, dataSourceId: row.dataSourceId, vErr },
+          relevanceRowValidationFailures += 1;
+          log.warn(
+            { dataSourceId: row.dataSourceId, vErr },
             "article-analysis relevance row validation failed before selection",
           );
+          relevanceValidationErrors.push(`${row.dataSourceId}: ${vErr}`);
         }
       }
       if (relevanceValidationErrors.length > 0) {
@@ -683,6 +851,7 @@ export const run = async ({
         cfg.relevanceMinScore,
         remainingBudget,
       );
+      relevanceRowsForObservability = relevanceRows;
 
       const { chunks: relevanceChunks, parseErrors: relevanceParseErrors } =
         buildArticleRelevancePostChunks(
@@ -690,12 +859,13 @@ export const run = async ({
           relevanceRows,
           cfg.postChunkArticleRelevanceBatchSize,
         );
+      chunkParseCounts.articleRelevanceChunkParseErrors =
+        relevanceParseErrors.length;
 
       if (relevanceParseErrors.length > 0) {
-        logger.warn(
+        log.warn(
           {
-            tickerId: input.tickerId,
-            parseErrorSample: relevanceParseErrors.slice(0, 10),
+            parseErrorCount: relevanceParseErrors.length,
           },
           "article-analysis relevance chunk build reported parse issues",
         );
@@ -712,9 +882,8 @@ export const run = async ({
 
       for (let k = 0; k < relevanceChunks.length; k++) {
         const relChunk = relevanceChunks[k]!;
-        logger.info(
+        log.info(
           {
-            tickerId: input.tickerId,
             chunkKind: "article_relevances",
             chunkIndex: k,
             chunkArticleRelevances: relChunk.articleRelevances.length,
@@ -738,12 +907,11 @@ export const run = async ({
           postFailures.push(
             toArticleAnalysisPostFailureRecord("article_relevances", k, err),
           );
-          logger.warn(
+          log.warn(
             {
-              tickerId: input.tickerId,
               chunkKind: "article_relevances",
               chunkIndex: k,
-              err,
+              err: toSafeLogError(err),
             },
             "article-analysis articleRelevances POST failed",
           );
@@ -757,6 +925,31 @@ export const run = async ({
       postFailures.length,
     );
 
+    const relevanceAggregate =
+      relevanceRowsForObservability !== null
+        ? aggregateRelevanceObservability(relevanceRowsForObservability)
+        : null;
+
+    emitRunSummary({
+      outcome: "success",
+      articlesProcessed: batch.length,
+      extractionSuccessCount,
+      extractionFailures,
+      relevanceRowValidationFailures,
+      chunkParseCounts: { ...chunkParseCounts },
+      postFailures,
+      entitiesCreated,
+      entitiesReused,
+      relationsCreated,
+      articlesScored: articlesScoredTotal,
+      articlesSelected: articlesSelectedTotal,
+      relevanceAggregate,
+      llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
+      extractionLatencyMsTotal,
+      extractionCalls,
+      runStatusLabel: runStatus,
+    });
+
     return {
       success: true,
       message: `complete (${runStatus}): ${erPostChunksCompleted}/${chunks.length} ER chunk(s), ${mentionPostChunksCompleted} articleEntity chunk(s), ${relevancePostChunksCompleted} relevance chunk(s); entitiesCreated=${entitiesCreated} entitiesReused=${entitiesReused} relationsCreated=${relationsCreated} articleEntityRowsPosted=${articleEntityRowsPosted} articlesScored=${articlesScoredTotal} articlesSelected=${articlesSelectedTotal}`,
@@ -767,7 +960,6 @@ export const run = async ({
         extractionSuccessCount,
         postFailures,
         llmFailures: llmFailureCount,
-        vocabularyFailures,
         runStatus,
         postChunks: erPostChunksCompleted,
         entitiesCreated,
@@ -787,6 +979,7 @@ export const run = async ({
         droppedRelations,
         articleEntityParseErrors: articleEntityParseErrors.slice(0, 20),
         reanalyze,
+        vocabularyFailures,
       },
     };
   } catch (error) {
@@ -794,7 +987,26 @@ export const run = async ({
       error instanceof Error
         ? error.message
         : "agent-data-api article-analysis run failed";
-    logger.error({ tickerId: input.tickerId, err: error }, message);
+    log.error({ err: toSafeLogError(error) }, message);
+    emitRunSummary({
+      outcome: "failure",
+      articlesProcessed: articlesProcessedForSummary,
+      extractionSuccessCount,
+      extractionFailures,
+      relevanceRowValidationFailures,
+      chunkParseCounts: { ...chunkParseCounts },
+      postFailures,
+      entitiesCreated,
+      entitiesReused,
+      relationsCreated,
+      articlesScored: articlesScoredTotal,
+      articlesSelected: articlesSelectedTotal,
+      relevanceAggregate: null,
+      llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
+      extractionLatencyMsTotal,
+      extractionCalls,
+      topLevelError: toSafeLogError(error),
+    });
     return { success: false, message };
   }
 };
