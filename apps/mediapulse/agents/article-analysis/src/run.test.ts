@@ -42,11 +42,43 @@ vi.mock("@workspace/logger", () => ({
   },
 }));
 
-/** Wraps LLM output for mocks (`extractEntitiesAndRelationsForSource`). */
+/** Test-only LLM payload; omits keys the real model must supply as null for strict JSON Schema. */
+type LlmExtractionOutputMockInput = Omit<
+  Llm.LlmExtractionOutput,
+  "entities" | "articleMentions"
+> & {
+  entities: Array<
+    Omit<Llm.LlmExtractionOutput["entities"][number], "description"> & {
+      description?: string | null;
+    }
+  >;
+  articleMentions: Array<
+    Omit<Llm.LlmExtractionOutput["articleMentions"][number], "sentiment"> & {
+      sentiment?:
+        | Llm.LlmExtractionOutput["articleMentions"][number]["sentiment"]
+        | null;
+    }
+  >;
+};
+
+/** Wraps LLM output for mocks; fills omitted `description` / `sentiment` with null. */
 const llmResult = (
-  object: Llm.LlmExtractionOutput,
+  object: LlmExtractionOutputMockInput,
   usage: Llm.LlmExtractionUsage | null = null,
-): Llm.LlmExtractionCallResult => ({ object, usage });
+): Llm.LlmExtractionCallResult => ({
+  object: {
+    ...object,
+    entities: object.entities.map((e) => ({
+      ...e,
+      description: e.description ?? null,
+    })),
+    articleMentions: object.articleMentions.map((m) => ({
+      ...m,
+      sentiment: m.sentiment ?? null,
+    })),
+  } satisfies Llm.LlmExtractionOutput,
+  usage,
+});
 
 const TYPE_ID = "11111111-1111-4111-a111-111111111111";
 const REL_ID = "22222222-2222-4222-a222-222222222222";
