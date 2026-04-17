@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildExtractionSystemContent,
   buildExtractionUserContent,
+  normalizeLlmExtractionWire,
   normalizeLlmUsageFromSdk,
 } from "./llm-extract-entities.js";
 
@@ -36,6 +37,56 @@ describe("buildExtractionUserContent", () => {
     expect(u).toContain("T");
     expect(u).toContain("Hello");
     expect(u).toContain("Body text");
+  });
+});
+
+describe("normalizeLlmExtractionWire", () => {
+  it("maps empty description and NONE sentiment to null", () => {
+    const out = normalizeLlmExtractionWire({
+      entities: [
+        {
+          canonicalName: "Acme",
+          typeId: TID,
+          description: "",
+          aliases: ["ACME"],
+        },
+      ],
+      relations: [],
+      articleMentions: [
+        {
+          entityName: "Acme",
+          mentionCount: 1,
+          confidence: 0.9,
+          sentiment: "NONE",
+        },
+      ],
+    });
+    expect(out.entities[0]?.description).toBeNull();
+    expect(out.articleMentions[0]?.sentiment).toBeNull();
+  });
+
+  it("preserves non-empty description and concrete sentiment", () => {
+    const out = normalizeLlmExtractionWire({
+      entities: [
+        {
+          canonicalName: "Acme",
+          typeId: TID,
+          description: "  HQ  ",
+          aliases: [],
+        },
+      ],
+      relations: [],
+      articleMentions: [
+        {
+          entityName: "Acme",
+          mentionCount: 1,
+          confidence: 0.5,
+          sentiment: "NEGATIVE",
+        },
+      ],
+    });
+    expect(out.entities[0]?.description).toBe("HQ");
+    expect(out.articleMentions[0]?.sentiment).toBe("NEGATIVE");
   });
 });
 

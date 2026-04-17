@@ -52,7 +52,8 @@ export const postAnalysisBodySchema = z.object({
       z.object({
         canonicalName: z.string().trim().min(1),
         typeId: z.string().uuid(),
-        description: z.string().optional(),
+        /** `null` allowed for LLM structured outputs; omit when absent. */
+        description: z.string().nullish(),
         aliases: z.array(z.string().trim().min(1)).default([]),
       }),
     )
@@ -73,7 +74,7 @@ export const postAnalysisBodySchema = z.object({
         entityName: z.string().trim().min(1),
         mentionCount: z.number().int().positive(),
         confidence: z.number().min(0).max(1),
-        sentiment: sentimentSchema.optional(),
+        sentiment: sentimentSchema.nullish(),
       }),
     )
     .default([]),
