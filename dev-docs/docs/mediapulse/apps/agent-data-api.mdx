@@ -54,6 +54,7 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/analysis.ts`. Schemas 
   - `unanalyzed` — optional (`"true"` | `"false"` strings). When omitted, defaults to `"true"` (incremental backlog: sources with no `article_relevance` row for that ticker). `"false"` returns all `DataSource` rows for the ticker for re-scoring workflows (FR2).
   - `start` — optional ISO 8601 datetime; when set, only sources with `createdAt >= start` (inclusive), FR1.
   - `end` — optional ISO 8601 datetime; when set, only sources with `createdAt <= end` (inclusive), FR1. If both `start` and `end` are set, `start` must not be after `end` (validation error).
+- **GET response** — Includes `dataSources`, vocabulary, `existingEntities`, `relevanceSelectionState` (**`utcDayStartIso`**, **`selectedCountToday`**), and **`lastRelevanceScoredAtIso`**: ISO 8601 of the latest `article_relevance.scored_at` for the ticker, or `null` if none (used by article-analysis debounce).
 - **POST** — Body validated by `postAnalysisBodySchema`: `tickerId`, optional arrays `entities`, `relations`, `articleEntities`, `articleRelevances`. Response includes aggregate counts (`entitiesCreated`, `entitiesReused`, `relationsCreated`, `articlesScored`, `articlesSelected`).
 
 From agents, use the SDK namespace **`analysis`**: `get` for the query object, **`create`** for POST. **MP-ART-ANALYSIS-003** will map agent run `timeWindow` (when present) to these query params on `analysis.get` instead of filtering only client-side after fetch.
