@@ -73,7 +73,10 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+      },
       $transaction: vi.fn(),
     };
 
@@ -94,6 +97,7 @@ describe("loadAnalysisContext", () => {
         }),
       }),
     );
+    expect(db.articleRelevance.count).toHaveBeenCalled();
   });
 
   it("loads all ticker sources when unanalyzed is false", async () => {
@@ -111,11 +115,14 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(2),
+      },
       $transaction: vi.fn(),
     };
 
-    await loadAnalysisContext(
+    const result = await loadAnalysisContext(
       { tickerId: "ticker-2", unanalyzed: false },
       { db: db as never },
     );
@@ -125,6 +132,7 @@ describe("loadAnalysisContext", () => {
         where: { tickerId: "ticker-2" },
       }),
     );
+    expect(result.relevanceSelectionState.selectedCountToday).toBe(2);
   });
 
   it("filters by createdAt gte when start is set", async () => {
@@ -142,7 +150,10 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+      },
       $transaction: vi.fn(),
     };
 
@@ -179,7 +190,10 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+      },
       $transaction: vi.fn(),
     };
 
@@ -216,7 +230,10 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+      },
       $transaction: vi.fn(),
     };
 
@@ -267,7 +284,10 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+      },
       $transaction: vi.fn(),
     };
 

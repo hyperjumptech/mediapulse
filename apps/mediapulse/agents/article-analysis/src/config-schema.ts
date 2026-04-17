@@ -1,3 +1,4 @@
+import type { RelevanceWeightMapV1 } from "./analysis-relevance-scoring.js";
 import { z } from "zod";
 
 /**
@@ -26,6 +27,23 @@ export const articleAnalysisConfigSchema = z.object({
   maxArticleEntitiesPerRun: z.number().int().positive().optional(),
   /** Max `articleEntities` rows per POST chunk. */
   postChunkArticleEntityBatchSize: z.number().int().positive().optional(),
+  /** Stored in `scoreBreakdown._version` (MP-ART-ANALYSIS-009 env mirror later). */
+  scoreBreakdownVersion: z.number().int().min(1).optional(),
+  relevanceWeightBreakingNews: z.number().nonnegative().optional(),
+  relevanceWeightKgRelation: z.number().nonnegative().optional(),
+  relevanceWeightFundamental: z.number().nonnegative().optional(),
+  relevanceWeightTickerSalience: z.number().nonnegative().optional(),
+  relevanceWeightSourceQuality: z.number().nonnegative().optional(),
+  /** Minimum score to be eligible for `selected: true`. */
+  relevanceMinScore: z.number().min(0).max(1).optional(),
+  /** Cap on additional `selected` rows per UTC day (budget minus GET `selectedCountToday`). */
+  maxSelectedRelevancePerTickerPerDay: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional(),
+  /** Max `articleRelevances` rows per POST chunk. */
+  postChunkArticleRelevanceBatchSize: z.number().int().positive().optional(),
 });
 
 export type ArticleAnalysisConfig = z.infer<typeof articleAnalysisConfigSchema>;
@@ -43,6 +61,15 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   maxArticleEntitiesPerArticle: number;
   maxArticleEntitiesPerRun: number;
   postChunkArticleEntityBatchSize: number;
+  scoreBreakdownVersion: number;
+  relevanceWeightBreakingNews: number;
+  relevanceWeightKgRelation: number;
+  relevanceWeightFundamental: number;
+  relevanceWeightTickerSalience: number;
+  relevanceWeightSourceQuality: number;
+  relevanceMinScore: number;
+  maxSelectedRelevancePerTickerPerDay: number;
+  postChunkArticleRelevanceBatchSize: number;
 };
 
 /** Production-oriented defaults merged onto parsed Hermes config. */
@@ -58,6 +85,15 @@ export const articleAnalysisConfigDefaults = {
   maxArticleEntitiesPerArticle: 30,
   maxArticleEntitiesPerRun: 500,
   postChunkArticleEntityBatchSize: 50,
+  scoreBreakdownVersion: 1,
+  relevanceWeightBreakingNews: 0.2,
+  relevanceWeightKgRelation: 0.2,
+  relevanceWeightFundamental: 0.2,
+  relevanceWeightTickerSalience: 0.2,
+  relevanceWeightSourceQuality: 0.2,
+  relevanceMinScore: 0.35,
+  maxSelectedRelevancePerTickerPerDay: 10,
+  postChunkArticleRelevanceBatchSize: 40,
 } as const;
 
 /**
@@ -101,5 +137,48 @@ export const resolveArticleAnalysisConfig = (
     postChunkArticleEntityBatchSize:
       config.postChunkArticleEntityBatchSize ??
       articleAnalysisConfigDefaults.postChunkArticleEntityBatchSize,
+    scoreBreakdownVersion:
+      config.scoreBreakdownVersion ??
+      articleAnalysisConfigDefaults.scoreBreakdownVersion,
+    relevanceWeightBreakingNews:
+      config.relevanceWeightBreakingNews ??
+      articleAnalysisConfigDefaults.relevanceWeightBreakingNews,
+    relevanceWeightKgRelation:
+      config.relevanceWeightKgRelation ??
+      articleAnalysisConfigDefaults.relevanceWeightKgRelation,
+    relevanceWeightFundamental:
+      config.relevanceWeightFundamental ??
+      articleAnalysisConfigDefaults.relevanceWeightFundamental,
+    relevanceWeightTickerSalience:
+      config.relevanceWeightTickerSalience ??
+      articleAnalysisConfigDefaults.relevanceWeightTickerSalience,
+    relevanceWeightSourceQuality:
+      config.relevanceWeightSourceQuality ??
+      articleAnalysisConfigDefaults.relevanceWeightSourceQuality,
+    relevanceMinScore:
+      config.relevanceMinScore ??
+      articleAnalysisConfigDefaults.relevanceMinScore,
+    maxSelectedRelevancePerTickerPerDay:
+      config.maxSelectedRelevancePerTickerPerDay ??
+      articleAnalysisConfigDefaults.maxSelectedRelevancePerTickerPerDay,
+    postChunkArticleRelevanceBatchSize:
+      config.postChunkArticleRelevanceBatchSize ??
+      articleAnalysisConfigDefaults.postChunkArticleRelevanceBatchSize,
   };
 };
+
+/**
+ * Maps resolved Hermes relevance weights into the v1 weight map used by scoring.
+ *
+ * @param cfg - Fully resolved article-analysis config.
+ * @returns Weights for canonical breakdown keys.
+ */
+export const toRelevanceWeightMapV1 = (
+  cfg: ResolvedArticleAnalysisConfig,
+): RelevanceWeightMapV1 => ({
+  breakingNews: cfg.relevanceWeightBreakingNews,
+  kgRelation: cfg.relevanceWeightKgRelation,
+  fundamental: cfg.relevanceWeightFundamental,
+  tickerSalience: cfg.relevanceWeightTickerSalience,
+  sourceQuality: cfg.relevanceWeightSourceQuality,
+});

@@ -1,6 +1,16 @@
 import { z } from "zod";
 
 const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
+const relevanceBreakdownSchema = z
+  .object({
+    _version: z.number().int().min(1),
+    breakingNews: z.number().min(0).max(1),
+    kgRelation: z.number().min(0).max(1),
+    fundamental: z.number().min(0).max(1),
+    tickerSalience: z.number().min(0).max(1),
+    sourceQuality: z.number().min(0).max(1),
+  })
+  .passthrough();
 
 export const getAnalysisQuerySchema = z
   .object({
@@ -72,7 +82,7 @@ export const postAnalysisBodySchema = z.object({
       z.object({
         dataSourceId: z.string().uuid(),
         score: z.number().min(0).max(1),
-        scoreBreakdown: z.record(z.string(), z.number()),
+        scoreBreakdown: relevanceBreakdownSchema,
         selected: z.boolean(),
       }),
     )
@@ -107,11 +117,20 @@ export const analysisExistingEntitySchema = z.object({
   aliases: z.array(z.string()),
 });
 
+/** UTC-day selection budget for article relevance (see article-analysis agent). */
+export const analysisRelevanceSelectionStateSchema = z.object({
+  /** ISO 8601 instant for UTC midnight at the start of the scoring "today". */
+  utcDayStartIso: z.string(),
+  /** Count of `articleRelevance` rows with `selected: true` and `scoredAt` on or after `utcDayStartIso`. */
+  selectedCountToday: z.number().int().nonnegative(),
+});
+
 export const getAnalysisResponseSchema = z.object({
   dataSources: z.array(analysisDataSourceSchema),
   entityTypes: z.array(analysisEntityTypeSchema),
   relationTypes: z.array(analysisRelationTypeSchema),
   existingEntities: z.array(analysisExistingEntitySchema),
+  relevanceSelectionState: analysisRelevanceSelectionStateSchema,
 });
 
 export const postAnalysisResponseSchema = z.object({
