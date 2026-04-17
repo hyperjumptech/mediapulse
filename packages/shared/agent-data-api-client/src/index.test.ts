@@ -184,6 +184,11 @@ describe("createAgentDataApiClient", () => {
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],
+        relevanceSelectionState: {
+          utcDayStartIso: "2026-04-09T00:00:00.000Z",
+          selectedCountToday: 0,
+        },
+        lastRelevanceScoredAtIso: null,
       }),
       statusCode: 200,
     });
@@ -213,6 +218,11 @@ describe("createAgentDataApiClient", () => {
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],
+        relevanceSelectionState: {
+          utcDayStartIso: "2026-01-01T00:00:00.000Z",
+          selectedCountToday: 0,
+        },
+        lastRelevanceScoredAtIso: null,
       }),
       statusCode: 200,
     });

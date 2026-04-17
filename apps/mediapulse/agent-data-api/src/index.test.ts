@@ -285,6 +285,11 @@ describe("agent-data-api", () => {
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],
+        relevanceSelectionState: {
+          utcDayStartIso: "2026-03-19T00:00:00.000Z",
+          selectedCountToday: 0,
+        },
+        lastRelevanceScoredAtIso: null,
       });
 
       const { app } = await import("./index.js");
@@ -309,6 +314,11 @@ describe("agent-data-api", () => {
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],
+        relevanceSelectionState: {
+          utcDayStartIso: "2026-03-19T00:00:00.000Z",
+          selectedCountToday: 0,
+        },
+        lastRelevanceScoredAtIso: null,
       });
 
       const start = "2026-01-01T00:00:00.000Z";
@@ -384,7 +394,14 @@ describe("agent-data-api", () => {
             {
               dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
               score: 0.5,
-              scoreBreakdown: { _version: 1, a: 0.5 },
+              scoreBreakdown: {
+                _version: 1,
+                breakingNews: 0.5,
+                kgRelation: 0.5,
+                fundamental: 0.5,
+                tickerSalience: 0.5,
+                sourceQuality: 0.5,
+              },
               selected: false,
             },
           ],

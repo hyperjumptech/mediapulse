@@ -3,6 +3,8 @@ import type { DashboardPageInput } from "@hermes/domain-contract";
 import type { Hono } from "hono";
 import { dataSourcesHermesDashboardResource } from "../resources/data-sources/resource-definition";
 import { deliveryRunsHermesDashboardResource } from "../resources/delivery-runs/resource-definition";
+import { entitiesHermesDashboardResource } from "../resources/entities/resource-definition";
+import { entityRelationsHermesDashboardResource } from "../resources/entity-relations/resource-definition";
 import { entityTypesHermesDashboardResource } from "../resources/entity-types/resource-definition";
 import { mediapulseUsersHermesDashboardResource } from "../resources/mediapulse-users/resource-definition";
 import { relationTypesHermesDashboardResource } from "../resources/relation-types/resource-definition";
@@ -21,6 +23,8 @@ export const hermesDashboardResources = [
   mediapulseUsersHermesDashboardResource,
   entityTypesHermesDashboardResource,
   relationTypesHermesDashboardResource,
+  entitiesHermesDashboardResource,
+  entityRelationsHermesDashboardResource,
   dataSourcesHermesDashboardResource,
   searchQueriesHermesDashboardResource,
   deliveryRunsHermesDashboardResource,
