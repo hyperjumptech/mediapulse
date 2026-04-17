@@ -2,6 +2,7 @@
 import type { AgentRunContext } from "@workspace/agent-runtime";
 import { logger } from "@workspace/logger";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE } from "./article-analysis-observability.js";
 import * as RelevancePostChunks from "./analysis-relevance-post-chunks.js";
 import * as Llm from "./llm-extract-entities.js";
 import type { ArticleAnalysisConfig } from "./config-schema.js";
@@ -26,13 +27,26 @@ vi.mock("@mediapulse/env/agents-article-analysis", () => ({
   },
 }));
 
+const mockLog = {
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
+
 vi.mock("@workspace/logger", () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
+    child: vi.fn(() => mockLog),
   },
 }));
+
+/** Wraps LLM output for mocks (`extractEntitiesAndRelationsForSource`). */
+const llmResult = (
+  object: Llm.LlmExtractionOutput,
+  usage: Llm.LlmExtractionUsage | null = null,
+): Llm.LlmExtractionCallResult => ({ object, usage });
 
 const TYPE_ID = "11111111-1111-4111-a111-111111111111";
 const REL_ID = "22222222-2222-4222-a222-222222222222";
@@ -65,6 +79,10 @@ describe("run", () => {
   beforeEach(() => {
     analysisGet.mockReset();
     analysisCreate.mockReset();
+    mockLog.info.mockReset();
+    mockLog.warn.mockReset();
+    mockLog.error.mockReset();
+    vi.mocked(logger.child).mockClear();
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockReset();
   });
 
@@ -183,39 +201,43 @@ describe("run", () => {
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource")
-      .mockResolvedValueOnce({
-        entities: [
-          {
-            canonicalName: "Bad",
-            typeId: "99999999-9999-4999-a999-999999999999",
-            aliases: [],
-          },
-        ],
-        relations: [],
-        articleMentions: [],
-      })
-      .mockResolvedValueOnce({
-        entities: [
-          {
-            canonicalName: "Good",
-            typeId: TYPE_ID,
-            aliases: [],
-          },
-          {
-            canonicalName: "Other",
-            typeId: TYPE_ID,
-            aliases: [],
-          },
-        ],
-        relations: [
-          {
-            fromEntityName: "Good",
-            toEntityName: "Other",
-            relationTypeId: REL_ID,
-          },
-        ],
-        articleMentions: [],
-      });
+      .mockResolvedValueOnce(
+        llmResult({
+          entities: [
+            {
+              canonicalName: "Bad",
+              typeId: "99999999-9999-4999-a999-999999999999",
+              aliases: [],
+            },
+          ],
+          relations: [],
+          articleMentions: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        llmResult({
+          entities: [
+            {
+              canonicalName: "Good",
+              typeId: TYPE_ID,
+              aliases: [],
+            },
+            {
+              canonicalName: "Other",
+              typeId: TYPE_ID,
+              aliases: [],
+            },
+          ],
+          relations: [
+            {
+              fromEntityName: "Good",
+              toEntityName: "Other",
+              relationTypeId: REL_ID,
+            },
+          ],
+          articleMentions: [],
+        }),
+      );
 
     analysisCreate
       .mockResolvedValueOnce({
@@ -265,18 +287,20 @@ describe("run", () => {
       relevanceSelectionState,
     });
 
-    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
-      entities: [
-        { canonicalName: "A", typeId: TYPE_ID, aliases: [] },
-        { canonicalName: "B", typeId: TYPE_ID, aliases: [] },
-        { canonicalName: "C", typeId: TYPE_ID, aliases: [] },
-      ],
-      relations: [
-        { fromEntityName: "A", toEntityName: "B", relationTypeId: REL_ID },
-        { fromEntityName: "B", toEntityName: "C", relationTypeId: REL_ID },
-      ],
-      articleMentions: [],
-    });
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "A", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "B", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "C", typeId: TYPE_ID, aliases: [] },
+        ],
+        relations: [
+          { fromEntityName: "A", toEntityName: "B", relationTypeId: REL_ID },
+          { fromEntityName: "B", toEntityName: "C", relationTypeId: REL_ID },
+        ],
+        articleMentions: [],
+      }),
+    );
 
     analysisCreate
       .mockResolvedValueOnce({
@@ -344,18 +368,20 @@ describe("run", () => {
       relevanceSelectionState,
     });
 
-    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
-      entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
-      relations: [],
-      articleMentions: [
-        {
-          entityName: "A",
-          mentionCount: 2,
-          confidence: 0.91,
-          sentiment: "POSITIVE",
-        },
-      ],
-    });
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+        relations: [],
+        articleMentions: [
+          {
+            entityName: "A",
+            mentionCount: 2,
+            confidence: 0.91,
+            sentiment: "POSITIVE",
+          },
+        ],
+      }),
+    );
 
     analysisCreate
       .mockResolvedValueOnce({
@@ -423,18 +449,20 @@ describe("run", () => {
       relevanceSelectionState,
     });
 
-    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
-      entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
-      relations: [],
-      articleMentions: [
-        {
-          entityName: "A",
-          mentionCount: 2,
-          confidence: 1.5,
-          sentiment: "POSITIVE",
-        },
-      ],
-    });
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+        relations: [],
+        articleMentions: [
+          {
+            entityName: "A",
+            mentionCount: 2,
+            confidence: 1.5,
+            sentiment: "POSITIVE",
+          },
+        ],
+      }),
+    );
 
     analysisCreate
       .mockResolvedValueOnce({
@@ -490,11 +518,13 @@ describe("run", () => {
       relevanceSelectionState,
     });
 
-    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
-      entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
-      relations: [],
-      articleMentions: [],
-    });
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
 
     analysisCreate.mockResolvedValueOnce({
       entitiesCreated: 1,
@@ -533,11 +563,13 @@ describe("run", () => {
       relevanceSelectionState,
     });
 
-    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
-      entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
-      relations: [],
-      articleMentions: [],
-    });
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
 
     analysisCreate.mockResolvedValueOnce({
       entitiesCreated: 1,
@@ -570,7 +602,7 @@ describe("run", () => {
       success: false,
       message: "upstream error",
     });
-    expect(logger.error).toHaveBeenCalled();
+    expect(mockLog.error).toHaveBeenCalled();
   });
 
   it("resolves extracted names to existing canonical entities before POST", async () => {
@@ -589,20 +621,22 @@ describe("run", () => {
       relevanceSelectionState,
     });
 
-    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
-      entities: [
-        { canonicalName: "Alpha", typeId: TYPE_ID, aliases: [] },
-        { canonicalName: "Beta", typeId: TYPE_ID, aliases: [] },
-      ],
-      relations: [
-        {
-          fromEntityName: "Alpha",
-          toEntityName: "Beta",
-          relationTypeId: REL_ID,
-        },
-      ],
-      articleMentions: [],
-    });
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "Alpha", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "Beta", typeId: TYPE_ID, aliases: [] },
+        ],
+        relations: [
+          {
+            fromEntityName: "Alpha",
+            toEntityName: "Beta",
+            relationTypeId: REL_ID,
+          },
+        ],
+        articleMentions: [],
+      }),
+    );
 
     analysisCreate
       .mockResolvedValueOnce({
@@ -667,7 +701,7 @@ describe("run", () => {
       async () => {
         extractCall += 1;
         if (extractCall === 1) {
-          return {
+          return llmResult({
             entities: [
               {
                 canonicalName: "Bad",
@@ -677,13 +711,13 @@ describe("run", () => {
             ],
             relations: [],
             articleMentions: [],
-          };
+          });
         }
-        return {
+        return llmResult({
           entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
           relations: [],
           articleMentions: [],
-        };
+        });
       },
     );
 
@@ -712,6 +746,23 @@ describe("run", () => {
       (result.details?.extractionFailures as { stage: string }[])[0]?.stage,
     ).toBe("vocabulary");
     expect(analysisCreate).toHaveBeenCalledTimes(2);
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(summaryCall).toBeDefined();
+    expect(
+      (summaryCall?.[0] as { extractionFailuresVocabulary: number })
+        .extractionFailuresVocabulary,
+    ).toBe(1);
+    expect(
+      (summaryCall?.[0] as { extractionFailuresLlm: number })
+        .extractionFailuresLlm,
+    ).toBe(0);
   });
 
   it("stops POST phases after ER chunk failure and records postFailures", async () => {
@@ -732,18 +783,20 @@ describe("run", () => {
       relevanceSelectionState,
     });
 
-    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
-      entities: [
-        { canonicalName: "A", typeId: TYPE_ID, aliases: [] },
-        { canonicalName: "B", typeId: TYPE_ID, aliases: [] },
-        { canonicalName: "C", typeId: TYPE_ID, aliases: [] },
-      ],
-      relations: [
-        { fromEntityName: "A", toEntityName: "B", relationTypeId: REL_ID },
-        { fromEntityName: "B", toEntityName: "C", relationTypeId: REL_ID },
-      ],
-      articleMentions: [],
-    });
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "A", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "B", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "C", typeId: TYPE_ID, aliases: [] },
+        ],
+        relations: [
+          { fromEntityName: "A", toEntityName: "B", relationTypeId: REL_ID },
+          { fromEntityName: "B", toEntityName: "C", relationTypeId: REL_ID },
+        ],
+        articleMentions: [],
+      }),
+    );
 
     analysisCreate
       .mockResolvedValueOnce({
@@ -800,23 +853,110 @@ describe("run", () => {
       relevanceSelectionState,
     });
 
-    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
-      entities: [
-        {
-          canonicalName: "Bad",
-          typeId: "99999999-9999-4999-a999-999999999999",
-          aliases: [],
-        },
-      ],
-      relations: [],
-      articleMentions: [],
-    });
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          {
+            canonicalName: "Bad",
+            typeId: "99999999-9999-4999-a999-999999999999",
+            aliases: [],
+          },
+        ],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
 
     const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("run policy");
     expect(analysisCreate).not.toHaveBeenCalled();
+  });
+
+  it("logs safe error shape when LLM extraction throws", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: "short",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+    });
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockRejectedValue(
+      new Error("provider timeout"),
+    );
+
+    await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    expect(mockLog.warn).toHaveBeenCalledWith(
+      {
+        dataSourceId: DS_ID,
+        stage: "llm",
+        message: "provider timeout",
+      },
+      expect.any(String),
+    );
+  });
+
+  it("does not log raw article content in structured info payloads", async () => {
+    const secretBody = "DO_NOT_LOG_THIS_ARTICLE_BODY_SECRET";
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: secretBody,
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+    });
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
+
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 1,
+      });
+
+    await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    const payloads = mockLog.info.mock.calls.map((c) => JSON.stringify(c[0]));
+    for (const p of payloads) {
+      expect(p).not.toContain(secretBody);
+    }
   });
 
   it("logs verbose start", async () => {
@@ -835,6 +975,6 @@ describe("run", () => {
       }),
     );
 
-    expect(logger.info).toHaveBeenCalled();
+    expect(mockLog.info).toHaveBeenCalled();
   });
 });

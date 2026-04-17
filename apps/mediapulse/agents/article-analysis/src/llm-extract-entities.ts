@@ -37,12 +37,60 @@ export const llmExtractionOutputSchema = z.object({
 
 export type LlmExtractionOutput = z.infer<typeof llmExtractionOutputSchema>;
 
+/** Normalized token counts from the AI SDK (`generateObject` usage), if the provider reports them. */
+export type LlmExtractionUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
+
+export type LlmExtractionCallResult = {
+  object: LlmExtractionOutput;
+  usage: LlmExtractionUsage | null;
+};
+
 export type GenerateObjectForExtraction = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmExtractionOutputSchema;
   maxOutputTokens: number;
   messages: ModelMessage[];
-}) => Promise<{ object: LlmExtractionOutput }>;
+}) => Promise<LlmExtractionCallResult>;
+
+/**
+ * Converts AI SDK `LanguageModelUsage` into compact counters; `null` when the provider omits usage.
+ *
+ * @param usage - Raw usage from `generateObject`.
+ * @returns Numeric triple or null when no token fields are present.
+ */
+export const normalizeLlmUsageFromSdk = (usage: {
+  inputTokens?: number | undefined;
+  outputTokens?: number | undefined;
+  totalTokens?: number | undefined;
+}): LlmExtractionUsage | null => {
+  const inputTokens = usage.inputTokens;
+  const outputTokens = usage.outputTokens;
+  const totalTokens = usage.totalTokens;
+  if (inputTokens == null && outputTokens == null && totalTokens == null) {
+    return null;
+  }
+  const inTok = inputTokens ?? 0;
+  const outTok = outputTokens ?? 0;
+  return {
+    inputTokens: inTok,
+    outputTokens: outTok,
+    totalTokens: totalTokens ?? inTok + outTok,
+  };
+};
+
+const defaultGenerateObjectForExtraction: GenerateObjectForExtraction = async (
+  args,
+) => {
+  const result = await generateObject(args);
+  return {
+    object: result.object,
+    usage: normalizeLlmUsageFromSdk(result.usage),
+  };
+};
 
 /**
  * System prompt listing allowed entity and relation type UUIDs from analysis GET.
@@ -90,8 +138,8 @@ export const buildExtractionUserContent = (args: {
  * Runs structured extraction for one data source via `generateObject`.
  *
  * @param params - API key, model, token limit, chat messages.
- * @param deps - Injectable `generateObject` (tests swap mock).
- * @returns Parsed entities and relations.
+ * @param deps - Injectable `generateObject` wrapper (tests swap mock).
+ * @returns Parsed entities and relations plus optional tokenizer usage.
  */
 export const extractEntitiesAndRelationsForSource = async (
   params: {
@@ -101,15 +149,14 @@ export const extractEntitiesAndRelationsForSource = async (
     messages: ModelMessage[];
   },
   deps: { generateObjectForExtraction: GenerateObjectForExtraction } = {
-    generateObjectForExtraction: generateObject,
+    generateObjectForExtraction: defaultGenerateObjectForExtraction,
   },
-): Promise<LlmExtractionOutput> => {
+): Promise<LlmExtractionCallResult> => {
   const openai = createOpenAI({ apiKey: params.apiKey });
-  const { object } = await deps.generateObjectForExtraction({
+  return deps.generateObjectForExtraction({
     model: openai(params.model),
     schema: llmExtractionOutputSchema,
     maxOutputTokens: params.maxOutputTokens,
     messages: params.messages,
   });
-  return object;
 };

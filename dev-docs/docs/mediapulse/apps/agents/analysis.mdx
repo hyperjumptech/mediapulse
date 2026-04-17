@@ -46,6 +46,25 @@ Per-source **LLM** or **vocabulary** errors are **skipped** (no whole-run abort)
 
 **Retries:** `postTransientRetries` (default `0`) and `postTransientRetryBaseDelayMs` (default `500`) retry the same chunk on **429** or **5xx** from agent-data-api, with exponential backoff (`base * 2^attempt`).
 
+## Observability and log hygiene (MP-ART-ANALYSIS-008)
+
+Every run emits a structured **info** log with message `article_analysis.run.summary` and payload fields suitable for metrics backends or log pipelines.
+
+| Area | Fields (examples) |
+| ---- | ----------------- |
+| Correlation | Log child bindings: `component`, `runId`, `tickerId`, and optional Hermes ids (`jobId`, `executionId`, `scheduleId`, `scheduleExecutionId`, `pipelineStepId`) when invoke headers are present |
+| Outcome | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy) |
+| Extraction | `articlesProcessed`, `extractionSuccessCount`, `extractionFailureCount`, **`extractionFailuresVocabulary`** vs **`extractionFailuresLlm`** |
+| Validation | **`relevanceRowValidationFailures`** (pre-POST row checks), **`chunkParseErrors*`** (entity/relation chunks, `articleEntities`, `articleRelevances` chunk-build / Zod issues) |
+| Persist | `postFailureCount`, **`postFailuresByChunkKind`**, **`postFailuresByErrorCategory`** (`agent_data_api_http` vs `unknown`) |
+| KG tallies | `entitiesCreated`, `entitiesReused`, **`entityReuseRatio`**, `relationsCreated`, `articlesScored`, `articlesSelected` |
+| Relevance stats | When relevance rows were built: `relevanceRowCount`, `scoreMin` / `scoreMax` / `scoreMean`, **`scoreBuckets`**, **`breakdownVersion`** (or `mixed`), **`breakdownKeyMeans`** / mins / maxes over canonical keys |
+| LLM | **`llmPromptTokens`**, **`llmCompletionTokens`**, **`llmTotalTokens`** summed over extraction calls **only if** the AI SDK reports usage for those calls; fields are **omitted** when the provider returns no token counts |
+| Timing | **`extractionLatencyMsTotal`**, **`extractionCalls`**, **`avgExtractionLatencyMs`** |
+| Top-level throw | Summary includes `error: { type, message }`; **`warn` / `error` logs use the same safe shape**—never attach raw `Error` objects (avoids leaking rich provider payloads) |
+
+**Security:** Logs intentionally exclude raw article `content`, API keys, and bearer tokens. Chunk and summary payloads use ids and counts only.
+
 ## Idempotency and incremental runs
 
 - **`unanalyzed=true` (default on GET):** `loadAnalysisContext` returns only data sources that do **not** yet have an **`article_relevance`** row for the ticker—routine re-runs skip already-scored articles.
