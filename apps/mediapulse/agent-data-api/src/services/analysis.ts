@@ -32,7 +32,10 @@ type AnalysisDb = {
   tickerEntity: Pick<typeof prisma.tickerEntity, "create" | "findFirst">;
   entityRelation: Pick<typeof prisma.entityRelation, "create" | "findUnique">;
   articleEntity: Pick<typeof prisma.articleEntity, "upsert">;
-  articleRelevance: Pick<typeof prisma.articleRelevance, "upsert">;
+  articleRelevance: Pick<
+    typeof prisma.articleRelevance,
+    "upsert" | "count" | "findFirst"
+  >;
   $transaction: typeof prisma.$transaction;
 };
 
@@ -111,13 +114,38 @@ export const loadAnalysisContext = async (
     orderBy: { canonicalName: "asc" as const },
   } satisfies Prisma.EntityFindManyArgs;
 
-  const [dataSources, entityTypes, relationTypes, existingEntityRows] =
-    await Promise.all([
-      db.dataSource.findMany(dataSourceArgs),
-      db.entityType.findMany(entityTypeArgs),
-      db.relationType.findMany(relationTypeArgs),
-      db.entity.findMany(existingEntityArgs),
-    ]);
+  const utcDayStart = new Date();
+  utcDayStart.setUTCHours(0, 0, 0, 0);
+
+  const relevanceCountArgs = {
+    where: {
+      tickerId: query.tickerId,
+      selected: true,
+      scoredAt: { gte: utcDayStart },
+    },
+  } satisfies Prisma.ArticleRelevanceCountArgs;
+
+  const lastRelevanceArgs = {
+    where: { tickerId: query.tickerId },
+    orderBy: { scoredAt: "desc" as const },
+    select: { scoredAt: true },
+  } satisfies Prisma.ArticleRelevanceFindFirstArgs;
+
+  const [
+    dataSources,
+    entityTypes,
+    relationTypes,
+    existingEntityRows,
+    selectedCountToday,
+    lastRelevanceRow,
+  ] = await Promise.all([
+    db.dataSource.findMany(dataSourceArgs),
+    db.entityType.findMany(entityTypeArgs),
+    db.relationType.findMany(relationTypeArgs),
+    db.entity.findMany(existingEntityArgs),
+    db.articleRelevance.count(relevanceCountArgs),
+    db.articleRelevance.findFirst(lastRelevanceArgs),
+  ]);
 
   return {
     dataSources,
@@ -129,6 +157,13 @@ export const loadAnalysisContext = async (
       typeId: row.typeId,
       aliases: row.aliases.map((a) => a.alias),
     })),
+    relevanceSelectionState: {
+      utcDayStartIso: utcDayStart.toISOString(),
+      selectedCountToday,
+    },
+    lastRelevanceScoredAtIso: lastRelevanceRow
+      ? lastRelevanceRow.scoredAt.toISOString()
+      : null,
   };
 };
 
@@ -324,6 +359,7 @@ export const applyAnalysisPost = async (
 
     let articlesScored = 0;
     for (const relRow of body.articleRelevances) {
+      const scoreBreakdown = relRow.scoreBreakdown as Prisma.InputJsonValue;
       await tx.articleRelevance.upsert({
         where: {
           dataSourceId_tickerId: {
@@ -335,13 +371,13 @@ export const applyAnalysisPost = async (
           dataSourceId: relRow.dataSourceId,
           tickerId: body.tickerId,
           score: relRow.score,
-          scoreBreakdown: relRow.scoreBreakdown,
+          scoreBreakdown,
           selected: relRow.selected,
           scoredAt: new Date(),
         },
         update: {
           score: relRow.score,
-          scoreBreakdown: relRow.scoreBreakdown,
+          scoreBreakdown,
           selected: relRow.selected,
           scoredAt: new Date(),
         },
