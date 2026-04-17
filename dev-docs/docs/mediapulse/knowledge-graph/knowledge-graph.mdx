@@ -169,40 +169,32 @@ In short:
 
 ## Relevance scoring model (analysis agent)
 
-The analysis stage computes a weighted composite score per article and ticker:
+The **article-analysis** agent computes a **weighted composite score** in `[0, 1]` per `(data_source_id, ticker_id)` and persists subscores in `article_relevance.score_breakdown` JSON.
 
-| Signal          | Weight | Description                                              |
-| --------------- | ------ | -------------------------------------------------------- |
-| `aliasMatch`    | `0.30` | Symbol/name/alias matches found in title and content     |
-| `entityOverlap` | `0.30` | Portion of extracted entities that overlap the ticker KG |
-| `freshness`     | `0.20` | Time-decay score favoring newer articles                 |
-| `sourceQuality` | `0.10` | Domain trust score from allowlist/config                 |
-| `novelty`       | `0.10` | Dedup signal favoring non-redundant articles             |
+**Canonical v1 keys** (required for each scored article; align with downstream charts):
 
-Formula:
+| Key               | Description |
+| ----------------- | ----------- |
+| `breakingNews`    | Breaking / urgent / market-moving cues from title and body heuristics |
+| `kgRelation`      | Signal from extracted relation count |
+| `fundamental`     | Filings, earnings, guidance, and similar keywords |
+| `tickerSalience`  | Mentions and extracted entity coverage |
+| `sourceQuality`   | Host-tier trust prior |
+| `_version`        | Integer breakdown version (Hermes `scoreBreakdownVersion`; env alignment in MP-ART-ANALYSIS-009) |
 
-`score = 0.30*aliasMatch + 0.30*entityOverlap + 0.20*freshness + 0.10*sourceQuality + 0.10*novelty`
+`score = sum_k relevanceWeight_k * scoreBreakdown[k]` over the five dimensions (default weights `0.2` each via Hermes).
 
-Practical interpretation:
-
-- `aliasMatch`: direct match confidence against ticker symbol/name/entity aliases.
-- `entityOverlap`: how much extracted article graph intersects ticker graph.
-- `freshness`: time-decay score to prioritize recent events.
-- `sourceQuality`: trust prior of source domain or feed.
-- `novelty`: reduces duplicate story clusters and rewards new information.
-
-Top-K scored rows are marked `selected = true` in `article_relevance` and then consumed by content-generation.
+Top-scoring rows that pass **`relevanceMinScore`** are candidates for **`selected = true`**, up to the **remaining daily budget**: `maxSelectedRelevancePerTickerPerDay - selectedCountToday`, where `selectedCountToday` is returned on **`GET /api/v1/analysis`** as **`relevanceSelectionState.selectedCountToday`** (UTC day start in **`utcDayStartIso`**). Content-generation consumes **`selected`** rows scored today.
 
 ## Selection policy and tie-breakers
 
-When scores are close, ranking should prefer:
+When assigning **`selected`** in a batch:
 
 1. Higher `score`
-2. More recent `scored_at` / article timestamp
-3. Better `sourceQuality` component
-4. Higher novelty to avoid repetitive newsletters
+2. Newer `data_source.createdAt` at equal `score`
+3. Respect the daily cap above
 
-If no row crosses your practical quality threshold, content-generation should skip with a clear status instead of producing low-signal output.
+If no row crosses **`relevanceMinScore`**, all rows may remain `selected = false` for that run; content-generation should skip with a clear status instead of producing low-signal output.
 
 ## Extraction quality guidelines
 
@@ -226,7 +218,7 @@ If no row crosses your practical quality threshold, content-generation should sk
 | Symptom                    | Likely cause                          | First checks                                              |
 | -------------------------- | ------------------------------------- | --------------------------------------------------------- |
 | Very few selected articles | Strict scoring or weak query coverage | Check search query quality and source volume              |
-| Repetitive newsletters     | Novelty too weak or same-source bias  | Inspect `score_breakdown.novelty` + source spread         |
+| Repetitive newsletters     | Selection cap or weak salience signals  | Inspect `score_breakdown.tickerSalience` + source spread  |
 | Wrong entity labels        | Ambiguous entity type definitions     | Refine `entity_type.description`                          |
 | Nonsensical relations      | Directionality confusion in labels    | Clarify relation semantics in `relation_type.description` |
 

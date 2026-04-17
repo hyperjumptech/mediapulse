@@ -14,19 +14,22 @@ Core responsibilities:
 2. Upsert KG records (`entity`, `entity_alias`, `ticker_entity`, `entity_relation`, `article_entity`).
 3. Score article relevance and mark top-K rows as `selected` in `article_relevance`.
 
-## Relevance scoring signals
+## Relevance scoring signals (canonical `scoreBreakdown` v1)
 
-| Signal          | Weight | Description                                      |
-| --------------- | ------ | ------------------------------------------------ |
-| `aliasMatch`    | `0.30` | Symbol/name/alias match against article text     |
-| `entityOverlap` | `0.30` | Overlap between extracted entities and ticker KG |
-| `freshness`     | `0.20` | Recency score                                    |
-| `sourceQuality` | `0.10` | Source trust score                               |
-| `novelty`       | `0.10` | Dedup and diversity score                        |
+The **article-analysis** agent stores subscores in `article_relevance.score_breakdown` JSON. Required keys for charts and observability (MP-ART-ANALYSIS-006):
 
-Formula:
+| Key               | Role (product order)                                      |
+| ----------------- | ----------------------------------------------------------- |
+| `breakingNews`    | Timely / market-moving event signal                         |
+| `kgRelation`      | Strength of extracted KG relations for the article          |
+| `fundamental`     | Earnings, filings, guidance-style fundamentals              |
+| `tickerSalience`  | How strongly the ticker / entities show up in the piece   |
+| `sourceQuality`   | Trust / tier prior for the source                           |
+| `_version`        | Integer schema version (Hermes `scoreBreakdownVersion`)     |
 
-`score = 0.30*aliasMatch + 0.30*entityOverlap + 0.20*freshness + 0.10*sourceQuality + 0.10*novelty`
+Optional additional numeric keys may appear for experiments. **Weighted `score`** is in `[0, 1]` and defaults to equal weights (`0.2` each) over the five dimensions; tune via Hermes config (`relevanceWeight*` keys).
+
+**Selection:** `GET /api/v1/analysis` includes `relevanceSelectionState` (`utcDayStartIso`, `selectedCountToday`) so the agent can enforce **max additional `selected` rows per UTC day** after applying **`relevanceMinScore`**. Tie-break: higher `score`, then newer article `createdAt`.
 
 ## I/O contract
 

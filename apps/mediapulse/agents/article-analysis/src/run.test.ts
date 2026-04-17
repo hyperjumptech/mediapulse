@@ -2,6 +2,7 @@
 import type { AgentRunContext } from "@workspace/agent-runtime";
 import { logger } from "@workspace/logger";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as RelevancePostChunks from "./analysis-relevance-post-chunks.js";
 import * as Llm from "./llm-extract-entities.js";
 import type { ArticleAnalysisConfig } from "./config-schema.js";
 import type { ArticleAnalysisInput } from "./input-schema.js";
@@ -38,6 +39,12 @@ const REL_ID = "22222222-2222-4222-a222-222222222222";
 const DS_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const DS_ID_2 = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
+/** Required on `analysis.get` responses (see `getAnalysisResponseSchema`). */
+const relevanceSelectionState = {
+  utcDayStartIso: "2026-04-09T00:00:00.000Z",
+  selectedCountToday: 0,
+} as const;
+
 const baseConfig: ArticleAnalysisConfig = {
   openaiApiKey: "sk-test",
 };
@@ -58,6 +65,7 @@ describe("run", () => {
   beforeEach(() => {
     analysisGet.mockReset();
     analysisCreate.mockReset();
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockReset();
   });
 
   afterEach(() => {
@@ -79,6 +87,7 @@ describe("run", () => {
       entityTypes: [],
       relationTypes: [],
       existingEntities: [],
+      relevanceSelectionState,
     });
 
     const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
@@ -94,6 +103,7 @@ describe("run", () => {
       entityTypes: [],
       relationTypes: [],
       existingEntities: [],
+      relevanceSelectionState,
     });
 
     await run(
@@ -118,6 +128,7 @@ describe("run", () => {
       entityTypes: [],
       relationTypes: [],
       existingEntities: [],
+      relevanceSelectionState,
     });
 
     await run(
@@ -146,6 +157,7 @@ describe("run", () => {
       entityTypes: [],
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
+      relevanceSelectionState,
     });
 
     const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
@@ -167,6 +179,7 @@ describe("run", () => {
       entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
+      relevanceSelectionState,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource")
@@ -204,13 +217,21 @@ describe("run", () => {
         articleMentions: [],
       });
 
-    analysisCreate.mockResolvedValueOnce({
-      entitiesCreated: 1,
-      entitiesReused: 0,
-      relationsCreated: 0,
-      articlesScored: 0,
-      articlesSelected: 0,
-    });
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 1,
+      });
 
     const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
 
@@ -220,8 +241,11 @@ describe("run", () => {
       entitiesCreated: 1,
       articleEntityRowsPosted: 0,
       mentionPostChunks: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+      relevancePostChunks: 1,
     });
-    expect(analysisCreate).toHaveBeenCalledTimes(1);
+    expect(analysisCreate).toHaveBeenCalledTimes(2);
   });
 
   it("posts chunks and aggregates POST response counts", async () => {
@@ -230,6 +254,7 @@ describe("run", () => {
       entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
+      relevanceSelectionState,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
@@ -259,6 +284,13 @@ describe("run", () => {
         relationsCreated: 1,
         articlesScored: 0,
         articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 1,
       });
 
     const result = await run(
@@ -269,7 +301,10 @@ describe("run", () => {
     );
 
     expect(result.success).toBe(true);
-    expect(analysisCreate).toHaveBeenCalledTimes(2);
+    expect(analysisCreate).toHaveBeenCalledTimes(3);
+    expect(analysisCreate.mock.calls[2]?.[0]?.articleRelevances).toHaveLength(
+      1,
+    );
     expect(result.details).toMatchObject({
       postChunks: 2,
       entitiesCreated: 2,
@@ -277,6 +312,9 @@ describe("run", () => {
       relationsCreated: 2,
       articleEntityRowsPosted: 0,
       mentionPostChunks: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+      relevancePostChunks: 1,
     });
   });
 
@@ -295,6 +333,7 @@ describe("run", () => {
       entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
+      relevanceSelectionState,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
@@ -324,12 +363,19 @@ describe("run", () => {
         relationsCreated: 0,
         articlesScored: 0,
         articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 1,
       });
 
     const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
 
     expect(result.success).toBe(true);
-    expect(analysisCreate).toHaveBeenCalledTimes(2);
+    expect(analysisCreate).toHaveBeenCalledTimes(3);
     expect(analysisCreate.mock.calls[0]?.[0]?.articleEntities).toEqual([]);
     expect(analysisCreate.mock.calls[1]?.[0]?.articleEntities).toHaveLength(1);
     expect(
@@ -345,6 +391,9 @@ describe("run", () => {
       postChunks: 1,
       mentionPostChunks: 1,
       articleEntityRowsPosted: 1,
+      articlesScored: 1,
+      articlesSelected: 1,
+      relevancePostChunks: 1,
     });
   });
 
@@ -363,6 +412,7 @@ describe("run", () => {
       entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
       relationTypes: [{ id: REL_ID, name: "r", description: null }],
       existingEntities: [],
+      relevanceSelectionState,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
@@ -378,18 +428,26 @@ describe("run", () => {
       ],
     });
 
-    analysisCreate.mockResolvedValueOnce({
-      entitiesCreated: 1,
-      entitiesReused: 0,
-      relationsCreated: 0,
-      articlesScored: 0,
-      articlesSelected: 0,
-    });
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 0,
+      });
 
     const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
 
     expect(result.success).toBe(true);
-    expect(analysisCreate).toHaveBeenCalledTimes(1);
+    expect(analysisCreate).toHaveBeenCalledTimes(2);
     expect(result.details).toMatchObject({
       mentionPostChunks: 0,
       articleEntityRowsPosted: 0,
@@ -404,6 +462,95 @@ describe("run", () => {
       (result.details as { articleEntityParseErrors?: unknown[] })
         .articleEntityParseErrors?.length,
     ).toBeGreaterThan(0);
+  });
+
+  it("fails run when relevance rows fail validation before selection", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+    });
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
+      entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+      relations: [],
+      articleMentions: [],
+    });
+
+    analysisCreate.mockResolvedValueOnce({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 0,
+      articlesSelected: 0,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { scoreBreakdownVersion: 1.5 },
+      }),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("validation failed before selection");
+  });
+
+  it("fails run when relevance chunk parse errors are reported", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: "u",
+          title: "T",
+          content: "c",
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [],
+      relevanceSelectionState,
+    });
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
+      entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+      relations: [],
+      articleMentions: [],
+    });
+
+    analysisCreate.mockResolvedValueOnce({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 0,
+      articlesSelected: 0,
+    });
+
+    vi.spyOn(
+      RelevancePostChunks,
+      "buildArticleRelevancePostChunks",
+    ).mockReturnValue({
+      chunks: [],
+      parseErrors: ["bad row"],
+    });
+
+    const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("relevance chunk parse failed");
   });
 
   it("returns failure when analysis GET throws", async () => {
@@ -431,6 +578,7 @@ describe("run", () => {
           aliases: ["Alpha"],
         },
       ],
+      relevanceSelectionState,
     });
 
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue({
@@ -448,13 +596,21 @@ describe("run", () => {
       articleMentions: [],
     });
 
-    analysisCreate.mockResolvedValueOnce({
-      entitiesCreated: 1,
-      entitiesReused: 1,
-      relationsCreated: 1,
-      articlesScored: 0,
-      articlesSelected: 0,
-    });
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 1,
+        entitiesReused: 1,
+        relationsCreated: 1,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 1,
+      });
 
     const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
 
@@ -478,6 +634,7 @@ describe("run", () => {
       entityTypes: [],
       relationTypes: [],
       existingEntities: [],
+      relevanceSelectionState,
     });
 
     await run(

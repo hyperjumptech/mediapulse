@@ -4,6 +4,12 @@ import { env } from "@mediapulse/env/agents-article-analysis";
 import { logger } from "@workspace/logger";
 
 import {
+  applyPerArticleExtractionCaps,
+  applyPerRunCaps,
+  dedupeEntities,
+  dedupeRelations,
+} from "./analysis-caps-dedupe.js";
+import {
   applyPerArticleArticleMentionCap,
   applyPerRunArticleEntityCap,
   buildArticleEntityPostChunks,
@@ -15,12 +21,13 @@ import {
   toArticleEntityRowsForSource,
   type ArticleEntityRow,
 } from "./analysis-article-mentions.js";
+import { buildArticleRelevancePostChunks } from "./analysis-relevance-post-chunks.js";
 import {
-  applyPerArticleExtractionCaps,
-  applyPerRunCaps,
-  dedupeEntities,
-  dedupeRelations,
-} from "./analysis-caps-dedupe.js";
+  buildDraftRelevanceRow,
+  validateRelevanceRowForPost,
+  type PerSourceRelevanceSignals,
+} from "./analysis-relevance-scoring.js";
+import { applyRelevanceSelection } from "./analysis-relevance-selection.js";
 import {
   validateExtractionVocabulary,
   type EntityProposal,
@@ -29,6 +36,7 @@ import {
 import { buildAnalysisPostChunks } from "./build-analysis-post-chunks.js";
 import {
   resolveArticleAnalysisConfig,
+  toRelevanceWeightMapV1,
   type ArticleAnalysisConfig,
 } from "./config-schema.js";
 import type { ArticleAnalysisInput } from "./input-schema.js";
@@ -37,12 +45,12 @@ import {
   buildExtractionUserContent,
   extractEntitiesAndRelationsForSource,
 } from "./llm-extract-entities.js";
-import { normalizeEntityName } from "./normalize-entity-name.js";
 import {
   buildAnalysisGetQuery,
   applyMaxBatchSizeCap,
   sortAnalysisDataSourcesByCreatedAt,
 } from "./run-helpers.js";
+import { normalizeEntityName } from "./normalize-entity-name.js";
 
 type ExistingEntity = {
   canonicalName: string;
@@ -142,9 +150,9 @@ const resolveAgainstExistingEntities = (
 /**
  * Runs analysis: GET context, optional batch cap, LLM extraction per source,
  * vocabulary validation, canonicalization against existing entities, caps,
- * chunked POST of entities/relations, then chunked POST of `articleEntities`
- * (after ER commits so names resolve in the API). `articleRelevances` remain
- * empty until a later milestone.
+ * chunked POST of entities/relations, then chunked POST of `articleEntities` (after ER commits),
+ * then chunked `articleRelevances` with canonical `scoreBreakdown`, weighted `score`, and
+ * configurable `selected` (UTC-day budget from GET).
  *
  * @param context - Hermes input/config and bearer token.
  * @returns Aggregated success with POST tallies or structured failure.
@@ -199,6 +207,9 @@ export const run = async ({
           postChunks: 0,
           articleEntityRowsPosted: 0,
           mentionPostChunks: 0,
+          articlesScored: 0,
+          articlesSelected: 0,
+          relevancePostChunks: 0,
         },
       };
     }
@@ -211,6 +222,9 @@ export const run = async ({
         details: {
           entityTypeCount: ctx.entityTypes.length,
           relationTypeCount: ctx.relationTypes.length,
+          articlesScored: 0,
+          articlesSelected: 0,
+          relevancePostChunks: 0,
         },
       };
     }
@@ -223,6 +237,7 @@ export const run = async ({
     const mergedEntities: EntityProposal[] = [];
     const mergedRelations: RelationProposal[] = [];
     const mergedArticleEntityRows: ArticleEntityRow[] = [];
+    const perSourceSignals: PerSourceRelevanceSignals[] = [];
 
     for (const source of batch) {
       const truncated =
@@ -294,6 +309,23 @@ export const run = async ({
         mergedArticleEntityRows.push(
           ...toArticleEntityRowsForSource(source.id, mentionCapped),
         );
+
+        const avgMentionConfidence =
+          mentionCapped.length === 0
+            ? 0
+            : mentionCapped.reduce((s, m) => s + m.confidence, 0) /
+              mentionCapped.length;
+        perSourceSignals.push({
+          dataSourceId: source.id,
+          createdAt: source.createdAt,
+          url: source.url,
+          entityCount: capped.entities.length,
+          relationCount: capped.relations.length,
+          mentionCount: mentionCapped.length,
+          avgMentionConfidence,
+          titleLower: source.title.toLowerCase(),
+          textLower: truncated.toLowerCase(),
+        });
       } catch (err) {
         llmFailures += 1;
         logger.warn(
@@ -331,6 +363,9 @@ export const run = async ({
           postChunks: 0,
           articleEntityRowsPosted: 0,
           mentionPostChunks: 0,
+          articlesScored: 0,
+          articlesSelected: 0,
+          relevancePostChunks: 0,
           reanalyze,
         },
       };
@@ -393,6 +428,9 @@ export const run = async ({
           articleEntityRowsPosted: 0,
           mentionPostChunks: 0,
           droppedArticleMentionsNotInRunCatalog,
+          articlesScored: 0,
+          articlesSelected: 0,
+          relevancePostChunks: 0,
           reanalyze,
         },
       };
@@ -459,9 +497,102 @@ export const run = async ({
     }
     mentionPostChunks = articleEntityChunks.length;
 
+    let articlesScoredTotal = 0;
+    let articlesSelectedTotal = 0;
+    let relevancePostChunks = 0;
+
+    if (perSourceSignals.length > 0) {
+      const weightMap = toRelevanceWeightMapV1(cfg);
+      const relevanceDrafts = perSourceSignals.map((sig) =>
+        buildDraftRelevanceRow(sig, cfg.scoreBreakdownVersion, weightMap),
+      );
+      const relevanceValidationErrors: string[] = [];
+      for (const row of relevanceDrafts) {
+        const vErr = validateRelevanceRowForPost(row, weightMap);
+        if (vErr) {
+          relevanceValidationErrors.push(`${row.dataSourceId}: ${vErr}`);
+          logger.warn(
+            { tickerId: input.tickerId, dataSourceId: row.dataSourceId, vErr },
+            "article-analysis relevance row validation failed before selection",
+          );
+        }
+      }
+      if (relevanceValidationErrors.length > 0) {
+        return {
+          success: false,
+          message:
+            "article-analysis relevance row validation failed before selection",
+          details: {
+            tickerId: input.tickerId,
+            validationErrorCount: relevanceValidationErrors.length,
+            relevanceValidationErrors: relevanceValidationErrors.slice(0, 20),
+          },
+        };
+      }
+
+      const selectionInput = relevanceDrafts.map((row, idx) => ({
+        ...row,
+        _sortCreatedAt: perSourceSignals[idx]!.createdAt,
+      }));
+      const remainingBudget = Math.max(
+        0,
+        cfg.maxSelectedRelevancePerTickerPerDay -
+          ctx.relevanceSelectionState.selectedCountToday,
+      );
+      const relevanceRows = applyRelevanceSelection(
+        selectionInput,
+        cfg.relevanceMinScore,
+        remainingBudget,
+      );
+
+      const { chunks: relevanceChunks, parseErrors: relevanceParseErrors } =
+        buildArticleRelevancePostChunks(
+          input.tickerId,
+          relevanceRows,
+          cfg.postChunkArticleRelevanceBatchSize,
+        );
+
+      if (relevanceParseErrors.length > 0) {
+        logger.warn(
+          {
+            tickerId: input.tickerId,
+            parseErrorSample: relevanceParseErrors.slice(0, 10),
+          },
+          "article-analysis relevance chunk build reported parse issues",
+        );
+        return {
+          success: false,
+          message: "article-analysis relevance chunk parse failed",
+          details: {
+            tickerId: input.tickerId,
+            parseErrorCount: relevanceParseErrors.length,
+            relevanceParseErrors: relevanceParseErrors.slice(0, 20),
+          },
+        };
+      }
+
+      for (let k = 0; k < relevanceChunks.length; k++) {
+        const relChunk = relevanceChunks[k]!;
+        logger.info(
+          {
+            tickerId: input.tickerId,
+            chunkKind: "article_relevances",
+            chunkIndex: k,
+            chunkArticleRelevances: relChunk.articleRelevances.length,
+            model: cfg.openaiModel,
+          },
+          "article-analysis posting chunk",
+        );
+        const relRes = await dataApiClient.analysis.create(relChunk);
+        articlesScoredTotal += relRes.articlesScored;
+        articlesSelectedTotal += relRes.articlesSelected;
+      }
+      relevancePostChunks = relevanceChunks.length;
+    }
+
     return {
       success: true,
-      message: `analysis complete: ${chunks.length} ER chunk(s), ${mentionPostChunks} articleEntity chunk(s); entitiesCreated=${entitiesCreated} entitiesReused=${entitiesReused} relationsCreated=${relationsCreated} articleEntityRowsPosted=${articleEntityRowsPosted}`,
+      message: `analysis complete: ${chunks.length} ER chunk(s), ${mentionPostChunks} articleEntity chunk(s), ${relevancePostChunks} relevance chunk(s); entitiesCreated=${entitiesCreated} entitiesReused=${entitiesReused} relationsCreated=${relationsCreated} articleEntityRowsPosted=${articleEntityRowsPosted} articlesScored=${articlesScoredTotal} articlesSelected=${articlesSelectedTotal}`,
       details: {
         dataSourcesProcessed: batch.length,
         dataSourcesReturned: ctx.dataSources.length,
@@ -472,6 +603,14 @@ export const run = async ({
         articleEntityRowsPosted,
         mentionPostChunks,
         droppedArticleMentionsNotInRunCatalog,
+        articlesScored: articlesScoredTotal,
+        articlesSelected: articlesSelectedTotal,
+        relevancePostChunks,
+        relevanceSelectionBudgetRemaining: Math.max(
+          0,
+          cfg.maxSelectedRelevancePerTickerPerDay -
+            ctx.relevanceSelectionState.selectedCountToday,
+        ),
         llmFailures,
         vocabularyFailures,
         droppedRelations,
