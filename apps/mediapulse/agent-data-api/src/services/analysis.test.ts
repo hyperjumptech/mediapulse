@@ -73,7 +73,11 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       $transaction: vi.fn(),
     };
 
@@ -94,6 +98,14 @@ describe("loadAnalysisContext", () => {
         }),
       }),
     );
+    expect(db.articleRelevance.count).toHaveBeenCalled();
+    expect(db.articleRelevance.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tickerId: "ticker-1" },
+        orderBy: { scoredAt: "desc" },
+        select: { scoredAt: true },
+      }),
+    );
   });
 
   it("loads all ticker sources when unanalyzed is false", async () => {
@@ -111,11 +123,15 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(2),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       $transaction: vi.fn(),
     };
 
-    await loadAnalysisContext(
+    const result = await loadAnalysisContext(
       { tickerId: "ticker-2", unanalyzed: false },
       { db: db as never },
     );
@@ -125,6 +141,43 @@ describe("loadAnalysisContext", () => {
         where: { tickerId: "ticker-2" },
       }),
     );
+    expect(result.relevanceSelectionState.selectedCountToday).toBe(2);
+    expect(result.lastRelevanceScoredAtIso).toBeNull();
+  });
+
+  it("returns lastRelevanceScoredAtIso from the latest scored row", async () => {
+    const scoredAt = new Date("2026-03-10T12:00:00.000Z");
+    const db = {
+      dataSource: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+      },
+      entityType: { findMany: vi.fn().mockResolvedValue([]) },
+      relationType: { findMany: vi.fn().mockResolvedValue([]) },
+      entity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+      },
+      entityAlias: { createMany: vi.fn() },
+      tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
+      entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      articleEntity: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue({ scoredAt }),
+      },
+      $transaction: vi.fn(),
+    };
+
+    const result = await loadAnalysisContext(
+      { tickerId: "ticker-debounce", unanalyzed: true },
+      { db: db as never },
+    );
+
+    expect(result.lastRelevanceScoredAtIso).toBe(scoredAt.toISOString());
   });
 
   it("filters by createdAt gte when start is set", async () => {
@@ -142,7 +195,11 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       $transaction: vi.fn(),
     };
 
@@ -179,7 +236,11 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       $transaction: vi.fn(),
     };
 
@@ -216,7 +277,11 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       $transaction: vi.fn(),
     };
 
@@ -267,7 +332,11 @@ describe("loadAnalysisContext", () => {
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
-      articleRelevance: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       $transaction: vi.fn(),
     };
 
@@ -338,5 +407,88 @@ describe("applyAnalysisPost", () => {
         { db: db as never },
       ),
     ).rejects.toThrow(AnalysisPostValidationError);
+  });
+
+  it("upserts article relevance on repeat POST with the same keys (idempotent)", async () => {
+    const DS = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const tx = {
+      dataSource: {
+        findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
+      },
+      articleRelevance: { upsert: vi.fn() },
+    };
+    const db = {
+      dataSource: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+      },
+      entityType: { findMany: vi.fn() },
+      relationType: { findMany: vi.fn() },
+      entity: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+      entityAlias: { createMany: vi.fn() },
+      tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
+      entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      articleEntity: { upsert: vi.fn() },
+      articleRelevance: { upsert: vi.fn(), count: vi.fn() },
+      $transaction: vi.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
+    };
+
+    const body = {
+      tickerId: "ticker-1",
+      entities: [],
+      relations: [],
+      articleEntities: [],
+      articleRelevances: [
+        {
+          dataSourceId: DS,
+          score: 0.5,
+          scoreBreakdown: {
+            breakingNews: 0.1,
+            kgRelation: 0.1,
+            fundamental: 0.1,
+            tickerSalience: 0.1,
+            sourceQuality: 0.1,
+            _version: 1,
+          },
+          selected: false,
+        },
+      ],
+    };
+
+    await applyAnalysisPost(body, { db: db as never });
+    await applyAnalysisPost(body, { db: db as never });
+
+    expect(tx.articleRelevance.upsert).toHaveBeenCalledTimes(2);
+    expect(tx.articleRelevance.upsert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: {
+          dataSourceId_tickerId: {
+            dataSourceId: DS,
+            tickerId: "ticker-1",
+          },
+        },
+        create: expect.objectContaining({
+          dataSourceId: DS,
+          tickerId: "ticker-1",
+        }),
+        update: expect.objectContaining({
+          score: 0.5,
+          selected: false,
+        }),
+      }),
+    );
+    expect(tx.articleRelevance.upsert).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: {
+          dataSourceId_tickerId: {
+            dataSourceId: DS,
+            tickerId: "ticker-1",
+          },
+        },
+      }),
+    );
   });
 });

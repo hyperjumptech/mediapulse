@@ -67,6 +67,8 @@ describe("Hermes dashboard routing contract", () => {
     // Assert — breaks if segments are renamed without updating mounts + manifest
     expect(HermesDashboardResource.tickers).toBe("tickers");
     expect(HermesDashboardResource.mediapulseUsers).toBe("mediapulse-users");
+    expect(HermesDashboardResource.entities).toBe("entities");
+    expect(HermesDashboardResource.entityRelations).toBe("entity-relations");
     expect(HermesDashboardResource.dataSources).toBe("data-sources");
     expect(HermesDashboardResource.deliveryRuns).toBe("delivery-runs");
     expect(hermesDashboardTableMountPath(HermesDashboardResource.tickers)).toBe(
@@ -75,5 +77,11 @@ describe("Hermes dashboard routing contract", () => {
     expect(
       hermesDashboardTableMountPath(HermesDashboardResource.dataSources),
     ).toBe("/hermes-dashboard/data-sources");
+    expect(
+      hermesDashboardTableMountPath(HermesDashboardResource.entities),
+    ).toBe("/hermes-dashboard/entities");
+    expect(
+      hermesDashboardTableMountPath(HermesDashboardResource.entityRelations),
+    ).toBe("/hermes-dashboard/entity-relations");
   });
 });
