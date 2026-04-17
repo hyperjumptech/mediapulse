@@ -33,6 +33,16 @@ import {
   type EntityProposal,
   type RelationProposal,
 } from "./analysis-vocabulary.js";
+import {
+  executeAnalysisCreateWithTransientRetries,
+  toArticleAnalysisPostFailureRecord,
+} from "./article-analysis-agent-data-api-post.js";
+import {
+  deriveArticleAnalysisRunStatusLabel,
+  isArticleAnalysisExtractionPolicyFailure,
+  type ArticleAnalysisExtractionFailureRecord,
+  type ArticleAnalysisPostFailureRecord,
+} from "./article-analysis-run-policy.js";
 import { buildAnalysisPostChunks } from "./build-analysis-post-chunks.js";
 import {
   resolveArticleAnalysisConfig,
@@ -147,12 +157,19 @@ const resolveAgainstExistingEntities = (
   };
 };
 
+const sleepMs = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * Runs analysis: GET context, optional batch cap, LLM extraction per source,
- * vocabulary validation, canonicalization against existing entities, caps,
- * chunked POST of entities/relations, then chunked POST of `articleEntities` (after ER commits),
- * then chunked `articleRelevances` with canonical `scoreBreakdown`, weighted `score`, and
- * configurable `selected` (UTC-day budget from GET).
+ * vocabulary validation, caps, chunked POST of entities/relations, then chunked POST of
+ * `articleEntities` (after ER commits), then chunked `articleRelevances` with canonical
+ * `scoreBreakdown`, weighted `score`, and configurable `selected` (UTC-day budget from GET).
+ *
+ * Partial failure (MP-ART-ANALYSIS-007): optional `runPolicy` rejects the run when too few
+ * sources extract successfully; vocabulary/LLM failures per source are recorded and skipped;
+ * POST failures stop later phases and only API-confirmed counts are aggregated.
+ * Successful extractions are canonicalized against existing KG entities (mainline behavior).
  *
  * @param context - Hermes input/config and bearer token.
  * @returns Aggregated success with POST tallies or structured failure.
@@ -201,6 +218,11 @@ export const run = async ({
           dataSourcesReturned: ctx.dataSources.length,
           dataSourcesSelected: 0,
           reanalyze,
+          runStatus: "success" as const,
+          extractionFailures: [] as ArticleAnalysisExtractionFailureRecord[],
+          extractionSuccessCount: 0,
+          postFailures: [] as ArticleAnalysisPostFailureRecord[],
+          vocabularyFailures: 0,
           entitiesCreated: 0,
           entitiesReused: 0,
           relationsCreated: 0,
@@ -232,7 +254,7 @@ export const run = async ({
     const systemContent = buildExtractionSystemContent(ctx);
     const existingLookup = buildExistingEntityLookup(ctx.existingEntities);
 
-    let llmFailures = 0;
+    const extractionFailures: ArticleAnalysisExtractionFailureRecord[] = [];
     let vocabularyFailures = 0;
     const mergedEntities: EntityProposal[] = [];
     const mergedRelations: RelationProposal[] = [];
@@ -270,13 +292,18 @@ export const run = async ({
         );
         if (!vocab.ok) {
           vocabularyFailures += 1;
+          extractionFailures.push({
+            dataSourceId: source.id,
+            stage: "vocabulary",
+            message: vocab.message,
+          });
           logger.warn(
             {
               tickerId: input.tickerId,
               dataSourceId: source.id,
-              validationMessage: vocab.message,
+              stage: "vocabulary",
             },
-            "article-analysis skipped source due to vocabulary mismatch",
+            "article-analysis vocabulary validation failed for source; skipping",
           );
           continue;
         }
@@ -327,12 +354,48 @@ export const run = async ({
           textLower: truncated.toLowerCase(),
         });
       } catch (err) {
-        llmFailures += 1;
+        const message = err instanceof Error ? err.message : String(err);
+        extractionFailures.push({
+          dataSourceId: source.id,
+          stage: "llm",
+          message,
+        });
         logger.warn(
-          { err, dataSourceId: source.id, tickerId: input.tickerId },
+          {
+            tickerId: input.tickerId,
+            dataSourceId: source.id,
+            stage: "llm",
+            message,
+          },
           "article-analysis LLM extraction failed for source; skipping",
         );
       }
+    }
+
+    const extractionSuccessCount = perSourceSignals.length;
+
+    if (
+      isArticleAnalysisExtractionPolicyFailure(
+        extractionSuccessCount,
+        cfg.runPolicy,
+      )
+    ) {
+      return {
+        success: false,
+        message: `Article analysis run failed: only ${extractionSuccessCount} source(s) extracted successfully, but run policy requires at least ${cfg.runPolicy.minSuccessfulSources}.`,
+        details: {
+          extractionFailures,
+          extractionSuccessCount,
+          runPolicy: cfg.runPolicy,
+          vocabularyFailures,
+          articlesScored: 0,
+          articlesSelected: 0,
+          relevancePostChunks: 0,
+          postFailures: [] as ArticleAnalysisPostFailureRecord[],
+          dataSourcesProcessed: batch.length,
+          reanalyze,
+        },
+      };
     }
 
     let entities = dedupeEntities(mergedEntities);
@@ -346,17 +409,29 @@ export const run = async ({
     entities = runCapped.entities;
     relations = runCapped.relations;
 
+    const llmFailureCount = extractionFailures.filter(
+      (f) => f.stage === "llm",
+    ).length;
+
     if (entities.length === 0 && relations.length === 0) {
+      const postFailures: ArticleAnalysisPostFailureRecord[] = [];
       return {
         success: true,
         message:
-          llmFailures > 0
-            ? `no extraction produced (${llmFailures} source(s) failed LLM; check logs)`
+          llmFailureCount > 0 || extractionFailures.length > 0
+            ? `no extraction produced (${extractionFailures.length} source(s) failed extraction; check logs)`
             : "extraction produced no entities or relations",
         details: {
           dataSourcesProcessed: batch.length,
-          llmFailures,
+          extractionFailures,
+          extractionSuccessCount,
+          postFailures,
+          llmFailures: llmFailureCount,
           vocabularyFailures,
+          runStatus: deriveArticleAnalysisRunStatusLabel(
+            extractionFailures.length,
+            postFailures.length,
+          ),
           entitiesCreated: 0,
           entitiesReused: 0,
           relationsCreated: 0,
@@ -414,6 +489,7 @@ export const run = async ({
     }
 
     if (chunks.length === 0) {
+      const postFailures: ArticleAnalysisPostFailureRecord[] = [];
       return {
         success: true,
         message:
@@ -423,8 +499,15 @@ export const run = async ({
           relationCountAfterCaps: relations.length,
           droppedRelations,
           parseErrors: parseErrors.slice(0, 20),
-          llmFailures,
+          extractionFailures,
+          extractionSuccessCount,
+          postFailures,
+          llmFailures: llmFailureCount,
           vocabularyFailures,
+          runStatus: deriveArticleAnalysisRunStatusLabel(
+            extractionFailures.length,
+            postFailures.length,
+          ),
           articleEntityRowsPosted: 0,
           mentionPostChunks: 0,
           droppedArticleMentionsNotInRunCatalog,
@@ -436,9 +519,12 @@ export const run = async ({
       };
     }
 
+    const postFailures: ArticleAnalysisPostFailureRecord[] = [];
     let entitiesCreated = 0;
     let entitiesReused = 0;
     let relationsCreated = 0;
+    let erPostChunksCompleted = 0;
+    let erPhaseFailed = false;
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]!;
@@ -453,55 +539,108 @@ export const run = async ({
         },
         "article-analysis posting chunk",
       );
-      const res = await dataApiClient.analysis.create(chunk);
-      entitiesCreated += res.entitiesCreated;
-      entitiesReused += res.entitiesReused;
-      relationsCreated += res.relationsCreated;
+      try {
+        const res = await executeAnalysisCreateWithTransientRetries(
+          () => dataApiClient.analysis.create(chunk),
+          {
+            maxRetries: cfg.postTransientRetries,
+            baseDelayMs: cfg.postTransientRetryBaseDelayMs,
+            sleep: sleepMs,
+          },
+        );
+        entitiesCreated += res.entitiesCreated;
+        entitiesReused += res.entitiesReused;
+        relationsCreated += res.relationsCreated;
+        erPostChunksCompleted += 1;
+      } catch (err) {
+        postFailures.push(
+          toArticleAnalysisPostFailureRecord("entities_relations", i, err),
+        );
+        logger.warn(
+          {
+            tickerId: input.tickerId,
+            chunkKind: "entities_relations",
+            chunkIndex: i,
+            err,
+          },
+          "article-analysis entities/relations POST failed; aborting remaining POST phases",
+        );
+        erPhaseFailed = true;
+        break;
+      }
     }
 
     let articleEntityRowsPosted = 0;
-    let mentionPostChunks = 0;
-    const {
-      chunks: articleEntityChunks,
-      parseErrors: articleEntityParseErrors,
-    } = buildArticleEntityPostChunks(
-      input.tickerId,
-      articleEntitiesForPost,
-      cfg.postChunkArticleEntityBatchSize,
-    );
+    let mentionPostChunksCompleted = 0;
+    let mentionPhaseFailed = false;
+    let articleEntityParseErrors: string[] = [];
 
-    if (articleEntityParseErrors.length > 0) {
-      logger.warn(
-        {
-          tickerId: input.tickerId,
-          parseErrorSample: articleEntityParseErrors.slice(0, 10),
-        },
-        "article-analysis articleEntity chunk build reported parse issues",
-      );
-    }
+    if (!erPhaseFailed) {
+      const { chunks: articleEntityChunks, parseErrors } =
+        buildArticleEntityPostChunks(
+          input.tickerId,
+          articleEntitiesForPost,
+          cfg.postChunkArticleEntityBatchSize,
+        );
+      articleEntityParseErrors = parseErrors;
 
-    for (let j = 0; j < articleEntityChunks.length; j++) {
-      const mentionChunk = articleEntityChunks[j]!;
-      logger.info(
-        {
-          tickerId: input.tickerId,
-          chunkKind: "article_entities",
-          chunkIndex: j,
-          chunkArticleEntities: mentionChunk.articleEntities.length,
-          model: cfg.openaiModel,
-        },
-        "article-analysis posting chunk",
-      );
-      await dataApiClient.analysis.create(mentionChunk);
-      articleEntityRowsPosted += mentionChunk.articleEntities.length;
+      if (articleEntityParseErrors.length > 0) {
+        logger.warn(
+          {
+            tickerId: input.tickerId,
+            parseErrorSample: articleEntityParseErrors.slice(0, 10),
+          },
+          "article-analysis articleEntity chunk build reported parse issues",
+        );
+      }
+
+      for (let j = 0; j < articleEntityChunks.length; j++) {
+        const mentionChunk = articleEntityChunks[j]!;
+        logger.info(
+          {
+            tickerId: input.tickerId,
+            chunkKind: "article_entities",
+            chunkIndex: j,
+            chunkArticleEntities: mentionChunk.articleEntities.length,
+            model: cfg.openaiModel,
+          },
+          "article-analysis posting chunk",
+        );
+        try {
+          await executeAnalysisCreateWithTransientRetries(
+            () => dataApiClient.analysis.create(mentionChunk),
+            {
+              maxRetries: cfg.postTransientRetries,
+              baseDelayMs: cfg.postTransientRetryBaseDelayMs,
+              sleep: sleepMs,
+            },
+          );
+          articleEntityRowsPosted += mentionChunk.articleEntities.length;
+          mentionPostChunksCompleted += 1;
+        } catch (err) {
+          postFailures.push(
+            toArticleAnalysisPostFailureRecord("article_entities", j, err),
+          );
+          logger.warn(
+            {
+              tickerId: input.tickerId,
+              chunkKind: "article_entities",
+              chunkIndex: j,
+              err,
+            },
+            "article-analysis articleEntities POST failed; aborting relevance phase",
+          );
+          mentionPhaseFailed = true;
+          break;
+        }
+      }
     }
-    mentionPostChunks = articleEntityChunks.length;
 
     let articlesScoredTotal = 0;
     let articlesSelectedTotal = 0;
-    let relevancePostChunks = 0;
+    let relevancePostChunksCompleted = 0;
 
-    if (perSourceSignals.length > 0) {
+    if (!erPhaseFailed && !mentionPhaseFailed && perSourceSignals.length > 0) {
       const weightMap = toRelevanceWeightMapV1(cfg);
       const relevanceDrafts = perSourceSignals.map((sig) =>
         buildDraftRelevanceRow(sig, cfg.scoreBreakdownVersion, weightMap),
@@ -583,36 +722,68 @@ export const run = async ({
           },
           "article-analysis posting chunk",
         );
-        const relRes = await dataApiClient.analysis.create(relChunk);
-        articlesScoredTotal += relRes.articlesScored;
-        articlesSelectedTotal += relRes.articlesSelected;
+        try {
+          const relRes = await executeAnalysisCreateWithTransientRetries(
+            () => dataApiClient.analysis.create(relChunk),
+            {
+              maxRetries: cfg.postTransientRetries,
+              baseDelayMs: cfg.postTransientRetryBaseDelayMs,
+              sleep: sleepMs,
+            },
+          );
+          articlesScoredTotal += relRes.articlesScored;
+          articlesSelectedTotal += relRes.articlesSelected;
+          relevancePostChunksCompleted += 1;
+        } catch (err) {
+          postFailures.push(
+            toArticleAnalysisPostFailureRecord("article_relevances", k, err),
+          );
+          logger.warn(
+            {
+              tickerId: input.tickerId,
+              chunkKind: "article_relevances",
+              chunkIndex: k,
+              err,
+            },
+            "article-analysis articleRelevances POST failed",
+          );
+          break;
+        }
       }
-      relevancePostChunks = relevanceChunks.length;
     }
+
+    const runStatus = deriveArticleAnalysisRunStatusLabel(
+      extractionFailures.length,
+      postFailures.length,
+    );
 
     return {
       success: true,
-      message: `analysis complete: ${chunks.length} ER chunk(s), ${mentionPostChunks} articleEntity chunk(s), ${relevancePostChunks} relevance chunk(s); entitiesCreated=${entitiesCreated} entitiesReused=${entitiesReused} relationsCreated=${relationsCreated} articleEntityRowsPosted=${articleEntityRowsPosted} articlesScored=${articlesScoredTotal} articlesSelected=${articlesSelectedTotal}`,
+      message: `complete (${runStatus}): ${erPostChunksCompleted}/${chunks.length} ER chunk(s), ${mentionPostChunksCompleted} articleEntity chunk(s), ${relevancePostChunksCompleted} relevance chunk(s); entitiesCreated=${entitiesCreated} entitiesReused=${entitiesReused} relationsCreated=${relationsCreated} articleEntityRowsPosted=${articleEntityRowsPosted} articlesScored=${articlesScoredTotal} articlesSelected=${articlesSelectedTotal}`,
       details: {
         dataSourcesProcessed: batch.length,
         dataSourcesReturned: ctx.dataSources.length,
-        postChunks: chunks.length,
+        extractionFailures,
+        extractionSuccessCount,
+        postFailures,
+        llmFailures: llmFailureCount,
+        vocabularyFailures,
+        runStatus,
+        postChunks: erPostChunksCompleted,
         entitiesCreated,
         entitiesReused,
         relationsCreated,
         articleEntityRowsPosted,
-        mentionPostChunks,
+        mentionPostChunks: mentionPostChunksCompleted,
         droppedArticleMentionsNotInRunCatalog,
         articlesScored: articlesScoredTotal,
         articlesSelected: articlesSelectedTotal,
-        relevancePostChunks,
+        relevancePostChunks: relevancePostChunksCompleted,
         relevanceSelectionBudgetRemaining: Math.max(
           0,
           cfg.maxSelectedRelevancePerTickerPerDay -
             ctx.relevanceSelectionState.selectedCountToday,
         ),
-        llmFailures,
-        vocabularyFailures,
         droppedRelations,
         articleEntityParseErrors: articleEntityParseErrors.slice(0, 20),
         reanalyze,
