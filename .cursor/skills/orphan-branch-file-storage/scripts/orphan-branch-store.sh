@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Store repo-relative files on a branch using a temporary worktree.
+# Store files on a branch using a temporary worktree.
 # New branch (not on local or remote): orphan checkout + empty tree, then add files.
 # Existing branch: worktree + optional ff-only pull when upstream exists.
 set -euo pipefail
 
 usage() {
   sed -n '1,40p' <<'EOF'
-Usage: orphan-branch-store.sh [options] <branch> [--] <file> [file ...]
+Usage: orphan-branch-store.sh [options] <branch> [--] <path-or-spec> [path-or-spec ...]
 
-  Copies paths that exist under the repository root into a temporary worktree,
-  commits on <branch>, removes the worktree.
+  Copies paths into a temporary worktree, commits on <branch>, removes the worktree.
+  Inputs can be:
+    - repo-relative path: docs/note.md (stored as docs/note.md)
+    - absolute path: /tmp/note.md (stored as note.md at branch root)
+    - explicit mapping: /tmp/note.md=archive/note.md
 
 Options:
   -m, --message TEXT   Commit message (default: "Store files")
@@ -19,6 +22,8 @@ Options:
 
 Examples:
   ./orphan-branch-store.sh notes/backup -- docs/secret-notes.md
+  ./orphan-branch-store.sh notes/backup -- /tmp/export.json
+  ./orphan-branch-store.sh notes/backup -- /tmp/export.json=exports/2025/export.json
   ./orphan-branch-store.sh -m "Add export" --push archive/data -- exports/2025.tsv
 EOF
 }
@@ -76,10 +81,10 @@ if [[ "${1:-}" == "--" ]]; then
   shift
 fi
 
-FILES=("$@")
+SPECS=("$@")
 
-if [[ ${#FILES[@]} -eq 0 && "$ALLOW_EMPTY" -ne 1 ]]; then
-  echo "error: pass at least one file under the repo root, or --allow-empty" >&2
+if [[ ${#SPECS[@]} -eq 0 && "$ALLOW_EMPTY" -ne 1 ]]; then
+  echo "error: pass at least one path/spec, or --allow-empty" >&2
   exit 1
 fi
 
@@ -92,18 +97,31 @@ realpath_portable() {
   python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1"
 }
 
-path_under_repo() {
-  local rel="$1"
-  local abs
-  abs=$(realpath_portable "$REPO/$rel")
-  case "$abs" in
-    "$REPO"/*) echo "${abs#"$REPO"/}" ;;
-    "$REPO") echo "" ;;
-    *)
-      echo "error: path must stay inside repository: $rel" >&2
-      return 1
-      ;;
-  esac
+resolve_src_abs() {
+  local src="$1"
+  if [[ "$src" = /* ]]; then
+    realpath_portable "$src"
+  else
+    realpath_portable "$REPO/$src"
+  fi
+}
+
+normalize_dest_rel() {
+  python3 -c '
+import posixpath, sys
+dest = sys.argv[1]
+if not dest:
+    print("error: empty destination path", file=sys.stderr)
+    sys.exit(1)
+if dest.startswith("/"):
+    print(f"error: destination must be repo-relative: {dest}", file=sys.stderr)
+    sys.exit(1)
+norm = posixpath.normpath(dest)
+if norm in (".", "") or norm.startswith("../"):
+    print(f"error: destination escapes repo root: {dest}", file=sys.stderr)
+    sys.exit(1)
+print(norm)
+' "$1"
 }
 
 # macOS dirname treats leading "-" as flags; Python avoids that.
@@ -122,14 +140,6 @@ cleanup() {
 trap cleanup EXIT INT HUP
 
 cd "$REPO"
-
-for f in "${FILES[@]}"; do
-  if [[ ! -e "$f" ]]; then
-    echo "error: missing path (relative to repo root): $f" >&2
-    exit 1
-  fi
-  path_under_repo "$f" >/dev/null || exit 1
-done
 
 local_branch=0
 remote_branch=0
@@ -161,21 +171,46 @@ if git -C "$WT_PATH" rev-parse '@{u}' >/dev/null 2>&1; then
   fi
 fi
 
-for f in "${FILES[@]}"; do
-  rel=$(path_under_repo "$f")
+for spec in "${SPECS[@]}"; do
+  src="$spec"
+  dest=""
+  if [[ "$spec" == *"="* ]]; then
+    src="${spec%%=*}"
+    dest="${spec#*=}"
+    if [[ -z "$src" || -z "$dest" ]]; then
+      echo "error: invalid mapping spec (use source=dest): $spec" >&2
+      exit 1
+    fi
+  fi
+
+  src_abs=$(resolve_src_abs "$src")
+  if [[ ! -e "$src_abs" ]]; then
+    echo "error: missing source path: $src" >&2
+    exit 1
+  fi
+
+  if [[ -z "$dest" ]]; then
+    if [[ "$src" = /* ]]; then
+      dest="$(basename "$src_abs")"
+    else
+      dest="$src"
+    fi
+  fi
+
+  rel=$(normalize_dest_rel "$dest")
   par=$(parent_dir "$rel")
-  if [[ -d "$REPO/$rel" ]]; then
+  if [[ -d "$src_abs" ]]; then
     mkdir -p "$WT_PATH/$par"
     rm -rf "${WT_PATH:?}/$rel"
-    cp -R "$REPO/$rel" "$WT_PATH/$rel"
+    cp -R "$src_abs" "$WT_PATH/$rel"
   else
     mkdir -p "$WT_PATH/$par"
-    cp "$REPO/$rel" "$WT_PATH/$rel"
+    cp "$src_abs" "$WT_PATH/$rel"
   fi
   git -C "$WT_PATH" add -f -- "$rel"
 done
 
-if [[ ${#FILES[@]} -eq 0 && "$ALLOW_EMPTY" -eq 1 ]]; then
+if [[ ${#SPECS[@]} -eq 0 && "$ALLOW_EMPTY" -eq 1 ]]; then
   git -C "$WT_PATH" commit --allow-empty -m "$MESSAGE"
 elif git -C "$WT_PATH" diff --cached --quiet; then
   echo "error: no changes to commit" >&2
