@@ -1,6 +1,6 @@
 ---
 name: prd-to-tickets
-description: Breaks a Product Requirements Document (PRD) into actionable implementation tickets (issues) as markdown files with titles, priority, scope, acceptance criteria, and traceability to PRD requirement IDs. **By default writes files under `~/.cursor/plans/tickets/`** (override when the user gives another directory). Uses a **representative ticket prefix** (not generic `TICKET-`) and a **shared group slug/label** so related tickets stay filterable. When work will ship as stacked PRs with horizontal splits (UI before API), tickets should document feature-flag gating and enabling order. Use when turning a PRD into work items, GitHub issues, Linear-style tasks, sprint tickets, or when the user asks for tickets from a PRD or feature spec.
+description: Breaks a Product Requirements Document (PRD) into actionable implementation tickets (issues) as markdown files with titles, priority, scope, acceptance criteria, and traceability to PRD requirement IDs. **By default writes files under `~/.cursor/plans/tickets/`** (override when the user gives another directory). Uses a **representative ticket prefix** (not generic `TICKET-`) and a **shared group slug/label** so related tickets stay filterable. **Ticket summaries and narrative sections are humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). When work will ship as stacked PRs with horizontal splits (UI before API), tickets should document feature-flag gating and enabling order. Use when turning a PRD into work items, GitHub issues, Linear-style tasks, sprint tickets, or when the user asks for tickets from a PRD or feature spec.
 ---
 
 # PRD → Tickets
@@ -20,6 +20,10 @@ description: Breaks a Product Requirements Document (PRD) into actionable implem
 
 - **PRD source:** Path in the repo, path under home (e.g. `~/.cursor/plans/foo.prd.md`), or inline markdown in chat.
 - If scope is unclear (whole PRD vs one section), ask once; default to **all P0/P1** items plus **must-have** requirements if the PRD uses priority tags.
+
+## Prose and voice (humanizer)
+
+For each ticket’s **Summary**, **Scope** bullets, **Notes**, and the chat **table** you return, **read and follow** the [humanizer](../humanizer/SKILL.md) skill in this repository (`.cursor/skills/humanizer/SKILL.md`). Sound like a clear engineer, not a template: varied rhythm, concrete verbs, no filler “landscape” prose. **Do not** rewrite `prd_refs`, IDs, file paths, or flag/env names—those stay exact.
 
 ## Ticket prefix and IDs (required)
 
@@ -60,6 +64,7 @@ Every ticket in the **same PRD batch** shares metadata so tools can filter or ta
 6. **Dependencies:** If the PRD orders work, add a **Depends on:** section using **same-batch ids** (`HERMES-ADM-PWRESET-001`) or REQ ids where tickets are not yet numbered.
 7. **Stacked / horizontal splits:** If the user plans **Git Town stacked PRs** and separates layers (e.g. UI ticket before API ticket), add the optional **Stacked delivery** section to affected tickets and specify **feature-flag** expectations so merged-but-incomplete work does not surface to users ([git-town-stacked-changes](../git-town-stacked-changes/SKILL.md)).
 8. **Non-goals:** Do not create tickets for items explicitly out of scope unless the user asks to “include deferred items” as a separate backlog file.
+9. **Humanize** each ticket’s narrative fields and the chat reply per [Prose and voice (humanizer)](#prose-and-voice-humanizer) before persisting files or sending the batch summary.
 
 ## File naming
 
@@ -125,6 +130,7 @@ Adjust the example `HERMES-ADM-PWRESET-*` values to match the actual `ticket_pre
 
 ## Quality checks before finishing
 
+- **Summary**, **Scope**, **Notes**, and the reply table are humanized; IDs, `prd_refs`, paths, and env keys are left exact.
 - Every **P0 / must-have** requirement maps to at least one ticket **or** is explicitly listed under a parent ticket’s AC with PRD ref.
 - No ticket without **testable** acceptance criteria (mirror the PRD’s given/when/then or checklist).
 - **`ticket_prefix`, `group_slug`, and `group_label` are consistent** across all files in the batch.

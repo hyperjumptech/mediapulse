@@ -1,11 +1,17 @@
 ---
 name: generate-prd
-description: Drafts and refines Product Requirements Documents (PRDs) using a 100-point quality rubric. **Solidifies requirements through interactive Q&A first** (AskQuestion or numbered questions)—does not leave a large “open questions” or `[TBD]` graveyard in lieu of asking. **By default, saves the finished PRD to `~/.cursor/plans/`** (same directory as Cursor-generated plans) as a `.prd.md` file, then replies in chat. Use when writing or improving a PRD, product requirements, feature spec, or when the user asks for PRD quality, scoring, or acceptance criteria.
+description: Drafts and refines Product Requirements Documents (PRDs) using a 100-point quality rubric. **Solidifies requirements through interactive Q&A first** (AskQuestion or numbered questions)—does not leave a large “open questions” or `[TBD]` graveyard in lieu of asking. **By default, saves the finished PRD to `~/.cursor/plans/`** (same directory as Cursor-generated plans) as a `.prd.md` file, then replies in chat. **Final PRD prose is humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). Use when writing or improving a PRD, product requirements, feature spec, or when the user asks for PRD quality, scoring, or acceptance criteria.
 ---
 
 # Generate a High-Quality PRD
 
 Use this rubric to **produce** PRDs and to **review** drafts. Total possible score: **100 points**. Aim for **90+** (Excellent) before treating the document as final.
+
+## Prose and voice (humanizer)
+
+Whenever you produce **narrative PRD text** (summary/context, user stories, requirement wording stakeholders will read, changelog lines, chat explanations of the doc), **read and follow** the [humanizer](../humanizer/SKILL.md) skill in this repository (`.cursor/skills/humanizer/SKILL.md`). Run its process: identify AI-typical patterns, rewrite in natural language, preserve meaning and tone, then do the **final anti-AI pass** (draft → “what still sounds AI?” → final) before persisting or pasting the **final** PRD.
+
+**Do not** humanize structured tokens the team relies on (REQ IDs, exact API field names, legal/compliance quotes) unless the user asked for a plain-language gloss alongside.
 
 ## Scoring rubric (self-check)
 
@@ -176,11 +182,12 @@ Use this outline unless the user specifies another format. Fill every section th
 3. **Minimal inference:** Confirm product or initiative name, audience, timeline, greenfield vs iteration; **ask** if inference would be weak—do not bury weak guesses in §10.
 4. **Draft** using the template; align language to **Clarity** and **User-centric focus** first. Requirements should read as **decided**, with measurable acceptance criteria.
 5. **Add** acceptance criteria under **Testability**; prioritize with **Prioritization**.
-6. **Stakeholders:** use named roles when known; if names are unknown, use role titles and list **one** follow-up question to the user rather than a stub in §10.
-7. **Visuals:** suggest 1–3 Mermaid diagrams (flow, sequence, or simple architecture) where they reduce ambiguity; reference wireframes as `[placeholder]` only when no asset exists—**ask** if layout is business-critical and unknown.
-8. **Score** the draft against the rubric (estimate per row, sum to 100). If the total is below 80, list the **top gaps**; if gaps need user input, **ask in chat** before claiming the doc is final—do not only add §10 bullets.
-9. **Persist (default):** Write the complete PRD markdown to `~/.cursor/plans/{slug}.prd.md` per **Default file output** unless the user opted out or the task is review-only without a save request.
-10. **Deliver** in chat: lead with the **saved file path**, then the PRD plus a short **rubric summary** (table of scores, total, band, and 3–5 concrete next steps to reach 90+). Next steps should be **implementation or validation**, not “answer the open questions” unless the user chose a strawman.
+6. **Humanize** stakeholder-facing prose per [Prose and voice (humanizer)](#prose-and-voice-humanizer) before treating the draft as final.
+7. **Stakeholders:** use named roles when known; if names are unknown, use role titles and list **one** follow-up question to the user rather than a stub in §10.
+8. **Visuals:** suggest 1–3 Mermaid diagrams (flow, sequence, or simple architecture) where they reduce ambiguity; reference wireframes as `[placeholder]` only when no asset exists—**ask** if layout is business-critical and unknown.
+9. **Score** the draft against the rubric (estimate per row, sum to 100). If the total is below 80, list the **top gaps**; if gaps need user input, **ask in chat** before claiming the doc is final—do not only add §10 bullets.
+10. **Persist (default):** Write the complete PRD markdown to `~/.cursor/plans/{slug}.prd.md` per **Default file output** unless the user opted out or the task is review-only without a save request.
+11. **Deliver** in chat: lead with the **saved file path**, then the PRD plus a short **rubric summary** (table of scores, total, band, and 3–5 concrete next steps to reach 90+). Next steps should be **implementation or validation**, not “answer the open questions” unless the user chose a strawman.
 
 ## Anti-patterns
 
