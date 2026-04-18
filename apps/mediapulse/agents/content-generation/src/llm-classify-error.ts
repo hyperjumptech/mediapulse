@@ -9,14 +9,17 @@ import type { OutcomeCode } from "./types/outcome.js";
  * | Error                              | Retryable | OutcomeCode on final throw       |
  * |------------------------------------|-----------|----------------------------------|
  * | `APICallError` (isRetryable: true) | ✅         | `openai_retry_exhausted`         |
+ * |   ↳ includes `AIServerError` (5xx) and `APIConnectionError`
  * | `APICallError` (isRetryable: false)| ❌         | `openai_non_retryable`           |
+ * |   ↳ includes 401/403 auth, 400 bad-request, context_length_exceeded
  * | `TypeValidationError`              | ❌         | `validation_failed`              |
  * | `NoObjectGeneratedError`           | ❌         | `openai_invalid_response`        |
  * | `AbortError` / `TimeoutError`      | ✅         | `openai_retry_exhausted`         |
  * | Any other error                    | ❌         | `openai_non_retryable`           |
  *
  * Note: `APICallError.isRetryable` is set by the Vercel AI SDK provider; it is `true`
- * for 429 rate-limit and 5xx server errors, and `false` for 401/403 auth failures,
+ * for 429 rate-limit and 5xx server errors (including `AIServerError`), and connection
+ * errors (`APIConnectionError`), and `false` for 401/403 auth failures,
  * 400 bad-request, and context-length-exceeded responses.
  *
  * @param error - Thrown value from `generateObject` or an `AbortSignal` timeout.
