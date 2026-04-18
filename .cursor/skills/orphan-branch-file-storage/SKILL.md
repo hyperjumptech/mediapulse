@@ -19,10 +19,16 @@ If the user does not name the branch, ask before running anything.
 From the **repository root**, execute:
 
 ```bash
-.cursor/skills/orphan-branch-file-storage/scripts/orphan-branch-store.sh [options] <branch> [--] <path> [path ...]
+.cursor/skills/orphan-branch-file-storage/scripts/orphan-branch-store.sh [options] <branch> [--] <path-or-spec> [path-or-spec ...]
 ```
 
-Paths are **relative to the repo root** and must exist (files or directories). The script uses a temp worktree, copies paths in, commits, removes the worktree.
+Inputs can be file or directory paths, and each item can be:
+
+- **Repo-relative path** (existing behavior): `docs/notes.md` -> stored as `docs/notes.md`
+- **Absolute path from anywhere**: `/tmp/notes.md` -> stored as `notes.md` at branch root
+- **Explicit source=destination mapping**: `/tmp/notes.md=archive/2026/notes.md`
+
+The script uses a temp worktree, copies paths in, commits, then removes the worktree.
 
 | Option             | Meaning                                        |
 | ------------------ | ---------------------------------------------- |
@@ -35,7 +41,7 @@ Paths are **relative to the repo root** and must exist (files or directories). T
 
 `git push -u <remote> <branch>`
 
-**Preconditions:** Uncommitted changes in the main checkout must not block `git worktree add` (stash or commit elsewhere if needed).
+**Preconditions:** Uncommitted changes in the main checkout must not block `git worktree add` (stash or commit elsewhere if needed). Source files only need to exist on disk; they do not have to be inside this repository.
 
 ** Details:** See [scripts/orphan-branch-store.sh](scripts/orphan-branch-store.sh) (new branch → `checkout --orphan` + empty index; existing → fetch/worktree + `pull --ff-only` when upstream exists).
 
