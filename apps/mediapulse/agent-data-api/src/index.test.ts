@@ -257,6 +257,18 @@ describe("agent-data-api", () => {
 
       expect(res.status).toBe(200);
       expect(body.message).toBe("Success");
+      expect(vi.mocked(mod.createNewsletter)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "gpt-4o",
+          agentVersion: "1.2.3",
+          configVersion: "hermes-v3",
+          promptHash: "abc12345",
+          configSnapshotId: "snap-001",
+          promptTokens: 512,
+          completionTokens: 256,
+          totalTokens: 768,
+        }),
+      );
     });
   });
 
