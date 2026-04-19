@@ -95,14 +95,14 @@ describe("buildMailtoUrl", () => {
     KodeEmiten: "BBCA",
     NamaEmiten: "Bank Central Asia Tbk",
   };
-  const REG_EMAIL = "registration@test.example";
+  const EXPECTED_REG_EMAIL = "mediapulse@hyperjump.tech";
 
-  it("targets the given registration email", () => {
+  it("targets the default registration email", () => {
     // Act
-    const url = buildMailtoUrl(ticker, "", "sender@example.com", REG_EMAIL);
+    const url = buildMailtoUrl(ticker, "test@example.com");
 
     // Assert
-    expect(url.startsWith(`mailto:${REG_EMAIL}`)).toBe(true);
+    expect(url.startsWith(`mailto:${EXPECTED_REG_EMAIL}`)).toBe(true);
   });
 
   it("includes encoded subject with ticker code", () => {
@@ -113,14 +113,14 @@ describe("buildMailtoUrl", () => {
     };
 
     // Act
-    const url = buildMailtoUrl(t, "", "sender@example.com", REG_EMAIL);
+    const url = buildMailtoUrl(t, "test@example.com");
 
     // Assert
     expect(url).toContain("subject=");
     expect(url).toContain(encodeURIComponent("TLKM"));
   });
 
-  it("includes the ticker name and sender email in the encoded body", () => {
+  it("includes the Ticker: prefix and company name in the encoded body", () => {
     // Setup
     const t: Ticker = {
       KodeEmiten: "AADI",
@@ -128,29 +128,10 @@ describe("buildMailtoUrl", () => {
     };
 
     // Act
-    const url = buildMailtoUrl(t, "Alice", "alice@example.com", REG_EMAIL);
+    const url = buildMailtoUrl(t, "test@example.com");
 
     // Assert
-    expect(url).toContain(encodeURIComponent("AADI"));
+    expect(url).toContain(encodeURIComponent("Ticker: AADI"));
     expect(url).toContain(encodeURIComponent("PT Adaro Andalan Indonesia Tbk"));
-    expect(url).toContain(encodeURIComponent("alice@example.com"));
-    expect(url).toContain(encodeURIComponent("Alice"));
-  });
-
-  it("uses 'Not provided' when name is empty", () => {
-    // Act
-    const url = buildMailtoUrl(ticker, "", "sender@example.com", REG_EMAIL);
-
-    // Assert
-    expect(url).toContain(encodeURIComponent("Not provided"));
-  });
-
-  it("does not modify the recipient address", () => {
-    // Act
-    const url = buildMailtoUrl(ticker, "", "sender@example.com", REG_EMAIL);
-
-    // Assert
-    const recipient = url.split("?").at(0)?.replace("mailto:", "");
-    expect(recipient).toBe(REG_EMAIL);
   });
 });

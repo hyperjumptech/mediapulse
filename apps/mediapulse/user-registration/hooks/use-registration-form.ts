@@ -1,13 +1,13 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
+import { env } from "@mediapulse/env/agents-user-registration";
 import {
   filterTickers,
   formatTicker,
   buildMailtoUrl,
   type Ticker,
 } from "@/lib/tickers";
-import { env } from "@mediapulse/env/agents-user-registration";
 
 /**
  * Custom hook to manage state and logic for the registration form.
@@ -75,10 +75,11 @@ export const useRegistrationForm = (
 
     const mailtoUrl = buildMailtoUrl(
       selectedTicker,
-      name,
       email,
       env.NEXT_PUBLIC_REGISTRATION_EMAIL,
+      name,
     );
+
     openMailto(mailtoUrl);
     setSubmitted(true);
     toast.success("Please check your email client to complete registration.");

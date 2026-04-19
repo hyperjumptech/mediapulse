@@ -2,7 +2,11 @@ import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-user-registration";
 import { z } from "zod";
 
-import { run, type Input, type Config } from "./run.js";
+import { run, type Input } from "./run.js";
+import {
+  ConfigSchema,
+  type UserRegistrationConfig as Config,
+} from "./config-schema.js";
 
 const BodySchemaInner = z.object({
   maxMessagesPerRun: z.number().default(20),
@@ -13,15 +17,6 @@ const BodySchema = BodySchemaInner as unknown as z.ZodType<
   z.ZodTypeDef,
   Input
 >;
-
-const ConfigSchema = z.object({
-  outlookClientId: z.string().min(1),
-  outlookClientSecret: z.string().min(1),
-  outlookTenantId: z.string().min(1),
-  outlookUserId: z.string().min(1),
-  resendApiKey: z.string().min(1),
-  resendSender: z.string().min(1),
-});
 
 const app = createAgentApp<
   Input,

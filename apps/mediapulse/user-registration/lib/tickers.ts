@@ -41,29 +41,35 @@ export const formatTicker = (ticker: Ticker): string =>
 /**
  * Builds a mailto URL for newsletter subscription with a fixed subject and body.
  * @param ticker - Ticker the user wants to subscribe to.
- * @param name - Name of the user (optional).
- * @param email - Email of the user.
- * @param registrationEmail - The recipient address from env (injectable for testing).
+ * @param email - Subscriber's email address.
+ * @param registrationEmail - The target email address for registration (defaults to mediapulse@hyperjump.tech).
+ * @param name - Subscriber's name (optional).
  * @returns Encoded mailto: URL string.
  */
 export const buildMailtoUrl = (
   ticker: Ticker,
-  name: string,
   email: string,
-  registrationEmail: string,
+  registrationEmail: string = "mediapulse@hyperjump.tech",
+  name?: string,
 ): string => {
   const subject = `[MediaPulse] Newsletter Subscription - ${ticker.KodeEmiten}`;
 
-  const body = [
-    `I would like to subscribe to updates for ${ticker.KodeEmiten} - ${ticker.NamaEmiten}.`,
-    ``,
-    `Name: ${name || "Not provided"}`,
-    `Email: ${email}`,
-    `Reference: ${Date.now()}`,
-    ``,
-    `---`,
-    `Please do not modify the subject or content of this email before sending.`,
-  ].join("\n");
+  const bodyLines = [
+    `Ticker: ${ticker.KodeEmiten} - ${ticker.NamaEmiten}`,
+    `Subscriber Email: ${email}`,
+  ];
+
+  if (name) {
+    bodyLines.push(`Subscriber Name: ${name}`);
+  }
+
+  bodyLines.push(
+    "",
+    "---",
+    "Please do not modify the subject or content of this email before sending.",
+  );
+
+  const body = bodyLines.join("\n");
 
   return `mailto:${registrationEmail}?subject=${encodeURIComponent(
     subject,

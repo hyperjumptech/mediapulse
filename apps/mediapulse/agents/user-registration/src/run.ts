@@ -12,6 +12,7 @@ import { renderNewsletterEmail } from "@workspace/email-templates";
 import { withRetry, type RetryConfig } from "@workspace/utils";
 import { Resend } from "resend";
 import { logger } from "@workspace/logger";
+import type { UserRegistrationConfig } from "./config-schema.js";
 
 import {
   extractSenderEmail,
@@ -20,14 +21,7 @@ import {
 } from "./lib/parser.js";
 
 export type Input = { maxMessagesPerRun: number; watermark?: string };
-export type Config = {
-  outlookClientId: string;
-  outlookClientSecret: string;
-  outlookTenantId: string;
-  outlookUserId: string;
-  resendApiKey: string;
-  resendSender: string;
-};
+export type Config = UserRegistrationConfig;
 
 type RunDependencies = {
   createInbox?: typeof createOutlookInboxClient;
@@ -35,10 +29,16 @@ type RunDependencies = {
   createDataApi?: typeof createAgentDataApiClient;
 };
 
-// Per-email rate limiter: max 5 attempts per 1 hour per email address.
+type RateLimitConfig = {
+  windowMs: number;
+  maxAttempts: number;
+};
+
 const registrationAttempts = new Map<string, number[]>();
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
-const MAX_ATTEMPTS_IN_WINDOW = 5;
+const DEFAULT_RATE_LIMIT_CONFIG: RateLimitConfig = {
+  windowMs: 60 * 60 * 1000,
+  maxAttempts: 5,
+};
 
 const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxAttempts: 3,
@@ -86,10 +86,10 @@ const isRetryable = (error: any): boolean => {
 /**
  * Purges expired rate limit entries to prevent memory leaks over time.
  */
-function sweepRateLimits(): void {
+function sweepRateLimits(windowMs: number): void {
   const now = Date.now();
   for (const [email, attempts] of registrationAttempts.entries()) {
-    const valid = attempts.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+    const valid = attempts.filter((ts) => now - ts < windowMs);
     if (valid.length === 0) {
       registrationAttempts.delete(email);
     } else if (valid.length < attempts.length) {
@@ -103,16 +103,20 @@ function sweepRateLimits(): void {
  * Fail-fast: returns false if the limit is exceeded.
  *
  * @param {string} email - The email address to check.
+ * @param {RateLimitConfig} rateLimitConfig - Configurable rate limiter settings.
  * @returns {boolean} True if within rate limits, false otherwise.
  */
-function checkRateLimit(email: string): boolean {
+function checkRateLimit(
+  email: string,
+  rateLimitConfig: RateLimitConfig,
+): boolean {
   const now = Date.now();
   let attempts = registrationAttempts.get(email) ?? [];
 
   // Clean up old attempts
-  attempts = attempts.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+  attempts = attempts.filter((ts) => now - ts < rateLimitConfig.windowMs);
 
-  if (attempts.length >= MAX_ATTEMPTS_IN_WINDOW) {
+  if (attempts.length >= rateLimitConfig.maxAttempts) {
     registrationAttempts.set(email, attempts);
     return false;
   }
@@ -141,8 +145,23 @@ export const createRunHandler =
     token,
     config,
   }: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
+    const rateLimitConfig: RateLimitConfig = {
+      windowMs:
+        config.rateLimit?.windowMs ?? DEFAULT_RATE_LIMIT_CONFIG.windowMs,
+      maxAttempts:
+        config.rateLimit?.maxAttempts ?? DEFAULT_RATE_LIMIT_CONFIG.maxAttempts,
+    };
+
+    const retryConfig: RetryConfig = {
+      maxAttempts:
+        config.retry?.maxAttempts ?? DEFAULT_RETRY_CONFIG.maxAttempts,
+      baseDelayMs:
+        config.retry?.baseDelayMs ?? DEFAULT_RETRY_CONFIG.baseDelayMs,
+      maxDelayMs: config.retry?.maxDelayMs ?? DEFAULT_RETRY_CONFIG.maxDelayMs,
+    };
+
     // Proactively clear stale items from the rate limiting map
-    sweepRateLimits();
+    sweepRateLimits(rateLimitConfig.windowMs);
 
     logger.info(
       `Running user-registration agent. Max messages: ${input.maxMessagesPerRun}`,
@@ -176,7 +195,7 @@ export const createRunHandler =
           },
           { top: input.maxMessagesPerRun },
         ),
-      DEFAULT_RETRY_CONFIG,
+      retryConfig,
       isRetryable,
     );
 
@@ -202,6 +221,8 @@ export const createRunHandler =
               resend,
               dataApiClient,
               config,
+              rateLimitConfig,
+              retryConfig,
             });
 
             if (result.status !== "failed_retry") {
@@ -264,12 +285,16 @@ async function processMessage({
   resend,
   dataApiClient,
   config,
+  rateLimitConfig,
+  retryConfig,
 }: {
   msg: GraphMessage;
   inboxClient: any;
   resend: Resend;
   dataApiClient: AgentDataApiClient<"v1">;
   config: Config;
+  rateLimitConfig: RateLimitConfig;
+  retryConfig: RetryConfig;
 }) {
   const senderEmail = extractSenderEmail(msg);
   const tickerSymbol = extractTickerSymbol(msg.subject, msg.body?.content);
@@ -284,14 +309,14 @@ async function processMessage({
     );
     await withRetry(
       () => inboxClient.archiveMessage(msg.id!),
-      DEFAULT_RETRY_CONFIG,
+      retryConfig,
       isRetryable,
     );
     return { id: msg.id, status: "archived_unparseable" };
   }
 
   // Rate Limit check
-  if (!checkRateLimit(senderEmail)) {
+  if (!checkRateLimit(senderEmail, rateLimitConfig)) {
     logger.warn(
       { senderEmail, messageId: msg.id },
       "Rate limit exceeded for sender. Leaving unarchived for retry.",
@@ -314,7 +339,7 @@ async function processMessage({
             receivedAt: msg.receivedDateTime,
           },
         }),
-      DEFAULT_RETRY_CONFIG,
+      retryConfig,
       isRetryable,
     );
 
@@ -338,13 +363,13 @@ async function processMessage({
             html,
             text,
           }),
-        DEFAULT_RETRY_CONFIG,
+        retryConfig,
         isRetryable,
       );
 
       await withRetry(
         () => inboxClient.archiveMessage(msg.id!),
-        DEFAULT_RETRY_CONFIG,
+        retryConfig,
         isRetryable,
       );
       return { id: msg.id, status: "invalid_ticker_archived" };
@@ -367,7 +392,7 @@ async function processMessage({
             html,
             text,
           }),
-        DEFAULT_RETRY_CONFIG,
+        retryConfig,
         isRetryable,
       );
 
@@ -379,13 +404,13 @@ async function processMessage({
               graphMessageId: msg.id,
             },
           }),
-        DEFAULT_RETRY_CONFIG,
+        retryConfig,
         isRetryable,
       );
 
       await withRetry(
         () => inboxClient.archiveMessage(msg.id!),
-        DEFAULT_RETRY_CONFIG,
+        retryConfig,
         isRetryable,
       );
       return { id: msg.id, status: "confirmed_archived" };
@@ -396,7 +421,7 @@ async function processMessage({
       );
       await withRetry(
         () => inboxClient.archiveMessage(msg.id!),
-        DEFAULT_RETRY_CONFIG,
+        retryConfig,
         isRetryable,
       );
       return { id: msg.id, status: "idempotent_archived" };
