@@ -274,7 +274,9 @@ describe("processRegistration with immediate confirmation", () => {
     vi.mocked(prisma.ticker.findUnique).mockResolvedValue(TICKER);
     vi.mocked(prisma.mediapulseUser.upsert).mockResolvedValue(USER);
     vi.mocked(prisma.userTicker.findUnique).mockResolvedValue(null);
-    const newUserTicker = makeUserTicker({ registrationConfirmedAt: new Date() });
+    const newUserTicker = makeUserTicker({
+      registrationConfirmedAt: new Date(),
+    });
     vi.mocked(prisma.userTicker.create).mockResolvedValue(
       newUserTicker as unknown as Awaited<
         ReturnType<typeof prisma.userTicker.create>

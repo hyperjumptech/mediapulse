@@ -66,13 +66,16 @@ export async function processRegistration({
     // It's conceptually needed if never confirmed, or if it was re-enabled
     isNewSubscription = existingSubscription.registrationConfirmedAt === null;
 
-    if (!existingSubscription.enabled || (confirmed && !existingSubscription.registrationConfirmedAt)) {
+    if (
+      !existingSubscription.enabled ||
+      (confirmed && !existingSubscription.registrationConfirmedAt)
+    ) {
       await mediapulsePrisma.userTicker.update({
         where: { id: existingSubscription.id },
         data: {
           enabled: true,
           ...(confirmed && !existingSubscription.registrationConfirmedAt
-            ? { registrationConfirmedAt : new Date() }
+            ? { registrationConfirmedAt: new Date() }
             : {}),
         },
       });
