@@ -229,7 +229,6 @@ describe("user-registration agent – run loop", () => {
     expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
   });
 
-
   it("marks message as failed_retry and leaves it unarchived when register API throws", async () => {
     listMessagesMock.mockResolvedValue([makeMessage()]);
     registerCreateMock.mockRejectedValue(new Error("API timeout"));
