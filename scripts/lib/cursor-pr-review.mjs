@@ -618,6 +618,9 @@ export const runCursorPrReview = async (collaborators, options) => {
   for (const f of changed) {
     if (f.status === "D") continue;
     if (!isTsx(f.filePath)) continue;
+    if (!isReviewableSourceFile(f.filePath)) continue;
+    if (isRepoRootScriptsPath(f.filePath)) continue;
+
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "react-custom-hooks", f.filePath)) continue;
     const violationLines = collectReactCustomHooksViolationLines(text);
@@ -664,7 +667,9 @@ export const runCursorPrReview = async (collaborators, options) => {
   // prisma-strong-typing: catch obvious anti-patterns in Prisma-related files (heuristic)
   for (const f of changed) {
     if (f.status === "D") continue;
-    if (!/\.ts$/.test(f.filePath) && !/\.tsx$/.test(f.filePath)) continue;
+    if (!isReviewableSourceFile(f.filePath)) continue;
+    if (isRepoRootScriptsPath(f.filePath)) continue;
+
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "prisma-strong-typing", f.filePath))
       continue;
