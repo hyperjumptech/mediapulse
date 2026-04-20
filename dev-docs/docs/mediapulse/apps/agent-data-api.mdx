@@ -25,32 +25,41 @@ agent-data-api is the **HTTP persistence layer between agents and the database**
 
 Agents should not call these HTTP paths directly. In agent code, use `@workspace/agent-data-api-client` and call SDK namespaces such as `contentGeneration`, `dataCollection`, `dataCollectionExistingUrls`, `analysis`, and `delivery`. The SDK provides typed methods for each endpoint and validates responses with shared schemas.
 
-| Method | Path                                 | Description                                                           |
-| ------ | ------------------------------------ | --------------------------------------------------------------------- |
-| GET    | `/api/v1/content-generation`         | Get content-generation data (e.g. by tickerId)                        |
-| POST   | `/api/v1/content-generation`         | Store content-generation payload                                      |
-| GET    | `/api/v1/data-collection`            | Get data-collection data                                              |
-| POST   | `/api/v1/data-collection`            | Store data-collection payload                                         |
+| Method | Path                                    | Description                                                                     |
+| ------ | --------------------------------------- | ------------------------------------------------------------------------------- |
+| GET    | `/api/v1/content-generation`            | Get content-generation data (e.g. by tickerId)                                  |
+| POST   | `/api/v1/content-generation`            | Store content-generation payload                                                |
+| GET    | `/api/v1/data-collection`               | Get data-collection data                                                        |
+| POST   | `/api/v1/data-collection`               | Store data-collection payload                                                   |
 | POST   | `/api/v1/data-collection-existing-urls` | List which candidate URLs already exist for a ticker (`data_source`, exact URL) |
-| GET    | `/api/v1/analysis`                   | Get analysis context (sources + KG vocabulary) for a ticker         |
-| POST   | `/api/v1/analysis`                   | Persist analysis results (entities, relations, mentions, relevance)   |
-| GET    | `/api/v1/delivery`                   | Get delivery payload (nullable newsletter, subscribers + checkpoints) |
-| POST   | `/api/v1/delivery`                   | Upsert delivery checkpoint after successful send                      |
-| GET    | `/api/v1/delivery-run`               | List delivery diagnostic runs (filters optional)                      |
-| POST   | `/api/v1/delivery-run`               | Persist one delivery run + recipient outcomes                         |
-| POST   | `/api/v1/user-registration-register` | Process a new or returning subscription (optional immediate confirmation) |
-| POST   | `/api/v1/user-registration-confirm`  | Confirm a pending subscription (used for double opt-in from web signups) |
-| GET    | `/api/v1/query-analysis`                  | Get query-analysis context by ticker           |
-| POST   | `/api/v1/query-analysis`                  | Store and activate a versioned query set       |
+| GET    | `/api/v1/analysis`                      | Get analysis context (sources + KG vocabulary) for a ticker                     |
+| POST   | `/api/v1/analysis`                      | Persist analysis results (entities, relations, mentions, relevance)             |
+| GET    | `/api/v1/delivery`                      | Get delivery payload (nullable newsletter, subscribers + checkpoints)           |
+| POST   | `/api/v1/delivery`                      | Upsert delivery checkpoint after successful send                                |
+| GET    | `/api/v1/delivery-run`                  | List delivery diagnostic runs (filters optional)                                |
+| POST   | `/api/v1/delivery-run`                  | Persist one delivery run + recipient outcomes                                   |
+| POST   | `/api/v1/user-registration-register`    | Process a new or returning subscription (optional immediate confirmation)       |
+| POST   | `/api/v1/user-registration-confirm`     | Confirm a pending subscription (used for double opt-in from web signups)        |
+| GET    | `/api/v1/query-analysis`                | Get query-analysis context by ticker                                            |
+| POST   | `/api/v1/query-analysis`                | Store and activate a versioned query set                                        |
 
+### Data collection existing URLs (`POST /api/v1/data-collection-existing-urls`)
 
-### Data collection existing URLs (`/api/v1/data-collection-existing-urls`)
+Implemented in `apps/mediapulse/agent-data-api/src/routes/data-collection-existing-urls.ts`. Zod schemas and the **`DATA_COLLECTION_EXISTING_URLS_MAX`** constant (500) live in `@workspace/agent-data-api-contract` (`data-collection.ts`); the manifest resource key is **`dataCollectionExistingUrls`**, so the same route exists under **`/api/v2/data-collection-existing-urls`** when callers pin `version: "v2"` on the SDK.
 
-Implemented in `apps/mediapulse/agent-data-api/src/routes/data-collection-existing-urls.ts`. Schemas live in `@workspace/agent-data-api-contract` (`data-collection.ts`).
+- **POST** — Body (`postDataCollectionExistingUrlsBodySchema`): **`tickerId`** (required, non-empty string), **`urls`** (required array of URL strings, each valid URL, at most **`DATA_COLLECTION_EXISTING_URLS_MAX`** entries per request). Response (`postDataCollectionExistingUrlsResponseSchema`): **`existingUrls`** — deduplicated list of strings from **`urls`** that already have at least one `data_source` row for that **`tickerId`** (exact match on the stored `url` column; no normalization).
+- **Empty list** — If **`urls`** is `[]`, the handler returns **`200`** with **`{ "existingUrls": [] }`** and does not query Prisma for an empty `IN` clause.
+- **Errors** — **`401`** without a valid bearer JWT (same as other versioned routes). Invalid JSON body or Zod validation failures return **`400`** with `message: "Bad Request"` and **`errors`** (via shared `internalError` handling), consistent with other POST handlers.
 
-- **POST** — Body (`postDataCollectionExistingUrlsBodySchema`): `tickerId` (required), `urls` (array of URL strings, max 500 per request). Response: `existingUrls` — unique URLs from the request that already have a `data_source` row for that ticker (exact string match on `url`).
+From agents, use the SDK namespace **`dataCollectionExistingUrls`**: **`create`** for POST. The data-collection agent dedupes candidate URLs, then chunks requests so each POST stays within **`DATA_COLLECTION_EXISTING_URLS_MAX`**.
 
-From agents, use the SDK namespace **`dataCollectionExistingUrls`**: **`create`** for POST. The data-collection agent batches calls when search returns more than 500 distinct URLs.
+```ts
+const { existingUrls } = await dataApiClient.dataCollectionExistingUrls.create({
+  tickerId,
+  urls: ["https://news.example/a", "https://news.example/b"],
+});
+// existingUrls is a subset of urls that already exist in data_source for this ticker
+```
 
 ### Analysis (`/api/v1/analysis`)
 
