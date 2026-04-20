@@ -69,7 +69,11 @@ describe("createContentGenerationRun", () => {
 
   it("creates a run with all fields and returns the row", async () => {
     // Setup
-    const row = makeRow({ stage: "llm", errorCode: "LLM_TIMEOUT", durationMs: 1500 });
+    const row = makeRow({
+      stage: "llm",
+      errorCode: "LLM_TIMEOUT",
+      durationMs: 1500,
+    });
     const db = makeDb();
     db.contentGenerationRun.create.mockResolvedValue(row);
 

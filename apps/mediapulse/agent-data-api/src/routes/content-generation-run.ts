@@ -60,9 +60,9 @@ export async function getContentGenerationRuns(
       createdAt: row.createdAt.toISOString(),
     }));
 
-    const response = getContentGenerationRunResponseSchema.parse({ 
-      data, 
-      nextCursor: rowsData.nextCursor 
+    const response = getContentGenerationRunResponseSchema.parse({
+      data,
+      nextCursor: rowsData.nextCursor,
     });
     return context.json(response, 200);
   } catch (error) {
