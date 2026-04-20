@@ -345,8 +345,8 @@ describe("createAgentDataApiClient", () => {
         headers: { Authorization: "Bearer sdk-token" },
       }),
     );
-      expect(result.hasNewsletter).toBe(true);
-      expect(result.newsletterId).toBe("nl-456");
+    expect(result.hasNewsletter).toBe(true);
+    expect(result.newsletterId).toBe("nl-456");
   });
 
   it("builds contentGenerationRuns POST with typed body and returns created record", async () => {

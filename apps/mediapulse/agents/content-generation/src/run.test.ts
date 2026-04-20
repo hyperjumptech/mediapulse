@@ -11,6 +11,7 @@ import type { ContentGenerationConfig } from "./config-schema.js";
 const contentGenerationGet = vi.fn();
 const contentGenerationCreate = vi.fn();
 const contentGenerationNewslettersLatestGet = vi.fn();
+const contentGenerationRunsCreate = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -20,6 +21,9 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     contentGenerationNewslettersLatest: {
       get: contentGenerationNewslettersLatestGet,
+    },
+    contentGenerationRuns: {
+      create: contentGenerationRunsCreate,
     },
   })),
 }));
@@ -49,6 +53,8 @@ import * as FreshnessWindow from "./freshness-window.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
+const TEST_TICKER_ID = "00000000-0000-4000-8000-000000000001" as const;
+
 const baseConfig = {
   openaiApiKey: "sk-test",
 } as any as ContentGenerationConfig;
@@ -59,7 +65,7 @@ function makeContext(overrides?: {
   token?: string;
 }) {
   return {
-    input: overrides?.input ?? { tickerId: "ticker-1" },
+    input: overrides?.input ?? { tickerId: TEST_TICKER_ID },
     config: { ...baseConfig, ...overrides?.config },
     token: overrides?.token ?? "Bearer test",
   };
@@ -70,7 +76,7 @@ const testSources = [
     url: "https://example.com/a",
     title: "Story A",
     content: "Content for story A.",
-    tickerId: "ticker-1",
+    tickerId: TEST_TICKER_ID,
     searchQueryId: "00000000-0000-4000-8000-000000000001",
   },
 ];
@@ -90,6 +96,7 @@ describe("run", () => {
     contentGenerationGet.mockReset();
     contentGenerationCreate.mockReset();
     contentGenerationNewslettersLatestGet.mockReset();
+    contentGenerationRunsCreate.mockReset();
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockReset();
   });
 
@@ -181,7 +188,7 @@ describe("run", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.message).toContain(
-        "Newsletter already generated for ticker-1 today (skipped)",
+        `Newsletter already generated for ${TEST_TICKER_ID} today (skipped)`,
       );
     }
     expect(contentGenerationGet).not.toHaveBeenCalled();
@@ -528,5 +535,403 @@ describe("run", () => {
     expect(secondArg.llmRetry.maxAttempts).toBe(3);
     expect(secondArg.llmRetry.baseDelayMs).toBe(500);
     expect(secondArg.llmRetry.jitter).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Diagnostic write: calls contentGenerationRuns.create on every outcome path
+  // -------------------------------------------------------------------------
+
+  describe("diagnostic write", () => {
+    it("calls contentGenerationRuns.create with outcome=success on the happy path", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationCreate.mockResolvedValue({ message: "ok" });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-1" });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+        generatedNewsletter,
+      );
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("success");
+      expect(callArg.stage).toBeNull();
+      expect(callArg.errorCode).toBeNull();
+      expect(callArg.errorCategory).toBeNull();
+      expect(callArg.agentId).toBe("content-generation");
+      expect(callArg.tickerId).toBe(TEST_TICKER_ID);
+      expect(callArg.durationMs).toBeGreaterThanOrEqual(0);
+      expect(callArg.message).toBe(`tickerId=${TEST_TICKER_ID}`);
+    });
+
+    it("calls contentGenerationRuns.create with outcome=skipped / errorCode=no_sources on no-sources path", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: [] });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-2" });
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("skipped");
+      expect(callArg.stage).toBe("precheck");
+      expect(callArg.errorCode).toBe("no_sources");
+      expect(callArg.errorCategory).toBeNull();
+      expect(callArg.newsletterId).toBeNull();
+      expect(callArg.message).toBe(
+        `tickerId=${TEST_TICKER_ID} outcome=no_sources stage=precheck`,
+      );
+    });
+
+    it("calls contentGenerationRuns.create with outcome=skipped / errorCode=skipped_fresh_newsletter_exists when fresh newsletter exists", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: true,
+        newsletterId: "nl-existing-123",
+      });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-3" });
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("skipped");
+      expect(callArg.stage).toBe("precheck");
+      expect(callArg.errorCode).toBe("skipped_fresh_newsletter_exists");
+      expect(callArg.errorCategory).toBeNull();
+      expect(callArg.newsletterId).toBeNull();
+    });
+
+    it("calls contentGenerationRuns.create with outcome=failed / stage=llm / errorCode=openai_non_retryable on auth failure", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-4" });
+      const { APICallError } = await import("ai");
+      const authError = new APICallError({
+        message: "Unauthorized",
+        url: "https://api.openai.com",
+        requestBodyValues: {},
+        statusCode: 401,
+        isRetryable: false,
+      });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockRejectedValue(
+        authError,
+      );
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("failed");
+      expect(callArg.stage).toBe("llm");
+      expect(callArg.errorCode).toBe("openai_non_retryable");
+      expect(callArg.errorCategory).toBe("non_retryable_llm");
+      expect(callArg.newsletterId).toBeNull();
+      expect(callArg.message).toBe(
+        `tickerId=${TEST_TICKER_ID} outcome=openai_non_retryable stage=llm`,
+      );
+    });
+
+    it("calls contentGenerationRuns.create with outcome=failed / stage=llm / errorCode=openai_retry_exhausted on retryable LLM error", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-5" });
+      const { APICallError } = await import("ai");
+      const retryableError = new APICallError({
+        message: "Too Many Requests",
+        url: "https://api.openai.com",
+        requestBodyValues: {},
+        statusCode: 429,
+        isRetryable: true,
+      });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockRejectedValue(
+        retryableError,
+      );
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("failed");
+      expect(callArg.stage).toBe("llm");
+      expect(callArg.errorCode).toBe("openai_retry_exhausted");
+      expect(callArg.errorCategory).toBe("retryable_llm");
+    });
+
+    it("calls contentGenerationRuns.create with outcome=failed / stage=llm / errorCode=openai_invalid_response on NoObjectGeneratedError", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-6" });
+      const { NoObjectGeneratedError } = await import("ai");
+      const noObjectError = Object.assign(
+        Object.create(NoObjectGeneratedError.prototype) as InstanceType<
+          typeof NoObjectGeneratedError
+        >,
+        { message: "No object generated", name: "AI_NoObjectGeneratedError" },
+      );
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockRejectedValue(
+        noObjectError,
+      );
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("failed");
+      expect(callArg.stage).toBe("llm");
+      expect(callArg.errorCode).toBe("openai_invalid_response");
+      expect(callArg.errorCategory).toBe("non_retryable_llm");
+    });
+
+    it("calls contentGenerationRuns.create with outcome=failed / stage=validate / errorCode=validation_failed on TypeValidationError", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-7" });
+      const { TypeValidationError } = await import("ai");
+      const validationError = new TypeValidationError({
+        value: { wrong: "shape" },
+        cause: new Error("zod"),
+      });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockRejectedValue(
+        validationError,
+      );
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("failed");
+      expect(callArg.stage).toBe("validate");
+      expect(callArg.errorCode).toBe("validation_failed");
+      expect(callArg.errorCategory).toBe("validation");
+    });
+
+    it("calls contentGenerationRuns.create with outcome=failed / stage=persist / errorCode=persist_transient on 429 persist error", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+        generatedNewsletter,
+      );
+      contentGenerationCreate.mockRejectedValue(
+        new Error("Agent data API error: 429"),
+      );
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-8" });
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("failed");
+      expect(callArg.stage).toBe("persist");
+      expect(callArg.errorCode).toBe("persist_transient");
+      expect(callArg.errorCategory).toBe("persistence");
+      expect(callArg.newsletterId).toBeNull();
+    });
+
+    it("calls contentGenerationRuns.create with outcome=failed / stage=persist / errorCode=persist_client_error on 400 persist error", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+        generatedNewsletter,
+      );
+      contentGenerationCreate.mockRejectedValue(
+        new Error("Agent data API error: 400"),
+      );
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-9" });
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("failed");
+      expect(callArg.stage).toBe("persist");
+      expect(callArg.errorCode).toBe("persist_client_error");
+      expect(callArg.errorCategory).toBe("persistence");
+    });
+
+    it("swallows diagnostic write failure and does not change the primary AgentRunResult", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationCreate.mockResolvedValue({ message: "ok" });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+        generatedNewsletter,
+      );
+      contentGenerationRunsCreate.mockRejectedValue(
+        new Error("Diagnostic API unreachable"),
+      );
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert — primary result is unchanged
+      expect(result.success).toBe(true);
+      // The diagnostic error is logged but does not propagate
+      const { logger } = await import("@workspace/logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ tickerId: TEST_TICKER_ID }),
+        "Failed to write diagnostic record",
+      );
+    });
+
+    it("includes a positive durationMs in the diagnostic call", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationCreate.mockResolvedValue({ message: "ok" });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-dur" });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+        generatedNewsletter,
+      );
+
+      // Act
+      await run(makeContext());
+
+      // Assert
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(typeof callArg.durationMs).toBe("number");
+      expect(callArg.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("forwards pipelineRunId from hermesCorrelation.pipelineStepId when present", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationCreate.mockResolvedValue({ message: "ok" });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-pipe" });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+        generatedNewsletter,
+      );
+
+      // Act
+      await run({
+        ...makeContext(),
+        hermesCorrelation: { pipelineStepId: "step-abc-123" },
+      });
+
+      // Assert
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.pipelineRunId).toBe("step-abc-123");
+    });
+
+    it("sets pipelineRunId to null when hermesCorrelation is absent", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationCreate.mockResolvedValue({ message: "ok" });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-nopipe" });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+        generatedNewsletter,
+      );
+
+      // Act
+      await run(makeContext()); // no hermesCorrelation
+
+      // Assert
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.pipelineRunId).toBeNull();
+    });
+
+    it("forwards newsletterId from persist response to the diagnostic record on success", async () => {
+      // Setup
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+      contentGenerationCreate.mockResolvedValue({
+        id: "00000000-0000-4000-8000-000000000099",
+        message: "ok",
+      });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-nl" });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+        generatedNewsletter,
+      );
+
+      // Act
+      const result = await run(makeContext());
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.outcome).toBe("success");
+      expect(callArg.newsletterId).toBe("00000000-0000-4000-8000-000000000099");
+    });
   });
 });

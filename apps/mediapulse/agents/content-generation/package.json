@@ -24,7 +24,8 @@
     "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@workspace/agent-data-api-contract": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",

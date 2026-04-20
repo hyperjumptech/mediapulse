@@ -1,6 +1,15 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@mediapulse/database", () => ({
+  prisma: {
+    contentGenerationRun: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+    },
+  },
+}));
+
 import {
   createContentGenerationRun,
   listContentGenerationRuns,
@@ -68,7 +77,11 @@ describe("createContentGenerationRun", () => {
 
   it("creates a run with all fields and returns the row", async () => {
     // Setup
-    const row = makeRow({ stage: "llm", errorCode: "LLM_TIMEOUT", durationMs: 1500 });
+    const row = makeRow({
+      stage: "llm",
+      errorCode: "LLM_TIMEOUT",
+      durationMs: 1500,
+    });
     const db = makeDb();
     db.contentGenerationRun.create.mockResolvedValue(row);
 
@@ -87,7 +100,13 @@ describe("createContentGenerationRun", () => {
         pipelineRunId: "pipeline-run-1",
         newsletterId: null,
       },
-      { db: db as unknown as Parameters<typeof createContentGenerationRun>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      {
+        db: db as unknown as Parameters<
+          typeof createContentGenerationRun
+        >[1] extends { db?: infer D }
+          ? NonNullable<D>
+          : never,
+      },
     );
 
     // Assert
@@ -129,7 +148,13 @@ describe("createContentGenerationRun", () => {
         tickerId: "11111111-1111-4111-a111-111111111111",
         outcome: "skipped",
       },
-      { db: db as unknown as Parameters<typeof createContentGenerationRun>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      {
+        db: db as unknown as Parameters<
+          typeof createContentGenerationRun
+        >[1] extends { db?: infer D }
+          ? NonNullable<D>
+          : never,
+      },
     );
 
     // Assert
@@ -169,7 +194,13 @@ describe("listContentGenerationRuns", () => {
     // Act
     const result = await listContentGenerationRuns(
       {},
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      {
+        db: db as unknown as Parameters<
+          typeof listContentGenerationRuns
+        >[1] extends { db?: infer D }
+          ? NonNullable<D>
+          : never,
+      },
     );
 
     // Assert
@@ -193,7 +224,13 @@ describe("listContentGenerationRuns", () => {
     // Act
     await listContentGenerationRuns(
       { tickerId },
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      {
+        db: db as unknown as Parameters<
+          typeof listContentGenerationRuns
+        >[1] extends { db?: infer D }
+          ? NonNullable<D>
+          : never,
+      },
     );
 
     // Assert
@@ -212,7 +249,13 @@ describe("listContentGenerationRuns", () => {
     // Act
     await listContentGenerationRuns(
       { outcome: "failed" },
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      {
+        db: db as unknown as Parameters<
+          typeof listContentGenerationRuns
+        >[1] extends { db?: infer D }
+          ? NonNullable<D>
+          : never,
+      },
     );
 
     // Assert
@@ -233,7 +276,13 @@ describe("listContentGenerationRuns", () => {
     // Act
     await listContentGenerationRuns(
       { startTime, endTime },
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      {
+        db: db as unknown as Parameters<
+          typeof listContentGenerationRuns
+        >[1] extends { db?: infer D }
+          ? NonNullable<D>
+          : never,
+      },
     );
 
     // Assert
@@ -255,7 +304,13 @@ describe("listContentGenerationRuns", () => {
     // Act
     await listContentGenerationRuns(
       { startTime },
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      {
+        db: db as unknown as Parameters<
+          typeof listContentGenerationRuns
+        >[1] extends { db?: infer D }
+          ? NonNullable<D>
+          : never,
+      },
     );
 
     // Assert

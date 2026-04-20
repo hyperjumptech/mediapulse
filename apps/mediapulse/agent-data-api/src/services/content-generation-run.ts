@@ -2,7 +2,10 @@ import { prisma as mediapulsePrisma } from "@mediapulse/database";
 import type { Prisma } from "@mediapulse/database";
 
 /** Outcome filter values aligned with {@link ContentGenerationRunOutcome}. */
-export type ContentGenerationRunOutcomeFilter = "success" | "skipped" | "failed";
+export type ContentGenerationRunOutcomeFilter =
+  | "success"
+  | "skipped"
+  | "failed";
 
 /** Stage filter values aligned with {@link ContentGenerationRunStage}. */
 export type ContentGenerationRunStageFilter =
