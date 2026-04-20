@@ -14,7 +14,7 @@ agent-data-api is the **HTTP persistence layer between agents and the database**
 
 - **Bearer auth** — Requests must send `Authorization: Bearer <jwt>` (the same short-lived invocation JWT Hermes sends to agents). Verified with agent-auth-api `POST /api/verify` via `verifyTokenViaAuthApi`; agents forward the `Authorization` header from their run context to the SDK.
 - **Content generation** — Stores and loads generated newsletter-style output so downstream steps can reuse it without reshaping ad hoc payloads.
-- **Data collection** — Stores and loads crawled or gathered source material (pages, feeds, etc.) so collection and later stages see the same structured snapshot.
+- **Data collection** — Stores and loads crawled or gathered source material (pages, feeds, etc.) so collection and later stages see the same structured snapshot. A companion **existing URLs** POST lets the data-collection agent skip web fetch for URLs already persisted for a ticker (exact URL match).
 - **Analysis** — Loads unanalyzed (or full re-score) `DataSource` rows plus KG vocabulary (`entityTypes`, `relationTypes`, `existingEntities`) for the article-analysis agent, and accepts POST payloads that upsert entities, relations, `article_entity`, and `article_relevance` for a ticker. Optional GET bounds (`start`, `end`, ISO 8601) filter `DataSource.createdAt` **server-side** (FR1 / FR2 eligibility windows) so bounded runs do not download an unbounded history.
 - **Delivery** — Loads the latest newsletter for a ticker, **subscriber emails** and **`userTickerId`** from enabled `user_ticker` rows, plus **`deliveredUserTickerIds`** (existing checkpoints for idempotent replays). When there is no newsletter, **GET returns 200** with `newsletter: null`, `subscribers: []`, and empty checkpoint ids (agents skip without treating the call as an error). **POST** records a **`newsletter_delivery_checkpoint`** after a successful send (`userTickerId`, `newsletterId`, optional Resend id).
 - **Delivery run** — **POST** persists one diagnostic run and per-recipient rows (including optional **`runSkipReason`**, Hermes **`jobId` / `hermesExecutionId` / `hermesScheduleId`**, and per-recipient **`errorCategory`**). **GET** lists runs with optional filters (`tickerId`, `outcome`, `start`, `end` — each of `start` / `end` applies **`createdAt` `gte` / `lte` independently** when provided). Used by the delivery agent for Hermes-visible outcomes (`success`, `skipped`, `failed`, `partial_success`, `skipped_all_already_delivered`). The Mediapulse Hermes **Delivery runs** table supports the same filters via query string (`tickerId`, `outcome`, `start`, `end`) in addition to search (`q`) and sort.
@@ -23,7 +23,7 @@ agent-data-api is the **HTTP persistence layer between agents and the database**
 
 ## Key routes
 
-Agents should not call these HTTP paths directly. In agent code, use `@workspace/agent-data-api-client` and call SDK namespaces such as `contentGeneration`, `dataCollection`, `analysis`, and `delivery`. The SDK provides typed methods for each endpoint and validates responses with shared schemas.
+Agents should not call these HTTP paths directly. In agent code, use `@workspace/agent-data-api-client` and call SDK namespaces such as `contentGeneration`, `dataCollection`, `dataCollectionExistingUrls`, `analysis`, and `delivery`. The SDK provides typed methods for each endpoint and validates responses with shared schemas.
 
 | Method | Path                                 | Description                                                           |
 | ------ | ------------------------------------ | --------------------------------------------------------------------- |
@@ -31,6 +31,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/content-generation`         | Store content-generation payload                                      |
 | GET    | `/api/v1/data-collection`            | Get data-collection data                                              |
 | POST   | `/api/v1/data-collection`            | Store data-collection payload                                         |
+| POST   | `/api/v1/data-collection-existing-urls` | List which candidate URLs already exist for a ticker (`data_source`, exact URL) |
 | GET    | `/api/v1/analysis`                   | Get analysis context (sources + KG vocabulary) for a ticker         |
 | POST   | `/api/v1/analysis`                   | Persist analysis results (entities, relations, mentions, relevance)   |
 | GET    | `/api/v1/delivery`                   | Get delivery payload (nullable newsletter, subscribers + checkpoints) |
@@ -42,6 +43,14 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | GET    | `/api/v1/query-analysis`                  | Get query-analysis context by ticker           |
 | POST   | `/api/v1/query-analysis`                  | Store and activate a versioned query set       |
 
+
+### Data collection existing URLs (`/api/v1/data-collection-existing-urls`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/data-collection-existing-urls.ts`. Schemas live in `@workspace/agent-data-api-contract` (`data-collection.ts`).
+
+- **POST** — Body (`postDataCollectionExistingUrlsBodySchema`): `tickerId` (required), `urls` (array of URL strings, max 500 per request). Response: `existingUrls` — unique URLs from the request that already have a `data_source` row for that ticker (exact string match on `url`).
+
+From agents, use the SDK namespace **`dataCollectionExistingUrls`**: **`create`** for POST. The data-collection agent batches calls when search returns more than 500 distinct URLs.
 
 ### Analysis (`/api/v1/analysis`)
 

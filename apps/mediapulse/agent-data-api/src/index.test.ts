@@ -19,6 +19,10 @@ const dataCollectionPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "dataCollection",
 );
+const dataCollectionExistingUrlsPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "dataCollectionExistingUrls",
+);
 const deliveryPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "delivery",
@@ -511,6 +515,90 @@ describe("agent-data-api", () => {
             searchQueryId: SEARCH_QUERY_ID,
           },
         ],
+      });
+    });
+  });
+
+  describe(`POST ${dataCollectionExistingUrlsPath}`, () => {
+    it("returns 401 without Authorization header", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${dataCollectionExistingUrlsPath}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tickerId: TICKER_ID,
+            urls: ["https://example.com"],
+          }),
+        },
+      );
+      expect(res.status).toBe(401);
+    }, 20_000);
+
+    it("returns 400 when body validation fails (missing urls)", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${dataCollectionExistingUrlsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({ tickerId: TICKER_ID }),
+        },
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 200 with empty existingUrls when urls is empty", async () => {
+      const { prisma } = await getDatabase();
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${dataCollectionExistingUrlsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({ tickerId: TICKER_ID, urls: [] }),
+        },
+      );
+      const body = (await res.json()) as { existingUrls: string[] };
+
+      expect(res.status).toBe(200);
+      expect(body.existingUrls).toEqual([]);
+      expect(prisma.dataSource.findMany).not.toHaveBeenCalled();
+    });
+
+    it("returns 200 with URLs that exist for the ticker", async () => {
+      const { prisma } = await getDatabase();
+      vi.mocked(prisma.dataSource.findMany).mockResolvedValue([
+        { url: "https://exists.example/a" },
+        { url: "https://exists.example/a" },
+      ] as never);
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${dataCollectionExistingUrlsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tickerId: TICKER_ID,
+            urls: ["https://exists.example/a", "https://new.example/b"],
+          }),
+        },
+      );
+      const body = (await res.json()) as { existingUrls: string[] };
+
+      expect(res.status).toBe(200);
+      expect(body.existingUrls).toEqual(["https://exists.example/a"]);
+      expect(prisma.dataSource.findMany).toHaveBeenCalledWith({
+        where: {
+          tickerId: TICKER_ID,
+          url: {
+            in: ["https://exists.example/a", "https://new.example/b"],
+          },
+        },
+        select: { url: true },
       });
     });
   });
