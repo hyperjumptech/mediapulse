@@ -10,12 +10,16 @@ import type { ContentGenerationConfig } from "./config-schema.js";
 
 const contentGenerationGet = vi.fn();
 const contentGenerationCreate = vi.fn();
+const contentGenerationNewslettersLatestGet = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
     contentGeneration: {
       get: contentGenerationGet,
       create: contentGenerationCreate,
+    },
+    contentGenerationNewslettersLatest: {
+      get: contentGenerationNewslettersLatestGet,
     },
   })),
 }));
@@ -39,6 +43,7 @@ vi.mock("@workspace/logger", () => ({
 // Must be imported after vi.mock setup
 import { run } from "./run.js";
 import * as LlmGenerate from "./llm-generate-newsletter.js";
+import * as FreshnessWindow from "./freshness-window.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -84,6 +89,7 @@ describe("run", () => {
   beforeEach(() => {
     contentGenerationGet.mockReset();
     contentGenerationCreate.mockReset();
+    contentGenerationNewslettersLatestGet.mockReset();
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockReset();
   });
 
@@ -97,6 +103,10 @@ describe("run", () => {
 
   it("returns success when sources exist and LLM and persist succeed", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     contentGenerationCreate.mockResolvedValue({ message: "ok" });
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
@@ -117,6 +127,10 @@ describe("run", () => {
 
   it("returns success:false with 'no sources found' message when no sources", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: [] });
 
     // Act
@@ -133,6 +147,10 @@ describe("run", () => {
 
   it("returns success:false when dataSources is null", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: null });
 
     // Act
@@ -146,11 +164,137 @@ describe("run", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Skip-if-fresh: newsletter exists in window → skipped
+  // -------------------------------------------------------------------------
+
+  it("returns success:false with skipped message when a fresh newsletter already exists for the ticker today", async () => {
+    // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: true,
+      newsletterId: "nl-existing-123",
+    });
+
+    // Act
+    const result = await run(makeContext());
+
+    // Assert
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.message).toContain(
+        "Newsletter already generated for ticker-1 today (skipped)",
+      );
+    }
+    expect(contentGenerationGet).not.toHaveBeenCalled();
+    expect(LlmGenerate.generateNewsletterWithLlm).not.toHaveBeenCalled();
+    expect(contentGenerationCreate).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Skip-if-fresh: newsletter exists outside window → not skipped, proceeds
+  // -------------------------------------------------------------------------
+
+  it("proceeds normally when no fresh newsletter exists for the ticker today", async () => {
+    // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    contentGenerationCreate.mockResolvedValue({ message: "ok" });
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+      generatedNewsletter,
+    );
+
+    // Act
+    const result = await run(makeContext());
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(contentGenerationGet).toHaveBeenCalledTimes(1);
+    expect(LlmGenerate.generateNewsletterWithLlm).toHaveBeenCalledTimes(1);
+    expect(contentGenerationCreate).toHaveBeenCalledTimes(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // Skip-if-fresh: verifies freshness window is computed with config timezone
+  // -------------------------------------------------------------------------
+
+  it("uses configured timezone from freshness config for the precheck window", async () => {
+    // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    contentGenerationCreate.mockResolvedValue({ message: "ok" });
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+      generatedNewsletter,
+    );
+
+    const computeSpy = vi.spyOn(FreshnessWindow, "computeFreshnessWindow");
+
+    // Act
+    await run(
+      makeContext({
+        config: { freshness: { timezone: "America/New_York" } } as any,
+      }),
+    );
+
+    // Assert
+    expect(computeSpy).toHaveBeenCalledWith("America/New_York");
+  });
+
+  // -------------------------------------------------------------------------
+  // Skip-if-fresh: logs warning when precheck takes longer than 100ms
+  // -------------------------------------------------------------------------
+
+  it("logs a warning when the freshness precheck takes longer than 100ms", async () => {
+    // Setup
+    contentGenerationNewslettersLatestGet.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(
+            () => resolve({ hasNewsletter: false, newsletterId: null }),
+            150,
+          );
+        }),
+    );
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    contentGenerationCreate.mockResolvedValue({ message: "ok" });
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+      generatedNewsletter,
+    );
+
+    vi.useFakeTimers();
+    // Need to advance timers for the setTimeout in the mock
+    const resultPromise = run(makeContext());
+
+    // Advance past the 150ms delay and other async operations
+    await vi.advanceTimersByTimeAsync(500);
+    const result = await resultPromise;
+
+    // Assert - the logger.warn should have been called for the slow precheck
+    const { logger } = await import("@workspace/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        precheckDurationMs: expect.any(Number),
+      }),
+      "Freshness precheck took longer than 100ms",
+    );
+
+    vi.useRealTimers();
+  });
+
+  // -------------------------------------------------------------------------
   // LLM errors → OutcomeCode in message
   // -------------------------------------------------------------------------
 
   it("returns success:false with openai_non_retryable on auth failure", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     const { APICallError } = await import("ai");
     const authError = new APICallError({
@@ -177,6 +321,10 @@ describe("run", () => {
 
   it("returns success:false with validation_failed on TypeValidationError", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     const { TypeValidationError } = await import("ai");
     const validationError = new TypeValidationError({
@@ -199,6 +347,10 @@ describe("run", () => {
 
   it("returns success:false with openai_retry_exhausted on exhausted retries", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     const { APICallError } = await import("ai");
     const retryableError = new APICallError({
@@ -224,6 +376,10 @@ describe("run", () => {
 
   it("returns success:false with openai_invalid_response on NoObjectGeneratedError", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     const { NoObjectGeneratedError } = await import("ai");
     const noObjectError = Object.assign(
@@ -252,6 +408,10 @@ describe("run", () => {
 
   it("returns success:false with persist_transient on 429 from agent-data-api", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
       generatedNewsletter,
@@ -272,6 +432,10 @@ describe("run", () => {
 
   it("returns success:false with persist_transient on 500 from agent-data-api", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
       generatedNewsletter,
@@ -292,6 +456,10 @@ describe("run", () => {
 
   it("returns success:false with persist_client_error on 400 from agent-data-api", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
       generatedNewsletter,
@@ -312,6 +480,10 @@ describe("run", () => {
 
   it("returns success:false with persist_client_error on 404 from agent-data-api", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
       generatedNewsletter,
@@ -336,6 +508,10 @@ describe("run", () => {
 
   it("passes resolved config with defaults to generateNewsletterWithLlm", async () => {
     // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     contentGenerationCreate.mockResolvedValue({ message: "ok" });
     const generateSpy = vi

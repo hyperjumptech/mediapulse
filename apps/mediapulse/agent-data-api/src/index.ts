@@ -13,6 +13,7 @@ import { pinoLogger } from "hono-pino";
 import { getAnalysis, postAnalysis } from "./routes/analysis.js";
 import {
   getContentGeneration,
+  getContentGenerationNewslettersLatest,
   postContentGeneration,
 } from "./routes/content-generation.js";
 import {
@@ -69,6 +70,9 @@ const routeHandlers = {
   contentGeneration: {
     get: getContentGeneration,
     post: postContentGeneration,
+  },
+  contentGenerationNewslettersLatest: {
+    get: getContentGenerationNewslettersLatest,
   },
   dataCollection: {
     get: getDataCollection,

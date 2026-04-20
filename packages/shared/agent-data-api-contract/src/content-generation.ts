@@ -30,6 +30,17 @@ export const postContentGenerationResponseSchema = z.object({
   message: z.string(),
 });
 
+export const getContentGenerationNewslettersLatestQuerySchema = z.object({
+  tickerId: z.string().trim().min(1),
+  windowStart: z.string().datetime(),
+  windowEnd: z.string().datetime(),
+});
+
+export const getContentGenerationNewslettersLatestResponseSchema = z.object({
+  hasNewsletter: z.boolean(),
+  newsletterId: z.string().nullable(),
+});
+
 export type GetContentGenerationQuery = z.infer<
   typeof getContentGenerationQuerySchema
 >;
@@ -41,4 +52,10 @@ export type GetContentGenerationResponse = z.infer<
 >;
 export type PostContentGenerationResponse = z.infer<
   typeof postContentGenerationResponseSchema
+>;
+export type GetContentGenerationNewslettersLatestQuery = z.infer<
+  typeof getContentGenerationNewslettersLatestQuerySchema
+>;
+export type GetContentGenerationNewslettersLatestResponse = z.infer<
+  typeof getContentGenerationNewslettersLatestResponseSchema
 >;

@@ -29,6 +29,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | ------ | ------------------------------------ | --------------------------------------------------------------------- |
 | GET    | `/api/v1/content-generation`         | Get content-generation data (e.g. by tickerId)                        |
 | POST   | `/api/v1/content-generation`         | Store content-generation payload                                      |
+| GET    | `/api/v1/content-generation-newsletters-latest` | Check if a fresh newsletter exists for a ticker in a time window |
 | GET    | `/api/v1/data-collection`            | Get data-collection data                                              |
 | POST   | `/api/v1/data-collection`            | Store data-collection payload                                         |
 | GET    | `/api/v1/analysis`                   | Get analysis context (sources + KG vocabulary) for a ticker         |
@@ -42,6 +43,22 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | GET    | `/api/v1/query-analysis`                  | Get query-analysis context by ticker           |
 | POST   | `/api/v1/query-analysis`                  | Store and activate a versioned query set       |
 
+
+### Content generation newsletters latest (`/api/v1/content-generation-newsletters-latest`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`. Schemas live in `@workspace/agent-data-api-contract` (`content-generation.ts`).
+
+Used by the content-generation agent for the **skip-if-fresh** precheck (MP-CGA-006).
+
+- **GET** — Query (`getContentGenerationNewslettersLatestQuerySchema`):
+  - `tickerId` (required).
+  - `windowStart` — required ISO 8601 datetime (inclusive).
+  - `windowEnd` — required ISO 8601 datetime (exclusive).
+- **GET response** — `getContentGenerationNewslettersLatestResponseSchema`:
+  - `hasNewsletter` (boolean) — true if at least one newsletter matching the ticker exists within `[windowStart, windowEnd)`.
+  - `newsletterId` (string | null) — ID of the most recent qualifying newsletter, or `null`.
+
+From agents, use the SDK namespace **`contentGenerationNewslettersLatest`**: `get` for the query object.
 
 ### Analysis (`/api/v1/analysis`)
 

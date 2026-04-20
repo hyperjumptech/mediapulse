@@ -315,6 +315,39 @@ describe("createAgentDataApiClient", () => {
     expect(getResponse.ticker.symbol).toBe("AAPL");
     expect(postResponse.created).toBe(1);
   });
+
+  it("supports content-generation-newsletters-latest GET", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        hasNewsletter: true,
+        newsletterId: "nl-456",
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
+    });
+
+    // Act
+    const result = await client.contentGenerationNewslettersLatest.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      windowStart: "2026-04-20T00:00:00.000Z",
+      windowEnd: "2026-04-21T00:00:00.000Z",
+    });
+
+    // Assert
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationNewslettersLatest")}?tickerId=11111111-1111-4111-a111-111111111111&windowStart=2026-04-20T00%3A00%3A00.000Z&windowEnd=2026-04-21T00%3A00%3A00.000Z`,
+      expect.objectContaining({
+        headers: { Authorization: "Bearer sdk-token" },
+      }),
+    );
+    expect(result.hasNewsletter).toBe(true);
+    expect(result.newsletterId).toBe("nl-456");
+  });
 });
 
 describe("agent-data-api path helpers", () => {
