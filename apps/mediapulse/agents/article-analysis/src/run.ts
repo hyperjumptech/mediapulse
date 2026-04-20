@@ -60,7 +60,7 @@ import {
   toRelevanceWeightMapV1,
   type ArticleAnalysisConfig,
 } from "./config-schema.js";
-import type { ArticleAnalysisInput } from "./input-schema.js";
+import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import {
   buildExtractionSystemContent,
   buildExtractionUserContent,
