@@ -1,6 +1,6 @@
 ---
 name: open-github-pr
-description: Open a GitHub pull request for this repository using gh CLI, including branch checks, push, a reviewer-friendly PR body, and verified GitHub issue links (Closes/Fixes/Refs). Always resolve or create related issues before gh pr create so the PR can link to tickets; when drafting new issues, follow the create-github-issue skill for title and body structure. Use when the user asks to create/open/submit a PR or pull request, and format title and description with the pr-title-description skill structure (including Related issues).
+description: Open a GitHub pull request for this repository using gh CLI, including branch checks, push, a reviewer-friendly PR body, and verified GitHub issue links (Closes/Fixes/Refs). Always resolve or create related issues before gh pr create so the PR can link to tickets; when drafting new issues, follow the create-github-issue skill for title and body structure. **PR title and body prose are humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). Use when the user asks to create/open/submit a PR or pull request, and format title and description with the pr-title-description skill structure (including Related issues).
 ---
 
 # Open GitHub Pull Request
@@ -8,6 +8,10 @@ description: Open a GitHub pull request for this repository using gh CLI, includ
 Create pull requests for this repo with `gh pr create`, and use the `/pr-title-description` structure for the title and body. **Do not run `gh pr create` until at least one related GitHub issue exists, is open, and is verified** (see **Mandatory: resolve or create issues before the PR**). Then include **`## Related issues`** with `Closes`/`Fixes`/`Refs` so the PR appears under each issue’s Development section.
 
 **Creating or drafting GitHub issues** (title, body sections, `gh issue create`): use [create-github-issue](../create-github-issue/SKILL.md).
+
+## Prose and voice (humanizer)
+
+Before writing the **final** PR **title** and **body** (Summary, Important changes, Other changes, How to test, and any free-text outside rigid templates), **read and follow** the [humanizer](../humanizer/SKILL.md) skill in this repository (`.cursor/skills/humanizer/SKILL.md`). Apply its pass (draft → remaining AI tells → final). Keep **`## Related issues`** lines and `Closes`/`Fixes`/`Refs` **#123** references verbatim so GitHub linking does not break.
 
 ## When to use this skill
 
@@ -152,6 +156,7 @@ Run from the **primary repository** clone (the one that owns the worktrees), not
 5. **Resolve or create related GitHub issue(s)** — Follow **Mandatory: resolve or create issues before the PR** (discover → select or create with `--body-file` + `mktemp` when creating → capture number → verify each issue is **OPEN**). Do not continue until you have stable issue number(s) or URL(s) for every line that will appear under **`## Related issues`**.
 6. Draft PR content using `/pr-title-description`:
    - Title: short, imperative, verb-first.
+   - **Humanize** title and narrative body sections per [Prose and voice (humanizer)](#prose-and-voice-humanizer) before writing to the temp body file.
    - **`## Related issues` is always mandatory.** Use `#N` for this repo, or `owner/repo#N` / full URLs when work is tracked elsewhere (**Cross-repo / external tracking**). Include `Refs`/`Closes`/`Fixes` per **Stacked PRs + tickets** so GitHub links the PR.
    - Description sections:
      - `## Summary`
@@ -220,6 +225,7 @@ Set `BASE` before this command so it matches the three-dot range in step 3: **st
 
 ## Quality checklist
 
+- PR title and body read naturally (not generic AI cadence); humanizer pass completed without altering issue link lines.
 - PR title starts with a verb and has no trailing period.
 - **Related issues:** Before `gh pr create`, every referenced issue was verified **OPEN** via `gh issue view`. If an issue was created in-session, it used **`gh issue create`** with **`--body-file`** and a **`mktemp`** path (plus `trap` cleanup), never a path inside the repo.
 - **No PR without a link target:** The PR body includes **`## Related issues`** with at least one `Closes`/`Fixes`/`Refs` line (`#N` same repo, or `owner/repo#N` / URL for external tracking after explicit exemption from creating a duplicate in this repo).

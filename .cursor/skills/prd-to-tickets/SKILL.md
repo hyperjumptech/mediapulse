@@ -1,6 +1,6 @@
 ---
 name: prd-to-tickets
-description: Breaks a Product Requirements Document (PRD) into actionable implementation tickets (issues) as markdown files with titles, priority, scope, acceptance criteria, and traceability to PRD requirement IDs. **By default writes files under `~/.cursor/plans/tickets/`** (override when the user gives another directory). Uses a **representative ticket prefix** (not generic `TICKET-`) and a **shared group slug/label** so related tickets stay filterable. When work will ship as stacked PRs with horizontal splits (UI before API), tickets should document feature-flag gating and enabling order. Use when turning a PRD into work items, GitHub issues, Linear-style tasks, sprint tickets, or when the user asks for tickets from a PRD or feature spec.
+description: Breaks a Product Requirements Document (PRD) into actionable implementation tickets (issues) as markdown files with titles, priority, scope, acceptance criteria, and traceability to PRD requirement IDs. Adds deterministic `prd_url` links when the source is resolvable (including `prds` branch links) with a clear unresolved fallback. **By default writes files under `~/.cursor/plans/tickets/`** (override when the user gives another directory). Uses a **representative ticket prefix** (not generic `TICKET-`) and a **shared group slug/label** so related tickets stay filterable. **Ticket summaries and narrative sections are humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). When work will ship as stacked PRs with horizontal splits (UI before API), tickets should document feature-flag gating and enabling order. Use when turning a PRD into work items, GitHub issues, Linear-style tasks, sprint tickets, or when the user asks for tickets from a PRD or feature spec.
 ---
 
 # PRD → Tickets
@@ -20,6 +20,10 @@ description: Breaks a Product Requirements Document (PRD) into actionable implem
 
 - **PRD source:** Path in the repo, path under home (e.g. `~/.cursor/plans/foo.prd.md`), or inline markdown in chat.
 - If scope is unclear (whole PRD vs one section), ask once; default to **all P0/P1** items plus **must-have** requirements if the PRD uses priority tags.
+
+## Prose and voice (humanizer)
+
+For each ticket’s **Summary**, **Scope** bullets, **Notes**, and the chat **table** you return, **read and follow** the [humanizer](../humanizer/SKILL.md) skill in this repository (`.cursor/skills/humanizer/SKILL.md`). Sound like a clear engineer, not a template: varied rhythm, concrete verbs, no filler “landscape” prose. **Do not** rewrite `prd_refs`, IDs, file paths, or flag/env names—those stay exact.
 
 ## Ticket prefix and IDs (required)
 
@@ -56,15 +60,32 @@ Every ticket in the **same PRD batch** shares metadata so tools can filter or ta
 2. **Set `ticket_prefix`, `group_slug`, and `group_label` once** for the whole batch (after deriving from the PRD title unless the user supplied them).
 3. **One ticket per implementable slice** — prefer vertical slices (end-to-end user value) when the PRD allows; otherwise one ticket per **REQ** or per **user story** with clear AC.
 4. **Do not** merge unrelated requirements into one ticket; **do** merge duplicate or overlapping bullets from the PRD into a single ticket with a clear combined AC.
-5. **Traceability:** Each ticket must reference the PRD (`prd_source:` with file path or `"inline PRD"`) and **requirement IDs** when present (`prd_refs: [REQ-001, …]`).
+5. **Traceability:** Each ticket must reference the PRD (`prd_source:` with file path or `"inline PRD"`), include `prd_url:` in frontmatter, include a **PRD link section in the markdown body right after Dependencies**, and include **requirement IDs** when present (`prd_refs: [REQ-001, …]`).
 6. **Dependencies:** If the PRD orders work, add a **Depends on:** section using **same-batch ids** (`HERMES-ADM-PWRESET-001`) or REQ ids where tickets are not yet numbered.
 7. **Stacked / horizontal splits:** If the user plans **Git Town stacked PRs** and separates layers (e.g. UI ticket before API ticket), add the optional **Stacked delivery** section to affected tickets and specify **feature-flag** expectations so merged-but-incomplete work does not surface to users ([git-town-stacked-changes](../git-town-stacked-changes/SKILL.md)).
 8. **Non-goals:** Do not create tickets for items explicitly out of scope unless the user asks to “include deferred items” as a separate backlog file.
+9. **Humanize** each ticket’s narrative fields and the chat reply per [Prose and voice (humanizer)](#prose-and-voice-humanizer) before persisting files or sending the batch summary.
 
 ## File naming
 
 - **`{ticket_prefix}-{NNN}-{short-slug}.md`** (e.g. `HERMES-ADM-PWRESET-002-session-credential-version.md`).
 - Slug: lowercase, hyphens, max ~50 chars, derived from the ticket title.
+
+## PRD URL resolution (required when possible)
+
+Resolve `prd_url` in frontmatter whenever you can resolve a stable source link:
+
+1. **If `prd_source` is already an HTTP(S) URL**, copy it to `prd_url` unchanged.
+2. **If `prd_source` is a path to a PRD file that exists in the `prds` branch**, set:
+   - `prd_url: https://github.com/hyperjumptech/mediapulse/blob/prds/<prd-file>.md`
+   - Use the PRD file basename (for example `article-analysis-agent-prd.md`).
+3. **If the URL cannot be resolved**, keep `prd_source` as-is and set:
+   - `prd_url: unresolved`
+   - In the **PRD link body section** (after Dependencies), add one concise fallback line (for example: `PRD URL unresolved; source is local-only: /tmp/foo.prd.md`).
+
+Then mirror the same info in the ticket body under `## PRD link` immediately after `## Dependencies` so `/create-github-issue` output keeps the link even when frontmatter and title are stripped.
+
+The goal is deterministic links when a source is known, without blocking ticket generation when it is not.
 
 ## Ticket file template
 
@@ -79,6 +100,7 @@ group_label: Hermes admin password reset
 title: [Imperative, concise title]
 priority: P0 | P1 | P2
 prd_source: [path or "inline"]
+prd_url: [https URL or "unresolved"]
 prd_refs: [REQ-001, REQ-002]
 status: draft
 ---
@@ -106,6 +128,10 @@ status: draft
 - Depends on: [none | HERMES-ADM-PWRESET-xxx | REQ-xxx]
 - Blocks: …
 
+## PRD link
+
+- PRD: [https URL from `prd_url` or fallback line when unresolved]
+
 ## Stacked delivery (optional)
 
 Use when tickets will ship as **Git Town stacked PRs** and work is split so an **earlier** ticket is incomplete without a **later** one (e.g. UI in `…-002`, API in `…-003`):
@@ -119,12 +145,17 @@ See [git-town-stacked-changes](../git-town-stacked-changes/SKILL.md) for impleme
 ## Notes
 
 [APIs, flags, analytics, migration, rollout — only if PRD calls for it.]
+
+When `prd_url` is `unresolved`, include one fallback line in `## PRD link` explaining why.
 ```
 
 Adjust the example `HERMES-ADM-PWRESET-*` values to match the actual `ticket_prefix` / `group_slug` / `group_label` for the run. The one-line **Group** line under the H1 is optional but helps plain-markdown readers.
 
 ## Quality checks before finishing
 
+- **Summary**, **Scope**, **Notes**, and the reply table are humanized; IDs, `prd_refs`, paths, and env keys are left exact.
+- `prd_url` exists on every ticket and is clickable when resolvable (`https://github.com/hyperjumptech/mediapulse/blob/prds/<prd-file>.md` for `prds` branch sources); unresolved cases clearly keep fallback metadata.
+- `## PRD link` appears immediately after `## Dependencies` in every ticket body, and matches `prd_url` (or unresolved fallback text).
 - Every **P0 / must-have** requirement maps to at least one ticket **or** is explicitly listed under a parent ticket’s AC with PRD ref.
 - No ticket without **testable** acceptance criteria (mirror the PRD’s given/when/then or checklist).
 - **`ticket_prefix`, `group_slug`, and `group_label` are consistent** across all files in the batch.

@@ -12,6 +12,56 @@ import {
   deriveNameFromEmailLocalPart,
 } from "./lib/parser.js";
 
+/**
+ * Extracts an HTTP status code from the agent-data-api-client error message shape.
+ *
+ * The SDK currently throws plain `Error("Agent data API error: <statusCode>")` for non-2xx
+ * responses, so we parse that string to decide whether a failure is worth retrying.
+ *
+ * @param error - Unknown thrown value from the SDK call.
+ * @returns The parsed HTTP status code, or null when not present.
+ */
+function getAgentDataApiStatusCode(error: unknown): number | null {
+  if (!(error instanceof Error)) return null;
+  const match = /Agent data API error:\s*(\d{3})/.exec(error.message);
+  if (!match) return null;
+  const code = Number(match[1]);
+  return Number.isFinite(code) ? code : null;
+}
+
+/**
+ * Calls a function with a single bounded retry for transient failures.
+ *
+ * @param params - Collaborators and retry configuration.
+ * @param params.fn - Async operation to execute.
+ * @param params.maxAttempts - Maximum attempts including the first call.
+ * @param params.shouldRetry - Decides whether an error is transient.
+ * @returns The successful result and the number of attempts used.
+ */
+async function callWithRetry<TResult>(params: {
+  fn: () => Promise<TResult>;
+  maxAttempts: number;
+  shouldRetry: (error: unknown) => boolean;
+}): Promise<{ result: TResult; attempts: number }> {
+  const { fn, maxAttempts, shouldRetry } = params;
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await fn();
+      return { result, attempts: attempt };
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts || !shouldRetry(error)) {
+        throw error;
+      }
+    }
+  }
+
+  // This is unreachable due to the loop bounds, but keeps TypeScript satisfied.
+  throw lastError;
+}
+
 const BodySchemaInner = z.object({
   maxMessagesPerRun: z.number().default(20),
   watermark: z.string().datetime().optional(),
@@ -107,16 +157,38 @@ const app = createAgentApp<
 
         // Step 2: Register via API
         try {
-          const registerResponse =
-            await dataApiClient.userRegistrationRegister.create({
-              email: senderEmail,
-              tickerSymbol,
-              name,
-              audit: {
-                graphMessageId: msg.id,
-                receivedAt: msg.receivedDateTime,
+          const { result: registerResponse, attempts: registerAttempts } =
+            await callWithRetry({
+              fn: () =>
+                dataApiClient.userRegistrationRegister.create({
+                  email: senderEmail,
+                  tickerSymbol,
+                  name,
+                  confirmed: true,
+                  audit: {
+                    graphMessageId: msg.id,
+                    receivedAt: msg.receivedDateTime,
+                  },
+                }),
+              maxAttempts: 2,
+              shouldRetry: (error) => {
+                const statusCode = getAgentDataApiStatusCode(error);
+                if (statusCode == null) return true; // network / unknown SDK error
+                return statusCode === 429 || statusCode >= 500;
               },
             });
+
+          if (registerAttempts > 1) {
+            logger.warn(
+              {
+                messageId: msg.id,
+                senderEmail,
+                tickerSymbol,
+                registerAttempts,
+              },
+              "Register call succeeded after retry.",
+            );
+          }
 
           if (!registerResponse.tickerKnown) {
             logger.info(
@@ -132,7 +204,11 @@ const app = createAgentApp<
             });
 
             await inboxClient.archiveMessage(msg.id!);
-            results.push({ id: msg.id, status: "invalid_ticker_archived" });
+            results.push({
+              id: msg.id,
+              status: "invalid_ticker_archived",
+              registerAttempts,
+            });
             continue;
           }
 
@@ -149,22 +225,23 @@ const app = createAgentApp<
               text: `Hello,\n\nYour subscription to the '${tickerSymbol}' newsletter has been confirmed.\n\nThank you,\nMediaPulse Team`,
             });
 
-            await dataApiClient.userRegistrationConfirm.create({
-              userTickerId: registerResponse.userTickerId!,
-              audit: {
-                graphMessageId: msg.id,
-              },
-            });
-
             await inboxClient.archiveMessage(msg.id!);
-            results.push({ id: msg.id, status: "confirmed_archived" });
+            results.push({
+              id: msg.id,
+              status: "confirmed_archived",
+              registerAttempts,
+            });
           } else {
             logger.info(
               { senderEmail, tickerSymbol },
               "Subscription already active, archiving with no email.",
             );
             await inboxClient.archiveMessage(msg.id!);
-            results.push({ id: msg.id, status: "idempotent_archived" });
+            results.push({
+              id: msg.id,
+              status: "idempotent_archived",
+              registerAttempts,
+            });
           }
         } catch (error) {
           logger.error(
