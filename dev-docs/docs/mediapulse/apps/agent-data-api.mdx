@@ -37,8 +37,8 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/delivery`                   | Upsert delivery checkpoint after successful send                      |
 | GET    | `/api/v1/delivery-run`               | List delivery diagnostic runs (filters optional)                      |
 | POST   | `/api/v1/delivery-run`               | Persist one delivery run + recipient outcomes                         |
-| POST   | `/api/v1/user-registration-register` | Process a new or returning subscription                               |
-| POST   | `/api/v1/user-registration-confirm`  | Confirm a pending subscription (double opt-in)                        |
+| POST   | `/api/v1/user-registration-register` | Process a new or returning subscription (optional immediate confirmation) |
+| POST   | `/api/v1/user-registration-confirm`  | Confirm a pending subscription (used for double opt-in from web signups) |
 | GET    | `/api/v1/query-analysis`                  | Get query-analysis context by ticker           |
 | POST   | `/api/v1/query-analysis`                  | Store and activate a versioned query set       |
 | GET    | `/api/v1/content-generation-runs`         | List content-generation diagnostic runs (filters optional) |

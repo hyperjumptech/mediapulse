@@ -38,3 +38,9 @@ Because MediaPulse supports login-less registration over email, the flow works l
 3. The `user-registration` agent reads a shared Microsoft Outlook inbox via `@mediapulse/outlook-inbox`.
 4. The agent parses the desired ticker. Waitlist / Unknown tickers trigger an outbound email.
 5. On successful registration, a confirmation Resend email loop validates the user successfully.
+
+### Inbox hygiene (archiving + retries)
+
+- **Archive on completion**: When a message is fully handled (including unparseable/invalid cases), the agent archives it to keep the inbox clear.
+- **Confirm is best-effort**: If the confirm API fails after registration, the agent still archives the message (confirmation is retried implicitly on subsequent runs via idempotent register/confirm behavior).
+- **Bounded retry for register**: The agent retries the register API once on transient failures (429/5xx or network errors). If it still fails, the message is left in the inbox so the next scheduled run can retry.

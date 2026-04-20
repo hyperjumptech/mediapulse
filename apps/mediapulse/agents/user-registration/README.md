@@ -8,7 +8,13 @@ A Hermes agent that polls an Outlook inbox for newsletter subscription emails, p
 2. Parses the sender email and desired ticker symbol from each message.
 3. Calls `agent-data-api POST /api/v1/user-registration-register` to create or update the `UserTicker` row.
 4. When the subscription is new or unconfirmed, sends a plain-text confirmation notification email (Resend) and immediately confirms the subscription via `agent-data-api` (no user action required).
-5. Marks each processed message as read and moves it out of the inbox.
+5. Archives the processed message out of the inbox (best-effort) to keep the mailbox clear.
+
+## Archiving and retries
+
+- **Archive on success**: After a message is processed (including invalid/unparseable cases), the agent archives it so it does not remain in the primary inbox.
+- **Confirm is best-effort**: If `user-registration-confirm` fails after a successful registration, the agent still archives the message to avoid repeated inbox clutter.
+- **Register retry (bounded)**: The agent retries the register call once on transient failures (e.g. 429/5xx or network errors). If registration cannot be completed after the retry, the message is left unarchived so it can be retried on the next run.
 
 ## Environment variables
 
