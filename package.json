@@ -30,6 +30,7 @@
     "dev:agent-article-analysis": "turbo dev --filter=@mediapulse/article-analysis"
   },
   "devDependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "@turbo/gen": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "@workspace/eslint-config": "workspace:*",
