@@ -1,11 +1,21 @@
 ---
 name: create-project-docs
-description: Create and manage project documentation using Speed Docs and MDX. Use when the user wants to create docs, write documentation, add doc pages, set up a docs site, scaffold documentation, or mentions Speed Docs, MDX documentation, or project docs.
+description: Create and manage project documentation using Speed Docs and MDX, with prose humanized via the humanizer skill. Use when the user wants to create docs, write documentation, add doc pages, set up a docs site, scaffold documentation, or mentions Speed Docs, MDX documentation, or project docs.
 ---
 
 # Create Project Documentation with Speed Docs
 
 Build project documentation sites using [Speed Docs](https://speed-docs.dev), a CLI tool that generates static documentation websites from MDX content. Based on Fumadocs (Next.js).
+
+## Writing prose (humanizer)
+
+Whenever you **write or revise narrative text** for docs, read and follow the [humanizer](../humanizer/SKILL.md) skill first using **this repository’s** `.cursor/skills/humanizer/SKILL.md` (and `reference.md` alongside it when checking patterns).
+
+**Apply humanizer to:** page intros and explanations, the `description` field in frontmatter, callout and accordion body copy, step text that is full sentences, and any other reader-facing prose.
+
+**Skip humanizer for:** code blocks, CLI commands, file paths, structural frontmatter (keys only), tables of types or endpoints with no explanatory sentences, and Mermaid or other diagrams.
+
+Follow the humanizer workflow end to end: identify AI-style patterns, rewrite while preserving meaning and intended tone, then run the **final anti-AI pass** (draft → what still sounds generated → final rewrite) before you consider the text done.
 
 ## Prerequisites
 
@@ -60,6 +70,8 @@ The `image` field is optional. If set, prefix with `/`.
 Place images and other files in the content root directory (e.g., `docs/`). Reference them with `/` prefix: `/logo.png`, `/screenshot.png`.
 
 ### 3. MDX Pages
+
+Body copy and frontmatter `description` must follow [Writing prose (humanizer)](#writing-prose-humanizer).
 
 Every `.mdx` file needs frontmatter with at least a `title`:
 
