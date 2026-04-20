@@ -48,6 +48,12 @@ import {
   postUserRegistrationConfirmResponseSchema,
 } from "./user-registration.js";
 import {
+  contentGenerationRunQuerySchema,
+  getContentGenerationRunResponseSchema,
+  postContentGenerationRunBodySchema,
+  postContentGenerationRunResponseSchema,
+} from "./content-generation-run.js";
+import {
   getQueryAnalysisQuerySchema,
   getQueryAnalysisResponseSchema,
   postQueryAnalysisBodySchema,
@@ -273,6 +279,28 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postQueryAnalysisBodySchema,
         response: postQueryAnalysisResponseSchema,
+      },
+    },
+  },
+  contentGenerationRuns: {
+    v1: {
+      get: {
+        query: contentGenerationRunQuerySchema,
+        response: getContentGenerationRunResponseSchema,
+      },
+      post: {
+        body: postContentGenerationRunBodySchema,
+        response: postContentGenerationRunResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: contentGenerationRunQuerySchema,
+        response: getContentGenerationRunResponseSchema,
+      },
+      post: {
+        body: postContentGenerationRunBodySchema,
+        response: postContentGenerationRunResponseSchema,
       },
     },
   },
