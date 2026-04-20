@@ -25,6 +25,13 @@ export const deliveryRecipientOutcomeInputSchema = z.object({
   resendEmailId: z.string().nullable().optional(),
 });
 
+/**
+ * POST body for persisting a delivery run.
+ *
+ * @todo(contract) `tickerId` remains `z.string().uuid()` while the delivery agent accepts any non-empty
+ * string (Hermes pipeline / `db:` expansion). Revisit alignment with Prisma and list/query schemas when
+ * we persist non-UUID ticker ids end-to-end.
+ */
 export const postDeliveryRunBodySchema = z.object({
   id: z.string().uuid(),
   agentId: z.string().min(1),

@@ -1,4 +1,4 @@
-import { createAgentApp } from "@workspace/agent-runtime";
+import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-query-analysis";
 import { z } from "zod";
 import {
@@ -8,7 +8,7 @@ import {
 import { runQueryAnalysis } from "./run";
 
 const inputSchema = z.object({
-  tickerId: z.string().min(1),
+  tickerId: hermesTickerIdSchema,
 });
 
 type InputSchema = z.infer<typeof inputSchema>;

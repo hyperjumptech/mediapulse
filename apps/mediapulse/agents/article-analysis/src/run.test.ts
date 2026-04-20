@@ -6,7 +6,7 @@ import { ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE } from "./article-analysis-observa
 import * as RelevancePostChunks from "./analysis-relevance-post-chunks.js";
 import * as Llm from "./llm-extract-entities.js";
 import type { ArticleAnalysisConfig } from "./config-schema.js";
-import type { ArticleAnalysisInput } from "./input-schema.js";
+import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import { run } from "./run.js";
 
 const analysisGet = vi.fn();

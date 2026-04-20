@@ -1,6 +1,6 @@
 import type { GetAnalysisQuery } from "@workspace/agent-data-api-contract";
 
-import type { ArticleAnalysisInput } from "./input-schema.js";
+import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 
 /**
  * Builds the typed agent-data-api `analysis.get` query from validated run input.
