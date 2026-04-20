@@ -12,16 +12,18 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@mediapulse/env": "workspace:*",
+    "@ai-sdk/openai": "^3.0.49",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",
-    "@mediapulse/env": "workspace:*",
+    "@workspace/utils": "workspace:*",
     "@workspace/logger": "workspace:*",
+    "ai": "^6.0.142",
     "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "openai": "^6.21.0",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -29,6 +31,7 @@
     "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod-to-json-schema": "^3.25.1"
   }
 }

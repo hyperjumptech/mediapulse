@@ -16,7 +16,7 @@ type DataSourceWithScore = Prisma.DataSourceGetPayload<{
 
 type ContentGenerationDb = {
   dataSource: Pick<typeof prisma.dataSource, "findMany">;
-  newsletter: Pick<typeof prisma.newsletter, "create">;
+  newsletter: Pick<typeof prisma.newsletter, "create" | "findFirst">;
 };
 
 /**
@@ -104,4 +104,40 @@ export const createNewsletter = async (
     "Created newsletter for ticker",
   );
   return newsletter;
+};
+
+/**
+ * Checks whether a newsletter already exists for a given ticker within a
+ * specified time window.
+ *
+ * Used by the content-generation agent skip-if-fresh precheck (MP-CGA-006).
+ *
+ * @param tickerId - Ticker id to match.
+ * @param windowStart - Start of the time window (inclusive, ISO datetime string).
+ * @param windowEnd - End of the time window (exclusive, ISO datetime string).
+ * @param db - Database dependency, injectable for tests.
+ * @returns Object with `hasNewsletter` flag and optional `newsletterId`.
+ */
+export const getLatestNewsletter = async (
+  tickerId: string,
+  windowStart: string,
+  windowEnd: string,
+  db: Pick<ContentGenerationDb, "newsletter"> = prisma,
+): Promise<{ hasNewsletter: boolean; newsletterId: string | null }> => {
+  const newsletter = await db.newsletter.findFirst({
+    where: {
+      tickerId,
+      createdAt: {
+        gte: new Date(windowStart),
+        lt: new Date(windowEnd),
+      },
+    },
+    select: { id: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return {
+    hasNewsletter: newsletter !== null,
+    newsletterId: newsletter?.id ?? null,
+  };
 };

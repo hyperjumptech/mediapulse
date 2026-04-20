@@ -316,10 +316,13 @@ describe("createAgentDataApiClient", () => {
     expect(postResponse.created).toBe(1);
   });
 
-  it("builds contentGenerationRuns GET with typed query", async () => {
+  it("supports content-generation-newsletters-latest GET", async () => {
     // Setup
     const getFn = vi.fn().mockResolvedValue({
-      body: JSON.stringify({ data: [] }),
+      body: JSON.stringify({
+        hasNewsletter: true,
+        newsletterId: "nl-456",
+      }),
       statusCode: 200,
     });
     const client = createAgentDataApiClient({
@@ -329,21 +332,21 @@ describe("createAgentDataApiClient", () => {
     });
 
     // Act
-    const result = await client.contentGenerationRuns.get({
-      cursor: "00000000-0000-0000-0000-000000000000",
-      limit: 10,
+    const result = await client.contentGenerationNewslettersLatest.get({
       tickerId: "11111111-1111-4111-a111-111111111111",
-      outcome: "failed",
+      windowStart: "2026-04-20T00:00:00.000Z",
+      windowEnd: "2026-04-21T00:00:00.000Z",
     });
 
     // Assert
     expect(getFn).toHaveBeenCalledWith(
-      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationRuns")}?cursor=00000000-0000-0000-0000-000000000000&limit=10&tickerId=11111111-1111-4111-a111-111111111111&outcome=failed`,
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationNewslettersLatest")}?tickerId=11111111-1111-4111-a111-111111111111&windowStart=2026-04-20T00%3A00%3A00.000Z&windowEnd=2026-04-21T00%3A00%3A00.000Z`,
       expect.objectContaining({
         headers: { Authorization: "Bearer sdk-token" },
       }),
     );
-    expect(result.data).toEqual([]);
+      expect(result.hasNewsletter).toBe(true);
+      expect(result.newsletterId).toBe("nl-456");
   });
 
   it("builds contentGenerationRuns POST with typed body and returns created record", async () => {
