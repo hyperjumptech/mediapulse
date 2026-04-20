@@ -11,7 +11,7 @@ export type ContentGenerationRunStageFilter =
   | "validate"
   | "persist";
 
-type ContentGenerationRunDb = {
+export type ContentGenerationRunDb = {
   contentGenerationRun: Pick<
     typeof mediapulsePrisma.contentGenerationRun,
     "create" | "findMany"
@@ -114,8 +114,8 @@ export async function listContentGenerationRuns(
   const rows = await db.contentGenerationRun.findMany(findManyArgs);
   let nextCursor: string | undefined;
   if (rows.length > limit) {
-    const nextItem = rows.pop();
-    nextCursor = nextItem?.id;
+    rows.pop();
+    nextCursor = rows[rows.length - 1]?.id;
   }
 
   return { data: rows, nextCursor };

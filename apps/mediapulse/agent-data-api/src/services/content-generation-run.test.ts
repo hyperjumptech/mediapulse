@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createContentGenerationRun,
   listContentGenerationRuns,
+  type ContentGenerationRunDb,
 } from "./content-generation-run.js";
 
 // ---------------------------------------------------------------------------
@@ -87,7 +88,7 @@ describe("createContentGenerationRun", () => {
         pipelineRunId: "pipeline-run-1",
         newsletterId: null,
       },
-      { db: db as unknown as Parameters<typeof createContentGenerationRun>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      { db: db as unknown as ContentGenerationRunDb },
     );
 
     // Assert
@@ -110,6 +111,7 @@ describe("createContentGenerationRun", () => {
   it("creates a run with only required fields, nulling optional ones", async () => {
     // Setup
     const row = makeRow({
+      outcome: "skipped",
       stage: null,
       errorCode: null,
       errorCategory: null,
@@ -129,7 +131,7 @@ describe("createContentGenerationRun", () => {
         tickerId: "11111111-1111-4111-a111-111111111111",
         outcome: "skipped",
       },
-      { db: db as unknown as Parameters<typeof createContentGenerationRun>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      { db: db as unknown as ContentGenerationRunDb },
     );
 
     // Assert
@@ -144,7 +146,7 @@ describe("createContentGenerationRun", () => {
         }),
       }),
     );
-    expect(result.outcome).toBe("success"); // fixture value
+    expect(result.outcome).toBe("skipped");
   });
 });
 
@@ -169,7 +171,7 @@ describe("listContentGenerationRuns", () => {
     // Act
     const result = await listContentGenerationRuns(
       {},
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      { db: db as unknown as ContentGenerationRunDb },
     );
 
     // Assert
@@ -193,7 +195,7 @@ describe("listContentGenerationRuns", () => {
     // Act
     await listContentGenerationRuns(
       { tickerId },
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      { db: db as unknown as ContentGenerationRunDb },
     );
 
     // Assert
@@ -212,7 +214,7 @@ describe("listContentGenerationRuns", () => {
     // Act
     await listContentGenerationRuns(
       { outcome: "failed" },
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      { db: db as unknown as ContentGenerationRunDb },
     );
 
     // Assert
@@ -233,7 +235,7 @@ describe("listContentGenerationRuns", () => {
     // Act
     await listContentGenerationRuns(
       { startTime, endTime },
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      { db: db as unknown as ContentGenerationRunDb },
     );
 
     // Assert
@@ -255,7 +257,7 @@ describe("listContentGenerationRuns", () => {
     // Act
     await listContentGenerationRuns(
       { startTime },
-      { db: db as unknown as Parameters<typeof listContentGenerationRuns>[1] extends { db?: infer D } ? NonNullable<D> : never },
+      { db: db as unknown as ContentGenerationRunDb },
     );
 
     // Assert
@@ -264,6 +266,52 @@ describe("listContentGenerationRuns", () => {
         where: expect.objectContaining({
           createdAt: { gte: startTime },
         }),
+      }),
+    );
+  });
+
+  it("handles pagination cursor correctly, avoiding skipped rows", async () => {
+    // Setup
+    const limit = 2;
+    // Mock returning 3 items (limit + 1) to simulate having a next page
+    const rows = [
+      makeRow({ id: "row-1" }),
+      makeRow({ id: "row-2" }),
+      makeRow({ id: "row-3" }),
+    ];
+    const db = makeDb();
+    db.contentGenerationRun.findMany.mockResolvedValue([...rows]);
+
+    // Act - First page
+    const result1 = await listContentGenerationRuns(
+      { limit },
+      { db: db as unknown as ContentGenerationRunDb },
+    );
+
+    // Assert - First page
+    expect(db.contentGenerationRun.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: limit + 1,
+      }),
+    );
+    expect(result1.data).toHaveLength(limit);
+    expect(result1.data[0]?.id).toBe("row-1");
+    expect(result1.data[1]?.id).toBe("row-2");
+    // The cursor should be set to the last item actually returned, not the popped extra row
+    expect(result1.nextCursor).toBe("row-2");
+
+    // Act - Second page
+    await listContentGenerationRuns(
+      { limit, cursor: result1.nextCursor },
+      { db: db as unknown as ContentGenerationRunDb },
+    );
+
+    // Assert - Second page
+    expect(db.contentGenerationRun.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: limit + 1,
+        skip: 1,
+        cursor: { id: "row-2" },
       }),
     );
   });

@@ -46,11 +46,11 @@ export const postContentGenerationRunResponseSchema = z.object({
 export const contentGenerationRunQuerySchema = z.object({
   cursor: z.preprocess(
     (v) => (v === "" || v === undefined ? undefined : v),
-    z.string().optional(),
+    z.string().uuid().optional(),
   ),
   limit: z.preprocess(
-    (v) => (v === undefined || v === "" ? 50 : Number(v)),
-    z.number().int().min(1).max(100).optional().default(50),
+    (v) => (v === undefined || v === "" ? undefined : Number(v)),
+    z.number().int().min(1).max(100).optional(),
   ),
   tickerId: z.preprocess(
     (v) => (v === "" || v === undefined ? undefined : v),
