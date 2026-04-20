@@ -2,7 +2,7 @@ export { createAgentApp } from "./create-agent-app.js";
 export {
   hermesTickerIdSchema,
   type HermesTickerId,
-} from "./hermes-ticker-id.js";
+} from "./schemas/hermes-ticker-id.js";
 export {
   hermesInvokeCorrelationFromGetHeader,
   HERMES_HEADER_EXECUTION_ID,

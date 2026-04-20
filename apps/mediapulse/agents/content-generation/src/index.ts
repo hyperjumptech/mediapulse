@@ -1,5 +1,6 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
+/** Agent T3 env — use `@mediapulse/env/agents-*` subpaths (not `process.env` or root `@mediapulse/env`, which targets app bundles). */
 import { env } from "@mediapulse/env/agents-content-generation";
 import { logger } from "@workspace/logger";
 import OpenAI from "openai";

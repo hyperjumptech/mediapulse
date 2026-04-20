@@ -1,8 +1,8 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
-import type { ArticleAnalysisInput } from "./input-schema.js";
-import { articleAnalysisInputSchema } from "./input-schema.js";
+import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
+import { articleAnalysisInputSchema } from "./schemas/article-analysis-input-schema.js";
 import {
   applyMaxBatchSizeCap,
   buildAnalysisGetQuery,
