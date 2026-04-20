@@ -5,6 +5,7 @@ export const postUserRegistrationRegisterBodySchema = z.object({
   email: z.string().email(),
   tickerSymbol: z.string(),
   name: z.string().nullable().optional(),
+  confirmed: z.boolean().optional(),
   audit: z
     .object({
       graphMessageId: z.string().optional(),
