@@ -37,13 +37,18 @@ export {
   type PostContentGenerationResponse,
 } from "./content-generation.js";
 export {
+  DATA_COLLECTION_EXISTING_URLS_MAX,
   dataCollectionBodySchema,
   dataCollectionQuerySchema,
   getDataCollectionResponseSchema,
+  postDataCollectionExistingUrlsBodySchema,
+  postDataCollectionExistingUrlsResponseSchema,
   postDataCollectionResponseSchema,
   type DataCollectionBody,
   type DataCollectionQuery,
   type GetDataCollectionResponse,
+  type PostDataCollectionExistingUrlsBody,
+  type PostDataCollectionExistingUrlsResponse,
   type PostDataCollectionResponse,
 } from "./data-collection.js";
 export {

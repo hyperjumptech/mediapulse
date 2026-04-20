@@ -23,7 +23,7 @@ Use `.js` in relative imports when the package **has a build step** and exports 
 
 ## File Naming
 
-File names must be **kebab-case**.
+File names must be **kebab-case** (exceptions: Next.js routing files like `page.tsx`, `layout.tsx`, `route.ts`, and route-action-gen configs like `route.<method>.config.ts`).
 
 ```
 ✅ user-service.ts

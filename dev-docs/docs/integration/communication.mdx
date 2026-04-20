@@ -44,7 +44,7 @@ Agent->>HermesOrWorker: 200 response
 **Steps:**
 
 1. **Hermes** (manual run) or **hermes-worker** (scheduled run) loads the **domain integration** credential for the pipeline (or uses **`HERMES_INTERNAL_API_KEY`** where applicable) and calls **agent-auth-api** `POST /api/token` with `Authorization: Bearer <secret>`.
-2. **agent-auth-api** matches the bearer token to the preset or a **domain_integration** key hash, signs a JWT with `AGENT_AUTH_JWT_SECRET`, and returns `{ token, expiresIn }` (e.g. 15 minutes).
+2. **agent-auth-api** matches the bearer token to the preset or a **domain_integration** key hash, signs a JWT with `AGENT_AUTH_JWT_SECRET`, and returns `{ token, expiresIn }` (currently **2 hours**).
 3. Hermes/hermes-worker **caches** the JWT and uses it for all agent requests until close to expiry, then fetches a new one.
 4. For each pipeline step, the caller sends `POST` to the agent URL with `Authorization: Bearer <jwt>` and the step input/config.
    - **hermes-worker** (scheduled runs) also sends correlation headers: `X-Job-Id`, `X-Execution-Id`, and schedule context `X-Schedule-Id`, `X-Schedule-Execution-Id`, `X-Pipeline-Step-Id` (see `invokeAgentPost` in `@hermes/scheduler`). Agents built with `@workspace/agent-runtime` receive those schedule/step ids on `run` as optional `context.hermesCorrelation` when those headers are present. Manual dashboard pipeline runs do not send the schedule headers unless extended later.
@@ -52,7 +52,7 @@ Agent->>HermesOrWorker: 200 response
 6. **agent-auth-api** `POST /api/verify` is **JWT-only**: it verifies signature and expiry. If the token is not a JWT or is invalid, it returns 401. The agent rejects the request unless it gets 200.
 7. The agent runs its logic and returns the result.
 
-**Important:** The internal preset key is only ever sent to agent-auth-api. Agents only ever see the JWT, so a leaked JWT expires in minutes. Rotate **`HERMES_INTERNAL_API_KEY`** at deploy time if it is compromised.
+**Important:** The internal preset key is only ever sent to agent-auth-api. Agents only ever see the JWT, so a leaked JWT expires within the configured TTL (see agent-auth-api issuance). Rotate **`HERMES_INTERNAL_API_KEY`** at deploy time if it is compromised.
 
 ---
 

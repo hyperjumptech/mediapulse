@@ -15,6 +15,7 @@ import {
   getContentGeneration,
   postContentGeneration,
 } from "./routes/content-generation.js";
+import { postDataCollectionExistingUrls } from "./routes/data-collection-existing-urls.js";
 import {
   getDataCollection,
   postDataCollection,
@@ -77,6 +78,9 @@ const routeHandlers = {
   dataCollection: {
     get: getDataCollection,
     post: postDataCollection,
+  },
+  dataCollectionExistingUrls: {
+    post: postDataCollectionExistingUrls,
   },
   dataCollectionRun: {
     get: getDataCollectionRun,

@@ -7,6 +7,7 @@ import {
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import {
   createAgentApp,
+  hermesTickerIdSchema,
   type HermesInvokeCorrelation,
 } from "@workspace/agent-runtime";
 import { logger } from "@workspace/logger";
@@ -21,7 +22,7 @@ import {
 } from "./deliver-newsletter.js";
 
 const BodySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: hermesTickerIdSchema,
 });
 
 type Input = z.infer<typeof BodySchema>;
