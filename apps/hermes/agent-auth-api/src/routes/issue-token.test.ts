@@ -86,7 +86,7 @@ describe("issueToken route", () => {
     expect(body).toHaveProperty("token");
     expect(typeof body.token).toBe("string");
     expect(body.token.split(".")).toHaveLength(3);
-    expect(body).toEqual(expect.objectContaining({ expiresIn: 900 }));
+    expect(body).toEqual(expect.objectContaining({ expiresIn: 7200 }));
     const claims = decodeJwt(body.token as string);
     expect(claims.sub).toBe(HERMES_INTERNAL_TOKEN_SUBJECT);
   });

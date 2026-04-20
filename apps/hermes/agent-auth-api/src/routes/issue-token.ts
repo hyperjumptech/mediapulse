@@ -4,7 +4,7 @@ import * as crypto from "crypto";
 import { SignJWT } from "jose";
 import type { Context } from "hono";
 
-const TOKEN_EXPIRY_SECONDS = 900; // 15 minutes
+const TOKEN_EXPIRY_SECONDS = 7200; // 2 hours
 const JWT_ISSUER = "agent-auth-api";
 const JWT_AUDIENCE = "agent-invocation";
 
