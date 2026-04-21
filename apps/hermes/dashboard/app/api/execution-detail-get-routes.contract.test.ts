@@ -119,9 +119,9 @@ describe("execution detail GET APIs (contract)", () => {
     const json: unknown = await response.json();
     const parsed = parseExecutionDetailApiPayload(json);
     expect(parsed.execution.errors).toBeNull();
-    expect(Object.prototype.hasOwnProperty.call(parsed.execution, "errors")).toBe(
-      true,
-    );
+    expect(
+      Object.prototype.hasOwnProperty.call(parsed.execution, "errors"),
+    ).toBe(true);
   });
 
   it("HTTP trigger execution detail JSON includes execution.errors", async () => {

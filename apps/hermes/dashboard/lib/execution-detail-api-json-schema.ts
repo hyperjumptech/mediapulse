@@ -31,5 +31,4 @@ export type ExecutionDetailApiPayload = z.infer<
 
 export const parseExecutionDetailApiPayload = (
   value: unknown,
-): ExecutionDetailApiPayload =>
-  executionDetailApiPayloadSchema.parse(value);
+): ExecutionDetailApiPayload => executionDetailApiPayloadSchema.parse(value);
