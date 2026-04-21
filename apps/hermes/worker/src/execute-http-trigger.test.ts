@@ -39,10 +39,12 @@ vi.mock("@hermes/orchestration-database", () => ({
  * that only depend on zod / plain TS.
  */
 vi.mock("@hermes/scheduler", async () => {
-  const { mergeExecutionConfig } =
-    await import("../../../../packages/hermes/scheduler/src/execution-config");
-  const { diagnosticFromCaughtError } =
-    await import("../../../../packages/hermes/scheduler/src/enqueue-diagnostics");
+  const { mergeExecutionConfig } = await import(
+    "../../../../packages/hermes/scheduler/src/execution-config"
+  );
+  const { diagnosticFromCaughtError } = await import(
+    "../../../../packages/hermes/scheduler/src/enqueue-diagnostics"
+  );
   return {
     planPipelineInvocations: vi.fn(),
     mergeExecutionConfig,
