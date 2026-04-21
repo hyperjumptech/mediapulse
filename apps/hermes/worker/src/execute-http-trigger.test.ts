@@ -1,23 +1,54 @@
 /** @vitest-environment node */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.hoisted(() => {
-  process.env.ORCHESTRATION_DATABASE_URL =
-    process.env.ORCHESTRATION_DATABASE_URL ??
-    "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=orchestration";
-  process.env.HERMES_INTERNAL_API_KEY =
-    process.env.HERMES_INTERNAL_API_KEY ?? "test-hermes-internal-api-key";
-  process.env.TEMP_ADMIN_USERNAME =
-    process.env.TEMP_ADMIN_USERNAME ?? "vitest-admin";
-  process.env.TEMP_ADMIN_PASSWORD =
-    process.env.TEMP_ADMIN_PASSWORD ?? "testtesttest";
-});
+vi.mock("@hermes/orchestration-database", () => ({
+  AgentJobExecutionStatus: {
+    pending: "pending",
+    running: "running",
+    completed: "completed",
+    failed: "failed",
+  },
+  Prisma: {},
+  ScheduleEnqueueStatus: {
+    success: "success",
+    partial: "partial",
+    failed: "failed",
+  },
+  ScheduleRunStatus: {
+    pending: "pending",
+    running: "running",
+    succeeded: "succeeded",
+    partial: "partial",
+    failed: "failed",
+  },
+  ScheduleStepRollupStatus: {
+    pending: "pending",
+    running: "running",
+    success: "success",
+    partial: "partial",
+    failed: "failed",
+    skipped: "skipped",
+    cancelled: "cancelled",
+  },
+}));
 
-vi.mock("@hermes/scheduler", async (importOriginal) => {
-  const mod = await importOriginal<typeof import("@hermes/scheduler")>();
+/**
+ * Mock `@hermes/scheduler` without `importOriginal` so Vitest never loads the full
+ * package entry (which pulls `@hermes/orchestration-database` / env validation).
+ * Real `mergeExecutionConfig` and `diagnosticFromCaughtError` come from source modules
+ * that only depend on zod / plain TS.
+ */
+vi.mock("@hermes/scheduler", async () => {
+  const { mergeExecutionConfig } = await import(
+    "../../../../packages/hermes/scheduler/src/execution-config"
+  );
+  const { diagnosticFromCaughtError } = await import(
+    "../../../../packages/hermes/scheduler/src/enqueue-diagnostics"
+  );
   return {
-    ...mod,
     planPipelineInvocations: vi.fn(),
+    mergeExecutionConfig,
+    diagnosticFromCaughtError,
   };
 });
 

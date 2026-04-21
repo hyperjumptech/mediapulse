@@ -298,17 +298,17 @@ export const createRunPipelineHandler = ({
             : ScheduleEnqueueStatus.success;
       const initialExecutionErrors: Prisma.InputJsonValue | undefined =
         planning.errors.length > 0
-          ? (planning.errors as unknown as Prisma.InputJsonValue)
+          ? (planning.errors as Prisma.InputJsonValue)
           : jobsCreated === 0 &&
               enqueueStatus === ScheduleEnqueueStatus.failed
-            ? ([
+            ? (([
                 {
                   message:
                     "No invocations planned for this pipeline run (check inputs and agents)",
                   timestamp: executionTime.toISOString(),
                   phase: "planning",
                 },
-              ] as unknown as Prisma.InputJsonValue)
+              ] satisfies EnqueueDiagnosticEntry[]) as Prisma.InputJsonValue)
             : undefined;
       const execution = await db.manualPipelineExecution.create({
         data: {
