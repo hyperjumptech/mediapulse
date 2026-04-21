@@ -17,7 +17,8 @@ describe("useEnqueueDiagnosticsPanelViewModel", () => {
       useEnqueueDiagnosticsPanelViewModel("failed", { x: 1 }),
     );
     expect(result.current.status).toBe("invalid");
-    if (result.current.status !== "invalid") throw new Error("expected invalid");
+    if (result.current.status !== "invalid")
+      throw new Error("expected invalid");
     expect(result.current.payloadPreview).toContain('"x"');
     expect(result.current.panelClass).toContain("destructive");
   });
@@ -36,7 +37,8 @@ describe("useEnqueueDiagnosticsPanelViewModel", () => {
       ]),
     );
     expect(result.current.status).toBe("entries");
-    if (result.current.status !== "entries") throw new Error("expected entries");
+    if (result.current.status !== "entries")
+      throw new Error("expected entries");
     expect(result.current.entries).toHaveLength(1);
     expect(result.current.entries[0]?.message).toBe("m");
   });
