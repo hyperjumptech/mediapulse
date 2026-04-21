@@ -1,6 +1,11 @@
 import { useMemo } from "react";
 
 import {
+  parseHermesEnqueueCorrelationFromMetadata,
+  type HermesEnqueueCorrelation,
+} from "@hermes/scheduler/enqueue-diagnostics-correlation";
+
+import {
   isEnqueueDiagnosticsRelevant,
   maskEnqueueDiagnosticEntryPlainText,
   normalizeEnqueueErrorsPayload,
@@ -16,12 +21,18 @@ export type EnqueueDiagnosticsPanelViewModel =
       status: "invalid";
       panelClass: string;
       payloadPreview: string;
+      correlation?: HermesEnqueueCorrelation;
     }
-  | { status: "empty"; panelClass: string }
+  | {
+      status: "empty";
+      panelClass: string;
+      correlation?: HermesEnqueueCorrelation;
+    }
   | {
       status: "entries";
       panelClass: string;
       entries: EnqueueDiagnosticEntry[];
+      correlation?: HermesEnqueueCorrelation;
     };
 
 const panelClassForPartial = (isPartial: boolean): string =>
@@ -32,11 +43,12 @@ const panelClassForPartial = (isPartial: boolean): string =>
 /**
  * Derives everything the enqueue diagnostics panel needs from `enqueueStatus` and raw
  * `errors` JSON: relevance, panel styling, masking, normalization, sorting, and
- * invalid-payload preview text.
+ * invalid-payload preview text. Optional `metadata` supplies enqueue correlation hints.
  */
 export const useEnqueueDiagnosticsPanelViewModel = (
   enqueueStatus: string,
   errors: unknown,
+  metadata?: unknown,
 ): EnqueueDiagnosticsPanelViewModel =>
   useMemo(() => {
     if (!isEnqueueDiagnosticsRelevant(enqueueStatus)) {
@@ -44,6 +56,9 @@ export const useEnqueueDiagnosticsPanelViewModel = (
     }
 
     const panelClass = panelClassForPartial(enqueueStatus === "partial");
+    const correlation = parseHermesEnqueueCorrelationFromMetadata(
+      maskSecretsInJson(metadata),
+    );
     const maskedErrors = maskSecretsInJson(errors);
     const normalized = normalizeEnqueueErrorsPayload(maskedErrors);
 
@@ -52,6 +67,7 @@ export const useEnqueueDiagnosticsPanelViewModel = (
         status: "invalid",
         panelClass,
         payloadPreview: safeJsonStringify(maskSecretsInJson(normalized.raw)),
+        ...(correlation ? { correlation } : {}),
       };
     }
 
@@ -60,8 +76,17 @@ export const useEnqueueDiagnosticsPanelViewModel = (
     );
 
     if (sorted.length === 0) {
-      return { status: "empty", panelClass };
+      return {
+        status: "empty",
+        panelClass,
+        ...(correlation ? { correlation } : {}),
+      };
     }
 
-    return { status: "entries", panelClass, entries: sorted };
-  }, [enqueueStatus, errors]);
+    return {
+      status: "entries",
+      panelClass,
+      entries: sorted,
+      ...(correlation ? { correlation } : {}),
+    };
+  }, [enqueueStatus, errors, metadata]);

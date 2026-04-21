@@ -59,6 +59,7 @@ const minimalFailedDetail = (): ScheduleExecutionDetail => ({
         timestamp: "2026-04-21T12:00:01.000Z",
       },
     ],
+    metadata: null,
     createdAt: new Date("2026-04-21T12:00:00.000Z"),
   },
   pipeline: null,

@@ -96,6 +96,7 @@ export default async function PipelineExecutionDetailPage({
       <EnqueueDiagnosticsPanel
         enqueueStatus={detail.execution.enqueueStatus}
         errors={detail.execution.errors}
+        metadata={detail.execution.metadata}
       />
 
       <section>

@@ -1,5 +1,11 @@
 "use client";
 
+import { Copy } from "lucide-react";
+import { useCallback, useState } from "react";
+
+import { Button } from "@workspace/ui/components/button";
+import type { HermesEnqueueCorrelation } from "@hermes/scheduler/enqueue-diagnostics-correlation";
+
 import type { EnqueueDiagnosticEntry } from "@/lib/enqueue-diagnostics";
 
 import { useEnqueueDiagnosticsPanelViewModel } from "./use-enqueue-diagnostics-panel";
@@ -7,6 +13,8 @@ import { useEnqueueDiagnosticsPanelViewModel } from "./use-enqueue-diagnostics-p
 export type EnqueueDiagnosticsPanelProps = {
   enqueueStatus: string;
   errors: unknown;
+  /** Execution row `metadata` JSON; used for `hermesEnqueueCorrelation` only. */
+  metadata?: unknown;
 };
 
 const displayMessage = (entry: EnqueueDiagnosticEntry): string =>
@@ -28,6 +36,84 @@ const optionalMeta = (
   return rows;
 };
 
+const CorrelationSubsectionInner = ({
+  rows,
+}: {
+  rows: Array<{ key: string; label: string; value: string }>;
+}) => {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const onCopy = useCallback(async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      window.setTimeout(() => setCopiedKey(null), 2000);
+    } catch {
+      setCopiedKey(null);
+    }
+  }, []);
+
+  return (
+    <div className="mt-4 rounded-md border border-border/80 bg-muted/40 p-3">
+      <h3 className="text-sm font-medium text-foreground">Correlation</h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Copy into logs or support tickets to match this enqueue attempt.
+      </p>
+      <ul className="mt-3 list-none space-y-3 p-0">
+        {rows.map(({ key, label, value }) => (
+          <li key={key}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {label}
+                </p>
+                <code className="mt-1 block break-all font-mono text-xs text-foreground">
+                  {value}
+                </code>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 gap-1.5"
+                onClick={() => void onCopy(key, value)}
+                aria-label={`Copy ${label}`}
+              >
+                <Copy className="size-3.5" aria-hidden />
+                {copiedKey === key ? "Copied" : "Copy"}
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+const CorrelationSubsection = ({
+  correlation,
+}: {
+  correlation: HermesEnqueueCorrelation;
+}) => {
+  const rows: Array<{ key: string; label: string; value: string }> = [];
+  if (correlation.requestId != null && correlation.requestId !== "") {
+    rows.push({
+      key: "requestId",
+      label: "Request id",
+      value: correlation.requestId,
+    });
+  }
+  if (correlation.workerTickId != null && correlation.workerTickId !== "") {
+    rows.push({
+      key: "workerTickId",
+      label: "Worker tick id",
+      value: correlation.workerTickId,
+    });
+  }
+  if (rows.length === 0) return null;
+  return <CorrelationSubsectionInner rows={rows} />;
+};
+
 /**
  * Surfaces persisted enqueue-phase errors on execution detail pages (failed / partial only).
  *
@@ -37,8 +123,13 @@ const optionalMeta = (
 export const EnqueueDiagnosticsPanel = ({
   enqueueStatus,
   errors,
+  metadata,
 }: EnqueueDiagnosticsPanelProps) => {
-  const view = useEnqueueDiagnosticsPanelViewModel(enqueueStatus, errors);
+  const view = useEnqueueDiagnosticsPanelViewModel(
+    enqueueStatus,
+    errors,
+    metadata,
+  );
 
   if (view.status === "hidden") {
     return null;
@@ -56,6 +147,9 @@ export const EnqueueDiagnosticsPanel = ({
         <h2 id="enqueue-diagnostics-heading" className="text-lg font-medium">
           Enqueue diagnostics
         </h2>
+        {view.correlation ? (
+          <CorrelationSubsection correlation={view.correlation} />
+        ) : null}
         <p className="mt-2 text-sm font-medium text-destructive">
           Invalid error payload
         </p>
@@ -84,6 +178,9 @@ export const EnqueueDiagnosticsPanel = ({
         <h2 id="enqueue-diagnostics-heading" className="text-lg font-medium">
           Enqueue diagnostics
         </h2>
+        {view.correlation ? (
+          <CorrelationSubsection correlation={view.correlation} />
+        ) : null}
         <p className="mt-2 text-sm text-foreground">
           No detailed enqueue error was recorded for this execution.
         </p>
@@ -107,6 +204,9 @@ export const EnqueueDiagnosticsPanel = ({
       <h2 id="enqueue-diagnostics-heading" className="text-lg font-medium">
         Enqueue diagnostics
       </h2>
+      {view.correlation ? (
+        <CorrelationSubsection correlation={view.correlation} />
+      ) : null}
       <ol className="mt-4 list-none space-y-4 p-0">
         {sorted.map((entry, index) => (
           <li key={`${displayTimestamp(entry)}-${index}`}>

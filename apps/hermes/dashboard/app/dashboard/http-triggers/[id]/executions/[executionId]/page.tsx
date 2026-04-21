@@ -106,6 +106,7 @@ export default async function HttpTriggerExecutionDetailPage({
       <EnqueueDiagnosticsPanel
         enqueueStatus={detail.execution.enqueueStatus}
         errors={detail.execution.errors}
+        metadata={detail.execution.metadata}
       />
 
       {detail.execution.metadata != null ? (

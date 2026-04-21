@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@hermes/env";
+import { headers } from "next/headers";
 import {
   prisma as orchestrationPrisma,
   Prisma,
@@ -18,6 +19,7 @@ import {
   type EnqueueDiagnosticEntry,
   type ExpandStepInputs,
 } from "@hermes/scheduler";
+import { mergeHermesEnqueueCorrelationIntoMetadata } from "@hermes/scheduler/enqueue-diagnostics-correlation";
 import got from "got";
 import {
   createRequestValidator,
@@ -175,6 +177,13 @@ export const createRunPipelineHandler = ({
     try {
       const session = data.user;
 
+      const incomingHeaders = await headers();
+      const headerRequestId = incomingHeaders.get("x-request-id")?.trim();
+      const runRequestId =
+        headerRequestId != null && headerRequestId !== ""
+          ? headerRequestId
+          : randomUUID();
+
       let jwt: string;
       try {
         jwt = await getToken();
@@ -320,11 +329,14 @@ export const createRunPipelineHandler = ({
           jobsCreated,
           jobsEnqueued: jobsCreated,
           errors: initialExecutionErrors,
-          metadata: {
-            source: "dashboard",
-            initiatedByUserId: session.id,
-            initiatedByUserEmail: session.email,
-          },
+          metadata: mergeHermesEnqueueCorrelationIntoMetadata(
+            {
+              source: "dashboard",
+              initiatedByUserId: session.id,
+              initiatedByUserEmail: session.email,
+            },
+            { requestId: runRequestId },
+          ) as Prisma.InputJsonValue,
         },
         select: { id: true },
       });

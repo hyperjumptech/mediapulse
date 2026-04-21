@@ -109,6 +109,7 @@ export default async function ScheduleExecutionDetailPage({
       <EnqueueDiagnosticsPanel
         enqueueStatus={detail.execution.enqueueStatus}
         errors={detail.execution.errors}
+        metadata={detail.execution.metadata}
       />
 
       <section>
