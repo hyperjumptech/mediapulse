@@ -123,4 +123,38 @@ describe("maskScheduleExecutionDetailForDisplay", () => {
         .token,
     ).toBe("••••••••");
   });
+
+  it("masks secrets inside execution.errors", () => {
+    const detail = {
+      execution: {
+        id: "e1",
+        executionTime: new Date(),
+        enqueueStatus: "failed",
+        runStatus: "pending",
+        effectiveExecutionConfig: null,
+        jobsCreated: 0,
+        jobsEnqueued: 0,
+        succeededInvocationCount: 0,
+        failedInvocationCount: 0,
+        errors: [
+          {
+            message: "planning failed",
+            timestamp: "2026-01-01T00:00:00.000Z",
+            exception: { detail: { apiKey: "secret-key" } },
+          },
+        ],
+        createdAt: new Date(),
+      },
+      pipeline: null,
+      schedule: { id: "s1", name: "S" },
+      stepExecutions: [],
+      invocations: [],
+    } satisfies ScheduleExecutionDetail;
+
+    const masked = maskScheduleExecutionDetailForDisplay(detail);
+    const err0 = (masked.execution.errors as Record<string, unknown>[])[0];
+    const exception = err0?.exception as Record<string, unknown>;
+    const detailObj = exception?.detail as Record<string, unknown>;
+    expect(detailObj?.apiKey).toBe("••••••••");
+  });
 });

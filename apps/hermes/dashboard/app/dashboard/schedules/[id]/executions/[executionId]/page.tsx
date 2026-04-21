@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
+import { EnqueueDiagnosticsPanel } from "@/components/enqueue-diagnostics-panel";
 import { ScheduleExecutionInvocationsTable } from "@/components/schedule-execution-invocations-table";
 import {
   computePipelineWallElapsed,
@@ -104,6 +105,11 @@ export default async function ScheduleExecutionDetailPage({
           {detail.execution.failedInvocationCount}
         </p>
       </section>
+
+      <EnqueueDiagnosticsPanel
+        enqueueStatus={detail.execution.enqueueStatus}
+        errors={detail.execution.errors}
+      />
 
       <section>
         <h2 className="mb-2 text-lg font-medium">Pipeline steps</h2>
