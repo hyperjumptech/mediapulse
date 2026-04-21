@@ -99,6 +99,27 @@ describe("detailFromAgentErrorBody", () => {
     expect(detailFromAgentErrorBody('{"message":"No data"}')).toBe("No data");
     expect(detailFromAgentErrorBody({ message: "No data" })).toBe("No data");
   });
+
+  it("adds a gateway hint for 502/503/504 when the body is empty", () => {
+    expect(detailFromAgentErrorBody(null, { statusCode: 502 })).toContain(
+      "Bad gateway or upstream error",
+    );
+    expect(detailFromAgentErrorBody(undefined, { statusCode: 503 })).toContain(
+      "reverse proxy",
+    );
+    expect(detailFromAgentErrorBody("", { statusCode: 504 })).toContain(
+      "load balancer",
+    );
+  });
+
+  it("does not replace a concrete message for 502", () => {
+    expect(
+      detailFromAgentErrorBody(
+        { message: "Rate limited" },
+        { statusCode: 502 },
+      ),
+    ).toBe("Rate limited");
+  });
 });
 
 describe("createRunPipelineHandler", () => {

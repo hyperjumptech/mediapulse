@@ -95,5 +95,7 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Enqueue status:/)).toBeInTheDocument();
     expect(screen.getByText("failed")).toBeInTheDocument();
+    expect(screen.getByText(/Invocation transport:/)).toBeInTheDocument();
+    expect(screen.getByText(/Dashboard HTTP/)).toBeInTheDocument();
   });
 });
