@@ -27,8 +27,8 @@ export const ContentGenerationConfigSchema = z
         /**
          * OpenAI API key for newsletter generation. Required if legacy `openaiApiKey` is omitted.
          * The agent reads the API key exclusively from Hermes config — do not fall back to
-         * process.env.OPENAI_API_KEY at runtime. For local development, set the key in the
-         * Hermes agent config or use the legacy `openaiApiKey` top-level field.
+         * the `OPENAI_API_KEY` environment variable at runtime. For local development, set the
+         * key in the Hermes agent config or use the legacy `openaiApiKey` top-level field.
          * See FR2 and MP-CGA-011 for full local-dev documentation.
          */
         apiKey: z.string().min(1).optional(),
