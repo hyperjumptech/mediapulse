@@ -122,7 +122,13 @@ describe("EnqueueDiagnosticsPanel", () => {
       screen.getByRole("button", { name: "Copy enqueue diagnostics JSON" }),
     );
     expect(writeText).toHaveBeenCalledTimes(1);
-    const payload = JSON.parse(writeText.mock.calls[0][0] as string) as {
+    const firstCall = writeText.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    const rawJson = firstCall![0];
+    if (typeof rawJson !== "string") {
+      expect.fail("clipboard writeText expected a string payload");
+    }
+    const payload = JSON.parse(rawJson) as {
       errors: unknown[];
     };
     expect(Array.isArray(payload.errors)).toBe(true);
