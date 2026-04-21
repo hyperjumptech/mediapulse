@@ -280,7 +280,11 @@ describe("executeSchedule", () => {
     expect(enqueueAgentInvocations).not.toHaveBeenCalled();
     expect(scheduleExecutionCreate).toHaveBeenCalledTimes(1);
     const createCall = scheduleExecutionCreate.mock.calls[0] as [
-      { data: { errors?: Array<{ message: string }> } },
+      {
+        data: {
+          errors?: Array<{ message: string; phase?: string }>;
+        };
+      },
     ];
     const errors = createCall[0].data.errors ?? [];
     expect(errors.some((e) => e.message.includes("must use HTTPS"))).toBe(true);
