@@ -1,4 +1,7 @@
-import type { ScheduleExecutionDetail } from "@/lib/schedules";
+import type { Prisma } from "@hermes/orchestration-database";
+
+import type { HttpTriggerExecutionDetail } from "./http-triggers";
+import type { ScheduleExecutionDetail } from "./schedules";
 
 export {
   isSensitiveJsonKey,
@@ -18,6 +21,35 @@ export const maskScheduleExecutionDetailForDisplay = (
   detail: ScheduleExecutionDetail,
 ): ScheduleExecutionDetail => ({
   ...detail,
+  execution: {
+    ...detail.execution,
+    errors: maskSecretsInJson(detail.execution.errors) as Prisma.JsonValue,
+  },
+  invocations: detail.invocations.map((inv) => ({
+    ...inv,
+    params: maskSecretsInJson(inv.params),
+    invocationConfig:
+      inv.invocationConfig == null
+        ? null
+        : maskSecretsInJson(inv.invocationConfig),
+  })),
+});
+
+/**
+ * HTTP trigger execution detail with `errors`, `metadata`, and per-invocation JSON masked for display.
+ */
+export const maskHttpTriggerExecutionDetailForDisplay = (
+  detail: HttpTriggerExecutionDetail,
+): HttpTriggerExecutionDetail => ({
+  ...detail,
+  execution: {
+    ...detail.execution,
+    errors: maskSecretsInJson(detail.execution.errors) as Prisma.JsonValue,
+    metadata:
+      detail.execution.metadata == null
+        ? null
+        : (maskSecretsInJson(detail.execution.metadata) as Prisma.JsonValue),
+  },
   invocations: detail.invocations.map((inv) => ({
     ...inv,
     params: maskSecretsInJson(inv.params),

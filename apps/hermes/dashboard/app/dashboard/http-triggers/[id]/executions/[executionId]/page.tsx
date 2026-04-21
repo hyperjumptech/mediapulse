@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
+import { EnqueueDiagnosticsPanel } from "@/components/enqueue-diagnostics-panel";
 import { ScheduleExecutionInvocationsTable } from "@/components/schedule-execution-invocations-table";
 import {
   computePipelineWallElapsed,
@@ -17,7 +18,7 @@ import {
 } from "@/lib/compute-execution-elapsed";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
 import { getHttpTriggerExecutionDetail } from "@/lib/http-triggers";
-import { maskSecretsInJson } from "@/lib/mask-json-secrets";
+import { maskHttpTriggerExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 
 /**
  * HTTP trigger execution detail page.
@@ -40,17 +41,7 @@ export default async function HttpTriggerExecutionDetailPage({
     rawDetail.execution.runStatus,
   );
 
-  const detail = {
-    ...rawDetail,
-    invocations: rawDetail.invocations.map((invocation) => ({
-      ...invocation,
-      params: maskSecretsInJson(invocation.params),
-      invocationConfig:
-        invocation.invocationConfig == null
-          ? null
-          : maskSecretsInJson(invocation.invocationConfig),
-    })),
-  };
+  const detail = maskHttpTriggerExecutionDetailForDisplay(rawDetail);
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,15 +103,19 @@ export default async function HttpTriggerExecutionDetailPage({
         </p>
       </section>
 
+      <EnqueueDiagnosticsPanel
+        enqueueStatus={detail.execution.enqueueStatus}
+        errors={detail.execution.errors}
+      />
+
       {detail.execution.metadata != null ? (
         <section>
           <h2 className="mb-2 text-lg font-medium">Request snapshot</h2>
-          <pre className="max-h-[32rem] overflow-auto rounded-md border bg-muted p-4 font-mono text-xs">
-            {JSON.stringify(
-              maskSecretsInJson(detail.execution.metadata),
-              null,
-              2,
-            )}
+          <pre
+            className="max-h-[32rem] overflow-auto rounded-md border bg-muted p-4 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            tabIndex={0}
+          >
+            {JSON.stringify(detail.execution.metadata, null, 2)}
           </pre>
         </section>
       ) : null}
