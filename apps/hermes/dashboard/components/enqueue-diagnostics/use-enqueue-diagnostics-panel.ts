@@ -21,6 +21,7 @@ export type EnqueueDiagnosticsPanelViewModel =
       status: "invalid";
       panelClass: string;
       payloadPreview: string;
+      copyJson: string;
       correlation?: HermesEnqueueCorrelation;
     }
   | {
@@ -32,6 +33,7 @@ export type EnqueueDiagnosticsPanelViewModel =
       status: "entries";
       panelClass: string;
       entries: EnqueueDiagnosticEntry[];
+      copyJson: string;
       correlation?: HermesEnqueueCorrelation;
     };
 
@@ -39,6 +41,18 @@ const panelClassForPartial = (isPartial: boolean): string =>
   isPartial
     ? "rounded-md border border-amber-600/40 bg-amber-500/5 p-4 text-foreground"
     : "rounded-md border border-destructive/40 bg-destructive/5 p-4 text-foreground";
+
+const maskedDiagnosticsExportJson = (
+  errorsValue: unknown,
+  correlation: HermesEnqueueCorrelation | undefined,
+): string => {
+  const payload: Record<string, unknown> = {};
+  if (correlation) {
+    payload.hermesEnqueueCorrelation = correlation;
+  }
+  payload.errors = errorsValue;
+  return safeJsonStringify(payload);
+};
 
 /**
  * Derives everything the enqueue diagnostics panel needs from `enqueueStatus` and raw
@@ -63,10 +77,12 @@ export const useEnqueueDiagnosticsPanelViewModel = (
     const normalized = normalizeEnqueueErrorsPayload(maskedErrors);
 
     if (normalized.kind === "invalid") {
+      const errorsForExport = maskSecretsInJson(normalized.raw);
       return {
         status: "invalid",
         panelClass,
-        payloadPreview: safeJsonStringify(maskSecretsInJson(normalized.raw)),
+        payloadPreview: safeJsonStringify(errorsForExport),
+        copyJson: maskedDiagnosticsExportJson(errorsForExport, correlation),
         ...(correlation ? { correlation } : {}),
       };
     }
@@ -87,6 +103,7 @@ export const useEnqueueDiagnosticsPanelViewModel = (
       status: "entries",
       panelClass,
       entries: sorted,
+      copyJson: maskedDiagnosticsExportJson(sorted, correlation),
       ...(correlation ? { correlation } : {}),
     };
   }, [enqueueStatus, errors, metadata]);

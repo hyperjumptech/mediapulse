@@ -90,6 +90,49 @@ const CorrelationSubsectionInner = ({
   );
 };
 
+const CopyDiagnosticsJsonButton = ({ copyJson }: { copyJson: string }) => {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(copyJson);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }, [copyJson]);
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="shrink-0 gap-1.5 self-start sm:self-auto"
+      onClick={() => void onCopy()}
+      aria-label="Copy enqueue diagnostics JSON"
+    >
+      <Copy className="size-3.5" aria-hidden />
+      {copied ? "Copied" : "Copy JSON"}
+    </Button>
+  );
+};
+
+const EnqueueDiagnosticsSectionHeader = ({
+  copyJson,
+}: {
+  copyJson?: string;
+}) => (
+  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+    <h2 id="enqueue-diagnostics-heading" className="text-lg font-medium">
+      Enqueue diagnostics
+    </h2>
+    {copyJson != null && copyJson !== "" ? (
+      <CopyDiagnosticsJsonButton copyJson={copyJson} />
+    ) : null}
+  </div>
+);
+
 const CorrelationSubsection = ({
   correlation,
 }: {
@@ -144,9 +187,7 @@ export const EnqueueDiagnosticsPanel = ({
         role="region"
         aria-labelledby="enqueue-diagnostics-heading"
       >
-        <h2 id="enqueue-diagnostics-heading" className="text-lg font-medium">
-          Enqueue diagnostics
-        </h2>
+        <EnqueueDiagnosticsSectionHeader copyJson={view.copyJson} />
         {view.correlation ? (
           <CorrelationSubsection correlation={view.correlation} />
         ) : null}
@@ -175,9 +216,7 @@ export const EnqueueDiagnosticsPanel = ({
         role="region"
         aria-labelledby="enqueue-diagnostics-heading"
       >
-        <h2 id="enqueue-diagnostics-heading" className="text-lg font-medium">
-          Enqueue diagnostics
-        </h2>
+        <EnqueueDiagnosticsSectionHeader />
         {view.correlation ? (
           <CorrelationSubsection correlation={view.correlation} />
         ) : null}
@@ -201,9 +240,7 @@ export const EnqueueDiagnosticsPanel = ({
       role="region"
       aria-labelledby="enqueue-diagnostics-heading"
     >
-      <h2 id="enqueue-diagnostics-heading" className="text-lg font-medium">
-        Enqueue diagnostics
-      </h2>
+      <EnqueueDiagnosticsSectionHeader copyJson={view.copyJson} />
       {view.correlation ? (
         <CorrelationSubsection correlation={view.correlation} />
       ) : null}

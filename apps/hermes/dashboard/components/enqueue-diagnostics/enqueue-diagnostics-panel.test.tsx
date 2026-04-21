@@ -49,6 +49,9 @@ describe("EnqueueDiagnosticsPanel", () => {
     expect(
       screen.getByText(/No detailed enqueue error was recorded/i),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Copy enqueue diagnostics JSON" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders invalid payload message for non-array errors", () => {
@@ -102,6 +105,29 @@ describe("EnqueueDiagnosticsPanel", () => {
     expect(
       screen.queryByRole("heading", { name: "Correlation" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("copies masked diagnostics JSON when Copy JSON is used", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <EnqueueDiagnosticsPanel
+        enqueueStatus="failed"
+        errors={[{ message: "one", timestamp: "2026-01-01T00:00:00.000Z" }]}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy enqueue diagnostics JSON" }),
+    );
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(writeText.mock.calls[0][0] as string) as {
+      errors: unknown[];
+    };
+    expect(Array.isArray(payload.errors)).toBe(true);
+    expect(payload.errors).toHaveLength(1);
+    expect(payload.errors[0]).toMatchObject({ message: "one" });
   });
 
   it("renders Correlation and copies request id", async () => {
