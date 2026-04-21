@@ -311,7 +311,6 @@ describe("createNewsletter", () => {
   });
 });
 
-
 describe("getLatestNewsletter", () => {
   afterEach(() => {
     vi.restoreAllMocks();

@@ -56,6 +56,11 @@ const testSources = [
   { url: "https://example.com/b", title: "Story B", content: "Content B." },
 ];
 
+const testContext = {
+  tickerId: "ticker-123",
+  date: "2026-04-21",
+};
+
 // ---------------------------------------------------------------------------
 // Happy path
 // ---------------------------------------------------------------------------
@@ -66,10 +71,15 @@ describe("generateNewsletterWithLlm — happy path", () => {
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     // Act
-    const result = await generateNewsletterWithLlm(testSources, baseConfig, {
-      generateObjectFn,
-      sleepFn: noopSleepFn,
-    });
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
 
     // Assert
     expect(result.subject).toBe("Market Rally Continues");
@@ -86,10 +96,15 @@ describe("generateNewsletterWithLlm — happy path", () => {
     });
 
     // Act
-    const result = await generateNewsletterWithLlm(testSources, baseConfig, {
-      generateObjectFn,
-      sleepFn: noopSleepFn,
-    });
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
 
     // Assert
     expect(result.subject).toBe("Your daily briefing");
@@ -108,10 +123,15 @@ describe("generateNewsletterWithLlm — happy path", () => {
     });
 
     // Act
-    const result = await generateNewsletterWithLlm(testSources, baseConfig, {
-      generateObjectFn,
-      sleepFn: noopSleepFn,
-    });
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
 
     // Assert — only first 3 items in content
     expect(result.content).toContain("1. Item 1");
@@ -128,10 +148,15 @@ describe("generateNewsletterWithLlm — happy path", () => {
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     // Act
-    await generateNewsletterWithLlm(testSources, configWithTimeout, {
-      generateObjectFn,
-      sleepFn: noopSleepFn,
-    });
+    await generateNewsletterWithLlm(
+      testSources,
+      configWithTimeout,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
 
     // Assert
     const callArgs = (generateObjectFn as ReturnType<typeof vi.fn>).mock
@@ -144,7 +169,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     // Act
-    await generateNewsletterWithLlm(testSources, baseConfig, {
+    await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
       generateObjectFn,
       sleepFn: noopSleepFn,
     });
@@ -160,7 +185,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     // Act
-    await generateNewsletterWithLlm(testSources, baseConfig, {
+    await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
       generateObjectFn,
       sleepFn: noopSleepFn,
     });
@@ -187,7 +212,7 @@ describe("generateNewsletterWithLlm — non-retryable errors", () => {
 
     // Act & Assert
     await expect(
-      generateNewsletterWithLlm(testSources, baseConfig, {
+      generateNewsletterWithLlm(testSources, baseConfig, testContext, {
         generateObjectFn,
         sleepFn: noopSleepFn,
       }),
@@ -210,7 +235,7 @@ describe("generateNewsletterWithLlm — non-retryable errors", () => {
 
     // Act & Assert
     await expect(
-      generateNewsletterWithLlm(testSources, baseConfig, {
+      generateNewsletterWithLlm(testSources, baseConfig, testContext, {
         generateObjectFn,
         sleepFn: noopSleepFn,
       }),
@@ -229,7 +254,7 @@ describe("generateNewsletterWithLlm — non-retryable errors", () => {
 
     // Act & Assert
     await expect(
-      generateNewsletterWithLlm(testSources, baseConfig, {
+      generateNewsletterWithLlm(testSources, baseConfig, testContext, {
         generateObjectFn,
         sleepFn: noopSleepFn,
       }),
@@ -267,7 +292,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
 
     // Act & Assert
     await expect(
-      generateNewsletterWithLlm(testSources, config, {
+      generateNewsletterWithLlm(testSources, config, testContext, {
         generateObjectFn,
         sleepFn,
       }),
@@ -308,7 +333,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
       });
 
     // Act
-    const result = await generateNewsletterWithLlm(testSources, config, {
+    const result = await generateNewsletterWithLlm(testSources, config, testContext, {
       generateObjectFn,
       sleepFn,
     });
@@ -332,7 +357,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
 
     // Act & Assert
     await expect(
-      generateNewsletterWithLlm(testSources, baseConfig, {
+      generateNewsletterWithLlm(testSources, baseConfig, testContext, {
         generateObjectFn,
         sleepFn,
       }),
@@ -341,5 +366,243 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
     expect(generateObjectFn).toHaveBeenCalledTimes(
       contentGenerationConfigDefaults.llmRetry.maxAttempts,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Token usage and provenance metadata (MP-CGA-008)
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — token usage and provenance", () => {
+  it("returns promptTokens, completionTokens, and totalTokens when usage is present", async () => {
+    // Setup
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Market Update",
+        executiveSummary: "Stocks rose.",
+        topNews: [{ title: "Gains", summary: "Up." }],
+      },
+      usage: {
+        promptTokens: 120,
+        completionTokens: 80,
+        totalTokens: 200,
+      },
+    });
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    // Assert
+    expect(result.promptTokens).toBe(120);
+    expect(result.completionTokens).toBe(80);
+    expect(result.totalTokens).toBe(200);
+  });
+
+  it("returns null for all token fields when usage is absent", async () => {
+    // Setup — generateObjectFn returns no usage field
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "No Usage",
+        executiveSummary: "No usage data.",
+        topNews: [{ title: "Story", summary: "Summary." }],
+      },
+      // usage intentionally omitted
+    });
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    // Assert
+    expect(result.promptTokens).toBeNull();
+    expect(result.completionTokens).toBeNull();
+    expect(result.totalTokens).toBeNull();
+  });
+
+  it("returns null for all token fields when usage is undefined", async () => {
+    // Setup
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Undefined Usage",
+        executiveSummary: "Undefined.",
+        topNews: [],
+      },
+      usage: undefined,
+    });
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    // Assert
+    expect(result.promptTokens).toBeNull();
+    expect(result.completionTokens).toBeNull();
+    expect(result.totalTokens).toBeNull();
+  });
+
+  it("returns systemPrompt as a non-empty string", async () => {
+    // Setup
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    // Assert
+    expect(typeof result.systemPrompt).toBe("string");
+    expect(result.systemPrompt.length).toBeGreaterThan(0);
+  });
+
+  it("returns resolvedUserPrompt that contains source content", async () => {
+    // Setup
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    // Assert — sources are embedded in the resolved user prompt
+    expect(result.resolvedUserPrompt).toContain("Story A");
+    expect(result.resolvedUserPrompt).toContain("Content A.");
+    expect(result.resolvedUserPrompt).toContain("Story B");
+    expect(result.resolvedUserPrompt).toContain("Content B.");
+  });
+
+  it("returns different resolvedUserPrompt for different sources", async () => {
+    // Setup
+    const generateObjectFn = makeSuccessfulGenerateFn();
+    const otherSources = [
+      { url: "https://example.com/z", title: "Story Z", content: "Content Z." },
+    ];
+
+    // Act
+    const resultA = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+    const resultB = await generateNewsletterWithLlm(
+      otherSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    // Assert
+    expect(resultA.resolvedUserPrompt).not.toBe(resultB.resolvedUserPrompt);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Prompt wiring and substitution (MP-CGA-003 / MP-CGA-008)
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
+  it("uses systemPrompt from config when provided", async () => {
+    // Setup
+    const customSystem = "You are a specialized financial analyst.";
+    const config = resolveContentGenerationConfig({
+      openaiApiKey: "sk-test",
+      prompts: { systemPrompt: customSystem },
+    });
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    // Act
+    const result = await generateNewsletterWithLlm(testSources, config, testContext, {
+      generateObjectFn,
+      sleepFn: noopSleepFn,
+    });
+
+    // Assert
+    expect(result.systemPrompt).toBe(customSystem);
+    const callArgs = (generateObjectFn as ReturnType<typeof vi.fn>).mock
+      .calls[0]![0] as GenerateNewsletterObjectArgs;
+    expect(callArgs.system).toBe(customSystem);
+  });
+
+  it("substitutes {{tickerId}} and {{date}} in userPromptTemplate", async () => {
+    // Setup
+    const customTemplate = "Analysis for {{tickerId}} on {{date}}.\n\n{{sourceSummaries}}";
+    const config = resolveContentGenerationConfig({
+      openaiApiKey: "sk-test",
+      prompts: { userPromptTemplate: customTemplate },
+    });
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    // Act
+    const result = await generateNewsletterWithLlm(testSources, config, testContext, {
+      generateObjectFn,
+      sleepFn: noopSleepFn,
+    });
+
+    // Assert
+    expect(result.resolvedUserPrompt).toContain(`Analysis for ${testContext.tickerId}`);
+    expect(result.resolvedUserPrompt).toContain(`on ${testContext.date}`);
+    expect(result.resolvedUserPrompt).toContain("Story A");
+    const callArgs = (generateObjectFn as ReturnType<typeof vi.fn>).mock
+      .calls[0]![0] as GenerateNewsletterObjectArgs;
+    expect(callArgs.prompt).toBe(result.resolvedUserPrompt);
+  });
+
+  it("handles multiple occurrences of the same placeholder", async () => {
+    // Setup
+    const customTemplate = "{{tickerId}} report: {{tickerId}}.";
+    const config = resolveContentGenerationConfig({
+      openaiApiKey: "sk-test",
+      prompts: { userPromptTemplate: customTemplate },
+    });
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    // Act
+    const result = await generateNewsletterWithLlm(testSources, config, testContext, {
+      generateObjectFn,
+      sleepFn: noopSleepFn,
+    });
+
+    // Assert
+    expect(result.resolvedUserPrompt).toBe(`${testContext.tickerId} report: ${testContext.tickerId}.`);
   });
 });
