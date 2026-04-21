@@ -13,6 +13,7 @@ import { pinoLogger } from "hono-pino";
 import { getAnalysis, postAnalysis } from "./routes/analysis.js";
 import {
   getContentGeneration,
+  getContentGenerationNewslettersLatest,
   postContentGeneration,
 } from "./routes/content-generation.js";
 import { postDataCollectionExistingUrls } from "./routes/data-collection-existing-urls.js";
@@ -38,6 +39,10 @@ import {
   getQueryAnalysis,
   postQueryAnalysis,
 } from "./routes/query-analysis.js";
+import {
+  getContentGenerationRuns,
+  postContentGenerationRun,
+} from "./routes/content-generation-run.js";
 import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
@@ -71,6 +76,9 @@ const routeHandlers = {
     get: getContentGeneration,
     post: postContentGeneration,
   },
+  contentGenerationNewslettersLatest: {
+    get: getContentGenerationNewslettersLatest,
+  },
   dataCollection: {
     get: getDataCollection,
     post: postDataCollection,
@@ -103,6 +111,10 @@ const routeHandlers = {
   },
   userRegistrationConfirm: {
     post: postUserRegistrationConfirmHandler,
+  },
+  contentGenerationRuns: {
+    get: getContentGenerationRuns,
+    post: postContentGenerationRun,
   },
 } satisfies AgentDataApiHandlers;
 

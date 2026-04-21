@@ -38,6 +38,10 @@ const deliveryRunPath = agentDataApiPathname(
 const NL_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const UT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const contentGenerationV2Path = agentDataApiPathname("v2", "contentGeneration");
+const contentGenerationNewslettersLatestPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "contentGenerationNewslettersLatest",
+);
 
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
@@ -85,6 +89,7 @@ vi.mock("./services/analysis.js", async (importOriginal) => {
 vi.mock("./services/content-generation.js", () => ({
   getDataSourcesForTicker: vi.fn(),
   createNewsletter: vi.fn(),
+  getLatestNewsletter: vi.fn(),
 }));
 
 vi.mock("./services/delivery.js", () => ({
@@ -174,6 +179,68 @@ describe("agent-data-api", () => {
       );
       expect(res.status).toBe(401);
     }, 20_000);
+  });
+
+  describe(`GET ${contentGenerationNewslettersLatestPath}`, () => {
+    it("returns 401 without Authorization header", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationNewslettersLatestPath}?tickerId=${TICKER_ID}&windowStart=2026-04-20T00:00:00.000Z&windowEnd=2026-04-21T00:00:00.000Z`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("returns hasNewsletter:true when a newsletter exists in the window", async () => {
+      const mod = await getContentGenerationService();
+      vi.mocked(mod.getLatestNewsletter).mockResolvedValue({
+        hasNewsletter: true,
+        newsletterId: "nl-123",
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationNewslettersLatestPath}?tickerId=${TICKER_ID}&windowStart=2026-04-20T00:00:00.000Z&windowEnd=2026-04-21T00:00:00.000Z`,
+        { headers: AUTH_HEADERS },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.hasNewsletter).toBe(true);
+      expect(body.newsletterId).toBe("nl-123");
+      expect(mod.getLatestNewsletter).toHaveBeenCalledWith(
+        TICKER_ID,
+        "2026-04-20T00:00:00.000Z",
+        "2026-04-21T00:00:00.000Z",
+      );
+    });
+
+    it("returns hasNewsletter:false when no newsletter exists in the window", async () => {
+      const mod = await getContentGenerationService();
+      vi.mocked(mod.getLatestNewsletter).mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationNewslettersLatestPath}?tickerId=${TICKER_ID}&windowStart=2026-04-20T00:00:00.000Z&windowEnd=2026-04-21T00:00:00.000Z`,
+        { headers: AUTH_HEADERS },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.hasNewsletter).toBe(false);
+      expect(body.newsletterId).toBeNull();
+    });
+
+    it("returns 400 when query validation fails (missing tickerId)", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationNewslettersLatestPath}?windowStart=2026-04-20T00:00:00.000Z&windowEnd=2026-04-21T00:00:00.000Z`,
+        { headers: AUTH_HEADERS },
+      );
+      expect(res.status).toBe(400);
+    });
   });
 
   describe(`POST ${contentGenerationPath}`, () => {

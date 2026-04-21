@@ -46,7 +46,7 @@ export const registerAgentDataApiRoutes = (
       api.get(segment, routeHandlers.get);
     }
 
-    if (routeConfig.post && routeHandlers.post) {
+    if ("post" in routeConfig && routeConfig.post && routeHandlers.post) {
       api.post(segment, routeHandlers.post);
     }
   }
