@@ -53,7 +53,7 @@ Every run emits a structured **info** log with message `article_analysis.run.sum
 | Area | Fields (examples) |
 | ---- | ----------------- |
 | Correlation | Log child bindings: `component`, `runId`, `tickerId`, and optional Hermes ids (`jobId`, `executionId`, `scheduleId`, `scheduleExecutionId`, `pipelineStepId`) when invoke headers are present |
-| Outcome | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy, **`debounce_min_unanalyzed_count`**, **`debounce_min_minutes_since_last_score`**) |
+| Outcome | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy, **`debounce_min_unanalyzed_count`**, **`debounce_min_minutes_since_last_score`**, pre-POST **`relevance_row_validation`**, relevance chunk build **`relevance_chunk_parse`**) |
 | Extraction | `articlesProcessed`, `extractionSuccessCount`, `extractionFailureCount`, **`extractionFailuresVocabulary`** vs **`extractionFailuresLlm`** |
 | Validation | **`relevanceRowValidationFailures`** (pre-POST row checks), **`chunkParseErrors*`** (entity/relation chunks, `articleEntities`, `articleRelevances` chunk-build / Zod issues) |
 | Persist | `postFailureCount`, **`postFailuresByChunkKind`**, **`postFailuresByErrorCategory`** (`agent_data_api_http` vs `unknown`) |
