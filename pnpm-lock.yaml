@@ -518,6 +518,9 @@ importers:
 
   apps/mediapulse/agents/content-generation:
     dependencies:
+      '@ai-sdk/openai':
+        specifier: ^3.0.49
+        version: 3.0.49(zod@3.25.76)
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../../packages/mediapulse/env
@@ -536,6 +539,12 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
+      '@workspace/utils':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/utils
+      ai:
+        specifier: ^6.0.142
+        version: 6.0.142(zod@3.25.76)
       got:
         specifier: 'catalog:'
         version: 14.6.6
@@ -545,9 +554,6 @@ importers:
       hono-pino:
         specifier: 'catalog:'
         version: 0.6.0(hono@4.11.9)(pino@10.3.1)
-      openai:
-        specifier: ^6.21.0
-        version: 6.21.0(ws@8.18.3)(zod@3.25.76)
       zod:
         specifier: 'catalog:'
         version: 3.25.76
@@ -8131,18 +8137,6 @@ packages:
   open@11.0.0:
     resolution: {integrity: sha512-smsWv2LzFjP03xmvFoJ331ss6h+jixfA4UUV/Bsiyuu4YJPfN+FIQGOIiv4w9/+MoHkfkJ22UIaQWRVFRfH6Vw==}
     engines: {node: '>=20'}
-
-  openai@6.21.0:
-    resolution: {integrity: sha512-26dQFi76dB8IiN/WKGQOV+yKKTTlRCxQjoi2WLt0kMcH8pvxVyvfdBDkld5GTl7W1qvBpwVOtFcsqktj3fBRpA==}
-    hasBin: true
-    peerDependencies:
-      ws: ^8.18.0
-      zod: ^3.25 || ^4.0
-    peerDependenciesMeta:
-      ws:
-        optional: true
-      zod:
-        optional: true
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -17288,11 +17282,6 @@ snapshots:
       is-inside-container: 1.0.0
       powershell-utils: 0.1.0
       wsl-utils: 0.3.1
-
-  openai@6.21.0(ws@8.18.3)(zod@3.25.76):
-    optionalDependencies:
-      ws: 8.18.3
-      zod: 3.25.76
 
   optionator@0.9.4:
     dependencies:
