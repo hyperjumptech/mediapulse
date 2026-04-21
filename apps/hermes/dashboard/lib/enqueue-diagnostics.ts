@@ -2,6 +2,8 @@
  * Normalization and ordering for persisted `execution.errors` JSON on Hermes executions.
  */
 
+import { maskSensitiveInlinePatternsInString } from "./json-secret-mask";
+
 export type EnqueueDiagnosticException = {
   name?: string;
   message?: string;
@@ -110,6 +112,35 @@ export const sortEnqueueErrorEntriesOldestFirst = (
   });
   withoutTime.sort((a, b) => a.originalIndex - b.originalIndex);
   return [...withTime, ...withoutTime].map((x) => x.entry);
+};
+
+/**
+ * Applies {@link maskSensitiveInlinePatternsInString} to free-text diagnostic fields
+ * after structured JSON masking (e.g. {@link maskSecretsInJson} on `errors`).
+ */
+export const maskEnqueueDiagnosticEntryPlainText = (
+  entry: EnqueueDiagnosticEntry,
+): EnqueueDiagnosticEntry => {
+  const message = entry.message
+    ? maskSensitiveInlinePatternsInString(entry.message)
+    : entry.message;
+  if (entry.exception == null) {
+    return { ...entry, message };
+  }
+  const ex = entry.exception;
+  return {
+    ...entry,
+    message,
+    exception: {
+      ...ex,
+      message: ex.message
+        ? maskSensitiveInlinePatternsInString(ex.message)
+        : ex.message,
+      stack: ex.stack
+        ? maskSensitiveInlinePatternsInString(ex.stack)
+        : ex.stack,
+    },
+  };
 };
 
 /** JSON preview for invalid payloads; never throws. */

@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { SECRET_MASK } from "@/lib/mask-json-secrets";
+
 import { EnqueueDiagnosticsPanel } from "./enqueue-diagnostics-panel";
 
 describe("EnqueueDiagnosticsPanel", () => {
@@ -58,6 +60,35 @@ describe("EnqueueDiagnosticsPanel", () => {
     );
     expect(screen.getByText("Invalid error payload")).toBeInTheDocument();
     expect(screen.getByText(/"not"/)).toBeInTheDocument();
+  });
+
+  it("masks structured secrets in invalid error JSON before display", () => {
+    const { container } = render(
+      <EnqueueDiagnosticsPanel
+        enqueueStatus="failed"
+        errors={{ hint: "bad shape", nested: { apiKey: "must-not-show" } }}
+      />,
+    );
+    expect(container.textContent).not.toContain("must-not-show");
+    expect(container.textContent).toContain(SECRET_MASK);
+  });
+
+  it("redacts Bearer substrings in diagnostic messages", () => {
+    render(
+      <EnqueueDiagnosticsPanel
+        enqueueStatus="failed"
+        errors={[
+          {
+            message: "Upstream rejected Bearer supersecretvalue",
+            timestamp: "2026-01-01T00:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+    expect(screen.queryByText(/supersecretvalue/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Upstream rejected Bearer \[redacted\]/),
+    ).toBeInTheDocument();
   });
 
   it("renders exception stack in a scrollable pre", () => {

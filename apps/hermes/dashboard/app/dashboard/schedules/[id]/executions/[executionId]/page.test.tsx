@@ -18,6 +18,7 @@ vi.mock("@/lib/schedules", () => ({
 
 vi.mock("@/lib/mask-json-secrets", () => ({
   maskScheduleExecutionDetailForDisplay: (detail: unknown) => detail,
+  maskSecretsInJson: (value: unknown) => value,
 }));
 
 vi.mock("@/lib/compute-execution-elapsed", () => ({

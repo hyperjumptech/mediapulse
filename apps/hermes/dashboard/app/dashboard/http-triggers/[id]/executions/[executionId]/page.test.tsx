@@ -18,6 +18,7 @@ vi.mock("@/lib/http-triggers", () => ({
 
 vi.mock("@/lib/mask-json-secrets", () => ({
   maskHttpTriggerExecutionDetailForDisplay: (detail: unknown) => detail,
+  maskSecretsInJson: (value: unknown) => value,
 }));
 
 vi.mock("@/lib/compute-execution-elapsed", () => ({

@@ -6,6 +6,24 @@
 export const SECRET_MASK = "••••••••";
 
 /**
+ * Redacts common credential substrings that can appear inside free-text fields
+ * (`message`, `exception.stack`, etc.) where key-based {@link maskSecretsInJson}
+ * does not apply. Conservative: does not attempt full PII or stack trace parsing.
+ */
+export const maskSensitiveInlinePatternsInString = (value: string): string => {
+  let out = value;
+  out = out.replace(/\bBearer\s+[^\s"'<>]+/gi, "Bearer [redacted]");
+  out = out.replace(
+    /(^|\n)[^\S\r\n]*authorization:\s*.+?(?=\n|$)/gi,
+    (_m, lead) => {
+      const prefix = typeof lead === "string" ? lead : "";
+      return `${prefix}Authorization: [redacted]`;
+    },
+  );
+  return out;
+};
+
+/**
  * Returns true when a JSON object key likely holds a credential or secret.
  * Matching is conservative: values under these keys are masked in the dashboard.
  *
