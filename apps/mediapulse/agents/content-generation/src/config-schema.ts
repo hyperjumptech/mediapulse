@@ -114,6 +114,8 @@ export const ContentGenerationConfigSchema = z
         timezone: "Asia/Jakarta",
       }),
 
+    // No jitter field — persistRetry uses fixed exponential backoff without jitter
+    // (unlike llmRetry). This is an intentional PRD design choice, not an oversight.
     persistRetry: z
       .object({
         /** Maximum number of retry attempts for persisting data. */
@@ -148,12 +150,20 @@ export type ResolvedLlmRetryConfig = {
   jitter: boolean;
 };
 
+/** Fully resolved persist retry settings (all fields guaranteed present, no jitter). */
+export type ResolvedPersistRetryConfig = {
+  maxAttempts: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+};
+
 /**
  * Content-generation config with optional fields resolved to their production defaults.
  * Use {@link resolveContentGenerationConfig} to obtain this from a parsed config.
  */
 export type ResolvedContentGenerationConfig = ContentGenerationConfig & {
   llmRetry: ResolvedLlmRetryConfig;
+  persistRetry: ResolvedPersistRetryConfig;
 };
 
 /** Production defaults for fields that may be omitted in Hermes config. */
@@ -163,6 +173,11 @@ export const contentGenerationConfigDefaults = {
     baseDelayMs: 500,
     maxDelayMs: 8000,
     jitter: true,
+  },
+  persistRetry: {
+    maxAttempts: 2,
+    baseDelayMs: 200,
+    maxDelayMs: 2000,
   },
 } as const;
 
@@ -183,6 +198,8 @@ export function resolveContentGenerationConfig(
   const model = config.openai?.model ?? config.openaiModel ?? "gpt-4o-mini";
   const baseUrl = config.openai?.baseUrl ?? config.openaiBaseUrl;
 
+  const persistDefaults = contentGenerationConfigDefaults.persistRetry;
+
   return {
     ...config,
     openai: {
@@ -196,6 +213,13 @@ export function resolveContentGenerationConfig(
       baseDelayMs: config.llmRetry?.baseDelayMs ?? defaults.baseDelayMs,
       maxDelayMs: config.llmRetry?.maxDelayMs ?? defaults.maxDelayMs,
       jitter: config.llmRetry?.jitter ?? defaults.jitter,
+    },
+    persistRetry: {
+      maxAttempts:
+        config.persistRetry?.maxAttempts ?? persistDefaults.maxAttempts,
+      baseDelayMs:
+        config.persistRetry?.baseDelayMs ?? persistDefaults.baseDelayMs,
+      maxDelayMs: config.persistRetry?.maxDelayMs ?? persistDefaults.maxDelayMs,
     },
   };
 }

@@ -6,6 +6,8 @@ import { logger } from "@workspace/logger";
 import type { ContentGenerationConfig } from "./config-schema.js";
 import { resolveContentGenerationConfig } from "./config-schema.js";
 import { classifyLlmError } from "./llm-classify-error.js";
+import { classifyPersistError } from "./classify-persist-error.js";
+import { persistNewsletterWithRetry } from "./persist-with-retry.js";
 import {
   generateNewsletterWithLlm,
   type SourceForGeneration,
@@ -21,7 +23,8 @@ type Input = { tickerId: string };
  * LLM (with retry) → persist to agent-data-api. Every exit path produces a
  * canonical {@link AgentOutcome} for diagnostics (MP-CGA-007).
  *
- * Note: Persist error handling (retry + classification) is deferred to MP-CGA-009.
+ * Persist errors are retried within a bounded policy (MP-CGA-009); transient 5xx/429
+ * are retried, while 4xx client errors fail fast.
  */
 export async function run({
   input,
@@ -83,16 +86,31 @@ export async function run({
     };
   }
 
-  // Persist generated newsletter via agent-data-api.
-  // Note: Retry + error classification deferred to MP-CGA-009.
-  await dataApiClient.contentGeneration.create({
-    subject: generated.subject,
-    content: generated.content,
-    ...(generated.description && {
-      description: generated.description,
-    }),
-    tickerId: input.tickerId,
-  });
+  // Persist generated newsletter via agent-data-api with retry for transient errors.
+  // Transient 5xx/429 are retried up to persistRetry.maxAttempts; 4xx fail fast.
+  // The stage is "persist" in diagnostic records (MP-CGA-007).
+  try {
+    await persistNewsletterWithRetry(
+      (body) => dataApiClient.contentGeneration.create(body),
+      {
+        subject: generated.subject,
+        content: generated.content,
+        ...(generated.description && {
+          description: generated.description,
+        }),
+        tickerId: input.tickerId,
+      },
+      resolvedConfig.persistRetry,
+    );
+  } catch (err) {
+    const code = classifyPersistError(err);
+    const outcome: AgentOutcome = { outcome: code, skipped: false };
+    logger.error({ tickerId: input.tickerId, outcome, err }, "Persist failed");
+    return {
+      success: false,
+      message: `Newsletter persist failed: ${code}`,
+    };
+  }
 
   logger.info({ tickerId: input.tickerId }, "Stored newsletter for ticker");
   return { success: true };

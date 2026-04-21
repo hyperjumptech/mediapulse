@@ -248,23 +248,68 @@ describe("run", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Persist errors — propagate (classification deferred to MP-CGA-009)
+  // Persist errors — retry + classification (MP-CGA-009)
   // -------------------------------------------------------------------------
 
-  it("throws on agent-data-api error (persist handling deferred to MP-CGA-009)", async () => {
-    // Setup
+  it("returns success:false with persist_transient on exhausted persist retries (503)", async () => {
+    // Setup — all persist attempts fail with 503
     contentGenerationGet.mockResolvedValue({ dataSources: testSources });
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
       generatedNewsletter,
     );
     contentGenerationCreate.mockRejectedValue(
-      new Error("Agent data API error: 500"),
+      new Error("Agent data API error: 503"),
     );
 
-    // Act & Assert
-    await expect(run(makeContext())).rejects.toThrow(
-      "Agent data API error: 500",
+    // Act
+    const result = await run(makeContext());
+
+    // Assert
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.message).toContain("persist_transient");
+    }
+    // Default persistRetry.maxAttempts is 2
+    expect(contentGenerationCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns success:false with persist_client_error on 4xx (no retry)", async () => {
+    // Setup — 400 is non-retryable, should fail immediately
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+      generatedNewsletter,
     );
+    contentGenerationCreate.mockRejectedValue(
+      new Error("Agent data API error: 400"),
+    );
+
+    // Act
+    const result = await run(makeContext());
+
+    // Assert
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.message).toContain("persist_client_error");
+    }
+    expect(contentGenerationCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns success:true when first persist fails 503 and second succeeds", async () => {
+    // Setup — first attempt 503, second succeeds
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+      generatedNewsletter,
+    );
+    contentGenerationCreate
+      .mockRejectedValueOnce(new Error("Agent data API error: 503"))
+      .mockResolvedValueOnce({ message: "ok" });
+
+    // Act
+    const result = await run(makeContext());
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(contentGenerationCreate).toHaveBeenCalledTimes(2);
   });
 
   // -------------------------------------------------------------------------

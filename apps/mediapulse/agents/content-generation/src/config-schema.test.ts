@@ -333,4 +333,39 @@ describe("resolveContentGenerationConfig", () => {
     // Assert
     expect(resolved.openai?.timeoutMs).toBe(120000);
   });
+
+  it("fills persistRetry defaults when persistRetry is omitted", () => {
+    // Setup
+    const config = ContentGenerationConfigSchema.parse({
+      openaiApiKey: "sk-test",
+    });
+
+    // Act
+    const resolved = resolveContentGenerationConfig(config);
+
+    // Assert
+    expect(resolved.persistRetry.maxAttempts).toBe(2);
+    expect(resolved.persistRetry.baseDelayMs).toBe(200);
+    expect(resolved.persistRetry.maxDelayMs).toBe(2000);
+  });
+
+  it("preserves explicit persistRetry values when supplied", () => {
+    // Setup
+    const config = ContentGenerationConfigSchema.parse({
+      openaiApiKey: "sk-test",
+      persistRetry: {
+        maxAttempts: 5,
+        baseDelayMs: 100,
+        maxDelayMs: 1000,
+      },
+    });
+
+    // Act
+    const resolved = resolveContentGenerationConfig(config);
+
+    // Assert
+    expect(resolved.persistRetry.maxAttempts).toBe(5);
+    expect(resolved.persistRetry.baseDelayMs).toBe(100);
+    expect(resolved.persistRetry.maxDelayMs).toBe(1000);
+  });
 });

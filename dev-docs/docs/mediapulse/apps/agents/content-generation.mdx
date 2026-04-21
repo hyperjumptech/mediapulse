@@ -15,6 +15,7 @@ The content-generation agent takes **selected data sources** (scored by the anal
 - **Calls OpenAI** via the Vercel AI SDK (`generateObject` from `ai` with `@ai-sdk/openai` provider) to generate structured newsletter content (subject, executive summary, top news items). The API key, optional API base URL, and model id are **not** read from environment variables; they come from the **agent config** selected for the pipeline step in Hermes (Dashboard → Agent configs), so admins can manage credentials centrally (optionally using [variable expansion](/hermes/agent-hermes-contract#variables-in-config-and-params) for secrets).
 - **Retries** transient LLM failures (rate limits, 5xx errors, timeouts) using exponential backoff with optional jitter, up to `llmRetry.maxAttempts` (default 3). Non-retryable errors (auth, bad request, schema validation) short-circuit immediately.
 - **Classifies errors** into structured outcome codes for diagnostics (see [Error taxonomy](#error-taxonomy) below).
+- **Retries persist** errors (agent-data-api 5xx, 429, network timeouts) using exponential backoff up to `persistRetry.maxAttempts` (default 2, no jitter). Non-retryable 4xx client errors fail fast without retrying.
 - **Stores** generated content via agent-data-api for the delivery agent.
 - **Skips** with a clear message and outcome code `no_sources` if no data sources are found.
 
@@ -43,6 +44,9 @@ The content-generation agent takes **selected data sources** (scored by the anal
 | `llmRetry.baseDelayMs` | `number` | ❌ | `500` | Base backoff delay in ms. |
 | `llmRetry.maxDelayMs` | `number` | ❌ | `8000` | Max backoff delay cap in ms. |
 | `llmRetry.jitter` | `boolean` | ❌ | `true` | Apply ±50% jitter to delays. |
+| `persistRetry.maxAttempts` | `number` | ❌ | `2` | Max persist retry attempts (including first). |
+| `persistRetry.baseDelayMs` | `number` | ❌ | `200` | Base backoff delay in ms. |
+| `persistRetry.maxDelayMs` | `number` | ❌ | `2000` | Max backoff delay cap in ms. No jitter (unlike llmRetry). |
 
 ## Error taxonomy
 
@@ -56,10 +60,10 @@ Every run exit path maps to a canonical `OutcomeCode` (defined in `src/types/out
 | `openai_non_retryable` | LLM returned a non-retryable error (auth, bad request, etc.) |
 | `openai_invalid_response` | LLM returned HTTP 200 but no structured object was produced |
 | `validation_failed` | LLM output failed Zod schema validation (`TypeValidationError`) |
-| `persist_transient` | agent-data-api returned 429 or 5xx on newsletter create |
-| `persist_client_error` | agent-data-api returned a 4xx client error on newsletter create |
+| `persist_transient` | agent-data-api returned 429 or 5xx on newsletter create and all persist retries were exhausted |
+| `persist_client_error` | agent-data-api returned a non-retryable 4xx client error on newsletter create (no retry attempted) |
 
-The `AgentRunResult` envelope returned to Hermes is unchanged: `{ success: false, message: "..." }` for all failure/skip paths. The `AgentOutcome` internal type (with `OutcomeCode` and `skipped` flag) is available for future diagnostic writes (MP-CGA-007). Persist retry logic is deferred to MP-CGA-009.
+The `AgentRunResult` envelope returned to Hermes is unchanged: `{ success: false, message: "..." }` for all failure/skip paths. The `AgentOutcome` internal type (with `OutcomeCode` and `skipped` flag) is available for future diagnostic writes (MP-CGA-007). Persist retry logic uses `persistRetry` config (MP-CGA-009); the `stage` field in diagnostic records is `"persist"` for both persist outcome codes (MP-CGA-007).
 
 ## Workspace dependencies
 
