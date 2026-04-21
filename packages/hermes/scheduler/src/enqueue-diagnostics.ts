@@ -62,11 +62,7 @@ export const truncateEnqueueDiagnosticEntry = (
     if (name.truncated || message.truncated || stack.truncated) {
       anyTruncated = true;
     }
-    if (
-      name.text !== "" ||
-      message.text !== "" ||
-      stack.text !== ""
-    ) {
+    if (name.text !== "" || message.text !== "" || stack.text !== "") {
       exception = {
         ...(name.text !== "" ? { name: name.text } : {}),
         ...(message.text !== "" ? { message: message.text } : {}),
@@ -119,9 +115,7 @@ export const diagnosticFromCaughtError = (
       exception: {
         name: err.name,
         message: err.message,
-        ...(err.stack != null && err.stack !== ""
-          ? { stack: err.stack }
-          : {}),
+        ...(err.stack != null && err.stack !== "" ? { stack: err.stack } : {}),
       },
     };
     return truncateEnqueueDiagnosticEntry(entry);

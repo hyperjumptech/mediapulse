@@ -309,7 +309,9 @@ describe("executeSchedule", () => {
 
     expect(scheduleExecutionUpdate).toHaveBeenCalled();
     const updateArg = scheduleExecutionUpdate.mock.calls[0]?.[0] as {
-      data: { errors?: Array<{ phase?: string; exception?: { stack?: string } }> };
+      data: {
+        errors?: Array<{ phase?: string; exception?: { stack?: string } }>;
+      };
     };
     const persisted = updateArg.data.errors ?? [];
     expect(
