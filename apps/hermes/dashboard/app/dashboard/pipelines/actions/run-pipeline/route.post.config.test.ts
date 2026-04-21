@@ -184,12 +184,15 @@ describe("createRunPipelineHandler", () => {
         runStatus: "failed",
       },
     });
-    const createCall = stubs.manualPipelineExecution.create.mock.calls[0]?.[0] as {
+    const createCall = stubs.manualPipelineExecution.create.mock
+      .calls[0]?.[0] as {
       data: { errors?: Array<{ phase?: string; message?: string }> };
     };
     expect(createCall?.data.errors).toBeDefined();
     expect(createCall.data.errors?.[0]?.phase).toBe("planning");
-    expect(createCall.data.errors?.[0]?.message).toMatch(/No invocations planned/i);
+    expect(createCall.data.errors?.[0]?.message).toMatch(
+      /No invocations planned/i,
+    );
   });
 
   it("runs one planned invocation and returns invocationsRun", async () => {

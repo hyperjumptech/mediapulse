@@ -311,8 +311,7 @@ export const executeSchedule = async (
           data: {
             status: AgentJobExecutionStatus.failed,
             error: {
-              message:
-                err instanceof Error ? err.message : String(err),
+              message: err instanceof Error ? err.message : String(err),
               retryable: true,
             },
             completedAt: new Date(),
