@@ -22,6 +22,7 @@ import { GET as getManualPipelineExecutionDetailRoute } from "@/app/api/pipeline
 import { GET as getScheduleExecutionDetailRoute } from "@/app/api/schedules/[scheduleId]/executions/[executionId]/route";
 import { getDashboardSession } from "@/lib/auth-dashboard";
 import { parseExecutionDetailApiPayload } from "@/lib/execution-detail-api-json-schema";
+import { SECRET_MASK } from "@/lib/mask-json-secrets";
 import { getHttpTriggerExecutionDetail } from "@/lib/http-triggers";
 import { getManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
@@ -166,5 +167,43 @@ describe("execution detail GET APIs (contract)", () => {
     expect(parsed.execution.errors).toEqual(
       manualPipelineDetailFixture.execution.errors,
     );
+  });
+
+  it("schedule execution detail JSON masks sensitive keys inside execution.errors", async () => {
+    const fixtureWithSecret = {
+      ...scheduleDetailFixture,
+      execution: {
+        ...scheduleDetailFixture.execution,
+        enqueueStatus: "failed",
+        errors: [
+          {
+            message: "enqueue failed",
+            timestamp: "2026-01-01T00:00:00.000Z",
+            exception: { detail: { apiKey: "must-not-leak-api-key" } },
+          },
+        ],
+      },
+    };
+
+    vi.mocked(getDashboardSession).mockResolvedValue({ id: "admin" } as never);
+    vi.mocked(getScheduleExecutionDetail).mockResolvedValue(
+      structuredClone(fixtureWithSecret) as never,
+    );
+
+    const response = await getScheduleExecutionDetailRoute(
+      new Request("http://localhost"),
+      {
+        params: Promise.resolve({
+          scheduleId: "sched-1",
+          executionId: "exec-sched",
+        }),
+      },
+    );
+    expect(response.status).toBe(200);
+    const json: unknown = await response.json();
+    parseExecutionDetailApiPayload(json);
+    const jsonStr = JSON.stringify(json);
+    expect(jsonStr).not.toContain("must-not-leak-api-key");
+    expect(jsonStr).toContain(SECRET_MASK);
   });
 });

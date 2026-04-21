@@ -1,10 +1,12 @@
 import {
   isEnqueueDiagnosticsRelevant,
+  maskEnqueueDiagnosticEntryPlainText,
   normalizeEnqueueErrorsPayload,
   safeJsonStringify,
   sortEnqueueErrorEntriesOldestFirst,
   type EnqueueDiagnosticEntry,
 } from "@/lib/enqueue-diagnostics";
+import { maskSecretsInJson } from "@/lib/mask-json-secrets";
 
 export type EnqueueDiagnosticsPanelProps = {
   enqueueStatus: string;
@@ -32,6 +34,10 @@ const optionalMeta = (
 
 /**
  * Surfaces persisted enqueue-phase errors on execution detail pages (failed / partial only).
+ *
+ * Applies {@link maskSecretsInJson} to the full `errors` tree before parsing so HTML and
+ * copy/paste paths stay aligned with authenticated execution detail APIs (defense in depth
+ * if a caller forgets server-side masking).
  */
 export const EnqueueDiagnosticsPanel = ({
   enqueueStatus,
@@ -46,7 +52,8 @@ export const EnqueueDiagnosticsPanel = ({
     ? "rounded-md border border-amber-600/40 bg-amber-500/5 p-4 text-foreground"
     : "rounded-md border border-destructive/40 bg-destructive/5 p-4 text-foreground";
 
-  const normalized = normalizeEnqueueErrorsPayload(errors);
+  const maskedErrors = maskSecretsInJson(errors);
+  const normalized = normalizeEnqueueErrorsPayload(maskedErrors);
 
   if (normalized.kind === "invalid") {
     return (
@@ -70,13 +77,15 @@ export const EnqueueDiagnosticsPanel = ({
           className="mt-3 max-h-48 overflow-auto rounded-md border bg-muted p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap wrap-break-word text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           tabIndex={0}
         >
-          {safeJsonStringify(normalized.raw)}
+          {safeJsonStringify(maskSecretsInJson(normalized.raw))}
         </pre>
       </section>
     );
   }
 
-  const sorted = sortEnqueueErrorEntriesOldestFirst(normalized.entries);
+  const sorted = sortEnqueueErrorEntriesOldestFirst(normalized.entries).map(
+    maskEnqueueDiagnosticEntryPlainText,
+  );
 
   if (sorted.length === 0) {
     return (

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  maskEnqueueDiagnosticEntryPlainText,
   normalizeEnqueueErrorsPayload,
   parseEnqueueErrorTimestampMs,
   sortEnqueueErrorEntriesOldestFirst,
@@ -160,5 +161,22 @@ describe("sortEnqueueErrorEntriesOldestFirst", () => {
       "no-ts",
       "bad-ts",
     ]);
+  });
+});
+
+describe("maskEnqueueDiagnosticEntryPlainText", () => {
+  it("redacts Bearer substrings in message and exception fields", () => {
+    const out = maskEnqueueDiagnosticEntryPlainText({
+      message: "Failed Bearer xyz",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      exception: {
+        name: "Error",
+        message: "Bearer abc",
+        stack: "at x\nBearer tok\nat y",
+      },
+    });
+    expect(out.message).toBe("Failed Bearer [redacted]");
+    expect(out.exception?.message).toBe("Bearer [redacted]");
+    expect(out.exception?.stack).toBe("at x\nBearer [redacted]\nat y");
   });
 });

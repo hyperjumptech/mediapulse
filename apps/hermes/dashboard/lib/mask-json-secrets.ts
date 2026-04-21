@@ -7,6 +7,7 @@ import type { ScheduleExecutionDetail } from "./schedules";
 export {
   isSensitiveJsonKey,
   maskSecretsInJson,
+  maskSensitiveInlinePatternsInString,
   SECRET_MASK,
 } from "./json-secret-mask";
 
