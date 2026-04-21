@@ -11,9 +11,11 @@ import {
 import {
   computeExecutionRunStatusFromStepRollups,
   computeStepRollupFromCounts,
+  diagnosticFromCaughtError,
   mergeExecutionConfig,
   parseAgentResponseEnvelope,
   planPipelineInvocations,
+  type EnqueueDiagnosticEntry,
   type ExpandStepInputs,
 } from "@hermes/scheduler";
 import got from "got";
@@ -294,6 +296,20 @@ export const createRunPipelineHandler = ({
           : planning.errors.length > 0
             ? ScheduleEnqueueStatus.partial
             : ScheduleEnqueueStatus.success;
+      const initialExecutionErrors: Prisma.InputJsonValue | undefined =
+        planning.errors.length > 0
+          ? (planning.errors as unknown as Prisma.InputJsonValue)
+          : jobsCreated === 0 &&
+              enqueueStatus === ScheduleEnqueueStatus.failed
+            ? ([
+                {
+                  message:
+                    "No invocations planned for this pipeline run (check inputs and agents)",
+                  timestamp: executionTime.toISOString(),
+                  phase: "planning",
+                },
+              ] as unknown as Prisma.InputJsonValue)
+            : undefined;
       const execution = await db.manualPipelineExecution.create({
         data: {
           pipelineId: pipeline.id,
@@ -304,6 +320,7 @@ export const createRunPipelineHandler = ({
             effectiveExecutionConfig as Prisma.InputJsonValue,
           jobsCreated,
           jobsEnqueued: jobsCreated,
+          errors: initialExecutionErrors,
           metadata: {
             source: "dashboard",
             initiatedByUserId: session.id,
@@ -349,17 +366,7 @@ export const createRunPipelineHandler = ({
         });
       }
 
-      const errors: Array<{
-        step: string;
-        detail: string;
-        code: number | "unknown";
-        jobId: string;
-      }> = planning.errors.map((error) => ({
-        step: "planning",
-        detail: error.message,
-        code: "unknown",
-        jobId: "planning",
-      }));
+      const errors: EnqueueDiagnosticEntry[] = [...planning.errors];
 
       for (const wave of waveList) {
         for (const job of wave) {
@@ -378,10 +385,11 @@ export const createRunPipelineHandler = ({
               },
             );
             errors.push({
-              step: "unknown",
-              detail: `Missing pipeline step ${job.pipelineStepId}`,
-              code: "unknown",
-              jobId: job.jobId,
+              message: `Missing pipeline step ${job.pipelineStepId} (job ${job.jobId})`,
+              timestamp: now().toISOString(),
+              phase: "transaction",
+              pipelineStepId: job.pipelineStepId,
+              code: "MISSING_PIPELINE_STEP",
             });
             continue;
           }
@@ -438,10 +446,11 @@ export const createRunPipelineHandler = ({
                 const stats = stepStats.get(step.id);
                 if (stats) stats.failedCount += 1;
                 errors.push({
-                  step: `${step.agentId}@${step.agentVersion}`,
-                  detail,
-                  code: 200,
-                  jobId: job.jobId,
+                  message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                  timestamp: now().toISOString(),
+                  phase: "transaction",
+                  pipelineStepId: step.id,
+                  code: `AGENT_ENVELOPE_INVALID:${parsed.error.code}`,
                 });
                 await db.agentJobExecution.update({
                   where: { jobId: job.jobId },
@@ -479,10 +488,11 @@ export const createRunPipelineHandler = ({
                 const stats = stepStats.get(step.id);
                 if (stats) stats.failedCount += 1;
                 errors.push({
-                  step: `${step.agentId}@${step.agentVersion}`,
-                  detail,
-                  code: 200,
-                  jobId: job.jobId,
+                  message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                  timestamp: now().toISOString(),
+                  phase: "transaction",
+                  pipelineStepId: step.id,
+                  code: "AGENT_SEMANTIC_FAILURE",
                 });
                 await db.agentJobExecution.update({
                   where: { jobId: job.jobId },
@@ -537,10 +547,11 @@ export const createRunPipelineHandler = ({
             const stats = stepStats.get(step.id);
             if (stats) stats.failedCount += 1;
             errors.push({
-              step: `${step.agentId}@${step.agentVersion}`,
-              detail,
-              code,
-              jobId: job.jobId,
+              message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+              timestamp: now().toISOString(),
+              phase: "transaction",
+              pipelineStepId: step.id,
+              code: `AGENT_HTTP_${String(code)}`,
             });
             await db.agentJobExecution.update({
               where: { jobId: job.jobId },
@@ -576,12 +587,13 @@ export const createRunPipelineHandler = ({
             );
             const stats = stepStats.get(step.id);
             if (stats) stats.failedCount += 1;
-            errors.push({
-              step: `${step.agentId}@${step.agentVersion}`,
-              detail,
-              code: "unknown",
-              jobId: job.jobId,
-            });
+            errors.push(
+              diagnosticFromCaughtError(err, {
+                phase: "transaction",
+                pipelineStepId: step.id,
+                messagePrefix: `Agent HTTP threw (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+              }),
+            );
             await db.agentJobExecution.update({
               where: { jobId: job.jobId },
               data: {
