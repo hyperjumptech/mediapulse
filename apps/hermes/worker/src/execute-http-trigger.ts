@@ -8,10 +8,12 @@ import {
   type PrismaClient,
 } from "@hermes/orchestration-database";
 import {
+  diagnosticFromCaughtError,
+  mergeExecutionConfig,
   planPipelineInvocations,
+  type EnqueueDiagnosticEntry,
   type ExpandStepInputs,
 } from "@hermes/scheduler";
-import { mergeExecutionConfig } from "@hermes/scheduler";
 
 import type { JobPayloadMap } from "./job-payload-map";
 
@@ -70,7 +72,7 @@ export const executeHttpTrigger = async (
     pipeline.executionConfig,
     null,
   );
-  const errors: Array<{ message: string; timestamp: string }> = [];
+  const errors: EnqueueDiagnosticEntry[] = [];
 
   if (steps.length === 0) {
     await db.httpTriggerExecution.update({
@@ -82,6 +84,7 @@ export const executeHttpTrigger = async (
           {
             message: "Pipeline has no steps",
             timestamp: new Date().toISOString(),
+            phase: "planning",
           },
         ],
       },
@@ -214,7 +217,50 @@ export const executeHttpTrigger = async (
     }
   });
 
-  await enqueueAgentInvocations(enqueueItems);
+  let jobsEnqueued = 0;
+  try {
+    await enqueueAgentInvocations(enqueueItems);
+    jobsEnqueued = enqueueItems.length;
+  } catch (err) {
+    errors.push(
+      diagnosticFromCaughtError(err, {
+        phase: "enqueue",
+        messagePrefix: "Failed to enqueue agent invocations",
+      }),
+    );
+    for (const item of enqueueItems) {
+      try {
+        await db.agentJobExecution.update({
+          where: { jobId: item.payload.jobId },
+          data: {
+            status: AgentJobExecutionStatus.failed,
+            error: {
+              message: err instanceof Error ? err.message : String(err),
+              retryable: true,
+            },
+            completedAt: new Date(),
+          },
+        });
+      } catch {
+        // Best-effort: row may be missing if transaction was rolled back.
+      }
+    }
+    await db.httpTriggerExecution.update({
+      where: { id: httpTriggerExecutionId },
+      data: {
+        enqueueStatus:
+          jobsEnqueued > 0
+            ? ScheduleEnqueueStatus.partial
+            : ScheduleEnqueueStatus.failed,
+        runStatus: ScheduleRunStatus.failed,
+        jobsEnqueued,
+        errors:
+          errors.length > 0 ? (errors as Prisma.InputJsonValue) : undefined,
+      },
+    });
+    return;
+  }
+
   await db.httpTriggerExecution.update({
     where: { id: httpTriggerExecutionId },
     data: {
@@ -222,7 +268,7 @@ export const executeHttpTrigger = async (
         errors.length > 0
           ? ScheduleEnqueueStatus.partial
           : ScheduleEnqueueStatus.success,
-      jobsEnqueued: enqueueItems.length,
+      jobsEnqueued,
       errors: errors.length > 0 ? (errors as Prisma.InputJsonValue) : undefined,
     },
   });

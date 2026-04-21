@@ -1,4 +1,12 @@
 export {
+  diagnosticFromCaughtError,
+  truncateEnqueueDiagnosticEntry,
+  ENQUEUE_DIAGNOSTIC_MAX_FIELD_CHARS,
+  type EnqueueDiagnosticEntry,
+  type EnqueueDiagnosticException,
+  type EnqueuePhase,
+} from "./enqueue-diagnostics";
+export {
   executeSchedule,
   type EnqueueInvokeAgentItem,
   type ExpandStepInputs,

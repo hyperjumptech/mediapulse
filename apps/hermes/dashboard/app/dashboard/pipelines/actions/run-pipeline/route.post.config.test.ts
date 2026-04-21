@@ -141,11 +141,12 @@ describe("createRunPipelineHandler", () => {
   });
 
   it("returns failed run with 0 invocations when planning yields no jobs", async () => {
+    const stubs = createExecutionPersistenceStubs();
     const handler = createRunPipelineHandler({
       getToken: async () => "jwt",
       expandStepInputs: async () => [],
       db: {
-        ...createExecutionPersistenceStubs(),
+        ...stubs,
         pipeline: {
           findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
         },
@@ -183,6 +184,12 @@ describe("createRunPipelineHandler", () => {
         runStatus: "failed",
       },
     });
+    const createCall = stubs.manualPipelineExecution.create.mock.calls[0]?.[0] as {
+      data: { errors?: Array<{ phase?: string; message?: string }> };
+    };
+    expect(createCall?.data.errors).toBeDefined();
+    expect(createCall.data.errors?.[0]?.phase).toBe("planning");
+    expect(createCall.data.errors?.[0]?.message).toMatch(/No invocations planned/i);
   });
 
   it("runs one planned invocation and returns invocationsRun", async () => {
