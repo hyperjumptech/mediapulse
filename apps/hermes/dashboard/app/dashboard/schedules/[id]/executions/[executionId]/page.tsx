@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
-import { EnqueueDiagnosticsPanel } from "@/components/enqueue-diagnostics-panel";
+import { EnqueueDiagnosticsPanel } from "@/components/enqueue-diagnostics";
 import { ScheduleExecutionInvocationsTable } from "@/components/schedule-execution-invocations-table";
 import {
   computePipelineWallElapsed,
