@@ -12,11 +12,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@mediapulse/env": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",
-    "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "got": "catalog:",
     "hono": "catalog:",
@@ -29,6 +29,7 @@
     "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod-to-json-schema": "^3.25.1"
   }
 }

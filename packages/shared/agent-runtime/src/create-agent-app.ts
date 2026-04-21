@@ -36,9 +36,13 @@ const emptyConfigSchema = z.object({});
  */
 export function createAgentApp<
   TInput,
-  TSchema extends z.ZodType<TInput>,
+  TSchema extends z.ZodType<TInput, any, any>,
   TConfig = Record<string, never>,
-  TConfigSchema extends z.ZodType<TConfig> = z.ZodType<TConfig>,
+  TConfigSchema extends z.ZodType<TConfig, any, any> = z.ZodType<
+    TConfig,
+    any,
+    any
+  >,
 >(
   config: AgentConfig<TInput, TSchema, TConfig, TConfigSchema>,
   options: CreateAgentAppOptions = {},
