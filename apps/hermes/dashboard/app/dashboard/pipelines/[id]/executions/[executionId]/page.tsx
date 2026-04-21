@@ -18,6 +18,10 @@ import {
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
+import {
+  formatManualExecutionMetadataHints,
+  getHermesExecutionInvokeTransportBlurb,
+} from "@/lib/hermes-execution-invoke-transport";
 import { maskManualPipelineExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
 
@@ -46,6 +50,11 @@ export default async function PipelineExecutionDetailPage({
   );
 
   const detail = maskManualPipelineExecutionDetailForDisplay(rawDetail);
+  const invokeTransport =
+    getHermesExecutionInvokeTransportBlurb("manual-pipeline");
+  const metadataHints = formatManualExecutionMetadataHints(
+    detail.execution.metadata,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -91,6 +100,18 @@ export default async function PipelineExecutionDetailPage({
           {detail.execution.succeededInvocationCount} /{" "}
           {detail.execution.failedInvocationCount}
         </p>
+        <p>
+          <span className="text-muted-foreground">Invocation transport:</span>{" "}
+          {invokeTransport.headline}
+        </p>
+        <p className="text-muted-foreground">{invokeTransport.detail}</p>
+        {metadataHints.length > 0 ? (
+          <ul className="list-inside list-disc text-muted-foreground">
+            {metadataHints.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       <EnqueueDiagnosticsPanel

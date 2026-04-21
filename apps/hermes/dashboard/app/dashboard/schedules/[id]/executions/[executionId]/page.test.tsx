@@ -95,5 +95,7 @@ describe("ScheduleExecutionDetailPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Enqueue status:/)).toBeInTheDocument();
     expect(screen.getByText("failed")).toBeInTheDocument();
+    expect(screen.getByText(/Invocation transport:/)).toBeInTheDocument();
+    expect(screen.getByText(/Hermes worker \+ DataQueue/)).toBeInTheDocument();
   });
 });
