@@ -51,9 +51,7 @@ export const useEnqueueDiagnosticsPanelViewModel = (
       return {
         status: "invalid",
         panelClass,
-        payloadPreview: safeJsonStringify(
-          maskSecretsInJson(normalized.raw),
-        ),
+        payloadPreview: safeJsonStringify(maskSecretsInJson(normalized.raw)),
       };
     }
 

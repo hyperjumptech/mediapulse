@@ -102,6 +102,7 @@ test("getActiveUsers returns only active users", async () => {
 ## Formatting
 
 - Always format code using **Prettier** for all supported languages.
+- From the repository root, run **`pnpm format:check`** before finishing work. If you run package-scoped checks instead of full **`pnpm code-quality`**, Prettier is not optional; see `.cursor/rules/run-code-quality-after-changes.mdc`.
 
 ## React component
 
