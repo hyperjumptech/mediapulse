@@ -8,7 +8,21 @@ export const SECRET_MASK = "••••••••";
 /**
  * Redacts common credential substrings that can appear inside free-text fields
  * (`message`, `exception.stack`, etc.) where key-based {@link maskSecretsInJson}
- * does not apply. Conservative: does not attempt full PII or stack trace parsing.
+ * does not apply.
+ *
+ * **What is redacted**
+ *
+ * - `Bearer <token>`-shaped segments (non-whitespace run after the word `Bearer`).
+ * - Entire lines that look like an HTTP `Authorization:` header (case-insensitive).
+ *
+ * **What is not redacted**
+ *
+ * - Secrets that appear only as values under non-sensitive JSON keys (handled by
+ *   {@link maskSecretsInJson} on the structured payload instead).
+ * - Arbitrary API keys or passwords embedded in prose without those patterns.
+ *
+ * @param value - Raw string from a diagnostic field; must not be null/undefined (callers coerce).
+ * @returns The same string with matching patterns replaced by fixed redaction tokens.
  */
 export const maskSensitiveInlinePatternsInString = (value: string): string => {
   let out = value;
