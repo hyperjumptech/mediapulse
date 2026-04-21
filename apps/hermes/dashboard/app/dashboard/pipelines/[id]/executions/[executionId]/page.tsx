@@ -18,7 +18,7 @@ import {
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
-import { maskSecretsInJson } from "@/lib/mask-json-secrets";
+import { maskManualPipelineExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
 
 /**
@@ -45,21 +45,7 @@ export default async function PipelineExecutionDetailPage({
     rawDetail.execution.runStatus,
   );
 
-  const detail = {
-    ...rawDetail,
-    execution: {
-      ...rawDetail.execution,
-      errors: maskSecretsInJson(rawDetail.execution.errors),
-    },
-    invocations: rawDetail.invocations.map((invocation) => ({
-      ...invocation,
-      params: maskSecretsInJson(invocation.params),
-      invocationConfig:
-        invocation.invocationConfig == null
-          ? null
-          : maskSecretsInJson(invocation.invocationConfig),
-    })),
-  };
+  const detail = maskManualPipelineExecutionDetailForDisplay(rawDetail);
 
   return (
     <div className="flex flex-col gap-6">

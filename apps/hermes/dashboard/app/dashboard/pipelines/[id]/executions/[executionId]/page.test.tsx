@@ -17,7 +17,7 @@ vi.mock("@/lib/pipeline-executions", () => ({
 }));
 
 vi.mock("@/lib/mask-json-secrets", () => ({
-  maskSecretsInJson: (value: unknown) => value,
+  maskManualPipelineExecutionDetailForDisplay: (detail: unknown) => detail,
 }));
 
 vi.mock("@/lib/compute-execution-elapsed", () => ({
