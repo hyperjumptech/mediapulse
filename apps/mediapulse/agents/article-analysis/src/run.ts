@@ -598,7 +598,7 @@ export const run = async ({
           {
             dataSourceId: source.id,
             stage: "llm",
-            message,
+            err: toSafeLogError(err),
           },
           "article-analysis LLM extraction failed for source; skipping",
         );
@@ -938,6 +938,29 @@ export const run = async ({
         }
       }
       if (relevanceValidationErrors.length > 0) {
+        emitRunSummary({
+          outcome: "failure",
+          articlesProcessed: batch.length,
+          extractionSuccessCount,
+          extractionFailures,
+          relevanceRowValidationFailures,
+          chunkParseCounts: { ...chunkParseCounts },
+          postFailures,
+          entitiesCreated,
+          entitiesReused,
+          relationsCreated,
+          articlesScored: articlesScoredTotal,
+          articlesSelected: articlesSelectedTotal,
+          relevanceAggregate: null,
+          llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
+          extractionLatencyMsTotal,
+          extractionCalls,
+          runStatusLabel: deriveArticleAnalysisRunStatusLabel(
+            extractionFailures.length,
+            postFailures.length,
+          ),
+          semanticFailureReason: "relevance_row_validation",
+        });
         return {
           success: false,
           message:
@@ -982,6 +1005,29 @@ export const run = async ({
           },
           "article-analysis relevance chunk build reported parse issues",
         );
+        emitRunSummary({
+          outcome: "failure",
+          articlesProcessed: batch.length,
+          extractionSuccessCount,
+          extractionFailures,
+          relevanceRowValidationFailures,
+          chunkParseCounts: { ...chunkParseCounts },
+          postFailures,
+          entitiesCreated,
+          entitiesReused,
+          relationsCreated,
+          articlesScored: articlesScoredTotal,
+          articlesSelected: articlesSelectedTotal,
+          relevanceAggregate: null,
+          llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
+          extractionLatencyMsTotal,
+          extractionCalls,
+          runStatusLabel: deriveArticleAnalysisRunStatusLabel(
+            extractionFailures.length,
+            postFailures.length,
+          ),
+          semanticFailureReason: "relevance_chunk_parse",
+        });
         return {
           success: false,
           message: "article-analysis relevance chunk parse failed",

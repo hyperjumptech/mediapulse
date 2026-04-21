@@ -580,6 +580,25 @@ describe("run", () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("validation failed before selection");
+
+    const validationSummary = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { semanticFailureReason?: string }).semanticFailureReason ===
+          "relevance_row_validation",
+    );
+    expect(validationSummary).toBeDefined();
+    expect((validationSummary?.[0] as { outcome: string }).outcome).toBe(
+      "failure",
+    );
+    expect((validationSummary?.[0] as { event?: string }).event).toBe(
+      ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (validationSummary?.[0] as { relevanceRowValidationFailures: number })
+        .relevanceRowValidationFailures,
+    ).toBeGreaterThan(0);
   });
 
   it("fails run when relevance chunk parse errors are reported", async () => {
@@ -628,6 +647,23 @@ describe("run", () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("relevance chunk parse failed");
+
+    const parseSummary = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { semanticFailureReason?: string }).semanticFailureReason ===
+          "relevance_chunk_parse",
+    );
+    expect(parseSummary).toBeDefined();
+    expect((parseSummary?.[0] as { outcome: string }).outcome).toBe("failure");
+    expect((parseSummary?.[0] as { event?: string }).event).toBe(
+      ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (parseSummary?.[0] as { chunkParseErrorsArticleRelevance: number })
+        .chunkParseErrorsArticleRelevance,
+    ).toBeGreaterThan(0);
   });
 
   it("returns failure when analysis GET throws", async () => {
@@ -943,7 +979,7 @@ describe("run", () => {
       {
         dataSourceId: DS_ID,
         stage: "llm",
-        message: "provider timeout",
+        err: { type: "Error", message: "provider timeout" },
       },
       expect.any(String),
     );
