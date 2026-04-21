@@ -54,8 +54,9 @@ Every run emits a structured **info** log with message `article_analysis.run.sum
 | ---- | ----------------- |
 | Correlation | Log child bindings: `component`, `runId`, `tickerId`, and optional Hermes ids (`jobId`, `executionId`, `scheduleId`, `scheduleExecutionId`, `pipelineStepId`) when invoke headers are present |
 | Outcome | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy, **`debounce_min_unanalyzed_count`**, **`debounce_min_minutes_since_last_score`**, pre-POST **`relevance_row_validation`**, relevance chunk build **`relevance_chunk_parse`**) |
+| Stages | **`stageMetrics.extract`** (`articlesProcessed`, `articlesSucceeded`, `articlesFailedExtraction`), **`stageMetrics.scorePrepare.schemaValidationFailures`**, **`stageMetrics.persist`** (`postChunkFailures`, `articlesScored`, `articlesSelected`) |
 | Extraction | `articlesProcessed`, `extractionSuccessCount`, `extractionFailureCount`, **`extractionFailuresVocabulary`** vs **`extractionFailuresLlm`** |
-| Validation | **`relevanceRowValidationFailures`** (pre-POST row checks), **`chunkParseErrors*`** (entity/relation chunks, `articleEntities`, `articleRelevances` chunk-build / Zod issues) |
+| Validation | **`relevanceRowValidationFailures`**, **`chunkParseErrors*`**, rolled-up **`schemaValidationFailureCount`**; **`failureCountsByKind`** splits **`llm`**, **`vocabulary`**, **`schemaValidation`**, **`persistenceHttp`**, **`persistenceOther`** from POST failures |
 | Persist | `postFailureCount`, **`postFailuresByChunkKind`**, **`postFailuresByErrorCategory`** (`agent_data_api_http` vs `unknown`) |
 | KG tallies | `entitiesCreated`, `entitiesReused`, **`entityReuseRatio`**, `relationsCreated`, `articlesScored`, `articlesSelected` |
 | Relevance stats | When relevance rows were built: `relevanceRowCount`, `scoreMin` / `scoreMax` / `scoreMean`, **`scoreBuckets`**, **`breakdownVersion`** (or `mixed`), **`breakdownKeyMeans`** / mins / maxes over canonical keys |
