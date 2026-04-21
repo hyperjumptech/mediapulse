@@ -985,8 +985,10 @@ describe("run", () => {
     );
   });
 
-  it("does not log raw article content in structured info payloads", async () => {
+  it("does not log raw article content, bearer token, or API key in default log payloads", async () => {
     const secretBody = "DO_NOT_LOG_THIS_ARTICLE_BODY_SECRET";
+    const bearer = "Bearer DO_NOT_LOG_THIS_AGENT_TOKEN";
+    const apiKey = "sk-DO_NOT_LOG_THIS_OPENAI_KEY";
     analysisGet.mockResolvedValue({
       dataSources: [
         {
@@ -1029,11 +1031,23 @@ describe("run", () => {
         articlesSelected: 1,
       });
 
-    await run(runContext({ input: { tickerId: "ticker-1" } }));
+    await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { openaiApiKey: apiKey },
+        token: bearer,
+      }),
+    );
 
-    const payloads = mockLog.info.mock.calls.map((c) => JSON.stringify(c[0]));
-    for (const p of payloads) {
+    const allPayloads = [
+      ...mockLog.info.mock.calls,
+      ...mockLog.warn.mock.calls,
+      ...mockLog.error.mock.calls,
+    ].map((c) => JSON.stringify(c[0]));
+    for (const p of allPayloads) {
       expect(p).not.toContain(secretBody);
+      expect(p).not.toContain(bearer);
+      expect(p).not.toContain(apiKey);
     }
   });
 

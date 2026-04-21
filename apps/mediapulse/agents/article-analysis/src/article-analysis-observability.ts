@@ -237,6 +237,10 @@ export type ArticleAnalysisRunSummaryInput = {
 /**
  * Builds a single JSON-safe object for one structured info log line.
  *
+ * Includes **`stageMetrics`** (extract / scorePrepare / persist) and **`failureCountsByKind`**
+ * so LLM, vocabulary, schema or row validation, and HTTP persistence failures stay separable
+ * in metrics backends (MP-ART-ANALYSIS-008).
+ *
  * @param input - Counters and aggregates at end of run (or failure path).
  * @returns Payload to pass as first argument to `log.info`.
  */
@@ -265,6 +269,12 @@ export const buildArticleAnalysisRunSummaryPayload = (
     postByKind[p.chunkKind] += 1;
     postByCategory[p.errorCategory] += 1;
   }
+
+  const schemaValidationFailureCount =
+    input.relevanceRowValidationFailures +
+    input.chunkParseCounts.entityRelationChunkParseErrors +
+    input.chunkParseCounts.articleEntityChunkParseErrors +
+    input.chunkParseCounts.articleRelevanceChunkParseErrors;
 
   const denom = input.entitiesCreated + input.entitiesReused;
   const entityReuseRatio = denom > 0 ? input.entitiesReused / denom : null;
@@ -295,6 +305,29 @@ export const buildArticleAnalysisRunSummaryPayload = (
       input.chunkParseCounts.articleEntityChunkParseErrors,
     chunkParseErrorsArticleRelevance:
       input.chunkParseCounts.articleRelevanceChunkParseErrors,
+    schemaValidationFailureCount,
+    failureCountsByKind: {
+      llm: llmFails,
+      vocabulary: vocabFails,
+      schemaValidation: schemaValidationFailureCount,
+      persistenceHttp: postByCategory.agent_data_api_http,
+      persistenceOther: postByCategory.unknown,
+    },
+    stageMetrics: {
+      extract: {
+        articlesProcessed: input.articlesProcessed,
+        articlesSucceeded: input.extractionSuccessCount,
+        articlesFailedExtraction: input.extractionFailures.length,
+      },
+      scorePrepare: {
+        schemaValidationFailures: schemaValidationFailureCount,
+      },
+      persist: {
+        postChunkFailures: input.postFailures.length,
+        articlesScored: input.articlesScored,
+        articlesSelected: input.articlesSelected,
+      },
+    },
     postFailureCount: input.postFailures.length,
     postFailuresByChunkKind: postByKind,
     postFailuresByErrorCategory: postByCategory,
