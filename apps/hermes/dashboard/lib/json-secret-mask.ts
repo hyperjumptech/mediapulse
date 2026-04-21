@@ -1,6 +1,9 @@
 /**
- * JSON key masking for credentials — no database or env imports (safe for lightweight callers).
+ * JSON key masking for credentials — no runtime database client or env imports
+ * (type-only `Prisma` import for {@link maskSecretsInJson} return typing).
  */
+
+import type { Prisma } from "@hermes/orchestration-database";
 
 /** Mask shown in UI and stored snapshots for secret values (never expose real value). */
 export const SECRET_MASK = "••••••••";
@@ -73,22 +76,24 @@ export const isSensitiveJsonKey = (key: string): boolean => {
 /**
  * Deep-clones JSON-like data and replaces values under sensitive keys with a fixed mask.
  *
+ * `undefined` is normalized to `null` so the result is always assignable to Prisma JSON fields.
+ *
  * @param value - Any JSON-serializable value.
  * @param keyHint - Parent key when recursing into object properties (used for masking).
  */
 export const maskSecretsInJson = (
   value: unknown,
   keyHint?: string,
-): unknown => {
+): Prisma.JsonValue => {
   if (keyHint !== undefined && isSensitiveJsonKey(keyHint)) {
     if (value === null || value === undefined) {
-      return value;
+      return null;
     }
     return SECRET_MASK;
   }
 
   if (value === null || value === undefined) {
-    return value;
+    return null;
   }
   if (
     typeof value === "string" ||
@@ -107,7 +112,7 @@ export const maskSecretsInJson = (
     return value.map((item) => maskSecretsInJson(item));
   }
   if (typeof value === "object") {
-    const out: Record<string, unknown> = {};
+    const out: Record<string, Prisma.JsonValue> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       out[k] = maskSecretsInJson(v, k);
     }

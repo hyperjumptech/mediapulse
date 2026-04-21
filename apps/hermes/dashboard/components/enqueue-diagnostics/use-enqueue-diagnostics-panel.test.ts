@@ -42,4 +42,34 @@ describe("useEnqueueDiagnosticsPanelViewModel", () => {
     expect(result.current.entries).toHaveLength(1);
     expect(result.current.entries[0]?.message).toBe("m");
   });
+
+  it("includes correlation from metadata on entries view", () => {
+    const { result } = renderHook(() =>
+      useEnqueueDiagnosticsPanelViewModel(
+        "failed",
+        [{ message: "m", timestamp: "2026-01-01T00:00:00.000Z" }],
+        {
+          hermesEnqueueCorrelation: { requestId: "r1", workerTickId: "7" },
+        },
+      ),
+    );
+    expect(result.current).toMatchObject({
+      status: "entries",
+      correlation: { requestId: "r1", workerTickId: "7" },
+    });
+  });
+
+  it("includes correlation on invalid errors view", () => {
+    const { result } = renderHook(() =>
+      useEnqueueDiagnosticsPanelViewModel(
+        "partial",
+        { not: "array" },
+        { hermesEnqueueCorrelation: { requestId: "corr-invalid" } },
+      ),
+    );
+    expect(result.current.status).toBe("invalid");
+    if (result.current.status !== "invalid")
+      throw new Error("expected invalid");
+    expect(result.current.correlation).toEqual({ requestId: "corr-invalid" });
+  });
 });

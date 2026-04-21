@@ -7,6 +7,12 @@ export {
   type EnqueuePhase,
 } from "./enqueue-diagnostics";
 export {
+  HERMES_ENQUEUE_CORRELATION_METADATA_KEY,
+  mergeHermesEnqueueCorrelationIntoMetadata,
+  parseHermesEnqueueCorrelationFromMetadata,
+  type HermesEnqueueCorrelation,
+} from "./enqueue-diagnostics-correlation";
+export {
   executeSchedule,
   type EnqueueInvokeAgentItem,
   type ExpandStepInputs,

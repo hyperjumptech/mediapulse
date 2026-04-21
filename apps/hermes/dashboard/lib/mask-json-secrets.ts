@@ -1,5 +1,3 @@
-import type { Prisma } from "@hermes/orchestration-database";
-
 import type { HttpTriggerExecutionDetail } from "./http-triggers";
 import type { ManualPipelineExecutionDetail } from "./pipeline-executions";
 import type { ScheduleExecutionDetail } from "./schedules";
@@ -25,7 +23,11 @@ export const maskScheduleExecutionDetailForDisplay = (
   ...detail,
   execution: {
     ...detail.execution,
-    errors: maskSecretsInJson(detail.execution.errors) as Prisma.JsonValue,
+    errors: maskSecretsInJson(detail.execution.errors),
+    metadata:
+      detail.execution.metadata == null
+        ? null
+        : maskSecretsInJson(detail.execution.metadata),
   },
   invocations: detail.invocations.map((inv) => ({
     ...inv,
@@ -46,11 +48,11 @@ export const maskHttpTriggerExecutionDetailForDisplay = (
   ...detail,
   execution: {
     ...detail.execution,
-    errors: maskSecretsInJson(detail.execution.errors) as Prisma.JsonValue,
+    errors: maskSecretsInJson(detail.execution.errors),
     metadata:
       detail.execution.metadata == null
         ? null
-        : (maskSecretsInJson(detail.execution.metadata) as Prisma.JsonValue),
+        : maskSecretsInJson(detail.execution.metadata),
   },
   invocations: detail.invocations.map((inv) => ({
     ...inv,
@@ -71,7 +73,11 @@ export const maskManualPipelineExecutionDetailForDisplay = (
   ...detail,
   execution: {
     ...detail.execution,
-    errors: maskSecretsInJson(detail.execution.errors) as Prisma.JsonValue,
+    errors: maskSecretsInJson(detail.execution.errors),
+    metadata:
+      detail.execution.metadata == null
+        ? null
+        : maskSecretsInJson(detail.execution.metadata),
   },
   invocations: detail.invocations.map((inv) => ({
     ...inv,

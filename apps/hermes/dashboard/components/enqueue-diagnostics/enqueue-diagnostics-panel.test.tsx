@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { SECRET_MASK } from "@/lib/mask-json-secrets";
 
@@ -89,6 +89,44 @@ describe("EnqueueDiagnosticsPanel", () => {
     expect(
       screen.getByText(/Upstream rejected Bearer \[redacted\]/),
     ).toBeInTheDocument();
+  });
+
+  it("does not render Correlation when metadata omits hermesEnqueueCorrelation", () => {
+    render(
+      <EnqueueDiagnosticsPanel
+        enqueueStatus="failed"
+        errors={[{ message: "e", timestamp: "2026-01-01T00:00:00.000Z" }]}
+        metadata={{ source: "other" }}
+      />,
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Correlation" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders Correlation and copies request id", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <EnqueueDiagnosticsPanel
+        enqueueStatus="failed"
+        errors={[{ message: "e", timestamp: "2026-01-01T00:00:00.000Z" }]}
+        metadata={{
+          hermesEnqueueCorrelation: {
+            requestId: "rid-copy-test",
+            workerTickId: "555",
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Correlation" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("rid-copy-test")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copy Request id" }));
+    expect(writeText).toHaveBeenCalledWith("rid-copy-test");
   });
 
   it("renders exception stack in a scrollable pre", () => {

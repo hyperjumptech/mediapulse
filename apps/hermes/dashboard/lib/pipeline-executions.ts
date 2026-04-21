@@ -309,6 +309,7 @@ export type ManualPipelineExecutionDetail = {
     succeededInvocationCount: number;
     failedInvocationCount: number;
     errors: unknown;
+    metadata: unknown | null;
     createdAt: Date;
   };
   pipeline: { id: string; name: string };
@@ -404,6 +405,7 @@ export const getManualPipelineExecutionDetail = async (
       succeededInvocationCount: row.succeededInvocationCount,
       failedInvocationCount: row.failedInvocationCount,
       errors: row.errors,
+      metadata: row.metadata,
       createdAt: row.createdAt,
     },
     pipeline: row.pipeline,
