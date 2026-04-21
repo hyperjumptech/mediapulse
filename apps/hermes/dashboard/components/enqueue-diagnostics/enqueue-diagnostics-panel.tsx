@@ -1,13 +1,16 @@
 "use client";
 
 import { Copy } from "lucide-react";
-import { useCallback, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 import type { HermesEnqueueCorrelation } from "@hermes/scheduler/enqueue-diagnostics-correlation";
 
 import type { EnqueueDiagnosticEntry } from "@/lib/enqueue-diagnostics";
 
+import {
+  useClipboardCopyFeedback,
+  useKeyedClipboardCopyFeedback,
+} from "./use-enqueue-diagnostics-clipboard";
 import { useEnqueueDiagnosticsPanelViewModel } from "./use-enqueue-diagnostics-panel";
 
 export type EnqueueDiagnosticsPanelProps = {
@@ -41,17 +44,7 @@ const CorrelationSubsectionInner = ({
 }: {
   rows: Array<{ key: string; label: string; value: string }>;
 }) => {
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  const onCopy = useCallback(async (key: string, text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedKey(key);
-      window.setTimeout(() => setCopiedKey(null), 2000);
-    } catch {
-      setCopiedKey(null);
-    }
-  }, []);
+  const { copiedKey, copyForKey } = useKeyedClipboardCopyFeedback();
 
   return (
     <div className="mt-4 rounded-md border border-border/80 bg-muted/40 p-3">
@@ -76,7 +69,7 @@ const CorrelationSubsectionInner = ({
                 variant="outline"
                 size="sm"
                 className="shrink-0 gap-1.5"
-                onClick={() => void onCopy(key, value)}
+                onClick={() => void copyForKey(key, value)}
                 aria-label={`Copy ${label}`}
               >
                 <Copy className="size-3.5" aria-hidden />
@@ -91,17 +84,7 @@ const CorrelationSubsectionInner = ({
 };
 
 const CopyDiagnosticsJsonButton = ({ copyJson }: { copyJson: string }) => {
-  const [copied, setCopied] = useState(false);
-
-  const onCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(copyJson);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  }, [copyJson]);
+  const { copied, copy } = useClipboardCopyFeedback(copyJson);
 
   return (
     <Button
@@ -109,7 +92,7 @@ const CopyDiagnosticsJsonButton = ({ copyJson }: { copyJson: string }) => {
       variant="outline"
       size="sm"
       className="shrink-0 gap-1.5 self-start sm:self-auto"
-      onClick={() => void onCopy()}
+      onClick={() => void copy()}
       aria-label="Copy enqueue diagnostics JSON"
     >
       <Copy className="size-3.5" aria-hidden />
