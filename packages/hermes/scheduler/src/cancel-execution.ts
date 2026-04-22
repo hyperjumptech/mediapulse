@@ -28,6 +28,9 @@ const userCancelError = (): Prisma.InputJsonValue =>
     retryable: false,
   }) as Prisma.InputJsonValue;
 
+/**
+ * Returns true when `error` is a structured user-cancel payload (`cancelled: true`).
+ */
 export function errorIndicatesUserCancel(error: unknown): boolean {
   if (error == null || typeof error !== "object" || Array.isArray(error)) {
     return false;
@@ -89,6 +92,9 @@ export function resolveStepRollupPrismaAfterInvocation(args: {
   return stepRollupTerminalToPrisma(rollupTerminal);
 }
 
+/**
+ * Derives the parent schedule run status after cancellation when every job is terminal.
+ */
 export function resolveRunStatusForSettledCancelledExecution(
   jobs: Array<{
     status: AgentJobExecutionStatus;
