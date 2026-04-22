@@ -75,22 +75,11 @@ export const CursorPagination = ({
   }
 
   const prevHref = hasPrev
-    ? buildCursorUrl(
-        basePath,
-        prevCursor,
-        limit,
-        extraParams,
-      )
+    ? buildCursorUrl(basePath, prevCursor, limit, extraParams)
     : undefined;
 
   const nextHref = hasNext
-    ? buildCursorUrl(
-        basePath,
-        nextCursor,
-        limit,
-        extraParams,
-        currentCursor,
-      )
+    ? buildCursorUrl(basePath, nextCursor, limit, extraParams, currentCursor)
     : undefined;
 
   return (
