@@ -60,6 +60,17 @@ const getSchedulesSubLabel = (
 };
 
 /**
+ * Derives the breadcrumb page label for agents/content-generation-runs sub-routes.
+ */
+const getAgentsContentGenerationRunsSubLabel = (
+  subSegment: string | undefined,
+): string | null => {
+  if (!subSegment) return null;
+  if (UUID_REGEX.test(subSegment)) return "Run detail";
+  return null;
+};
+
+/**
  * Breadcrumb label for domain-integrations sub-routes (e.g. create).
  */
 const getDomainIntegrationsSubLabel = (
@@ -83,10 +94,13 @@ export const DashboardShell = ({
   children,
   user,
   domainIntegrations = [],
+  showCgaDiagnostics = false,
 }: {
   children: React.ReactNode;
   user?: DashboardUser | null;
   domainIntegrations?: DomainIntegrationNav[];
+  /** Whether to show the CGA diagnostics nav link in the sidebar. */
+  showCgaDiagnostics?: boolean;
 }) => {
   const pathname = usePathname();
   const segments = pathname?.split("/").filter(Boolean) ?? [];
@@ -105,6 +119,17 @@ export const DashboardShell = ({
   const pipelinesSubLabel =
     first === "pipelines" ? getPipelinesSubLabel(second) : null;
   const agentsSubLabel = first === "agents" ? getAgentsSubLabel(second) : null;
+  const agentsThird = segments[3];
+  const contentGenerationRunsSubLabel =
+    first === "agents" && second === "content-generation-runs"
+      ? getAgentsContentGenerationRunsSubLabel(agentsThird)
+      : null;
+  // Label for the CGA diagnostics list page (targeted check — avoids changing
+  // the general hermesSegmentLabel logic which affects all routes).
+  const cgaDiagnosticsLabel =
+    first === "agents" && second === "content-generation-runs" && !agentsThird
+      ? "CGA diagnostics"
+      : null;
   const schedulesSubLabel =
     first === "schedules" ? getSchedulesSubLabel(second) : null;
   const domainIntegrationsSubLabel =
@@ -118,6 +143,8 @@ export const DashboardShell = ({
   const currentLabel = isDomainKeyedRoute
     ? (domainPageLabel ?? second ?? "Dashboard")
     : (pipelinesSubLabel ??
+      contentGenerationRunsSubLabel ??
+      cgaDiagnosticsLabel ??
       agentsSubLabel ??
       schedulesSubLabel ??
       domainIntegrationsSubLabel ??
@@ -136,6 +163,7 @@ export const DashboardShell = ({
       <AppSidebar
         user={user ?? null}
         domainIntegrations={domainIntegrations}
+        showCgaDiagnostics={showCgaDiagnostics}
         variant="inset"
       />
       <SidebarInset>

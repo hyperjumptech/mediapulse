@@ -19,6 +19,8 @@ export const env = createEnv({
     HERMES_DASHBOARD_PUBLIC_URL: z.string().min(1).default("http://localhost:3001"),
     HERMES_RESEND_API_KEY: z.string().optional(),
     HERMES_RESEND_FROM: z.string().optional(),
+    AGENT_DATA_API_URL: z.string().optional(),
+    HERMES_CGA_DIAGNOSTICS_ENABLED: z.string().optional(),
   },
   client: {
   },

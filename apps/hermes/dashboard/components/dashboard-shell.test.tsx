@@ -320,6 +320,44 @@ describe("DashboardShell", () => {
     expect(screen.getByTestId("sidebar-trigger")).toBeInTheDocument();
   });
 
+  it("shows CGA diagnostics title on /dashboard/agents/content-generation-runs", () => {
+    // Setup
+    usePathnameMock.mockReturnValue(
+      "/dashboard/agents/content-generation-runs",
+    );
+
+    // Act
+    render(
+      <DashboardShell>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(
+      screen.getByRole("heading", { name: "CGA diagnostics" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Run detail title on /dashboard/agents/content-generation-runs/[id]", () => {
+    // Setup
+    usePathnameMock.mockReturnValue(
+      "/dashboard/agents/content-generation-runs/550e8400-e29b-41d4-a716-446655440000",
+    );
+
+    // Act
+    render(
+      <DashboardShell>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(
+      screen.getByRole("heading", { name: "Run detail" }),
+    ).toBeInTheDocument();
+  });
+
   it("handles null user gracefully", () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");

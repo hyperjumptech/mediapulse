@@ -12,6 +12,8 @@ export default defineConfig({
       TEMP_ADMIN_PASSWORD: "testtest",
       HERMES_DATA_SOURCE_MAX_TAKE: "5000",
       HERMES_INTERNAL_API_KEY: "test-hermes-internal-api-key",
+      AGENT_DATA_API_URL: "http://localhost:8081",
+      HERMES_CGA_DIAGNOSTICS_ENABLED: "true",
     },
     testTimeout: 10_000,
     hookTimeout: 30_000,
