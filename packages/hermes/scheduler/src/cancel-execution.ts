@@ -447,7 +447,7 @@ export const cancelScheduleExecution = async (
       return;
     }
 
-    const stepTerminals = await reconcileStepRollupsForScheduleExecution(
+    await reconcileStepRollupsForScheduleExecution(
       tx,
       scheduleExecutionId,
       policy,
@@ -579,7 +579,7 @@ export const cancelHttpTriggerExecution = async (
       return;
     }
 
-    const stepTerminals = await reconcileStepRollupsForHttpTriggerExecution(
+    await reconcileStepRollupsForHttpTriggerExecution(
       tx,
       httpTriggerExecutionId,
       policy,
