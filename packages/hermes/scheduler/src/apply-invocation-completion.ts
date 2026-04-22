@@ -12,7 +12,6 @@ import {
 } from "./execution-config";
 import {
   computeExecutionRunStatusFromStepRollups,
-  computeStepRollupFromCounts,
   type StepRollupTerminal,
 } from "./schedule-rollup";
 import {
