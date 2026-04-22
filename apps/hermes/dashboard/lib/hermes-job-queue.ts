@@ -1,3 +1,4 @@
+import type { InvokeAgentJobPayload } from "@hermes/scheduler";
 import { initJobQueue } from "@nicnocquee/dataqueue";
 import { env } from "@hermes/env";
 
@@ -5,6 +6,8 @@ type DashboardJobPayloadMap = {
   execute_http_trigger: {
     httpTriggerExecutionId: string;
   };
+  /** Typed for queue control APIs; dashboard only enqueues `execute_http_trigger` today. */
+  invoke_agent: InvokeAgentJobPayload;
 };
 
 let queue: ReturnType<typeof initJobQueue<DashboardJobPayloadMap>> | null =

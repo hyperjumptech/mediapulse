@@ -47,6 +47,21 @@ export {
   type InvocationCompletionInput,
 } from "./apply-invocation-completion";
 export {
+  cancelHttpTriggerExecution,
+  cancelScheduleExecution,
+  errorIndicatesUserCancel,
+  finalizeCancelledExecutionIfSettled,
+  finalizeManualPipelineExecutionAfterCooperativeCancel,
+  markManualPipelineExecutionCancelled,
+  resolveRunStatusForSettledCancelledExecution,
+  resolveStepRollupPrismaAfterInvocation,
+  type CancelHttpTriggerExecutionResult,
+  type CancelScheduleExecutionResult,
+  type HermesDataQueueForCancel,
+  type MarkManualPipelineCancelledResult,
+  type PlannedJobForManualCancel,
+} from "./cancel-execution";
+export {
   substituteVariables,
   substituteInString,
 } from "./substitute-variables";
