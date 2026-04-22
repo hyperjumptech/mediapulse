@@ -1,4 +1,3 @@
-import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
 /** Identifies which Hermes execution type is being cancelled and its ids. */
@@ -53,12 +52,14 @@ export type UseHermesExecutionCancelButtonResult = {
 
 /**
  * Owns loading state and the cancel POST for schedule, HTTP trigger, or manual executions.
+ *
+ * @param refresh - Called after a successful cancel (typically `router.refresh()` from the host component).
  */
 export const useHermesExecutionCancelButton = (
   target: CancelTarget,
   runStatus: string,
+  refresh: () => void,
 ): UseHermesExecutionCancelButtonResult => {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const canCancel = runStatus === "pending" || runStatus === "running";
 
@@ -76,7 +77,7 @@ export const useHermesExecutionCancelButton = (
           const body = (await response.json()) as { message?: string };
           throw new Error(body.message ?? "Cancel failed");
         }
-        router.refresh();
+        refresh();
       } catch (e) {
         const message = e instanceof Error ? e.message : "Cancel failed";
         window.alert(message);
@@ -84,7 +85,7 @@ export const useHermesExecutionCancelButton = (
         setIsLoading(false);
       }
     })();
-  }, [router, target]);
+  }, [refresh, target]);
 
   return { isLoading, canCancel, requestCancel };
 };
