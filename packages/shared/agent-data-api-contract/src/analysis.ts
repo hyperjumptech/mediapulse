@@ -1,8 +1,5 @@
 import { z } from "zod";
 
-/** Max `limit` on analysis GET (query param); enforced in contract and should match agent callers. */
-export const ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX = 10;
-
 const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
 const relevanceBreakdownSchema = z
   .object({
@@ -35,16 +32,11 @@ export const getAnalysisQuerySchema = z
     ),
     /**
      * Max data sources returned (oldest first). Total matching rows (ignoring this cap) is
-     * `dataSourceTotalCount` on the response.
+     * `dataSourceTotalCount` on the response. Hard cap **10** per request.
      */
     limit: z.preprocess(
       (v) => (v === "" || v === undefined ? undefined : v),
-      z.coerce
-        .number()
-        .int()
-        .positive()
-        .max(ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX)
-        .optional(),
+      z.coerce.number().int().positive().max(10).optional(),
     ),
   })
   .superRefine((data, ctx) => {

@@ -63,9 +63,15 @@ export const articleAnalysisConfigSchema = z.object({
   postTransientRetryBaseDelayMs: z.number().int().positive().optional(),
   /**
    * When Hermes run input omits `maxBatchSize`, cap how many data sources are loaded and processed per run
-   * (also bounds `analysis.get` `limit`). Override in Hermes agent config; package default applies when omitted.
+   * (also bounds `analysis.get` `limit` together with `analysisGetDataSourceLimitMax`).
+   * Override in Hermes agent config; package default applies when omitted.
    */
   defaultMaxBatchSize: z.number().int().positive().optional(),
+  /**
+   * Max `analysis.get` `limit` (API allows at most **10** per request).
+   * Actual limit is `min(maxBatchSize, analysisGetDataSourceLimitMax)`. Set in Hermes agent config JSON.
+   */
+  analysisGetDataSourceLimitMax: z.number().int().positive().max(10).optional(),
   /**
    * When greater than zero, skip the run (success no-op) if GET returns fewer unanalyzed sources than this threshold.
    */
@@ -107,6 +113,8 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   debounceMinMinutesSinceLastScore: number;
   /** Cap on sources per run when Hermes input omits `maxBatchSize`. */
   defaultMaxBatchSize: number;
+  /** Upper bound for `analysis.get` `limit` (see `analysisGetDataSourceLimitMax` on Hermes config). */
+  analysisGetDataSourceLimitMax: number;
 };
 
 /** Production-oriented defaults merged onto parsed Hermes config. */
@@ -140,11 +148,13 @@ export const articleAnalysisConfigDefaults = {
   debounceMinUnanalyzedCount: 0,
   debounceMinMinutesSinceLastScore: 0,
   defaultMaxBatchSize: 10,
+  analysisGetDataSourceLimitMax: 10,
 } as const;
 
 /**
  * Returns effective config with defaults applied for optional numeric/string fields,
- * including debounce knobs and `defaultMaxBatchSize` (Hermes config override or package default).
+ * including debounce knobs, `defaultMaxBatchSize`, and `analysisGetDataSourceLimitMax`
+ * (Hermes config overrides or package defaults).
  *
  * @param config - Parsed Hermes config.
  * @returns Config safe to use at runtime.
@@ -234,6 +244,9 @@ export const resolveArticleAnalysisConfig = (
     defaultMaxBatchSize:
       config.defaultMaxBatchSize ??
       articleAnalysisConfigDefaults.defaultMaxBatchSize,
+    analysisGetDataSourceLimitMax:
+      config.analysisGetDataSourceLimitMax ??
+      articleAnalysisConfigDefaults.analysisGetDataSourceLimitMax,
   };
 };
 
