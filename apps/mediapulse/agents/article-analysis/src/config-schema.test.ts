@@ -56,6 +56,9 @@ describe("resolveArticleAnalysisConfig", () => {
     // Assert
     expect(resolved.debounceMinUnanalyzedCount).toBe(0);
     expect(resolved.debounceMinMinutesSinceLastScore).toBe(0);
+    expect(resolved.defaultMaxBatchSize).toBe(
+      articleAnalysisConfigDefaults.defaultMaxBatchSize,
+    );
   });
 
   it("preserves Hermes debounce and defaultMaxBatchSize overrides", () => {
