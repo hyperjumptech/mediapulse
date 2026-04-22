@@ -14,12 +14,59 @@ import {
   type ExecutionConfig,
 } from "./execution-config";
 
-/** Minimal DataQueue surface used to drop pending `invoke_agent` work by Hermes tags. */
+/** DataQueue surface used to cancel Hermes work by execution tag (pending + waiting). */
 export type HermesDataQueueForCancel = {
   cancelAllUpcomingJobs: (filter: {
     tags: { values: string[]; mode: "all" };
   }) => Promise<unknown>;
+  /**
+   * Optional but required in production: {@link cancelAllUpcomingJobs} only cancels `pending`
+   * rows; dependency-blocked jobs stay `waiting` and would otherwise still run.
+   */
+  getJobsByTags?: (
+    tags: string[],
+    mode?: "all" | "any" | "exact" | "none",
+    limit?: number,
+    offset?: number,
+  ) => Promise<Array<{ id: number; status: string }>>;
+  cancelJob?: (jobId: number) => Promise<unknown>;
 };
+
+/**
+ * Cancels all DataQueue jobs tagged with `tag` that are still `pending` or `waiting`.
+ * {@link HermesDataQueueForCancel.cancelAllUpcomingJobs} only hits `pending`, so this
+ * follows up with per-job cancellation for `waiting` dependency chains.
+ */
+export async function cancelTaggedHermesQueueJobs(
+  queue: HermesDataQueueForCancel,
+  tag: string,
+): Promise<void> {
+  await queue.cancelAllUpcomingJobs({
+    tags: { values: [tag], mode: "all" },
+  });
+
+  const getJobsByTags = queue.getJobsByTags;
+  const cancelJob = queue.cancelJob;
+  if (typeof getJobsByTags !== "function" || typeof cancelJob !== "function") {
+    return;
+  }
+
+  const tagArray = [tag];
+  const pageSize = 200;
+  const maxSweeps = 50;
+  for (let sweep = 0; sweep < maxSweeps; sweep += 1) {
+    const rows = await getJobsByTags(tagArray, "all", pageSize, 0);
+    const actionable = rows.filter(
+      (row) => row.status === "pending" || row.status === "waiting",
+    );
+    if (actionable.length === 0) {
+      break;
+    }
+    for (const row of actionable) {
+      await cancelJob(row.id);
+    }
+  }
+}
 
 const userCancelError = (): Prisma.InputJsonValue =>
   ({
@@ -382,9 +429,10 @@ export const cancelScheduleExecution = async (
     return { ok: false, reason: "already_terminal" };
   }
 
-  await queue.cancelAllUpcomingJobs({
-    tags: { values: [`scheduleExecution:${scheduleExecutionId}`], mode: "all" },
-  });
+  await cancelTaggedHermesQueueJobs(
+    queue,
+    `scheduleExecution:${scheduleExecutionId}`,
+  );
 
   const now = new Date();
   const policy = loadExecutionConfig(
@@ -511,12 +559,10 @@ export const cancelHttpTriggerExecution = async (
     return { ok: false, reason: "already_terminal" };
   }
 
-  await queue.cancelAllUpcomingJobs({
-    tags: {
-      values: [`httpTriggerExecution:${httpTriggerExecutionId}`],
-      mode: "all",
-    },
-  });
+  await cancelTaggedHermesQueueJobs(
+    queue,
+    `httpTriggerExecution:${httpTriggerExecutionId}`,
+  );
 
   const now = new Date();
   const policy = loadExecutionConfig(
@@ -761,7 +807,10 @@ export const markManualPipelineExecutionCancelled = async (
   if (!row) {
     return { ok: false, reason: "not_found" };
   }
-  if (row.runStatus !== ScheduleRunStatus.running) {
+  if (
+    row.runStatus !== ScheduleRunStatus.running &&
+    row.runStatus !== ScheduleRunStatus.pending
+  ) {
     return { ok: false, reason: "already_terminal" };
   }
   await db.manualPipelineExecution.update({
