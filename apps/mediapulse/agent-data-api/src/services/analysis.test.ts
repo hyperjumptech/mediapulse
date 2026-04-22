@@ -1,5 +1,8 @@
 /** @vitest-environment node */
-import { getAnalysisQuerySchema } from "@workspace/agent-data-api-contract";
+import {
+  ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
+  getAnalysisQuerySchema,
+} from "@workspace/agent-data-api-contract";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@mediapulse/database", () => ({
@@ -67,7 +70,7 @@ describe("getAnalysisQuerySchema", () => {
   it("rejects limit above max", () => {
     const result = getAnalysisQuerySchema.safeParse({
       tickerId: "ticker-1",
-      limit: 11,
+      limit: ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX + 1,
     });
     expect(result.success).toBe(false);
   });

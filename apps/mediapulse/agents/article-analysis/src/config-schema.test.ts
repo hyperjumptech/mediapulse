@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 
+import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -97,7 +98,7 @@ describe("resolveArticleAnalysisConfig", () => {
   it("rejects analysisGetDataSourceLimitMax above API hard cap", () => {
     const result = articleAnalysisConfigSchema.safeParse({
       ...minimalConfig,
-      analysisGetDataSourceLimitMax: 11,
+      analysisGetDataSourceLimitMax: ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX + 1,
     });
 
     expect(result.success).toBe(false);
