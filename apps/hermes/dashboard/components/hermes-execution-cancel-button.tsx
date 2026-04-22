@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import { Button } from "@workspace/ui/components/button";
 
 import {
@@ -21,8 +23,9 @@ export const HermesExecutionCancelButton = ({
   target,
   runStatus,
 }: HermesExecutionCancelButtonProps) => {
+  const router = useRouter();
   const { isLoading, canCancel, requestCancel } =
-    useHermesExecutionCancelButton(target, runStatus);
+    useHermesExecutionCancelButton(target, runStatus, () => router.refresh());
 
   if (!canCancel) {
     return null;

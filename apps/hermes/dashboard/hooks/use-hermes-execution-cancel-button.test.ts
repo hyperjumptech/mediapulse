@@ -7,13 +7,7 @@ import {
   useHermesExecutionCancelButton,
 } from "./use-hermes-execution-cancel-button";
 
-const routerRefreshMock = vi.fn();
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    refresh: routerRefreshMock,
-  }),
-}));
+const refreshMock = vi.fn();
 
 const scheduleTarget: CancelTarget = {
   kind: "schedule",
@@ -25,19 +19,19 @@ describe("useHermesExecutionCancelButton", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    routerRefreshMock.mockReset();
+    refreshMock.mockReset();
   });
 
   it("sets canCancel false when run is not pending or running", () => {
     const { result } = renderHook(() =>
-      useHermesExecutionCancelButton(scheduleTarget, "succeeded"),
+      useHermesExecutionCancelButton(scheduleTarget, "succeeded", refreshMock),
     );
     expect(result.current.canCancel).toBe(false);
   });
 
   it("sets canCancel true for pending runs", () => {
     const { result } = renderHook(() =>
-      useHermesExecutionCancelButton(scheduleTarget, "pending"),
+      useHermesExecutionCancelButton(scheduleTarget, "pending", refreshMock),
     );
     expect(result.current.canCancel).toBe(true);
   });
@@ -50,7 +44,7 @@ describe("useHermesExecutionCancelButton", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { result } = renderHook(() =>
-      useHermesExecutionCancelButton(scheduleTarget, "running"),
+      useHermesExecutionCancelButton(scheduleTarget, "running", refreshMock),
     );
 
     await act(async () => {
@@ -58,7 +52,7 @@ describe("useHermesExecutionCancelButton", () => {
     });
 
     await waitFor(() => {
-      expect(routerRefreshMock).toHaveBeenCalled();
+      expect(refreshMock).toHaveBeenCalled();
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -83,7 +77,7 @@ describe("useHermesExecutionCancelButton", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { result } = renderHook(() =>
-      useHermesExecutionCancelButton(scheduleTarget, "running"),
+      useHermesExecutionCancelButton(scheduleTarget, "running", refreshMock),
     );
 
     await act(async () => {
@@ -93,6 +87,6 @@ describe("useHermesExecutionCancelButton", () => {
     await waitFor(() => {
       expect(alertMock).toHaveBeenCalledWith("Execution is already finished");
     });
-    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(refreshMock).not.toHaveBeenCalled();
   });
 });
