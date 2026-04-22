@@ -49,6 +49,7 @@ export {
 export {
   cancelHttpTriggerExecution,
   cancelScheduleExecution,
+  cancelTaggedHermesQueueJobs,
   errorIndicatesUserCancel,
   finalizeCancelledExecutionIfSettled,
   finalizeManualPipelineExecutionAfterCooperativeCancel,

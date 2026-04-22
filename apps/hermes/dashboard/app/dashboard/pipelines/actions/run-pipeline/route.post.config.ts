@@ -35,6 +35,7 @@ import { createExpandStepInputsForManualPipelineRun } from "@/lib/expand-step-in
 import {
   clearManualPipelineRunAbortController,
   registerManualPipelineRunAbortController,
+  startManualExecutionCancelledPollFromDb,
 } from "@/lib/manual-pipeline-run-abort";
 import { validatePipeline } from "@/lib/validate-pipeline";
 
@@ -425,6 +426,10 @@ export const createRunPipelineHandler = ({
       const abortSignal = registerManualPipelineRunAbortController(
         execution.id,
       );
+      const stopCancelledPoll = startManualExecutionCancelledPollFromDb(
+        db,
+        execution.id,
+      );
       const processedJobIds = new Set<string>();
       const plannedJobsForCancel = plannedJobs.map((j) => ({
         jobId: j.jobId,
@@ -703,6 +708,7 @@ export const createRunPipelineHandler = ({
           }
         }
       } finally {
+        stopCancelledPoll();
         clearManualPipelineRunAbortController(execution.id);
       }
 
