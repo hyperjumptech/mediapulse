@@ -1,3 +1,4 @@
+import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-article-analysis";
@@ -292,14 +293,21 @@ export const run = async ({
   };
 
   try {
-    const query = buildAnalysisGetQuery(inputForQuery);
+    const effectiveMaxBatchSize = input.maxBatchSize ?? cfg.defaultMaxBatchSize;
+    const analysisGetLimit = Math.min(
+      effectiveMaxBatchSize,
+      ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
+    );
+    const query = buildAnalysisGetQuery(inputForQuery, {
+      limit: analysisGetLimit,
+    });
     const ctx = await dataApiClient.analysis.get(query);
 
-    const backlogSources = ctx.dataSources.length;
+    const unanalyzedBacklogTotal = ctx.dataSourceTotalCount;
     if (
-      backlogSources > 0 &&
+      unanalyzedBacklogTotal > 0 &&
       cfg.debounceMinUnanalyzedCount > 0 &&
-      backlogSources < cfg.debounceMinUnanalyzedCount
+      unanalyzedBacklogTotal < cfg.debounceMinUnanalyzedCount
     ) {
       emitRunSummary({
         outcome: "success",
@@ -323,9 +331,9 @@ export const run = async ({
       });
       return {
         success: true,
-        message: `debounce: ${backlogSources} unanalyzed source(s) below min ${cfg.debounceMinUnanalyzedCount}; skipping run`,
+        message: `debounce: ${unanalyzedBacklogTotal} unanalyzed source(s) below min ${cfg.debounceMinUnanalyzedCount}; skipping run`,
         details: {
-          dataSourcesReturned: backlogSources,
+          dataSourcesReturned: unanalyzedBacklogTotal,
           dataSourcesSelected: 0,
           reanalyze,
           runStatus: "success" as const,
@@ -346,7 +354,7 @@ export const run = async ({
     }
 
     if (
-      backlogSources > 0 &&
+      unanalyzedBacklogTotal > 0 &&
       cfg.debounceMinMinutesSinceLastScore > 0 &&
       ctx.lastRelevanceScoredAtIso !== null &&
       minutesSinceUtcIso(ctx.lastRelevanceScoredAtIso) <
@@ -376,7 +384,7 @@ export const run = async ({
         success: true,
         message: `debounce: last relevance scored at ${ctx.lastRelevanceScoredAtIso} is within ${cfg.debounceMinMinutesSinceLastScore} minute(s); skipping run`,
         details: {
-          dataSourcesReturned: backlogSources,
+          dataSourcesReturned: unanalyzedBacklogTotal,
           dataSourcesSelected: 0,
           reanalyze,
           runStatus: "success" as const,
@@ -397,9 +405,6 @@ export const run = async ({
     }
 
     const sorted = sortAnalysisDataSourcesByCreatedAt(ctx.dataSources);
-    const effectiveMaxBatchSize = reanalyze
-      ? input.maxBatchSize
-      : (input.maxBatchSize ?? cfg.defaultMaxBatchSize);
     const batch = applyMaxBatchSizeCap(sorted, effectiveMaxBatchSize);
     articlesProcessedForSummary = batch.length;
 
@@ -427,7 +432,7 @@ export const run = async ({
         success: true,
         message: "analysis context loaded (0 source(s)); nothing to process",
         details: {
-          dataSourcesReturned: ctx.dataSources.length,
+          dataSourcesReturned: ctx.dataSourceTotalCount,
           dataSourcesSelected: 0,
           reanalyze,
           runStatus: "success" as const,
@@ -1114,7 +1119,7 @@ export const run = async ({
       message: `complete (${runStatus}): ${erPostChunksCompleted}/${chunks.length} ER chunk(s), ${mentionPostChunksCompleted} articleEntity chunk(s), ${relevancePostChunksCompleted} relevance chunk(s); entitiesCreated=${entitiesCreated} entitiesReused=${entitiesReused} relationsCreated=${relationsCreated} articleEntityRowsPosted=${articleEntityRowsPosted} articlesScored=${articlesScoredTotal} articlesSelected=${articlesSelectedTotal}`,
       details: {
         dataSourcesProcessed: batch.length,
-        dataSourcesReturned: ctx.dataSources.length,
+        dataSourcesReturned: ctx.dataSourceTotalCount,
         extractionFailures,
         extractionSuccessCount,
         postFailures,
