@@ -42,6 +42,30 @@ type AnalysisDb = {
 const defaultDb: AnalysisDb = prisma;
 
 /**
+ * Loads data sources for analysis GET: optional `limit` page plus total row count for the same filters.
+ * Shape matches `getAnalysisResponseSchema` fields `dataSources` and `dataSourceTotalCount`.
+ */
+async function loadAnalysisDataSourcesPage(
+  db: AnalysisDb,
+  findArgsBase: Prisma.DataSourceFindManyArgs,
+  where: Prisma.DataSourceWhereInput,
+  limit: number | undefined,
+): Promise<{
+  dataSources: GetAnalysisResponse["dataSources"];
+  dataSourceTotalCount: number;
+}> {
+  if (limit !== undefined) {
+    const [rows, total] = await Promise.all([
+      db.dataSource.findMany({ ...findArgsBase, take: limit }),
+      db.dataSource.count({ where }),
+    ]);
+    return { dataSources: rows, dataSourceTotalCount: total };
+  }
+  const dataSources = await db.dataSource.findMany(findArgsBase);
+  return { dataSources, dataSourceTotalCount: dataSources.length };
+}
+
+/**
  * Normalizes a name or alias for case-insensitive matching.
  *
  * @param value - Raw string from the agent payload.
@@ -135,19 +159,13 @@ export const loadAnalysisContext = async (
 
   const limit = query.limit;
 
-  let dataSources: GetAnalysisResponse["dataSources"];
-  let dataSourceTotalCount: number;
-  if (limit !== undefined) {
-    const [rows, total] = await Promise.all([
-      db.dataSource.findMany({ ...dataSourceFindArgsBase, take: limit }),
-      db.dataSource.count({ where: dataSourceWhere }),
-    ]);
-    dataSources = rows;
-    dataSourceTotalCount = total;
-  } else {
-    dataSources = await db.dataSource.findMany(dataSourceFindArgsBase);
-    dataSourceTotalCount = dataSources.length;
-  }
+  const { dataSources, dataSourceTotalCount } =
+    await loadAnalysisDataSourcesPage(
+      db,
+      dataSourceFindArgsBase,
+      dataSourceWhere,
+      limit,
+    );
 
   const [
     entityTypes,
