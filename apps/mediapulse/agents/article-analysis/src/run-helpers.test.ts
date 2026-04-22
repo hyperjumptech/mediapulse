@@ -53,10 +53,10 @@ describe("buildAnalysisGetQuery", () => {
     const input = articleAnalysisInputSchema.parse({
       tickerId: "tick-d",
     });
-    expect(buildAnalysisGetQuery(input, { limit: 15 })).toEqual({
+    expect(buildAnalysisGetQuery(input, { limit: 10 })).toEqual({
       tickerId: "tick-d",
       unanalyzed: true,
-      limit: 15,
+      limit: 10,
     });
   });
 });

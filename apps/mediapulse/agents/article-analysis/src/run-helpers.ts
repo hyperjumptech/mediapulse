@@ -3,7 +3,7 @@ import type { GetAnalysisQuery } from "@workspace/agent-data-api-contract";
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 
 export type BuildAnalysisGetQueryOptions = {
-  /** Passed as analysis GET `limit` (bounded by contract max). */
+  /** Passed as analysis GET `limit` (caller should use resolved Hermes `analysisGetDataSourceLimitMax`). */
   limit?: number;
 };
 
