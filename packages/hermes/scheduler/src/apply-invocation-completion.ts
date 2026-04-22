@@ -15,6 +15,10 @@ import {
   computeStepRollupFromCounts,
   type StepRollupTerminal,
 } from "./schedule-rollup";
+import {
+  resolveRunStatusForSettledCancelledExecution,
+  resolveStepRollupPrismaAfterInvocation,
+} from "./cancel-execution";
 
 export type InvocationCompletionInput = {
   jobId: string;
@@ -31,6 +35,10 @@ export type InvocationCompletionInput = {
         error: Prisma.InputJsonValue;
         agentResponse?: Prisma.InputJsonValue;
         semanticStatus?: string | null;
+      }
+    | {
+        status: typeof AgentJobExecutionStatus.cancelled;
+        error: Prisma.InputJsonValue;
       };
 };
 
@@ -92,6 +100,7 @@ export const applyInvocationCompletion = async (
         select: {
           id: true,
           runStatus: true,
+          cancelledAt: true,
           effectiveExecutionConfig: true,
         },
       })
@@ -101,6 +110,7 @@ export const applyInvocationCompletion = async (
           select: {
             id: true,
             runStatus: true,
+            cancelledAt: true,
             effectiveExecutionConfig: true,
           },
         })
@@ -130,23 +140,45 @@ export const applyInvocationCompletion = async (
   );
 
   const isSuccess = input.terminal.status === AgentJobExecutionStatus.completed;
-  const agentData =
-    input.terminal.status === AgentJobExecutionStatus.completed
-      ? {
-          status: AgentJobExecutionStatus.completed,
-          completedAt: new Date(),
-          error: Prisma.DbNull,
-          agentResponse: input.terminal
-            .envelope as unknown as Prisma.InputJsonValue,
-          semanticStatus: input.terminal.envelope.status,
-        }
-      : {
-          status: AgentJobExecutionStatus.failed,
-          completedAt: new Date(),
-          error: input.terminal.error,
-          agentResponse: input.terminal.agentResponse ?? Prisma.DbNull,
-          semanticStatus: input.terminal.semanticStatus ?? null,
-        };
+  const isCancelled =
+    input.terminal.status === AgentJobExecutionStatus.cancelled;
+
+  let agentData: {
+    status: AgentJobExecutionStatus;
+    completedAt: Date;
+    error: Prisma.InputJsonValue | typeof Prisma.DbNull;
+    agentResponse: Prisma.InputJsonValue | typeof Prisma.DbNull;
+    semanticStatus: string | null;
+  };
+
+  if (input.terminal.status === AgentJobExecutionStatus.completed) {
+    agentData = {
+      status: AgentJobExecutionStatus.completed,
+      completedAt: new Date(),
+      error: Prisma.DbNull,
+      agentResponse: input.terminal
+        .envelope as unknown as Prisma.InputJsonValue,
+      semanticStatus: input.terminal.envelope.status,
+    };
+  } else if (isCancelled) {
+    agentData = {
+      status: AgentJobExecutionStatus.cancelled,
+      completedAt: new Date(),
+      error: input.terminal.error,
+      agentResponse: Prisma.DbNull,
+      semanticStatus: null,
+    };
+  } else if (input.terminal.status === AgentJobExecutionStatus.failed) {
+    agentData = {
+      status: AgentJobExecutionStatus.failed,
+      completedAt: new Date(),
+      error: input.terminal.error,
+      agentResponse: input.terminal.agentResponse ?? Prisma.DbNull,
+      semanticStatus: input.terminal.semanticStatus ?? null,
+    };
+  } else {
+    throw new Error("applyInvocationCompletion: unsupported terminal status");
+  }
 
   const execCountInc = isSuccess
     ? { succeededInvocationCount: { increment: 1 } }
@@ -200,7 +232,7 @@ export const applyInvocationCompletion = async (
 
     const inc = isSuccess
       ? { succeededCount: { increment: 1 } }
-      : { failedCount: { increment: 1 } };
+      : { failedCount: { increment: 1 } }; // failed + user-cancelled terminal both increment failedCount on the step row
 
     const updated =
       executionKind === "schedule"
@@ -232,21 +264,52 @@ export const applyInvocationCompletion = async (
       return;
     }
 
-    const rollupTerminal = computeStepRollupFromCounts(
-      updated.succeededCount,
-      updated.failedCount,
-      config.stepRollupPolicy,
-    );
+    const executionCancelledAt =
+      executionKind === "schedule"
+        ? await tx.scheduleExecution.findUnique({
+            where: { id: input.scheduleExecutionId! },
+            select: { cancelledAt: true },
+          })
+        : await tx.httpTriggerExecution.findUnique({
+            where: { id: input.httpTriggerExecutionId! },
+            select: { cancelledAt: true },
+          });
+
+    const stepJobsForRollup =
+      executionKind === "schedule"
+        ? await tx.agentJobExecution.findMany({
+            where: {
+              scheduleExecutionId: input.scheduleExecutionId!,
+              pipelineStepId: input.pipelineStepId,
+            },
+            select: { status: true, error: true },
+          })
+        : await tx.agentJobExecution.findMany({
+            where: {
+              httpTriggerExecutionId: input.httpTriggerExecutionId!,
+              pipelineStepId: input.pipelineStepId,
+            },
+            select: { status: true, error: true },
+          });
+
+    const rollupPrisma = resolveStepRollupPrismaAfterInvocation({
+      cancelledAt: executionCancelledAt?.cancelledAt ?? null,
+      stepJobs: stepJobsForRollup,
+      succeededCount: updated.succeededCount,
+      failedCount: updated.failedCount,
+      expectedInvocationCount: updated.expectedInvocationCount,
+      policy: config.stepRollupPolicy,
+    });
 
     if (executionKind === "schedule") {
       await tx.scheduleStepExecution.update({
         where: { id: stepRow.id },
-        data: { rollupStatus: stepRollupTerminalToPrisma(rollupTerminal) },
+        data: { rollupStatus: rollupPrisma },
       });
     } else {
       await tx.httpTriggerStepExecution.update({
         where: { id: stepRow.id },
-        data: { rollupStatus: stepRollupTerminalToPrisma(rollupTerminal) },
+        data: { rollupStatus: rollupPrisma },
       });
     }
 
@@ -276,13 +339,36 @@ export const applyInvocationCompletion = async (
       return;
     }
 
-    const stepTerminals: StepRollupTerminal[] = allSteps.map((s) =>
-      prismaRollupToTerminal(s.rollupStatus),
-    );
-    const run = computeExecutionRunStatusFromStepRollups(
-      stepTerminals,
-      config.stepRollupPolicy,
-    );
+    const executionRow =
+      executionKind === "schedule"
+        ? await tx.scheduleExecution.findUnique({
+            where: { id: input.scheduleExecutionId! },
+            select: { cancelledAt: true },
+          })
+        : await tx.httpTriggerExecution.findUnique({
+            where: { id: input.httpTriggerExecutionId! },
+            select: { cancelledAt: true },
+          });
+
+    const allJobs =
+      executionKind === "schedule"
+        ? await tx.agentJobExecution.findMany({
+            where: { scheduleExecutionId: input.scheduleExecutionId! },
+            select: { status: true, error: true },
+          })
+        : await tx.agentJobExecution.findMany({
+            where: { httpTriggerExecutionId: input.httpTriggerExecutionId! },
+            select: { status: true, error: true },
+          });
+
+    const run = executionRow?.cancelledAt
+      ? resolveRunStatusForSettledCancelledExecution(allJobs)
+      : runStatusToPrisma(
+          computeExecutionRunStatusFromStepRollups(
+            allSteps.map((s) => prismaRollupToTerminal(s.rollupStatus)),
+            config.stepRollupPolicy,
+          ),
+        );
 
     if (executionKind === "schedule") {
       await tx.scheduleExecution.updateMany({
@@ -292,7 +378,7 @@ export const applyInvocationCompletion = async (
             in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
           },
         },
-        data: { runStatus: runStatusToPrisma(run) },
+        data: { runStatus: run },
       });
     } else {
       await tx.httpTriggerExecution.updateMany({
@@ -302,24 +388,11 @@ export const applyInvocationCompletion = async (
             in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
           },
         },
-        data: { runStatus: runStatusToPrisma(run) },
+        data: { runStatus: run },
       });
     }
   });
 };
-
-function stepRollupTerminalToPrisma(
-  r: StepRollupTerminal,
-): ScheduleStepRollupStatus {
-  switch (r) {
-    case "success":
-      return ScheduleStepRollupStatus.success;
-    case "partial":
-      return ScheduleStepRollupStatus.partial;
-    case "failed":
-      return ScheduleStepRollupStatus.failed;
-  }
-}
 
 function prismaRollupToTerminal(
   r: ScheduleStepRollupStatus,
