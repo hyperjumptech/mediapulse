@@ -34,6 +34,7 @@ type CancelManualExecutionHandler = HandlerFunc<
 type Dependencies = {
   db?: typeof prisma;
   markCancelled?: typeof markManualPipelineExecutionCancelled;
+  abortLocal?: (manualExecutionId: string) => void;
 };
 
 /**
@@ -42,6 +43,7 @@ type Dependencies = {
 export const createCancelManualExecutionHandler = ({
   db = prisma,
   markCancelled = markManualPipelineExecutionCancelled,
+  abortLocal = abortManualPipelineRunIfLocal,
 }: Dependencies = {}): CancelManualExecutionHandler => {
   return async (data) => {
     const { pipelineId, manualExecutionId } = data.body;
@@ -78,7 +80,7 @@ export const createCancelManualExecutionHandler = ({
       return errorResponse("Manual execution not found");
     }
 
-    abortManualPipelineRunIfLocal(manualExecutionId);
+    abortLocal(manualExecutionId);
 
     return successResponse({ ok: true as const });
   };
