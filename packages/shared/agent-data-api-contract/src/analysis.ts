@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+/**
+ * Max `limit` on analysis GET (query param). Primary article consumer (`analysisGetDataSourceLimitMax`
+ * in Hermes config) should cap at this value so requests stay valid.
+ */
+export const ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX = 10;
+
 const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
 const relevanceBreakdownSchema = z
   .object({
@@ -32,11 +38,16 @@ export const getAnalysisQuerySchema = z
     ),
     /**
      * Max data sources returned (oldest first). Total matching rows (ignoring this cap) is
-     * `dataSourceTotalCount` on the response. Hard cap **10** per request.
+     * `dataSourceTotalCount` on the response. Upper bound is {@link ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX}.
      */
     limit: z.preprocess(
       (v) => (v === "" || v === undefined ? undefined : v),
-      z.coerce.number().int().positive().max(10).optional(),
+      z.coerce
+        .number()
+        .int()
+        .positive()
+        .max(ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX)
+        .optional(),
     ),
   })
   .superRefine((data, ctx) => {

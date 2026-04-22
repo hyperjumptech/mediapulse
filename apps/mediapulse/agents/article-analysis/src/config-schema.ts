@@ -1,3 +1,4 @@
+import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
 import type { RelevanceWeightMapV1 } from "./analysis-relevance-scoring.js";
 import type { ArticleAnalysisRunPolicy } from "./article-analysis-run-policy.js";
 import { z } from "zod";
@@ -68,10 +69,15 @@ export const articleAnalysisConfigSchema = z.object({
    */
   defaultMaxBatchSize: z.number().int().positive().optional(),
   /**
-   * Max `analysis.get` `limit` (API allows at most **10** per request).
+   * Max `analysis.get` `limit` (must not exceed `ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX` from `@workspace/agent-data-api-contract`).
    * Actual limit is `min(maxBatchSize, analysisGetDataSourceLimitMax)`. Set in Hermes agent config JSON.
    */
-  analysisGetDataSourceLimitMax: z.number().int().positive().max(10).optional(),
+  analysisGetDataSourceLimitMax: z
+    .number()
+    .int()
+    .positive()
+    .max(ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX)
+    .optional(),
   /**
    * When greater than zero, skip the run (success no-op) if GET returns fewer unanalyzed sources than this threshold.
    */
@@ -148,7 +154,7 @@ export const articleAnalysisConfigDefaults = {
   debounceMinUnanalyzedCount: 0,
   debounceMinMinutesSinceLastScore: 0,
   defaultMaxBatchSize: 10,
-  analysisGetDataSourceLimitMax: 10,
+  analysisGetDataSourceLimitMax: ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
 } as const;
 
 /**
