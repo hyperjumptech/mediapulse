@@ -61,9 +61,9 @@ export async function generateContentWithOpenAI(
   const replacePlaceholders = (template: string): string =>
     template
       .replace(/\{\{topNewsCount\}\}/g, String(deps.topNewsCount))
-      .replace(/\{\{sourceSummaries\}\}/g, sourceSummaries)
       .replace(/\{\{tickerId\}\}/g, deps.tickerId ?? "")
-      .replace(/\{\{date\}\}/g, deps.date ?? "");
+      .replace(/\{\{date\}\}/g, deps.date ?? "")
+      .replace(/\{\{sourceSummaries\}\}/g, sourceSummaries);
 
   const systemPrompt = replacePlaceholders(
     deps.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
