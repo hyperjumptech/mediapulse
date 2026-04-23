@@ -49,6 +49,7 @@ vi.mock("@workspace/logger", () => ({
 
 const getMock = vi.fn();
 const createMock = vi.fn();
+const existingUrlsCreateMock = vi.fn();
 const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
 
@@ -57,6 +58,9 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     dataCollection: {
       get: getMock,
       create: createMock,
+    },
+    dataCollectionExistingUrls: {
+      create: existingUrlsCreateMock,
     },
     dataCollectionRun: {
       create: runCreateMock,
@@ -118,6 +122,7 @@ describe("runDataCollection", () => {
       data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
     });
     createMock.mockResolvedValue("{}");
+    existingUrlsCreateMock.mockResolvedValue({ existingUrls: [] });
   });
 
   afterEach(() => {
@@ -146,6 +151,10 @@ describe("runDataCollection", () => {
       token: "Bearer test-token",
     });
     expect(getMock).toHaveBeenCalledWith({ tickerId: TICKER_ID });
+    expect(existingUrlsCreateMock).toHaveBeenCalledWith({
+      tickerId: TICKER_ID,
+      urls: ["http://example.com"],
+    });
     expect(createMock).toHaveBeenCalledWith([
       {
         url: "http://example.com",
@@ -166,6 +175,33 @@ describe("runDataCollection", () => {
         }),
       }),
     );
+  });
+
+  it("skips web fetch for URLs already returned by dataCollectionExistingUrls", async () => {
+    existingUrlsCreateMock.mockResolvedValueOnce({
+      existingUrls: ["http://example.com"],
+    });
+    vi.mocked(performWebFetch).mockResolvedValueOnce([]);
+
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          runPolicy: {
+            minSuccessfulSources: 0,
+            failOnZeroSuccess: false,
+          },
+        },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(existingUrlsCreateMock).toHaveBeenCalledWith({
+      tickerId: TICKER_ID,
+      urls: ["http://example.com"],
+    });
+    expect(performWebFetch).toHaveBeenCalledWith([], expect.anything());
+    expect(createMock).not.toHaveBeenCalled();
   });
 
   it("passes time window fields to dataCollection.get when input includes timeWindow", async () => {

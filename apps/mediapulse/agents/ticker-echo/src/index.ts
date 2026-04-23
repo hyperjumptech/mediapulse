@@ -1,11 +1,11 @@
-import { createAgentApp } from "@workspace/agent-runtime";
+import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-ticker-echo";
 import { z } from "zod";
 import { run } from "./run";
 
 // InputSchema is the schema for the input of the agent, which will be sent by Hermes to the agent when the agent is invoked
 const InputSchema = z.object({
-  tickerId: z.string().min(1),
+  tickerId: hermesTickerIdSchema,
 });
 
 // ConfigSchema is the schema for the config of the agent, which will be sent by Hermes to the agent when the agent is invoked

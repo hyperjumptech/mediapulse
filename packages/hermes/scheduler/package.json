@@ -6,7 +6,10 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./enqueue-diagnostics-correlation": "./src/enqueue-diagnostics-correlation.ts",
+    "./execution-config": "./src/execution-config.ts",
+    "./schedule-rollup": "./src/schedule-rollup.ts"
   },
   "scripts": {
     "lint": "eslint \"src/**/*.ts\"",

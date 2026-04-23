@@ -49,7 +49,8 @@ export function createAgentTokenClient(deps: AgentTokenClientDeps): {
     }
     const data = (await res.json()) as { token?: string; expiresIn?: number };
     const token = data.token;
-    const expiresIn = typeof data.expiresIn === "number" ? data.expiresIn : 900;
+    const expiresIn =
+      typeof data.expiresIn === "number" ? data.expiresIn : 7200;
     if (!token || typeof token !== "string") {
       throw new Error("Agent auth API did not return a token");
     }

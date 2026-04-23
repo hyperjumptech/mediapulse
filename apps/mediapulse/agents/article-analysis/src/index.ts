@@ -6,7 +6,7 @@ import { articleAnalysisConfigSchema } from "./config-schema.js";
 import {
   articleAnalysisInputSchema,
   type ArticleAnalysisInput,
-} from "./input-schema.js";
+} from "./schemas/article-analysis-input-schema.js";
 import { run } from "./run.js";
 
 export type Input = ArticleAnalysisInput;

@@ -1,9 +1,9 @@
 /** @vitest-environment node */
 import { describe, expect, it, vi } from "vitest";
-import { createAgentApp } from "@workspace/agent-runtime";
+import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { z } from "zod";
 
-const inputSchema = z.object({ tickerId: z.string().min(1) });
+const inputSchema = z.object({ tickerId: hermesTickerIdSchema });
 
 describe("query-analysis agent", () => {
   it("returns success for valid input", async () => {

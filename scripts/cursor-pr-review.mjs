@@ -17,7 +17,16 @@ const getArgValue = (name, defaultValue) => {
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
 
-const baseRef = getArgValue("base", "origin/main");
+const getDefaultBaseRef = () => {
+  try {
+    execFileSync("git", ["rev-parse", "--verify", "main"], { stdio: "ignore" });
+    return "main";
+  } catch {
+    return "origin/main";
+  }
+};
+
+const baseRef = getArgValue("base", null) ?? getDefaultBaseRef();
 const headRef = getArgValue("head", "HEAD");
 const failOnWarnings = hasFlag("fail-on-warnings");
 
