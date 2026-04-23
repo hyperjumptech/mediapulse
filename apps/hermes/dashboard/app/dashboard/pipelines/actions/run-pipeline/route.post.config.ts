@@ -3,6 +3,7 @@ import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@hermes/env";
 import { headers } from "next/headers";
 import {
+  AgentJobExecutionStatus,
   prisma as orchestrationPrisma,
   Prisma,
   ScheduleEnqueueStatus,
@@ -524,17 +525,11 @@ export const createRunPipelineHandler = ({
                       detail,
                     },
                   );
-                  const stats = stepStats.get(step.id);
-                  if (stats) stats.failedCount += 1;
-                  errors.push({
-                    message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
-                    timestamp: now().toISOString(),
-                    phase: "transaction",
-                    pipelineStepId: step.id,
-                    code: `AGENT_ENVELOPE_INVALID:${parsed.error.code}`,
-                  });
-                  await db.agentJobExecution.update({
-                    where: { jobId: job.jobId },
+                  const envFail = await db.agentJobExecution.updateMany({
+                    where: {
+                      jobId: job.jobId,
+                      status: AgentJobExecutionStatus.running,
+                    },
                     data: {
                       status: "failed",
                       completedAt: now(),
@@ -548,7 +543,18 @@ export const createRunPipelineHandler = ({
                       semanticStatus: "failure",
                     },
                   });
-                  processedJobIds.add(job.jobId);
+                  if (envFail.count > 0) {
+                    const stats = stepStats.get(step.id);
+                    if (stats) stats.failedCount += 1;
+                    errors.push({
+                      message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                      timestamp: now().toISOString(),
+                      phase: "transaction",
+                      pipelineStepId: step.id,
+                      code: `AGENT_ENVELOPE_INVALID:${parsed.error.code}`,
+                    });
+                    processedJobIds.add(job.jobId);
+                  }
                   continue;
                 }
                 if (parsed.envelope.status === "failure") {
@@ -568,17 +574,11 @@ export const createRunPipelineHandler = ({
                       detail,
                     },
                   );
-                  const stats = stepStats.get(step.id);
-                  if (stats) stats.failedCount += 1;
-                  errors.push({
-                    message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
-                    timestamp: now().toISOString(),
-                    phase: "transaction",
-                    pipelineStepId: step.id,
-                    code: "AGENT_SEMANTIC_FAILURE",
-                  });
-                  await db.agentJobExecution.update({
-                    where: { jobId: job.jobId },
+                  const semFail = await db.agentJobExecution.updateMany({
+                    where: {
+                      jobId: job.jobId,
+                      status: AgentJobExecutionStatus.running,
+                    },
                     data: {
                       status: "failed",
                       completedAt: now(),
@@ -593,13 +593,26 @@ export const createRunPipelineHandler = ({
                       semanticStatus: "failure",
                     },
                   });
-                  processedJobIds.add(job.jobId);
+                  if (semFail.count > 0) {
+                    const stats = stepStats.get(step.id);
+                    if (stats) stats.failedCount += 1;
+                    errors.push({
+                      message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                      timestamp: now().toISOString(),
+                      phase: "transaction",
+                      pipelineStepId: step.id,
+                      code: "AGENT_SEMANTIC_FAILURE",
+                    });
+                    processedJobIds.add(job.jobId);
+                  }
                   continue;
                 }
                 const stats = stepStats.get(step.id);
-                if (stats) stats.succeededCount += 1;
-                await db.agentJobExecution.update({
-                  where: { jobId: job.jobId },
+                const completedUp = await db.agentJobExecution.updateMany({
+                  where: {
+                    jobId: job.jobId,
+                    status: AgentJobExecutionStatus.running,
+                  },
                   data: {
                     status: "completed",
                     completedAt: now(),
@@ -609,7 +622,10 @@ export const createRunPipelineHandler = ({
                     semanticStatus: "success",
                   },
                 });
-                processedJobIds.add(job.jobId);
+                if (completedUp.count > 0) {
+                  if (stats) stats.succeededCount += 1;
+                  processedJobIds.add(job.jobId);
+                }
                 continue;
               }
 
@@ -635,17 +651,11 @@ export const createRunPipelineHandler = ({
                   detail,
                 },
               );
-              const stats = stepStats.get(step.id);
-              if (stats) stats.failedCount += 1;
-              errors.push({
-                message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
-                timestamp: now().toISOString(),
-                phase: "transaction",
-                pipelineStepId: step.id,
-                code: `AGENT_HTTP_${String(code)}`,
-              });
-              await db.agentJobExecution.update({
-                where: { jobId: job.jobId },
+              const httpFail = await db.agentJobExecution.updateMany({
+                where: {
+                  jobId: job.jobId,
+                  status: AgentJobExecutionStatus.running,
+                },
                 data: {
                   status: "failed",
                   completedAt: now(),
@@ -660,7 +670,18 @@ export const createRunPipelineHandler = ({
                   semanticStatus: "failure",
                 },
               });
-              processedJobIds.add(job.jobId);
+              if (httpFail.count > 0) {
+                const stats = stepStats.get(step.id);
+                if (stats) stats.failedCount += 1;
+                errors.push({
+                  message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                  timestamp: now().toISOString(),
+                  phase: "transaction",
+                  pipelineStepId: step.id,
+                  code: `AGENT_HTTP_${String(code)}`,
+                });
+                processedJobIds.add(job.jobId);
+              }
             } catch (err) {
               if (abortSignal.aborted) {
                 cooperativeCancel = true;
@@ -681,17 +702,11 @@ export const createRunPipelineHandler = ({
                 },
                 err,
               );
-              const stats = stepStats.get(step.id);
-              if (stats) stats.failedCount += 1;
-              errors.push(
-                diagnosticFromCaughtError(err, {
-                  phase: "transaction",
-                  pipelineStepId: step.id,
-                  messagePrefix: `Agent HTTP threw (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
-                }),
-              );
-              await db.agentJobExecution.update({
-                where: { jobId: job.jobId },
+              const throwFail = await db.agentJobExecution.updateMany({
+                where: {
+                  jobId: job.jobId,
+                  status: AgentJobExecutionStatus.running,
+                },
                 data: {
                   status: "failed",
                   completedAt: now(),
@@ -703,7 +718,18 @@ export const createRunPipelineHandler = ({
                   semanticStatus: "failure",
                 },
               });
-              processedJobIds.add(job.jobId);
+              if (throwFail.count > 0) {
+                const stats = stepStats.get(step.id);
+                if (stats) stats.failedCount += 1;
+                errors.push(
+                  diagnosticFromCaughtError(err, {
+                    phase: "transaction",
+                    pipelineStepId: step.id,
+                    messagePrefix: `Agent HTTP threw (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                  }),
+                );
+                processedJobIds.add(job.jobId);
+              }
             }
           }
         }
@@ -713,11 +739,33 @@ export const createRunPipelineHandler = ({
       }
 
       if (cooperativeCancel) {
-        await finalizeManualPipelineExecutionAfterCooperativeCancel(db, {
-          manualExecutionId: execution.id,
-          plannedJobs: plannedJobsForCancel,
-          processedJobIds,
+        const parentAfterCancel = await db.manualPipelineExecution.findUnique({
+          where: { id: execution.id },
+          select: { runStatus: true },
         });
+        const actionableInvocations = await db.agentJobExecution.count({
+          where: {
+            manualExecutionId: execution.id,
+            status: {
+              in: [
+                AgentJobExecutionStatus.pending,
+                AgentJobExecutionStatus.running,
+              ],
+            },
+          },
+        });
+        const needsCooperativeFinalize =
+          actionableInvocations > 0 ||
+          parentAfterCancel?.runStatus === ScheduleRunStatus.running ||
+          parentAfterCancel?.runStatus === ScheduleRunStatus.pending;
+        if (needsCooperativeFinalize) {
+          await finalizeManualPipelineExecutionAfterCooperativeCancel(db, {
+            manualExecutionId: execution.id,
+            plannedJobs: plannedJobsForCancel,
+            processedJobIds,
+            source: "runPipeline",
+          });
+        }
         const finalRow = await db.manualPipelineExecution.findUnique({
           where: { id: execution.id },
           select: {

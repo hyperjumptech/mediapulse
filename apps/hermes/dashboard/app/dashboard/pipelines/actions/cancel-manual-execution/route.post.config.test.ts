@@ -41,7 +41,14 @@ describe("createCancelManualExecutionHandler", () => {
     );
   });
 
-  it("returns not allowed when the session user did not start the run", async () => {
+  it("allows any dashboard admin to cancel when another user started the run", async () => {
+    const abortLocal = vi.fn();
+    const markCancelled = vi.fn().mockResolvedValue({ ok: true });
+    const loadFinalizeSnapshot = vi.fn().mockResolvedValue({
+      plannedJobs: [],
+      processedJobIds: new Set<string>(),
+    });
+    const finalizeAfterCancel = vi.fn().mockResolvedValue(undefined);
     const db = {
       manualPipelineExecution: {
         findFirst: vi.fn().mockResolvedValue({
@@ -52,6 +59,10 @@ describe("createCancelManualExecutionHandler", () => {
     };
     const handler = createCancelManualExecutionHandler({
       db: db as never,
+      markCancelled,
+      loadFinalizeSnapshot,
+      finalizeAfterCancel,
+      abortLocal,
     });
 
     const result = await handler({
@@ -62,15 +73,63 @@ describe("createCancelManualExecutionHandler", () => {
       user: mockDashboardUser,
     } as never);
 
-    expect(result.status).toBe(false);
-    expect((result as { message?: string }).message).toBe(
-      "Not allowed to cancel this execution",
-    );
+    expect(result.status).toBe(true);
+    expect(markCancelled).toHaveBeenCalledWith(db, manualExecutionId);
+    expect(loadFinalizeSnapshot).toHaveBeenCalledWith(db, manualExecutionId);
+    expect(finalizeAfterCancel).toHaveBeenCalledWith(db, {
+      manualExecutionId,
+      plannedJobs: [],
+      processedJobIds: new Set(),
+      source: "dbSnapshot",
+    });
+    expect(abortLocal).toHaveBeenCalledWith(manualExecutionId);
+  });
+
+  it("allows cancel when execution metadata is null (legacy)", async () => {
+    const abortLocal = vi.fn();
+    const markCancelled = vi.fn().mockResolvedValue({ ok: true });
+    const loadFinalizeSnapshot = vi.fn().mockResolvedValue({
+      plannedJobs: [],
+      processedJobIds: new Set<string>(),
+    });
+    const finalizeAfterCancel = vi.fn().mockResolvedValue(undefined);
+    const db = {
+      manualPipelineExecution: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: manualExecutionId,
+          metadata: null,
+        }),
+      },
+    };
+    const handler = createCancelManualExecutionHandler({
+      db: db as never,
+      markCancelled,
+      loadFinalizeSnapshot,
+      finalizeAfterCancel,
+      abortLocal,
+    });
+
+    const result = await handler({
+      body: { pipelineId, manualExecutionId },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(true);
+    expect(markCancelled).toHaveBeenCalledWith(db, manualExecutionId);
+    expect(abortLocal).toHaveBeenCalledWith(manualExecutionId);
   });
 
   it("calls abortLocal and returns ok when mark cancelled succeeds", async () => {
     const abortLocal = vi.fn();
     const markCancelled = vi.fn().mockResolvedValue({ ok: true });
+    const loadFinalizeSnapshot = vi.fn().mockResolvedValue({
+      plannedJobs: [],
+      processedJobIds: new Set<string>(),
+    });
+    const finalizeAfterCancel = vi.fn().mockResolvedValue(undefined);
     const db = {
       manualPipelineExecution: {
         findFirst: vi.fn().mockResolvedValue({
@@ -82,6 +141,8 @@ describe("createCancelManualExecutionHandler", () => {
     const handler = createCancelManualExecutionHandler({
       db: db as never,
       markCancelled,
+      loadFinalizeSnapshot,
+      finalizeAfterCancel,
       abortLocal,
     });
 
