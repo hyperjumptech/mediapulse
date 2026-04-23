@@ -852,7 +852,7 @@ export const loadManualPipelineFinalizeSnapshotFromDb = async (
       });
     }
   }
-  const terminalStatuses = new Set([
+  const terminalStatuses = new Set<AgentJobExecutionStatus>([
     AgentJobExecutionStatus.completed,
     AgentJobExecutionStatus.failed,
     AgentJobExecutionStatus.cancelled,
