@@ -9,6 +9,14 @@ export const postContentGenerationBodySchema = z.object({
   description: z.string().optional(),
   content: z.string(),
   tickerId: z.string().trim().min(1),
+  model: z.string().optional(),
+  agentVersion: z.string().optional(),
+  configVersion: z.string().optional(),
+  promptHash: z.string().optional(),
+  configSnapshotId: z.string().optional(),
+  promptTokens: z.number().int().nonnegative().optional(),
+  completionTokens: z.number().int().nonnegative().optional(),
+  totalTokens: z.number().int().nonnegative().optional(),
 });
 
 export const contentGenerationDataSourceSchema = z

@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
+
 import { NextResponse } from "next/server";
 import {
   prisma,
   type Prisma,
   ScheduleEnqueueStatus,
 } from "@hermes/orchestration-database";
+import { mergeHermesEnqueueCorrelationIntoMetadata } from "@hermes/scheduler/enqueue-diagnostics-correlation";
 
 import {
   collectHttpTriggerRequestSnapshot,
@@ -84,6 +87,20 @@ const handleInvoke = async (
 
   const requestSnapshot = await collectHttpTriggerRequestSnapshot(request);
 
+  const headerRequestId = request.headers.get("x-request-id")?.trim();
+  const requestId =
+    headerRequestId != null && headerRequestId !== ""
+      ? headerRequestId
+      : randomUUID();
+
+  const snapshotMetadata = toHttpTriggerExecutionMetadata(requestSnapshot);
+  const metadataWithCorrelation = mergeHermesEnqueueCorrelationIntoMetadata(
+    snapshotMetadata,
+    {
+      requestId,
+    },
+  ) as Prisma.InputJsonValue;
+
   const execution = await prisma.httpTriggerExecution.create({
     data: {
       httpTriggerId: trigger.id,
@@ -95,9 +112,7 @@ const handleInvoke = async (
         trigger.pipeline.executionConfig != null
           ? trigger.pipeline.executionConfig
           : undefined,
-      metadata: toHttpTriggerExecutionMetadata(
-        requestSnapshot,
-      ) as Prisma.InputJsonValue,
+      metadata: metadataWithCorrelation,
     },
     select: { id: true },
   });
@@ -106,13 +121,23 @@ const handleInvoke = async (
     data: { lastTriggeredAt: new Date() },
   });
 
-  await getHermesJobQueue().addJob({
+  const workerJobId = await getHermesJobQueue().addJob({
     jobType: "execute_http_trigger",
     payload: {
       httpTriggerExecutionId: execution.id,
     },
     idempotencyKey: `execute_http_trigger:${execution.id}`,
     tags: [`httpTriggerExecution:${execution.id}`],
+  });
+
+  await prisma.httpTriggerExecution.update({
+    where: { id: execution.id },
+    data: {
+      metadata: mergeHermesEnqueueCorrelationIntoMetadata(
+        metadataWithCorrelation,
+        { workerTickId: String(workerJobId) },
+      ) as Prisma.InputJsonValue,
+    },
   });
 
   return NextResponse.json(

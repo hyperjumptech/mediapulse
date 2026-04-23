@@ -1,3 +1,4 @@
+import { hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { z } from "zod";
 
 const timeWindowSchema = z
@@ -15,7 +16,7 @@ const timeWindowSchema = z
  */
 export const articleAnalysisInputSchema = z
   .object({
-    tickerId: z.string().trim().min(1),
+    tickerId: hermesTickerIdSchema,
     reanalyze: z.boolean().optional(),
     timeWindow: timeWindowSchema,
     maxBatchSize: z.number().int().positive().optional(),

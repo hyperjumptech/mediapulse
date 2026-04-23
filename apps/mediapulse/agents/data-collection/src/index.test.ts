@@ -25,6 +25,7 @@ const { performWebSearchMock, performWebFetchMock } = vi.hoisted(() => ({
 
 const getMock = vi.fn();
 const postMock = vi.fn();
+const existingUrlsCreateMock = vi.fn();
 const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
 
@@ -34,6 +35,9 @@ vi.mock("@workspace/agent-data-api-client", () => {
       dataCollection: {
         get: getMock,
         create: postMock,
+      },
+      dataCollectionExistingUrls: {
+        create: existingUrlsCreateMock,
       },
       dataCollectionRun: {
         create: runCreateMock,
@@ -86,6 +90,7 @@ describe("data-collection agent (HTTP)", () => {
     vi.clearAllMocks();
     performWebSearchMock.mockResolvedValue(defaultSearchSuccess);
     performWebFetchMock.mockResolvedValue(defaultFetchSuccess);
+    existingUrlsCreateMock.mockResolvedValue({ existingUrls: [] });
   });
 
   afterEach(() => {

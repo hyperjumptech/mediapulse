@@ -19,6 +19,10 @@ const dataCollectionPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "dataCollection",
 );
+const dataCollectionExistingUrlsPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "dataCollectionExistingUrls",
+);
 const deliveryPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "delivery",
@@ -181,6 +185,14 @@ describe("agent-data-api", () => {
         subject: "Test Subject",
         description: null,
         content: "Test content",
+        model: null,
+        agentVersion: null,
+        configVersion: null,
+        promptHash: null,
+        configSnapshotId: null,
+        promptTokens: null,
+        completionTokens: null,
+        totalTokens: null,
         createdAt: new Date("2026-03-19T00:00:00.000Z"),
         updatedAt: new Date("2026-03-19T00:00:00.000Z"),
       });
@@ -202,6 +214,65 @@ describe("agent-data-api", () => {
 
       expect(res.status).toBe(200);
       expect(body.message).toBe("Success");
+    });
+
+    it("returns 200 when body includes provenance fields", async () => {
+      const mod = await getContentGenerationService();
+      vi.mocked(mod.createNewsletter).mockResolvedValue({
+        id: "newsletter-2",
+        tickerId: TICKER_ID,
+        subject: "Provenance Subject",
+        description: null,
+        content: "Provenance content",
+        model: "gpt-4o",
+        agentVersion: "1.2.3",
+        configVersion: "hermes-v3",
+        promptHash: "abc12345",
+        configSnapshotId: "snap-001",
+        promptTokens: 512,
+        completionTokens: 256,
+        totalTokens: 768,
+        createdAt: new Date("2026-04-14T00:00:00.000Z"),
+        updatedAt: new Date("2026-04-14T00:00:00.000Z"),
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: "Provenance Subject",
+            content: "Provenance content",
+            tickerId: TICKER_ID,
+            model: "gpt-4o",
+            agentVersion: "1.2.3",
+            configVersion: "hermes-v3",
+            promptHash: "abc12345",
+            configSnapshotId: "snap-001",
+            promptTokens: 512,
+            completionTokens: 256,
+            totalTokens: 768,
+          }),
+        },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.message).toBe("Success");
+      expect(vi.mocked(mod.createNewsletter)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "gpt-4o",
+          agentVersion: "1.2.3",
+          configVersion: "hermes-v3",
+          promptHash: "abc12345",
+          configSnapshotId: "snap-001",
+          promptTokens: 512,
+          completionTokens: 256,
+          totalTokens: 768,
+        }),
+      );
     });
   });
 
@@ -227,6 +298,7 @@ describe("agent-data-api", () => {
             createdAt: new Date("2026-03-19T00:00:00.000Z"),
           },
         ],
+        dataSourceTotalCount: 1,
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],
@@ -256,6 +328,7 @@ describe("agent-data-api", () => {
       const mod = await getAnalysisService();
       vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
         dataSources: [],
+        dataSourceTotalCount: 0,
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],
@@ -511,6 +584,90 @@ describe("agent-data-api", () => {
             searchQueryId: SEARCH_QUERY_ID,
           },
         ],
+      });
+    });
+  });
+
+  describe(`POST ${dataCollectionExistingUrlsPath}`, () => {
+    it("returns 401 without Authorization header", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${dataCollectionExistingUrlsPath}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tickerId: TICKER_ID,
+            urls: ["https://example.com"],
+          }),
+        },
+      );
+      expect(res.status).toBe(401);
+    }, 20_000);
+
+    it("returns 400 when body validation fails (missing urls)", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${dataCollectionExistingUrlsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({ tickerId: TICKER_ID }),
+        },
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 200 with empty existingUrls when urls is empty", async () => {
+      const { prisma } = await getDatabase();
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${dataCollectionExistingUrlsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({ tickerId: TICKER_ID, urls: [] }),
+        },
+      );
+      const body = (await res.json()) as { existingUrls: string[] };
+
+      expect(res.status).toBe(200);
+      expect(body.existingUrls).toEqual([]);
+      expect(prisma.dataSource.findMany).not.toHaveBeenCalled();
+    });
+
+    it("returns 200 with URLs that exist for the ticker", async () => {
+      const { prisma } = await getDatabase();
+      vi.mocked(prisma.dataSource.findMany).mockResolvedValue([
+        { url: "https://exists.example/a" },
+        { url: "https://exists.example/a" },
+      ] as never);
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${dataCollectionExistingUrlsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tickerId: TICKER_ID,
+            urls: ["https://exists.example/a", "https://new.example/b"],
+          }),
+        },
+      );
+      const body = (await res.json()) as { existingUrls: string[] };
+
+      expect(res.status).toBe(200);
+      expect(body.existingUrls).toEqual(["https://exists.example/a"]);
+      expect(prisma.dataSource.findMany).toHaveBeenCalledWith({
+        where: {
+          tickerId: TICKER_ID,
+          url: {
+            in: ["https://exists.example/a", "https://new.example/b"],
+          },
+        },
+        select: { url: true },
       });
     });
   });

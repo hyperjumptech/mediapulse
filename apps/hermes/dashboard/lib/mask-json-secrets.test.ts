@@ -1,10 +1,12 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { ManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
 import type { ScheduleExecutionDetail } from "@/lib/schedules";
 
 import {
   isSensitiveJsonKey,
+  maskManualPipelineExecutionDetailForDisplay,
   maskScheduleExecutionDetailForDisplay,
   maskSecretsInJson,
 } from "./mask-json-secrets";
@@ -86,6 +88,7 @@ describe("maskScheduleExecutionDetailForDisplay", () => {
         succeededInvocationCount: 0,
         failedInvocationCount: 1,
         errors: null,
+        metadata: null,
         createdAt: new Date(),
       },
       pipeline: null,
@@ -121,6 +124,97 @@ describe("maskScheduleExecutionDetailForDisplay", () => {
     expect(
       (masked.invocations[0]?.invocationConfig as Record<string, unknown>)
         .token,
+    ).toBe("••••••••");
+  });
+
+  it("masks secrets inside execution.errors", () => {
+    const detail = {
+      execution: {
+        id: "e1",
+        executionTime: new Date(),
+        enqueueStatus: "failed",
+        runStatus: "pending",
+        effectiveExecutionConfig: null,
+        jobsCreated: 0,
+        jobsEnqueued: 0,
+        succeededInvocationCount: 0,
+        failedInvocationCount: 0,
+        errors: [
+          {
+            message: "planning failed",
+            timestamp: "2026-01-01T00:00:00.000Z",
+            exception: { detail: { apiKey: "secret-key" } },
+          },
+        ],
+        metadata: null,
+        createdAt: new Date(),
+      },
+      pipeline: null,
+      schedule: { id: "s1", name: "S" },
+      stepExecutions: [],
+      invocations: [],
+    } satisfies ScheduleExecutionDetail;
+
+    const masked = maskScheduleExecutionDetailForDisplay(detail);
+    const err0 = (masked.execution.errors as Record<string, unknown>[])[0];
+    const exception = err0?.exception as Record<string, unknown>;
+    const detailObj = exception?.detail as Record<string, unknown>;
+    expect(detailObj?.apiKey).toBe("••••••••");
+  });
+});
+
+describe("maskManualPipelineExecutionDetailForDisplay", () => {
+  it("masks secrets inside execution.errors and invocation params", () => {
+    const detail = {
+      execution: {
+        id: "e1",
+        executionTime: new Date(),
+        enqueueStatus: "failed",
+        runStatus: "pending",
+        effectiveExecutionConfig: null,
+        jobsCreated: 0,
+        jobsEnqueued: 0,
+        succeededInvocationCount: 0,
+        failedInvocationCount: 0,
+        errors: [
+          {
+            message: "enqueue failed",
+            timestamp: "2026-01-01T00:00:00.000Z",
+            exception: { detail: { apiKey: "secret" } },
+          },
+        ],
+        metadata: null,
+        createdAt: new Date(),
+      },
+      pipeline: { id: "p1", name: "P" },
+      stepExecutions: [],
+      invocations: [
+        {
+          jobId: "j1",
+          status: "failed",
+          agentId: "a",
+          pipelineStepId: null,
+          params: { token: "t" },
+          invocationConfig: null,
+          error: null,
+          agentResponse: null,
+          semanticStatus: null,
+          enqueuedAt: new Date("2026-01-01T00:00:00.000Z"),
+          startedAt: null,
+          completedAt: null,
+          dataQueueAttempts: null,
+          dataQueueMaxAttempts: null,
+        },
+      ],
+    } satisfies ManualPipelineExecutionDetail;
+
+    const masked = maskManualPipelineExecutionDetailForDisplay(detail);
+    const err0 = (masked.execution.errors as Record<string, unknown>[])[0];
+    const exception = err0?.exception as Record<string, unknown>;
+    const detailObj = exception?.detail as Record<string, unknown>;
+    expect(detailObj?.apiKey).toBe("••••••••");
+    expect(
+      (masked.invocations[0]?.params as Record<string, unknown>).token,
     ).toBe("••••••••");
   });
 });

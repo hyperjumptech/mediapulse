@@ -1,14 +1,22 @@
 ---
-description: Run code-quality after editing code so type and lint errors are caught before the user does
+description: Run code-quality and Prettier formatting after editing code so type, lint, test, and format issues are caught before the user does
 alwaysApply: true
 ---
 
 # Run Code-Quality After Changes
 
-After creating or editing TypeScript, JavaScript, or test files in this repo, you **must** run the code-quality check **before** considering the task complete.
+After creating or editing TypeScript, JavaScript, Markdown, or test files in this repo, you **must** satisfy the checks below **before** considering the task complete.
 
-- **From repo root:** `pnpm code-quality` (runs type-check, lint, and tests across the workspace).
-- **Gate:** Do not mark any task, todo, or implementation as complete until `pnpm code-quality` exits with code 0.
-- **If it fails:** Fix the reported errors and run it again. Repeat until it passes. Do not hand off to the user.
+## Formatting (always)
+
+- **From repo root:** run **`pnpm format:check`**. It must exit 0 with no Prettier warnings.
+- **If it fails:** run **`pnpm format`** (or `pnpm exec prettier --write` on the reported paths), then run **`pnpm format:check`** again until clean.
+- **Partial gates:** If you only run package-scoped `lint`, `type:check`, or tests (for example because full workspace `pnpm code-quality` is slow or blocked by unrelated packages), you **still must** run root **`pnpm format:check`**. Do not skip Prettier.
+
+## Full workspace gate (when feasible)
+
+- **From repo root:** `pnpm code-quality` runs lint, type-check, tests with coverage, merges coverage, then **`format:check`** at the end.
+- **Minimum before handoff:** **`pnpm format:check`** must pass (covered above). That requirement stands even when you do not run the full script.
+- **Preferred:** Run **`pnpm code-quality`** when the workspace allows it (no unrelated DB, env, or infra failures). Fix reported errors and rerun until it passes, or fix what you can and say what blocked the rest.
 
 **New test files:** If a test imports server-side modules (e.g. `@hermes/orchestration-database`, `@mediapulse/database`, `@hermes/env`, `@mediapulse/env`, or code that uses `env.*`), add `/** @vitest-environment node */` at the top so Vitest runs in Node instead of the default browser-like environment.

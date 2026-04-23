@@ -1,4 +1,18 @@
 export {
+  diagnosticFromCaughtError,
+  truncateEnqueueDiagnosticEntry,
+  ENQUEUE_DIAGNOSTIC_MAX_FIELD_CHARS,
+  type EnqueueDiagnosticEntry,
+  type EnqueueDiagnosticException,
+  type EnqueuePhase,
+} from "./enqueue-diagnostics";
+export {
+  HERMES_ENQUEUE_CORRELATION_METADATA_KEY,
+  mergeHermesEnqueueCorrelationIntoMetadata,
+  parseHermesEnqueueCorrelationFromMetadata,
+  type HermesEnqueueCorrelation,
+} from "./enqueue-diagnostics-correlation";
+export {
   executeSchedule,
   type EnqueueInvokeAgentItem,
   type ExpandStepInputs,
@@ -32,6 +46,22 @@ export {
   type ApplyInvocationCompletionDeps,
   type InvocationCompletionInput,
 } from "./apply-invocation-completion";
+export {
+  cancelHttpTriggerExecution,
+  cancelScheduleExecution,
+  cancelTaggedHermesQueueJobs,
+  errorIndicatesUserCancel,
+  finalizeCancelledExecutionIfSettled,
+  finalizeManualPipelineExecutionAfterCooperativeCancel,
+  markManualPipelineExecutionCancelled,
+  resolveRunStatusForSettledCancelledExecution,
+  resolveStepRollupPrismaAfterInvocation,
+  type CancelHttpTriggerExecutionResult,
+  type CancelScheduleExecutionResult,
+  type HermesDataQueueForCancel,
+  type MarkManualPipelineCancelledResult,
+  type PlannedJobForManualCancel,
+} from "./cancel-execution";
 export {
   substituteVariables,
   substituteInString,

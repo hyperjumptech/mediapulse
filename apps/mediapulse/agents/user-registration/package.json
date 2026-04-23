@@ -15,6 +15,8 @@
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
+    "@workspace/email-templates": "workspace:*",
+    "@workspace/utils": "workspace:*",
     "@mediapulse/outlook-inbox": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",

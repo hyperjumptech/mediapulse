@@ -16,8 +16,9 @@
     "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
-    "@next/env": "catalog:",
+    "@mediapulse/database": "workspace:*",
     "@mediapulse/env": "workspace:*",
+    "@next/env": "catalog:",
     "@workspace/logger": "workspace:*",
     "@workspace/ui": "workspace:*",
     "dotenv": "catalog:",

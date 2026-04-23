@@ -43,6 +43,8 @@ const isRepoRootScriptsPath = (filePath) => {
   const n = normalizeRepoPath(filePath);
   return n === "scripts" || n.startsWith("scripts/");
 };
+const isMediapulseEnvGeneratedPath = (filePath) =>
+  /^packages\/mediapulse\/env\/src\/[^/]+\.ts$/.test(normalizeRepoPath(filePath));
 
 const isReviewableSourceFile = (filePath) =>
   isTsJsLike(filePath) && !/\.test\.(ts|tsx|js|jsx)$/.test(filePath);
@@ -570,6 +572,7 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (f.status === "D") continue;
     if (!isTsJsLike(f.filePath)) continue;
     if (isRepoRootScriptsPath(f.filePath)) continue;
+    if (isMediapulseEnvGeneratedPath(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "env-variables", f.filePath)) continue;
     if (/\bprocess\.env\b/.test(text)) {
@@ -615,6 +618,9 @@ export const runCursorPrReview = async (collaborators, options) => {
   for (const f of changed) {
     if (f.status === "D") continue;
     if (!isTsx(f.filePath)) continue;
+    if (!isReviewableSourceFile(f.filePath)) continue;
+    if (isRepoRootScriptsPath(f.filePath)) continue;
+
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "react-custom-hooks", f.filePath)) continue;
     const violationLines = collectReactCustomHooksViolationLines(text);
@@ -661,7 +667,9 @@ export const runCursorPrReview = async (collaborators, options) => {
   // prisma-strong-typing: catch obvious anti-patterns in Prisma-related files (heuristic)
   for (const f of changed) {
     if (f.status === "D") continue;
-    if (!/\.ts$/.test(f.filePath) && !/\.tsx$/.test(f.filePath)) continue;
+    if (!isReviewableSourceFile(f.filePath)) continue;
+    if (isRepoRootScriptsPath(f.filePath)) continue;
+
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "prisma-strong-typing", f.filePath))
       continue;
