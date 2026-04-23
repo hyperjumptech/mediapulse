@@ -33,6 +33,8 @@ export async function generateContentWithOpenAI(
   deps: {
     openai: OpenAI;
     model: string;
+    temperature?: number;
+    maxTokens?: number;
     topNewsCount: number;
     maxCharsPerSource: number;
     maxTotalContextChars: number;
@@ -77,6 +79,8 @@ export async function generateContentWithOpenAI(
       { role: "user", content: userContent },
     ],
     response_format: { type: "json_object" },
+    temperature: deps.temperature,
+    max_tokens: deps.maxTokens,
   });
 
   const result = response.choices[0]?.message?.content;

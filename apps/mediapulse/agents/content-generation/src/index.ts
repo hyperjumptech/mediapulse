@@ -51,13 +51,16 @@ const app = createAgentApp<
       }
 
       const openai = new OpenAI({
-        apiKey: config.openaiApiKey,
-        ...(config.openaiBaseUrl ? { baseURL: config.openaiBaseUrl } : {}),
+        apiKey: config.openai?.apiKey ?? config.openaiApiKey,
+        baseURL: config.openai?.baseUrl ?? config.openaiBaseUrl,
+        timeout: config.openai?.timeoutMs,
       });
-      const model = config.openaiModel ?? "gpt-4o-mini";
+
       const generated = await generateContentWithOpenAI(sources, {
         openai,
-        model,
+        model: config.openai?.model ?? config.openaiModel ?? "gpt-4o-mini",
+        temperature: config.openai?.temperature,
+        maxTokens: config.openai?.maxTokens,
         topNewsCount: config.output.topNewsCount,
         maxCharsPerSource: config.context.maxCharsPerSource,
         maxTotalContextChars: config.context.maxTotalContextChars,
