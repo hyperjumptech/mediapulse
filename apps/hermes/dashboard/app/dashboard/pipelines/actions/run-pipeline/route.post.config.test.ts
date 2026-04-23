@@ -42,6 +42,7 @@ const request = (body: { pipelineId: string }) =>
 const createExecutionPersistenceStubs = () => ({
   manualPipelineExecution: {
     create: vi.fn().mockResolvedValue({ id: "manual-exec-1" }),
+    findUnique: vi.fn().mockResolvedValue({ cancelledAt: null }),
     update: vi.fn().mockResolvedValue(undefined),
   },
   manualPipelineStepExecution: {

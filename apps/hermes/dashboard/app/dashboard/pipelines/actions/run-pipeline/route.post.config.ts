@@ -13,6 +13,7 @@ import {
   computeExecutionRunStatusFromStepRollups,
   computeStepRollupFromCounts,
   diagnosticFromCaughtError,
+  finalizeManualPipelineExecutionAfterCooperativeCancel,
   mergeExecutionConfig,
   parseAgentResponseEnvelope,
   planPipelineInvocations,
@@ -31,6 +32,11 @@ import { z } from "zod";
 
 import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { createExpandStepInputsForManualPipelineRun } from "@/lib/expand-step-inputs-for-manual-pipeline";
+import {
+  clearManualPipelineRunAbortController,
+  registerManualPipelineRunAbortController,
+  startManualExecutionCancelledPollFromDb,
+} from "@/lib/manual-pipeline-run-abort";
 import { validatePipeline } from "@/lib/validate-pipeline";
 
 const bodyValidator = z.object({
@@ -83,7 +89,7 @@ export const responseValidator = z.object({
   ok: z.literal(true),
   invocationsRun: z.number(),
   executionId: z.string().uuid(),
-  runStatus: z.enum(["succeeded", "partial", "failed"]),
+  runStatus: z.enum(["succeeded", "partial", "failed", "cancelled"]),
   failedInvocationCount: z.number(),
 });
 
@@ -417,254 +423,325 @@ export const createRunPipelineHandler = ({
 
       const errors: EnqueueDiagnosticEntry[] = [...planning.errors];
 
-      for (const wave of waveList) {
-        for (const job of wave) {
-          const step = pipeline.steps.find(
-            (item) => item.id === job.pipelineStepId,
-          );
-          if (!step) {
-            logRunPipelineIssue(
-              "agent-invoke",
-              pipeline.id,
-              "Planned job references missing pipeline step",
-              {
-                jobId: job.jobId,
-                pipelineStepId: job.pipelineStepId,
-                agentId: job.agentId,
-              },
+      const abortSignal = registerManualPipelineRunAbortController(
+        execution.id,
+      );
+      const stopCancelledPoll = startManualExecutionCancelledPollFromDb(
+        db,
+        execution.id,
+      );
+      const processedJobIds = new Set<string>();
+      const plannedJobsForCancel = plannedJobs.map((j) => ({
+        jobId: j.jobId,
+        pipelineStepId: j.pipelineStepId,
+      }));
+      let cooperativeCancel = false;
+
+      try {
+        invokeLoop: for (const wave of waveList) {
+          for (const job of wave) {
+            const cancelRow = await db.manualPipelineExecution.findUnique({
+              where: { id: execution.id },
+              select: { cancelledAt: true },
+            });
+            if (cancelRow?.cancelledAt) {
+              cooperativeCancel = true;
+              break invokeLoop;
+            }
+
+            const step = pipeline.steps.find(
+              (item) => item.id === job.pipelineStepId,
             );
-            errors.push({
-              message: `Missing pipeline step ${job.pipelineStepId} (job ${job.jobId})`,
-              timestamp: now().toISOString(),
-              phase: "transaction",
-              pipelineStepId: job.pipelineStepId,
-              code: "MISSING_PIPELINE_STEP",
-            });
-            continue;
-          }
-
-          await db.agentJobExecution.create({
-            data: {
-              jobId: job.jobId,
-              agentId: job.agentId,
-              manualExecutionId: execution.id,
-              pipelineId: pipeline.id,
-              pipelineStepId: step.id,
-              status: "running",
-              enqueuedAt: executionTime,
-              startedAt: now(),
-              params: job.input as Prisma.InputJsonValue,
-              invocationConfig: job.config as Prisma.InputJsonValue,
-            },
-          });
-
-          try {
-            const agentResponse = await post(job.endpointUrl, {
-              json: { input: job.input, config: job.config },
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${jwt}`,
-              },
-              throwHttpErrors: false,
-              timeout: { request: MANUAL_INVOKE_AGENT_REQUEST_TIMEOUT_MS },
-            });
-            const response = agentResponse as {
-              ok?: boolean;
-              statusCode?: number;
-              body?: unknown;
-            };
-            if (response.ok === true) {
-              const { raw: rawBody, isEmpty: isEmptyBody } =
-                agentHttpBodyToRawString(response.body);
-              const parsed = parseAgentResponseEnvelope(rawBody, isEmptyBody);
-              if (!parsed.ok) {
-                const detail = parsed.error.message;
-                logRunPipelineIssue(
-                  "agent-envelope",
-                  pipeline.id,
-                  "Agent HTTP 200 but response body is not a valid Hermes envelope",
-                  {
-                    jobId: job.jobId,
-                    pipelineStepId: step.id,
-                    agentId: step.agentId,
-                    agentVersion: step.agentVersion,
-                    endpointUrl: job.endpointUrl,
-                    code: parsed.error.code,
-                    detail,
-                  },
-                );
-                const stats = stepStats.get(step.id);
-                if (stats) stats.failedCount += 1;
-                errors.push({
-                  message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
-                  timestamp: now().toISOString(),
-                  phase: "transaction",
-                  pipelineStepId: step.id,
-                  code: `AGENT_ENVELOPE_INVALID:${parsed.error.code}`,
-                });
-                await db.agentJobExecution.update({
-                  where: { jobId: job.jobId },
-                  data: {
-                    status: "failed",
-                    completedAt: now(),
-                    error: {
-                      message: detail,
-                      code: parsed.error.code,
-                      jobId: job.jobId,
-                      retryable: false,
-                    },
-                    agentResponse: Prisma.DbNull,
-                    semanticStatus: "failure",
-                  },
-                });
-                continue;
-              }
-              if (parsed.envelope.status === "failure") {
-                const detail =
-                  parsed.envelope.message ?? "Agent reported semantic failure";
-                logRunPipelineIssue(
-                  "agent-semantic",
-                  pipeline.id,
-                  "Agent returned HTTP 200 with envelope status failure",
-                  {
-                    jobId: job.jobId,
-                    pipelineStepId: step.id,
-                    agentId: step.agentId,
-                    agentVersion: step.agentVersion,
-                    endpointUrl: job.endpointUrl,
-                    detail,
-                  },
-                );
-                const stats = stepStats.get(step.id);
-                if (stats) stats.failedCount += 1;
-                errors.push({
-                  message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
-                  timestamp: now().toISOString(),
-                  phase: "transaction",
-                  pipelineStepId: step.id,
-                  code: "AGENT_SEMANTIC_FAILURE",
-                });
-                await db.agentJobExecution.update({
-                  where: { jobId: job.jobId },
-                  data: {
-                    status: "failed",
-                    completedAt: now(),
-                    error: {
-                      message: detail,
-                      retryable: false,
-                      semantic: true,
-                      jobId: job.jobId,
-                    },
-                    agentResponse:
-                      parsed.envelope as unknown as Prisma.InputJsonValue,
-                    semanticStatus: "failure",
-                  },
-                });
-                continue;
-              }
-              const stats = stepStats.get(step.id);
-              if (stats) stats.succeededCount += 1;
-              await db.agentJobExecution.update({
-                where: { jobId: job.jobId },
-                data: {
-                  status: "completed",
-                  completedAt: now(),
-                  error: Prisma.DbNull,
-                  agentResponse:
-                    parsed.envelope as unknown as Prisma.InputJsonValue,
-                  semanticStatus: "success",
+            if (!step) {
+              logRunPipelineIssue(
+                "agent-invoke",
+                pipeline.id,
+                "Planned job references missing pipeline step",
+                {
+                  jobId: job.jobId,
+                  pipelineStepId: job.pipelineStepId,
+                  agentId: job.agentId,
                 },
+              );
+              errors.push({
+                message: `Missing pipeline step ${job.pipelineStepId} (job ${job.jobId})`,
+                timestamp: now().toISOString(),
+                phase: "transaction",
+                pipelineStepId: job.pipelineStepId,
+                code: "MISSING_PIPELINE_STEP",
               });
               continue;
             }
 
-            const statusCodeNum =
-              typeof response.statusCode === "number"
-                ? response.statusCode
-                : undefined;
-            const detail = detailFromAgentErrorBody(response.body, {
-              statusCode: statusCodeNum,
-            });
-            const code = response.statusCode ?? "unknown";
-            logRunPipelineIssue(
-              "agent-http",
-              pipeline.id,
-              "Agent HTTP response was not OK",
-              {
-                jobId: job.jobId,
-                pipelineStepId: step.id,
-                agentId: step.agentId,
-                agentVersion: step.agentVersion,
-                endpointUrl: job.endpointUrl,
-                statusCode: code,
-                detail,
-              },
-            );
-            const stats = stepStats.get(step.id);
-            if (stats) stats.failedCount += 1;
-            errors.push({
-              message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
-              timestamp: now().toISOString(),
-              phase: "transaction",
-              pipelineStepId: step.id,
-              code: `AGENT_HTTP_${String(code)}`,
-            });
-            await db.agentJobExecution.update({
-              where: { jobId: job.jobId },
+            await db.agentJobExecution.create({
               data: {
-                status: "failed",
-                completedAt: now(),
-                error: {
-                  detail,
-                  code,
-                  jobId: job.jobId,
-                },
-                agentResponse:
-                  (response.body as Prisma.InputJsonValue | undefined) ??
-                  Prisma.DbNull,
-                semanticStatus: "failure",
+                jobId: job.jobId,
+                agentId: job.agentId,
+                manualExecutionId: execution.id,
+                pipelineId: pipeline.id,
+                pipelineStepId: step.id,
+                status: "running",
+                enqueuedAt: executionTime,
+                startedAt: now(),
+                params: job.input as Prisma.InputJsonValue,
+                invocationConfig: job.config as Prisma.InputJsonValue,
               },
             });
-          } catch (err) {
-            const detail = err instanceof Error ? err.message : String(err);
-            logRunPipelineIssue(
-              "agent-http",
-              pipeline.id,
-              "Agent HTTP request threw (network/DNS/TLS/timeout)",
-              {
-                jobId: job.jobId,
-                pipelineStepId: step.id,
-                agentId: step.agentId,
-                agentVersion: step.agentVersion,
-                endpointUrl: job.endpointUrl,
-                detail,
-              },
-              err,
-            );
-            const stats = stepStats.get(step.id);
-            if (stats) stats.failedCount += 1;
-            errors.push(
-              diagnosticFromCaughtError(err, {
+
+            try {
+              const agentResponse = await post(job.endpointUrl, {
+                json: { input: job.input, config: job.config },
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${jwt}`,
+                },
+                throwHttpErrors: false,
+                timeout: { request: MANUAL_INVOKE_AGENT_REQUEST_TIMEOUT_MS },
+                signal: abortSignal,
+              });
+              const response = agentResponse as {
+                ok?: boolean;
+                statusCode?: number;
+                body?: unknown;
+              };
+              if (response.ok === true) {
+                const { raw: rawBody, isEmpty: isEmptyBody } =
+                  agentHttpBodyToRawString(response.body);
+                const parsed = parseAgentResponseEnvelope(rawBody, isEmptyBody);
+                if (!parsed.ok) {
+                  const detail = parsed.error.message;
+                  logRunPipelineIssue(
+                    "agent-envelope",
+                    pipeline.id,
+                    "Agent HTTP 200 but response body is not a valid Hermes envelope",
+                    {
+                      jobId: job.jobId,
+                      pipelineStepId: step.id,
+                      agentId: step.agentId,
+                      agentVersion: step.agentVersion,
+                      endpointUrl: job.endpointUrl,
+                      code: parsed.error.code,
+                      detail,
+                    },
+                  );
+                  const stats = stepStats.get(step.id);
+                  if (stats) stats.failedCount += 1;
+                  errors.push({
+                    message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                    timestamp: now().toISOString(),
+                    phase: "transaction",
+                    pipelineStepId: step.id,
+                    code: `AGENT_ENVELOPE_INVALID:${parsed.error.code}`,
+                  });
+                  await db.agentJobExecution.update({
+                    where: { jobId: job.jobId },
+                    data: {
+                      status: "failed",
+                      completedAt: now(),
+                      error: {
+                        message: detail,
+                        code: parsed.error.code,
+                        jobId: job.jobId,
+                        retryable: false,
+                      },
+                      agentResponse: Prisma.DbNull,
+                      semanticStatus: "failure",
+                    },
+                  });
+                  processedJobIds.add(job.jobId);
+                  continue;
+                }
+                if (parsed.envelope.status === "failure") {
+                  const detail =
+                    parsed.envelope.message ??
+                    "Agent reported semantic failure";
+                  logRunPipelineIssue(
+                    "agent-semantic",
+                    pipeline.id,
+                    "Agent returned HTTP 200 with envelope status failure",
+                    {
+                      jobId: job.jobId,
+                      pipelineStepId: step.id,
+                      agentId: step.agentId,
+                      agentVersion: step.agentVersion,
+                      endpointUrl: job.endpointUrl,
+                      detail,
+                    },
+                  );
+                  const stats = stepStats.get(step.id);
+                  if (stats) stats.failedCount += 1;
+                  errors.push({
+                    message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                    timestamp: now().toISOString(),
+                    phase: "transaction",
+                    pipelineStepId: step.id,
+                    code: "AGENT_SEMANTIC_FAILURE",
+                  });
+                  await db.agentJobExecution.update({
+                    where: { jobId: job.jobId },
+                    data: {
+                      status: "failed",
+                      completedAt: now(),
+                      error: {
+                        message: detail,
+                        retryable: false,
+                        semantic: true,
+                        jobId: job.jobId,
+                      },
+                      agentResponse:
+                        parsed.envelope as unknown as Prisma.InputJsonValue,
+                      semanticStatus: "failure",
+                    },
+                  });
+                  processedJobIds.add(job.jobId);
+                  continue;
+                }
+                const stats = stepStats.get(step.id);
+                if (stats) stats.succeededCount += 1;
+                await db.agentJobExecution.update({
+                  where: { jobId: job.jobId },
+                  data: {
+                    status: "completed",
+                    completedAt: now(),
+                    error: Prisma.DbNull,
+                    agentResponse:
+                      parsed.envelope as unknown as Prisma.InputJsonValue,
+                    semanticStatus: "success",
+                  },
+                });
+                processedJobIds.add(job.jobId);
+                continue;
+              }
+
+              const statusCodeNum =
+                typeof response.statusCode === "number"
+                  ? response.statusCode
+                  : undefined;
+              const detail = detailFromAgentErrorBody(response.body, {
+                statusCode: statusCodeNum,
+              });
+              const code = response.statusCode ?? "unknown";
+              logRunPipelineIssue(
+                "agent-http",
+                pipeline.id,
+                "Agent HTTP response was not OK",
+                {
+                  jobId: job.jobId,
+                  pipelineStepId: step.id,
+                  agentId: step.agentId,
+                  agentVersion: step.agentVersion,
+                  endpointUrl: job.endpointUrl,
+                  statusCode: code,
+                  detail,
+                },
+              );
+              const stats = stepStats.get(step.id);
+              if (stats) stats.failedCount += 1;
+              errors.push({
+                message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                timestamp: now().toISOString(),
                 phase: "transaction",
                 pipelineStepId: step.id,
-                messagePrefix: `Agent HTTP threw (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
-              }),
-            );
-            await db.agentJobExecution.update({
-              where: { jobId: job.jobId },
-              data: {
-                status: "failed",
-                completedAt: now(),
-                error: {
-                  detail,
-                  code: "unknown",
-                  jobId: job.jobId,
+                code: `AGENT_HTTP_${String(code)}`,
+              });
+              await db.agentJobExecution.update({
+                where: { jobId: job.jobId },
+                data: {
+                  status: "failed",
+                  completedAt: now(),
+                  error: {
+                    detail,
+                    code,
+                    jobId: job.jobId,
+                  },
+                  agentResponse:
+                    (response.body as Prisma.InputJsonValue | undefined) ??
+                    Prisma.DbNull,
+                  semanticStatus: "failure",
                 },
-                semanticStatus: "failure",
-              },
-            });
+              });
+              processedJobIds.add(job.jobId);
+            } catch (err) {
+              if (abortSignal.aborted) {
+                cooperativeCancel = true;
+                break invokeLoop;
+              }
+              const detail = err instanceof Error ? err.message : String(err);
+              logRunPipelineIssue(
+                "agent-http",
+                pipeline.id,
+                "Agent HTTP request threw (network/DNS/TLS/timeout)",
+                {
+                  jobId: job.jobId,
+                  pipelineStepId: step.id,
+                  agentId: step.agentId,
+                  agentVersion: step.agentVersion,
+                  endpointUrl: job.endpointUrl,
+                  detail,
+                },
+                err,
+              );
+              const stats = stepStats.get(step.id);
+              if (stats) stats.failedCount += 1;
+              errors.push(
+                diagnosticFromCaughtError(err, {
+                  phase: "transaction",
+                  pipelineStepId: step.id,
+                  messagePrefix: `Agent HTTP threw (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                }),
+              );
+              await db.agentJobExecution.update({
+                where: { jobId: job.jobId },
+                data: {
+                  status: "failed",
+                  completedAt: now(),
+                  error: {
+                    detail,
+                    code: "unknown",
+                    jobId: job.jobId,
+                  },
+                  semanticStatus: "failure",
+                },
+              });
+              processedJobIds.add(job.jobId);
+            }
           }
         }
+      } finally {
+        stopCancelledPoll();
+        clearManualPipelineRunAbortController(execution.id);
+      }
+
+      if (cooperativeCancel) {
+        await finalizeManualPipelineExecutionAfterCooperativeCancel(db, {
+          manualExecutionId: execution.id,
+          plannedJobs: plannedJobsForCancel,
+          processedJobIds,
+        });
+        const finalRow = await db.manualPipelineExecution.findUnique({
+          where: { id: execution.id },
+          select: {
+            runStatus: true,
+            succeededInvocationCount: true,
+            failedInvocationCount: true,
+          },
+        });
+        const rs = finalRow?.runStatus;
+        const runStatusLabel =
+          rs === ScheduleRunStatus.cancelled
+            ? ("cancelled" as const)
+            : rs === ScheduleRunStatus.partial
+              ? ("partial" as const)
+              : rs === ScheduleRunStatus.succeeded
+                ? ("succeeded" as const)
+                : ("failed" as const);
+        return successResponse({
+          ok: true as const,
+          invocationsRun: processedJobIds.size,
+          executionId: execution.id,
+          runStatus: runStatusLabel,
+          failedInvocationCount: finalRow?.failedInvocationCount ?? 0,
+        });
       }
 
       const stepRollups: StepRollupTerminal[] = [];

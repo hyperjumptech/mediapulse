@@ -1,4 +1,3 @@
-import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-article-analysis";
@@ -296,7 +295,7 @@ export const run = async ({
     const effectiveMaxBatchSize = input.maxBatchSize ?? cfg.defaultMaxBatchSize;
     const analysisGetLimit = Math.min(
       effectiveMaxBatchSize,
-      ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
+      cfg.analysisGetDataSourceLimitMax,
     );
     const query = buildAnalysisGetQuery(inputForQuery, {
       limit: analysisGetLimit,

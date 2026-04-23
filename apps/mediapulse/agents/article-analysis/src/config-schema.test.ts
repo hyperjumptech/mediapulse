@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 
+import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -37,12 +38,14 @@ describe("articleAnalysisConfigSchema", () => {
       debounceMinUnanalyzedCount: 3,
       debounceMinMinutesSinceLastScore: 15,
       defaultMaxBatchSize: 20,
+      analysisGetDataSourceLimitMax: 8,
     });
 
     // Assert
     expect(parsed.debounceMinUnanalyzedCount).toBe(3);
     expect(parsed.debounceMinMinutesSinceLastScore).toBe(15);
     expect(parsed.defaultMaxBatchSize).toBe(20);
+    expect(parsed.analysisGetDataSourceLimitMax).toBe(8);
   });
 });
 
@@ -58,6 +61,9 @@ describe("resolveArticleAnalysisConfig", () => {
     expect(resolved.debounceMinMinutesSinceLastScore).toBe(0);
     expect(resolved.defaultMaxBatchSize).toBe(
       articleAnalysisConfigDefaults.defaultMaxBatchSize,
+    );
+    expect(resolved.analysisGetDataSourceLimitMax).toBe(
+      articleAnalysisConfigDefaults.analysisGetDataSourceLimitMax,
     );
   });
 
@@ -76,6 +82,26 @@ describe("resolveArticleAnalysisConfig", () => {
     expect(resolved.debounceMinUnanalyzedCount).toBe(5);
     expect(resolved.debounceMinMinutesSinceLastScore).toBe(30);
     expect(resolved.defaultMaxBatchSize).toBe(12);
+  });
+
+  it("preserves analysisGetDataSourceLimitMax override from Hermes", () => {
+    const resolved = resolveArticleAnalysisConfig(
+      articleAnalysisConfigSchema.parse({
+        ...minimalConfig,
+        analysisGetDataSourceLimitMax: 9,
+      }),
+    );
+
+    expect(resolved.analysisGetDataSourceLimitMax).toBe(9);
+  });
+
+  it("rejects analysisGetDataSourceLimitMax above API hard cap", () => {
+    const result = articleAnalysisConfigSchema.safeParse({
+      ...minimalConfig,
+      analysisGetDataSourceLimitMax: ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX + 1,
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("maps scoreBreakdownVersion to resolved config used for POST breakdown", () => {

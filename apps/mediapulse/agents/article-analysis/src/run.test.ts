@@ -207,6 +207,34 @@ describe("run", () => {
     });
   });
 
+  it("caps analysis GET limit by analysisGetDataSourceLimitMax from Hermes config", async () => {
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [],
+        entityTypes: [],
+        relationTypes: [],
+        existingEntities: [],
+        relevanceSelectionState,
+      }),
+    );
+
+    await run(
+      runContext({
+        input: {
+          tickerId: "ticker-cap",
+          maxBatchSize: 10,
+        },
+        config: { analysisGetDataSourceLimitMax: 4 },
+      }),
+    );
+
+    expect(analysisGet).toHaveBeenCalledWith({
+      tickerId: "ticker-cap",
+      unanalyzed: true,
+      limit: 4,
+    });
+  });
+
   it("passes timeWindow as start and end on GET", async () => {
     analysisGet.mockResolvedValue(
       analysisGetOk({
