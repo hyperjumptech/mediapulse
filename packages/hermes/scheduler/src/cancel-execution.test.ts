@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   cancelTaggedHermesQueueJobs,
   errorIndicatesUserCancel,
+  loadManualPipelineFinalizeSnapshotFromDb,
   resolveRunStatusForSettledCancelledExecution,
 } from "./cancel-execution";
 
@@ -44,6 +45,42 @@ describe("cancel-execution", () => {
   it("errorIndicatesUserCancel detects structured cancel errors", () => {
     expect(errorIndicatesUserCancel({ cancelled: true })).toBe(true);
     expect(errorIndicatesUserCancel({ message: "x" })).toBe(false);
+  });
+});
+
+describe("loadManualPipelineFinalizeSnapshotFromDb", () => {
+  it("builds plannedJobs and processedJobIds from agent rows", async () => {
+    const manualExecutionId = "00000000-0000-4000-8000-000000000030";
+    const db = {
+      agentJobExecution: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            jobId: "job-a",
+            pipelineStepId: "step-1",
+            status: AgentJobExecutionStatus.running,
+          },
+          {
+            jobId: "job-b",
+            pipelineStepId: "step-1",
+            status: AgentJobExecutionStatus.completed,
+          },
+        ]),
+      },
+    };
+    const result = await loadManualPipelineFinalizeSnapshotFromDb(
+      db as never,
+      manualExecutionId,
+    );
+    expect(db.agentJobExecution.findMany).toHaveBeenCalledWith({
+      where: { manualExecutionId },
+      select: { jobId: true, pipelineStepId: true, status: true },
+    });
+    expect(result.plannedJobs).toEqual([
+      { jobId: "job-a", pipelineStepId: "step-1" },
+      { jobId: "job-b", pipelineStepId: "step-1" },
+    ]);
+    expect(result.processedJobIds.has("job-b")).toBe(true);
+    expect(result.processedJobIds.has("job-a")).toBe(false);
   });
 });
 
