@@ -60,7 +60,7 @@ describe("generateContentWithOpenAI", () => {
       maxTotalContextChars: 100000,
     });
 
-    const { messages } = mockCreate.mock.calls[0][0] as {
+    const { messages } = mockCreate.mock.calls[0]![0] as {
       messages: Array<{ role: string; content: string }>;
     };
     const systemMsg = messages[0]!.content;
@@ -114,7 +114,7 @@ describe("generateContentWithOpenAI", () => {
       maxTotalContextChars: 100000,
     });
 
-    const { messages } = mockCreate.mock.calls[0][0] as {
+    const { messages } = mockCreate.mock.calls[0]![0] as {
       messages: Array<{ role: string; content: string }>;
     };
     const systemMsg = messages[0]!.content;
@@ -142,7 +142,7 @@ describe("generateContentWithOpenAI", () => {
       systemPrompt: "Custom system: give me {{topNewsCount}} items.",
     });
 
-    const { messages } = mockCreate.mock.calls[0][0] as {
+    const { messages } = mockCreate.mock.calls[0]![0] as {
       messages: Array<{ role: string; content: string }>;
     };
     expect(messages[0]!.content).toBe("Custom system: give me 3 items.");
@@ -166,7 +166,7 @@ describe("generateContentWithOpenAI", () => {
       date: "2026-04-16",
     });
 
-    const { messages } = mockCreate.mock.calls[0][0] as {
+    const { messages } = mockCreate.mock.calls[0]![0] as {
       messages: Array<{ role: string; content: string }>;
     };
     const userMsg = messages[1]!.content;
