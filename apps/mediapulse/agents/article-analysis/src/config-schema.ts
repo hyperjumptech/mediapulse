@@ -62,7 +62,8 @@ export const articleAnalysisConfigSchema = z.object({
   /** Initial backoff in ms; delay doubles each retry (`base * 2^attempt`). */
   postTransientRetryBaseDelayMs: z.number().int().positive().optional(),
   /**
-   * Incremental runs only: when Hermes input omits `maxBatchSize`, cap eligible sources to this count (unset = no cap).
+   * When Hermes run input omits `maxBatchSize`, cap how many data sources are loaded and processed per run
+   * (also bounds `analysis.get` `limit`). Override in Hermes agent config; package default applies when omitted.
    */
   defaultMaxBatchSize: z.number().int().positive().optional(),
   /**
@@ -104,6 +105,8 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   postTransientRetryBaseDelayMs: number;
   debounceMinUnanalyzedCount: number;
   debounceMinMinutesSinceLastScore: number;
+  /** Cap on sources per run when Hermes input omits `maxBatchSize`. */
+  defaultMaxBatchSize: number;
 };
 
 /** Production-oriented defaults merged onto parsed Hermes config. */
@@ -136,11 +139,12 @@ export const articleAnalysisConfigDefaults = {
   postTransientRetryBaseDelayMs: 500,
   debounceMinUnanalyzedCount: 0,
   debounceMinMinutesSinceLastScore: 0,
+  defaultMaxBatchSize: 10,
 } as const;
 
 /**
  * Returns effective config with defaults applied for optional numeric/string fields,
- * including debounce knobs and optional `defaultMaxBatchSize` passthrough from Hermes.
+ * including debounce knobs and `defaultMaxBatchSize` (Hermes config override or package default).
  *
  * @param config - Parsed Hermes config.
  * @returns Config safe to use at runtime.
@@ -227,6 +231,9 @@ export const resolveArticleAnalysisConfig = (
     debounceMinMinutesSinceLastScore:
       config.debounceMinMinutesSinceLastScore ??
       articleAnalysisConfigDefaults.debounceMinMinutesSinceLastScore,
+    defaultMaxBatchSize:
+      config.defaultMaxBatchSize ??
+      articleAnalysisConfigDefaults.defaultMaxBatchSize,
   };
 };
 

@@ -1,6 +1,8 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { HERMES_ENQUEUE_CORRELATION_METADATA_KEY } from "@hermes/scheduler/enqueue-diagnostics-correlation";
+
 import { HTTP_TRIGGER_REQUEST_HEADER_REDACTED } from "@/lib/collect-http-trigger-request-snapshot";
 
 vi.mock("@/lib/hermes-job-queue", () => ({
@@ -16,6 +18,7 @@ vi.mock("@hermes/orchestration-database", () => ({
     },
     httpTriggerExecution: {
       create: vi.fn(),
+      update: vi.fn(),
     },
   },
 }));
@@ -109,6 +112,9 @@ describe("http trigger invoke route", () => {
     vi.mocked(prisma.httpTriggerExecution.create).mockResolvedValue({
       id: "e1",
     } as never);
+    vi.mocked(prisma.httpTriggerExecution.update).mockResolvedValue(
+      {} as never,
+    );
     vi.mocked(prisma.httpTrigger.update).mockResolvedValue({} as never);
 
     // Act
@@ -147,8 +153,86 @@ describe("http trigger invoke route", () => {
             headers: expect.objectContaining({
               authorization: HTTP_TRIGGER_REQUEST_HEADER_REDACTED,
             }),
+            [HERMES_ENQUEUE_CORRELATION_METADATA_KEY]: expect.objectContaining({
+              requestId: expect.stringMatching(
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+              ),
+            }),
           }),
         }),
+      }),
+    );
+    expect(prisma.httpTriggerExecution.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "e1" },
+        data: {
+          metadata: expect.objectContaining({
+            [HERMES_ENQUEUE_CORRELATION_METADATA_KEY]: expect.objectContaining({
+              requestId: expect.stringMatching(
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+              ),
+              workerTickId: "1",
+            }),
+          }),
+        },
+      }),
+    );
+  });
+
+  it("persists X-Request-Id and worker DataQueue job id on metadata", async () => {
+    const addJob = vi.fn().mockResolvedValue(42);
+    vi.mocked(getHermesJobQueue).mockReturnValue({ addJob } as never);
+    vi.mocked(prisma.httpTrigger.findUnique).mockResolvedValue({
+      id: "t1",
+      method: "POST",
+      enabled: true,
+      tokenHash: hashHttpTriggerToken("secret"),
+      pipeline: { executionConfig: null },
+    } as never);
+    vi.mocked(prisma.httpTriggerExecution.create).mockResolvedValue({
+      id: "e-xrid",
+    } as never);
+    vi.mocked(prisma.httpTriggerExecution.update).mockResolvedValue(
+      {} as never,
+    );
+    vi.mocked(prisma.httpTrigger.update).mockResolvedValue({} as never);
+
+    const response = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer secret",
+          "X-Request-Id": "edge-client-99",
+        },
+      }),
+      {
+        params: Promise.resolve({ triggerId: "t1" }),
+      },
+    );
+
+    expect(response.status).toBe(202);
+    expect(prisma.httpTriggerExecution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({
+            [HERMES_ENQUEUE_CORRELATION_METADATA_KEY]: {
+              requestId: "edge-client-99",
+            },
+          }),
+        }),
+      }),
+    );
+    expect(prisma.httpTriggerExecution.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "e-xrid" },
+        data: {
+          metadata: expect.objectContaining({
+            [HERMES_ENQUEUE_CORRELATION_METADATA_KEY]: {
+              requestId: "edge-client-99",
+              workerTickId: "42",
+            },
+          }),
+        },
       }),
     );
   });
@@ -167,6 +251,9 @@ describe("http trigger invoke route", () => {
     vi.mocked(prisma.httpTriggerExecution.create).mockResolvedValue({
       id: "e2",
     } as never);
+    vi.mocked(prisma.httpTriggerExecution.update).mockResolvedValue(
+      {} as never,
+    );
     vi.mocked(prisma.httpTrigger.update).mockResolvedValue({} as never);
 
     // Act

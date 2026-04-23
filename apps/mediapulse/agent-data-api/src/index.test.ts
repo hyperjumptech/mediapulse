@@ -298,6 +298,7 @@ describe("agent-data-api", () => {
             createdAt: new Date("2026-03-19T00:00:00.000Z"),
           },
         ],
+        dataSourceTotalCount: 1,
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],
@@ -327,6 +328,7 @@ describe("agent-data-api", () => {
       const mod = await getAnalysisService();
       vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
         dataSources: [],
+        dataSourceTotalCount: 0,
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],

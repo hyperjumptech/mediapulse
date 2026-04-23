@@ -53,9 +53,10 @@ Every run emits a structured **info** log with message `article_analysis.run.sum
 | Area | Fields (examples) |
 | ---- | ----------------- |
 | Correlation | Log child bindings: `component`, `runId`, `tickerId`, and optional Hermes ids (`jobId`, `executionId`, `scheduleId`, `scheduleExecutionId`, `pipelineStepId`) when invoke headers are present |
-| Outcome | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy, **`debounce_min_unanalyzed_count`**, **`debounce_min_minutes_since_last_score`**) |
+| Outcome | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy, **`debounce_min_unanalyzed_count`**, **`debounce_min_minutes_since_last_score`**, pre-POST **`relevance_row_validation`**, relevance chunk build **`relevance_chunk_parse`**) |
+| Stages | **`stageMetrics.extract`** (`articlesProcessed`, `articlesSucceeded`, `articlesFailedExtraction`), **`stageMetrics.scorePrepare.schemaValidationFailures`**, **`stageMetrics.persist`** (`postChunkFailures`, `articlesScored`, `articlesSelected`) |
 | Extraction | `articlesProcessed`, `extractionSuccessCount`, `extractionFailureCount`, **`extractionFailuresVocabulary`** vs **`extractionFailuresLlm`** |
-| Validation | **`relevanceRowValidationFailures`** (pre-POST row checks), **`chunkParseErrors*`** (entity/relation chunks, `articleEntities`, `articleRelevances` chunk-build / Zod issues) |
+| Validation | **`relevanceRowValidationFailures`**, **`chunkParseErrors*`**, rolled-up **`schemaValidationFailureCount`**; **`failureCountsByKind`** splits **`llm`**, **`vocabulary`**, **`schemaValidation`**, **`persistenceHttp`**, **`persistenceOther`** from POST failures |
 | Persist | `postFailureCount`, **`postFailuresByChunkKind`**, **`postFailuresByErrorCategory`** (`agent_data_api_http` vs `unknown`) |
 | KG tallies | `entitiesCreated`, `entitiesReused`, **`entityReuseRatio`**, `relationsCreated`, `articlesScored`, `articlesSelected` |
 | Relevance stats | When relevance rows were built: `relevanceRowCount`, `scoreMin` / `scoreMax` / `scoreMean`, **`scoreBuckets`**, **`breakdownVersion`** (or `mixed`), **`breakdownKeyMeans`** / mins / maxes over canonical keys |
@@ -78,6 +79,7 @@ Optional guards reduce thrash when schedules fire more often than needed. All ar
 
 - **`debounceMinUnanalyzedCount`** — When greater than zero, the run exits **success** with no POST if the incremental GET returns **fewer** unanalyzed sources than this threshold (but at least one).
 - **`debounceMinMinutesSinceLastScore`** — When greater than zero, the run exits **success** with no POST if **`GET /api/v1/analysis`** reports **`lastRelevanceScoredAtIso`** within the last N minutes and there is at least one eligible source.
+- **`defaultMaxBatchSize`** — When Hermes run input omits **`maxBatchSize`**, caps how many **`data_source`** rows are fetched and processed in one run (and sets **`analysis.get`** `limit`, capped by **`ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX`** on the API, currently **10**). Set this on the **article-analysis** agent config JSON in Hermes to tune per-run work below that ceiling; the package default is **10** when the key is omitted.
 
 These are **additive** to calendar staggering: prefer running **data-collection** before **article-analysis** so backlog exists when analysis runs.
 
@@ -89,7 +91,7 @@ These are **additive** to calendar staggering: prefer running **data-collection*
 
 ## Hermes agent configuration (operational tuning)
 
-Tuning for extraction, chunking, **`scoreBreakdownVersion`** (maps to `_version` in stored breakdowns), relevance weights, selection caps, **`runPolicy`**, POST retries, **`defaultMaxBatchSize`** (incremental runs when input omits `maxBatchSize`), and **debounce** fields lives in the **article-analysis** agent config in Hermes (Zod schema `articleAnalysisConfigSchema`). **`openaiApiKey`** and model limits are set there—**not** via `OPENAI_*` process env on the agent container.
+Tuning for extraction, chunking, **`scoreBreakdownVersion`** (maps to `_version` in stored breakdowns), relevance weights, selection caps, **`runPolicy`**, POST retries, **`defaultMaxBatchSize`** (per-run source cap when input omits `maxBatchSize`; default **10** in code), and **debounce** fields lives in the **article-analysis** agent config in Hermes (Zod schema `articleAnalysisConfigSchema`). **`openaiApiKey`** and model limits are set there—**not** via `OPENAI_*` process env on the agent container.
 
 ## Deployment environment (`@mediapulse/env/agents-article-analysis`)
 

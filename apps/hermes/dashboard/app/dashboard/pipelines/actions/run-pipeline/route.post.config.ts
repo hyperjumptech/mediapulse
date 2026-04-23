@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { env } from "@hermes/env";
+import { headers } from "next/headers";
 import {
   prisma as orchestrationPrisma,
   Prisma,
@@ -11,11 +12,14 @@ import {
 import {
   computeExecutionRunStatusFromStepRollups,
   computeStepRollupFromCounts,
+  diagnosticFromCaughtError,
   mergeExecutionConfig,
   parseAgentResponseEnvelope,
   planPipelineInvocations,
+  type EnqueueDiagnosticEntry,
   type ExpandStepInputs,
 } from "@hermes/scheduler";
+import { mergeHermesEnqueueCorrelationIntoMetadata } from "@hermes/scheduler/enqueue-diagnostics-correlation";
 import got from "got";
 import {
   createRequestValidator,
@@ -35,6 +39,12 @@ const bodyValidator = z.object({
 
 /** Prefix for server logs when debugging Run pipeline in Docker or `pnpm dev` output. */
 const RUN_PIPELINE_LOG_PREFIX = "[hermes-dashboard:run-pipeline]";
+
+/**
+ * Request timeout for each manual agent POST, aligned with Hermes worker
+ * `defaultTimeoutMs` (see `apps/hermes/worker/src/job-handlers.ts`).
+ */
+const MANUAL_INVOKE_AGENT_REQUEST_TIMEOUT_MS = 300_000;
 
 /**
  * Logs run-pipeline diagnostics to stderr (visible in dashboard server logs).
@@ -77,34 +87,66 @@ export const responseValidator = z.object({
   failedInvocationCount: z.number(),
 });
 
+/** Optional HTTP status when normalizing a non-OK agent response. */
+export type DetailFromAgentErrorContext = {
+  statusCode?: number;
+};
+
+const isGatewayStatusCode = (code: number | undefined): boolean =>
+  code === 502 || code === 503 || code === 504;
+
+const upgradeUnknownDetailForGateway = (
+  detail: string,
+  statusCode: number | undefined,
+): string => {
+  if (!isGatewayStatusCode(statusCode)) return detail;
+  const isUnknownEmpty =
+    detail === "Unknown error (empty response body)" ||
+    detail === "Unknown error (see agent logs)";
+  if (!isUnknownEmpty) return detail;
+  return "Bad gateway or upstream error with an empty or non-JSON body. Often this is a reverse proxy or load balancer timing out or resetting the connection to the agent; check upstream idle limits and agent health (for scheduled runs, also confirm the worker-to-agent path, not only DataQueue).";
+};
+
 /**
  * Builds a short human-readable detail from an agent error response body (JSON object or string).
  *
  * @param body - Parsed or raw body from `got` when `throwHttpErrors` is false.
- * @returns Message for dashboard users (agent `message` field when present).
+ * @param context - When `statusCode` is 502/503/504 and the body is empty, adds an operator hint for proxy timeouts.
  */
-export const detailFromAgentErrorBody = (body: unknown): string => {
+export const detailFromAgentErrorBody = (
+  body: unknown,
+  context?: DetailFromAgentErrorContext,
+): string => {
+  let detail: string;
   if (body === null || body === undefined) {
-    return "Unknown error (empty response body)";
-  }
-  if (typeof body === "string") {
+    detail = "Unknown error (empty response body)";
+  } else if (typeof body === "string") {
     const trimmed = body.trim();
-    if (!trimmed) return "Unknown error (empty response body)";
-    try {
-      const parsed = JSON.parse(trimmed) as { message?: unknown };
-      if (typeof parsed.message === "string" && parsed.message.length > 0) {
-        return parsed.message;
+    if (!trimmed) {
+      detail = "Unknown error (empty response body)";
+    } else {
+      try {
+        const parsed = JSON.parse(trimmed) as { message?: unknown };
+        if (typeof parsed.message === "string" && parsed.message.length > 0) {
+          detail = parsed.message;
+        } else {
+          detail =
+            trimmed.length > 300 ? `${trimmed.slice(0, 300)}...` : trimmed;
+        }
+      } catch {
+        detail = trimmed.length > 300 ? `${trimmed.slice(0, 300)}...` : trimmed;
       }
-    } catch {
-      // Not JSON.
     }
-    return trimmed.length > 300 ? `${trimmed.slice(0, 300)}...` : trimmed;
-  }
-  if (typeof body === "object" && !Array.isArray(body)) {
+  } else if (typeof body === "object" && !Array.isArray(body)) {
     const msg = (body as { message?: unknown }).message;
-    if (typeof msg === "string" && msg.length > 0) return msg;
+    detail =
+      typeof msg === "string" && msg.length > 0
+        ? msg
+        : "Unknown error (see agent logs)";
+  } else {
+    detail = "Unknown error (see agent logs)";
   }
-  return "Unknown error (see agent logs)";
+  return upgradeUnknownDetailForGateway(detail, context?.statusCode);
 };
 
 /**
@@ -172,6 +214,13 @@ export const createRunPipelineHandler = ({
 
     try {
       const session = data.user;
+
+      const incomingHeaders = await headers();
+      const headerRequestId = incomingHeaders.get("x-request-id")?.trim();
+      const runRequestId =
+        headerRequestId != null && headerRequestId !== ""
+          ? headerRequestId
+          : randomUUID();
 
       let jwt: string;
       try {
@@ -294,6 +343,19 @@ export const createRunPipelineHandler = ({
           : planning.errors.length > 0
             ? ScheduleEnqueueStatus.partial
             : ScheduleEnqueueStatus.success;
+      const initialExecutionErrors: Prisma.InputJsonValue | undefined =
+        planning.errors.length > 0
+          ? (planning.errors as Prisma.InputJsonValue)
+          : jobsCreated === 0 && enqueueStatus === ScheduleEnqueueStatus.failed
+            ? ([
+                {
+                  message:
+                    "No invocations planned for this pipeline run (check inputs and agents)",
+                  timestamp: executionTime.toISOString(),
+                  phase: "planning",
+                },
+              ] satisfies EnqueueDiagnosticEntry[] as Prisma.InputJsonValue)
+            : undefined;
       const execution = await db.manualPipelineExecution.create({
         data: {
           pipelineId: pipeline.id,
@@ -304,11 +366,15 @@ export const createRunPipelineHandler = ({
             effectiveExecutionConfig as Prisma.InputJsonValue,
           jobsCreated,
           jobsEnqueued: jobsCreated,
-          metadata: {
-            source: "dashboard",
-            initiatedByUserId: session.id,
-            initiatedByUserEmail: session.email,
-          },
+          errors: initialExecutionErrors,
+          metadata: mergeHermesEnqueueCorrelationIntoMetadata(
+            {
+              source: "dashboard",
+              initiatedByUserId: session.id,
+              initiatedByUserEmail: session.email,
+            },
+            { requestId: runRequestId },
+          ) as Prisma.InputJsonValue,
         },
         select: { id: true },
       });
@@ -349,17 +415,7 @@ export const createRunPipelineHandler = ({
         });
       }
 
-      const errors: Array<{
-        step: string;
-        detail: string;
-        code: number | "unknown";
-        jobId: string;
-      }> = planning.errors.map((error) => ({
-        step: "planning",
-        detail: error.message,
-        code: "unknown",
-        jobId: "planning",
-      }));
+      const errors: EnqueueDiagnosticEntry[] = [...planning.errors];
 
       for (const wave of waveList) {
         for (const job of wave) {
@@ -378,10 +434,11 @@ export const createRunPipelineHandler = ({
               },
             );
             errors.push({
-              step: "unknown",
-              detail: `Missing pipeline step ${job.pipelineStepId}`,
-              code: "unknown",
-              jobId: job.jobId,
+              message: `Missing pipeline step ${job.pipelineStepId} (job ${job.jobId})`,
+              timestamp: now().toISOString(),
+              phase: "transaction",
+              pipelineStepId: job.pipelineStepId,
+              code: "MISSING_PIPELINE_STEP",
             });
             continue;
           }
@@ -409,6 +466,7 @@ export const createRunPipelineHandler = ({
                 Authorization: `Bearer ${jwt}`,
               },
               throwHttpErrors: false,
+              timeout: { request: MANUAL_INVOKE_AGENT_REQUEST_TIMEOUT_MS },
             });
             const response = agentResponse as {
               ok?: boolean;
@@ -438,10 +496,11 @@ export const createRunPipelineHandler = ({
                 const stats = stepStats.get(step.id);
                 if (stats) stats.failedCount += 1;
                 errors.push({
-                  step: `${step.agentId}@${step.agentVersion}`,
-                  detail,
-                  code: 200,
-                  jobId: job.jobId,
+                  message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                  timestamp: now().toISOString(),
+                  phase: "transaction",
+                  pipelineStepId: step.id,
+                  code: `AGENT_ENVELOPE_INVALID:${parsed.error.code}`,
                 });
                 await db.agentJobExecution.update({
                   where: { jobId: job.jobId },
@@ -479,10 +538,11 @@ export const createRunPipelineHandler = ({
                 const stats = stepStats.get(step.id);
                 if (stats) stats.failedCount += 1;
                 errors.push({
-                  step: `${step.agentId}@${step.agentVersion}`,
-                  detail,
-                  code: 200,
-                  jobId: job.jobId,
+                  message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+                  timestamp: now().toISOString(),
+                  phase: "transaction",
+                  pipelineStepId: step.id,
+                  code: "AGENT_SEMANTIC_FAILURE",
                 });
                 await db.agentJobExecution.update({
                   where: { jobId: job.jobId },
@@ -518,7 +578,13 @@ export const createRunPipelineHandler = ({
               continue;
             }
 
-            const detail = detailFromAgentErrorBody(response.body);
+            const statusCodeNum =
+              typeof response.statusCode === "number"
+                ? response.statusCode
+                : undefined;
+            const detail = detailFromAgentErrorBody(response.body, {
+              statusCode: statusCodeNum,
+            });
             const code = response.statusCode ?? "unknown";
             logRunPipelineIssue(
               "agent-http",
@@ -537,10 +603,11 @@ export const createRunPipelineHandler = ({
             const stats = stepStats.get(step.id);
             if (stats) stats.failedCount += 1;
             errors.push({
-              step: `${step.agentId}@${step.agentVersion}`,
-              detail,
-              code,
-              jobId: job.jobId,
+              message: `${detail} (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+              timestamp: now().toISOString(),
+              phase: "transaction",
+              pipelineStepId: step.id,
+              code: `AGENT_HTTP_${String(code)}`,
             });
             await db.agentJobExecution.update({
               where: { jobId: job.jobId },
@@ -576,12 +643,13 @@ export const createRunPipelineHandler = ({
             );
             const stats = stepStats.get(step.id);
             if (stats) stats.failedCount += 1;
-            errors.push({
-              step: `${step.agentId}@${step.agentVersion}`,
-              detail,
-              code: "unknown",
-              jobId: job.jobId,
-            });
+            errors.push(
+              diagnosticFromCaughtError(err, {
+                phase: "transaction",
+                pipelineStepId: step.id,
+                messagePrefix: `Agent HTTP threw (job ${job.jobId}, ${step.agentId}@${step.agentVersion})`,
+              }),
+            );
             await db.agentJobExecution.update({
               where: { jobId: job.jobId },
               data: {

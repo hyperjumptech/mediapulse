@@ -7,6 +7,10 @@ import { getDashboardSession } from "@/lib/auth-dashboard";
 /**
  * GET /api/schedules/[scheduleId]/executions/[executionId]
  * Returns execution detail (steps + invocations) for admin debugging. Requires dashboard session.
+ *
+ * Parity: same response shape conventions as
+ * `/api/http-triggers/.../executions/...` and `/api/pipelines/.../executions/...`
+ * (including `execution.errors` from the DB row, secret-masked).
  */
 export async function GET(
   _request: Request,

@@ -11,12 +11,14 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
+import { EnqueueDiagnosticsPanel } from "@/components/enqueue-diagnostics";
 import { ScheduleExecutionInvocationsTable } from "@/components/schedule-execution-invocations-table";
 import {
   computePipelineWallElapsed,
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
+import { getHermesExecutionInvokeTransportBlurb } from "@/lib/hermes-execution-invoke-transport";
 import { maskScheduleExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
 
@@ -44,6 +46,7 @@ export default async function ScheduleExecutionDetailPage({
     rawDetail.execution.runStatus,
   );
   const detail = maskScheduleExecutionDetailForDisplay(rawDetail);
+  const invokeTransport = getHermesExecutionInvokeTransportBlurb("schedule");
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,7 +106,18 @@ export default async function ScheduleExecutionDetailPage({
           {detail.execution.succeededInvocationCount} /{" "}
           {detail.execution.failedInvocationCount}
         </p>
+        <p>
+          <span className="text-muted-foreground">Invocation transport:</span>{" "}
+          {invokeTransport.headline}
+        </p>
+        <p className="text-muted-foreground">{invokeTransport.detail}</p>
       </section>
+
+      <EnqueueDiagnosticsPanel
+        enqueueStatus={detail.execution.enqueueStatus}
+        errors={detail.execution.errors}
+        metadata={detail.execution.metadata}
+      />
 
       <section>
         <h2 className="mb-2 text-lg font-medium">Pipeline steps</h2>

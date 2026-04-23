@@ -1,5 +1,7 @@
 import type { Prisma } from "@hermes/orchestration-database";
 import { prisma } from "@hermes/orchestration-database";
+import { parseEffectiveExecutionConfig } from "@hermes/scheduler/execution-config";
+import { computeStepRollupFromCounts } from "@hermes/scheduler/schedule-rollup";
 
 import {
   computePipelineWallElapsed,
@@ -297,6 +299,92 @@ const attachPipelineExecutionElapsedLabels = async (
   });
 };
 
+type AgentJobStatusLite = {
+  status: string;
+  pipelineStepId: string | null;
+};
+
+const loadExecutionConfigForManualDetail = (
+  raw: unknown,
+): ReturnType<typeof parseEffectiveExecutionConfig> => {
+  try {
+    if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+      return parseEffectiveExecutionConfig(raw as Record<string, unknown>);
+    }
+  } catch {
+    // Invalid config JSON — fall back to defaults.
+  }
+  return parseEffectiveExecutionConfig({});
+};
+
+const deriveManualInvocationCountsFromJobs = (
+  jobs: ReadonlyArray<{ status: string }>,
+): { succeededInvocationCount: number; failedInvocationCount: number } => {
+  let succeededInvocationCount = 0;
+  let failedInvocationCount = 0;
+  for (const job of jobs) {
+    if (job.status === "completed") {
+      succeededInvocationCount += 1;
+    } else if (job.status === "failed") {
+      failedInvocationCount += 1;
+    }
+  }
+  return { succeededInvocationCount, failedInvocationCount };
+};
+
+/**
+ * Recomputes per-step counts and rollups from `agent_job_execution` rows so the manual
+ * execution detail header and steps table stay accurate while the dashboard run-pipeline
+ * handler is still in progress (parent row counters are only finalized after all jobs).
+ */
+const deriveManualStepExecutionsFromJobs = <
+  T extends {
+    pipelineStepId: string;
+    expectedInvocationCount: number;
+    succeededCount: number;
+    failedCount: number;
+    rollupStatus: string;
+  },
+>(
+  steps: T[],
+  jobs: ReadonlyArray<AgentJobStatusLite>,
+  stepRollupPolicy: ReturnType<
+    typeof parseEffectiveExecutionConfig
+  >["stepRollupPolicy"],
+): T[] => {
+  return steps.map((step) => {
+    const forStep = jobs.filter(
+      (j) => j.pipelineStepId === step.pipelineStepId,
+    );
+    const succeededCount = forStep.filter(
+      (j) => j.status === "completed",
+    ).length;
+    const failedCount = forStep.filter((j) => j.status === "failed").length;
+    const hasNonTerminal = forStep.some(
+      (j) => j.status === "pending" || j.status === "running",
+    );
+    if (hasNonTerminal) {
+      return {
+        ...step,
+        succeededCount,
+        failedCount,
+        rollupStatus: "running",
+      };
+    }
+    const terminal = computeStepRollupFromCounts(
+      succeededCount,
+      failedCount,
+      stepRollupPolicy,
+    );
+    return {
+      ...step,
+      succeededCount,
+      failedCount,
+      rollupStatus: terminal,
+    };
+  });
+};
+
 export type ManualPipelineExecutionDetail = {
   execution: {
     id: string;
@@ -309,6 +397,7 @@ export type ManualPipelineExecutionDetail = {
     succeededInvocationCount: number;
     failedInvocationCount: number;
     errors: unknown;
+    metadata: unknown | null;
     createdAt: Date;
   };
   pipeline: { id: string; name: string };
@@ -392,6 +481,32 @@ export const getManualPipelineExecutionDetail = async (
   });
   if (!row) return null;
 
+  const executionConfig = loadExecutionConfigForManualDetail(
+    row.effectiveExecutionConfig,
+  );
+  const jobRows = row.agentJobExecutions;
+  const { succeededInvocationCount, failedInvocationCount } =
+    deriveManualInvocationCountsFromJobs(jobRows);
+
+  const stepExecutionsBase = row.manualPipelineStepExecutions
+    .map((item) => ({
+      pipelineStepId: item.pipelineStepId,
+      stepOrder: item.pipelineStep.order,
+      agentId: item.pipelineStep.agentId,
+      agentVersion: item.pipelineStep.agentVersion,
+      expectedInvocationCount: item.expectedInvocationCount,
+      succeededCount: item.succeededCount,
+      failedCount: item.failedCount,
+      rollupStatus: item.rollupStatus,
+    }))
+    .sort((left, right) => left.stepOrder - right.stepOrder);
+
+  const stepExecutions = deriveManualStepExecutionsFromJobs(
+    stepExecutionsBase,
+    jobRows,
+    executionConfig.stepRollupPolicy,
+  );
+
   return {
     execution: {
       id: row.id,
@@ -401,24 +516,14 @@ export const getManualPipelineExecutionDetail = async (
       effectiveExecutionConfig: row.effectiveExecutionConfig,
       jobsCreated: row.jobsCreated,
       jobsEnqueued: row.jobsEnqueued,
-      succeededInvocationCount: row.succeededInvocationCount,
-      failedInvocationCount: row.failedInvocationCount,
+      succeededInvocationCount,
+      failedInvocationCount,
       errors: row.errors,
+      metadata: row.metadata,
       createdAt: row.createdAt,
     },
     pipeline: row.pipeline,
-    stepExecutions: row.manualPipelineStepExecutions
-      .map((item) => ({
-        pipelineStepId: item.pipelineStepId,
-        stepOrder: item.pipelineStep.order,
-        agentId: item.pipelineStep.agentId,
-        agentVersion: item.pipelineStep.agentVersion,
-        expectedInvocationCount: item.expectedInvocationCount,
-        succeededCount: item.succeededCount,
-        failedCount: item.failedCount,
-        rollupStatus: item.rollupStatus,
-      }))
-      .sort((left, right) => left.stepOrder - right.stepOrder),
+    stepExecutions,
     invocations: row.agentJobExecutions.map((job) => ({
       jobId: job.jobId,
       status: job.status,
