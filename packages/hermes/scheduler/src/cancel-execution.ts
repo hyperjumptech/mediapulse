@@ -825,6 +825,44 @@ export type PlannedJobForManualCancel = {
   pipelineStepId: string;
 };
 
+/** How {@link finalizeManualPipelineExecutionAfterCooperativeCancel} interprets `plannedJobs`. */
+export type ManualPipelineFinalizeCancelSource = "runPipeline" | "dbSnapshot";
+
+/**
+ * Loads current agent job rows for a manual execution so finalize can run from the dashboard
+ * cancel route (same process as the run loop may still be in-flight).
+ */
+export const loadManualPipelineFinalizeSnapshotFromDb = async (
+  db: PrismaClient,
+  manualExecutionId: string,
+): Promise<{
+  plannedJobs: PlannedJobForManualCancel[];
+  processedJobIds: Set<string>;
+}> => {
+  const rows = await db.agentJobExecution.findMany({
+    where: { manualExecutionId },
+    select: { jobId: true, pipelineStepId: true, status: true },
+  });
+  const plannedJobs: PlannedJobForManualCancel[] = [];
+  for (const r of rows) {
+    if (r.pipelineStepId != null) {
+      plannedJobs.push({
+        jobId: r.jobId,
+        pipelineStepId: r.pipelineStepId,
+      });
+    }
+  }
+  const terminalStatuses = new Set([
+    AgentJobExecutionStatus.completed,
+    AgentJobExecutionStatus.failed,
+    AgentJobExecutionStatus.cancelled,
+  ]);
+  const processedJobIds = new Set(
+    rows.filter((r) => terminalStatuses.has(r.status)).map((r) => r.jobId),
+  );
+  return { plannedJobs, processedJobIds };
+};
+
 /**
  * After a cooperative cancel break in the manual run loop: increments per-step `failedCount`
  * for jobs that never started, cancels any remaining `running` rows, recomputes rollups, and
@@ -836,9 +874,19 @@ export const finalizeManualPipelineExecutionAfterCooperativeCancel = async (
     manualExecutionId: string;
     plannedJobs: PlannedJobForManualCancel[];
     processedJobIds: ReadonlySet<string>;
+    /**
+     * `runPipeline`: full planned job list from the invoke loop (includes jobs not yet written
+     * to `agent_job_execution`). `dbSnapshot`: only rows present in DB (dashboard cancel path).
+     */
+    source?: ManualPipelineFinalizeCancelSource;
   },
 ): Promise<void> => {
-  const { manualExecutionId, plannedJobs, processedJobIds } = args;
+  const {
+    manualExecutionId,
+    plannedJobs,
+    processedJobIds,
+    source = "runPipeline",
+  } = args;
   const execution = await db.manualPipelineExecution.findUnique({
     where: { id: manualExecutionId },
     select: { effectiveExecutionConfig: true, cancelledAt: true },
@@ -853,23 +901,50 @@ export const finalizeManualPipelineExecutionAfterCooperativeCancel = async (
   const now = new Date();
 
   await db.$transaction(async (tx) => {
-    const remainingByStep = new Map<string, number>();
-    for (const job of plannedJobs) {
-      if (processedJobIds.has(job.jobId)) {
-        continue;
+    if (source === "runPipeline") {
+      const remainingByStep = new Map<string, number>();
+      for (const job of plannedJobs) {
+        if (processedJobIds.has(job.jobId)) {
+          continue;
+        }
+        const row = await tx.agentJobExecution.findUnique({
+          where: { jobId: job.jobId },
+          select: { id: true },
+        });
+        if (!row) {
+          remainingByStep.set(
+            job.pipelineStepId,
+            (remainingByStep.get(job.pipelineStepId) ?? 0) + 1,
+          );
+        }
       }
-      const row = await tx.agentJobExecution.findUnique({
-        where: { jobId: job.jobId },
-        select: { id: true },
-      });
-      if (!row) {
-        remainingByStep.set(
-          job.pipelineStepId,
-          (remainingByStep.get(job.pipelineStepId) ?? 0) + 1,
-        );
+      for (const [pipelineStepId, n] of remainingByStep) {
+        await tx.manualPipelineStepExecution.updateMany({
+          where: { manualExecutionId, pipelineStepId },
+          data: { failedCount: { increment: n } },
+        });
       }
     }
-    for (const [pipelineStepId, n] of remainingByStep) {
+
+    const actionable = await tx.agentJobExecution.findMany({
+      where: {
+        manualExecutionId,
+        status: {
+          in: [
+            AgentJobExecutionStatus.pending,
+            AgentJobExecutionStatus.running,
+          ],
+        },
+      },
+      select: { pipelineStepId: true },
+    });
+    const cancelledByStep = new Map<string, number>();
+    for (const row of actionable) {
+      const pid = row.pipelineStepId;
+      if (!pid) continue;
+      cancelledByStep.set(pid, (cancelledByStep.get(pid) ?? 0) + 1);
+    }
+    for (const [pipelineStepId, n] of cancelledByStep) {
       await tx.manualPipelineStepExecution.updateMany({
         where: { manualExecutionId, pipelineStepId },
         data: { failedCount: { increment: n } },
@@ -877,13 +952,49 @@ export const finalizeManualPipelineExecutionAfterCooperativeCancel = async (
     }
 
     await tx.agentJobExecution.updateMany({
-      where: { manualExecutionId, status: AgentJobExecutionStatus.running },
+      where: {
+        manualExecutionId,
+        status: {
+          in: [
+            AgentJobExecutionStatus.pending,
+            AgentJobExecutionStatus.running,
+          ],
+        },
+      },
       data: {
         status: AgentJobExecutionStatus.cancelled,
         completedAt: now,
         error: userCancelError(),
       },
     });
+
+    if (source === "dbSnapshot") {
+      const stepsForGap = await tx.manualPipelineStepExecution.findMany({
+        where: { manualExecutionId },
+        select: {
+          pipelineStepId: true,
+          expectedInvocationCount: true,
+        },
+      });
+      for (const step of stepsForGap) {
+        const n = await tx.agentJobExecution.count({
+          where: {
+            manualExecutionId,
+            pipelineStepId: step.pipelineStepId,
+          },
+        });
+        const missing = Math.max(0, step.expectedInvocationCount - n);
+        if (missing > 0) {
+          await tx.manualPipelineStepExecution.updateMany({
+            where: {
+              manualExecutionId,
+              pipelineStepId: step.pipelineStepId,
+            },
+            data: { failedCount: { increment: missing } },
+          });
+        }
+      }
+    }
 
     const steps = await tx.manualPipelineStepExecution.findMany({
       where: { manualExecutionId },
