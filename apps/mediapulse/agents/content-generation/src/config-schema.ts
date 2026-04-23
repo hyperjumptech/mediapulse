@@ -123,7 +123,10 @@ export const ContentGenerationConfigSchema = z
       .default({}),
   })
   .superRefine((data, ctx) => {
-    if (!data.openaiApiKey && !data.openai?.apiKey) {
+    if (
+      (!data.openaiApiKey || data.openaiApiKey.trim() === "") &&
+      (!data.openai?.apiKey || data.openai.apiKey.trim() === "")
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:

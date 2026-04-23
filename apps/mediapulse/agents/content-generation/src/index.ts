@@ -164,7 +164,10 @@ function prepareContext(
       if (remainingBytes > 100) {
         prepared.push({
           ...source,
-          content: truncatedContent.slice(0, Math.max(0, remainingBytes - source.title.length)),
+          content: truncatedContent.slice(
+            0,
+            Math.max(0, remainingBytes - source.title.length),
+          ),
         });
       }
       break;
@@ -213,7 +216,8 @@ Return a JSON object with:
 
   const defaultUserPrompt = `Create a newsletter from these data sources. Include an executive summary and the top items with brief summaries.\n\n{{sourceSummaries}}`;
 
-  const systemContent = deps.config.prompts?.systemPrompt || defaultSystemPrompt;
+  const systemContent =
+    deps.config.prompts?.systemPrompt || defaultSystemPrompt;
   const userTemplate =
     deps.config.prompts?.userPromptTemplate || defaultUserPrompt;
 
