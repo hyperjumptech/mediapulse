@@ -2,7 +2,10 @@
 import type { AgentRunResult } from "@workspace/agent-runtime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ContentGenerationConfig } from "./config-schema.js";
+import {
+  ContentGenerationConfigSchema,
+  type ContentGenerationConfig,
+} from "./config-schema.js";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -44,9 +47,11 @@ import * as LlmGenerate from "./llm-generate-newsletter.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const baseConfig: ContentGenerationConfig = {
-  openaiApiKey: "sk-test",
-};
+const baseConfig: ContentGenerationConfig = ContentGenerationConfigSchema.parse(
+  {
+    openaiApiKey: "sk-test",
+  },
+);
 
 function makeContext(overrides?: {
   input?: { tickerId: string };

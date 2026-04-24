@@ -2,6 +2,7 @@ import { APICallError, NoObjectGeneratedError, TypeValidationError } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ContentGenerationConfigSchema,
   contentGenerationConfigDefaults,
   resolveContentGenerationConfig,
 } from "./config-schema.js";
@@ -21,9 +22,9 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 /** Minimal resolved config used across tests. */
-const baseConfig = resolveContentGenerationConfig({
-  openaiApiKey: "sk-test",
-});
+const baseConfig = resolveContentGenerationConfig(
+  ContentGenerationConfigSchema.parse({ openaiApiKey: "sk-test" }),
+);
 
 /** A fake sleep that records call count without real delays. */
 const noopSleepFn = vi.fn().mockResolvedValue(undefined);
@@ -121,10 +122,12 @@ describe("generateNewsletterWithLlm — happy path", () => {
 
   it("passes timeout to generateObjectFn when openai.timeoutMs is set", async () => {
     // Setup
-    const configWithTimeout = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
-      openai: { timeoutMs: 5000 },
-    });
+    const configWithTimeout = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        openaiApiKey: "sk-test",
+        openai: { timeoutMs: 5000 },
+      }),
+    );
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     // Act
@@ -139,7 +142,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     expect(callArgs.timeout).toBe(5000);
   });
 
-  it("does not pass timeout when openai.timeoutMs is absent", async () => {
+  it("uses default timeout when openai.timeoutMs is absent", async () => {
     // Setup
     const generateObjectFn = makeSuccessfulGenerateFn();
 
@@ -152,7 +155,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     // Assert
     const callArgs = (generateObjectFn as ReturnType<typeof vi.fn>).mock
       .calls[0]![0] as GenerateNewsletterObjectArgs;
-    expect(callArgs.timeout).toBeUndefined();
+    expect(callArgs.timeout).toBe(120000);
   });
 
   it("always passes maxRetries: 0 to disable SDK-internal retry", async () => {
@@ -253,15 +256,17 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
       statusCode: 429,
       isRetryable: true,
     });
-    const config = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
-      llmRetry: {
-        maxAttempts: 3,
-        baseDelayMs: 10,
-        maxDelayMs: 100,
-        jitter: false,
-      },
-    });
+    const config = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        openaiApiKey: "sk-test",
+        llmRetry: {
+          maxAttempts: 3,
+          baseDelayMs: 10,
+          maxDelayMs: 100,
+          jitter: false,
+        },
+      }),
+    );
     const sleepFn = vi.fn().mockResolvedValue(undefined);
     const generateObjectFn = vi.fn().mockRejectedValue(rateLimitError);
 
@@ -286,15 +291,17 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
       statusCode: 500,
       isRetryable: true,
     });
-    const config = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
-      llmRetry: {
-        maxAttempts: 3,
-        baseDelayMs: 10,
-        maxDelayMs: 100,
-        jitter: false,
-      },
-    });
+    const config = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        openaiApiKey: "sk-test",
+        llmRetry: {
+          maxAttempts: 3,
+          baseDelayMs: 10,
+          maxDelayMs: 100,
+          jitter: false,
+        },
+      }),
+    );
     const sleepFn = vi.fn().mockResolvedValue(undefined);
     const generateObjectFn = vi
       .fn()

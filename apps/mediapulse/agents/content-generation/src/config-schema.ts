@@ -99,7 +99,7 @@ export const ContentGenerationConfigSchema = z
         /** Base delay in milliseconds between retries. */
         baseDelayMs: z.number().int().nonnegative().default(500),
         /** Maximum delay in milliseconds between retries. */
-        maxDelayMs: z.number().int().nonnegative().default(8000),
+        maxDelayMs: z.number().int().nonnegative().default(10_000),
         /** Whether to add jitter to the retry delay. */
         jitter: z.boolean().default(true),
       })

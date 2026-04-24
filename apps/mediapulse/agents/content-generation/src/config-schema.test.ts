@@ -28,7 +28,7 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.context.maxTotalContextChars).toBe(100000);
     expect(parsed.llmRetry.maxAttempts).toBe(3);
     expect(parsed.llmRetry.baseDelayMs).toBe(500);
-    expect(parsed.llmRetry.maxDelayMs).toBe(8000);
+    expect(parsed.llmRetry.maxDelayMs).toBe(10_000);
     expect(parsed.llmRetry.jitter).toBe(true);
     expect(parsed.freshness.strategy).toBe("calendar_day");
     expect(parsed.freshness.timezone).toBe("Asia/Jakarta");
@@ -227,8 +227,8 @@ describe("ContentGenerationConfigSchema", () => {
 
     // Assert
     expect(parsed.llmRetry?.maxAttempts).toBe(5);
-    // Other fields are undefined until resolved
-    expect(parsed.llmRetry?.baseDelayMs).toBeUndefined();
+    // Other fields get their schema defaults (resolved later by resolveContentGenerationConfig)
+    expect(parsed.llmRetry?.baseDelayMs).toBe(500);
   });
 
   it("accepts openai.timeoutMs", () => {
