@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
-import { articleAnalysisInputSchema } from "./input-schema.js";
+import { articleAnalysisInputSchema } from "./article-analysis-input-schema.js";
 
 describe("articleAnalysisInputSchema", () => {
   it("rejects reanalyze without maxBatchSize or timeWindow bounds", () => {

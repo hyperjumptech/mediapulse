@@ -43,6 +43,8 @@ const isRepoRootScriptsPath = (filePath) => {
   const n = normalizeRepoPath(filePath);
   return n === "scripts" || n.startsWith("scripts/");
 };
+const isMediapulseEnvGeneratedPath = (filePath) =>
+  /^packages\/mediapulse\/env\/src\/[^/]+\.ts$/.test(normalizeRepoPath(filePath));
 
 const isReviewableSourceFile = (filePath) =>
   isTsJsLike(filePath) && !/\.test\.(ts|tsx|js|jsx)$/.test(filePath);
@@ -118,6 +120,23 @@ const isKebabCaseBasename = (filePath) => {
  * @param {RegExp} re
  * @returns {number | undefined}
  */
+/**
+ * Remove JavaScript/TypeScript comments from `text` while preserving newlines
+ * so that 1-based line numbers remain aligned with the original source.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+const stripComments = (text) => {
+  // Strip single-line comments (keep trailing newline)
+  let result = text.replace(/\/\/.*$/gm, "");
+  // Strip block comments, replacing content with spaces/newlines to preserve line numbers
+  result = result.replace(/\/\*[\s\S]*?\*\//g, (match) =>
+    match.replace(/[^\n]/g, " "),
+  );
+  return result;
+};
+
 const firstLineOfRegexMatch = (text, re) => {
   const flags = re.flags.replaceAll("g", "");
   const m = new RegExp(re.source, flags).exec(text);
@@ -495,6 +514,10 @@ const collectMissingJsDocFindingsForExports = (text, filePath) => {
 const collectMissingCoLocatedTestFindings = (filePath, changed, text) => {
   if (!/\bexport\b/.test(text)) return [];
 
+  // Skip files that only export types/interfaces (no runtime values to test)
+  const hasRuntimeExport = /export\s+(?!type\s+|interface\s+)/.test(text);
+  if (!hasRuntimeExport) return [];
+
   const stem = filePath.replace(/\.(ts|tsx)$/, "");
   const coLocated = [
     `${stem}.test.ts`,
@@ -570,9 +593,10 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (f.status === "D") continue;
     if (!isTsJsLike(f.filePath)) continue;
     if (isRepoRootScriptsPath(f.filePath)) continue;
+    if (isMediapulseEnvGeneratedPath(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "env-variables", f.filePath)) continue;
-    if (/\bprocess\.env\b/.test(text)) {
+    if (/\bprocess\.env\b/.test(stripComments(text))) {
       const line = firstLineOfRegexMatch(text, /\bprocess\.env\b/);
       findings.push({
         ruleId: "env-variables",
@@ -615,6 +639,9 @@ export const runCursorPrReview = async (collaborators, options) => {
   for (const f of changed) {
     if (f.status === "D") continue;
     if (!isTsx(f.filePath)) continue;
+    if (!isReviewableSourceFile(f.filePath)) continue;
+    if (isRepoRootScriptsPath(f.filePath)) continue;
+
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "react-custom-hooks", f.filePath)) continue;
     const violationLines = collectReactCustomHooksViolationLines(text);
@@ -661,7 +688,9 @@ export const runCursorPrReview = async (collaborators, options) => {
   // prisma-strong-typing: catch obvious anti-patterns in Prisma-related files (heuristic)
   for (const f of changed) {
     if (f.status === "D") continue;
-    if (!/\.ts$/.test(f.filePath) && !/\.tsx$/.test(f.filePath)) continue;
+    if (!isReviewableSourceFile(f.filePath)) continue;
+    if (isRepoRootScriptsPath(f.filePath)) continue;
+
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "prisma-strong-typing", f.filePath))
       continue;

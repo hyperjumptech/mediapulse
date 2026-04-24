@@ -72,6 +72,39 @@ describe("createAgentDataApiClient", () => {
     );
   });
 
+  it("posts data-collection-existing-urls payload and parses response", async () => {
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        existingUrls: ["https://exists.example"],
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      postFn,
+    });
+
+    const result = await client.dataCollectionExistingUrls.create({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      urls: ["https://exists.example", "https://new.example"],
+    });
+
+    expect(postFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "dataCollectionExistingUrls")}`,
+      expect.objectContaining({
+        json: {
+          tickerId: "11111111-1111-4111-a111-111111111111",
+          urls: ["https://exists.example", "https://new.example"],
+        },
+        headers: expect.objectContaining({
+          Authorization: "Bearer sdk-token",
+        }),
+      }),
+    );
+    expect(result.existingUrls).toEqual(["https://exists.example"]);
+  });
+
   it("posts content-generation payload and parses response", async () => {
     // Setup
     const postFn = vi.fn().mockResolvedValue({
@@ -109,6 +142,55 @@ describe("createAgentDataApiClient", () => {
     expect(result).toEqual({ message: "Success" });
   });
 
+  it("posts content-generation payload with provenance fields", async () => {
+    // Setup
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ message: "Success" }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      postFn,
+    });
+
+    // Act
+    const result = await client.contentGeneration.create({
+      subject: "Provenance Subject",
+      content: "Provenance body",
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      model: "gpt-4o",
+      agentVersion: "1.2.3",
+      configVersion: "hermes-v3",
+      promptHash: "abc12345",
+      configSnapshotId: "snap-001",
+      promptTokens: 512,
+      completionTokens: 256,
+      totalTokens: 768,
+    });
+
+    // Assert
+    expect(postFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGeneration")}`,
+      expect.objectContaining({
+        json: {
+          subject: "Provenance Subject",
+          content: "Provenance body",
+          tickerId: "11111111-1111-4111-a111-111111111111",
+          model: "gpt-4o",
+          agentVersion: "1.2.3",
+          configVersion: "hermes-v3",
+          promptHash: "abc12345",
+          configSnapshotId: "snap-001",
+          promptTokens: 512,
+          completionTokens: 256,
+          totalTokens: 768,
+        },
+      }),
+    );
+    expect(result).toEqual({ message: "Success" });
+  });
+
   it("throws for non-2xx responses", async () => {
     // Setup
     const getFn = vi.fn().mockResolvedValue({
@@ -132,6 +214,7 @@ describe("createAgentDataApiClient", () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
         dataSources: [],
+        dataSourceTotalCount: 0,
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],
@@ -166,6 +249,7 @@ describe("createAgentDataApiClient", () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
         dataSources: [],
+        dataSourceTotalCount: 0,
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],

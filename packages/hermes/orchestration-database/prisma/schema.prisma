@@ -225,6 +225,7 @@ enum ScheduleRunStatus {
   succeeded
   partial
   failed
+  cancelled
 }
 
 /// Aggregated outcome for invocations under one pipeline step within a schedule execution.
@@ -243,6 +244,7 @@ enum AgentJobExecutionStatus {
   running
   completed
   failed
+  cancelled
 }
 
 model Schedule {
@@ -286,6 +288,7 @@ model ScheduleExecution {
   failedInvocationCount    Int                   @default(0) @map("failed_invocation_count")
   errors                   Json?
   metadata                 Json?
+  cancelledAt              DateTime?             @map("cancelled_at")
   createdAt                DateTime              @default(now()) @map("created_at")
 
   schedule               Schedule                @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
@@ -371,6 +374,7 @@ model HttpTriggerExecution {
   failedInvocationCount    Int                   @default(0) @map("failed_invocation_count")
   errors                   Json?
   metadata                 Json?
+  cancelledAt              DateTime?             @map("cancelled_at")
   createdAt                DateTime              @default(now()) @map("created_at")
 
   httpTrigger               HttpTrigger                @relation(fields: [httpTriggerId], references: [id], onDelete: Cascade)
@@ -411,6 +415,7 @@ model ManualPipelineExecution {
   failedInvocationCount    Int                   @default(0) @map("failed_invocation_count")
   errors                   Json?
   metadata                 Json?
+  cancelledAt              DateTime?             @map("cancelled_at")
   createdAt                DateTime              @default(now()) @map("created_at")
 
   pipeline                     Pipeline                      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)

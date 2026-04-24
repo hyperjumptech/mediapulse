@@ -1,8 +1,11 @@
-import type { ScheduleExecutionDetail } from "@/lib/schedules";
+import type { HttpTriggerExecutionDetail } from "./http-triggers";
+import type { ManualPipelineExecutionDetail } from "./pipeline-executions";
+import type { ScheduleExecutionDetail } from "./schedules";
 
 export {
   isSensitiveJsonKey,
   maskSecretsInJson,
+  maskSensitiveInlinePatternsInString,
   SECRET_MASK,
 } from "./json-secret-mask";
 
@@ -18,6 +21,64 @@ export const maskScheduleExecutionDetailForDisplay = (
   detail: ScheduleExecutionDetail,
 ): ScheduleExecutionDetail => ({
   ...detail,
+  execution: {
+    ...detail.execution,
+    errors: maskSecretsInJson(detail.execution.errors),
+    metadata:
+      detail.execution.metadata == null
+        ? null
+        : maskSecretsInJson(detail.execution.metadata),
+  },
+  invocations: detail.invocations.map((inv) => ({
+    ...inv,
+    params: maskSecretsInJson(inv.params),
+    invocationConfig:
+      inv.invocationConfig == null
+        ? null
+        : maskSecretsInJson(inv.invocationConfig),
+  })),
+});
+
+/**
+ * HTTP trigger execution detail with `errors`, `metadata`, and per-invocation JSON masked for display.
+ */
+export const maskHttpTriggerExecutionDetailForDisplay = (
+  detail: HttpTriggerExecutionDetail,
+): HttpTriggerExecutionDetail => ({
+  ...detail,
+  execution: {
+    ...detail.execution,
+    errors: maskSecretsInJson(detail.execution.errors),
+    metadata:
+      detail.execution.metadata == null
+        ? null
+        : maskSecretsInJson(detail.execution.metadata),
+  },
+  invocations: detail.invocations.map((inv) => ({
+    ...inv,
+    params: maskSecretsInJson(inv.params),
+    invocationConfig:
+      inv.invocationConfig == null
+        ? null
+        : maskSecretsInJson(inv.invocationConfig),
+  })),
+});
+
+/**
+ * Manual pipeline execution detail with `errors` and per-invocation JSON masked for display.
+ */
+export const maskManualPipelineExecutionDetailForDisplay = (
+  detail: ManualPipelineExecutionDetail,
+): ManualPipelineExecutionDetail => ({
+  ...detail,
+  execution: {
+    ...detail.execution,
+    errors: maskSecretsInJson(detail.execution.errors),
+    metadata:
+      detail.execution.metadata == null
+        ? null
+        : maskSecretsInJson(detail.execution.metadata),
+  },
   invocations: detail.invocations.map((inv) => ({
     ...inv,
     params: maskSecretsInJson(inv.params),

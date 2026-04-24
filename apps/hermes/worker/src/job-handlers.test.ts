@@ -17,6 +17,12 @@ const mockPrisma = vi.hoisted(() => ({
     update: vi.fn().mockResolvedValue(undefined),
     updateMany: vi.fn().mockResolvedValue({ count: 1 }),
   },
+  scheduleExecution: {
+    findUnique: vi.fn().mockResolvedValue({ cancelledAt: null }),
+  },
+  httpTriggerExecution: {
+    findUnique: vi.fn().mockResolvedValue({ cancelledAt: null }),
+  },
   domainIntegration: {
     findFirst: vi.fn().mockResolvedValue({
       baseUrl: "https://mediapulse-domain.example",
@@ -35,6 +41,7 @@ vi.mock("@hermes/orchestration-database", () => ({
     running: "running",
     completed: "completed",
     failed: "failed",
+    cancelled: "cancelled",
   },
   DomainIntegrationStatus: {
     pending: "pending",
@@ -397,6 +404,12 @@ describe("jobHandlers", () => {
       mockPrisma.agentJobExecution.update.mockClear();
       mockPrisma.agentJobExecution.updateMany.mockClear();
       mockPrisma.agentJobExecution.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.scheduleExecution.findUnique.mockResolvedValue({
+        cancelledAt: null,
+      });
+      mockPrisma.httpTriggerExecution.findUnique.mockResolvedValue({
+        cancelledAt: null,
+      });
     });
 
     it("claims pending row, calls invokeAgentPost, and applies completion on 2xx success envelope", async () => {
@@ -448,6 +461,26 @@ describe("jobHandlers", () => {
           scheduleExecutionId: payload.scheduleExecutionId,
           terminal: expect.objectContaining({
             status: AgentJobExecutionStatus.completed,
+          }),
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("applies cancelled completion and skips HTTP when parent schedule execution is cancelled", async () => {
+      mockPrisma.scheduleExecution.findUnique.mockResolvedValueOnce({
+        cancelledAt: new Date(),
+      });
+
+      await jobHandlers.invoke_agent(payload, signal, jobCtx);
+
+      expect(invokeAgentPost).not.toHaveBeenCalled();
+      expect(applyInvocationCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: payload.jobId,
+          scheduleExecutionId: payload.scheduleExecutionId,
+          terminal: expect.objectContaining({
+            status: AgentJobExecutionStatus.cancelled,
           }),
         }),
         expect.any(Object),

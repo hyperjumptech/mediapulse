@@ -1,6 +1,23 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { HERMES_ENQUEUE_CORRELATION_METADATA_KEY } from "@hermes/scheduler/enqueue-diagnostics-correlation";
+
+let mockXRequestId: string | null | undefined;
+
+vi.mock("next/headers", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/headers")>();
+  return {
+    ...actual,
+    headers: vi.fn(async () => ({
+      get: (name: string) => {
+        if (name.toLowerCase() !== "x-request-id") return null;
+        return mockXRequestId ?? null;
+      },
+    })),
+  };
+});
+
 import {
   agentHttpBodyToRawString,
   createRunPipelineHandler,
@@ -25,6 +42,7 @@ const request = (body: { pipelineId: string }) =>
 const createExecutionPersistenceStubs = () => ({
   manualPipelineExecution: {
     create: vi.fn().mockResolvedValue({ id: "manual-exec-1" }),
+    findUnique: vi.fn().mockResolvedValue({ cancelledAt: null }),
     update: vi.fn().mockResolvedValue(undefined),
   },
   manualPipelineStepExecution: {
@@ -34,6 +52,8 @@ const createExecutionPersistenceStubs = () => ({
   agentJobExecution: {
     create: vi.fn().mockResolvedValue(undefined),
     update: vi.fn().mockResolvedValue(undefined),
+    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    count: vi.fn().mockResolvedValue(0),
   },
 });
 
@@ -82,11 +102,33 @@ describe("detailFromAgentErrorBody", () => {
     expect(detailFromAgentErrorBody('{"message":"No data"}')).toBe("No data");
     expect(detailFromAgentErrorBody({ message: "No data" })).toBe("No data");
   });
+
+  it("adds a gateway hint for 502/503/504 when the body is empty", () => {
+    expect(detailFromAgentErrorBody(null, { statusCode: 502 })).toContain(
+      "Bad gateway or upstream error",
+    );
+    expect(detailFromAgentErrorBody(undefined, { statusCode: 503 })).toContain(
+      "reverse proxy",
+    );
+    expect(detailFromAgentErrorBody("", { statusCode: 504 })).toContain(
+      "load balancer",
+    );
+  });
+
+  it("does not replace a concrete message for 502", () => {
+    expect(
+      detailFromAgentErrorBody(
+        { message: "Rate limited" },
+        { statusCode: 502 },
+      ),
+    ).toBe("Rate limited");
+  });
 });
 
 describe("createRunPipelineHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    mockXRequestId = undefined;
   });
 
   it("returns error when pipeline is missing", async () => {
@@ -141,11 +183,12 @@ describe("createRunPipelineHandler", () => {
   });
 
   it("returns failed run with 0 invocations when planning yields no jobs", async () => {
+    const stubs = createExecutionPersistenceStubs();
     const handler = createRunPipelineHandler({
       getToken: async () => "jwt",
       expandStepInputs: async () => [],
       db: {
-        ...createExecutionPersistenceStubs(),
+        ...stubs,
         pipeline: {
           findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
         },
@@ -183,6 +226,74 @@ describe("createRunPipelineHandler", () => {
         runStatus: "failed",
       },
     });
+    const createCall = stubs.manualPipelineExecution.create.mock
+      .calls[0]?.[0] as {
+      data: {
+        errors?: Array<{ phase?: string; message?: string }>;
+        metadata?: Record<string, unknown>;
+      };
+    };
+    expect(createCall?.data.errors).toBeDefined();
+    expect(createCall.data.errors?.[0]?.phase).toBe("planning");
+    expect(createCall.data.errors?.[0]?.message).toMatch(
+      /No invocations planned/i,
+    );
+    expect(createCall.data.metadata).toEqual(
+      expect.objectContaining({
+        source: "dashboard",
+        initiatedByUserId: "u1",
+        initiatedByUserEmail: "a@b.com",
+        [HERMES_ENQUEUE_CORRELATION_METADATA_KEY]: expect.objectContaining({
+          requestId: expect.stringMatching(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+          ),
+        }),
+      }),
+    );
+  });
+
+  it("stores X-Request-Id on manual execution metadata when header is set", async () => {
+    mockXRequestId = "dashboard-run-req-7";
+    const stubs = createExecutionPersistenceStubs();
+    const handler = createRunPipelineHandler({
+      getToken: async () => "jwt",
+      expandStepInputs: async () => [],
+      db: {
+        ...stubs,
+        pipeline: {
+          findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
+        },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
+        agentRegistry: {
+          findFirst: vi.fn().mockResolvedValue({
+            agentId: "ag1",
+            agentVersion: "1.0.0",
+            endpoint: { url: "https://agent.example/run", method: "POST" },
+            inputSchema: null,
+            configSchema: null,
+            isActive: true,
+          }),
+          findMany: vi.fn().mockResolvedValue([
+            {
+              agentId: "ag1",
+              agentVersion: "1.0.0",
+              endpoint: { url: "https://agent.example/run", method: "POST" },
+              inputSchema: null,
+              configSchema: null,
+              isActive: true,
+            },
+          ]),
+        },
+        agentConfig: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+    });
+
+    await handler(request({ pipelineId: "p-1" }));
+    const createCall = stubs.manualPipelineExecution.create.mock
+      .calls[0]?.[0] as { data: { metadata?: Record<string, unknown> } };
+    expect(
+      createCall.data.metadata?.[HERMES_ENQUEUE_CORRELATION_METADATA_KEY],
+    ).toEqual({ requestId: "dashboard-run-req-7" });
   });
 
   it("runs one planned invocation and returns invocationsRun", async () => {

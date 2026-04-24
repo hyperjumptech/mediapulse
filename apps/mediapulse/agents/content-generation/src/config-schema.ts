@@ -2,65 +2,88 @@ import { z } from "zod";
 
 const llmRetrySchema = z.object({
   /** Maximum total attempts (including the first). */
-  maxAttempts: z.number().int().positive().optional(),
+  maxAttempts: z.number().int().nonnegative().optional(),
   /** Base delay in milliseconds before the first retry. */
-  baseDelayMs: z.number().int().positive().optional(),
+  baseDelayMs: z.number().int().nonnegative().optional(),
   /** Maximum delay cap in milliseconds. */
-  maxDelayMs: z.number().int().positive().optional(),
+  maxDelayMs: z.number().int().nonnegative().optional(),
   /** When true, applies ±50% random jitter to each computed backoff delay. */
   jitter: z.boolean().optional(),
 });
 
 const openaiOptionsSchema = z.object({
-  /** OpenAI API key for newsletter generation. */
+  /**
+   * OpenAI API key for newsletter generation. Required if legacy `openaiApiKey` is omitted.
+   * The agent reads the API key exclusively from Hermes config — do not fall back to
+   * process.env.OPENAI_API_KEY at runtime. For local development, set the key in the
+   * Hermes agent config or use the legacy `openaiApiKey` top-level field.
+   * See FR2 and MP-CGA-011 for full local-dev documentation.
+   */
   apiKey: z.string().min(1).optional(),
-  /** Base URL for the OpenAI-compatible HTTP API. */
+  /** Base URL for the OpenAI-compatible HTTP API (e.g. Azure OpenAI or a proxy). */
   baseUrl: z.string().url().optional(),
-  /** Chat completions model id. */
+  /** Chat completions model id (e.g. `gpt-4o-mini`). */
   model: z.string().min(1).optional(),
-  /** LLM temperature. */
-  temperature: z.number().optional(),
+  /** Sampling temperature. */
+  temperature: z.number().min(0).max(2).optional(),
   /** Maximum tokens to generate. */
   maxTokens: z.number().int().positive().optional(),
-  /**
-   * Per-request timeout in milliseconds passed to the AI SDK `generateObject` call.
-   */
+  /** Per-request timeout in milliseconds passed to the AI SDK `generateObject` call. */
   timeoutMs: z.number().int().positive().optional(),
 });
 
 const promptsSchema = z.object({
+  /** System prompt for the agent. */
   systemPrompt: z.string().optional(),
+  /**
+   * User prompt template.
+   * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{date}}, {{topNewsCount}}
+   */
   userPromptTemplate: z.string().optional(),
 });
 
 const outputSchema = z.object({
+  /** Number of top news items to include in the output. */
   topNewsCount: z.number().int().positive().optional(),
 });
 
 const contextSchema = z.object({
+  /** Maximum characters to keep per source. */
   maxCharsPerSource: z.number().int().positive().optional(),
+  /** Maximum total characters across all sources. */
   maxTotalContextChars: z.number().int().positive().optional(),
 });
 
 const freshnessSchema = z.object({
-  strategy: z.enum(["calendar_day"]).optional(),
+  /** Strategy to use for determining freshness. */
+  strategy: z.literal("calendar_day").optional(),
+  /**
+   * Timezone to use for freshness calculations (IANA, e.g. "Asia/Jakarta").
+   * Validated against the IANA database at config-parse time.
+   */
   timezone: z
     .string()
-    .refine((tz) => {
-      try {
-        Intl.DateTimeFormat(undefined, { timeZone: tz });
-        return true;
-      } catch (e) {
-        return false;
-      }
-    })
+    .refine(
+      (tz) => {
+        try {
+          Intl.DateTimeFormat(undefined, { timeZone: tz });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Invalid IANA timezone" },
+    )
     .optional(),
 });
 
 const persistRetrySchema = z.object({
-  maxAttempts: z.number().int().positive().optional(),
-  baseDelayMs: z.number().int().positive().optional(),
-  maxDelayMs: z.number().int().positive().optional(),
+  /** Maximum number of retry attempts for persisting data. */
+  maxAttempts: z.number().int().nonnegative().optional(),
+  /** Base delay in milliseconds between retries. */
+  baseDelayMs: z.number().int().nonnegative().optional(),
+  /** Maximum delay in milliseconds between retries. */
+  maxDelayMs: z.number().int().nonnegative().optional(),
 });
 
 /**
@@ -69,14 +92,19 @@ const persistRetrySchema = z.object({
  */
 export const ContentGenerationConfigSchema = z
   .object({
-    /** OpenAI API key for newsletter generation (legacy). */
+    /**
+     * @deprecated Use `openai.apiKey` instead.
+     * OpenAI API key for newsletter generation.
+     */
     openaiApiKey: z.string().min(1).optional(),
     /**
-     * Base URL for the OpenAI-compatible HTTP API (legacy).
+     * @deprecated Use `openai.baseUrl` instead.
+     * Base URL for the OpenAI-compatible HTTP API.
      */
     openaiBaseUrl: z.string().url().optional(),
     /**
-     * Chat completions **model id** only (legacy).
+     * @deprecated Use `openai.model` instead.
+     * Chat completions model id.
      */
     openaiModel: z.string().min(1).optional(),
     /**
@@ -130,10 +158,14 @@ export const ContentGenerationConfigSchema = z
     }),
   })
   .superRefine((data, ctx) => {
-    if (!data.openaiApiKey && !data.openai?.apiKey) {
+    if (
+      (!data.openaiApiKey || data.openaiApiKey.trim() === "") &&
+      (!data.openai?.apiKey || data.openai.apiKey.trim() === "")
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "OpenAI API key is required",
+        message:
+          "Missing API key. Provide either openaiApiKey or openai.apiKey",
         path: ["openai", "apiKey"],
       });
     }

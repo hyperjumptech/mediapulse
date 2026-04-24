@@ -9,6 +9,7 @@ import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import { performWebFetch } from "./utilities/web-fetch";
 import { performWebSearch } from "./utilities/web-search";
+import { resolveExistingDataSourceUrls } from "./utilities/resolve-existing-data-source-urls";
 import {
   deriveRunStatus,
   type RunCounters,
@@ -105,7 +106,28 @@ export async function runDataCollection(
     "web search stage finished",
   );
 
-  const fetchAttemptResults = await performWebFetch(searchSuccesses, {
+  const candidateUrls = searchSuccesses.map((hit) => hit.url);
+  const existingUrlSet = await resolveExistingDataSourceUrls(
+    input.tickerId,
+    candidateUrls,
+    (body) => dataApiClient.dataCollectionExistingUrls.create(body),
+  );
+  const searchSuccessesForFetch = searchSuccesses.filter(
+    (hit) => !existingUrlSet.has(hit.url),
+  );
+  const skippedExistingUrlCount =
+    searchSuccesses.length - searchSuccessesForFetch.length;
+  if (skippedExistingUrlCount > 0) {
+    log.info(
+      {
+        skippedExistingUrlCount,
+        searchHitCount: searchSuccesses.length,
+      },
+      "skipped web fetch for URLs already stored as data sources",
+    );
+  }
+
+  const fetchAttemptResults = await performWebFetch(searchSuccessesForFetch, {
     config: webFetchConfig,
     logger: log,
   });

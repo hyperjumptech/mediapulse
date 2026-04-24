@@ -245,6 +245,29 @@ describe("runCursorPrReview", () => {
     );
   });
 
+  it("does not flag process.env under generated @mediapulse/env files", async () => {
+    // Setup
+    const listChangedFiles = async () => [
+      {
+        status: "M",
+        filePath: "packages/mediapulse/env/src/agents-user-registration.ts",
+      },
+    ];
+    const readTextFile = async () =>
+      "const x = process.env.NEXT_PUBLIC_REGISTRATION_EMAIL;";
+
+    // Act
+    const result = await runCursorPrReview(
+      { listChangedFiles, readTextFile },
+      { baseRef: "origin/main", headRef: "HEAD" },
+    );
+
+    // Assert
+    expect(result.findings.some((f) => f.ruleId === "env-variables")).toBe(
+      false,
+    );
+  });
+
   it('still flags process.env under packages/ even when path contains "scripts"', async () => {
     // Setup
     const listChangedFiles = async () => [

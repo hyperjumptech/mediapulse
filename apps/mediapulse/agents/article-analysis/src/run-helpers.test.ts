@@ -1,8 +1,8 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
-import type { ArticleAnalysisInput } from "./input-schema.js";
-import { articleAnalysisInputSchema } from "./input-schema.js";
+import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
+import { articleAnalysisInputSchema } from "./schemas/article-analysis-input-schema.js";
 import {
   applyMaxBatchSizeCap,
   buildAnalysisGetQuery,
@@ -46,6 +46,17 @@ describe("buildAnalysisGetQuery", () => {
       unanalyzed: true,
       start: "2026-01-01T00:00:00.000Z",
       end: "2026-01-31T00:00:00.000Z",
+    });
+  });
+
+  it("includes limit when options provide it", () => {
+    const input = articleAnalysisInputSchema.parse({
+      tickerId: "tick-d",
+    });
+    expect(buildAnalysisGetQuery(input, { limit: 10 })).toEqual({
+      tickerId: "tick-d",
+      unanalyzed: true,
+      limit: 10,
     });
   });
 });
