@@ -1,10 +1,10 @@
 /** @vitest-environment node */
 import { describe, expect, it, vi } from "vitest";
-import { createAgentApp } from "@workspace/agent-runtime";
+import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { z } from "zod";
 
 const InputSchema = z.object({
-  tickerId: z.string().min(1),
+  tickerId: hermesTickerIdSchema,
 });
 
 type Input = z.infer<typeof InputSchema>;

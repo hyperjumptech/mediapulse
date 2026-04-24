@@ -90,6 +90,38 @@ describe("Parser Helpers", () => {
         }),
       ).toBeNull();
     });
+
+    it("returns null if email format is invalid", () => {
+      expect(
+        extractSenderEmail({
+          id: "4",
+          subject: null,
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: false,
+          from: { emailAddress: { address: "invalid-email" } },
+        }),
+      ).toBeNull();
+
+      expect(
+        extractSenderEmail({
+          id: "5",
+          subject: null,
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: false,
+          from: { emailAddress: { address: "@nodomain.com" } },
+        }),
+      ).toBeNull();
+
+      expect(
+        extractSenderEmail({
+          id: "6",
+          subject: null,
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: false,
+          from: { emailAddress: { address: "name@domain" } },
+        }),
+      ).toBeNull();
+    });
   });
 
   describe("extractTickerSymbol", () => {

@@ -31,6 +31,24 @@ export const postDataCollectionResponseSchema = z.object({
   message: z.string(),
 });
 
+/** Max URLs per existing-url lookup request (data-collection agent batching). */
+export const DATA_COLLECTION_EXISTING_URLS_MAX = 500;
+
+/**
+ * Body for POST `/data-collection-existing-urls`: which ticker and which candidate URLs to check.
+ */
+export const postDataCollectionExistingUrlsBodySchema = z.object({
+  tickerId: z.string().trim().min(1),
+  urls: z.array(z.string().url()).max(DATA_COLLECTION_EXISTING_URLS_MAX),
+});
+
+/**
+ * Response: subset of requested URLs that already have a `data_source` row for the ticker (exact URL match).
+ */
+export const postDataCollectionExistingUrlsResponseSchema = z.object({
+  existingUrls: z.array(z.string()),
+});
+
 export type DataCollectionBody = z.infer<typeof dataCollectionBodySchema>;
 export type DataCollectionQuery = z.infer<typeof dataCollectionQuerySchema>;
 export type GetDataCollectionResponse = z.infer<
@@ -38,4 +56,10 @@ export type GetDataCollectionResponse = z.infer<
 >;
 export type PostDataCollectionResponse = z.infer<
   typeof postDataCollectionResponseSchema
+>;
+export type PostDataCollectionExistingUrlsBody = z.infer<
+  typeof postDataCollectionExistingUrlsBodySchema
+>;
+export type PostDataCollectionExistingUrlsResponse = z.infer<
+  typeof postDataCollectionExistingUrlsResponseSchema
 >;

@@ -1,0 +1,32 @@
+import { z } from "zod";
+
+export const ConfigSchema = z.object({
+  outlookClientId: z.string().min(1),
+  outlookClientSecret: z.string().min(1),
+  outlookTenantId: z.string().min(1),
+  outlookUserId: z.string().min(1),
+  resendApiKey: z.string().min(1),
+  resendSender: z.string().min(1),
+  rateLimit: z
+    .object({
+      windowMs: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .default(60 * 60 * 1000),
+      maxAttempts: z.number().int().positive().optional().default(5),
+    })
+    .optional()
+    .default({}),
+  retry: z
+    .object({
+      maxAttempts: z.number().int().nonnegative().optional().default(3),
+      baseDelayMs: z.number().int().positive().optional().default(500),
+      maxDelayMs: z.number().int().positive().optional().default(5000),
+    })
+    .optional()
+    .default({}),
+});
+
+export type UserRegistrationConfig = z.input<typeof ConfigSchema>;

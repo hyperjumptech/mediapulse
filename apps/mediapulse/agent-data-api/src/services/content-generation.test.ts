@@ -14,6 +14,7 @@ vi.mock("@mediapulse/database", () => ({
 }));
 
 import {
+  createNewsletter,
   getDataSourcesForTicker,
   getLatestNewsletter,
 } from "./content-generation";
@@ -38,6 +39,18 @@ const createMockDb = (): MockDb => ({
   },
 });
 
+type MockNewsletterDb = {
+  newsletter: {
+    create: ReturnType<typeof vi.fn>;
+  };
+};
+
+const createMockNewsletterDb = (): MockNewsletterDb => ({
+  newsletter: {
+    create: vi.fn(),
+  },
+});
+
 type GetDataSourcesDeps = NonNullable<
   Parameters<typeof getDataSourcesForTicker>[1]
 >;
@@ -48,7 +61,6 @@ describe("getDataSourcesForTicker", () => {
   });
 
   it("filters by selected relevance scored today in UTC and sorts by score desc", async () => {
-    // Setup
     const db = createMockDb();
     db.dataSource.findMany.mockResolvedValue([
       {
@@ -77,13 +89,11 @@ describe("getDataSourcesForTicker", () => {
       },
     ]);
 
-    // Act
     const result = await getDataSourcesForTicker("ticker-1", {
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-03-19T15:30:00.000Z"),
     });
 
-    // Assert
     const expectedStartOfToday = new Date("2026-03-19T00:00:00.000Z");
     expect(db.dataSource.findMany).toHaveBeenCalledWith({
       where: {
@@ -119,17 +129,14 @@ describe("getDataSourcesForTicker", () => {
   });
 
   it("returns an empty array when no selected articles exist for today", async () => {
-    // Setup
     const db = createMockDb();
     db.dataSource.findMany.mockResolvedValue([]);
 
-    // Act
     const result = await getDataSourcesForTicker("ticker-1", {
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-03-19T02:00:00.000Z"),
     });
 
-    // Assert
     expect(result).toEqual([]);
   });
 });
@@ -140,13 +147,9 @@ describe("getLatestNewsletter", () => {
   });
 
   it("returns hasNewsletter:true and newsletterId when a newsletter exists in the window", async () => {
-    // Setup
     const db = createMockDb();
-    db.newsletter.findFirst.mockResolvedValue({
-      id: "nl-123",
-    });
+    db.newsletter.findFirst.mockResolvedValue({ id: "nl-123" });
 
-    // Act
     const result = await getLatestNewsletter(
       "ticker-1",
       "2026-04-20T00:00:00.000Z",
@@ -154,7 +157,6 @@ describe("getLatestNewsletter", () => {
       db as unknown as Parameters<typeof getLatestNewsletter>[3],
     );
 
-    // Assert
     expect(result).toEqual({
       hasNewsletter: true,
       newsletterId: "nl-123",
@@ -173,11 +175,9 @@ describe("getLatestNewsletter", () => {
   });
 
   it("returns hasNewsletter:false and null newsletterId when no newsletter exists in the window", async () => {
-    // Setup
     const db = createMockDb();
     db.newsletter.findFirst.mockResolvedValue(null);
 
-    // Act
     const result = await getLatestNewsletter(
       "ticker-1",
       "2026-04-20T00:00:00.000Z",
@@ -185,7 +185,6 @@ describe("getLatestNewsletter", () => {
       db as unknown as Parameters<typeof getLatestNewsletter>[3],
     );
 
-    // Assert
     expect(result).toEqual({
       hasNewsletter: false,
       newsletterId: null,
@@ -193,11 +192,9 @@ describe("getLatestNewsletter", () => {
   });
 
   it("returns hasNewsletter:false when newsletter exists but outside the window", async () => {
-    // Setup
     const db = createMockDb();
     db.newsletter.findFirst.mockResolvedValue(null);
 
-    // Act
     const result = await getLatestNewsletter(
       "ticker-1",
       "2026-04-20T17:00:00.000Z",
@@ -205,7 +202,6 @@ describe("getLatestNewsletter", () => {
       db as unknown as Parameters<typeof getLatestNewsletter>[3],
     );
 
-    // Assert — findFirst returns null because window filters out the old newsletter
     expect(result).toEqual({
       hasNewsletter: false,
       newsletterId: null,
@@ -221,5 +217,160 @@ describe("getLatestNewsletter", () => {
       select: { id: true },
       orderBy: { createdAt: "desc" },
     });
+  });
+});
+
+describe("createNewsletter", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("creates newsletter with all provenance fields", async () => {
+    const db = createMockNewsletterDb();
+    const createdAt = new Date("2026-04-14T00:00:00.000Z");
+    const updatedAt = new Date("2026-04-14T00:00:00.000Z");
+    db.newsletter.create.mockResolvedValue({
+      id: "nl-1",
+      tickerId: "ticker-1",
+      subject: "Market Update",
+      description: null,
+      content: "Content body",
+      model: "gpt-4o",
+      agentVersion: "1.2.3",
+      configVersion: "hermes-v3",
+      promptHash: "abc12345",
+      configSnapshotId: "snap-001",
+      promptTokens: 512,
+      completionTokens: 256,
+      totalTokens: 768,
+      createdAt,
+      updatedAt,
+    });
+
+    const result = await createNewsletter(
+      {
+        subject: "Market Update",
+        content: "Content body",
+        tickerId: "ticker-1",
+        model: "gpt-4o",
+        agentVersion: "1.2.3",
+        configVersion: "hermes-v3",
+        promptHash: "abc12345",
+        configSnapshotId: "snap-001",
+        promptTokens: 512,
+        completionTokens: 256,
+        totalTokens: 768,
+      },
+      db as unknown as Parameters<typeof createNewsletter>[1],
+    );
+
+    expect(db.newsletter.create).toHaveBeenCalledWith({
+      data: {
+        subject: "Market Update",
+        description: null,
+        content: "Content body",
+        tickerId: "ticker-1",
+        model: "gpt-4o",
+        agentVersion: "1.2.3",
+        configVersion: "hermes-v3",
+        promptHash: "abc12345",
+        configSnapshotId: "snap-001",
+        promptTokens: 512,
+        completionTokens: 256,
+        totalTokens: 768,
+      },
+    });
+    expect(result.id).toBe("nl-1");
+    expect(result.model).toBe("gpt-4o");
+    expect(result.promptTokens).toBe(512);
+  });
+
+  it("creates newsletter without provenance fields (backward-compatible)", async () => {
+    const db = createMockNewsletterDb();
+    const createdAt = new Date("2026-04-14T00:00:00.000Z");
+    const updatedAt = new Date("2026-04-14T00:00:00.000Z");
+    db.newsletter.create.mockResolvedValue({
+      id: "nl-2",
+      tickerId: "ticker-1",
+      subject: "Simple Subject",
+      description: null,
+      content: "Simple content",
+      model: null,
+      agentVersion: null,
+      configVersion: null,
+      promptHash: null,
+      configSnapshotId: null,
+      promptTokens: null,
+      completionTokens: null,
+      totalTokens: null,
+      createdAt,
+      updatedAt,
+    });
+
+    await createNewsletter(
+      {
+        subject: "Simple Subject",
+        content: "Simple content",
+        tickerId: "ticker-1",
+      },
+      db as unknown as Parameters<typeof createNewsletter>[1],
+    );
+
+    expect(db.newsletter.create).toHaveBeenCalledWith({
+      data: {
+        subject: "Simple Subject",
+        description: null,
+        content: "Simple content",
+        tickerId: "ticker-1",
+        model: null,
+        agentVersion: null,
+        configVersion: null,
+        promptHash: null,
+        configSnapshotId: null,
+        promptTokens: null,
+        completionTokens: null,
+        totalTokens: null,
+      },
+    });
+  });
+
+  it("passes description as null when omitted", async () => {
+    const db = createMockNewsletterDb();
+    const createdAt = new Date("2026-04-14T00:00:00.000Z");
+    const updatedAt = new Date("2026-04-14T00:00:00.000Z");
+    db.newsletter.create.mockResolvedValue({
+      id: "nl-3",
+      tickerId: "ticker-1",
+      subject: "No Desc Subject",
+      description: null,
+      content: "No desc content",
+      model: null,
+      agentVersion: null,
+      configVersion: null,
+      promptHash: null,
+      configSnapshotId: null,
+      promptTokens: null,
+      completionTokens: null,
+      totalTokens: null,
+      createdAt,
+      updatedAt,
+    });
+
+    await createNewsletter(
+      {
+        subject: "No Desc Subject",
+        content: "No desc content",
+        tickerId: "ticker-1",
+      },
+      db as unknown as Parameters<typeof createNewsletter>[1],
+    );
+
+    expect(db.newsletter.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          description: null,
+        }),
+      }),
+    );
   });
 });

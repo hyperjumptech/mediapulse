@@ -17,6 +17,8 @@ import {
   dataCollectionBodySchema,
   dataCollectionQuerySchema,
   getDataCollectionResponseSchema,
+  postDataCollectionExistingUrlsBodySchema,
+  postDataCollectionExistingUrlsResponseSchema,
   postDataCollectionResponseSchema,
 } from "./data-collection.js";
 import {
@@ -184,6 +186,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: dataCollectionBodySchema,
         response: postDataCollectionResponseSchema,
+      },
+    },
+  },
+  dataCollectionExistingUrls: {
+    v1: {
+      post: {
+        body: postDataCollectionExistingUrlsBodySchema,
+        response: postDataCollectionExistingUrlsResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postDataCollectionExistingUrlsBodySchema,
+        response: postDataCollectionExistingUrlsResponseSchema,
       },
     },
   },

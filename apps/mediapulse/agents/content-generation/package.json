@@ -12,20 +12,21 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@mediapulse/env": "workspace:*",
     "@ai-sdk/openai": "^3.0.49",
+    "@mediapulse/env": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
+    "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",
-    "@workspace/utils": "workspace:*",
     "@workspace/logger": "workspace:*",
+    "@workspace/utils": "workspace:*",
     "ai": "^6.0.142",
     "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "catalog:",
-    "@workspace/agent-data-api-contract": "workspace:*"
+    "openai": "^6.34.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",

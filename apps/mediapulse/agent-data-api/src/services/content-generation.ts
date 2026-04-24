@@ -97,6 +97,14 @@ export const createNewsletter = async (
       description: data.description ?? null,
       content: data.content,
       tickerId: data.tickerId,
+      model: data.model ?? null,
+      agentVersion: data.agentVersion ?? null,
+      configVersion: data.configVersion ?? null,
+      promptHash: data.promptHash ?? null,
+      configSnapshotId: data.configSnapshotId ?? null,
+      promptTokens: data.promptTokens ?? null,
+      completionTokens: data.completionTokens ?? null,
+      totalTokens: data.totalTokens ?? null,
     },
   });
   logger.info(

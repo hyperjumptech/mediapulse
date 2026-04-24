@@ -50,13 +50,22 @@ model DataSource {
 }
 
 model Newsletter {
-  id          String   @id @default(uuid())
-  subject     String
-  description String?
-  content     String
-  tickerId    String   @map("ticker_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(uuid())
+  subject          String
+  description      String?
+  content          String
+  tickerId         String   @map("ticker_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  model            String?  @map("model")
+  agentVersion     String?  @map("agent_version")
+  configVersion    String?  @map("config_version")
+  promptHash       String?  @map("prompt_hash")
+  configSnapshotId String?  @map("config_snapshot_id")
+  promptTokens     Int?     @map("prompt_tokens")
+  completionTokens Int?     @map("completion_tokens")
+  totalTokens      Int?     @map("total_tokens")
 
   ticker               Ticker                         @relation(fields: [tickerId], references: [id])
   deliveryCheckpoints  NewsletterDeliveryCheckpoint[]

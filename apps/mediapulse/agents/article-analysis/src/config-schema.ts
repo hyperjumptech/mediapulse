@@ -1,3 +1,4 @@
+import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
 import type { RelevanceWeightMapV1 } from "./analysis-relevance-scoring.js";
 import type { ArticleAnalysisRunPolicy } from "./article-analysis-run-policy.js";
 import { z } from "zod";
@@ -62,9 +63,21 @@ export const articleAnalysisConfigSchema = z.object({
   /** Initial backoff in ms; delay doubles each retry (`base * 2^attempt`). */
   postTransientRetryBaseDelayMs: z.number().int().positive().optional(),
   /**
-   * Incremental runs only: when Hermes input omits `maxBatchSize`, cap eligible sources to this count (unset = no cap).
+   * When Hermes run input omits `maxBatchSize`, cap how many data sources are loaded and processed per run
+   * (also bounds `analysis.get` `limit` together with `analysisGetDataSourceLimitMax`).
+   * Override in Hermes agent config; package default applies when omitted.
    */
   defaultMaxBatchSize: z.number().int().positive().optional(),
+  /**
+   * Max `analysis.get` `limit` (must not exceed `ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX` from `@workspace/agent-data-api-contract`).
+   * Actual limit is `min(maxBatchSize, analysisGetDataSourceLimitMax)`. Set in Hermes agent config JSON.
+   */
+  analysisGetDataSourceLimitMax: z
+    .number()
+    .int()
+    .positive()
+    .max(ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX)
+    .optional(),
   /**
    * When greater than zero, skip the run (success no-op) if GET returns fewer unanalyzed sources than this threshold.
    */
@@ -104,6 +117,10 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   postTransientRetryBaseDelayMs: number;
   debounceMinUnanalyzedCount: number;
   debounceMinMinutesSinceLastScore: number;
+  /** Cap on sources per run when Hermes input omits `maxBatchSize`. */
+  defaultMaxBatchSize: number;
+  /** Upper bound for `analysis.get` `limit` (see `analysisGetDataSourceLimitMax` on Hermes config). */
+  analysisGetDataSourceLimitMax: number;
 };
 
 /** Production-oriented defaults merged onto parsed Hermes config. */
@@ -136,11 +153,14 @@ export const articleAnalysisConfigDefaults = {
   postTransientRetryBaseDelayMs: 500,
   debounceMinUnanalyzedCount: 0,
   debounceMinMinutesSinceLastScore: 0,
+  defaultMaxBatchSize: 10,
+  analysisGetDataSourceLimitMax: ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
 } as const;
 
 /**
  * Returns effective config with defaults applied for optional numeric/string fields,
- * including debounce knobs and optional `defaultMaxBatchSize` passthrough from Hermes.
+ * including debounce knobs, `defaultMaxBatchSize`, and `analysisGetDataSourceLimitMax`
+ * (Hermes config overrides or package defaults).
  *
  * @param config - Parsed Hermes config.
  * @returns Config safe to use at runtime.
@@ -227,6 +247,12 @@ export const resolveArticleAnalysisConfig = (
     debounceMinMinutesSinceLastScore:
       config.debounceMinMinutesSinceLastScore ??
       articleAnalysisConfigDefaults.debounceMinMinutesSinceLastScore,
+    defaultMaxBatchSize:
+      config.defaultMaxBatchSize ??
+      articleAnalysisConfigDefaults.defaultMaxBatchSize,
+    analysisGetDataSourceLimitMax:
+      config.analysisGetDataSourceLimitMax ??
+      articleAnalysisConfigDefaults.analysisGetDataSourceLimitMax,
   };
 };
 

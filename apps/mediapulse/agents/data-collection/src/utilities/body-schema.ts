@@ -1,8 +1,9 @@
+import { hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { z } from "zod";
 
 /** Validates the agent run body: required ticker and optional ISO time window. */
 export const BodySchema = z.object({
-  tickerId: z.string(),
+  tickerId: hermesTickerIdSchema,
   timeWindow: z
     .object({
       start: z.string().datetime(),
