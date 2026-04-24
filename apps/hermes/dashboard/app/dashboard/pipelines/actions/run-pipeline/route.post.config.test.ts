@@ -52,6 +52,8 @@ const createExecutionPersistenceStubs = () => ({
   agentJobExecution: {
     create: vi.fn().mockResolvedValue(undefined),
     update: vi.fn().mockResolvedValue(undefined),
+    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    count: vi.fn().mockResolvedValue(0),
   },
 });
 

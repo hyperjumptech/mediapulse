@@ -129,6 +129,17 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.openaiApiKey).toBeUndefined();
   });
 
+  it("rejects if both openaiApiKey and openai.apiKey are empty or whitespace", () => {
+    // Act & Assert
+    const result = ContentGenerationConfigSchema.safeParse({
+      openaiApiKey: "   ",
+      openai: {
+        apiKey: "",
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects topNewsCount of 0", () => {
     // Act & Assert
     const result = ContentGenerationConfigSchema.safeParse({

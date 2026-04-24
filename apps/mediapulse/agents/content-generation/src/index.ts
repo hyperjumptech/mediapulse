@@ -4,6 +4,7 @@ import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-content-generation";
 import { logger } from "@workspace/logger";
 import OpenAI from "openai";
+import pRetry from "p-retry";
 import { z } from "zod";
 
 import {
@@ -55,29 +56,54 @@ const app = createAgentApp<
         baseURL: config.openai?.baseUrl ?? config.openaiBaseUrl,
         timeout: config.openai?.timeoutMs,
       });
+      const model = config.openai?.model ?? config.openaiModel ?? "gpt-4o-mini";
+      const temperature = config.openai?.temperature ?? 0.4;
+      const today = new Date().toISOString().split("T")[0];
 
-      const generated = await generateContentWithOpenAI(sources, {
-        openai,
-        model: config.openai?.model ?? config.openaiModel ?? "gpt-4o-mini",
-        temperature: config.openai?.temperature,
-        maxTokens: config.openai?.maxTokens,
-        topNewsCount: config.output.topNewsCount,
-        maxCharsPerSource: config.context.maxCharsPerSource,
-        maxTotalContextChars: config.context.maxTotalContextChars,
-        systemPrompt: config.prompts?.systemPrompt,
-        userPromptTemplate: config.prompts?.userPromptTemplate,
-        tickerId: input.tickerId,
-        date: new Date().toISOString().split("T")[0],
-      });
-      try {
-        await dataApiClient.contentGeneration.create({
-          subject: generated.subject,
-          content: generated.content,
-          ...(generated.description && {
-            description: generated.description,
+      const generated = await pRetry(
+        () =>
+          generateContentWithOpenAI(sources, {
+            openai,
+            model,
+            temperature,
+            topNewsCount: config.output?.topNewsCount ?? 3,
+            maxCharsPerSource: config.context?.maxCharsPerSource ?? 8000,
+            maxTotalContextChars:
+              config.context?.maxTotalContextChars ?? 100000,
+            systemPrompt: config.prompts?.systemPrompt,
+            userPromptTemplate: config.prompts?.userPromptTemplate,
+            tickerId: input.tickerId,
+            date: today,
           }),
-          tickerId: input.tickerId,
-        });
+        {
+          retries: config.llmRetry?.maxAttempts ?? 3,
+          minTimeout: config.llmRetry?.baseDelayMs ?? 500,
+          maxTimeout: config.llmRetry?.maxDelayMs ?? 8000,
+          onFailedAttempt: (error) => {
+            logger.warn(
+              { error, attempt: error.attemptNumber },
+              "LLM generation failed, retrying...",
+            );
+          },
+        },
+      );
+      try {
+        await pRetry(
+          () =>
+            dataApiClient.contentGeneration.create({
+              subject: generated.subject,
+              content: generated.content,
+              ...(generated.description && {
+                description: generated.description,
+              }),
+              tickerId: input.tickerId,
+            }),
+          {
+            retries: config.persistRetry?.maxAttempts ?? 2,
+            minTimeout: config.persistRetry?.baseDelayMs ?? 200,
+            maxTimeout: config.persistRetry?.maxDelayMs ?? 2000,
+          },
+        );
       } catch (err) {
         logger.error(
           { tickerId: input.tickerId, err },
