@@ -3,12 +3,16 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Ticker } from "@/lib/tickers";
 
-const mockTickers: Ticker[] = [
-  { KodeEmiten: "BBCA", NamaEmiten: "Bank Central Asia Tbk" },
+const mockDbTickers = [
+  { id: "1", symbol: "BBCA", name: "Bank Central Asia Tbk" },
 ];
 
-vi.mock("@/lib/read-tickers", () => ({
-  readTickers: vi.fn().mockResolvedValue(mockTickers),
+vi.mock("@mediapulse/database", () => ({
+  prisma: {
+    ticker: {
+      findMany: vi.fn().mockResolvedValue(mockDbTickers),
+    },
+  },
 }));
 
 vi.mock("@/components/registration-form", () => ({
@@ -36,7 +40,7 @@ describe("Page", () => {
     expect(screen.getByTestId("registration-form")).toBeInTheDocument();
   });
 
-  it("passes tickers returned by readTickers to the form", async () => {
+  it("passes mapped tickers from database to the form", async () => {
     // Setup
     const Page = (await import("./page")).default;
 

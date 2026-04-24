@@ -13,6 +13,17 @@ describe("BodySchema", () => {
     expect(result).toEqual({ tickerId: "123" });
   });
 
+  it("trims tickerId whitespace", async () => {
+    const result = await BodySchema.parseAsync({ tickerId: "  123  " });
+    expect(result.tickerId).toBe("123");
+  });
+
+  it("rejects empty tickerId", async () => {
+    await expect(
+      BodySchema.parseAsync({ tickerId: "" }),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
   it("parses a valid body with timeWindow", async () => {
     // Act
     const result = await BodySchema.parseAsync({

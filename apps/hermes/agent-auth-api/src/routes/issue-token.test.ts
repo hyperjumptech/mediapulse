@@ -8,6 +8,14 @@ import { HERMES_INTERNAL_TOKEN_SUBJECT, issueToken } from "./issue-token";
 
 const mockFindFirst = vi.fn();
 
+const { issueTokenTestEnv } = vi.hoisted(() => ({
+  issueTokenTestEnv: {
+    AGENT_AUTH_JWT_SECRET: "test-secret-at-least-16-chars",
+    HERMES_INTERNAL_API_KEY: "internal-preset-key-for-tests",
+    HERMES_INTERNAL_API_KEY_PREVIOUS: "",
+  },
+}));
+
 vi.mock("@hermes/orchestration-database", () => ({
   prisma: {
     encryptedPayload: {
@@ -16,17 +24,16 @@ vi.mock("@hermes/orchestration-database", () => ({
   },
 }));
 
-const originalEnv = process.env;
 vi.mock("@hermes/env", () => ({
   env: {
     get AGENT_AUTH_JWT_SECRET() {
-      return process.env.AGENT_AUTH_JWT_SECRET ?? "";
+      return issueTokenTestEnv.AGENT_AUTH_JWT_SECRET;
     },
     get HERMES_INTERNAL_API_KEY() {
-      return process.env.HERMES_INTERNAL_API_KEY ?? "";
+      return issueTokenTestEnv.HERMES_INTERNAL_API_KEY;
     },
     get HERMES_INTERNAL_API_KEY_PREVIOUS() {
-      return process.env.HERMES_INTERNAL_API_KEY_PREVIOUS ?? "";
+      return issueTokenTestEnv.HERMES_INTERNAL_API_KEY_PREVIOUS;
     },
   },
 }));
@@ -38,17 +45,13 @@ describe("issueToken route", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env = {
-      ...originalEnv,
-      AGENT_AUTH_JWT_SECRET: "test-secret-at-least-16-chars",
-      HERMES_INTERNAL_API_KEY: "internal-preset-key-for-tests",
-      HERMES_INTERNAL_API_KEY_PREVIOUS: "",
-    };
+    issueTokenTestEnv.AGENT_AUTH_JWT_SECRET = "test-secret-at-least-16-chars";
+    issueTokenTestEnv.HERMES_INTERNAL_API_KEY = "internal-preset-key-for-tests";
+    issueTokenTestEnv.HERMES_INTERNAL_API_KEY_PREVIOUS = "";
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    process.env = originalEnv;
   });
 
   it("returns 401 when Authorization header is missing", async () => {
@@ -62,7 +65,7 @@ describe("issueToken route", () => {
   });
 
   it("returns 503 when AGENT_AUTH_JWT_SECRET is not set", async () => {
-    delete process.env.AGENT_AUTH_JWT_SECRET;
+    issueTokenTestEnv.AGENT_AUTH_JWT_SECRET = "";
     const res = await app.request("http://localhost/api/token", {
       method: "POST",
       headers: { Authorization: "Bearer some-key" },
@@ -86,13 +89,14 @@ describe("issueToken route", () => {
     expect(body).toHaveProperty("token");
     expect(typeof body.token).toBe("string");
     expect(body.token.split(".")).toHaveLength(3);
-    expect(body).toEqual(expect.objectContaining({ expiresIn: 900 }));
+    expect(body).toEqual(expect.objectContaining({ expiresIn: 7200 }));
     const claims = decodeJwt(body.token as string);
     expect(claims.sub).toBe(HERMES_INTERNAL_TOKEN_SUBJECT);
   });
 
   it("returns 200 with JWT when Bearer matches HERMES_INTERNAL_API_KEY_PREVIOUS", async () => {
-    process.env.HERMES_INTERNAL_API_KEY_PREVIOUS = "previous-internal-key";
+    issueTokenTestEnv.HERMES_INTERNAL_API_KEY_PREVIOUS =
+      "previous-internal-key";
 
     const res = await app.request("http://localhost/api/token", {
       method: "POST",

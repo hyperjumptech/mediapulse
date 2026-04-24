@@ -11,13 +11,19 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
+import { HermesExecutionCancelButton } from "@/components/hermes-execution-cancel-button";
+import { EnqueueDiagnosticsPanel } from "@/components/enqueue-diagnostics";
 import { ScheduleExecutionInvocationsTable } from "@/components/schedule-execution-invocations-table";
 import {
   computePipelineWallElapsed,
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
-import { maskSecretsInJson } from "@/lib/mask-json-secrets";
+import {
+  formatManualExecutionMetadataHints,
+  getHermesExecutionInvokeTransportBlurb,
+} from "@/lib/hermes-execution-invoke-transport";
+import { maskManualPipelineExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
 
 /**
@@ -44,17 +50,12 @@ export default async function PipelineExecutionDetailPage({
     rawDetail.execution.runStatus,
   );
 
-  const detail = {
-    ...rawDetail,
-    invocations: rawDetail.invocations.map((invocation) => ({
-      ...invocation,
-      params: maskSecretsInJson(invocation.params),
-      invocationConfig:
-        invocation.invocationConfig == null
-          ? null
-          : maskSecretsInJson(invocation.invocationConfig),
-    })),
-  };
+  const detail = maskManualPipelineExecutionDetailForDisplay(rawDetail);
+  const invokeTransport =
+    getHermesExecutionInvokeTransportBlurb("manual-pipeline");
+  const metadataHints = formatManualExecutionMetadataHints(
+    detail.execution.metadata,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -67,11 +68,21 @@ export default async function PipelineExecutionDetailPage({
           Back to pipeline
         </Link>
       </div>
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Execution {detail.execution.id.slice(0, 8)}...
-        </h1>
-        <p className="text-muted-foreground">{detail.pipeline.name}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            Execution {detail.execution.id.slice(0, 8)}...
+          </h1>
+          <p className="text-muted-foreground">{detail.pipeline.name}</p>
+        </div>
+        <HermesExecutionCancelButton
+          target={{
+            kind: "manual",
+            pipelineId,
+            manualExecutionId: executionId,
+          }}
+          runStatus={detail.execution.runStatus}
+        />
       </div>
 
       <section className="grid gap-2 text-sm">
@@ -100,7 +111,25 @@ export default async function PipelineExecutionDetailPage({
           {detail.execution.succeededInvocationCount} /{" "}
           {detail.execution.failedInvocationCount}
         </p>
+        <p>
+          <span className="text-muted-foreground">Invocation transport:</span>{" "}
+          {invokeTransport.headline}
+        </p>
+        <p className="text-muted-foreground">{invokeTransport.detail}</p>
+        {metadataHints.length > 0 ? (
+          <ul className="list-inside list-disc text-muted-foreground">
+            {metadataHints.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
       </section>
+
+      <EnqueueDiagnosticsPanel
+        enqueueStatus={detail.execution.enqueueStatus}
+        errors={detail.execution.errors}
+        metadata={detail.execution.metadata}
+      />
 
       <section>
         <h2 className="mb-2 text-lg font-medium">Pipeline steps</h2>

@@ -12,6 +12,7 @@ export {
   type AgentDataApiVersion,
 } from "./agent-data-api-manifest.js";
 export {
+  ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
   analysisDataSourceSchema,
   analysisEntityTypeSchema,
   analysisExistingEntitySchema,
@@ -37,13 +38,18 @@ export {
   type PostContentGenerationResponse,
 } from "./content-generation.js";
 export {
+  DATA_COLLECTION_EXISTING_URLS_MAX,
   dataCollectionBodySchema,
   dataCollectionQuerySchema,
   getDataCollectionResponseSchema,
+  postDataCollectionExistingUrlsBodySchema,
+  postDataCollectionExistingUrlsResponseSchema,
   postDataCollectionResponseSchema,
   type DataCollectionBody,
   type DataCollectionQuery,
   type GetDataCollectionResponse,
+  type PostDataCollectionExistingUrlsBody,
+  type PostDataCollectionExistingUrlsResponse,
   type PostDataCollectionResponse,
 } from "./data-collection.js";
 export {

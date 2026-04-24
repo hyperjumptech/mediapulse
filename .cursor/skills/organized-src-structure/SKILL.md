@@ -51,7 +51,7 @@ Not every package needs every folder—**mirror what already exists** in sibling
 
 ## Verification
 
-After structural or import changes: run the relevant package/app `pnpm lint`, `pnpm type:check`, and tests; from repo root, `pnpm code-quality` when touching TS/JS tests broadly.
+After structural or import changes: run the relevant package/app `pnpm lint`, `pnpm type:check`, and tests; from repo root run **`pnpm format:check`** (mandatory) and **`pnpm code-quality`** when touching TS/JS tests broadly. See `.cursor/rules/run-code-quality-after-changes.mdc`.
 
 ## Related
 

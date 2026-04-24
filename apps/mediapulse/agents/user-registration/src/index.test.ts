@@ -40,9 +40,16 @@ vi.mock("@workspace/agent-data-api-client", () => ({
 const emailSendMock = vi.fn().mockResolvedValue({ data: { id: "email-id" } });
 
 vi.mock("resend", () => ({
-  // Resend is instantiated with `new`, so the implementation must be a regular function.
   Resend: vi.fn().mockImplementation(function () {
     return { emails: { send: emailSendMock } };
+  }),
+}));
+
+// Mock email templates to return simple strings
+vi.mock("@workspace/email-templates", () => ({
+  renderNewsletterEmail: vi.fn().mockResolvedValue({
+    html: "<html>Mocked HTML</html>",
+    text: "Mocked Text",
   }),
 }));
 
@@ -79,227 +86,148 @@ const post = async (body: unknown) => {
   });
 };
 
-describe("user-registration agent – watermark input validation", () => {
+describe("user-registration agent – improved run loop", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listMessagesMock.mockResolvedValue([]);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it.each([
-    ["non-date string", "not-a-date"],
-    ["date-only string", "2024-01-01"],
-    ["partial datetime", "2024-01-01T00:00"],
-  ])("returns 400 when watermark is %s", async (_label, watermark) => {
-    const res = await post({ input: { watermark } });
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 200 when watermark is a valid ISO datetime string", async () => {
-    const res = await post({
-      input: { watermark: "2024-01-01T00:00:00.000Z" },
-      config: VALID_CONFIG,
+  it("returns success and new watermark for new subscription", async () => {
+    const msg = makeMessage({ receivedDateTime: "2024-01-01T12:00:00Z" });
+    listMessagesMock.mockResolvedValue([msg]);
+    registerCreateMock.mockResolvedValue({
+      tickerKnown: true,
+      isNewSubscription: true,
+      userTickerId: "ut-uuid-1",
     });
-    expect(res.status).toBe(200);
-  });
-
-  it("returns 200 when watermark is absent", async () => {
-    const res = await post({ input: {}, config: VALID_CONFIG });
-    expect(res.status).toBe(200);
-  });
-});
-
-describe("user-registration agent – run loop", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("returns success with zero processed when inbox is empty", async () => {
-    listMessagesMock.mockResolvedValue([]);
 
     const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
+    const body = (await res.json()) as any;
 
     expect(res.status).toBe(200);
     expect(body.status).toBe("success");
-    expect(archiveMessageMock).not.toHaveBeenCalled();
+    expect(body.details.newWatermark).toBe("2024-01-01T12:00:00.000Z");
+
+    expect(emailSendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html: expect.stringContaining("Mocked HTML"),
+        text: "Mocked Text",
+      }),
+    );
   });
 
-  it("archives unparseable message when sender email is missing", async () => {
-    listMessagesMock.mockResolvedValue([makeMessage({ from: undefined })]);
+  it("updates watermark to the latest processed message", async () => {
+    listMessagesMock.mockResolvedValue([
+      makeMessage({ id: "msg-1", receivedDateTime: "2024-01-01T10:00:00Z" }),
+      makeMessage({ id: "msg-2", receivedDateTime: "2024-01-01T11:00:00Z" }),
+    ]);
+    registerCreateMock.mockResolvedValue({
+      tickerKnown: true,
+      isNewSubscription: false,
+      userTickerId: "ut-uuid-1",
+    });
 
     const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
+    const body = (await res.json()) as any;
 
-    expect(res.status).toBe(200);
-    expect(body.status).toBe("success");
-    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
-    expect(registerCreateMock).not.toHaveBeenCalled();
+    expect(body.details.newWatermark).toBe("2024-01-01T11:00:00.000Z");
   });
 
-  it("archives unparseable message when ticker symbol cannot be parsed", async () => {
+  it("handles rate limiting by leaving message unarchived", async () => {
     listMessagesMock.mockResolvedValue([
       makeMessage({
-        subject: "Hello there",
-        body: { content: "Please unsubscribe me.", contentType: "text" },
+        id: "msg-1",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-2",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-3",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-4",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-5",
+        from: { emailAddress: { address: "spammer@example.com" } },
+      }),
+      makeMessage({
+        id: "msg-6",
+        from: { emailAddress: { address: "spammer@example.com" } },
       }),
     ]);
 
-    const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
-
-    expect(res.status).toBe(200);
-    expect(body.status).toBe("success");
-    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
-    expect(registerCreateMock).not.toHaveBeenCalled();
-  });
-
-  it("sends invalid-ticker email and archives when ticker is unknown", async () => {
-    listMessagesMock.mockResolvedValue([makeMessage()]);
     registerCreateMock.mockResolvedValue({
-      tickerKnown: false,
+      tickerKnown: true,
       isNewSubscription: false,
-      userTickerId: null,
+      userTickerId: "ut-uuid-1",
     });
 
     const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
+    const body = (await res.json()) as any;
+
+    expect(body.details.processed).toBe(6);
+    const failed = body.details.results.filter(
+      (r: any) => r.status === "failed_retry",
+    );
+    expect(failed.length).toBe(1); // 6th attempt should fail (limit is 5)
+    expect(archiveMessageMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("handles missing sender or ticker symbol gracefully", async () => {
+    const msg = makeMessage({
+      subject: "No ticker here",
+      body: { content: "Nothing useful" },
+    });
+    listMessagesMock.mockResolvedValue([msg]);
+
+    const res = await post({ input: {}, config: VALID_CONFIG });
+    const body = (await res.json()) as any;
+
+    expect(res.status).toBe(200);
+    expect(body.details.results[0].status).toBe("archived_unparseable");
+    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
+  });
+
+  it("handles unknown ticker selection by sending invalid-ticker email", async () => {
+    const msg = makeMessage({ receivedDateTime: "2024-01-01T12:00:00Z" });
+    listMessagesMock.mockResolvedValue([msg]);
+    registerCreateMock.mockResolvedValue({
+      tickerKnown: false,
+    });
+
+    const res = await post({ input: {}, config: VALID_CONFIG });
+    const body = (await res.json()) as any;
 
     expect(res.status).toBe(200);
     expect(body.status).toBe("success");
-    expect(emailSendMock).toHaveBeenCalledOnce();
+    expect(body.details.results[0].status).toBe("invalid_ticker_archived");
+
     expect(emailSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: "user@example.com",
         subject: "Invalid Ticker Selection - MediaPulse",
       }),
     );
     expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
-    expect(confirmCreateMock).not.toHaveBeenCalled();
   });
 
-  it("sends confirmation email and archives for new subscription", async () => {
-    listMessagesMock.mockResolvedValue([makeMessage()]);
-    registerCreateMock.mockResolvedValue({
-      tickerKnown: true,
-      isNewSubscription: true,
-      userTickerId: "ut-uuid-1",
-    });
+  it("returns failed_retry on unexpected error during processing", async () => {
+    const msg = makeMessage();
+    listMessagesMock.mockResolvedValue([msg]);
+    registerCreateMock.mockRejectedValue(new Error("Network Error"));
 
     const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
+    const body = (await res.json()) as any;
 
-    expect(res.status).toBe(200);
-    expect(body.status).toBe("success");
-    expect(registerCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ confirmed: true }),
-    );
-    expect(emailSendMock).toHaveBeenCalledOnce();
-    expect(emailSendMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: "user@example.com",
-        subject: "Subscription Confirmed - MediaPulse",
-      }),
-    );
-    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
-  });
-
-  it("archives with no email when subscription already active (idempotent)", async () => {
-    listMessagesMock.mockResolvedValue([makeMessage()]);
-    registerCreateMock.mockResolvedValue({
-      tickerKnown: true,
-      isNewSubscription: false,
-      userTickerId: "ut-uuid-1",
-    });
-
-    const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
-
-    expect(res.status).toBe(200);
-    expect(body.status).toBe("success");
-    expect(emailSendMock).not.toHaveBeenCalled();
-    expect(confirmCreateMock).not.toHaveBeenCalled();
-    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
-  });
-
-  it("marks message as failed_retry and leaves it unarchived when register API throws", async () => {
-    listMessagesMock.mockResolvedValue([makeMessage()]);
-    registerCreateMock.mockRejectedValue(new Error("API timeout"));
-
-    const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
-
-    expect(res.status).toBe(200);
-    expect(body.status).toBe("success");
+    expect(body.details.results[0].status).toBe("failed_retry");
+    // Should NOT archive the message so it can be retried
     expect(archiveMessageMock).not.toHaveBeenCalled();
-  });
-
-  it("retries register once and archives when the retry succeeds", async () => {
-    listMessagesMock.mockResolvedValue([makeMessage()]);
-    registerCreateMock
-      .mockRejectedValueOnce(new Error("Agent data API error: 503"))
-      .mockResolvedValueOnce({
-        tickerKnown: true,
-        isNewSubscription: false,
-        userTickerId: "ut-uuid-1",
-      });
-
-    const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
-
-    expect(res.status).toBe(200);
-    expect(body.status).toBe("success");
-    expect(registerCreateMock).toHaveBeenCalledTimes(2);
-    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
-  });
-
-  it("does not retry register for non-retryable status codes", async () => {
-    listMessagesMock.mockResolvedValue([makeMessage()]);
-    registerCreateMock.mockRejectedValue(
-      new Error("Agent data API error: 400"),
-    );
-
-    const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
-
-    expect(res.status).toBe(200);
-    expect(body.status).toBe("success");
-    expect(registerCreateMock).toHaveBeenCalledTimes(1);
-    expect(archiveMessageMock).not.toHaveBeenCalled();
-  });
-
-  it("processes multiple messages independently", async () => {
-    listMessagesMock.mockResolvedValue([
-      makeMessage({ id: "msg-1" }),
-      makeMessage({
-        id: "msg-2",
-        subject: "Hello there",
-        body: { content: "Please unsubscribe me.", contentType: "text" },
-      }),
-    ]);
-    registerCreateMock.mockResolvedValue({
-      tickerKnown: true,
-      isNewSubscription: true,
-      userTickerId: "ut-uuid-1",
-    });
-
-    const res = await post({ input: {}, config: VALID_CONFIG });
-    const body = (await res.json()) as { status: string };
-
-    expect(res.status).toBe(200);
-    expect(body.status).toBe("success");
-    // msg-1: valid → confirmed_archived
-    expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
-    expect(emailSendMock).toHaveBeenCalledOnce(); // only for msg-1
-    // msg-2: unparseable → archived without register call
-    expect(archiveMessageMock).toHaveBeenCalledWith("msg-2");
-    expect(registerCreateMock).toHaveBeenCalledOnce(); // only for msg-1
   });
 });

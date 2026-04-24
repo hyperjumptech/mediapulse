@@ -60,7 +60,7 @@ import {
   toRelevanceWeightMapV1,
   type ArticleAnalysisConfig,
 } from "./config-schema.js";
-import type { ArticleAnalysisInput } from "./input-schema.js";
+import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import {
   buildExtractionSystemContent,
   buildExtractionUserContent,
@@ -292,14 +292,21 @@ export const run = async ({
   };
 
   try {
-    const query = buildAnalysisGetQuery(inputForQuery);
+    const effectiveMaxBatchSize = input.maxBatchSize ?? cfg.defaultMaxBatchSize;
+    const analysisGetLimit = Math.min(
+      effectiveMaxBatchSize,
+      cfg.analysisGetDataSourceLimitMax,
+    );
+    const query = buildAnalysisGetQuery(inputForQuery, {
+      limit: analysisGetLimit,
+    });
     const ctx = await dataApiClient.analysis.get(query);
 
-    const backlogSources = ctx.dataSources.length;
+    const unanalyzedBacklogTotal = ctx.dataSourceTotalCount;
     if (
-      backlogSources > 0 &&
+      unanalyzedBacklogTotal > 0 &&
       cfg.debounceMinUnanalyzedCount > 0 &&
-      backlogSources < cfg.debounceMinUnanalyzedCount
+      unanalyzedBacklogTotal < cfg.debounceMinUnanalyzedCount
     ) {
       emitRunSummary({
         outcome: "success",
@@ -323,9 +330,9 @@ export const run = async ({
       });
       return {
         success: true,
-        message: `debounce: ${backlogSources} unanalyzed source(s) below min ${cfg.debounceMinUnanalyzedCount}; skipping run`,
+        message: `debounce: ${unanalyzedBacklogTotal} unanalyzed source(s) below min ${cfg.debounceMinUnanalyzedCount}; skipping run`,
         details: {
-          dataSourcesReturned: backlogSources,
+          dataSourcesReturned: unanalyzedBacklogTotal,
           dataSourcesSelected: 0,
           reanalyze,
           runStatus: "success" as const,
@@ -346,7 +353,7 @@ export const run = async ({
     }
 
     if (
-      backlogSources > 0 &&
+      unanalyzedBacklogTotal > 0 &&
       cfg.debounceMinMinutesSinceLastScore > 0 &&
       ctx.lastRelevanceScoredAtIso !== null &&
       minutesSinceUtcIso(ctx.lastRelevanceScoredAtIso) <
@@ -376,7 +383,7 @@ export const run = async ({
         success: true,
         message: `debounce: last relevance scored at ${ctx.lastRelevanceScoredAtIso} is within ${cfg.debounceMinMinutesSinceLastScore} minute(s); skipping run`,
         details: {
-          dataSourcesReturned: backlogSources,
+          dataSourcesReturned: unanalyzedBacklogTotal,
           dataSourcesSelected: 0,
           reanalyze,
           runStatus: "success" as const,
@@ -397,9 +404,6 @@ export const run = async ({
     }
 
     const sorted = sortAnalysisDataSourcesByCreatedAt(ctx.dataSources);
-    const effectiveMaxBatchSize = reanalyze
-      ? input.maxBatchSize
-      : (input.maxBatchSize ?? cfg.defaultMaxBatchSize);
     const batch = applyMaxBatchSizeCap(sorted, effectiveMaxBatchSize);
     articlesProcessedForSummary = batch.length;
 
@@ -427,7 +431,7 @@ export const run = async ({
         success: true,
         message: "analysis context loaded (0 source(s)); nothing to process",
         details: {
-          dataSourcesReturned: ctx.dataSources.length,
+          dataSourcesReturned: ctx.dataSourceTotalCount,
           dataSourcesSelected: 0,
           reanalyze,
           runStatus: "success" as const,
@@ -598,7 +602,7 @@ export const run = async ({
           {
             dataSourceId: source.id,
             stage: "llm",
-            message,
+            err: toSafeLogError(err),
           },
           "article-analysis LLM extraction failed for source; skipping",
         );
@@ -938,6 +942,29 @@ export const run = async ({
         }
       }
       if (relevanceValidationErrors.length > 0) {
+        emitRunSummary({
+          outcome: "failure",
+          articlesProcessed: batch.length,
+          extractionSuccessCount,
+          extractionFailures,
+          relevanceRowValidationFailures,
+          chunkParseCounts: { ...chunkParseCounts },
+          postFailures,
+          entitiesCreated,
+          entitiesReused,
+          relationsCreated,
+          articlesScored: articlesScoredTotal,
+          articlesSelected: articlesSelectedTotal,
+          relevanceAggregate: null,
+          llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
+          extractionLatencyMsTotal,
+          extractionCalls,
+          runStatusLabel: deriveArticleAnalysisRunStatusLabel(
+            extractionFailures.length,
+            postFailures.length,
+          ),
+          semanticFailureReason: "relevance_row_validation",
+        });
         return {
           success: false,
           message:
@@ -982,6 +1009,29 @@ export const run = async ({
           },
           "article-analysis relevance chunk build reported parse issues",
         );
+        emitRunSummary({
+          outcome: "failure",
+          articlesProcessed: batch.length,
+          extractionSuccessCount,
+          extractionFailures,
+          relevanceRowValidationFailures,
+          chunkParseCounts: { ...chunkParseCounts },
+          postFailures,
+          entitiesCreated,
+          entitiesReused,
+          relationsCreated,
+          articlesScored: articlesScoredTotal,
+          articlesSelected: articlesSelectedTotal,
+          relevanceAggregate: null,
+          llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
+          extractionLatencyMsTotal,
+          extractionCalls,
+          runStatusLabel: deriveArticleAnalysisRunStatusLabel(
+            extractionFailures.length,
+            postFailures.length,
+          ),
+          semanticFailureReason: "relevance_chunk_parse",
+        });
         return {
           success: false,
           message: "article-analysis relevance chunk parse failed",
@@ -1068,7 +1118,7 @@ export const run = async ({
       message: `complete (${runStatus}): ${erPostChunksCompleted}/${chunks.length} ER chunk(s), ${mentionPostChunksCompleted} articleEntity chunk(s), ${relevancePostChunksCompleted} relevance chunk(s); entitiesCreated=${entitiesCreated} entitiesReused=${entitiesReused} relationsCreated=${relationsCreated} articleEntityRowsPosted=${articleEntityRowsPosted} articlesScored=${articlesScoredTotal} articlesSelected=${articlesSelectedTotal}`,
       details: {
         dataSourcesProcessed: batch.length,
-        dataSourcesReturned: ctx.dataSources.length,
+        dataSourcesReturned: ctx.dataSourceTotalCount,
         extractionFailures,
         extractionSuccessCount,
         postFailures,

@@ -1,10 +1,11 @@
 import { env } from "@hermes/env";
+import type { Prisma } from "@hermes/orchestration-database/client";
 import { prisma } from "@hermes/orchestration-database";
 import * as crypto from "crypto";
 import { SignJWT } from "jose";
 import type { Context } from "hono";
 
-const TOKEN_EXPIRY_SECONDS = 900; // 15 minutes
+const TOKEN_EXPIRY_SECONDS = 7200; // 2 hours
 const JWT_ISSUER = "agent-auth-api";
 const JWT_AUDIENCE = "agent-invocation";
 
@@ -110,13 +111,17 @@ export async function issueToken(context: Context) {
     }
 
     const hash = crypto.createHash("sha256").update(rawKey).digest("hex");
-    const payloadRow = await prisma.encryptedPayload.findFirst({
+    const encryptedPayloadLookupArgs = {
       where: {
         credentialSha256Hex: hash,
         domainIntegrationId: { not: null },
       },
       include: { domainIntegration: true },
-    });
+    } satisfies Prisma.EncryptedPayloadFindFirstArgs;
+
+    const payloadRow = await prisma.encryptedPayload.findFirst(
+      encryptedPayloadLookupArgs,
+    );
 
     if (!payloadRow?.domainIntegration) {
       return context.json({ error: "Invalid or inactive API key" }, 401);

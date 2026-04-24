@@ -10,6 +10,10 @@ import { randomUUID } from "node:crypto";
 import type { DueSchedule } from "./get-due-schedules";
 import { mergeExecutionConfig } from "./execution-config";
 import { computeNextRunAt } from "./next-run-at";
+import {
+  diagnosticFromCaughtError,
+  type EnqueueDiagnosticEntry,
+} from "./enqueue-diagnostics";
 import { planPipelineInvocations } from "./plan-pipeline-invocations";
 
 /**
@@ -106,7 +110,7 @@ export const executeSchedule = async (
     requireHttpsAgentEndpoints = false,
   } = deps;
   const executionTime = new Date();
-  const errors: Array<{ message: string; timestamp: string }> = [];
+  const errors: EnqueueDiagnosticEntry[] = [];
 
   const pipeline = schedule.pipeline;
   const steps = pipeline?.steps ?? [];
@@ -133,6 +137,7 @@ export const executeSchedule = async (
         {
           message: "Pipeline has no steps",
           timestamp: executionTime.toISOString(),
+          phase: "planning",
         },
       ],
     });
@@ -293,18 +298,22 @@ export const executeSchedule = async (
     await enqueueAgentInvocations(enqueueItems);
     jobsEnqueued = enqueueItems.length;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    errors.push({
-      message: `Failed to enqueue agent invocations: ${message}`,
-      timestamp: new Date().toISOString(),
-    });
+    errors.push(
+      diagnosticFromCaughtError(err, {
+        phase: "enqueue",
+        messagePrefix: "Failed to enqueue agent invocations",
+      }),
+    );
     for (const item of enqueueItems) {
       try {
         await db.agentJobExecution.update({
           where: { jobId: item.payload.jobId },
           data: {
             status: AgentJobExecutionStatus.failed,
-            error: { message, retryable: true },
+            error: {
+              message: err instanceof Error ? err.message : String(err),
+              retryable: true,
+            },
             completedAt: new Date(),
           },
         });
@@ -388,7 +397,7 @@ async function recordScheduleExecutionAndUpdateSchedule(args: {
   effectiveExecutionConfig: Prisma.InputJsonValue;
   jobsCreated: number;
   jobsEnqueued: number;
-  errors?: Array<{ message: string; timestamp: string }>;
+  errors?: EnqueueDiagnosticEntry[];
 }): Promise<void> {
   const {
     db,

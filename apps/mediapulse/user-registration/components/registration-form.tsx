@@ -1,29 +1,26 @@
 "use client";
 
 import * as React from "react";
-import { useState, useRef, useEffect } from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, CheckCircle2 } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
-import {
-  filterTickers,
-  formatTicker,
-  buildMailtoUrl,
-  type Ticker,
-} from "@/lib/tickers";
+import { type Ticker } from "@/lib/tickers";
+import { useRegistrationForm } from "@/hooks/use-registration-form";
 
 type Props = {
   tickers: Ticker[];
-  /** Injectable for tests — defaults to opening the mailto URL in the current tab. */
   openMailto?: (url: string) => void;
 };
 
 /**
  * Newsletter subscription registration form.
- * Collects a single ticker selection, then opens a prefilled mailto draft.
- * Accepts openMailto as a dependency injection point for testing.
+ * Collects email, name, and ticker selection, then submits via mailto.
+ *
+ * @param {Props} props - The component props.
+ * @param {Ticker[]} props.tickers - List of available tickers.
+ * @returns {JSX.Element} The registration form component.
  */
 const RegistrationForm = ({
   tickers,
@@ -31,73 +28,86 @@ const RegistrationForm = ({
     window.location.href = url;
   },
 }: Props) => {
-  const [query, setQuery] = useState("");
-  const [selectedTicker, setSelectedTicker] = useState<Ticker | null>(null);
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const {
+    email,
+    setEmail,
+    name,
+    setName,
+    query,
+    handleQueryChange,
+    selectedTicker,
+    handleTickerSelect,
+    open,
+    setOpen,
+    submitted,
+    containerRef,
+    filtered,
+    handleSubmit,
+    resetForm,
+  } = useRegistrationForm(tickers, openMailto);
 
-  const filtered = filterTickers(tickers, query);
-
-  useEffect(() => {
-    /** Closes the ticker dropdown when clicking outside the container. */
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
-
-  /** Selects a ticker, sets display string in the input, and closes the dropdown. */
-  const handleTickerSelect = (ticker: Ticker) => {
-    setSelectedTicker(ticker);
-    setQuery(formatTicker(ticker));
-    setOpen(false);
-  };
-
-  /** Updates search query, clears current selection, and opens the dropdown. */
-  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
-    setSelectedTicker(null);
-    setOpen(true);
-  };
-
-  /** Opens the prefilled mailto URL for the selected ticker. */
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!selectedTicker) return;
-    openMailto(buildMailtoUrl(selectedTicker));
-  };
+  if (submitted) {
+    return (
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <CheckCircle2 className="size-8" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-xl font-bold">
+            Your subscription request is being processed
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Look for a confirmation email to <strong>{email}</strong> and new
+            stock news updates for
+            <strong>{selectedTicker?.KodeEmiten}</strong>.
+          </p>
+        </div>
+        <Button variant="outline" onClick={resetForm}>
+          Subscribe to another ticker
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-2">
-        <a
-          href="#"
-          className="flex flex-col items-center gap-2 font-medium"
-          tabIndex={-1}
-          aria-hidden="true"
-        >
-          <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <TrendingUp className="size-5" />
-          </div>
-        </a>
+        <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <TrendingUp className="size-5" />
+        </div>
         <h1 className="text-xl font-bold">Subscribe to MediaPulse</h1>
         <p className="text-balance text-center text-sm text-muted-foreground">
           Get the latest stock news delivered to your inbox.
         </p>
       </div>
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="email">Email address</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="name">Full name (optional)</Label>
+          <Input
+            id="name"
+            placeholder="John Doe"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="ticker-search">Stock ticker</Label>
           <div ref={containerRef} className="relative">
             <Input
               id="ticker-search"
               placeholder="Search by code or company name…"
+              required
               value={query}
               onFocus={() => setOpen(true)}
               onChange={handleQueryChange}
@@ -106,7 +116,6 @@ const RegistrationForm = ({
               aria-expanded={open}
               aria-haspopup="listbox"
             />
-
             {open && filtered.length > 0 && (
               <ul
                 role="listbox"
@@ -135,7 +144,6 @@ const RegistrationForm = ({
                 ))}
               </ul>
             )}
-
             {open && query.length > 0 && filtered.length === 0 && (
               <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground shadow-md">
                 No tickers found for &ldquo;{query}&rdquo;
@@ -143,17 +151,18 @@ const RegistrationForm = ({
             )}
           </div>
         </div>
-
-        <Button type="submit" className="w-full" disabled={!selectedTicker}>
-          Subscribe via Email
+        <Button
+          type="submit"
+          className="mt-2 w-full"
+          disabled={!selectedTicker || !email}
+        >
+          Subscribe
         </Button>
       </form>
-
       <p className="text-balance text-center text-xs text-muted-foreground">
-        This will open your email client with a pre-filled message.{" "}
-        <strong>
-          Please do not modify the subject or content before sending.
-        </strong>
+        By subscribing, you agree to receive daily stock updates.
+        <br />
+        You can unsubscribe at any time.
       </p>
     </div>
   );
