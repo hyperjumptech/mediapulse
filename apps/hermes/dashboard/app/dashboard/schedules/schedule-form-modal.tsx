@@ -147,13 +147,13 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
           defaultTimezone: schedule.timezone,
           defaultPipelineId: schedule.pipelineId,
           defaultPriority: schedule.priority,
+          defaultTimeout: schedule.timeout ?? undefined,
           defaultEnabled: schedule.enabled,
           defaultStartAt,
           initialIntervalMs: schedule.interval ?? undefined,
           initialCronExpression: schedule.cronExpression ?? undefined,
           defaultRetryConfig,
           defaultExecutionConfig,
-          defaultTimeout: schedule.timeout ?? undefined,
         }
       : null
     : {
@@ -163,6 +163,7 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
         defaultTimezone: "America/New_York",
         defaultPipelineId: "",
         defaultPriority: 0,
+        defaultTimeout: undefined,
         defaultEnabled: true,
         defaultExecutionConfig: "",
       };
