@@ -11,12 +11,15 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
+import { HermesExecutionCancelButton } from "@/components/hermes-execution-cancel-button";
+import { EnqueueDiagnosticsPanel } from "@/components/enqueue-diagnostics";
 import { ScheduleExecutionInvocationsTable } from "@/components/schedule-execution-invocations-table";
 import {
   computePipelineWallElapsed,
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
+import { getHermesExecutionInvokeTransportBlurb } from "@/lib/hermes-execution-invoke-transport";
 import { maskScheduleExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
 
@@ -44,6 +47,7 @@ export default async function ScheduleExecutionDetailPage({
     rawDetail.execution.runStatus,
   );
   const detail = maskScheduleExecutionDetailForDisplay(rawDetail);
+  const invokeTransport = getHermesExecutionInvokeTransportBlurb("schedule");
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,25 +60,35 @@ export default async function ScheduleExecutionDetailPage({
           Back to schedule
         </Link>
       </div>
-      <div>
-        <h1 className="break-all text-2xl font-semibold text-foreground">
-          Execution {detail.execution.id}
-        </h1>
-        <p className="text-muted-foreground">
-          {detail.schedule.name}
-          {detail.pipeline ? (
-            <>
-              {" · "}
-              <Link
-                href={`/dashboard/pipelines/${detail.pipeline.id}`}
-                className="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
-              >
-                <GitBranch className="size-4 shrink-0" aria-hidden />
-                {detail.pipeline.name}
-              </Link>
-            </>
-          ) : null}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="break-all text-2xl font-semibold text-foreground">
+            Execution {detail.execution.id}
+          </h1>
+          <p className="text-muted-foreground">
+            {detail.schedule.name}
+            {detail.pipeline ? (
+              <>
+                {" · "}
+                <Link
+                  href={`/dashboard/pipelines/${detail.pipeline.id}`}
+                  className="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  <GitBranch className="size-4 shrink-0" aria-hidden />
+                  {detail.pipeline.name}
+                </Link>
+              </>
+            ) : null}
+          </p>
+        </div>
+        <HermesExecutionCancelButton
+          target={{
+            kind: "schedule",
+            scheduleId,
+            scheduleExecutionId: executionId,
+          }}
+          runStatus={detail.execution.runStatus}
+        />
       </div>
 
       <section className="grid gap-2 text-sm">
@@ -103,7 +117,18 @@ export default async function ScheduleExecutionDetailPage({
           {detail.execution.succeededInvocationCount} /{" "}
           {detail.execution.failedInvocationCount}
         </p>
+        <p>
+          <span className="text-muted-foreground">Invocation transport:</span>{" "}
+          {invokeTransport.headline}
+        </p>
+        <p className="text-muted-foreground">{invokeTransport.detail}</p>
       </section>
+
+      <EnqueueDiagnosticsPanel
+        enqueueStatus={detail.execution.enqueueStatus}
+        errors={detail.execution.errors}
+        metadata={detail.execution.metadata}
+      />
 
       <section>
         <h2 className="mb-2 text-lg font-medium">Pipeline steps</h2>

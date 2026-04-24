@@ -272,14 +272,10 @@ export async function run({
   let generated: Awaited<ReturnType<typeof generateNewsletterWithLlm>>;
   logger.info({ tickerId: input.tickerId }, "LLM generation: start");
   try {
-    generated = await generateNewsletterWithLlm(
-      sourcesForLlm,
-      resolvedConfig,
-      {
-        tickerId: input.tickerId,
-        date: new Date(runStart).toISOString().split("T")[0],
-      },
-    );
+    generated = await generateNewsletterWithLlm(sourcesForLlm, resolvedConfig, {
+      tickerId: input.tickerId,
+      date: new Date(runStart).toISOString().slice(0, 10),
+    });
   } catch (err) {
     const code = classifyLlmError(err);
     const outcome: AgentOutcome = { outcome: code, skipped: false };

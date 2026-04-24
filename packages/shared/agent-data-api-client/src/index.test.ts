@@ -214,6 +214,7 @@ describe("createAgentDataApiClient", () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
         dataSources: [],
+        dataSourceTotalCount: 0,
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],
@@ -248,6 +249,7 @@ describe("createAgentDataApiClient", () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
         dataSources: [],
+        dataSourceTotalCount: 0,
         entityTypes: [],
         relationTypes: [],
         existingEntities: [],

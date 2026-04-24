@@ -12,6 +12,7 @@ import {
 } from "@workspace/ui/components/table";
 import { format } from "date-fns";
 
+import { HermesExecutionCancelButton } from "@/components/hermes-execution-cancel-button";
 import type { ScheduleExecutionRow } from "@/lib/schedules";
 
 type ExecutionsTableProps = {
@@ -49,13 +50,14 @@ export const ExecutionsTable = ({
               Invocations (success / fail)
             </TableHead>
             <TableHead className="w-[90px]">Detail</TableHead>
+            <TableHead className="w-[120px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {executions.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={6}
+                colSpan={7}
                 className="text-center text-muted-foreground"
               >
                 No executions yet.
@@ -99,6 +101,16 @@ export const ExecutionsTable = ({
                     >
                       View
                     </Link>
+                  </TableCell>
+                  <TableCell>
+                    <HermesExecutionCancelButton
+                      target={{
+                        kind: "schedule",
+                        scheduleId,
+                        scheduleExecutionId: execution.id,
+                      }}
+                      runStatus={execution.runStatus}
+                    />
                   </TableCell>
                 </TableRow>
               );

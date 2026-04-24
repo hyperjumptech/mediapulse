@@ -22,6 +22,14 @@ COPY apps ./apps
 
 RUN pnpm install --frozen-lockfile
 
+# next build imports @mediapulse/database → default @mediapulse/env (t3) validates at module load.
+# Prisma client output is gitignored; match domain-api / agent-data-api image builds.
+ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
+ENV DOMAIN_INTEGRATION_API_KEY="docker-build-dummy"
+ENV DOMAIN_INTEGRATION_ID="docker-build-dummy"
+ENV AGENT_AUTH_API_URL="http://127.0.0.1:9/dummy"
+RUN pnpm --filter=@mediapulse/database run db:generate
+
 # next.config loads env files; provide an empty app-level .env for image builds.
 RUN rm -f apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local && \
     touch apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local

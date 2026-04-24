@@ -1,5 +1,8 @@
 /** @vitest-environment node */
-import { getAnalysisQuerySchema } from "@workspace/agent-data-api-contract";
+import {
+  ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
+  getAnalysisQuerySchema,
+} from "@workspace/agent-data-api-contract";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@mediapulse/database", () => ({
@@ -54,6 +57,22 @@ describe("getAnalysisQuerySchema", () => {
     expect(parsed.start).toBe("2026-01-01T00:00:00.000Z");
     expect(parsed.end).toBeUndefined();
     expect(parsed.unanalyzed).toBe(true);
+  });
+
+  it("accepts limit as coerced positive int", () => {
+    const parsed = getAnalysisQuerySchema.parse({
+      tickerId: "ticker-1",
+      limit: "10",
+    });
+    expect(parsed.limit).toBe(10);
+  });
+
+  it("rejects limit above max", () => {
+    const result = getAnalysisQuerySchema.safeParse({
+      tickerId: "ticker-1",
+      limit: ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX + 1,
+    });
+    expect(result.success).toBe(false);
   });
 });
 
@@ -141,6 +160,7 @@ describe("loadAnalysisContext", () => {
         where: { tickerId: "ticker-2" },
       }),
     );
+    expect(result.dataSourceTotalCount).toBe(0);
     expect(result.relevanceSelectionState.selectedCountToday).toBe(2);
     expect(result.lastRelevanceScoredAtIso).toBeNull();
   });
@@ -178,6 +198,58 @@ describe("loadAnalysisContext", () => {
     );
 
     expect(result.lastRelevanceScoredAtIso).toBe(scoredAt.toISOString());
+  });
+
+  it("applies take and returns total count when limit is set", async () => {
+    const row = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      url: "https://example.com/a",
+      title: "A",
+      content: "body",
+      tickerId: "ticker-limit",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    };
+    const findMany = vi.fn().mockResolvedValue([row]);
+    const count = vi.fn().mockResolvedValue(42);
+    const db = {
+      dataSource: { findMany, count, findUnique: vi.fn(), findFirst: vi.fn() },
+      entityType: { findMany: vi.fn().mockResolvedValue([]) },
+      relationType: { findMany: vi.fn().mockResolvedValue([]) },
+      entity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+      },
+      entityAlias: { createMany: vi.fn() },
+      tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
+      entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      articleEntity: { upsert: vi.fn() },
+      articleRelevance: {
+        upsert: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+      $transaction: vi.fn(),
+    };
+
+    const result = await loadAnalysisContext(
+      { tickerId: "ticker-limit", unanalyzed: true, limit: 5 },
+      { db: db as never },
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 5,
+        where: expect.objectContaining({ tickerId: "ticker-limit" }),
+      }),
+    );
+    expect(count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tickerId: "ticker-limit" }),
+      }),
+    );
+    expect(result.dataSources).toEqual([row]);
+    expect(result.dataSourceTotalCount).toBe(42);
   });
 
   it("filters by createdAt gte when start is set", async () => {

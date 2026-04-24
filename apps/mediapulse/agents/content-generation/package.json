@@ -24,8 +24,9 @@
     "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "catalog:",
-    "@workspace/agent-data-api-contract": "workspace:*"
+    "openai": "^6.21.0",
+    "@workspace/agent-data-api-contract": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",

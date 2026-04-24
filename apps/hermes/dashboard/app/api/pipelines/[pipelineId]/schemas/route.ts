@@ -5,19 +5,19 @@ import { prisma } from "@hermes/orchestration-database";
 import { getDashboardSession } from "@/lib/auth-dashboard";
 
 /**
- * GET /api/pipelines/[id]/schemas
+ * GET /api/pipelines/[pipelineId]/schemas
  * Returns inputSchema and configSchema for each step's agent. Requires dashboard session.
  */
 export async function GET(
   _request: Request,
-  context: { params: Promise<{ id: string }> },
+  context: { params: Promise<{ pipelineId: string }> },
 ) {
   const session = await getDashboardSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id: pipelineId } = await context.params;
+  const { pipelineId } = await context.params;
   const pipeline = await prisma.pipeline.findUnique({
     where: { id: pipelineId },
     include: { steps: { orderBy: { order: "asc" } } },

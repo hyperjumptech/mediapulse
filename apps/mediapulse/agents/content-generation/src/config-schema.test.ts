@@ -133,6 +133,17 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.openaiApiKey).toBeUndefined();
   });
 
+  it("rejects if both openaiApiKey and openai.apiKey are empty or whitespace", () => {
+    // Act & Assert
+    const result = ContentGenerationConfigSchema.safeParse({
+      openaiApiKey: "   ",
+      openai: {
+        apiKey: "",
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects topNewsCount of 0", () => {
     // Act & Assert
     const result = ContentGenerationConfigSchema.safeParse({
@@ -216,8 +227,8 @@ describe("ContentGenerationConfigSchema", () => {
 
     // Assert
     expect(parsed.llmRetry?.maxAttempts).toBe(5);
-    // Other fields are undefined until resolved
-    expect(parsed.llmRetry?.baseDelayMs).toBeUndefined();
+    // Other fields now have defaults in the schema
+    expect(parsed.llmRetry?.baseDelayMs).toBe(500);
   });
 
   it("accepts openai.timeoutMs", () => {
