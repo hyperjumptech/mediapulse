@@ -70,7 +70,7 @@ export const ContentGenerationConfigSchema = z
         systemPrompt: z.string().optional(),
         /**
          * User prompt template.
-         * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{date}}
+         * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{date}}, {{topNewsCount}}
          */
         userPromptTemplate: z.string().optional(),
       })
