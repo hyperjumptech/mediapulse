@@ -159,18 +159,33 @@ export const ContentGenerationConfigSchema = z
       })
       .default({}),
 
-    llmRetry: z
-      .object({
-        /** Maximum number of retry attempts for LLM calls. */
-        maxAttempts: z.number().int().nonnegative().default(3),
-        /** Base delay in milliseconds between retries. */
-        baseDelayMs: z.number().int().nonnegative().default(500),
-        /** Maximum delay in milliseconds between retries. */
-        maxDelayMs: z.number().int().nonnegative().default(10_000),
-        /** Whether to add jitter to the retry delay. */
-        jitter: z.boolean().default(true),
-      })
-      .default({}),
+    llmRetry: z.preprocess(
+      (value) => (value === undefined ? { __defaultLlmRetry: true } : value),
+      z
+        .object({
+          __defaultLlmRetry: z.literal(true).optional(),
+          /** Maximum number of retry attempts for LLM calls. */
+          maxAttempts: z.number().int().nonnegative().optional(),
+          /** Base delay in milliseconds between retries. */
+          baseDelayMs: z.number().int().nonnegative().optional(),
+          /** Maximum delay in milliseconds between retries. */
+          maxDelayMs: z.number().int().nonnegative().optional(),
+          /** Whether to add jitter to the retry delay. */
+          jitter: z.boolean().optional(),
+        })
+        .transform((parsed) => {
+          if (parsed.__defaultLlmRetry) {
+            return {
+              maxAttempts: 3,
+              baseDelayMs: 500,
+              maxDelayMs: 8000,
+              jitter: true,
+            };
+          }
+          const { __defaultLlmRetry, ...rest } = parsed;
+          return rest;
+        }),
+    ),
 
     freshness: z
       .object({
@@ -197,16 +212,31 @@ export const ContentGenerationConfigSchema = z
         timezone: "Asia/Jakarta",
       }),
 
-    persistRetry: z
-      .object({
-        /** Maximum number of retry attempts for persisting data. */
-        maxAttempts: z.number().int().nonnegative().default(2),
-        /** Base delay in milliseconds between retries. */
-        baseDelayMs: z.number().int().nonnegative().default(200),
-        /** Maximum delay in milliseconds between retries. */
-        maxDelayMs: z.number().int().nonnegative().default(2000),
-      })
-      .default({}),
+    persistRetry: z.preprocess(
+      (value) =>
+        value === undefined ? { __defaultPersistRetry: true } : value,
+      z
+        .object({
+          __defaultPersistRetry: z.literal(true).optional(),
+          /** Maximum number of retry attempts for persisting data. */
+          maxAttempts: z.number().int().nonnegative().optional(),
+          /** Base delay in milliseconds between retries. */
+          baseDelayMs: z.number().int().nonnegative().optional(),
+          /** Maximum delay in milliseconds between retries. */
+          maxDelayMs: z.number().int().nonnegative().optional(),
+        })
+        .transform((parsed) => {
+          if (parsed.__defaultPersistRetry) {
+            return {
+              maxAttempts: 2,
+              baseDelayMs: 200,
+              maxDelayMs: 2000,
+            };
+          }
+          const { __defaultPersistRetry, ...rest } = parsed;
+          return rest;
+        }),
+    ),
   })
   .superRefine((data, ctx) => {
     if (

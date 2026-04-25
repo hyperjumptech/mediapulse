@@ -530,6 +530,9 @@ importers:
       '@workspace/agent-data-api-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-data-api-client
+      '@workspace/agent-data-api-contract':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-data-api-contract
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
@@ -555,7 +558,7 @@ importers:
         specifier: 'catalog:'
         version: 0.6.0(hono@4.11.9)(pino@10.3.1)
       openai:
-        specifier: ^6.21.0
+        specifier: ^6.34.0
         version: 6.34.0(ws@8.18.3)(zod@3.25.76)
       p-retry:
         specifier: ^8.0.0

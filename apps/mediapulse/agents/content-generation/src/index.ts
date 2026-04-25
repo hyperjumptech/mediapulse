@@ -11,11 +11,13 @@ import {
   ContentGenerationConfigSchema,
   type ContentGenerationConfig,
 } from "./config-schema.js";
+
+import { AGENT_VERSION } from "./agent-version.js";
 import { run } from "./run.js";
 import { generateContentWithOpenAI } from "./lib/generate-content.js";
 
 const BodySchema = z.object({
-  tickerId: hermesTickerIdSchema,
+  tickerId: z.string().uuid(),
 });
 
 type Input = z.infer<typeof BodySchema>;
@@ -28,7 +30,7 @@ const app = createAgentApp<
 >(
   {
     agentId: "content-generation",
-    agentVersion: "1.0.0",
+    agentVersion: AGENT_VERSION,
     inputSchema: BodySchema,
     configSchema: ContentGenerationConfigSchema,
     run,
