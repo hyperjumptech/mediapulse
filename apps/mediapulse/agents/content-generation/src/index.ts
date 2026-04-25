@@ -35,6 +35,7 @@ const app = createAgentApp<
     configSchema: ContentGenerationConfigSchema,
     run,
   },
+
   {
     authApiUrl: env.AGENT_AUTH_API_URL ?? "",
     autoRegister:

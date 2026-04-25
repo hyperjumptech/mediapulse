@@ -90,6 +90,14 @@ const generatedNewsletter = {
   subject: "Daily Briefing",
   content: "EXECUTIVE SUMMARY\nMarkets rose.\n\nTOP 3 NEWS\n1. Story A",
   description: "Markets rose for the third day.",
+  // Provenance fields added by MP-CGA-008 — included here so all mocks that
+  // return generatedNewsletter satisfy the GeneratedContentWithProvenance type.
+  promptTokens: 100,
+  completionTokens: 50,
+  totalTokens: 150,
+  systemPrompt: "You are a newsletter writer for busy executives.",
+  resolvedUserPrompt:
+    "Create a newsletter from these data sources.\n\nSource: Story A\nContent for story A.",
 };
 
 // ---------------------------------------------------------------------------
@@ -542,6 +550,28 @@ describe("run", () => {
     expect(secondArg.llmRetry.jitter).toBe(true);
   });
 
+  it("passes tickerId and current date to generateNewsletterWithLlm", async () => {
+    // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    contentGenerationCreate.mockResolvedValue({ message: "ok" });
+    const generateSpy = vi
+      .spyOn(LlmGenerate, "generateNewsletterWithLlm")
+      .mockResolvedValue(generatedNewsletter);
+
+    // Act
+    await run(makeContext());
+
+    // Assert
+    expect(generateSpy).toHaveBeenCalledTimes(1);
+    const thirdArg = generateSpy.mock.calls[0]![2];
+    expect(thirdArg.tickerId).toBe(TEST_TICKER_ID);
+    expect(thirdArg.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   // -------------------------------------------------------------------------
   // Diagnostic write: calls contentGenerationRuns.create on every outcome path
   // -------------------------------------------------------------------------
@@ -938,5 +968,265 @@ describe("run", () => {
       expect(callArg.outcome).toBe("success");
       expect(callArg.newsletterId).toBe("00000000-0000-4000-8000-000000000099");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Provenance fields (MP-CGA-008)
+// ---------------------------------------------------------------------------
+
+describe("provenance fields in contentGeneration.create", () => {
+  beforeEach(() => {
+    contentGenerationGet.mockReset();
+    contentGenerationCreate.mockReset();
+    contentGenerationNewslettersLatestGet.mockReset();
+    contentGenerationRunsCreate.mockReset();
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * Builds a `GeneratedContentWithProvenance`-shaped mock return value that
+   * includes both the newsletter content and the provenance metadata returned
+   * by the extended `generateNewsletterWithLlm`.
+   */
+  const provenanceDefaults = {
+    promptTokens: 100 as number | null,
+    completionTokens: 50 as number | null,
+    totalTokens: 150 as number | null,
+    systemPrompt: "You are a newsletter writer for busy executives.",
+    resolvedUserPrompt:
+      "Create a newsletter from these data sources.\n\nSource: Story A\nContent for story A.",
+  };
+
+  function makeGeneratedWithProvenance(
+    overrides?: Partial<typeof provenanceDefaults>,
+  ) {
+    // Use object spread so explicit null overrides are preserved.
+    // Do NOT use ?? here - null ?? default replaces null with the default,
+    // breaking tests that assert on null token fields.
+    return { ...generatedNewsletter, ...provenanceDefaults, ...overrides };
+  }
+
+  function setupHappyPath(
+    generatedOverrides?: Parameters<typeof makeGeneratedWithProvenance>[0],
+  ) {
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    contentGenerationCreate.mockResolvedValue({ message: "ok" });
+    contentGenerationRunsCreate.mockResolvedValue({});
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+      makeGeneratedWithProvenance(generatedOverrides),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Full provenance on success path (AC: all 7 fields populated non-null)
+  // -------------------------------------------------------------------------
+
+  it("calls contentGeneration.create with all 7 provenance fields on the success path", async () => {
+    // Setup
+    setupHappyPath();
+
+    // Act
+    const result = await run(makeContext());
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(contentGenerationCreate).toHaveBeenCalledOnce();
+    const createArg = contentGenerationCreate.mock.calls[0]![0];
+
+    expect(typeof createArg.model).toBe("string");
+    expect(createArg.model.length).toBeGreaterThan(0);
+
+    expect(typeof createArg.agentVersion).toBe("string");
+    expect(createArg.agentVersion.length).toBeGreaterThan(0);
+
+    expect(typeof createArg.configVersion).toBe("string");
+    expect(createArg.configVersion).toMatch(/^[0-9a-f]{16}$/);
+
+    expect(typeof createArg.promptHash).toBe("string");
+    expect(createArg.promptHash).toMatch(/^[0-9a-f]{16}$/);
+
+    expect(typeof createArg.configSnapshotId).toBe("string");
+    expect(createArg.configSnapshotId.length).toBeGreaterThan(0);
+
+    // token fields — present in this test (usage was returned)
+    expect(createArg.promptTokens).toBe(100);
+    expect(createArg.completionTokens).toBe(50);
+    expect(createArg.totalTokens).toBe(150);
+  });
+
+  // -------------------------------------------------------------------------
+  // model comes from config (AC)
+  // -------------------------------------------------------------------------
+
+  it("uses the model from config.openai.model as the provenance model field", async () => {
+    // Setup
+    setupHappyPath();
+
+    // Act
+    await run(
+      makeContext({
+        config: { openaiApiKey: "sk-test", openai: { model: "gpt-4o" } } as any,
+      }),
+    );
+
+    // Assert
+    const createArg = contentGenerationCreate.mock.calls[0]![0];
+    expect(createArg.model).toBe("gpt-4o");
+  });
+
+  // -------------------------------------------------------------------------
+  // agentVersion matches constant (AC)
+  // -------------------------------------------------------------------------
+
+  it("uses AGENT_VERSION as the agentVersion field", async () => {
+    // Setup
+    setupHappyPath();
+
+    // Act
+    await run(makeContext());
+
+    // Assert
+    const createArg = contentGenerationCreate.mock.calls[0]![0];
+    expect(createArg.agentVersion).toBe("1.0.0");
+  });
+
+  // -------------------------------------------------------------------------
+  // configVersion excludes apiKey (AC)
+  // -------------------------------------------------------------------------
+
+  it("produces the same configVersion for two runs differing only in openai.apiKey", async () => {
+    // Setup — run A with key-alpha
+    setupHappyPath();
+    await run(
+      makeContext({ config: { openai: { apiKey: "sk-key-alpha" } } as any }),
+    );
+    const createArgA = contentGenerationCreate.mock.calls[0]![0];
+
+    // Reset mocks for run B
+    contentGenerationCreate.mockReset();
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    contentGenerationCreate.mockResolvedValue({ message: "ok" });
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+      makeGeneratedWithProvenance(),
+    );
+
+    // Run B with key-beta (everything else is the same)
+    await run(
+      makeContext({ config: { openai: { apiKey: "sk-key-beta" } } as any }),
+    );
+    const createArgB = contentGenerationCreate.mock.calls[0]![0];
+
+    // Assert
+    expect(createArgA.configVersion).toBe(createArgB.configVersion);
+  });
+
+  // -------------------------------------------------------------------------
+  // promptHash sensitivity (AC)
+  // -------------------------------------------------------------------------
+
+  it("produces different promptHash values when source content changes", async () => {
+    // Setup — run A with Story A sources
+    setupHappyPath({
+      resolvedUserPrompt:
+        "Create a newsletter.\n\nSource: Story A\nContent for story A.",
+    });
+    await run(makeContext());
+    const createArgA = contentGenerationCreate.mock.calls[0]![0];
+
+    // Reset for run B
+    contentGenerationCreate.mockReset();
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    contentGenerationCreate.mockResolvedValue({ message: "ok" });
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+      makeGeneratedWithProvenance({
+        resolvedUserPrompt:
+          "Create a newsletter.\n\nSource: Oil Crisis\nCrude fell sharply today.",
+      }),
+    );
+
+    await run(makeContext());
+    const createArgB = contentGenerationCreate.mock.calls[0]![0];
+
+    // Assert — different source content → different prompt hash
+    expect(createArgA.promptHash).not.toBe(createArgB.promptHash);
+  });
+
+  // -------------------------------------------------------------------------
+  // configSnapshotId falls back to configVersion (AC)
+  // -------------------------------------------------------------------------
+
+  it("sets configSnapshotId equal to configVersion when no Hermes snapshot id is available", async () => {
+    // Setup
+    setupHappyPath();
+
+    // Act — no hermesCorrelation
+    await run(makeContext());
+
+    // Assert
+    const createArg = contentGenerationCreate.mock.calls[0]![0];
+    expect(createArg.configSnapshotId).toBe(createArg.configVersion);
+  });
+
+  // -------------------------------------------------------------------------
+  // Absent usage → null token fields + warning log (AC)
+  // -------------------------------------------------------------------------
+
+  it("passes undefined for token fields and logs a warning when LLM usage is absent", async () => {
+    // Setup — no usage data from LLM
+    setupHappyPath({
+      promptTokens: null,
+      completionTokens: null,
+      totalTokens: null,
+    });
+
+    // Act
+    const result = await run(makeContext());
+
+    // Assert
+    expect(result.success).toBe(true);
+    const createArg = contentGenerationCreate.mock.calls[0]![0];
+    expect(createArg.promptTokens).toBeUndefined();
+    expect(createArg.completionTokens).toBeUndefined();
+    expect(createArg.totalTokens).toBeUndefined();
+
+    // Warning must have been logged
+    const { logger } = await import("@workspace/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ tickerId: TEST_TICKER_ID }),
+      "Token usage absent from LLM response; storing null for token fields",
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Provenance fields are NOT passed on non-success paths
+  // -------------------------------------------------------------------------
+
+  it("does not call contentGeneration.create when LLM generation fails", async () => {
+    // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    contentGenerationRunsCreate.mockResolvedValue({});
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockRejectedValue(
+      new Error("LLM failed"),
+    );
+
+    // Act
+    const result = await run(makeContext());
+
+    // Assert
+    expect(result.success).toBe(false);
+    expect(contentGenerationCreate).not.toHaveBeenCalled();
   });
 });

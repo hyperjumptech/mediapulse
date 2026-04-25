@@ -8,6 +8,8 @@ import type { ContentGenerationConfig } from "./config-schema.js";
 import { resolveContentGenerationConfig } from "./config-schema.js";
 import { classifyPersistError } from "./classify-persist-error.js";
 import { classifyLlmError } from "./llm-classify-error.js";
+import { computeConfigVersion } from "./compute-config-version.js";
+import { computePromptHash } from "./compute-prompt-hash.js";
 import { computeFreshnessWindow } from "./freshness-window.js";
 import {
   generateNewsletterWithLlm,
@@ -100,6 +102,17 @@ async function writeDiagnostic(params: WriteDiagnosticParams): Promise<void> {
  * Orchestrates the full pipeline: freshness precheck → fetch data sources → generate
  * newsletter via LLM (with retry) → persist to agent-data-api. Every exit path produces
  * a canonical {@link AgentOutcome} for diagnostics (MP-CGA-007).
+ *
+ * On the success path, seven provenance fields are computed and included in the
+ * `contentGeneration.create(...)` call (MP-CGA-008):
+ *   - `model`             — model string from resolved config.
+ *   - `agentVersion`      — package-level constant (`AGENT_VERSION`).
+ *   - `configVersion`     — SHA-256 hash of non-secret config fields.
+ *   - `promptHash`        — SHA-256 hash of the exact system + user prompts.
+ *   - `configSnapshotId`  — Hermes snapshot id if available, else `configVersion`.
+ *   - `promptTokens`      — from `result.usage`; `null` when absent.
+ *   - `completionTokens`  — from `result.usage`; `null` when absent.
+ *   - `totalTokens`       — from `result.usage`; `null` when absent.
  *
  * A `ContentGenerationRun` diagnostic record is written to the agent-data-api on every
  * invocation (success, skip, or failure) before returning. Diagnostic write failures
@@ -259,7 +272,10 @@ export async function run({
   let generated: Awaited<ReturnType<typeof generateNewsletterWithLlm>>;
   logger.info({ tickerId: input.tickerId }, "LLM generation: start");
   try {
-    generated = await generateNewsletterWithLlm(sourcesForLlm, resolvedConfig);
+    generated = await generateNewsletterWithLlm(sourcesForLlm, resolvedConfig, {
+      tickerId: input.tickerId,
+      date: new Date(runStart).toISOString().slice(0, 10),
+    });
   } catch (err) {
     const code = classifyLlmError(err);
     const outcome: AgentOutcome = { outcome: code, skipped: false };
@@ -288,6 +304,42 @@ export async function run({
 
   logger.info({ tickerId: input.tickerId }, "LLM generation: complete");
 
+  // -------------------------------------------------------------------------
+  // Compute provenance fields (MP-CGA-008)
+  // -------------------------------------------------------------------------
+
+  // `model`: read from the resolved config rather than the API response model
+  // field. The config value reflects exactly what was requested, whereas the API
+  // response model may be an alias or resolved variant (e.g. "gpt-4o-2024-08-06"
+  // for an "gpt-4o" alias). Using the config value keeps provenance aligned with
+  // the operator-visible setting in Hermes.
+  const provenanceModel =
+    resolvedConfig.openai?.model ?? resolvedConfig.openaiModel ?? "gpt-4o-mini";
+
+  // `configVersion`: deterministic hash of non-secret config fields.
+  const configVersion = computeConfigVersion(resolvedConfig);
+
+  // `promptHash`: hash of the exact system + user prompt strings sent to the model.
+  const promptHash = computePromptHash(
+    generated.systemPrompt,
+    generated.resolvedUserPrompt,
+  );
+
+  // `configSnapshotId`: use the Hermes-provided immutable snapshot id when
+  // available in the invocation context. Currently the Hermes runtime does not
+  // send a dedicated snapshot id header, so we always fall back to `configVersion`
+  // (the deterministic hash of the validated config). If Hermes adds snapshot id
+  // support in a future release, wire it here via `hermesCorrelation`.
+  const configSnapshotId = configVersion;
+
+  // Warn when token usage is absent so operators know counts are missing.
+  if (generated.promptTokens === null) {
+    logger.warn(
+      { tickerId: input.tickerId },
+      "Token usage absent from LLM response; storing null for token fields",
+    );
+  }
+
   // Persist generated newsletter via agent-data-api.
   let persistedNewsletterId: string | null = null;
   logger.info({ tickerId: input.tickerId }, "Persisting newsletter: start");
@@ -299,6 +351,15 @@ export async function run({
         description: generated.description,
       }),
       tickerId: input.tickerId,
+      // Provenance fields (MP-CGA-008)
+      model: provenanceModel,
+      agentVersion: AGENT_VERSION,
+      configVersion,
+      promptHash,
+      configSnapshotId,
+      promptTokens: generated.promptTokens ?? undefined,
+      completionTokens: generated.completionTokens ?? undefined,
+      totalTokens: generated.totalTokens ?? undefined,
     });
     // Extract the newsletter id if the response includes one.
     persistedNewsletterId =

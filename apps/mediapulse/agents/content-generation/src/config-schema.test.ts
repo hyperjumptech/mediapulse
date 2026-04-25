@@ -124,6 +124,7 @@ describe("ContentGenerationConfigSchema", () => {
   });
 
   it("rejects if both openaiApiKey and openai.apiKey are empty or whitespace", () => {
+    // Act & Assert
     const result = ContentGenerationConfigSchema.safeParse({
       openaiApiKey: "   ",
       openai: {
@@ -210,7 +211,8 @@ describe("ContentGenerationConfigSchema", () => {
     });
 
     expect(parsed.llmRetry?.maxAttempts).toBe(5);
-    expect(parsed.llmRetry?.baseDelayMs).toBeUndefined();
+    // Other fields now have defaults in the schema
+    expect(parsed.llmRetry?.baseDelayMs).toBe(500);
   });
 
   it("accepts openai.timeoutMs", () => {
