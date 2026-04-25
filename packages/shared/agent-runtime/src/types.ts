@@ -87,9 +87,13 @@ export type CreateAgentAppOptions = {
 /** Configuration for a single agent: id, version, input/config schemas, and run logic. */
 export type AgentConfig<
   TInput,
-  TSchema extends z.ZodType<TInput>,
+  TSchema extends z.ZodType<TInput, any, any>,
   TConfig = Record<string, never>,
-  TConfigSchema extends z.ZodType<TConfig> = z.ZodType<TConfig>,
+  TConfigSchema extends z.ZodType<TConfig, any, any> = z.ZodType<
+    TConfig,
+    any,
+    any
+  >,
 > = {
   /** Unique agent identifier (e.g. "data-collection"). */
   agentId: string;

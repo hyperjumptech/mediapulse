@@ -2,20 +2,28 @@ import type { GetAnalysisQuery } from "@workspace/agent-data-api-contract";
 
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 
+export type BuildAnalysisGetQueryOptions = {
+  /** Passed as analysis GET `limit` (caller should use resolved Hermes `analysisGetDataSourceLimitMax`). */
+  limit?: number;
+};
+
 /**
  * Builds the typed agent-data-api `analysis.get` query from validated run input.
  *
  * @param input - Parsed article-analysis input (`timeWindow` bounds forward as `start` / `end` when set).
+ * @param options - Optional `limit` to cap rows returned from agent-data-api.
  * @returns Query object for `createAgentDataApiClient().analysis.get`.
  */
 export const buildAnalysisGetQuery = (
   input: ArticleAnalysisInput,
+  options?: BuildAnalysisGetQueryOptions,
 ): GetAnalysisQuery => {
   const reanalyze = input.reanalyze ?? false;
   const base = {
     tickerId: input.tickerId,
     unanalyzed: !reanalyze,
-  } satisfies Pick<GetAnalysisQuery, "tickerId" | "unanalyzed">;
+    ...(options?.limit !== undefined ? { limit: options.limit } : {}),
+  } satisfies Pick<GetAnalysisQuery, "tickerId" | "unanalyzed" | "limit">;
 
   const start = input.timeWindow?.start;
   const end = input.timeWindow?.end;

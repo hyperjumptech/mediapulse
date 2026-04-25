@@ -404,6 +404,37 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       return;
     }
 
+    const parentExecution = payload.scheduleExecutionId
+      ? await orchestrationPrisma.scheduleExecution.findUnique({
+          where: { id: payload.scheduleExecutionId },
+          select: { cancelledAt: true },
+        })
+      : await orchestrationPrisma.httpTriggerExecution.findUnique({
+          where: { id: payload.httpTriggerExecutionId! },
+          select: { cancelledAt: true },
+        });
+
+    if (parentExecution?.cancelledAt) {
+      await applyInvocationCompletion(
+        {
+          jobId: payload.jobId,
+          scheduleExecutionId: payload.scheduleExecutionId,
+          httpTriggerExecutionId: payload.httpTriggerExecutionId,
+          pipelineStepId: payload.pipelineStepId,
+          terminal: {
+            status: AgentJobExecutionStatus.cancelled,
+            error: {
+              cancelled: true,
+              message: "Execution was cancelled before agent invoke",
+              retryable: false,
+            },
+          },
+        },
+        completionDeps,
+      );
+      return;
+    }
+
     const httpClient = createHttpClient(signal);
     const authToken = await getJwtForDomainIntegration(
       payload.domainIntegrationId,
@@ -427,6 +458,30 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     );
 
     if (postResult.kind === "transport_error") {
+      const aborted =
+        signal.aborted ||
+        postResult.error.name === "AbortError" ||
+        /abort/i.test(postResult.error.message);
+      if (aborted) {
+        await applyInvocationCompletion(
+          {
+            jobId: payload.jobId,
+            scheduleExecutionId: payload.scheduleExecutionId,
+            httpTriggerExecutionId: payload.httpTriggerExecutionId,
+            pipelineStepId: payload.pipelineStepId,
+            terminal: {
+              status: AgentJobExecutionStatus.cancelled,
+              error: {
+                cancelled: true,
+                message: "Agent invoke aborted (cancelled or signal)",
+                retryable: false,
+              },
+            },
+          },
+          completionDeps,
+        );
+        return;
+      }
       logger.error(
         {
           err: postResult.error,
@@ -442,6 +497,27 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
         errorToThrow: postResult.error,
       });
     } else {
+      if (signal.aborted) {
+        await applyInvocationCompletion(
+          {
+            jobId: payload.jobId,
+            scheduleExecutionId: payload.scheduleExecutionId,
+            httpTriggerExecutionId: payload.httpTriggerExecutionId,
+            pipelineStepId: payload.pipelineStepId,
+            terminal: {
+              status: AgentJobExecutionStatus.cancelled,
+              error: {
+                cancelled: true,
+                message: "Agent invoke aborted after response (cancelled)",
+                retryable: false,
+              },
+            },
+          },
+          completionDeps,
+        );
+        return;
+      }
+
       const { statusCode, rawBody, isEmptyBody } = postResult.response;
 
       if (statusCode >= 500) {

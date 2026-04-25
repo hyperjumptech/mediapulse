@@ -175,6 +175,27 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
     expect(payload.entityReuseRatio).toBe(0.5);
     expect(payload.avgExtractionLatencyMs).toBe(150);
     expect(payload.llmTotalTokens).toBe(30);
+    expect(payload.schemaValidationFailureCount).toBe(3);
+    expect(payload.failureCountsByKind).toEqual({
+      llm: 1,
+      vocabulary: 1,
+      schemaValidation: 3,
+      persistenceHttp: 1,
+      persistenceOther: 1,
+    });
+    expect(payload.stageMetrics).toEqual({
+      extract: {
+        articlesProcessed: 3,
+        articlesSucceeded: 2,
+        articlesFailedExtraction: 2,
+      },
+      scorePrepare: { schemaValidationFailures: 3 },
+      persist: {
+        postChunkFailures: 2,
+        articlesScored: 2,
+        articlesSelected: 1,
+      },
+    });
   });
 
   it("omits LLM usage keys when usage is null", () => {
@@ -202,6 +223,27 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
     });
     expect("llmTotalTokens" in payload).toBe(false);
     expect(payload.scoreFailureCount).toBe(0);
+    expect(payload.schemaValidationFailureCount).toBe(0);
+    expect(payload.failureCountsByKind).toEqual({
+      llm: 0,
+      vocabulary: 0,
+      schemaValidation: 0,
+      persistenceHttp: 0,
+      persistenceOther: 0,
+    });
+    expect(payload.stageMetrics).toEqual({
+      extract: {
+        articlesProcessed: 1,
+        articlesSucceeded: 1,
+        articlesFailedExtraction: 0,
+      },
+      scorePrepare: { schemaValidationFailures: 0 },
+      persist: {
+        postChunkFailures: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      },
+    });
   });
 
   it("embeds failure reason and safe error for top-level failures", () => {

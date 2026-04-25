@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import { ExecutionsTable } from "./executions-table";
 import type { ScheduleExecutionRow } from "@/lib/schedules";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 vi.mock("next/link", () => ({
   default: ({
     children,

@@ -8,6 +8,7 @@ import { AgentEndpointSchema } from "./invoke-agent";
 import { substituteVariables } from "./substitute-variables";
 import { validateWithJsonSchema } from "./validate-json-schema";
 import type { ExpandStepInputs } from "./execute-schedule";
+import type { EnqueueDiagnosticEntry } from "./enqueue-diagnostics";
 
 export type PlannedInvocation = {
   pipelineStepId: string;
@@ -20,7 +21,7 @@ export type PlannedInvocation = {
 
 export type PlanPipelineInvocationsResult = {
   waveList: PlannedInvocation[][];
-  errors: Array<{ message: string; timestamp: string }>;
+  errors: EnqueueDiagnosticEntry[];
 };
 
 type PipelineStepForPlanning = {
@@ -80,7 +81,7 @@ export const planPipelineInvocations = async ({
   variableSecretFallbackMasterKey,
   requireHttpsAgentEndpoints = false,
 }: PlanPipelineInvocationsArgs): Promise<PlanPipelineInvocationsResult> => {
-  const errors: Array<{ message: string; timestamp: string }> = [];
+  const errors: EnqueueDiagnosticEntry[] = [];
   const variables = await db.variable.findMany({
     include: { encryptedPayload: true },
   });
@@ -138,6 +139,8 @@ export const planPipelineInvocations = async ({
       errors.push({
         message: `Agent ${step.agentId}@${step.agentVersion} not found`,
         timestamp: new Date().toISOString(),
+        phase: "planning",
+        pipelineStepId: step.id,
       });
       continue;
     }
@@ -147,6 +150,8 @@ export const planPipelineInvocations = async ({
       errors.push({
         message: `Invalid endpoint for ${step.agentId}: ${endpointResult.error.message}`,
         timestamp: new Date().toISOString(),
+        phase: "planning",
+        pipelineStepId: step.id,
       });
       continue;
     }
@@ -159,6 +164,8 @@ export const planPipelineInvocations = async ({
       errors.push({
         message: `Agent endpoint must use HTTPS (or localhost) for ${step.agentId}: ${endpointResult.data.url}`,
         timestamp: new Date().toISOString(),
+        phase: "planning",
+        pipelineStepId: step.id,
       });
       continue;
     }
@@ -183,6 +190,8 @@ export const planPipelineInvocations = async ({
         errors.push({
           message: `Step input invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
           timestamp: new Date().toISOString(),
+          phase: "planning",
+          pipelineStepId: step.id,
         });
         continue;
       }
@@ -219,6 +228,8 @@ export const planPipelineInvocations = async ({
         errors.push({
           message: `Step config invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
           timestamp: new Date().toISOString(),
+          phase: "planning",
+          pipelineStepId: step.id,
         });
         continue;
       }

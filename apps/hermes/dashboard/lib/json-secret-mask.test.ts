@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isSensitiveJsonKey,
   maskSecretsInJson,
+  maskSensitiveInlinePatternsInString,
   SECRET_MASK,
 } from "./json-secret-mask";
 
@@ -52,5 +53,19 @@ describe("json-secret-mask", () => {
 
     // Assert
     expect(out.token).toBeNull();
+  });
+
+  it("maskSensitiveInlinePatternsInString redacts Bearer tokens", () => {
+    expect(
+      maskSensitiveInlinePatternsInString("Use Bearer abc.def.ghi in header"),
+    ).toBe("Use Bearer [redacted] in header");
+  });
+
+  it("maskSensitiveInlinePatternsInString redacts Authorization header lines", () => {
+    expect(
+      maskSensitiveInlinePatternsInString(
+        "before\nAuthorization: Basic dGVzdAo=\nafter",
+      ),
+    ).toBe("before\nAuthorization: [redacted]\nafter");
   });
 });

@@ -223,6 +223,8 @@ export type ScheduleFormFieldsProps = {
   defaultTimezone: string;
   defaultPipelineId: string;
   defaultPriority: number;
+  /** Per-agent invocation timeout in milliseconds. Empty means use Hermes default (5 minutes). */
+  defaultTimeout?: number | null;
   defaultEnabled: boolean;
   /** Start at as datetime-local string (empty if none). Shown when repeat is once. */
   defaultStartAt?: string;
@@ -289,6 +291,7 @@ export const ScheduleFormFields = ({
   defaultTimezone,
   defaultPipelineId,
   defaultPriority,
+  defaultTimeout,
   defaultEnabled,
   defaultStartAt = "",
   initialIntervalMs,
@@ -563,6 +566,26 @@ export const ScheduleFormFields = ({
           defaultValue={defaultPriority}
           disabled={pending}
         />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor={`${pre}timeout`}>Agent request timeout (ms)</Label>
+        <Input
+          id={`${pre}timeout`}
+          name={`${pre}timeout`}
+          type="number"
+          min={1}
+          defaultValue={
+            defaultTimeout != null && defaultTimeout > 0
+              ? String(defaultTimeout)
+              : ""
+          }
+          placeholder="e.g. 900000"
+          disabled={pending}
+        />
+        <p className="text-xs text-muted-foreground">
+          Optional per-agent request timeout in milliseconds. Leave empty to use
+          the default 5 minutes (300000). Example: 900000 = 15 minutes.
+        </p>
       </div>
       <FormBooleanCheckboxField
         name={`${pre}enabled`}

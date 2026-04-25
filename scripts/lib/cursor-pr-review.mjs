@@ -120,6 +120,23 @@ const isKebabCaseBasename = (filePath) => {
  * @param {RegExp} re
  * @returns {number | undefined}
  */
+/**
+ * Remove JavaScript/TypeScript comments from `text` while preserving newlines
+ * so that 1-based line numbers remain aligned with the original source.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+const stripComments = (text) => {
+  // Strip single-line comments (keep trailing newline)
+  let result = text.replace(/\/\/.*$/gm, "");
+  // Strip block comments, replacing content with spaces/newlines to preserve line numbers
+  result = result.replace(/\/\*[\s\S]*?\*\//g, (match) =>
+    match.replace(/[^\n]/g, " "),
+  );
+  return result;
+};
+
 const firstLineOfRegexMatch = (text, re) => {
   const flags = re.flags.replaceAll("g", "");
   const m = new RegExp(re.source, flags).exec(text);
@@ -497,6 +514,10 @@ const collectMissingJsDocFindingsForExports = (text, filePath) => {
 const collectMissingCoLocatedTestFindings = (filePath, changed, text) => {
   if (!/\bexport\b/.test(text)) return [];
 
+  // Skip files that only export types/interfaces (no runtime values to test)
+  const hasRuntimeExport = /export\s+(?!type\s+|interface\s+)/.test(text);
+  if (!hasRuntimeExport) return [];
+
   const stem = filePath.replace(/\.(ts|tsx)$/, "");
   const coLocated = [
     `${stem}.test.ts`,
@@ -575,7 +596,7 @@ export const runCursorPrReview = async (collaborators, options) => {
     if (isMediapulseEnvGeneratedPath(f.filePath)) continue;
     const text = await collaborators.readTextFile(f.filePath);
     if (isRuleDisabledInFile(text, "env-variables", f.filePath)) continue;
-    if (/\bprocess\.env\b/.test(text)) {
+    if (/\bprocess\.env\b/.test(stripComments(text))) {
       const line = firstLineOfRegexMatch(text, /\bprocess\.env\b/);
       findings.push({
         ruleId: "env-variables",

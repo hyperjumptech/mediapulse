@@ -12,6 +12,7 @@ export {
   type AgentDataApiVersion,
 } from "./agent-data-api-manifest.js";
 export {
+  ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
   analysisDataSourceSchema,
   analysisEntityTypeSchema,
   analysisExistingEntitySchema,

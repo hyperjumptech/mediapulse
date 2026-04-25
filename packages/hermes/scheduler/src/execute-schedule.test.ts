@@ -280,10 +280,48 @@ describe("executeSchedule", () => {
     expect(enqueueAgentInvocations).not.toHaveBeenCalled();
     expect(scheduleExecutionCreate).toHaveBeenCalledTimes(1);
     const createCall = scheduleExecutionCreate.mock.calls[0] as [
-      { data: { errors?: Array<{ message: string }> } },
+      {
+        data: {
+          errors?: Array<{ message: string; phase?: string }>;
+        };
+      },
     ];
     const errors = createCall[0].data.errors ?? [];
     expect(errors.some((e) => e.message.includes("must use HTTPS"))).toBe(true);
+    expect(errors.some((e) => e.phase === "planning")).toBe(true);
+  });
+
+  it("persists exception stack when enqueueAgentInvocations throws", async () => {
+    const schedule = createMockSchedule();
+    const queueErr = new Error("queue down");
+    queueErr.stack = "Error: queue down\n  at queue.ts:1:1";
+    const enqueueAgentInvocations = vi.fn().mockRejectedValue(queueErr);
+    const scheduleExecutionUpdate = vi.fn().mockResolvedValue(undefined);
+    const db = createMockDb();
+    db.scheduleExecution.update = scheduleExecutionUpdate;
+    const deps: ExecuteScheduleDeps = {
+      db: db as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations,
+    };
+
+    await executeSchedule(schedule, deps);
+
+    expect(scheduleExecutionUpdate).toHaveBeenCalled();
+    const updateArg = scheduleExecutionUpdate.mock.calls[0]?.[0] as {
+      data: {
+        errors?: Array<{ phase?: string; exception?: { stack?: string } }>;
+      };
+    };
+    const persisted = updateArg.data.errors ?? [];
+    expect(
+      persisted.some(
+        (e) =>
+          e.phase === "enqueue" &&
+          e.exception?.stack != null &&
+          e.exception.stack.includes("queue.ts"),
+      ),
+    ).toBe(true);
   });
 
   it("allows http localhost when requireHttpsAgentEndpoints is true", async () => {
