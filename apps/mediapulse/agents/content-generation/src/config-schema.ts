@@ -2,21 +2,88 @@ import { z } from "zod";
 
 const llmRetrySchema = z.object({
   /** Maximum total attempts (including the first). */
-  maxAttempts: z.number().int().positive().optional(),
+  maxAttempts: z.number().int().nonnegative().optional(),
   /** Base delay in milliseconds before the first retry. */
-  baseDelayMs: z.number().int().positive().optional(),
+  baseDelayMs: z.number().int().nonnegative().optional(),
   /** Maximum delay cap in milliseconds. */
-  maxDelayMs: z.number().int().positive().optional(),
+  maxDelayMs: z.number().int().nonnegative().optional(),
   /** When true, applies ±50% random jitter to each computed backoff delay. */
   jitter: z.boolean().optional(),
 });
 
 const openaiOptionsSchema = z.object({
   /**
-   * Per-request timeout in milliseconds passed to the AI SDK `generateObject` call.
-   * When omitted, no timeout is applied.
+   * OpenAI API key for newsletter generation. Required if legacy `openaiApiKey` is omitted.
+   * The agent reads the API key exclusively from Hermes config — do not fall back to
+   * process.env.OPENAI_API_KEY at runtime. For local development, set the key in the
+   * Hermes agent config or use the legacy `openaiApiKey` top-level field.
+   * See FR2 and MP-CGA-011 for full local-dev documentation.
    */
+  apiKey: z.string().min(1).optional(),
+  /** Base URL for the OpenAI-compatible HTTP API (e.g. Azure OpenAI or a proxy). */
+  baseUrl: z.string().url().optional(),
+  /** Chat completions model id (e.g. `gpt-4o-mini`). */
+  model: z.string().min(1).optional(),
+  /** Sampling temperature. */
+  temperature: z.number().min(0).max(2).optional(),
+  /** Maximum tokens to generate. */
+  maxTokens: z.number().int().positive().optional(),
+  /** Per-request timeout in milliseconds passed to the AI SDK `generateObject` call. */
   timeoutMs: z.number().int().positive().optional(),
+});
+
+const promptsSchema = z.object({
+  /** System prompt for the agent. */
+  systemPrompt: z.string().optional(),
+  /**
+   * User prompt template.
+   * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{date}}, {{topNewsCount}}
+   */
+  userPromptTemplate: z.string().optional(),
+});
+
+const outputSchema = z.object({
+  /** Number of top news items to include in the output. */
+  topNewsCount: z.number().int().positive().optional(),
+});
+
+const contextSchema = z.object({
+  /** Maximum characters to keep per source. */
+  maxCharsPerSource: z.number().int().positive().optional(),
+  /** Maximum total characters across all sources. */
+  maxTotalContextChars: z.number().int().positive().optional(),
+});
+
+const freshnessSchema = z.object({
+  /** Strategy to use for determining freshness. */
+  strategy: z.literal("calendar_day").optional(),
+  /**
+   * Timezone to use for freshness calculations (IANA, e.g. "Asia/Jakarta").
+   * Validated against the IANA database at config-parse time.
+   */
+  timezone: z
+    .string()
+    .refine(
+      (tz) => {
+        try {
+          Intl.DateTimeFormat(undefined, { timeZone: tz });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Invalid IANA timezone" },
+    )
+    .optional(),
+});
+
+const persistRetrySchema = z.object({
+  /** Maximum number of retry attempts for persisting data. */
+  maxAttempts: z.number().int().nonnegative().optional(),
+  /** Base delay in milliseconds between retries. */
+  baseDelayMs: z.number().int().nonnegative().optional(),
+  /** Maximum delay in milliseconds between retries. */
+  maxDelayMs: z.number().int().nonnegative().optional(),
 });
 
 /**
@@ -167,12 +234,20 @@ export type ResolvedLlmRetryConfig = {
   jitter: boolean;
 };
 
+/** Fully resolved persistence retry settings. */
+export type ResolvedPersistRetryConfig = {
+  maxAttempts: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+};
+
 /**
  * Content-generation config with optional fields resolved to their production defaults.
  * Use {@link resolveContentGenerationConfig} to obtain this from a parsed config.
  */
 export type ResolvedContentGenerationConfig = ContentGenerationConfig & {
   llmRetry: ResolvedLlmRetryConfig;
+  persistRetry: ResolvedPersistRetryConfig;
 };
 
 /** Production defaults for fields that may be omitted in Hermes config. */
@@ -180,8 +255,13 @@ export const contentGenerationConfigDefaults = {
   llmRetry: {
     maxAttempts: 3,
     baseDelayMs: 500,
-    maxDelayMs: 10_000,
+    maxDelayMs: 8000,
     jitter: true,
+  },
+  persistRetry: {
+    maxAttempts: 2,
+    baseDelayMs: 200,
+    maxDelayMs: 2000,
   },
 } as const;
 
@@ -189,19 +269,39 @@ export const contentGenerationConfigDefaults = {
  * Merges Hermes-supplied config with production defaults for optional fields.
  *
  * @param config - Parsed and validated Hermes agent config.
- * @returns Config safe to use at runtime; `llmRetry` is always present.
+ * @returns Config safe to use at runtime.
  */
 export function resolveContentGenerationConfig(
-  config: ContentGenerationConfig,
+  config: any,
 ): ResolvedContentGenerationConfig {
-  const defaults = contentGenerationConfigDefaults.llmRetry;
+  const parsed = ContentGenerationConfigSchema.parse(config);
+
   return {
-    ...config,
+    ...parsed,
     llmRetry: {
-      maxAttempts: config.llmRetry?.maxAttempts ?? defaults.maxAttempts,
-      baseDelayMs: config.llmRetry?.baseDelayMs ?? defaults.baseDelayMs,
-      maxDelayMs: config.llmRetry?.maxDelayMs ?? defaults.maxDelayMs,
-      jitter: config.llmRetry?.jitter ?? defaults.jitter,
+      maxAttempts:
+        parsed.llmRetry?.maxAttempts ??
+        contentGenerationConfigDefaults.llmRetry.maxAttempts,
+      baseDelayMs:
+        parsed.llmRetry?.baseDelayMs ??
+        contentGenerationConfigDefaults.llmRetry.baseDelayMs,
+      maxDelayMs:
+        parsed.llmRetry?.maxDelayMs ??
+        contentGenerationConfigDefaults.llmRetry.maxDelayMs,
+      jitter:
+        parsed.llmRetry?.jitter ??
+        contentGenerationConfigDefaults.llmRetry.jitter,
     },
-  };
+    persistRetry: {
+      maxAttempts:
+        parsed.persistRetry?.maxAttempts ??
+        contentGenerationConfigDefaults.persistRetry.maxAttempts,
+      baseDelayMs:
+        parsed.persistRetry?.baseDelayMs ??
+        contentGenerationConfigDefaults.persistRetry.baseDelayMs,
+      maxDelayMs:
+        parsed.persistRetry?.maxDelayMs ??
+        contentGenerationConfigDefaults.persistRetry.maxDelayMs,
+    },
+  } as ResolvedContentGenerationConfig;
 }

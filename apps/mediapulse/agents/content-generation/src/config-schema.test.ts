@@ -187,7 +187,6 @@ describe("ContentGenerationConfigSchema", () => {
     });
 
     // Assert
-    // Using stringify checks because the object is complex.
     const schemaStr = JSON.stringify(jsonSchema);
     expect(schemaStr).toContain("openaiApiKey");
     expect(schemaStr).toContain("openaiModel");
@@ -315,5 +314,26 @@ describe("resolveContentGenerationConfig", () => {
     expect(resolved.openaiApiKey).toBe("sk-key");
     expect(resolved.openaiModel).toBe("gpt-4o");
     expect(resolved.openai?.timeoutMs).toBe(8000);
+  });
+
+  it("fills persistRetry defaults when persistRetry is omitted", () => {
+    // Setup
+    const config = ContentGenerationConfigSchema.parse({
+      openaiApiKey: "sk-test",
+    });
+
+    // Act
+    const resolved = resolveContentGenerationConfig(config);
+
+    // Assert
+    expect(resolved.persistRetry.maxAttempts).toBe(
+      contentGenerationConfigDefaults.persistRetry.maxAttempts,
+    );
+    expect(resolved.persistRetry.baseDelayMs).toBe(
+      contentGenerationConfigDefaults.persistRetry.baseDelayMs,
+    );
+    expect(resolved.persistRetry.maxDelayMs).toBe(
+      contentGenerationConfigDefaults.persistRetry.maxDelayMs,
+    );
   });
 });

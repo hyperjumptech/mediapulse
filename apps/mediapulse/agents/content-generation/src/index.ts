@@ -3,6 +3,8 @@ import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 /** Agent T3 env: import the typed `@mediapulse/env/agents-content-generation` module (not the root `@mediapulse/env` app bundle). */
 import { env } from "@mediapulse/env/agents-content-generation";
 import { logger } from "@workspace/logger";
+import OpenAI from "openai";
+import pRetry from "p-retry";
 import { z } from "zod";
 
 import {
@@ -10,6 +12,7 @@ import {
   type ContentGenerationConfig,
 } from "./config-schema.js";
 import { run } from "./run.js";
+import { generateContentWithOpenAI } from "./lib/generate-content.js";
 
 const BodySchema = z.object({
   tickerId: hermesTickerIdSchema,

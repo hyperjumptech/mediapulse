@@ -8,6 +8,8 @@ import {
 import {
   getContentGenerationQuerySchema,
   getContentGenerationResponseSchema,
+  getContentGenerationNewslettersLatestQuerySchema,
+  getContentGenerationNewslettersLatestResponseSchema,
   postContentGenerationBodySchema,
   postContentGenerationResponseSchema,
 } from "./content-generation.js";
@@ -148,6 +150,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postContentGenerationBodySchema,
         response: postContentGenerationResponseSchema,
+      },
+    },
+  },
+  contentGenerationNewslettersLatest: {
+    v1: {
+      get: {
+        query: getContentGenerationNewslettersLatestQuerySchema,
+        response: getContentGenerationNewslettersLatestResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getContentGenerationNewslettersLatestQuerySchema,
+        response: getContentGenerationNewslettersLatestResponseSchema,
       },
     },
   },
