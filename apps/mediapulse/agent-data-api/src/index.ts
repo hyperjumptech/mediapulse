@@ -39,6 +39,10 @@ import {
   postQueryAnalysis,
 } from "./routes/query-analysis.js";
 import {
+  getContentGenerationRuns,
+  postContentGenerationRun,
+} from "./routes/content-generation-run.js";
+import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
 } from "./register-agent-data-api-routes.js";
@@ -103,6 +107,10 @@ const routeHandlers = {
   },
   userRegistrationConfirm: {
     post: postUserRegistrationConfirmHandler,
+  },
+  contentGenerationRuns: {
+    get: getContentGenerationRuns,
+    post: postContentGenerationRun,
   },
 } satisfies AgentDataApiHandlers;
 

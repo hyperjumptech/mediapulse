@@ -258,9 +258,10 @@ model Ticker {
   userTickers       UserTicker[]
   tickerEntities    TickerEntity[]
   articleRelevances ArticleRelevance[]
-  dataCollectionRuns      DataCollectionRun[]
-  dataCollectionFailures  DataCollectionFailure[]
-  deliveryRuns            DeliveryRun[]
+  dataCollectionRuns        DataCollectionRun[]
+  dataCollectionFailures    DataCollectionFailure[]
+  deliveryRuns              DeliveryRun[]
+  contentGenerationRuns     ContentGenerationRun[]
 
   @@map("ticker")
 }
@@ -447,4 +448,40 @@ model DataCollectionFailure {
   searchQuery   SearchQuery?      @relation(fields: [searchQueryId], references: [id])
 
   @@map("data_collection_failure")
+}
+
+enum ContentGenerationRunOutcome {
+  success
+  skipped
+  failed
+}
+
+enum ContentGenerationRunStage {
+  precheck
+  llm
+  validate
+  persist
+}
+
+/// Diagnostic record for a single content-generation agent invocation.
+model ContentGenerationRun {
+  id              String                       @id @default(uuid())
+  agentId         String                       @map("agent_id")
+  agentVersion    String                       @map("agent_version")
+  tickerId        String                       @map("ticker_id")
+  outcome         ContentGenerationRunOutcome
+  stage           ContentGenerationRunStage?   @map("stage")
+  errorCode       String?                      @map("error_code")
+  errorCategory   String?                      @map("error_category")
+  message         String?
+  durationMs      Int?                         @map("duration_ms")
+  pipelineRunId   String?                      @map("pipeline_run_id")
+  newsletterId    String?                      @map("newsletter_id")
+  createdAt       DateTime                     @default(now()) @map("created_at")
+
+  ticker Ticker @relation(fields: [tickerId], references: [id])
+
+  @@index([tickerId, createdAt])
+  @@index([outcome, createdAt])
+  @@map("content_generation_run")
 }

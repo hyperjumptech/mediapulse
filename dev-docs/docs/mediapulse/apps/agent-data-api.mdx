@@ -37,6 +37,8 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/delivery`                   | Upsert delivery checkpoint after successful send                      |
 | GET    | `/api/v1/delivery-run`               | List delivery diagnostic runs (filters optional)                      |
 | POST   | `/api/v1/delivery-run`               | Persist one delivery run + recipient outcomes                         |
+| GET    | `/api/v1/content-generation-runs`    | List content-generation diagnostic runs (filters optional)            |
+| POST   | `/api/v1/content-generation-runs`    | Persist one content-generation run record                             |
 | POST   | `/api/v1/user-registration-register` | Process a new or returning subscription                               |
 | POST   | `/api/v1/user-registration-confirm`  | Confirm a pending subscription (double opt-in)                        |
 | GET    | `/api/v1/query-analysis`             | Get query-analysis context by ticker                                  |
@@ -141,6 +143,43 @@ const dataApiClient = createAgentDataApiClient({
 });
 
 await dataApiClient.contentGeneration.get({ tickerId });
+```
+
+### Content generation run (`/api/v1/content-generation-runs`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation-run.ts`. Contract types and Zod schemas live in `@workspace/agent-data-api-contract` (`content-generation-run.ts`).
+
+- **GET** — Lists persisted runs. **Query** (all optional, validated by `contentGenerationRunQuerySchema`):
+  - `cursor` — `id` of the last item from the previous page.
+  - `limit` — Page size, between 1 and 100. Default 50.
+  - `tickerId` — UUID, filter by ticker.
+  - `outcome` — One of `success`, `skipped`, `failed`.
+  - `startTime` — ISO 8601 datetime; when set, only rows with `createdAt >= startTime` (inclusive).
+  - `endTime` — ISO 8601 datetime; when set, only rows with `createdAt <= endTime` (inclusive).
+- **POST** — Inserts one run (`postContentGenerationRunBodySchema`). Body includes `agentId` (literal `"content-generation"`), `agentVersion`, `tickerId`, `outcome`, and optional fields: `stage` (`"precheck" | "llm" | "validate" | "persist"`), `errorCode`, `errorCategory`, `message`, `durationMs`, `pipelineRunId`, `newsletterId`. **`id` and `createdAt` are not accepted in the body**; the API generates them. The response returns the full created record.
+
+`message` and `errorCode` must never contain raw API keys or secrets — sanitization is the caller's responsibility (MP-CGA-007).
+
+From agents, use the SDK namespace **`contentGenerationRuns`**: `get` for the query, **`create`** for POST.
+
+```ts
+await dataApiClient.contentGenerationRuns.get({
+  cursor: "00000000-0000-0000-0000-000000000000",
+  limit: 10,
+  tickerId,
+  outcome: "failed",
+  startTime: "2026-04-01T00:00:00.000Z",
+});
+
+const run = await dataApiClient.contentGenerationRuns.create({
+  agentId: "content-generation",
+  agentVersion: "1.0.0",
+  tickerId,
+  outcome: "success",
+  durationMs: 1200,
+  newsletterId,
+});
+// run.id and run.createdAt are server-generated
 ```
 
 ### Delivery agent (Hermes config + semantics)

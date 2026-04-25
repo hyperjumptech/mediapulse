@@ -399,6 +399,87 @@ describe("createAgentDataApiClient", () => {
     expect(getResponse.ticker.symbol).toBe("AAPL");
     expect(postResponse.created).toBe(1);
   });
+
+  it("builds contentGenerationRuns GET with typed query", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ data: [] }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
+    });
+
+    // Act
+    const result = await client.contentGenerationRuns.get({
+      cursor: "00000000-0000-0000-0000-000000000000",
+      limit: 10,
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      outcome: "failed",
+    });
+
+    // Assert
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationRuns")}?cursor=00000000-0000-0000-0000-000000000000&limit=10&tickerId=11111111-1111-4111-a111-111111111111&outcome=failed`,
+      expect.objectContaining({
+        headers: { Authorization: "Bearer sdk-token" },
+      }),
+    );
+    expect(result.data).toEqual([]);
+  });
+
+  it("builds contentGenerationRuns POST with typed body and returns created record", async () => {
+    // Setup
+    const now = "2026-04-14T00:00:00.000Z";
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        id: "33333333-3333-4333-a333-333333333333",
+        agentId: "content-generation",
+        agentVersion: "1.0.0",
+        tickerId: "11111111-1111-4111-a111-111111111111",
+        outcome: "success",
+        stage: null,
+        errorCode: null,
+        errorCategory: null,
+        message: null,
+        durationMs: 1200,
+        pipelineRunId: null,
+        newsletterId: "22222222-2222-4222-a222-222222222222",
+        createdAt: now,
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      postFn,
+    });
+
+    // Act
+    const result = await client.contentGenerationRuns.create({
+      agentId: "content-generation",
+      agentVersion: "1.0.0",
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      outcome: "success",
+      durationMs: 1200,
+      newsletterId: "22222222-2222-4222-a222-222222222222",
+    });
+
+    // Assert
+    expect(postFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationRuns")}`,
+      expect.objectContaining({
+        json: expect.objectContaining({
+          agentId: "content-generation",
+          outcome: "success",
+        }),
+      }),
+    );
+    expect(result.id).toBe("33333333-3333-4333-a333-333333333333");
+    expect(result.createdAt).toBe(now);
+  });
 });
 
 describe("agent-data-api path helpers", () => {
