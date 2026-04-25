@@ -312,6 +312,30 @@ describe("run", () => {
     expect(contentGenerationCreate).toHaveBeenCalledTimes(2);
   });
 
+  it("returns success:false with persist_transient on network error after retry exhaustion", async () => {
+    // Setup — ECONNREFUSED is retryable, will exhaust all persistRetry.maxAttempts
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+      generatedNewsletter,
+    );
+    contentGenerationCreate.mockRejectedValue(
+      new Error("connect ECONNREFUSED 127.0.0.1:8081"),
+    );
+
+    // Act
+    const result = await run(makeContext());
+
+    // Assert — ECONNREFUSED has no parseable status, classified as persist_transient
+    // (isRetryablePersistError returns true, retries exhaust, classifyPersistError
+    // returns persist_transient for network errors without a status code)
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.message).toContain("persist_transient");
+    }
+    // Default persistRetry.maxAttempts is 2
+    expect(contentGenerationCreate).toHaveBeenCalledTimes(2);
+  });
+
   // -------------------------------------------------------------------------
   // Propagates config to generateNewsletterWithLlm
   // -------------------------------------------------------------------------
