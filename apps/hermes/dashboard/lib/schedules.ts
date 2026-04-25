@@ -217,6 +217,7 @@ export type ScheduleExecutionDetail = {
     succeededInvocationCount: number;
     failedInvocationCount: number;
     errors: unknown;
+    metadata: unknown | null;
     createdAt: Date;
   };
   pipeline: { id: string; name: string } | null;
@@ -334,6 +335,7 @@ export const getScheduleExecutionDetail = async (
       succeededInvocationCount: row.succeededInvocationCount,
       failedInvocationCount: row.failedInvocationCount,
       errors: row.errors,
+      metadata: row.metadata,
       createdAt: row.createdAt,
     },
     pipeline,

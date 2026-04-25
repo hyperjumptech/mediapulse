@@ -48,6 +48,17 @@ describe("buildAnalysisGetQuery", () => {
       end: "2026-01-31T00:00:00.000Z",
     });
   });
+
+  it("includes limit when options provide it", () => {
+    const input = articleAnalysisInputSchema.parse({
+      tickerId: "tick-d",
+    });
+    expect(buildAnalysisGetQuery(input, { limit: 10 })).toEqual({
+      tickerId: "tick-d",
+      unanalyzed: true,
+      limit: 10,
+    });
+  });
 });
 
 describe("sortAnalysisDataSourcesByCreatedAt", () => {

@@ -1,13 +1,16 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-content-generation";
+import { logger } from "@workspace/logger";
+import OpenAI from "openai";
+import pRetry from "p-retry";
 import { z } from "zod";
 
 import {
   ContentGenerationConfigSchema,
   type ContentGenerationConfig,
 } from "./config-schema.js";
-import { run } from "./run.js";
+import { generateContentWithOpenAI } from "./lib/generate-content.js";
 
 const BodySchema = z.object({
   tickerId: hermesTickerIdSchema,
@@ -26,7 +29,91 @@ const app = createAgentApp<
     agentVersion: "1.0.0",
     inputSchema: BodySchema,
     configSchema: ContentGenerationConfigSchema,
-    run,
+    run: async ({ input, config, token }) => {
+      const dataApiClient = createAgentDataApiClient({
+        baseUrl: env.AGENT_DATA_API_URL,
+        version: "v1",
+        token,
+      });
+      const { dataSources: sources } =
+        await dataApiClient.contentGeneration.get({
+          tickerId: input.tickerId,
+        });
+
+      logger.info({ sources }, "Data sources for ticker");
+      logger.info({ config }, "Config");
+
+      if (!sources?.length) {
+        return {
+          success: false,
+          message: "No data sources found for this ticker",
+        };
+      }
+
+      const openai = new OpenAI({
+        apiKey: config.openai?.apiKey ?? config.openaiApiKey,
+        baseURL: config.openai?.baseUrl ?? config.openaiBaseUrl,
+        timeout: config.openai?.timeoutMs,
+      });
+      const model = config.openai?.model ?? config.openaiModel ?? "gpt-4o-mini";
+      const temperature = config.openai?.temperature ?? 0.4;
+      const today = new Date().toISOString().split("T")[0];
+
+      const generated = await pRetry(
+        () =>
+          generateContentWithOpenAI(sources, {
+            openai,
+            model,
+            temperature,
+            topNewsCount: config.output?.topNewsCount ?? 3,
+            maxCharsPerSource: config.context?.maxCharsPerSource ?? 8000,
+            maxTotalContextChars:
+              config.context?.maxTotalContextChars ?? 100000,
+            systemPrompt: config.prompts?.systemPrompt,
+            userPromptTemplate: config.prompts?.userPromptTemplate,
+            tickerId: input.tickerId,
+            date: today,
+          }),
+        {
+          retries: config.llmRetry?.maxAttempts ?? 3,
+          minTimeout: config.llmRetry?.baseDelayMs ?? 500,
+          maxTimeout: config.llmRetry?.maxDelayMs ?? 8000,
+          onFailedAttempt: (error) => {
+            logger.warn(
+              { error, attempt: error.attemptNumber },
+              "LLM generation failed, retrying...",
+            );
+          },
+        },
+      );
+      try {
+        await pRetry(
+          () =>
+            dataApiClient.contentGeneration.create({
+              subject: generated.subject,
+              content: generated.content,
+              ...(generated.description && {
+                description: generated.description,
+              }),
+              tickerId: input.tickerId,
+            }),
+          {
+            retries: config.persistRetry?.maxAttempts ?? 2,
+            minTimeout: config.persistRetry?.baseDelayMs ?? 200,
+            maxTimeout: config.persistRetry?.maxDelayMs ?? 2000,
+          },
+        );
+      } catch (err) {
+        logger.error(
+          { tickerId: input.tickerId, err },
+          "Agent data API rejected newsletter store",
+        );
+        throw err;
+      }
+
+      logger.info({ tickerId: input.tickerId }, "Stored newsletter for ticker");
+      return { success: true };
+    },
   },
   {
     authApiUrl: env.AGENT_AUTH_API_URL ?? "",

@@ -23,7 +23,7 @@ export class AnalysisPostValidationError extends Error {
 type AnalysisDb = {
   dataSource: Pick<
     typeof prisma.dataSource,
-    "findMany" | "findUnique" | "findFirst"
+    "findMany" | "findUnique" | "findFirst" | "count"
   >;
   entityType: Pick<typeof prisma.entityType, "findMany">;
   relationType: Pick<typeof prisma.relationType, "findMany">;
@@ -40,6 +40,30 @@ type AnalysisDb = {
 };
 
 const defaultDb: AnalysisDb = prisma;
+
+/**
+ * Loads data sources for analysis GET: optional `limit` page plus total row count for the same filters.
+ * Shape matches `getAnalysisResponseSchema` fields `dataSources` and `dataSourceTotalCount`.
+ */
+async function loadAnalysisDataSourcesPage(
+  db: AnalysisDb,
+  findArgsBase: Prisma.DataSourceFindManyArgs,
+  where: Prisma.DataSourceWhereInput,
+  limit: number | undefined,
+): Promise<{
+  dataSources: GetAnalysisResponse["dataSources"];
+  dataSourceTotalCount: number;
+}> {
+  if (limit !== undefined) {
+    const [rows, total] = await Promise.all([
+      db.dataSource.findMany({ ...findArgsBase, take: limit }),
+      db.dataSource.count({ where }),
+    ]);
+    return { dataSources: rows, dataSourceTotalCount: total };
+  }
+  const dataSources = await db.dataSource.findMany(findArgsBase);
+  return { dataSources, dataSourceTotalCount: dataSources.length };
+}
 
 /**
  * Normalizes a name or alias for case-insensitive matching.
@@ -85,17 +109,19 @@ export const loadAnalysisContext = async (
       : {}),
   } satisfies Prisma.DataSourceWhereInput;
 
-  const dataSourceArgs = {
+  const dataSourceSelect = {
+    id: true,
+    url: true,
+    title: true,
+    content: true,
+    tickerId: true,
+    createdAt: true,
+  } satisfies Prisma.DataSourceSelect;
+
+  const dataSourceFindArgsBase = {
     where: dataSourceWhere,
     orderBy: { createdAt: "asc" as const },
-    select: {
-      id: true,
-      url: true,
-      title: true,
-      content: true,
-      tickerId: true,
-      createdAt: true,
-    },
+    select: dataSourceSelect,
   } satisfies Prisma.DataSourceFindManyArgs;
 
   const entityTypeArgs = {
@@ -131,15 +157,23 @@ export const loadAnalysisContext = async (
     select: { scoredAt: true },
   } satisfies Prisma.ArticleRelevanceFindFirstArgs;
 
+  const limit = query.limit;
+
+  const { dataSources, dataSourceTotalCount } =
+    await loadAnalysisDataSourcesPage(
+      db,
+      dataSourceFindArgsBase,
+      dataSourceWhere,
+      limit,
+    );
+
   const [
-    dataSources,
     entityTypes,
     relationTypes,
     existingEntityRows,
     selectedCountToday,
     lastRelevanceRow,
   ] = await Promise.all([
-    db.dataSource.findMany(dataSourceArgs),
     db.entityType.findMany(entityTypeArgs),
     db.relationType.findMany(relationTypeArgs),
     db.entity.findMany(existingEntityArgs),
@@ -149,6 +183,7 @@ export const loadAnalysisContext = async (
 
   return {
     dataSources,
+    dataSourceTotalCount,
     entityTypes,
     relationTypes,
     existingEntities: existingEntityRows.map((row) => ({

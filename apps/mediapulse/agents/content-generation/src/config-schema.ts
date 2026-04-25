@@ -54,7 +54,7 @@ export const ContentGenerationConfigSchema = z
         systemPrompt: z.string().optional(),
         /**
          * User prompt template.
-         * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{date}}
+         * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{date}}, {{topNewsCount}}
          */
         userPromptTemplate: z.string().optional(),
       })
@@ -78,7 +78,7 @@ export const ContentGenerationConfigSchema = z
 
     llmRetry: z
       .object({
-        /** Maximum number of retry attempts for LLM calls (including the first). */
+        /** Maximum number of retry attempts for LLM calls. */
         maxAttempts: z.number().int().positive().default(3),
         /** Base delay in milliseconds between retries. */
         baseDelayMs: z.number().int().positive().default(500),
@@ -128,7 +128,10 @@ export const ContentGenerationConfigSchema = z
       .default({}),
   })
   .superRefine((data, ctx) => {
-    if (!data.openaiApiKey && !data.openai?.apiKey) {
+    if (
+      (!data.openaiApiKey || data.openaiApiKey.trim() === "") &&
+      (!data.openai?.apiKey || data.openai.apiKey.trim() === "")
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
