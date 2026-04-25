@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { DashboardPage } from "@hermes/domain-contract";
 import {
+  Activity,
   Bot,
   Calendar,
   Database,
@@ -41,6 +42,8 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
     name: string;
     pages: DashboardPage[];
   }>;
+  /** Whether to show the CGA diagnostics nav link. */
+  showCgaDiagnostics?: boolean;
 };
 
 const mainNavGroups = [
@@ -90,6 +93,7 @@ const mainNavGroups = [
 export const AppSidebar = ({
   user,
   domainIntegrations = [],
+  showCgaDiagnostics = false,
   ...props
 }: AppSidebarProps) => {
   const pathname = usePathname();
@@ -131,6 +135,23 @@ export const AppSidebar = ({
                     </SidebarMenuItem>
                   );
                 })}
+                {group.label === "Agents" && showCgaDiagnostics && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        pathname?.startsWith(
+                          "/dashboard/agents/content-generation-runs",
+                        ) ?? false
+                      }
+                    >
+                      <Link href="/dashboard/agents/content-generation-runs">
+                        <Activity className="size-4" />
+                        <span>CGA diagnostics</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

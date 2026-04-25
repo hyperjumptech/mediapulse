@@ -30,6 +30,7 @@
     "@next/env": "catalog:",
     "@nicnocquee/dataqueue": "^1.39.0",
     "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/json-schema-form": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/ui": "workspace:*",
@@ -49,7 +50,8 @@
     "route-action-gen": "catalog:",
     "sonner": "catalog:",
     "zod": "catalog:",
-    "zod-to-json-schema": "^3.25.1"
+    "zod-to-json-schema": "^3.25.1",
+    "@workspace/agent-data-api-contract": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",
