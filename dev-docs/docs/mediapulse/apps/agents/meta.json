@@ -4,6 +4,10 @@
     "query-analysis",
     "analysis",
     "content-generation",
+    "content-generation-config-reference",
+    "content-generation-local-dev-credentials",
+    "content-generation-freshness",
+    "content-generation-runbook",
     "data-collection",
     "delivery",
     "generate-agent"

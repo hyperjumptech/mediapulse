@@ -6,6 +6,7 @@ import type { ResolvedContentGenerationConfig } from "./config-schema.js";
 import { formatNewsletterContent } from "./format-newsletter-content.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import { retryWithBackoff } from "./lib/retry.js";
+import { truncateSources } from "./lib/truncate-sources.js";
 import { newsletterStructureSchema } from "./parse-newsletter-json.js";
 
 /** A single data source passed as input to the LLM for newsletter generation. */
@@ -61,6 +62,10 @@ export type GenerateNewsletterObjectArgs = {
   maxRetries: number;
   /** Per-request timeout in milliseconds (passed to the AI SDK). */
   timeout?: number;
+  /** Sampling temperature (0.0 to 2.0) passed to `generateObject`. */
+  temperature?: number;
+  /** Maximum tokens to generate (passed to `generateObject`). */
+  maxTokens?: number;
 };
 
 /** Token usage extracted from a single `generateObject` response. */
@@ -117,12 +122,12 @@ export const SYSTEM_PROMPT = `You are a newsletter writer for busy executives. G
 Return a JSON object with:
 - "subject": a compelling email subject line (short, under ~60 chars).
 - "executiveSummary": 2–3 sentences summarizing the main themes and why they matter. No bullet points; use clear prose.
-- "topNews": an array of exactly 3 items. Each item has "title" (short headline) and "summary" (2–4 sentences). Pick the 3 most important or impactful stories. Keep summaries concise and actionable.`;
+- "topNews": an array of exactly {{topNewsCount}} items. Each item has "title" (short headline) and "summary" (2–4 sentences). Pick the {{topNewsCount}} most important or impactful stories. Keep summaries concise and actionable.`;
 
 /**
  * Default user prompt template used when no template is provided in config.
  */
-export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from these data sources. Include an executive summary and the top 3 news items with brief summaries.\n\n{{sourceSummaries}}`;
+export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from these data sources. Include an executive summary and the top {{topNewsCount}} news items with brief summaries.\n\n{{sourceSummaries}}`;
 
 /**
  * Builds the LLM user prompt from the list of data sources, substituting
@@ -132,6 +137,7 @@ export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from these data
  * - `{{sourceSummaries}}`: Concatenated list of article titles and content.
  * - `{{tickerId}}`: The identifier of the ticker being processed.
  * - `{{date}}`: The current ISO date (YYYY-MM-DD).
+ * - `{{topNewsCount}}`: The number of top news items to generate.
  *
  * Exported so callers can compute `promptHash` from the exact string passed to
  * the model after source substitution.
@@ -144,7 +150,7 @@ export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from these data
 export function buildUserPrompt(
   sources: SourceForGeneration[],
   template: string = DEFAULT_USER_PROMPT_TEMPLATE,
-  context: { tickerId: string; date: string },
+  context: { tickerId: string; date: string; topNewsCount: number },
 ): string {
   const sourceSummaries = sources
     .map(
@@ -155,7 +161,8 @@ export function buildUserPrompt(
   return template
     .replaceAll("{{sourceSummaries}}", sourceSummaries)
     .replaceAll("{{tickerId}}", context.tickerId)
-    .replaceAll("{{date}}", context.date);
+    .replaceAll("{{date}}", context.date)
+    .replaceAll("{{topNewsCount}}", String(context.topNewsCount));
 }
 
 /**
@@ -188,19 +195,42 @@ export async function generateNewsletterWithLlm(
 ): Promise<GeneratedContentWithProvenance> {
   const generateFn = deps.generateObjectFn ?? defaultGenerateNewsletterObject;
 
+  const topNewsCount = config.output?.topNewsCount ?? 3;
+
+  // Truncate sources per configurable character limits before building prompts
+  // (MP-CGA-004 / FR8). Sources are tail-truncated per-source, then overall
+  // total is capped by dropping the least-relevant sources from the end.
+  const maxCharsPerSource = config.context?.maxCharsPerSource ?? 8000;
+  const maxTotalContextChars = config.context?.maxTotalContextChars ?? 100000;
+  const truncatedSources = truncateSources(
+    sources,
+    maxCharsPerSource,
+    maxTotalContextChars,
+  );
+
   const openai = createOpenAI({
-    apiKey: config.openaiApiKey,
-    ...(config.openaiBaseUrl ? { baseURL: config.openaiBaseUrl } : {}),
+    apiKey: config.openai?.apiKey ?? config.openaiApiKey,
+    ...(config.openai?.baseUrl || config.openaiBaseUrl
+      ? { baseURL: config.openai?.baseUrl ?? config.openaiBaseUrl }
+      : {}),
   });
-  const model = openai(config.openaiModel ?? "gpt-4o-mini");
+  const model = openai(
+    config.openai?.model ?? config.openaiModel ?? "gpt-4o-mini",
+  );
 
   // Wire prompts from config with fallback to defaults (MP-CGA-003 / MP-CGA-008).
   const systemPrompt = config.prompts?.systemPrompt || SYSTEM_PROMPT;
   const userTemplate =
     config.prompts?.userPromptTemplate || DEFAULT_USER_PROMPT_TEMPLATE;
-  const prompt = buildUserPrompt(sources, userTemplate, context);
+  const prompt = buildUserPrompt(truncatedSources, userTemplate, {
+    tickerId: context.tickerId,
+    date: context.date,
+    topNewsCount,
+  });
 
   const timeout = config.openai?.timeoutMs;
+  const temperature = config.openai?.temperature;
+  const maxTokens = config.openai?.maxTokens;
 
   const result = await retryWithBackoff(
     () =>
@@ -211,6 +241,8 @@ export async function generateNewsletterWithLlm(
         prompt,
         maxRetries: 0,
         ...(timeout !== undefined ? { timeout } : {}),
+        ...(temperature !== undefined ? { temperature } : {}),
+        ...(maxTokens !== undefined ? { maxTokens } : {}),
       }),
     config.llmRetry,
     isRetryableLlmError,
@@ -219,11 +251,12 @@ export async function generateNewsletterWithLlm(
 
   const { object, usage } = result;
   const topNews = Array.isArray(object.topNews)
-    ? object.topNews.slice(0, 3)
+    ? object.topNews.slice(0, topNewsCount)
     : [];
   const content = formatNewsletterContent(
     object.executiveSummary ?? "",
     topNews,
+    topNewsCount,
   );
 
   return {

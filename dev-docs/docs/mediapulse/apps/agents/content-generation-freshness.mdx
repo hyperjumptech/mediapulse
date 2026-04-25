@@ -1,0 +1,67 @@
+---
+title: Content Generation Agent — Freshness Behavior
+description: Skip-if-fresh semantics for the content-generation agent, including calendar-day windows, timezone configuration, delivery-agent coordination, and the UTC vs freshness timezone distinction.
+icon: Calendar
+---
+
+## Overview
+
+The content-generation agent implements **skip-if-fresh** idempotency (MP-CGA-006). Before calling OpenAI, the agent checks whether a newsletter for the same ticker already exists within today's freshness window. If a fresh newsletter exists, the run is skipped — no OpenAI call, no new newsletter row.
+
+## Freshness window (`calendar_day`)
+
+The freshness window is defined by the `freshness.timezone` config field (default: `Asia/Jakarta`). The agent checks whether a newsletter row exists for `tickerId` where `createdAt` falls within today's **calendar day** (midnight-to-midnight) in that timezone.
+
+### When the agent skips
+
+- A `Newsletter` row for this ticker exists with `createdAt` falling within today's calendar day in `freshness.timezone`.
+- The agent returns outcome code `skipped_fresh_newsletter_exists`.
+- No OpenAI call is made.
+- No new newsletter row is written to the database.
+
+### When the agent generates
+
+- No newsletter row exists for today's calendar day.
+- The agent proceeds: fetch data sources → OpenAI call → validation → persist.
+- A new `Newsletter` row is created with provenance (model, agent version, config version, prompt hash, token counts).
+
+### Verifying a skip in diagnostics
+
+Check the diagnostics UI (Hermes Content Generation Runs table) for the run's outcome:
+- **Outcome code:** `skipped_fresh_newsletter_exists`
+- **Stage:** `precheck`
+- **Message:** Human-readable explanation confirming the skip
+
+## Delivery-agent coordination
+
+When the content-generation agent skips (no new newsletter row written), the downstream delivery agent will also skip — there is no newsletter to send. This is expected behavior. The delivery agent returns `skipped_no_newsletter` in its diagnostic records.
+
+Pipeline orchestration continues normally; the pipeline step is not failed.
+
+If an operator needs to force regeneration (e.g. prompts were updated), they must either:
+- Wait for the next calendar day (freshness window resets), or
+- Wait for phase-2 `forceRegenerate` support (not available in v1).
+
+## Source-selection timezone note
+
+There is an intentional difference between how sources and freshness calculate "today":
+
+| Concern | Timezone | Reason |
+|---|---|---|
+| **Source selection** (`getDataSourcesForTicker`) | UTC start-of-day | Ensures consistent data pipeline boundaries regardless of operator timezone. |
+| **Freshness window** (skip-if-fresh) | `freshness.timezone` calendar day | Reflects the subscriber's business day, making "today's newsletter" meaningful in the operator's local timezone. |
+
+**This is intentional in v1, not a bug.** The UTC window for source selection provides consistent data pipeline boundaries, while the freshness timezone lets operators reason about "today's newsletter" in their working hours.
+
+### Example
+
+For `freshness.timezone = "America/New_York"`:
+
+- A newsletter generated at **11 PM ET on Jan 1** counts as "Jan 1" for freshness (falls within the America/New_York calendar day of Jan 1).
+- Sources fetched at the same moment (11 PM ET = 4 AM UTC Jan 2) use **UTC midnight Jan 2** as the eligibility boundary, not the freshness timezone.
+
+## Related docs
+
+- [Config Reference](/mediapulse/apps/agents/content-generation-config-reference) — `freshness.*` fields and defaults.
+- [Content Generation Agent](/mediapulse/apps/agents/content-generation) — Purpose, features, error taxonomy.
+- [Operational Runbook](/mediapulse/apps/agents/content-generation-runbook) — Triage for `skipped_fresh_newsletter_exists` and other outcomes.

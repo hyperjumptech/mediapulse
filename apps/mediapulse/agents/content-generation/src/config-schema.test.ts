@@ -211,8 +211,7 @@ describe("ContentGenerationConfigSchema", () => {
     });
 
     expect(parsed.llmRetry?.maxAttempts).toBe(5);
-    // Other fields now have defaults in the schema
-    expect(parsed.llmRetry?.baseDelayMs).toBe(500);
+    expect(parsed.llmRetry?.baseDelayMs).toBeUndefined();
   });
 
   it("accepts openai.timeoutMs", () => {

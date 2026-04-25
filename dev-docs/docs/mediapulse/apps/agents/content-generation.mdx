@@ -18,6 +18,7 @@ The content-generation agent takes **selected data sources** (scored by the anal
 - **Retries persist** errors (agent-data-api 5xx, 429, network timeouts) using exponential backoff up to `persistRetry.maxAttempts` (default 2, no jitter). Non-retryable 4xx client errors fail fast without retrying.
 - **Stores** generated content via agent-data-api for the delivery agent.
 - **Skips** with a clear message and outcome code `no_sources` if no data sources are found.
+- **Skip-if-fresh** — Before calling OpenAI, checks whether a newsletter already exists for the ticker within today's freshness window (`freshness.timezone` calendar day). If fresh, the run is skipped with outcome code `skipped_fresh_newsletter_exists`. See [Freshness Behavior](/mediapulse/apps/agents/content-generation-freshness) for full semantics.
 
 ## Entrypoint
 
@@ -78,5 +79,9 @@ The `AgentRunResult` envelope returned to Hermes is unchanged: `{ success: false
 
 ## Related docs
 
+- [Config Reference](/mediapulse/apps/agents/content-generation-config-reference) — Full config schema with all fields, defaults, and validation constraints.
+- [Local Dev Credentials](/mediapulse/apps/agents/content-generation-local-dev-credentials) — Running the agent locally with an OpenAI key.
+- [Freshness Behavior](/mediapulse/apps/agents/content-generation-freshness) — Skip-if-fresh calendar-day semantics.
+- [Operational Runbook](/mediapulse/apps/agents/content-generation-runbook) — Triage guide for every outcome code.
 - [agent-data-api](/mediapulse/apps/agent-data-api) — Read/write content-generation data.
 - [Packages: agent-runtime](/hermes/packages/agent-runtime), [agent-types](/hermes/packages/agent-types).
