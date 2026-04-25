@@ -83,7 +83,6 @@ describe("expBackoffWithJitter", () => {
 describe("retryWithBackoff", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("returns result immediately when task succeeds on the first attempt", async () => {
