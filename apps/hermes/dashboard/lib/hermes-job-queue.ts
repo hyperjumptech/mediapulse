@@ -6,7 +6,7 @@ type DashboardJobPayloadMap = {
   execute_http_trigger: {
     httpTriggerExecutionId: string;
   };
-  /** Typed for queue control APIs; dashboard only enqueues `execute_http_trigger` today. */
+  /** Typed for queue control APIs; dashboard enqueues `execute_http_trigger` and manual `invoke_agent` runs. */
   invoke_agent: InvokeAgentJobPayload;
 };
 
@@ -23,7 +23,7 @@ export const getHermesJobQueue = (): ReturnType<
     const connectionString = env.PG_DATAQUEUE_DATABASE;
     if (!connectionString) {
       throw new Error(
-        "PG_DATAQUEUE_DATABASE is required to enqueue HTTP trigger runs.",
+        "PG_DATAQUEUE_DATABASE is required to enqueue DataQueue jobs (HTTP triggers and manual pipeline runs).",
       );
     }
     queue = initJobQueue<DashboardJobPayloadMap>({

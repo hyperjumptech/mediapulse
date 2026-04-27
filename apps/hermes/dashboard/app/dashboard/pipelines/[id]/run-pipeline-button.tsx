@@ -21,7 +21,7 @@ export type RunPipelineButtonProps = {
 };
 
 /**
- * Encapsulates run-pipeline form action and refresh-on-success.
+ * Encapsulates run-pipeline form action, refresh-on-success, and navigation guard while the action is pending.
  */
 const useRunPipelineButtonState = () => {
   const router = useRouter();
@@ -32,6 +32,18 @@ const useRunPipelineButtonState = () => {
       router.refresh();
     }
   }, [state, router]);
+
+  useEffect(() => {
+    if (!pending) {
+      return;
+    }
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [pending]);
 
   return { FormWithAction, state, pending };
 };
@@ -64,8 +76,16 @@ export const RunPipelineButton = ({
       : null;
   const runStatus =
     state && state.status === true && state.data
-      ? (state.data as { runStatus?: "succeeded" | "partial" | "failed" })
-          .runStatus
+      ? (
+          state.data as {
+            runStatus?:
+              | "running"
+              | "succeeded"
+              | "partial"
+              | "failed"
+              | "cancelled";
+          }
+        ).runStatus
       : null;
   const failedInvocationCount =
     state && state.status === true && state.data
@@ -104,26 +124,45 @@ export const RunPipelineButton = ({
       ) : null}
       {successInvocations !== null && successInvocations !== undefined ? (
         <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
-          <p className="text-sm text-muted-foreground">
-            Ran {successInvocations} invocation
-            {successInvocations !== 1 ? "s" : ""}.{" "}
-            <span className="text-foreground">
-              Status {runStatus ?? "unknown"}, {failedInvocationCount ?? 0}{" "}
-              failed.
-            </span>
-            {executionId ? (
-              <>
-                {" "}
-                <Link
-                  href={`/dashboard/pipelines/${pipelineId}/executions/${executionId}`}
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Open execution
-                </Link>
-                .
-              </>
-            ) : null}
-          </p>
+          {runStatus === "running" ? (
+            <p className="text-sm text-muted-foreground">
+              Queued {successInvocations} invocation
+              {successInvocations !== 1 ? "s" : ""} on the worker queue. Agents
+              run in the background; you can refresh this page safely.{" "}
+              {executionId ? (
+                <>
+                  <Link
+                    href={`/dashboard/pipelines/${pipelineId}/executions/${executionId}`}
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Open execution
+                  </Link>{" "}
+                  for live status.
+                </>
+              ) : null}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Ran {successInvocations} invocation
+              {successInvocations !== 1 ? "s" : ""}.{" "}
+              <span className="text-foreground">
+                Status {runStatus ?? "unknown"}, {failedInvocationCount ?? 0}{" "}
+                failed.
+              </span>
+              {executionId ? (
+                <>
+                  {" "}
+                  <Link
+                    href={`/dashboard/pipelines/${pipelineId}/executions/${executionId}`}
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Open execution
+                  </Link>
+                  .
+                </>
+              ) : null}
+            </p>
+          )}
         </div>
       ) : null}
     </div>

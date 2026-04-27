@@ -36,6 +36,18 @@ describe("applyHermesInvokeCorrelationHeaders", () => {
     expect(headers["X-Schedule-Execution-Id"]).toBeUndefined();
     expect(headers["X-Pipeline-Step-Id"]).toBeUndefined();
   });
+
+  it("adds X-Manual-Execution-Id when manualExecutionId is set", () => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    applyHermesInvokeCorrelationHeaders(headers, {
+      manualExecutionId: "  manual-exec-1  ",
+      pipelineStepId: "step-1",
+    });
+    expect(headers["X-Manual-Execution-Id"]).toBe("manual-exec-1");
+    expect(headers["X-Schedule-Id"]).toBeUndefined();
+  });
 });
 
 describe("invokeAgentPost", () => {

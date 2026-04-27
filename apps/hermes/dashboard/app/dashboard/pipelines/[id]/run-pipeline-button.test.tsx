@@ -34,7 +34,7 @@ const createMockUseFormAction = (overrides?: {
     data?: {
       invocationsRun?: number;
       executionId?: string;
-      runStatus?: "succeeded" | "partial" | "failed";
+      runStatus?: "running" | "succeeded" | "partial" | "failed" | "cancelled";
       failedInvocationCount?: number;
     };
   } | null;
@@ -225,6 +225,35 @@ describe("RunPipelineButton", () => {
     ).toHaveAttribute(
       "href",
       "/dashboard/pipelines/pipeline-123/executions/00000000-0000-4000-8000-000000000001",
+    );
+  });
+
+  it("shows queued message when runStatus is running", async () => {
+    const mock = await getUseFormActionMock();
+    mock.mockReturnValue(
+      createMockUseFormAction({
+        state: {
+          status: true,
+          data: {
+            invocationsRun: 2,
+            runStatus: "running",
+            failedInvocationCount: 0,
+            executionId: "00000000-0000-4000-8000-000000000002",
+          },
+        },
+      }),
+    );
+
+    render(<RunPipelineButton pipelineId="pipeline-123" />);
+
+    expect(
+      screen.getByText(/Queued 2 invocations on the worker queue/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open execution" }),
+    ).toHaveAttribute(
+      "href",
+      "/dashboard/pipelines/pipeline-123/executions/00000000-0000-4000-8000-000000000002",
     );
   });
 

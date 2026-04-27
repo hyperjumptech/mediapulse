@@ -47,6 +47,8 @@ export type InvokeAgentPostOptions = {
   scheduleId?: string;
   /** When set, sent as `X-Schedule-Execution-Id`. */
   scheduleExecutionId?: string;
+  /** When set, sent as `X-Manual-Execution-Id` (dashboard manual pipeline runs). */
+  manualExecutionId?: string;
   /** When set, sent as `X-Pipeline-Step-Id`. */
   pipelineStepId?: string;
   authToken?: string;
@@ -64,7 +66,10 @@ export function applyHermesInvokeCorrelationHeaders(
   headers: Record<string, string>,
   options: Pick<
     InvokeAgentPostOptions,
-    "scheduleId" | "scheduleExecutionId" | "pipelineStepId"
+    | "scheduleId"
+    | "scheduleExecutionId"
+    | "manualExecutionId"
+    | "pipelineStepId"
   >,
 ): void {
   const scheduleId = options.scheduleId?.trim();
@@ -74,6 +79,10 @@ export function applyHermesInvokeCorrelationHeaders(
   const scheduleExecutionId = options.scheduleExecutionId?.trim();
   if (scheduleExecutionId) {
     headers["X-Schedule-Execution-Id"] = scheduleExecutionId;
+  }
+  const manualExecutionId = options.manualExecutionId?.trim();
+  if (manualExecutionId) {
+    headers["X-Manual-Execution-Id"] = manualExecutionId;
   }
   const pipelineStepId = options.pipelineStepId?.trim();
   if (pipelineStepId) {

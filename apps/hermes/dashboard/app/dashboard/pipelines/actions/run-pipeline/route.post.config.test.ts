@@ -39,23 +39,30 @@ const request = (body: { pipelineId: string }) =>
     user: mockDashboardUser,
   }) as never;
 
-const createExecutionPersistenceStubs = () => ({
-  manualPipelineExecution: {
-    create: vi.fn().mockResolvedValue({ id: "manual-exec-1" }),
-    findUnique: vi.fn().mockResolvedValue({ cancelledAt: null }),
-    update: vi.fn().mockResolvedValue(undefined),
-  },
-  manualPipelineStepExecution: {
-    create: vi.fn().mockResolvedValue(undefined),
-    update: vi.fn().mockResolvedValue(undefined),
-  },
-  agentJobExecution: {
-    create: vi.fn().mockResolvedValue(undefined),
-    update: vi.fn().mockResolvedValue(undefined),
-    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-    count: vi.fn().mockResolvedValue(0),
-  },
-});
+const createExecutionPersistenceStubs = () => {
+  const stubs = {
+    manualPipelineExecution: {
+      create: vi.fn().mockResolvedValue({ id: "manual-exec-1" }),
+      findUnique: vi.fn().mockResolvedValue({ cancelledAt: null }),
+      update: vi.fn().mockResolvedValue(undefined),
+    },
+    manualPipelineStepExecution: {
+      create: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue(undefined),
+    },
+    agentJobExecution: {
+      create: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue(undefined),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      count: vi.fn().mockResolvedValue(0),
+    },
+    $transaction: vi.fn(),
+  };
+  stubs.$transaction.mockImplementation(
+    async (fn: (tx: typeof stubs) => Promise<unknown>) => fn(stubs),
+  );
+  return stubs;
+};
 
 const createPipelineWithSteps = () => ({
   id: "p-1",
@@ -134,7 +141,6 @@ describe("createRunPipelineHandler", () => {
   it("returns error when pipeline is missing", async () => {
     const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
       db: {
         ...createExecutionPersistenceStubs(),
         pipeline: { findUnique: vi.fn().mockResolvedValue(null) },
@@ -157,7 +163,6 @@ describe("createRunPipelineHandler", () => {
   it("returns error and logs when an unexpected error is thrown", async () => {
     const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
       db: {
         ...createExecutionPersistenceStubs(),
         pipeline: {
@@ -185,7 +190,6 @@ describe("createRunPipelineHandler", () => {
   it("returns failed run with 0 invocations when planning yields no jobs", async () => {
     const stubs = createExecutionPersistenceStubs();
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
       expandStepInputs: async () => [],
       db: {
         ...stubs,
@@ -256,7 +260,6 @@ describe("createRunPipelineHandler", () => {
     mockXRequestId = "dashboard-run-req-7";
     const stubs = createExecutionPersistenceStubs();
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
       expandStepInputs: async () => [],
       db: {
         ...stubs,
@@ -296,20 +299,11 @@ describe("createRunPipelineHandler", () => {
     ).toEqual({ requestId: "dashboard-run-req-7" });
   });
 
-  it("runs one planned invocation and returns invocationsRun", async () => {
-    const postMock = vi.fn().mockResolvedValue({
-      ok: true,
-      statusCode: 200,
-      body: {
-        schemaVersion: 1,
-        status: "success",
-        details: { ok: true },
-      },
-    });
+  it("enqueues one invoke_agent job and returns running status", async () => {
+    const enqueueMock = vi.fn().mockResolvedValue(undefined);
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
       expandStepInputs: async (ctx) => [ctx.input],
-      post: postMock as never,
+      enqueueManualAgentInvocations: enqueueMock,
       db: {
         ...createExecutionPersistenceStubs(),
         pipeline: {
@@ -346,32 +340,29 @@ describe("createRunPipelineHandler", () => {
       data: {
         ok: true,
         invocationsRun: 1,
-        runStatus: "succeeded",
+        runStatus: "running",
         failedInvocationCount: 0,
       },
     });
-    expect(postMock).toHaveBeenCalledWith(
-      "https://agent.example/run",
-      expect.objectContaining({
-        json: { input: { id: "single-id" }, config: {} },
-        throwHttpErrors: false,
-      }),
-    );
+    expect(enqueueMock).toHaveBeenCalledTimes(1);
+    const batch = enqueueMock.mock.calls[0]?.[0] as Array<{
+      payload: { endpointUrl: string; manualExecutionId: string };
+    }>;
+    expect(batch).toHaveLength(1);
+    expect(batch[0]?.payload.endpointUrl).toBe("https://agent.example/run");
+    expect(batch[0]?.payload.manualExecutionId).toBe("manual-exec-1");
   });
 
-  it("returns success with failedInvocationCount when invocation fails", async () => {
-    const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const postMock = vi.fn().mockResolvedValue({
-      ok: false,
-      statusCode: 400,
-      body: { message: "bad input" },
-    });
+  it("returns failed when DataQueue enqueue throws", async () => {
+    const enqueueMock = vi
+      .fn()
+      .mockRejectedValue(new Error("queue connection refused"));
+    const stubs = createExecutionPersistenceStubs();
     const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
       expandStepInputs: async (ctx) => [ctx.input],
-      post: postMock as never,
+      enqueueManualAgentInvocations: enqueueMock,
       db: {
-        ...createExecutionPersistenceStubs(),
+        ...stubs,
         pipeline: {
           findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
         },
@@ -405,88 +396,12 @@ describe("createRunPipelineHandler", () => {
     expect(result).toMatchObject({
       data: {
         ok: true,
-        invocationsRun: 1,
+        invocationsRun: 0,
         runStatus: "failed",
-        failedInvocationCount: 1,
+        failedInvocationCount: 0,
       },
     });
-    expect(logSpy).toHaveBeenCalledWith(
-      "[hermes-dashboard:run-pipeline]",
-      "Agent HTTP response was not OK",
-      expect.objectContaining({
-        phase: "agent-http",
-        pipelineId: "p-1",
-        detail: "bad input",
-        statusCode: 400,
-      }),
-    );
-    logSpy.mockRestore();
-  });
-
-  it("treats HTTP 200 with envelope status failure as a failed invocation", async () => {
-    const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const postMock = vi.fn().mockResolvedValue({
-      ok: true,
-      statusCode: 200,
-      body: {
-        schemaVersion: 1,
-        status: "failure",
-        message: "No rows collected",
-      },
-    });
-    const handler = createRunPipelineHandler({
-      getToken: async () => "jwt",
-      expandStepInputs: async (ctx) => [ctx.input],
-      post: postMock as never,
-      db: {
-        ...createExecutionPersistenceStubs(),
-        pipeline: {
-          findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
-        },
-        variable: { findMany: vi.fn().mockResolvedValue([]) },
-        agentRegistry: {
-          findFirst: vi.fn().mockResolvedValue({
-            agentId: "ag1",
-            agentVersion: "1.0.0",
-            endpoint: { url: "https://agent.example/run", method: "POST" },
-            inputSchema: null,
-            configSchema: null,
-            isActive: true,
-          }),
-          findMany: vi.fn().mockResolvedValue([
-            {
-              agentId: "ag1",
-              agentVersion: "1.0.0",
-              endpoint: { url: "https://agent.example/run", method: "POST" },
-              inputSchema: null,
-              configSchema: null,
-              isActive: true,
-            },
-          ]),
-        },
-        agentConfig: { findFirst: vi.fn().mockResolvedValue(null) },
-      } as never,
-    });
-
-    const result = await handler(request({ pipelineId: "p-1" }));
-    expect(result.status).toBe(true);
-    expect(result).toMatchObject({
-      data: {
-        ok: true,
-        invocationsRun: 1,
-        runStatus: "failed",
-        failedInvocationCount: 1,
-      },
-    });
-    expect(logSpy).toHaveBeenCalledWith(
-      "[hermes-dashboard:run-pipeline]",
-      "Agent returned HTTP 200 with envelope status failure",
-      expect.objectContaining({
-        phase: "agent-semantic",
-        pipelineId: "p-1",
-        detail: "No rows collected",
-      }),
-    );
-    logSpy.mockRestore();
+    expect(stubs.agentJobExecution.update).toHaveBeenCalled();
+    expect(stubs.manualPipelineExecution.update).toHaveBeenCalled();
   });
 });

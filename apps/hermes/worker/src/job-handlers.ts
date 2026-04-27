@@ -173,6 +173,7 @@ const handleTransientInvokeFailure = async (params: {
         jobId: payload.jobId,
         scheduleExecutionId: payload.scheduleExecutionId,
         httpTriggerExecutionId: payload.httpTriggerExecutionId,
+        manualExecutionId: payload.manualExecutionId,
         pipelineStepId: payload.pipelineStepId,
         terminal: {
           status: AgentJobExecutionStatus.failed,
@@ -384,7 +385,11 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       }
     }
 
-    if (!payload.scheduleExecutionId && !payload.httpTriggerExecutionId) {
+    const hasParentExecution =
+      Boolean(payload.scheduleExecutionId) ||
+      Boolean(payload.httpTriggerExecutionId) ||
+      Boolean(payload.manualExecutionId);
+    if (!hasParentExecution) {
       logger.error(
         { jobId: payload.jobId },
         "invoke_agent missing execution id on payload",
@@ -395,7 +400,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           status: AgentJobExecutionStatus.failed,
           error: {
             message:
-              "Missing scheduleExecutionId/httpTriggerExecutionId on job payload",
+              "Missing scheduleExecutionId/httpTriggerExecutionId/manualExecutionId on job payload",
             retryable: false,
           },
           completedAt: new Date(),
@@ -409,10 +414,15 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           where: { id: payload.scheduleExecutionId },
           select: { cancelledAt: true },
         })
-      : await orchestrationPrisma.httpTriggerExecution.findUnique({
-          where: { id: payload.httpTriggerExecutionId! },
-          select: { cancelledAt: true },
-        });
+      : payload.httpTriggerExecutionId
+        ? await orchestrationPrisma.httpTriggerExecution.findUnique({
+            where: { id: payload.httpTriggerExecutionId },
+            select: { cancelledAt: true },
+          })
+        : await orchestrationPrisma.manualPipelineExecution.findUnique({
+            where: { id: payload.manualExecutionId! },
+            select: { cancelledAt: true },
+          });
 
     if (parentExecution?.cancelledAt) {
       await applyInvocationCompletion(
@@ -420,6 +430,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           jobId: payload.jobId,
           scheduleExecutionId: payload.scheduleExecutionId,
           httpTriggerExecutionId: payload.httpTriggerExecutionId,
+          manualExecutionId: payload.manualExecutionId,
           pipelineStepId: payload.pipelineStepId,
           terminal: {
             status: AgentJobExecutionStatus.cancelled,
@@ -449,6 +460,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
         scheduleId: payload.scheduleId ?? payload.httpTriggerId,
         scheduleExecutionId:
           payload.scheduleExecutionId ?? payload.httpTriggerExecutionId,
+        manualExecutionId: payload.manualExecutionId,
         pipelineStepId: payload.pipelineStepId,
         authToken,
         timeoutMs: payload.timeoutMs,
@@ -468,6 +480,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             jobId: payload.jobId,
             scheduleExecutionId: payload.scheduleExecutionId,
             httpTriggerExecutionId: payload.httpTriggerExecutionId,
+            manualExecutionId: payload.manualExecutionId,
             pipelineStepId: payload.pipelineStepId,
             terminal: {
               status: AgentJobExecutionStatus.cancelled,
@@ -503,6 +516,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             jobId: payload.jobId,
             scheduleExecutionId: payload.scheduleExecutionId,
             httpTriggerExecutionId: payload.httpTriggerExecutionId,
+            manualExecutionId: payload.manualExecutionId,
             pipelineStepId: payload.pipelineStepId,
             terminal: {
               status: AgentJobExecutionStatus.cancelled,
@@ -538,6 +552,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             jobId: payload.jobId,
             scheduleExecutionId: payload.scheduleExecutionId,
             httpTriggerExecutionId: payload.httpTriggerExecutionId,
+            manualExecutionId: payload.manualExecutionId,
             pipelineStepId: payload.pipelineStepId,
             terminal: {
               status: AgentJobExecutionStatus.failed,
@@ -560,6 +575,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
               jobId: payload.jobId,
               scheduleExecutionId: payload.scheduleExecutionId,
               httpTriggerExecutionId: payload.httpTriggerExecutionId,
+              manualExecutionId: payload.manualExecutionId,
               pipelineStepId: payload.pipelineStepId,
               terminal: {
                 status: AgentJobExecutionStatus.failed,
@@ -580,6 +596,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
               jobId: payload.jobId,
               scheduleExecutionId: payload.scheduleExecutionId,
               httpTriggerExecutionId: payload.httpTriggerExecutionId,
+              manualExecutionId: payload.manualExecutionId,
               pipelineStepId: payload.pipelineStepId,
               terminal: {
                 status: AgentJobExecutionStatus.failed,
@@ -604,6 +621,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             jobId: payload.jobId,
             scheduleExecutionId: payload.scheduleExecutionId,
             httpTriggerExecutionId: payload.httpTriggerExecutionId,
+            manualExecutionId: payload.manualExecutionId,
             pipelineStepId: payload.pipelineStepId,
             terminal: {
               status: AgentJobExecutionStatus.completed,
@@ -620,6 +638,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           jobId: payload.jobId,
           scheduleExecutionId: payload.scheduleExecutionId,
           httpTriggerExecutionId: payload.httpTriggerExecutionId,
+          manualExecutionId: payload.manualExecutionId,
           pipelineStepId: payload.pipelineStepId,
           terminal: {
             status: AgentJobExecutionStatus.failed,
