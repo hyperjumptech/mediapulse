@@ -206,5 +206,19 @@ export async function deliverNewsletterToSubscribers(
     }
   }
 
+  const successCount = results.filter((r) => r.status === "success").length;
+  const failedCount = results.filter((r) => r.status === "failed").length;
+  const skippedCount = results.filter((r) => r.status === "skipped").length;
+  logger?.info?.(
+    {
+      newsletterId: newsletter.id,
+      successCount,
+      failedCount,
+      skippedCount,
+      totalRecipients: results.length,
+    },
+    "delivery recipient batch summary",
+  );
+
   return { results, resendMessageIds };
 }

@@ -1,6 +1,22 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const hoistedLogger = vi.hoisted(() => ({
+  info: vi.fn(),
+  error: vi.fn(),
+}));
+
+vi.mock("@workspace/logger", () => ({
+  logger: {
+    ...hoistedLogger,
+    warn: vi.fn(),
+    debug: vi.fn(),
+    trace: vi.fn(),
+    fatal: vi.fn(),
+    child: vi.fn().mockReturnThis(),
+  },
+}));
+
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 /** Non-UUID id (Hermes-style test id or slug). */
 const NON_UUID_TICKER_ID = "tid-non-uuid-1";
@@ -107,6 +123,28 @@ describe("delivery-agent", () => {
     expect(body.details?.outcome).toBe("success");
     expect(got.get).toHaveBeenCalled();
     expect(deliver).toHaveBeenCalled();
+    expect(hoistedLogger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tickerId: TICKER_ID,
+        hasNewsletter: true,
+        newsletterId: NL_ID,
+        subscriberCount: 1,
+        checkpointCount: 0,
+        pendingRecipientCount: 1,
+      }),
+      "delivery data-api fetch summary",
+    );
+    expect(hoistedLogger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tickerId: TICKER_ID,
+        newsletterId: NL_ID,
+        runOutcome: "success",
+        successCount: 1,
+        failureCount: 0,
+        skippedCount: 0,
+      }),
+      "delivery run outcome",
+    );
   }, 20_000);
 
   it("returns 200 skip when no newsletter with non-UUID tickerId", async () => {
@@ -141,6 +179,23 @@ describe("delivery-agent", () => {
     const body = (await res.json()) as { status: string; message?: string };
     expect(body.status).toBe("success");
     expect(body.message).toContain("Skipped");
+    expect(hoistedLogger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tickerId: NON_UUID_TICKER_ID,
+        hasNewsletter: false,
+        subscriberCount: 0,
+        checkpointCount: 0,
+        pendingRecipientCount: 0,
+      }),
+      "delivery data-api fetch summary",
+    );
+    expect(hoistedLogger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tickerId: NON_UUID_TICKER_ID,
+        runSkipReason: "skipped_no_newsletter",
+      }),
+      "delivery run skipped",
+    );
   }, 20_000);
 
   it("returns 200 skip when no newsletter with db: expansion tickerId", async () => {
@@ -226,6 +281,26 @@ describe("delivery-agent", () => {
     expect(body.status).toBe("success");
     expect(body.details?.outcome).toBe("skipped_all_already_delivered");
     expect(body.message).toContain("already delivered");
+    expect(hoistedLogger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tickerId: TICKER_ID,
+        hasNewsletter: true,
+        newsletterId: NL_ID,
+        subscriberCount: 1,
+        checkpointCount: 1,
+        pendingRecipientCount: 0,
+      }),
+      "delivery data-api fetch summary",
+    );
+    expect(hoistedLogger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runOutcome: "skipped_all_already_delivered",
+        successCount: 0,
+        failureCount: 0,
+        skippedCount: 1,
+      }),
+      "delivery run outcome",
+    );
   });
 
   it("returns 400 when tickerId is only whitespace", async () => {

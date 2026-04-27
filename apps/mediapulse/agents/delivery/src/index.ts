@@ -75,6 +75,24 @@ function aggregateOutcome(results: RecipientSendResult[]): DeliveryRunOutcome {
   return "success";
 }
 
+/**
+ * Counts subscribers not yet covered by a delivery checkpoint for this newsletter.
+ *
+ * @param subscribers - Rows from the delivery data API (enabled subscribers with email).
+ * @param deliveredUserTickerIds - User-ticker ids already checkpointed for this newsletter.
+ * @returns How many subscribers are still candidates for a Resend attempt this run.
+ */
+function pendingRecipientCount(
+  subscribers: ReadonlyArray<{ userTickerId: string }>,
+  deliveredUserTickerIds: readonly string[],
+): number {
+  const delivered = new Set(deliveredUserTickerIds);
+  return subscribers.reduce(
+    (n, s) => n + (delivered.has(s.userTickerId) ? 0 : 1),
+    0,
+  );
+}
+
 const app = createAgentApp<
   Input,
   typeof BodySchema,
@@ -111,13 +129,38 @@ const app = createAgentApp<
         const deliveryData = await dataApiClient.delivery.get({
           tickerId: input.tickerId,
         });
+        const fetchMs = Date.now() - fetchStarted;
+        const subscriberCount = deliveryData.subscribers.length;
+        const checkpointCount = deliveryData.deliveredUserTickerIds.length;
+        const pendingRecipients = pendingRecipientCount(
+          deliveryData.subscribers,
+          deliveryData.deliveredUserTickerIds,
+        );
         logger.info(
-          { ms: Date.now() - fetchStarted, tickerId: input.tickerId },
-          "delivery data-api fetch timing",
+          {
+            tickerId: input.tickerId,
+            fetchMs,
+            hasNewsletter: deliveryData.newsletter != null,
+            ...(deliveryData.newsletter != null
+              ? { newsletterId: deliveryData.newsletter.id }
+              : {}),
+            subscriberCount,
+            checkpointCount,
+            pendingRecipientCount: pendingRecipients,
+          },
+          "delivery data-api fetch summary",
         );
 
         if (!deliveryData.newsletter) {
           runOutcome = "skipped";
+          logger.info(
+            {
+              tickerId: input.tickerId,
+              runId,
+              runSkipReason: "skipped_no_newsletter",
+            },
+            "delivery run skipped",
+          );
           await dataApiClient.deliveryRun.create({
             id: runId,
             agentId: "delivery",
@@ -147,6 +190,15 @@ const app = createAgentApp<
 
         if (deliveryData.subscribers.length === 0) {
           runOutcome = "skipped";
+          logger.info(
+            {
+              tickerId: input.tickerId,
+              runId,
+              newsletterId,
+              runSkipReason: "skipped_no_subscribers",
+            },
+            "delivery run skipped",
+          );
           await dataApiClient.deliveryRun.create({
             id: runId,
             agentId: "delivery",
@@ -238,6 +290,19 @@ const app = createAgentApp<
             resendEmailId: r.resendEmailId ?? null,
           })),
         });
+
+        logger.info(
+          {
+            tickerId: input.tickerId,
+            runId,
+            newsletterId,
+            runOutcome,
+            successCount,
+            failureCount,
+            skippedCount,
+          },
+          "delivery run outcome",
+        );
 
         if (runOutcome === "failed") {
           return {
