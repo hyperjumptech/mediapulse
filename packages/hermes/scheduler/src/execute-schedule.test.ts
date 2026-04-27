@@ -24,6 +24,7 @@ const createMockSchedule = (overrides?: Partial<DueSchedule>): DueSchedule =>
       id: "p1",
       name: "Pipeline 1",
       description: null,
+      timeout: null,
       isActive: true,
       domainIntegrationId: "di-1",
       executionConfig: null,
@@ -127,6 +128,7 @@ describe("executeSchedule", () => {
         domainIntegrationId: "di-1",
         name: "p1",
         description: null,
+        timeout: null,
         isActive: true,
         executionConfig: null,
         createdById: null,
@@ -174,6 +176,54 @@ describe("executeSchedule", () => {
     expect(p!.scheduleExecutionId).toBe("se-1");
   });
 
+  it("uses pipeline.timeout for invoke_agent payload when set", async () => {
+    const now = new Date();
+    const schedule = createMockSchedule({
+      pipeline: {
+        id: "p1",
+        domainIntegrationId: "di-1",
+        name: "p1",
+        description: null,
+        timeout: 60_000,
+        isActive: true,
+        executionConfig: null,
+        createdById: null,
+        createdAt: now,
+        updatedAt: now,
+        steps: [
+          {
+            id: "step1",
+            order: 0,
+            agentId: "agent-a",
+            agentVersion: "1.0.0",
+            pipelineId: "p1",
+            input: {},
+            config: {},
+            createdById: null,
+            createdAt: now,
+            updatedAt: now,
+            agentConfigId: null,
+            agentConfig: null,
+          } as DueSchedule["pipeline"]["steps"][number],
+        ],
+      },
+    });
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+    const deps: ExecuteScheduleDeps = {
+      db: createMockDb() as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations,
+      defaultTimeoutMs: 300_000,
+    };
+
+    await executeSchedule(schedule, deps);
+
+    const [items] = enqueueAgentInvocations.mock.calls[0] as [
+      EnqueueInvokeAgentItem[],
+    ];
+    expect(items[0]?.payload.timeoutMs).toBe(60_000);
+  });
+
   it("substitutes {{VAR_KEY}} in step input and config and enqueues with resolved values", async () => {
     const now = new Date();
     const schedule = createMockSchedule({
@@ -182,6 +232,7 @@ describe("executeSchedule", () => {
         domainIntegrationId: "di-1",
         name: "p1",
         description: null,
+        timeout: null,
         isActive: true,
         executionConfig: null,
         createdById: null,
@@ -402,6 +453,7 @@ describe("executeSchedule", () => {
         domainIntegrationId: "di-1",
         name: "p1",
         description: null,
+        timeout: null,
         isActive: true,
         executionConfig: null,
         createdById: null,

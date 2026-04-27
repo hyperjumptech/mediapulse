@@ -104,6 +104,26 @@ describe("RunPipelineButton", () => {
     expect(hiddenInput).toHaveValue("pipeline-123");
   });
 
+  it("merges className onto the outer wrapper", async () => {
+    // Setup
+    const mock = await getUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+
+    // Act
+    render(
+      <RunPipelineButton
+        pipelineId="pipeline-123"
+        className="toolbar-run-cluster"
+      />,
+    );
+
+    // Assert
+    const form = screen.getByTestId("run-pipeline-form");
+    const outer = form.parentElement?.parentElement;
+    expect(outer).toBeTruthy();
+    expect(outer).toHaveClass("toolbar-run-cluster", "w-full", "min-w-0");
+  });
+
   it("shows Running label when pending", async () => {
     // Setup
     const mock = await getUseFormActionMock();

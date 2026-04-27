@@ -10,6 +10,8 @@ export type PipelineForEdit = {
   name: string;
   description: string | null;
   isActive: boolean;
+  /** Per-agent HTTP request timeout in ms; null uses Hermes default (5 minutes). */
+  timeout: number | null;
 };
 
 /**
@@ -29,5 +31,6 @@ export const getPipelineForEdit = async (
     name: pipeline.name,
     description: pipeline.description,
     isActive: pipeline.isActive,
+    timeout: pipeline.timeout,
   };
 };

@@ -165,6 +165,7 @@ const createMockPipelines = () => [
     name: "Pipeline A",
     description: null,
     isActive: true,
+    timeout: null,
     executionConfig: null,
     createdById: null,
     createdBy: null,
@@ -178,6 +179,7 @@ const createMockPipelines = () => [
     name: "Pipeline B",
     description: null,
     isActive: true,
+    timeout: null,
     executionConfig: null,
     createdById: null,
     createdBy: null,
@@ -358,54 +360,6 @@ describe("ScheduleFormFields", () => {
 
     // Assert
     expect(screen.getByLabelText(/Priority/)).toBeInTheDocument();
-  });
-
-  it("renders timeout input with provided default milliseconds value", () => {
-    // Act
-    const { container } = render(
-      <ScheduleFormFields
-        pending={false}
-        errorMessage={null}
-        submitLabel="Create"
-        pipelines={createMockPipelines()}
-        defaultName=""
-        defaultDescription=""
-        defaultRepeat="repeating"
-        defaultTimezone="UTC"
-        defaultPipelineId=""
-        defaultPriority={0}
-        defaultTimeout={900000}
-        defaultEnabled={true}
-      />,
-    );
-
-    // Assert
-    const timeoutInput = container.querySelector('input[name="body.timeout"]');
-    expect(timeoutInput).toHaveValue(900000);
-  });
-
-  it("renders timeout input empty when default timeout is missing", () => {
-    // Act
-    const { container } = render(
-      <ScheduleFormFields
-        pending={false}
-        errorMessage={null}
-        submitLabel="Create"
-        pipelines={createMockPipelines()}
-        defaultName=""
-        defaultDescription=""
-        defaultRepeat="repeating"
-        defaultTimezone="UTC"
-        defaultPipelineId=""
-        defaultPriority={0}
-        defaultTimeout={null}
-        defaultEnabled={true}
-      />,
-    );
-
-    // Assert
-    const timeoutInput = container.querySelector('input[name="body.timeout"]');
-    expect(timeoutInput).toHaveValue(null);
   });
 
   it("renders Enabled checkbox", () => {

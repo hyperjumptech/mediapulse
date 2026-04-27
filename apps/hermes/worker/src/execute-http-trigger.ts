@@ -161,7 +161,7 @@ export const executeHttpTrigger = async (
           agentVersion: job.agentVersion,
           endpointUrl: job.endpointUrl,
           body: { input: job.input, config: job.config },
-          timeoutMs: defaultTimeoutMs,
+          timeoutMs: pipeline.timeout ?? defaultTimeoutMs,
           priority: 0,
         },
         dependsOnBatchIndices: useSequentialDeps

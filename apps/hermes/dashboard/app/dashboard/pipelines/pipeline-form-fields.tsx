@@ -5,6 +5,7 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
+import { usePipelineTimeoutInputDefaultValue } from "@/hooks/use-pipeline-timeout-input-default-value";
 
 export type PipelineFormFieldsProps = {
   /** Name prefix for form fields, e.g. "body" for body.name */
@@ -15,12 +16,14 @@ export type PipelineFormFieldsProps = {
   defaultName: string;
   defaultDescription: string;
   defaultIsActive: boolean;
+  /** Per-agent invocation timeout in milliseconds. Omit for Hermes default (5 minutes). */
+  defaultTimeoutMs?: number;
   /** When set, renders hidden pipelineId for update action */
   pipelineId?: string;
 };
 
 /**
- * Shared pipeline form fields: name, description, isActive.
+ * Shared pipeline form fields: name, description, optional agent request timeout, isActive.
  * Used by both create and edit modals to avoid duplication.
  */
 export const PipelineFormFields = ({
@@ -31,9 +34,12 @@ export const PipelineFormFields = ({
   defaultName,
   defaultDescription,
   defaultIsActive,
+  defaultTimeoutMs,
   pipelineId,
 }: PipelineFormFieldsProps) => {
   const pre = namePrefix ? `${namePrefix}.` : "";
+  const timeoutInputDefaultValue =
+    usePipelineTimeoutInputDefaultValue(defaultTimeoutMs);
 
   return (
     <>
@@ -67,6 +73,22 @@ export const PipelineFormFields = ({
           defaultValue={defaultDescription}
           disabled={pending}
         />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor={`${pre}timeout`}>Agent request timeout (ms)</Label>
+        <Input
+          id={`${pre}timeout`}
+          name={`${pre}timeout`}
+          type="number"
+          min={1}
+          defaultValue={timeoutInputDefaultValue}
+          placeholder="e.g. 900000"
+          disabled={pending}
+        />
+        <p className="text-xs text-muted-foreground">
+          Optional per-agent request timeout in milliseconds. Leave empty to use
+          the default 5 minutes (300000). Example: 900000 = 15 minutes.
+        </p>
       </div>
       <FormBooleanCheckboxField
         name={`${pre}isActive`}

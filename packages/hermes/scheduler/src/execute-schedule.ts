@@ -227,7 +227,7 @@ export const executeSchedule = async (
           agentVersion: job.agentVersion,
           endpointUrl: job.endpointUrl,
           body: { input: job.input, config: job.config },
-          timeoutMs: schedule.timeout ?? defaultTimeoutMs,
+          timeoutMs: schedule.pipeline.timeout ?? defaultTimeoutMs,
           priority: schedule.priority,
         },
         dependsOnBatchIndices: useSequentialDeps

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 import { Button } from "@workspace/ui/components/button";
+import { cn } from "@workspace/ui/lib/utils";
 import { Play } from "lucide-react";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/run-pipeline/.generated/use-form-action";
@@ -15,6 +16,8 @@ export type RunPipelineButtonProps = {
   disabled?: boolean;
   /** Renders after the Run control on the same row (e.g. Save). */
   trailingActions?: ReactNode;
+  /** Merged into the outer wrapper (e.g. `lg:w-auto` for toolbar alignment). */
+  className?: string;
 };
 
 /**
@@ -36,11 +39,17 @@ const useRunPipelineButtonState = () => {
 /**
  * Button that runs the pipeline and shows manual execution result metadata.
  * Disabled when pipeline is invalid so admin must complete step input/config first.
+ *
+ * @param pipelineId - Pipeline id posted as `body.pipelineId`.
+ * @param disabled - When true, disables the Run control.
+ * @param trailingActions - Renders after the Run button on the same row (e.g. Save, Edit).
+ * @param className - Optional extra classes for the outer wrapper.
  */
 export const RunPipelineButton = ({
   pipelineId,
   disabled = false,
   trailingActions = null,
+  className,
 }: RunPipelineButtonProps) => {
   const { FormWithAction, state, pending } = useRunPipelineButtonState();
 
@@ -65,7 +74,7 @@ export const RunPipelineButton = ({
   const isDisabled = disabled || pending;
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-3">
+    <div className={cn("flex w-full min-w-0 flex-col gap-3", className)}>
       <div className="flex flex-wrap items-center gap-2">
         <FormWithAction>
           <input

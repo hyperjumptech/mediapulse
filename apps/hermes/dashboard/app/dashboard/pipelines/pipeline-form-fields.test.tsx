@@ -221,4 +221,38 @@ describe("PipelineFormFields", () => {
       container.querySelector('input[name="custom.description"]'),
     ).toBeInTheDocument();
   });
+
+  it("renders Agent request timeout input", () => {
+    render(
+      <PipelineFormFields
+        pending={false}
+        errorMessage={null}
+        submitLabel="Create"
+        defaultName=""
+        defaultDescription=""
+        defaultIsActive={true}
+      />,
+    );
+
+    expect(
+      screen.getByLabelText("Agent request timeout (ms)"),
+    ).toBeInTheDocument();
+  });
+
+  it("sets timeout defaultValue when defaultTimeoutMs is provided", () => {
+    const { container } = render(
+      <PipelineFormFields
+        pending={false}
+        errorMessage={null}
+        submitLabel="Save"
+        defaultName=""
+        defaultDescription=""
+        defaultIsActive={true}
+        defaultTimeoutMs={900_000}
+      />,
+    );
+
+    const timeoutInput = container.querySelector('input[name="body.timeout"]');
+    expect(timeoutInput).toHaveValue(900000);
+  });
 });
