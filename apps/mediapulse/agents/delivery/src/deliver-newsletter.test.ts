@@ -37,6 +37,8 @@ describe("deliverNewsletterToSubscribers", () => {
       .fn()
       .mockResolvedValue({ id: "re_1", attempts: 1 });
     const acquire = vi.fn().mockResolvedValue(0);
+    const logInfo = vi.fn();
+    const logError = vi.fn();
 
     const { results, resendMessageIds } = await deliverNewsletterToSubscribers(
       newsletter,
@@ -47,6 +49,7 @@ describe("deliverNewsletterToSubscribers", () => {
         resend: {} as Resend,
         rateLimiter: { acquire },
         sendWithRetry,
+        logger: { info: logInfo, error: logError },
       },
     );
 
@@ -74,11 +77,23 @@ describe("deliverNewsletterToSubscribers", () => {
       }),
     ]);
     expect(resendMessageIds).toEqual(["re_1"]);
+    expect(logInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        newsletterId: newsletter.id,
+        successCount: 1,
+        failedCount: 0,
+        skippedCount: 0,
+        totalRecipients: 1,
+      }),
+      "delivery recipient batch summary",
+    );
   });
 
   it("skips checkpointed subscribers without acquire or send", async () => {
     const sendWithRetry = vi.fn();
     const acquire = vi.fn().mockResolvedValue(0);
+    const logInfo = vi.fn();
+    const logError = vi.fn();
 
     const { results, resendMessageIds } = await deliverNewsletterToSubscribers(
       newsletter,
@@ -89,6 +104,7 @@ describe("deliverNewsletterToSubscribers", () => {
         resend: {} as Resend,
         rateLimiter: { acquire },
         sendWithRetry,
+        logger: { info: logInfo, error: logError },
       },
     );
 
@@ -96,6 +112,15 @@ describe("deliverNewsletterToSubscribers", () => {
     expect(acquire).not.toHaveBeenCalled();
     expect(results[0]?.status).toBe("skipped");
     expect(resendMessageIds).toEqual([]);
+    expect(logInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        successCount: 0,
+        failedCount: 0,
+        skippedCount: 1,
+        totalRecipients: 1,
+      }),
+      "delivery recipient batch summary",
+    );
   });
 
   it("omits html from the payload when send.includeHtml is false", async () => {

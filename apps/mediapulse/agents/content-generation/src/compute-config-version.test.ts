@@ -10,7 +10,9 @@ describe("computeConfigVersion", () => {
 
   it("returns the same hash for the same config called twice", () => {
     // Setup
-    const config = resolveContentGenerationConfig({ openaiApiKey: "sk-test" });
+    const config = resolveContentGenerationConfig({
+      openai: { apiKey: "sk-test" },
+    });
 
     // Act
     const hash1 = computeConfigVersion(config);
@@ -22,7 +24,9 @@ describe("computeConfigVersion", () => {
 
   it("returns a 16-character hex string", () => {
     // Setup
-    const config = resolveContentGenerationConfig({ openaiApiKey: "sk-test" });
+    const config = resolveContentGenerationConfig({
+      openai: { apiKey: "sk-test" },
+    });
 
     // Act
     const hash = computeConfigVersion(config);
@@ -53,32 +57,13 @@ describe("computeConfigVersion", () => {
     expect(hashA).toBe(hashB);
   });
 
-  it("produces the same hash for two configs differing only in legacy openaiApiKey", () => {
-    // Setup
-    const configA = resolveContentGenerationConfig({
-      openaiApiKey: "sk-legacy-alpha",
-    });
-    const configB = resolveContentGenerationConfig({
-      openaiApiKey: "sk-legacy-beta",
-    });
-
-    // Act
-    const hashA = computeConfigVersion(configA);
-    const hashB = computeConfigVersion(configB);
-
-    // Assert
-    expect(hashA).toBe(hashB);
-  });
-
   it("produces the same hash regardless of API key presence when all other fields are equal", () => {
-    // Setup — one with key, one without (but both pass schema via openaiApiKey)
+    // Setup — two configs with different api keys, same everything else
     const configWithKey = resolveContentGenerationConfig({
-      openaiApiKey: "sk-some-key",
-      openai: { model: "gpt-4o" },
+      openai: { apiKey: "sk-some-key", model: "gpt-4o" },
     });
     const configWithDifferentKey = resolveContentGenerationConfig({
-      openaiApiKey: "sk-completely-different-key",
-      openai: { model: "gpt-4o" },
+      openai: { apiKey: "sk-completely-different-key", model: "gpt-4o" },
     });
 
     // Act
@@ -96,12 +81,10 @@ describe("computeConfigVersion", () => {
   it("produces a different hash when openai.model changes", () => {
     // Setup
     const configA = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
-      openai: { model: "gpt-4o-mini" },
+      openai: { apiKey: "sk-test", model: "gpt-4o-mini" },
     });
     const configB = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
-      openai: { model: "gpt-4o" },
+      openai: { apiKey: "sk-test", model: "gpt-4o" },
     });
 
     // Act
@@ -115,11 +98,11 @@ describe("computeConfigVersion", () => {
   it("produces a different hash when freshness.timezone changes", () => {
     // Setup
     const configA = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
       freshness: { timezone: "Asia/Jakarta" },
     });
     const configB = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
       freshness: { timezone: "America/New_York" },
     });
 
@@ -138,16 +121,14 @@ describe("computeConfigVersion", () => {
   it("produces the same hash regardless of property insertion order", () => {
     // Setup — two configs that are semantically identical but built in different order
     const configA = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
-      openai: { model: "gpt-4o-mini", temperature: 0.5 },
+      openai: { apiKey: "sk-test", model: "gpt-4o-mini", temperature: 0.5 },
       freshness: { timezone: "Asia/Jakarta" },
     });
 
     // Rebuild with keys in a different order by spreading
     const configBRaw = {
       freshness: { timezone: "Asia/Jakarta" },
-      openai: { temperature: 0.5, model: "gpt-4o-mini" },
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test", temperature: 0.5, model: "gpt-4o-mini" },
     };
     const configB = resolveContentGenerationConfig(configBRaw);
 
@@ -166,17 +147,14 @@ describe("computeConfigVersion", () => {
   it("does not mutate the original config object", () => {
     // Setup
     const config = resolveContentGenerationConfig({
-      openaiApiKey: "sk-original",
-      openai: { apiKey: "sk-nested-original" },
+      openai: { apiKey: "sk-original", model: "gpt-4o" },
     });
-    const originalApiKey = config.openaiApiKey;
-    const originalNestedKey = config.openai?.apiKey;
+    const originalNestedKey = config.openai.apiKey;
 
     // Act
     computeConfigVersion(config);
 
     // Assert
-    expect(config.openaiApiKey).toBe(originalApiKey);
-    expect(config.openai?.apiKey).toBe(originalNestedKey);
+    expect(config.openai.apiKey).toBe(originalNestedKey);
   });
 });

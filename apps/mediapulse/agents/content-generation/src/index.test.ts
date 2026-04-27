@@ -233,9 +233,8 @@ describe("GET /schemas", () => {
     const body = (await response.json()) as Record<string, unknown>;
     const schemaStr = JSON.stringify(body.configSchema);
 
-    // Verify all seven config groups are present
-    expect(schemaStr).toContain("openaiApiKey");
-    expect(schemaStr).toContain("openaiModel");
+    // Verify all config groups are present
+    expect(schemaStr).toContain("openai");
     expect(schemaStr).toContain("apiKey");
     expect(schemaStr).toContain("baseUrl");
     expect(schemaStr).toContain("model");

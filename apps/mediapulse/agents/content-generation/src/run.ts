@@ -235,8 +235,10 @@ export async function run({
     tickerId: input.tickerId,
   });
 
+  const { apiKey: _apiKey, ...safeOpenai } = resolvedConfig.openai;
+  const safeConfig = { ...resolvedConfig, openai: safeOpenai };
   logger.info({ sources }, "Data sources for ticker");
-  logger.info({ config: resolvedConfig }, "Config");
+  logger.info({ config: safeConfig }, "Config");
 
   if (!sources?.length) {
     const outcome: AgentOutcome = {
@@ -313,8 +315,7 @@ export async function run({
   // response model may be an alias or resolved variant (e.g. "gpt-4o-2024-08-06"
   // for an "gpt-4o" alias). Using the config value keeps provenance aligned with
   // the operator-visible setting in Hermes.
-  const provenanceModel =
-    resolvedConfig.openai?.model ?? resolvedConfig.openaiModel ?? "gpt-4o-mini";
+  const provenanceModel = resolvedConfig.openai.model;
 
   // `configVersion`: deterministic hash of non-secret config fields.
   const configVersion = computeConfigVersion(resolvedConfig);

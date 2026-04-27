@@ -209,14 +209,10 @@ export async function generateNewsletterWithLlm(
   );
 
   const openai = createOpenAI({
-    apiKey: config.openai?.apiKey ?? config.openaiApiKey,
-    ...(config.openai?.baseUrl || config.openaiBaseUrl
-      ? { baseURL: config.openai?.baseUrl ?? config.openaiBaseUrl }
-      : {}),
+    apiKey: config.openai.apiKey,
+    ...(config.openai.baseUrl ? { baseURL: config.openai.baseUrl } : {}),
   });
-  const model = openai(
-    config.openai?.model ?? config.openaiModel ?? "gpt-4o-mini",
-  );
+  const model = openai(config.openai.model);
 
   // Wire prompts from config with fallback to defaults (MP-CGA-003 / MP-CGA-008).
   const systemPrompt = config.prompts?.systemPrompt || SYSTEM_PROMPT;

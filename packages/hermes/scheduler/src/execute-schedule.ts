@@ -29,6 +29,8 @@ export type InvokeAgentJobPayload = {
   /** Parent HTTP trigger execution row (correlation + rollup). */
   httpTriggerExecutionId?: string;
   httpTriggerId?: string;
+  /** Parent dashboard manual pipeline execution (correlation + rollup). */
+  manualExecutionId?: string;
   pipelineId: string;
   pipelineStepId: string;
   /** JWT minting scope for agent invocation. */
@@ -227,7 +229,7 @@ export const executeSchedule = async (
           agentVersion: job.agentVersion,
           endpointUrl: job.endpointUrl,
           body: { input: job.input, config: job.config },
-          timeoutMs: schedule.timeout ?? defaultTimeoutMs,
+          timeoutMs: schedule.pipeline.timeout ?? defaultTimeoutMs,
           priority: schedule.priority,
         },
         dependsOnBatchIndices: useSequentialDeps

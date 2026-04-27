@@ -71,6 +71,7 @@ const createMockPipeline = (
   name: "Test Pipeline",
   description: "Test description",
   isActive: true,
+  timeout: null,
   executionConfig: null,
   steps: [],
   createdById: null,

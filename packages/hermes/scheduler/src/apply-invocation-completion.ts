@@ -23,6 +23,8 @@ export type InvocationCompletionInput = {
   jobId: string;
   scheduleExecutionId?: string;
   httpTriggerExecutionId?: string;
+  /** Dashboard manual pipeline execution id (mutually exclusive with schedule/http trigger ids). */
+  manualExecutionId?: string;
   pipelineStepId: string;
   terminal:
     | {
@@ -52,6 +54,8 @@ export type ApplyInvocationCompletionDeps = {
   };
 };
 
+type ExecutionKind = "schedule" | "httpTrigger" | "manual";
+
 const defaultExecutionConfig = (): ExecutionConfig => ({
   schemaVersion: 1,
   stepRollupPolicy: "strict",
@@ -62,7 +66,7 @@ const defaultExecutionConfig = (): ExecutionConfig => ({
 const loadExecutionConfig = (
   raw: Prisma.JsonValue | null | undefined,
   logger: ApplyInvocationCompletionDeps["logger"],
-  scheduleExecutionId: string,
+  executionKey: string,
 ): ExecutionConfig => {
   try {
     const obj =
@@ -72,7 +76,7 @@ const loadExecutionConfig = (
     return parseEffectiveExecutionConfig(obj);
   } catch (err) {
     logger.error(
-      { err, scheduleExecutionId },
+      { err, executionKey },
       "applyInvocationCompletion: invalid effectiveExecutionConfig",
     );
     return defaultExecutionConfig();
@@ -80,8 +84,23 @@ const loadExecutionConfig = (
 };
 
 /**
+ * Resolves which parent execution row drives rollup updates.
+ *
+ * @param input - Invocation completion payload.
+ * @returns Kind discriminator, or null when no parent id is set.
+ */
+const resolveExecutionKind = (
+  input: InvocationCompletionInput,
+): ExecutionKind | null => {
+  if (input.scheduleExecutionId) return "schedule";
+  if (input.httpTriggerExecutionId) return "httpTrigger";
+  if (input.manualExecutionId) return "manual";
+  return null;
+};
+
+/**
  * Updates `AgentJobExecution`, increments step counters, recomputes step rollup, and idempotently
- * updates `ScheduleExecution.runStatus` when all step rows are terminal (PRD §7.2).
+ * updates parent execution `runStatus` when all step rows are terminal (schedule, HTTP trigger, or manual pipeline).
  *
  * @param input - Terminal state for one invocation.
  * @param deps - DB client and logger.
@@ -92,20 +111,24 @@ export const applyInvocationCompletion = async (
 ): Promise<void> => {
   const { db, logger } = deps;
 
-  const executionKind = input.scheduleExecutionId ? "schedule" : "httpTrigger";
-  const execution = input.scheduleExecutionId
-    ? await db.scheduleExecution.findUnique({
-        where: { id: input.scheduleExecutionId },
-        select: {
-          id: true,
-          runStatus: true,
-          cancelledAt: true,
-          effectiveExecutionConfig: true,
-        },
-      })
-    : input.httpTriggerExecutionId
-      ? await db.httpTriggerExecution.findUnique({
-          where: { id: input.httpTriggerExecutionId },
+  const executionKind = resolveExecutionKind(input);
+  if (executionKind == null) {
+    logger.warn(
+      {
+        scheduleExecutionId: input.scheduleExecutionId,
+        httpTriggerExecutionId: input.httpTriggerExecutionId,
+        manualExecutionId: input.manualExecutionId,
+        jobId: input.jobId,
+      },
+      "applyInvocationCompletion: no parent execution id on input",
+    );
+    return;
+  }
+
+  const execution =
+    executionKind === "schedule"
+      ? await db.scheduleExecution.findUnique({
+          where: { id: input.scheduleExecutionId! },
           select: {
             id: true,
             runStatus: true,
@@ -113,12 +136,32 @@ export const applyInvocationCompletion = async (
             effectiveExecutionConfig: true,
           },
         })
-      : null;
+      : executionKind === "httpTrigger"
+        ? await db.httpTriggerExecution.findUnique({
+            where: { id: input.httpTriggerExecutionId! },
+            select: {
+              id: true,
+              runStatus: true,
+              cancelledAt: true,
+              effectiveExecutionConfig: true,
+            },
+          })
+        : await db.manualPipelineExecution.findUnique({
+            where: { id: input.manualExecutionId! },
+            select: {
+              id: true,
+              runStatus: true,
+              cancelledAt: true,
+              effectiveExecutionConfig: true,
+            },
+          });
+
   if (!execution) {
     logger.warn(
       {
         scheduleExecutionId: input.scheduleExecutionId,
         httpTriggerExecutionId: input.httpTriggerExecutionId,
+        manualExecutionId: input.manualExecutionId,
         jobId: input.jobId,
       },
       "applyInvocationCompletion: execution not found",
@@ -132,10 +175,16 @@ export const applyInvocationCompletion = async (
     return;
   }
 
+  const executionKeyForLog =
+    input.scheduleExecutionId ??
+    input.httpTriggerExecutionId ??
+    input.manualExecutionId ??
+    "unknown";
+
   const config = loadExecutionConfig(
     execution.effectiveExecutionConfig,
     logger,
-    input.scheduleExecutionId ?? input.httpTriggerExecutionId ?? "unknown",
+    executionKeyForLog,
   );
 
   const isSuccess = input.terminal.status === AgentJobExecutionStatus.completed;
@@ -197,9 +246,17 @@ export const applyInvocationCompletion = async (
           ...execCountInc,
         },
       });
-    } else {
+    } else if (executionKind === "httpTrigger") {
       await tx.httpTriggerExecution.update({
         where: { id: input.httpTriggerExecutionId },
+        data: {
+          runStatus: ScheduleRunStatus.running,
+          ...execCountInc,
+        },
+      });
+    } else {
+      await tx.manualPipelineExecution.update({
+        where: { id: input.manualExecutionId },
         data: {
           runStatus: ScheduleRunStatus.running,
           ...execCountInc,
@@ -217,14 +274,23 @@ export const applyInvocationCompletion = async (
               },
             },
           })
-        : await tx.httpTriggerStepExecution.findUnique({
-            where: {
-              httpTriggerExecutionId_pipelineStepId: {
-                httpTriggerExecutionId: input.httpTriggerExecutionId!,
-                pipelineStepId: input.pipelineStepId,
+        : executionKind === "httpTrigger"
+          ? await tx.httpTriggerStepExecution.findUnique({
+              where: {
+                httpTriggerExecutionId_pipelineStepId: {
+                  httpTriggerExecutionId: input.httpTriggerExecutionId!,
+                  pipelineStepId: input.pipelineStepId,
+                },
               },
-            },
-          });
+            })
+          : await tx.manualPipelineStepExecution.findUnique({
+              where: {
+                manualExecutionId_pipelineStepId: {
+                  manualExecutionId: input.manualExecutionId!,
+                  pipelineStepId: input.pipelineStepId,
+                },
+              },
+            });
     if (!stepRow) {
       return;
     }
@@ -245,16 +311,27 @@ export const applyInvocationCompletion = async (
                   : stepRow.rollupStatus,
             },
           })
-        : await tx.httpTriggerStepExecution.update({
-            where: { id: stepRow.id },
-            data: {
-              ...inc,
-              rollupStatus:
-                stepRow.rollupStatus === ScheduleStepRollupStatus.pending
-                  ? ScheduleStepRollupStatus.running
-                  : stepRow.rollupStatus,
-            },
-          });
+        : executionKind === "httpTrigger"
+          ? await tx.httpTriggerStepExecution.update({
+              where: { id: stepRow.id },
+              data: {
+                ...inc,
+                rollupStatus:
+                  stepRow.rollupStatus === ScheduleStepRollupStatus.pending
+                    ? ScheduleStepRollupStatus.running
+                    : stepRow.rollupStatus,
+              },
+            })
+          : await tx.manualPipelineStepExecution.update({
+              where: { id: stepRow.id },
+              data: {
+                ...inc,
+                rollupStatus:
+                  stepRow.rollupStatus === ScheduleStepRollupStatus.pending
+                    ? ScheduleStepRollupStatus.running
+                    : stepRow.rollupStatus,
+              },
+            });
 
     const stepDone =
       updated.succeededCount + updated.failedCount >=
@@ -269,10 +346,15 @@ export const applyInvocationCompletion = async (
             where: { id: input.scheduleExecutionId! },
             select: { cancelledAt: true },
           })
-        : await tx.httpTriggerExecution.findUnique({
-            where: { id: input.httpTriggerExecutionId! },
-            select: { cancelledAt: true },
-          });
+        : executionKind === "httpTrigger"
+          ? await tx.httpTriggerExecution.findUnique({
+              where: { id: input.httpTriggerExecutionId! },
+              select: { cancelledAt: true },
+            })
+          : await tx.manualPipelineExecution.findUnique({
+              where: { id: input.manualExecutionId! },
+              select: { cancelledAt: true },
+            });
 
     const stepJobsForRollup =
       executionKind === "schedule"
@@ -283,13 +365,21 @@ export const applyInvocationCompletion = async (
             },
             select: { status: true, error: true },
           })
-        : await tx.agentJobExecution.findMany({
-            where: {
-              httpTriggerExecutionId: input.httpTriggerExecutionId!,
-              pipelineStepId: input.pipelineStepId,
-            },
-            select: { status: true, error: true },
-          });
+        : executionKind === "httpTrigger"
+          ? await tx.agentJobExecution.findMany({
+              where: {
+                httpTriggerExecutionId: input.httpTriggerExecutionId!,
+                pipelineStepId: input.pipelineStepId,
+              },
+              select: { status: true, error: true },
+            })
+          : await tx.agentJobExecution.findMany({
+              where: {
+                manualExecutionId: input.manualExecutionId!,
+                pipelineStepId: input.pipelineStepId,
+              },
+              select: { status: true, error: true },
+            });
 
     const rollupPrisma = resolveStepRollupPrismaAfterInvocation({
       cancelledAt: executionCancelledAt?.cancelledAt ?? null,
@@ -305,8 +395,13 @@ export const applyInvocationCompletion = async (
         where: { id: stepRow.id },
         data: { rollupStatus: rollupPrisma },
       });
-    } else {
+    } else if (executionKind === "httpTrigger") {
       await tx.httpTriggerStepExecution.update({
+        where: { id: stepRow.id },
+        data: { rollupStatus: rollupPrisma },
+      });
+    } else {
+      await tx.manualPipelineStepExecution.update({
         where: { id: stepRow.id },
         data: { rollupStatus: rollupPrisma },
       });
@@ -318,10 +413,15 @@ export const applyInvocationCompletion = async (
             where: { scheduleExecutionId: input.scheduleExecutionId! },
             select: { rollupStatus: true },
           })
-        : await tx.httpTriggerStepExecution.findMany({
-            where: { httpTriggerExecutionId: input.httpTriggerExecutionId! },
-            select: { rollupStatus: true },
-          });
+        : executionKind === "httpTrigger"
+          ? await tx.httpTriggerStepExecution.findMany({
+              where: { httpTriggerExecutionId: input.httpTriggerExecutionId! },
+              select: { rollupStatus: true },
+            })
+          : await tx.manualPipelineStepExecution.findMany({
+              where: { manualExecutionId: input.manualExecutionId! },
+              select: { rollupStatus: true },
+            });
 
     const terminalStatuses = new Set<ScheduleStepRollupStatus>([
       ScheduleStepRollupStatus.success,
@@ -344,10 +444,15 @@ export const applyInvocationCompletion = async (
             where: { id: input.scheduleExecutionId! },
             select: { cancelledAt: true },
           })
-        : await tx.httpTriggerExecution.findUnique({
-            where: { id: input.httpTriggerExecutionId! },
-            select: { cancelledAt: true },
-          });
+        : executionKind === "httpTrigger"
+          ? await tx.httpTriggerExecution.findUnique({
+              where: { id: input.httpTriggerExecutionId! },
+              select: { cancelledAt: true },
+            })
+          : await tx.manualPipelineExecution.findUnique({
+              where: { id: input.manualExecutionId! },
+              select: { cancelledAt: true },
+            });
 
     const allJobs =
       executionKind === "schedule"
@@ -355,10 +460,15 @@ export const applyInvocationCompletion = async (
             where: { scheduleExecutionId: input.scheduleExecutionId! },
             select: { status: true, error: true },
           })
-        : await tx.agentJobExecution.findMany({
-            where: { httpTriggerExecutionId: input.httpTriggerExecutionId! },
-            select: { status: true, error: true },
-          });
+        : executionKind === "httpTrigger"
+          ? await tx.agentJobExecution.findMany({
+              where: { httpTriggerExecutionId: input.httpTriggerExecutionId! },
+              select: { status: true, error: true },
+            })
+          : await tx.agentJobExecution.findMany({
+              where: { manualExecutionId: input.manualExecutionId! },
+              select: { status: true, error: true },
+            });
 
     const run = executionRow?.cancelledAt
       ? resolveRunStatusForSettledCancelledExecution(allJobs)
@@ -379,10 +489,20 @@ export const applyInvocationCompletion = async (
         },
         data: { runStatus: run },
       });
-    } else {
+    } else if (executionKind === "httpTrigger") {
       await tx.httpTriggerExecution.updateMany({
         where: {
           id: input.httpTriggerExecutionId,
+          runStatus: {
+            in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
+          },
+        },
+        data: { runStatus: run },
+      });
+    } else {
+      await tx.manualPipelineExecution.updateMany({
+        where: {
+          id: input.manualExecutionId,
           runStatus: {
             in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
           },

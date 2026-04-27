@@ -21,6 +21,17 @@ const bodyValidator = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
   isActive: zFormBoolean.optional(),
+  timeout: z
+    .union([z.literal(""), z.coerce.number()])
+    .optional()
+    .nullable()
+    .transform((v): number | null | undefined => {
+      if (v === undefined) return undefined;
+      if (v === "" || v === null) return null;
+      const n = Number(v);
+      if (!Number.isFinite(n) || n <= 0) return null;
+      return n;
+    }),
   steps: z.array(stepItemValidator).optional(),
 });
 
@@ -93,15 +104,18 @@ export const createUpdatePipelineHandler = ({
   db = prisma,
 }: UpdatePipelineHandlerDependencies = {}): UpdatePipelineHandler => {
   return async (data) => {
-    const { pipelineId, name, description, isActive, steps } = data.body;
+    const { pipelineId, name, description, isActive, timeout, steps } =
+      data.body;
     const updateData: {
       name?: string;
       description?: string | null;
       isActive?: boolean;
+      timeout?: number | null;
     } = {};
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (timeout !== undefined) updateData.timeout = timeout;
 
     if (steps !== undefined) {
       const err = await syncPipelineSteps(db, pipelineId, steps);

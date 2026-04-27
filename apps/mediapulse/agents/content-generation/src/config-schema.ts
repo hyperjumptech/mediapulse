@@ -93,43 +93,28 @@ const persistRetrySchema = z.object({
 export const ContentGenerationConfigSchema = z
   .object({
     /**
-     * @deprecated Use `openai.apiKey` instead.
-     * OpenAI API key for newsletter generation.
+     * OpenAI client settings. The API key is read only from Hermes config (no
+     * `process.env.OPENAI_API_KEY` at runtime). See FR2 and MP-CGA-011 for local-dev notes.
      */
-    openaiApiKey: z.string().min(1).optional(),
-    /**
-     * @deprecated Use `openai.baseUrl` instead.
-     * Base URL for the OpenAI-compatible HTTP API.
-     */
-    openaiBaseUrl: z.string().url().optional(),
-    /**
-     * @deprecated Use `openai.model` instead.
-     * Chat completions model id.
-     */
-    openaiModel: z.string().min(1).optional(),
-
-    openai: z
-      .object({
-        /**
-         * OpenAI API key for newsletter generation. Required if legacy `openaiApiKey` is omitted.
-         * The agent reads the API key exclusively from Hermes config — do not fall back to
-         * process.env.OPENAI_API_KEY at runtime. For local development, set the key in the
-         * Hermes agent config or use the legacy `openaiApiKey` top-level field.
-         * See FR2 and MP-CGA-011 for full local-dev documentation.
-         */
-        apiKey: z.string().min(1).optional(),
-        /** Base URL for the OpenAI-compatible HTTP API (e.g. Azure OpenAI or a proxy). */
-        baseUrl: z.string().url().optional(),
-        /** Chat completions model id (e.g. `gpt-4o-mini`). */
-        model: z.string().min(1).default("gpt-4o-mini"),
-        /** Sampling temperature. */
-        temperature: z.number().min(0).max(2).default(0.4),
-        /** Maximum tokens to generate. */
-        maxTokens: z.number().int().positive().optional(),
-        /** Timeout in milliseconds for the OpenAI API call. */
-        timeoutMs: z.number().int().positive().default(120000),
-      })
-      .default({}),
+    openai: z.object({
+      /** OpenAI API key for newsletter generation (required, non-whitespace). */
+      apiKey: z
+        .string()
+        .min(1, "openai.apiKey is required")
+        .refine((k) => k.trim().length > 0, {
+          message: "openai.apiKey cannot be whitespace only",
+        }),
+      /** Base URL for the OpenAI-compatible HTTP API (e.g. Azure OpenAI or a proxy). */
+      baseUrl: z.string().url().optional(),
+      /** Chat completions model id (e.g. `gpt-4o-mini`). */
+      model: z.string().min(1).default("gpt-4o-mini"),
+      /** Sampling temperature. */
+      temperature: z.number().min(0).max(2).default(0.4),
+      /** Maximum tokens to generate. */
+      maxTokens: z.number().int().positive().optional(),
+      /** Timeout in milliseconds for the OpenAI API call. */
+      timeoutMs: z.number().int().positive().default(120000),
+    }),
 
     prompts: z
       .object({
@@ -238,19 +223,8 @@ export const ContentGenerationConfigSchema = z
         }),
     ),
   })
-  .superRefine((data, ctx) => {
-    if (
-      (!data.openaiApiKey || data.openaiApiKey.trim() === "") &&
-      (!data.openai?.apiKey || data.openai.apiKey.trim() === "")
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "Missing API key. Provide either openaiApiKey or openai.apiKey",
-        path: ["openai", "apiKey"],
-      });
-    }
-  });
+  /** Reject unknown keys (e.g. removed top-level `openaiApiKey`) so configs fail fast. */
+  .strict();
 
 export type ContentGenerationConfig = z.infer<
   typeof ContentGenerationConfigSchema

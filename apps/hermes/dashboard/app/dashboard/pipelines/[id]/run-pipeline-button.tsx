@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 import { Button } from "@workspace/ui/components/button";
+import { cn } from "@workspace/ui/lib/utils";
 import { Play } from "lucide-react";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/run-pipeline/.generated/use-form-action";
@@ -15,10 +16,12 @@ export type RunPipelineButtonProps = {
   disabled?: boolean;
   /** Renders after the Run control on the same row (e.g. Save). */
   trailingActions?: ReactNode;
+  /** Merged into the outer wrapper (e.g. `lg:w-auto` for toolbar alignment). */
+  className?: string;
 };
 
 /**
- * Encapsulates run-pipeline form action and refresh-on-success.
+ * Encapsulates run-pipeline form action, refresh-on-success, and navigation guard while the action is pending.
  */
 const useRunPipelineButtonState = () => {
   const router = useRouter();
@@ -30,17 +33,35 @@ const useRunPipelineButtonState = () => {
     }
   }, [state, router]);
 
+  useEffect(() => {
+    if (!pending) {
+      return;
+    }
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [pending]);
+
   return { FormWithAction, state, pending };
 };
 
 /**
  * Button that runs the pipeline and shows manual execution result metadata.
  * Disabled when pipeline is invalid so admin must complete step input/config first.
+ *
+ * @param pipelineId - Pipeline id posted as `body.pipelineId`.
+ * @param disabled - When true, disables the Run control.
+ * @param trailingActions - Renders after the Run button on the same row (e.g. Save, Edit).
+ * @param className - Optional extra classes for the outer wrapper.
  */
 export const RunPipelineButton = ({
   pipelineId,
   disabled = false,
   trailingActions = null,
+  className,
 }: RunPipelineButtonProps) => {
   const { FormWithAction, state, pending } = useRunPipelineButtonState();
 
@@ -55,8 +76,16 @@ export const RunPipelineButton = ({
       : null;
   const runStatus =
     state && state.status === true && state.data
-      ? (state.data as { runStatus?: "succeeded" | "partial" | "failed" })
-          .runStatus
+      ? (
+          state.data as {
+            runStatus?:
+              | "running"
+              | "succeeded"
+              | "partial"
+              | "failed"
+              | "cancelled";
+          }
+        ).runStatus
       : null;
   const failedInvocationCount =
     state && state.status === true && state.data
@@ -65,7 +94,7 @@ export const RunPipelineButton = ({
   const isDisabled = disabled || pending;
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-3">
+    <div className={cn("flex w-full min-w-0 flex-col gap-3", className)}>
       <div className="flex flex-wrap items-center gap-2">
         <FormWithAction>
           <input
@@ -95,26 +124,45 @@ export const RunPipelineButton = ({
       ) : null}
       {successInvocations !== null && successInvocations !== undefined ? (
         <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
-          <p className="text-sm text-muted-foreground">
-            Ran {successInvocations} invocation
-            {successInvocations !== 1 ? "s" : ""}.{" "}
-            <span className="text-foreground">
-              Status {runStatus ?? "unknown"}, {failedInvocationCount ?? 0}{" "}
-              failed.
-            </span>
-            {executionId ? (
-              <>
-                {" "}
-                <Link
-                  href={`/dashboard/pipelines/${pipelineId}/executions/${executionId}`}
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Open execution
-                </Link>
-                .
-              </>
-            ) : null}
-          </p>
+          {runStatus === "running" ? (
+            <p className="text-sm text-muted-foreground">
+              Queued {successInvocations} invocation
+              {successInvocations !== 1 ? "s" : ""} on the worker queue. Agents
+              run in the background; you can refresh this page safely.{" "}
+              {executionId ? (
+                <>
+                  <Link
+                    href={`/dashboard/pipelines/${pipelineId}/executions/${executionId}`}
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Open execution
+                  </Link>{" "}
+                  for live status.
+                </>
+              ) : null}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Ran {successInvocations} invocation
+              {successInvocations !== 1 ? "s" : ""}.{" "}
+              <span className="text-foreground">
+                Status {runStatus ?? "unknown"}, {failedInvocationCount ?? 0}{" "}
+                failed.
+              </span>
+              {executionId ? (
+                <>
+                  {" "}
+                  <Link
+                    href={`/dashboard/pipelines/${pipelineId}/executions/${executionId}`}
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Open execution
+                  </Link>
+                  .
+                </>
+              ) : null}
+            </p>
+          )}
         </div>
       ) : null}
     </div>

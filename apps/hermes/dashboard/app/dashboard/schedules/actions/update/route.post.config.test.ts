@@ -21,7 +21,6 @@ const existingSchedule = {
   nextRunAt: new Date(),
   pipelineId: "p1",
   retryConfig: null,
-  timeout: null,
   priority: 0,
   enabled: true,
   createdAt: new Date(),

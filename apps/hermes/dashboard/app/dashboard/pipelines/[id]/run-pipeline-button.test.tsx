@@ -34,7 +34,7 @@ const createMockUseFormAction = (overrides?: {
     data?: {
       invocationsRun?: number;
       executionId?: string;
-      runStatus?: "succeeded" | "partial" | "failed";
+      runStatus?: "running" | "succeeded" | "partial" | "failed" | "cancelled";
       failedInvocationCount?: number;
     };
   } | null;
@@ -102,6 +102,26 @@ describe("RunPipelineButton", () => {
     const form = screen.getByTestId("run-pipeline-form");
     const hiddenInput = form.querySelector('input[name="body.pipelineId"]');
     expect(hiddenInput).toHaveValue("pipeline-123");
+  });
+
+  it("merges className onto the outer wrapper", async () => {
+    // Setup
+    const mock = await getUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+
+    // Act
+    render(
+      <RunPipelineButton
+        pipelineId="pipeline-123"
+        className="toolbar-run-cluster"
+      />,
+    );
+
+    // Assert
+    const form = screen.getByTestId("run-pipeline-form");
+    const outer = form.parentElement?.parentElement;
+    expect(outer).toBeTruthy();
+    expect(outer).toHaveClass("toolbar-run-cluster", "w-full", "min-w-0");
   });
 
   it("shows Running label when pending", async () => {
@@ -205,6 +225,35 @@ describe("RunPipelineButton", () => {
     ).toHaveAttribute(
       "href",
       "/dashboard/pipelines/pipeline-123/executions/00000000-0000-4000-8000-000000000001",
+    );
+  });
+
+  it("shows queued message when runStatus is running", async () => {
+    const mock = await getUseFormActionMock();
+    mock.mockReturnValue(
+      createMockUseFormAction({
+        state: {
+          status: true,
+          data: {
+            invocationsRun: 2,
+            runStatus: "running",
+            failedInvocationCount: 0,
+            executionId: "00000000-0000-4000-8000-000000000002",
+          },
+        },
+      }),
+    );
+
+    render(<RunPipelineButton pipelineId="pipeline-123" />);
+
+    expect(
+      screen.getByText(/Queued 2 invocations on the worker queue/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open execution" }),
+    ).toHaveAttribute(
+      "href",
+      "/dashboard/pipelines/pipeline-123/executions/00000000-0000-4000-8000-000000000002",
     );
   });
 

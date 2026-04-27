@@ -23,7 +23,7 @@ afterEach(() => {
 
 /** Minimal resolved config used across tests. */
 const baseConfig = resolveContentGenerationConfig(
-  ContentGenerationConfigSchema.parse({ openaiApiKey: "sk-test" }),
+  ContentGenerationConfigSchema.parse({ openai: { apiKey: "sk-test" } }),
 );
 
 /** A fake sleep that records call count without real delays. */
@@ -144,8 +144,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     // Setup
     const configWithTimeout = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openaiApiKey: "sk-test",
-        openai: { timeoutMs: 5000 },
+        openai: { apiKey: "sk-test", timeoutMs: 5000 },
       }),
     );
     const generateObjectFn = makeSuccessfulGenerateFn();
@@ -283,7 +282,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
     });
     const config = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openaiApiKey: "sk-test",
+        openai: { apiKey: "sk-test" },
         llmRetry: {
           maxAttempts: 3,
           baseDelayMs: 10,
@@ -318,7 +317,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
     });
     const config = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openaiApiKey: "sk-test",
+        openai: { apiKey: "sk-test" },
         llmRetry: {
           maxAttempts: 3,
           baseDelayMs: 10,
@@ -557,7 +556,7 @@ describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
     // Setup
     const customSystem = "You are a specialized financial analyst.";
     const config = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
       prompts: { systemPrompt: customSystem },
     });
     const generateObjectFn = makeSuccessfulGenerateFn();
@@ -585,7 +584,7 @@ describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
     const customTemplate =
       "Analysis for {{tickerId}} on {{date}}.\n\n{{sourceSummaries}}";
     const config = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
       prompts: { userPromptTemplate: customTemplate },
     });
     const generateObjectFn = makeSuccessfulGenerateFn();
@@ -616,7 +615,7 @@ describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
     // Setup
     const customTemplate = "{{tickerId}} report: {{tickerId}}.";
     const config = resolveContentGenerationConfig({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
       prompts: { userPromptTemplate: customTemplate },
     });
     const generateObjectFn = makeSuccessfulGenerateFn();

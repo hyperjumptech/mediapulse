@@ -23,6 +23,9 @@ const mockPrisma = vi.hoisted(() => ({
   httpTriggerExecution: {
     findUnique: vi.fn().mockResolvedValue({ cancelledAt: null }),
   },
+  manualPipelineExecution: {
+    findUnique: vi.fn().mockResolvedValue({ cancelledAt: null }),
+  },
   domainIntegration: {
     findFirst: vi.fn().mockResolvedValue({
       baseUrl: "https://mediapulse-domain.example",
@@ -410,6 +413,9 @@ describe("jobHandlers", () => {
       mockPrisma.httpTriggerExecution.findUnique.mockResolvedValue({
         cancelledAt: null,
       });
+      mockPrisma.manualPipelineExecution.findUnique.mockResolvedValue({
+        cancelledAt: null,
+      });
     });
 
     it("claims pending row, calls invokeAgentPost, and applies completion on 2xx success envelope", async () => {
@@ -459,6 +465,59 @@ describe("jobHandlers", () => {
         expect.objectContaining({
           jobId: payload.jobId,
           scheduleExecutionId: payload.scheduleExecutionId,
+          terminal: expect.objectContaining({
+            status: AgentJobExecutionStatus.completed,
+          }),
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("passes manualExecutionId through invoke and completion for manual pipeline jobs", async () => {
+      const manualPayload = {
+        ...payload,
+        scheduleExecutionId: undefined,
+        scheduleId: undefined,
+        manualExecutionId: "manual-exec-9",
+      };
+      vi.mocked(invokeAgentPost).mockResolvedValue({
+        kind: "http",
+        response: {
+          statusCode: 200,
+          rawBody: '{"schemaVersion":1,"status":"success"}',
+          isEmptyBody: false,
+        },
+      });
+      vi.mocked(parseAgentResponseEnvelope).mockReturnValue({
+        ok: true,
+        envelope: {
+          schemaVersion: 1,
+          status: "success",
+          truncated: {},
+        },
+      });
+
+      await jobHandlers.invoke_agent(manualPayload, signal, jobCtx);
+
+      expect(
+        mockPrisma.manualPipelineExecution.findUnique,
+      ).toHaveBeenCalledWith({
+        where: { id: "manual-exec-9" },
+        select: { cancelledAt: true },
+      });
+      expect(invokeAgentPost).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({
+          manualExecutionId: "manual-exec-9",
+          pipelineStepId: manualPayload.pipelineStepId,
+        }),
+        expect.anything(),
+      );
+      expect(applyInvocationCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: manualPayload.jobId,
+          manualExecutionId: "manual-exec-9",
           terminal: expect.objectContaining({
             status: AgentJobExecutionStatus.completed,
           }),

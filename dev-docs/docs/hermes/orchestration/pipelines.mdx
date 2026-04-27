@@ -12,6 +12,7 @@ A **pipeline** is a named workflow scoped to one [domain integration](/hermes/in
 - **Steps**: Ordered by `order`. Each step references `agentId`, `agentVersion`, optional saved **agent config**, and JSON `input` / `config` (see [step input syntax](/hermes/packages/hermes-step-input-syntax)).
 - **Active**: When `isActive` is off, the pipeline is treated as disabled for scheduling and similar flows (see [pipeline status](#pipeline-status) below).
 - **Description & metadata**: Optional fields for operators; execution-specific options can use `executionConfig` where the product supports it.
+- **Agent request timeout** (optional, milliseconds): Upper bound for each agent HTTP POST during a run. Applies to **Run pipeline**, **schedules**, and **HTTP triggers** for this pipeline. When unset, Hermes uses a five-minute default.
 
 ## Editing and running
 

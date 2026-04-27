@@ -60,7 +60,7 @@ const TEST_TICKER_ID = "00000000-0000-4000-8000-000000000001" as const;
 
 const baseConfig: ContentGenerationConfig = ContentGenerationConfigSchema.parse(
   {
-    openaiApiKey: "sk-test",
+    openai: { apiKey: "sk-test" },
   },
 );
 
@@ -1074,7 +1074,14 @@ describe("provenance fields in contentGeneration.create", () => {
     // Act
     await run(
       makeContext({
-        config: { openaiApiKey: "sk-test", openai: { model: "gpt-4o" } } as any,
+        config: {
+          openai: {
+            apiKey: "sk-test",
+            model: "gpt-4o",
+            temperature: 0.4,
+            timeoutMs: 120000,
+          },
+        },
       }),
     );
 

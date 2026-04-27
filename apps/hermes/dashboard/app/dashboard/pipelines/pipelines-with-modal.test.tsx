@@ -59,6 +59,7 @@ const createMockPipeline = (id: string, name: string) => ({
   name,
   description: null,
   isActive: true,
+  timeout: null,
   executionConfig: null,
   createdById: null,
   createdBy: null,
