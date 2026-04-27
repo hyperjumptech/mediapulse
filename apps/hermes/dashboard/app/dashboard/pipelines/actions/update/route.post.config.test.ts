@@ -37,6 +37,46 @@ describe("createUpdatePipelineHandler", () => {
     expect(result).toMatchObject({ status: true, data: { ok: true } });
   });
 
+  it("updates pipeline timeout when provided", async () => {
+    const updateMock = vi.fn().mockResolvedValue(undefined);
+    const db = { pipeline: { update: updateMock } };
+    const updateHandler = createUpdatePipelineHandler({
+      db: db as never,
+    });
+    const result = await updateHandler({
+      body: { pipelineId: "p-1", timeout: 120_000 },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "p-1" },
+      data: { timeout: 120_000 },
+    });
+    expect(result).toMatchObject({ status: true, data: { ok: true } });
+  });
+
+  it("clears pipeline timeout when empty string is sent", async () => {
+    const updateMock = vi.fn().mockResolvedValue(undefined);
+    const db = { pipeline: { update: updateMock } };
+    const updateHandler = createUpdatePipelineHandler({
+      db: db as never,
+    });
+    const result = await updateHandler({
+      body: { pipelineId: "p-1", timeout: null },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "p-1" },
+      data: { timeout: null },
+    });
+    expect(result).toMatchObject({ status: true, data: { ok: true } });
+  });
+
   it("syncs steps to DB when steps array provided", async () => {
     const pipelineUpdateMock = vi.fn().mockResolvedValue(undefined);
     const deleteManyMock = vi.fn().mockResolvedValue({ count: 2 });

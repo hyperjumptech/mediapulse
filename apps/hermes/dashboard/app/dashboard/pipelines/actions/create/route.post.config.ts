@@ -15,6 +15,15 @@ const bodyValidator = z.object({
   description: z.string().optional(),
   isActive: zFormBoolean.optional().default(true),
   domainIntegrationId: z.string().uuid().optional(),
+  timeout: z
+    .union([z.literal(""), z.coerce.number()])
+    .optional()
+    .nullable()
+    .transform((v): number | null => {
+      if (v === "" || v === undefined || v === null) return null;
+      const n = Number(v);
+      return n > 0 ? n : null;
+    }),
 });
 
 export const requestValidator = createRequestValidator({
@@ -52,6 +61,7 @@ export const createCreatePipelineHandler = ({
       description,
       isActive,
       domainIntegrationId: bodyDomainId,
+      timeout,
     } = data.body;
 
     let domainIntegrationId = bodyDomainId;
@@ -75,6 +85,7 @@ export const createCreatePipelineHandler = ({
         isActive: isActive ?? true,
         domainIntegrationId,
         createdById: userId,
+        timeout: timeout ?? null,
       },
     });
 

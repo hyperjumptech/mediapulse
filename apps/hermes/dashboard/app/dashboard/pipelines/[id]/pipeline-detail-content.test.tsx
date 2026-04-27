@@ -110,6 +110,7 @@ const createMockPipeline = () => ({
   name: "Test Pipeline",
   description: "Test description",
   isActive: true,
+  timeout: null as number | null,
   executionConfig: null,
   steps: [
     {
@@ -154,7 +155,7 @@ const mockPickerLoaders = {
 };
 
 describe("PipelineDetailContent", () => {
-  it("renders pipeline name and description inputs above the columns", () => {
+  it("renders pipeline name and description as text with status and actions", () => {
     render(
       <PipelineDetailContent
         pipeline={createMockPipeline()}
@@ -169,20 +170,17 @@ describe("PipelineDetailContent", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Pipeline name")).toBeInTheDocument();
-    expect(screen.getByLabelText("Pipeline name")).toHaveValue("Test Pipeline");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Test Pipeline" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Test description")).toBeInTheDocument();
     const statusRegion = screen.getByRole("status", {
       name: "Pipeline status Enabled",
     });
-    expect(within(statusRegion).getByText("Status")).toBeInTheDocument();
     expect(within(statusRegion).getByText("Enabled")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Edit pipeline" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Description (optional)")).toBeInTheDocument();
-    expect(screen.getByLabelText("Description (optional)")).toHaveValue(
-      "Test description",
-    );
   });
 
   it("renders Save button beside Run pipeline button", () => {
@@ -247,7 +245,7 @@ describe("PipelineDetailContent", () => {
     );
   });
 
-  it("renders description placeholder when none provided", () => {
+  it("renders No description when description is empty", () => {
     const pipeline = {
       ...createMockPipeline(),
       description: null,
@@ -267,11 +265,7 @@ describe("PipelineDetailContent", () => {
       />,
     );
 
-    const descInput = screen.getByLabelText("Description (optional)");
-    expect(descInput).toHaveAttribute(
-      "placeholder",
-      "Edit pipeline and manage agent steps.",
-    );
+    expect(screen.getByText("No description")).toBeInTheDocument();
   });
 
   it("shows Status Disabled when pipeline is valid but inactive", () => {

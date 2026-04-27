@@ -33,7 +33,7 @@ export const getHermesExecutionInvokeTransportBlurb = (
     return {
       headline: "Hermes worker + DataQueue",
       detail:
-        "Scheduled runs enqueue `invoke_agent` jobs on DataQueue. The worker POSTs to each agent using the schedule timeout (default five minutes unless the schedule overrides `timeout`).",
+        "Scheduled runs enqueue `invoke_agent` jobs on DataQueue. The worker POSTs to each agent using the pipeline agent-request timeout (default five minutes unless the pipeline sets `timeout`).",
     };
   }
   return {

@@ -100,18 +100,21 @@ const usePipelineFormModalState = ({
           defaultName: pipeline.name,
           defaultDescription: pipeline.description ?? "",
           defaultIsActive: pipeline.isActive,
+          defaultTimeoutMs: pipeline.timeout ?? undefined,
           pipelineId: pipeline.id,
         }
       : {
           defaultName: "",
           defaultDescription: "",
           defaultIsActive: true,
+          defaultTimeoutMs: undefined,
           pipelineId: undefined as string | undefined,
         }
     : {
         defaultName: "",
         defaultDescription: "",
         defaultIsActive: true,
+        defaultTimeoutMs: undefined,
         pipelineId: undefined as string | undefined,
       };
 

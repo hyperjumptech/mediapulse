@@ -47,15 +47,6 @@ const bodyValidator = z
     pipelineId: z.string().uuid().optional(),
     retryConfig: retryConfigSchema,
     executionConfig: retryConfigSchema,
-    timeout: z
-      .union([z.literal(""), z.coerce.number()])
-      .optional()
-      .nullable()
-      .transform((v): number | null => {
-        if (v === "" || v === undefined || v === null) return null;
-        const n = Number(v);
-        return n > 0 ? n : null;
-      }),
     priority: z.coerce.number().int().optional(),
     enabled: z
       .union([z.boolean(), z.literal("on"), z.literal("false")])
@@ -185,7 +176,6 @@ export const createUpdateScheduleHandler = ({
             ? (body.executionConfig as Prisma.InputJsonValue)
             : Prisma.JsonNull,
       }),
-      ...(body.timeout !== undefined && { timeout: body.timeout }),
       ...(body.priority !== undefined && { priority: body.priority }),
       ...(body.enabled !== undefined && { enabled: body.enabled }),
       nextRunAt,

@@ -51,6 +51,7 @@ describe("createCreatePipelineHandler", () => {
         isActive: true,
         domainIntegrationId: "di-1",
         createdById: mockDashboardUser.id,
+        timeout: null,
       },
     });
     expect(result).toMatchObject({
@@ -94,15 +95,49 @@ describe("createCreatePipelineHandler", () => {
         isActive: true,
         domainIntegrationId: "di-1",
         createdById: mockDashboardUser.id,
+        timeout: null,
       },
     });
+  });
+
+  it("persists optional agent timeout when provided", async () => {
+    const db = {
+      domainIntegration: {
+        findFirst: vi.fn().mockResolvedValue({ id: "di-1" }),
+      },
+      pipeline: {
+        create: vi.fn().mockResolvedValue({
+          id: "id-timeout",
+          name: "P",
+          description: null,
+          isActive: true,
+        }),
+      },
+    };
+    const createHandler = createCreatePipelineHandler({
+      db: db as never,
+    });
+
+    await createHandler({
+      body: { name: "P", timeout: 900_000 },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(db.pipeline.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ timeout: 900_000 }),
+      }),
+    );
   });
 });
 
 describe("requestValidator", () => {
   it("accepts valid body with name only", async () => {
     const result = await requestValidator.body?.parseAsync({ name: "P" });
-    expect(result).toEqual({ name: "P", isActive: true });
+    expect(result).toEqual({ name: "P", isActive: true, timeout: null });
   });
 
   it("accepts valid body with name, description, isActive", async () => {
@@ -111,7 +146,12 @@ describe("requestValidator", () => {
       description: "D",
       isActive: false,
     });
-    expect(result).toEqual({ name: "P", description: "D", isActive: false });
+    expect(result).toEqual({
+      name: "P",
+      description: "D",
+      isActive: false,
+      timeout: null,
+    });
   });
 
   it("rejects empty name", async () => {

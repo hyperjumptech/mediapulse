@@ -103,6 +103,7 @@ describe("executeHttpTrigger", () => {
               id: "pipe-1",
               domainIntegrationId: "di-1",
               executionConfig: null,
+              timeout: null,
               steps: [
                 {
                   id: "step-1",
@@ -149,5 +150,67 @@ describe("executeHttpTrigger", () => {
       ),
     ).toBe(true);
     expect(agentJobExecutionUpdate).toHaveBeenCalled();
+  });
+
+  it("uses pipeline.timeout for invoke_agent payload when set", async () => {
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+    const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<void>) => {
+      const tx = {
+        httpTriggerExecution: {
+          update: vi.fn().mockResolvedValue(undefined),
+        },
+        httpTriggerStepExecution: {
+          create: vi.fn().mockResolvedValue(undefined),
+        },
+        agentJobExecution: {
+          create: vi.fn().mockResolvedValue(undefined),
+        },
+      };
+      await fn(tx);
+    });
+    const httpTriggerExecutionUpdate = vi.fn().mockResolvedValue(undefined);
+    const db = {
+      httpTriggerExecution: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "exec-1",
+          httpTrigger: {
+            id: "trig-1",
+            pipeline: {
+              id: "pipe-1",
+              domainIntegrationId: "di-1",
+              executionConfig: null,
+              timeout: 90_000,
+              steps: [
+                {
+                  id: "step-1",
+                  order: 0,
+                  agentId: "agent-a",
+                  agentVersion: "1.0.0",
+                  pipelineId: "pipe-1",
+                  agentConfigId: null,
+                  input: {},
+                  config: {},
+                  agentConfig: null,
+                },
+              ],
+            },
+          },
+        }),
+        update: httpTriggerExecutionUpdate,
+      },
+      $transaction,
+    };
+
+    await executeHttpTrigger("exec-1", {
+      db: db as never,
+      enqueueAgentInvocations,
+      defaultTimeoutMs: 300_000,
+    });
+
+    expect(enqueueAgentInvocations).toHaveBeenCalledTimes(1);
+    const [items] = enqueueAgentInvocations.mock.calls[0] as [
+      Array<{ payload: { timeoutMs: number } }>,
+    ];
+    expect(items[0]?.payload.timeoutMs).toBe(90_000);
   });
 });

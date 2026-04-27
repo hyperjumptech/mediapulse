@@ -48,8 +48,8 @@ const bodyValidator = z.object({
 const RUN_PIPELINE_LOG_PREFIX = "[hermes-dashboard:run-pipeline]";
 
 /**
- * Request timeout for each manual agent POST, aligned with Hermes worker
- * `defaultTimeoutMs` (see `apps/hermes/worker/src/job-handlers.ts`).
+ * Fallback per-agent request timeout (ms) when the pipeline row has no `timeout`.
+ * Matches Hermes worker `defaultTimeoutMs` (see `apps/hermes/worker/src/job-handlers.ts`).
  */
 const MANUAL_INVOKE_AGENT_REQUEST_TIMEOUT_MS = 300_000;
 
@@ -294,6 +294,9 @@ export const createRunPipelineHandler = ({
         return errorResponse(`Pipeline is invalid: ${warningText}`);
       }
 
+      const invokeRequestTimeoutMs =
+        pipeline.timeout ?? MANUAL_INVOKE_AGENT_REQUEST_TIMEOUT_MS;
+
       const effectiveExecutionConfig = mergeExecutionConfig(
         pipeline.executionConfig,
         null,
@@ -497,7 +500,7 @@ export const createRunPipelineHandler = ({
                   Authorization: `Bearer ${jwt}`,
                 },
                 throwHttpErrors: false,
-                timeout: { request: MANUAL_INVOKE_AGENT_REQUEST_TIMEOUT_MS },
+                timeout: { request: invokeRequestTimeoutMs },
                 signal: abortSignal,
               });
               const response = agentResponse as {

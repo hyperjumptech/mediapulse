@@ -177,6 +177,8 @@ model Pipeline {
   id                  String   @id @default(uuid())
   name                String
   description         String?
+  /// Per-agent HTTP request timeout (ms) for invoke_agent jobs; null uses Hermes default (5 minutes).
+  timeout             Int?
   isActive            Boolean  @default(true) @map("is_active")
   executionConfig     Json?    @map("execution_config")
   domainIntegrationId String   @map("domain_integration_id")
@@ -260,7 +262,6 @@ model Schedule {
   pipelineId      String         @map("pipeline_id")
   retryConfig     Json?          @map("retry_config")
   executionConfig Json?          @map("execution_config")
-  timeout         Int?
   priority        Int            @default(0)
   enabled         Boolean        @default(true)
   createdAt       DateTime       @default(now()) @map("created_at")

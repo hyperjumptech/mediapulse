@@ -9,10 +9,7 @@ import type {
   LoadVariablesPageResult,
 } from "@workspace/variable-expansion-picker";
 import { Button } from "@workspace/ui/components/button";
-import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
 
-import { formAction as defaultUpdatePipelineFormAction } from "@/app/dashboard/pipelines/actions/update/.generated/form.action";
 import { formAction as defaultUpdateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/form.action";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 import type { PipelineExecutionRow } from "@/lib/pipeline-executions";
@@ -23,7 +20,6 @@ import type {
 
 import { getPipelineStatus } from "@/lib/pipeline-status";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
-import { formatCreatedBy } from "@/lib/format-created-by";
 
 import { PipelineAvailableAgents } from "./pipeline-available-agents";
 import { PipelineExecutionsTable } from "./pipeline-executions-table";
@@ -58,26 +54,19 @@ export type PipelineDetailContentProps = {
   loadExpansionPickerPage: (
     args: LoadPageArgs,
   ) => Promise<LoadExpansionsPageResult>;
-  /** Optional DI: override for tests. Defaults to the generated update pipeline form action. */
-  updatePipelineFormAction?: typeof defaultUpdatePipelineFormAction;
   /** Optional DI: override for tests. Defaults to the generated update step form action. */
   updateStepFormAction?: typeof defaultUpdateStepFormAction;
 };
 
 /**
- * Encapsulates pipeline detail state: selection, name/description, step input and agent-config picker, save logic, and sync effects.
+ * Encapsulates pipeline detail state: step selection, step input and agent-config picker, and save logic.
  */
 const usePipelineDetailState = (
   pipeline: PipelineWithSteps,
-  updatePipelineFormAction: typeof defaultUpdatePipelineFormAction,
   updateStepFormAction: typeof defaultUpdateStepFormAction,
 ) => {
   const router = useRouter();
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
-  const [pipelineName, setPipelineName] = useState(pipeline.name);
-  const [pipelineDescription, setPipelineDescription] = useState(
-    pipeline.description ?? "",
-  );
   const [stepInput, setStepInput] = useState<Record<string, unknown>>({});
   const [stepAgentConfigId, setStepAgentConfigId] = useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -93,11 +82,6 @@ const usePipelineDetailState = (
     () => pipeline.steps.map((s) => `${s.agentId}@${s.agentVersion}`),
     [pipeline.steps],
   );
-
-  useEffect(() => {
-    setPipelineName(pipeline.name);
-    setPipelineDescription(pipeline.description ?? "");
-  }, [pipeline.name, pipeline.description]);
 
   useEffect(() => {
     if (!selectedStep) {
@@ -116,75 +100,51 @@ const usePipelineDetailState = (
   }, [selectedStep]);
 
   const handleSave = useCallback(async () => {
+    if (!selectedStep) return;
+
     setSaveError(null);
     setSaveWarnings([]);
     setSaving(true);
     try {
-      const pipelineFormData = new FormData();
-      pipelineFormData.set("body.pipelineId", pipeline.id);
-      pipelineFormData.set("body.name", pipelineName);
-      pipelineFormData.set("body.description", pipelineDescription);
-      const pipelineResult = await updatePipelineFormAction(
-        null,
-        pipelineFormData,
-      );
-      const pipelineOk =
-        pipelineResult != null &&
-        typeof pipelineResult === "object" &&
-        "status" in pipelineResult &&
-        (pipelineResult as { status: boolean }).status === true;
-      if (!pipelineOk) {
+      const stepFormData = new FormData();
+      stepFormData.set("body.pipelineId", pipeline.id);
+      stepFormData.set("body.stepId", selectedStep.id);
+      stepFormData.set("body.agentId", selectedStep.agentId);
+      stepFormData.set("body.agentVersion", selectedStep.agentVersion);
+      stepFormData.set("body.agentConfigId", stepAgentConfigId);
+      stepFormData.set("body.input", JSON.stringify(stepInput));
+      stepFormData.set("body.config", "{}");
+      const stepResult = await updateStepFormAction(null, stepFormData);
+      const stepOk =
+        stepResult != null &&
+        typeof stepResult === "object" &&
+        "status" in stepResult &&
+        (stepResult as { status: boolean }).status === true;
+      if (!stepOk) {
         const msg =
-          pipelineResult != null &&
-          typeof pipelineResult === "object" &&
-          "message" in pipelineResult
-            ? String((pipelineResult as { message: unknown }).message)
-            : "Failed to save pipeline";
+          stepResult != null &&
+          typeof stepResult === "object" &&
+          "message" in stepResult
+            ? String((stepResult as { message: unknown }).message)
+            : "Failed to save step";
         setSaveError(msg);
         return;
       }
-
-      if (selectedStep) {
-        const stepFormData = new FormData();
-        stepFormData.set("body.pipelineId", pipeline.id);
-        stepFormData.set("body.stepId", selectedStep.id);
-        stepFormData.set("body.agentId", selectedStep.agentId);
-        stepFormData.set("body.agentVersion", selectedStep.agentVersion);
-        stepFormData.set("body.agentConfigId", stepAgentConfigId);
-        stepFormData.set("body.input", JSON.stringify(stepInput));
-        stepFormData.set("body.config", "{}");
-        const stepResult = await updateStepFormAction(null, stepFormData);
-        const stepOk =
-          stepResult != null &&
-          typeof stepResult === "object" &&
-          "status" in stepResult &&
-          (stepResult as { status: boolean }).status === true;
-        if (!stepOk) {
-          const msg =
-            stepResult != null &&
-            typeof stepResult === "object" &&
-            "message" in stepResult
-              ? String((stepResult as { message: unknown }).message)
-              : "Failed to save step";
-          setSaveError(msg);
-          return;
-        }
-        const warnings =
-          stepResult != null &&
-          typeof stepResult === "object" &&
-          "data" in stepResult &&
-          stepResult.data != null &&
-          typeof stepResult.data === "object" &&
-          "validationWarnings" in stepResult.data &&
-          Array.isArray(
-            (stepResult.data as { validationWarnings?: string[] })
-              .validationWarnings,
-          )
-            ? (stepResult.data as { validationWarnings: string[] })
-                .validationWarnings
-            : [];
-        setSaveWarnings(warnings);
-      }
+      const warnings =
+        stepResult != null &&
+        typeof stepResult === "object" &&
+        "data" in stepResult &&
+        stepResult.data != null &&
+        typeof stepResult.data === "object" &&
+        "validationWarnings" in stepResult.data &&
+        Array.isArray(
+          (stepResult.data as { validationWarnings?: string[] })
+            .validationWarnings,
+        )
+          ? (stepResult.data as { validationWarnings: string[] })
+              .validationWarnings
+          : [];
+      setSaveWarnings(warnings);
 
       router.refresh();
     } finally {
@@ -192,23 +152,16 @@ const usePipelineDetailState = (
     }
   }, [
     pipeline.id,
-    pipelineName,
-    pipelineDescription,
     selectedStep,
     stepInput,
     stepAgentConfigId,
     router,
-    updatePipelineFormAction,
     updateStepFormAction,
   ]);
 
   return {
     selectedStepId,
     setSelectedStepId,
-    pipelineName,
-    setPipelineName,
-    pipelineDescription,
-    setPipelineDescription,
     stepInput,
     setStepInput,
     stepAgentConfigId,
@@ -231,8 +184,7 @@ const usePipelineEditModalState = () => {
 };
 
 /**
- * Client wrapper for pipeline detail: name/description and Save above; three-column layout
- * (available agents | pipeline steps | agent input/config only). Save beside Run pipeline.
+ * Client wrapper for pipeline detail: read-only title/description, status, and actions; three-column step editor; executions.
  */
 export const PipelineDetailContent = ({
   pipeline,
@@ -245,16 +197,11 @@ export const PipelineDetailContent = ({
   pageSize,
   loadVariablePickerPage,
   loadExpansionPickerPage,
-  updatePipelineFormAction = defaultUpdatePipelineFormAction,
   updateStepFormAction = defaultUpdateStepFormAction,
 }: PipelineDetailContentProps) => {
   const {
     selectedStepId,
     setSelectedStepId,
-    pipelineName,
-    setPipelineName,
-    pipelineDescription,
-    setPipelineDescription,
     stepInput,
     setStepInput,
     stepAgentConfigId,
@@ -265,11 +212,7 @@ export const PipelineDetailContent = ({
     selectedStep,
     existingStepAgentKeys,
     handleSave,
-  } = usePipelineDetailState(
-    pipeline,
-    updatePipelineFormAction,
-    updateStepFormAction,
-  );
+  } = usePipelineDetailState(pipeline, updateStepFormAction);
 
   const { editModalOpen, setEditModalOpen } = usePipelineEditModalState();
 
@@ -281,100 +224,93 @@ export const PipelineDetailContent = ({
         ? "Disabled"
         : "Enabled";
 
+  const descriptionText = pipeline.description?.trim() ?? "";
+
   return (
     <div className="flex flex-col gap-6">
-      <div
-        className="flex justify-end gap-3 items-center"
-        role="status"
-        aria-label={`Pipeline status ${statusWord}`}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Status</span>
-          <PipelineStatusBadge status={pipelineStatus} />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
+              {pipeline.name}
+            </h1>
+            <span
+              className="shrink-0"
+              role="status"
+              aria-label={`Pipeline status ${statusWord}`}
+            >
+              <PipelineStatusBadge status={pipelineStatus} />
+            </span>
+          </div>
+          {descriptionText !== "" ? (
+            <p className="text-sm text-muted-foreground">{descriptionText}</p>
+          ) : (
+            <p className="text-sm italic text-muted-foreground">
+              No description
+            </p>
+          )}
         </div>
-        <Button type="button" onClick={() => setEditModalOpen(true)}>
-          Edit pipeline
-        </Button>
+        <div className="flex w-full justify-end lg:w-auto lg:shrink-0">
+          <RunPipelineButton
+            className="w-full min-[480px]:w-auto"
+            pipelineId={pipeline.id}
+            disabled={!pipelineValidation.valid}
+            trailingActions={
+              <>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving || selectedStep == null}
+                >
+                  {saving ? "Saving…" : "Save"}
+                </Button>
+                <Button type="button" onClick={() => setEditModalOpen(true)}>
+                  Edit pipeline
+                </Button>
+              </>
+            }
+          />
+        </div>
       </div>
+
+      {saveError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {saveError}
+        </p>
+      ) : null}
+      {saveWarnings.length > 0 ? (
+        <div
+          className="w-full text-sm text-amber-600 dark:text-amber-500"
+          role="alert"
+        >
+          <p className="font-medium">Saved with warnings:</p>
+          <ul className="mt-1 list-disc pl-4">
+            {saveWarnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {!pipelineValidation.valid && pipelineValidation.warnings.length > 0 ? (
+        <div
+          className="w-full text-sm text-amber-600 dark:text-amber-500"
+          role="status"
+        >
+          <p className="font-medium">Pipeline incomplete (Run disabled):</p>
+          <ul className="mt-1 list-disc pl-4">
+            {pipelineValidation.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <PipelineFormModal
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         mode="edit"
         editPipelineId={pipeline.id}
       />
-      <div className="flex flex-col gap-4">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="pipeline-name">Pipeline name</Label>
-            <Input
-              id="pipeline-name"
-              type="text"
-              value={pipelineName}
-              onChange={(e) => setPipelineName(e.target.value)}
-              disabled={saving}
-              className="text-lg font-semibold"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="pipeline-description">Description (optional)</Label>
-            <Input
-              id="pipeline-description"
-              type="text"
-              value={pipelineDescription}
-              onChange={(e) => setPipelineDescription(e.target.value)}
-              disabled={saving}
-              placeholder="Edit pipeline and manage agent steps."
-            />
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">Created by: </span>
-          {formatCreatedBy(pipeline.createdBy, pipeline.createdById)}
-        </p>
-        <div className="flex flex-col gap-3">
-          <RunPipelineButton
-            pipelineId={pipeline.id}
-            disabled={!pipelineValidation.valid}
-            trailingActions={
-              <Button type="button" onClick={handleSave} disabled={saving}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            }
-          />
-          {saveError ? (
-            <p className="text-sm text-destructive" role="alert">
-              {saveError}
-            </p>
-          ) : null}
-          {saveWarnings.length > 0 ? (
-            <div
-              className="w-full text-sm text-amber-600 dark:text-amber-500"
-              role="alert"
-            >
-              <p className="font-medium">Saved with warnings:</p>
-              <ul className="list-disc pl-4 mt-1">
-                {saveWarnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {!pipelineValidation.valid &&
-          pipelineValidation.warnings.length > 0 ? (
-            <div
-              className="w-full text-sm text-amber-600 dark:text-amber-500"
-              role="status"
-            >
-              <p className="font-medium">Pipeline incomplete (Run disabled):</p>
-              <ul className="list-disc pl-4 mt-1">
-                {pipelineValidation.warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/20 p-4">
