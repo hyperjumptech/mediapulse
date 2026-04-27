@@ -7,14 +7,14 @@ import {
   hermesDashboardTableMountPath,
 } from "../hermes-dashboard/paths";
 import { hermesDashboardRouteMounts } from "./hermes-dashboard-route-mounts";
-import { registerWithHermes } from "./register-with-hermes";
 import { healthRoutes } from "./routes/health-routes";
 import { hermesDashboardManifestRoutes } from "./routes/hermes-dashboard-manifest-routes";
 import { stepInputExpansionRoutes } from "./routes/step-input-expansion-routes";
 import { verifyInvocationJwtFromHeader } from "./verify-invocation-jwt-middleware";
 
 /**
- * Builds the Mediapulse domain API Hono application (middleware, versioned routes, Hermes registration).
+ * Builds the Mediapulse domain API Hono application (middleware, versioned routes).
+ * Hermes self-registration runs from the process entrypoint after this returns (see `src/index.ts`).
  *
  * @returns Bun-style server handle with `port` and `fetch`.
  */
@@ -63,8 +63,6 @@ export const createDomainApiServer = (): {
 
   api.route(HERMES_DASHBOARD_V1_MOUNT_PATH, hermesDashboardManifestRoutes);
   api.route("/", stepInputExpansionRoutes);
-
-  void registerWithHermes();
 
   return {
     port: env.PORT ?? 8090,
