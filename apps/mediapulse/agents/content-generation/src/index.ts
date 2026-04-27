@@ -52,12 +52,12 @@ const app = createAgentApp<
       }
 
       const openai = new OpenAI({
-        apiKey: config.openai?.apiKey ?? config.openaiApiKey,
-        baseURL: config.openai?.baseUrl ?? config.openaiBaseUrl,
-        timeout: config.openai?.timeoutMs,
+        apiKey: config.openai.apiKey,
+        baseURL: config.openai.baseUrl,
+        timeout: config.openai.timeoutMs,
       });
-      const model = config.openai?.model ?? config.openaiModel ?? "gpt-4o-mini";
-      const temperature = config.openai?.temperature ?? 0.4;
+      const model = config.openai.model;
+      const temperature = config.openai.temperature;
       const today = new Date().toISOString().split("T")[0];
 
       const generated = await pRetry(
