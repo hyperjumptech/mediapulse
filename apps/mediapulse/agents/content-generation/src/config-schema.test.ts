@@ -4,18 +4,13 @@ import { describe, expect, it } from "vitest";
 import { ContentGenerationConfigSchema } from "./config-schema.js";
 
 describe("ContentGenerationConfigSchema", () => {
-  it("parses minimal config with legacy openaiApiKey and applies all defaults", () => {
-    // Act
+  it("parses minimal config with openai.apiKey and applies all defaults", () => {
     const parsed = ContentGenerationConfigSchema.parse({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
     });
 
-    // Assert
-    expect(parsed.openaiApiKey).toBe("sk-test");
-    expect(parsed.openaiBaseUrl).toBeUndefined();
-    expect(parsed.openaiModel).toBeUndefined();
-
-    // Check defaults
+    expect(parsed.openai.apiKey).toBe("sk-test");
+    expect(parsed.openai.baseUrl).toBeUndefined();
     expect(parsed.openai.model).toBe("gpt-4o-mini");
     expect(parsed.openai.temperature).toBe(0.4);
     expect(parsed.openai.timeoutMs).toBe(120000);
@@ -34,7 +29,6 @@ describe("ContentGenerationConfigSchema", () => {
   });
 
   it("parses valid full config", () => {
-    // Act
     const parsed = ContentGenerationConfigSchema.parse({
       openai: {
         apiKey: "sk-test-new",
@@ -72,7 +66,6 @@ describe("ContentGenerationConfigSchema", () => {
       },
     });
 
-    // Assert
     expect(parsed.openai.apiKey).toBe("sk-test-new");
     expect(parsed.openai.baseUrl).toBe("https://example.com");
     expect(parsed.openai.model).toBe("gpt-4");
@@ -81,112 +74,94 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.freshness.timezone).toBe("America/New_York");
   });
 
-  it("accepts legacy explicit openaiModel and new openai.model", () => {
-    // Act
-    const parsed = ContentGenerationConfigSchema.parse({
-      openaiApiKey: "sk-test",
-      openaiModel: "gpt-4o",
-      openai: {
-        model: "gpt-4-turbo",
-      },
-    });
-
-    // Assert
-    expect(parsed.openaiModel).toBe("gpt-4o");
-    expect(parsed.openai.model).toBe("gpt-4-turbo");
-  });
-
-  it("rejects empty openaiApiKey if no openai.apiKey provided", () => {
-    // Act & Assert
-    const result = ContentGenerationConfigSchema.safeParse({
-      openaiApiKey: "",
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]?.path).toEqual(["openaiApiKey"]);
-    }
-  });
-
-  it("rejects missing api key", () => {
-    // Act & Assert
+  it("rejects missing openai object", () => {
     const result = ContentGenerationConfigSchema.safeParse({});
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0]?.path).toEqual(["openai", "apiKey"]);
+      expect(result.error.issues.some((i) => i.path[0] === "openai")).toBe(
+        true,
+      );
     }
   });
 
-  it("parses config with openai.apiKey only (no legacy openaiApiKey)", () => {
-    // Act
-    const parsed = ContentGenerationConfigSchema.parse({
-      openai: {
-        apiKey: "sk-new-style",
-      },
+  it("rejects missing openai.apiKey", () => {
+    const result = ContentGenerationConfigSchema.safeParse({
+      openai: {},
     });
-
-    // Assert
-    expect(parsed.openai.apiKey).toBe("sk-new-style");
-    expect(parsed.openaiApiKey).toBeUndefined();
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some(
+          (i) => i.path[0] === "openai" && i.path[1] === "apiKey",
+        ),
+      ).toBe(true);
+    }
   });
 
-  it("rejects if both openaiApiKey and openai.apiKey are empty or whitespace", () => {
-    // Act & Assert
+  it("rejects empty openai.apiKey", () => {
     const result = ContentGenerationConfigSchema.safeParse({
-      openaiApiKey: "   ",
-      openai: {
-        apiKey: "",
-      },
+      openai: { apiKey: "" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects whitespace-only openai.apiKey", () => {
+    const result = ContentGenerationConfigSchema.safeParse({
+      openai: { apiKey: "   " },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects unknown top-level legacy openaiApiKey", () => {
+    const result = ContentGenerationConfigSchema.safeParse({
+      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects topNewsCount of 0", () => {
-    // Act & Assert
     const result = ContentGenerationConfigSchema.safeParse({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
       output: { topNewsCount: 0 },
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects negative topNewsCount", () => {
-    // Act & Assert
     const result = ContentGenerationConfigSchema.safeParse({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
       output: { topNewsCount: -1 },
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects invalid freshness timezone", () => {
-    // Act & Assert
     const result = ContentGenerationConfigSchema.safeParse({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
       freshness: { timezone: "Not/ATimezone" },
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects wrong type for topNewsCount", () => {
-    // Act & Assert
     const result = ContentGenerationConfigSchema.safeParse({
-      openaiApiKey: "sk-test",
+      openai: { apiKey: "sk-test" },
       output: { topNewsCount: "three" },
     });
     expect(result.success).toBe(false);
   });
 
-  it("generates correct JSON schema containing all fields", () => {
-    // Act
+  it("JSON schema exposes nested openai only (no top-level openaiApiKey)", () => {
     const jsonSchema = zodToJsonSchema(ContentGenerationConfigSchema, {
       $refStrategy: "none",
     });
 
-    // Assert
-    // Using stringify checks because the object is complex.
     const schemaStr = JSON.stringify(jsonSchema);
-    expect(schemaStr).toContain("openaiApiKey");
-    expect(schemaStr).toContain("openaiModel");
+    expect(schemaStr).toContain('"openai"');
+    expect(schemaStr).toContain("apiKey");
+    expect(schemaStr).not.toContain("openaiApiKey");
+    expect(schemaStr).not.toContain("openaiModel");
     expect(schemaStr).toContain("topNewsCount");
     expect(schemaStr).toContain("systemPrompt");
     expect(schemaStr).toContain("userPromptTemplate");

@@ -30,7 +30,7 @@ The content-generation agent takes **selected data sources** (scored by the anal
 - `@workspace/agent-runtime` — `createAgentApp`.
 - `@workspace/agent-data-api-client` — Typed API client for content-generation endpoints.
 - `@workspace/agent-types` — `DataSourceRecord` and related types.
-- `@workspace/env` — Via `@mediapulse/env/agents-content-generation` (agent-data-api URL, auth URL, port, optional registry). OpenAI settings use **`config`** from Hermes (`openaiApiKey`, optional `openaiBaseUrl` for non-default API hosts, optional `openaiModel` for the **model id only** — defaults to `gpt-4o-mini`).
+- `@workspace/env` — Via `@mediapulse/env/agents-content-generation` (agent-data-api URL, auth URL, port, optional registry). OpenAI settings use **`config.openai`** from Hermes: required **`apiKey`**, optional **`baseUrl`**, optional **`model`** (defaults to `gpt-4o-mini`), plus **`temperature`**, **`maxTokens`**, and **`timeoutMs`** as defined in the agent config schema.
 - `@workspace/logger` — Logging.
 
 ## Related docs
