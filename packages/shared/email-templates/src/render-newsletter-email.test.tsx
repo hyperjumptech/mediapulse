@@ -30,4 +30,53 @@ describe("renderNewsletterEmail", () => {
     expect(html).toMatch(/manage preferences/i);
     expect(html).toContain("https://app.example.com/settings/email");
   });
+
+  it("falls back to static render when stream render is unavailable", async () => {
+    // Setup
+    const streamError = new TypeError(
+      "undefined is not an object (evaluating 'Object.hasOwn(reactDOMServer, \"renderToReadableStream\")')",
+    );
+
+    // Act
+    const { html, text } = await renderNewsletterEmail(
+      {
+        title: "Fallback digest",
+        bodyText: "Body from fallback",
+      },
+      {
+        renderHtml: async () => {
+          throw streamError;
+        },
+        renderText: async () => {
+          throw streamError;
+        },
+      },
+    );
+
+    // Assert
+    expect(html).toContain("Fallback digest");
+    expect(text).toContain("Fallback digest");
+    expect(text).toContain("Body from fallback");
+  });
+
+  it("rethrows render errors that are unrelated to stream support", async () => {
+    // Setup
+    const failure = new Error("render exploded");
+
+    // Act & Assert
+    await expect(
+      renderNewsletterEmail(
+        {
+          title: "Will fail",
+          bodyText: "Will fail",
+        },
+        {
+          renderHtml: async () => {
+            throw failure;
+          },
+          renderText: async () => "unused",
+        },
+      ),
+    ).rejects.toThrow("render exploded");
+  });
 });
