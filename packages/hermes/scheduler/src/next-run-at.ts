@@ -1,10 +1,18 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports -- cron-parser CJS default export
-const cronParser = require("cron-parser") as {
-  parseExpression: (
+type CronParserLike = {
+  parseExpression?: (
     expr: string,
     opts: { currentDate?: Date; tz?: string },
   ) => { next: () => { toDate: () => Date } };
+  CronExpressionParser?: {
+    parse: (
+      expr: string,
+      opts: { currentDate?: Date; tz?: string },
+    ) => { next: () => { toDate: () => Date } };
+  };
 };
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- cron-parser CJS default export
+const cronParser = require("cron-parser") as CronParserLike;
 import type { ScheduleRepeat } from "@hermes/orchestration-database";
 
 /** Schedule-like shape with fields needed to compute next run. */
@@ -31,7 +39,19 @@ export const computeNextRunAt = (
 
   if (schedule.cronExpression) {
     try {
-      const iter = cronParser.parseExpression(schedule.cronExpression, {
+      const parser =
+        typeof cronParser.parseExpression === "function"
+          ? {
+              parse: (
+                expr: string,
+                opts: { currentDate?: Date; tz?: string },
+              ) => cronParser.parseExpression!(expr, opts),
+            }
+          : cronParser.CronExpressionParser;
+      if (parser == null || typeof parser.parse !== "function") {
+        return null;
+      }
+      const iter = parser.parse(schedule.cronExpression, {
         currentDate: after,
         tz: schedule.timezone || "UTC",
       });
