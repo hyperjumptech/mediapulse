@@ -118,7 +118,7 @@ function isRetryableUnknownLlmError(error: unknown): boolean {
  * @returns Status code when present; otherwise `undefined`.
  */
 function readNumericStatusCode(error: Error): number | undefined {
-  const asRecord = error as Record<string, unknown>;
+  const asRecord = error as unknown as Record<string, unknown>;
   const direct = asRecord.statusCode ?? asRecord.status;
   if (typeof direct === "number") {
     return direct;
