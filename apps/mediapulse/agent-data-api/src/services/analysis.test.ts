@@ -11,6 +11,7 @@ vi.mock("@mediapulse/database", () => ({
 
 let AnalysisPostValidationError: typeof import("./analysis.js").AnalysisPostValidationError;
 let applyAnalysisPost: typeof import("./analysis.js").applyAnalysisPost;
+let deleteAnalysisDataSource: typeof import("./analysis.js").deleteAnalysisDataSource;
 let loadAnalysisContext: typeof import("./analysis.js").loadAnalysisContext;
 let normalizeAnalysisName: typeof import("./analysis.js").normalizeAnalysisName;
 
@@ -18,6 +19,7 @@ beforeAll(async () => {
   const mod = await import("./analysis.js");
   AnalysisPostValidationError = mod.AnalysisPostValidationError;
   applyAnalysisPost = mod.applyAnalysisPost;
+  deleteAnalysisDataSource = mod.deleteAnalysisDataSource;
   loadAnalysisContext = mod.loadAnalysisContext;
   normalizeAnalysisName = mod.normalizeAnalysisName;
 });
@@ -562,5 +564,55 @@ describe("applyAnalysisPost", () => {
         },
       }),
     );
+  });
+});
+
+describe("deleteAnalysisDataSource", () => {
+  it("deletes source scoped by ticker id", async () => {
+    // Setup
+    const db = {
+      dataSource: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+
+    // Act
+    const result = await deleteAnalysisDataSource(
+      {
+        tickerId: "ticker-1",
+        dataSourceId: "11111111-1111-4111-a111-111111111111",
+      },
+      { db: db as never },
+    );
+
+    // Assert
+    expect(db.dataSource.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: "11111111-1111-4111-a111-111111111111",
+        tickerId: "ticker-1",
+      },
+    });
+    expect(result).toEqual({ deleted: true });
+  });
+
+  it("returns deleted false when no row matches", async () => {
+    // Setup
+    const db = {
+      dataSource: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    };
+
+    // Act
+    const result = await deleteAnalysisDataSource(
+      {
+        tickerId: "ticker-1",
+        dataSourceId: "11111111-1111-4111-a111-111111111111",
+      },
+      { db: db as never },
+    );
+
+    // Assert
+    expect(result).toEqual({ deleted: false });
   });
 });

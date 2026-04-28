@@ -6,6 +6,10 @@ import {
   postAnalysisResponseSchema,
 } from "./analysis.js";
 import {
+  postAnalysisDataSourceDeleteBodySchema,
+  postAnalysisDataSourceDeleteResponseSchema,
+} from "./analysis-data-source-delete.js";
+import {
   getContentGenerationQuerySchema,
   getContentGenerationResponseSchema,
   getContentGenerationNewslettersLatestQuerySchema,
@@ -128,6 +132,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postAnalysisBodySchema,
         response: postAnalysisResponseSchema,
+      },
+    },
+  },
+  analysisDataSourceDelete: {
+    v1: {
+      post: {
+        body: postAnalysisDataSourceDeleteBodySchema,
+        response: postAnalysisDataSourceDeleteResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postAnalysisDataSourceDeleteBodySchema,
+        response: postAnalysisDataSourceDeleteResponseSchema,
       },
     },
   },

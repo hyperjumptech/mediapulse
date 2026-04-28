@@ -210,6 +210,29 @@ describe("createAgentDataApiClient", () => {
     await expect(act).rejects.toThrow("Agent data API error: 404");
   });
 
+  it("includes compact response body in non-2xx error message", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        error: "Unknown entityName for article entity: BCA",
+      }),
+      statusCode: 400,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      getFn,
+    });
+
+    // Act
+    const act = () =>
+      client.delivery.get({ tickerId: "11111111-1111-4111-a111-111111111111" });
+
+    // Assert
+    await expect(act).rejects.toThrow(
+      'Agent data API error: 400 - {"error":"Unknown entityName for article entity: BCA"}',
+    );
+  });
+
   it("builds analysis GET with typed query and auth header", async () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({

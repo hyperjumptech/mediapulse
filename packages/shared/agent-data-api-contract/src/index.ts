@@ -27,6 +27,12 @@ export {
   type PostAnalysisResponse,
 } from "./analysis.js";
 export {
+  postAnalysisDataSourceDeleteBodySchema,
+  postAnalysisDataSourceDeleteResponseSchema,
+  type PostAnalysisDataSourceDeleteBody,
+  type PostAnalysisDataSourceDeleteResponse,
+} from "./analysis-data-source-delete.js";
+export {
   contentGenerationDataSourceSchema,
   getContentGenerationQuerySchema,
   getContentGenerationResponseSchema,

@@ -16,6 +16,7 @@ import {
   buildArticleEntityPostChunks,
   buildNormalizedEntityCatalogForArticle,
   buildNormalizedEntityCatalogFromProposals,
+  canonicalizeArticleEntityRowsToRunEntities,
   dedupeArticleEntityMentions,
   filterArticleEntityRowsToRunCatalog,
   filterMentionsToArticleEntityCatalog,
@@ -72,6 +73,10 @@ import {
   applyMaxBatchSizeCap,
   sortAnalysisDataSourcesByCreatedAt,
 } from "./run-helpers.js";
+import {
+  hardDeleteDataSourceById,
+  shouldHardDeleteDataSourceForExtractionError,
+} from "./extraction-failure-pruning.js";
 import { normalizeEntityName } from "./normalize-entity-name.js";
 
 type ExistingEntity = {
@@ -606,6 +611,30 @@ export const run = async ({
           },
           "article-analysis LLM extraction failed for source; skipping",
         );
+        if (shouldHardDeleteDataSourceForExtractionError(message)) {
+          try {
+            await hardDeleteDataSourceById(source.id, {
+              dataApiClient,
+              tickerId: input.tickerId,
+            });
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "llm",
+              },
+              "article-analysis hard-deleted data source after unrecoverable extraction parse failure",
+            );
+          } catch (deleteErr) {
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "llm",
+                err: toSafeLogError(deleteErr),
+              },
+              "article-analysis failed to hard-delete data source after extraction parse failure",
+            );
+          }
+        }
       }
     }
 
@@ -738,7 +767,31 @@ export const run = async ({
       );
     }
 
-    let articleEntitiesForPost = dedupeArticleEntityMentions(articleRowsForRun);
+    const {
+      rows: canonicalArticleRowsForRun,
+      droppedCount: droppedArticleMentionsUnmappableToCanonicalEntity,
+      canonicalizedCount: canonicalizedArticleMentionsToCanonicalEntityName,
+    } = canonicalizeArticleEntityRowsToRunEntities(articleRowsForRun, entities);
+    if (droppedArticleMentionsUnmappableToCanonicalEntity > 0) {
+      log.warn(
+        {
+          droppedArticleMentionsUnmappableToCanonicalEntity,
+        },
+        "article-analysis dropped article entity mentions not mappable to run canonical entity names",
+      );
+    }
+    if (canonicalizedArticleMentionsToCanonicalEntityName > 0) {
+      log.info(
+        {
+          canonicalizedArticleMentionsToCanonicalEntityName,
+        },
+        "article-analysis canonicalized article entity mention names before POST",
+      );
+    }
+
+    let articleEntitiesForPost = dedupeArticleEntityMentions(
+      canonicalArticleRowsForRun,
+    );
     articleEntitiesForPost = applyPerRunArticleEntityCap(
       articleEntitiesForPost,
       cfg.maxArticleEntitiesPerRun,

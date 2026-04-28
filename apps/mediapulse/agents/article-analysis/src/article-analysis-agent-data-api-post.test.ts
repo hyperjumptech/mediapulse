@@ -18,6 +18,14 @@ describe("parseAgentDataApiHttpStatus", () => {
     ).toBe(503);
   });
 
+  it("returns status when error includes response-body details", () => {
+    expect(
+      parseAgentDataApiHttpStatus(
+        new Error('Agent data API error: 400 - {"error":"bad payload"}'),
+      ),
+    ).toBe(400);
+  });
+
   it("returns undefined for unrelated errors", () => {
     expect(parseAgentDataApiHttpStatus(new Error("boom"))).toBeUndefined();
     expect(parseAgentDataApiHttpStatus(null)).toBeUndefined();
