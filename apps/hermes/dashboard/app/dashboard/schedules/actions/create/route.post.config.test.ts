@@ -26,6 +26,7 @@ describe("createCreateScheduleHandler", () => {
         name: "Daily",
         repeat: "once",
         timezone: "UTC",
+        startAt: new Date("2026-04-29T00:00:00.000Z"),
         pipelineId: "00000000-0000-4000-8000-000000000001",
       },
       params: {},
@@ -58,6 +59,7 @@ describe("createCreateScheduleHandler", () => {
         name: "Daily",
         repeat: "once",
         timezone: "UTC",
+        startAt: new Date("2026-04-29T00:00:00.000Z"),
         pipelineId,
       },
       params: {},
@@ -72,9 +74,90 @@ describe("createCreateScheduleHandler", () => {
     expect(db.schedule.create).not.toHaveBeenCalled();
   });
 
+  it("returns error when one-time schedule has no startAt", async () => {
+    const pipelineId = "00000000-0000-4000-8000-000000000002";
+    const db = {
+      pipeline: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: pipelineId,
+          isActive: true,
+          steps: [],
+        }),
+      },
+      schedule: {
+        create: vi.fn(),
+      },
+    };
+    const createHandler = createCreateScheduleHandler({
+      db: db as never,
+    });
+    const result = await createHandler({
+      body: {
+        name: "Daily",
+        repeat: "once",
+        timezone: "America/New_York",
+        pipelineId,
+        startAt: null,
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toBe(
+      "One-time schedules require a start date/time.",
+    );
+    expect(db.schedule.create).not.toHaveBeenCalled();
+  });
+
+  it("returns error when cron expression is invalid", async () => {
+    // Setup
+    const pipelineId = "00000000-0000-4000-8000-000000000002";
+    const db = {
+      pipeline: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: pipelineId,
+          isActive: true,
+          steps: [],
+        }),
+      },
+      schedule: {
+        create: vi.fn(),
+      },
+    };
+    const createHandler = createCreateScheduleHandler({
+      db: db as never,
+    });
+
+    // Act
+    const result = await createHandler({
+      body: {
+        name: "Daily",
+        repeat: "repeating",
+        cronExpression: "not-a-cron",
+        timezone: "UTC",
+        pipelineId,
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    // Assert
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toBe(
+      "Invalid cron expression for the selected timezone.",
+    );
+    expect(db.schedule.create).not.toHaveBeenCalled();
+  });
+
   it("creates schedule and returns id", async () => {
+    // Setup
     const pipelineId = "00000000-0000-4000-8000-000000000002";
     const scheduleId = "00000000-0000-4000-8000-000000000003";
+    const startAt = new Date("2026-04-29T00:00:00.000Z");
     const db = {
       pipeline: {
         findUnique: vi.fn().mockResolvedValue({
@@ -94,19 +177,23 @@ describe("createCreateScheduleHandler", () => {
     const createHandler = createCreateScheduleHandler({
       db: db as never,
     });
+
+    // Act
     const result = await createHandler({
       body: {
         name: "Daily",
         repeat: "once",
         timezone: "America/New_York",
         pipelineId,
-        startAt: null,
+        startAt,
       },
       params: {},
       headers: new Headers(),
       searchParams: {},
       user: mockDashboardUser,
     } as never);
+
+    // Assert
     expect(result.status).toBe(true);
     expect((result as { data?: { id: string } }).data?.id).toBe(scheduleId);
     expect(db.schedule.create).toHaveBeenCalledTimes(1);
@@ -117,7 +204,7 @@ describe("createCreateScheduleHandler", () => {
     expect(createData!.name).toBe("Daily");
     expect(createData.repeat).toBe("once");
     expect(createData.pipelineId).toBe(pipelineId);
-    expect(createData.nextRunAt).toBeNull();
+    expect(createData.nextRunAt).toEqual(startAt);
     expect(createData.createdById).toBe(mockDashboardUser.id);
   });
 });
@@ -145,7 +232,7 @@ describe("handler", () => {
       body: {
         name: "Test",
         repeat: "repeating",
-        cronExpression: "0 6 * * *",
+        interval: 60_000,
         timezone: "UTC",
         pipelineId: "p1",
       },

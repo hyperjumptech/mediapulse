@@ -123,6 +123,77 @@ describe("createUpdateScheduleHandler", () => {
       }),
     });
   });
+
+  it("returns error when setting repeat=once without startAt", async () => {
+    // Setup
+    const updateMock = vi.fn().mockResolvedValue(undefined);
+    const db = {
+      schedule: {
+        findUnique: vi.fn().mockResolvedValue(existingSchedule),
+        update: updateMock,
+      },
+    };
+    const updateHandler = createUpdateScheduleHandler({
+      db: db as never,
+    });
+
+    // Act
+    const result = await updateHandler({
+      body: { scheduleId, repeat: "once", startAt: null },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    // Assert
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toBe(
+      "One-time schedules require a start date/time.",
+    );
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns error when setting invalid cron on repeating schedule", async () => {
+    // Setup
+    const updateMock = vi.fn().mockResolvedValue(undefined);
+    const repeatingSchedule = {
+      ...existingSchedule,
+      repeat: "repeating" as const,
+      cronExpression: "0 6 * * *",
+      startAt: null,
+    };
+    const db = {
+      schedule: {
+        findUnique: vi.fn().mockResolvedValue(repeatingSchedule),
+        update: updateMock,
+      },
+    };
+    const updateHandler = createUpdateScheduleHandler({
+      db: db as never,
+    });
+
+    // Act
+    const result = await updateHandler({
+      body: {
+        scheduleId,
+        repeat: "repeating",
+        cronExpression: "not-a-cron",
+        timezone: "UTC",
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    // Assert
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toBe(
+      "Invalid cron expression for the selected timezone.",
+    );
+    expect(updateMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("handler", () => {
