@@ -1078,7 +1078,6 @@ describe("provenance fields in contentGeneration.create", () => {
           openai: {
             apiKey: "sk-test",
             model: "gpt-4o",
-            temperature: 0.4,
             timeoutMs: 120000,
           },
         },

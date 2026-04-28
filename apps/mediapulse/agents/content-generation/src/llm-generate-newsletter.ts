@@ -62,8 +62,6 @@ export type GenerateNewsletterObjectArgs = {
   maxRetries: number;
   /** Per-request timeout in milliseconds (passed to the AI SDK). */
   timeout?: number;
-  /** Sampling temperature (0.0 to 2.0) passed to `generateObject`. */
-  temperature?: number;
   /** Maximum tokens to generate (passed to `generateObject`). */
   maxTokens?: number;
 };
@@ -225,7 +223,6 @@ export async function generateNewsletterWithLlm(
   });
 
   const timeout = config.openai?.timeoutMs;
-  const temperature = config.openai?.temperature;
   const maxTokens = config.openai?.maxTokens;
 
   const result = await retryWithBackoff(
@@ -237,7 +234,6 @@ export async function generateNewsletterWithLlm(
         prompt,
         maxRetries: 0,
         ...(timeout !== undefined ? { timeout } : {}),
-        ...(temperature !== undefined ? { temperature } : {}),
         ...(maxTokens !== undefined ? { maxTokens } : {}),
       }),
     config.llmRetry,

@@ -13,10 +13,18 @@ export const contentGenerationRunStageSchema = z.enum([
   "persist",
 ]);
 
+/**
+ * Ticker id used by content-generation diagnostics.
+ *
+ * Aligns with Hermes agent input semantics (`hermesTickerIdSchema`): accept any
+ * non-empty trimmed string, including UUIDs and opaque ids.
+ */
+const contentGenerationRunTickerIdSchema = z.string().trim().min(1);
+
 export const postContentGenerationRunBodySchema = z.object({
   agentId: z.literal("content-generation"),
   agentVersion: z.string().min(1),
-  tickerId: z.string().uuid(),
+  tickerId: contentGenerationRunTickerIdSchema,
   outcome: contentGenerationRunOutcomeSchema,
   stage: contentGenerationRunStageSchema.nullable().optional(),
   errorCode: z.string().nullable().optional(),
@@ -32,7 +40,7 @@ export const postContentGenerationRunResponseSchema = z.object({
   id: z.string().uuid(),
   agentId: z.string(),
   agentVersion: z.string(),
-  tickerId: z.string().uuid(),
+  tickerId: contentGenerationRunTickerIdSchema,
   outcome: contentGenerationRunOutcomeSchema,
   stage: contentGenerationRunStageSchema.nullable().optional(),
   errorCode: z.string().nullable().optional(),
@@ -56,7 +64,7 @@ export const contentGenerationRunQuerySchema = z.object({
   ),
   tickerId: z.preprocess(
     (v) => (v === "" || v === undefined ? undefined : v),
-    z.string().uuid().optional(),
+    contentGenerationRunTickerIdSchema.optional(),
   ),
   outcome: z.preprocess(
     (v) => (v === "" || v === undefined ? undefined : v),
@@ -76,7 +84,7 @@ export const contentGenerationRunListItemSchema = z.object({
   id: z.string().uuid(),
   agentId: z.string(),
   agentVersion: z.string(),
-  tickerId: z.string().uuid(),
+  tickerId: contentGenerationRunTickerIdSchema,
   outcome: contentGenerationRunOutcomeSchema,
   stage: contentGenerationRunStageSchema.nullable().optional(),
   errorCode: z.string().nullable().optional(),

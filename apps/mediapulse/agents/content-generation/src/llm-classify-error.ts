@@ -38,7 +38,7 @@ export function isRetryableLlmError(error: unknown): boolean {
   if (error instanceof NoObjectGeneratedError) {
     return false;
   }
-  return false;
+  return isRetryableUnknownLlmError(error);
 }
 
 /**
@@ -65,6 +65,9 @@ export function classifyLlmError(error: unknown): OutcomeCode {
   if (isAbortOrTimeoutError(error)) {
     return "openai_retry_exhausted";
   }
+  if (isRetryableUnknownLlmError(error)) {
+    return "openai_retry_exhausted";
+  }
   return "openai_non_retryable";
 }
 
@@ -80,4 +83,56 @@ function isAbortOrTimeoutError(error: unknown): boolean {
     error instanceof Error &&
     (error.name === "AbortError" || error.name === "TimeoutError")
   );
+}
+
+/**
+ * Best-effort retry classification for non-AI-SDK errors.
+ *
+ * Some transport/runtime failures may surface as plain `Error` objects (for
+ * example from fetch/runtime boundaries) rather than `APICallError`. This
+ * helper treats obvious transient network and 5xx-like signals as retryable.
+ *
+ * @param error - Value to classify.
+ * @returns `true` when the error appears transient and worth retrying.
+ */
+function isRetryableUnknownLlmError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const maybeStatus = readNumericStatusCode(error);
+  if (
+    maybeStatus === 429 ||
+    (maybeStatus !== undefined && maybeStatus >= 500)
+  ) {
+    return true;
+  }
+  return /(timed? out|timeout|econnreset|econnrefused|eai_again|enotfound|socket hang up|network error|rate limit)/i.test(
+    error.message,
+  );
+}
+
+/**
+ * Reads a numeric status code from common error object shapes.
+ *
+ * @param error - Error instance that may include status fields.
+ * @returns Status code when present; otherwise `undefined`.
+ */
+function readNumericStatusCode(error: Error): number | undefined {
+  const asRecord = error as unknown as Record<string, unknown>;
+  const direct = asRecord.statusCode ?? asRecord.status;
+  if (typeof direct === "number") {
+    return direct;
+  }
+  if (
+    asRecord.cause &&
+    typeof asRecord.cause === "object" &&
+    asRecord.cause !== null
+  ) {
+    const causeRecord = asRecord.cause as Record<string, unknown>;
+    const nested = causeRecord.statusCode ?? causeRecord.status;
+    if (typeof nested === "number") {
+      return nested;
+    }
+  }
+  return undefined;
 }

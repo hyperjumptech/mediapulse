@@ -16,7 +16,6 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.openai.apiKey).toBe("sk-test");
     expect(parsed.openai.baseUrl).toBeUndefined();
     expect(parsed.openai.model).toBe("gpt-4o-mini");
-    expect(parsed.openai.temperature).toBe(0.4);
     expect(parsed.openai.timeoutMs).toBe(120000);
     expect(parsed.output.topNewsCount).toBe(3);
     expect(parsed.context.maxCharsPerSource).toBe(8000);
@@ -38,7 +37,6 @@ describe("ContentGenerationConfigSchema", () => {
         apiKey: "sk-test-new",
         baseUrl: "https://example.com",
         model: "gpt-4",
-        temperature: 0.8,
         maxTokens: 1000,
         timeoutMs: 60000,
       },
