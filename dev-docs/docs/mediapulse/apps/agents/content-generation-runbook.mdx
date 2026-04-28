@@ -107,6 +107,18 @@ This runbook covers the major failure and skip outcomes for the content-generati
 
 ---
 
+---
+
+## Viewing the linked newsletter (success runs)
+
+On the run detail page, **Newsletter ID** is displayed as a copy-to-clipboard field rather than a hyperlink. There is no Hermes newsletter detail page in v1 — copy the UUID and query it directly:
+
+```
+GET /api/v1/content-generation/newsletters/:id
+```
+
+or look up the row in the `newsletter` table using the copied UUID.
+
 ## Related docs
 
 - [Content Generation Agent](/mediapulse/apps/agents/content-generation) — Purpose, features, error taxonomy, config schema summary.

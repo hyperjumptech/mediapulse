@@ -43,6 +43,11 @@ type WriteDiagnosticParams = {
    * `pipelineRunId` for cross-service correlation. `null` when not available.
    */
   pipelineRunId?: string | null;
+  /**
+   * Hermes execution id (`X-Execution-Id`) from the invoke context, forwarded
+   * as `executionId` for per-request correlation. `null` when not available.
+   */
+  executionId?: string | null;
 };
 
 /**
@@ -66,6 +71,7 @@ async function writeDiagnostic(params: WriteDiagnosticParams): Promise<void> {
     durationMs,
     newsletterId = null,
     pipelineRunId = null,
+    executionId = null,
   } = params;
 
   const mapped = mapOutcomeToDiagnostic(agentOutcome);
@@ -86,6 +92,7 @@ async function writeDiagnostic(params: WriteDiagnosticParams): Promise<void> {
       }),
       durationMs,
       pipelineRunId,
+      executionId,
       newsletterId,
     });
   } catch (diagErr) {
@@ -139,6 +146,7 @@ export async function run({
   });
 
   const pipelineRunId = hermesCorrelation?.pipelineStepId ?? null;
+  const executionId = hermesCorrelation?.executionId ?? null;
 
   // -------------------------------------------------------------------------
   // Skip-if-fresh precheck (MP-CGA-006)
@@ -219,6 +227,7 @@ export async function run({
       agentOutcome: outcome,
       durationMs: Date.now() - runStart,
       pipelineRunId,
+      executionId,
     });
     return {
       success: false,
@@ -256,6 +265,7 @@ export async function run({
       agentOutcome: outcome,
       durationMs: Date.now() - runStart,
       pipelineRunId,
+      executionId,
     });
     return {
       success: false,
@@ -297,6 +307,7 @@ export async function run({
       agentOutcome: outcome,
       durationMs: Date.now() - runStart,
       pipelineRunId,
+      executionId,
     });
     return {
       success: false,
@@ -380,6 +391,7 @@ export async function run({
       agentOutcome: outcome,
       durationMs: Date.now() - runStart,
       pipelineRunId,
+      executionId,
     });
     return {
       success: false,
@@ -398,6 +410,7 @@ export async function run({
     durationMs: Date.now() - runStart,
     newsletterId: persistedNewsletterId,
     pipelineRunId,
+    executionId,
   });
   return { success: true };
 }

@@ -476,6 +476,7 @@ model ContentGenerationRun {
   message         String?
   durationMs      Int?                         @map("duration_ms")
   pipelineRunId   String?                      @map("pipeline_run_id")
+  executionId     String?                      @map("execution_id")
   newsletterId    String?                      @map("newsletter_id")
   createdAt       DateTime                     @default(now()) @map("created_at")
 

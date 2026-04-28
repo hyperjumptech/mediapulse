@@ -24,6 +24,7 @@ export const postContentGenerationRunBodySchema = z.object({
   message: z.string().nullable().optional(),
   durationMs: z.number().int().nonnegative().nullable().optional(),
   pipelineRunId: z.string().nullable().optional(),
+  executionId: z.string().nullable().optional(),
   newsletterId: z.string().uuid().nullable().optional(),
 });
 
@@ -39,6 +40,7 @@ export const postContentGenerationRunResponseSchema = z.object({
   message: z.string().nullable().optional(),
   durationMs: z.number().int().nullable().optional(),
   pipelineRunId: z.string().nullable().optional(),
+  executionId: z.string().nullable().optional(),
   newsletterId: z.string().uuid().nullable().optional(),
   createdAt: z.string().datetime(),
 });
@@ -82,6 +84,7 @@ export const contentGenerationRunListItemSchema = z.object({
   message: z.string().nullable().optional(),
   durationMs: z.number().int().nullable().optional(),
   pipelineRunId: z.string().nullable().optional(),
+  executionId: z.string().nullable().optional(),
   newsletterId: z.string().uuid().nullable().optional(),
   createdAt: z.string().datetime(),
 });

@@ -82,6 +82,9 @@ export const ContentGenerationRunDetail = ({
         <dt className="text-muted-foreground">Pipeline run ID</dt>
         <dd>{run.pipelineRunId ?? "—"}</dd>
 
+        <dt className="text-muted-foreground">Execution ID</dt>
+        <dd>{run.executionId ?? "—"}</dd>
+
         <dt className="text-muted-foreground">Newsletter ID</dt>
         <dd>
           {run.newsletterId ? (

@@ -1,9 +1,5 @@
-import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
-import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
+import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-content-generation";
-import { logger } from "@workspace/logger";
-import OpenAI from "openai";
-import pRetry from "p-retry";
 import { z } from "zod";
 
 import {
@@ -13,7 +9,6 @@ import {
 
 import { AGENT_VERSION } from "./agent-version.js";
 import { run } from "./run.js";
-import { generateContentWithOpenAI } from "./lib/generate-content.js";
 
 const BodySchema = z.object({
   tickerId: z.string().uuid(),

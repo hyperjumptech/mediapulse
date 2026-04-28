@@ -41,6 +41,7 @@ export async function createContentGenerationRun(
     message?: string | null;
     durationMs?: number | null;
     pipelineRunId?: string | null;
+    executionId?: string | null;
     newsletterId?: string | null;
   },
   deps?: { db?: ContentGenerationRunDb },
@@ -59,6 +60,7 @@ export async function createContentGenerationRun(
       message: data.message ?? null,
       durationMs: data.durationMs ?? null,
       pipelineRunId: data.pipelineRunId ?? null,
+      executionId: data.executionId ?? null,
       newsletterId: data.newsletterId ?? null,
     },
   } satisfies Prisma.ContentGenerationRunCreateArgs;
