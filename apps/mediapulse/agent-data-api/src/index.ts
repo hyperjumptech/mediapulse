@@ -11,6 +11,7 @@ import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
 
 import { getAnalysis, postAnalysis } from "./routes/analysis.js";
+import { postAnalysisDataSourceDelete } from "./routes/analysis-data-source-delete.js";
 import {
   getContentGeneration,
   getContentGenerationNewslettersLatest,
@@ -71,6 +72,9 @@ const routeHandlers = {
   analysis: {
     get: getAnalysis,
     post: postAnalysis,
+  },
+  analysisDataSourceDelete: {
+    post: postAnalysisDataSourceDelete,
   },
   contentGeneration: {
     get: getContentGeneration,

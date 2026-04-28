@@ -34,6 +34,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/data-collection`            | Store data-collection payload                                         |
 | GET    | `/api/v1/analysis`                   | Get analysis context (sources + KG vocabulary) for a ticker           |
 | POST   | `/api/v1/analysis`                   | Persist analysis results (entities, relations, mentions, relevance)   |
+| POST   | `/api/v1/analysis-data-source-delete` | Hard-delete one data source row for a ticker                          |
 | GET    | `/api/v1/delivery`                   | Get delivery payload (nullable newsletter, subscribers + checkpoints) |
 | POST   | `/api/v1/delivery`                   | Upsert delivery checkpoint after successful send                      |
 | GET    | `/api/v1/delivery-run`               | List delivery diagnostic runs (filters optional)                      |
@@ -114,6 +115,15 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/analysis.ts`. Schemas 
 - **POST** — Body validated by `postAnalysisBodySchema`: `tickerId`, optional arrays `entities`, `relations`, `articleEntities`, `articleRelevances`. Response includes aggregate counts (`entitiesCreated`, `entitiesReused`, `relationsCreated`, `articlesScored`, `articlesSelected`).
 
 From agents, use the SDK namespace **`analysis`**: `get` for the query object (including optional `limit` and `timeWindow` as `start` / `end`), **`create`** for POST.
+
+### Analysis data-source delete (`POST /api/v1/analysis-data-source-delete`)
+
+Used by the article-analysis agent to remove unrecoverable sources (for example repeated extraction parse failures) without direct DB access from the agent process.
+
+- **POST** — Body (`postAnalysisDataSourceDeleteBodySchema`): `tickerId` (required) and `dataSourceId` (UUID, required).
+- **POST response** — `{ deleted: boolean }` where `deleted=true` only when a row matching both `tickerId` and `dataSourceId` existed and was removed.
+
+From agents, use SDK namespace **`analysisDataSourceDelete`** with `create`.
 
 ### Delivery run (`/api/v1/delivery-run`)
 

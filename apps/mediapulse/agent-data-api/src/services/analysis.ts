@@ -1,6 +1,7 @@
 import type {
   GetAnalysisQuery,
   GetAnalysisResponse,
+  PostAnalysisDataSourceDeleteBody,
   PostAnalysisBody,
   PostAnalysisResponse,
 } from "@workspace/agent-data-api-contract";
@@ -23,7 +24,7 @@ export class AnalysisPostValidationError extends Error {
 type AnalysisDb = {
   dataSource: Pick<
     typeof prisma.dataSource,
-    "findMany" | "findUnique" | "findFirst" | "count"
+    "findMany" | "findUnique" | "findFirst" | "count" | "deleteMany"
   >;
   entityType: Pick<typeof prisma.entityType, "findMany">;
   relationType: Pick<typeof prisma.relationType, "findMany">;
@@ -432,6 +433,29 @@ export const applyAnalysisPost = async (
       articlesSelected,
     };
   });
+};
+
+/**
+ * Hard-deletes one data source row scoped by ticker id.
+ *
+ * @param body - Validated delete request with ticker and source ids.
+ * @param deps - Injectable database delegates for tests.
+ * @returns Whether a row was deleted.
+ */
+export const deleteAnalysisDataSource = async (
+  body: PostAnalysisDataSourceDeleteBody,
+  deps: { db?: Pick<AnalysisDb, "dataSource"> } = {},
+): Promise<{ deleted: boolean }> => {
+  const db = deps.db ?? defaultDb;
+  const result = await db.dataSource.deleteMany({
+    where: {
+      id: body.dataSourceId,
+      tickerId: body.tickerId,
+    },
+  });
+  return {
+    deleted: result.count > 0,
+  };
 };
 
 /**

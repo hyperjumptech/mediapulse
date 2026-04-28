@@ -26,6 +26,11 @@ export type DataApiPostFn = (
   },
 ) => Promise<PostResponse>;
 
+type AgentDataApiErrorWithContext = Error & {
+  statusCode?: number;
+  responseBody?: string;
+};
+
 type AgentDataApiClientOptions = {
   baseUrl: string;
   version?: AgentDataApiVersion;
@@ -103,7 +108,7 @@ export const createAgentDataApiClient = <
       throwHttpErrors: false,
     });
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw new Error(`Agent data API error: ${res.statusCode}`);
+      throw createAgentDataApiError(res.statusCode, res.body);
     }
     return schema.parse(JSON.parse(res.body));
   };
@@ -125,7 +130,7 @@ export const createAgentDataApiClient = <
       throwHttpErrors: false,
     });
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw new Error(`Agent data API error: ${res.statusCode}`);
+      throw createAgentDataApiError(res.statusCode, res.body);
     }
     return schema.parse(JSON.parse(res.body));
   };
@@ -232,4 +237,43 @@ const defaultPost = async (
     throwHttpErrors: opts?.throwHttpErrors ?? false,
   });
   return { body: res.body, statusCode: res.statusCode ?? 200 };
+};
+
+/**
+ * Builds an Error that preserves status and sanitized response body for debugging.
+ *
+ * The prefix `Agent data API error: <status>` remains stable so existing retry and
+ * classification logic based on status parsing continues to work.
+ *
+ * @param statusCode - HTTP status returned by agent-data-api.
+ * @param body - Raw response body text, if any.
+ * @returns Error with message and structured context fields.
+ */
+const createAgentDataApiError = (
+  statusCode: number,
+  body: string | undefined,
+): AgentDataApiErrorWithContext => {
+  const compactBody = toCompactBody(body);
+  const message =
+    compactBody.length > 0
+      ? `Agent data API error: ${statusCode} - ${compactBody}`
+      : `Agent data API error: ${statusCode}`;
+  const error = new Error(message) as AgentDataApiErrorWithContext;
+  error.statusCode = statusCode;
+  error.responseBody = compactBody.length > 0 ? compactBody : undefined;
+  return error;
+};
+
+/**
+ * Compacts and bounds response text to keep logs readable and safe.
+ *
+ * @param body - Raw HTTP response body.
+ * @returns Single-line string truncated to a safe max length.
+ */
+const toCompactBody = (body: string | undefined): string => {
+  if (!body) {
+    return "";
+  }
+  const compact = body.replace(/\s+/g, " ").trim();
+  return compact.slice(0, 500);
 };
