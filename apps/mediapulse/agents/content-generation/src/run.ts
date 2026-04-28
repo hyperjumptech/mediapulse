@@ -230,7 +230,7 @@ export async function run({
       executionId,
     });
     return {
-      success: false,
+      success: true,
       message:
         outcome.message ??
         "Newsletter already generated for this ticker today (skipped)",
@@ -268,7 +268,7 @@ export async function run({
       executionId,
     });
     return {
-      success: false,
+      success: true,
       message: outcome.message ?? "No data sources found for this ticker",
     };
   }
