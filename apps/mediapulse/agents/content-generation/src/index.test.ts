@@ -153,6 +153,8 @@ describe("parseNewsletterJson", () => {
 
   it("accepts topNews with exactly topNewsCount items", () => {
     const raw = JSON.stringify({
+      subject: "Daily Brief",
+      executiveSummary: "Market summary.",
       topNews: [
         { title: "A", summary: "a" },
         { title: "B", summary: "b" },
@@ -167,6 +169,8 @@ describe("parseNewsletterJson", () => {
 
   it("accepts topNews with fewer than topNewsCount items", () => {
     const raw = JSON.stringify({
+      subject: "Daily Brief",
+      executiveSummary: "Market summary.",
       topNews: [{ title: "A", summary: "a" }],
     });
 
@@ -177,6 +181,8 @@ describe("parseNewsletterJson", () => {
 
   it("rejects topNews exceeding topNewsCount", () => {
     const raw = JSON.stringify({
+      subject: "Daily Brief",
+      executiveSummary: "Market summary.",
       topNews: [
         { title: "A", summary: "a" },
         { title: "B", summary: "b" },
@@ -192,6 +198,8 @@ describe("parseNewsletterJson", () => {
 
   it("defaults topNewsCount to 3 when not specified", () => {
     const raw = JSON.stringify({
+      subject: "Daily Brief",
+      executiveSummary: "Market summary.",
       topNews: [
         { title: "A", summary: "a" },
         { title: "B", summary: "b" },
@@ -238,7 +246,6 @@ describe("GET /schemas", () => {
     expect(schemaStr).toContain("apiKey");
     expect(schemaStr).toContain("baseUrl");
     expect(schemaStr).toContain("model");
-    expect(schemaStr).toContain("temperature");
     expect(schemaStr).toContain("maxTokens");
     expect(schemaStr).toContain("timeoutMs");
     expect(schemaStr).toContain("systemPrompt");

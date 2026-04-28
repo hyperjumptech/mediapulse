@@ -179,7 +179,7 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation-run
 - **GET** — Lists persisted runs. **Query** (all optional, validated by `contentGenerationRunQuerySchema`):
   - `cursor` — `id` of the last item from the previous page.
   - `limit` — Page size, between 1 and 100. Default 50.
-  - `tickerId` — UUID, filter by ticker.
+  - `tickerId` — non-empty string ticker id, filter by ticker.
   - `outcome` — One of `success`, `skipped`, `failed`.
   - `startTime` — ISO 8601 datetime; when set, only rows with `createdAt >= startTime` (inclusive).
   - `endTime` — ISO 8601 datetime; when set, only rows with `createdAt <= endTime` (inclusive).

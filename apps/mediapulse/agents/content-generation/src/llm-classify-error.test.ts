@@ -128,6 +128,24 @@ describe("isRetryableLlmError", () => {
     expect(isRetryableLlmError(error)).toBe(false);
   });
 
+  it("returns true for unknown Error with transient network message", () => {
+    // Setup
+    const error = new Error("socket hang up");
+
+    // Act & Assert
+    expect(isRetryableLlmError(error)).toBe(true);
+  });
+
+  it("returns true for unknown Error with 5xx statusCode", () => {
+    // Setup
+    const error = Object.assign(new Error("upstream failed"), {
+      statusCode: 503,
+    });
+
+    // Act & Assert
+    expect(isRetryableLlmError(error)).toBe(true);
+  });
+
   it("returns false for a non-Error thrown value", () => {
     // Act & Assert
     expect(isRetryableLlmError("string error")).toBe(false);
@@ -229,6 +247,28 @@ describe("classifyLlmError", () => {
 
     // Assert
     expect(code).toBe("openai_non_retryable");
+  });
+
+  it("maps unknown transient network Error to openai_retry_exhausted", () => {
+    // Setup
+    const error = new Error("network error: socket hang up");
+
+    // Act
+    const code = classifyLlmError(error);
+
+    // Assert
+    expect(code).toBe("openai_retry_exhausted");
+  });
+
+  it("maps unknown Error with 5xx statusCode to openai_retry_exhausted", () => {
+    // Setup
+    const error = Object.assign(new Error("server error"), { statusCode: 500 });
+
+    // Act
+    const code = classifyLlmError(error);
+
+    // Assert
+    expect(code).toBe("openai_retry_exhausted");
   });
 
   it("maps a non-Error thrown value to openai_non_retryable", () => {

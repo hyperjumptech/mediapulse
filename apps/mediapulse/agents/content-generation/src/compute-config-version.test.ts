@@ -121,14 +121,14 @@ describe("computeConfigVersion", () => {
   it("produces the same hash regardless of property insertion order", () => {
     // Setup — two configs that are semantically identical but built in different order
     const configA = resolveContentGenerationConfig({
-      openai: { apiKey: "sk-test", model: "gpt-4o-mini", temperature: 0.5 },
+      openai: { apiKey: "sk-test", model: "gpt-4o-mini" },
       freshness: { timezone: "Asia/Jakarta" },
     });
 
     // Rebuild with keys in a different order by spreading
     const configBRaw = {
       freshness: { timezone: "Asia/Jakarta" },
-      openai: { apiKey: "sk-test", temperature: 0.5, model: "gpt-4o-mini" },
+      openai: { apiKey: "sk-test", model: "gpt-4o-mini" },
     };
     const configB = resolveContentGenerationConfig(configBRaw);
 
