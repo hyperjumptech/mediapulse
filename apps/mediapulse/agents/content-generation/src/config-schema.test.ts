@@ -1,7 +1,11 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { describe, expect, it } from "vitest";
 
-import { ContentGenerationConfigSchema } from "./config-schema.js";
+import {
+  contentGenerationConfigDefaults,
+  ContentGenerationConfigSchema,
+  resolveContentGenerationConfig,
+} from "./config-schema.js";
 
 describe("ContentGenerationConfigSchema", () => {
   it("parses minimal config with openai.apiKey and applies all defaults", () => {
@@ -76,12 +80,23 @@ describe("ContentGenerationConfigSchema", () => {
 
   it("rejects missing openai object", () => {
     const result = ContentGenerationConfigSchema.safeParse({});
+
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((i) => i.path[0] === "openai")).toBe(
         true,
       );
     }
+  });
+
+  it("parses config with openai.apiKey only", () => {
+    const parsed = ContentGenerationConfigSchema.parse({
+      openai: {
+        apiKey: "sk-new-style",
+      },
+    });
+
+    expect(parsed.openai.apiKey).toBe("sk-new-style");
   });
 
   it("rejects missing openai.apiKey", () => {
@@ -117,6 +132,7 @@ describe("ContentGenerationConfigSchema", () => {
       openaiApiKey: "sk-test",
       openai: { apiKey: "sk-test" },
     });
+
     expect(result.success).toBe(false);
   });
 
@@ -125,6 +141,7 @@ describe("ContentGenerationConfigSchema", () => {
       openai: { apiKey: "sk-test" },
       output: { topNewsCount: 0 },
     });
+
     expect(result.success).toBe(false);
   });
 
@@ -133,6 +150,7 @@ describe("ContentGenerationConfigSchema", () => {
       openai: { apiKey: "sk-test" },
       output: { topNewsCount: -1 },
     });
+
     expect(result.success).toBe(false);
   });
 
@@ -141,6 +159,7 @@ describe("ContentGenerationConfigSchema", () => {
       openai: { apiKey: "sk-test" },
       freshness: { timezone: "Not/ATimezone" },
     });
+
     expect(result.success).toBe(false);
   });
 
@@ -149,6 +168,7 @@ describe("ContentGenerationConfigSchema", () => {
       openai: { apiKey: "sk-test" },
       output: { topNewsCount: "three" },
     });
+
     expect(result.success).toBe(false);
   });
 
@@ -168,5 +188,120 @@ describe("ContentGenerationConfigSchema", () => {
     expect(schemaStr).toContain("calendar_day");
     expect(schemaStr).toContain("maxCharsPerSource");
     expect(schemaStr).toContain("maxTotalContextChars");
+  });
+
+  it("parses llmRetry with all fields provided", () => {
+    const parsed = ContentGenerationConfigSchema.parse({
+      openai: { apiKey: "sk-test" },
+      llmRetry: {
+        maxAttempts: 5,
+        baseDelayMs: 200,
+        maxDelayMs: 5000,
+        jitter: false,
+      },
+    });
+
+    expect(parsed.llmRetry?.maxAttempts).toBe(5);
+    expect(parsed.llmRetry?.baseDelayMs).toBe(200);
+    expect(parsed.llmRetry?.maxDelayMs).toBe(5000);
+    expect(parsed.llmRetry?.jitter).toBe(false);
+  });
+
+  it("accepts partial llmRetry with only maxAttempts set", () => {
+    const parsed = ContentGenerationConfigSchema.parse({
+      openai: { apiKey: "sk-test" },
+      llmRetry: { maxAttempts: 5 },
+    });
+
+    expect(parsed.llmRetry?.maxAttempts).toBe(5);
+    expect(parsed.llmRetry?.baseDelayMs).toBeUndefined();
+  });
+
+  it("accepts openai.timeoutMs", () => {
+    const parsed = ContentGenerationConfigSchema.parse({
+      openai: { apiKey: "sk-test", timeoutMs: 5000 },
+    });
+
+    expect(parsed.openai?.timeoutMs).toBe(5000);
+  });
+
+  it("rejects non-integer or non-positive timeoutMs", () => {
+    expect(() =>
+      ContentGenerationConfigSchema.parse({
+        openai: { apiKey: "sk-test", timeoutMs: -1 },
+      }),
+    ).toThrow();
+  });
+});
+
+describe("resolveContentGenerationConfig", () => {
+  it("fills llmRetry defaults when llmRetry is omitted", () => {
+    const config = ContentGenerationConfigSchema.parse({
+      openai: { apiKey: "sk-test" },
+    });
+
+    const resolved = resolveContentGenerationConfig(config);
+
+    expect(resolved.llmRetry.maxAttempts).toBe(
+      contentGenerationConfigDefaults.llmRetry.maxAttempts,
+    );
+    expect(resolved.llmRetry.baseDelayMs).toBe(
+      contentGenerationConfigDefaults.llmRetry.baseDelayMs,
+    );
+    expect(resolved.llmRetry.maxDelayMs).toBe(
+      contentGenerationConfigDefaults.llmRetry.maxDelayMs,
+    );
+    expect(resolved.llmRetry.jitter).toBe(
+      contentGenerationConfigDefaults.llmRetry.jitter,
+    );
+  });
+
+  it("preserves explicit llmRetry values when supplied", () => {
+    const config = ContentGenerationConfigSchema.parse({
+      openai: { apiKey: "sk-test" },
+      llmRetry: {
+        maxAttempts: 5,
+        baseDelayMs: 200,
+        maxDelayMs: 5000,
+        jitter: false,
+      },
+    });
+
+    const resolved = resolveContentGenerationConfig(config);
+
+    expect(resolved.llmRetry.maxAttempts).toBe(5);
+    expect(resolved.llmRetry.baseDelayMs).toBe(200);
+    expect(resolved.llmRetry.maxDelayMs).toBe(5000);
+    expect(resolved.llmRetry.jitter).toBe(false);
+  });
+
+  it("passes through openai config unchanged", () => {
+    const config = ContentGenerationConfigSchema.parse({
+      openai: { apiKey: "sk-key", model: "gpt-4o", timeoutMs: 8000 },
+    });
+
+    const resolved = resolveContentGenerationConfig(config);
+
+    expect(resolved.openai.apiKey).toBe("sk-key");
+    expect(resolved.openai.model).toBe("gpt-4o");
+    expect(resolved.openai.timeoutMs).toBe(8000);
+  });
+
+  it("fills persistRetry defaults when persistRetry is omitted", () => {
+    const config = ContentGenerationConfigSchema.parse({
+      openai: { apiKey: "sk-test" },
+    });
+
+    const resolved = resolveContentGenerationConfig(config);
+
+    expect(resolved.persistRetry.maxAttempts).toBe(
+      contentGenerationConfigDefaults.persistRetry.maxAttempts,
+    );
+    expect(resolved.persistRetry.baseDelayMs).toBe(
+      contentGenerationConfigDefaults.persistRetry.baseDelayMs,
+    );
+    expect(resolved.persistRetry.maxDelayMs).toBe(
+      contentGenerationConfigDefaults.persistRetry.maxDelayMs,
+    );
   });
 });

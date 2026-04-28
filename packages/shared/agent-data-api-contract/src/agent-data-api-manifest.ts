@@ -8,6 +8,8 @@ import {
 import {
   getContentGenerationQuerySchema,
   getContentGenerationResponseSchema,
+  getContentGenerationNewslettersLatestQuerySchema,
+  getContentGenerationNewslettersLatestResponseSchema,
   postContentGenerationBodySchema,
   postContentGenerationResponseSchema,
 } from "./content-generation.js";
@@ -49,6 +51,12 @@ import {
   postUserRegistrationConfirmBodySchema,
   postUserRegistrationConfirmResponseSchema,
 } from "./user-registration.js";
+import {
+  contentGenerationRunQuerySchema,
+  getContentGenerationRunResponseSchema,
+  postContentGenerationRunBodySchema,
+  postContentGenerationRunResponseSchema,
+} from "./content-generation-run.js";
 import {
   getQueryAnalysisQuerySchema,
   getQueryAnalysisResponseSchema,
@@ -142,6 +150,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postContentGenerationBodySchema,
         response: postContentGenerationResponseSchema,
+      },
+    },
+  },
+  contentGenerationNewslettersLatest: {
+    v1: {
+      get: {
+        query: getContentGenerationNewslettersLatestQuerySchema,
+        response: getContentGenerationNewslettersLatestResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getContentGenerationNewslettersLatestQuerySchema,
+        response: getContentGenerationNewslettersLatestResponseSchema,
       },
     },
   },
@@ -289,6 +311,28 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postQueryAnalysisBodySchema,
         response: postQueryAnalysisResponseSchema,
+      },
+    },
+  },
+  contentGenerationRuns: {
+    v1: {
+      get: {
+        query: contentGenerationRunQuerySchema,
+        response: getContentGenerationRunResponseSchema,
+      },
+      post: {
+        body: postContentGenerationRunBodySchema,
+        response: postContentGenerationRunResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: contentGenerationRunQuerySchema,
+        response: getContentGenerationRunResponseSchema,
+      },
+      post: {
+        body: postContentGenerationRunBodySchema,
+        response: postContentGenerationRunResponseSchema,
       },
     },
   },

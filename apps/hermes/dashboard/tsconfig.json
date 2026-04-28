@@ -3,13 +3,23 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@workspace/ui/*": ["../../packages/ui/src/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@workspace/ui/*": [
+        "../../packages/ui/src/*"
+      ],
+      "@workspace/agent-data-api-contract": [
+        "../../packages/shared/agent-data-api-contract/src/index"
+      ]
     },
     "plugins": [
       {
         "name": "next"
       }
+    ],
+    "types": [
+      "vitest/globals"
     ]
   },
   "include": [
@@ -19,5 +29,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

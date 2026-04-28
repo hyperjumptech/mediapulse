@@ -1,0 +1,87 @@
+---
+title: Content Generation Agent — Config Reference
+description: Full config schema reference for the content-generation agent, covering all groups, fields, types, defaults, and validation constraints.
+icon: FileText
+---
+
+## Overview
+
+The content-generation agent loads its runtime configuration from Hermes on each invocation (Dashboard → Agent configs, select the config for the pipeline step). No configuration is sourced from environment variables — API credentials, model settings, prompts, and retry policies all come from the Hermes config payload. See [Local Dev Credentials](/mediapulse/apps/agents/content-generation-local-dev-credentials) for the local-development env-fallback workflow.
+
+## Config groups
+
+### OpenAI
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `openai.apiKey` | `string` | — | OpenAI API key. Required if `openaiApiKey` (deprecated) is omitted. Must be at least 1 character. |
+| `openai.baseUrl` | `string (url)` | — | OpenAI-compatible API base URL (e.g. Azure OpenAI or proxy). Must be a valid URL. |
+| `openai.model` | `string` | `gpt-4o-mini` | Chat completions model id. Must be at least 1 character. |
+| `openai.temperature` | `number` | `0.4` | Sampling temperature. Range: 0–2. |
+| `openai.maxTokens` | `number` | — | Maximum tokens to generate. Must be a positive integer. |
+| `openai.timeoutMs` | `number` | `120000` | Per-request timeout in milliseconds passed to the AI SDK `generateObject` call. Must be a positive integer. |
+
+**Deprecated top-level fields** (migrate to `openai.*`):
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `openaiApiKey` | `string` | — | **Deprecated** — use `openai.apiKey`. Must be at least 1 character. |
+| `openaiBaseUrl` | `string (url)` | — | **Deprecated** — use `openai.baseUrl`. Must be a valid URL. |
+| `openaiModel` | `string` | — | **Deprecated** — use `openai.model`. Must be at least 1 character. |
+
+### Prompts
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `prompts.systemPrompt` | `string` | — | Custom system instructions sent to the LLM. |
+| `prompts.userPromptTemplate` | `string` | — | Template with supported placeholders: `{{sourceSummaries}}`, `{{tickerId}}`, `{{date}}`, `{{topNewsCount}}`. |
+
+### Output
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `output.topNewsCount` | `number` | `3` | Number of top news items to include in the output. Must be a positive integer. |
+
+### Context Limits
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `context.maxCharsPerSource` | `number` | `8000` | Maximum characters to keep per source. Must be a positive integer. |
+| `context.maxTotalContextChars` | `number` | `100000` | Maximum total characters across all sources. Must be a positive integer. |
+
+### LLM Retry
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `llmRetry.maxAttempts` | `number` | `3` | Maximum total attempts (including the first). Must be a non-negative integer. |
+| `llmRetry.baseDelayMs` | `number` | `500` | Base delay in milliseconds before the first retry. Must be a non-negative integer. |
+| `llmRetry.maxDelayMs` | `number` | `8000` | Maximum delay cap in milliseconds. Must be a non-negative integer. |
+| `llmRetry.jitter` | `boolean` | `true` | Applies ±50% random jitter to each computed backoff delay. |
+
+Retries only for retryable errors: rate limits (429), 5xx server errors, and network timeouts. Non-retryable errors (401, 400, schema validation) short-circuit immediately.
+
+### Freshness
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `freshness.strategy` | `"calendar_day"` | `calendar_day` | Freshness window strategy. Only `calendar_day` is supported in v1. |
+| `freshness.timezone` | `string (IANA)` | `Asia/Jakarta` | IANA timezone for the calendar-day window (e.g. `America/New_York`, `Asia/Jakarta`). Must be a valid IANA timezone identifier. |
+
+The freshness window determines whether a newsletter already exists for today's calendar day (midnight-to-midnight in the configured timezone). When a fresh newsletter exists, the agent skips generation. See [Freshness Behavior](/mediapulse/apps/agents/content-generation-freshness) for full semantics.
+
+### Persist Retry
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `persistRetry.maxAttempts` | `number` | `2` | Maximum total attempts for persisting to agent-data-api. Must be a non-negative integer. |
+| `persistRetry.baseDelayMs` | `number` | `200` | Base delay in milliseconds. Must be a non-negative integer. |
+| `persistRetry.maxDelayMs` | `number` | `2000` | Maximum delay cap in milliseconds. Must be a non-negative integer. |
+
+Persist retries use fixed exponential backoff without jitter (unlike LLM retries). Retryable errors: 5xx, 429, and network timeouts. Non-retryable 4xx client errors fail fast.
+
+## Related docs
+
+- [Content Generation Agent](/mediapulse/apps/agents/content-generation) — Purpose, features, error taxonomy.
+- [Local Dev Credentials](/mediapulse/apps/agents/content-generation-local-dev-credentials) — Running the agent locally.
+- [Freshness Behavior](/mediapulse/apps/agents/content-generation-freshness) — Skip-if-fresh semantics.
+- [Operational Runbook](/mediapulse/apps/agents/content-generation-runbook) — Triage guide for every outcome.

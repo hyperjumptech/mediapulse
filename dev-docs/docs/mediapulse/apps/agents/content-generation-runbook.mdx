@@ -1,0 +1,127 @@
+---
+title: Content Generation Agent — Operational Runbook
+description: Triage guide for every failure and skip outcome of the content-generation agent, with cause, diagnosis steps, and resolution.
+icon: AlertTriangle
+---
+
+## Overview
+
+This runbook covers the major failure and skip outcomes for the content-generation agent. For each outcome, the diagnostics UI (Hermes Content Generation Runs table) is the primary triage surface. Agent logs provide supplemental detail for retry counts, error payloads, and timing.
+
+### How to use this runbook
+
+1. **Identify the outcome code** from the diagnostics UI (Content Generation Runs table).
+2. **Find the row below** that matches the outcome code.
+3. **Follow the resolution steps** in order. If the first step resolves the issue, stop there.
+
+---
+
+## Outcome: `no_sources` (Skip)
+
+**Cause:** No data sources found for the ticker. The data-collection and/or analysis pipelines have not produced enough eligible sources.
+
+**Resolution:**
+- Verify the data-collection agent ran successfully for this ticker (check data-collection agent logs / agent-data-api GET `/api/v1/data-collection?tickerId=...`).
+- Verify the analysis agent ran successfully and selected at least one source as relevant (check `article_relevance.selected = true` for today's UTC date).
+- Confirm `GET /api/v1/content-generation?tickerId=...` returns non-empty `dataSources`.
+
+---
+
+## Outcome: `skipped_fresh_newsletter_exists` (Skip)
+
+**Cause:** A newsletter for this ticker already exists within today's freshness window (`freshness.timezone` calendar day). The agent intentionally skipped to avoid duplicate LLM work.
+
+**Resolution:**
+- **Expected behavior** — verify in the diagnostics UI by checking the run outcome and message.
+- If regeneration is truly needed (e.g. prompts were updated): either wait for the next calendar day (freshness window resets at midnight in `freshness.timezone`), or wait for phase-2 `forceRegenerate` support (not available in v1).
+- If you see this outcome unexpectedly (you believe no newsletter was generated today): check the database directly — a newsletter row for this ticker exists within today's calendar-day window. The agent is behaving correctly.
+
+---
+
+## Outcome: `openai_retry_exhausted` (Error)
+
+**Cause:** OpenAI returned retryable errors (rate limit 429, 5xx server errors, or network timeouts) that exhausted all retries defined in `llmRetry.maxAttempts` (default 3).
+
+**Resolution:**
+- Check [OpenAI Status](https://status.openai.com) for ongoing incidents.
+- Review agent logs for the last error in the retry sequence (the error object is logged on each retry attempt).
+- Increase `llmRetry.maxAttempts` in Hermes config if the default 3 attempts are insufficient for your API tier's rate limits.
+- If using a proxy (custom `openai.baseUrl`), check its health independently.
+
+---
+
+## Outcome: `openai_non_retryable` (Error)
+
+**Cause:** OpenAI returned a non-retryable error. Most commonly a 401 (invalid API key) or 400 (bad request).
+
+**Resolution:**
+- Rotate or update the API key in Hermes config (`openai.apiKey` or deprecated `openaiApiKey`). Verify the key has not been revoked on the OpenAI dashboard.
+- If using `openai.baseUrl`, confirm the base URL and API key are compatible (Azure OpenAI vs standard OpenAI require different base paths and auth formats).
+- Check the error message in agent logs for the exact HTTP status and body — 400-level errors are reported directly without retry.
+
+---
+
+## Outcome: `openai_invalid_response` (Error)
+
+**Cause:** OpenAI returned HTTP 200, but the response body had an unexpected shape (e.g. missing fields or wrong types) that could not be parsed into the `generateObject` expected output. The LLM produced a response that didn't match the structured output schema at the HTTP/schema level.
+
+**Resolution:**
+- Review the model's JSON compliance — some models occasionally break the structured output contract, particularly when response content is large.
+- Verify the schema in `newsletterStructureSchema` has not drifted from the prompt expectations. If prompt and schema disagree on field names or types, the model may produce valid JSON that fails schema parsing.
+- Consider switching to a model with native structured output support (`response_format: { type: "json_schema" }`) by using `openai.model` in config.
+
+---
+
+## Outcome: `validation_failed` (Error)
+
+**Cause:** The LLM returned JSON that passed HTTP validation and schema parsing, but failed Zod schema validation. The output did not match `newsletterStructureSchema`.
+
+**Resolution:**
+- Review the prompt template for clarity on the required JSON shape (`subject`, `executiveSummary`, `topNews` with `title`, `summary`, `analysis`).
+- Consider updating the prompt template to include a JSON example that mirrors the exact Zod schema.
+- Switch to a different model (`openai.model` in config) with better JSON compliance. Some models are more reliable with Zod validation than others.
+- If the model consistently produces near-valid output, check if the Zod schema tolerances can be relaxed (e.g. optional fields vs required).
+
+---
+
+## Outcome: `persist_transient` (Error)
+
+**Cause:** The agent-data-api POST to store the newsletter failed with a transient error (5xx server error, 429 rate limit, or network timeout). The agent retried per `persistRetry.maxAttempts` (default 2) but all retries were exhausted.
+
+**Resolution:**
+- Check agent-data-api health and recent logs for errors. The service may be under load or experiencing a database issue.
+- Verify database connectivity from the agent-data-api pod (connection pool exhaustion, timeouts, or network partitions).
+- Increase `persistRetry.maxAttempts` in Hermes config if transient conditions persist longer than the default 2 attempts allow.
+- If the issue is a prolonged outage, the run will fail and retry on the next pipeline schedule.
+
+---
+
+## Outcome: `persist_client_error` (Error)
+
+**Cause:** The agent-data-api POST returned a non-retryable client error (4xx). This typically indicates a contract mismatch between the agent's output and the API's expected schema. The agent does not retry 4xx errors — it fails immediately.
+
+**Resolution:**
+- Compare the agent's POST body against `postContentGenerationBodySchema` in `@workspace/agent-data-api-contract`. Check for missing required fields (`subject`, `content`, `tickerId`).
+- Verify the SDK version (`@workspace/agent-data-api-client`) matches the contract version (`@workspace/agent-data-api-contract`). A version mismatch can cause field drift.
+- Check that provenance fields (`model`, `agentVersion`, `configVersion`, `promptHash`, `configSnapshotId`, token counts) are being sent correctly — all are optional/nullable and should not cause rejection, but type mismatches could.
+
+---
+
+---
+
+## Viewing the linked newsletter (success runs)
+
+On the run detail page, **Newsletter ID** is displayed as a copy-to-clipboard field rather than a hyperlink. There is no Hermes newsletter detail page in v1 — copy the UUID and query it directly:
+
+```
+GET /api/v1/content-generation/newsletters/:id
+```
+
+or look up the row in the `newsletter` table using the copied UUID.
+
+## Related docs
+
+- [Content Generation Agent](/mediapulse/apps/agents/content-generation) — Purpose, features, error taxonomy, config schema summary.
+- [Config Reference](/mediapulse/apps/agents/content-generation-config-reference) — Full schema with all fields and defaults.
+- [Freshness Behavior](/mediapulse/apps/agents/content-generation-freshness) — Skip-if-fresh semantics.
+- [Local Dev Credentials](/mediapulse/apps/agents/content-generation-local-dev-credentials) — Running the agent locally.

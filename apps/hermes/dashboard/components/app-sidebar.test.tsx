@@ -305,6 +305,59 @@ describe("AppSidebar", () => {
     expect(screen.queryByTestId("nav-user")).not.toBeInTheDocument();
   });
 
+  it("renders CGA diagnostics nav item when showCgaDiagnostics is true", () => {
+    usePathnameMock.mockReturnValue("/dashboard");
+
+    render(
+      <AppSidebar
+        domainIntegrations={domainIntegrations}
+        showCgaDiagnostics={true}
+      />,
+    );
+
+    expect(screen.getByText("CGA diagnostics")).toBeInTheDocument();
+  });
+
+  it("hides CGA diagnostics nav item when showCgaDiagnostics is false", () => {
+    usePathnameMock.mockReturnValue("/dashboard");
+
+    render(
+      <AppSidebar
+        domainIntegrations={domainIntegrations}
+        showCgaDiagnostics={false}
+      />,
+    );
+
+    expect(screen.queryByText("CGA diagnostics")).not.toBeInTheDocument();
+  });
+
+  it("hides CGA diagnostics nav item when showCgaDiagnostics is not provided", () => {
+    usePathnameMock.mockReturnValue("/dashboard");
+
+    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+
+    expect(screen.queryByText("CGA diagnostics")).not.toBeInTheDocument();
+  });
+
+  it("marks CGA diagnostics as active when on /dashboard/agents/content-generation-runs", () => {
+    usePathnameMock.mockReturnValue(
+      "/dashboard/agents/content-generation-runs",
+    );
+
+    render(
+      <AppSidebar
+        domainIntegrations={domainIntegrations}
+        showCgaDiagnostics={true}
+      />,
+    );
+
+    const buttons = screen.getAllByTestId("sidebar-menu-button");
+    const cgaButton = buttons.find((btn) =>
+      btn.textContent?.includes("CGA diagnostics"),
+    );
+    expect(cgaButton).toHaveAttribute("data-active", "true");
+  });
+
   it("renders logout form (no NavUser) when user is null", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 

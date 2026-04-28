@@ -16,6 +16,17 @@ const { redirectMock } = vi.hoisted(() => ({
   }),
 }));
 
+vi.mock("@hermes/env", () => ({
+  env: {
+    ORCHESTRATION_DATABASE_URL: "postgresql://test:test@localhost:5432/test",
+    TEMP_ADMIN_USERNAME: "test",
+    TEMP_ADMIN_PASSWORD: "testtest",
+    HERMES_INTERNAL_API_KEY: "test-key",
+    AGENT_DATA_API_URL: "http://test-agent-data-api",
+    HERMES_CGA_DIAGNOSTICS_ENABLED: "true",
+  },
+}));
+
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => redirectMock(path),
 }));
@@ -34,12 +45,18 @@ vi.mock("@/components/dashboard-shell", () => ({
   DashboardShell: ({
     children,
     user,
+    showCgaDiagnostics,
   }: {
     children: React.ReactNode;
     user?: { name: string; email: string } | null;
     domainIntegrations?: unknown;
+    showCgaDiagnostics?: boolean;
   }) => (
-    <div data-testid="dashboard-shell" data-user={user?.name ?? "none"}>
+    <div
+      data-testid="dashboard-shell"
+      data-user={user?.name ?? "none"}
+      data-show-cga-diagnostics={String(showCgaDiagnostics)}
+    >
       {children}
     </div>
   ),
@@ -105,6 +122,24 @@ describe("DashboardLayout", () => {
     );
   });
 
+  it("passes showCgaDiagnostics to DashboardShell based on env flag", async () => {
+    getDashboardSessionMock.mockResolvedValue({
+      id: "u1",
+      name: "Admin",
+      email: "a@b.com",
+    });
+    const DashboardLayout = (await import("./layout")).default;
+
+    const component = await DashboardLayout({
+      children: <div>Content</div>,
+    });
+    render(component);
+
+    expect(screen.getByTestId("dashboard-shell")).toHaveAttribute(
+      "data-show-cga-diagnostics",
+      "true",
+    );
+  });
   it("redirects to clear-session route when access is denied", async () => {
     resolveAccessMock.mockResolvedValue({ ok: false });
     getDashboardSessionMock.mockResolvedValue(null);
