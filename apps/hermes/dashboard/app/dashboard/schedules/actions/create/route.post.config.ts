@@ -73,6 +73,36 @@ const bodyValidator = z
     },
   );
 
+/**
+ * Returns true when the provided cron expression yields a next run for the timezone.
+ *
+ * @param cronExpression - Candidate cron expression.
+ * @param timezone - IANA timezone string.
+ * @param startAt - Optional starting point for next-run calculation.
+ * @returns True when cron can be parsed into a next run.
+ */
+const isValidRepeatingCron = (
+  cronExpression: string | null | undefined,
+  timezone: string,
+  startAt: Date | null | undefined,
+): boolean => {
+  if (cronExpression == null || cronExpression.trim() === "") {
+    return true;
+  }
+  return (
+    computeNextRunAt(
+      {
+        repeat: "repeating",
+        cronExpression: cronExpression.trim(),
+        interval: null,
+        timezone,
+        nextRunAt: null,
+      },
+      startAt ?? new Date(),
+    ) !== null
+  );
+};
+
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
   user: requireDashboardSessionForRoute,
@@ -136,6 +166,18 @@ export const createCreateScheduleHandler = ({
     const userId = data.user.id;
     const body = data.body;
 
+    if (body.repeat === "once" && body.startAt == null) {
+      return errorResponse("One-time schedules require a start date/time.");
+    }
+    if (
+      body.repeat === "repeating" &&
+      !isValidRepeatingCron(body.cronExpression, body.timezone, body.startAt)
+    ) {
+      return errorResponse(
+        "Invalid cron expression for the selected timezone.",
+      );
+    }
+
     const pipeline = await getPipelineWithSteps(body.pipelineId, db);
     if (!pipeline) {
       return errorResponse("Pipeline not found");
@@ -154,6 +196,11 @@ export const createCreateScheduleHandler = ({
       body.interval ?? null,
       body.timezone,
     );
+    if (body.repeat === "repeating" && nextRunAt == null) {
+      return errorResponse(
+        "Unable to compute next run. Provide a valid cron or interval.",
+      );
+    }
 
     if (body.executionConfig != null) {
       ExecutionConfigSchema.parse(body.executionConfig);
