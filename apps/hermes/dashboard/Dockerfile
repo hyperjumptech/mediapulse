@@ -27,7 +27,8 @@ ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
 ENV HERMES_INTERNAL_API_KEY="dummy-internal-key"
 RUN pnpm --filter=@hermes/orchestration-database run db:generate
-RUN pnpm --filter=@workspace/agent-auth-client run build
+RUN pnpm --filter=@workspace/agent-auth-client run build \
+  && pnpm --filter=@workspace/agent-data-api-contract run build
 # next.config loads env files; provide an empty app-level .env for image builds.
 RUN rm -f apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local && \
     touch apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local
