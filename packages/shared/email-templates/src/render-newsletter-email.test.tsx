@@ -79,4 +79,87 @@ describe("renderNewsletterEmail", () => {
       ),
     ).rejects.toThrow("render exploded");
   });
+
+  it("renders structured body text with labelled sections", async () => {
+    // Setup
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today as tech earnings exceeded expectations.",
+      "",
+      "---",
+      "",
+      "TOP 3 NEWS",
+      "",
+      "1. Fed holds rates steady",
+      "The Federal Reserve announced no change to interest rates.",
+      "",
+      "2. Apple beats estimates",
+      "Apple reported record quarterly revenue.",
+      "",
+      "3. Oil prices dip",
+      "Crude oil fell 2% amid easing tensions.",
+    ].join("\n");
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: structuredBody,
+    });
+
+    // Assert
+    expect(html).toContain("Executive Summary");
+    expect(html).toContain("Top News");
+    expect(html).not.toContain("TOP 3 NEWS");
+    expect(html).not.toContain("EXECUTIVE SUMMARY");
+  });
+
+  it("renders structured news items with numbered bold titles", async () => {
+    // Setup
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 2 NEWS",
+      "",
+      "1. Fed holds rates steady",
+      "The Federal Reserve announced no change.",
+      "",
+      "2. Apple beats estimates",
+      "Apple reported record quarterly revenue.",
+    ].join("\n");
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: structuredBody,
+    });
+
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+    expect(stripped).toContain("1. Fed holds rates steady");
+    expect(stripped).toContain("The Federal Reserve announced no change.");
+    expect(stripped).toContain("2. Apple beats estimates");
+    expect(html).toContain("Apple reported record quarterly revenue.");
+  });
+
+  it("falls back to plain text rendering for unstructured body text", async () => {
+    // Setup
+    const freeformBody =
+      "Hello,\n\nHere is your newsletter content.\n\n— The team";
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Weekly digest",
+      bodyText: freeformBody,
+    });
+
+    // Assert
+    expect(html).toContain("Here is your newsletter content");
+    expect(html).not.toContain("Executive Summary");
+    expect(html).not.toContain("Top News");
+  });
 });
