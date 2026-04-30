@@ -120,6 +120,62 @@ export const filterArticleEntityRowsToRunCatalog = (
 };
 
 /**
+ * Canonicalizes mention row `entityName` values using run-level entity proposals.
+ *
+ * The analysis POST endpoint resolves `articleEntities.entityName` against ticker
+ * entities persisted in prior chunks/rows. Sending canonical names avoids failures
+ * when an alias (for example "VOI") was extracted but is not yet persisted as an
+ * alias on a reused entity.
+ *
+ * @param rows - Mention rows after run-level filtering/caps.
+ * @param entities - Final run-level entity proposals.
+ * @returns Canonicalized rows, drop count for unmapped names, and rename count.
+ */
+export const canonicalizeArticleEntityRowsToRunEntities = (
+  rows: readonly ArticleEntityRow[],
+  entities: readonly EntityProposal[],
+): {
+  rows: ArticleEntityRow[];
+  droppedCount: number;
+  canonicalizedCount: number;
+} => {
+  const aliasToCanonical = new Map<string, string>();
+  for (const entity of entities) {
+    aliasToCanonical.set(
+      normalizeEntityName(entity.canonicalName),
+      entity.canonicalName.trim(),
+    );
+    for (const alias of entity.aliases) {
+      aliasToCanonical.set(
+        normalizeEntityName(alias),
+        entity.canonicalName.trim(),
+      );
+    }
+  }
+
+  const out: ArticleEntityRow[] = [];
+  let droppedCount = 0;
+  let canonicalizedCount = 0;
+  for (const row of rows) {
+    const canonicalName = aliasToCanonical.get(
+      normalizeEntityName(row.entityName),
+    );
+    if (!canonicalName) {
+      droppedCount += 1;
+      continue;
+    }
+    if (canonicalName !== row.entityName.trim()) {
+      canonicalizedCount += 1;
+    }
+    out.push({
+      ...row,
+      entityName: canonicalName,
+    });
+  }
+  return { rows: out, droppedCount, canonicalizedCount };
+};
+
+/**
  * Dedupes by (`dataSourceId`, normalized `entityName`). Sums `mentionCount`, takes max `confidence`,
  * keeps first non-undefined `sentiment` if any.
  *

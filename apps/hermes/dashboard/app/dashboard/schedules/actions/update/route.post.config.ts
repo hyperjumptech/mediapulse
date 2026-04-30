@@ -71,6 +71,36 @@ const bodyValidator = z
     },
   );
 
+/**
+ * Returns true when the provided cron expression yields a next run for the timezone.
+ *
+ * @param cronExpression - Candidate cron expression.
+ * @param timezone - IANA timezone string.
+ * @param startAt - Optional starting point for next-run calculation.
+ * @returns True when cron can be parsed into a next run.
+ */
+const isValidRepeatingCron = (
+  cronExpression: string | null | undefined,
+  timezone: string,
+  startAt: Date | null | undefined,
+): boolean => {
+  if (cronExpression == null || cronExpression.trim() === "") {
+    return true;
+  }
+  return (
+    computeNextRunAt(
+      {
+        repeat: "repeating",
+        cronExpression: cronExpression.trim(),
+        interval: null,
+        timezone,
+        nextRunAt: null,
+      },
+      startAt ?? new Date(),
+    ) !== null
+  );
+};
+
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
   user: requireDashboardSessionForRoute,
@@ -136,6 +166,18 @@ export const createUpdateScheduleHandler = ({
     const interval =
       body.interval !== undefined ? body.interval : existing.interval;
 
+    if (repeat === "once" && startAt == null) {
+      return errorResponse("One-time schedules require a start date/time.");
+    }
+    if (
+      repeat === "repeating" &&
+      !isValidRepeatingCron(cronExpression, timezone, startAt)
+    ) {
+      return errorResponse(
+        "Invalid cron expression for the selected timezone.",
+      );
+    }
+
     let nextRunAt: Date | null = existing.nextRunAt;
     if (repeat === "once") {
       nextRunAt = startAt ?? null;
@@ -151,6 +193,11 @@ export const createUpdateScheduleHandler = ({
         startAt ?? new Date(),
       );
       nextRunAt = computed ?? existing.nextRunAt;
+    }
+    if (repeat === "repeating" && nextRunAt == null) {
+      return errorResponse(
+        "Unable to compute next run. Provide a valid cron or interval.",
+      );
     }
 
     const updateData: Prisma.ScheduleUpdateInput = {

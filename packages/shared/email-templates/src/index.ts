@@ -3,6 +3,10 @@ export {
   type DefaultNewsletterEmailProps,
 } from "./newsletter/default-newsletter.js";
 export {
+  parseNewsletterBody,
+  type ParsedNewsletterBody,
+} from "./newsletter/parse-newsletter-body.js";
+export {
   RegistrationConfirmationEmail,
   type RegistrationConfirmationEmailProps,
 } from "./registration/registration-confirmation.js";

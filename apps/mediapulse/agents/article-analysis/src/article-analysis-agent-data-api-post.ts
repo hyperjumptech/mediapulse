@@ -3,7 +3,7 @@ import type {
   ArticleAnalysisPostFailureRecord,
 } from "./article-analysis-run-policy.js";
 
-const agentDataApiErrorPattern = /^Agent data API error: (\d+)$/;
+const agentDataApiErrorPattern = /^Agent data API error: (\d+)(?:\b|$)/;
 
 /**
  * Parses HTTP status from {@link createAgentDataApiClient} POST errors, when present.

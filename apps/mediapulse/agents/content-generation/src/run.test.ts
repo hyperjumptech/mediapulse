@@ -145,7 +145,7 @@ describe("run", () => {
   // No sources → skipped outcome
   // -------------------------------------------------------------------------
 
-  it("returns success:false with 'no sources found' message when no sources", async () => {
+  it("returns success:true with 'no sources found' message when no sources", async () => {
     // Setup
     contentGenerationNewslettersLatestGet.mockResolvedValue({
       hasNewsletter: false,
@@ -157,15 +157,13 @@ describe("run", () => {
     const result = await run(makeContext());
 
     // Assert
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.message).toContain("No data sources found");
-    }
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("No data sources found");
     expect(LlmGenerate.generateNewsletterWithLlm).not.toHaveBeenCalled();
     expect(contentGenerationCreate).not.toHaveBeenCalled();
   });
 
-  it("returns success:false when dataSources is null", async () => {
+  it("returns success:true when dataSources is null", async () => {
     // Setup
     contentGenerationNewslettersLatestGet.mockResolvedValue({
       hasNewsletter: false,
@@ -177,17 +175,15 @@ describe("run", () => {
     const result = await run(makeContext());
 
     // Assert
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.message).toContain("No data sources found");
-    }
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("No data sources found");
   });
 
   // -------------------------------------------------------------------------
   // Skip-if-fresh: newsletter exists in window → skipped
   // -------------------------------------------------------------------------
 
-  it("returns success:false with skipped message when a fresh newsletter already exists for the ticker today", async () => {
+  it("returns success:true with skipped message when a fresh newsletter already exists for the ticker today", async () => {
     // Setup
     contentGenerationNewslettersLatestGet.mockResolvedValue({
       hasNewsletter: true,
@@ -198,12 +194,10 @@ describe("run", () => {
     const result = await run(makeContext());
 
     // Assert
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.message).toContain(
-        `Newsletter already generated for ${TEST_TICKER_ID} today (skipped)`,
-      );
-    }
+    expect(result.success).toBe(true);
+    expect(result.message).toContain(
+      `Newsletter already generated for ${TEST_TICKER_ID} today (skipped)`,
+    );
     expect(contentGenerationGet).not.toHaveBeenCalled();
     expect(LlmGenerate.generateNewsletterWithLlm).not.toHaveBeenCalled();
     expect(contentGenerationCreate).not.toHaveBeenCalled();
@@ -620,7 +614,7 @@ describe("run", () => {
       const result = await run(makeContext());
 
       // Assert
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
       expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
       const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
       expect(callArg.outcome).toBe("skipped");
@@ -645,7 +639,7 @@ describe("run", () => {
       const result = await run(makeContext());
 
       // Assert
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
       expect(contentGenerationRunsCreate).toHaveBeenCalledOnce();
       const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
       expect(callArg.outcome).toBe("skipped");
@@ -1078,7 +1072,6 @@ describe("provenance fields in contentGeneration.create", () => {
           openai: {
             apiKey: "sk-test",
             model: "gpt-4o",
-            temperature: 0.4,
             timeoutMs: 120000,
           },
         },

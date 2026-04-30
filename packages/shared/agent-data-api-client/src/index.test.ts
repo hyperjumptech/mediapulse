@@ -210,6 +210,29 @@ describe("createAgentDataApiClient", () => {
     await expect(act).rejects.toThrow("Agent data API error: 404");
   });
 
+  it("includes compact response body in non-2xx error message", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        error: "Unknown entityName for article entity: BCA",
+      }),
+      statusCode: 400,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      getFn,
+    });
+
+    // Act
+    const act = () =>
+      client.delivery.get({ tickerId: "11111111-1111-4111-a111-111111111111" });
+
+    // Assert
+    await expect(act).rejects.toThrow(
+      'Agent data API error: 400 - {"error":"Unknown entityName for article entity: BCA"}',
+    );
+  });
+
   it("builds analysis GET with typed query and auth header", async () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
@@ -463,6 +486,32 @@ describe("createAgentDataApiClient", () => {
     expect(result.data).toEqual([]);
   });
 
+  it("accepts non-UUID tickerId for contentGenerationRuns GET", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ data: [] }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
+    });
+
+    // Act
+    await client.contentGenerationRuns.get({
+      tickerId: "ticker-bca",
+    });
+
+    // Assert
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationRuns")}?tickerId=ticker-bca`,
+      expect.objectContaining({
+        headers: { Authorization: "Bearer sdk-token" },
+      }),
+    );
+  });
+
   it("builds contentGenerationRuns POST with typed body and returns created record", async () => {
     // Setup
     const now = "2026-04-14T00:00:00.000Z";
@@ -512,6 +561,55 @@ describe("createAgentDataApiClient", () => {
     );
     expect(result.id).toBe("33333333-3333-4333-a333-333333333333");
     expect(result.createdAt).toBe(now);
+  });
+
+  it("accepts non-UUID tickerId for contentGenerationRuns POST", async () => {
+    // Setup
+    const now = "2026-04-14T00:00:00.000Z";
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        id: "33333333-3333-4333-a333-333333333333",
+        agentId: "content-generation",
+        agentVersion: "1.0.0",
+        tickerId: "ticker-bca",
+        outcome: "success",
+        stage: null,
+        errorCode: null,
+        errorCategory: null,
+        message: null,
+        durationMs: 1200,
+        pipelineRunId: null,
+        newsletterId: null,
+        createdAt: now,
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      postFn,
+    });
+
+    // Act
+    const result = await client.contentGenerationRuns.create({
+      agentId: "content-generation",
+      agentVersion: "1.0.0",
+      tickerId: "ticker-bca",
+      outcome: "success",
+      durationMs: 1200,
+      newsletterId: null,
+    });
+
+    // Assert
+    expect(postFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationRuns")}`,
+      expect.objectContaining({
+        json: expect.objectContaining({
+          tickerId: "ticker-bca",
+        }),
+      }),
+    );
+    expect(result.tickerId).toBe("ticker-bca");
   });
 });
 

@@ -3,7 +3,10 @@
  */
 
 /** Stage at which per-source extraction stopped. */
-export type ArticleAnalysisExtractionFailureStage = "llm" | "vocabulary";
+export type ArticleAnalysisExtractionFailureStage =
+  | "llm"
+  | "vocabulary"
+  | "prefilter";
 
 /** One source that did not contribute to the merged extraction payload. */
 export type ArticleAnalysisExtractionFailureRecord = {

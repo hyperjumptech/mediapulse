@@ -9,6 +9,11 @@ import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import { performWebFetch } from "./utilities/web-fetch";
 import { performWebSearch } from "./utilities/web-search";
+import { classifyNonArticleContent } from "./utilities/content-shape-filter";
+import {
+  classifyNoisyUrl,
+  type UrlNoiseReason,
+} from "./utilities/url-noise-filter";
 import { resolveExistingDataSourceUrls } from "./utilities/resolve-existing-data-source-urls";
 import {
   deriveRunStatus,
@@ -58,6 +63,9 @@ export async function runDataCollection(
     minSuccessfulSources: 1,
     failOnZeroSuccess: true,
   };
+  const targetDailySuccessfulSources = config.targetDailySuccessfulSources ?? 5;
+  const maxRefillRounds = config.maxRefillRounds ?? 3;
+  const maxTotalRounds = 1 + maxRefillRounds;
 
   const dataApiClient = createAgentDataApiClient({
     baseUrl: env.AGENT_DATA_API_URL,
@@ -89,76 +97,216 @@ export async function runDataCollection(
     );
   }
 
-  const searchAttemptResults = await performWebSearch(queries, {
-    config: webSearchConfig,
-    logger: log,
+  const now = new Date();
+  const utcDayStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const utcDayEnd = new Date(utcDayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+  const baselineToday = await dataApiClient.analysis.get({
+    tickerId: input.tickerId,
+    unanalyzed: false,
+    start: utcDayStart.toISOString(),
+    end: utcDayEnd.toISOString(),
+    limit: 1,
   });
-  const searchSuccesses = searchAttemptResults
-    .filter((r) => r.success)
-    .map((r) => r.data);
-  const searchFailures = searchAttemptResults.filter((r) => !r.success);
+  const existingTodaySourceCount = baselineToday.dataSourceTotalCount;
 
-  log.info(
-    {
-      searchHitCount: searchSuccesses.length,
-      searchFailed: searchFailures.length,
-    },
-    "web search stage finished",
-  );
+  let roundsExecuted = 0;
+  let refillStopReason:
+    | "daily_target_met_before_start"
+    | "daily_target_met"
+    | "max_rounds_reached"
+    | "no_progress"
+    | "no_queries"
+    | null = null;
+  let persistedThisRunCount = 0;
+  let searchSuccessCount = 0;
+  let searchFailedCount = 0;
+  let fetchSuccessCount = 0;
+  let fetchFailedCount = 0;
+  const searchFailures: Array<
+    Extract<
+      Awaited<ReturnType<typeof performWebSearch>>[number],
+      { success: false }
+    >
+  > = [];
+  const fetchFailures: Array<
+    Extract<
+      Awaited<ReturnType<typeof performWebFetch>>[number],
+      { success: false }
+    >
+  > = [];
+  const droppedByUrlReason: Record<UrlNoiseReason, number> = {
+    blocked_host: 0,
+    blocked_host_path: 0,
+    blocked_path: 0,
+    blocked_extension: 0,
+  };
+  let droppedByDuplicateCanonicalUrl = 0;
+  let droppedByExistingCanonicalUrl = 0;
+  let droppedByContentShape = 0;
 
-  const candidateUrls = searchSuccesses.map((hit) => hit.url);
-  const existingUrlSet = await resolveExistingDataSourceUrls(
-    input.tickerId,
-    candidateUrls,
-    (body) => dataApiClient.dataCollectionExistingUrls.create(body),
-  );
-  const searchSuccessesForFetch = searchSuccesses.filter(
-    (hit) => !existingUrlSet.has(hit.url),
-  );
-  const skippedExistingUrlCount =
-    searchSuccesses.length - searchSuccessesForFetch.length;
-  if (skippedExistingUrlCount > 0) {
-    log.info(
-      {
-        skippedExistingUrlCount,
-        searchHitCount: searchSuccesses.length,
-      },
-      "skipped web fetch for URLs already stored as data sources",
-    );
-  }
-
-  const fetchAttemptResults = await performWebFetch(searchSuccessesForFetch, {
-    config: webFetchConfig,
-    logger: log,
-  });
-  const fetchSuccesses = fetchAttemptResults
-    .filter((r) => r.success)
-    .map((r) => r.data);
-  const fetchFailures = fetchAttemptResults.filter((r) => !r.success);
-
-  log.info(
-    {
-      fetchSuccess: fetchSuccesses.length,
-      fetchFailed: fetchFailures.length,
-    },
-    "web fetch stage finished",
-  );
-
-  if (fetchSuccesses.length > 0) {
-    const sources: DataCollectionInput[] = fetchSuccesses.map((page) => ({
-      url: page.url,
-      title: page.title,
-      content: page.content,
-      tickerId: input.tickerId,
-      searchQueryId: page.searchQueryId,
-    }));
-    log.info(
-      { sourcesToPersist: sources.length },
-      "persisting collected sources to Agent Data API",
-    );
-    await dataApiClient.dataCollection.create(sources);
+  if (queries.length === 0) {
+    refillStopReason = "no_queries";
+  } else if (existingTodaySourceCount >= targetDailySuccessfulSources) {
+    refillStopReason = "daily_target_met_before_start";
   } else {
-    log.info({}, "no sources to persist after fetch stage");
+    for (let round = 1; round <= maxTotalRounds; round += 1) {
+      roundsExecuted += 1;
+      const searchAttemptResults = await performWebSearch(queries, {
+        config: webSearchConfig,
+        logger: log,
+      });
+      const roundSearchSuccesses = searchAttemptResults
+        .filter((r) => r.success)
+        .map((r) => r.data);
+      const roundSearchFailures = searchAttemptResults.filter(
+        (r) => !r.success,
+      );
+      searchSuccessCount += roundSearchSuccesses.length;
+      searchFailedCount += roundSearchFailures.length;
+      searchFailures.push(...roundSearchFailures);
+
+      log.info(
+        {
+          round,
+          searchHitCount: roundSearchSuccesses.length,
+          searchFailed: roundSearchFailures.length,
+        },
+        "web search stage finished",
+      );
+
+      const canonicalUniqueHits = new Map<
+        string,
+        (typeof roundSearchSuccesses)[number]
+      >();
+      for (const hit of roundSearchSuccesses) {
+        const decision = classifyNoisyUrl(hit.url);
+        if (decision.blocked) {
+          droppedByUrlReason[decision.reason] += 1;
+          continue;
+        }
+
+        if (canonicalUniqueHits.has(decision.canonicalUrl)) {
+          droppedByDuplicateCanonicalUrl += 1;
+          continue;
+        }
+
+        canonicalUniqueHits.set(decision.canonicalUrl, {
+          ...hit,
+          url: decision.canonicalUrl,
+        });
+      }
+
+      const filteredSearchSuccesses = [...canonicalUniqueHits.values()];
+      const candidateUrls = filteredSearchSuccesses.map((hit) => hit.url);
+      const existingUrlSet = await resolveExistingDataSourceUrls(
+        input.tickerId,
+        candidateUrls,
+        (body) => dataApiClient.dataCollectionExistingUrls.create(body),
+      );
+      const searchSuccessesForFetch = filteredSearchSuccesses.filter(
+        (hit) => !existingUrlSet.has(hit.url),
+      );
+      const skippedExistingUrlCount =
+        filteredSearchSuccesses.length - searchSuccessesForFetch.length;
+      droppedByExistingCanonicalUrl += skippedExistingUrlCount;
+      if (skippedExistingUrlCount > 0) {
+        log.info(
+          {
+            round,
+            skippedExistingUrlCount,
+            searchHitCount: roundSearchSuccesses.length,
+          },
+          "skipped web fetch for URLs already stored as data sources",
+        );
+      }
+
+      const fetchAttemptResults = await performWebFetch(
+        searchSuccessesForFetch,
+        {
+          config: webFetchConfig,
+          logger: log,
+        },
+      );
+      const roundFetchSuccesses = fetchAttemptResults
+        .filter((r) => r.success)
+        .map((r) => r.data);
+      const roundFetchFailures = fetchAttemptResults.filter((r) => !r.success);
+      fetchFailedCount += roundFetchFailures.length;
+      fetchFailures.push(...roundFetchFailures);
+
+      const finalFetchSuccesses: typeof roundFetchSuccesses = [];
+      for (const page of roundFetchSuccesses) {
+        const urlDecision = classifyNoisyUrl(page.url);
+        if (urlDecision.blocked) {
+          droppedByUrlReason[urlDecision.reason] += 1;
+          continue;
+        }
+
+        const contentDecision = classifyNonArticleContent(
+          page.title,
+          page.content,
+        );
+        if (contentDecision.blocked) {
+          droppedByContentShape += 1;
+          continue;
+        }
+
+        finalFetchSuccesses.push({
+          ...page,
+          url: urlDecision.canonicalUrl,
+        });
+      }
+      fetchSuccessCount += finalFetchSuccesses.length;
+
+      log.info(
+        {
+          round,
+          fetchSuccess: finalFetchSuccesses.length,
+          fetchFailed: roundFetchFailures.length,
+          droppedByUrlReason,
+          droppedByDuplicateCanonicalUrl,
+          droppedByExistingCanonicalUrl,
+          droppedByContentShape,
+        },
+        "web fetch stage finished",
+      );
+
+      if (finalFetchSuccesses.length > 0) {
+        const sources: DataCollectionInput[] = finalFetchSuccesses.map(
+          (page) => ({
+            url: page.url,
+            title: page.title,
+            content: page.content,
+            tickerId: input.tickerId,
+            searchQueryId: page.searchQueryId,
+          }),
+        );
+        log.info(
+          { round, sourcesToPersist: sources.length },
+          "persisting collected sources to Agent Data API",
+        );
+        await dataApiClient.dataCollection.create(sources);
+        persistedThisRunCount += sources.length;
+      } else {
+        log.info({ round }, "no sources to persist after fetch stage");
+      }
+
+      const effectiveTodayCount =
+        existingTodaySourceCount + persistedThisRunCount;
+      if (effectiveTodayCount >= targetDailySuccessfulSources) {
+        refillStopReason = "daily_target_met";
+        break;
+      }
+      if (finalFetchSuccesses.length === 0) {
+        refillStopReason = "no_progress";
+        break;
+      }
+      if (round === maxTotalRounds) {
+        refillStopReason = "max_rounds_reached";
+      }
+    }
   }
 
   const failuresPayload = [
@@ -191,7 +339,7 @@ export async function runDataCollection(
     })),
   ];
 
-  const totalSources = fetchSuccesses.length;
+  const totalSources = persistedThisRunCount;
   const status = deriveRunStatus({
     totalSources,
     failureCount: failuresPayload.length,
@@ -200,11 +348,11 @@ export async function runDataCollection(
 
   const counters: RunCounters = {
     queriesTotal: queries.length,
-    urlsTotal: searchSuccesses.length,
-    searchSuccess: searchSuccesses.length,
-    searchFailed: searchFailures.length,
-    fetchSuccess: fetchSuccesses.length,
-    fetchFailed: fetchFailures.length,
+    urlsTotal: searchSuccessCount,
+    searchSuccess: searchSuccessCount,
+    searchFailed: searchFailedCount,
+    fetchSuccess: fetchSuccessCount,
+    fetchFailed: fetchFailedCount,
     retryCount: 0,
   };
 
@@ -234,8 +382,16 @@ export async function runDataCollection(
   const summary = {
     totalSources,
     status,
-    searchSuccess: searchSuccesses.length,
-    fetchSuccess: fetchSuccesses.length,
+    searchSuccess: searchSuccessCount,
+    fetchSuccess: fetchSuccessCount,
+    refill: {
+      roundsExecuted,
+      maxTotalRounds,
+      targetDailySuccessfulSources,
+      existingTodaySourceCount,
+      effectiveTodayCount: existingTodaySourceCount + persistedThisRunCount,
+      stopReason: refillStopReason,
+    },
   };
 
   const durationMs = Date.now() - startedAt.getTime();

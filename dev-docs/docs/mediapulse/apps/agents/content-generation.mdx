@@ -10,7 +10,7 @@ The content-generation agent takes **selected data sources** (scored by the anal
 
 ## Features
 
-- **Input:** `tickerId` (and optional fields). Receives bearer token from Hermes.
+- **Input:** `tickerId` as a non-empty string (UUID or opaque Hermes ticker id). Receives bearer token from Hermes.
 - **Fetches** selected high-relevance sources for the ticker from `GET /api/v1/content-generation` (rows where `article_relevance.selected = true` and scored today).
 - **Calls OpenAI** via the Vercel AI SDK (`generateObject` from `ai` with `@ai-sdk/openai` provider) to generate structured newsletter content (subject, executive summary, top news items). The API key, optional API base URL, and model id are **not** read from environment variables; they come from the **agent config** selected for the pipeline step in Hermes (Dashboard → Agent configs), so admins can manage credentials centrally (optionally using [variable expansion](/hermes/agent-hermes-contract#variables-in-config-and-params) for secrets).
 - **Retries** transient LLM failures (rate limits, 5xx errors, timeouts) using exponential backoff with optional jitter, up to `llmRetry.maxAttempts` (default 3). Non-retryable errors (auth, bad request, schema validation) short-circuit immediately.
@@ -35,7 +35,6 @@ The content-generation agent takes **selected data sources** (scored by the anal
 | `openai.apiKey` | `string` | ✅ | — | OpenAI API key. Required if `openaiApiKey` is omitted. |
 | `openai.model` | `string` | ❌ | `gpt-4o-mini` | Chat model id. |
 | `openai.baseUrl` | `string (url)` | ❌ | official | OpenAI-compatible API base URL. |
-| `openai.temperature` | `number` | ❌ | `0.4` | Sampling temperature (0.0 to 2.0). |
 | `openai.timeoutMs` | `number` | ❌ | `120000` | Per-request timeout in milliseconds. |
 | `openaiApiKey` | `string` | ❌ | — | **Deprecated**: Use `openai.apiKey`. |
 | `openaiModel` | `string` | ❌ | — | **Deprecated**: Use `openai.model`. |
@@ -73,7 +72,7 @@ The `AgentRunResult` envelope returned to Hermes is unchanged: `{ success: false
 - `@workspace/agent-data-api-client` — Typed API client for content-generation endpoints.
 - `@workspace/agent-types` — `DataSourceRecord` and related types.
 - `@workspace/utils` — `withRetryCustomDelay` used by the retry utility.
-- `@workspace/env` — Via `@mediapulse/env/agents-content-generation` (agent-data-api URL, auth URL, port, optional registry). OpenAI settings use **`config.openai`** from Hermes: required **`apiKey`**, optional **`baseUrl`**, optional **`model`** (defaults to `gpt-4o-mini`), plus **`temperature`**, **`maxTokens`**, and **`timeoutMs`** as defined in the agent config schema.
+- `@workspace/env` — Via `@mediapulse/env/agents-content-generation` (agent-data-api URL, auth URL, port, optional registry). OpenAI settings use **`config.openai`** from Hermes: required **`apiKey`**, optional **`baseUrl`**, optional **`model`** (defaults to `gpt-4o-mini`), plus **`maxTokens`** and **`timeoutMs`** as defined in the agent config schema.
 - `@workspace/logger` — Logging.
 - `ai` + `@ai-sdk/openai` — Vercel AI SDK for structured LLM calls (`generateObject`).
 

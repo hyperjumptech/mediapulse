@@ -1,4 +1,4 @@
-import { createAgentApp } from "@workspace/agent-runtime";
+import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-content-generation";
 import { z } from "zod";
 
@@ -11,7 +11,7 @@ import { AGENT_VERSION } from "./agent-version.js";
 import { run } from "./run.js";
 
 const BodySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: hermesTickerIdSchema,
 });
 
 type Input = z.infer<typeof BodySchema>;

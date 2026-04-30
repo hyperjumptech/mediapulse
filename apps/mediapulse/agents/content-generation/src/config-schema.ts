@@ -24,8 +24,6 @@ const openaiOptionsSchema = z.object({
   baseUrl: z.string().url().optional(),
   /** Chat completions model id (e.g. `gpt-4o-mini`). */
   model: z.string().min(1).optional(),
-  /** Sampling temperature. */
-  temperature: z.number().min(0).max(2).optional(),
   /** Maximum tokens to generate. */
   maxTokens: z.number().int().positive().optional(),
   /** Per-request timeout in milliseconds passed to the AI SDK `generateObject` call. */
@@ -108,8 +106,6 @@ export const ContentGenerationConfigSchema = z
       baseUrl: z.string().url().optional(),
       /** Chat completions model id (e.g. `gpt-4o-mini`). */
       model: z.string().min(1).default("gpt-4o-mini"),
-      /** Sampling temperature. */
-      temperature: z.number().min(0).max(2).default(0.4),
       /** Maximum tokens to generate. */
       maxTokens: z.number().int().positive().optional(),
       /** Timeout in milliseconds for the OpenAI API call. */

@@ -17,7 +17,6 @@ The content-generation agent loads its runtime configuration from Hermes on each
 | `openai.apiKey` | `string` | — | OpenAI API key. Required if `openaiApiKey` (deprecated) is omitted. Must be at least 1 character. |
 | `openai.baseUrl` | `string (url)` | — | OpenAI-compatible API base URL (e.g. Azure OpenAI or proxy). Must be a valid URL. |
 | `openai.model` | `string` | `gpt-4o-mini` | Chat completions model id. Must be at least 1 character. |
-| `openai.temperature` | `number` | `0.4` | Sampling temperature. Range: 0–2. |
 | `openai.maxTokens` | `number` | — | Maximum tokens to generate. Must be a positive integer. |
 | `openai.timeoutMs` | `number` | `120000` | Per-request timeout in milliseconds passed to the AI SDK `generateObject` call. Must be a positive integer. |
 

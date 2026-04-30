@@ -1,5 +1,6 @@
 import { render } from "@react-email/render";
 import type { ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import DefaultNewsletterEmail from "./newsletter/default-newsletter.js";
 import type { DefaultNewsletterEmailProps } from "./newsletter/default-newsletter.js";
@@ -23,6 +24,45 @@ export type RenderNewsletterEmailInput =
       variant: "registration-confirmation";
     } & RegistrationConfirmationEmailProps)
   | ({ variant: "invalid-ticker" } & InvalidTickerEmailProps);
+
+type RenderEmailToHtml = (element: ReactElement) => Promise<string>;
+type RenderEmailToText = (element: ReactElement) => Promise<string>;
+
+export type RenderNewsletterEmailDependencies = {
+  renderHtml?: RenderEmailToHtml;
+  renderText?: RenderEmailToText;
+  fallbackRenderHtml?: (element: ReactElement) => string;
+};
+
+/**
+ * Returns true when the renderer failed due to missing ReactDOM server stream support.
+ *
+ * @param error - Unknown render error.
+ * @returns True when fallback rendering should be used.
+ */
+const shouldUseStaticFallbackRenderer = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("renderToReadableStream");
+};
+
+/**
+ * Converts rendered HTML into a safe plain-text approximation for text-only delivery.
+ *
+ * @param html - Rendered email HTML.
+ * @returns Plain text extracted from the HTML.
+ */
+const htmlToPlainText = (html: string): string => {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+};
 
 /**
  * Selects the React Email root element for the given variant.
@@ -66,13 +106,28 @@ function newsletterElementForVariant(
  */
 export async function renderNewsletterEmail(
   input: RenderNewsletterEmailInput,
+  dependencies: RenderNewsletterEmailDependencies = {},
 ): Promise<{ html: string; text: string }> {
   const element = newsletterElementForVariant(input);
+  const renderHtml = dependencies.renderHtml ?? ((el) => render(el));
+  const renderText =
+    dependencies.renderText ?? ((el) => render(el, { plainText: true }));
+  const fallbackRenderHtml =
+    dependencies.fallbackRenderHtml ?? renderToStaticMarkup;
 
-  const [html, text] = await Promise.all([
-    render(element),
-    render(element, { plainText: true }),
-  ]);
+  try {
+    const [html, text] = await Promise.all([
+      renderHtml(element),
+      renderText(element),
+    ]);
+    return { html, text };
+  } catch (error) {
+    if (!shouldUseStaticFallbackRenderer(error)) {
+      throw error;
+    }
 
-  return { html, text };
+    const html = fallbackRenderHtml(element);
+    const text = htmlToPlainText(html);
+    return { html, text };
+  }
 }

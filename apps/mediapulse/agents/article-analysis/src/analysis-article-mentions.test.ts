@@ -7,6 +7,7 @@ import {
   buildArticleEntityPostChunks,
   buildNormalizedEntityCatalogForArticle,
   buildNormalizedEntityCatalogFromProposals,
+  canonicalizeArticleEntityRowsToRunEntities,
   dedupeArticleEntityMentions,
   filterArticleEntityRowsToRunCatalog,
   filterMentionsToArticleEntityCatalog,
@@ -132,6 +133,49 @@ describe("filterArticleEntityRowsToRunCatalog", () => {
     expect(droppedCount).toBe(1);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.entityName).toBe("Foo");
+  });
+});
+
+describe("canonicalizeArticleEntityRowsToRunEntities", () => {
+  it("rewrites aliases to canonical names and drops unmapped rows", () => {
+    // Setup
+    const rows = [
+      {
+        dataSourceId: DS,
+        entityName: "VOI",
+        mentionCount: 1,
+        confidence: 0.5,
+      },
+      {
+        dataSourceId: DS,
+        entityName: "PT Bank Central Asia Tbk.",
+        mentionCount: 1,
+        confidence: 0.7,
+      },
+      {
+        dataSourceId: DS,
+        entityName: "Unknown Name",
+        mentionCount: 1,
+        confidence: 0.4,
+      },
+    ];
+    const entities = [
+      {
+        canonicalName: "PT Bank Central Asia Tbk.",
+        typeId: TYPE_ID,
+        aliases: ["VOI"],
+      },
+    ];
+
+    // Act
+    const result = canonicalizeArticleEntityRowsToRunEntities(rows, entities);
+
+    // Assert
+    expect(result.droppedCount).toBe(1);
+    expect(result.canonicalizedCount).toBe(1);
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]?.entityName).toBe("PT Bank Central Asia Tbk.");
+    expect(result.rows[1]?.entityName).toBe("PT Bank Central Asia Tbk.");
   });
 });
 

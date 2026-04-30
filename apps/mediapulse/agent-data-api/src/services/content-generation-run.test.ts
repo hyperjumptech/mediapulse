@@ -171,6 +171,41 @@ describe("createContentGenerationRun", () => {
     );
     expect(result.outcome).toBe("success"); // fixture value
   });
+
+  it("accepts non-UUID ticker ids", async () => {
+    // Setup
+    const row = makeRow({
+      tickerId: "ticker-bca",
+    });
+    const db = makeDb();
+    db.contentGenerationRun.create.mockResolvedValue(row);
+
+    // Act
+    await createContentGenerationRun(
+      {
+        agentId: "content-generation",
+        agentVersion: "1.0.0",
+        tickerId: "ticker-bca",
+        outcome: "success",
+      },
+      {
+        db: db as unknown as Parameters<
+          typeof createContentGenerationRun
+        >[1] extends { db?: infer D }
+          ? NonNullable<D>
+          : never,
+      },
+    );
+
+    // Assert
+    expect(db.contentGenerationRun.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tickerId: "ticker-bca",
+        }),
+      }),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

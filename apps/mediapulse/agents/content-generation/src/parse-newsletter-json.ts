@@ -2,16 +2,14 @@ import { z } from "zod";
 
 /** Zod schema for OpenAI LLM newsletter JSON output. */
 export const newsletterStructureSchema = z.object({
-  subject: z.string().optional(),
-  executiveSummary: z.string().optional(),
-  topNews: z
-    .array(
-      z.object({
-        title: z.string(),
-        summary: z.string(),
-      }),
-    )
-    .optional(),
+  subject: z.string(),
+  executiveSummary: z.string(),
+  topNews: z.array(
+    z.object({
+      title: z.string(),
+      summary: z.string(),
+    }),
+  ),
 });
 
 /**
