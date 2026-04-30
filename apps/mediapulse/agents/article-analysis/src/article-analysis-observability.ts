@@ -253,6 +253,9 @@ export const buildArticleAnalysisRunSummaryPayload = (
   const llmFails = input.extractionFailures.filter(
     (f) => f.stage === "llm",
   ).length;
+  const prefilterFails = input.extractionFailures.filter(
+    (f) => f.stage === "prefilter",
+  ).length;
 
   const postByKind = {
     entities_relations: 0,
@@ -295,6 +298,7 @@ export const buildArticleAnalysisRunSummaryPayload = (
     articlesProcessed: input.articlesProcessed,
     extractionSuccessCount: input.extractionSuccessCount,
     extractionFailureCount: input.extractionFailures.length,
+    extractionFailuresPrefilter: prefilterFails,
     extractionFailuresVocabulary: vocabFails,
     extractionFailuresLlm: llmFails,
     scoreFailureCount,
@@ -309,6 +313,7 @@ export const buildArticleAnalysisRunSummaryPayload = (
     failureCountsByKind: {
       llm: llmFails,
       vocabulary: vocabFails,
+      prefilter: prefilterFails,
       schemaValidation: schemaValidationFailureCount,
       persistenceHttp: postByCategory.agent_data_api_http,
       persistenceOther: postByCategory.unknown,

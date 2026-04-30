@@ -75,9 +75,11 @@ import {
 } from "./run-helpers.js";
 import {
   hardDeleteDataSourceById,
+  shouldHardDeleteDataSourceForNonArticleReason,
   shouldHardDeleteDataSourceForExtractionError,
 } from "./extraction-failure-pruning.js";
 import { normalizeEntityName } from "./normalize-entity-name.js";
+import { classifyNonArticleSource } from "./non-article-source-filter.js";
 
 type ExistingEntity = {
   canonicalName: string;
@@ -501,6 +503,54 @@ export const run = async ({
     let vocabularyFailures = 0;
 
     for (const source of batch) {
+      const nonArticleReason = classifyNonArticleSource(
+        source.url,
+        source.title,
+        source.content,
+      );
+      if (nonArticleReason) {
+        extractionFailures.push({
+          dataSourceId: source.id,
+          stage: "prefilter",
+          message: nonArticleReason,
+        });
+        log.info(
+          {
+            dataSourceId: source.id,
+            stage: "prefilter",
+            nonArticleReason,
+          },
+          "article-analysis skipped source with non-article prefilter",
+        );
+        if (shouldHardDeleteDataSourceForNonArticleReason(nonArticleReason)) {
+          try {
+            await hardDeleteDataSourceById(source.id, {
+              dataApiClient,
+              tickerId: input.tickerId,
+            });
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "prefilter",
+                nonArticleReason,
+              },
+              "article-analysis hard-deleted data source after non-article prefilter",
+            );
+          } catch (deleteErr) {
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "prefilter",
+                err: toSafeLogError(deleteErr),
+                nonArticleReason,
+              },
+              "article-analysis failed to hard-delete data source after non-article prefilter",
+            );
+          }
+        }
+        continue;
+      }
+
       const truncated =
         source.content.length > cfg.maxContentChars
           ? source.content.slice(0, cfg.maxContentChars)

@@ -383,4 +383,57 @@ describe("runDataCollection", () => {
       },
     });
   });
+
+  it("drops noisy quote URLs before fetch and treats run as semantic failure when none remain", async () => {
+    // Setup
+    vi.mocked(performWebSearch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://finance.yahoo.com/quote/BBCA.JK/",
+        },
+      },
+    ]);
+    vi.mocked(performWebFetch).mockResolvedValueOnce([]);
+
+    // Act
+    const result = await runDataCollection(createContext());
+
+    // Assert
+    expect(result.success).toBe(false);
+    expect(performWebFetch).toHaveBeenCalledWith([], expect.anything());
+  });
+
+  it("drops index-like content after fetch and does not persist source", async () => {
+    // Setup
+    vi.mocked(performWebSearch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          title: "Stock summary",
+          url: "https://example.com/stocks",
+        },
+      },
+    ]);
+    vi.mocked(performWebFetch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          title: "Company profile and key statistics",
+          url: "https://example.com/stocks",
+          content: `Financial summary and key statistics with market cap details. ${"data ".repeat(120)}`,
+        },
+      },
+    ]);
+
+    // Act
+    const result = await runDataCollection(createContext());
+
+    // Assert
+    expect(result.success).toBe(false);
+    expect(createMock).not.toHaveBeenCalled();
+  });
 });

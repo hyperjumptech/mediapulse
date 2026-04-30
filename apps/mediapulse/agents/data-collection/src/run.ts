@@ -9,6 +9,11 @@ import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import { performWebFetch } from "./utilities/web-fetch";
 import { performWebSearch } from "./utilities/web-search";
+import { classifyNonArticleContent } from "./utilities/content-shape-filter";
+import {
+  classifyNoisyUrl,
+  type UrlNoiseReason,
+} from "./utilities/url-noise-filter";
 import { resolveExistingDataSourceUrls } from "./utilities/resolve-existing-data-source-urls";
 import {
   deriveRunStatus,
@@ -97,6 +102,15 @@ export async function runDataCollection(
     .filter((r) => r.success)
     .map((r) => r.data);
   const searchFailures = searchAttemptResults.filter((r) => !r.success);
+  const droppedByUrlReason: Record<UrlNoiseReason, number> = {
+    blocked_host: 0,
+    blocked_host_path: 0,
+    blocked_path: 0,
+    blocked_extension: 0,
+  };
+  let droppedByDuplicateCanonicalUrl = 0;
+  let droppedByExistingCanonicalUrl = 0;
+  let droppedByContentShape = 0;
 
   log.info(
     {
@@ -106,17 +120,41 @@ export async function runDataCollection(
     "web search stage finished",
   );
 
-  const candidateUrls = searchSuccesses.map((hit) => hit.url);
+  const canonicalUniqueHits = new Map<
+    string,
+    (typeof searchSuccesses)[number]
+  >();
+  for (const hit of searchSuccesses) {
+    const decision = classifyNoisyUrl(hit.url);
+    if (decision.blocked) {
+      droppedByUrlReason[decision.reason] += 1;
+      continue;
+    }
+
+    if (canonicalUniqueHits.has(decision.canonicalUrl)) {
+      droppedByDuplicateCanonicalUrl += 1;
+      continue;
+    }
+
+    canonicalUniqueHits.set(decision.canonicalUrl, {
+      ...hit,
+      url: decision.canonicalUrl,
+    });
+  }
+
+  const filteredSearchSuccesses = [...canonicalUniqueHits.values()];
+  const candidateUrls = filteredSearchSuccesses.map((hit) => hit.url);
   const existingUrlSet = await resolveExistingDataSourceUrls(
     input.tickerId,
     candidateUrls,
     (body) => dataApiClient.dataCollectionExistingUrls.create(body),
   );
-  const searchSuccessesForFetch = searchSuccesses.filter(
+  const searchSuccessesForFetch = filteredSearchSuccesses.filter(
     (hit) => !existingUrlSet.has(hit.url),
   );
-  const skippedExistingUrlCount =
-    searchSuccesses.length - searchSuccessesForFetch.length;
+  droppedByExistingCanonicalUrl =
+    filteredSearchSuccesses.length - searchSuccessesForFetch.length;
+  const skippedExistingUrlCount = droppedByExistingCanonicalUrl;
   if (skippedExistingUrlCount > 0) {
     log.info(
       {
@@ -135,17 +173,40 @@ export async function runDataCollection(
     .filter((r) => r.success)
     .map((r) => r.data);
   const fetchFailures = fetchAttemptResults.filter((r) => !r.success);
+  const finalFetchSuccesses: typeof fetchSuccesses = [];
+  for (const page of fetchSuccesses) {
+    const urlDecision = classifyNoisyUrl(page.url);
+    if (urlDecision.blocked) {
+      droppedByUrlReason[urlDecision.reason] += 1;
+      continue;
+    }
+
+    const contentDecision = classifyNonArticleContent(page.title, page.content);
+    if (contentDecision.blocked) {
+      droppedByContentShape += 1;
+      continue;
+    }
+
+    finalFetchSuccesses.push({
+      ...page,
+      url: urlDecision.canonicalUrl,
+    });
+  }
 
   log.info(
     {
-      fetchSuccess: fetchSuccesses.length,
+      fetchSuccess: finalFetchSuccesses.length,
       fetchFailed: fetchFailures.length,
+      droppedByUrlReason,
+      droppedByDuplicateCanonicalUrl,
+      droppedByExistingCanonicalUrl,
+      droppedByContentShape,
     },
     "web fetch stage finished",
   );
 
-  if (fetchSuccesses.length > 0) {
-    const sources: DataCollectionInput[] = fetchSuccesses.map((page) => ({
+  if (finalFetchSuccesses.length > 0) {
+    const sources: DataCollectionInput[] = finalFetchSuccesses.map((page) => ({
       url: page.url,
       title: page.title,
       content: page.content,
@@ -191,7 +252,7 @@ export async function runDataCollection(
     })),
   ];
 
-  const totalSources = fetchSuccesses.length;
+  const totalSources = finalFetchSuccesses.length;
   const status = deriveRunStatus({
     totalSources,
     failureCount: failuresPayload.length,
@@ -200,10 +261,10 @@ export async function runDataCollection(
 
   const counters: RunCounters = {
     queriesTotal: queries.length,
-    urlsTotal: searchSuccesses.length,
-    searchSuccess: searchSuccesses.length,
+    urlsTotal: filteredSearchSuccesses.length,
+    searchSuccess: filteredSearchSuccesses.length,
     searchFailed: searchFailures.length,
-    fetchSuccess: fetchSuccesses.length,
+    fetchSuccess: finalFetchSuccesses.length,
     fetchFailed: fetchFailures.length,
     retryCount: 0,
   };

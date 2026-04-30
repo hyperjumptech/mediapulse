@@ -160,6 +160,7 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
     expect(payload.event).toBe(ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE);
     expect(payload.extractionFailuresVocabulary).toBe(1);
     expect(payload.extractionFailuresLlm).toBe(1);
+    expect(payload.extractionFailuresPrefilter).toBe(0);
     expect(payload.scoreFailureCount).toBe(1);
     expect(payload.chunkParseErrorsEntityRelation).toBe(1);
     expect(payload.chunkParseErrorsArticleEntity).toBe(2);
@@ -179,6 +180,7 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
     expect(payload.failureCountsByKind).toEqual({
       llm: 1,
       vocabulary: 1,
+      prefilter: 0,
       schemaValidation: 3,
       persistenceHttp: 1,
       persistenceOther: 1,
@@ -227,6 +229,7 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
     expect(payload.failureCountsByKind).toEqual({
       llm: 0,
       vocabulary: 0,
+      prefilter: 0,
       schemaValidation: 0,
       persistenceHttp: 0,
       persistenceOther: 0,
