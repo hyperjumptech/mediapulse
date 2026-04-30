@@ -3,6 +3,15 @@ import { verifyUnsubscribeToken } from "@workspace/utils";
 import { env } from "@mediapulse/env";
 import { prisma } from "@mediapulse/database";
 
+/** Get the unsubscribe secret or throw at boot. */
+function requireUnsubscribeSecret(): string {
+  const secret = env.UNSUBSCRIBE_SECRET;
+  if (!secret) {
+    throw new Error("UNSUBSCRIBE_SECRET is required for unsubscribe routes");
+  }
+  return secret;
+}
+
 export const unsubscribeRoutes = new Hono();
 
 /**
@@ -34,7 +43,7 @@ async function handleUnsubscribe(
   token: string,
   method: "link" | "one_click",
 ): Promise<Response> {
-  const result = verifyUnsubscribeToken(token, env.UNSUBSCRIBE_SECRET);
+  const result = verifyUnsubscribeToken(token, requireUnsubscribeSecret());
 
   if (!result.valid) {
     if (method === "one_click") {
