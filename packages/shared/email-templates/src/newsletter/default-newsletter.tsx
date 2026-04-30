@@ -12,6 +12,8 @@ import {
 } from "@react-email/components";
 import type { CSSProperties, ReactElement } from "react";
 
+import { parseNewsletterBody } from "./parse-newsletter-body.js";
+
 export interface DefaultNewsletterEmailProps {
   /** Shown as the main title inside the email body (typically matches the message subject). */
   title: string;
@@ -31,8 +33,12 @@ export interface DefaultNewsletterEmailProps {
 /**
  * Default HTML newsletter layout for Mediapulse delivery.
  *
+ * When `bodyText` follows the structured format (EXECUTIVE SUMMARY / --- / TOP N NEWS),
+ * the content is rendered as labelled sections with visually separated news items.
+ * Otherwise it falls back to pre-wrapped plain-text rendering.
+ *
  * @param props.title - Heading text in the body.
- * @param props.bodyText - Main content; treated as plain text with preserved line breaks.
+ * @param props.bodyText - Main content; structured plain text or free-form.
  * @param props.footerNote - Optional footer copy.
  * @param props.preferencesUrl - Optional URL for the preferences link.
  * @returns React Email document tree.
@@ -43,6 +49,8 @@ export const DefaultNewsletterEmail = ({
   footerNote = "You are receiving this because you subscribed to updates.",
   preferencesUrl,
 }: DefaultNewsletterEmailProps): ReactElement => {
+  const parsed = parseNewsletterBody(bodyText);
+
   return (
     <Html>
       <Head />
@@ -53,7 +61,33 @@ export const DefaultNewsletterEmail = ({
             <Heading style={heading}>{title}</Heading>
           </Section>
           <Hr style={hr} />
-          <Text style={bodyParagraph}>{bodyText}</Text>
+          {parsed !== undefined ? (
+            <>
+              <Heading as="h2" style={sectionLabel}>
+                Executive Summary
+              </Heading>
+              <Text style={bodyParagraph}>{parsed.executiveSummary}</Text>
+              <Hr style={hr} />
+              <Heading as="h2" style={sectionLabel}>
+                Top News
+              </Heading>
+              {parsed.topNewsItems.map(
+                (item: (typeof parsed.topNewsItems)[number], index: number) => (
+                  <Section key={item.number}>
+                    <Text style={newsItemTitle}>
+                      {item.number}. {item.title}
+                    </Text>
+                    <Text style={newsItemSummary}>{item.summary}</Text>
+                    {index < parsed.topNewsItems.length - 1 ? (
+                      <Hr style={itemSeparator} />
+                    ) : null}
+                  </Section>
+                ),
+              )}
+            </>
+          ) : (
+            <Text style={bodyParagraph}>{bodyText}</Text>
+          )}
           <Hr style={hr} />
           <Text style={footer}>{footerNote}</Text>
           {preferencesUrl !== undefined && preferencesUrl !== "" ? (
@@ -71,7 +105,24 @@ export const DefaultNewsletterEmail = ({
 
 DefaultNewsletterEmail.PreviewProps = {
   title: "Weekly digest",
-  bodyText: "Hello,\n\nHere is your newsletter content.\n\n— The team",
+  bodyText: [
+    "EXECUTIVE SUMMARY",
+    "",
+    "Markets rallied today as tech earnings exceeded expectations and the Fed signaled a measured approach to rate adjustments.",
+    "",
+    "---",
+    "",
+    "TOP 3 NEWS",
+    "",
+    "1. Fed holds rates steady",
+    "The Federal Reserve announced no change to interest rates, citing stable inflation and strong employment data.",
+    "",
+    "2. Apple beats estimates",
+    "Apple reported record quarterly revenue of $95B, driven by strong iPhone and services growth.",
+    "",
+    "3. Oil prices dip",
+    "Crude oil fell 2% amid easing geopolitical tensions and rising US production.",
+  ].join("\n"),
   footerNote:
     "You can unsubscribe from ticker updates in your account settings.",
 } satisfies DefaultNewsletterEmailProps;
@@ -115,6 +166,34 @@ const bodyParagraph: CSSProperties = {
   lineHeight: "1.6",
   margin: "0",
   whiteSpace: "pre-wrap",
+};
+
+const sectionLabel: CSSProperties = {
+  color: "#1a1a1a",
+  fontSize: "18px",
+  fontWeight: "600",
+  lineHeight: "1.3",
+  margin: "0 0 12px",
+};
+
+const newsItemTitle: CSSProperties = {
+  color: "#374151",
+  fontSize: "16px",
+  fontWeight: "600",
+  lineHeight: "1.5",
+  margin: "0 0 4px",
+};
+
+const newsItemSummary: CSSProperties = {
+  color: "#374151",
+  fontSize: "16px",
+  lineHeight: "1.6",
+  margin: "0",
+};
+
+const itemSeparator: CSSProperties = {
+  borderColor: "#e6ebf1",
+  margin: "16px 0",
 };
 
 const footer: CSSProperties = {
