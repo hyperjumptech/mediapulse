@@ -14,6 +14,7 @@ export const deliveryNewsletterSchema = z.object({
   id: z.string().uuid(),
   subject: z.string(),
   content: z.string(),
+  symbol: z.string(),
 });
 
 export const deliverySubscriberSchema = z.object({

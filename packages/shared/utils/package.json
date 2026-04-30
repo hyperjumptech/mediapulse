@@ -18,6 +18,7 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@types/node": "catalog:",
     "@workspace/typescript-config": "workspace:*",
     "typescript": "catalog:",
     "vitest": "catalog:"

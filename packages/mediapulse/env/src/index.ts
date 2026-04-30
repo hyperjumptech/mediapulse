@@ -20,6 +20,7 @@ export const env = createEnv({
     OUTLOOK_CLIENT_SECRET: z.string().optional(),
     OUTLOOK_TENANT_ID: z.string().optional(),
     OUTLOOK_USER_ID: z.string().optional(),
+    UNSUBSCRIBE_SECRET: z.string().optional(),
   },
   client: {
   },

@@ -767,6 +767,7 @@ describe("agent-data-api", () => {
           subject: "News",
           content: "Body",
           id: NL_ID,
+          symbol: "AAPL",
         },
         subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
         deliveredUserTickerIds: [],

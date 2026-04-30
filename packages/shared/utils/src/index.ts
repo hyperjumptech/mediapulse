@@ -3,6 +3,10 @@ export {
   type SlidingWindowRateLimiter,
   type SlidingWindowRateLimiterClock,
 } from "./create-sliding-window-rate-limiter.js";
+export {
+  createUnsubscribeToken,
+  verifyUnsubscribeToken,
+} from "./unsubscribe-token.js";
 export { sleep } from "./sleep.js";
 export {
   withRetry,

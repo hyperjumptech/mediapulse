@@ -30,6 +30,7 @@ const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 const DELIVERY_CONFIG = {
   resendApiKey: "re_test_key",
   resend: { from: "sender@example.com" },
+  unsubscribe: { secret: "test-secret", baseUrl: "https://example.com/api" },
 };
 
 vi.mock("@workspace/agent-auth-client", () => ({
@@ -77,7 +78,12 @@ describe("delivery-agent", () => {
       ok: true,
       statusCode: 200,
       body: JSON.stringify({
-        newsletter: { id: NL_ID, subject: "News", content: "Body" },
+        newsletter: {
+          id: NL_ID,
+          subject: "News",
+          content: "Body",
+          symbol: "AAPL",
+        },
         subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
         deliveredUserTickerIds: [],
       }),
@@ -238,7 +244,12 @@ describe("delivery-agent", () => {
       ok: true,
       statusCode: 200,
       body: JSON.stringify({
-        newsletter: { id: NL_ID, subject: "News", content: "Body" },
+        newsletter: {
+          id: NL_ID,
+          subject: "News",
+          content: "Body",
+          symbol: "AAPL",
+        },
         subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
         deliveredUserTickerIds: [UT_ID],
       }),

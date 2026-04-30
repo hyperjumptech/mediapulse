@@ -14,6 +14,7 @@ const newsletter = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   subject: "Subject",
   content: "Body",
+  symbol: "AAPL",
 } as const;
 
 const userTickerId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -30,9 +31,10 @@ describe("deliverNewsletterToSubscribers", () => {
   const baseConfig = DeliveryConfigSchema.parse({
     resendApiKey: "re_k",
     resend: { from: "from@example.com" },
+    unsubscribe: { secret: "test-secret", baseUrl: "https://example.com" },
   });
 
-  it("renders once, rate-limits, sends with html+text, and records success", async () => {
+  it("renders per subscriber, injects unsubscribeUrl and List-Unsubscribe headers", async () => {
     const sendWithRetry = vi
       .fn()
       .mockResolvedValue({ id: "re_1", attempts: 1 });
@@ -53,10 +55,15 @@ describe("deliverNewsletterToSubscribers", () => {
       },
     );
 
-    expect(vi.mocked(renderNewsletterEmail).mock.calls[0]?.[0]).toMatchObject({
+    const renderCall = vi.mocked(renderNewsletterEmail).mock.calls[0]?.[0];
+    expect(renderCall).toMatchObject({
       title: newsletter.subject,
       bodyText: newsletter.content,
       variant: "default",
+      unsubscribeUrl: expect.stringContaining(
+        "https://example.com/api/unsubscribe",
+      ),
+      tickerSymbol: "AAPL",
     });
     expect(acquire).toHaveBeenCalledOnce();
     expect(sendWithRetry).toHaveBeenCalledOnce();
@@ -67,6 +74,12 @@ describe("deliverNewsletterToSubscribers", () => {
       from: "from@example.com",
       to: "u@example.com",
       subject: newsletter.subject,
+      headers: {
+        "List-Unsubscribe": expect.stringContaining(
+          "https://example.com/api/unsubscribe",
+        ),
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
     });
     expect(results).toEqual([
       expect.objectContaining({
@@ -77,16 +90,6 @@ describe("deliverNewsletterToSubscribers", () => {
       }),
     ]);
     expect(resendMessageIds).toEqual(["re_1"]);
-    expect(logInfo).toHaveBeenCalledWith(
-      expect.objectContaining({
-        newsletterId: newsletter.id,
-        successCount: 1,
-        failedCount: 0,
-        skippedCount: 0,
-        totalRecipients: 1,
-      }),
-      "delivery recipient batch summary",
-    );
   });
 
   it("skips checkpointed subscribers without acquire or send", async () => {
@@ -128,6 +131,10 @@ describe("deliverNewsletterToSubscribers", () => {
       resendApiKey: "re_k",
       resend: { from: "from@example.com" },
       send: { includeHtml: false, includeText: true },
+      unsubscribe: {
+        secret: "test-secret",
+        baseUrl: "https://example.com/api",
+      },
     });
     const sendWithRetry = vi
       .fn()
@@ -155,6 +162,10 @@ describe("deliverNewsletterToSubscribers", () => {
       resendApiKey: "re_k",
       resend: { from: "from@example.com" },
       send: { includeHtml: true, includeText: false },
+      unsubscribe: {
+        secret: "test-secret",
+        baseUrl: "https://example.com/api",
+      },
     });
     const sendWithRetry = vi
       .fn()
@@ -185,6 +196,10 @@ describe("deliverNewsletterToSubscribers", () => {
         replyTo: "replies@example.com",
         tags: [{ name: "env", value: "test" }],
       },
+      unsubscribe: {
+        secret: "test-secret",
+        baseUrl: "https://example.com/api",
+      },
     });
     const sendWithRetry = vi
       .fn()
@@ -205,36 +220,6 @@ describe("deliverNewsletterToSubscribers", () => {
     expect(sendWithRetry.mock.calls[0]?.[1]).toMatchObject({
       replyTo: "replies@example.com",
       tags: [{ name: "env", value: "test" }],
-    });
-  });
-
-  it("passes template.preferencesUrl into renderNewsletterEmail when set", async () => {
-    const cfg = DeliveryConfigSchema.parse({
-      resendApiKey: "re_k",
-      resend: { from: "from@example.com" },
-      template: {
-        newsletterVariant: "default",
-        preferencesUrl: "https://app.example.com/prefs",
-      },
-    });
-    const sendWithRetry = vi
-      .fn()
-      .mockResolvedValue({ id: "re_4", attempts: 1 });
-
-    await deliverNewsletterToSubscribers(
-      newsletter,
-      [{ userTickerId, email: "u@example.com" }],
-      [],
-      cfg,
-      {
-        resend: {} as Resend,
-        rateLimiter: { acquire: vi.fn().mockResolvedValue(0) },
-        sendWithRetry,
-      },
-    );
-
-    expect(vi.mocked(renderNewsletterEmail).mock.calls[0]?.[0]).toMatchObject({
-      preferencesUrl: "https://app.example.com/prefs",
     });
   });
 

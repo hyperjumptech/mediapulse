@@ -17,6 +17,7 @@ export type SendEmailPayload = {
   text?: string;
   replyTo?: string;
   tags?: { name: string; value: string }[];
+  headers?: Record<string, string>;
 };
 
 /**
@@ -85,6 +86,10 @@ export async function sendWithResendRetry(
             : {}),
           ...(payload.tags !== undefined && payload.tags.length > 0
             ? { tags: payload.tags }
+            : {}),
+          ...(payload.headers !== undefined &&
+          Object.keys(payload.headers).length > 0
+            ? { headers: payload.headers }
             : {}),
         } as CreateEmailOptions;
         const { data, error, headers } = await resend.emails.send(emailPayload);

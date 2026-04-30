@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { renderNewsletterEmail } from "@workspace/email-templates";
 import type { LoggerLike } from "@workspace/agent-runtime";
+import { createUnsubscribeToken } from "@workspace/utils";
 import { Resend } from "resend";
 
 import {
@@ -80,7 +81,7 @@ function recipientErrorCategory(
  * @returns Per-recipient results and Resend message ids (for diagnostics).
  */
 export async function deliverNewsletterToSubscribers(
-  newsletter: { id: string; subject: string; content: string },
+  newsletter: { id: string; subject: string; content: string; symbol: string },
   subscribers: DeliverySubscriber[],
   deliveredUserTickerIds: string[],
   config: DeliveryConfig,
@@ -99,23 +100,6 @@ export async function deliverNewsletterToSubscribers(
     });
 
   const deliveredSet = new Set(deliveredUserTickerIds);
-  const renderStarted = Date.now();
-  const { html, text } = await renderNewsletterEmail({
-    title: newsletter.subject,
-    bodyText: newsletter.content,
-    variant: config.template.newsletterVariant,
-    ...(config.template.preferencesUrl !== undefined
-      ? { preferencesUrl: config.template.preferencesUrl }
-      : {}),
-  });
-  logger?.info?.(
-    {
-      ms: Date.now() - renderStarted,
-      newsletterId: newsletter.id,
-    },
-    "delivery newsletter render timing",
-  );
-
   const from = config.resend.from;
 
   const results: RecipientSendResult[] = [];
@@ -142,6 +126,31 @@ export async function deliverNewsletterToSubscribers(
       );
     }
 
+    // Generate per-subscriber unsubscribe token and URL
+    const unsubscribeToken = createUnsubscribeToken({
+      userTickerId: sub.userTickerId,
+      tickerSymbol: newsletter.symbol,
+      secret: config.unsubscribe.secret,
+    });
+    const unsubscribeUrl = `${config.unsubscribe.baseUrl}/api/unsubscribe?token=${unsubscribeToken}`;
+
+    const renderStart = Date.now();
+    const { html, text } = await renderNewsletterEmail({
+      title: newsletter.subject,
+      bodyText: newsletter.content,
+      variant: config.template.newsletterVariant,
+      unsubscribeUrl,
+      tickerSymbol: newsletter.symbol,
+    });
+    logger?.info?.(
+      {
+        ms: Date.now() - renderStart,
+        newsletterId: newsletter.id,
+        recipientRef: ref,
+      },
+      "delivery newsletter render timing",
+    );
+
     const payload: SendEmailPayload = {
       from,
       to: sub.email,
@@ -154,6 +163,10 @@ export async function deliverNewsletterToSubscribers(
       ...(config.resend.tags !== undefined && config.resend.tags.length > 0
         ? { tags: config.resend.tags }
         : {}),
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
     };
 
     try {

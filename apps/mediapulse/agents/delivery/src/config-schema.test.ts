@@ -17,7 +17,10 @@ describe("DeliveryConfigSchema", () => {
   });
 
   it("accepts default send (html + text) when resend fields are set", () => {
-    const r = DeliveryConfigSchema.safeParse(minimalResendConfig);
+    const r = DeliveryConfigSchema.safeParse({
+      ...minimalResendConfig,
+      unsubscribe: { secret: "secret", baseUrl: "https://example.com/api" },
+    });
     expect(r.success).toBe(true);
     expect(r.data?.send.includeHtml).toBe(true);
     expect(r.data?.send.includeText).toBe(true);
@@ -38,24 +41,25 @@ describe("DeliveryConfigSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  it("accepts optional template.preferencesUrl when valid absolute URL", () => {
+  it("accepts optional unsubscribe config with secret and baseUrl", () => {
     const r = DeliveryConfigSchema.safeParse({
       ...minimalResendConfig,
-      template: {
-        newsletterVariant: "default" as const,
-        preferencesUrl: "https://example.com/prefs",
+      unsubscribe: {
+        secret: "my-hmac-secret",
+        baseUrl: "https://app.example.com/api",
       },
     });
     expect(r.success).toBe(true);
-    expect(r.data?.template.preferencesUrl).toBe("https://example.com/prefs");
+    expect(r.data?.unsubscribe.secret).toBe("my-hmac-secret");
+    expect(r.data?.unsubscribe.baseUrl).toBe("https://app.example.com/api");
   });
 
-  it("rejects invalid template.preferencesUrl", () => {
+  it("rejects invalid unsubscribe.baseUrl", () => {
     const r = DeliveryConfigSchema.safeParse({
       ...minimalResendConfig,
-      template: {
-        newsletterVariant: "default" as const,
-        preferencesUrl: "not-a-url",
+      unsubscribe: {
+        secret: "secret",
+        baseUrl: "not-a-url",
       },
     });
     expect(r.success).toBe(false);

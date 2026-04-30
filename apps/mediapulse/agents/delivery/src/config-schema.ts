@@ -48,13 +48,18 @@ export const DeliveryConfigSchema = z
     template: z
       .object({
         newsletterVariant: z.enum(["default"]).default("default"),
-        /**
-         * Absolute URL for the “Manage preferences” link in the default newsletter template.
-         * Omit to hide that link (recommended until a real preferences URL exists).
-         */
-        preferencesUrl: z.string().url().optional(),
       })
       .default({ newsletterVariant: "default" }),
+    /** Unsubscribe feature config for per-subscriber token generation. */
+    unsubscribe: z.object({
+      /** Shared HMAC secret for signing/verifying unsubscribe tokens. */
+      secret: z.string().min(1),
+      /**
+       * Public base URL of the domain API (e.g. "https://mediapulse.com").
+       * The full unsubscribe path `/api/unsubscribe` is appended at runtime.
+       */
+      baseUrl: z.string().url(),
+    }),
   })
   .superRefine((val, ctx) => {
     if (!val.send.includeHtml && !val.send.includeText) {

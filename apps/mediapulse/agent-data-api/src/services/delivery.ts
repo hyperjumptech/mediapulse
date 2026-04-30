@@ -8,6 +8,7 @@ export async function getDeliveryData(tickerId: string) {
   const newsletter = await mediapulsePrisma.newsletter.findFirst({
     where: { tickerId },
     orderBy: { createdAt: "desc" },
+    include: { ticker: true },
   });
 
   if (!newsletter) {
@@ -43,6 +44,7 @@ export async function getDeliveryData(tickerId: string) {
       id: newsletter.id,
       subject: newsletter.subject,
       content: newsletter.content,
+      symbol: newsletter.ticker.symbol,
     },
     subscribers,
     deliveredUserTickerIds: checkpoints.map((c) => c.userTickerId),

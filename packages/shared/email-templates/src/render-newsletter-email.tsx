@@ -16,7 +16,10 @@ export type NewsletterTemplateVariant =
   | "invalid-ticker";
 
 export type RenderNewsletterEmailInput =
-  | ({ variant?: "default" } & DefaultNewsletterEmailProps)
+  | ({ variant?: "default" } & DefaultNewsletterEmailProps & {
+        unsubscribeUrl?: string;
+        tickerSymbol?: string;
+      })
   | ({
       variant: "registration-confirmation";
     } & RegistrationConfirmationEmailProps)
@@ -78,7 +81,8 @@ function newsletterElementForVariant(
           title={input.title}
           bodyText={input.bodyText}
           footerNote={input.footerNote}
-          preferencesUrl={input.preferencesUrl}
+          unsubscribeUrl={input.unsubscribeUrl}
+          tickerSymbol={input.tickerSymbol}
         />
       );
     case "registration-confirmation":

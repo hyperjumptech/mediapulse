@@ -25,9 +25,15 @@ export interface DefaultNewsletterEmailProps {
   /** Optional footer line (e.g. unsubscribe placeholder). */
   footerNote?: string;
   /**
-   * Absolute HTTPS URL for account/preferences; when omitted, the “Manage preferences” link is omitted.
+   * Absolute HTTPS URL for the one-click unsubscribe endpoint;
+   * when omitted, the unsubscribe link is hidden.
    */
-  preferencesUrl?: string;
+  unsubscribeUrl?: string;
+  /**
+   * Ticker symbol shown in the unsubscribe link text (e.g. "AAPL").
+   * Falls back to "these" when omitted.
+   */
+  tickerSymbol?: string;
 }
 
 /**
@@ -40,14 +46,16 @@ export interface DefaultNewsletterEmailProps {
  * @param props.title - Heading text in the body.
  * @param props.bodyText - Main content; structured plain text or free-form.
  * @param props.footerNote - Optional footer copy.
- * @param props.preferencesUrl - Optional URL for the preferences link.
+ * @param props.unsubscribeUrl - Optional URL for the one-click unsubscribe link.
+ * @param props.tickerSymbol - Ticker symbol shown in the unsubscribe link text.
  * @returns React Email document tree.
  */
 export const DefaultNewsletterEmail = ({
   title,
   bodyText,
   footerNote = "You are receiving this because you subscribed to updates.",
-  preferencesUrl,
+  unsubscribeUrl,
+  tickerSymbol,
 }: DefaultNewsletterEmailProps): ReactElement => {
   const parsed = parseNewsletterBody(bodyText);
 
@@ -90,10 +98,10 @@ export const DefaultNewsletterEmail = ({
           )}
           <Hr style={hr} />
           <Text style={footer}>{footerNote}</Text>
-          {preferencesUrl !== undefined && preferencesUrl !== "" ? (
+          {unsubscribeUrl !== undefined && unsubscribeUrl !== "" ? (
             <Text style={footerMuted}>
-              <Link href={preferencesUrl} style={link}>
-                Manage preferences
+              <Link href={unsubscribeUrl} style={link}>
+                Unsubscribe from {tickerSymbol ?? "these"} updates
               </Link>
             </Text>
           ) : null}
@@ -125,6 +133,8 @@ DefaultNewsletterEmail.PreviewProps = {
   ].join("\n"),
   footerNote:
     "You can unsubscribe from ticker updates in your account settings.",
+  unsubscribeUrl: "https://mediapulse.com/api/unsubscribe?token=example",
+  tickerSymbol: "AAPL",
 } satisfies DefaultNewsletterEmailProps;
 
 export default DefaultNewsletterEmail;

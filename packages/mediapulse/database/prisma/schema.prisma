@@ -285,6 +285,10 @@ model UserTicker {
   tickerId  String   @map("ticker_id")
   enabled   Boolean  @default(true)
   registrationConfirmedAt DateTime? @map("registration_confirmed_at")
+  /// When the user voluntarily unsubscribed (null for admin/manual disables).
+  unsubscribedAt    DateTime? @map("unsubscribed_at")
+  /// How the user unsubscribed: "link" (GET) or "one_click" (POST). Null for admin/manual.
+  unsubscribeMethod String?   @map("unsubscribe_method")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

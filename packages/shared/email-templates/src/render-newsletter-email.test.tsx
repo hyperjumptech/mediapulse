@@ -13,22 +13,33 @@ describe("renderNewsletterEmail", () => {
     expect(text).toMatch(/first line/i);
   });
 
-  it("omits manage-preferences link when preferencesUrl is not set", async () => {
+  it("omits unsubscribe link when unsubscribeUrl is not set", async () => {
     const { html } = await renderNewsletterEmail({
       title: "T",
       bodyText: "B",
     });
-    expect(html).not.toMatch(/manage preferences/i);
+    expect(html).not.toMatch(/unsubscribe/i);
   });
 
-  it("includes manage-preferences link when preferencesUrl is set", async () => {
+  it("includes unsubscribe link with ticker symbol when unsubscribeUrl is set", async () => {
     const { html } = await renderNewsletterEmail({
       title: "T",
       bodyText: "B",
-      preferencesUrl: "https://app.example.com/settings/email",
+      unsubscribeUrl: "https://app.example.com/api/unsubscribe?token=abc",
+      tickerSymbol: "AAPL",
     });
-    expect(html).toMatch(/manage preferences/i);
-    expect(html).toContain("https://app.example.com/settings/email");
+    // React Email inserts comment nodes between JSX expressions
+    expect(html).toMatch(/Unsubscribe from.*AAPL.*updates/i);
+    expect(html).toContain("https://app.example.com/api/unsubscribe?token=abc");
+  });
+
+  it("shows generic text when tickerSymbol is omitted", async () => {
+    const { html } = await renderNewsletterEmail({
+      title: "T",
+      bodyText: "B",
+      unsubscribeUrl: "https://app.example.com/api/unsubscribe?token=abc",
+    });
+    expect(html).toMatch(/Unsubscribe from.*these.*updates/i);
   });
 
   it("falls back to static render when stream render is unavailable", async () => {
