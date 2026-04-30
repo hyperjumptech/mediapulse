@@ -28,6 +28,12 @@ export const createDomainApiServer = (): {
   // Public routes — no agent-auth JWT required.
   app.route("/api", unsubscribeRoutes);
 
+  if (!env.UNSUBSCRIBE_SECRET) {
+    logger.warn(
+      "UNSUBSCRIBE_SECRET is not set — unsubscribe endpoints will return safe fallback responses",
+    );
+  }
+
   const api = app.basePath("/v1");
 
   api.use(

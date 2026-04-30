@@ -163,6 +163,58 @@ describe("unsubscribe-routes", () => {
     });
   });
 
+  describe("when UNSUBSCRIBE_SECRET is not configured", () => {
+    beforeEach(() => {
+      vi.doMock("@mediapulse/env", () => ({
+        env: {
+          // UNSUBSCRIBE_SECRET intentionally omitted — simulates misconfigured env
+        },
+      }));
+    });
+
+    afterEach(() => {
+      // Restore the original mock (doUnmock would strip the hoisted vi.mock)
+      vi.doMock("@mediapulse/env", () => ({
+        env: {
+          UNSUBSCRIBE_SECRET: SECRET,
+        },
+      }));
+    });
+
+    it("GET returns friendly HTML fallback (200-safe)", async () => {
+      const { unsubscribeRoutes } = await import("./unsubscribe-routes");
+      const res = await unsubscribeRoutes.request(
+        "/unsubscribe?token=anything",
+        {
+          method: "GET",
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain("temporarily unavailable");
+      // prisma is never called — we bail out before token verification
+      expect(mockFindUnique).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("POST returns empty 200 (RFC 8058 safe)", async () => {
+      const { unsubscribeRoutes } = await import("./unsubscribe-routes");
+      const res = await unsubscribeRoutes.request(
+        "/unsubscribe?token=anything",
+        {
+          method: "POST",
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toBe("");
+      expect(mockFindUnique).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+  });
+
   describe("POST /api/unsubscribe (RFC 8058)", () => {
     it("returns empty 200 for a valid token", async () => {
       mockFindUnique.mockResolvedValue({
