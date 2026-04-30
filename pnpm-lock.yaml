@@ -887,6 +887,9 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
+      '@workspace/utils':
+        specifier: workspace:*
+        version: link:../../../packages/shared/utils
       hono:
         specifier: 'catalog:'
         version: 4.11.9
@@ -1785,6 +1788,9 @@ importers:
 
   packages/shared/utils:
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.33
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -1793,7 +1799,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/shared/variable-expansion-picker:
     dependencies:

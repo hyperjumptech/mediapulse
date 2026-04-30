@@ -10,6 +10,7 @@ import { hermesDashboardRouteMounts } from "./hermes-dashboard-route-mounts";
 import { healthRoutes } from "./routes/health-routes";
 import { hermesDashboardManifestRoutes } from "./routes/hermes-dashboard-manifest-routes";
 import { stepInputExpansionRoutes } from "./routes/step-input-expansion-routes";
+import { unsubscribeRoutes } from "./routes/unsubscribe-routes";
 import { verifyInvocationJwtFromHeader } from "./verify-invocation-jwt-middleware";
 
 /**
@@ -23,6 +24,10 @@ export const createDomainApiServer = (): {
   fetch: Hono["fetch"];
 } => {
   const app = new Hono();
+
+  // Public routes — no agent-auth JWT required.
+  app.route("/api", unsubscribeRoutes);
+
   const api = app.basePath("/v1");
 
   api.use(

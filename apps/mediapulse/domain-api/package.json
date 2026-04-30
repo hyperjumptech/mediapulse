@@ -18,6 +18,7 @@
     "@hermes/domain-contract": "workspace:*",
     "@hermes/step-input-syntax": "workspace:*",
     "@workspace/logger": "workspace:*",
+    "@workspace/utils": "workspace:*",
     "@mediapulse/hermes-integration": "workspace:*",
     "@mediapulse/idx-tickers-importer": "workspace:*",
     "@mediapulse/database": "workspace:*",

@@ -70,6 +70,7 @@ describe("getDeliveryData", () => {
       totalTokens: null,
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      ticker: { symbol: "AAPL" },
     };
     vi.mocked(prisma.newsletter.findFirst).mockResolvedValue(newsletter);
     vi.mocked(prisma.newsletterDeliveryCheckpoint.findMany).mockResolvedValue([
@@ -125,6 +126,7 @@ describe("getDeliveryData", () => {
         id: "n1",
         subject: "Subj",
         content: "Body",
+        symbol: "AAPL",
       },
       subscribers: [
         { userTickerId: "ut1", email: "a@example.com" },
@@ -136,7 +138,7 @@ describe("getDeliveryData", () => {
 
   it("filters out empty emails", async () => {
     const { prisma } = await import("@mediapulse/database");
-    vi.mocked(prisma.newsletter.findFirst).mockResolvedValue({
+    const newsletter = {
       id: "n1",
       subject: "S",
       description: null,
@@ -152,7 +154,13 @@ describe("getDeliveryData", () => {
       totalTokens: null,
       createdAt: new Date(),
       updatedAt: new Date(),
-    });
+      ticker: { symbol: "BBRI" },
+    };
+    vi.mocked(prisma.newsletter.findFirst).mockResolvedValue(
+      newsletter as unknown as Awaited<
+        ReturnType<typeof prisma.newsletter.findFirst>
+      >,
+    );
     vi.mocked(prisma.newsletterDeliveryCheckpoint.findMany).mockResolvedValue(
       [],
     );
