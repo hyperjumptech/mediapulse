@@ -47,6 +47,8 @@ const webFetchSchema = z.object({
 export const ConfigSchema = z.object({
   webSearch: webSearchSchema,
   webFetch: webFetchSchema,
+  targetDailySuccessfulSources: z.number().int().positive().optional(),
+  maxRefillRounds: z.number().int().nonnegative().optional(),
   runPolicy: z
     .object({
       minSuccessfulSources: z.number().int().nonnegative(),

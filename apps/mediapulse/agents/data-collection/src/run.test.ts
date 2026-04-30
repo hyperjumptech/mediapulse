@@ -19,6 +19,8 @@ const baseConfig = {
     authentication: { type: "bearer" as const },
     rateLimit: { requests: 1, perSeconds: 1 },
   },
+  targetDailySuccessfulSources: 1,
+  maxRefillRounds: 3,
 } satisfies ConfigSchemaType;
 
 const searchSuccessPage = {
@@ -52,6 +54,7 @@ const createMock = vi.fn();
 const existingUrlsCreateMock = vi.fn();
 const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
+const analysisGetMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -67,6 +70,9 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     dataCollectionFailure: {
       create: failureCreateMock,
+    },
+    analysis: {
+      get: analysisGetMock,
     },
   })),
 }));
@@ -123,6 +129,18 @@ describe("runDataCollection", () => {
     });
     createMock.mockResolvedValue("{}");
     existingUrlsCreateMock.mockResolvedValue({ existingUrls: [] });
+    analysisGetMock.mockResolvedValue({
+      dataSources: [],
+      dataSourceTotalCount: 0,
+      entityTypes: [],
+      relationTypes: [],
+      existingEntities: [],
+      relevanceSelectionState: {
+        utcDayStartIso: "2026-01-01T00:00:00.000Z",
+        selectedCountToday: 0,
+      },
+      lastRelevanceScoredAtIso: null,
+    });
   });
 
   afterEach(() => {
@@ -134,7 +152,7 @@ describe("runDataCollection", () => {
     const result = await runDataCollection(createContext());
 
     // Assert
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       success: true,
       details: {
         summary: {
@@ -142,6 +160,13 @@ describe("runDataCollection", () => {
           status: "success",
           searchSuccess: 1,
           fetchSuccess: 1,
+          refill: {
+            roundsExecuted: 1,
+            targetDailySuccessfulSources: 1,
+            existingTodaySourceCount: 0,
+            effectiveTodayCount: 1,
+            stopReason: "daily_target_met",
+          },
         },
       },
     });
@@ -311,7 +336,7 @@ describe("runDataCollection", () => {
     const result = await runDataCollection(createContext());
 
     // Assert — Hermes maps `success: false` to HTTP 200 + failure envelope (not 500), so pipeline UIs get the message
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       success: false,
       message:
         "Data collection run failed: no sources were successfully collected, but the run policy requires at least 1 successful source.",
@@ -321,6 +346,9 @@ describe("runDataCollection", () => {
           status: "failed",
           searchSuccess: 0,
           fetchSuccess: 0,
+          refill: {
+            roundsExecuted: 1,
+          },
         },
         failureReason: "insufficient_successful_sources",
         requiredSuccessfulSources: 1,
@@ -366,7 +394,7 @@ describe("runDataCollection", () => {
     );
 
     // Assert
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       success: false,
       message:
         "Data collection run failed: only 1 successful source collected, but the run policy requires at least 2.",
@@ -376,6 +404,9 @@ describe("runDataCollection", () => {
           status: "failed",
           searchSuccess: 1,
           fetchSuccess: 1,
+          refill: {
+            roundsExecuted: 1,
+          },
         },
         failureReason: "insufficient_successful_sources",
         requiredSuccessfulSources: 2,
@@ -435,5 +466,158 @@ describe("runDataCollection", () => {
     // Assert
     expect(result.success).toBe(false);
     expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("skips refill rounds when daily target is already satisfied by existing data", async () => {
+    // Setup
+    analysisGetMock.mockResolvedValueOnce({
+      dataSources: [],
+      dataSourceTotalCount: 5,
+      entityTypes: [],
+      relationTypes: [],
+      existingEntities: [],
+      relevanceSelectionState: {
+        utcDayStartIso: "2026-01-01T00:00:00.000Z",
+        selectedCountToday: 0,
+      },
+      lastRelevanceScoredAtIso: null,
+    });
+
+    // Act
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+        },
+      }),
+    );
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(performWebSearch).not.toHaveBeenCalled();
+    expect(
+      (result.details?.summary as { refill?: { roundsExecuted: number } })
+        .refill?.roundsExecuted,
+    ).toBe(0);
+  });
+
+  it("runs refill rounds until target is met", async () => {
+    // Setup
+    vi.mocked(performWebSearch)
+      .mockResolvedValueOnce([
+        {
+          success: true,
+          data: searchSuccessPage,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          success: true,
+          data: searchSuccessPage,
+        },
+      ]);
+    vi.mocked(performWebFetch)
+      .mockResolvedValueOnce([
+        {
+          success: true,
+          data: {
+            ...searchSuccessPage,
+            content: "Main content",
+          },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          success: true,
+          data: {
+            ...searchSuccessPage,
+            content: "Main content",
+          },
+        },
+      ]);
+
+    // Act
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          targetDailySuccessfulSources: 2,
+          maxRefillRounds: 3,
+        },
+      }),
+    );
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(performWebSearch).toHaveBeenCalledTimes(2);
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(
+      (result.details?.summary as { refill?: { stopReason: string } }).refill
+        ?.stopReason,
+    ).toBe("daily_target_met");
+  });
+
+  it("stops refill when no progress is made in a round", async () => {
+    // Setup
+    vi.mocked(performWebSearch).mockResolvedValue([]);
+    vi.mocked(performWebFetch).mockResolvedValue([]);
+
+    // Act
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          targetDailySuccessfulSources: 5,
+          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+        },
+      }),
+    );
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(performWebSearch).toHaveBeenCalledTimes(1);
+    expect(
+      (result.details?.summary as { refill?: { stopReason: string } }).refill
+        ?.stopReason,
+    ).toBe("no_progress");
+  });
+
+  it("stops refill after max rounds when target remains unmet", async () => {
+    // Setup
+    vi.mocked(performWebSearch).mockResolvedValue([
+      {
+        success: true,
+        data: searchSuccessPage,
+      },
+    ]);
+    vi.mocked(performWebFetch).mockResolvedValue([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          content: "Main content",
+        },
+      },
+    ]);
+
+    // Act
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+          targetDailySuccessfulSources: 10,
+          maxRefillRounds: 3,
+        },
+      }),
+    );
+
+    // Assert
+    expect(performWebSearch).toHaveBeenCalledTimes(4);
+    expect(
+      (result.details?.summary as { refill?: { stopReason: string } }).refill
+        ?.stopReason,
+    ).toBe("max_rounds_reached");
   });
 });

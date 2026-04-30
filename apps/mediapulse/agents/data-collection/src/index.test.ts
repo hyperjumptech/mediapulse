@@ -28,6 +28,7 @@ const postMock = vi.fn();
 const existingUrlsCreateMock = vi.fn();
 const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
+const analysisGetMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => {
   return {
@@ -44,6 +45,9 @@ vi.mock("@workspace/agent-data-api-client", () => {
       },
       dataCollectionFailure: {
         create: failureCreateMock,
+      },
+      analysis: {
+        get: analysisGetMock,
       },
     })),
   };
@@ -91,6 +95,18 @@ describe("data-collection agent (HTTP)", () => {
     performWebSearchMock.mockResolvedValue(defaultSearchSuccess);
     performWebFetchMock.mockResolvedValue(defaultFetchSuccess);
     existingUrlsCreateMock.mockResolvedValue({ existingUrls: [] });
+    analysisGetMock.mockResolvedValue({
+      dataSources: [],
+      dataSourceTotalCount: 0,
+      entityTypes: [],
+      relationTypes: [],
+      existingEntities: [],
+      relevanceSelectionState: {
+        utcDayStartIso: "2026-01-01T00:00:00.000Z",
+        selectedCountToday: 0,
+      },
+      lastRelevanceScoredAtIso: null,
+    });
   });
 
   afterEach(() => {
