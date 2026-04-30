@@ -1,4 +1,5 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import type { NonArticleReason } from "./non-article-source-filter.js";
 
 /**
  * Minimal API client contract used to prune one data source row.
@@ -25,6 +26,17 @@ export const shouldHardDeleteDataSourceForExtractionError = (
   message: string,
 ): boolean =>
   message.includes("No object generated: could not parse the response.");
+
+/**
+ * Returns whether a non-article prefilter reason is safe for hard deletion.
+ *
+ * @param reason - Deterministic non-article classification reason.
+ * @returns True when the reason is strong enough to prune permanently.
+ */
+export const shouldHardDeleteDataSourceForNonArticleReason = (
+  reason: NonArticleReason,
+): boolean =>
+  reason === "prefilter_blocked_host" || reason === "prefilter_blocked_path";
 
 /**
  * Hard-deletes a data source row through agent-data-api.

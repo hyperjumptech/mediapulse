@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   hardDeleteDataSourceById,
+  shouldHardDeleteDataSourceForNonArticleReason,
   shouldHardDeleteDataSourceForExtractionError,
 } from "./extraction-failure-pruning.js";
 
@@ -50,5 +51,31 @@ describe("hardDeleteDataSourceById", () => {
       tickerId: "ticker-1",
       dataSourceId: "ds-1",
     });
+  });
+});
+
+describe("shouldHardDeleteDataSourceForNonArticleReason", () => {
+  it("returns true for deterministic URL-based non-article reasons", () => {
+    // Act
+    const blockedHost = shouldHardDeleteDataSourceForNonArticleReason(
+      "prefilter_blocked_host",
+    );
+    const blockedPath = shouldHardDeleteDataSourceForNonArticleReason(
+      "prefilter_blocked_path",
+    );
+
+    // Assert
+    expect(blockedHost).toBe(true);
+    expect(blockedPath).toBe(true);
+  });
+
+  it("returns false for title-only heuristic reasons", () => {
+    // Act
+    const result = shouldHardDeleteDataSourceForNonArticleReason(
+      "prefilter_index_title",
+    );
+
+    // Assert
+    expect(result).toBe(false);
   });
 });

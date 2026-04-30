@@ -14,12 +14,16 @@ import { run } from "./run.js";
 
 const analysisGet = vi.fn();
 const analysisCreate = vi.fn();
+const analysisDataSourceDeleteCreate = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
     analysis: {
       get: analysisGet,
       create: analysisCreate,
+    },
+    analysisDataSourceDelete: {
+      create: analysisDataSourceDeleteCreate,
     },
   })),
 }));
@@ -141,6 +145,7 @@ describe("run", () => {
   beforeEach(() => {
     analysisGet.mockReset();
     analysisCreate.mockReset();
+    analysisDataSourceDeleteCreate.mockReset();
     mockLog.info.mockReset();
     mockLog.warn.mockReset();
     mockLog.error.mockReset();
@@ -1035,6 +1040,44 @@ describe("run", () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain("run policy");
     expect(analysisCreate).not.toHaveBeenCalled();
+  });
+
+  it("skips non-article sources in prefilter stage before LLM", async () => {
+    // Setup
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: "https://finance.yahoo.com/quote/BBCA.JK/",
+            title: "BBCA quote",
+            content: "Long but non-article page body ".repeat(20),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    const extractSpy = vi.spyOn(Llm, "extractEntitiesAndRelationsForSource");
+
+    // Act
+    const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    // Assert
+    expect(result.success).toBe(false);
+    expect(extractSpy).not.toHaveBeenCalled();
+    expect(analysisDataSourceDeleteCreate).toHaveBeenCalledWith({
+      tickerId: "ticker-1",
+      dataSourceId: DS_ID,
+    });
+    expect(
+      (result.details?.extractionFailures as { stage: string }[])[0]?.stage,
+    ).toBe("prefilter");
   });
 
   it("logs safe error shape when LLM extraction throws", async () => {
