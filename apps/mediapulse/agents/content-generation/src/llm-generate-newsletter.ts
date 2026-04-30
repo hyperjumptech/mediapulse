@@ -171,7 +171,9 @@ const validateTopNewsCitations = (
       }
     }
 
-    const inlineUrls = [...item.summaryWithLinks.matchAll(INLINE_MARKDOWN_LINK_REGEX)]
+    const inlineUrls = [
+      ...item.summaryWithLinks.matchAll(INLINE_MARKDOWN_LINK_REGEX),
+    ]
       .map((match) => match[1])
       .filter((url): url is string => typeof url === "string");
     if (inlineUrls.length === 0) {
