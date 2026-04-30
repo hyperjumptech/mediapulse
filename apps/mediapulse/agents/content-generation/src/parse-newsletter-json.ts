@@ -7,7 +7,15 @@ export const newsletterStructureSchema = z.object({
   topNews: z.array(
     z.object({
       title: z.string(),
-      summary: z.string(),
+      summaryWithLinks: z.string(),
+      citations: z
+        .array(
+          z.object({
+            url: z.string().url(),
+            label: z.string().optional(),
+          }),
+        )
+        .min(1),
     }),
   ),
 });

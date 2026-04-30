@@ -124,7 +124,13 @@ describe("parseNewsletterJson", () => {
     const raw = JSON.stringify({
       subject: "Daily Brief",
       executiveSummary: "Markets up.",
-      topNews: [{ title: "Headline", summary: "Summary text." }],
+      topNews: [
+        {
+          title: "Headline",
+          summaryWithLinks: "Summary [S](https://example.com/s).",
+          citations: [{ url: "https://example.com/s" }],
+        },
+      ],
     });
 
     const result = parseNewsletterJson(raw);
@@ -145,7 +151,7 @@ describe("parseNewsletterJson", () => {
     const raw = JSON.stringify({
       subject: "x",
       executiveSummary: "y",
-      topNews: [{ title: 123, summary: "ok" }],
+      topNews: [{ title: 123, summaryWithLinks: "ok", citations: [] }],
     });
 
     expect(() => parseNewsletterJson(raw)).toThrow();
@@ -156,9 +162,21 @@ describe("parseNewsletterJson", () => {
       subject: "Daily Brief",
       executiveSummary: "Market summary.",
       topNews: [
-        { title: "A", summary: "a" },
-        { title: "B", summary: "b" },
-        { title: "C", summary: "c" },
+        {
+          title: "A",
+          summaryWithLinks: "a [A](https://example.com/a)",
+          citations: [{ url: "https://example.com/a" }],
+        },
+        {
+          title: "B",
+          summaryWithLinks: "b [B](https://example.com/b)",
+          citations: [{ url: "https://example.com/b" }],
+        },
+        {
+          title: "C",
+          summaryWithLinks: "c [C](https://example.com/c)",
+          citations: [{ url: "https://example.com/c" }],
+        },
       ],
     });
 
@@ -171,7 +189,13 @@ describe("parseNewsletterJson", () => {
     const raw = JSON.stringify({
       subject: "Daily Brief",
       executiveSummary: "Market summary.",
-      topNews: [{ title: "A", summary: "a" }],
+      topNews: [
+        {
+          title: "A",
+          summaryWithLinks: "a [A](https://example.com/a)",
+          citations: [{ url: "https://example.com/a" }],
+        },
+      ],
     });
 
     const result = parseNewsletterJson(raw, 5);
@@ -184,10 +208,26 @@ describe("parseNewsletterJson", () => {
       subject: "Daily Brief",
       executiveSummary: "Market summary.",
       topNews: [
-        { title: "A", summary: "a" },
-        { title: "B", summary: "b" },
-        { title: "C", summary: "c" },
-        { title: "D", summary: "d" },
+        {
+          title: "A",
+          summaryWithLinks: "a [A](https://example.com/a)",
+          citations: [{ url: "https://example.com/a" }],
+        },
+        {
+          title: "B",
+          summaryWithLinks: "b [B](https://example.com/b)",
+          citations: [{ url: "https://example.com/b" }],
+        },
+        {
+          title: "C",
+          summaryWithLinks: "c [C](https://example.com/c)",
+          citations: [{ url: "https://example.com/c" }],
+        },
+        {
+          title: "D",
+          summaryWithLinks: "d [D](https://example.com/d)",
+          citations: [{ url: "https://example.com/d" }],
+        },
       ],
     });
 
@@ -201,10 +241,26 @@ describe("parseNewsletterJson", () => {
       subject: "Daily Brief",
       executiveSummary: "Market summary.",
       topNews: [
-        { title: "A", summary: "a" },
-        { title: "B", summary: "b" },
-        { title: "C", summary: "c" },
-        { title: "D", summary: "d" },
+        {
+          title: "A",
+          summaryWithLinks: "a [A](https://example.com/a)",
+          citations: [{ url: "https://example.com/a" }],
+        },
+        {
+          title: "B",
+          summaryWithLinks: "b [B](https://example.com/b)",
+          citations: [{ url: "https://example.com/b" }],
+        },
+        {
+          title: "C",
+          summaryWithLinks: "c [C](https://example.com/c)",
+          citations: [{ url: "https://example.com/c" }],
+        },
+        {
+          title: "D",
+          summaryWithLinks: "d [D](https://example.com/d)",
+          citations: [{ url: "https://example.com/d" }],
+        },
       ],
     });
 

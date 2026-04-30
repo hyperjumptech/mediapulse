@@ -120,12 +120,78 @@ export const SYSTEM_PROMPT = `You are a newsletter writer for busy executives. G
 Return a JSON object with:
 - "subject": a compelling email subject line (short, under ~60 chars).
 - "executiveSummary": 2–3 sentences summarizing the main themes and why they matter. No bullet points; use clear prose.
-- "topNews": an array of exactly {{topNewsCount}} items. Each item has "title" (short headline) and "summary" (2–4 sentences). Pick the {{topNewsCount}} most important or impactful stories. Keep summaries concise and actionable.`;
+- "topNews": an array of exactly {{topNewsCount}} items. Each item must have:
+  - "title": short headline
+  - "summaryWithLinks": 2–4 sentences that include inline markdown citations like [source](https://example.com/news)
+  - "citations": array with at least one citation object, each citation has "url" and optional "label"
+Use only URLs from the provided sources. Every topNews item must include at least one citation link in the summary.`;
 
 /**
  * Default user prompt template used when no template is provided in config.
  */
-export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from these data sources. Include an executive summary and the top {{topNewsCount}} news items with brief summaries.\n\n{{sourceSummaries}}`;
+export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from these data sources. Include an executive summary and the top {{topNewsCount}} news items. Each top-news summary must include inline markdown links and only use URLs from the provided sources.\n\n{{sourceSummaries}}`;
+
+const INLINE_MARKDOWN_LINK_REGEX = /\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/gi;
+
+/**
+ * Raised when generated top-news citations do not satisfy strict source-link rules.
+ */
+export class CitationValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CitationValidationError";
+  }
+}
+
+/**
+ * Validates generated citations against provided source URLs and inline link usage.
+ *
+ * @param topNews - Generated top news items.
+ * @param sourceUrls - URL set from provided source context.
+ */
+const validateTopNewsCitations = (
+  topNews: Array<{
+    title: string;
+    summaryWithLinks: string;
+    citations: Array<{ url: string; label?: string }>;
+  }>,
+  sourceUrls: ReadonlySet<string>,
+): void => {
+  for (const item of topNews) {
+    if (item.citations.length === 0) {
+      throw new CitationValidationError(
+        `Missing citations for topNews item: ${item.title}`,
+      );
+    }
+    for (const citation of item.citations) {
+      if (!sourceUrls.has(citation.url)) {
+        throw new CitationValidationError(
+          `Citation URL not in provided sources: ${citation.url}`,
+        );
+      }
+    }
+
+    const inlineUrls = [
+      ...item.summaryWithLinks.matchAll(INLINE_MARKDOWN_LINK_REGEX),
+    ].map((match) => match[1]);
+    if (inlineUrls.length === 0) {
+      throw new CitationValidationError(
+        `Missing inline markdown link in summaryWithLinks for: ${item.title}`,
+      );
+    }
+    const citationUrlSet = new Set(
+      item.citations.map((citation) => citation.url),
+    );
+    const hasMappedInlineCitation = inlineUrls.some((url) =>
+      citationUrlSet.has(url),
+    );
+    if (!hasMappedInlineCitation) {
+      throw new CitationValidationError(
+        `Inline links do not match citations for: ${item.title}`,
+      );
+    }
+  }
+};
 
 /**
  * Builds the LLM user prompt from the list of data sources, substituting
@@ -225,9 +291,10 @@ export async function generateNewsletterWithLlm(
   const timeout = config.openai?.timeoutMs;
   const maxTokens = config.openai?.maxTokens;
 
+  const sourceUrlSet = new Set(truncatedSources.map((source) => source.url));
   const result = await retryWithBackoff(
-    () =>
-      generateFn({
+    async () => {
+      const generated = await generateFn({
         model,
         schema: newsletterStructureSchema,
         system: systemPrompt,
@@ -235,7 +302,13 @@ export async function generateNewsletterWithLlm(
         maxRetries: 0,
         ...(timeout !== undefined ? { timeout } : {}),
         ...(maxTokens !== undefined ? { maxTokens } : {}),
-      }),
+      });
+      const topNews = Array.isArray(generated.object.topNews)
+        ? generated.object.topNews.slice(0, topNewsCount)
+        : [];
+      validateTopNewsCitations(topNews, sourceUrlSet);
+      return generated;
+    },
     config.llmRetry,
     isRetryableLlmError,
     { sleepFn: deps.sleepFn },
@@ -247,7 +320,10 @@ export async function generateNewsletterWithLlm(
     : [];
   const content = formatNewsletterContent(
     object.executiveSummary ?? "",
-    topNews,
+    topNews.map((item) => ({
+      title: item.title,
+      summary: item.summaryWithLinks,
+    })),
     topNewsCount,
   );
 

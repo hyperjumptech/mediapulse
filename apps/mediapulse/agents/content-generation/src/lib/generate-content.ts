@@ -10,10 +10,14 @@ export const DEFAULT_SYSTEM_PROMPT = `You are a newsletter writer for busy execu
 Return a JSON object with:
 - "subject": a compelling email subject line (short, under ~60 chars).
 - "executiveSummary": 2–3 sentences summarizing the main themes and why they matter. No bullet points; use clear prose.
-- "topNews": an array of exactly {{topNewsCount}} items. Each item has "title" (short headline) and "summary" (2–4 sentences). Pick the {{topNewsCount}} most important or impactful stories. Keep summaries concise and actionable.`;
+- "topNews": an array of exactly {{topNewsCount}} items. Each item must have:
+  - "title": short headline
+  - "summaryWithLinks": 2–4 sentences with inline markdown links like [source](https://example.com/news)
+  - "citations": at least one citation object with "url" and optional "label"
+Only cite URLs from the provided source list.`;
 
 export const DEFAULT_USER_PROMPT_TEMPLATE =
-  "Create a newsletter from these data sources. Include an executive summary and the top {{topNewsCount}} news items with brief summaries.\n\n{{sourceSummaries}}";
+  "Create a newsletter from these data sources. Include an executive summary and the top {{topNewsCount}} news items. Each top-news summary must include inline markdown links and only use URLs that appear in the provided sources.\n\n{{sourceSummaries}}";
 
 /**
  * Calls OpenAI to generate a newsletter with an executive summary and top news items.
@@ -93,7 +97,10 @@ export async function generateContentWithOpenAI(
     : [];
   const content = formatNewsletterContent(
     validated.executiveSummary ?? "",
-    topNews,
+    topNews.map((item) => ({
+      title: item.title,
+      summary: item.summaryWithLinks,
+    })),
     deps.topNewsCount,
   );
 
