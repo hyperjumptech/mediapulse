@@ -47,6 +47,8 @@ describe("dataCollectionAgentConfigSchema", () => {
           perSeconds: 60,
         },
       },
+      targetDailySuccessfulSources: 5,
+      maxRefillRounds: 3,
     };
 
     // Act
@@ -55,6 +57,8 @@ describe("dataCollectionAgentConfigSchema", () => {
     // Assert
     expect(parsed.webSearch.baseUrl).toBe("https://google.serper.dev");
     expect(parsed.webFetch.baseUrl).toBe("https://r.jina.ai");
+    expect(parsed.targetDailySuccessfulSources).toBe(5);
+    expect(parsed.maxRefillRounds).toBe(3);
   });
 
   it("rejects non-positive webSearch rate limits", () => {
@@ -88,6 +92,50 @@ describe("dataCollectionAgentConfigSchema", () => {
           ...base.webSearch,
           rateLimit: { requests: 10, perSeconds: 0 },
         },
+      }),
+    ).toThrow();
+  });
+
+  it("rejects invalid refill configuration values", () => {
+    // Setup
+    const base = {
+      webSearch: {
+        baseUrl: "https://google.serper.dev",
+        authentication: {
+          type: "bearer" as const,
+          apiKey: "key",
+          headerName: "X-API-KEY",
+        },
+        rateLimit: {
+          requests: 100,
+          perSeconds: 60,
+        },
+      },
+      webFetch: {
+        baseUrl: "https://r.jina.ai",
+        authentication: {
+          type: "bearer" as const,
+          apiKey: "key",
+          headerName: "Authorization",
+        },
+        rateLimit: {
+          requests: 100,
+          perSeconds: 60,
+        },
+      },
+    };
+
+    // Act + Assert
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        ...base,
+        targetDailySuccessfulSources: 0,
+      }),
+    ).toThrow();
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        ...base,
+        maxRefillRounds: -1,
       }),
     ).toThrow();
   });
