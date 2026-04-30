@@ -34,7 +34,11 @@ function makeSuccessfulGenerateFn(
   overrides: Partial<{
     subject: string;
     executiveSummary: string;
-    topNews: Array<{ title: string; summary: string }>;
+    topNews: Array<{
+      title: string;
+      summaryWithLinks: string;
+      citations: Array<{ url: string; label?: string }>;
+    }>;
   }> = {},
 ): GenerateNewsletterObjectFn {
   return vi.fn().mockResolvedValue({
@@ -43,9 +47,24 @@ function makeSuccessfulGenerateFn(
       executiveSummary:
         overrides.executiveSummary ?? "Stocks rose for the third day.",
       topNews: overrides.topNews ?? [
-        { title: "Tech gains", summary: "Big tech was up." },
-        { title: "Fed pause", summary: "Rates held." },
-        { title: "Oil dips", summary: "Crude fell." },
+        {
+          title: "Tech gains",
+          summaryWithLinks:
+            "Big tech was up according to [Story A](https://example.com/a).",
+          citations: [{ url: "https://example.com/a", label: "Story A" }],
+        },
+        {
+          title: "Fed pause",
+          summaryWithLinks:
+            "Rates held according to [Story B](https://example.com/b).",
+          citations: [{ url: "https://example.com/b", label: "Story B" }],
+        },
+        {
+          title: "Oil dips",
+          summaryWithLinks:
+            "Crude fell according to [Story A](https://example.com/a).",
+          citations: [{ url: "https://example.com/a", label: "Story A" }],
+        },
       ],
     },
   });
@@ -115,11 +134,31 @@ describe("generateNewsletterWithLlm — happy path", () => {
     // Setup
     const generateObjectFn = makeSuccessfulGenerateFn({
       topNews: [
-        { title: "Item 1", summary: "s1" },
-        { title: "Item 2", summary: "s2" },
-        { title: "Item 3", summary: "s3" },
-        { title: "Item 4", summary: "s4" },
-        { title: "Item 5", summary: "s5" },
+        {
+          title: "Item 1",
+          summaryWithLinks: "s1 [A](https://example.com/a)",
+          citations: [{ url: "https://example.com/a" }],
+        },
+        {
+          title: "Item 2",
+          summaryWithLinks: "s2 [B](https://example.com/b)",
+          citations: [{ url: "https://example.com/b" }],
+        },
+        {
+          title: "Item 3",
+          summaryWithLinks: "s3 [A](https://example.com/a)",
+          citations: [{ url: "https://example.com/a" }],
+        },
+        {
+          title: "Item 4",
+          summaryWithLinks: "s4 [B](https://example.com/b)",
+          citations: [{ url: "https://example.com/b" }],
+        },
+        {
+          title: "Item 5",
+          summaryWithLinks: "s5 [A](https://example.com/a)",
+          citations: [{ url: "https://example.com/a" }],
+        },
       ],
     });
 
@@ -271,6 +310,66 @@ describe("generateNewsletterWithLlm — non-retryable errors", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateNewsletterWithLlm — retryable errors", () => {
+  it("retries when citation validation fails and eventually succeeds", async () => {
+    // Setup
+    const config = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        openai: { apiKey: "sk-test" },
+        llmRetry: {
+          maxAttempts: 3,
+          baseDelayMs: 10,
+          maxDelayMs: 100,
+          jitter: false,
+        },
+      }),
+    );
+    const sleepFn = vi.fn().mockResolvedValue(undefined);
+    const generateObjectFn = vi
+      .fn()
+      .mockResolvedValueOnce({
+        object: {
+          subject: "Invalid citations",
+          executiveSummary: "Summary",
+          topNews: [
+            {
+              title: "Story",
+              summaryWithLinks: "No links here.",
+              citations: [{ url: "https://example.com/a" }],
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        object: {
+          subject: "Recovered",
+          executiveSummary: "Summary",
+          topNews: [
+            {
+              title: "Story",
+              summaryWithLinks: "Cited [A](https://example.com/a).",
+              citations: [{ url: "https://example.com/a" }],
+            },
+          ],
+        },
+      });
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      config,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn,
+      },
+    );
+
+    // Assert
+    expect(result.subject).toBe("Recovered");
+    expect(generateObjectFn).toHaveBeenCalledTimes(2);
+    expect(sleepFn).toHaveBeenCalledTimes(1);
+  });
+
   it("retries exactly maxAttempts times on a 429 rate-limit error", async () => {
     // Setup
     const rateLimitError = new APICallError({
@@ -306,6 +405,46 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
     expect(sleepFn).toHaveBeenCalledTimes(2);
   });
 
+  it("fails after max attempts when citation URLs are not from provided sources", async () => {
+    // Setup
+    const config = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        openai: { apiKey: "sk-test" },
+        llmRetry: {
+          maxAttempts: 2,
+          baseDelayMs: 10,
+          maxDelayMs: 100,
+          jitter: false,
+        },
+      }),
+    );
+    const sleepFn = vi.fn().mockResolvedValue(undefined);
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Invalid source mapping",
+        executiveSummary: "Summary",
+        topNews: [
+          {
+            title: "Story",
+            summaryWithLinks: "Claim [Offsite](https://not-provided.com/x).",
+            citations: [{ url: "https://not-provided.com/x" }],
+          },
+        ],
+      },
+    });
+
+    // Act & Assert
+    await expect(
+      generateNewsletterWithLlm(testSources, config, testContext, {
+        generateObjectFn,
+        sleepFn,
+      }),
+    ).rejects.toThrow("Citation URL not in provided sources");
+
+    expect(generateObjectFn).toHaveBeenCalledTimes(2);
+    expect(sleepFn).toHaveBeenCalledTimes(1);
+  });
+
   it("succeeds after a transient 500 failure", async () => {
     // Setup
     const serverError = new APICallError({
@@ -334,7 +473,13 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
         object: {
           subject: "Recovery",
           executiveSummary: "All clear.",
-          topNews: [{ title: "Up", summary: "Markets up." }],
+          topNews: [
+            {
+              title: "Up",
+              summaryWithLinks: "Markets up [A](https://example.com/a).",
+              citations: [{ url: "https://example.com/a" }],
+            },
+          ],
         },
       });
 
@@ -391,7 +536,13 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
       object: {
         subject: "Market Update",
         executiveSummary: "Stocks rose.",
-        topNews: [{ title: "Gains", summary: "Up." }],
+        topNews: [
+          {
+            title: "Gains",
+            summaryWithLinks: "Up [A](https://example.com/a).",
+            citations: [{ url: "https://example.com/a" }],
+          },
+        ],
       },
       usage: {
         promptTokens: 120,
@@ -423,7 +574,13 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
       object: {
         subject: "No Usage",
         executiveSummary: "No usage data.",
-        topNews: [{ title: "Story", summary: "Summary." }],
+        topNews: [
+          {
+            title: "Story",
+            summaryWithLinks: "Summary [A](https://example.com/a).",
+            citations: [{ url: "https://example.com/a" }],
+          },
+        ],
       },
       // usage intentionally omitted
     });
@@ -519,7 +676,8 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
     // Setup
     const generateObjectFn = makeSuccessfulGenerateFn();
     const otherSources = [
-      { url: "https://example.com/z", title: "Story Z", content: "Content Z." },
+      { url: "https://example.com/a", title: "Story Z", content: "Content Z." },
+      { url: "https://example.com/b", title: "Story Y", content: "Content Y." },
     ];
 
     // Act

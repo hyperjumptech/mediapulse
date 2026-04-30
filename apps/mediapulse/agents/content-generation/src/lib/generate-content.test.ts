@@ -18,7 +18,13 @@ const makeSource = (title: string, content: string): SourceForGeneration => ({
   content,
 });
 
-const makeOpenAIMock = (topNews: Array<{ title: string; summary: string }>) => {
+const makeOpenAIMock = (
+  topNews: Array<{
+    title: string;
+    summaryWithLinks: string;
+    citations: Array<{ url: string; label?: string }>;
+  }>,
+) => {
   const mockCreate = vi.fn().mockResolvedValue({
     choices: [
       {
@@ -43,11 +49,31 @@ const makeOpenAIMock = (topNews: Array<{ title: string; summary: string }>) => {
 describe("generateContentWithOpenAI", () => {
   it("topNewsCount=5 interpolates count into system and user prompts and slices topNews to 5", async () => {
     const topNewsItems = [
-      { title: "Story 1", summary: "Summary 1." },
-      { title: "Story 2", summary: "Summary 2." },
-      { title: "Story 3", summary: "Summary 3." },
-      { title: "Story 4", summary: "Summary 4." },
-      { title: "Story 5", summary: "Summary 5." },
+      {
+        title: "Story 1",
+        summaryWithLinks: "Summary 1 [A](https://example.com/source-a).",
+        citations: [{ url: "https://example.com/source-a" }],
+      },
+      {
+        title: "Story 2",
+        summaryWithLinks: "Summary 2 [A](https://example.com/source-a).",
+        citations: [{ url: "https://example.com/source-a" }],
+      },
+      {
+        title: "Story 3",
+        summaryWithLinks: "Summary 3 [A](https://example.com/source-a).",
+        citations: [{ url: "https://example.com/source-a" }],
+      },
+      {
+        title: "Story 4",
+        summaryWithLinks: "Summary 4 [A](https://example.com/source-a).",
+        citations: [{ url: "https://example.com/source-a" }],
+      },
+      {
+        title: "Story 5",
+        summaryWithLinks: "Summary 5 [A](https://example.com/source-a).",
+        citations: [{ url: "https://example.com/source-a" }],
+      },
     ];
     const { openai, mockCreate } = makeOpenAIMock(topNewsItems);
     const sources = [makeSource("Source A", "Content about markets.")];
@@ -71,7 +97,7 @@ describe("generateContentWithOpenAI", () => {
     expect(userMsg).toContain("5");
     // hardcoded "3" must not appear as the count in the default prompts
     expect(systemMsg).not.toMatch(/exactly 3 items/);
-    expect(userMsg).not.toMatch(/top 3 news items/);
+    expect(userMsg).not.toMatch(/top 3 news items/i);
 
     // slice(0, 5) preserved all 5 items; formatted output reflects topNewsCount=5
     expect(result.content).toContain("TOP 5 NEWS");
@@ -81,8 +107,16 @@ describe("generateContentWithOpenAI", () => {
   it("slice(0, topNewsCount) clips the topNews list to the configured count", async () => {
     // LLM returns exactly topNewsCount=2 items — slice keeps both intact.
     const { openai } = makeOpenAIMock([
-      { title: "Item 1", summary: "A." },
-      { title: "Item 2", summary: "B." },
+      {
+        title: "Item 1",
+        summaryWithLinks: "A [S](https://example.com/s).",
+        citations: [{ url: "https://example.com/s" }],
+      },
+      {
+        title: "Item 2",
+        summaryWithLinks: "B [S](https://example.com/s).",
+        citations: [{ url: "https://example.com/s" }],
+      },
     ]);
     const sources = [makeSource("S", "content")];
 
@@ -102,7 +136,11 @@ describe("generateContentWithOpenAI", () => {
 
   it("uses default system prompt and user prompt template when none provided", async () => {
     const { openai, mockCreate } = makeOpenAIMock([
-      { title: "A", summary: "a." },
+      {
+        title: "A",
+        summaryWithLinks: "a [T](https://example.com/t).",
+        citations: [{ url: "https://example.com/t" }],
+      },
     ]);
     const sources = [makeSource("T", "Source body text.")];
 
@@ -124,12 +162,17 @@ describe("generateContentWithOpenAI", () => {
     expect(systemMsg).toContain("exactly 3 items");
     // default user prompt with 3 substituted and source content interpolated
     expect(userMsg).toContain("top 3 news items");
+    expect(userMsg).toContain("inline markdown links");
     expect(userMsg).toContain("Source body text.");
   });
 
   it("uses custom systemPrompt from config when provided", async () => {
     const { openai, mockCreate } = makeOpenAIMock([
-      { title: "A", summary: "a." },
+      {
+        title: "A",
+        summaryWithLinks: "a [T](https://example.com/t).",
+        citations: [{ url: "https://example.com/t" }],
+      },
     ]);
     const sources = [makeSource("T", "content")];
 
@@ -150,7 +193,11 @@ describe("generateContentWithOpenAI", () => {
 
   it("substitutes {{tickerId}} and {{date}} in custom prompt templates", async () => {
     const { openai, mockCreate } = makeOpenAIMock([
-      { title: "A", summary: "a." },
+      {
+        title: "A",
+        summaryWithLinks: "a [T](https://example.com/t).",
+        citations: [{ url: "https://example.com/t" }],
+      },
     ]);
     const sources = [makeSource("T", "content")];
 
@@ -179,7 +226,13 @@ describe("generateContentWithOpenAI", () => {
   });
 
   it("returns subject, content, and description from the validated response", async () => {
-    const { openai } = makeOpenAIMock([{ title: "A", summary: "a." }]);
+    const { openai } = makeOpenAIMock([
+      {
+        title: "A",
+        summaryWithLinks: "a [T](https://example.com/t).",
+        citations: [{ url: "https://example.com/t" }],
+      },
+    ]);
     const sources = [makeSource("T", "content")];
 
     const result = await generateContentWithOpenAI(sources, {
