@@ -82,7 +82,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/agents/data-collection/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/agents/data-collection/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -95,7 +95,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/agents/content-generation/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/agents/content-generation/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -108,7 +108,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/agents/article-analysis/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/agents/article-analysis/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -121,7 +121,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/agents/query-analysis/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/agents/query-analysis/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -134,7 +134,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/agents/delivery/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/agents/delivery/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -147,7 +147,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/agents/ticker-echo/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/agents/ticker-echo/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -160,6 +160,6 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/agents/user-registration/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/agents/user-registration/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

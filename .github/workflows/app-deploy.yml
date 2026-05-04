@@ -82,7 +82,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/hermes/agent-auth-api/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/hermes/agent-auth-api/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -95,7 +95,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/agent-data-api/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/agent-data-api/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -108,7 +108,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/domain-api/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/domain-api/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -121,7 +121,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/hermes/agent-registry-api/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/hermes/agent-registry-api/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -134,7 +134,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/mediapulse/user-registration/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/mediapulse/user-registration/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -147,7 +147,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/hermes/dashboard/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/hermes/dashboard/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -160,6 +160,6 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
-        run: flyctl deploy --remote-only -c apps/hermes/worker/fly.toml
+        run: flyctl deploy --remote-only --depot=false -c apps/hermes/worker/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
