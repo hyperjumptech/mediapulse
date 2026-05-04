@@ -14,6 +14,12 @@ Agents use per-agent exports:
 import { env } from "@mediapulse/env/agents-delivery";
 ```
 
+The **user-registration Next.js app** (public form on port 3002) uses a slim export so SSR does not validate agent-only secrets:
+
+```ts
+import { env } from "@mediapulse/env/app-user-registration";
+```
+
 ## Agent-specific overrides (development)
 
 Mediapulse agents under `apps/mediapulse/agents/*` share `packages/mediapulse/env/.env` for most variables but need **per-agent** values for `PORT`, `AGENT_PUBLIC_URL`, and `DOMAIN_INTEGRATION_API_KEY` (Hermes **domain integration API key** for auto-registration JWT minting).

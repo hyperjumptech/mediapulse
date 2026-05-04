@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { useRegistrationForm } from "./use-registration-form";
 import type { Ticker } from "@/lib/tickers";
 
-vi.mock("@mediapulse/env/agents-user-registration", () => ({
+vi.mock("@mediapulse/env/app-user-registration", () => ({
   env: { NEXT_PUBLIC_REGISTRATION_EMAIL: "registration@test.example" },
 }));
 
