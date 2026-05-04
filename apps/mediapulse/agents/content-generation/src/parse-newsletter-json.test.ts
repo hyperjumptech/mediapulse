@@ -60,4 +60,61 @@ describe("parseNewsletterJson", () => {
       ),
     ).toThrow();
   });
+
+  it("accepts http citation URLs", () => {
+    const parsed = parseNewsletterJson(
+      JSON.stringify({
+        subject: "Daily Brief",
+        executiveSummary: "Summary",
+        topNews: [
+          {
+            title: "Story 1",
+            summaryWithLinks: "See [x](http://example.com/a).",
+            citations: [{ url: "http://example.com/a" }],
+          },
+        ],
+      }),
+      3,
+    );
+    expect(parsed.topNews[0]?.citations[0]?.url).toBe("http://example.com/a");
+  });
+
+  it("rejects non-http(s) citation URLs (e.g. ftp)", () => {
+    expect(() =>
+      parseNewsletterJson(
+        JSON.stringify({
+          subject: "Daily Brief",
+          executiveSummary: "Summary",
+          topNews: [
+            {
+              title: "Story 1",
+              summaryWithLinks: "Update.",
+              citations: [{ url: "ftp://example.com/file" }],
+            },
+          ],
+        }),
+        3,
+      ),
+    ).toThrow();
+  });
+
+  it("parses citations that omit label (legacy JSON) by normalizing to empty label", () => {
+    const parsed = parseNewsletterJson(
+      JSON.stringify({
+        subject: "Daily Brief",
+        executiveSummary: "Summary",
+        topNews: [
+          {
+            title: "Story 1",
+            summaryWithLinks: "Update [x](https://example.com/a).",
+            citations: [{ url: "https://example.com/a" }],
+          },
+        ],
+      }),
+      3,
+    );
+    expect(parsed.topNews[0]?.citations[0]).toEqual({
+      url: "https://example.com/a",
+    });
+  });
 });

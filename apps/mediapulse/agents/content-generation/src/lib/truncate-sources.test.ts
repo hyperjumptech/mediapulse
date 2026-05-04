@@ -22,6 +22,26 @@ describe("truncateSources", () => {
     expect(result).toEqual(sources);
   });
 
+  it("sanitizes blob and localhost markdown targets before truncation", () => {
+    const sources: SourceForGeneration[] = [
+      {
+        url: "https://www.reuters.com/markets/companies/BBCA.JK/",
+        title: "Reuters",
+        content:
+          "Intro ![x](blob:http://localhost/abc) more [nav](http://127.0.0.1/x) keep [ok](https://www.reuters.com/markets/companies/BBCA.JK/)",
+      },
+    ];
+
+    const result = truncateSources(sources, 8000, 100000);
+
+    expect(result[0]!.content).not.toContain("blob:");
+    expect(result[0]!.content).not.toContain("127.0.0.1");
+    expect(result[0]!.content).toContain(
+      "https://www.reuters.com/markets/companies/BBCA.JK/",
+    );
+    expect(result[0]!.url).toBe(sources[0]!.url);
+  });
+
   it("truncates a single source exceeding maxCharsPerSource from the tail", () => {
     const sources = [makeSource("A", "a".repeat(10000))];
 
