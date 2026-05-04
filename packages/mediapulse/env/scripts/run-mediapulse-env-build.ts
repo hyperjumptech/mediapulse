@@ -1,3 +1,6 @@
+// cursor-pr-review-disable: env-variables
+// Build-time bootstrap: reads MEDIAPULSE_ENV_BUILD_TARGETS before @mediapulse/env is generated.
+
 import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

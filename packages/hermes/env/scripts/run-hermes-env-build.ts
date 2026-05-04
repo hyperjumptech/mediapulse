@@ -1,3 +1,6 @@
+// cursor-pr-review-disable: env-variables
+// Build-time bootstrap: reads HERMES_ENV_BUILD_TARGETS before @hermes/env is generated.
+
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
