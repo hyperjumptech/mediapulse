@@ -24,6 +24,8 @@ Provision **three** PostgreSQL logical databases (they can be three schemas on o
 
 Pushes to **main** run the same two **`pnpm --filter … db:migrate:deploy`** commands from CI: workflow jobs **`db-migrate`** in **`.github/workflows/app-deploy.yml`** and **`.github/workflows/agent-deploy.yml`** (after **`db-ready`**, before Fly deploys). Both workflows share the concurrency group **`prisma-migrate-production`** so only one migrate runs at a time if both workflows start together.
 
+Each **Fly** deploy step uses **`flyctl deploy --remote-only`**: the image is built on Fly’s builders from the repo **`Dockerfile`** (`pnpm install` and **`turbo build`** for that app). GitHub Actions does **not** duplicate that build on the runner. Keep **branch protection** on **`main`** so **Code Quality Checks** (which still run full **`pnpm build`** and tests on PRs / heavy pushes) stay green before merges; deploy workflows start on the same **`push` to `main`** in parallel. If you need a strict “tests then deploy” order, add a **`workflow_run`**-triggered deploy after code quality succeeds.
+
 ---
 
 ## Hermes
@@ -194,10 +196,10 @@ Public-facing newsletter signup UI. The current implementation serves ticker cho
 
 Examples: **`@mediapulse/data-collection`**, **`@mediapulse/content-generation`**, **`@mediapulse/article-analysis`**, **`@mediapulse/delivery`**, **`@mediapulse/ticker-echo`** under `apps/mediapulse/agents/*`. Merge **`packages/mediapulse/env/env.example`** with the matching **`packages/mediapulse/env/env.agents.*.example`**. Each agent may ship **`Dockerfile`** and **`fly.toml`**; merges to **`main`** trigger **`Agent Deployment`** (`.github/workflows/agent-deploy.yml`) for the configured apps.
 
-| Step                 | Command                                                                                                                       |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Install dependencies | `pnpm install --frozen-lockfile`                                                                                              |
-| Build                | `pnpm exec turbo build --filter=@mediapulse/data-collection` (swap package name per agent)                                    |
+| Step                 | Command                                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Install dependencies | `pnpm install --frozen-lockfile`                                                                                                      |
+| Build                | `pnpm exec turbo build --filter=@mediapulse/data-collection` (swap package name per agent)                                            |
 | Run (production)     | From the agent app directory: `bun run ./dist/server.js` (set `PORT` per agent; defaults e.g. `4001`, `4002`, `4003`, `4010`, `4011`) |
 
 | Variable                     | Example value                        | Explanation                                                                                                              |
