@@ -138,7 +138,7 @@ jobs:
   code-quality:
     runs-on: ubuntu-latest
     name: Code quality check
-    needs: changes
+    needs: [changes, build]
     if: needs.changes.outputs.run_heavy_jobs == 'true'
 
     services:
