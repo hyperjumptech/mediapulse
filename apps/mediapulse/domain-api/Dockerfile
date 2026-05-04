@@ -11,6 +11,10 @@ RUN pnpm install --frozen-lockfile
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
 RUN pnpm --filter=@mediapulse/database run db:generate
 
+# Workspace packages that export compiled `dist/` are not built when using
+# `turbo build --only` (dependency tasks are skipped). Bun must resolve real files.
+RUN pnpm --filter=@workspace/utils run build
+
 RUN pnpm exec turbo build --filter=@mediapulse/domain-api --only --env-mode=loose
 
 # Stage 2: run the built bundle only
