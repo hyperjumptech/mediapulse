@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { env } from "@mediapulse/env/agents-user-registration";
+import { env } from "@mediapulse/env/app-user-registration";
 import {
   filterTickers,
   formatTicker,
