@@ -10,6 +10,7 @@ ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
+ENV HERMES_ENV_BUILD_TARGETS=default,hermes.worker
 
 RUN pnpm exec turbo build --filter=@hermes/worker --env-mode=loose
 

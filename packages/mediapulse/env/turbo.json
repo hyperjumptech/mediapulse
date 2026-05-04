@@ -3,7 +3,8 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "outputs": ["src/**"]
+      "outputs": ["src/**"],
+      "env": ["MEDIAPULSE_ENV_BUILD_TARGETS"]
     }
   }
 }

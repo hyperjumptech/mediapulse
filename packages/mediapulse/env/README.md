@@ -2,6 +2,10 @@
 
 Mediapulse domain environment (domain API, agent-data-api, user-registration, agents, mediapulse database). After changing any `env*.example` file here, run `pnpm build` in this package to regenerate the typed `env` objects.
 
+## Scoped codegen (Docker / CI)
+
+By default, `pnpm build` runs **every** `env-to-t3` slice (all agents + apps). For faster Fly image builds, set **`MEDIAPULSE_ENV_BUILD_TARGETS`** to a comma-separated subset of keys (same names as the `build:*` scripts without the `build:` prefix), for example `agents.delivery` or `default,app.user-registration`. Use `all` or leave unset for the full set. Unknown keys fail the build. Mediapulse Dockerfiles in this repo set this variable before `turbo build`.
+
 ## Usage
 
 ```ts

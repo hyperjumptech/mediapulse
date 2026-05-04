@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "concurrently \"pnpm build:default\" \"pnpm build:hermes-worker\"",
+    "build": "tsx scripts/execute-hermes-env-build.ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "build:default": "pnpm exec env-to-t3 -i env.example -o src/index.ts",
     "build:hermes-worker": "pnpm exec env-to-t3 -i env.hermes-worker.example -o src/hermes-worker.ts"
   },
@@ -24,12 +26,13 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "concurrently": "^9.2.1",
     "dotenv-cli": "^7.3.0",
     "env-to-t3": "^0.0.12",
     "eslint": "catalog:",
     "postcss": "catalog:",
     "@workspace/typescript-config": "workspace:*",
-    "typescript": "catalog:"
+    "tsx": "^4",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

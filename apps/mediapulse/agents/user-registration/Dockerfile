@@ -5,6 +5,7 @@ COPY . .
 RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
+ENV MEDIAPULSE_ENV_BUILD_TARGETS=agents.user-registration
 RUN pnpm exec turbo build --filter=@mediapulse/user-registration-agent --env-mode=loose
 
 FROM oven/bun:1

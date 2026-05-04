@@ -8,6 +8,7 @@ RUN pnpm install --frozen-lockfile
 
 ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
+ENV HERMES_ENV_BUILD_TARGETS=default
 
 RUN pnpm exec turbo build --filter=@hermes/agent-registry-api --env-mode=loose
 

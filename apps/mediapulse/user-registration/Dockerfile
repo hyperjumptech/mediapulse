@@ -29,6 +29,7 @@ ENV AGENT_AUTH_API_URL="http://127.0.0.1:9/dummy"
 RUN rm -f apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local && \
     touch apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local
 
+ENV MEDIAPULSE_ENV_BUILD_TARGETS=default,app.user-registration
 RUN pnpm exec turbo build --filter=@mediapulse/user-registration --env-mode=loose
 
 ARG NODE_VERSION=24.12.0
