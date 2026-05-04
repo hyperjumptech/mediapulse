@@ -5,6 +5,7 @@
 
 app = 'mediapulse-user-registration-agent'
 primary_region = 'sin'
+# One Machine per deploy: use `fly deploy --ha=false` (GitHub Actions passes it). Otherwise Fly may seed two Machines for HA.
 
 [build]
   dockerfile = 'Dockerfile'

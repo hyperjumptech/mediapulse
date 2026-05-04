@@ -3,7 +3,8 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "outputs": ["src/**"]
+      "outputs": ["src/**"],
+      "env": ["HERMES_ENV_BUILD_TARGETS"]
     }
   }
 }

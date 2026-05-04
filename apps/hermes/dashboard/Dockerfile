@@ -27,6 +27,7 @@ ENV HERMES_INTERNAL_API_KEY="dummy-internal-key"
 RUN rm -f apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local && \
     touch apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local
 
+ENV HERMES_ENV_BUILD_TARGETS=default
 RUN pnpm exec turbo build --filter=@hermes/dashboard --env-mode=loose
 
 ARG NODE_VERSION=24.12.0

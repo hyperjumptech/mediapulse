@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "concurrently \"pnpm build:default\" \"pnpm build:agents.data-collection\" \"pnpm build:agents.content-generation\" \"pnpm build:agents.delivery\" \"pnpm build:agents.query-analysis\" \"pnpm build:agents.article-analysis\" \"pnpm build:agents.ticker-echo\" \"pnpm build:agents.user-registration\" \"pnpm build:app.user-registration\"",
+    "build": "tsx scripts/execute-mediapulse-env-build.ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "build:default": "pnpm exec env-to-t3 -i env.example -o src/index.ts",
     "build:agents.data-collection": "pnpm exec env-to-t3 -i env.agents.data-collection.example -o src/agents-data-collection.ts",
     "build:agents.content-generation": "pnpm exec env-to-t3 -i env.agents.content-generation.example -o src/agents-content-generation.ts",
@@ -59,12 +61,13 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "concurrently": "^9.2.1",
     "dotenv-cli": "^7.3.0",
     "env-to-t3": "^0.0.12",
     "eslint": "catalog:",
     "postcss": "catalog:",
     "@workspace/typescript-config": "workspace:*",
-    "typescript": "catalog:"
+    "tsx": "^4",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

@@ -7,6 +7,7 @@ RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
 
 ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
+ENV MEDIAPULSE_ENV_BUILD_TARGETS=default
 RUN pnpm exec turbo build --filter=@mediapulse/domain-api --env-mode=loose
 
 FROM oven/bun:1

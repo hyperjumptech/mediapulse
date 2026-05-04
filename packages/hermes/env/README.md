@@ -1,22 +1,7 @@
 # `@hermes/env`
 
-Hermes domain environment (dashboard, worker, agent APIs, orchestration DB). After changing `env.example` or `env.hermes-worker.example`, run `pnpm build` in this package to regenerate the typed `env` object.
+Hermes orchestration environment (dashboard, worker, APIs). After changing `env.example` or `env.hermes-worker.example`, run `pnpm build` in this package to regenerate typed `env` modules.
 
-## Usage
+## Scoped codegen (Docker / CI)
 
-```ts
-import { env } from "@hermes/env";
-
-const dbUrl = env.ORCHESTRATION_DATABASE_URL;
-```
-
-**hermes-worker** uses a separate schema:
-
-```ts
-import { env } from "@hermes/env/hermes-worker";
-```
-
-## Local development
-
-- `./dev-bootstrap.sh` merges examples into `packages/hermes/env/.env` and symlinks Hermes apps and `packages/hermes/*` to that file.
-- `merge-env-examples.sh` — merges `env.example` and `env.*.example` in this directory into `.env`.
+By default, `pnpm build` runs **both** codegen slices (`default` and `hermes.worker`). To regenerate only what an image needs, set **`HERMES_ENV_BUILD_TARGETS`** to a comma-separated list of those keys (for example `default` only, or `default,hermes.worker`). Use `all` or leave unset for both. Unknown keys fail the build. Hermes Dockerfiles that use Turbo set this before `pnpm exec turbo build`.
