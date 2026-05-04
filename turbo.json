@@ -8,7 +8,7 @@
       "cache": false
     },
     "build": {
-      "dependsOn": ["^db:migrate:deploy", "^build", "generate"],
+      "dependsOn": ["^db:generate", "^build", "generate"],
       "env": [
         "ORCHESTRATION_DATABASE_URL",
         "MEDIAPULSE_DATABASE_URL"

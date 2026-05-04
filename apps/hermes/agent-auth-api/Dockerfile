@@ -1,4 +1,3 @@
-# Stage 1: install and build (monorepo context from repo root)
 FROM node:24-bookworm-slim AS builder
 WORKDIR /app
 COPY . .
@@ -8,7 +7,6 @@ RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @hermes/agent-auth-api build
 
-# Stage 2: run the built bundle only
 FROM oven/bun:1
 WORKDIR /app
 ENV NODE_ENV=production

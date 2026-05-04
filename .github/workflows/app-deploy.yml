@@ -1,12 +1,13 @@
 name: App Deployment
 
-# Requires GitHub secrets:
-# - ORCHESTRATION_DATABASE_URL (PostgreSQL URL for orchestration schema)
-# - MEDIAPULSE_DATABASE_URL (PostgreSQL URL for Mediapulse schema)
 on:
   push:
     branches:
       - main
+
+env:
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
 jobs:
   db-ready:
@@ -47,9 +48,38 @@ jobs:
           echo "Mediapulse DB did not become ready in time"
           exit 1
 
-  agent-auth-api:
+  db-migrate:
+    name: Apply Prisma migrations (production DBs)
     runs-on: ubuntu-latest
     needs: db-ready
+    concurrency:
+      group: prisma-migrate-production
+      cancel-in-progress: false
+    env:
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Migrate deploy (orchestration)
+        run: pnpm --filter=@hermes/orchestration-database run db:migrate:deploy
+
+      - name: Migrate deploy (mediapulse)
+        run: pnpm --filter=@mediapulse/database run db:migrate:deploy
+
+  agent-auth-api:
+    runs-on: ubuntu-latest
+    needs: db-migrate
     env:
       ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
       MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
@@ -84,7 +114,7 @@ jobs:
 
   agent-data-api:
     runs-on: ubuntu-latest
-    needs: db-ready
+    needs: db-migrate
     env:
       ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
       MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
@@ -119,7 +149,7 @@ jobs:
 
   domain-api:
     runs-on: ubuntu-latest
-    needs: db-ready
+    needs: db-migrate
     env:
       ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
       MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
@@ -154,7 +184,7 @@ jobs:
 
   agent-registry-api:
     runs-on: ubuntu-latest
-    needs: db-ready
+    needs: db-migrate
     env:
       ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
       MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
@@ -189,7 +219,7 @@ jobs:
 
   user-registration:
     runs-on: ubuntu-latest
-    needs: db-ready
+    needs: db-migrate
     env:
       ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
       MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
@@ -221,7 +251,7 @@ jobs:
 
   hermes:
     runs-on: ubuntu-latest
-    needs: db-ready
+    needs: db-migrate
     env:
       ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
       MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
@@ -253,7 +283,7 @@ jobs:
 
   hermes-worker:
     runs-on: ubuntu-latest
-    needs: db-ready
+    needs: db-migrate
     env:
       ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
       MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}

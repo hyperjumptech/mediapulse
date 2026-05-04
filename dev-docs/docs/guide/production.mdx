@@ -22,6 +22,8 @@ Provision **three** PostgreSQL logical databases (they can be three schemas on o
 | **Mediapulse (domain)**    | Tickers, newsletters, KG, subscribers, user registration data, etc. | `MEDIAPULSE_DATABASE_URL`                                                                  | `pnpm --filter @mediapulse/database db:migrate:deploy`                       |
 | **DataQueue**              | hermes-worker job queue (scheduler)                                 | `PG_DATAQUEUE_DATABASE` (same host is fine; use `?schema=dataqueue&search_path=dataqueue`) | `pnpm --filter @hermes/worker run migrate-dataqueue` (with queue URL in env) |
 
+Pushes to **main** run the same two **`pnpm --filter … db:migrate:deploy`** commands from CI: workflow jobs **`db-migrate`** in **`.github/workflows/app-deploy.yml`** and **`.github/workflows/agent-deploy.yml`** (after **`db-ready`**, before Fly deploys). Both workflows share the concurrency group **`prisma-migrate-production`** so only one migrate runs at a time if both workflows start together.
+
 ---
 
 ## Hermes
