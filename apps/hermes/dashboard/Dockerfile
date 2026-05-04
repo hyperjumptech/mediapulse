@@ -10,7 +10,6 @@ ENV CI=true
 
 RUN npm install -g pnpm
 
-# Install build tools
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
@@ -21,21 +20,15 @@ COPY apps ./apps
 
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma client (orchestration only); dummy env is enough for generate
 ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
 ENV HERMES_INTERNAL_API_KEY="dummy-internal-key"
-RUN pnpm --filter=@hermes/orchestration-database run db:generate
-RUN pnpm --filter=@workspace/agent-auth-client run build \
-  && pnpm --filter=@workspace/agent-data-api-contract run build
-# next.config loads env files; provide an empty app-level .env for image builds.
 RUN rm -f apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local && \
     touch apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local
 
-RUN pnpm exec turbo build --filter=@hermes/dashboard --only --env-mode=loose
+RUN pnpm exec turbo build --filter=@hermes/dashboard --env-mode=loose
 
-# Standalone runner: only copy traced output + static
 ARG NODE_VERSION=24.12.0
 FROM node:${NODE_VERSION}-slim AS runner
 WORKDIR /app
