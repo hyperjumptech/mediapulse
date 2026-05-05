@@ -933,9 +933,6 @@ importers:
 
   apps/mediapulse/user-registration:
     dependencies:
-      '@mediapulse/database':
-        specifier: workspace:*
-        version: link:../../../packages/mediapulse/database
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/env
