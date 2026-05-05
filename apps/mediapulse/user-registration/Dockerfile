@@ -21,15 +21,10 @@ COPY apps ./apps
 
 RUN pnpm install --frozen-lockfile
 
-ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
-ENV DOMAIN_INTEGRATION_API_KEY="docker-build-dummy"
-ENV DOMAIN_INTEGRATION_ID="docker-build-dummy"
-ENV AGENT_AUTH_API_URL="http://127.0.0.1:9/dummy"
-
 RUN rm -f apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local && \
     touch apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local
 
-ENV MEDIAPULSE_ENV_BUILD_TARGETS=default,app.user-registration
+ENV MEDIAPULSE_ENV_BUILD_TARGETS=app.user-registration
 RUN pnpm exec turbo build --filter=@mediapulse/user-registration --env-mode=loose
 
 ARG NODE_VERSION=24.12.0

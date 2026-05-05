@@ -3,16 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Ticker } from "@/lib/tickers";
 
-const mockDbTickers = [
-  { id: "1", symbol: "BBCA", name: "Bank Central Asia Tbk" },
-];
-
-vi.mock("@mediapulse/database", () => ({
-  prisma: {
-    ticker: {
-      findMany: vi.fn().mockResolvedValue(mockDbTickers),
-    },
-  },
+vi.mock("../public/tickers.json", () => ({
+  default: [{ KodeEmiten: "BBCA", NamaEmiten: "Bank Central Asia Tbk" }],
 }));
 
 vi.mock("@/components/registration-form", () => ({
@@ -33,20 +25,18 @@ describe("Page", () => {
     const Page = (await import("./page")).default;
 
     // Act
-    const component = await Page();
-    render(component);
+    render(<Page />);
 
     // Assert
     expect(screen.getByTestId("registration-form")).toBeInTheDocument();
   });
 
-  it("passes mapped tickers from database to the form", async () => {
+  it("passes mapped tickers from the bundled JSON to the form", async () => {
     // Setup
     const Page = (await import("./page")).default;
 
     // Act
-    const component = await Page();
-    render(component);
+    render(<Page />);
 
     // Assert
     expect(screen.getByTestId("registration-form")).toHaveAttribute(
