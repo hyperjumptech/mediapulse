@@ -5,7 +5,11 @@ COPY . .
 RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN npm install -g bun
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @hermes/agent-auth-api build
+
+ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
+ENV HERMES_ENV_BUILD_TARGETS=default
+
+RUN pnpm exec turbo build --filter=@hermes/agent-auth-api --env-mode=loose
 
 FROM oven/bun:1
 WORKDIR /app
