@@ -38,11 +38,11 @@ Deploy in this order: **agent-auth-api → agent-registry-api → dashboard → 
 
 **Package:** `@hermes/agent-auth-api` · **Path:** `apps/hermes/agent-auth-api`
 
-| Step                 | Command                                                                                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install dependencies | `pnpm install --frozen-lockfile`                                                                                                                               |
-| Build                | `pnpm --filter @hermes/agent-auth-api build`                                                                                                                   |
-| Run (production)     | From app directory: `PORT=8080 bun run ./dist/server.js` (set env vars in the process environment or `.env`). Docker: `apps/hermes/agent-auth-api/Dockerfile`. |
+| Step                 | Command                                                                                                                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install dependencies | `pnpm install --frozen-lockfile`                                                                                                                                                                                                                                          |
+| Build                | From repo root: `pnpm exec turbo build --filter=@hermes/agent-auth-api --env-mode=loose` (runs `db:generate` on `@hermes/orchestration-database` first, same as the Dockerfile). For a local re-bundle only: `pnpm --filter @hermes/agent-auth-api build` after generate. |
+| Run (production)     | From app directory: `PORT=8080 bun run ./dist/server.js` (set env vars in the process environment or `.env`). Docker: `apps/hermes/agent-auth-api/Dockerfile`.                                                                                                            |
 
 | Variable                           | Example value                         | Explanation                                                                                                                 |
 | ---------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
