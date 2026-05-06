@@ -2,7 +2,6 @@ import { APICallError, NoObjectGeneratedError, TypeValidationError } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { classifyLlmError, isRetryableLlmError } from "./llm-classify-error.js";
-import { CitationValidationError } from "./llm-generate-newsletter.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -97,14 +96,6 @@ describe("isRetryableLlmError", () => {
     expect(isRetryableLlmError(error)).toBe(false);
   });
 
-  it("returns true for CitationValidationError", () => {
-    // Setup
-    const error = new CitationValidationError("missing citation");
-
-    // Act & Assert
-    expect(isRetryableLlmError(error)).toBe(true);
-  });
-
   it("returns false for NoObjectGeneratedError", () => {
     // Setup
     const error = makeNoObjectGeneratedError();
@@ -171,17 +162,6 @@ describe("classifyLlmError", () => {
   it("maps TypeValidationError to validation_failed", () => {
     // Setup
     const error = makeTypeValidationError();
-
-    // Act
-    const code = classifyLlmError(error);
-
-    // Assert
-    expect(code).toBe("validation_failed");
-  });
-
-  it("maps CitationValidationError to validation_failed", () => {
-    // Setup
-    const error = new CitationValidationError("missing citation");
 
     // Act
     const code = classifyLlmError(error);

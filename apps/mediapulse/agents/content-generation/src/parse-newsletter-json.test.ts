@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { parseNewsletterJson } from "./parse-newsletter-json.js";
 
 describe("parseNewsletterJson", () => {
-  it("parses valid topNews items with summaryWithLinks and citations", () => {
+  it("parses valid topNews items with plain summary", () => {
+    // Act
     const parsed = parseNewsletterJson(
       JSON.stringify({
         subject: "Daily Brief",
@@ -11,110 +12,72 @@ describe("parseNewsletterJson", () => {
         topNews: [
           {
             title: "Story 1",
-            summaryWithLinks: "Update [Source](https://example.com/a).",
-            citations: [{ url: "https://example.com/a", label: "Source" }],
+            summary: "Bank reported strong quarterly earnings growth.",
           },
         ],
       }),
       3,
     );
 
-    expect(parsed.topNews[0]?.summaryWithLinks).toContain("[Source]");
-    expect(parsed.topNews[0]?.citations[0]?.url).toBe("https://example.com/a");
+    // Assert
+    expect(parsed.topNews[0]?.title).toBe("Story 1");
+    expect(parsed.topNews[0]?.summary).toBe(
+      "Bank reported strong quarterly earnings growth.",
+    );
   });
 
-  it("rejects topNews item without citations", () => {
+  it("rejects topNews items that exceed topNewsCount", () => {
+    // Act & Assert
     expect(() =>
       parseNewsletterJson(
         JSON.stringify({
           subject: "Daily Brief",
           executiveSummary: "Summary",
           topNews: [
-            {
-              title: "Story 1",
-              summaryWithLinks: "Update [Source](https://example.com/a).",
-              citations: [],
-            },
+            { title: "Story 1", summary: "s1" },
+            { title: "Story 2", summary: "s2" },
+            { title: "Story 3", summary: "s3" },
+            { title: "Story 4", summary: "s4" },
           ],
         }),
         3,
       ),
-    ).toThrow();
+    ).toThrow("Expected at most 3 topNews items");
   });
 
-  it("rejects citation with invalid URL", () => {
+  it("rejects input where topNews item is missing summary", () => {
+    // Act & Assert
     expect(() =>
       parseNewsletterJson(
         JSON.stringify({
           subject: "Daily Brief",
           executiveSummary: "Summary",
-          topNews: [
-            {
-              title: "Story 1",
-              summaryWithLinks: "Update [Source](bad-url).",
-              citations: [{ url: "bad-url" }],
-            },
-          ],
+          topNews: [{ title: "Story 1" }],
         }),
         3,
       ),
     ).toThrow();
   });
 
-  it("accepts http citation URLs", () => {
+  it("accepts an empty topNews array", () => {
+    // Act
     const parsed = parseNewsletterJson(
       JSON.stringify({
         subject: "Daily Brief",
         executiveSummary: "Summary",
-        topNews: [
-          {
-            title: "Story 1",
-            summaryWithLinks: "See [x](http://example.com/a).",
-            citations: [{ url: "http://example.com/a" }],
-          },
-        ],
+        topNews: [],
       }),
       3,
     );
-    expect(parsed.topNews[0]?.citations[0]?.url).toBe("http://example.com/a");
+
+    // Assert
+    expect(parsed.topNews).toEqual([]);
   });
 
-  it("rejects non-http(s) citation URLs (e.g. ftp)", () => {
-    expect(() =>
-      parseNewsletterJson(
-        JSON.stringify({
-          subject: "Daily Brief",
-          executiveSummary: "Summary",
-          topNews: [
-            {
-              title: "Story 1",
-              summaryWithLinks: "Update.",
-              citations: [{ url: "ftp://example.com/file" }],
-            },
-          ],
-        }),
-        3,
-      ),
-    ).toThrow();
-  });
-
-  it("parses citations that omit label (legacy JSON) by normalizing to empty label", () => {
-    const parsed = parseNewsletterJson(
-      JSON.stringify({
-        subject: "Daily Brief",
-        executiveSummary: "Summary",
-        topNews: [
-          {
-            title: "Story 1",
-            summaryWithLinks: "Update [x](https://example.com/a).",
-            citations: [{ url: "https://example.com/a" }],
-          },
-        ],
-      }),
-      3,
+  it("throws when given invalid JSON", () => {
+    // Act & Assert
+    expect(() => parseNewsletterJson("{not valid json}", 3)).toThrow(
+      "OpenAI returned invalid JSON",
     );
-    expect(parsed.topNews[0]?.citations[0]).toEqual({
-      url: "https://example.com/a",
-    });
   });
 });

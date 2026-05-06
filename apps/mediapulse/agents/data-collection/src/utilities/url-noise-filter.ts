@@ -21,6 +21,7 @@ const BLOCKED_HOST_PATH_PATTERNS = [
   { host: /(^|\.)marketwatch\.com$/i, path: /^\/investing\/stock\//i },
   { host: /(^|\.)simplywall\.st$/i, path: /^\/stocks\//i },
   { host: /(^|\.)tradingview\.com$/i, path: /^\/symbols\//i },
+  { host: /(^|\.)reuters\.com$/i, path: /^\/(markets\/companies|company)\//i },
 ] as const;
 
 const BLOCKED_PATH_PATTERNS = [
@@ -107,13 +108,6 @@ export const classifyNoisyUrl = (rawUrl: string): UrlNoiseDecision => {
   const parsed = new URL(canonicalUrl);
   const hostname = parsed.hostname;
   const pathname = parsed.pathname;
-
-  const isReutersArticlePath =
-    /(^|\.)reuters\.com$/i.test(hostname) &&
-    !/^\/(markets\/companies|company)\//i.test(pathname);
-  if (isReutersArticlePath) {
-    return { blocked: false, canonicalUrl };
-  }
 
   if (BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(hostname))) {
     return { blocked: true, reason: "blocked_host", canonicalUrl };
