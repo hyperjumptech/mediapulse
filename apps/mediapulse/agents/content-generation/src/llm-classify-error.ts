@@ -1,5 +1,4 @@
 import { APICallError, NoObjectGeneratedError, TypeValidationError } from "ai";
-import { CitationValidationError } from "./llm-generate-newsletter.js";
 
 import type { OutcomeCode } from "./types/outcome.js";
 
@@ -36,9 +35,6 @@ export function isRetryableLlmError(error: unknown): boolean {
   if (error instanceof TypeValidationError) {
     return false;
   }
-  if (error instanceof CitationValidationError) {
-    return true;
-  }
   if (error instanceof NoObjectGeneratedError) {
     return false;
   }
@@ -56,9 +52,6 @@ export function isRetryableLlmError(error: unknown): boolean {
  */
 export function classifyLlmError(error: unknown): OutcomeCode {
   if (error instanceof TypeValidationError) {
-    return "validation_failed";
-  }
-  if (error instanceof CitationValidationError) {
     return "validation_failed";
   }
   if (error instanceof NoObjectGeneratedError) {

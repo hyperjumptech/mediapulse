@@ -57,4 +57,18 @@ describe("classifyNoisyUrl", () => {
         "https://www.reuters.com/world/asia-pacific/sample-story-2026-01-01",
     });
   });
+
+  it("blocks Reuters company/market page URLs", () => {
+    // Act
+    const decision = classifyNoisyUrl(
+      "https://www.reuters.com/markets/companies/BBCA.JK/",
+    );
+
+    // Assert
+    expect(decision).toEqual({
+      blocked: true,
+      reason: "blocked_host_path",
+      canonicalUrl: "https://www.reuters.com/markets/companies/BBCA.JK",
+    });
+  });
 });

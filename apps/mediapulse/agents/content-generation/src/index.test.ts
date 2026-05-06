@@ -121,20 +121,17 @@ describe("formatNewsletterContent", () => {
 
 describe("parseNewsletterJson", () => {
   it("parses valid newsletter JSON", () => {
+    // Setup
     const raw = JSON.stringify({
       subject: "Daily Brief",
       executiveSummary: "Markets up.",
-      topNews: [
-        {
-          title: "Headline",
-          summaryWithLinks: "Summary [S](https://example.com/s).",
-          citations: [{ url: "https://example.com/s" }],
-        },
-      ],
+      topNews: [{ title: "Headline", summary: "Markets posted gains today." }],
     });
 
+    // Act
     const result = parseNewsletterJson(raw);
 
+    // Assert
     expect(result.subject).toBe("Daily Brief");
     expect(result.executiveSummary).toBe("Markets up.");
     expect(result.topNews).toHaveLength(1);
@@ -142,128 +139,91 @@ describe("parseNewsletterJson", () => {
   });
 
   it("throws when JSON is malformed", () => {
+    // Act & Assert
     expect(() => parseNewsletterJson("not valid json")).toThrow(
       "OpenAI returned invalid JSON",
     );
   });
 
   it("throws when topNews item has invalid shape", () => {
+    // Setup
     const raw = JSON.stringify({
       subject: "x",
       executiveSummary: "y",
-      topNews: [{ title: 123, summaryWithLinks: "ok", citations: [] }],
+      topNews: [{ title: 123 }],
     });
 
+    // Act & Assert
     expect(() => parseNewsletterJson(raw)).toThrow();
   });
 
   it("accepts topNews with exactly topNewsCount items", () => {
+    // Setup
     const raw = JSON.stringify({
       subject: "Daily Brief",
       executiveSummary: "Market summary.",
       topNews: [
-        {
-          title: "A",
-          summaryWithLinks: "a [A](https://example.com/a)",
-          citations: [{ url: "https://example.com/a" }],
-        },
-        {
-          title: "B",
-          summaryWithLinks: "b [B](https://example.com/b)",
-          citations: [{ url: "https://example.com/b" }],
-        },
-        {
-          title: "C",
-          summaryWithLinks: "c [C](https://example.com/c)",
-          citations: [{ url: "https://example.com/c" }],
-        },
+        { title: "A", summary: "Summary A." },
+        { title: "B", summary: "Summary B." },
+        { title: "C", summary: "Summary C." },
       ],
     });
 
+    // Act
     const result = parseNewsletterJson(raw, 3);
 
+    // Assert
     expect(result.topNews).toHaveLength(3);
   });
 
   it("accepts topNews with fewer than topNewsCount items", () => {
+    // Setup
     const raw = JSON.stringify({
       subject: "Daily Brief",
       executiveSummary: "Market summary.",
-      topNews: [
-        {
-          title: "A",
-          summaryWithLinks: "a [A](https://example.com/a)",
-          citations: [{ url: "https://example.com/a" }],
-        },
-      ],
+      topNews: [{ title: "A", summary: "Summary A." }],
     });
 
+    // Act
     const result = parseNewsletterJson(raw, 5);
 
+    // Assert
     expect(result.topNews).toHaveLength(1);
   });
 
   it("rejects topNews exceeding topNewsCount", () => {
+    // Setup
     const raw = JSON.stringify({
       subject: "Daily Brief",
       executiveSummary: "Market summary.",
       topNews: [
-        {
-          title: "A",
-          summaryWithLinks: "a [A](https://example.com/a)",
-          citations: [{ url: "https://example.com/a" }],
-        },
-        {
-          title: "B",
-          summaryWithLinks: "b [B](https://example.com/b)",
-          citations: [{ url: "https://example.com/b" }],
-        },
-        {
-          title: "C",
-          summaryWithLinks: "c [C](https://example.com/c)",
-          citations: [{ url: "https://example.com/c" }],
-        },
-        {
-          title: "D",
-          summaryWithLinks: "d [D](https://example.com/d)",
-          citations: [{ url: "https://example.com/d" }],
-        },
+        { title: "A", summary: "Summary A." },
+        { title: "B", summary: "Summary B." },
+        { title: "C", summary: "Summary C." },
+        { title: "D", summary: "Summary D." },
       ],
     });
 
+    // Act & Assert
     expect(() => parseNewsletterJson(raw, 3)).toThrow(
       "Expected at most 3 topNews items, got 4",
     );
   });
 
   it("defaults topNewsCount to 3 when not specified", () => {
+    // Setup
     const raw = JSON.stringify({
       subject: "Daily Brief",
       executiveSummary: "Market summary.",
       topNews: [
-        {
-          title: "A",
-          summaryWithLinks: "a [A](https://example.com/a)",
-          citations: [{ url: "https://example.com/a" }],
-        },
-        {
-          title: "B",
-          summaryWithLinks: "b [B](https://example.com/b)",
-          citations: [{ url: "https://example.com/b" }],
-        },
-        {
-          title: "C",
-          summaryWithLinks: "c [C](https://example.com/c)",
-          citations: [{ url: "https://example.com/c" }],
-        },
-        {
-          title: "D",
-          summaryWithLinks: "d [D](https://example.com/d)",
-          citations: [{ url: "https://example.com/d" }],
-        },
+        { title: "A", summary: "Summary A." },
+        { title: "B", summary: "Summary B." },
+        { title: "C", summary: "Summary C." },
+        { title: "D", summary: "Summary D." },
       ],
     });
 
+    // Act & Assert
     expect(() => parseNewsletterJson(raw)).toThrow(
       "Expected at most 3 topNews items, got 4",
     );

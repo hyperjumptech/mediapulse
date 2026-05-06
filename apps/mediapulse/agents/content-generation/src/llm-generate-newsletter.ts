@@ -5,6 +5,7 @@ import type { z } from "zod";
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
 import { formatNewsletterContent } from "./format-newsletter-content.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
+import { injectTitlePhraseLink } from "./lib/phrase-link-injector.js";
 import { retryWithBackoff } from "./lib/retry.js";
 import { truncateSources } from "./lib/truncate-sources.js";
 import { newsletterStructureSchema } from "./parse-newsletter-json.js";
@@ -115,92 +116,26 @@ const defaultGenerateNewsletterObject: GenerateNewsletterObjectFn = async (
  * Exported so callers (e.g. `run.ts`) can compute `promptHash` from the exact
  * string passed to the model without duplicating the constant.
  */
-export const SYSTEM_PROMPT = `You are a newsletter writer for busy executives. Given multiple data sources, produce a structured newsletter.
+export const SYSTEM_PROMPT = `You are a newsletter writer for busy executives. Given numbered article summaries, produce a structured newsletter.
 
 Return a JSON object with:
 - "subject": a compelling email subject line (short, under ~60 chars).
 - "executiveSummary": 2–3 sentences summarizing the main themes and why they matter. No bullet points; use clear prose.
-- "topNews": an array of exactly {{topNewsCount}} items. Each item must have:
-  - "title": short headline
-  - "summaryWithLinks": 2–4 sentences that include inline markdown citations like [source](https://example.com/news)
-  - "citations": array with at least one citation object, each citation has "url" and optional "label"
-Use only URLs from the provided sources. Every topNews item must include at least one citation link in the summary.`;
+- "topNews": an array of exactly {{topNewsCount}} items in the same order as the numbered articles. Each item must have:
+  - "title": short headline capturing the key point of that article
+  - "summary": 2–4 plain sentences summarizing the article. Do not include any markdown links or citation markers.`;
 
 /**
  * Default user prompt template used when no template is provided in config.
  */
-export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from these data sources. Include an executive summary and the top {{topNewsCount}} news items. Each top-news summary must include inline markdown links and only use URLs from the provided sources.\n\n{{sourceSummaries}}`;
-
-const INLINE_MARKDOWN_LINK_REGEX = /\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/gi;
-
-/**
- * Raised when generated top-news citations do not satisfy strict source-link rules.
- */
-export class CitationValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "CitationValidationError";
-  }
-}
-
-/**
- * Validates generated citations against provided source URLs and inline link usage.
- *
- * @param topNews - Generated top news items.
- * @param sourceUrls - URL set from provided source context.
- */
-const validateTopNewsCitations = (
-  topNews: Array<{
-    title: string;
-    summaryWithLinks: string;
-    citations: Array<{ url: string; label?: string }>;
-  }>,
-  sourceUrls: ReadonlySet<string>,
-): void => {
-  for (const item of topNews) {
-    if (item.citations.length === 0) {
-      throw new CitationValidationError(
-        `Missing citations for topNews item: ${item.title}`,
-      );
-    }
-    for (const citation of item.citations) {
-      if (!sourceUrls.has(citation.url)) {
-        throw new CitationValidationError(
-          `Citation URL not in provided sources: ${citation.url}`,
-        );
-      }
-    }
-
-    const inlineUrls = [
-      ...item.summaryWithLinks.matchAll(INLINE_MARKDOWN_LINK_REGEX),
-    ]
-      .map((match) => match[1])
-      .filter((url): url is string => typeof url === "string");
-    if (inlineUrls.length === 0) {
-      throw new CitationValidationError(
-        `Missing inline markdown link in summaryWithLinks for: ${item.title}`,
-      );
-    }
-    const citationUrlSet = new Set(
-      item.citations.map((citation) => citation.url),
-    );
-    const hasMappedInlineCitation = inlineUrls.some((url) =>
-      citationUrlSet.has(url),
-    );
-    if (!hasMappedInlineCitation) {
-      throw new CitationValidationError(
-        `Inline links do not match citations for: ${item.title}`,
-      );
-    }
-  }
-};
+export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from the {{topNewsCount}} articles below. Write exactly one top-news item per numbered article, in the same order.\n\n{{sourceSummaries}}`;
 
 /**
  * Builds the LLM user prompt from the list of data sources, substituting
  * placeholders in the provided template.
  *
  * Supported placeholders:
- * - `{{sourceSummaries}}`: Concatenated list of article titles and content.
+ * - `{{sourceSummaries}}`: Numbered list of article titles and content.
  * - `{{tickerId}}`: The identifier of the ticker being processed.
  * - `{{date}}`: The current ISO date (YYYY-MM-DD).
  * - `{{topNewsCount}}`: The number of top news items to generate.
@@ -219,9 +154,7 @@ export function buildUserPrompt(
   context: { tickerId: string; date: string; topNewsCount: number },
 ): string {
   const sourceSummaries = sources
-    .map(
-      (source) => `Source: ${source.title} (${source.url})\n${source.content}`,
-    )
+    .map((source, i) => `Article ${i + 1}: ${source.title}\n${source.content}`)
     .join("\n\n---\n\n");
 
   return template
@@ -233,6 +166,12 @@ export function buildUserPrompt(
 
 /**
  * Generates newsletter content from data sources via the Vercel AI SDK with retry logic.
+ *
+ * Selects the top `topNewsCount` sources (by relevance order from the caller) and asks
+ * the LLM to write plain prose summaries — one item per article. After the LLM responds,
+ * a code-based phrase-link injection step finds the phrase in each summary that best
+ * matches the article title and wraps it as a markdown link, so citations are derived
+ * from the source content rather than generated by the model.
  *
  * Retries on transient errors (rate limits, server errors, timeouts) up to
  * `config.llmRetry.maxAttempts` times with exponential backoff and optional jitter.
@@ -274,6 +213,12 @@ export async function generateNewsletterWithLlm(
     maxTotalContextChars,
   );
 
+  // Pre-select exactly N sources (one per news item). Sources arrive sorted by
+  // relevance score from getDataSourcesForTicker; we take the top N so the LLM
+  // writes one summary per article and phrase-link injection can map each item
+  // back to its source URL deterministically.
+  const selectedSources = truncatedSources.slice(0, topNewsCount);
+
   const openai = createOpenAI({
     apiKey: config.openai.apiKey,
     ...(config.openai.baseUrl ? { baseURL: config.openai.baseUrl } : {}),
@@ -284,7 +229,7 @@ export async function generateNewsletterWithLlm(
   const systemPrompt = config.prompts?.systemPrompt || SYSTEM_PROMPT;
   const userTemplate =
     config.prompts?.userPromptTemplate || DEFAULT_USER_PROMPT_TEMPLATE;
-  const prompt = buildUserPrompt(truncatedSources, userTemplate, {
+  const prompt = buildUserPrompt(selectedSources, userTemplate, {
     tickerId: context.tickerId,
     date: context.date,
     topNewsCount,
@@ -293,10 +238,9 @@ export async function generateNewsletterWithLlm(
   const timeout = config.openai?.timeoutMs;
   const maxTokens = config.openai?.maxTokens;
 
-  const sourceUrlSet = new Set(truncatedSources.map((source) => source.url));
   const result = await retryWithBackoff(
     async () => {
-      const generated = await generateFn({
+      return generateFn({
         model,
         schema: newsletterStructureSchema,
         system: systemPrompt,
@@ -305,11 +249,6 @@ export async function generateNewsletterWithLlm(
         ...(timeout !== undefined ? { timeout } : {}),
         ...(maxTokens !== undefined ? { maxTokens } : {}),
       });
-      const topNews = Array.isArray(generated.object.topNews)
-        ? generated.object.topNews.slice(0, topNewsCount)
-        : [];
-      validateTopNewsCitations(topNews, sourceUrlSet);
-      return generated;
     },
     config.llmRetry,
     isRetryableLlmError,
@@ -320,12 +259,23 @@ export async function generateNewsletterWithLlm(
   const topNews = Array.isArray(object.topNews)
     ? object.topNews.slice(0, topNewsCount)
     : [];
+
+  // Inject phrase-based markdown links into each summary. For each item at
+  // index i, we find the phrase in the summary that best matches
+  // selectedSources[i].title and wrap it as [phrase](url). If no phrase meets
+  // the overlap threshold the summary is returned unchanged (no broken links).
+  const linkedTopNews = topNews.map((item, i) => {
+    const source = selectedSources[i];
+    const linkedSummary =
+      source !== undefined
+        ? injectTitlePhraseLink(item.summary, source.title, source.url)
+        : item.summary;
+    return { title: item.title, summary: linkedSummary };
+  });
+
   const content = formatNewsletterContent(
     object.executiveSummary ?? "",
-    topNews.map((item) => ({
-      title: item.title,
-      summary: item.summaryWithLinks,
-    })),
+    linkedTopNews,
     topNewsCount,
   );
 

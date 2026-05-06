@@ -34,11 +34,7 @@ function makeSuccessfulGenerateFn(
   overrides: Partial<{
     subject: string;
     executiveSummary: string;
-    topNews: Array<{
-      title: string;
-      summaryWithLinks: string;
-      citations: Array<{ url: string; label?: string }>;
-    }>;
+    topNews: Array<{ title: string; summary: string }>;
   }> = {},
 ): GenerateNewsletterObjectFn {
   return vi.fn().mockResolvedValue({
@@ -49,21 +45,16 @@ function makeSuccessfulGenerateFn(
       topNews: overrides.topNews ?? [
         {
           title: "Tech gains",
-          summaryWithLinks:
-            "Big tech was up according to [Story A](https://example.com/a).",
-          citations: [{ url: "https://example.com/a", label: "Story A" }],
+          summary:
+            "Big tech stocks posted gains for the third consecutive day.",
         },
         {
           title: "Fed pause",
-          summaryWithLinks:
-            "Rates held according to [Story B](https://example.com/b).",
-          citations: [{ url: "https://example.com/b", label: "Story B" }],
+          summary: "Federal Reserve held interest rates steady at its meeting.",
         },
         {
           title: "Oil dips",
-          summaryWithLinks:
-            "Crude fell according to [Story A](https://example.com/a).",
-          citations: [{ url: "https://example.com/a", label: "Story A" }],
+          summary: "Crude oil prices fell amid demand concerns.",
         },
       ],
     },
@@ -74,6 +65,7 @@ function makeSuccessfulGenerateFn(
 const testSources = [
   { url: "https://example.com/a", title: "Story A", content: "Content A." },
   { url: "https://example.com/b", title: "Story B", content: "Content B." },
+  { url: "https://example.com/c", title: "Story C", content: "Content C." },
 ];
 
 const testContext = {
@@ -134,31 +126,11 @@ describe("generateNewsletterWithLlm — happy path", () => {
     // Setup
     const generateObjectFn = makeSuccessfulGenerateFn({
       topNews: [
-        {
-          title: "Item 1",
-          summaryWithLinks: "s1 [A](https://example.com/a)",
-          citations: [{ url: "https://example.com/a" }],
-        },
-        {
-          title: "Item 2",
-          summaryWithLinks: "s2 [B](https://example.com/b)",
-          citations: [{ url: "https://example.com/b" }],
-        },
-        {
-          title: "Item 3",
-          summaryWithLinks: "s3 [A](https://example.com/a)",
-          citations: [{ url: "https://example.com/a" }],
-        },
-        {
-          title: "Item 4",
-          summaryWithLinks: "s4 [B](https://example.com/b)",
-          citations: [{ url: "https://example.com/b" }],
-        },
-        {
-          title: "Item 5",
-          summaryWithLinks: "s5 [A](https://example.com/a)",
-          citations: [{ url: "https://example.com/a" }],
-        },
+        { title: "Item 1", summary: "Summary 1." },
+        { title: "Item 2", summary: "Summary 2." },
+        { title: "Item 3", summary: "Summary 3." },
+        { title: "Item 4", summary: "Summary 4." },
+        { title: "Item 5", summary: "Summary 5." },
       ],
     });
 
@@ -177,6 +149,60 @@ describe("generateNewsletterWithLlm — happy path", () => {
     expect(result.content).toContain("1. Item 1");
     expect(result.content).toContain("3. Item 3");
     expect(result.content).not.toContain("4. Item 4");
+  });
+
+  it("injects a phrase link from the source title into each summary", async () => {
+    // Setup — source titles share key words with their corresponding summaries
+    // so the phrase-link injector finds a match and wraps it with the source URL.
+    const matchingSources = [
+      {
+        url: "https://example.com/a",
+        title: "Tech stocks gains",
+        content: "Content A.",
+      },
+      {
+        url: "https://example.com/b",
+        title: "Federal Reserve rates pause",
+        content: "Content B.",
+      },
+      {
+        url: "https://example.com/c",
+        title: "Crude oil prices fell",
+        content: "Content C.",
+      },
+    ];
+    const generateObjectFn = makeSuccessfulGenerateFn({
+      topNews: [
+        {
+          title: "Tech gains",
+          summary:
+            "Big tech stocks posted strong gains for the third consecutive day.",
+        },
+        {
+          title: "Fed pause",
+          summary:
+            "Federal Reserve held interest rates steady at its latest meeting.",
+        },
+        {
+          title: "Oil dips",
+          summary: "Crude oil prices fell amid weakening demand concerns.",
+        },
+      ],
+    });
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      matchingSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    // Assert — at least one markdown link appears in the output
+    expect(result.content).toMatch(/\[[^\]]+\]\(https?:\/\//);
   });
 
   it("passes timeout to generateObjectFn when openai.timeoutMs is set", async () => {
@@ -310,66 +336,6 @@ describe("generateNewsletterWithLlm — non-retryable errors", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateNewsletterWithLlm — retryable errors", () => {
-  it("retries when citation validation fails and eventually succeeds", async () => {
-    // Setup
-    const config = resolveContentGenerationConfig(
-      ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        llmRetry: {
-          maxAttempts: 3,
-          baseDelayMs: 10,
-          maxDelayMs: 100,
-          jitter: false,
-        },
-      }),
-    );
-    const sleepFn = vi.fn().mockResolvedValue(undefined);
-    const generateObjectFn = vi
-      .fn()
-      .mockResolvedValueOnce({
-        object: {
-          subject: "Invalid citations",
-          executiveSummary: "Summary",
-          topNews: [
-            {
-              title: "Story",
-              summaryWithLinks: "No links here.",
-              citations: [{ url: "https://example.com/a" }],
-            },
-          ],
-        },
-      })
-      .mockResolvedValueOnce({
-        object: {
-          subject: "Recovered",
-          executiveSummary: "Summary",
-          topNews: [
-            {
-              title: "Story",
-              summaryWithLinks: "Cited [A](https://example.com/a).",
-              citations: [{ url: "https://example.com/a" }],
-            },
-          ],
-        },
-      });
-
-    // Act
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      config,
-      testContext,
-      {
-        generateObjectFn,
-        sleepFn,
-      },
-    );
-
-    // Assert
-    expect(result.subject).toBe("Recovered");
-    expect(generateObjectFn).toHaveBeenCalledTimes(2);
-    expect(sleepFn).toHaveBeenCalledTimes(1);
-  });
-
   it("retries exactly maxAttempts times on a 429 rate-limit error", async () => {
     // Setup
     const rateLimitError = new APICallError({
@@ -405,46 +371,6 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
     expect(sleepFn).toHaveBeenCalledTimes(2);
   });
 
-  it("fails after max attempts when citation URLs are not from provided sources", async () => {
-    // Setup
-    const config = resolveContentGenerationConfig(
-      ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        llmRetry: {
-          maxAttempts: 2,
-          baseDelayMs: 10,
-          maxDelayMs: 100,
-          jitter: false,
-        },
-      }),
-    );
-    const sleepFn = vi.fn().mockResolvedValue(undefined);
-    const generateObjectFn = vi.fn().mockResolvedValue({
-      object: {
-        subject: "Invalid source mapping",
-        executiveSummary: "Summary",
-        topNews: [
-          {
-            title: "Story",
-            summaryWithLinks: "Claim [Offsite](https://not-provided.com/x).",
-            citations: [{ url: "https://not-provided.com/x" }],
-          },
-        ],
-      },
-    });
-
-    // Act & Assert
-    await expect(
-      generateNewsletterWithLlm(testSources, config, testContext, {
-        generateObjectFn,
-        sleepFn,
-      }),
-    ).rejects.toThrow("Citation URL not in provided sources");
-
-    expect(generateObjectFn).toHaveBeenCalledTimes(2);
-    expect(sleepFn).toHaveBeenCalledTimes(1);
-  });
-
   it("succeeds after a transient 500 failure", async () => {
     // Setup
     const serverError = new APICallError({
@@ -473,13 +399,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
         object: {
           subject: "Recovery",
           executiveSummary: "All clear.",
-          topNews: [
-            {
-              title: "Up",
-              summaryWithLinks: "Markets up [A](https://example.com/a).",
-              citations: [{ url: "https://example.com/a" }],
-            },
-          ],
+          topNews: [{ title: "Up", summary: "Markets recovered strongly." }],
         },
       });
 
@@ -536,13 +456,7 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
       object: {
         subject: "Market Update",
         executiveSummary: "Stocks rose.",
-        topNews: [
-          {
-            title: "Gains",
-            summaryWithLinks: "Up [A](https://example.com/a).",
-            citations: [{ url: "https://example.com/a" }],
-          },
-        ],
+        topNews: [{ title: "Gains", summary: "Markets rose broadly today." }],
       },
       usage: {
         promptTokens: 120,
@@ -574,13 +488,7 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
       object: {
         subject: "No Usage",
         executiveSummary: "No usage data.",
-        topNews: [
-          {
-            title: "Story",
-            summaryWithLinks: "Summary [A](https://example.com/a).",
-            citations: [{ url: "https://example.com/a" }],
-          },
-        ],
+        topNews: [{ title: "Story", summary: "A summary without usage data." }],
       },
       // usage intentionally omitted
     });
@@ -793,5 +701,25 @@ describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
     expect(result.resolvedUserPrompt).toBe(
       `${testContext.tickerId} report: ${testContext.tickerId}.`,
     );
+  });
+
+  it("formats source summaries as numbered articles in the default template", async () => {
+    // Setup
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    // Assert — articles are numbered in the prompt
+    expect(result.resolvedUserPrompt).toContain("Article 1: Story A");
+    expect(result.resolvedUserPrompt).toContain("Article 2: Story B");
   });
 });
