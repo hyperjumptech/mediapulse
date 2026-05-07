@@ -153,10 +153,61 @@ jobs:
           - service: agent-user-registration
             webhook_secret: COOLIFY_WEBHOOK_AGENT_USER_REGISTRATION
     steps:
-      - name: Trigger Coolify deployment
+      - name: Trigger Coolify deployment over OpenVPN
         env:
           COOLIFY_WEBHOOK_URL: ${{ secrets[matrix.webhook_secret] }}
-        run: curl --fail --silent --show-error -X GET "$COOLIFY_WEBHOOK_URL"
+          OPENVPN_CONFIG_B64: ${{ secrets.OPENVPN_CONFIG_B64 }}
+          OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          if ! command -v openvpn >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y openvpn
+          fi
+
+          WORKDIR="$(mktemp -d)"
+          cleanup() {
+            if [ -f "$WORKDIR/openvpn.pid" ]; then
+              sudo kill "$(tr -d '\n' < "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
+            fi
+            rm -rf "$WORKDIR"
+          }
+          trap cleanup EXIT
+
+          printf "%s" "$OPENVPN_CONFIG_B64" | base64 --decode > "$WORKDIR/client.ovpn"
+          printf "openvpn\n%s\n" "$OPENVPN_PASSWORD" > "$WORKDIR/auth.txt"
+          chmod 600 "$WORKDIR/auth.txt"
+
+          sudo openvpn \
+            --config "$WORKDIR/client.ovpn" \
+            --auth-user-pass "$WORKDIR/auth.txt" \
+            --daemon \
+            --writepid "$WORKDIR/openvpn.pid" \
+            --log "$WORKDIR/openvpn.log"
+
+          connected="false"
+          for _ in {1..30}; do
+            if ip addr show tun0 >/dev/null 2>&1; then
+              connected="true"
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$connected" != "true" ]; then
+            LOG_PATH="$WORKDIR/openvpn.log" python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          log_path = Path(os.environ["LOG_PATH"])
+          if log_path.exists():
+              print(log_path.read_text(encoding="utf-8", errors="ignore"))
+          PY
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 -X GET "$COOLIFY_WEBHOOK_URL"
 
   cleanup:
     name: Prune old GHCR versions (${{ matrix.image }})
