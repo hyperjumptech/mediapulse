@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   db-ready:
     runs-on: ubuntu-latest
@@ -73,93 +77,158 @@ jobs:
       - name: Migrate deploy (mediapulse)
         run: pnpm --filter=@mediapulse/database run db:migrate:deploy
 
-  data-collection:
+  publish:
+    name: Publish ${{ matrix.service }}
     runs-on: ubuntu-latest
     needs: db-migrate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: data-collection
+            dockerfile: apps/mediapulse/agents/data-collection/Dockerfile
+            image: agent-data-collection
+          - service: content-generation
+            dockerfile: apps/mediapulse/agents/content-generation/Dockerfile
+            image: agent-content-generation
+          - service: article-analysis
+            dockerfile: apps/mediapulse/agents/article-analysis/Dockerfile
+            image: agent-article-analysis
+          - service: query-analysis
+            dockerfile: apps/mediapulse/agents/query-analysis/Dockerfile
+            image: agent-query-analysis
+          - service: delivery
+            dockerfile: apps/mediapulse/agents/delivery/Dockerfile
+            image: agent-delivery
+          - service: ticker-echo
+            dockerfile: apps/mediapulse/agents/ticker-echo/Dockerfile
+            image: agent-ticker-echo
+          - service: agent-user-registration
+            dockerfile: apps/mediapulse/agents/user-registration/Dockerfile
+            image: agent-user-registration
     steps:
       - uses: actions/checkout@v6
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/agents/data-collection/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  content-generation:
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy:
+    name: Deploy ${{ matrix.service }} via Coolify
     runs-on: ubuntu-latest
-    needs: db-migrate
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: data-collection
+            webhook_secret: COOLIFY_WEBHOOK_AGENT_DATA_COLLECTION
+          - service: content-generation
+            webhook_secret: COOLIFY_WEBHOOK_AGENT_CONTENT_GENERATION
+          - service: article-analysis
+            webhook_secret: COOLIFY_WEBHOOK_AGENT_ARTICLE_ANALYSIS
+          - service: query-analysis
+            webhook_secret: COOLIFY_WEBHOOK_AGENT_QUERY_ANALYSIS
+          - service: delivery
+            webhook_secret: COOLIFY_WEBHOOK_AGENT_DELIVERY
+          - service: ticker-echo
+            webhook_secret: COOLIFY_WEBHOOK_AGENT_TICKER_ECHO
+          - service: agent-user-registration
+            webhook_secret: COOLIFY_WEBHOOK_AGENT_USER_REGISTRATION
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/agents/content-generation/fly.toml
+      - name: Trigger Coolify deployment over OpenVPN
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          COOLIFY_WEBHOOK_URL: ${{ secrets[matrix.webhook_secret] }}
+          COOLIFY_WEBHOOK_SECRET: ${{ secrets.COOLIFY_WEBHOOK_SECRET }}
+          OPENVPN_CONFIG_B64: ${{ secrets.OPENVPN_CONFIG_B64 }}
+          OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
+        run: |
+          set -euo pipefail
 
-  article-analysis:
+          if ! command -v openvpn >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y openvpn
+          fi
+
+          WORKDIR="$(mktemp -d)"
+          cleanup() {
+            if [ -f "$WORKDIR/openvpn.pid" ]; then
+              sudo kill "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
+            fi
+            rm -rf "$WORKDIR"
+          }
+          trap cleanup EXIT
+
+          printf "%s" "$OPENVPN_CONFIG_B64" | base64 --decode > "$WORKDIR/client.ovpn"
+          printf "%s\n" "$OPENVPN_PASSWORD" > "$WORKDIR/passphrase.txt"
+          chmod 600 "$WORKDIR/passphrase.txt"
+
+          sudo openvpn \
+            --config "$WORKDIR/client.ovpn" \
+            --askpass "$WORKDIR/passphrase.txt" \
+            --daemon \
+            --writepid "$WORKDIR/openvpn.pid" \
+            --log "$WORKDIR/openvpn.log"
+
+          connected="false"
+          for _ in {1..30}; do
+            if sudo grep -q "Initialization Sequence Completed" "$WORKDIR/openvpn.log"; then
+              connected="true"
+              break
+            fi
+            if [ -f "$WORKDIR/openvpn.pid" ] && ! sudo kill -0 "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$connected" != "true" ]; then
+            sudo cat "$WORKDIR/openvpn.log" || true
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 --verbose \
+            -X GET "$COOLIFY_WEBHOOK_URL" \
+            --header "Authorization: Bearer $COOLIFY_WEBHOOK_SECRET"
+
+  cleanup:
+    name: Prune old GHCR versions (${{ matrix.image }})
     runs-on: ubuntu-latest
-    needs: db-migrate
+    needs: deploy
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - agent-data-collection
+          - agent-content-generation
+          - agent-article-analysis
+          - agent-query-analysis
+          - agent-delivery
+          - agent-ticker-echo
+          - agent-user-registration
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/agents/article-analysis/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  query-analysis:
-    runs-on: ubuntu-latest
-    needs: db-migrate
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/agents/query-analysis/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  delivery:
-    runs-on: ubuntu-latest
-    needs: db-migrate
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/agents/delivery/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  ticker-echo:
-    runs-on: ubuntu-latest
-    needs: db-migrate
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/agents/ticker-echo/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  user-registration:
-    runs-on: ubuntu-latest
-    needs: db-migrate
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/agents/user-registration/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ matrix.image }}
+          package-type: container
+          min-versions-to-keep: 2
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -25,7 +25,7 @@ jobs:
         run: |
           set -eu
 
-          ALL_SERVICES='["user-registration","domain-api","agent-data-api","agent-auth-api","agent-registry-api","hermes","hermes-worker","data-collection","content-generation","delivery","ticker-echo","article-analysis","query-analysis"]'
+          ALL_SERVICES='["user-registration","domain-api","agent-data-api","agent-auth-api","agent-registry-api","hermes","hermes-worker","data-collection","content-generation","delivery","ticker-echo","article-analysis","query-analysis","agent-user-registration"]'
 
           changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
 
@@ -71,6 +71,7 @@ jobs:
               apps/mediapulse/agents/ticker-echo/*)   services_list+=$'ticker-echo\n' ;;
               apps/mediapulse/agents/article-analysis/*)  services_list+=$'article-analysis\n' ;;
               apps/mediapulse/agents/query-analysis/*)    services_list+=$'query-analysis\n' ;;
+              apps/mediapulse/agents/user-registration/*)  services_list+=$'agent-user-registration\n' ;;
             esac
           done <<< "$changed_files"
 
@@ -114,7 +115,8 @@ jobs:
             delivery)           echo "dockerfile=apps/mediapulse/agents/delivery/Dockerfile" >> "$GITHUB_OUTPUT" ;;
             ticker-echo)        echo "dockerfile=apps/mediapulse/agents/ticker-echo/Dockerfile" >> "$GITHUB_OUTPUT" ;;
             article-analysis)   echo "dockerfile=apps/mediapulse/agents/article-analysis/Dockerfile" >> "$GITHUB_OUTPUT" ;;
-            query-analysis)     echo "dockerfile=apps/mediapulse/agents/query-analysis/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            query-analysis)          echo "dockerfile=apps/mediapulse/agents/query-analysis/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            agent-user-registration) echo "dockerfile=apps/mediapulse/agents/user-registration/Dockerfile" >> "$GITHUB_OUTPUT" ;;
           esac
 
       - uses: docker/setup-buildx-action@v3
