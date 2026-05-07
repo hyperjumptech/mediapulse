@@ -176,12 +176,12 @@ jobs:
           trap cleanup EXIT
 
           printf "%s" "$OPENVPN_CONFIG_B64" | base64 --decode > "$WORKDIR/client.ovpn"
-          printf "openvpn\n%s\n" "$OPENVPN_PASSWORD" > "$WORKDIR/auth.txt"
-          chmod 600 "$WORKDIR/auth.txt"
+          printf "%s\n" "$OPENVPN_PASSWORD" > "$WORKDIR/passphrase.txt"
+          chmod 600 "$WORKDIR/passphrase.txt"
 
           sudo openvpn \
             --config "$WORKDIR/client.ovpn" \
-            --auth-user-pass "$WORKDIR/auth.txt" \
+            --askpass "$WORKDIR/passphrase.txt" \
             --daemon \
             --writepid "$WORKDIR/openvpn.pid" \
             --log "$WORKDIR/openvpn.log"
