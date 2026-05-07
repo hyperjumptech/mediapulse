@@ -156,6 +156,7 @@ jobs:
       - name: Trigger Coolify deployment over OpenVPN
         env:
           COOLIFY_WEBHOOK_URL: ${{ secrets[matrix.webhook_secret] }}
+          COOLIFY_WEBHOOK_SECRET: ${{ secrets.COOLIFY_WEBHOOK_SECRET }}
           OPENVPN_CONFIG_B64: ${{ secrets.OPENVPN_CONFIG_B64 }}
           OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
         run: |
@@ -203,7 +204,9 @@ jobs:
             exit 1
           fi
 
-          curl --fail --silent --show-error --retry 3 --retry-delay 3 -X GET "$COOLIFY_WEBHOOK_URL"
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 --verbose \
+            -X GET "$COOLIFY_WEBHOOK_URL" \
+            --header "Authorization: Bearer $COOLIFY_WEBHOOK_SECRET"
 
   cleanup:
     name: Prune old GHCR versions (${{ matrix.image }})
