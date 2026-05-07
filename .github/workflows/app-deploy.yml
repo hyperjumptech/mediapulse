@@ -188,8 +188,11 @@ jobs:
 
           connected="false"
           for _ in {1..30}; do
-            if ip addr show tun0 >/dev/null 2>&1; then
+            if sudo grep -q "Initialization Sequence Completed" "$WORKDIR/openvpn.log"; then
               connected="true"
+              break
+            fi
+            if [ -f "$WORKDIR/openvpn.pid" ] && ! sudo kill -0 "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1; then
               break
             fi
             sleep 2
