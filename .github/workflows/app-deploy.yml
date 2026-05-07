@@ -169,7 +169,7 @@ jobs:
           WORKDIR="$(mktemp -d)"
           cleanup() {
             if [ -f "$WORKDIR/openvpn.pid" ]; then
-              sudo kill "$(tr -d '\n' < "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
+              sudo kill "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
             fi
             rm -rf "$WORKDIR"
           }
@@ -196,14 +196,7 @@ jobs:
           done
 
           if [ "$connected" != "true" ]; then
-            LOG_PATH="$WORKDIR/openvpn.log" python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          log_path = Path(os.environ["LOG_PATH"])
-          if log_path.exists():
-              print(log_path.read_text(encoding="utf-8", errors="ignore"))
-          PY
+            sudo cat "$WORKDIR/openvpn.log" || true
             exit 1
           fi
 

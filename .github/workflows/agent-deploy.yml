@@ -88,27 +88,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - service: data-collection
-            dockerfile: apps/mediapulse/agents/data-collection/Dockerfile
-            image: agent-data-collection
-          - service: content-generation
-            dockerfile: apps/mediapulse/agents/content-generation/Dockerfile
-            image: agent-content-generation
-          - service: article-analysis
-            dockerfile: apps/mediapulse/agents/article-analysis/Dockerfile
-            image: agent-article-analysis
-          - service: query-analysis
-            dockerfile: apps/mediapulse/agents/query-analysis/Dockerfile
-            image: agent-query-analysis
           - service: delivery
             dockerfile: apps/mediapulse/agents/delivery/Dockerfile
             image: agent-delivery
-          - service: ticker-echo
-            dockerfile: apps/mediapulse/agents/ticker-echo/Dockerfile
-            image: agent-ticker-echo
-          - service: agent-user-registration
-            dockerfile: apps/mediapulse/agents/user-registration/Dockerfile
-            image: agent-user-registration
     steps:
       - uses: actions/checkout@v6
 
@@ -141,20 +123,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - service: data-collection
-            webhook_secret: COOLIFY_WEBHOOK_AGENT_DATA_COLLECTION
-          - service: content-generation
-            webhook_secret: COOLIFY_WEBHOOK_AGENT_CONTENT_GENERATION
-          - service: article-analysis
-            webhook_secret: COOLIFY_WEBHOOK_AGENT_ARTICLE_ANALYSIS
-          - service: query-analysis
-            webhook_secret: COOLIFY_WEBHOOK_AGENT_QUERY_ANALYSIS
           - service: delivery
             webhook_secret: COOLIFY_WEBHOOK_AGENT_DELIVERY
-          - service: ticker-echo
-            webhook_secret: COOLIFY_WEBHOOK_AGENT_TICKER_ECHO
-          - service: agent-user-registration
-            webhook_secret: COOLIFY_WEBHOOK_AGENT_USER_REGISTRATION
     steps:
       - name: Trigger Coolify deployment over OpenVPN
         env:
@@ -172,7 +142,7 @@ jobs:
           WORKDIR="$(mktemp -d)"
           cleanup() {
             if [ -f "$WORKDIR/openvpn.pid" ]; then
-              sudo kill "$(tr -d '\n' < "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
+              sudo kill "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
             fi
             rm -rf "$WORKDIR"
           }
@@ -199,14 +169,7 @@ jobs:
           done
 
           if [ "$connected" != "true" ]; then
-            LOG_PATH="$WORKDIR/openvpn.log" python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          log_path = Path(os.environ["LOG_PATH"])
-          if log_path.exists():
-              print(log_path.read_text(encoding="utf-8", errors="ignore"))
-          PY
+            sudo cat "$WORKDIR/openvpn.log" || true
             exit 1
           fi
 
@@ -222,13 +185,7 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - agent-data-collection
-          - agent-content-generation
-          - agent-article-analysis
-          - agent-query-analysis
           - agent-delivery
-          - agent-ticker-echo
-          - agent-user-registration
     steps:
       - uses: actions/delete-package-versions@v5
         with:
