@@ -87,22 +87,22 @@ jobs:
         include:
           - service: data-collection
             dockerfile: apps/mediapulse/agents/data-collection/Dockerfile
-            image: data-collection
+            image: agent-data-collection
           - service: content-generation
             dockerfile: apps/mediapulse/agents/content-generation/Dockerfile
-            image: content-generation
+            image: agent-content-generation
           - service: article-analysis
             dockerfile: apps/mediapulse/agents/article-analysis/Dockerfile
-            image: article-analysis
+            image: agent-article-analysis
           - service: query-analysis
             dockerfile: apps/mediapulse/agents/query-analysis/Dockerfile
-            image: query-analysis
+            image: agent-query-analysis
           - service: delivery
             dockerfile: apps/mediapulse/agents/delivery/Dockerfile
-            image: delivery
+            image: agent-delivery
           - service: ticker-echo
             dockerfile: apps/mediapulse/agents/ticker-echo/Dockerfile
-            image: ticker-echo
+            image: agent-ticker-echo
           - service: agent-user-registration
             dockerfile: apps/mediapulse/agents/user-registration/Dockerfile
             image: agent-user-registration
@@ -168,12 +168,12 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - data-collection
-          - content-generation
-          - article-analysis
-          - query-analysis
-          - delivery
-          - ticker-echo
+          - agent-data-collection
+          - agent-content-generation
+          - agent-article-analysis
+          - agent-query-analysis
+          - agent-delivery
+          - agent-ticker-echo
           - agent-user-registration
     steps:
       - uses: actions/delete-package-versions@v5

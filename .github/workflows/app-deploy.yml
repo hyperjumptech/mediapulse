@@ -87,25 +87,25 @@ jobs:
         include:
           - service: agent-auth-api
             dockerfile: apps/hermes/agent-auth-api/Dockerfile
-            image: agent-auth-api
+            image: app-agent-auth-api
           - service: agent-data-api
             dockerfile: apps/mediapulse/agent-data-api/Dockerfile
-            image: agent-data-api
+            image: app-agent-data-api
           - service: domain-api
             dockerfile: apps/mediapulse/domain-api/Dockerfile
-            image: domain-api
+            image: app-domain-api
           - service: agent-registry-api
             dockerfile: apps/hermes/agent-registry-api/Dockerfile
-            image: agent-registry-api
+            image: app-agent-registry-api
           - service: user-registration
             dockerfile: apps/mediapulse/user-registration/Dockerfile
-            image: user-registration
+            image: app-user-registration
           - service: hermes
             dockerfile: apps/hermes/dashboard/Dockerfile
-            image: hermes
+            image: app-hermes
           - service: hermes-worker
             dockerfile: apps/hermes/worker/Dockerfile
-            image: hermes-worker
+            image: app-hermes-worker
     steps:
       - uses: actions/checkout@v6
 
@@ -168,13 +168,13 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - agent-auth-api
-          - agent-data-api
-          - domain-api
-          - agent-registry-api
-          - user-registration
-          - hermes
-          - hermes-worker
+          - app-agent-auth-api
+          - app-agent-data-api
+          - app-domain-api
+          - app-agent-registry-api
+          - app-user-registration
+          - app-hermes
+          - app-hermes-worker
     steps:
       - uses: actions/delete-package-versions@v5
         with:
