@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   db-ready:
     runs-on: ubuntu-latest
@@ -73,93 +77,158 @@ jobs:
       - name: Migrate deploy (mediapulse)
         run: pnpm --filter=@mediapulse/database run db:migrate:deploy
 
-  agent-auth-api:
+  publish:
+    name: Publish ${{ matrix.service }}
     runs-on: ubuntu-latest
     needs: db-migrate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: agent-auth-api
+            dockerfile: apps/hermes/agent-auth-api/Dockerfile
+            image: app-agent-auth-api
+          - service: agent-data-api
+            dockerfile: apps/mediapulse/agent-data-api/Dockerfile
+            image: app-agent-data-api
+          - service: domain-api
+            dockerfile: apps/mediapulse/domain-api/Dockerfile
+            image: app-domain-api
+          - service: agent-registry-api
+            dockerfile: apps/hermes/agent-registry-api/Dockerfile
+            image: app-agent-registry-api
+          - service: user-registration
+            dockerfile: apps/mediapulse/user-registration/Dockerfile
+            image: app-user-registration
+          - service: hermes
+            dockerfile: apps/hermes/dashboard/Dockerfile
+            image: app-hermes
+          - service: hermes-worker
+            dockerfile: apps/hermes/worker/Dockerfile
+            image: app-hermes-worker
     steps:
       - uses: actions/checkout@v6
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/hermes/agent-auth-api/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  agent-data-api:
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy:
+    name: Deploy ${{ matrix.service }} via Coolify
     runs-on: ubuntu-latest
-    needs: db-migrate
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: agent-auth-api
+            webhook_secret: COOLIFY_WEBHOOK_APP_AGENT_AUTH_API
+          - service: agent-data-api
+            webhook_secret: COOLIFY_WEBHOOK_APP_AGENT_DATA_API
+          - service: domain-api
+            webhook_secret: COOLIFY_WEBHOOK_APP_DOMAIN_API
+          - service: agent-registry-api
+            webhook_secret: COOLIFY_WEBHOOK_APP_AGENT_REGISTRY_API
+          - service: user-registration
+            webhook_secret: COOLIFY_WEBHOOK_APP_USER_REGISTRATION
+          - service: hermes
+            webhook_secret: COOLIFY_WEBHOOK_APP_HERMES
+          - service: hermes-worker
+            webhook_secret: COOLIFY_WEBHOOK_APP_HERMES_WORKER
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/agent-data-api/fly.toml
+      - name: Trigger Coolify deployment over OpenVPN
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          COOLIFY_WEBHOOK_URL: ${{ secrets[matrix.webhook_secret] }}
+          COOLIFY_WEBHOOK_SECRET: ${{ secrets.COOLIFY_WEBHOOK_SECRET }}
+          OPENVPN_CONFIG_B64: ${{ secrets.OPENVPN_CONFIG_B64 }}
+          OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
+        run: |
+          set -euo pipefail
 
-  domain-api:
+          if ! command -v openvpn >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y openvpn
+          fi
+
+          WORKDIR="$(mktemp -d)"
+          cleanup() {
+            if [ -f "$WORKDIR/openvpn.pid" ]; then
+              sudo kill "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
+            fi
+            rm -rf "$WORKDIR"
+          }
+          trap cleanup EXIT
+
+          printf "%s" "$OPENVPN_CONFIG_B64" | base64 --decode > "$WORKDIR/client.ovpn"
+          printf "%s\n" "$OPENVPN_PASSWORD" > "$WORKDIR/passphrase.txt"
+          chmod 600 "$WORKDIR/passphrase.txt"
+
+          sudo openvpn \
+            --config "$WORKDIR/client.ovpn" \
+            --askpass "$WORKDIR/passphrase.txt" \
+            --daemon \
+            --writepid "$WORKDIR/openvpn.pid" \
+            --log "$WORKDIR/openvpn.log"
+
+          connected="false"
+          for _ in {1..30}; do
+            if sudo grep -q "Initialization Sequence Completed" "$WORKDIR/openvpn.log"; then
+              connected="true"
+              break
+            fi
+            if [ -f "$WORKDIR/openvpn.pid" ] && ! sudo kill -0 "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$connected" != "true" ]; then
+            sudo cat "$WORKDIR/openvpn.log" || true
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 --verbose \
+            -X GET "$COOLIFY_WEBHOOK_URL" \
+            --header "Authorization: Bearer $COOLIFY_WEBHOOK_SECRET"
+
+  cleanup:
+    name: Prune old GHCR versions (${{ matrix.image }})
     runs-on: ubuntu-latest
-    needs: db-migrate
+    needs: deploy
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - app-agent-auth-api
+          - app-agent-data-api
+          - app-domain-api
+          - app-agent-registry-api
+          - app-user-registration
+          - app-hermes
+          - app-hermes-worker
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/domain-api/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  agent-registry-api:
-    runs-on: ubuntu-latest
-    needs: db-migrate
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/hermes/agent-registry-api/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  user-registration:
-    runs-on: ubuntu-latest
-    needs: db-migrate
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/mediapulse/user-registration/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  hermes:
-    runs-on: ubuntu-latest
-    needs: db-migrate
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/hermes/dashboard/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  hermes-worker:
-    runs-on: ubuntu-latest
-    needs: db-migrate
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to fly.io
-        run: flyctl deploy --remote-only --depot=false --ha=false -c apps/hermes/worker/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ matrix.image }}
+          package-type: container
+          min-versions-to-keep: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
