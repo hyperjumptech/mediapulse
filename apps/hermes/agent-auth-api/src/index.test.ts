@@ -16,6 +16,9 @@ vi.mock("@hermes/orchestration-database", () => ({
 
 process.env.ORCHESTRATION_DATABASE_URL ??=
   "postgresql://localhost:5432/test?schema=orchestration";
+process.env.AGENT_AUTH_API_URL ??= "http://localhost:8080";
+process.env.AGENT_AUTH_JWT_SECRET ??=
+  "test-jwt-secret-for-index-test-at-least-16-chars";
 process.env.HERMES_INTERNAL_API_KEY ??= "test-internal-key-for-index-test";
 process.env.TEMP_ADMIN_USERNAME ??= "test-admin";
 process.env.TEMP_ADMIN_PASSWORD ??= "test-password";
