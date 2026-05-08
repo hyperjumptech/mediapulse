@@ -24,6 +24,8 @@ ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
 ENV HERMES_INTERNAL_API_KEY="dummy-internal-key"
+ENV AGENT_AUTH_API_URL="http://localhost:8080"
+ENV AGENT_AUTH_JWT_SECRET="dummy-jwt-secret-for-build"
 RUN rm -f apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local && \
     touch apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local
 
