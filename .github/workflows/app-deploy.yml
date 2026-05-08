@@ -124,6 +124,8 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
+          build-args: |
+            NEXT_PUBLIC_REGISTRATION_EMAIL=${{ matrix.service == 'user-registration' && secrets.NEXT_PUBLIC_REGISTRATION_EMAIL || '' }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
