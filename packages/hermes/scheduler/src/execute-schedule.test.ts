@@ -1,4 +1,37 @@
 /** @vitest-environment node */
+vi.mock("@hermes/orchestration-database", () => ({
+  AgentJobExecutionStatus: {
+    pending: "pending",
+    running: "running",
+    completed: "completed",
+    failed: "failed",
+    cancelled: "cancelled",
+  },
+  ScheduleEnqueueStatus: {
+    pending: "pending",
+    success: "success",
+    failed: "failed",
+    partial: "partial",
+  },
+  ScheduleRunStatus: {
+    pending: "pending",
+    running: "running",
+    succeeded: "succeeded",
+    failed: "failed",
+    partial: "partial",
+    cancelled: "cancelled",
+  },
+  ScheduleStepRollupStatus: {
+    pending: "pending",
+    running: "running",
+    success: "success",
+    failed: "failed",
+    partial: "partial",
+    cancelled: "cancelled",
+    skipped: "skipped",
+  },
+}));
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { encryptSecretVariableValue } from "@hermes/domain-integration-crypto";
 import {
