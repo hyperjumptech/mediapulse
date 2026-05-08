@@ -127,5 +127,7 @@ jobs:
           context: .
           file: ${{ steps.resolve.outputs.dockerfile }}
           push: false
+          build-args: |
+            NEXT_PUBLIC_REGISTRATION_EMAIL=${{ matrix.service == 'user-registration' && 'registration@example.com' || '' }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}

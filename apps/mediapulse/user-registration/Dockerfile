@@ -25,7 +25,9 @@ RUN rm -f apps/mediapulse/user-registration/.env apps/mediapulse/user-registrati
     touch apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local
 
 ENV MEDIAPULSE_ENV_BUILD_TARGETS=app.user-registration
-ENV NEXT_PUBLIC_REGISTRATION_EMAIL="registration@mediapulse.example"
+ARG NEXT_PUBLIC_REGISTRATION_EMAIL
+ENV NEXT_PUBLIC_REGISTRATION_EMAIL=$NEXT_PUBLIC_REGISTRATION_EMAIL
+RUN test -n "$NEXT_PUBLIC_REGISTRATION_EMAIL"
 RUN pnpm exec turbo build --filter=@mediapulse/user-registration --env-mode=loose
 
 ARG NODE_VERSION=24.12.0
