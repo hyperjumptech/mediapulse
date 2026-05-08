@@ -16,11 +16,10 @@ export const env = createEnv({
     OUTLOOK_CLIENT_SECRET: z.string().optional(),
     OUTLOOK_TENANT_ID: z.string().optional(),
     OUTLOOK_USER_ID: z.string().optional(),
+    REGISTRATION_EMAIL: z.string().min(1),
   },
   client: {
-    NEXT_PUBLIC_REGISTRATION_EMAIL: z.string().min(1),
   },
   experimental__runtimeEnv: {
-    NEXT_PUBLIC_REGISTRATION_EMAIL: process.env.NEXT_PUBLIC_REGISTRATION_EMAIL,
   }
 });

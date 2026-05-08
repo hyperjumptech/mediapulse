@@ -7,8 +7,8 @@ export const env = createEnv({
   server: {
     MEDIAPULSE_DATABASE_URL: z.string().min(1),
     HERMES_DATA_SOURCE_MAX_TAKE: z.number({ coerce: true }).optional(),
-    MEDIAPULSE_API_URL: z.string().optional(),
-    HERMES_API_URL: z.string().optional(),
+    MEDIAPULSE_API_URL: z.string().min(1),
+    HERMES_API_URL: z.string().min(1),
     DOMAIN_INTEGRATION_API_KEY: z.string().min(1),
     DOMAIN_INTEGRATION_ID: z.string().min(1),
     DOMAIN_INTEGRATION_NAME: z.string().optional(),
@@ -20,7 +20,7 @@ export const env = createEnv({
     OUTLOOK_CLIENT_SECRET: z.string().optional(),
     OUTLOOK_TENANT_ID: z.string().optional(),
     OUTLOOK_USER_ID: z.string().optional(),
-    UNSUBSCRIBE_SECRET: z.string().optional(),
+    UNSUBSCRIBE_SECRET: z.string().min(1),
   },
   client: {
   },
