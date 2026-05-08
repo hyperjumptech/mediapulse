@@ -22,7 +22,7 @@ Provision **three** PostgreSQL logical databases (they can be three schemas on o
 | **Mediapulse (domain)**    | Tickers, newsletters, KG, subscribers, user registration data, etc. | `MEDIAPULSE_DATABASE_URL`                                                                  | `pnpm --filter @mediapulse/database db:migrate:deploy`                       |
 | **DataQueue**              | hermes-worker job queue (scheduler)                                 | `PG_DATAQUEUE_DATABASE` (same host is fine; use `?schema=dataqueue&search_path=dataqueue`) | `pnpm --filter @hermes/worker run migrate-dataqueue` (with queue URL in env) |
 
-Pushes to **main** run the same two **`pnpm --filter … db:migrate:deploy`** commands from CI: workflow jobs **`db-migrate`** in **`.github/workflows/app-deploy.yml`** and **`.github/workflows/agent-deploy.yml`** (after **`db-ready`**, before image publish). Both workflows share the concurrency group **`prisma-migrate-production`** so only one migrate runs at a time if both workflows start together.
+Pushes to **main** run the same two **`pnpm --filter … db:migrate:deploy`** commands from CI: workflow jobs **`db-migrate`** in **`.github/workflows/app-deploy.yml`** and **`.github/workflows/agent-deploy.yml`** (before image publish). Both workflows share the concurrency group **`prisma-migrate-production`** so only one migrate runs at a time if both workflows start together.
 
 After migrations succeed, each workflow builds and pushes per-service images to **GitHub Container Registry (GHCR)** as `ghcr.io/<owner>/<image>:sha-<commit>` and `ghcr.io/<owner>/<image>:latest`. Images are built from the repository root using each app's **`Dockerfile`**. Dockerfiles set **`MEDIAPULSE_ENV_BUILD_TARGETS`** or **`HERMES_ENV_BUILD_TARGETS`** so `@mediapulse/env` / `@hermes/env` only run `env-to-t3` for the slices that image needs (faster builds); leave those unset locally for full codegen.
 
@@ -182,7 +182,7 @@ After domain-api is live, set **`AGENT_AUTH_API_URL`** on domain-api (same auth 
 
 **Package:** `@mediapulse/user-registration` · **Path:** `apps/mediapulse/user-registration`
 
-Public-facing newsletter signup UI. The current implementation serves ticker choices from **`public/tickers.json`** and opens a prefilled **mailto** draft (no direct database or API calls in app code). The app is built with **`output: "standalone"`** for container-friendly deploys.
+Public-facing newsletter signup UI. The current implementation serves ticker choices from **`public/tickers.json`** and opens a prefilled **mailto** draft. It also hosts the public unsubscribe endpoint (`/api/unsubscribe`) and forwards token verification/update calls to agent-data-api. The app is built with **`output: "standalone"`** for container-friendly deploys.
 
 `next.config.js` loads dotenv files from **`packages/mediapulse/env`** (same directory you merge with `merge-env-examples.sh` for other Mediapulse services). If you later add server code that imports **`@mediapulse/env`**, provide the same merged variables as **domain-api** / **agent-data-api** (at minimum **`MEDIAPULSE_DATABASE_URL`** per the schema).
 
@@ -247,7 +247,7 @@ Annotated templates: **`packages/hermes/env/env.example`**, **`env.hermes-worker
 ## Summary
 
 - **Order:** Prerequisites (three DB roles + migrations) → **Hermes** (auth API → registry API → dashboard → worker, with **`HERMES_INTERNAL_API_KEY`** aligned) → **Mediapulse** (agent-data-api → domain-api → optional **user-registration** → agents).
-- **CI deploy flow:** Every merge to `main` runs `db-ready` → `db-migrate` → build and push per-service images to GHCR → trigger Coolify deploy webhooks → prune old GHCR versions (keep newest 2 per service for rollback).
+- **CI deploy flow:** Every merge to `main` runs `db-migrate` → build and push per-service images to GHCR → trigger Coolify deploy webhooks → prune old GHCR versions (keep newest 2 per service for rollback).
 - **Rollback:** Promote the previous image tag (`sha-<commit>`) in Coolify to roll back a service without a new merge.
 - **Secrets:** Never commit real values; use your platform’s secret storage. **`HERMES_INTERNAL_API_KEY`** is a deploy-time preset. **`DOMAIN_INTEGRATION_API_KEY`** on Mediapulse/agents is the API key generated in **Domain integrations** (Hermes dashboard). Apps require **`COOLIFY_WEBHOOK_APP_<SERVICE>`** secrets and agents require **`COOLIFY_WEBHOOK_AGENT_<SERVICE>`** secrets in GitHub Actions; GHCR access uses the built-in **`GITHUB_TOKEN`** with `packages: write`.
 - **JWTs:** agent-auth-api issues tokens for the internal preset and for **domain_integration** API keys (hash in DB); Hermes decrypts per-integration ciphertext for outbound domain/agent calls where configured. Verification uses **`AGENT_AUTH_API_URL`** / **`AGENT_AUTH_JWT_SECRET`** on the auth API.

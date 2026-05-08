@@ -35,6 +35,8 @@ import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 import {
   postUserRegistrationRegisterHandler,
   postUserRegistrationConfirmHandler,
+  getUserRegistrationUnsubscribeHandler,
+  postUserRegistrationUnsubscribeHandler,
 } from "./routes/user-registration.js";
 import {
   getQueryAnalysis,
@@ -116,6 +118,10 @@ const routeHandlers = {
   userRegistrationConfirm: {
     post: postUserRegistrationConfirmHandler,
   },
+  userRegistrationUnsubscribe: {
+    get: getUserRegistrationUnsubscribeHandler,
+    post: postUserRegistrationUnsubscribeHandler,
+  },
   contentGenerationRuns: {
     get: getContentGenerationRuns,
     post: postContentGenerationRun,
@@ -124,13 +130,17 @@ const routeHandlers = {
 
 for (const version of AGENT_DATA_API_LIVE_VERSIONS) {
   const versionApi = new Hono();
-  versionApi.use(
-    "*",
-    bearerAuth({
+  const unsubscribePath = `${AGENT_DATA_API_PREFIX}/${version}/user-registration-unsubscribe`;
+  versionApi.use("*", async (context, next) => {
+    const pathname = new URL(context.req.url).pathname;
+    if (pathname === unsubscribePath) {
+      return next();
+    }
+    return bearerAuth({
       verifyToken: (token) =>
         verifyTokenViaAuthApi(token, env.AGENT_AUTH_API_URL!),
-    }),
-  );
+    })(context, next);
+  });
   registerAgentDataApiRoutes(
     versionApi,
     agentDataApiManifestForVersion(version),

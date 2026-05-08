@@ -87,6 +87,7 @@ jobs:
           push: true
           build-args: |
             NEXT_PUBLIC_REGISTRATION_EMAIL=${{ matrix.service == 'user-registration' && secrets.NEXT_PUBLIC_REGISTRATION_EMAIL || '' }}
+            AGENT_DATA_API_URL=${{ matrix.service == 'user-registration' && secrets.AGENT_DATA_API_URL || '' }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest

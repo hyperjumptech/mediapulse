@@ -23,6 +23,19 @@ export const postUserRegistrationConfirmBodySchema = z.object({
     .optional(),
 });
 
+export const userRegistrationUnsubscribeMethodSchema = z.enum([
+  "link",
+  "one_click",
+]);
+
+export const userRegistrationUnsubscribeQuerySchema = z.object({
+  token: z.string().min(1),
+});
+
+export const postUserRegistrationUnsubscribeBodySchema = z.object({
+  token: z.string().min(1),
+});
+
 // Response schemas
 export const postUserRegistrationRegisterResponseSchema = z.object({
   tickerKnown: z.boolean(),
@@ -33,6 +46,17 @@ export const postUserRegistrationRegisterResponseSchema = z.object({
 
 export const postUserRegistrationConfirmResponseSchema = z.object({
   success: z.boolean(),
+});
+
+export const userRegistrationUnsubscribeResponseSchema = z.object({
+  status: z.enum([
+    "unsubscribed",
+    "already_unsubscribed",
+    "not_found",
+    "invalid",
+    "expired",
+  ]),
+  displaySymbol: z.string().optional(),
 });
 
 export type PostUserRegistrationRegisterBody = z.infer<
@@ -46,4 +70,16 @@ export type PostUserRegistrationRegisterResponse = z.infer<
 >;
 export type PostUserRegistrationConfirmResponse = z.infer<
   typeof postUserRegistrationConfirmResponseSchema
+>;
+export type UserRegistrationUnsubscribeMethod = z.infer<
+  typeof userRegistrationUnsubscribeMethodSchema
+>;
+export type UserRegistrationUnsubscribeQuery = z.infer<
+  typeof userRegistrationUnsubscribeQuerySchema
+>;
+export type PostUserRegistrationUnsubscribeBody = z.infer<
+  typeof postUserRegistrationUnsubscribeBodySchema
+>;
+export type UserRegistrationUnsubscribeResponse = z.infer<
+  typeof userRegistrationUnsubscribeResponseSchema
 >;

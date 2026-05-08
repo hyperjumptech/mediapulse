@@ -54,6 +54,9 @@ import {
   postUserRegistrationRegisterResponseSchema,
   postUserRegistrationConfirmBodySchema,
   postUserRegistrationConfirmResponseSchema,
+  postUserRegistrationUnsubscribeBodySchema,
+  userRegistrationUnsubscribeQuerySchema,
+  userRegistrationUnsubscribeResponseSchema,
 } from "./user-registration.js";
 import {
   contentGenerationRunQuerySchema,
@@ -379,6 +382,28 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postUserRegistrationConfirmBodySchema,
         response: postUserRegistrationConfirmResponseSchema,
+      },
+    },
+  },
+  userRegistrationUnsubscribe: {
+    v1: {
+      get: {
+        query: userRegistrationUnsubscribeQuerySchema,
+        response: userRegistrationUnsubscribeResponseSchema,
+      },
+      post: {
+        body: postUserRegistrationUnsubscribeBodySchema,
+        response: userRegistrationUnsubscribeResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: userRegistrationUnsubscribeQuerySchema,
+        response: userRegistrationUnsubscribeResponseSchema,
+      },
+      post: {
+        body: postUserRegistrationUnsubscribeBodySchema,
+        response: userRegistrationUnsubscribeResponseSchema,
       },
     },
   },

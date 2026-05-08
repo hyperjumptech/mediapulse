@@ -6,7 +6,7 @@ icon: Database
 
 ## Purpose
 
-agent-data-api is a Hono server that exposes data endpoints used by agents. **The agent gets data it needs and stores output data it produces to this API via the agent-data-api-client SDK.** All routes are protected by bearer auth; the token is verified via `@workspace/agent-auth-client` against agent-auth-api.
+agent-data-api is a Hono server that exposes data endpoints used by agents. **The agent gets data it needs and stores output data it produces to this API via the agent-data-api-client SDK.** Versioned routes are protected by bearer auth (verified via `@workspace/agent-auth-client` against agent-auth-api), except the public unsubscribe endpoint used by the user-registration app.
 
 ## Features
 
@@ -43,6 +43,8 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/content-generation-runs`    | Persist one content-generation run record                             |
 | POST   | `/api/v1/user-registration-register` | Process a new or returning subscription                               |
 | POST   | `/api/v1/user-registration-confirm`  | Confirm a pending subscription (double opt-in)                        |
+| GET    | `/api/v1/user-registration-unsubscribe` | Resolve an unsubscribe token status for public UI                     |
+| POST   | `/api/v1/user-registration-unsubscribe` | Apply one-click unsubscribe from public user-registration endpoint    |
 | GET    | `/api/v1/query-analysis`             | Get query-analysis context by ticker                                  |
 | POST   | `/api/v1/query-analysis`             | Store and activate a versioned query set                              |
 

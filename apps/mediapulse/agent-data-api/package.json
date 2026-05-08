@@ -11,13 +11,14 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@mediapulse/database": "workspace:*",
+    "@mediapulse/env": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@workspace/api-utils": "workspace:*",
-    "@mediapulse/env": "workspace:*",
-    "@mediapulse/database": "workspace:*",
     "@workspace/logger": "workspace:*",
+    "@workspace/utils": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",
     "zod": "catalog:"
