@@ -55,7 +55,7 @@ export const DeliveryConfigSchema = z
       /** Shared HMAC secret for signing/verifying unsubscribe tokens. */
       secret: z.string().min(1),
       /**
-       * Public base URL of the domain API (e.g. "https://mediapulse.com").
+       * Public base URL of the user-registration app (e.g. "https://register.mediapulse.com").
        * The full unsubscribe path `/api/unsubscribe` is appended at runtime.
        */
       baseUrl: z.string().url(),
