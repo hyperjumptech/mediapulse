@@ -1,4 +1,31 @@
 /** @vitest-environment node */
+vi.mock("@hermes/orchestration-database", () => ({
+  AgentJobExecutionStatus: {
+    pending: "pending",
+    running: "running",
+    completed: "completed",
+    failed: "failed",
+    cancelled: "cancelled",
+  },
+  ScheduleRunStatus: {
+    pending: "pending",
+    running: "running",
+    succeeded: "succeeded",
+    failed: "failed",
+    partial: "partial",
+    cancelled: "cancelled",
+  },
+  ScheduleStepRollupStatus: {
+    pending: "pending",
+    running: "running",
+    success: "success",
+    failed: "failed",
+    partial: "partial",
+    cancelled: "cancelled",
+    skipped: "skipped",
+  },
+}));
+
 import {
   AgentJobExecutionStatus,
   ScheduleRunStatus,
