@@ -12,7 +12,7 @@ pnpm add @mediapulse/outlook-inbox
 
 ## Configuration
 
-The package does **not** read `process.env` directly. Consuming apps should use `@mediapulse/env` (or their app env slice) and pass credentials into the client.
+The package does **not** read `process.env` directly. Pass credentials from your app’s typed env (for this monorepo’s local Graph script, use `@mediapulse/env/outlook-inbox`; production agents typically receive values from Hermes agent config).
 
 ### Option 1: Client credentials (app-only)
 
@@ -20,7 +20,7 @@ Use Azure AD app registration with **Application** permission `Mail.ReadWrite` (
 
 ```ts
 import { createOutlookInboxClient } from "@mediapulse/outlook-inbox";
-import { env } from "@mediapulse/env";
+import { env } from "@mediapulse/env/outlook-inbox";
 
 const client = createOutlookInboxClient({
   clientId: env.OUTLOOK_CLIENT_ID,
@@ -44,9 +44,9 @@ const client = createOutlookInboxClient({
 });
 ```
 
-### Environment variables (for consuming apps)
+### Environment variables (this monorepo)
 
-Document in your app’s `env.example` (and add to your env schema) for client-credentials usage:
+For `pnpm --filter @mediapulse/outlook-inbox run test:lib`, copy `packages/mediapulse/env/env.outlook-inbox.example` into `packages/mediapulse/outlook-inbox/.env.local` and fill values. Elsewhere, add Outlook keys to your own env schema if you load credentials from env:
 
 - `OUTLOOK_CLIENT_ID` — Azure AD app (client) ID
 - `OUTLOOK_CLIENT_SECRET` — Client secret (server-only, no `NEXT_PUBLIC_`)

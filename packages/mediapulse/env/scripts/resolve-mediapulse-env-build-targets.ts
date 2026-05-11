@@ -15,6 +15,7 @@ export const MEDIAPULSE_ENV_BUILD_TARGET_ORDER = [
   "agents.ticker-echo",
   "agents.user-registration",
   "app.user-registration",
+  "outlook-inbox",
 ] as const;
 
 /** A single codegen slice key (suffix after `build:` in package.json). */
