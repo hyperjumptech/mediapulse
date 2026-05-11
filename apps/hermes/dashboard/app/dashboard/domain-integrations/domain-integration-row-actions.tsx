@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 import {
   DropdownMenu,
@@ -26,11 +27,11 @@ type DomainIntegrationRowActionsProps = {
 };
 
 /**
- * Dropdown with delete for a domain integration row; refreshes the page on success.
+ * Wires delete form action: refresh on success, toast server errors (e.g. pipelines still reference this integration).
+ *
+ * @returns `FormWithAction` for the delete route action and `pending` while the request runs.
  */
-export const DomainIntegrationRowActions = ({
-  row,
-}: DomainIntegrationRowActionsProps) => {
+const useDomainIntegrationRowDeleteActions = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -39,6 +40,23 @@ export const DomainIntegrationRowActions = ({
       router.refresh();
     }
   }, [state, router]);
+
+  useEffect(() => {
+    if (state && state.status === false && state.message) {
+      toast.error(String(state.message));
+    }
+  }, [state]);
+
+  return { FormWithAction, pending };
+};
+
+/**
+ * Dropdown with delete for a domain integration row; refreshes the page on success.
+ */
+export const DomainIntegrationRowActions = ({
+  row,
+}: DomainIntegrationRowActionsProps) => {
+  const { FormWithAction, pending } = useDomainIntegrationRowDeleteActions();
 
   return (
     <DropdownMenu>
@@ -53,7 +71,15 @@ export const DomainIntegrationRowActions = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem variant="destructive" disabled={pending} asChild>
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={pending}
+          asChild
+          onSelect={(event) => {
+            // Keep Radix from closing the item before the nested server-action form submits (mouse path).
+            event.preventDefault();
+          }}
+        >
           <DeleteConfirmForm
             FormWithAction={FormWithAction}
             confirmMessage={`Delete domain integration "${row.integrationId}" (${row.name})? You cannot delete it while pipelines still reference it.`}

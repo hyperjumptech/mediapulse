@@ -405,7 +405,7 @@ Include **only if** there is a **concrete**, diff- or rules-grounded action **no
 
 ### Reviewer discipline (follow strictly)
 - Every Finding row must be grounded in a clear diff observation and mapped to a specific rule/skill. Do not require verbatim quotes; paraphrase is fine.
-- **Do not** emit vague "process compliance" rows tied only to workflow rules like \`read-rules-and-skills-first.mdc\`, \`run-code-quality-after-changes.mdc\`, or \`planning-ts-js-standards.mdc\` unless you can cite a concrete non-\`scripts/\` file path from the diff that demonstrates the violation.
+- **Do not** emit vague "process compliance" rows tied only to workflow rules like \`read-rules-and-skills-first.mdc\`, \`verifier.md\` (subagent contract prose), or \`planning-ts-js-standards.mdc\` unless you can cite a concrete non-\`scripts/\` file path from the diff that demonstrates the violation.
 - **No hollow praise** and no PR recap unless it directly supports a finding.
 - **Test location (this monorepo)**: Default expectation is \`*.test.ts\` / \`*.test.tsx\` **next to the module under test**. A top-level \`tests/\` tree separate from \`src/\` is not the default—flag only when the diff actually adds such a mismatch per neighboring patterns.
 - **Nice-to-have** rows: only when a real, minor improvement is rules-grounded; no filler.

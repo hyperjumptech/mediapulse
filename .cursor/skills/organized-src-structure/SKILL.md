@@ -51,10 +51,11 @@ Not every package needs every folder—**mirror what already exists** in sibling
 
 ## Verification
 
-After structural or import changes: run the relevant package/app `pnpm lint`, `pnpm type:check`, and tests; from repo root run **`pnpm format:check`** (mandatory) and **`pnpm code-quality`** when touching TS/JS tests broadly. See `.cursor/rules/run-code-quality-after-changes.mdc`.
+After structural or import changes, use the **verifier** subagent (`.cursor/agents/verifier.md`) for lint, typecheck, tests, mandatory **`pnpm format:check`**, and scoped Docker builds (see the **Contract** section there for the minimum bar if you verify inline).
 
 ## Related
 
 - Cursor rule: `.cursor/rules/organized-src-structure.mdc`
 - TypeScript/JavaScript standards: `.cursor/rules/typescript-javascript-standards.mdc`
 - React hooks: `.cursor/rules/react-custom-hooks.mdc`
+- Verifier subagent: `.cursor/agents/verifier.md`

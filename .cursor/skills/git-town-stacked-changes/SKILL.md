@@ -108,7 +108,7 @@ When moving from tickets to code:
 3. For each ticket in order: ensure a **dedicated branch**; use `hack` for the first independent slice, `append` for dependent slices.
 4. **Assess feature-flag need** (see next section): if an earlier ticket would expose UI, routes, or product behavior that depends on a **later** ticket (API, schema, worker, permissions), gate that behavior behind a flag defaulting **off** until the stack is complete—or reorder tickets so vertical slices merge safely without dead ends.
 5. **Plan flag removal**: if you add a **temporary** merge-order flag, record in the **last** integrating ticket (or a dedicated cleanup ticket) that the gate must be **deleted** and env/docs updated—do not leave the feature forever behind `if (env.FLAG)`.
-6. Keep commits scoped; run **`pnpm code-quality`** (or project equivalent) before pushing each layer if the repo requires it.
+6. Keep commits scoped; before pushing each layer, run the **verifier** subagent (`.cursor/agents/verifier.md`) or the **Contract** checks in that file (**`pnpm format:check`** mandatory; **`pnpm code-quality`** when feasible).
 7. Open PRs from **leaf to root** is wrong — **ship/merge from root of stack toward tip** (oldest / closest to `main` first).
 
 ## Feature flags when the stack splits UI and backend (or any unsafe partial ship)

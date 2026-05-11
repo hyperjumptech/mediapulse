@@ -14,9 +14,17 @@ type PipelineWithSteps = Awaited<
   ReturnType<typeof getPipelinesWithSteps>
 >[number];
 
+/** Row for domain integration `<select>` in pipeline create/edit modal. */
+export type PipelineDomainIntegrationOption = {
+  id: string;
+  integrationId: string;
+  name: string;
+};
+
 export type PipelinesWithModalProps = {
   pipelines: PipelineWithSteps[];
   pipelineValidationById: Record<string, PipelineValidationResult>;
+  domainIntegrations: PipelineDomainIntegrationOption[];
 };
 
 /**
@@ -55,6 +63,7 @@ const usePipelinesWithModalState = () => {
 export const PipelinesWithModal = ({
   pipelines,
   pipelineValidationById,
+  domainIntegrations,
 }: PipelinesWithModalProps) => {
   const {
     modalOpen,
@@ -82,6 +91,7 @@ export const PipelinesWithModal = ({
         onOpenChange={setModalOpen}
         mode={modalMode}
         editPipelineId={editPipelineId}
+        domainIntegrations={domainIntegrations}
       />
     </>
   );

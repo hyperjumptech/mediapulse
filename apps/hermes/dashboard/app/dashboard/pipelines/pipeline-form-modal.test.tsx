@@ -97,6 +97,10 @@ const getCreateUseFormActionMock = async () => {
   return mod.useFormAction as Mock;
 };
 
+const domainIntegrationsFixture = [
+  { id: "di-1", integrationId: "mediapulse", name: "Mediapulse" },
+];
+
 describe("PipelineFormModal", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -115,6 +119,7 @@ describe("PipelineFormModal", () => {
         onOpenChange={vi.fn()}
         mode="create"
         editPipelineId={null}
+        domainIntegrations={domainIntegrationsFixture}
       />,
     );
 
@@ -136,6 +141,7 @@ describe("PipelineFormModal", () => {
         onOpenChange={vi.fn()}
         mode="edit"
         editPipelineId="pipeline-123"
+        domainIntegrations={domainIntegrationsFixture}
       />,
     );
 
@@ -157,6 +163,7 @@ describe("PipelineFormModal", () => {
         onOpenChange={vi.fn()}
         mode="create"
         editPipelineId={null}
+        domainIntegrations={domainIntegrationsFixture}
       />,
     );
 
@@ -178,6 +185,7 @@ describe("PipelineFormModal", () => {
         onOpenChange={vi.fn()}
         mode="create"
         editPipelineId={null}
+        domainIntegrations={domainIntegrationsFixture}
       />,
     );
 
@@ -197,6 +205,7 @@ describe("PipelineFormModal", () => {
         onOpenChange={vi.fn()}
         mode="create"
         editPipelineId={null}
+        domainIntegrations={domainIntegrationsFixture}
       />,
     );
 

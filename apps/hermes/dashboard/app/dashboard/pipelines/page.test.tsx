@@ -21,17 +21,31 @@ vi.mock("@/lib/validate-pipeline", () => ({
   getPipelinesValidationMap: () => getPipelinesValidationMapMock(),
 }));
 
+const { findManyDomainIntegrations } = vi.hoisted(() => ({
+  findManyDomainIntegrations: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock("@hermes/orchestration-database", () => ({
-  prisma: {},
+  prisma: {
+    domainIntegration: {
+      findMany: findManyDomainIntegrations,
+    },
+  },
 }));
 
 vi.mock("./pipelines-with-modal", () => ({
   PipelinesWithModal: ({
     pipelines,
+    domainIntegrations,
   }: {
     pipelines: Array<{ id: string; name: string }>;
+    domainIntegrations: unknown[];
   }) => (
-    <div data-testid="pipelines-with-modal" data-count={pipelines.length}>
+    <div
+      data-testid="pipelines-with-modal"
+      data-count={pipelines.length}
+      data-domain-count={domainIntegrations.length}
+    >
       Pipelines
     </div>
   ),
@@ -50,6 +64,8 @@ describe("PipelinesPage", () => {
     vi.restoreAllMocks();
     getPipelinesWithStepsMock.mockReset();
     getPipelinesValidationMapMock.mockReset();
+    findManyDomainIntegrations.mockClear();
+    findManyDomainIntegrations.mockResolvedValue([]);
   });
 
   it("renders pipelines with modal when authenticated", async () => {
@@ -69,6 +85,11 @@ describe("PipelinesPage", () => {
       "data-count",
       "1",
     );
+    expect(screen.getByTestId("pipelines-with-modal")).toHaveAttribute(
+      "data-domain-count",
+      "0",
+    );
+    expect(findManyDomainIntegrations).toHaveBeenCalled();
   });
 
   it("renders empty state when no pipelines", async () => {

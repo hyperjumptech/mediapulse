@@ -17,16 +17,19 @@ vi.mock("./pipeline-form-modal", () => ({
     open,
     mode,
     editPipelineId,
+    domainIntegrations,
   }: {
     open: boolean;
     mode: string;
     editPipelineId: string | null;
+    domainIntegrations: unknown[];
   }) => (
     <div
       data-testid="pipeline-form-modal"
       data-open={open}
       data-mode={mode}
       data-edit-id={editPipelineId ?? "none"}
+      data-domain-count={domainIntegrations.length}
     />
   ),
 }));
@@ -53,6 +56,12 @@ vi.mock("./pipelines-table", () => ({
   ),
 }));
 
+const emptyDomainIntegrations: Array<{
+  id: string;
+  integrationId: string;
+  name: string;
+}> = [];
+
 const createMockPipeline = (id: string, name: string) => ({
   id,
   domainIntegrationId: "di-1",
@@ -71,7 +80,13 @@ const createMockPipeline = (id: string, name: string) => ({
 describe("PipelinesWithModal", () => {
   it("renders create pipeline button", () => {
     // Act
-    render(<PipelinesWithModal pipelines={[]} pipelineValidationById={{}} />);
+    render(
+      <PipelinesWithModal
+        pipelines={[]}
+        pipelineValidationById={{}}
+        domainIntegrations={emptyDomainIntegrations}
+      />,
+    );
 
     // Assert
     expect(
@@ -88,6 +103,7 @@ describe("PipelinesWithModal", () => {
       <PipelinesWithModal
         pipelines={pipelines}
         pipelineValidationById={{ "1": { valid: true, warnings: [] } }}
+        domainIntegrations={emptyDomainIntegrations}
       />,
     );
 
@@ -101,7 +117,13 @@ describe("PipelinesWithModal", () => {
 
   it("renders pipeline form modal", () => {
     // Act
-    render(<PipelinesWithModal pipelines={[]} pipelineValidationById={{}} />);
+    render(
+      <PipelinesWithModal
+        pipelines={[]}
+        pipelineValidationById={{}}
+        domainIntegrations={emptyDomainIntegrations}
+      />,
+    );
 
     // Assert
     expect(screen.getByTestId("pipeline-form-modal")).toBeInTheDocument();
@@ -109,7 +131,13 @@ describe("PipelinesWithModal", () => {
 
   it("opens create modal when clicking create button", () => {
     // Act
-    render(<PipelinesWithModal pipelines={[]} pipelineValidationById={{}} />);
+    render(
+      <PipelinesWithModal
+        pipelines={[]}
+        pipelineValidationById={{}}
+        domainIntegrations={emptyDomainIntegrations}
+      />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
 
@@ -135,6 +163,7 @@ describe("PipelinesWithModal", () => {
         pipelineValidationById={{
           "pipeline-1": { valid: true, warnings: [] },
         }}
+        domainIntegrations={emptyDomainIntegrations}
       />,
     );
 
@@ -157,7 +186,13 @@ describe("PipelinesWithModal", () => {
 
   it("modal is closed initially", () => {
     // Act
-    render(<PipelinesWithModal pipelines={[]} pipelineValidationById={{}} />);
+    render(
+      <PipelinesWithModal
+        pipelines={[]}
+        pipelineValidationById={{}}
+        domainIntegrations={emptyDomainIntegrations}
+      />,
+    );
 
     // Assert
     expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
