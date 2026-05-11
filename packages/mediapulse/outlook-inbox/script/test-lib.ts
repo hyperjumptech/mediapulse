@@ -1,18 +1,18 @@
 /**
  * Test script: fetches emails from the shared mailbox via outlook-inbox and prints sender and subject.
  * Run from repo root: pnpm --filter @mediapulse/outlook-inbox run test:lib
- * Requires OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_TENANT_ID (and optionally OUTLOOK_USER_ID for shared mailbox) in env.
+ * Requires OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_TENANT_ID (and optionally OUTLOOK_USER_ID for shared mailbox) in env (`@mediapulse/env/outlook-inbox`).
  * Note: Output contains real mailbox data (sender, subject). Do not paste or commit script output.
  */
 
 import { createOutlookInboxClient } from "@mediapulse/outlook-inbox";
-import { env } from "@mediapulse/env";
+import { env } from "@mediapulse/env/outlook-inbox";
 
 async function main(): Promise<void> {
   const { OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_TENANT_ID } = env;
   if (!OUTLOOK_CLIENT_ID || !OUTLOOK_CLIENT_SECRET || !OUTLOOK_TENANT_ID) {
     throw new Error(
-      "Set OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, and OUTLOOK_TENANT_ID in the environment (e.g. .env).",
+      "Set OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, and OUTLOOK_TENANT_ID (e.g. packages/mediapulse/outlook-inbox/.env.local from env.outlook-inbox.example).",
     );
   }
 

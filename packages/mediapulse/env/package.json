@@ -15,6 +15,7 @@
     "build:agents.ticker-echo": "pnpm exec env-to-t3 -i env.agents.ticker-echo.example -o src/agents-ticker-echo.ts",
     "build:agents.user-registration": "pnpm exec env-to-t3 -i env.agents.user-registration.example -o src/agents-user-registration.ts",
     "build:app.user-registration": "pnpm exec env-to-t3 -i env.app.user-registration.example -o src/app-user-registration.ts",
+    "build:outlook-inbox": "pnpm exec env-to-t3 -i env.outlook-inbox.example -o src/outlook-inbox.ts",
     "build:agents.article-analysis": "pnpm exec env-to-t3 -i env.agents.article-analysis.example -o src/agents-article-analysis.ts"
   },
   "exports": {
@@ -53,6 +54,10 @@
     "./agents-article-analysis": {
       "types": "./src/agents-article-analysis.ts",
       "default": "./src/agents-article-analysis.ts"
+    },
+    "./outlook-inbox": {
+      "types": "./src/outlook-inbox.ts",
+      "default": "./src/outlook-inbox.ts"
     }
   },
   "dependencies": {

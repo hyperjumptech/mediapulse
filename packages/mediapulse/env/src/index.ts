@@ -16,10 +16,6 @@ export const env = createEnv({
     DATABASE_CERT_BASE64: z.string().optional(),
     PORT: z.number({ coerce: true }).optional(),
     AGENT_AUTH_API_URL: z.string().min(1),
-    OUTLOOK_CLIENT_ID: z.string().optional(),
-    OUTLOOK_CLIENT_SECRET: z.string().optional(),
-    OUTLOOK_TENANT_ID: z.string().optional(),
-    OUTLOOK_USER_ID: z.string().optional(),
     UNSUBSCRIBE_SECRET: z.string().min(1),
   },
   client: {
