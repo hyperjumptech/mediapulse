@@ -142,27 +142,47 @@ jobs:
           printf "%s\n" "$OPENVPN_PASSWORD" > "$WORKDIR/passphrase.txt"
           chmod 600 "$WORKDIR/passphrase.txt"
 
-          sudo openvpn \
-            --config "$WORKDIR/client.ovpn" \
-            --askpass "$WORKDIR/passphrase.txt" \
-            --daemon \
-            --writepid "$WORKDIR/openvpn.pid" \
-            --log "$WORKDIR/openvpn.log"
+          vpn_connected="false"
+          for attempt in 1 2 3; do
+            if [ -f "$WORKDIR/openvpn.pid" ]; then
+              sudo kill "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
+              sudo rm -f "$WORKDIR/openvpn.pid"
+            fi
+            sudo rm -f "$WORKDIR/openvpn.log"
 
-          connected="false"
-          for _ in {1..30}; do
-            if sudo grep -q "Initialization Sequence Completed" "$WORKDIR/openvpn.log"; then
-              connected="true"
+            sudo openvpn \
+              --config "$WORKDIR/client.ovpn" \
+              --askpass "$WORKDIR/passphrase.txt" \
+              --daemon \
+              --writepid "$WORKDIR/openvpn.pid" \
+              --log "$WORKDIR/openvpn.log"
+
+            connected="false"
+            for _ in {1..30}; do
+              if sudo grep -q "Initialization Sequence Completed" "$WORKDIR/openvpn.log"; then
+                connected="true"
+                break
+              fi
+              if [ -f "$WORKDIR/openvpn.pid" ] && ! sudo kill -0 "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "$connected" = "true" ]; then
+              vpn_connected="true"
               break
             fi
-            if [ -f "$WORKDIR/openvpn.pid" ] && ! sudo kill -0 "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1; then
-              break
+
+            echo "::warning::OpenVPN did not reach Initialization Sequence Completed (attempt ${attempt}/3)." >&2
+            sudo cat "$WORKDIR/openvpn.log" || true
+            if [ "$attempt" -lt 3 ]; then
+              echo "Retrying VPN in 15s..." >&2
+              sleep 15
             fi
-            sleep 2
           done
 
-          if [ "$connected" != "true" ]; then
-            sudo cat "$WORKDIR/openvpn.log" || true
+          if [ "$vpn_connected" != "true" ]; then
             exit 1
           fi
 
