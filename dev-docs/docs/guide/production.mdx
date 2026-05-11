@@ -233,7 +233,7 @@ For **knowledge-graph** behaviour and data model details, see [Knowledge Graph](
 | `HERMES_DATA_SOURCE_MAX_TAKE`                                           | Hermes dashboard, worker, Mediapulse base env | Max rows for `db:` expansion (default `5000`); keep the same everywhere.                                |
 | `AGENT_DATA_API_URL`                                                    | Hermes env                                    | Required on **agents** that call agent-data-api; optional on Hermes if you centralize URLs elsewhere.   |
 | `HERMES_INVOKE_AGENT_MAX_ATTEMPTS` / `HERMES_INVOKE_AGENT_DLQ_JOB_TYPE` | hermes-worker                                 | Optional DataQueue retry and dead-letter tuning for agent invocation (see `env.hermes-worker.example`). |
-| `OUTLOOK_*`                                                             | `@mediapulse/env/outlook-inbox` (optional slice) | Local `@mediapulse/outlook-inbox` `test:lib` only; see [Microsoft setup](/mediapulse/packages/outlook-inbox/microsoft-setup). Hermes pipelines use agent config / secret variables, not this env module. |
+| Outlook / Graph                                                         | Hermes agent config (and CLI for `test:lib`) | No `OUTLOOK_*` in `@mediapulse/env`. Agents pass `outlookClientId` / secret / tenant / user from Hermes; local script uses flags — see [Microsoft setup](/mediapulse/packages/outlook-inbox/microsoft-setup). |
 
 Annotated templates: **`packages/hermes/env/env.example`**, **`env.hermes-worker.example`**, **`packages/mediapulse/env/env.example`**, **`env.agents.*.example`**. After editing those files, run `pnpm build` in `packages/hermes/env` and/or `packages/mediapulse/env` to regenerate types.
 

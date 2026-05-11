@@ -12,21 +12,20 @@ pnpm add @mediapulse/outlook-inbox
 
 ## Configuration
 
-The package does **not** read `process.env` directly. Pass credentials from your app’s typed env (for this monorepo’s local Graph script, use `@mediapulse/env/outlook-inbox`; production agents typically receive values from Hermes agent config).
+The library does **not** read environment variables. Your caller supplies `clientId`, `clientSecret`, `tenantId`, and optional `userId` (or a custom `getAccessToken`). In this repo, the **user-registration** agent gets those fields from **Hermes agent config** at invocation time.
 
 ### Option 1: Client credentials (app-only)
 
-Use Azure AD app registration with **Application** permission `Mail.ReadWrite` (or `Mail.Read` for list-only). Pass `clientId`, `clientSecret`, `tenantId`, and optionally `userId` (the mailbox to access; omit for delegated "me").
+Use Azure AD app registration with **Application** permission `Mail.ReadWrite` (or `Mail.Read` for list-only). Pass `clientId`, `clientSecret`, `tenantId`, and optionally `userId` (the mailbox to access; omit for delegated `"me"`).
 
 ```ts
 import { createOutlookInboxClient } from "@mediapulse/outlook-inbox";
-import { env } from "@mediapulse/env/outlook-inbox";
 
 const client = createOutlookInboxClient({
-  clientId: env.OUTLOOK_CLIENT_ID,
-  clientSecret: env.OUTLOOK_CLIENT_SECRET,
-  tenantId: env.OUTLOOK_TENANT_ID,
-  userId: env.OUTLOOK_USER_ID ?? "me",
+  clientId: "<azure-app-client-id>",
+  clientSecret: "<client-secret>",
+  tenantId: "<tenant-id>",
+  userId: "shared@example.com",
 });
 ```
 
@@ -44,14 +43,19 @@ const client = createOutlookInboxClient({
 });
 ```
 
-### Environment variables (this monorepo)
+### Local `test:lib` script
 
-For `pnpm --filter @mediapulse/outlook-inbox run test:lib`, copy `packages/mediapulse/env/env.outlook-inbox.example` into `packages/mediapulse/outlook-inbox/.env.local` and fill values. Elsewhere, add Outlook keys to your own env schema if you load credentials from env:
+From the repo root, pass credentials as **CLI flags** (same values you would put in Hermes config), not Mediapulse env:
 
-- `OUTLOOK_CLIENT_ID` — Azure AD app (client) ID
-- `OUTLOOK_CLIENT_SECRET` — Client secret (server-only, no `NEXT_PUBLIC_`)
-- `OUTLOOK_TENANT_ID` — Azure AD tenant ID
-- `OUTLOOK_USER_ID` — Optional; for app-only, the shared mailbox to access: use the mailbox email (e.g. `shared@domain.com`) or Azure AD object ID. Omit for "me".
+```bash
+pnpm --filter @mediapulse/outlook-inbox run test:lib -- \
+  --client-id="<azure-app-client-id>" \
+  --client-secret="<client-secret>" \
+  --tenant-id="<tenant-id>" \
+  --user-id="shared@example.com"
+```
+
+`--user-id` is optional and defaults to `me`.
 
 ## Filtering messages
 
