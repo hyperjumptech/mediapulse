@@ -316,6 +316,7 @@ export const createRunPipelineHandler = ({
         sourceId: pipeline.id,
         expandStepInputs,
         variableSecretMasterKey: env.HERMES_INTERNAL_API_KEY,
+        variableSecretFallbackMasterKey: env.HERMES_INTERNAL_API_KEY_PREVIOUS,
         requireHttpsAgentEndpoints: false,
       });
       const executionTime = now();
