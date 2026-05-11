@@ -24,12 +24,6 @@ The **user-registration Next.js app** (public form on port 3002) uses a slim exp
 import { env } from "@mediapulse/env/app-user-registration";
 ```
 
-**Outlook / Graph test script** (`@mediapulse/outlook-inbox` `test:lib` only):
-
-```ts
-import { env } from "@mediapulse/env/outlook-inbox";
-```
-
 ## Agent-specific overrides (development)
 
 Mediapulse agents under `apps/mediapulse/agents/*` share `packages/mediapulse/env/.env` for most variables but need **per-agent** values for `PORT`, `AGENT_PUBLIC_URL`, and `DOMAIN_INTEGRATION_API_KEY` (Hermes **domain integration API key** for auto-registration JWT minting).

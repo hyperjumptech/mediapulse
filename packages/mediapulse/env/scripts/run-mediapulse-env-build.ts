@@ -52,10 +52,6 @@ const TARGET_SPECS: Readonly<
     input: "env.app.user-registration.example",
     output: "src/app-user-registration.ts",
   },
-  "outlook-inbox": {
-    input: "env.outlook-inbox.example",
-    output: "src/outlook-inbox.ts",
-  },
 };
 
 /**

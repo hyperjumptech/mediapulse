@@ -1,26 +1,24 @@
 /**
  * Test script: fetches emails from the shared mailbox via outlook-inbox and prints sender and subject.
- * Run from repo root: pnpm --filter @mediapulse/outlook-inbox run test:lib
- * Requires OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_TENANT_ID (and optionally OUTLOOK_USER_ID for shared mailbox) in env (`@mediapulse/env/outlook-inbox`).
+ * Run from repo root (pass Azure app credentials as flags, not env):
+ * `pnpm --filter @mediapulse/outlook-inbox run test:lib -- --client-id=… --client-secret=… --tenant-id=… [--user-id=…]`
  * Note: Output contains real mailbox data (sender, subject). Do not paste or commit script output.
  */
 
 import { createOutlookInboxClient } from "@mediapulse/outlook-inbox";
-import { env } from "@mediapulse/env/outlook-inbox";
+
+import { parseOutlookTestLibCli } from "./parse-outlook-test-lib-cli.js";
 
 async function main(): Promise<void> {
-  const { OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_TENANT_ID } = env;
-  if (!OUTLOOK_CLIENT_ID || !OUTLOOK_CLIENT_SECRET || !OUTLOOK_TENANT_ID) {
-    throw new Error(
-      "Set OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, and OUTLOOK_TENANT_ID (e.g. packages/mediapulse/outlook-inbox/.env.local from env.outlook-inbox.example).",
-    );
-  }
+  const { clientId, clientSecret, tenantId, userId } = parseOutlookTestLibCli(
+    process.argv.slice(2),
+  );
 
   const client = createOutlookInboxClient({
-    clientId: OUTLOOK_CLIENT_ID,
-    clientSecret: OUTLOOK_CLIENT_SECRET,
-    tenantId: OUTLOOK_TENANT_ID,
-    userId: env.OUTLOOK_USER_ID ?? "me",
+    clientId,
+    clientSecret,
+    tenantId,
+    userId,
   });
 
   const messages = await client.listMessages(
