@@ -97,6 +97,7 @@ jobs:
     needs: publish
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         include:
           - service: data-collection
