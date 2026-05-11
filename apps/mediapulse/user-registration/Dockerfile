@@ -25,8 +25,8 @@ RUN rm -f apps/mediapulse/user-registration/.env apps/mediapulse/user-registrati
     touch apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local
 
 ENV MEDIAPULSE_ENV_BUILD_TARGETS=app.user-registration
-ARG NEXT_PUBLIC_REGISTRATION_EMAIL
-ARG AGENT_DATA_API_URL
+ARG NEXT_PUBLIC_REGISTRATION_EMAIL=registration@example.com
+ARG AGENT_DATA_API_URL=http://127.0.0.1:8081
 ENV NEXT_PUBLIC_REGISTRATION_EMAIL=$NEXT_PUBLIC_REGISTRATION_EMAIL
 ENV AGENT_DATA_API_URL=$AGENT_DATA_API_URL
 RUN test -n "$NEXT_PUBLIC_REGISTRATION_EMAIL"
