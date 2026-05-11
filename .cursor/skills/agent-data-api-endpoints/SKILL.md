@@ -18,7 +18,7 @@ Use this skill when changing `agent-data-api` HTTP endpoints.
 7. Update agent callers to use typed SDK methods and contract-backed types.
 8. Update/extend tests for server routes/services, SDK methods, and agents.
 9. Update `dev-docs/docs/mediapulse/apps/agent-data-api.mdx`.
-10. Run `pnpm code-quality`.
+10. Run verification via the **verifier** subagent (`.cursor/agents/verifier.md`) so format check, workspace code quality, and a scoped `docker build` for `apps/mediapulse/agent-data-api` run in one pass.
 
 ## New endpoint
 
@@ -49,5 +49,5 @@ Use this skill when changing `agent-data-api` HTTP endpoints.
 - `.cursor/rules/read-rules-and-skills-first.mdc`
 - `.cursor/rules/typescript-javascript-standards.mdc`
 - `.cursor/rules/prisma-strong-typing.mdc`
-- `.cursor/rules/run-code-quality-after-changes.mdc`
+- `.cursor/agents/verifier.md`
 - `.cursor/rules/env-variables.mdc`

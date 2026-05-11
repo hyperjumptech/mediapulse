@@ -12,6 +12,8 @@ export type PipelineForEdit = {
   isActive: boolean;
   /** Per-agent HTTP request timeout in ms; null uses Hermes default (5 minutes). */
   timeout: number | null;
+  /** Owning domain integration (JWT mint, registry scope, expansion). */
+  domainIntegrationId: string;
 };
 
 /**
@@ -32,5 +34,6 @@ export const getPipelineForEdit = async (
     description: pipeline.description,
     isActive: pipeline.isActive,
     timeout: pipeline.timeout,
+    domainIntegrationId: pipeline.domainIntegrationId,
   };
 };

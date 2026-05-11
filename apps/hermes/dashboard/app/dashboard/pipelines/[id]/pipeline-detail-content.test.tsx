@@ -154,6 +154,10 @@ const mockPickerLoaders = {
   loadExpansionPickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 };
 
+const defaultDetailDomainIntegrations = [
+  { id: "di-1", integrationId: "mediapulse", name: "Mediapulse" },
+];
+
 describe("PipelineDetailContent", () => {
   it("renders pipeline name and description as text with status and actions", () => {
     render(
@@ -166,6 +170,7 @@ describe("PipelineDetailContent", () => {
         totalExecutions={0}
         currentPage={1}
         pageSize={15}
+        domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
     );
@@ -194,6 +199,7 @@ describe("PipelineDetailContent", () => {
         totalExecutions={0}
         currentPage={1}
         pageSize={15}
+        domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
     );
@@ -213,6 +219,7 @@ describe("PipelineDetailContent", () => {
         totalExecutions={0}
         currentPage={1}
         pageSize={15}
+        domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
     );
@@ -235,6 +242,7 @@ describe("PipelineDetailContent", () => {
         totalExecutions={0}
         currentPage={1}
         pageSize={15}
+        domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
     );
@@ -261,6 +269,7 @@ describe("PipelineDetailContent", () => {
         totalExecutions={0}
         currentPage={1}
         pageSize={15}
+        domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
     );
@@ -281,6 +290,7 @@ describe("PipelineDetailContent", () => {
         totalExecutions={0}
         currentPage={1}
         pageSize={15}
+        domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
     );
@@ -303,6 +313,7 @@ describe("PipelineDetailContent", () => {
         totalExecutions={0}
         currentPage={1}
         pageSize={15}
+        domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
     );
@@ -325,6 +336,7 @@ describe("PipelineDetailContent", () => {
         totalExecutions={0}
         currentPage={1}
         pageSize={15}
+        domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
     );

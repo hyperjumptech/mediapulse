@@ -80,6 +80,7 @@ function UserList({
 ## Testing
 
 - Use the vitest-unit-testing skill
+- Tests that import server-only modules (`@hermes/orchestration-database`, `@mediapulse/database`, `@hermes/env`, `@mediapulse/env`, or code using `env.*`) need `/** @vitest-environment node */` at the top of the test file.
 - Every function must have **100% coverage** tests.
 - Use dependency injection to supply real or fake collaborators — avoid mocks when possible.
 - Co-locate test files next to source files using the `.test.ts` / `.test.js` suffix.
@@ -97,12 +98,13 @@ test("getActiveUsers returns only active users", async () => {
 
 ## Errors & Linting
 
-- Always runs `pnpm code-quality` to check for all lint errors, TypeScript errors, tests errors, and formatting errors. Fix them if necessary.
+- Run **`pnpm code-quality`** from repo root when feasible, or scoped **`pnpm --filter <package>`** lint / typecheck / tests for packages you changed; fix reported issues.
+- For a bundled pass (format, workspace checks, scoped Docker), use the **verifier** subagent (`.cursor/agents/verifier.md`).
 
 ## Formatting
 
 - Always format code using **Prettier** for all supported languages.
-- From the repository root, run **`pnpm format:check`** before finishing work. If you run package-scoped checks instead of full **`pnpm code-quality`**, Prettier is not optional; see `.cursor/rules/run-code-quality-after-changes.mdc`.
+- From the repository root, run **`pnpm format:check`** before finishing work. If you run package-scoped checks instead of full **`pnpm code-quality`**, Prettier is still mandatory — see the **Contract** section in `.cursor/agents/verifier.md` (same minimum bar whether or not you delegate).
 
 ## React component
 

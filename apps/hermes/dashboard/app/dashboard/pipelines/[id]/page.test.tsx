@@ -2,6 +2,14 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const { prismaDomainIntegrationFindManyMock } = vi.hoisted(() => ({
+  prismaDomainIntegrationFindManyMock: vi
+    .fn()
+    .mockResolvedValue([
+      { id: "di-1", integrationId: "mediapulse", name: "Mediapulse" },
+    ]),
+}));
+
 const getPipelineWithStepsMock = vi.fn();
 const getAgentRegistryListMock = vi.fn();
 const notFoundMock = vi.fn();
@@ -37,7 +45,11 @@ vi.mock("@/lib/validate-pipeline", () => ({
 }));
 
 vi.mock("@hermes/orchestration-database", () => ({
-  prisma: {},
+  prisma: {
+    domainIntegration: {
+      findMany: prismaDomainIntegrationFindManyMock,
+    },
+  },
   DomainIntegrationStatus: { pending: "pending", active: "active" },
 }));
 
@@ -45,15 +57,18 @@ vi.mock("./pipeline-detail-content", () => ({
   PipelineDetailContent: ({
     pipeline,
     agents,
+    domainIntegrations,
   }: {
     pipeline: { id: string; name: string };
     agents: Array<{ id: string }>;
+    domainIntegrations: Array<{ id: string }>;
     configsByAgentKey?: Record<string, unknown[]>;
   }) => (
     <div
       data-testid="pipeline-detail-content"
       data-pipeline-name={pipeline.name}
       data-agents-count={agents.length}
+      data-domain-integrations-count={domainIntegrations.length}
     >
       Detail Content
     </div>
@@ -76,6 +91,10 @@ describe("PipelineDetailPage", () => {
     getAgentConfigsByAgentKeysMock.mockReset();
     getPipelineExecutionsPageMock.mockReset();
     notFoundMock.mockReset();
+    prismaDomainIntegrationFindManyMock.mockReset();
+    prismaDomainIntegrationFindManyMock.mockResolvedValue([
+      { id: "di-1", integrationId: "mediapulse", name: "Mediapulse" },
+    ]);
   });
 
   it("renders pipeline detail content when authenticated", async () => {
@@ -110,6 +129,14 @@ describe("PipelineDetailPage", () => {
       "data-pipeline-name",
       "Test Pipeline",
     );
+    expect(screen.getByTestId("pipeline-detail-content")).toHaveAttribute(
+      "data-domain-integrations-count",
+      "1",
+    );
+    expect(prismaDomainIntegrationFindManyMock).toHaveBeenCalledWith({
+      orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
+      select: { id: true, integrationId: true, name: true },
+    });
   });
 
   it("passes agents to detail content", async () => {

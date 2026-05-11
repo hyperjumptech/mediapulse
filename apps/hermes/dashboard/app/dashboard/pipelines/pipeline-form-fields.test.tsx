@@ -1,7 +1,17 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PipelineFormFields } from "./pipeline-form-fields";
+
+vi.mock("next/link", () => ({
+  default: ({ children, href }: React.PropsWithChildren<{ href: string }>) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
+vi.mock("@workspace/ui/lib/utils", () => ({
+  cn: (...classes: string[]) => classes.filter(Boolean).join(" "),
+}));
 
 vi.mock("@workspace/ui/components/button", () => ({
   Button: ({
@@ -30,72 +40,53 @@ vi.mock("@workspace/ui/components/label", () => ({
   ),
 }));
 
-describe("PipelineFormFields", () => {
-  it("renders Name input", () => {
-    // Act
-    render(
-      <PipelineFormFields
-        pending={false}
-        errorMessage={null}
-        submitLabel="Create"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
-      />,
-    );
+const defaultDomainIntegrations = [
+  { id: "di-1", integrationId: "mediapulse", name: "Mediapulse" },
+];
 
-    // Assert
+const baseProps = {
+  pending: false,
+  errorMessage: null as string | null,
+  submitLabel: "Create",
+  defaultName: "",
+  defaultDescription: "",
+  defaultIsActive: true,
+  domainIntegrations: defaultDomainIntegrations,
+};
+
+describe("PipelineFormFields", () => {
+  it("renders domain integration select", () => {
+    render(<PipelineFormFields {...baseProps} />);
+    expect(screen.getByLabelText("Domain integration")).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toHaveValue("di-1");
+  });
+
+  it("shows link when no domain integrations", () => {
+    render(<PipelineFormFields {...baseProps} domainIntegrations={[]} />);
+    expect(
+      screen.getByRole("link", { name: /Add one under Domain integrations/i }),
+    ).toHaveAttribute("href", "/dashboard/domain-integrations");
+    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+  });
+
+  it("renders Name input", () => {
+    render(<PipelineFormFields {...baseProps} />);
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
   });
 
   it("renders Description input", () => {
-    // Act
-    render(
-      <PipelineFormFields
-        pending={false}
-        errorMessage={null}
-        submitLabel="Create"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
-      />,
-    );
-
-    // Assert
+    render(<PipelineFormFields {...baseProps} />);
     expect(screen.getByLabelText("Description")).toBeInTheDocument();
   });
 
   it("renders Active checkbox", () => {
-    // Act
-    render(
-      <PipelineFormFields
-        pending={false}
-        errorMessage={null}
-        submitLabel="Create"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
-      />,
-    );
-
-    // Assert
+    render(<PipelineFormFields {...baseProps} />);
     expect(screen.getByLabelText("Active")).toBeInTheDocument();
   });
 
   it("sends isActive false when unchecked via hidden before checkbox (last duplicate wins)", () => {
-    // Act
-    const { container } = render(
-      <PipelineFormFields
-        pending={false}
-        errorMessage={null}
-        submitLabel="Create"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
-      />,
-    );
+    const { container } = render(<PipelineFormFields {...baseProps} />);
 
-    // Assert
     const activeInputs = container.querySelectorAll(
       'input[name="body.isActive"]',
     );
@@ -107,92 +98,53 @@ describe("PipelineFormFields", () => {
   });
 
   it("renders submit button with provided label", () => {
-    // Act
-    render(
-      <PipelineFormFields
-        pending={false}
-        errorMessage={null}
-        submitLabel="Create pipeline"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
-      />,
-    );
-
-    // Assert
+    render(<PipelineFormFields {...baseProps} submitLabel="Create pipeline" />);
     expect(
       screen.getByRole("button", { name: "Create pipeline" }),
     ).toBeInTheDocument();
   });
 
   it("disables submit button when pending", () => {
-    // Act
     render(
       <PipelineFormFields
+        {...baseProps}
         pending={true}
-        errorMessage={null}
         submitLabel="Creating..."
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
       />,
     );
-
-    // Assert
     expect(screen.getByRole("button", { name: "Creating..." })).toBeDisabled();
   });
 
   it("displays error message when provided", () => {
-    // Act
     render(
-      <PipelineFormFields
-        pending={false}
-        errorMessage="Name is required"
-        submitLabel="Create"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
-      />,
+      <PipelineFormFields {...baseProps} errorMessage="Name is required" />,
     );
-
-    // Assert
     expect(screen.getByRole("alert")).toHaveTextContent("Name is required");
   });
 
   it("populates inputs with default values", () => {
-    // Act
     render(
       <PipelineFormFields
-        pending={false}
-        errorMessage={null}
+        {...baseProps}
         submitLabel="Save"
         defaultName="My Pipeline"
         defaultDescription="A test pipeline"
         defaultIsActive={false}
       />,
     );
-
-    // Assert
     expect(screen.getByLabelText("Name")).toHaveValue("My Pipeline");
     expect(screen.getByLabelText("Description")).toHaveValue("A test pipeline");
     expect(screen.getByLabelText("Active")).not.toBeChecked();
   });
 
   it("renders hidden pipelineId when provided", () => {
-    // Act
     const { container } = render(
       <PipelineFormFields
-        pending={false}
-        errorMessage={null}
+        {...baseProps}
         submitLabel="Save"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
         pipelineId="pipeline-123"
       />,
     );
-
-    // Assert
     const hiddenInput = container.querySelector(
       'input[name="body.pipelineId"]',
     );
@@ -200,20 +152,13 @@ describe("PipelineFormFields", () => {
   });
 
   it("uses custom namePrefix for field names", () => {
-    // Act
     const { container } = render(
       <PipelineFormFields
+        {...baseProps}
         namePrefix="custom"
-        pending={false}
-        errorMessage={null}
         submitLabel="Save"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
       />,
     );
-
-    // Assert
     expect(
       container.querySelector('input[name="custom.name"]'),
     ).toBeInTheDocument();
@@ -223,17 +168,7 @@ describe("PipelineFormFields", () => {
   });
 
   it("renders Agent request timeout input", () => {
-    render(
-      <PipelineFormFields
-        pending={false}
-        errorMessage={null}
-        submitLabel="Create"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
-      />,
-    );
-
+    render(<PipelineFormFields {...baseProps} />);
     expect(
       screen.getByLabelText("Agent request timeout (ms)"),
     ).toBeInTheDocument();
@@ -242,17 +177,33 @@ describe("PipelineFormFields", () => {
   it("sets timeout defaultValue when defaultTimeoutMs is provided", () => {
     const { container } = render(
       <PipelineFormFields
-        pending={false}
-        errorMessage={null}
+        {...baseProps}
         submitLabel="Save"
-        defaultName=""
-        defaultDescription=""
-        defaultIsActive={true}
         defaultTimeoutMs={900_000}
       />,
     );
-
     const timeoutInput = container.querySelector('input[name="body.timeout"]');
     expect(timeoutInput).toHaveValue(900000);
+  });
+
+  it("updates timeout preview when typing", () => {
+    render(<PipelineFormFields {...baseProps} />);
+    const timeoutInput = screen.getByLabelText("Agent request timeout (ms)");
+    fireEvent.input(timeoutInput, { target: { value: "300000" } });
+    expect(screen.getByRole("status")).toHaveTextContent("5 minutes");
+  });
+
+  it("selects defaultDomainIntegrationId when provided", () => {
+    render(
+      <PipelineFormFields
+        {...baseProps}
+        domainIntegrations={[
+          { id: "di-a", integrationId: "a", name: "A" },
+          { id: "di-b", integrationId: "b", name: "B" },
+        ]}
+        defaultDomainIntegrationId="di-b"
+      />,
+    );
+    expect(screen.getByRole("combobox")).toHaveValue("di-b");
   });
 });
