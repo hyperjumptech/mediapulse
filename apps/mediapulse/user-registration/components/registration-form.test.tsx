@@ -80,9 +80,8 @@ describe("RegistrationForm", () => {
     expect(calledUrl).toContain(
       encodeURIComponent("[MediaPulse] Newsletter Subscription - BBCA"),
     );
-    expect(calledUrl).toContain(
-      encodeURIComponent("Subscriber Name: John Doe"),
-    );
+    expect(calledUrl).toContain(encodeURIComponent("Name: John Doe"));
+    expect(calledUrl).toContain(encodeURIComponent("Ticker: BBCA"));
 
     // Assert Success screen rendered
     expect(screen.getByText(/Almost done/i)).toBeInTheDocument();

@@ -41,6 +41,7 @@ export const formatTicker = (ticker: Ticker): string =>
 /**
  * Builds a mailto URL for newsletter subscription with a fixed subject and body.
  * The subscriber's address comes from the mail client's From field when they send.
+ * Display name is included in the body as `Name:` for the registration agent to parse.
  *
  * @param ticker - Ticker the user wants to subscribe to.
  * @param name - Subscriber display name (included in the body for processing).
@@ -55,15 +56,12 @@ export const buildMailtoUrl = (
   const subject = `[MediaPulse] Newsletter Subscription - ${ticker.KodeEmiten}`;
 
   const bodyLines = [
-    `Ticker: ${ticker.KodeEmiten} - ${ticker.NamaEmiten}`,
-    `Subscriber Name: ${name.trim()}`,
-  ];
-
-  bodyLines.push(
+    `Name: ${name.trim()}`,
+    `Ticker: ${ticker.KodeEmiten}`,
     "",
     "---",
     "Please do not modify the subject or content of this email before sending.",
-  );
+  ];
 
   const body = bodyLines.join("\n");
 

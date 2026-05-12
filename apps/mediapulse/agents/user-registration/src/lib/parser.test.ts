@@ -5,6 +5,9 @@ import {
   deriveNameFromEmailLocalPart,
   extractSenderEmail,
   extractTickerSymbol,
+  extractSubscriberName,
+  extractUsableFromDisplayName,
+  resolveSubscriberDisplayName,
 } from "../lib/parser";
 
 describe("Parser Helpers", () => {
@@ -151,6 +154,132 @@ describe("Parser Helpers", () => {
         extractTickerSymbol("Random email", "Just saying hello"),
       ).toBeNull();
       expect(extractTickerSymbol(null, null)).toBeNull();
+    });
+  });
+
+  describe("extractSubscriberName", () => {
+    it("returns null for empty or missing body", () => {
+      expect(extractSubscriberName(undefined)).toBeNull();
+      expect(extractSubscriberName(null)).toBeNull();
+      expect(extractSubscriberName("")).toBeNull();
+      expect(extractSubscriberName("   ")).toBeNull();
+    });
+
+    it("parses Name from plain multiline body", () => {
+      const body = "Name: Kevin Hermawan\nTicker: BUMI\n\n---\nFooter";
+      expect(extractSubscriberName(body)).toBe("Kevin Hermawan");
+    });
+
+    it("prefers Name over Subscriber Name when both appear", () => {
+      const body =
+        "Subscriber Name: Legacy\nName: Preferred User\nTicker: BBCA";
+      expect(extractSubscriberName(body)).toBe("Preferred User");
+    });
+
+    it("parses Subscriber Name line when no Name line exists", () => {
+      const body = "Ticker: TLKM\nSubscriber Name: Jane Smith\n---";
+      expect(extractSubscriberName(body)).toBe("Jane Smith");
+    });
+
+    it("parses legacy single-line body with Subscriber Name before delimiter", () => {
+      const body =
+        "Ticker: BUMI - Bumi Resources Tbk Subscriber Name: Kevin Hermawan --- Please do not modify";
+      expect(extractSubscriberName(body)).toBe("Kevin Hermawan");
+    });
+
+    it("parses Name on same line before Ticker when there are no newlines", () => {
+      const body = "Prefix Name: Pat Lee Ticker: GOTO suffix";
+      expect(extractSubscriberName(body)).toBe("Pat Lee");
+    });
+
+    it("parses Name from HTML body content", () => {
+      const body =
+        "<html><body><div>Name: HTML User</div><br/><div>Ticker: BBCA</div></body></html>";
+      expect(extractSubscriberName(body)).toBe("HTML User");
+    });
+
+    it("returns null when Name label is empty", () => {
+      expect(extractSubscriberName("Name:\nTicker: BBCA")).toBeNull();
+    });
+  });
+
+  describe("extractUsableFromDisplayName", () => {
+    it("returns trimmed name when distinct from sender email", () => {
+      expect(
+        extractUsableFromDisplayName(
+          "  Kevin From Header  ",
+          "kevin@example.com",
+        ),
+      ).toBe("Kevin From Header");
+    });
+
+    it("returns null when missing, too short, equals email, or is an email string", () => {
+      expect(extractUsableFromDisplayName(undefined, "a@b.co")).toBeNull();
+      expect(extractUsableFromDisplayName("x", "a@b.co")).toBeNull();
+      expect(extractUsableFromDisplayName("A@B.CO", "a@b.co")).toBeNull();
+      expect(
+        extractUsableFromDisplayName("other@example.com", "a@b.co"),
+      ).toBeNull();
+    });
+  });
+
+  describe("resolveSubscriberDisplayName", () => {
+    const baseMsg = {
+      id: "1",
+      subject: null,
+      receivedDateTime: "2024-01-01T00:00:00Z",
+      isRead: false,
+    };
+
+    it("uses body Name when present", () => {
+      const msg = {
+        ...baseMsg,
+        body: {
+          content: "Name: Kevin Hermawan\nTicker: BUMI",
+          contentType: "text",
+        },
+        from: {
+          emailAddress: {
+            address: "kevin.hermawan@gmail.com",
+            name: "Gmail Name",
+          },
+        },
+      };
+      expect(
+        resolveSubscriberDisplayName(msg, "kevin.hermawan@gmail.com"),
+      ).toBe("Kevin Hermawan");
+    });
+
+    it("falls back to from display name when body has no name", () => {
+      const msg = {
+        ...baseMsg,
+        body: { content: "Ticker: BBCA only", contentType: "text" },
+        from: {
+          emailAddress: {
+            address: "john.doe@example.com",
+            name: "Johnny Header",
+          },
+        },
+      };
+      expect(resolveSubscriberDisplayName(msg, "john.doe@example.com")).toBe(
+        "Johnny Header",
+      );
+    });
+
+    it("falls back to local-part derived name when body and header are unusable", () => {
+      const msg = {
+        ...baseMsg,
+        body: undefined,
+        from: {
+          emailAddress: {
+            address: "john.doe@example.com",
+            name: "john.doe@example.com",
+          },
+        },
+      };
+      expect(resolveSubscriberDisplayName(msg, "john.doe@example.com")).toBe(
+        "John Doe",
+      );
     });
   });
 });
