@@ -13,13 +13,15 @@ import {
 import type { CSSProperties, ReactElement } from "react";
 
 import { parseNewsletterBody } from "./parse-newsletter-body.js";
+import { renderInlineMarkdownLinks } from "./render-inline-markdown-links.js";
 
 export interface DefaultNewsletterEmailProps {
   /** Shown as the main title inside the email body (typically matches the message subject). */
   title: string;
   /**
-   * Newsletter body as plain text or minimal markdown-style lines.
-   * Rendered as pre-wrapped text (no raw HTML injection).
+   * Newsletter body as plain text with optional inline markdown links `[label](https://…)`
+   * in section copy; structured bodies also use EXECUTIVE SUMMARY / TOP N NEWS markers.
+   * Inline https links are rendered as clickable anchors (see {@link renderInlineMarkdownLinks}).
    */
   bodyText: string;
   /** Optional footer line (e.g. unsubscribe placeholder). */
@@ -74,7 +76,9 @@ export const DefaultNewsletterEmail = ({
               <Heading as="h2" style={sectionLabel}>
                 Executive Summary
               </Heading>
-              <Text style={bodyParagraph}>{parsed.executiveSummary}</Text>
+              <Text style={bodyParagraph}>
+                {renderInlineMarkdownLinks(parsed.executiveSummary, link)}
+              </Text>
               <Hr style={hr} />
               <Heading as="h2" style={sectionLabel}>
                 Top News
@@ -85,7 +89,9 @@ export const DefaultNewsletterEmail = ({
                     <Text style={newsItemTitle}>
                       {item.number}. {item.title}
                     </Text>
-                    <Text style={newsItemSummary}>{item.summary}</Text>
+                    <Text style={newsItemSummary}>
+                      {renderInlineMarkdownLinks(item.summary, link)}
+                    </Text>
                     {index < parsed.topNewsItems.length - 1 ? (
                       <Hr style={itemSeparator} />
                     ) : null}
@@ -94,7 +100,9 @@ export const DefaultNewsletterEmail = ({
               )}
             </>
           ) : (
-            <Text style={bodyParagraph}>{bodyText}</Text>
+            <Text style={bodyParagraph}>
+              {renderInlineMarkdownLinks(bodyText, link)}
+            </Text>
           )}
           <Hr style={hr} />
           <Text style={footer}>{footerNote}</Text>
