@@ -6,16 +6,20 @@ const hoistedLogger = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 
-vi.mock("@workspace/logger", () => ({
-  logger: {
-    ...hoistedLogger,
-    warn: vi.fn(),
-    debug: vi.fn(),
-    trace: vi.fn(),
-    fatal: vi.fn(),
-    child: vi.fn().mockReturnThis(),
-  },
-}));
+vi.mock("@workspace/logger", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@workspace/logger")>();
+  return {
+    ...actual,
+    logger: {
+      ...hoistedLogger,
+      warn: vi.fn(),
+      debug: vi.fn(),
+      trace: vi.fn(),
+      fatal: vi.fn(),
+      child: vi.fn().mockReturnThis(),
+    },
+  };
+});
 
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 /** Non-UUID id (Hermes-style test id or slug). */
