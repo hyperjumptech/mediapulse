@@ -66,6 +66,8 @@ const createMockAgent = (
     description: string | null;
     isActive: boolean;
     createdAt: Date;
+    updatedAt: Date;
+    domainIntegration: { integrationId: string };
   }>,
 ) => ({
   id: "agent-1",
@@ -80,6 +82,9 @@ const createMockAgent = (
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
   ...overrides,
+  domainIntegration: overrides?.domainIntegration ?? {
+    integrationId: "mediapulse-local",
+  },
 });
 
 describe("AgentsTable", () => {
@@ -96,6 +101,7 @@ describe("AgentsTable", () => {
     // Assert
     expect(screen.getByText("Agent ID")).toBeInTheDocument();
     expect(screen.getByText("Version")).toBeInTheDocument();
+    expect(screen.getByText("Domain integration id")).toBeInTheDocument();
     expect(screen.getByText("Description")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Created")).toBeInTheDocument();
@@ -129,6 +135,7 @@ describe("AgentsTable", () => {
     // Assert
     expect(screen.getByText("test-agent")).toBeInTheDocument();
     expect(screen.getByText("1.0")).toBeInTheDocument();
+    expect(screen.getByText("mediapulse-local")).toBeInTheDocument();
     expect(screen.getByText("Test description")).toBeInTheDocument();
     // Created and Updated columns both show formatted dates; header "Updated" confirms the column is present
   });

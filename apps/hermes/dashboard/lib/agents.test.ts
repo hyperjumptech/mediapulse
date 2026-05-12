@@ -1,6 +1,10 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAgentById, getAgentsPage } from "./agents";
+import {
+  agentDomainIntegrationIdInclude,
+  getAgentById,
+  getAgentsPage,
+} from "./agents";
 import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
 
 type MockDb = {
@@ -40,6 +44,7 @@ describe("getAgentsPage", () => {
       skip: 0,
       take: 10,
       orderBy: { agentId: "asc" },
+      include: agentDomainIntegrationIdInclude,
     });
     expect(db.agentRegistry.count).toHaveBeenCalledWith({ where: undefined });
   });
@@ -61,6 +66,7 @@ describe("getAgentsPage", () => {
       skip: 0,
       take: 5,
       orderBy: { agentId: "asc" },
+      include: agentDomainIntegrationIdInclude,
     });
     expect(db.agentRegistry.count).toHaveBeenCalledWith({
       where: {
@@ -92,6 +98,7 @@ describe("getAgentsPage", () => {
       skip: 15,
       take: 15,
       orderBy: { agentVersion: "desc" },
+      include: agentDomainIntegrationIdInclude,
     });
   });
 
@@ -112,6 +119,7 @@ describe("getAgentsPage", () => {
       skip: 0,
       take: 10,
       orderBy: { createdAt: "desc" },
+      include: agentDomainIntegrationIdInclude,
     });
   });
 
@@ -132,6 +140,7 @@ describe("getAgentsPage", () => {
       skip: 0,
       take: 10,
       orderBy: { updatedAt: "desc" },
+      include: agentDomainIntegrationIdInclude,
     });
   });
 
@@ -140,13 +149,19 @@ describe("getAgentsPage", () => {
     const agents = [
       {
         id: "a1",
+        domainIntegrationId: "di-1",
         agentId: "summarizer",
         agentVersion: "1.0",
         description: null,
         endpoint: {},
+        inputSchema: null,
+        configSchema: null,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
+        domainIntegration: {
+          integrationId: "mediapulse-local",
+        },
       },
     ];
     db.agentRegistry.findMany.mockResolvedValue(agents);
@@ -176,6 +191,7 @@ describe("getAgentById", () => {
 
     expect(db.agentRegistry.findUnique).toHaveBeenCalledWith({
       where: { id: "agent-uuid-1" },
+      include: agentDomainIntegrationIdInclude,
     });
   });
 
@@ -183,13 +199,19 @@ describe("getAgentById", () => {
     const db = createMockDb();
     const agent = {
       id: "agent-uuid-1",
+      domainIntegrationId: "di-uuid-1",
       agentId: "summarizer",
       agentVersion: "1.0",
       description: "Test",
       endpoint: { url: "https://example.com" },
+      inputSchema: null,
+      configSchema: null,
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
+      domainIntegration: {
+        integrationId: "mediapulse-local",
+      },
     };
     db.agentRegistry.findUnique.mockResolvedValue(agent);
 

@@ -12,9 +12,7 @@ import {
 
 import { EndpointDisplay } from "../endpoint-display";
 import { JsonPretty } from "../json-pretty";
-import type { AgentsPageResult } from "@/lib/agents";
-
-type AgentRow = AgentsPageResult["agents"][number];
+import type { AgentDetail } from "@/lib/agents";
 
 const ROW_CLASS =
   "flex items-center justify-between gap-8 py-4 px-6 sm:px-7 border-b border-border/60 last:border-b-0 first:pt-6 last:pb-6";
@@ -24,12 +22,12 @@ const VALUE_CLASS =
   "min-w-0 flex-1 text-sm font-medium text-foreground text-right";
 
 type AgentDetailsContentProps = {
-  /** Agent from getAgentById (registry row). */
-  agent: AgentRow;
+  /** Agent from getAgentById (registry row with domain integration id). */
+  agent: AgentDetail;
 };
 
 /**
- * Renders agent details in a tabbed layout: General (details + endpoint), Input schema (pretty JSON), Config schema (pretty JSON).
+ * Renders agent details in a tabbed layout: General (details including domain integration id, endpoint), Input schema (pretty JSON), Config schema (pretty JSON).
  */
 export const AgentDetailsContent = ({ agent }: AgentDetailsContentProps) => {
   return (
@@ -84,6 +82,14 @@ export const AgentDetailsContent = ({ agent }: AgentDetailsContentProps) => {
                 <span className={LABEL_CLASS}>Last updated</span>
                 <span className="min-w-0 flex-1 text-sm text-muted-foreground normal-case font-normal text-right">
                   {format(agent.updatedAt, "LLL d, yyyy")}
+                </span>
+              </div>
+              <div className={ROW_CLASS}>
+                <span className={LABEL_CLASS}>Domain integration id</span>
+                <span
+                  className={`${VALUE_CLASS} font-mono text-xs sm:text-sm break-all`}
+                >
+                  {agent.domainIntegration.integrationId}
                 </span>
               </div>
             </div>
