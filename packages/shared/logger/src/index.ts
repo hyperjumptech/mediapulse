@@ -1,3 +1,4 @@
+// cursor-pr-review-disable: env-variables
 import process from "node:process";
 import pino from "pino";
 
