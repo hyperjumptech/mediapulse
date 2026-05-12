@@ -17,7 +17,7 @@ import type { UserRegistrationConfig } from "./config-schema.js";
 import {
   extractSenderEmail,
   extractTickerSymbol,
-  deriveNameFromEmailLocalPart,
+  resolveSubscriberDisplayName,
 } from "./lib/parser.js";
 
 export type Input = { maxMessagesPerRun: number; watermark?: string };
@@ -324,7 +324,7 @@ async function processMessage({
     return { id: msg.id, status: "failed_retry" };
   }
 
-  const name = deriveNameFromEmailLocalPart(senderEmail);
+  const name = resolveSubscriberDisplayName(msg, senderEmail);
 
   try {
     // Step 2: Register via API
