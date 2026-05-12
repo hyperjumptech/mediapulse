@@ -1,8 +1,10 @@
+import process from "node:process";
 import pino from "pino";
 
 import { buildDefaultRootLogger } from "./build-default-root-logger.js";
 
-export const logger = buildDefaultRootLogger();
+// eslint-disable-next-line strict-env/no-process-env -- Bootstrap only: @workspace/logger is imported before typed env in several runtimes; LOG_LEVEL / LOG_PRETTY are read here once.
+export const logger = buildDefaultRootLogger(process.env);
 
 export { slimHonoPinoHttpLoggerOptions } from "./hono-pino-slim-http.js";
 export { isLogPrettyEnabled } from "./is-log-pretty-enabled.js";

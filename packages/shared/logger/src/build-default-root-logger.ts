@@ -43,12 +43,12 @@ export type BuildDefaultRootLoggerDeps = {
 /**
  * Builds the shared root Pino logger: JSON lines by default, or pino-pretty when `LOG_PRETTY` is enabled.
  *
- * @param processEnv - Environment map (defaults to `process.env` when omitted at call site).
+ * @param processEnv - Environment map (callers pass `process.env` at the bootstrap entry; this package sits below typed `@hermes/env` / `@mediapulse/env`).
  * @param deps - Optional DI for tests (pretty destination).
  * @returns Configured Pino logger instance.
  */
 export const buildDefaultRootLogger = (
-  processEnv: NodeJS.ProcessEnv = process.env,
+  processEnv: NodeJS.ProcessEnv,
   deps: BuildDefaultRootLoggerDeps = {},
 ): pino.Logger => {
   const baseOptions = buildBaseOptions(processEnv);

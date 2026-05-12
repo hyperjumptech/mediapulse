@@ -7,10 +7,16 @@ import { verifyJwt } from "./verify-jwt";
 
 const jwtSecret = "verify-jwt-test-secret-at-least-16-chars";
 
+const { verifyJwtTestEnv } = vi.hoisted(() => ({
+  verifyJwtTestEnv: {
+    AGENT_AUTH_JWT_SECRET: jwtSecret,
+  },
+}));
+
 vi.mock("@hermes/env", () => ({
   env: {
     get AGENT_AUTH_JWT_SECRET() {
-      return process.env.AGENT_AUTH_JWT_SECRET ?? "";
+      return verifyJwtTestEnv.AGENT_AUTH_JWT_SECRET;
     },
   },
 }));
@@ -21,7 +27,7 @@ describe("verifyJwt route", () => {
   app.post("/api/verify", verifyJwt);
 
   beforeEach(() => {
-    process.env.AGENT_AUTH_JWT_SECRET = jwtSecret;
+    verifyJwtTestEnv.AGENT_AUTH_JWT_SECRET = jwtSecret;
   });
 
   afterEach(() => {
@@ -57,12 +63,12 @@ describe("verifyJwt route", () => {
       .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
       .sign(new TextEncoder().encode(jwtSecret));
 
-    delete process.env.AGENT_AUTH_JWT_SECRET;
+    verifyJwtTestEnv.AGENT_AUTH_JWT_SECRET = "";
     const res = await app.request("http://localhost/api/verify", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
-    process.env.AGENT_AUTH_JWT_SECRET = jwtSecret;
+    verifyJwtTestEnv.AGENT_AUTH_JWT_SECRET = jwtSecret;
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.error).toBe("JWT verification not configured");
