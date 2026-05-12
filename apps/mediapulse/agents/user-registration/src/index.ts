@@ -76,7 +76,9 @@ const app = createAgentApp<
 >(
   {
     agentId: "user-registration",
-    agentVersion: "1.1.0",
+    agentVersion: "1.0.0",
+    description:
+      "Reads Outlook for newsletter signup messages, registers users and tickers via agent-data-api, and sends confirmation email.",
     inputSchema: BodySchema,
     configSchema: ConfigSchema,
     run,
