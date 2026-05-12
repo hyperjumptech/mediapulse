@@ -611,6 +611,30 @@ describe("createAgentDataApiClient", () => {
     );
     expect(result.tickerId).toBe("ticker-bca");
   });
+
+  it("builds userRegistrationTickers GET without query string or auth header", async () => {
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        tickers: [{ symbol: "BBCA", name: "Bank Central Asia Tbk" }],
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      getFn,
+    });
+
+    const result = await client.userRegistrationTickers.get({});
+
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "userRegistrationTickers")}`,
+      expect.objectContaining({
+        headers: undefined,
+      }),
+    );
+    expect(result.tickers).toHaveLength(1);
+    expect(result.tickers[0]?.symbol).toBe("BBCA");
+  });
 });
 
 describe("agent-data-api path helpers", () => {
@@ -624,6 +648,12 @@ describe("agent-data-api path helpers", () => {
 
   it("maps analysis resource key to path segment", () => {
     expect(camelCaseResourceKeyToPathSegment("analysis")).toBe("/analysis");
+  });
+
+  it("maps userRegistrationTickers resource key to path segment", () => {
+    expect(camelCaseResourceKeyToPathSegment("userRegistrationTickers")).toBe(
+      "/user-registration-tickers",
+    );
   });
 
   it("builds API pathnames from manifest resource keys", () => {

@@ -9,12 +9,15 @@ import {
   postUserRegistrationUnsubscribeBodySchema,
   userRegistrationUnsubscribeQuerySchema,
   userRegistrationUnsubscribeResponseSchema,
+  getUserRegistrationTickersQuerySchema,
+  getUserRegistrationTickersResponseSchema,
 } from "@workspace/agent-data-api-contract";
 import {
   processRegistration,
   confirmRegistration,
   processUnsubscribe,
 } from "../services/user-registration.js";
+import { listTickersForUserRegistration } from "../services/user-registration-tickers.js";
 
 export async function postUserRegistrationRegisterHandler(
   context: Context,
@@ -76,6 +79,25 @@ export async function postUserRegistrationUnsubscribeHandler(
       method: "one_click",
     });
     const response = userRegistrationUnsubscribeResponseSchema.parse(result);
+    return context.json(response, 200);
+  } catch (error) {
+    return internalError(context, error);
+  }
+}
+
+/**
+ * Returns all ticker symbols and names from the Mediapulse database for the registration app.
+ *
+ * @param context - Hono request context.
+ * @returns JSON body validated by {@link getUserRegistrationTickersResponseSchema}.
+ */
+export async function getUserRegistrationTickersHandler(
+  context: Context,
+): Promise<Response> {
+  try {
+    getUserRegistrationTickersQuerySchema.parse(context.req.query());
+    const data = await listTickersForUserRegistration();
+    const response = getUserRegistrationTickersResponseSchema.parse(data);
     return context.json(response, 200);
   } catch (error) {
     return internalError(context, error);

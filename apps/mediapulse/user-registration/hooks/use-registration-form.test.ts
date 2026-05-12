@@ -20,7 +20,6 @@ describe("useRegistrationForm", () => {
       useRegistrationForm(sampleTickers, mockOpenMailto),
     );
 
-    expect(result.current.email).toBe("");
     expect(result.current.name).toBe("");
     expect(result.current.query).toBe("");
     expect(result.current.selectedTicker).toBeNull();
@@ -60,14 +59,13 @@ describe("useRegistrationForm", () => {
     expect(result.current.open).toBe(false);
   });
 
-  it("submits the form if both email and ticker exist", async () => {
+  it("submits the form if both name and ticker exist", async () => {
     const mockOpenMailto = vi.fn();
     const { result } = renderHook(() =>
       useRegistrationForm(sampleTickers, mockOpenMailto),
     );
 
     act(() => {
-      result.current.setEmail("test@test.com");
       result.current.setName("Test User");
       result.current.handleTickerSelect(sampleTickers[1]!);
     });
@@ -83,11 +81,33 @@ describe("useRegistrationForm", () => {
     expect(result.current.submitted).toBe(true);
   });
 
-  it("does not submit if email or ticker are missing", async () => {
+  it("does not submit if name or ticker are missing", async () => {
     const mockOpenMailto = vi.fn();
     const { result } = renderHook(() =>
       useRegistrationForm(sampleTickers, mockOpenMailto),
     );
+
+    await act(async () => {
+      const e = {
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent<HTMLFormElement>;
+      await result.current.handleSubmit(e);
+    });
+
+    expect(mockOpenMailto).not.toHaveBeenCalled();
+    expect(result.current.submitted).toBe(false);
+  });
+
+  it("does not submit when name is only whitespace", async () => {
+    const mockOpenMailto = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistrationForm(sampleTickers, mockOpenMailto),
+    );
+
+    act(() => {
+      result.current.setName("   ");
+      result.current.handleTickerSelect(sampleTickers[1]!);
+    });
 
     await act(async () => {
       const e = {
@@ -107,18 +127,17 @@ describe("useRegistrationForm", () => {
     );
 
     act(() => {
-      result.current.setEmail("test@test.com");
+      result.current.setName("Test");
       result.current.handleTickerSelect(sampleTickers[1]!);
     });
 
-    expect(result.current.email).toBe("test@test.com");
+    expect(result.current.name).toBe("Test");
     expect(result.current.selectedTicker).not.toBeNull();
 
     act(() => {
       result.current.resetForm();
     });
 
-    expect(result.current.email).toBe("");
     expect(result.current.name).toBe("");
     expect(result.current.query).toBe("");
     expect(result.current.selectedTicker).toBeNull();

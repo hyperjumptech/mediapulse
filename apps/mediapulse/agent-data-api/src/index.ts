@@ -4,6 +4,7 @@ import {
   AGENT_DATA_API_LIVE_VERSIONS,
   AGENT_DATA_API_PREFIX,
   agentDataApiManifestForVersion,
+  camelCaseResourceKeyToPathSegment,
 } from "@workspace/agent-data-api-contract";
 import { env } from "@mediapulse/env";
 import { logger } from "@workspace/logger";
@@ -38,6 +39,7 @@ import {
   postUserRegistrationConfirmHandler,
   getUserRegistrationUnsubscribeHandler,
   postUserRegistrationUnsubscribeHandler,
+  getUserRegistrationTickersHandler,
 } from "./routes/user-registration.js";
 import {
   getQueryAnalysis,
@@ -137,6 +139,9 @@ const routeHandlers = {
     get: getUserRegistrationUnsubscribeHandler,
     post: postUserRegistrationUnsubscribeHandler,
   },
+  userRegistrationTickers: {
+    get: getUserRegistrationTickersHandler,
+  },
   contentGenerationRuns: {
     get: getContentGenerationRuns,
     post: postContentGenerationRun,
@@ -145,10 +150,13 @@ const routeHandlers = {
 
 for (const version of AGENT_DATA_API_LIVE_VERSIONS) {
   const versionApi = new Hono();
-  const unsubscribePath = `${AGENT_DATA_API_PREFIX}/${version}/user-registration-unsubscribe`;
+  const bearerAuthExemptPathnames = new Set([
+    `${AGENT_DATA_API_PREFIX}/${version}${camelCaseResourceKeyToPathSegment("userRegistrationUnsubscribe")}`,
+    `${AGENT_DATA_API_PREFIX}/${version}${camelCaseResourceKeyToPathSegment("userRegistrationTickers")}`,
+  ]);
   versionApi.use("*", async (context, next) => {
     const pathname = new URL(context.req.url).pathname;
-    if (pathname === unsubscribePath) {
+    if (bearerAuthExemptPathnames.has(pathname)) {
       return next();
     }
     return bearerAuth({

@@ -16,7 +16,7 @@ type Props = {
 
 /**
  * Newsletter subscription registration form.
- * Collects email, name, and ticker selection, then submits via mailto.
+ * Collects name and ticker selection, then opens a mailto draft for the user to send.
  *
  * @param {Props} props - The component props.
  * @param {Ticker[]} props.tickers - List of available tickers.
@@ -29,8 +29,6 @@ const RegistrationForm = ({
   },
 }: Props) => {
   const {
-    email,
-    setEmail,
     name,
     setName,
     query,
@@ -53,12 +51,11 @@ const RegistrationForm = ({
           <CheckCircle2 className="size-8" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-xl font-bold">
-            Your subscription request is being processed
-          </h1>
+          <h1 className="text-xl font-bold">Almost done</h1>
           <p className="text-sm text-muted-foreground">
-            Look for a confirmation email to <strong>{email}</strong> and new
-            stock news updates for
+            Open your email app if it did not open automatically. You should see
+            a draft addressed to MediaPulse. Tap <strong>Send</strong> from your
+            own mailbox so we can register you for{" "}
             <strong>{selectedTicker?.KodeEmiten}</strong>.
           </p>
         </div>
@@ -77,26 +74,18 @@ const RegistrationForm = ({
         </div>
         <h1 className="text-xl font-bold">Subscribe to MediaPulse</h1>
         <p className="text-balance text-center text-sm text-muted-foreground">
-          Get the latest stock news delivered to your inbox.
+          Enter your name and ticker, then send the pre-filled email from your
+          own address to subscribe.
         </p>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="email">Email address</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="you@example.com"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="name">Full name (optional)</Label>
+          <Label htmlFor="name">Your name</Label>
           <Input
             id="name"
             placeholder="John Doe"
+            required
+            autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -154,9 +143,9 @@ const RegistrationForm = ({
         <Button
           type="submit"
           className="mt-2 w-full"
-          disabled={!selectedTicker || !email}
+          disabled={!selectedTicker || !name.trim()}
         >
-          Subscribe
+          Open email app to subscribe
         </Button>
       </form>
       <p className="text-balance text-center text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Zod schema for a slim ticker from tickers.json. */
+/** Zod schema for a slim ticker row (symbol as `KodeEmiten`, name as `NamaEmiten`). */
 export const tickerSchema = z.object({
   KodeEmiten: z.string(),
   NamaEmiten: z.string(),
@@ -9,7 +9,7 @@ export const tickerSchema = z.object({
 /** Slim ticker representation used throughout the app. */
 export type Ticker = z.infer<typeof tickerSchema>;
 
-/** Zod schema for tickers.json array. */
+/** Zod schema for the full ticker list returned to the registration UI. */
 export const tickersArraySchema = z.array(tickerSchema);
 
 /**
@@ -40,28 +40,24 @@ export const formatTicker = (ticker: Ticker): string =>
 
 /**
  * Builds a mailto URL for newsletter subscription with a fixed subject and body.
+ * The subscriber's address comes from the mail client's From field when they send.
+ *
  * @param ticker - Ticker the user wants to subscribe to.
- * @param email - Subscriber's email address.
+ * @param name - Subscriber display name (included in the body for processing).
  * @param registrationEmail - The target email address for registration (defaults to mediapulse@hyperjump.tech).
- * @param name - Subscriber's name (optional).
  * @returns Encoded mailto: URL string.
  */
 export const buildMailtoUrl = (
   ticker: Ticker,
-  email: string,
+  name: string,
   registrationEmail: string = "mediapulse@hyperjump.tech",
-  name?: string,
 ): string => {
   const subject = `[MediaPulse] Newsletter Subscription - ${ticker.KodeEmiten}`;
 
   const bodyLines = [
     `Ticker: ${ticker.KodeEmiten} - ${ticker.NamaEmiten}`,
-    `Subscriber Email: ${email}`,
+    `Subscriber Name: ${name.trim()}`,
   ];
-
-  if (name) {
-    bodyLines.push(`Subscriber Name: ${name}`);
-  }
 
   bodyLines.push(
     "",

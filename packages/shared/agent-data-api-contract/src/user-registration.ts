@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+/** Query for listing tickers available on the registration form (no parameters). */
+export const getUserRegistrationTickersQuerySchema = z.object({});
+
+/** One ticker row returned for registration picker (maps to DB `ticker.symbol` / `ticker.name`). */
+export const userRegistrationTickerListItemSchema = z.object({
+  symbol: z.string(),
+  name: z.string(),
+});
+
+/** Response for GET user-registration tickers list. */
+export const getUserRegistrationTickersResponseSchema = z.object({
+  tickers: z.array(userRegistrationTickerListItemSchema),
+});
+
 // Request schemas
 export const postUserRegistrationRegisterBodySchema = z.object({
   email: z.string().email(),
@@ -82,4 +96,10 @@ export type PostUserRegistrationUnsubscribeBody = z.infer<
 >;
 export type UserRegistrationUnsubscribeResponse = z.infer<
   typeof userRegistrationUnsubscribeResponseSchema
+>;
+export type GetUserRegistrationTickersQuery = z.infer<
+  typeof getUserRegistrationTickersQuerySchema
+>;
+export type GetUserRegistrationTickersResponse = z.infer<
+  typeof getUserRegistrationTickersResponseSchema
 >;

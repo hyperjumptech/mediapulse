@@ -28,7 +28,8 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "sonner": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@workspace/agent-data-api-client": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",
