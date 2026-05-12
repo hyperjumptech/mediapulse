@@ -14,6 +14,10 @@ vi.mock("../services/user-registration.js", () => ({
   processUnsubscribe: vi.fn(),
 }));
 
+vi.mock("../services/user-registration-tickers.js", () => ({
+  listTickersForUserRegistration: vi.fn(),
+}));
+
 import { processUnsubscribe } from "../services/user-registration.js";
 import {
   getUserRegistrationUnsubscribeHandler,

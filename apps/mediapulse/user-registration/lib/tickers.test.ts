@@ -99,7 +99,7 @@ describe("buildMailtoUrl", () => {
 
   it("targets the default registration email", () => {
     // Act
-    const url = buildMailtoUrl(ticker, "test@example.com");
+    const url = buildMailtoUrl(ticker, "Jane Doe");
 
     // Assert
     expect(url.startsWith(`mailto:${EXPECTED_REG_EMAIL}`)).toBe(true);
@@ -113,7 +113,7 @@ describe("buildMailtoUrl", () => {
     };
 
     // Act
-    const url = buildMailtoUrl(t, "test@example.com");
+    const url = buildMailtoUrl(t, "Jane Doe");
 
     // Assert
     expect(url).toContain("subject=");
@@ -128,10 +128,12 @@ describe("buildMailtoUrl", () => {
     };
 
     // Act
-    const url = buildMailtoUrl(t, "test@example.com");
+    const url = buildMailtoUrl(t, "Jane Doe");
 
     // Assert
     expect(url).toContain(encodeURIComponent("Ticker: AADI"));
     expect(url).toContain(encodeURIComponent("PT Adaro Andalan Indonesia Tbk"));
+    expect(url).toContain(encodeURIComponent("Subscriber Name: Jane Doe"));
+    expect(url).not.toContain(encodeURIComponent("Subscriber Email:"));
   });
 });

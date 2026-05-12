@@ -50,6 +50,8 @@ import {
   postDataCollectionFailureResponseSchema,
 } from "./data-collection-failure.js";
 import {
+  getUserRegistrationTickersQuerySchema,
+  getUserRegistrationTickersResponseSchema,
   postUserRegistrationRegisterBodySchema,
   postUserRegistrationRegisterResponseSchema,
   postUserRegistrationConfirmBodySchema,
@@ -404,6 +406,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postUserRegistrationUnsubscribeBodySchema,
         response: userRegistrationUnsubscribeResponseSchema,
+      },
+    },
+  },
+  userRegistrationTickers: {
+    v1: {
+      get: {
+        query: getUserRegistrationTickersQuerySchema,
+        response: getUserRegistrationTickersResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getUserRegistrationTickersQuerySchema,
+        response: getUserRegistrationTickersResponseSchema,
       },
     },
   },

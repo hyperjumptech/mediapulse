@@ -202,7 +202,7 @@ After domain-api is live, set **`AGENT_AUTH_API_URL`** on domain-api (same auth 
 
 **Package:** `@mediapulse/user-registration` · **Path:** `apps/mediapulse/user-registration`
 
-Public-facing newsletter signup UI. The current implementation serves ticker choices from **`public/tickers.json`** and opens a prefilled **mailto** draft. It also hosts the public unsubscribe endpoint (`/api/unsubscribe`) and forwards token verification/update calls to agent-data-api. The app is built with **`output: "standalone"`** for container-friendly deploys.
+Public-facing newsletter signup UI. The home page loads ticker choices from **agent-data-api** (`GET /api/v1/user-registration-tickers`; server env **`AGENT_DATA_API_URL`** only) and opens a prefilled **mailto** draft. It also hosts the unsubscribe endpoint (`/api/unsubscribe`) and forwards token verification/update calls to agent-data-api. The app is built with **`output: "standalone"`** for container-friendly deploys.
 
 `next.config.js` loads dotenv files from **`packages/mediapulse/env`** (same directory you merge with `merge-env-examples.sh` for other Mediapulse services). If you later add server code that imports **`@mediapulse/env`**, provide the same merged variables as **domain-api** / **agent-data-api** (at minimum **`MEDIAPULSE_DATABASE_URL`** per the schema).
 

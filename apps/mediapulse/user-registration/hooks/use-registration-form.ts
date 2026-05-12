@@ -20,7 +20,6 @@ export const useRegistrationForm = (
   tickers: Ticker[],
   openMailto: (url: string) => void,
 ) => {
-  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
   const [selectedTicker, setSelectedTicker] = useState<Ticker | null>(null);
@@ -71,31 +70,30 @@ export const useRegistrationForm = (
    */
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedTicker || !email) return;
+    const trimmedName = name.trim();
+    if (!selectedTicker || !trimmedName) return;
 
     const mailtoUrl = buildMailtoUrl(
       selectedTicker,
-      email,
+      trimmedName,
       env.NEXT_PUBLIC_REGISTRATION_EMAIL,
-      name,
     );
 
     openMailto(mailtoUrl);
     setSubmitted(true);
-    toast.success("Please check your email client to complete registration.");
+    toast.success(
+      "Open your email app and send the draft message to finish subscribing.",
+    );
   };
 
   const resetForm = () => {
     setSubmitted(false);
-    setEmail("");
     setName("");
     setQuery("");
     setSelectedTicker(null);
   };
 
   return {
-    email,
-    setEmail,
     name,
     setName,
     query,

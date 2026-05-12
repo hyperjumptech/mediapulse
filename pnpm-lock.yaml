@@ -954,6 +954,9 @@ importers:
       '@next/env':
         specifier: 'catalog:'
         version: 16.2.3
+      '@workspace/agent-data-api-client':
+        specifier: workspace:*
+        version: link:../../../packages/shared/agent-data-api-client
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
