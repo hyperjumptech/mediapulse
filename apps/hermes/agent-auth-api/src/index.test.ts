@@ -33,4 +33,15 @@ describe("agent-auth-api", () => {
     expect(typeof mod.agentAuthApiServer.fetch).toBe("function");
     expect(mod.default).toBe(mod.agentAuthApiServer);
   });
+
+  it("GET /health returns domain health JSON", async () => {
+    const mod = await import("./index.js");
+    const res = await mod.agentAuthApiServer.fetch(
+      new Request("http://localhost/health", { method: "GET" }),
+    );
+    const body = (await res.json()) as { ok: boolean; service: string };
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ ok: true, service: "agent-auth-api" });
+  });
 });

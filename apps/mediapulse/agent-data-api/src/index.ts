@@ -1,3 +1,4 @@
+import { domainHealthResponseSchema } from "@hermes/domain-contract/contracts";
 import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
 import {
   AGENT_DATA_API_LIVE_VERSIONS,
@@ -55,6 +56,17 @@ if (!env.AGENT_AUTH_API_URL) {
   throw new Error("AGENT_AUTH_API_URL is required for agent-data-api");
 }
 
+/**
+ * Builds the JSON body for the public liveness route `GET /health`.
+ *
+ * @returns Parsed payload matching the Hermes domain health contract.
+ */
+const buildAgentDataApiHealthBody = () =>
+  domainHealthResponseSchema.parse({
+    ok: true,
+    service: "agent-data-api",
+  });
+
 const app = new Hono();
 
 app.use(
@@ -70,6 +82,9 @@ app.use(
     },
   }),
 );
+
+app.get("/health", (c) => c.json(buildAgentDataApiHealthBody()));
+
 const routeHandlers = {
   analysis: {
     get: getAnalysis,

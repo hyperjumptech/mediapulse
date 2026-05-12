@@ -89,7 +89,7 @@ export const createDomainIntegrationClient = (options: DomainClientOptions) => {
      * @returns Health response.
      */
     health: async (): Promise<DomainHealthResponse> => {
-      const response = await fetchImpl(`${baseUrl}/v1/health`, {
+      const response = await fetchImpl(`${baseUrl}/health`, {
         method: "GET",
         headers: createHeaders(),
       });

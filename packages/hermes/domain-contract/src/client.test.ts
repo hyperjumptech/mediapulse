@@ -19,7 +19,7 @@ describe("createDomainIntegrationClient", () => {
   it("calls health endpoint and parses response", async () => {
     // Setup
     const fetchImpl: typeof fetch = async (input) => {
-      expect(String(input)).toBe("https://domain.example/v1/health");
+      expect(String(input)).toBe("https://domain.example/health");
       return jsonResponse({
         ok: true,
         service: "mediapulse",

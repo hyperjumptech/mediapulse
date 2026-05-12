@@ -3,7 +3,6 @@
 .dockerignore
 .env
 Dockerfile
-fly.toml
 node_modules
 .next
 .git
