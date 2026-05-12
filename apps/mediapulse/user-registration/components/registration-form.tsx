@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { TrendingUp, CheckCircle2 } from "lucide-react";
+import { TrendingUp, Mail } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
@@ -48,7 +48,7 @@ const RegistrationForm = ({
     return (
       <div className="flex flex-col items-center gap-6 text-center">
         <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <CheckCircle2 className="size-8" />
+          <Mail className="size-8" aria-hidden />
         </div>
         <div className="space-y-2">
           <h1 className="text-xl font-bold">Almost done</h1>
