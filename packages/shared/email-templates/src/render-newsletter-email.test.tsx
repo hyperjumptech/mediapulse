@@ -173,4 +173,33 @@ describe("renderNewsletterEmail", () => {
     expect(html).not.toContain("Executive Summary");
     expect(html).not.toContain("Top News");
   });
+
+  it("renders markdown links in structured summaries as HTML anchors", async () => {
+    const articleUrl = "https://www.investing.com/equities/bnk-central-as";
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Overview with [Bank Central Asia](" + articleUrl + ") in the lead.",
+      "",
+      "---",
+      "",
+      "TOP 1 NEWS",
+      "",
+      "1. BBCA profit strength",
+      "[Bank Central Asia](" + articleUrl + ") reported strong net profit.",
+    ].join("\n");
+
+    const { html, text } = await renderNewsletterEmail({
+      title: "BBCA digest",
+      bodyText: structuredBody,
+    });
+
+    expect(html).toMatch(
+      /<a[^>]+href=["']?https:\/\/www\.investing\.com\/equities\/bnk-central-as["']?/i,
+    );
+    expect(html).toContain("Bank Central Asia");
+    expect(html).not.toContain("[Bank Central Asia](");
+    expect(text).toContain("Bank Central Asia");
+    expect(text).toContain(articleUrl);
+  });
 });
