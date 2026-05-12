@@ -12,6 +12,11 @@ RUN pnpm exec turbo build --filter=@mediapulse/domain-api --env-mode=loose
 
 FROM oven/bun:1
 WORKDIR /app
+USER root
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends wget \
+  && rm -rf /var/lib/apt/lists/*
+USER bun
 ENV NODE_ENV=production
 ENV PORT=8090
 EXPOSE 8090

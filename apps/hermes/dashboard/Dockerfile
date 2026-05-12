@@ -45,6 +45,10 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/dashboard/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/dashboard/.next/static ./apps/hermes/dashboard/.next/static
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends wget \
+  && rm -rf /var/lib/apt/lists/*
+
 USER nextjs
 
 EXPOSE 3001
