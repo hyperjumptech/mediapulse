@@ -1,3 +1,4 @@
+/** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 import { pinoLogger } from "hono-pino";
@@ -5,13 +6,15 @@ import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
 import { SignJWT } from "jose";
 import { verifyJwt } from "./verify-jwt";
 
-const jwtSecret = "verify-jwt-test-secret-at-least-16-chars";
-
-const { verifyJwtTestEnv } = vi.hoisted(() => ({
-  verifyJwtTestEnv: {
-    AGENT_AUTH_JWT_SECRET: jwtSecret,
-  },
-}));
+const { verifyJwtTestSecret, verifyJwtTestEnv } = vi.hoisted(() => {
+  const secret = "verify-jwt-test-secret-at-least-16-chars";
+  return {
+    verifyJwtTestSecret: secret,
+    verifyJwtTestEnv: {
+      AGENT_AUTH_JWT_SECRET: secret,
+    },
+  };
+});
 
 vi.mock("@hermes/env", () => ({
   env: {
@@ -27,7 +30,7 @@ describe("verifyJwt route", () => {
   app.post("/api/verify", verifyJwt);
 
   beforeEach(() => {
-    verifyJwtTestEnv.AGENT_AUTH_JWT_SECRET = jwtSecret;
+    verifyJwtTestEnv.AGENT_AUTH_JWT_SECRET = verifyJwtTestSecret;
   });
 
   afterEach(() => {
@@ -61,14 +64,14 @@ describe("verifyJwt route", () => {
       .setSubject("user-1")
       .setIssuedAt(Math.floor(Date.now() / 1000))
       .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
-      .sign(new TextEncoder().encode(jwtSecret));
+      .sign(new TextEncoder().encode(verifyJwtTestSecret));
 
     verifyJwtTestEnv.AGENT_AUTH_JWT_SECRET = "";
     const res = await app.request("http://localhost/api/verify", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
-    verifyJwtTestEnv.AGENT_AUTH_JWT_SECRET = jwtSecret;
+    verifyJwtTestEnv.AGENT_AUTH_JWT_SECRET = verifyJwtTestSecret;
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.error).toBe("JWT verification not configured");
@@ -82,7 +85,7 @@ describe("verifyJwt route", () => {
       .setSubject("user-1")
       .setIssuedAt(Math.floor(Date.now() / 1000))
       .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
-      .sign(new TextEncoder().encode(jwtSecret));
+      .sign(new TextEncoder().encode(verifyJwtTestSecret));
 
     const res = await app.request("http://localhost/api/verify", {
       method: "POST",
@@ -101,7 +104,7 @@ describe("verifyJwt route", () => {
       .setSubject("user-1")
       .setIssuedAt(Math.floor(Date.now() / 1000) - 3600)
       .setExpirationTime(Math.floor(Date.now() / 1000) - 1800)
-      .sign(new TextEncoder().encode(jwtSecret));
+      .sign(new TextEncoder().encode(verifyJwtTestSecret));
 
     const res = await app.request("http://localhost/api/verify", {
       method: "POST",
