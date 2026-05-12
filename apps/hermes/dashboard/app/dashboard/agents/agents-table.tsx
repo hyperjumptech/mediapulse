@@ -54,7 +54,7 @@ type AgentsTableProps = {
 };
 
 /**
- * Renders the agents list as a table with sortable Agent ID, Version, Description, Active, Created, Updated columns and row actions.
+ * Renders the agents list as a table with sortable Agent ID, Version, Created, and Updated; a Domain integration id column; Description and Active; and row actions.
  */
 export const AgentsTable = ({
   agents,
@@ -109,6 +109,9 @@ export const AgentsTable = ({
             <TableHead className="w-[100px]">
               {sortLink("agentVersion", "Version")}
             </TableHead>
+            <TableHead className="min-w-[140px] max-w-[220px]">
+              Domain integration id
+            </TableHead>
             <TableHead>Description</TableHead>
             <TableHead className="w-[80px]">Active</TableHead>
             <TableHead className="w-[120px]">
@@ -124,7 +127,7 @@ export const AgentsTable = ({
           {agents.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={7}
+                colSpan={8}
                 className="text-center text-muted-foreground"
               >
                 No agents yet.
@@ -153,6 +156,9 @@ export const AgentsTable = ({
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {agent.agentVersion}
+                </TableCell>
+                <TableCell className="font-mono text-sm text-muted-foreground max-w-[220px] truncate">
+                  {agent.domainIntegration.integrationId}
                 </TableCell>
                 <TableCell className="max-w-[200px] truncate text-muted-foreground">
                   {agent.description ?? "—"}

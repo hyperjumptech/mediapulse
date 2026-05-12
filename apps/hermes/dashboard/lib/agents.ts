@@ -1,9 +1,27 @@
+import type { Prisma } from "@hermes/orchestration-database";
 import { prisma } from "@hermes/orchestration-database";
 
 type Db = typeof prisma;
 
+/** Prisma include for agent fetches that need the domain integration stable id (list + detail). */
+export const agentDomainIntegrationIdInclude = {
+  domainIntegration: {
+    select: {
+      integrationId: true,
+    },
+  },
+} satisfies Prisma.AgentRegistryInclude;
+
+/** Registry row with `domainIntegration.integrationId` (list and detail queries). */
+export type AgentRegistryWithDomainIntegrationId =
+  Prisma.AgentRegistryGetPayload<{
+    include: typeof agentDomainIntegrationIdInclude;
+  }>;
+
+export type AgentDetail = AgentRegistryWithDomainIntegrationId;
+
 export type AgentsPageResult = {
-  agents: Awaited<ReturnType<Db["agentRegistry"]["findMany"]>>;
+  agents: AgentRegistryWithDomainIntegrationId[];
   total: number;
   page: number;
   pageSize: number;
@@ -73,7 +91,7 @@ const agentOrderBy = (
  * @param pageSize - Number of items per page.
  * @param options - Optional search term and sort (sortBy: agentId | agentVersion | created | updated, sortDir: asc | desc).
  * @param db - Prisma client (injectable for tests).
- * @returns Agents for the page plus total count and pagination info.
+ * @returns Agents for the page (each with `domainIntegration.integrationId`) plus total count and pagination info.
  */
 export const getAgentsPage = async (
   page: number,
@@ -97,6 +115,7 @@ export const getAgentsPage = async (
       skip,
       take: pageSize,
       orderBy,
+      include: agentDomainIntegrationIdInclude,
     }),
     db.agentRegistry.count({ where }),
   ]);
@@ -104,17 +123,19 @@ export const getAgentsPage = async (
 };
 
 /**
- * Fetches a single agent by id, or null if not found.
+ * Fetches a single agent by id with its domain integration id, or null if not found.
  *
  * @param agentId - UUID of the agent registry row.
  * @param db - Prisma client (injectable for tests).
- * @returns The agent or null.
+ * @returns The agent with `domainIntegration.integrationId`, or null.
  */
 export const getAgentById = async (
   agentId: string,
   db: Db = prisma,
-): Promise<Awaited<ReturnType<Db["agentRegistry"]["findUnique"]>>> => {
-  return db.agentRegistry.findUnique({
+): Promise<AgentDetail | null> => {
+  const args = {
     where: { id: agentId },
-  });
+    include: agentDomainIntegrationIdInclude,
+  } satisfies Prisma.AgentRegistryFindUniqueArgs;
+  return db.agentRegistry.findUnique(args);
 };
