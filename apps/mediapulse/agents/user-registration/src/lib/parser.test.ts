@@ -198,8 +198,42 @@ describe("Parser Helpers", () => {
       expect(extractSubscriberName(body)).toBe("HTML User");
     });
 
+    it("parses Name when the body uses pipe separators (Gmail-style one line)", () => {
+      const body =
+        "Name: Kevin Hermawan  |  Ticker: BBCA  |  ---  |  Please do not modify the subject or content of this email before sending.";
+      expect(extractSubscriberName(body)).toBe("Kevin Hermawan");
+    });
+
+    it("parses Subscriber Name when the body is one collapsed line with pipes", () => {
+      const body =
+        "Ticker: BUMI - PT Bumi Resources Tbk  |  Subscriber Name: Kevin Hermawan  |  ---  |  Please do not modify the subject or content of this email before sending.";
+      expect(extractSubscriberName(body)).toBe("Kevin Hermawan");
+    });
+
+    it("parses Subscriber Name from simple HTML body", () => {
+      const body =
+        "<div>Ticker: BBCA - Bank</div><div>Subscriber Name:  Jane Doe  </div><div>---</div>";
+      expect(extractSubscriberName(body)).toBe("Jane Doe");
+    });
+
+    it("stops at Ticker when Subscriber Name appears before Ticker on separate lines", () => {
+      const body = [
+        "Subscriber Name: Pat Lee",
+        "Ticker: IBM - International Business Machines",
+        "---",
+        "Please do not modify the subject or content of this email before sending.",
+      ].join("\n");
+      expect(extractSubscriberName(body)).toBe("Pat Lee");
+    });
+
     it("returns null when Name label is empty", () => {
       expect(extractSubscriberName("Name:\nTicker: BBCA")).toBeNull();
+    });
+
+    it("returns null when no name labels are present", () => {
+      expect(extractSubscriberName("Ticker: GOTO - GoTo")).toBeNull();
+      expect(extractSubscriberName(null)).toBeNull();
+      expect(extractSubscriberName("")).toBeNull();
     });
   });
 

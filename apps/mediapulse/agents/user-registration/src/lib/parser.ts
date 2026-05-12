@@ -93,6 +93,25 @@ export function extractSenderEmail(graphMessage: GraphMessage): string | null {
   return normalized;
 }
 
+const MAX_SUBSCRIBER_NAME_LENGTH = 500;
+
+/**
+ * Trims and caps subscriber display name length for storage.
+ *
+ * @param raw - Raw captured substring.
+ * @returns Trimmed name or null when empty.
+ */
+function trimCapSubscriberName(raw: string): string | null {
+  const trimmed = raw.replace(/\s+/g, " ").trim();
+  if (!trimmed) return null;
+  return trimmed.length > MAX_SUBSCRIBER_NAME_LENGTH
+    ? trimmed.slice(0, MAX_SUBSCRIBER_NAME_LENGTH).trim()
+    : trimmed;
+}
+
+/** Boundary after `Name:` / `Subscriber Name:` values (pipes, ticker line, rule, disclaimer, or EOS). */
+const SUBSCRIBER_NAME_VALUE_BOUNDARY = String.raw`(?=\s+\|\s+|\s*Ticker:|[\r\n]+\s*---|\s*---|\s*Please do not modify|$)`;
+
 /**
  * Returns Graph `from.emailAddress.name` when it is a plausible human display name
  * (not empty, not the same as the sender email, not itself an email address).
@@ -115,7 +134,8 @@ export function extractUsableFromDisplayName(
 
 /**
  * Extracts subscriber display name from the message body.
- * Prefers a `Name:` line, then `Subscriber Name:` (legacy mailto), then legacy one-line bodies.
+ * Prefers `Name:` (current registration mailto), then `Subscriber Name:` (legacy), using
+ * pipe/`Ticker:`/`---`/disclaimer boundaries so one-line clients do not swallow the footer.
  *
  * @param bodyContent - Optional `body.content` from Graph (plain or HTML).
  * @returns Trimmed name or null when absent.
@@ -126,41 +146,26 @@ export function extractSubscriberName(
   const normalized = normalizeGraphBodyContentForLineParsing(bodyContent);
   if (!normalized) return null;
 
-  const lines = normalized
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  for (const line of lines) {
-    const nameLine = line.match(/^Name:\s*(.+)$/i);
-    if (nameLine?.[1]) {
-      const value = nameLine[1].trim();
-      if (value.length > 0) return value;
-    }
-  }
-
-  for (const line of lines) {
-    const legacyLine = line.match(/^Subscriber Name:\s*(.+)$/i);
-    if (legacyLine?.[1]) {
-      const value = legacyLine[1].trim();
-      if (value.length > 0) return value;
-    }
-  }
-
-  const legacyInline = normalized.match(
-    /Subscriber Name:\s*(.+?)(?=\s+---|\s*$)/is,
+  const nameBlock = normalized.match(
+    new RegExp(
+      `(?<!Subscriber )Name:\\s*(.*?)${SUBSCRIBER_NAME_VALUE_BOUNDARY}`,
+      "is",
+    ),
   );
-  if (legacyInline?.[1]) {
-    const value = legacyInline[1].trim();
-    if (value.length > 0) return value;
+  if (nameBlock?.[1]) {
+    const capped = trimCapSubscriberName(nameBlock[1]);
+    if (capped) return capped;
   }
 
-  const nameInline = normalized.match(
-    /Name:[ \t]*([^\n]+?)(?=(?:\s+|\n)Ticker:|\s+Subscriber|\s+---|\s*$)/i,
+  const subscriberBlock = normalized.match(
+    new RegExp(
+      `Subscriber Name:\\s*(.*?)${SUBSCRIBER_NAME_VALUE_BOUNDARY}`,
+      "is",
+    ),
   );
-  if (nameInline?.[1]) {
-    const value = nameInline[1].trim();
-    if (value.length > 0) return value;
+  if (subscriberBlock?.[1]) {
+    const capped = trimCapSubscriberName(subscriberBlock[1]);
+    if (capped) return capped;
   }
 
   return null;

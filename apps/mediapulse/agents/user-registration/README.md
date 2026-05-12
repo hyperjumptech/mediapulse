@@ -5,7 +5,7 @@ A Hermes agent that polls an Outlook inbox for newsletter subscription emails, p
 ## What it does
 
 1. Lists unread messages from the configured Outlook mailbox.
-2. Parses the **subscriber email** from the message `From` address (the address that actually sent the mail), the **ticker** from the subject (and body fallbacks), and the **display name** from the message body (`Name:` line from the registration mailto, or legacy `Subscriber Name:`), then Microsoft Graph `from.emailAddress.name` when usable, then a title-cased guess from the email local part.
+2. Parses the **subscriber email** from the message `From` address, the **ticker** from the subject (and body fallbacks), and the **display name** from the body (`Name:` from the current registration mailto, or legacy `Subscriber Name:`), using pipe/`Ticker:`/`---`/disclaimer boundaries so one-line mail clients do not swallow the footer into the name; then Graph `from.emailAddress.name` when usable, then a title-cased guess from the email local part.
 3. Calls `agent-data-api POST /api/v1/user-registration-register` to create or update the `UserTicker` row.
 4. When the subscription is new or unconfirmed, sends a plain-text confirmation notification email (Resend) and immediately confirms the subscription via `agent-data-api` (no user action required).
 5. Archives the processed message out of the inbox (best-effort) to keep the mailbox clear.
