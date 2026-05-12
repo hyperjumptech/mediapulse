@@ -1,5 +1,14 @@
 /** @vitest-environment node */
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@mediapulse/database", () => ({
+  prisma: {
+    ticker: {
+      findMany: vi.fn(),
+    },
+  },
+}));
+
 import { listTickersForUserRegistration } from "./user-registration-tickers.js";
 
 describe("listTickersForUserRegistration", () => {
