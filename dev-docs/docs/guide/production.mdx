@@ -26,7 +26,7 @@ Pushes to **main** run the same two **`pnpm --filter … db:migrate:deploy`** co
 
 After migrations succeed, each workflow builds and pushes per-service images to **GitHub Container Registry (GHCR)** as `ghcr.io/<owner>/<image>:sha-<commit>` and `ghcr.io/<owner>/<image>:latest`. Images are built from the repository root using each app's **`Dockerfile`**. Dockerfiles set **`MEDIAPULSE_ENV_BUILD_TARGETS`** or **`HERMES_ENV_BUILD_TARGETS`** so `@mediapulse/env` / `@hermes/env` only run `env-to-t3` for the slices that image needs (faster builds); leave those unset locally for full codegen.
 
-Once an image is published, CI triggers a **Coolify deploy webhook** for each service. Coolify pulls the new image from GHCR and rolls it out. A **cleanup job** runs after all deploys succeed and deletes older GHCR package versions, retaining the **two newest versions** per service for rollback.
+Once an image is published, CI triggers a **Coolify deploy webhook** for each service. Coolify pulls the new image from GHCR and rolls it out. A **cleanup job** runs after all deploys succeed and deletes older GHCR package versions, retaining the **five newest versions** per service for rollback.
 
 Keep **branch protection** on **`main`** so **Code Quality Checks** (which still run full **`pnpm build`** and tests on PRs / heavy pushes) stay green before merges; deploy workflows start on the same **`push` to `main`** in parallel. If you need a strict "tests then deploy" order, add a **`workflow_run`**-triggered deploy after code quality succeeds.
 
@@ -269,7 +269,7 @@ Annotated templates: **`packages/hermes/env/env.example`**, **`env.hermes-worker
 ## Summary
 
 - **Order:** Prerequisites (three DB roles + migrations) → **Hermes** (auth API → registry API → dashboard → worker, with **`HERMES_INTERNAL_API_KEY`** aligned) → **Mediapulse** (agent-data-api → domain-api → optional **user-registration** → agents).
-- **CI deploy flow:** Every merge to `main` runs `db-migrate` → build and push per-service images to GHCR → trigger Coolify deploy webhooks → prune old GHCR versions (keep newest 2 per service for rollback).
+- **CI deploy flow:** Every merge to `main` runs `db-migrate` → build and push per-service images to GHCR → trigger Coolify deploy webhooks → prune old GHCR versions (keep newest 5 per service for rollback).
 - **Rollback:** Promote the previous image tag (`sha-<commit>`) in Coolify to roll back a service without a new merge.
 - **Secrets:** Never commit real values; use your platform’s secret storage. **`HERMES_INTERNAL_API_KEY`** is a deploy-time preset. **`DOMAIN_INTEGRATION_API_KEY`** on Mediapulse/agents is the API key generated in **Domain integrations** (Hermes dashboard). Apps require **`COOLIFY_WEBHOOK_APP_<SERVICE>`** secrets and agents require **`COOLIFY_WEBHOOK_AGENT_<SERVICE>`** secrets in GitHub Actions; GHCR access uses the built-in **`GITHUB_TOKEN`** with `packages: write`.
 - **JWTs:** agent-auth-api issues tokens for the internal preset and for **domain_integration** API keys (hash in DB); Hermes decrypts per-integration ciphertext for outbound domain/agent calls where configured. Verification uses **`AGENT_AUTH_API_URL`** / **`AGENT_AUTH_JWT_SECRET`** on the auth API.
