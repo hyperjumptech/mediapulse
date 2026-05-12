@@ -1,6 +1,6 @@
 import { domainHealthResponseSchema } from "@hermes/domain-contract/contracts";
 import { env } from "@hermes/env";
-import { logger } from "@workspace/logger";
+import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
 import { Hono } from "hono";
 import { pinoLogger } from "hono-pino";
 import { issueToken } from "./routes/issue-token";
@@ -21,14 +21,7 @@ const mainApp = new Hono();
 mainApp.use(
   pinoLogger({
     pino: logger,
-    http: {
-      onResBindings: (c) => ({
-        res: {
-          status: c.res.status,
-          headers: Object.fromEntries(c.res.headers.entries()),
-        },
-      }),
-    },
+    http: slimHonoPinoHttpLoggerOptions,
   }),
 );
 

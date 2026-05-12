@@ -426,6 +426,11 @@ export async function runDataCollection(
     };
   }
 
+  const completionMessage =
+    status === "partial_success"
+      ? "data collection run completed with partial success"
+      : "data collection run completed successfully";
+
   log.info(
     {
       status,
@@ -433,7 +438,7 @@ export async function runDataCollection(
       totalSources,
       failureCount: failuresPayload.length,
     },
-    "data collection run completed successfully",
+    completionMessage,
   );
 
   return {

@@ -1,37 +1,17 @@
 import pino from "pino";
 
-const baseOptions: pino.LoggerOptions = {
-  level: process.env.LOG_LEVEL ?? "info",
-  redact: {
-    paths: [
-      // HTTP Headers
-      "req.headers.authorization",
-      "req.headers.cookie",
-      'res.headers["set-cookie"]',
-      // Catch headers inside error objects (e.g., got/axios errors)
-      "err.options.headers.authorization",
-      "err.config.headers.Authorization",
-      "*.headers.authorization",
-      "*.headers.Authorization",
-      '*.headers["x-api-key"]',
-      // Common secret keys
-      "password",
-      "*.password",
-      "token",
-      "*.token",
-      "apiKey",
-      "*.apiKey",
-      "secret",
-      "*.secret",
-      // PII
-      "email",
-      "*.email",
-    ],
-    censor: "[REDACTED]",
-  },
-};
+import { buildDefaultRootLogger } from "./build-default-root-logger.js";
 
-export const logger = pino(baseOptions);
+export const logger = buildDefaultRootLogger();
+
+export { slimHonoPinoHttpLoggerOptions } from "./hono-pino-slim-http.js";
+export { isLogPrettyEnabled } from "./is-log-pretty-enabled.js";
+export {
+  HERMES_ACCESS_LOG_CORRELATION_HEADER_NAMES,
+  pickHermesCorrelationHeadersForAccessLog,
+} from "./pick-correlation-headers-for-access-log.js";
+export { buildDefaultRootLogger } from "./build-default-root-logger.js";
+export type { BuildDefaultRootLoggerDeps } from "./build-default-root-logger.js";
 
 export { pino };
 export type { Logger } from "pino";

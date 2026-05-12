@@ -1,6 +1,9 @@
 import { domainHealthResponseSchema } from "@hermes/domain-contract/contracts";
 import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
-import { logger as defaultLogger } from "@workspace/logger";
+import {
+  logger as defaultLogger,
+  slimHonoPinoHttpLoggerOptions,
+} from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
@@ -61,14 +64,7 @@ export function createAgentApp<
   app.use(
     pinoLogger({
       pino: logger,
-      http: {
-        onResBindings: (c) => ({
-          res: {
-            status: c.res.status,
-            headers: Object.fromEntries(c.res.headers.entries()),
-          },
-        }),
-      },
+      http: slimHonoPinoHttpLoggerOptions,
     }),
   );
 

@@ -9,13 +9,21 @@
             "default": "./src/index.ts"
         }
     },
+    "scripts": {
+        "test": "vitest run",
+        "test:coverage": "vitest run --coverage",
+        "type:check": "tsc --noEmit"
+    },
     "dependencies": {
+        "hono": "catalog:",
+        "hono-pino": "catalog:",
         "pino": "catalog:",
         "pino-pretty": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",
         "@workspace/typescript-config": "workspace:*",
-        "typescript": "catalog:"
+        "typescript": "catalog:",
+        "vitest": "catalog:"
     }
 }
