@@ -11,6 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@hermes/domain-contract": "workspace:*",
     "@mediapulse/database": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",

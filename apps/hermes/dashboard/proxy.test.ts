@@ -42,13 +42,13 @@ describe("proxy", () => {
       new Request("http://0.0.0.0:3001/", {
         headers: {
           cookie: "auth-token=x",
-          "x-forwarded-host": "mediapulse-hermes.fly.dev",
+          "x-forwarded-host": "dashboard.example.com",
           "x-forwarded-proto": "https",
         },
       }),
     );
     expect(res.headers.get("location")).toBe(
-      "https://mediapulse-hermes.fly.dev/dashboard",
+      "https://dashboard.example.com/dashboard",
     );
   });
 

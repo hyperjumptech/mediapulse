@@ -10,6 +10,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@hermes/domain-contract": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/api-utils": "workspace:*",
     "@hermes/orchestration-database": "workspace:*",

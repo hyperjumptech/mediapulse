@@ -32,6 +32,24 @@ Keep **branch protection** on **`main`** so **Code Quality Checks** (which still
 
 ---
 
+## HTTP liveness (`GET /health`)
+
+Every **HTTP** service exposes **unauthenticated** `GET /health` with JSON matching the Hermes domain health contract: `{ "ok": true, "service": "<name>" }`, and optionally `"version"`. Point **Coolify** health checks (or your load balancer) at this path on each container’s HTTP port.
+
+| Component                    | Package                         | `service` field (typical)                             |
+| ---------------------------- | ------------------------------- | ----------------------------------------------------- |
+| agent-auth-api               | `@hermes/agent-auth-api`        | `agent-auth-api`                                      |
+| agent-registry-api           | `@hermes/agent-registry-api`    | `agent-registry-api`                                  |
+| Hermes dashboard             | `@hermes/dashboard`             | `hermes-dashboard`                                    |
+| agent-data-api               | `@mediapulse/agent-data-api`    | `agent-data-api`                                      |
+| domain-api                   | `@mediapulse/domain-api`        | `DOMAIN_INTEGRATION_NAME` env or `Mediapulse` default |
+| Mediapulse user-registration | `@mediapulse/user-registration` | `mediapulse-user-registration`                        |
+| Mediapulse agents (Bun)      | `apps/mediapulse/agents/*`      | each agent’s stable `agentId`                         |
+
+**hermes-worker** (`@hermes/worker`) does **not** listen on HTTP — there is no `GET /health`. Rely on your orchestrator’s **process** health (container PID 1, optional exec script, or equivalent).
+
+---
+
 ## Hermes
 
 Deploy in this order: **agent-auth-api → agent-registry-api → dashboard → hermes-worker** (set **`HERMES_INTERNAL_API_KEY`** the same on auth API, dashboard, and worker before relying on pipeline runs).
@@ -105,6 +123,8 @@ Deploy in this order: **agent-auth-api → agent-registry-api → dashboard → 
 ### 4. hermes-worker
 
 **Package:** `@hermes/worker` · **Path:** `apps/hermes/worker`
+
+This process has **no HTTP port** and **no `GET /health`** — use **process-level** liveness in Coolify or your scheduler host (see [HTTP liveness](#http-liveness-get-health) above).
 
 Merge **`packages/hermes/env/env.example`** with **`packages/hermes/env/env.hermes-worker.example`** in the runtime environment (same pattern as `merge-env-examples.sh`).
 
@@ -228,12 +248,12 @@ For **knowledge-graph** behaviour and data model details, see [Knowledge Graph](
 
 ## Extra variables (reference)
 
-| Variable                                                                | Typical location                              | Explanation                                                                                             |
-| ----------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `HERMES_DATA_SOURCE_MAX_TAKE`                                           | Hermes dashboard, worker, Mediapulse base env | Max rows for `db:` expansion (default `5000`); keep the same everywhere.                                |
-| `AGENT_DATA_API_URL`                                                    | Hermes env                                    | Required on **agents** that call agent-data-api; optional on Hermes if you centralize URLs elsewhere.   |
-| `HERMES_INVOKE_AGENT_MAX_ATTEMPTS` / `HERMES_INVOKE_AGENT_DLQ_JOB_TYPE` | hermes-worker                                 | Optional DataQueue retry and dead-letter tuning for agent invocation (see `env.hermes-worker.example`). |
-| Outlook / Graph                                                         | Hermes agent config (and CLI for `test:lib`) | No `OUTLOOK_*` in `@mediapulse/env`. Agents pass `outlookClientId` / secret / tenant / user from Hermes; local script uses flags — see [Microsoft setup](/mediapulse/packages/outlook-inbox/microsoft-setup). |
+| Variable                                                                | Typical location                              | Explanation                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HERMES_DATA_SOURCE_MAX_TAKE`                                           | Hermes dashboard, worker, Mediapulse base env | Max rows for `db:` expansion (default `5000`); keep the same everywhere.                                                                                                                                      |
+| `AGENT_DATA_API_URL`                                                    | Hermes env                                    | Required on **agents** that call agent-data-api; optional on Hermes if you centralize URLs elsewhere.                                                                                                         |
+| `HERMES_INVOKE_AGENT_MAX_ATTEMPTS` / `HERMES_INVOKE_AGENT_DLQ_JOB_TYPE` | hermes-worker                                 | Optional DataQueue retry and dead-letter tuning for agent invocation (see `env.hermes-worker.example`).                                                                                                       |
+| Outlook / Graph                                                         | Hermes agent config (and CLI for `test:lib`)  | No `OUTLOOK_*` in `@mediapulse/env`. Agents pass `outlookClientId` / secret / tenant / user from Hermes; local script uses flags — see [Microsoft setup](/mediapulse/packages/outlook-inbox/microsoft-setup). |
 
 Annotated templates: **`packages/hermes/env/env.example`**, **`env.hermes-worker.example`**, **`packages/mediapulse/env/env.example`**, **`env.agents.*.example`**. After editing those files, run `pnpm build` in `packages/hermes/env` and/or `packages/mediapulse/env` to regenerate types.
 

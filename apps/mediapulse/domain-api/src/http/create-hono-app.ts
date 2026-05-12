@@ -25,18 +25,7 @@ export const createDomainApiServer = (): {
 } => {
   const app = new Hono();
 
-  // Public routes — no agent-auth JWT required.
-  app.route("/api", unsubscribeRoutes);
-
-  if (!env.UNSUBSCRIBE_SECRET) {
-    logger.warn(
-      "UNSUBSCRIBE_SECRET is not set — unsubscribe endpoints will return safe fallback responses",
-    );
-  }
-
-  const api = app.basePath("/v1");
-
-  api.use(
+  app.use(
     pinoLogger({
       pino: logger,
       http: {
@@ -50,12 +39,22 @@ export const createDomainApiServer = (): {
     }),
   );
 
+  // Public routes — no agent-auth JWT required.
+  app.route("/api", unsubscribeRoutes);
+
+  if (!env.UNSUBSCRIBE_SECRET) {
+    logger.warn(
+      "UNSUBSCRIBE_SECRET is not set — unsubscribe endpoints will return safe fallback responses",
+    );
+  }
+
+  /** Liveness for load balancers; same contract as Hermes `GET /health` on domain integrations. */
+  app.route("/health", healthRoutes);
+
+  const api = app.basePath("/v1");
+
   if (env.AGENT_AUTH_API_URL?.trim()) {
     api.use("*", async (c, next) => {
-      const path = new URL(c.req.url).pathname;
-      if (path.endsWith("/health")) {
-        return next();
-      }
       const ok = await verifyInvocationJwtFromHeader(
         c.req.header("Authorization"),
       );
@@ -66,8 +65,6 @@ export const createDomainApiServer = (): {
     });
   }
 
-  api.route("/health", healthRoutes);
-
   for (const { segment, app: subApp } of hermesDashboardRouteMounts) {
     api.route(hermesDashboardTableMountPath(segment), subApp);
   }
@@ -77,6 +74,6 @@ export const createDomainApiServer = (): {
 
   return {
     port: env.PORT ?? 8090,
-    fetch: api.fetch,
+    fetch: app.fetch,
   };
 };

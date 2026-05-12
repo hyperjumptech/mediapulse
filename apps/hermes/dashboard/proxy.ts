@@ -6,7 +6,7 @@ import { resolvePublicOrigin } from "@/lib/resolve-public-origin";
 /**
  * Hermes dashboard proxy: `/` has no public landing page. Send visitors to
  * `/dashboard` when the session cookie is present, otherwise `/login`.
- * Uses forwarded headers so redirects stay on the public host behind Fly, etc.
+ * Uses forwarded headers so redirects stay on the public host behind a reverse proxy.
  *
  * @param request - Incoming request (matched to `/` only via `config.matcher`).
  * @returns Redirect or passthrough (defensive if pathname is not `/`).

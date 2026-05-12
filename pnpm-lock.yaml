@@ -143,6 +143,9 @@ importers:
 
   apps/hermes/agent-auth-api:
     dependencies:
+      '@hermes/domain-contract':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-contract
       '@hermes/env':
         specifier: workspace:*
         version: link:../../../packages/hermes/env
@@ -180,6 +183,9 @@ importers:
 
   apps/hermes/agent-registry-api:
     dependencies:
+      '@hermes/domain-contract':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-contract
       '@hermes/env':
         specifier: workspace:*
         version: link:../../../packages/hermes/env
@@ -420,6 +426,9 @@ importers:
 
   apps/mediapulse/agent-data-api:
     dependencies:
+      '@hermes/domain-contract':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-contract
       '@mediapulse/database':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/database
@@ -936,6 +945,9 @@ importers:
 
   apps/mediapulse/user-registration:
     dependencies:
+      '@hermes/domain-contract':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-contract
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/env
@@ -1455,6 +1467,9 @@ importers:
 
   packages/shared/agent-runtime:
     dependencies:
+      '@hermes/domain-contract':
+        specifier: workspace:*
+        version: link:../../hermes/domain-contract
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../agent-auth-client

@@ -210,6 +210,32 @@ describe("createAgentApp", () => {
     expect(body.message).toBe("Internal Server Error");
   });
 
+  it("GET /health returns domain health contract JSON without Authorization", async () => {
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        run: async () => ({ success: true }),
+      },
+      { verifyToken: async () => false },
+    );
+
+    const res = await app.request("http://localhost/health", { method: "GET" });
+    const body = (await res.json()) as {
+      ok: boolean;
+      service: string;
+      version?: string;
+    };
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({
+      ok: true,
+      service: "test-agent",
+      version: "1.0.0",
+    });
+  });
+
   it("GET /schemas returns inputSchema and configSchema as JSON Schema", async () => {
     // Setup
     const app = createAgentApp<Input, typeof schema>(

@@ -57,6 +57,19 @@ describe("agent-registry-api", () => {
     vi.restoreAllMocks();
   });
 
+  describe("GET /health", () => {
+    it("returns 200 without Authorization", async () => {
+      const { default: server } = await import("./index.js");
+      const res = await server.fetch(
+        new Request("http://localhost/health", { method: "GET" }),
+      );
+      const body = (await res.json()) as { ok: boolean; service: string };
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ ok: true, service: "agent-registry-api" });
+    });
+  });
+
   describe("POST /api/agents/register", () => {
     it("returns 401 without Authorization header", async () => {
       const { default: app } = await import("./index.js");

@@ -118,6 +118,22 @@ describe("agent-data-api", () => {
     vi.restoreAllMocks();
   });
 
+  describe("GET /health", () => {
+    it("returns 200 and domain health JSON without Authorization", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request("http://localhost/health", {
+        method: "GET",
+      });
+      const body = (await res.json()) as {
+        ok: boolean;
+        service: string;
+      };
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ ok: true, service: "agent-data-api" });
+    });
+  });
+
   describe(`GET ${contentGenerationPath}`, () => {
     it("returns 401 without Authorization header", async () => {
       const { app } = await import("./index.js");
