@@ -171,6 +171,49 @@ describe("createRunHandler", () => {
     expect(archiveMessage).toHaveBeenCalledWith("msg-1");
   });
 
+  it("passes Subscriber Name from a one-line body to register", async () => {
+    const registerCreate = vi.fn().mockResolvedValue({
+      tickerKnown: true,
+      isNewSubscription: false,
+    });
+    const oneLineBody =
+      "Ticker: AAPL - Apple  |  Subscriber Name: Kevin Hermawan  |  ---  |  Please do not modify the subject or content of this email before sending.";
+
+    const run = createRunHandler({
+      createInbox: () => ({
+        listMessages: async () => [
+          makeMessage({
+            subject: "Newsletter Subscription - AAPL",
+            body: { content: oneLineBody, contentType: "text" },
+            from: { emailAddress: { address: "blob@run-test.example" } },
+          }),
+        ],
+        archiveMessage: vi.fn().mockResolvedValue(undefined),
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
+      ResendClient: class {
+        emails = { send: vi.fn() };
+        constructor() {}
+      } as any,
+      createDataApi: () =>
+        ({
+          userRegistrationRegister: { create: registerCreate },
+          userRegistrationConfirm: { create: vi.fn() },
+        }) as any,
+    });
+
+    await run(makeCtx() as any);
+
+    expect(registerCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "blob@run-test.example",
+        name: "Kevin Hermawan",
+        tickerSymbol: "AAPL",
+      }),
+    );
+  });
+
   it("archives without sending an email when subscription is already active", async () => {
     const archiveMessage = vi.fn().mockResolvedValue(undefined);
     const emailSend = vi.fn();

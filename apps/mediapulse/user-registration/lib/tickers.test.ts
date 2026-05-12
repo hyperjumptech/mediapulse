@@ -4,6 +4,7 @@ import {
   filterTickers,
   formatTicker,
   buildMailtoUrl,
+  MAILTO_BODY_SECTION_SEPARATOR,
   type Ticker,
 } from "./tickers";
 
@@ -118,6 +119,11 @@ describe("buildMailtoUrl", () => {
     // Assert
     expect(url).toContain("subject=");
     expect(url).toContain(encodeURIComponent("TLKM"));
+  });
+
+  it("joins body sections with spaced pipes for single-line mail clients", () => {
+    const url = buildMailtoUrl(ticker, "Jane Doe");
+    expect(url).toContain(encodeURIComponent(MAILTO_BODY_SECTION_SEPARATOR));
   });
 
   it("includes the Ticker: prefix and company name in the encoded body", () => {

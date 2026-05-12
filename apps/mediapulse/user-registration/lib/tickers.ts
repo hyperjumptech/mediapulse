@@ -38,9 +38,14 @@ export const filterTickers = (tickers: Ticker[], query: string): Ticker[] => {
 export const formatTicker = (ticker: Ticker): string =>
   `${ticker.KodeEmiten} - ${ticker.NamaEmiten}`;
 
+/** Spaced pipe segments keep mailto bodies readable when clients (e.g. Gmail app) flatten newlines. */
+export const MAILTO_BODY_SECTION_SEPARATOR = "  |  ";
+
 /**
  * Builds a mailto URL for newsletter subscription with a fixed subject and body.
  * The subscriber's address comes from the mail client's From field when they send.
+ * Body sections are joined with spaced pipes so Gmail and similar clients still show
+ * clear separation when they collapse the draft to a single line.
  *
  * @param ticker - Ticker the user wants to subscribe to.
  * @param name - Subscriber display name (included in the body for processing).
@@ -54,18 +59,12 @@ export const buildMailtoUrl = (
 ): string => {
   const subject = `[MediaPulse] Newsletter Subscription - ${ticker.KodeEmiten}`;
 
-  const bodyLines = [
+  const body = [
     `Ticker: ${ticker.KodeEmiten} - ${ticker.NamaEmiten}`,
     `Subscriber Name: ${name.trim()}`,
-  ];
-
-  bodyLines.push(
-    "",
     "---",
     "Please do not modify the subject or content of this email before sending.",
-  );
-
-  const body = bodyLines.join("\n");
+  ].join(MAILTO_BODY_SECTION_SEPARATOR);
 
   return `mailto:${registrationEmail}?subject=${encodeURIComponent(
     subject,

@@ -4,6 +4,7 @@ import {
   normalizeTickerSymbol,
   deriveNameFromEmailLocalPart,
   extractSenderEmail,
+  extractSubscriberNameFromBody,
   extractTickerSymbol,
 } from "../lib/parser";
 
@@ -121,6 +122,57 @@ describe("Parser Helpers", () => {
           from: { emailAddress: { address: "name@domain" } },
         }),
       ).toBeNull();
+    });
+  });
+
+  describe("extractSubscriberNameFromBody", () => {
+    it("parses Subscriber Name on its own line", () => {
+      const body = [
+        "Ticker: BUMI - PT Bumi Resources Tbk",
+        "Subscriber Name: Kevin Hermawan",
+        "",
+        "---",
+        "Please do not modify the subject or content of this email before sending.",
+      ].join("\n");
+      expect(extractSubscriberNameFromBody(body)).toBe("Kevin Hermawan");
+    });
+
+    it("parses Subscriber Name when the body uses pipe separators (Gmail-style one line)", () => {
+      const body = [
+        "Ticker: BUMI - PT Bumi Resources Tbk",
+        "Subscriber Name: Kevin Hermawan",
+        "---",
+        "Please do not modify the subject or content of this email before sending.",
+      ].join("  |  ");
+      expect(extractSubscriberNameFromBody(body)).toBe("Kevin Hermawan");
+    });
+
+    it("parses Subscriber Name when the body is one collapsed line", () => {
+      const body =
+        "Ticker: BUMI - PT Bumi Resources Tbk  |  Subscriber Name: Kevin Hermawan  |  ---  |  Please do not modify the subject or content of this email before sending.";
+      expect(extractSubscriberNameFromBody(body)).toBe("Kevin Hermawan");
+    });
+
+    it("parses Subscriber Name from simple HTML body", () => {
+      const body =
+        "<div>Ticker: BBCA - Bank</div><div>Subscriber Name:  Jane Doe  </div><div>---</div>";
+      expect(extractSubscriberNameFromBody(body)).toBe("Jane Doe");
+    });
+
+    it("stops at Ticker: when Subscriber Name appears before Ticker", () => {
+      const body = [
+        "Subscriber Name: Pat Lee",
+        "Ticker: IBM - International Business Machines",
+        "---",
+        "Please do not modify the subject or content of this email before sending.",
+      ].join("\n");
+      expect(extractSubscriberNameFromBody(body)).toBe("Pat Lee");
+    });
+
+    it("returns null when Subscriber Name is absent", () => {
+      expect(extractSubscriberNameFromBody("Ticker: GOTO - GoTo")).toBeNull();
+      expect(extractSubscriberNameFromBody(null)).toBeNull();
+      expect(extractSubscriberNameFromBody("")).toBeNull();
     });
   });
 

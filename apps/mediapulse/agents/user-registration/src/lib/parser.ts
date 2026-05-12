@@ -63,6 +63,62 @@ export function extractSenderEmail(graphMessage: GraphMessage): string | null {
   return normalized;
 }
 
+const MAX_SUBSCRIBER_NAME_LENGTH = 500;
+
+/**
+ * Normalizes Graph message body to plain text with line breaks for structured parsing.
+ *
+ * @param body - Raw body (plain text or HTML from Microsoft Graph).
+ * @returns Approximate plain text.
+ */
+function graphBodyApproxPlainText(body: string): string {
+  if (!body.includes("<")) {
+    return body;
+  }
+
+  return body
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+}
+
+/**
+ * Extracts the subscriber display name from the registration mailto body.
+ * The registration app emits `Subscriber Name:` (the `Name:` segment of that label).
+ * The value runs until the next boundary: spaced pipe segments (`  |  `) from the web
+ * mailto, a later `Ticker:`, the `---` separator (after optional newlines), the
+ * “Please do not modify” disclaimer, or end of text.
+ *
+ * @param body - Message body content (plain or HTML).
+ * @returns Trimmed name or null when the label is missing or empty.
+ */
+export function extractSubscriberNameFromBody(
+  body?: string | null,
+): string | null {
+  if (!body || typeof body !== "string") return null;
+
+  const text = graphBodyApproxPlainText(body).trim();
+  if (!text) return null;
+
+  const m = text.match(
+    /Subscriber Name:\s*(.+?)(?=\s+\|\s+|[\r\n]+\s*---|\s*---|\s*Ticker:|\s*Please do not modify|$)/is,
+  );
+  if (!m?.[1]) return null;
+
+  const trimmed = m[1].replace(/\s+/g, " ").trim();
+  if (!trimmed) return null;
+  return trimmed.length > MAX_SUBSCRIBER_NAME_LENGTH
+    ? trimmed.slice(0, MAX_SUBSCRIBER_NAME_LENGTH).trim()
+    : trimmed;
+}
+
 /**
  * Extracts a normalized ticker symbol from an email subject or body.
  * Primary: matches "Newsletter Subscription - {SYMBOL}" in the subject.
