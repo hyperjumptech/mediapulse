@@ -189,7 +189,13 @@ jobs:
             exit 1
           fi
 
-          curl --fail --silent --show-error --retry 3 --retry-delay 3 --verbose \
+          curl --fail --silent --show-error --verbose \
+            --retry 6 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --retry-max-time 300 \
+            --connect-timeout 20 \
+            --max-time 120 \
             -X GET "$COOLIFY_WEBHOOK_URL" \
             --header "Authorization: Bearer $COOLIFY_WEBHOOK_SECRET"
 
