@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import type { HttpLoggerOptions } from "hono-pino";
 
-import { pickHermesCorrelationHeadersForAccessLog } from "./pick-correlation-headers-for-access-log.js";
+import { pickHermesCorrelationHeadersForAccessLog } from "./pick-correlation-headers-for-access-log";
 
 /**
  * `hono-pino` HTTP options that log method, path, optional Hermes correlation headers, and response status only

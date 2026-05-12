@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { describe, expect, it } from "vitest";
 
-import { slimHonoPinoHttpLoggerOptions } from "./hono-pino-slim-http.js";
+import { slimHonoPinoHttpLoggerOptions } from "./hono-pino-slim-http";
 
 describe("slimHonoPinoHttpLoggerOptions", () => {
   it("onReqBindings includes method, url, and correlation headers only", () => {

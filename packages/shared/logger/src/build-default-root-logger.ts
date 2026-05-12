@@ -1,7 +1,7 @@
 import pino from "pino";
 import pinoPretty from "pino-pretty";
 
-import { isLogPrettyEnabled } from "./is-log-pretty-enabled.js";
+import { isLogPrettyEnabled } from "./is-log-pretty-enabled";
 
 const buildBaseOptions = (
   processEnv: NodeJS.ProcessEnv,

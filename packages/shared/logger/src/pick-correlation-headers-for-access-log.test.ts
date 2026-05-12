@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   HERMES_ACCESS_LOG_CORRELATION_HEADER_NAMES,
   pickHermesCorrelationHeadersForAccessLog,
-} from "./pick-correlation-headers-for-access-log.js";
+} from "./pick-correlation-headers-for-access-log";
 
 describe("pickHermesCorrelationHeadersForAccessLog", () => {
   it("maps mixed-case correlation headers to canonical lowercase keys", () => {

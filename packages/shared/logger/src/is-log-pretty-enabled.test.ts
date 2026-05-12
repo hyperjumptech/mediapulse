@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isLogPrettyEnabled } from "./is-log-pretty-enabled.js";
+import { isLogPrettyEnabled } from "./is-log-pretty-enabled";
 
 describe("isLogPrettyEnabled", () => {
   it("returns false when LOG_PRETTY is unset", () => {

@@ -2,7 +2,7 @@ import { PassThrough } from "node:stream";
 
 import { describe, expect, it } from "vitest";
 
-import { buildDefaultRootLogger } from "./build-default-root-logger.js";
+import { buildDefaultRootLogger } from "./build-default-root-logger";
 
 describe("buildDefaultRootLogger", () => {
   it("uses info level by default when LOG_LEVEL is unset", () => {
