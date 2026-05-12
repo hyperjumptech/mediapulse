@@ -218,5 +218,5 @@ jobs:
         with:
           package-name: ${{ matrix.image }}
           package-type: container
-          min-versions-to-keep: 2
+          min-versions-to-keep: 5
           token: ${{ secrets.GITHUB_TOKEN }}
