@@ -22,6 +22,8 @@ const app = createAgentApp<
   {
     agentId: "query-analysis",
     agentVersion: "1.0.0",
+    description:
+      "Runs analytical and knowledge-graph queries for a ticker against stored Mediapulse data.",
     inputSchema,
     configSchema: queryAnalysisConfigSchema,
     run: runQueryAnalysis,

@@ -25,6 +25,8 @@ const app = createAgentApp<
   {
     agentId: "content-generation",
     agentVersion: AGENT_VERSION,
+    description:
+      "Generates newsletter and structured content for a ticker from configured sources and templates.",
     inputSchema: BodySchema,
     configSchema: ContentGenerationConfigSchema,
     run,

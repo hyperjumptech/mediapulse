@@ -14,6 +14,8 @@ const app = createAgentApp<
   {
     agentId: "data-collection",
     agentVersion: "1.0.0",
+    description:
+      "Fetches market and news data for a ticker and persists it through agent-data-api.",
     inputSchema: BodySchema,
     configSchema: ConfigSchema,
     run: runDataCollection,
