@@ -13,6 +13,12 @@ icon: FileText
 - **`logger`** — Default Pino instance (level from `LOG_LEVEL`, default `info`).
 - **`pino`** — Pino constructor for custom instances.
 - **`Logger`** — Type from `pino`.
+- **`slimHonoPinoHttpLoggerOptions`** — Recommended `hono-pino` `http` bindings: logs method, path, optional Hermes correlation headers (`x-job-id`, `x-execution-id`, etc.), and response status only (no full header dumps).
+- **`buildDefaultRootLogger`**, **`isLogPrettyEnabled`**, **`pickHermesCorrelationHeadersForAccessLog`** — Building blocks and helpers (mainly for tests and advanced wiring).
+
+## Human-readable output (local / debugging)
+
+Set **`LOG_PRETTY=1`** (or `true` / `TRUE`) to send logs through **`pino-pretty`** (multiline, colorized timestamps). Default remains **one JSON line per log** for production and log aggregators. Applies to every process that imports the default `logger` (agents, Hono APIs, Hermes worker, and other consumers).
 
 ## Redaction paths
 

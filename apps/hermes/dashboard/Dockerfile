@@ -46,7 +46,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/dashboard/.next/stand
 COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/dashboard/.next/static ./apps/hermes/dashboard/.next/static
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends wget \
+  && apt-get install -y --no-install-recommends wget curl \
   && rm -rf /var/lib/apt/lists/*
 
 USER nextjs

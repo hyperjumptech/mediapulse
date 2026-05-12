@@ -1,5 +1,5 @@
 import { env } from "@mediapulse/env";
-import { logger } from "@workspace/logger";
+import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
 import { Hono } from "hono";
 import { pinoLogger } from "hono-pino";
 import {
@@ -28,14 +28,7 @@ export const createDomainApiServer = (): {
   app.use(
     pinoLogger({
       pino: logger,
-      http: {
-        onResBindings: (c) => ({
-          res: {
-            status: c.res.status,
-            headers: Object.fromEntries(c.res.headers.entries()),
-          },
-        }),
-      },
+      http: slimHonoPinoHttpLoggerOptions,
     }),
   );
 

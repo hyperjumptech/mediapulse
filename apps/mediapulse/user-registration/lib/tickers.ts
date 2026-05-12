@@ -44,8 +44,8 @@ export const MAILTO_BODY_SECTION_SEPARATOR = "  |  ";
 /**
  * Builds a mailto URL for newsletter subscription with a fixed subject and body.
  * The subscriber's address comes from the mail client's From field when they send.
- * Body sections are joined with spaced pipes so Gmail and similar clients still show
- * clear separation when they collapse the draft to a single line.
+ * Display name is included as `Name:` for the agent to parse. Sections are joined with
+ * spaced pipes so Gmail and similar clients still show separation when the draft is one line.
  *
  * @param ticker - Ticker the user wants to subscribe to.
  * @param name - Subscriber display name (included in the body for processing).
@@ -60,8 +60,8 @@ export const buildMailtoUrl = (
   const subject = `[MediaPulse] Newsletter Subscription - ${ticker.KodeEmiten}`;
 
   const body = [
-    `Ticker: ${ticker.KodeEmiten} - ${ticker.NamaEmiten}`,
-    `Subscriber Name: ${name.trim()}`,
+    `Name: ${name.trim()}`,
+    `Ticker: ${ticker.KodeEmiten}`,
     "---",
     "Please do not modify the subject or content of this email before sending.",
   ].join(MAILTO_BODY_SECTION_SEPARATOR);

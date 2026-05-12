@@ -126,7 +126,7 @@ describe("buildMailtoUrl", () => {
     expect(url).toContain(encodeURIComponent(MAILTO_BODY_SECTION_SEPARATOR));
   });
 
-  it("includes the Ticker: prefix and company name in the encoded body", () => {
+  it("includes Name and Ticker code lines in the encoded body", () => {
     // Setup
     const t: Ticker = {
       KodeEmiten: "AADI",
@@ -137,9 +137,12 @@ describe("buildMailtoUrl", () => {
     const url = buildMailtoUrl(t, "Jane Doe");
 
     // Assert
+    expect(url).toContain(encodeURIComponent("Name: Jane Doe"));
     expect(url).toContain(encodeURIComponent("Ticker: AADI"));
-    expect(url).toContain(encodeURIComponent("PT Adaro Andalan Indonesia Tbk"));
-    expect(url).toContain(encodeURIComponent("Subscriber Name: Jane Doe"));
+    expect(url).not.toContain(
+      encodeURIComponent("Ticker: AADI - PT Adaro Andalan Indonesia Tbk"),
+    );
+    expect(url).not.toContain(encodeURIComponent("Subscriber Name:"));
     expect(url).not.toContain(encodeURIComponent("Subscriber Email:"));
   });
 });

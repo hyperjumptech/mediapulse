@@ -12,7 +12,7 @@ FROM oven/bun:1
 WORKDIR /app
 USER root
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends wget \
+  && apt-get install -y --no-install-recommends wget curl \
   && rm -rf /var/lib/apt/lists/*
 USER bun
 ENV NODE_ENV=production
