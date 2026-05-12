@@ -7,7 +7,7 @@ import {
   camelCaseResourceKeyToPathSegment,
 } from "@workspace/agent-data-api-contract";
 import { env } from "@mediapulse/env";
-import { logger } from "@workspace/logger";
+import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
@@ -74,14 +74,7 @@ const app = new Hono();
 app.use(
   pinoLogger({
     pino: logger,
-    http: {
-      onResBindings: (c) => ({
-        res: {
-          status: c.res.status,
-          headers: Object.fromEntries(c.res.headers.entries()),
-        },
-      }),
-    },
+    http: slimHonoPinoHttpLoggerOptions,
   }),
 );
 

@@ -48,7 +48,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/mediapulse/user-registration
 COPY --from=builder --chown=nextjs:nodejs /app/apps/mediapulse/user-registration/.next/static ./apps/mediapulse/user-registration/.next/static
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends wget \
+  && apt-get install -y --no-install-recommends wget curl \
   && rm -rf /var/lib/apt/lists/*
 
 USER nextjs
