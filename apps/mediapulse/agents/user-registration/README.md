@@ -7,7 +7,7 @@ A Hermes agent that polls an Outlook inbox for newsletter subscription emails, p
 1. Lists unread messages from the configured Outlook mailbox.
 2. Parses the **subscriber email** from the message `From` address, the **ticker** from the subject (and body fallbacks), and the **display name** from the body (`Name:` from the current registration mailto, or legacy `Subscriber Name:`), using pipe/`Ticker:`/`---`/disclaimer boundaries so one-line mail clients do not swallow the footer into the name; then Graph `from.emailAddress.name` when usable, then a title-cased guess from the email local part.
 3. Calls `agent-data-api POST /api/v1/user-registration-register` to create or update the `UserTicker` row.
-4. For a **known** ticker, sends a Resend email on every processed signup: **new or unconfirmed** subscriptions get a confirmation email, then `agent-data-api POST /api/v1/user-registration-confirm` records the confirmation timestamp (no user action required). **Already confirmed** subscriptions get an “already subscribed” acknowledgment email and the confirm endpoint is **not** called again so `registration_confirmed_at` is not bumped on repeats.
+4. For a **known** ticker: **new or unconfirmed** subscriptions get a confirmation email via Resend, then `agent-data-api POST /api/v1/user-registration-confirm` records the confirmation timestamp (no user action required). **Already confirmed** subscriptions skip outbound email and the confirm endpoint is **not** called again so `registration_confirmed_at` is not bumped on repeats; the inbox message is still archived.
 5. Archives the processed message out of the inbox (best-effort) to keep the mailbox clear.
 
 ## Archiving and retries

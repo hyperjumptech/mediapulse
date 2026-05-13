@@ -470,45 +470,37 @@ async function processMessage({
     }
 
     const isNewSubscription = registerResponse.isNewSubscription;
-    logger.info(
-      { senderEmail, tickerSymbol, isNewSubscription },
-      isNewSubscription
-        ? "Sending confirmation email for new or unconfirmed subscription."
-        : "Sending acknowledgment email for existing confirmed subscription.",
-    );
-
-    const { html, text } = await renderNewsletterEmail(
-      isNewSubscription
-        ? { variant: "registration-confirmation", tickerSymbol }
-        : { variant: "already-subscribed", tickerSymbol },
-    );
-
-    const confirmationSubject = isNewSubscription
-      ? "Subscription Confirmed - MediaPulse"
-      : "Already Subscribed - MediaPulse";
-
-    await sendResendTransactionalEmail({
-      resend,
-      retryConfig,
-      logBase: {
-        messageId: msg.id,
-        senderEmail,
-        tickerSymbol,
-        isNewSubscription,
-        template: isNewSubscription
-          ? "registration-confirmation"
-          : "already-subscribed",
-      },
-      payload: {
-        from: config.resendSender,
-        to: senderEmail,
-        subject: confirmationSubject,
-        html,
-        text,
-      },
-    });
 
     if (isNewSubscription) {
+      logger.info(
+        { senderEmail, tickerSymbol },
+        "Sending confirmation email for new or unconfirmed subscription.",
+      );
+
+      const { html, text } = await renderNewsletterEmail({
+        variant: "registration-confirmation",
+        tickerSymbol,
+      });
+
+      await sendResendTransactionalEmail({
+        resend,
+        retryConfig,
+        logBase: {
+          messageId: msg.id,
+          senderEmail,
+          tickerSymbol,
+          isNewSubscription: true,
+          template: "registration-confirmation",
+        },
+        payload: {
+          from: config.resendSender,
+          to: senderEmail,
+          subject: "Subscription Confirmed - MediaPulse",
+          html,
+          text,
+        },
+      });
+
       await withRetry(
         () =>
           dataApiClient.userRegistrationConfirm.create({
@@ -519,6 +511,11 @@ async function processMessage({
           }),
         retryConfig,
         isRetryable,
+      );
+    } else {
+      logger.info(
+        { senderEmail, tickerSymbol },
+        "Subscription already confirmed; skipping outbound email.",
       );
     }
 
