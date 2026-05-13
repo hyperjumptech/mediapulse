@@ -7,6 +7,7 @@ import type {
 } from "@workspace/agent-data-api-contract";
 import { prisma } from "@mediapulse/database";
 import type { Prisma } from "@mediapulse/database";
+import { logger } from "@workspace/logger";
 
 /**
  * Thrown when the analysis POST body references data sources that do not belong to the ticker.
@@ -366,9 +367,15 @@ export const applyAnalysisPost = async (
           )) ?? undefined;
       }
       if (entityId === undefined) {
-        throw new AnalysisPostValidationError(
-          `Unknown entityName for article entity: ${mention.entityName}`,
+        logger.warn(
+          {
+            tickerId: body.tickerId,
+            entityName: mention.entityName,
+            dataSourceId: mention.dataSourceId,
+          },
+          "article entity mention skipped: entityName not in ticker vocabulary",
         );
+        continue;
       }
 
       await tx.articleEntity.upsert({
