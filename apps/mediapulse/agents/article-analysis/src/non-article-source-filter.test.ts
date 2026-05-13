@@ -16,6 +16,18 @@ describe("classifyNonArticleSource", () => {
     expect(result).toBe("prefilter_blocked_path");
   });
 
+  it("maps blocked_host from the shared URL classifier", () => {
+    // Act
+    const result = classifyNonArticleSource(
+      "https://www.linkedin.com/posts/example_company-update",
+      "Post title",
+      "content",
+    );
+
+    // Assert
+    expect(result).toBe("prefilter_blocked_host");
+  });
+
   it("blocks index-like title markers", () => {
     // Act
     const result = classifyNonArticleSource(

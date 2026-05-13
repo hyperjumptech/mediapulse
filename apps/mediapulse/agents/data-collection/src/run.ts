@@ -10,10 +10,7 @@ import type { ConfigSchemaType } from "./utilities/config-schema";
 import { performWebFetch } from "./utilities/web-fetch";
 import { performWebSearch } from "./utilities/web-search";
 import { classifyNonArticleContent } from "./utilities/content-shape-filter";
-import {
-  classifyNoisyUrl,
-  type UrlNoiseReason,
-} from "./utilities/url-noise-filter";
+import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
 import { resolveExistingDataSourceUrls } from "./utilities/resolve-existing-data-source-urls";
 import {
   deriveRunStatus,
