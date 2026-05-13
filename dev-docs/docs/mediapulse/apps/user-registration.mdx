@@ -37,7 +37,7 @@ Because MediaPulse supports login-less registration over email, the flow works l
 2. The front-end generates a `mailto:` link allowing the user to send their subscription choice.
 3. The `user-registration` agent reads a shared Microsoft Outlook inbox via `@mediapulse/outlook-inbox`.
 4. The agent parses the desired ticker. Waitlist / Unknown tickers trigger an outbound email.
-5. On successful registration, a confirmation Resend email loop validates the user successfully.
+5. On successful registration for a known ticker, the agent always sends a Resend email: first-time or still-unconfirmed rows get a confirmation email plus `user-registration-confirm`; already-confirmed rows get an acknowledgment only (no confirm call), so repeat signup messages still show up in Resend without changing the stored confirmation time.
 
 ### Inbox hygiene (archiving + retries)
 
