@@ -962,7 +962,6 @@ export const run = async ({
 
     let articleEntityRowsPosted = 0;
     let mentionPostChunksCompleted = 0;
-    let mentionPhaseFailed = false;
     let articleEntityParseErrors: string[] = [];
 
     if (!erPhaseFailed) {
@@ -1017,17 +1016,17 @@ export const run = async ({
               chunkIndex: j,
               err: toSafeLogError(err),
             },
-            "article-analysis articleEntities POST failed; aborting relevance phase",
+            // Intentionally not breaking: article_entities are KG enrichment only.
+            // Remaining chunks and the relevance phase proceed regardless.
+            "article-analysis articleEntities POST failed; continuing to next chunk",
           );
-          mentionPhaseFailed = true;
-          break;
         }
       }
     }
 
     let relevancePostChunksCompleted = 0;
 
-    if (!erPhaseFailed && !mentionPhaseFailed && perSourceSignals.length > 0) {
+    if (!erPhaseFailed && perSourceSignals.length > 0) {
       const weightMap = toRelevanceWeightMapV1(cfg);
       const relevanceDrafts = perSourceSignals.map((sig) =>
         buildDraftRelevanceRow(sig, cfg.scoreBreakdownVersion, weightMap),
