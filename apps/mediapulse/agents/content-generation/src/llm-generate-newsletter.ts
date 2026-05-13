@@ -115,12 +115,14 @@ const defaultGenerateNewsletterObject: GenerateNewsletterObjectFn = async (
  *
  * Exported so callers (e.g. `run.ts`) can compute `promptHash` from the exact
  * string passed to the model without duplicating the constant.
+ *
+ * Supported placeholders: `{{topNewsCount}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`.
  */
-export const SYSTEM_PROMPT = `You are a newsletter writer for busy executives. Given numbered article summaries, produce a structured newsletter.
+export const SYSTEM_PROMPT = `You are a newsletter writer for busy executives. You are writing for subscribers interested in {{tickerName}} ({{tickerSymbol}}). Given numbered article summaries, produce a structured newsletter about this company.
 
 Return a JSON object with:
-- "subject": a compelling email subject line (short, under ~60 chars).
-- "executiveSummary": 2–3 sentences summarizing the main themes and why they matter. No bullet points; use clear prose.
+- "subject": a compelling email subject line that mentions {{tickerName}} or {{tickerSymbol}} (short, under ~60 chars).
+- "executiveSummary": 2–3 sentences summarizing the main themes and why they matter for {{tickerName}} investors. No bullet points; use clear prose.
 - "topNews": an array of exactly {{topNewsCount}} items in the same order as the numbered articles. Each item must have:
   - "title": short headline capturing the key point of that article
   - "summary": 2–4 plain sentences summarizing the article. Do not include any markdown links or citation markers.`;
@@ -137,6 +139,8 @@ export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from the {{topN
  * Supported placeholders:
  * - `{{sourceSummaries}}`: Numbered list of article titles and content.
  * - `{{tickerId}}`: The identifier of the ticker being processed.
+ * - `{{tickerName}}`: The human-readable company name (e.g. "Bank Central Asia").
+ * - `{{tickerSymbol}}`: The exchange ticker symbol (e.g. "BBCA").
  * - `{{date}}`: The current ISO date (YYYY-MM-DD).
  * - `{{topNewsCount}}`: The number of top news items to generate.
  *
@@ -151,7 +155,13 @@ export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from the {{topN
 export function buildUserPrompt(
   sources: SourceForGeneration[],
   template: string = DEFAULT_USER_PROMPT_TEMPLATE,
-  context: { tickerId: string; date: string; topNewsCount: number },
+  context: {
+    tickerId: string;
+    date: string;
+    topNewsCount: number;
+    tickerName?: string;
+    tickerSymbol?: string;
+  },
 ): string {
   const sourceSummaries = sources
     .map((source, i) => `Article ${i + 1}: ${source.title}\n${source.content}`)
@@ -160,6 +170,8 @@ export function buildUserPrompt(
   return template
     .replaceAll("{{sourceSummaries}}", sourceSummaries)
     .replaceAll("{{tickerId}}", context.tickerId)
+    .replaceAll("{{tickerName}}", context.tickerName ?? context.tickerId)
+    .replaceAll("{{tickerSymbol}}", context.tickerSymbol ?? context.tickerId)
     .replaceAll("{{date}}", context.date)
     .replaceAll("{{topNewsCount}}", String(context.topNewsCount));
 }
@@ -184,7 +196,7 @@ export function buildUserPrompt(
  *
  * @param sources - Fetched data sources to summarise into a newsletter.
  * @param config - Resolved agent config including `llmRetry` and `openai.timeoutMs`.
- * @param context - Dynamic values for prompt placeholder substitution (`tickerId`, `date`).
+ * @param context - Dynamic values for prompt placeholder substitution (`tickerId`, `date`, `tickerName`, `tickerSymbol`).
  * @param deps - Injectable dependencies: `generateObjectFn` and `sleepFn` for testing.
  * @returns Generated newsletter content plus provenance metadata.
  * @throws `APICallError` | `TypeValidationError` | `NoObjectGeneratedError` on failure.
@@ -192,7 +204,12 @@ export function buildUserPrompt(
 export async function generateNewsletterWithLlm(
   sources: SourceForGeneration[],
   config: ResolvedContentGenerationConfig,
-  context: { tickerId: string; date: string },
+  context: {
+    tickerId: string;
+    date: string;
+    tickerName?: string;
+    tickerSymbol?: string;
+  },
   deps: {
     generateObjectFn?: GenerateNewsletterObjectFn;
     sleepFn?: (ms: number) => Promise<void>;
@@ -226,13 +243,22 @@ export async function generateNewsletterWithLlm(
   const model = openai(config.openai.model);
 
   // Wire prompts from config with fallback to defaults (MP-CGA-003 / MP-CGA-008).
-  const systemPrompt = config.prompts?.systemPrompt || SYSTEM_PROMPT;
+  // Apply placeholder substitution to the system prompt so {{topNewsCount}},
+  // {{tickerName}}, and {{tickerSymbol}} are resolved before the LLM call.
+  const rawSystemPrompt = config.prompts?.systemPrompt || SYSTEM_PROMPT;
+  const systemPrompt = rawSystemPrompt
+    .replaceAll("{{topNewsCount}}", String(topNewsCount))
+    .replaceAll("{{tickerId}}", context.tickerId)
+    .replaceAll("{{tickerName}}", context.tickerName ?? context.tickerId)
+    .replaceAll("{{tickerSymbol}}", context.tickerSymbol ?? context.tickerId);
   const userTemplate =
     config.prompts?.userPromptTemplate || DEFAULT_USER_PROMPT_TEMPLATE;
   const prompt = buildUserPrompt(selectedSources, userTemplate, {
     tickerId: context.tickerId,
     date: context.date,
     topNewsCount,
+    tickerName: context.tickerName,
+    tickerSymbol: context.tickerSymbol,
   });
 
   const timeout = config.openai?.timeoutMs;

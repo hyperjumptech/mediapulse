@@ -240,7 +240,11 @@ export async function run({
   // -------------------------------------------------------------------------
   // Fetch data sources
   // -------------------------------------------------------------------------
-  const { dataSources: sources } = await dataApiClient.contentGeneration.get({
+  const {
+    dataSources: sources,
+    tickerName,
+    tickerSymbol,
+  } = await dataApiClient.contentGeneration.get({
     tickerId: input.tickerId,
   });
 
@@ -287,6 +291,8 @@ export async function run({
     generated = await generateNewsletterWithLlm(sourcesForLlm, resolvedConfig, {
       tickerId: input.tickerId,
       date: new Date(runStart).toISOString().slice(0, 10),
+      tickerName,
+      tickerSymbol,
     });
   } catch (err) {
     const code = classifyLlmError(err);
