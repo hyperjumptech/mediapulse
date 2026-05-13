@@ -15,10 +15,6 @@ export {
   type InvalidTickerEmailProps,
 } from "./registration/invalid-ticker.js";
 export {
-  AlreadySubscribedEmail,
-  type AlreadySubscribedEmailProps,
-} from "./registration/already-subscribed.js";
-export {
   renderNewsletterEmail,
   type NewsletterTemplateVariant,
   type RenderNewsletterEmailInput,

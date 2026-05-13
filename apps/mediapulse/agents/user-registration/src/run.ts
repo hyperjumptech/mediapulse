@@ -118,7 +118,7 @@ type ResendTransactionalPayload = {
  * @param params.resend - Resend client instance.
  * @param params.payload - From, to, subject, html, and text.
  * @param params.retryConfig - Backoff configuration for transient failures.
- * @param params.logBase - Structured fields included on every log line (e.g. `messageId`, `senderEmail`).
+ * @param params.logBase - Structured fields included on every log line (e.g. `messageId`, `senderEmail` = subscriber). Logs also emit `resendFrom` and `resendRecipientEmail` (Resend From / To).
  * @returns Resend email id from `data.id` when the API returns it.
  */
 async function sendResendTransactionalEmail(params: {
@@ -129,11 +129,12 @@ async function sendResendTransactionalEmail(params: {
 }): Promise<string | undefined> {
   const { resend, payload, retryConfig, logBase } = params;
 
+  // `payload.from` = Hermes resendSender. `payload.to` = subscriber (Outlook From), i.e. confirmation recipient.
   logger.info(
     {
       ...logBase,
       resendFrom: payload.from,
-      resendTo: payload.to,
+      resendRecipientEmail: payload.to,
       resendSubject: payload.subject,
     },
     "user-registration: calling Resend emails.send",
@@ -469,45 +470,37 @@ async function processMessage({
     }
 
     const isNewSubscription = registerResponse.isNewSubscription;
-    logger.info(
-      { senderEmail, tickerSymbol, isNewSubscription },
-      isNewSubscription
-        ? "Sending confirmation email for new or unconfirmed subscription."
-        : "Sending acknowledgment email for existing confirmed subscription.",
-    );
-
-    const { html, text } = await renderNewsletterEmail(
-      isNewSubscription
-        ? { variant: "registration-confirmation", tickerSymbol }
-        : { variant: "already-subscribed", tickerSymbol },
-    );
-
-    const confirmationSubject = isNewSubscription
-      ? "Subscription Confirmed - MediaPulse"
-      : "Already Subscribed - MediaPulse";
-
-    await sendResendTransactionalEmail({
-      resend,
-      retryConfig,
-      logBase: {
-        messageId: msg.id,
-        senderEmail,
-        tickerSymbol,
-        isNewSubscription,
-        template: isNewSubscription
-          ? "registration-confirmation"
-          : "already-subscribed",
-      },
-      payload: {
-        from: config.resendSender,
-        to: senderEmail,
-        subject: confirmationSubject,
-        html,
-        text,
-      },
-    });
 
     if (isNewSubscription) {
+      logger.info(
+        { senderEmail, tickerSymbol },
+        "Sending confirmation email for new or unconfirmed subscription.",
+      );
+
+      const { html, text } = await renderNewsletterEmail({
+        variant: "registration-confirmation",
+        tickerSymbol,
+      });
+
+      await sendResendTransactionalEmail({
+        resend,
+        retryConfig,
+        logBase: {
+          messageId: msg.id,
+          senderEmail,
+          tickerSymbol,
+          isNewSubscription: true,
+          template: "registration-confirmation",
+        },
+        payload: {
+          from: config.resendSender,
+          to: senderEmail,
+          subject: "Subscription Confirmed - MediaPulse",
+          html,
+          text,
+        },
+      });
+
       await withRetry(
         () =>
           dataApiClient.userRegistrationConfirm.create({
@@ -518,6 +511,11 @@ async function processMessage({
           }),
         retryConfig,
         isRetryable,
+      );
+    } else {
+      logger.info(
+        { senderEmail, tickerSymbol },
+        "Subscription already confirmed; skipping outbound email.",
       );
     }
 

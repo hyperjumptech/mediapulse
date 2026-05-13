@@ -301,7 +301,7 @@ describe("createRunHandler", () => {
     );
   });
 
-  it("sends an acknowledgment email without confirm when subscription is already active", async () => {
+  it("archives without Resend or confirm when subscription is already active", async () => {
     const archiveMessage = vi.fn().mockResolvedValue(undefined);
     const emailSend = vi.fn().mockResolvedValue({ data: { id: "email-id" } });
     const confirmCreate = vi.fn();
@@ -337,16 +337,12 @@ describe("createRunHandler", () => {
     const result = (await run(makeCtx() as any)) as any;
 
     expect(result.details.results[0].status).toBe("acknowledged_archived");
-    expect(emailSend).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subject: "Already Subscribed - MediaPulse",
-      }),
-    );
+    expect(emailSend).not.toHaveBeenCalled();
     expect(confirmCreate).not.toHaveBeenCalled();
     expect(archiveMessage).toHaveBeenCalledWith("msg-1");
   });
 
-  it("sends acknowledgment without confirm when subscription changed but row was already confirmed", async () => {
+  it("archives without Resend or confirm when subscription changed but row was already confirmed", async () => {
     const archiveMessage = vi.fn().mockResolvedValue(undefined);
     const emailSend = vi.fn().mockResolvedValue({ data: { id: "e2" } });
     const confirmCreate = vi.fn();
@@ -383,7 +379,7 @@ describe("createRunHandler", () => {
     const result = (await run(makeCtx() as any)) as any;
 
     expect(result.details.results[0].status).toBe("acknowledged_archived");
-    expect(emailSend).toHaveBeenCalledTimes(1);
+    expect(emailSend).not.toHaveBeenCalled();
     expect(confirmCreate).not.toHaveBeenCalled();
     expect(archiveMessage).toHaveBeenCalledWith("msg-1");
   });
