@@ -21,7 +21,7 @@ A Hermes agent that polls an Outlook inbox for newsletter subscription emails, p
 
 The Resend web app only shows activity for **HTTP requests that reached Resend’s API using that workspace’s API key**. If you see **no** rows at all for a signup you care about:
 
-1. **Confirm the agent actually called Resend** — search your logs for `user-registration: calling Resend emails.send` and `user-registration: Resend emails.send accepted` (the latter includes `resendEmailId` when Resend returns an id). If neither appears for that mailbox message, the run never reached `emails.send` (e.g. no matching inbox message, parse failure, rate limit, register/render error, or wrong Resend project when comparing dashboards).
+1. **Confirm the agent actually called Resend** — search your logs for `user-registration: calling Resend emails.send` and `user-registration: Resend emails.send accepted` (the latter includes `resendEmailId` when Resend returns an id). Fields `resendFrom` / `resendRecipientEmail` are the Resend **From** (Hermes `resendSender`) and **To** (subscriber inbox), respectively. If neither log line appears for that mailbox message, the run never reached `emails.send` (e.g. no matching inbox message, parse failure, rate limit, register/render error, or wrong Resend project when comparing dashboards).
 2. **Inbox selection** — The agent only lists messages that are **unread**, whose subject contains **`[MediaPulse] Newsletter Subscription`**, and (when a run passes a `watermark`) are **newer than the watermark**. A user-edited subject, an already-read draft, or a watermark past that message’s time means **zero messages** and therefore **no Resend traffic**, even if you created the user another way.
 3. **API key / team** — Production must use the same Resend API key as the dashboard you are watching (staging vs production keys show different workspaces).
 
@@ -36,14 +36,14 @@ The Resend web app only shows activity for **HTTP requests that reached Resend�
 
 These are supplied by the Hermes orchestration layer at invocation time (not read from the process environment):
 
-| Field                 | Description                                                          |
-| --------------------- | -------------------------------------------------------------------- |
-| `outlookClientId`     | Azure AD app client ID for Outlook access                            |
-| `outlookClientSecret` | Azure AD app client secret                                           |
-| `outlookTenantId`     | Azure AD tenant ID                                                   |
-| `outlookUserId`       | Mailbox user ID or UPN to poll                                       |
-| `resendApiKey`        | Resend API key for sending confirmation notification emails          |
-| `resendSender`        | From address for confirmation notification emails (e.g. `noreply@…`) |
+| Field                 | Description                                                                                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `outlookClientId`     | Azure AD app client ID for Outlook access                                                                                                                                                                                      |
+| `outlookClientSecret` | Azure AD app client secret                                                                                                                                                                                                     |
+| `outlookTenantId`     | Azure AD tenant ID                                                                                                                                                                                                             |
+| `outlookUserId`       | Mailbox user ID or UPN to poll                                                                                                                                                                                                 |
+| `resendApiKey`        | Resend API key for sending confirmation notification emails                                                                                                                                                                    |
+| `resendSender`        | **From** address on outbound mail (must use a domain verified for your Resend API key). The **To** address is always the subscriber parsed from the Outlook message `From` (confirmation is sent to the person who signed up). |
 
 ## Input body
 

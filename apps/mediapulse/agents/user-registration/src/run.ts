@@ -118,7 +118,7 @@ type ResendTransactionalPayload = {
  * @param params.resend - Resend client instance.
  * @param params.payload - From, to, subject, html, and text.
  * @param params.retryConfig - Backoff configuration for transient failures.
- * @param params.logBase - Structured fields included on every log line (e.g. `messageId`, `senderEmail`).
+ * @param params.logBase - Structured fields included on every log line (e.g. `messageId`, `senderEmail` = subscriber). Logs also emit `resendFrom` and `resendRecipientEmail` (Resend From / To).
  * @returns Resend email id from `data.id` when the API returns it.
  */
 async function sendResendTransactionalEmail(params: {
@@ -129,11 +129,12 @@ async function sendResendTransactionalEmail(params: {
 }): Promise<string | undefined> {
   const { resend, payload, retryConfig, logBase } = params;
 
+  // `payload.from` = Hermes resendSender. `payload.to` = subscriber (Outlook From), i.e. confirmation recipient.
   logger.info(
     {
       ...logBase,
       resendFrom: payload.from,
-      resendTo: payload.to,
+      resendRecipientEmail: payload.to,
       resendSubject: payload.subject,
     },
     "user-registration: calling Resend emails.send",
