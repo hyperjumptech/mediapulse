@@ -8,11 +8,14 @@ import RegistrationConfirmationEmail from "./registration/registration-confirmat
 import type { RegistrationConfirmationEmailProps } from "./registration/registration-confirmation.js";
 import InvalidTickerEmail from "./registration/invalid-ticker.js";
 import type { InvalidTickerEmailProps } from "./registration/invalid-ticker.js";
+import AlreadySubscribedEmail from "./registration/already-subscribed.js";
+import type { AlreadySubscribedEmailProps } from "./registration/already-subscribed.js";
 
 /** Supported newsletter template variants for rendering. */
 export type NewsletterTemplateVariant =
   | "default"
   | "registration-confirmation"
+  | "already-subscribed"
   | "invalid-ticker";
 
 export type RenderNewsletterEmailInput =
@@ -23,6 +26,7 @@ export type RenderNewsletterEmailInput =
   | ({
       variant: "registration-confirmation";
     } & RegistrationConfirmationEmailProps)
+  | ({ variant: "already-subscribed" } & AlreadySubscribedEmailProps)
   | ({ variant: "invalid-ticker" } & InvalidTickerEmailProps);
 
 type RenderEmailToHtml = (element: ReactElement) => Promise<string>;
@@ -89,6 +93,8 @@ function newsletterElementForVariant(
       return (
         <RegistrationConfirmationEmail tickerSymbol={input.tickerSymbol} />
       );
+    case "already-subscribed":
+      return <AlreadySubscribedEmail tickerSymbol={input.tickerSymbol} />;
     case "invalid-ticker":
       return <InvalidTickerEmail tickerSymbol={input.tickerSymbol} />;
     default: {
