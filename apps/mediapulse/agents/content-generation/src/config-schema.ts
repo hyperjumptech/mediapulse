@@ -114,11 +114,14 @@ export const ContentGenerationConfigSchema = z
 
     prompts: z
       .object({
-        /** System prompt for the agent. */
+        /**
+         * System prompt for the agent.
+         * Supported placeholders: {{topNewsCount}}, {{tickerId}}, {{tickerName}}, {{tickerSymbol}}
+         */
         systemPrompt: z.string().optional(),
         /**
          * User prompt template.
-         * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{date}}, {{topNewsCount}}
+         * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{tickerName}}, {{tickerSymbol}}, {{date}}, {{topNewsCount}}
          */
         userPromptTemplate: z.string().optional(),
       })

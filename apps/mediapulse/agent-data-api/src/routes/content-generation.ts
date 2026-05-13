@@ -20,8 +20,8 @@ export async function getContentGeneration(
 ): Promise<Response> {
   try {
     const query = getContentGenerationQuerySchema.parse(context.req.query());
-    const dataSources = await getDataSourcesForTicker(query.tickerId);
-    const response = getContentGenerationResponseSchema.parse({ dataSources });
+    const result = await getDataSourcesForTicker(query.tickerId);
+    const response = getContentGenerationResponseSchema.parse(result);
     return context.json(response, 200);
   } catch (error) {
     return internalError(context, error);

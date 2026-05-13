@@ -16,20 +16,22 @@ type DataSourceWithScore = Prisma.DataSourceGetPayload<{
 
 type ContentGenerationDb = {
   dataSource: Pick<typeof prisma.dataSource, "findMany">;
+  ticker: Pick<typeof prisma.ticker, "findUniqueOrThrow">;
   newsletter: Pick<typeof prisma.newsletter, "create" | "findFirst">;
 };
 
 /**
- * Returns today's selected data sources for a ticker ordered by relevance score.
+ * Returns today's selected data sources for a ticker, plus the ticker's
+ * human-readable name and exchange symbol, ordered by relevance score.
  *
  * @param tickerId - Ticker id used to scope data sources and relevance rows.
  * @param deps - Optional dependencies for database and current time.
- * @returns Data sources filtered to selected article relevance rows scored today (UTC).
+ * @returns Data sources filtered to selected article relevance rows scored today (UTC), plus `tickerName` and `tickerSymbol`.
  */
 export const getDataSourcesForTicker = async (
   tickerId: string,
   deps: {
-    db?: Pick<ContentGenerationDb, "dataSource">;
+    db?: Pick<ContentGenerationDb, "dataSource" | "ticker">;
     now?: () => Date;
   } = {},
 ) => {
@@ -37,36 +39,41 @@ export const getDataSourcesForTicker = async (
   const startOfTodayUtc = now();
   startOfTodayUtc.setUTCHours(0, 0, 0, 0);
 
-  const queryArgs = {
-    where: {
-      tickerId,
-      articleRelevances: {
-        some: {
-          tickerId,
-          selected: true,
-          scoredAt: { gte: startOfTodayUtc },
+  const [ticker, dataSourcesWithScores] = await Promise.all([
+    db.ticker.findUniqueOrThrow({
+      where: { id: tickerId },
+      select: { symbol: true, name: true },
+    } satisfies Prisma.TickerFindUniqueOrThrowArgs),
+    db.dataSource.findMany({
+      where: {
+        tickerId,
+        articleRelevances: {
+          some: {
+            tickerId,
+            selected: true,
+            scoredAt: { gte: startOfTodayUtc },
+          },
         },
       },
-    },
-    include: {
-      articleRelevances: {
-        where: {
-          tickerId,
-          selected: true,
-          scoredAt: { gte: startOfTodayUtc },
-        },
-        select: {
-          score: true,
+      include: {
+        articleRelevances: {
+          where: {
+            tickerId,
+            selected: true,
+            scoredAt: { gte: startOfTodayUtc },
+          },
+          select: {
+            score: true,
+          },
         },
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  } satisfies Prisma.DataSourceFindManyArgs;
-  const dataSourcesWithScores = await db.dataSource.findMany(queryArgs);
+      orderBy: {
+        createdAt: "desc",
+      },
+    } satisfies Prisma.DataSourceFindManyArgs),
+  ]);
 
-  return dataSourcesWithScores
+  const dataSources = dataSourcesWithScores
     .sort((left: DataSourceWithScore, right: DataSourceWithScore) => {
       const leftScore = left.articleRelevances[0]?.score ?? 0;
       const rightScore = right.articleRelevances[0]?.score ?? 0;
@@ -78,6 +85,12 @@ export const getDataSourcesForTicker = async (
         ...dataSource
       }: DataSourceWithScore) => dataSource,
     );
+
+  return {
+    dataSources,
+    tickerSymbol: ticker.symbol,
+    tickerName: ticker.name,
+  };
 };
 
 /**

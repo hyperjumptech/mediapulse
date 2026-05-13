@@ -32,6 +32,8 @@ export const contentGenerationDataSourceSchema = z
 
 export const getContentGenerationResponseSchema = z.object({
   dataSources: z.array(contentGenerationDataSourceSchema),
+  tickerSymbol: z.string(),
+  tickerName: z.string(),
 });
 
 export const postContentGenerationResponseSchema = z.object({

@@ -21,7 +21,6 @@ const minimalConfig = {
 const minimalSignals = {
   dataSourceId: "00000000-0000-4000-8000-000000000001",
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
-  url: "https://reuters.com/article",
   entityCount: 1,
   relationCount: 1,
   mentionCount: 1,

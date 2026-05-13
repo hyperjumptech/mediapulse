@@ -6,6 +6,9 @@ vi.mock("@mediapulse/database", () => ({
     dataSource: {
       findMany: vi.fn(),
     },
+    ticker: {
+      findUniqueOrThrow: vi.fn(),
+    },
     newsletter: {
       create: vi.fn(),
       findFirst: vi.fn(),
@@ -23,6 +26,9 @@ type MockDb = {
   dataSource: {
     findMany: ReturnType<typeof vi.fn>;
   };
+  ticker: {
+    findUniqueOrThrow: ReturnType<typeof vi.fn>;
+  };
   newsletter: {
     create: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
@@ -32,6 +38,9 @@ type MockDb = {
 const createMockDb = (): MockDb => ({
   dataSource: {
     findMany: vi.fn(),
+  },
+  ticker: {
+    findUniqueOrThrow: vi.fn(),
   },
   newsletter: {
     create: vi.fn(),
@@ -63,6 +72,10 @@ describe("getDataSourcesForTicker", () => {
   it("filters by selected relevance scored today in UTC and sorts by score desc", async () => {
     // Setup
     const db = createMockDb();
+    db.ticker.findUniqueOrThrow.mockResolvedValue({
+      symbol: "TEST",
+      name: "Test Company",
+    });
     db.dataSource.findMany.mockResolvedValue([
       {
         id: "ds-low",
@@ -125,15 +138,21 @@ describe("getDataSourcesForTicker", () => {
         createdAt: "desc",
       },
     });
-    expect(result).toHaveLength(2);
-    expect(result[0]?.id).toBe("ds-high");
-    expect(result[1]?.id).toBe("ds-low");
-    expect(result[0]).not.toHaveProperty("articleRelevances");
+    expect(result.dataSources).toHaveLength(2);
+    expect(result.dataSources[0]?.id).toBe("ds-high");
+    expect(result.dataSources[1]?.id).toBe("ds-low");
+    expect(result.dataSources[0]).not.toHaveProperty("articleRelevances");
+    expect(result.tickerSymbol).toBe("TEST");
+    expect(result.tickerName).toBe("Test Company");
   });
 
-  it("returns an empty array when no selected articles exist for today", async () => {
+  it("returns empty dataSources and ticker metadata when no selected articles exist for today", async () => {
     // Setup
     const db = createMockDb();
+    db.ticker.findUniqueOrThrow.mockResolvedValue({
+      symbol: "EMPTY",
+      name: "Empty Corp",
+    });
     db.dataSource.findMany.mockResolvedValue([]);
 
     // Act
@@ -143,7 +162,9 @@ describe("getDataSourcesForTicker", () => {
     });
 
     // Assert
-    expect(result).toEqual([]);
+    expect(result.dataSources).toEqual([]);
+    expect(result.tickerSymbol).toBe("EMPTY");
+    expect(result.tickerName).toBe("Empty Corp");
   });
 });
 

@@ -22,7 +22,6 @@ const WEIGHTS = {
 const baseSignals = (): PerSourceRelevanceSignals => ({
   dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   createdAt: new Date("2026-04-09T12:00:00Z"),
-  url: "https://example.com/x",
   entityCount: 2,
   relationCount: 1,
   mentionCount: 2,

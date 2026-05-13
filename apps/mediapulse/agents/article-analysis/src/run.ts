@@ -638,7 +638,6 @@ export const run = async ({
         perSourceSignals.push({
           dataSourceId: source.id,
           createdAt: source.createdAt,
-          url: source.url,
           entityCount: capped.entities.length,
           relationCount: capped.relations.length,
           mentionCount: mentionCapped.length,
