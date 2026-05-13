@@ -14,3 +14,11 @@ export {
   type RetryConfig,
   type RetryDelayContext,
 } from "./with-retry.js";
+export {
+  canonicalizeUrl,
+  classifyNoisyUrl,
+} from "./article-source-url-filter.js";
+export type {
+  UrlNoiseDecision,
+  UrlNoiseReason,
+} from "./article-source-url-filter.js";

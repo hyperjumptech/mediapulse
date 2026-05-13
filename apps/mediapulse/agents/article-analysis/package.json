@@ -20,6 +20,7 @@
     "@workspace/agent-types": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",
+    "@workspace/utils": "workspace:*",
     "ai": "^6.0.142",
     "hono": "catalog:",
     "hono-pino": "catalog:",
