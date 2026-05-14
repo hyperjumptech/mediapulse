@@ -128,6 +128,13 @@ export const DefaultNewsletterEmail = ({
                     <Text style={newsItemSummary}>
                       {renderInlineMarkdownLinks(item.summary, link)}
                     </Text>
+                    {item.url !== undefined && item.url !== "" ? (
+                      <Text style={newsItemSourceLink}>
+                        <Link href={item.url} style={link}>
+                          Read the full article
+                        </Link>
+                      </Text>
+                    ) : null}
                     {index < parsed.topNewsItems.length - 1 ? (
                       <Hr style={itemSeparator} />
                     ) : null}
@@ -179,12 +186,15 @@ DefaultNewsletterEmail.PreviewProps = {
     "",
     "1. Fed holds rates steady",
     "The Federal Reserve announced no change to interest rates, citing stable inflation and strong employment data.",
+    "Read the full article: https://example.com/fed-holds-rates",
     "",
     "2. Apple beats estimates",
     "Apple reported record quarterly revenue of $95B, driven by strong iPhone and services growth.",
+    "Read the full article: https://example.com/apple-earnings",
     "",
     "3. Oil prices dip",
     "Crude oil fell 2% amid easing geopolitical tensions and rising US production.",
+    "Read the full article: https://example.com/oil-prices",
   ].join("\n"),
   footerNote:
     "You can unsubscribe from ticker updates in your account settings.",
@@ -256,6 +266,13 @@ const newsItemSummary: CSSProperties = {
   fontSize: "16px",
   lineHeight: "1.6",
   margin: "0",
+};
+
+const newsItemSourceLink: CSSProperties = {
+  color: "#374151",
+  fontSize: "14px",
+  lineHeight: "1.5",
+  margin: "8px 0 0",
 };
 
 const itemSeparator: CSSProperties = {

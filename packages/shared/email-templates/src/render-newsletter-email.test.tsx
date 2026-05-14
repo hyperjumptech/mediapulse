@@ -285,6 +285,105 @@ describe("renderNewsletterEmail", () => {
     expect(brandingIndex).toBeLessThan(footerNoteIndex);
   });
 
+  it("renders a 'Read the full article' link below each top-news item that has a source URL", async () => {
+    // Setup
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 3 NEWS",
+      "",
+      "1. Fed holds rates steady",
+      "The Federal Reserve announced no change.",
+      "Read the full article: https://example.com/fed",
+      "",
+      "2. Apple beats estimates",
+      "Apple reported record quarterly revenue.",
+      "Read the full article: https://example.com/apple",
+      "",
+      "3. Oil prices dip",
+      "Crude oil fell 2%.",
+      "Read the full article: https://example.com/oil",
+    ].join("\n");
+
+    // Act
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: structuredBody,
+    });
+
+    // Assert — three anchors with the expected label, one per source.
+    expect(html.match(/Read the full article/g)?.length).toBe(3);
+    expect(html).toContain('href="https://example.com/fed"');
+    expect(html).toContain('href="https://example.com/apple"');
+    expect(html).toContain('href="https://example.com/oil"');
+    expect(text).toContain("https://example.com/fed");
+    expect(text).toContain("https://example.com/apple");
+    expect(text).toContain("https://example.com/oil");
+  });
+
+  it("omits the source link cleanly when a top-news item has no URL", async () => {
+    // Setup
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 2 NEWS",
+      "",
+      "1. With URL",
+      "Summary with source.",
+      "Read the full article: https://example.com/with-url",
+      "",
+      "2. Without URL",
+      "Summary without source.",
+    ].join("\n");
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: structuredBody,
+    });
+
+    // Assert — only one anchor with the new label, no empty href.
+    expect(html.match(/Read the full article/g)?.length).toBe(1);
+    expect(html).toContain('href="https://example.com/with-url"');
+    expect(html).not.toMatch(/href=""/);
+  });
+
+  it("keeps top-news summaries free of leftover 'Read the full article' label text", async () => {
+    // Setup
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 1 NEWS",
+      "",
+      "1. Fed holds rates steady",
+      "The Federal Reserve announced no change to interest rates.",
+      "Read the full article: https://example.com/fed",
+    ].join("\n");
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: structuredBody,
+    });
+
+    // Assert — the summary paragraph does not still contain "Read the full article: <url>".
+    expect(html).not.toMatch(
+      /announced no change to interest rates\.\s*Read the full article:/,
+    );
+  });
+
   it("renders markdown links in structured summaries as HTML anchors", async () => {
     const articleUrl = "https://www.investing.com/equities/bnk-central-as";
     const structuredBody = [
