@@ -244,6 +244,8 @@ describe("renderNewsletterEmail", () => {
     );
     expect(text.toLowerCase()).toContain("mediapulse");
     expect(text.toLowerCase()).toContain("hyperjump");
+    expect(text).toContain(DEFAULT_MEDIAPULSE_SITE_URL);
+    expect(text).toContain(DEFAULT_HYPERJUMP_SITE_URL);
   });
 
   it("honours operator-configured branding URLs when provided", async () => {
@@ -252,7 +254,7 @@ describe("renderNewsletterEmail", () => {
     const hyperjumpSiteUrl = "https://staging.hyperjump.example/";
 
     // Act
-    const { html } = await renderNewsletterEmail({
+    const { html, text } = await renderNewsletterEmail({
       title: "Morning Briefing",
       bodyText: "Body content",
       mediapulseSiteUrl,
@@ -260,10 +262,61 @@ describe("renderNewsletterEmail", () => {
     });
 
     // Assert
-    expect(html).toContain(mediapulseSiteUrl);
-    expect(html).toContain(hyperjumpSiteUrl);
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*Mediapulse\\s*</a>`,
+        "i",
+      ),
+    );
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${hyperjumpSiteUrl}["']?[^>]*>\\s*Hyperjump\\s*</a>`,
+        "i",
+      ),
+    );
     expect(html).not.toContain(DEFAULT_MEDIAPULSE_SITE_URL);
     expect(html).not.toContain(DEFAULT_HYPERJUMP_SITE_URL);
+    expect(text).toContain(mediapulseSiteUrl);
+    expect(text).toContain(hyperjumpSiteUrl);
+  });
+
+  it("renders ticker copy and branding link targets together when all props are supplied", async () => {
+    // Setup
+    const mediapulseSiteUrl = "https://staging.mediapulse.example/";
+    const hyperjumpSiteUrl = "https://staging.hyperjump.example/";
+    const tickerSymbol = "BBCA";
+
+    // Act
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+      tickerSymbol,
+      mediapulseSiteUrl,
+      hyperjumpSiteUrl,
+    });
+
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+    expect(stripped).toContain("This digest covers");
+    expect(stripped).toMatch(
+      new RegExp(`<strong[^>]*>\\s*${tickerSymbol}\\s*</strong>`, "i"),
+    );
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*Mediapulse\\s*</a>`,
+        "i",
+      ),
+    );
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${hyperjumpSiteUrl}["']?[^>]*>\\s*Hyperjump\\s*</a>`,
+        "i",
+      ),
+    );
+    expect(text).toContain(tickerSymbol);
+    expect(text).toMatch(/this digest covers/i);
+    expect(text).toContain(mediapulseSiteUrl);
+    expect(text).toContain(hyperjumpSiteUrl);
   });
 
   it("places the branding block above the subscription footer note", async () => {
