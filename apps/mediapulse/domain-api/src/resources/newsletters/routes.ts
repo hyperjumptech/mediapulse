@@ -1,11 +1,20 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
+import { logger } from "@workspace/logger";
 import { Hono } from "hono";
 import { z } from "zod";
 
 import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
 import { parsePagination } from "../../lib/list-pagination";
+import { findActiveQuerySetForNewsletter } from "./active-query-set";
+import { buildHermesLinks } from "./build-hermes-links";
+import {
+  buildRecipients,
+  NEWSLETTER_DETAIL_RECIPIENTS_CAP,
+} from "./build-recipients";
+import { buildSelectedSources } from "./build-selected-sources";
 import { buildDeliveryAggregateMap } from "./delivery-aggregate";
+import { detailInclude, mapRowToDetailItem } from "./detail-mapper";
 import {
   buildNewsletterListOrderBy,
   buildNewsletterListWhere,
@@ -16,8 +25,11 @@ import { listInclude, mapRowToListItem } from "./list-mapper";
 const NEWSLETTERS_PATH_SEGMENT = "newsletters" as const;
 
 /**
- * Hermes `table-v1` API for read-only newsletters (list + meta).
- * Detail handler lands in #462 along with the manifest `detailBlocks`.
+ * Hermes `table-v1` API for read-only newsletters (list, meta, detail).
+ * The detail handler returns the full payload defined by the
+ * `hermes-admin-newsletter-visibility` PRD §5; the manifest declares
+ * `detailBlocks` so the Hermes dashboard renders it via the generic detail
+ * page.
  */
 export const newslettersRoutes = new Hono();
 
@@ -118,4 +130,72 @@ newslettersRoutes.get("/meta", async (c) => {
       label: `${ticker.symbol} — ${ticker.name}`,
     })),
   });
+});
+
+newslettersRoutes.get("/:id", async (c) => {
+  const id = c.req.param("id");
+  const findUniqueArgs = {
+    where: { id },
+    include: detailInclude,
+  } satisfies Prisma.NewsletterFindUniqueArgs;
+  const row = await prisma.newsletter.findUnique(findUniqueArgs);
+
+  if (!row) {
+    return c.json({ message: "Newsletter not found" }, 404);
+  }
+
+  const [recipientsResult, selectedSourcesResult, activeQuerySet, hermesLinks] =
+    await Promise.all([
+      buildRecipients(row.id, row.tickerId, {
+        userTicker: prisma.userTicker,
+        newsletterDeliveryCheckpoint: prisma.newsletterDeliveryCheckpoint,
+        deliveryRun: prisma.deliveryRun,
+      }),
+      buildSelectedSources(row.id, row.tickerId, row.createdAt, {
+        dataSource: prisma.dataSource,
+      }),
+      findActiveQuerySetForNewsletter(row.tickerId, row.createdAt, {
+        searchQuerySet: prisma.searchQuerySet,
+      }),
+      buildHermesLinks(row.id, {
+        contentGenerationRun: prisma.contentGenerationRun,
+        deliveryRun: prisma.deliveryRun,
+      }),
+    ]);
+
+  for (const entry of recipientsResult.notAttemptedAtSendTime) {
+    logger.warn(
+      {
+        newsletterId: row.id,
+        userTickerId: entry.userTickerId,
+        runId: entry.runId,
+      },
+      "Enabled subscriber resolved to not_attempted for newsletter",
+    );
+  }
+  for (const userTickerId of recipientsResult.inconsistentUserTickerIds) {
+    logger.warn(
+      {
+        newsletterId: row.id,
+        userTickerId,
+        runId: hermesLinks.deliveryRunIds[0] ?? null,
+      },
+      "Newsletter recipient outcome=success without checkpoint (inconsistent)",
+    );
+  }
+
+  return c.json(
+    mapRowToDetailItem(row, {
+      recipients: recipientsResult.recipients,
+      recipientsTruncated: recipientsResult.truncated,
+      recipientsCap: NEWSLETTER_DETAIL_RECIPIENTS_CAP,
+      selectedSources: selectedSourcesResult.sources,
+      selectedSourcesWindow: {
+        start: selectedSourcesResult.windowStart,
+        end: selectedSourcesResult.windowEnd,
+      },
+      activeQuerySet,
+      hermesLinks,
+    }),
+  );
 });
