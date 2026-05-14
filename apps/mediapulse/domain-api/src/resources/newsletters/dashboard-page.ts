@@ -91,6 +91,19 @@ const newslettersCitationsBlock = {
 } satisfies DetailBlock;
 
 /**
+ * `htmlPreview` block bound to `emailPreviewHtml` — the production
+ * `default-newsletter` React Email template rendered server-side against the
+ * newsletter's data. The Hermes generic renderer drops this into a sandboxed
+ * iframe (`sandbox="allow-popups"`), so the preview is a visual sanity check
+ * rather than a forensic record of what Resend received.
+ */
+const newslettersEmailPreviewBlock = {
+  type: "htmlPreview",
+  label: "Email preview",
+  field: "emailPreviewHtml",
+} satisfies DetailBlock;
+
+/**
  * `keyValue` block linking each delivery row back to the Hermes execution
  * surface. Missing template variables fall back to plain text (see
  * `renderUrlTemplate` in `@hermes/domain-contract`), which is what the
@@ -164,6 +177,7 @@ export const newslettersDashboardPage = {
     newslettersMetadataBlock,
     newslettersBodyBlock,
     newslettersCitationsBlock,
+    newslettersEmailPreviewBlock,
     newslettersHermesLinksBlock,
   ],
 } satisfies DashboardPageInput;
