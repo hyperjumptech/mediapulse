@@ -1,10 +1,11 @@
 # Hermes admin: newsletter visibility
 
-**Version:** 0.2 | **Date:** 2026-05-14 | **Owner:** Nico (Hermes/Mediapulse)
+**Version:** 0.3 | **Date:** 2026-05-14 | **Owner:** Nico (Hermes/Mediapulse)
 
 ## Changelog
 
-- 0.2 (2026-05-14): Lock in Path B for the detail page (dedicated Hermes-native route under `/dashboard/mediapulse/newsletters/:id`). Path A removed from the spec.
+- 0.3 (2026-05-14): Revert Path B (Hermes-native detail route). It violated the integration boundary: Hermes must not import Mediapulse-specific concepts. Lock in the extended-manifest approach — `apps/mediapulse/domain-api` declares rich detail blocks (markdown, htmlPreview, subTable) and the generic Hermes detail renderer handles them. No newsletter knowledge in `apps/hermes/`.
+- 0.2 (2026-05-14): (Reverted in 0.3) Locked in Path B for the detail page.
 - 0.1 (2026-05-14): Initial draft. Scope, columns, detail sections, rollout, and success metric confirmed via Q&A.
 
 ## Table of contents
@@ -264,18 +265,32 @@ Recipient status derivation runs in the handler (REQ-006). Keep the algorithm in
 
 ### Detail page rendering
 
-The list page works out of the box on the generic `table-v1` contract. The detail page does **not** fit the generic key/value renderer in `apps/hermes/dashboard/app/dashboard/[integrationId]/[resource]/[itemId]/page.tsx` because it needs a markdown body, an iframe email preview, and multiple structured sub-tables.
+The list page works out of the box on the generic `table-v1` contract. The detail page does **not** fit the current generic key/value renderer in `apps/hermes/dashboard/app/dashboard/[integrationId]/[resource]/[itemId]/page.tsx` because it needs a markdown body, an iframe email preview, and multiple structured sub-tables.
 
-**Approach: dedicated Hermes-native detail route.** Register the list as a generic `table-v1` resource as described above, but **shadow** the generic detail route with a Hermes-native page at `apps/hermes/dashboard/app/dashboard/mediapulse/newsletters/[id]/page.tsx`. The Next.js router resolves the more specific path before the catch-all `[integrationId]/[resource]/[itemId]` route, so the bespoke page wins for newsletters without changing routing for any other resource.
+**Approach: extend the `table-v1` manifest contract with detail blocks.** Hermes must stay product-agnostic; it must not import or reference Mediapulse-specific resources. The right place to add capability is the shared contract.
 
-This page:
+Add an optional `detailBlocks` field to the dashboard-page manifest, where a block is one of:
 
-- Reads the detail payload (§5) by calling the `domain-api` detail endpoint through the same auth/proxy used by other dashboard routes. Do **not** call `@mediapulse/database` from `apps/hermes/dashboard` directly — that boundary is documented in `dev-docs/docs/integration/domains.mdx`.
-- Renders the layout described in §9: metadata header, markdown body (reusing `parseNewsletterBody` from `@workspace/email-templates`), rendered email preview in a sandboxed iframe, citations list, selected sources sub-table, search queries sub-table, recipients sub-table, Hermes execution links block.
-- Reuses existing components from `apps/hermes/dashboard/components/`: `PageHeader`, copy-to-clipboard button used in `content-generation-run-detail.tsx`, sub-table primitives used by the variables/agents list pages where they fit.
-- Does **not** require any change to the `table-v1` manifest contract.
+- `keyValue` — current behavior (label/value rows), used for the metadata header and the Hermes execution links section.
+- `markdown` — renders text as markdown using a parser shared via a small new package (or a re-export from `@workspace/email-templates`); supports an optional `clampChars` for "show full" expansion.
+- `htmlPreview` — sandboxed iframe that loads an HTML string supplied by the resource handler.
+- `subTable` — a list shape with columns; rows are pulled from a named field on the detail response.
 
-The list row's "View" action and the breadcrumb link target this bespoke detail path; the integration manifest's default `view` action URL is overridden at registration time (`actions: { view: { hrefTemplate: "/dashboard/mediapulse/newsletters/{id}" } }`, matching the override pattern already used by other resources). If the manifest doesn't support a per-resource href override today, that one-line addition is the prerequisite for the list PR.
+The generic Hermes detail page reads `detailBlocks` from the manifest and renders the blocks in order. Each block declares which field on the detail response feeds it.
+
+The Mediapulse domain-api's `newsletters` resource ships the manifest with:
+
+- A `keyValue` block for the metadata header (subject, ticker, model, agent/config version, prompt hash, tokens).
+- A `markdown` block bound to `newsletter.content` for the body.
+- An `htmlPreview` block bound to a server-rendered string from the detail handler (which calls `@react-email/render` on `default-newsletter`).
+- `subTable` blocks for citations, selected sources, search queries, and recipients.
+- A `keyValue` block for the Hermes execution links section.
+
+Optional support for **section-header rules**: each block can declare a rule like `{ when: "fieldExpr", badge: "warning", label: "partial delivery" }`. This keeps the badges (REQ-015) generic and data-driven instead of newsletter-specific Hermes code.
+
+Why this fits the boundary: Hermes only learns block primitives and rule evaluators (markdown, html-preview, sub-table, header-badge). It does not learn "newsletter". Other domain integrations get the same capabilities for free.
+
+Hermes does **not** call `@mediapulse/database` directly. The integration boundary documented in `dev-docs/docs/integration/domains.mdx` stays intact.
 
 ### Components reused (not rewritten)
 
@@ -306,7 +321,8 @@ Dependencies:
 
 Risks and mitigations:
 
-- **Detail rendering doesn't fit the generic `table-v1` contract.** Mitigation: ship a dedicated Hermes-native detail route at `/dashboard/mediapulse/newsletters/[id]/page.tsx` that shadows the generic route (§5). No manifest contract changes required, beyond confirming the manifest supports a per-resource `view` href override (one-line addition if not).
+- **Detail rendering doesn't fit the current generic `table-v1` contract.** Mitigation: extend the contract with `markdown` / `htmlPreview` / `subTable` detail blocks (§5). This is a shared-contract change, not a one-off, and any future domain integration gets the same primitives. The trade-off is upfront design effort on the contract; the payoff is no Hermes-side per-resource code.
+- **Contract extension might break existing resources.** Mitigation: `detailBlocks` is optional; resources that don't set it keep today's generic key/value rendering. Add coverage for the existing `delivery-runs`, `data-sources`, and `tickers` detail views as a regression check when the contract extension lands.
 - **Recipient status can drift from reality** if `DeliveryRun.recipients` and `NewsletterDeliveryCheckpoint` disagree. Mitigation: REQ-006 spells out the precedence rule and surfaces inconsistencies with an "inconsistent" tag so admins see, rather than hide, the anomaly.
 - **"Selected sources" join is a heuristic.** There is no FK from `Newsletter` to `DataSource`. The UTC-day window matches the current agent behavior but will drift if the agent changes its window. Mitigation: section header shows the exact window used; if the agent changes, the dashboard query changes with it. Don't fake a tighter relationship than the data supports.
 - **"Active SearchQuerySet" is also a heuristic.** Similar story; section header shows the set's `generatedAt`.
@@ -318,12 +334,15 @@ Risks and mitigations:
 
 Shipping order (stacked PRs, no feature flag):
 
-1. **Domain-api `newsletters` resource — list shape only.** Resource definition, list-mapper, list route, `meta` route. Override the list row's `view` action href to point at `/dashboard/mediapulse/newsletters/{id}` so the future bespoke detail route is wired up from day one. If the manifest doesn't support a per-resource href override yet, add it here (one-line). The list page is reachable as soon as this lands.
-2. **Domain-api detail endpoint.** Returns the full payload in §5 (`newsletter`, `recipients`, `selectedSources`, `activeQuerySet`, `hermesLinks`). Until the bespoke route in step 3 lands, the "View" link 404s; admins can still consume the list. Reviewers can hit the endpoint directly to validate the shape.
-3. **Bespoke detail route.** `apps/hermes/dashboard/app/dashboard/mediapulse/newsletters/[id]/page.tsx`. Renders metadata header, markdown body, sandboxed email preview, citations list, selected sources, search queries, recipients table, Hermes execution links.
-4. **Polish:** copy helpers (REQ-014), per-section badges (REQ-015), empty-state strings, accessibility pass.
+1. **Extend `table-v1` manifest contract** with `detailBlocks` (markdown, htmlPreview, subTable) and section-header rules. Update the contract package, update the Hermes generic detail renderer, add regression coverage for existing resources. No Mediapulse-specific code in this step. Foundation for everything below.
+2. **Domain-api `newsletters` list resource.** Definition, list-mapper, list route, `meta` route. The generic detail page already renders something for each row (existing key/value behavior) until step 3 ships richer blocks.
+3. **Domain-api detail handler + manifest blocks for metadata and Hermes links.** Returns the full payload in §5 (`newsletter`, `recipients`, `selectedSources`, `activeQuerySet`, `hermesLinks`) and declares the `keyValue` blocks for the metadata header and the Hermes execution links. Detail page now renders header + links; downstream sub-table / markdown / preview blocks land in steps 4–6.
+4. **Markdown body + citations sub-table blocks.** Adds the `markdown` block bound to `newsletter.content` and a `subTable` block for parsed citations.
+5. **htmlPreview block — rendered email.** Server-renders `default-newsletter` via `@react-email/render`, exposes the HTML on the detail response, declares the `htmlPreview` block.
+6. **subTable blocks — recipients, selected sources, search queries.** Adds the three sub-tables; recipients includes the derived status the handler in step 3 already computes.
+7. **Polish:** copy helpers (REQ-014, manifest option on `markdown` / `keyValue` blocks), per-section badges (REQ-015, manifest header rules), empty-state strings, accessibility pass.
 
-Each PR is independently revertable. Steps 1 and 2 are decoupled (the list works without the detail endpoint, and the detail endpoint can be validated independently of the UI).
+Each PR is independently revertable. Steps 2 and 3 are decoupled (the list works without the detail handler; the handler can be validated independently). Steps 4–6 are parallelizable once step 3 lands.
 
 Post-v1 candidates (not committed):
 
@@ -424,14 +443,14 @@ flowchart TB
 
 ## 10. Confirmed decisions and assumptions
 
-- **UI pattern:** generic `table-v1` resource registered in `apps/mediapulse/domain-api` for the **list**, plus a **bespoke Hermes-native detail route** at `apps/hermes/dashboard/app/dashboard/mediapulse/newsletters/[id]/page.tsx` that shadows the generic detail route. The user chose Path B (dedicated detail route) over Path A (extending the `table-v1` manifest with new block types).
+- **UI pattern:** extend the `table-v1` manifest contract with `markdown`, `htmlPreview`, and `subTable` detail blocks plus section-header rules. Both list and detail are rendered by the generic Hermes pages from the manifest declared in `apps/mediapulse/domain-api`. No Mediapulse-specific code in `apps/hermes/`. This was a course-correction from v0.2's "bespoke Hermes detail route" decision, which violated the integration boundary documented in `dev-docs/docs/integration/domains.mdx`.
 - **Detail sections to include:** metadata header, body markdown, email preview (rendered from `@workspace/email-templates`), citations list, selected sources, search queries, recipients table, Hermes execution links. A separate "linked runs" panel showing full `ContentGenerationRun` / `DeliveryRun` cards was explicitly **not** selected; admins jump to `/dashboard/agents/content-generation-runs` or `/dashboard/mediapulse/delivery-runs` for that.
 - **List columns and filters:** ticker, subject, created at, delivery summary; filters for ticker and date range; search by subject; default sort newest first. Token totals are **not** shown on the list (only on the detail). A delivery-outcome filter is **not** included in v1.
 - **Actions:** read-only. No resend, no delete, no copy helpers in the base scope (copy helpers are REQ-014, P2).
 - **Rollout:** no feature flag. Shipping as stacked PRs (data resource → detail endpoint → detail UI → polish).
 - **Success metric:** time-to-diagnose under 30 seconds, measured qualitatively by admin self-report in the first two weeks.
-- **Assumption (engineer to validate, low risk):** Next.js App Router resolves `/dashboard/mediapulse/newsletters/[id]/page.tsx` ahead of the catch-all `/dashboard/[integrationId]/[resource]/[itemId]/page.tsx` for the same URL. This is the standard App Router behavior (more specific segments win); verify with a smoke test in step 3 of §8.
-- **Assumption:** the integration manifest supports a per-resource `view` action href override (or the addition is one line). If neither is true, treat that as a prerequisite of step 1 in §8 rather than as a blocker.
+- **Assumption (engineer to validate):** the `table-v1` manifest contract can carry an optional `detailBlocks` array without breaking existing consumers, and the Hermes generic detail page can be extended to render the new block types in step 1 of §8. Regression coverage for `delivery-runs`, `data-sources`, and `tickers` detail views is part of that step.
+- **Assumption:** the `markdown` parser used by `@workspace/email-templates` (`parseNewsletterBody`) can be re-exported or moved to a small shared parser package so both the email pipeline and the Hermes detail renderer use the same one. No second markdown library.
 - **Assumption:** the "selected sources" UTC-day window matches `getDataSourcesForTicker` in `apps/mediapulse/agent-data-api/src/services/content-generation.ts` as of writing. If the agent changes that window, this page changes with it. The section header always shows the exact window used.
 - **Assumption:** the "active `SearchQuerySet`" for a newsletter is the most recent `SearchQuerySet` with `isActive = true` and `generatedAt <= Newsletter.createdAt` for the same ticker. If none, the section renders empty.
 - **Assumption:** "delivered" is the `NewsletterDeliveryCheckpoint` count, not the `DeliveryRun.successCount`. The two should agree; when they don't, the dashboard surfaces the disagreement (REQ-006).
@@ -450,7 +469,7 @@ flowchart TB
 | 6. Stakeholder involvement | 10      | 8      | Roles named (Hermes admin, delivery agent owner, CG agent owner, orchestration owner); no individual sign-offs yet.                                |
 | 7. User-centric focus      | 15      | 13     | Stories with priority, journey, success measured from the admin's view (30-second triage).                                                         |
 | 8. Visual aids             | 5       | 4      | Wireframes (ascii) + Mermaid data flow + ER. Could be tightened.                                                                                   |
-| 9. Flexibility             | 5       | 5      | Detail route decision locked (Path B); post-v1 candidates listed.                                                                                  |
+| 9. Flexibility             | 5       | 5      | Extended-manifest approach locked; post-v1 candidates listed.                                                                                      |
 | 10. Version control        | 5       | 5      | Version, date, owner, changelog.                                                                                                                   |
 | **Total**                  | **100** | **89** | Band: Good.                                                                                                                                        |
 
