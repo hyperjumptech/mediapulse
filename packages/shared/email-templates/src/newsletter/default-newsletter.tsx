@@ -32,11 +32,32 @@ export interface DefaultNewsletterEmailProps {
    */
   unsubscribeUrl?: string;
   /**
-   * Ticker symbol shown in the unsubscribe link text (e.g. "AAPL").
-   * Falls back to "these" when omitted.
+   * Ticker symbol shown directly under the heading (e.g. "AAPL") and reused in
+   * the unsubscribe link text. Falls back to "these" in the unsubscribe link
+   * when omitted, and the ticker line above the body is hidden entirely.
    */
   tickerSymbol?: string;
+  /**
+   * Absolute HTTPS URL for the Mediapulse marketing site, used in the footer
+   * branding section. Defaults to the public Mediapulse site so previews and
+   * standalone renders stay correct; delivery passes operator-configured
+   * values from Hermes when available.
+   */
+  mediapulseSiteUrl?: string;
+  /**
+   * Absolute HTTPS URL for the Hyperjump marketing site, used in the footer
+   * branding section. Defaults to the public Hyperjump site so previews and
+   * standalone renders stay correct; delivery passes operator-configured
+   * values from Hermes when available.
+   */
+  hyperjumpSiteUrl?: string;
 }
+
+/** Default Mediapulse marketing site link used for previews and when Hermes config omits the URL. */
+export const DEFAULT_MEDIAPULSE_SITE_URL = "https://mediapulse.id";
+
+/** Default Hyperjump marketing site link used for previews and when Hermes config omits the URL. */
+export const DEFAULT_HYPERJUMP_SITE_URL = "https://hyperjump.tech";
 
 /**
  * Default HTML newsletter layout for Mediapulse delivery.
@@ -45,11 +66,17 @@ export interface DefaultNewsletterEmailProps {
  * the content is rendered as labelled sections with visually separated news items.
  * Otherwise it falls back to pre-wrapped plain-text rendering.
  *
+ * The header includes a short ticker line under the title when `tickerSymbol`
+ * is set, and the footer carries a Mediapulse / Hyperjump branding block
+ * directly above the subscription disclaimer.
+ *
  * @param props.title - Heading text in the body.
  * @param props.bodyText - Main content; structured plain text or free-form.
  * @param props.footerNote - Optional footer copy.
  * @param props.unsubscribeUrl - Optional URL for the one-click unsubscribe link.
- * @param props.tickerSymbol - Ticker symbol shown in the unsubscribe link text.
+ * @param props.tickerSymbol - Ticker symbol shown under the title and in the unsubscribe link.
+ * @param props.mediapulseSiteUrl - HTTPS URL for the Mediapulse footer link.
+ * @param props.hyperjumpSiteUrl - HTTPS URL for the Hyperjump footer link.
  * @returns React Email document tree.
  */
 export const DefaultNewsletterEmail = ({
@@ -58,8 +85,12 @@ export const DefaultNewsletterEmail = ({
   footerNote = "You are receiving this because you subscribed to updates.",
   unsubscribeUrl,
   tickerSymbol,
+  mediapulseSiteUrl = DEFAULT_MEDIAPULSE_SITE_URL,
+  hyperjumpSiteUrl = DEFAULT_HYPERJUMP_SITE_URL,
 }: DefaultNewsletterEmailProps): ReactElement => {
   const parsed = parseNewsletterBody(bodyText);
+  const showTickerLine =
+    tickerSymbol !== undefined && tickerSymbol.trim().length > 0;
 
   return (
     <Html>
@@ -69,6 +100,11 @@ export const DefaultNewsletterEmail = ({
         <Container style={container}>
           <Section style={header}>
             <Heading style={heading}>{title}</Heading>
+            {showTickerLine ? (
+              <Text style={tickerLine}>
+                This digest covers <strong>{tickerSymbol}</strong>.
+              </Text>
+            ) : null}
           </Section>
           <Hr style={hr} />
           {parsed !== undefined ? (
@@ -105,6 +141,17 @@ export const DefaultNewsletterEmail = ({
             </Text>
           )}
           <Hr style={hr} />
+          <Text style={brandingLine}>
+            Brought to you by{" "}
+            <Link href={mediapulseSiteUrl} style={link}>
+              Mediapulse
+            </Link>
+            , a product of{" "}
+            <Link href={hyperjumpSiteUrl} style={link}>
+              Hyperjump
+            </Link>
+            .
+          </Text>
           <Text style={footer}>{footerNote}</Text>
           {unsubscribeUrl !== undefined && unsubscribeUrl !== "" ? (
             <Text style={footerMuted}>
@@ -143,6 +190,8 @@ DefaultNewsletterEmail.PreviewProps = {
     "You can unsubscribe from ticker updates in your account settings.",
   unsubscribeUrl: "https://mediapulse.com/api/unsubscribe?token=example",
   tickerSymbol: "AAPL",
+  mediapulseSiteUrl: DEFAULT_MEDIAPULSE_SITE_URL,
+  hyperjumpSiteUrl: DEFAULT_HYPERJUMP_SITE_URL,
 } satisfies DefaultNewsletterEmailProps;
 
 export default DefaultNewsletterEmail;
@@ -212,6 +261,20 @@ const newsItemSummary: CSSProperties = {
 const itemSeparator: CSSProperties = {
   borderColor: "#e6ebf1",
   margin: "16px 0",
+};
+
+const tickerLine: CSSProperties = {
+  color: "#4b5563",
+  fontSize: "14px",
+  lineHeight: "1.5",
+  margin: "8px 0 0",
+};
+
+const brandingLine: CSSProperties = {
+  color: "#374151",
+  fontSize: "13px",
+  lineHeight: "1.5",
+  margin: "0 0 12px",
 };
 
 const footer: CSSProperties = {
