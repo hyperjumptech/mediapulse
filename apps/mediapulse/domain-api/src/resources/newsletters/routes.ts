@@ -1,5 +1,6 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
+import { parseNewsletterCitations } from "@workspace/email-templates/parse-newsletter-citations";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -184,8 +185,11 @@ newslettersRoutes.get("/:id", async (c) => {
     );
   }
 
+  const citations = parseNewsletterCitations(row.content);
+
   return c.json(
     mapRowToDetailItem(row, {
+      citations,
       recipients: recipientsResult.recipients,
       recipientsTruncated: recipientsResult.truncated,
       recipientsCap: NEWSLETTER_DETAIL_RECIPIENTS_CAP,

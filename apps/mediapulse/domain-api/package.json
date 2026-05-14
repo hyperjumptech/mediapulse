@@ -17,6 +17,7 @@
     "@mediapulse/env": "workspace:*",
     "@hermes/domain-contract": "workspace:*",
     "@hermes/step-input-syntax": "workspace:*",
+    "@workspace/email-templates": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/utils": "workspace:*",
     "@mediapulse/hermes-integration": "workspace:*",

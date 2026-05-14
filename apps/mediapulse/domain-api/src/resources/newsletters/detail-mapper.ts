@@ -1,4 +1,5 @@
 import type { Prisma } from "@mediapulse/database";
+import type { NewsletterCitation } from "@workspace/email-templates/parse-newsletter-citations";
 
 import type { ActiveQuerySetPayload } from "./active-query-set";
 import type { HermesLinksPayload } from "./build-hermes-links";
@@ -38,6 +39,7 @@ export type DetailItem = {
   completionTokens: number | null;
   totalTokens: number | null;
   content: string;
+  citations: NewsletterCitation[];
   recipients: RecipientPayload[];
   recipientsTruncated: boolean;
   recipientsCap: number;
@@ -56,6 +58,7 @@ export type DetailItem = {
 export const mapRowToDetailItem = (
   row: NewsletterDetailRow,
   parts: {
+    citations: NewsletterCitation[];
     recipients: RecipientPayload[];
     recipientsTruncated: boolean;
     recipientsCap: number;
@@ -83,6 +86,7 @@ export const mapRowToDetailItem = (
   completionTokens: row.completionTokens,
   totalTokens: row.totalTokens,
   content: row.content,
+  citations: parts.citations,
   recipients: parts.recipients,
   recipientsTruncated: parts.recipientsTruncated,
   recipientsCap: parts.recipientsCap,

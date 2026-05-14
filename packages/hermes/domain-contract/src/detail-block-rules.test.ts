@@ -158,6 +158,12 @@ describe("renderUrlTemplate", () => {
   it("returns undefined when any placeholder is missing", () => {
     expect(renderUrlTemplate("/x/{a}/{b}", { a: "one" })).toBeUndefined();
   });
+
+  it("passes through absolute http(s) URLs without re-encoding", () => {
+    expect(
+      renderUrlTemplate("{url}", { url: "https://example.com/aapl?q=1" }),
+    ).toBe("https://example.com/aapl?q=1");
+  });
 });
 
 describe("renderCaptionTemplate", () => {

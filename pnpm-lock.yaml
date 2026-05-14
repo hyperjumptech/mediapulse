@@ -899,6 +899,9 @@ importers:
       '@mediapulse/idx-tickers-importer':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/idx-tickers-importer
+      '@workspace/email-templates':
+        specifier: workspace:*
+        version: link:../../../packages/shared/email-templates
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger

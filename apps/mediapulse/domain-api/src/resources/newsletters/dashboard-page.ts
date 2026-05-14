@@ -50,6 +50,47 @@ const newslettersMetadataBlock = {
 } satisfies DetailBlock;
 
 /**
+ * `markdown` block bound to the newsletter body. Clamps at 4,000 characters
+ * for bodies that exceed 10,000 characters (per PRD REQ-007); shorter bodies
+ * render fully without an expander. `copyAction` is intentionally off in this
+ * ticket; #466 turns it on after the polish review.
+ */
+const newslettersBodyBlock = {
+  type: "markdown",
+  label: "Body",
+  field: "content",
+  clampChars: 4000,
+  clampThreshold: 10000,
+} satisfies DetailBlock;
+
+/**
+ * `subTable` block bound to `citations` — deduplicated `[title](url)` and
+ * `Read the full article: <url>` references in the newsletter body. The `url`
+ * column renders as an external link with `rel="noopener noreferrer"`. The
+ * caption template surfaces the unique-count alongside the section header so
+ * reviewers can sanity-check at a glance.
+ */
+const newslettersCitationsBlock = {
+  type: "subTable",
+  label: "Citations",
+  field: "citations",
+  captionTemplate: "Citations ({citations.length} unique)",
+  emptyState: "No citations parsed from this newsletter.",
+  columns: [
+    { field: "title", label: "Title", type: "text" },
+    { field: "domain", label: "Domain", type: "text" },
+    {
+      field: "url",
+      label: "URL",
+      type: "text",
+      linkTemplate: "{url}",
+      linkExternal: true,
+      truncate: 80,
+    },
+  ],
+} satisfies DetailBlock;
+
+/**
  * `keyValue` block linking each delivery row back to the Hermes execution
  * surface. Missing template variables fall back to plain text (see
  * `renderUrlTemplate` in `@hermes/domain-contract`), which is what the
@@ -119,5 +160,10 @@ export const newslettersDashboardPage = {
   searchableFields: rowFieldKeysFor<ListItem>()(["subject"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["createdAt", "subject"]),
   actions: { create: false, update: false, delete: false, view: true },
-  detailBlocks: [newslettersMetadataBlock, newslettersHermesLinksBlock],
+  detailBlocks: [
+    newslettersMetadataBlock,
+    newslettersBodyBlock,
+    newslettersCitationsBlock,
+    newslettersHermesLinksBlock,
+  ],
 } satisfies DashboardPageInput;

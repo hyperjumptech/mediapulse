@@ -7,6 +7,14 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./parse-newsletter-body": {
+      "types": "./src/newsletter/parse-newsletter-body.ts",
+      "default": "./src/newsletter/parse-newsletter-body.ts"
+    },
+    "./parse-newsletter-citations": {
+      "types": "./src/newsletter/parse-newsletter-citations.ts",
+      "default": "./src/newsletter/parse-newsletter-citations.ts"
     }
   },
   "scripts": {
