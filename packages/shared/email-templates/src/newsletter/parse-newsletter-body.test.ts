@@ -277,4 +277,136 @@ describe("parseNewsletterBody", () => {
     // Assert
     expect(result).toBeUndefined();
   });
+
+  it("extracts a trailing 'Read the full article' URL into the url field and removes it from the summary", () => {
+    // Setup
+    const bodyText = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 3 NEWS",
+      "",
+      "1. Fed holds rates steady",
+      "The Federal Reserve announced no change to interest rates.",
+      "Read the full article: https://example.com/fed",
+      "",
+      "2. Apple beats estimates",
+      "Apple reported record quarterly revenue.",
+      "Read the full article: https://example.com/apple",
+      "",
+      "3. Oil prices dip",
+      "Crude oil fell 2% amid easing geopolitical tensions.",
+      "Read the full article: https://example.com/oil",
+    ].join("\n");
+
+    // Act
+    const result = parseNewsletterBody(bodyText);
+
+    // Assert
+    expect(result).toBeDefined();
+    expect(result!.topNewsItems).toHaveLength(3);
+    expect(result!.topNewsItems[0]).toEqual({
+      number: 1,
+      title: "Fed holds rates steady",
+      summary: "The Federal Reserve announced no change to interest rates.",
+      url: "https://example.com/fed",
+    });
+    expect(result!.topNewsItems[2]).toEqual({
+      number: 3,
+      title: "Oil prices dip",
+      summary: "Crude oil fell 2% amid easing geopolitical tensions.",
+      url: "https://example.com/oil",
+    });
+  });
+
+  it("leaves url undefined and keeps the summary intact when no URL line is present", () => {
+    // Setup
+    const bodyText = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 1 NEWS",
+      "",
+      "1. Fed holds rates steady",
+      "The Federal Reserve announced no change to interest rates.",
+    ].join("\n");
+
+    // Act
+    const result = parseNewsletterBody(bodyText);
+
+    // Assert
+    expect(result).toBeDefined();
+    expect(result!.topNewsItems).toHaveLength(1);
+    const first = result!.topNewsItems[0];
+    expect(first).toBeDefined();
+    expect(first!.url).toBeUndefined();
+    expect(first!.summary).toBe(
+      "The Federal Reserve announced no change to interest rates.",
+    );
+  });
+
+  it("handles a mix of items with and without trailing URLs", () => {
+    // Setup
+    const bodyText = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 3 NEWS",
+      "",
+      "1. With URL",
+      "Summary one.",
+      "Read the full article: https://example.com/a",
+      "",
+      "2. Without URL",
+      "Summary two.",
+      "",
+      "3. With URL again",
+      "Summary three.",
+      "Read the full article: https://example.com/c",
+    ].join("\n");
+
+    // Act
+    const result = parseNewsletterBody(bodyText);
+
+    // Assert
+    expect(result).toBeDefined();
+    expect(result!.topNewsItems[0]?.url).toBe("https://example.com/a");
+    expect(result!.topNewsItems[1]?.url).toBeUndefined();
+    expect(result!.topNewsItems[2]?.url).toBe("https://example.com/c");
+    expect(result!.topNewsItems[1]?.summary).toBe("Summary two.");
+  });
+
+  it("recognises the URL line case-insensitively", () => {
+    // Setup
+    const bodyText = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 1 NEWS",
+      "",
+      "1. Mixed case label",
+      "Summary text.",
+      "READ THE FULL ARTICLE: https://example.com/upper",
+    ].join("\n");
+
+    // Act
+    const result = parseNewsletterBody(bodyText);
+
+    // Assert
+    expect(result).toBeDefined();
+    expect(result!.topNewsItems[0]?.url).toBe("https://example.com/upper");
+    expect(result!.topNewsItems[0]?.summary).toBe("Summary text.");
+  });
 });

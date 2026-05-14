@@ -151,9 +151,35 @@ describe("generateNewsletterWithLlm — happy path", () => {
     expect(result.content).not.toContain("4. Item 4");
   });
 
-  it("injects a phrase link from the source title into each summary", async () => {
-    // Setup — source titles share key words with their corresponding summaries
-    // so the phrase-link injector finds a match and wraps it with the source URL.
+  it("appends a 'Read the full article' line for every top-news item using the matching source URL", async () => {
+    // Setup
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    // Assert — every selected source URL appears in a trailing source line.
+    expect(result.content).toContain(
+      "Read the full article: https://example.com/a",
+    );
+    expect(result.content).toContain(
+      "Read the full article: https://example.com/b",
+    );
+    expect(result.content).toContain(
+      "Read the full article: https://example.com/c",
+    );
+  });
+
+  it("does not inject inline phrase-based markdown links into top-news summaries", async () => {
+    // Setup — even with strong title/summary overlap, the summary stays plain prose.
     const matchingSources = [
       {
         url: "https://example.com/a",
@@ -201,8 +227,19 @@ describe("generateNewsletterWithLlm — happy path", () => {
       },
     );
 
-    // Assert — at least one markdown link appears in the output
-    expect(result.content).toMatch(/\[[^\]]+\]\(https?:\/\//);
+    // Assert — summaries are clean prose; the only URLs in the content come
+    // from the deterministic trailing source line, not from inline phrase
+    // markdown wrapping prose like `[Tech stocks gains](https://...)`.
+    const lines = result.content.split("\n");
+    const summaryLines = lines.filter(
+      (line) =>
+        !line.startsWith("Read the full article:") &&
+        !/^\d+\.\s/.test(line.trim()) &&
+        line.trim().length > 0,
+    );
+    for (const line of summaryLines) {
+      expect(line).not.toMatch(/\[[^\]]+]\(https?:\/\//);
+    }
   });
 
   it("passes timeout to generateObjectFn when openai.timeoutMs is set", async () => {
