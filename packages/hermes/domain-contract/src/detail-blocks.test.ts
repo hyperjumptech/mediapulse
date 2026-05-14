@@ -73,6 +73,80 @@ describe("detailBlockSchema", () => {
     expect(parsed.columns).toHaveLength(2);
   });
 
+  it("parses a subTable block with pageSize", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "subTable",
+      field: "recipients",
+      columns: [{ field: "displayName", label: "Recipient" }],
+      pageSize: 10,
+    });
+
+    expect(parsed.type).toBe("subTable");
+    if (parsed.type !== "subTable") return;
+    expect(parsed.pageSize).toBe(10);
+  });
+
+  it("rejects a non-positive pageSize on a subTable block", () => {
+    expect(() =>
+      detailBlockSchema.parse({
+        type: "subTable",
+        field: "recipients",
+        columns: [{ field: "displayName", label: "Recipient" }],
+        pageSize: 0,
+      }),
+    ).toThrow();
+  });
+
+  it("parses a tabs block with one leaf block per tab", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "tabs",
+      label: "Content",
+      tabs: [
+        {
+          label: "Body",
+          block: { type: "markdown", field: "content" },
+        },
+        {
+          label: "Email preview",
+          block: { type: "htmlPreview", field: "emailPreviewHtml" },
+        },
+      ],
+    });
+
+    expect(parsed.type).toBe("tabs");
+    if (parsed.type !== "tabs") return;
+    expect(parsed.tabs).toHaveLength(2);
+    expect(parsed.tabs[0]?.label).toBe("Body");
+    expect(parsed.tabs[0]?.block.type).toBe("markdown");
+    expect(parsed.tabs[1]?.block.type).toBe("htmlPreview");
+  });
+
+  it("rejects a tabs block whose tab list is empty", () => {
+    expect(() => detailBlockSchema.parse({ type: "tabs", tabs: [] })).toThrow();
+  });
+
+  it("rejects a tabs block that nests another tabs block", () => {
+    expect(() =>
+      detailBlockSchema.parse({
+        type: "tabs",
+        tabs: [
+          {
+            label: "Outer",
+            block: {
+              type: "tabs",
+              tabs: [
+                {
+                  label: "Inner",
+                  block: { type: "markdown", field: "content" },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
   it("rejects unknown block type", () => {
     expect(() =>
       detailBlockSchema.parse({ type: "unknown", field: "foo" }),

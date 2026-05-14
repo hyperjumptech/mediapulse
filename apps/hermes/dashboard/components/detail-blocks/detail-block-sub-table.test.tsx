@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { DetailBlockSubTableView } from "./detail-block-sub-table";
@@ -94,5 +94,104 @@ describe("DetailBlockSubTableView", () => {
     );
     const cell = screen.getByTitle(long);
     expect(cell.textContent).toMatch(/^a{80}…$/);
+  });
+
+  it("does not paginate when row count is at or below pageSize", () => {
+    const rows = Array.from({ length: 5 }, (_, index) => ({
+      id: `r-${index}`,
+      name: `Row ${index + 1}`,
+    }));
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [{ field: "name", label: "Name", type: "text" }],
+          pageSize: 5,
+        }}
+        data={{ rows }}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
+    expect(screen.getByText("Row 1")).toBeInTheDocument();
+    expect(screen.getByText("Row 5")).toBeInTheDocument();
+  });
+
+  it("paginates rows when row count exceeds pageSize and advances on Next", () => {
+    // Setup
+    const rows = Array.from({ length: 12 }, (_, index) => ({
+      id: `r-${index}`,
+      name: `Row ${index + 1}`,
+    }));
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [{ field: "name", label: "Name", type: "text" }],
+          pageSize: 5,
+        }}
+        data={{ rows }}
+      />,
+    );
+
+    // Assert — first page
+    expect(screen.getByText(/Showing 1–5 of 12/)).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    expect(screen.getByText("Row 1")).toBeInTheDocument();
+    expect(screen.queryByText("Row 6")).toBeNull();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+
+    // Act — advance one page
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    // Assert — second page
+    expect(screen.getByText(/Showing 6–10 of 12/)).toBeInTheDocument();
+    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    expect(screen.getByText("Row 6")).toBeInTheDocument();
+    expect(screen.queryByText("Row 1")).toBeNull();
+    expect(screen.getByRole("button", { name: "Previous" })).not.toBeDisabled();
+
+    // Act — advance to the last page
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    // Assert — last page disables Next
+    expect(screen.getByText(/Showing 11–12 of 12/)).toBeInTheDocument();
+    expect(screen.getByText("Page 3 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  });
+
+  it("evaluates section rule against the full unsliced response when paginating", () => {
+    const rows = Array.from({ length: 25 }, (_, index) => ({
+      id: `r-${index}`,
+      status: index < 20 ? "delivered" : "failed",
+    }));
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          label: "Recipients",
+          sectionRule: {
+            when: "rows.length > 10",
+            badge: "warning",
+            label: "many recipients",
+          },
+          columns: [
+            { field: "id", label: "Recipient", type: "text" },
+            { field: "status", label: "Status", type: "text" },
+          ],
+          pageSize: 10,
+        }}
+        data={{ rows }}
+      />,
+    );
+
+    expect(screen.getByText("many recipients")).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1–10 of 25/)).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getAllByRole("row")).toHaveLength(11);
   });
 });

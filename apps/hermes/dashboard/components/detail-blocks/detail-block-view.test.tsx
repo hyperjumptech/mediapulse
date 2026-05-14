@@ -80,6 +80,32 @@ describe("DetailBlockView", () => {
     );
   });
 
+  it("renders a tabs block via the tabs renderer", () => {
+    render(
+      <DetailBlockView
+        block={{
+          type: "tabs",
+          label: "Content",
+          tabs: [
+            {
+              label: "Body",
+              block: { type: "markdown", field: "body" },
+            },
+            {
+              label: "Preview",
+              block: { type: "htmlPreview", field: "html" },
+            },
+          ],
+        }}
+        data={{ body: "Hello", html: "<p>hi</p>" }}
+      />,
+    );
+    const triggers = screen.getAllByRole("tab");
+    expect(triggers).toHaveLength(2);
+    expect(triggers[0]).toHaveTextContent("Body");
+    expect(triggers[1]).toHaveTextContent("Preview");
+  });
+
   it("throws on unknown block type", () => {
     expect(() =>
       render(

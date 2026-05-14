@@ -4,6 +4,7 @@ import { DetailBlockHtmlPreviewView } from "./detail-block-html-preview";
 import { DetailBlockKeyValueView } from "./detail-block-key-value";
 import { DetailBlockMarkdownView } from "./detail-block-markdown";
 import { DetailBlockSubTableView } from "./detail-block-sub-table";
+import { DetailBlockTabsView } from "./detail-block-tabs";
 
 /**
  * Renders a single detail block based on its discriminant `type`. Throws for
@@ -30,6 +31,9 @@ export const DetailBlockView = ({
   }
   if (block.type === "subTable") {
     return <DetailBlockSubTableView block={block} data={data} />;
+  }
+  if (block.type === "tabs") {
+    return <DetailBlockTabsView block={block} data={data} />;
   }
   // Exhaustive check — also satisfies the AC false-positive guard.
   const exhaustive: never = block;

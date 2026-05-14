@@ -19,6 +19,7 @@ import {
 
 import { DetailBlockCopyButton } from "./detail-block-copy-button";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
+import { DetailBlockSubTablePaginator } from "./detail-block-sub-table-paginator";
 
 const mapBadgeVariant = (
   variant: DetailBlockBadgeVariant,
@@ -60,7 +61,7 @@ const formatCellValue = (
  * `truncate`, `type: "badge"` (with optional `inconsistentField` marker),
  * and `copyAction`.
  */
-const DetailBlockSubTableCell = ({
+export const DetailBlockSubTableCell = ({
   column,
   row,
   rowContext,
@@ -137,9 +138,56 @@ const DetailBlockSubTableCell = ({
 };
 
 /**
+ * Renders a static (non-paginated) sub-table given pre-sliced rows and the
+ * manifest columns. Shared by {@link DetailBlockSubTableView} and the client
+ * paginator.
+ */
+export const DetailBlockSubTableContent = ({
+  columns,
+  rows,
+  rowContext,
+}: {
+  columns: readonly DetailBlockSubTableColumn[];
+  rows: readonly Record<string, unknown>[];
+  rowContext: unknown;
+}) => (
+  <div className="overflow-x-auto rounded-md border">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {columns.map((column) => (
+            <TableHead key={column.field}>{column.label}</TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row, rowIndex) => {
+          const rowKey =
+            typeof row.id === "string" ? row.id : `row-${rowIndex}`;
+          return (
+            <TableRow key={rowKey}>
+              {columns.map((column) => (
+                <TableCell key={`${rowKey}-${column.field}`}>
+                  <DetailBlockSubTableCell
+                    column={column}
+                    row={row}
+                    rowContext={rowContext}
+                  />
+                </TableCell>
+              ))}
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  </div>
+);
+
+/**
  * Renders a `subTable` detail block — columns from the manifest, rows from a
- * named array field on the detail response. Supports an optional caption template
- * and an empty-state string.
+ * named array field on the detail response. Supports an optional caption
+ * template, an empty-state string, and client-side pagination when
+ * `pageSize` is set (and the row count exceeds it).
  *
  * @param props.block - Manifest definition.
  * @param props.data - Detail response object.
@@ -161,6 +209,8 @@ export const DetailBlockSubTableView = ({
   const caption = block.captionTemplate
     ? renderCaptionTemplate(block.captionTemplate, data)
     : undefined;
+  const shouldPaginate =
+    typeof block.pageSize === "number" && rows.length > block.pageSize;
   return (
     <section className="flex flex-col gap-3">
       <DetailBlockSectionHeader
@@ -175,37 +225,19 @@ export const DetailBlockSubTableView = ({
         <p className="text-sm text-muted-foreground">
           {block.emptyState ?? "No items."}
         </p>
+      ) : shouldPaginate ? (
+        <DetailBlockSubTablePaginator
+          columns={block.columns}
+          rows={rows}
+          rowContext={data}
+          pageSize={block.pageSize as number}
+        />
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {block.columns.map((column) => (
-                  <TableHead key={column.field}>{column.label}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row, rowIndex) => {
-                const rowKey =
-                  typeof row.id === "string" ? row.id : `row-${rowIndex}`;
-                return (
-                  <TableRow key={rowKey}>
-                    {block.columns.map((column) => (
-                      <TableCell key={`${rowKey}-${column.field}`}>
-                        <DetailBlockSubTableCell
-                          column={column}
-                          row={row}
-                          rowContext={data}
-                        />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <DetailBlockSubTableContent
+          columns={block.columns}
+          rows={rows}
+          rowContext={data}
+        />
       )}
     </section>
   );
