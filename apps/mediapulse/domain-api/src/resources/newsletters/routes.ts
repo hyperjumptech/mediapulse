@@ -209,6 +209,9 @@ newslettersRoutes.get("/:id", async (c) => {
       recipients: recipientsResult.recipients,
       recipientsTruncated: recipientsResult.truncated,
       recipientsCap: NEWSLETTER_DETAIL_RECIPIENTS_CAP,
+      recipientsTotalCount: recipientsResult.totalCount,
+      recipientsDeliveredCount: recipientsResult.deliveredCount,
+      recipientsEnabledAtSendTime: recipientsResult.enabledAtSendTime,
       selectedSources: selectedSourcesResult.sources,
       selectedSourcesWindow: {
         start: selectedSourcesResult.windowStart,

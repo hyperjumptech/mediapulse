@@ -91,6 +91,108 @@ const newslettersCitationsBlock = {
 } satisfies DetailBlock;
 
 /**
+ * `subTable` block bound to `recipients` (PRD §5). Each row carries
+ * `displayName` (`Name <email>` or email), the four-state status badge with
+ * its `inconsistent` marker, the Resend email id, attempts, error category,
+ * a truncated last-error message, and the checkpoint deliveredAt timestamp.
+ * The caption template reuses the numerator/denominator from the list cell
+ * via the response fields seeded by `buildRecipients`.
+ */
+const newslettersRecipientsBlock = {
+  type: "subTable",
+  label: "Recipients",
+  field: "recipients",
+  captionTemplate:
+    "Recipients (delivered {recipientsDeliveredCount} / enabled at send time {recipientsEnabledAtSendTime})",
+  emptyState: "No enabled subscribers for this ticker.",
+  columns: [
+    { field: "displayName", label: "Subscriber", type: "text" },
+    {
+      field: "status",
+      label: "Status",
+      type: "badge",
+      badgeVariants: {
+        delivered: "success",
+        failed: "destructive",
+        skipped: "muted",
+        not_attempted: "outline",
+      },
+      inconsistentField: "inconsistent",
+    },
+    {
+      field: "resendEmailId",
+      label: "Resend id",
+      type: "text",
+      truncate: 16,
+      copyAction: true,
+    },
+    { field: "attempts", label: "Attempts", type: "number" },
+    { field: "errorCategory", label: "Error category", type: "text" },
+    {
+      field: "lastErrorMessage",
+      label: "Last error",
+      type: "text",
+      truncate: 80,
+    },
+    { field: "deliveredAt", label: "Delivered at", type: "date-time" },
+  ],
+} satisfies DetailBlock;
+
+/**
+ * `subTable` block bound to `selectedSources` (PRD §5). The Title column
+ * links to the data-sources detail page so reviewers can jump straight to
+ * the source row. Window boundaries appear in the section caption.
+ */
+const newslettersSelectedSourcesBlock = {
+  type: "subTable",
+  label: "Selected sources",
+  field: "selectedSources",
+  captionTemplate:
+    "Sources selected in window {selectedSourcesWindow.start} → {selectedSourcesWindow.end}",
+  emptyState:
+    "No selected sources match the calendar-day window for this newsletter.",
+  columns: [
+    {
+      field: "title",
+      label: "Title",
+      type: "text",
+      truncate: 80,
+      linkTemplate: "/dashboard/{integrationId}/data-sources/{id}",
+    },
+    { field: "domain", label: "Domain", type: "text" },
+    { field: "score", label: "Score", type: "number" },
+    { field: "scoredAt", label: "Scored at", type: "date-time" },
+  ],
+} satisfies DetailBlock;
+
+/**
+ * `subTable` block bound to `activeQuerySet.queries` (PRD §5). Each row links
+ * to the search-queries page filtered by this newsletter's ticker. The caption
+ * shows the active set's generation date and source.
+ */
+const newslettersSearchQueriesBlock = {
+  type: "subTable",
+  label: "Search queries",
+  field: "activeQuerySet.queries",
+  captionTemplate:
+    "Active set generated {activeQuerySet.generatedAt} (source: {activeQuerySet.generationSource})",
+  emptyState: "No active SearchQuerySet on this newsletter's generation date.",
+  columns: [
+    {
+      field: "text",
+      label: "Query",
+      type: "text",
+      truncate: 80,
+      linkTemplate:
+        "/dashboard/{integrationId}/search-queries?tickerId={tickerId}",
+    },
+    { field: "intent", label: "Intent", type: "text" },
+    { field: "source", label: "Source", type: "text" },
+    { field: "rank", label: "Rank", type: "number" },
+  ],
+} satisfies DetailBlock;
+
+/**
  * `htmlPreview` block bound to `emailPreviewHtml` — the production
  * `default-newsletter` React Email template rendered server-side against the
  * newsletter's data. The Hermes generic renderer drops this into a sandboxed
@@ -176,6 +278,9 @@ export const newslettersDashboardPage = {
   detailBlocks: [
     newslettersMetadataBlock,
     newslettersBodyBlock,
+    newslettersRecipientsBlock,
+    newslettersSelectedSourcesBlock,
+    newslettersSearchQueriesBlock,
     newslettersCitationsBlock,
     newslettersEmailPreviewBlock,
     newslettersHermesLinksBlock,

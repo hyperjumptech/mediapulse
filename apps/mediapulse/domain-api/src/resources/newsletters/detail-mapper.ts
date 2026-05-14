@@ -44,6 +44,9 @@ export type DetailItem = {
   recipients: RecipientPayload[];
   recipientsTruncated: boolean;
   recipientsCap: number;
+  recipientsTotalCount: number;
+  recipientsDeliveredCount: number;
+  recipientsEnabledAtSendTime: number;
   selectedSources: SelectedSourcePayload[];
   selectedSourcesWindow: { start: string; end: string };
   activeQuerySet: ActiveQuerySetPayload;
@@ -64,6 +67,9 @@ export const mapRowToDetailItem = (
     recipients: RecipientPayload[];
     recipientsTruncated: boolean;
     recipientsCap: number;
+    recipientsTotalCount: number;
+    recipientsDeliveredCount: number;
+    recipientsEnabledAtSendTime: number;
     selectedSources: SelectedSourcePayload[];
     selectedSourcesWindow: { start: string; end: string };
     activeQuerySet: ActiveQuerySetPayload;
@@ -93,6 +99,9 @@ export const mapRowToDetailItem = (
   recipients: parts.recipients,
   recipientsTruncated: parts.recipientsTruncated,
   recipientsCap: parts.recipientsCap,
+  recipientsTotalCount: parts.recipientsTotalCount,
+  recipientsDeliveredCount: parts.recipientsDeliveredCount,
+  recipientsEnabledAtSendTime: parts.recipientsEnabledAtSendTime,
   selectedSources: parts.selectedSources,
   selectedSourcesWindow: parts.selectedSourcesWindow,
   activeQuerySet: parts.activeQuerySet,

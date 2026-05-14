@@ -12,11 +12,17 @@ export const NEWSLETTER_DETAIL_RECIPIENTS_CAP = 2000;
 /** Shape of one recipient entry in the detail payload. */
 export type RecipientPayload = {
   userTickerId: string;
+  email: string | null;
+  name: string | null;
+  displayName: string;
   status: "delivered" | "failed" | "skipped" | "not_attempted";
-  attempts: number;
+  statusBadge: "success" | "destructive" | "muted" | "outline";
+  attempts: number | null;
   lastErrorCode: string | null;
+  lastErrorMessage: string | null;
   errorCategory: string | null;
   resendEmailId: string | null;
+  deliveredAt: string | null;
   inconsistent: boolean;
 };
 
@@ -24,6 +30,9 @@ export type RecipientPayload = {
 export type BuildRecipientsResult = {
   recipients: RecipientPayload[];
   truncated: boolean;
+  totalCount: number;
+  deliveredCount: number;
+  enabledAtSendTime: number;
   inconsistentUserTickerIds: string[];
   notAttemptedAtSendTime: Array<{ userTickerId: string; runId: string | null }>;
 };
@@ -37,6 +46,16 @@ export type BuildRecipientsDeps = {
   >;
   deliveryRun: Pick<typeof prisma.deliveryRun, "findMany">;
 };
+
+const STATUS_TO_BADGE = {
+  delivered: "success",
+  failed: "destructive",
+  skipped: "muted",
+  not_attempted: "outline",
+} as const satisfies Record<
+  RecipientPayload["status"],
+  RecipientPayload["statusBadge"]
+>;
 
 /**
  * Builds the recipients section of the newsletter detail payload by combining
@@ -64,12 +83,15 @@ export const buildRecipients = async (
 ): Promise<BuildRecipientsResult> => {
   const enabledArgs = {
     where: { tickerId, enabled: true },
-    select: { id: true },
+    select: {
+      id: true,
+      user: { select: { email: true, name: true } },
+    },
   } satisfies Prisma.UserTickerFindManyArgs;
 
   const checkpointArgs = {
     where: { newsletterId },
-    select: { userTickerId: true },
+    select: { userTickerId: true, deliveredAt: true },
   } satisfies Prisma.NewsletterDeliveryCheckpointFindManyArgs;
 
   const deliveryRunsArgs = {
@@ -83,6 +105,7 @@ export const buildRecipients = async (
           status: true,
           attempts: true,
           lastErrorCode: true,
+          lastErrorMessage: true,
           errorCategory: true,
           resendEmailId: true,
         },
@@ -97,13 +120,18 @@ export const buildRecipients = async (
     deps.deliveryRun.findMany(deliveryRunsArgs),
   ]);
 
-  const checkpointSet = new Set(checkpointRows.map((row) => row.userTickerId));
+  const checkpointDeliveredAtById = new Map<string, Date>();
+  for (const row of checkpointRows) {
+    checkpointDeliveredAtById.set(row.userTickerId, row.deliveredAt);
+  }
+  const checkpointSet = new Set(checkpointDeliveredAtById.keys());
 
   type OutcomeRow = {
     userTickerId: string;
     status: "success" | "failed" | "skipped";
     attempts: number;
     lastErrorCode: string | null;
+    lastErrorMessage: string | null;
     errorCategory: string | null;
     resendEmailId: string | null;
     runId: string;
@@ -121,7 +149,15 @@ export const buildRecipients = async (
     }
   }
 
-  const enabledIds = new Set(enabledRows.map((row) => row.id));
+  type EnabledUser = { email: string | null; name: string | null };
+  const enabledUserById = new Map<string, EnabledUser>();
+  for (const row of enabledRows) {
+    enabledUserById.set(row.id, {
+      email: row.user?.email ?? null,
+      name: row.user?.name ?? null,
+    });
+  }
+  const enabledIds = new Set(enabledUserById.keys());
   const observedIds = new Set<string>([
     ...checkpointSet,
     ...latestOutcomeByUserTicker.keys(),
@@ -144,14 +180,28 @@ export const buildRecipients = async (
       hasCheckpoint: checkpointSet.has(userTickerId),
       latestOutcomeStatus: outcome?.status ?? null,
     });
+    const user = enabledUserById.get(userTickerId) ?? null;
+    const deliveredAt = checkpointDeliveredAtById.get(userTickerId) ?? null;
+    const displayName =
+      user?.name && user.name.trim().length > 0
+        ? user.email
+          ? `${user.name} <${user.email}>`
+          : user.name
+        : (user?.email ?? userTickerId);
 
     recipients.push({
       userTickerId,
+      email: user?.email ?? null,
+      name: user?.name ?? null,
+      displayName,
       status,
-      attempts: outcome?.attempts ?? 0,
+      statusBadge: STATUS_TO_BADGE[status],
+      attempts: status === "not_attempted" ? null : (outcome?.attempts ?? 0),
       lastErrorCode: outcome?.lastErrorCode ?? null,
+      lastErrorMessage: outcome?.lastErrorMessage ?? null,
       errorCategory: outcome?.errorCategory ?? null,
       resendEmailId: outcome?.resendEmailId ?? null,
+      deliveredAt: deliveredAt ? deliveredAt.toISOString() : null,
       inconsistent,
     });
 
@@ -167,14 +217,33 @@ export const buildRecipients = async (
     }
   }
 
-  const truncated = recipients.length > NEWSLETTER_DETAIL_RECIPIENTS_CAP;
+  recipients.sort((left, right) => {
+    const leftKey = (left.email ?? left.displayName ?? "").toLowerCase();
+    const rightKey = (right.email ?? right.displayName ?? "").toLowerCase();
+    return leftKey.localeCompare(rightKey);
+  });
+
+  const totalCount = recipients.length;
+  const truncated = totalCount > NEWSLETTER_DETAIL_RECIPIENTS_CAP;
   const capped = truncated
     ? recipients.slice(0, NEWSLETTER_DETAIL_RECIPIENTS_CAP)
     : recipients;
 
+  const deliveredCount = recipients.filter(
+    (r) => r.status === "delivered",
+  ).length;
+  const enabledAtSendTime =
+    deliveryRuns[0] &&
+    (deliveryRuns[0] as { recipients?: unknown[] }).recipients
+      ? (deliveryRuns[0] as { recipients: unknown[] }).recipients.length
+      : enabledIds.size;
+
   return {
     recipients: capped,
     truncated,
+    totalCount,
+    deliveredCount,
+    enabledAtSendTime,
     inconsistentUserTickerIds,
     notAttemptedAtSendTime,
   };
