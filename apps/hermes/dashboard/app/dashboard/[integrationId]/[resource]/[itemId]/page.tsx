@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Button } from "@workspace/ui/components/button";
 
+import { DetailBlocksView } from "@/components/detail-blocks";
 import { PageHeader } from "@/components/page-header";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
@@ -39,10 +40,14 @@ const ViewDomainTableItemPage = async ({
   if (!row) notFound();
 
   const basePath = `/dashboard/${integrationId}/${resource}`;
+  const detailBlocks = meta.detailBlocks;
+  const blockData = { ...row, integrationId, resource, itemId };
   const title =
     typeof row.title === "string" && row.title.trim().length > 0
       ? row.title
-      : "Detail";
+      : typeof row.subject === "string" && row.subject.trim().length > 0
+        ? row.subject
+        : "Detail";
   const url = typeof row.url === "string" ? row.url : "";
   const content = typeof row.content === "string" ? row.content : "";
   const tickerLabel =
@@ -68,6 +73,20 @@ const ViewDomainTableItemPage = async ({
       typeof row.metadata === "string"
         ? row.metadata
         : JSON.stringify(row.metadata, null, 2);
+  }
+
+  if (detailBlocks && detailBlocks.length > 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <PageHeader title={title} description={meta.description ?? ""} />
+          <Button variant="outline" asChild className="shrink-0">
+            <Link href={basePath}>Back to list</Link>
+          </Button>
+        </div>
+        <DetailBlocksView blocks={detailBlocks} data={blockData} />
+      </div>
+    );
   }
 
   return (
