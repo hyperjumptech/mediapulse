@@ -33,5 +33,6 @@ export const buildMetaPayloadForPathSegment = (
     customActions: page.customActions,
     createNavigation: page.createNavigation,
     preview: page.preview,
+    detailBlocks: page.detailBlocks,
   });
 };
