@@ -1,4 +1,7 @@
 {
   "title": "Dashboard",
-  "pages": ["content-generation-runs-diagnostics"]
+  "pages": [
+    "newsletters-list-and-detail",
+    "content-generation-runs-diagnostics"
+  ]
 }

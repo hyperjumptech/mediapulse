@@ -10,6 +10,13 @@ import type { ListItem } from "./list-mapper";
 export const newslettersHermesPathSegment = "newsletters" as const;
 
 /**
+ * Threshold (in hours) above which the active SearchQuerySet section gets a
+ * `stale set` badge. Lives in one place so the manifest and any future test
+ * fixtures stay in sync.
+ */
+export const NEWSLETTER_STALE_SET_HOURS = 24 as const;
+
+/**
  * `keyValue` block describing the newsletter metadata header. The ticker name
  * row is wired as a link back to the tickers resource so reviewers can jump
  * straight to the source. The token row uses the contract's `tokens` format to
@@ -19,8 +26,9 @@ const newslettersMetadataBlock = {
   type: "keyValue",
   label: "Metadata",
   rows: [
+    { field: "id", label: "Newsletter id", copyAction: true },
     { field: "subject", label: "Subject", copyAction: true },
-    { field: "tickerSymbol", label: "Ticker" },
+    { field: "tickerSymbol", label: "Ticker", copyAction: true },
     {
       field: "tickerName",
       label: "Ticker name",
@@ -61,6 +69,7 @@ const newslettersBodyBlock = {
   field: "content",
   clampChars: 4000,
   clampThreshold: 10000,
+  copyAction: true,
 } satisfies DetailBlock;
 
 /**
@@ -105,6 +114,11 @@ const newslettersRecipientsBlock = {
   captionTemplate:
     "Recipients (delivered {recipientsDeliveredCount} / enabled at send time {recipientsEnabledAtSendTime})",
   emptyState: "No enabled subscribers for this ticker.",
+  sectionRule: {
+    when: "recipientsDeliveredCount < recipientsEnabledAtSendTime",
+    badge: "warning",
+    label: "partial delivery",
+  },
   columns: [
     { field: "displayName", label: "Subscriber", type: "text" },
     {
@@ -151,6 +165,11 @@ const newslettersSelectedSourcesBlock = {
     "Sources selected in window {selectedSourcesWindow.start} → {selectedSourcesWindow.end}",
   emptyState:
     "No selected sources match the calendar-day window for this newsletter.",
+  sectionRule: {
+    when: "selectedSources.length == 0",
+    badge: "muted",
+    label: "no sources",
+  },
   columns: [
     {
       field: "title",
@@ -177,6 +196,11 @@ const newslettersSearchQueriesBlock = {
   captionTemplate:
     "Active set generated {activeQuerySet.generatedAt} (source: {activeQuerySet.generationSource})",
   emptyState: "No active SearchQuerySet on this newsletter's generation date.",
+  sectionRule: {
+    when: `hoursBetween(activeQuerySet.generatedAt, createdAt) > ${NEWSLETTER_STALE_SET_HOURS}`,
+    badge: "muted",
+    label: "stale set",
+  },
   columns: [
     {
       field: "text",
