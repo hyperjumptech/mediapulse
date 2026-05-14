@@ -30,6 +30,7 @@ The pipeline may also pass:
 - **`resend.tags`** — Optional `{ name, value }[]` forwarded to Resend (dashboard filtering / analytics).
 - **`send.includeHtml` / `send.includeText`** — Default `true` each; you may turn one off for experiments, but **at least one must stay `true`** (Resend requires a body part).
 - **`rateLimit` / `retry` / `template`** — As documented in [agent-data-api](/mediapulse/apps/agent-data-api#delivery-agent-hermes-config--semantics).
+- **`branding.mediapulseSiteUrl` / `branding.hyperjumpSiteUrl`** — Optional HTTPS URLs rendered as the “Brought to you by Mediapulse, a product of Hyperjump” footer links. Both keys default to the public sites baked into `@workspace/email-templates` (`https://mediapulse.hyperjump.tech` and `https://hyperjump.tech`), so a Hermes config that omits `branding` keeps shipping mail with the same links. Override one or both per-environment in Hermes when staging or marketing redirects are needed — no agent redeploy required. Non-HTTPS values are rejected at config validation time.
 
 ### Rate limiting
 
