@@ -54,7 +54,7 @@ export interface DefaultNewsletterEmailProps {
 }
 
 /** Default Mediapulse marketing site link used for previews and when Hermes config omits the URL. */
-export const DEFAULT_MEDIAPULSE_SITE_URL = "https://mediapulse.id";
+export const DEFAULT_MEDIAPULSE_SITE_URL = "https://mediapulse.hyperjump.tech";
 
 /** Default Hyperjump marketing site link used for previews and when Hermes config omits the URL. */
 export const DEFAULT_HYPERJUMP_SITE_URL = "https://hyperjump.tech";
