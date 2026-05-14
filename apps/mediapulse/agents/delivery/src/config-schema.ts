@@ -1,9 +1,30 @@
+import {
+  DEFAULT_HYPERJUMP_SITE_URL,
+  DEFAULT_MEDIAPULSE_SITE_URL,
+} from "@workspace/email-templates";
 import { z } from "zod";
 
 const resendTagSchema = z.object({
   name: z.string().min(1).max(64),
   value: z.string().min(1).max(256),
 });
+
+const httpsUrl = z
+  .string()
+  .url()
+  .refine((value) => value.startsWith("https://"), {
+    message: "URL must use https://",
+  });
+
+const brandingSchema = z
+  .object({
+    mediapulseSiteUrl: httpsUrl.default(DEFAULT_MEDIAPULSE_SITE_URL),
+    hyperjumpSiteUrl: httpsUrl.default(DEFAULT_HYPERJUMP_SITE_URL),
+  })
+  .default({
+    mediapulseSiteUrl: DEFAULT_MEDIAPULSE_SITE_URL,
+    hyperjumpSiteUrl: DEFAULT_HYPERJUMP_SITE_URL,
+  });
 
 /**
  * Runtime config for the delivery agent, supplied by Hermes on each invocation.
@@ -50,6 +71,12 @@ export const DeliveryConfigSchema = z
         newsletterVariant: z.enum(["default"]).default("default"),
       })
       .default({ newsletterVariant: "default" }),
+    /**
+     * Branding URLs rendered in the newsletter footer (Mediapulse + Hyperjump).
+     * Ops can override these per Hermes agent config without redeploying the
+     * delivery agent; both keys fall back to the public defaults when omitted.
+     */
+    branding: brandingSchema,
     /** Unsubscribe feature config for per-subscriber token generation. */
     unsubscribe: z.object({
       /** Shared HMAC secret for signing/verifying unsubscribe tokens. */
