@@ -1,14 +1,15 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
+
 /**
  * Small copy-to-clipboard button. Writes the provided text and briefly shows a
- * checkmark to confirm success. Uses `navigator.clipboard` when available,
- * with a textarea fallback for older browsers.
+ * checkmark to confirm success. State and effects live in the shared
+ * `useCopyToClipboard` hook so the component stays declarative.
  *
  * @param props.value - Text written to clipboard on click.
  * @param props.label - Accessible button label, e.g. "Copy newsletter id".
@@ -20,24 +21,16 @@ export const DetailBlockCopyButton = ({
   value: string;
   label: string;
 }) => {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timeout = window.setTimeout(() => setCopied(false), 1500);
-    return () => window.clearTimeout(timeout);
-  }, [copied]);
-
-  const handleClick = async () => {
-    const success = await writeToClipboard(value);
-    if (success) setCopied(true);
-  };
+  const { copied, copy } = useCopyToClipboard();
 
   return (
     <Button
       type="button"
       variant="ghost"
       size="sm"
-      onClick={handleClick}
+      onClick={() => {
+        void copy(value);
+      }}
       aria-label={label}
       className="h-7 px-2"
     >
@@ -54,34 +47,4 @@ export const DetailBlockCopyButton = ({
       )}
     </Button>
   );
-};
-
-const writeToClipboard = async (value: string): Promise<boolean> => {
-  if (
-    typeof navigator !== "undefined" &&
-    typeof navigator.clipboard?.writeText === "function"
-  ) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      /* fall through to textarea */
-    }
-  }
-  if (typeof document === "undefined") return false;
-  const textarea = document.createElement("textarea");
-  textarea.value = value;
-  textarea.setAttribute("readonly", "true");
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.select();
-  let ok = false;
-  try {
-    ok = document.execCommand("copy");
-  } catch {
-    ok = false;
-  }
-  document.body.removeChild(textarea);
-  return ok;
 };
