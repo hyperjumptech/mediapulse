@@ -15,6 +15,7 @@ icon: Server
   - `POST /v1/preview-expansion`
   - `POST /v1/expand-step-inputs`
 - Serves **Hermes dashboard** HTTP for registered `table-v1` resources (list, meta, create/update/delete) under `/v1/hermes-dashboard/...`, including optional **custom actions** declared in the integration manifest (for example `POST /v1/hermes-dashboard/tickers/import-idx-json` with body `{ "payloadJson": "<stringified IDX JSON>" }` for IDX ticker import via `@mediapulse/idx-tickers-importer`).
+- Registered table-v1 resources include `tickers`, `mediapulse-users`, `entity-types`, `relation-types`, `entities`, `entity-relations`, `data-sources`, `search-queries`, `delivery-runs`, and `newsletters` (read-only list with subject/ticker/date filters and a delivery cell that shows checkpoint-vs-enabled counts).
 - Runs Mediapulse DB expansion logic using `@mediapulse/hermes-integration`.
 - Self-registers to Hermes via `POST /api/domain-integrations/register`.
 

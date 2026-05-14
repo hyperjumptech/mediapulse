@@ -7,6 +7,7 @@ import { entitiesHermesDashboardResource } from "../resources/entities/resource-
 import { entityRelationsHermesDashboardResource } from "../resources/entity-relations/resource-definition";
 import { entityTypesHermesDashboardResource } from "../resources/entity-types/resource-definition";
 import { mediapulseUsersHermesDashboardResource } from "../resources/mediapulse-users/resource-definition";
+import { newslettersHermesDashboardResource } from "../resources/newsletters/resource-definition";
 import { relationTypesHermesDashboardResource } from "../resources/relation-types/resource-definition";
 import { searchQueriesHermesDashboardResource } from "../resources/search-queries/resource-definition";
 import { tickersHermesDashboardResource } from "../resources/tickers/resource-definition";
@@ -28,6 +29,7 @@ export const hermesDashboardResources = [
   dataSourcesHermesDashboardResource,
   searchQueriesHermesDashboardResource,
   deliveryRunsHermesDashboardResource,
+  newslettersHermesDashboardResource,
 ] as const satisfies readonly HermesDashboardResourceDefinition<
   string,
   string
