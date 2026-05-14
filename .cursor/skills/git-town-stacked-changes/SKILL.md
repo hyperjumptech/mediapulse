@@ -160,6 +160,45 @@ Notes:
 - The cherry-picks should be clean if the feature commits do not actually touch the same lines as the rebased / squashed bottom PR. If they do, resolve the conflict once; that is a real content conflict, not the SHA-rewrite artifact.
 - If Git Town’s parent-branch metadata still points at a deleted local branch, run `git town sync --stack` once **after** the recovery to let Git Town reparent and prune.
 
+### Lineage hygiene after a parent PR merges
+
+When GitHub merges a stacked PR it usually **deletes the remote branch**. Locally you still have the branch and Git Town still has a `git-town-branch.<name>.parent` config entry that points at it. If you skip the cleanup below, the next `git town sync --stack` will either:
+
+- Prompt you interactively to choose a new parent for the orphaned child branch — which **fails in non-TTY shells** (CI runners, agent shells, automation) with `Error: no interactive terminal available`, even when `TERM` is set.
+- Rebase the child onto a stale parent (the now-merged ancestor branch), producing duplicate-patch noise and confusing fork-points on the next sync.
+
+Run these three steps after every parent PR merges, before the next sync:
+
+```bash
+# 1. Update local refs and prune deleted remote branches.
+git fetch --prune origin
+
+# 2. Delete the local branch whose PR just merged.
+git branch -D <merged-branch>
+
+# 3. Drop Git Town's stale parent-metadata for that deleted branch
+#    and reparent the immediate child onto its new actual parent
+#    (usually `main`, or the next branch down the stack).
+git config --remove-section git-town-branch.<merged-branch>
+git config git-town-branch.<immediate-child>.parent main
+```
+
+After this, either `git town sync --stack` or — in non-TTY shells — the explicit rebase cascade below will work cleanly. The patch-id detection built into `git rebase` drops the already-merged commit automatically, exactly like rebase-mode sync would.
+
+```bash
+# On the now-orphaned child:
+git rebase origin/main
+git push --force-with-lease --force-if-includes
+
+# Then walk up the stack, rebasing each branch onto the freshly fixed one below it:
+git checkout <next-child>
+git rebase <previous-fixed-branch>
+git push --force-with-lease --force-if-includes
+# ...repeat for each layer.
+```
+
+Skipping step 3 is the most common cause of `git town sync` failing in CI or an agent shell after a stacked PR merges. The actual git state is fine; only Git Town's lineage cache is stale.
+
 ### Quick decision tree
 
 | Situation                                                                                  | Action                                                                                                                                    |
@@ -189,6 +228,7 @@ When moving from tickets to code:
 6. Keep commits scoped; before pushing each layer, run the **verifier** subagent (`.cursor/agents/verifier.md`) or the **Contract** checks in that file (**`pnpm format:check`** mandatory; **`pnpm code-quality`** when feasible).
 7. Open PRs from **leaf to root** is wrong — **ship/merge from root of stack toward tip** (oldest / closest to `main` first).
 8. Check the repo for `.git-town.toml` with `feature-strategy = "rebase"`. If present (this repo has it), `git town sync --stack` is safe at any point and is the right move after each parent PR merges. If the repo is still on default **merge-mode** sync **and** uses GitHub's Rebase- or Squash-and-merge, propose adding `.git-town.toml` before continuing — see [Rebase- or squash-merge rewrites SHAs and breaks merge-based stack sync](#rebase--or-squash-merge-rewrites-shas-and-breaks-merge-based-stack-sync). Use the fallback recovery only when changing repo config isn't an option.
+9. **After every parent PR merge, prune Git Town's lineage cache** for the merged branch and reparent its immediate child before syncing — see [Lineage hygiene after a parent PR merges](#lineage-hygiene-after-a-parent-pr-merges). Otherwise `git town sync --stack` will prompt for a new parent and fail in non-TTY shells (CI, agent runs).
 
 ## Feature flags when the stack splits UI and backend (or any unsafe partial ship)
 
