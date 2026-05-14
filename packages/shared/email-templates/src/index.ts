@@ -1,6 +1,8 @@
 export {
   DefaultNewsletterEmail,
   type DefaultNewsletterEmailProps,
+  DEFAULT_MEDIAPULSE_SITE_URL,
+  DEFAULT_HYPERJUMP_SITE_URL,
 } from "./newsletter/default-newsletter.js";
 export {
   parseNewsletterBody,

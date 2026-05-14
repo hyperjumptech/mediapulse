@@ -19,6 +19,8 @@ export type RenderNewsletterEmailInput =
   | ({ variant?: "default" } & DefaultNewsletterEmailProps & {
         unsubscribeUrl?: string;
         tickerSymbol?: string;
+        mediapulseSiteUrl?: string;
+        hyperjumpSiteUrl?: string;
       })
   | ({
       variant: "registration-confirmation";
@@ -83,6 +85,8 @@ function newsletterElementForVariant(
           footerNote={input.footerNote}
           unsubscribeUrl={input.unsubscribeUrl}
           tickerSymbol={input.tickerSymbol}
+          mediapulseSiteUrl={input.mediapulseSiteUrl}
+          hyperjumpSiteUrl={input.hyperjumpSiteUrl}
         />
       );
     case "registration-confirmation":
