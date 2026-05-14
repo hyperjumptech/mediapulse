@@ -16,6 +16,7 @@ import {
 import { buildSelectedSources } from "./build-selected-sources";
 import { buildDeliveryAggregateMap } from "./delivery-aggregate";
 import { detailInclude, mapRowToDetailItem } from "./detail-mapper";
+import { renderEmailPreview } from "./render-email-preview";
 import {
   buildNewsletterListOrderBy,
   buildNewsletterListWhere,
@@ -145,24 +146,38 @@ newslettersRoutes.get("/:id", async (c) => {
     return c.json({ message: "Newsletter not found" }, 404);
   }
 
-  const [recipientsResult, selectedSourcesResult, activeQuerySet, hermesLinks] =
-    await Promise.all([
-      buildRecipients(row.id, row.tickerId, {
-        userTicker: prisma.userTicker,
-        newsletterDeliveryCheckpoint: prisma.newsletterDeliveryCheckpoint,
-        deliveryRun: prisma.deliveryRun,
-      }),
-      buildSelectedSources(row.id, row.tickerId, row.createdAt, {
-        dataSource: prisma.dataSource,
-      }),
-      findActiveQuerySetForNewsletter(row.tickerId, row.createdAt, {
-        searchQuerySet: prisma.searchQuerySet,
-      }),
-      buildHermesLinks(row.id, {
-        contentGenerationRun: prisma.contentGenerationRun,
-        deliveryRun: prisma.deliveryRun,
-      }),
-    ]);
+  const [
+    recipientsResult,
+    selectedSourcesResult,
+    activeQuerySet,
+    hermesLinks,
+    emailPreviewHtml,
+  ] = await Promise.all([
+    buildRecipients(row.id, row.tickerId, {
+      userTicker: prisma.userTicker,
+      newsletterDeliveryCheckpoint: prisma.newsletterDeliveryCheckpoint,
+      deliveryRun: prisma.deliveryRun,
+    }),
+    buildSelectedSources(row.id, row.tickerId, row.createdAt, {
+      dataSource: prisma.dataSource,
+    }),
+    findActiveQuerySetForNewsletter(row.tickerId, row.createdAt, {
+      searchQuerySet: prisma.searchQuerySet,
+    }),
+    buildHermesLinks(row.id, {
+      contentGenerationRun: prisma.contentGenerationRun,
+      deliveryRun: prisma.deliveryRun,
+    }),
+    renderEmailPreview(
+      {
+        newsletterId: row.id,
+        subject: row.subject,
+        bodyText: row.content,
+        tickerSymbol: row.ticker.symbol,
+      },
+      { logger },
+    ),
+  ]);
 
   for (const entry of recipientsResult.notAttemptedAtSendTime) {
     logger.warn(
@@ -189,6 +204,7 @@ newslettersRoutes.get("/:id", async (c) => {
 
   return c.json(
     mapRowToDetailItem(row, {
+      emailPreviewHtml,
       citations,
       recipients: recipientsResult.recipients,
       recipientsTruncated: recipientsResult.truncated,
