@@ -1,6 +1,6 @@
 ---
 title: Detail blocks
-description: Declarative detail-page layout for table-v1 resources — keyValue, markdown, htmlPreview, and subTable blocks plus section-header rules
+description: Declarative detail-page layout for table-v1 resources — keyValue, markdown, htmlPreview, subTable, and tabs blocks plus section-header rules
 icon: LayoutTemplate
 ---
 
@@ -116,6 +116,37 @@ A small table fed by a named array field on the response.
 - `type: "badge"` maps the cell value to a badge variant; `inconsistentField` flags rows that need a `!` adornment + tooltip.
 - `truncate: N` truncates long values with a hover/focus tooltip.
 - `captionTemplate` supports `{path}` and `{path.length}` placeholders.
+- `pageSize: N` paginates the rows client-side once the row count exceeds N. The renderer shows prev/next buttons plus a "Showing X–Y of Z" range. The caption and any `sectionRule` still evaluate against the unsliced response, so aggregate badges (e.g. "partial delivery") stay correct across pages.
+
+### tabs
+
+Groups two or more related leaf blocks under a single tabbed section. Useful when blocks describe the same content from different angles (e.g. a markdown body and an HTML email preview of the same newsletter).
+
+```typescript
+{
+  type: "tabs",
+  label: "Content",
+  tabs: [
+    {
+      label: "Body",
+      block: {
+        type: "markdown",
+        field: "newsletter.content",
+        clampChars: 4000,
+        copyAction: true,
+      },
+    },
+    {
+      label: "Email preview",
+      block: { type: "htmlPreview", field: "emailPreviewHtml" },
+    },
+  ],
+}
+```
+
+- Tab content must be a **leaf block** (`keyValue`, `markdown`, `htmlPreview`, or `subTable`). Tabs may not nest other tabs — the schema rejects nested `tabs` blocks at parse time.
+- Each inner block's own `label` is stripped at render time so the tab trigger acts as the heading; the outer `label` and `sectionRule` still render above the tab list.
+- The first tab is active by default.
 
 ## Section-header rules
 

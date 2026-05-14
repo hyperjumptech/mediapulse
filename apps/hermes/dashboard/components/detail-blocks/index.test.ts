@@ -12,6 +12,7 @@ describe("detail-blocks barrel", () => {
     expect(typeof detailBlocks.DetailBlockMarkdownView).toBe("function");
     expect(typeof detailBlocks.DetailBlockHtmlPreviewView).toBe("function");
     expect(typeof detailBlocks.DetailBlockSubTableView).toBe("function");
+    expect(typeof detailBlocks.DetailBlockTabsView).toBe("function");
     expect(typeof detailBlocks.DetailBlockSectionHeader).toBe("function");
     expect(typeof detailBlocks.DetailBlockCopyButton).toBe("function");
   });

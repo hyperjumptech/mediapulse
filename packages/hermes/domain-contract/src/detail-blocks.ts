@@ -145,6 +145,41 @@ export const detailBlockSubTableSchema = z.object({
    * Field references resolve against the full detail response.
    */
   captionTemplate: z.string().min(1).optional(),
+  /**
+   * When set, the renderer paginates the rows client-side at this page size
+   * and shows prev/next controls plus a "Showing X–Y of Z" range label.
+   * Caption template and section-rule still see the full unsliced response,
+   * so aggregate badges (e.g. "partial delivery") keep firing across pages.
+   */
+  pageSize: z.number().int().positive().optional(),
+});
+
+/**
+ * Non-tabs leaf block kinds. Tabs may only contain these block types, which
+ * keeps the discriminated union flat and prevents recursive nesting.
+ */
+export const detailBlockLeafSchema = z.discriminatedUnion("type", [
+  detailBlockKeyValueSchema,
+  detailBlockMarkdownSchema,
+  detailBlockHtmlPreviewSchema,
+  detailBlockSubTableSchema,
+]);
+
+/** One tab inside a `tabs` block — a label plus a leaf block to render. */
+export const detailBlockTabSchema = z.object({
+  label: z.string().min(1),
+  block: detailBlockLeafSchema,
+});
+
+/**
+ * `tabs` block — groups multiple leaf blocks under a single tabbed section so
+ * related views (e.g. a markdown body and its email preview) share screen real
+ * estate. Tabs cannot nest tabs; each tab content must be a leaf block.
+ */
+export const detailBlockTabsSchema = z.object({
+  type: z.literal("tabs"),
+  ...detailBlockCommonShape,
+  tabs: z.array(detailBlockTabSchema).min(1),
 });
 
 /**
@@ -156,9 +191,11 @@ export const detailBlockSchema = z.discriminatedUnion("type", [
   detailBlockMarkdownSchema,
   detailBlockHtmlPreviewSchema,
   detailBlockSubTableSchema,
+  detailBlockTabsSchema,
 ]);
 
 export type DetailBlock = z.infer<typeof detailBlockSchema>;
+export type DetailBlockLeaf = z.infer<typeof detailBlockLeafSchema>;
 export type DetailBlockKeyValue = z.infer<typeof detailBlockKeyValueSchema>;
 export type DetailBlockKeyValueRow = z.infer<
   typeof detailBlockKeyValueRowSchema
@@ -171,6 +208,8 @@ export type DetailBlockSubTable = z.infer<typeof detailBlockSubTableSchema>;
 export type DetailBlockSubTableColumn = z.infer<
   typeof detailBlockSubTableColumnSchema
 >;
+export type DetailBlockTabs = z.infer<typeof detailBlockTabsSchema>;
+export type DetailBlockTab = z.infer<typeof detailBlockTabSchema>;
 export type DetailBlockBadgeVariant = z.infer<
   typeof detailBlockBadgeVariantSchema
 >;
