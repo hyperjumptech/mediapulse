@@ -293,7 +293,11 @@ export function renderUrlTemplate(
       missing = true;
       return "";
     }
-    return encodeURIComponent(String(value));
+    const stringValue = String(value);
+    if (/^https?:\/\//i.test(stringValue)) {
+      return stringValue;
+    }
+    return encodeURIComponent(stringValue);
   });
   if (missing) return undefined;
   return result;

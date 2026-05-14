@@ -9,6 +9,11 @@ export {
   type ParsedNewsletterBody,
 } from "./newsletter/parse-newsletter-body.js";
 export {
+  parseNewsletterCitations,
+  unwrapInlineFormatting,
+  type NewsletterCitation,
+} from "./newsletter/parse-newsletter-citations.js";
+export {
   RegistrationConfirmationEmail,
   type RegistrationConfirmationEmailProps,
 } from "./registration/registration-confirmation.js";
