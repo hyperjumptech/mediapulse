@@ -27,7 +27,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { requireDashboardPrincipalForRoute } from "@/lib/auth-dashboard";
+import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { createExpandStepInputsForManualPipelineRun } from "@/lib/expand-step-inputs-for-manual-pipeline";
 import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 import { validatePipeline } from "@/lib/validate-pipeline";
@@ -75,7 +75,7 @@ const logRunPipelineIssue = (
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: requireDashboardPrincipalForRoute,
+  user: requireMutationDashboardPrincipalForRoute,
 });
 
 export const responseValidator = z.object({
