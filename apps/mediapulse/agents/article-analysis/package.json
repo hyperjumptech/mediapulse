@@ -17,6 +17,7 @@
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
+    "@workspace/agent-llm-prompt-template": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",
