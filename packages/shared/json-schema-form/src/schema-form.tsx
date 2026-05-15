@@ -7,89 +7,18 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
-import type { JsonSchema, SchemaFormProps, StringFieldProps } from "./types.js";
+import { SCHEMA_FORM_NEW_ENTRY_KEY } from "./schema-form-constants";
+import {
+  applyRequiredDefaults,
+  defaultForSchema,
+  getSchemaFormType,
+} from "./schema-form-utils";
+import { useRecordEntryDraftKey } from "./use-record-entry-draft-key";
+import { useSchemaFormSeed } from "./use-schema-form-seed";
+import { useSchemaFormTouch } from "./use-schema-form-touch";
+import type { JsonSchema, SchemaFormProps, StringFieldProps } from "./types";
 
-/**
- * Resolves the effective schema type (single type name) when schema.type is a string or array.
- */
-function getType(schema: JsonSchema): JsonSchema["type"] {
-  const t = schema.type;
-  if (Array.isArray(t)) return t[0];
-  return t;
-}
-
-/**
- * Returns a default value for a schema (used to seed required keys so submission passes validation).
- * For objects with required + properties, seeds those keys so nested validation passes.
- */
-function defaultForSchema(schema: JsonSchema): unknown {
-  if (schema.default !== undefined) return schema.default;
-  const type = getType(schema);
-  if (type === "object") {
-    const obj: Record<string, unknown> = {};
-    if (schema.required?.length && schema.properties) {
-      for (const key of schema.required) {
-        const prop = schema.properties[key];
-        if (prop) obj[key] = defaultForSchema(prop);
-      }
-    }
-    return obj;
-  }
-  if (type === "array") return [];
-  if (type === "string") {
-    if (schema.enum != null && schema.enum.length > 0) return schema.enum[0];
-    return "";
-  }
-  if (type === "number" || type === "integer") return 0;
-  if (type === "boolean") return false;
-  return undefined;
-}
-
-/**
- * Recursively merges value with empty defaults for any required keys that are missing.
- * Handles nested objects (e.g. authentication: {} with required ["type"]) so required
- * enum/string fields get a valid value and are not treated as invalid until the user touches the select.
- */
-function applyRequiredDefaults(
-  schema: JsonSchema,
-  value: Record<string, unknown>,
-): Record<string, unknown> {
-  if (!schema.properties || !schema.required?.length) return value;
-  let changed = false;
-  const result = { ...value };
-  for (const key of schema.required) {
-    const propSchema = schema.properties[key];
-    if (!propSchema) continue;
-    const existing = result[key];
-    if (existing === undefined) {
-      result[key] = defaultForSchema(propSchema);
-      changed = true;
-      continue;
-    }
-    const propType = getType(propSchema);
-    if (
-      propType === "object" &&
-      propSchema.properties != null &&
-      propSchema.required?.length != null &&
-      typeof existing === "object" &&
-      existing !== null &&
-      !Array.isArray(existing)
-    ) {
-      const nested = applyRequiredDefaults(
-        propSchema,
-        existing as Record<string, unknown>,
-      );
-      if (nested !== existing) {
-        result[key] = nested;
-        changed = true;
-      }
-    }
-  }
-  return changed ? result : value;
-}
-
-/** Placeholder key for "new" record entry until user types a real key. */
-const NEW_ENTRY_KEY = "__new__";
+const getType = getSchemaFormType;
 
 /**
  * Converts an ISO date-time string to YYYY-MM-DDTHH:mm for datetime-local input (local time).
@@ -126,44 +55,6 @@ function humanize(name: string): string {
     .trim()
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
-
-/**
- * Draft key state for a new record entry row. Commits on blur when non-empty.
- */
-const useRecordEntryDraftKey = (onKeyChange: (newKey: string) => void) => {
-  const [draftKey, setDraftKey] = React.useState("");
-  const handleBlur = React.useCallback(() => {
-    const k = draftKey.trim();
-    if (k !== "" && k !== NEW_ENTRY_KEY) onKeyChange(k);
-  }, [draftKey, onKeyChange]);
-  return { draftKey, setDraftKey, handleBlur };
-};
-
-/**
- * Seeds parent value with required schema keys when missing (including nested required keys).
- * Ensures select/enum fields in nested objects get a valid value so save does not warn until the user touches them.
- */
-const useSchemaFormSeed = (
-  schema: JsonSchema,
-  value: Record<string, unknown>,
-  onChange: (v: Record<string, unknown>) => void,
-) => {
-  const type = getType(schema);
-  React.useEffect(() => {
-    if (type !== "object" || !schema.properties || !schema.required?.length)
-      return;
-    const merged = applyRequiredDefaults(schema, value);
-    if (merged !== value) onChange(merged);
-  }, [schema, type, value, onChange]);
-};
-
-/**
- * Touch state for validation-on-blur.
- */
-const useSchemaFormTouch = () => {
-  const [touched, setTouched] = React.useState(false);
-  return { touched, setTouched };
-};
 
 type SchemaFormComponents = SchemaFormProps["components"];
 
@@ -279,10 +170,15 @@ const SchemaField = ({
       value != null && typeof value === "object" && !Array.isArray(value)
         ? (value as Record<string, unknown>)
         : {};
-    const entries = Object.entries(obj).filter(([k]) => k !== NEW_ENTRY_KEY);
-    const hasNewRow = obj[NEW_ENTRY_KEY] !== undefined;
+    const entries = Object.entries(obj).filter(
+      ([k]) => k !== SCHEMA_FORM_NEW_ENTRY_KEY,
+    );
+    const hasNewRow = obj[SCHEMA_FORM_NEW_ENTRY_KEY] !== undefined;
     const handleAdd = () => {
-      onChange({ ...obj, [NEW_ENTRY_KEY]: defaultForSchema(valueSchema) });
+      onChange({
+        ...obj,
+        [SCHEMA_FORM_NEW_ENTRY_KEY]: defaultForSchema(valueSchema),
+      });
     };
     const handleRemove = (key: string) => {
       const next = { ...obj };
@@ -334,14 +230,18 @@ const SchemaField = ({
           ))}
           {hasNewRow ? (
             <RecordEntryRow
-              entryKey={NEW_ENTRY_KEY}
-              value={obj[NEW_ENTRY_KEY]}
+              entryKey={SCHEMA_FORM_NEW_ENTRY_KEY}
+              value={obj[SCHEMA_FORM_NEW_ENTRY_KEY]}
               valueSchema={valueSchema}
               disabled={disabled}
-              path={`${path}.${NEW_ENTRY_KEY}`}
-              onKeyChange={(newKey) => handleKeyChange(NEW_ENTRY_KEY, newKey)}
-              onValueChange={(v) => handleValueChange(NEW_ENTRY_KEY, v)}
-              onRemove={() => handleRemove(NEW_ENTRY_KEY)}
+              path={`${path}.${SCHEMA_FORM_NEW_ENTRY_KEY}`}
+              onKeyChange={(newKey) =>
+                handleKeyChange(SCHEMA_FORM_NEW_ENTRY_KEY, newKey)
+              }
+              onValueChange={(v) =>
+                handleValueChange(SCHEMA_FORM_NEW_ENTRY_KEY, v)
+              }
+              onRemove={() => handleRemove(SCHEMA_FORM_NEW_ENTRY_KEY)}
               isNew
               components={components}
             />

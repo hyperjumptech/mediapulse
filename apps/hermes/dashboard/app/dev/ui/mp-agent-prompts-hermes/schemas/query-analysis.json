@@ -1,0 +1,73 @@
+{
+  "type": "object",
+  "properties": {
+    "openaiApiKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "openaiModel": {
+      "type": "string",
+      "minLength": 1,
+      "default": "gpt-4o-mini"
+    },
+    "queryCount": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "default": 10
+    },
+    "minDeterministicCount": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 4
+    },
+    "allowedLanguages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": ["en"]
+    },
+    "weightBreaking": {
+      "type": "number",
+      "minimum": 0,
+      "default": 1
+    },
+    "weightKgChange": {
+      "type": "number",
+      "minimum": 0,
+      "default": 0.8
+    },
+    "weightFundamental": {
+      "type": "number",
+      "minimum": 0,
+      "default": 0.6
+    },
+    "maxTokens": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "default": 800
+    },
+    "prompts": {
+      "type": "object",
+      "properties": {
+        "systemPrompt": {
+          "type": "string",
+          "maxLength": 50000,
+          "description": "Optional system prompt template. Placeholders: {{allowedLanguages}}, {{targetBreakingCount}}, {{targetKgCount}}, {{targetFundamentalCount}}, {{minDeterministicCount}} (derived from queryCount, allowedLanguages, minDeterministicCount, and weight* fields when overrides are absent).",
+          "format": "textarea"
+        },
+        "userPromptTemplate": {
+          "type": "string",
+          "maxLength": 50000,
+          "description": "Optional user prompt template. Placeholder: {{queryContextBlock}} (serialized GET /query-analysis context: ticker, entities, themes, relation deltas).",
+          "format": "textarea"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["openaiApiKey"],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
