@@ -23,14 +23,20 @@ Repeat after checking out:
 pnpm dev:hermes
 ```
 
-Open (development only):
+Use **`focus=prompts`** so the screenshot shows only the prompt textareas (not the full 30+ field config):
 
-- http://localhost:3001/dev/ui/mp-agent-prompts-hermes?agent=article-analysis
-- http://localhost:3001/dev/ui/mp-agent-prompts-hermes?agent=query-analysis
-- http://localhost:3001/dev/ui/mp-agent-prompts-hermes?agent=content-generation
+- http://localhost:3001/dev/ui/mp-agent-prompts-hermes?agent=article-analysis&focus=prompts
+- http://localhost:3001/dev/ui/mp-agent-prompts-hermes?agent=query-analysis&focus=prompts
+- http://localhost:3001/dev/ui/mp-agent-prompts-hermes?agent=content-generation&focus=prompts
 
-Scroll to the **prompts** section; confirm field titles, descriptions (from Zod `.describe()`), and string inputs. Save screenshots to `artifacts/ui-evidence/mp-agent-prompts-hermes/`.
+Automated capture (waits for two `<textarea>` elements, then screenshots the prompts panel):
+
+```bash
+pnpm --filter @hermes/dashboard exec node scripts/capture-mp-agent-prompts-screenshots.mjs
+```
+
+Requires `playwright` on the machine (`npx playwright install chromium` once). Save output under `artifacts/ui-evidence/mp-agent-prompts-hermes/`.
 
 ## Production alternative
 
-With Docker + seeded orchestration DB: **Agent configs** → add/edit → select the agent → **Config** section (same SchemaForm, with variable expansion on string fields).
+With Docker + seeded orchestration DB: **Agent configs** → add/edit → select the agent → scroll to **prompts** in **Config** (same SchemaForm; string fields may use variable expansion).
