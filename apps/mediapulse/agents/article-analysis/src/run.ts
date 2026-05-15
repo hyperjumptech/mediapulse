@@ -63,8 +63,8 @@ import {
 } from "./config-schema.js";
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import {
-  buildExtractionSystemContent,
-  buildExtractionUserContent,
+  resolveArticleAnalysisExtractionSystemContent,
+  resolveArticleAnalysisExtractionUserContent,
   extractEntitiesAndRelationsForSource,
   type LlmExtractionUsage,
 } from "./llm-extract-entities.js";
@@ -493,7 +493,10 @@ export const run = async ({
       };
     }
 
-    const systemContent = buildExtractionSystemContent(ctx);
+    const systemContent = resolveArticleAnalysisExtractionSystemContent(
+      cfg.prompts?.systemPrompt,
+      ctx,
+    );
     const existingLookup = buildExistingEntityLookup(ctx.existingEntities);
 
     const mergedEntities: EntityProposal[] = [];
@@ -566,11 +569,14 @@ export const run = async ({
             { role: "system", content: systemContent },
             {
               role: "user",
-              content: buildExtractionUserContent({
-                tickerId: input.tickerId,
-                title: source.title,
-                contentTruncated: truncated,
-              }),
+              content: resolveArticleAnalysisExtractionUserContent(
+                cfg.prompts?.userPromptTemplate,
+                {
+                  tickerId: input.tickerId,
+                  title: source.title,
+                  contentTruncated: truncated,
+                },
+              ),
             },
           ],
         });

@@ -94,6 +94,19 @@ These are **additive** to calendar staggering: prefer running **data-collection*
 
 Tuning for extraction, chunking, **`scoreBreakdownVersion`** (maps to `_version` in stored breakdowns), relevance weights, selection caps, **`runPolicy`**, POST retries, **`defaultMaxBatchSize`** (per-run source cap when input omits `maxBatchSize`; default **10** in code), **`analysisGetDataSourceLimitMax`** (cap on **`analysis.get`** `limit`; default **10**), and **debounce** fields lives in the **article-analysis** agent config in Hermes (Zod schema `articleAnalysisConfigSchema`). **`openaiApiKey`** and model limits are set there—**not** via `OPENAI_*` process env on the agent container.
 
+### LLM extraction prompts (`prompts`, REQ-010)
+
+Optional **`prompts.systemPrompt`** and **`prompts.userPromptTemplate`** in Hermes override the **built-in default** extraction wording. When a field is omitted, the agent uses the package default template (same behavior as before this feature). **`openaiApiKey`** and model settings stay in their dedicated config fields—**do not** embed secrets inside prompt text.
+
+| Hermes field | Role when set | Placeholders (must be spelled exactly) |
+| ------------ | -------------- | --------------------------------------- |
+| **`prompts.systemPrompt`** | Full system message template | `{{entityTypesBlock}}`, `{{relationTypesBlock}}` (formatted lists from analysis GET vocabulary) |
+| **`prompts.userPromptTemplate`** | Full user message template | `{{tickerId}}`, `{{title}}`, `{{articleContent}}` (body is truncated per **`maxContentChars`**) |
+
+**Scalar knobs that still affect extraction** when prompts are empty (defaults): **`maxContentChars`**, **`maxOutputTokens`**, **`openaiModel`**, caps (`maxEntitiesPerArticle`, …), and vocabulary from GET—these are independent of prompt wording. When you set full-string overrides, you replace the instruction text only; caps and truncation still apply before substitution.
+
+Unknown `{{token}}` values fail **config validation** in Hermes with the bad token name. Each prompt field has a **maximum length** enforced by Zod (see `ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH` in the agent package).
+
 ## Deployment environment (`@mediapulse/env/agents-article-analysis`)
 
 | Variable                     | Required | Notes                                                      |

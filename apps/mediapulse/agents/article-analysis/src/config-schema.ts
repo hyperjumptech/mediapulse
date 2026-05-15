@@ -1,6 +1,12 @@
 import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
 import type { RelevanceWeightMapV1 } from "./analysis-relevance-scoring.js";
 import type { ArticleAnalysisRunPolicy } from "./article-analysis-run-policy.js";
+import {
+  ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_PLACEHOLDERS,
+  ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_PLACEHOLDERS,
+  ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH,
+} from "./article-extraction-prompt-defaults.js";
+import { findUnknownLlmPromptPlaceholderTokens } from "./llm-prompt-template.js";
 import { z } from "zod";
 
 const articleAnalysisRunPolicySchema = z.object({
@@ -86,7 +92,71 @@ export const articleAnalysisConfigSchema = z.object({
    * When greater than zero, skip the run (success no-op) if any relevance was scored for this ticker within the last N minutes (requires GET `lastRelevanceScoredAtIso`).
    */
   debounceMinMinutesSinceLastScore: z.number().int().nonnegative().optional(),
-});
+  /**
+   * Optional overrides for extraction LLM system/user wording (Hermes agent config).
+   * Defaults remain in code; merge is `configured ?? default` before each extraction call.
+   * Do not put API keys or other secrets in prompt strings.
+   */
+  prompts: z
+    .object({
+      systemPrompt: z
+        .string()
+        .max(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
+          message: `prompts.systemPrompt must be at most ${String(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
+        })
+        .describe(
+          "Optional full system prompt for entity extraction. When omitted, a built-in default is used. Supported placeholders: {{entityTypesBlock}}, {{relationTypesBlock}} (vocabulary from analysis GET).",
+        )
+        .optional(),
+      userPromptTemplate: z
+        .string()
+        .max(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
+          message: `prompts.userPromptTemplate must be at most ${String(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
+        })
+        .describe(
+          "Optional user message template for extraction. Supported placeholders: {{tickerId}}, {{title}}, {{articleContent}} (truncated article body per maxContentChars).",
+        )
+        .optional(),
+    })
+    .strict()
+    .optional(),
+})
+  .superRefine((data, ctx) => {
+    const prompts = data.prompts;
+    if (!prompts) {
+      return;
+    }
+    const systemAllowed = new Set<string>(
+      ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_PLACEHOLDERS,
+    );
+    const userAllowed = new Set<string>(
+      ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_PLACEHOLDERS,
+    );
+    if (prompts.systemPrompt) {
+      for (const token of findUnknownLlmPromptPlaceholderTokens(
+        prompts.systemPrompt,
+        systemAllowed,
+      )) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Unknown placeholder {{${token}}} in prompts.systemPrompt`,
+          path: ["prompts", "systemPrompt"],
+        });
+      }
+    }
+    if (prompts.userPromptTemplate) {
+      for (const token of findUnknownLlmPromptPlaceholderTokens(
+        prompts.userPromptTemplate,
+        userAllowed,
+      )) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Unknown placeholder {{${token}}} in prompts.userPromptTemplate`,
+          path: ["prompts", "userPromptTemplate"],
+        });
+      }
+    }
+  });
 
 export type ArticleAnalysisConfig = z.infer<typeof articleAnalysisConfigSchema>;
 

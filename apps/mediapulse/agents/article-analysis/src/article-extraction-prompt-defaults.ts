@@ -1,0 +1,65 @@
+import type { GetAnalysisResponse } from "@workspace/agent-data-api-contract";
+
+/** Maximum characters allowed for each Hermes `prompts.*` string on article-analysis. */
+export const ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH = 50_000;
+
+/** Allowed `{{...}}` names in `prompts.systemPrompt` (Hermes config). */
+export const ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_PLACEHOLDERS = [
+  "entityTypesBlock",
+  "relationTypesBlock",
+] as const;
+
+/** Allowed `{{...}}` names in `prompts.userPromptTemplate` (Hermes config). */
+export const ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_PLACEHOLDERS = [
+  "tickerId",
+  "title",
+  "articleContent",
+] as const;
+
+/**
+ * Default extraction system prompt template (code default when Hermes omits `prompts.systemPrompt`).
+ * Must include `{{entityTypesBlock}}` and `{{relationTypesBlock}}`.
+ */
+export const ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT = [
+  "You extract knowledge-graph entities and relations from ONE article for equity research tooling.",
+  "Use ONLY entity typeId values listed under ENTITY TYPES and ONLY relationTypeId values under RELATION TYPES.",
+  "Relation fromEntityName and toEntityName must match canonicalName strings of entities you output (not aliases).",
+  "Prefer high-precision entities; omit uncertain extractions.",
+  'Every entity must include description as a string; use an empty string "" when there is no short description.',
+  "Every entity must include aliases as an array (use [] when there are no aliases beyond canonicalName).",
+  "Also populate articleMentions: for entities in your entities array that appear in the article text, estimate mentionCount (positive integer), confidence (0–1), and sentiment POSITIVE | NEGATIVE | NEUTRAL, or NONE when not applicable.",
+  "Each articleMentions.entityName must exactly match the canonicalName of one row in your entities array (same spelling as canonicalName).",
+  "Return JSON object with keys entities, relations, and articleMentions (arrays; articleMentions may be empty).",
+  "ENTITY TYPES (uuid — label):\n{{entityTypesBlock}}",
+  "RELATION TYPES (uuid — label):\n{{relationTypesBlock}}",
+].join("\n\n");
+
+/**
+ * Default extraction user prompt template (code default when Hermes omits `prompts.userPromptTemplate`).
+ */
+export const ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_TEMPLATE_DEFAULT = [
+  "tickerId: {{tickerId}}",
+  "title: {{title}}",
+  "article:",
+  "{{articleContent}}",
+].join("\n\n");
+
+/**
+ * Builds the entity-type lines block inserted into the default system template.
+ *
+ * @param ctx - Analysis GET vocabulary slice.
+ * @returns Multi-line block (uuid — label per line).
+ */
+export const formatArticleAnalysisEntityTypesBlock = (
+  ctx: Pick<GetAnalysisResponse, "entityTypes">,
+): string => ctx.entityTypes.map((e) => `- ${e.id} — ${e.name}`).join("\n");
+
+/**
+ * Builds the relation-type lines block inserted into the default system template.
+ *
+ * @param ctx - Analysis GET vocabulary slice.
+ * @returns Multi-line block (uuid — label per line).
+ */
+export const formatArticleAnalysisRelationTypesBlock = (
+  ctx: Pick<GetAnalysisResponse, "relationTypes">,
+): string => ctx.relationTypes.map((r) => `- ${r.id} — ${r.name}`).join("\n");
