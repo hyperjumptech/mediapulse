@@ -11,6 +11,7 @@ vi.mock("@/lib/pipelines", () => ({
 }));
 
 import { GET } from "./route";
+import type { PipelinesPageResult } from "@/lib/pipelines";
 import { getPipelinesPage } from "@/lib/pipelines";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
@@ -70,11 +71,26 @@ describe("GET /api/pipelines", () => {
       label: "k",
     });
     vi.mocked(getPipelinesPage).mockResolvedValue({
-      pipelines: [{ id: "p1", name: "Pipe", steps: [] }],
+      pipelines: [
+        {
+          id: "p1",
+          name: "Pipe",
+          description: null,
+          timeout: null,
+          isActive: true,
+          executionConfig: null,
+          domainIntegrationId: "di-1",
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+          createdById: null,
+          steps: [],
+          createdBy: null,
+        },
+      ],
       total: 1,
       page: 1,
       pageSize: 20,
-    });
+    } satisfies PipelinesPageResult);
     const res = await GET(
       new Request("http://localhost/api/pipelines", {
         headers: { Authorization: "Bearer hmcp_ok" },

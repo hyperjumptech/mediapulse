@@ -11,6 +11,7 @@ vi.mock("@/lib/http-triggers", () => ({
 }));
 
 import { GET } from "./route";
+import type { HttpTriggersPageResult } from "@/lib/http-triggers";
 import { getHttpTriggersPage } from "@/lib/http-triggers";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
@@ -70,11 +71,29 @@ describe("GET /api/http-triggers", () => {
       label: "k",
     });
     vi.mocked(getHttpTriggersPage).mockResolvedValue({
-      httpTriggers: [{ id: "t1", name: "Hook" }],
+      httpTriggers: [
+        {
+          id: "t1",
+          name: "Hook",
+          description: null,
+          pipelineId: "p1",
+          enabled: true,
+          method: "POST",
+          authType: "BEARER_TOKEN",
+          tokenHash: "hash",
+          tokenHint: null,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+          lastTriggeredAt: null,
+          createdById: null,
+          pipeline: { id: "p1", name: "Pipe" },
+          createdBy: null,
+        },
+      ],
       total: 1,
       page: 1,
       pageSize: 20,
-    });
+    } satisfies HttpTriggersPageResult);
     const res = await GET(new Request("http://localhost/api/http-triggers"));
     expect(res.status).toBe(200);
   });

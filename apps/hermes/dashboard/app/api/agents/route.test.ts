@@ -10,6 +10,7 @@ vi.mock("@/lib/agents", () => ({
 }));
 
 import { GET } from "./route";
+import type { AgentsPageResult } from "@/lib/agents";
 import { getAgentsPage } from "@/lib/agents";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 import { NextResponse } from "next/server";
@@ -85,13 +86,21 @@ describe("GET /api/agents", () => {
           id: "agent-1",
           agentId: "summarizer",
           agentVersion: "1",
+          description: null,
+          endpoint: {},
+          inputSchema: null,
+          configSchema: null,
+          isActive: true,
+          domainIntegrationId: "di-1",
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-01-01T00:00:00.000Z"),
           domainIntegration: { integrationId: "mediapulse" },
         },
       ],
       total: 1,
       page: 1,
       pageSize: 20,
-    });
+    } satisfies AgentsPageResult);
 
     // Act
     const res = await GET(
