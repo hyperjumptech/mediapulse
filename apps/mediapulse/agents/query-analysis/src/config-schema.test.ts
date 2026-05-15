@@ -35,7 +35,9 @@ describe("queryAnalysisConfigSchema prompts", () => {
     const result = queryAnalysisConfigSchema.safeParse({
       ...minimal,
       prompts: {
-        systemPrompt: "x".repeat(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH + 1),
+        systemPrompt: "x".repeat(
+          QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH + 1,
+        ),
       },
     });
     expect(result.success).toBe(false);

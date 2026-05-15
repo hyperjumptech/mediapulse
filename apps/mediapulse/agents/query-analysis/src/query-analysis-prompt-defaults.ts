@@ -11,7 +11,9 @@ export const QUERY_ANALYSIS_SYSTEM_PROMPT_PLACEHOLDERS = [
 ] as const;
 
 /** Allowed `{{...}}` names in `prompts.userPromptTemplate`. */
-export const QUERY_ANALYSIS_USER_PROMPT_PLACEHOLDERS = ["queryContextBlock"] as const;
+export const QUERY_ANALYSIS_USER_PROMPT_PLACEHOLDERS = [
+  "queryContextBlock",
+] as const;
 
 /**
  * Default system prompt template when Hermes omits `prompts.systemPrompt`.
@@ -28,4 +30,5 @@ export const QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT = [
 ].join("\n\n");
 
 /** Default user prompt template: full serialized GET context. */
-export const QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT = "{{queryContextBlock}}";
+export const QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT =
+  "{{queryContextBlock}}";
