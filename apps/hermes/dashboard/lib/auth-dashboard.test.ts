@@ -436,9 +436,8 @@ describe("resolveDashboardPrincipal", () => {
   });
 
   it("returns api_key principal and touches last used", async () => {
-    const { validateApiKey, touchMcpApiKeyLastUsed } = await import(
-      "@/lib/mcp-api-keys"
-    );
+    const { validateApiKey, touchMcpApiKeyLastUsed } =
+      await import("@/lib/mcp-api-keys");
     vi.mocked(validateApiKey).mockResolvedValue({
       id: "key-1",
       label: "Cursor",
