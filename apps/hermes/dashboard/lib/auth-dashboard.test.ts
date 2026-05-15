@@ -8,12 +8,21 @@ import {
   createSessionClearCookieOptions,
   getCookieFromHeader,
   getDashboardSession,
+  getDashboardSessionFromRequest,
   parseDashboardUserFromAuthCookie,
+  requireDashboardPrincipalForRoute,
   requireDashboardSessionForRoute,
+  resolveDashboardPrincipal,
   resolveHermesActiveAdminDashboardAccess,
 } from "./auth-dashboard";
 
+vi.mock("@/lib/mcp-api-keys", () => ({
+  validateApiKey: vi.fn(),
+  touchMcpApiKeyLastUsed: vi.fn(),
+}));
+
 vi.mock("@hermes/orchestration-database", () => ({
+  UserRole: { ADMIN: "ADMIN", USER: "USER" },
   prisma: {
     user: {
       findUnique: vi.fn(),
@@ -396,5 +405,102 @@ describe("resolveHermesActiveAdminDashboardAccess", () => {
     });
     expect(result).toEqual({ ok: true });
     expect(prisma.user.findUnique).toHaveBeenCalled();
+  });
+});
+
+describe("getDashboardSessionFromRequest", () => {
+  it("parses auth cookies from request", () => {
+    const user = JSON.stringify({
+      id: "u1",
+      name: "A",
+      email: "a@b.com",
+      credentialVersion: 0,
+    });
+    const req = new Request("http://localhost", {
+      headers: {
+        cookie: `auth-token=tok; auth-user=${encodeURIComponent(user)}`,
+      },
+    });
+    expect(getDashboardSessionFromRequest(req)).toEqual({
+      id: "u1",
+      name: "A",
+      email: "a@b.com",
+      credentialVersion: 0,
+    });
+  });
+});
+
+describe("resolveDashboardPrincipal", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns api_key principal and touches last used", async () => {
+    const { validateApiKey, touchMcpApiKeyLastUsed } = await import(
+      "@/lib/mcp-api-keys"
+    );
+    vi.mocked(validateApiKey).mockResolvedValue({
+      id: "key-1",
+      label: "Cursor",
+      readOnly: true,
+      createdByUserId: "u1",
+    });
+    vi.mocked(touchMcpApiKeyLastUsed).mockResolvedValue(undefined);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      role: "ADMIN",
+      isActive: true,
+      credentialVersion: 0,
+      name: "Admin",
+      email: "a@b.com",
+    } as never);
+
+    const req = new Request("http://localhost", {
+      headers: { Authorization: "Bearer hmcp_x_y" },
+    });
+    const principal = await resolveDashboardPrincipal(req);
+    expect(principal).toEqual({
+      authMethod: "api_key",
+      user: {
+        id: "u1",
+        name: "Admin",
+        email: "a@b.com",
+        credentialVersion: 0,
+      },
+      apiKeyId: "key-1",
+      readOnly: true,
+      label: "Cursor",
+    });
+    expect(touchMcpApiKeyLastUsed).toHaveBeenCalledWith("key-1");
+  });
+
+  it("returns session principal from cookies", async () => {
+    const { validateApiKey } = await import("@/lib/mcp-api-keys");
+    vi.mocked(validateApiKey).mockResolvedValue(null);
+    const user = JSON.stringify({
+      id: "u1",
+      name: "A",
+      email: "a@b.com",
+      credentialVersion: 0,
+    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      role: "ADMIN",
+      isActive: true,
+      credentialVersion: 0,
+    } as never);
+    const req = new Request("http://localhost", {
+      headers: {
+        cookie: `auth-token=t; auth-user=${encodeURIComponent(user)}`,
+      },
+    });
+    const principal = await resolveDashboardPrincipal(req);
+    expect(principal?.authMethod).toBe("session");
+  });
+});
+
+describe("requireDashboardPrincipalForRoute", () => {
+  it("throws when unauthenticated", async () => {
+    await expect(requireDashboardPrincipalForRoute()).rejects.toThrow(
+      "Unauthorized",
+    );
   });
 });
