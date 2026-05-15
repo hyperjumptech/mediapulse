@@ -1,9 +1,10 @@
 # Hermes dashboard MCP (Cursor and other LLM clients)
 
-**Version:** 0.3 | **Date:** 2026-05-15 | **Owner:** Hermes / platform (TBD)
+**Version:** 0.4 | **Date:** 2026-05-15 | **Owner:** Hermes / platform (TBD)
 
 ## Changelog
 
+- 0.4 (2026-05-15): API keys are **owned by the creating user**; requests run as that user (audit + same lifecycle as session).
 - 0.3 (2026-05-15): Simplified auth to **API keys** (dropped OAuth). Kept route catalog; trimmed scope and rollout.
 - 0.2 (2026-05-15): Added §5.1 API route catalog.
 - 0.1 (2026-05-15): Initial draft.
@@ -50,12 +51,12 @@ Operators use the Hermes dashboard to inspect agents, schedules, and runs. Curso
 ### Must-have (P0)
 
 - **[REQ-001] API key authentication**  
-  Hermes accepts `Authorization: Bearer <api_key>` on MCP-eligible routes. Keys are stored **hashed**; plaintext shown only at creation. Invalid or revoked key → `401`.  
-  **Acceptance criteria:** Integration test with valid key succeeds; revoked key fails; key never logged.
+  Hermes accepts `Authorization: Bearer <api_key>` on MCP-eligible routes. Keys are stored **hashed**; plaintext shown only at creation. Each key is tied to the **admin user who created it**; a valid key resolves to that user’s identity for authorization (same checks as a cookie session for that user). Invalid, revoked, or owner-inactive key → `401`.  
+  **Acceptance criteria:** Integration test with valid key succeeds as the creating user; revoked key fails; deactivated owner fails; key never logged.
 
 - **[REQ-002] Key management in dashboard**  
-  Active Hermes admins can create (label + optional read-only), list (id, label, created, last used — no secret), and revoke keys.  
-  **Acceptance criteria:** Revoked key stops working within one request; at least one key can exist per deployment.
+  Active Hermes admins can create keys for themselves (label + optional read-only). List shows id, label, **created by** (user), created, last used — never the secret. Users can revoke **their own** keys; any admin can revoke any key.  
+  **Acceptance criteria:** Revoked key stops working within one request; list row includes `createdByUserId` / display name.
 
 - **[REQ-003] MCP profiles**  
   MCP config: `name`, `baseUrl`, `apiKey` (from env or Cursor secrets — not committed). Switching profile switches host and key.  
@@ -81,8 +82,8 @@ Operators use the Hermes dashboard to inspect agents, schedules, and runs. Curso
 ### Won’t (v1)
 
 - OAuth / OIDC for MCP.
-- Per-user delegated tokens (keys are deployment credentials, like a service account).
 - Headless browser control.
+- Keys that outlive or exceed the creator’s role (no shared “deployment god” key without a user owner).
 
 ## 5. Functional specification
 
@@ -93,15 +94,16 @@ Operators use the Hermes dashboard to inspect agents, schedules, and runs. Curso
 **Server behavior**
 
 1. Middleware or shared helper on MCP-eligible routes: hash incoming key, look up row, reject if missing/revoked.
-2. Key record: `id`, `label`, `keyHash`, `readOnly`, `createdAt`, `revokedAt`, optional `lastUsedAt`.
-3. Authorization: read-only keys → allow Phase A routes only; full keys → Phase A + B (same capabilities as an active Hermes `ADMIN` unless we add finer scopes later).
-4. Human dashboard login (email/password cookies) stays unchanged for the UI.
+2. Key record: `id`, `label`, `keyHash`, `readOnly`, `createdByUserId` (FK → `User`), `createdAt`, `revokedAt`, optional `lastUsedAt`, optional `revokedByUserId`.
+3. On valid key: load **owner** `User`; reject if owner is not active `ADMIN` or `credentialVersion` mismatch (same invalidation as password reset / session).
+4. Principal returned to handlers is the **owner’s** `DashboardUser` (plus `apiKeyId`, `readOnly` on the key). Read-only keys → Phase A only; full keys → Phase A + B for that user.
+5. Human dashboard login (email/password cookies) stays unchanged for the UI.
 
 **MCP package**
 
 - Stdio/SSE MCP server; tools wrap §5.1 routes.
 - `apiKey` from Cursor MCP env / config (never in repo).
-- Optional: `hermes_ping` → `GET /health` or small `GET /api/mcp/whoami` returning label + read-only flag.
+- Optional: `hermes_ping` → `GET /health` or small `GET /api/mcp/whoami` returning key label, read-only flag, and owner `id` / `email` (no secret).
 
 **Tool sketch**
 
@@ -174,12 +176,12 @@ Paths are relative to `{baseUrl}`. **Auth (target)** = valid API key unless note
 
 ## 7. Dependencies and risks
 
-| Risk                      | Mitigation                                                   |
-| ------------------------- | ------------------------------------------------------------ |
-| Shared key = shared power | Read-only keys; revoke in UI; document “treat like password” |
-| Key in git                | Docs + secret scanning; keys only in Cursor/env              |
-| Cookie-only routes today  | Single auth helper: API key **or** session for same handlers |
-| LLM deletes production    | MCP `confirm` gate on destructive tools (REQ-006)            |
+| Risk                      | Mitigation                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| Shared key = shared power | Keys tied to creating user; read-only keys; revoke in UI; audit `createdBy` / `lastUsedAt` |
+| Key in git                | Docs + secret scanning; keys only in Cursor/env                                            |
+| Cookie-only routes today  | Single auth helper: API key **or** session for same handlers                               |
+| LLM deletes production    | MCP `confirm` gate on destructive tools (REQ-006)                                          |
 
 ## 8. Rollout
 
@@ -204,8 +206,8 @@ sequenceDiagram
 
 ## 10. Confirmed decisions
 
-- **Auth:** API key per deployment (not OAuth in v1).
+- **Auth:** API key per deployment (not OAuth in v1); each key **belongs to the admin who created it** and acts as that user.
 - **Transport:** Existing HTTP routes; add key validation to them.
 - **Multi-env:** MCP profiles with `baseUrl` + `apiKey`.
-- **Writes:** Allowed with full key; destructive MCP tools require `confirm: true` (client-side), not a server dry-run protocol.
+- **Writes:** Allowed with full key (as the owner user); destructive MCP tools require `confirm: true` (client-side), not a server dry-run protocol.
 - **Superseded:** Per-user OAuth, OAuth scopes, IdP federation — out of scope unless revisited in a later PRD.
