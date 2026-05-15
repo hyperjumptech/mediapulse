@@ -81,8 +81,24 @@ Include a short block:
 
 - What was isolated (route + fixture name).
 - Command to run the repro.
-- Where screenshots/video live (path or “attached below”).
+- **Embed screenshots inline** in the PR or issue body so GitHub renders them — do not use link-only lists.
 - Anything still validated only in full staging (if anything).
+
+### Embed images in PR bodies (required)
+
+GitHub does **not** render `blob/...` page links as images. Use **markdown image syntax** with a **raw** URL:
+
+```markdown
+![article-analysis SchemaForm — prompts fields](https://raw.githubusercontent.com/<org>/<repo>/issue-proofs/<path>/screenshot.png)
+```
+
+After `orphan-branch-store.sh --push issue-proofs`, build URLs as:
+
+`https://raw.githubusercontent.com/<org>/<repo>/issue-proofs/<dest-path>`
+
+Optional: add a collapsible `<details>` block for repro steps; keep the **image above the fold** in the Visual verification section.
+
+**Forbidden:** bullet lists of text links only (e.g. `[SchemaForm](https://github.com/.../blob/...png)`) with no `![...](raw...)` embeds.
 
 ## Further patterns
 

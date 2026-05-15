@@ -14,7 +14,7 @@ When the task **changes user-visible UI or UX** in `apps/` (pages, components, l
 1. **Read** the project skill **`/ui-ticket-visual-verification`** before handoff and follow its checklist.
 2. **Prefer isolation** (dev fixture route, query-driven demo state, minimal dev server) over full multi-service manual setup when that proves the ticket.
 3. **Ship reproducibility**: mocks or stubs for external data, plus a documented command (e.g. `pnpm` script) and URL so reviewers can replay the same view.
-4. **Ship evidence**: screenshots for static outcomes; short video only when motion or multi-step interaction matters. Use browser tools when available; keep binaries gitignored or attach to the PR.
+4. **Ship evidence**: screenshots for static outcomes; short video only when motion or multi-step interaction matters. Use browser tools when available; keep binaries gitignored or attach to the PR. **Embed** each screenshot in the PR/issue body with `![alt](https://raw.githubusercontent.com/...)` — not link-only lists to `blob/` URLs.
 
 ## Hard rules (no fake proof)
 
