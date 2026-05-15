@@ -16,7 +16,12 @@ const HermesMcpApiKeysDevPage = async ({
   }
 
   const resolved = await Promise.resolve(searchParams);
-  const variant = resolved.variant === "list" ? "list" : "empty";
+  const variant =
+    resolved.variant === "list"
+      ? "list"
+      : resolved.variant === "create-modal"
+        ? "create-modal"
+        : "empty";
 
   return <HermesMcpApiKeysFixture variant={variant} />;
 };
