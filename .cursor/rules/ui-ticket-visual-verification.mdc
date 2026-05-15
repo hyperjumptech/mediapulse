@@ -1,0 +1,19 @@
+---
+description: >-
+  When changing user-facing UI in apps, require isolated fixtures, mocks, reproducible dev
+  commands, and screenshot or video evidence per the ui-ticket-visual-verification skill—especially
+  for ticket or issue-driven work.
+globs: apps/**/*.tsx,apps/**/*.css
+alwaysApply: false
+---
+
+# UI ticket visual verification
+
+When the task **changes user-visible UI or UX** in `apps/` (pages, components, layout, styles, flows, modals, forms, copy placement)—**especially** when the user references a GitHub issue, ticket, or acceptance criteria—you MUST:
+
+1. **Read** the project skill **`/ui-ticket-visual-verification`** before handoff and follow its checklist.
+2. **Prefer isolation** (dev fixture route, query-driven demo state, minimal dev server) over full multi-service manual setup when that proves the ticket.
+3. **Ship reproducibility**: mocks or stubs for external data, plus a documented command (e.g. `pnpm` script) and URL so reviewers can replay the same view.
+4. **Ship evidence**: screenshots for static outcomes; short video only when motion or multi-step interaction matters. Use browser tools when available; keep binaries gitignored or attach to the PR.
+
+If the change is purely non-visual (types, internal APIs, no UI contract change), this rule does not require visual artifacts unless the ticket explicitly asks for them.
