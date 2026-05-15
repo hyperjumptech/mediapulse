@@ -48,13 +48,22 @@ type HermesMcpApiKeysFixtureProps = {
   variant: "empty" | "list" | "create-modal";
 };
 
-/** Dev-only static create modal (no server action) for screenshots. */
-const CreateApiKeyModalDevPreview = () => {
+/**
+ * Opens the dev preview dialog after mount so Playwright can capture the create form.
+ */
+const useCreateApiKeyModalDevPreviewDialog = () => {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     setOpen(true);
   }, []);
+
+  return { open, setOpen };
+};
+
+/** Dev-only static create modal (no server action) for screenshots. */
+const CreateApiKeyModalDevPreview = () => {
+  const { open, setOpen } = useCreateApiKeyModalDevPreviewDialog();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
