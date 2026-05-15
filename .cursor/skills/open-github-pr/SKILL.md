@@ -1,6 +1,6 @@
 ---
 name: open-github-pr
-description: Open a GitHub pull request for this repository using gh CLI, including branch checks, push, a reviewer-friendly PR body, and verified GitHub issue links (Closes/Fixes/Refs). Always resolve or create related issues before gh pr create so the PR can link to tickets; when drafting new issues, follow the create-github-issue skill for title and body structure. **PR title and body prose are humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). Use when the user asks to create/open/submit a PR or pull request, and format title and description with the pr-title-description skill structure (including Related issues).
+description: Open a GitHub pull request for this repository using gh CLI, including branch checks, push, a reviewer-friendly PR body, and verified GitHub issue links (Closes/Fixes/Refs). Always resolve or create related issues before gh pr create so the PR can link to tickets; when drafting new issues, follow the create-github-issue skill for title and body structure. **After every successful gh pr create**, launch the **pr-check-monitor** subagent in the background to watch CI and report failures to the authoring agent. **PR title and body prose are humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). Use when the user asks to create/open/submit a PR or pull request, and format title and description with the pr-title-description skill structure (including Related issues).
 ---
 
 # Open GitHub Pull Request
@@ -106,6 +106,51 @@ If unsure whether intermediate merges close issues in your org, prefer **`Refs`*
 
 Verify the published body with `gh pr view --json body` as usual. The temp file should not remain on disk after the workflow finishes.
 
+## Mandatory: watch CI after `gh pr create`
+
+After a successful **`gh pr create`** and body verification, **always** start the [**pr-check-monitor**](../../agents/pr-check-monitor.md) subagent so the agent that opened the PR learns when GitHub checks fail.
+
+**Skip only when** the user explicitly asks not to watch CI, or the change cannot trigger checks (for example a draft PR the user will not run CI on yet).
+
+### Capture the new PR
+
+Resolve the PR number and URL immediately after create (same `--repo` as above):
+
+```bash
+PR_URL="$(gh pr view --repo "<owner>/<repo>" --json url -q .url)"
+PR_NUM="$(gh pr view --repo "<owner>/<repo>" --json number -q .number)"
+```
+
+If `gh pr create` printed a URL in the same shell, you may parse that instead; still run `gh pr view` to confirm `number` and `url`.
+
+Pass **linked issue number(s)** from the verified **`## Related issues`** lines (same `#N` used in the PR body).
+
+### Launch the monitor (default: background)
+
+Use the **Task** tool with subagent **`pr-check-monitor`** and **`run_in_background: true`** so the opening agent can finish the PR handoff while CI runs.
+
+**Prompt template** (fill in values):
+
+```text
+Watch GitHub CI for PR #<PR_NUM> in <owner>/<repo> (<PR_URL>).
+Authoring agent: this session (the agent that opened the PR).
+Linked GitHub issue(s): #<issue numbers from Related issues>.
+Notify: handoff-only
+Timeout: 45 minutes
+When checks fail, return the full handoff block from pr-check-monitor.md.
+Do not fix CI unless I ask — only report.
+```
+
+**Foreground instead of background** when the user asks to wait for green checks before continuing, or when the next step depends on CI (for example “open PR and fix anything CI finds”). Omit `run_in_background` and apply the monitor’s handoff before you declare the workflow done.
+
+### When the monitor reports failure
+
+1. Forward the monitor’s **handoff** to the authoring agent (same session or resumed agent).
+2. Fix scoped CI issues yourself, or delegate **babysit** when the user wants an automated fix loop.
+3. Re-run **verifier** locally before pushing again when failures look like format/lint/test drift.
+
+Do not mark “PR opened” complete on your side until the monitor has been **started** (background is enough). You do not need to wait for CI unless the user chose foreground watch.
+
 ## Optional: skill or docs changes in a dedicated worktree
 
 Use when you want a clean branch off `main` (or another base) without disturbing the user’s current worktree—common for `.cursor/skills/`, rules, or dev-docs edits.
@@ -128,12 +173,14 @@ Run from the **primary repository** clone (the one that owns the worktrees), not
 
 5. **Resolve or create related issues, then open the PR** — Run **Mandatory: resolve or create issues before the PR** (same `<base>` / `--repo` / auth as the main workflow). Then create the PR using **`--body-file`** with `--repo`, `--base`, and `--head` as needed.
 
-6. **Remove the worktree** (branch stays on `origin`; the PR remains open)  
+6. **Start pr-check-monitor** — Same as **Mandatory: watch CI after `gh pr create`** (background by default).
+
+7. **Remove the worktree** (branch stays on `origin`; the PR remains open)  
    From the primary repo:  
    `git worktree remove <path>`  
    If Git reports the path is locked or dirty, commit or stash in that worktree first, then retry. Use `git worktree prune` only if Git leaves stale metadata.
 
-7. **Mirror user-global skills** (if the repo ships skills under `.cursor/skills/` and the user also keeps copies under `~/.cursor/skills/`): update both so local invocations match the merged repo version.
+8. **Mirror user-global skills** (if the repo ships skills under `.cursor/skills/` and the user also keeps copies under `~/.cursor/skills/`): update both so local invocations match the merged repo version.
 
 ## Workflow (run in order)
 
@@ -221,6 +268,9 @@ Closes #123
 EOF
 
 gh pr create --repo "<owner>/<repo>" --base "$BASE" --title "Add concise verb-first title" --body-file "$BODY_FILE"
+
+# After create: capture PR_NUM / PR_URL, verify body (workflow step 8), then launch
+# pr-check-monitor in the background (workflow step 9).
 ```
 
 Set `BASE` before this command so it matches the three-dot range in step 3: **stacked PRs** → parent from `git town config get-parent` (or equivalent); **root of stack or single PR** → repo default branch name (same as `gh repo view --json defaultBranchRef`). Passing `--base "$BASE"` when `BASE` is the default branch is equivalent to omitting `--base` but keeps diff and PR creation in sync.
@@ -230,7 +280,8 @@ Set `BASE` before this command so it matches the three-dot range in step 3: **st
    - Confirm it does **not** contain `Made with [Cursor](https://cursor.com)` or `Made with Cursor`.
    - Confirm the body still contains the intended `Closes`/`Fixes`/`Refs` lines (GitHub parses these from the merged body text).
    - Do **not** run `gh pr edit` for footer cleanup; if cleanup is needed, close/recreate so final PR is not marked edited.
-9. Return the PR URL and a short test note (mention `<base>` → `<head>` if useful for reviewers).
+9. **Start CI monitor** — Follow **Mandatory: watch CI after `gh pr create`**: capture `PR_NUM` / `PR_URL`, then launch **pr-check-monitor** in the background (unless the user skipped watch or needs foreground wait).
+10. Return the PR URL and a short test note (mention `<base>` → `<head>` if useful for reviewers). State that **pr-check-monitor** is watching CI in the background and will report failures to this session.
 
 ## Quality checklist
 
@@ -242,6 +293,7 @@ Set `BASE` before this command so it matches the three-dot range in step 3: **st
 - Do not include any signature/footer such as `Made with Cursor` in the PR title or body.
 - Body is supplied via **`--body-file`** so automated footers are not injected into `--body`; the body file is created with **`mktemp`** under the system temp dir and **removed** (`trap` and/or explicit `rm`), never left as `.cursor/tmp-pr-body.md` (or any path inside the repo).
 - After creation, run a read-only body verification check (no `gh pr edit` footer cleanup).
+- **CI monitor:** **pr-check-monitor** was started in the background after create (or foreground when the user required waiting for checks), with PR number, repo, and linked issue(s) passed in the Task prompt.
 - High-risk behavior and reviewer-critical files are explicitly called out.
 - Test steps are concrete and include expected outcomes.
 - The command uses `--repo <owner>/<repo>` and a verified account context (`gh auth switch -h <host> -u <account>` + `gh api` access check).
