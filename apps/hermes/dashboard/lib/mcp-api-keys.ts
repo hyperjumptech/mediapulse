@@ -290,3 +290,48 @@ export const touchMcpApiKeyLastUsed = async (
   } satisfies Prisma.McpApiKeyUpdateArgs;
   await db.update(updateArgs);
 };
+
+export type McpApiKeyListRow = {
+  id: string;
+  label: string;
+  readOnly: boolean;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  createdByUserId: string;
+};
+
+type ListActiveMcpApiKeysDependencies = {
+  db?: Pick<typeof prisma.mcpApiKey, "findMany">;
+};
+
+/**
+ * Lists non-revoked MCP API keys for the dashboard table (no secrets).
+ *
+ * @param dependencies - Injectable Prisma delegate.
+ * @returns Rows ordered by newest first.
+ */
+export const listActiveMcpApiKeys = async ({
+  db = prisma.mcpApiKey,
+}: ListActiveMcpApiKeysDependencies = {}): Promise<McpApiKeyListRow[]> => {
+  const args = {
+    where: { revokedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      label: true,
+      readOnly: true,
+      createdAt: true,
+      lastUsedAt: true,
+      createdByUserId: true,
+      createdBy: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+  } satisfies Prisma.McpApiKeyFindManyArgs;
+  return db.findMany(args);
+};
