@@ -1,8 +1,11 @@
-import { prisma } from "@hermes/orchestration-database";
+import { prisma, UserRole } from "@hermes/orchestration-database";
 import type { Prisma } from "@hermes/orchestration-database";
 import { cookies, headers } from "next/headers";
 import type { NextResponse } from "next/server";
 import { z } from "zod";
+
+import { touchMcpApiKeyLastUsed, validateApiKey } from "@/lib/mcp-api-keys";
+import { parseBearerToken } from "@/lib/parse-bearer-token";
 
 /**
  * Zod schema for the JSON stored in the `auth-user` cookie.
@@ -19,6 +22,23 @@ const dashboardAuthUserCookieSchema = z.object({
 
 /** Session payload stored in `auth-user` and validated against `User.credentialVersion` in the DB. */
 export type DashboardUser = z.infer<typeof dashboardAuthUserCookieSchema>;
+
+/** Authenticated caller for MCP-eligible routes (session cookie or MCP API key). */
+export type DashboardPrincipal =
+  | {
+      authMethod: "session";
+      user: DashboardUser;
+    }
+  | {
+      authMethod: "api_key";
+      user: DashboardUser;
+      apiKeyId: string;
+      readOnly: boolean;
+      label: string;
+    };
+
+/** Stable JSON body for 401 responses from dashboard API routes. */
+export const DASHBOARD_UNAUTHORIZED_BODY = { error: "Unauthorized" } as const;
 
 /**
  * Parses the `auth-user` cookie JSON into a {@link DashboardUser}.
@@ -117,6 +137,24 @@ export const getCookieFromHeader = (
  * @param dependencies - Optional getCookieStore and getHeaders for tests.
  * @returns The authenticated user (id, name, email) or null if auth-token or auth-user is missing/invalid.
  */
+/**
+ * Reads dashboard session cookies from a `Request` (for route handlers).
+ *
+ * @param request - Incoming HTTP request.
+ * @returns Parsed session user or null.
+ */
+export const getDashboardSessionFromRequest = (
+  request: Request,
+): DashboardUser | null => {
+  const cookieHeader = request.headers.get("cookie");
+  const token = getCookieFromHeader(cookieHeader, "auth-token");
+  const raw = getCookieFromHeader(cookieHeader, "auth-user");
+  if (!token || !raw) {
+    return null;
+  }
+  return parseDashboardUserFromAuthCookie(raw);
+};
+
 export const getDashboardSession = async ({
   getCookieStore = cookies,
   getHeaders = headers,
@@ -194,6 +232,14 @@ export const createClearDashboardAuthCookies = ({
 /** Default cookie clearer using Next.js `cookies()`. */
 export const clearDashboardAuthCookies = createClearDashboardAuthCookies();
 
+type DashboardUserRecord = {
+  role: string;
+  isActive: boolean;
+  credentialVersion: number;
+  name: string;
+  email: string;
+};
+
 const defaultFindUserForDashboard = async (
   userId: string,
 ): Promise<{
@@ -206,6 +252,98 @@ const defaultFindUserForDashboard = async (
     select: { role: true, isActive: true, credentialVersion: true },
   } satisfies Prisma.UserFindUniqueArgs;
   return prisma.user.findUnique(args);
+};
+
+const defaultFindUserProfileForDashboard = async (
+  userId: string,
+): Promise<DashboardUserRecord | null> => {
+  const args = {
+    where: { id: userId },
+    select: {
+      role: true,
+      isActive: true,
+      credentialVersion: true,
+      name: true,
+      email: true,
+    },
+  } satisfies Prisma.UserFindUniqueArgs;
+  return prisma.user.findUnique(args);
+};
+
+/**
+ * Returns true when the DB user is an active Hermes admin matching the session version.
+ *
+ * @param session - Cookie session payload.
+ * @param user - Database user row.
+ * @returns Whether the session is valid for dashboard access.
+ */
+export const isActiveAdminSessionMatch = (
+  session: DashboardUser,
+  user: { role: string; isActive: boolean; credentialVersion: number },
+): boolean => {
+  return (
+    user.role === UserRole.ADMIN &&
+    user.isActive &&
+    user.credentialVersion === session.credentialVersion
+  );
+};
+
+type ResolveDashboardPrincipalDependencies = {
+  validateKey?: typeof validateApiKey;
+  touchLastUsed?: typeof touchMcpApiKeyLastUsed;
+  findUserProfile?: typeof defaultFindUserProfileForDashboard;
+};
+
+/**
+ * Resolves the dashboard principal from Bearer MCP API key or session cookies.
+ * API key is tried first. Updates `lastUsedAt` on successful API key auth.
+ *
+ * @param request - Incoming HTTP request.
+ * @param dependencies - Injectable validators and DB lookups.
+ * @returns Principal or null when credentials are missing or invalid.
+ */
+export const resolveDashboardPrincipal = async (
+  request: Request,
+  {
+    validateKey = validateApiKey,
+    touchLastUsed = touchMcpApiKeyLastUsed,
+    findUserProfile = defaultFindUserProfileForDashboard,
+  }: ResolveDashboardPrincipalDependencies = {},
+): Promise<DashboardPrincipal | null> => {
+  const bearer = parseBearerToken(request);
+  if (bearer) {
+    const key = await validateKey(bearer);
+    if (!key) {
+      return null;
+    }
+    const owner = await findUserProfile(key.createdByUserId);
+    if (!owner || owner.role !== UserRole.ADMIN || !owner.isActive) {
+      return null;
+    }
+    await touchLastUsed(key.id);
+    return {
+      authMethod: "api_key",
+      user: {
+        id: key.createdByUserId,
+        name: owner.name,
+        email: owner.email,
+        credentialVersion: owner.credentialVersion,
+      },
+      apiKeyId: key.id,
+      readOnly: key.readOnly,
+      label: key.label,
+    };
+  }
+
+  const session = getDashboardSessionFromRequest(request);
+  if (!session) {
+    return null;
+  }
+  const user = await defaultFindUserForDashboard(session.id);
+  if (!user || !isActiveAdminSessionMatch(session, user)) {
+    return null;
+  }
+  return { authMethod: "session", user: session };
 };
 
 /**
@@ -268,12 +406,49 @@ export const requireDashboardSessionForRoute = async (
   }
 
   const user = await defaultFindUserForDashboard(session.id);
-  if (!user || user.role !== "ADMIN" || !user.isActive) {
-    throw new Error("Unauthorized");
-  }
-  if (user.credentialVersion !== session.credentialVersion) {
+  if (!user || !isActiveAdminSessionMatch(session, user)) {
     throw new Error("Unauthorized");
   }
 
   return session;
+};
+
+/**
+ * Required auth for route-action-gen: MCP API key or session cookie.
+ *
+ * @param request - Incoming HTTP request (Bearer or cookies).
+ * @returns Dashboard user for the authenticated principal.
+ */
+export const requireDashboardPrincipalForRoute = async (
+  request?: Request,
+): Promise<DashboardUser> => {
+  let principal: DashboardPrincipal | null = null;
+  if (request) {
+    principal = await resolveDashboardPrincipal(request);
+  } else {
+    const session = await getDashboardSession();
+    if (session) {
+      const user = await defaultFindUserForDashboard(session.id);
+      if (user && isActiveAdminSessionMatch(session, user)) {
+        principal = { authMethod: "session", user: session };
+      }
+    }
+  }
+  if (!principal) {
+    throw new Error("Unauthorized");
+  }
+  return principal.user;
+};
+
+/**
+ * Returns the dashboard user from a resolved principal or null.
+ *
+ * @param request - Incoming HTTP request.
+ * @returns User when authenticated; otherwise null.
+ */
+export const getDashboardPrincipalUser = async (
+  request: Request,
+): Promise<DashboardUser | null> => {
+  const principal = await resolveDashboardPrincipal(request);
+  return principal?.user ?? null;
 };
