@@ -296,6 +296,9 @@ main() {
   if [[ -z "$(read_dotenv_value "$HERMES_ENV_FILE" "HERMES_INTERNAL_API_KEY")" ]]; then
     upsert_env_var "$HERMES_ENV_FILE" "HERMES_INTERNAL_API_KEY" "$(openssl rand -base64 32)"
   fi
+  if [[ -z "$(read_dotenv_value "$HERMES_ENV_FILE" "HERMES_MCP_API_KEY_PEPPER")" ]]; then
+    upsert_env_var "$HERMES_ENV_FILE" "HERMES_MCP_API_KEY_PEPPER" "$(openssl rand -base64 32)"
+  fi
   upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_AUTH_JWT_SECRET" "$JWT_SECRET"
   upsert_env_var "$MEDIAPULSE_ENV_FILE" "AGENT_AUTH_API_URL" "$AGENT_AUTH_API_URL"
   pnpm --filter @hermes/env build && pnpm --filter @mediapulse/env build
@@ -324,6 +327,10 @@ main() {
     if [[ -z "$(read_dotenv_value "$HERMES_ENV_FILE" "HERMES_INTERNAL_API_KEY")" ]]; then
       echo "Warning: HERMES_INTERNAL_API_KEY is empty in $HERMES_ENV_FILE."
       echo "Hermes worker and dashboard need it to mint JWTs (run dev-setup without --skip-admin or set it manually)."
+    fi
+    if [[ -z "$(read_dotenv_value "$HERMES_ENV_FILE" "HERMES_MCP_API_KEY_PEPPER")" ]]; then
+      echo "Warning: HERMES_MCP_API_KEY_PEPPER is empty in $HERMES_ENV_FILE."
+      echo "Hermes dashboard needs it to hash MCP API keys (run dev-setup without --skip-admin or set it manually)."
     fi
     if [[ -z "$(read_dotenv_value "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_API_KEY")" ]]; then
       echo "Warning: DOMAIN_INTEGRATION_API_KEY is empty in $MEDIAPULSE_ENV_FILE."
@@ -374,6 +381,7 @@ main() {
   echo "  - AGENT_AUTH_JWT_SECRET"
   echo "  - AGENT_AUTH_API_URL=$AGENT_AUTH_API_URL"
   echo "  - HERMES_INTERNAL_API_KEY (Hermes worker, dashboard, agent-auth; preset secret)"
+  echo "  - HERMES_MCP_API_KEY_PEPPER (Hermes dashboard MCP API key hashing)"
   echo "  - DOMAIN_INTEGRATION_ID"
   echo "  - DOMAIN_INTEGRATION_API_KEY (generated once; stored encrypted in orchestration DB)"
   echo "Updated apps/mediapulse/agents/*/.env.local with:"

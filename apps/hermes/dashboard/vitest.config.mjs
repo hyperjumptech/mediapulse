@@ -12,6 +12,7 @@ export default defineConfig({
       TEMP_ADMIN_PASSWORD: "testtest",
       HERMES_DATA_SOURCE_MAX_TAKE: "5000",
       HERMES_INTERNAL_API_KEY: "test-hermes-internal-api-key",
+      HERMES_MCP_API_KEY_PEPPER: "test-mcp-api-key-pepper",
       AGENT_DATA_API_URL: "http://localhost:8081",
       HERMES_CGA_DIAGNOSTICS_ENABLED: "true",
     },
