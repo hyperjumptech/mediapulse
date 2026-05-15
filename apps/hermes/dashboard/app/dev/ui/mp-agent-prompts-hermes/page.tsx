@@ -1,3 +1,4 @@
+import { env } from "@hermes/env";
 import { notFound } from "next/navigation";
 
 import { MpAgentPromptsSchemaformFixture } from "./mp-agent-prompts-schemaform-fixture";
@@ -24,8 +25,7 @@ const MpAgentPromptsHermesDevPage = async ({
     | Promise<{ agent?: string; focus?: string }>
     | { agent?: string; focus?: string };
 }) => {
-  // Build-time guard only — avoids loading @hermes/env on a dev-only route.
-  if (process.env.NODE_ENV !== "development") {
+  if (env.NODE_ENV !== "development") {
     notFound();
   }
 
