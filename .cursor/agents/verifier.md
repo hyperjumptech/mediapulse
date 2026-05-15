@@ -75,3 +75,7 @@ Any session that creates or edits TypeScript, JavaScript, Markdown, or tests mus
 - **New test files** that import server-side modules (e.g. `@hermes/orchestration-database`, `@mediapulse/database`, `@hermes/env`, `@mediapulse/env`, or code using `env.*`) need `/** @vitest-environment node */` at the top so Vitest uses Node.
 
 This subagent implements that contract **plus** optional Docker validation in one pass.
+
+## Visual verification (not a substitute for format check)
+
+When the user or plan requires UI screenshots, verification here does **not** satisfy that requirement. Follow `/ui-ticket-visual-verification`: real captures, gate checks, `raw.githubusercontent.com` embeds in PR bodies — never placeholder images or link-only `blob/` URLs.

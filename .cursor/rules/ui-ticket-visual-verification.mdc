@@ -26,5 +26,9 @@ When the task **changes user-visible UI or UX** in `apps/` (pages, components, l
 - If browser capture, Hermes auth, or local dev is blocked, **stop and report the blocker immediately**. Do **not** substitute fake proof of any kind. A repro-only README is acceptable as a temporary placeholder, but the todo must stay open until a real capture exists.
 - **Before** any `orphan-branch-store.sh` run or `git push`, open or inspect every image file: verify dimensions (`sips -g pixelWidth -g pixelHeight <file>` or browser screenshot tool metadata) and confirm the file size is ≥ 20 KB.
 - Marking a visual-verification todo **complete** without real, gate-passing images is **forbidden** when the ticket or plan requires visual proof.
+- **Embed** screenshots in the PR with `![alt](https://raw.githubusercontent.com/...)` — never ship a Visual verification section that is only `blob/` text links.
+- Before handoff, follow the **Pre-handoff checklist** and **Anti-patterns** table in `/ui-ticket-visual-verification` (skill).
 
 If the change is purely non-visual (types, internal APIs, no UI contract change), this rule does not require visual artifacts unless the ticket explicitly asks for them.
+
+When a **plan or ticket** explicitly requires visual verification (e.g. Hermes SchemaForm, `issue-proofs`), that requirement overrides “ship fast”: capture real UI or report a blocker; do not close the todo with placeholders or links alone.
