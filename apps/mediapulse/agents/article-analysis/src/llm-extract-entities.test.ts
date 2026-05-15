@@ -56,7 +56,10 @@ describe("resolveArticleAnalysisExtractionUserContent", () => {
     };
 
     // Act
-    const resolved = resolveArticleAnalysisExtractionUserContent(undefined, args);
+    const resolved = resolveArticleAnalysisExtractionUserContent(
+      undefined,
+      args,
+    );
     const legacy = buildExtractionUserContent(args);
 
     // Assert

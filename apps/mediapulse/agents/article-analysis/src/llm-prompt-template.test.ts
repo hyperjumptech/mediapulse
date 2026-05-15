@@ -11,9 +11,7 @@ import {
 describe("listLlmPromptPlaceholderNames", () => {
   it("returns sorted unique names", () => {
     // Act
-    const names = listLlmPromptPlaceholderNames(
-      "{{a}} static {{b}} {{a}}",
-    );
+    const names = listLlmPromptPlaceholderNames("{{a}} static {{b}} {{a}}");
 
     // Assert
     expect(names).toEqual(["a", "b"]);

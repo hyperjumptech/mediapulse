@@ -65,7 +65,9 @@ describe("articleAnalysisConfigSchema", () => {
     const result = articleAnalysisConfigSchema.safeParse({
       ...minimalConfig,
       prompts: {
-        systemPrompt: "x".repeat(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH + 1),
+        systemPrompt: "x".repeat(
+          ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH + 1,
+        ),
       },
     });
 
@@ -76,7 +78,8 @@ describe("articleAnalysisConfigSchema", () => {
     const parsed = articleAnalysisConfigSchema.parse({
       ...minimalConfig,
       prompts: {
-        systemPrompt: "Types:\n{{entityTypesBlock}}\nRels:\n{{relationTypesBlock}}",
+        systemPrompt:
+          "Types:\n{{entityTypesBlock}}\nRels:\n{{relationTypesBlock}}",
         userPromptTemplate: "{{tickerId}}\n{{title}}\n{{articleContent}}",
       },
     });

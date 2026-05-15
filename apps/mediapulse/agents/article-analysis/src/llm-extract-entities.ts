@@ -163,7 +163,8 @@ export const resolveArticleAnalysisExtractionSystemContent = (
   ctx: Pick<GetAnalysisResponse, "entityTypes" | "relationTypes">,
 ): string => {
   const template =
-    configuredSystemPrompt ?? ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT;
+    configuredSystemPrompt ??
+    ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT;
   return substituteLlmPromptTemplate(template, {
     entityTypesBlock: formatArticleAnalysisEntityTypesBlock(ctx),
     relationTypesBlock: formatArticleAnalysisRelationTypesBlock(ctx),

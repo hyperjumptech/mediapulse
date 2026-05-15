@@ -44,8 +44,10 @@ export const substituteLlmPromptTemplate = (
   template: string,
   replacements: Readonly<Record<string, string>>,
 ): string =>
-  template.replace(new RegExp(PLACEHOLDER_TOKEN_SOURCE, "g"), (_full, name: string) =>
-    Object.prototype.hasOwnProperty.call(replacements, name)
-      ? replacements[name]!
-      : `{{${name}}}`,
+  template.replace(
+    new RegExp(PLACEHOLDER_TOKEN_SOURCE, "g"),
+    (_full, name: string) =>
+      Object.prototype.hasOwnProperty.call(replacements, name)
+        ? replacements[name]!
+        : `{{${name}}}`,
   );
