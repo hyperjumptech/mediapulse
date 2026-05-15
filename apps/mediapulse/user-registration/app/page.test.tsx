@@ -42,4 +42,16 @@ describe("Page", () => {
       "1",
     );
   });
+
+  it("renders Hyperjump product attribution with an external link", async () => {
+    const Page = (await import("./page")).default;
+
+    const ui = await Page();
+    render(ui);
+
+    const link = screen.getByRole("link", { name: /^Hyperjump$/i });
+    expect(link).toHaveAttribute("href", "https://hyperjump.tech");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
 });
