@@ -193,6 +193,69 @@ export type DomainIntegrationRecord = {
   capabilities: RegisterDomainIntegrationResponse["capabilities"];
 };
 
+const domainIntegrationListSelect = {
+  id: true,
+  integrationId: true,
+  name: true,
+  status: true,
+  baseUrl: true,
+  isDefault: true,
+  isActive: true,
+  createdById: true,
+  createdBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+} satisfies Prisma.DomainIntegrationSelect;
+
+export type DomainIntegrationListRow = Prisma.DomainIntegrationGetPayload<{
+  select: typeof domainIntegrationListSelect;
+}>;
+
+export type DomainIntegrationsPageResult = {
+  integrations: DomainIntegrationListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/**
+ * Fetches a paginated list of domain integrations (all statuses).
+ *
+ * @param page - 1-based page number.
+ * @param pageSize - Number of items per page.
+ * @param db - Prisma delegate (injectable for tests).
+ * @returns Integrations for the page plus total count and pagination info.
+ */
+export const getDomainIntegrationsPage = async (
+  page: number,
+  pageSize: number,
+  db: Pick<
+    typeof prisma.domainIntegration,
+    "findMany" | "count"
+  > = prisma.domainIntegration,
+): Promise<DomainIntegrationsPageResult> => {
+  const skip = (page - 1) * pageSize;
+  const orderBy = [
+    { isDefault: "desc" as const },
+    { integrationId: "asc" as const },
+  ] satisfies Prisma.DomainIntegrationOrderByWithRelationInput[];
+
+  const [integrations, total] = await Promise.all([
+    db.findMany({
+      select: domainIntegrationListSelect,
+      orderBy,
+      skip,
+      take: pageSize,
+    }),
+    db.count(),
+  ]);
+  return { integrations, total, page, pageSize };
+};
+
 /**
  * Maps a Prisma domain integration row to a typed record.
  *

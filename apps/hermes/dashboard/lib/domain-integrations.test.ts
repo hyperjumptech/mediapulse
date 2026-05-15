@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getActiveDomainIntegrations,
   getDomainIntegrationByIntegrationId,
+  getDomainIntegrationsPage,
 } from "./domain-integrations";
 
 const emptyManifest = {
@@ -110,5 +111,55 @@ describe("getDomainIntegrationByIntegrationId", () => {
     });
 
     expect(result).toBeNull();
+  });
+});
+
+describe("getDomainIntegrationsPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns integrations, total, page, and pageSize", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: "i1",
+        integrationId: "mediapulse",
+        name: "Mediapulse",
+        status: "active",
+        baseUrl: "http://localhost:3001",
+        isDefault: true,
+        isActive: true,
+        createdById: "u1",
+        createdBy: null,
+      },
+    ]);
+    const count = vi.fn().mockResolvedValue(1);
+
+    const result = await getDomainIntegrationsPage(1, 10, {
+      findMany,
+      count,
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 10 }),
+    );
+    expect(result).toEqual({
+      integrations: [
+        {
+          id: "i1",
+          integrationId: "mediapulse",
+          name: "Mediapulse",
+          status: "active",
+          baseUrl: "http://localhost:3001",
+          isDefault: true,
+          isActive: true,
+          createdById: "u1",
+          createdBy: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
   });
 });
