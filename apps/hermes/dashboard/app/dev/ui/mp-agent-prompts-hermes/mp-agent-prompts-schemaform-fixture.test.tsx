@@ -26,6 +26,18 @@ describe("MpAgentPromptsSchemaformFixture", () => {
     expect(screen.getByTestId("schema-form")).toBeInTheDocument();
   });
 
+  it("renders prompts-only mode when focus is prompts", () => {
+    render(
+      <MpAgentPromptsSchemaformFixture
+        agentId="article-analysis"
+        focus="prompts"
+      />,
+    );
+
+    expect(screen.getByText(/^Prompts$/i)).toBeInTheDocument();
+    expect(screen.getByText(/focus=prompts/i)).toBeInTheDocument();
+  });
+
   it("shows an error message for an unknown agent id", () => {
     render(<MpAgentPromptsSchemaformFixture agentId="unknown-agent" />);
 
