@@ -7,7 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { requireDashboardPrincipalForRoute } from "@/lib/auth-dashboard";
+import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { createTokenHint, hashHttpTriggerToken } from "@/lib/http-trigger-auth";
@@ -28,7 +28,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: requireDashboardPrincipalForRoute,
+  user: requireMutationDashboardPrincipalForRoute,
 });
 
 export const responseValidator = z.object({
