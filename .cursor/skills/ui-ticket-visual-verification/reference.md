@@ -22,6 +22,14 @@ Prefer a **co-located `README.md` next to the dev fixture route** (e.g. `app/dev
 
 Add `artifacts/` to the app or repo `.gitignore` if not already ignored.
 
+## PR body embed (required for GitHub)
+
+Use markdown images with **raw** URLs (not `github.com/.../blob/...` links):
+
+`![caption](https://raw.githubusercontent.com/<org>/<repo>/<branch>/<path>.png)`
+
+After pushing to `issue-proofs`, the branch name is typically `issue-proofs`.
+
 ## Monorepo dev entry points
 
 From repo root, prefer documented scripts in root `package.json` when they exist (`pnpm dev:hermes`, `pnpm dev:user-registration`, etc.). Otherwise:
