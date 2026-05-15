@@ -115,15 +115,15 @@ Run every item before marking visual-verification work complete or opening/updat
 
 ## Anti-patterns (never repeat)
 
-| Mistake | Why it fails | Do instead |
-| ------- | ------------ | ---------- |
-| 1×1 / blank / solid-color PNG on `issue-proofs` | Reviewers see empty images; violates trust | Real browser screenshot; stop if blocked |
-| `[label](https://github.com/.../blob/...png)` only | GitHub does not render `blob` links as images | `![label](https://raw.githubusercontent.com/.../path.png)` |
-| Marking visual todo complete without embeds | Plan/AC not met | Keep todo open until PR shows inline images |
-| Separate `chore/*` branch for stack-related rules/docs | Extra PR noise; stack already carries the feature | Commit guidance on **bottom stack branch** (layer 1) or final layer |
-| Pushing feature branch before `pnpm format:check` | CI “Code quality” fails on Prettier | Run format check (or `pnpm format`) at repo root before push |
-| Editing imports in `run.ts` without re-running agent tests | Broken production path (e.g. dropped `env` import) | Run package `pnpm vitest run` for touched agents |
-| Delegating capture to a subagent then shipping without verifying output | Subagent may hit env errors or skip work | Parent verifies local artifacts + PR body before handoff |
+| Mistake                                                                 | Why it fails                                       | Do instead                                                          |
+| ----------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------- |
+| 1×1 / blank / solid-color PNG on `issue-proofs`                         | Reviewers see empty images; violates trust         | Real browser screenshot; stop if blocked                            |
+| `[label](https://github.com/.../blob/...png)` only                      | GitHub does not render `blob` links as images      | `![label](https://raw.githubusercontent.com/.../path.png)`          |
+| Marking visual todo complete without embeds                             | Plan/AC not met                                    | Keep todo open until PR shows inline images                         |
+| Separate `chore/*` branch for stack-related rules/docs                  | Extra PR noise; stack already carries the feature  | Commit guidance on **bottom stack branch** (layer 1) or final layer |
+| Pushing feature branch before `pnpm format:check`                       | CI “Code quality” fails on Prettier                | Run format check (or `pnpm format`) at repo root before push        |
+| Editing imports in `run.ts` without re-running agent tests              | Broken production path (e.g. dropped `env` import) | Run package `pnpm vitest run` for touched agents                    |
+| Delegating capture to a subagent then shipping without verifying output | Subagent may hit env errors or skip work           | Parent verifies local artifacts + PR body before handoff            |
 
 ## Further patterns
 
