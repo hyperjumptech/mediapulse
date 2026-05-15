@@ -1,10 +1,7 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  createCreateAgentHandler,
-  handler,
-} from "./route.post.config";
+import { createCreateAgentHandler, handler } from "./route.post.config";
 
 const apiKeyUser = {
   id: "user-1",
@@ -23,21 +20,48 @@ describe("Phase B create agent with API key principal user", () => {
   });
 
   it("allows create when injectable dependencies succeed", async () => {
-    const createAgent = vi.fn().mockResolvedValue({ id: "agent-1" });
+    const createdId = "00000000-0000-4000-8000-0000000000a1";
+    const createMock = vi.fn().mockResolvedValue({
+      id: createdId,
+      agentId: "test-agent",
+      agentVersion: "1.0.0",
+    });
+    const db = {
+      domainIntegration: { findFirst: vi.fn() },
+      agentRegistry: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: createMock,
+      },
+    };
     const result = await createCreateAgentHandler({
-      createAgent,
-    } as never)({
+      db: db as never,
+    })({
       body: {
         agentId: "test-agent",
         agentVersion: "1.0.0",
         domainIntegrationId: "int-1",
+        endpoint: { url: "https://api.example.com/agent" },
+        isActive: false,
       },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
       user: apiKeyUser,
     } as never);
 
     expect(result.status).toBe(true);
     if (result.status === true) {
-      expect(result.data).toEqual({ id: "agent-1" });
+      expect(result.data).toEqual({ id: createdId });
     }
+    expect(createMock).toHaveBeenCalledWith({
+      data: {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        description: null,
+        endpoint: { url: "https://api.example.com/agent" },
+        isActive: false,
+        domainIntegrationId: "int-1",
+      },
+    });
   });
 });
