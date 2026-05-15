@@ -8,10 +8,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 describe("schedules cancel-execution route.ts", () => {
-  it("re-exports the generated route entrypoint", () => {
+  it("exports POST via createHermesDashboardRoute for mutation enforcement", () => {
     const routePath = join(__dirname, "route.ts");
-    expect(readFileSync(routePath, "utf8")).toContain(
-      'export * from "./.generated/route"',
-    );
+    const source = readFileSync(routePath, "utf8");
+    expect(source).toContain("createHermesDashboardRoute");
+    expect(source).toContain("export const POST");
   });
 });
