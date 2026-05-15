@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth-dashboard", () => ({
   getDashboardSession: vi.fn(),
+  resolveDashboardPrincipal: vi.fn(),
 }));
 
 vi.mock("@/lib/schedules", () => ({
@@ -20,7 +21,10 @@ vi.mock("@/lib/pipeline-executions", () => ({
 import { GET as getHttpTriggerExecutionDetailRoute } from "@/app/api/http-triggers/[triggerId]/executions/[executionId]/route";
 import { GET as getManualPipelineExecutionDetailRoute } from "@/app/api/pipelines/[pipelineId]/executions/[executionId]/route";
 import { GET as getScheduleExecutionDetailRoute } from "@/app/api/schedules/[scheduleId]/executions/[executionId]/route";
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import {
+  getDashboardSession,
+  resolveDashboardPrincipal,
+} from "@/lib/auth-dashboard";
 import { parseExecutionDetailApiPayload } from "@/lib/execution-detail-api-json-schema";
 import { SECRET_MASK } from "@/lib/mask-json-secrets";
 import { getHttpTriggerExecutionDetail } from "@/lib/http-triggers";
@@ -96,15 +100,27 @@ const manualPipelineDetailFixture = {
 } as const;
 
 describe("execution detail GET APIs (contract)", () => {
+  beforeEach(() => {
+    vi.mocked(resolveDashboardPrincipal).mockResolvedValue({
+      authMethod: "session",
+      user: {
+        id: "admin",
+        name: "Admin",
+        email: "admin@example.com",
+        credentialVersion: 0,
+      },
+    });
+  });
+
   afterEach(() => {
     vi.mocked(getDashboardSession).mockReset();
+    vi.mocked(resolveDashboardPrincipal).mockReset();
     vi.mocked(getScheduleExecutionDetail).mockReset();
     vi.mocked(getHttpTriggerExecutionDetail).mockReset();
     vi.mocked(getManualPipelineExecutionDetail).mockReset();
   });
 
   it("schedule execution detail JSON includes execution.errors (null from DB)", async () => {
-    vi.mocked(getDashboardSession).mockResolvedValue({ id: "admin" } as never);
     vi.mocked(getScheduleExecutionDetail).mockResolvedValue(
       structuredClone(scheduleDetailFixture) as never,
     );
@@ -128,7 +144,6 @@ describe("execution detail GET APIs (contract)", () => {
   });
 
   it("HTTP trigger execution detail JSON includes execution.errors", async () => {
-    vi.mocked(getDashboardSession).mockResolvedValue({ id: "admin" } as never);
     vi.mocked(getHttpTriggerExecutionDetail).mockResolvedValue(
       structuredClone(httpTriggerDetailFixture) as never,
     );
@@ -149,7 +164,6 @@ describe("execution detail GET APIs (contract)", () => {
   });
 
   it("manual pipeline execution detail JSON includes execution.errors", async () => {
-    vi.mocked(getDashboardSession).mockResolvedValue({ id: "admin" } as never);
     vi.mocked(getManualPipelineExecutionDetail).mockResolvedValue(
       structuredClone(manualPipelineDetailFixture) as never,
     );
@@ -187,7 +201,6 @@ describe("execution detail GET APIs (contract)", () => {
       },
     };
 
-    vi.mocked(getDashboardSession).mockResolvedValue({ id: "admin" } as never);
     vi.mocked(getScheduleExecutionDetail).mockResolvedValue(
       structuredClone(fixtureWithSecret) as never,
     );
