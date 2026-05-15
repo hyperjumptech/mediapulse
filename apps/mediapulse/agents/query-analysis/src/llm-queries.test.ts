@@ -5,7 +5,75 @@ import {
   buildQueryAnalysisSystemContent,
   buildQueryAnalysisUserContent,
   fetchLlmQueryCandidates,
+  resolveQueryAnalysisSystemContent,
+  resolveQueryAnalysisUserContent,
 } from "./llm-queries";
+
+describe("resolveQueryAnalysisSystemContent", () => {
+  it("matches buildQueryAnalysisSystemContent when Hermes omits override", () => {
+    const strategy = {
+      queryCount: 10,
+      allowedLanguages: ["en", "de"],
+      minDeterministicCount: 3,
+      weights: { breaking: 1, kgChange: 1, fundamental: 1 } as const,
+    };
+
+    const resolved = resolveQueryAnalysisSystemContent(undefined, strategy);
+    const legacy = buildQueryAnalysisSystemContent(strategy);
+
+    expect(resolved).toBe(legacy);
+  });
+});
+
+describe("resolveQueryAnalysisUserContent", () => {
+  it("matches buildQueryAnalysisUserContent when Hermes omits override", () => {
+    const ctx = {
+      ticker: {
+        id: "11111111-1111-4111-a111-111111111111",
+        symbol: "ACME",
+        name: "Acme Co",
+        metadata: null,
+      },
+      topEntities: [] as {
+        canonicalName: string;
+        typeName: string;
+        relevanceWeight: number;
+      }[],
+      recentThemes: [] as { theme: string; articleCount: number }[],
+      recentRelationDeltas: [] as {
+        fromEntity: string;
+        toEntity: string;
+        relationType: string;
+        change: "added";
+      }[],
+    };
+
+    const resolved = resolveQueryAnalysisUserContent(undefined, ctx);
+    const legacy = buildQueryAnalysisUserContent(ctx);
+    expect(resolved).toBe(legacy);
+  });
+
+  it("wraps context with a custom user template", () => {
+    const ctx = {
+      ticker: {
+        id: "11111111-1111-4111-a111-111111111111",
+        symbol: "SYM",
+        name: "N",
+        metadata: null,
+      },
+      topEntities: [],
+      recentThemes: [],
+      recentRelationDeltas: [],
+    };
+    const text = resolveQueryAnalysisUserContent(
+      "START\n{{queryContextBlock}}\nEND",
+      ctx,
+    );
+    expect(text.startsWith("START\n")).toBe(true);
+    expect(text).toContain("SYM");
+    expect(text.endsWith("END")).toBe(true);
+  });
+});
 
 describe("buildQueryAnalysisSystemContent", () => {
   it("includes languages, intent mix hints, and schema instructions", () => {

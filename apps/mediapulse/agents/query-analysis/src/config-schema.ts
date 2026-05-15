@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+import { findUnknownLlmPromptPlaceholderTokens } from "./llm-prompt-template";
+import {
+  QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH,
+  QUERY_ANALYSIS_SYSTEM_PROMPT_PLACEHOLDERS,
+  QUERY_ANALYSIS_USER_PROMPT_PLACEHOLDERS,
+} from "./query-analysis-prompt-defaults";
+
 /**
  * Runtime configuration from Hermes invoke `config` (variable substitution).
  * OpenAI credentials and strategy knobs are not read from process env.
@@ -37,7 +44,66 @@ export const queryAnalysisConfigSchema = z.object({
    * LLM output token budget for generating structured query candidates.
    */
   maxTokens: z.number().int().positive().optional().default(800),
-});
+  /**
+   * Optional overrides for query-generation LLM system/user templates (Hermes).
+   * When omitted, built-in defaults are used. Do not put API keys inside prompt text.
+   */
+  prompts: z
+    .object({
+      systemPrompt: z
+        .string()
+        .max(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
+          message: `prompts.systemPrompt must be at most ${String(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
+        })
+        .describe(
+          "Optional system prompt template. Placeholders: {{allowedLanguages}}, {{targetBreakingCount}}, {{targetKgCount}}, {{targetFundamentalCount}}, {{minDeterministicCount}} (derived from queryCount, allowedLanguages, minDeterministicCount, and weight* fields when overrides are absent).",
+        )
+        .optional(),
+      userPromptTemplate: z
+        .string()
+        .max(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
+          message: `prompts.userPromptTemplate must be at most ${String(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
+        })
+        .describe(
+          "Optional user prompt template. Placeholder: {{queryContextBlock}} (serialized GET /query-analysis context: ticker, entities, themes, relation deltas).",
+        )
+        .optional(),
+    })
+    .strict()
+    .optional(),
+})
+  .superRefine((data, ctx) => {
+    const prompts = data.prompts;
+    if (!prompts) {
+      return;
+    }
+    const systemAllowed = new Set<string>(QUERY_ANALYSIS_SYSTEM_PROMPT_PLACEHOLDERS);
+    const userAllowed = new Set<string>(QUERY_ANALYSIS_USER_PROMPT_PLACEHOLDERS);
+    if (prompts.systemPrompt) {
+      for (const token of findUnknownLlmPromptPlaceholderTokens(
+        prompts.systemPrompt,
+        systemAllowed,
+      )) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Unknown placeholder {{${token}}} in prompts.systemPrompt`,
+          path: ["prompts", "systemPrompt"],
+        });
+      }
+    }
+    if (prompts.userPromptTemplate) {
+      for (const token of findUnknownLlmPromptPlaceholderTokens(
+        prompts.userPromptTemplate,
+        userAllowed,
+      )) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Unknown placeholder {{${token}}} in prompts.userPromptTemplate`,
+          path: ["prompts", "userPromptTemplate"],
+        });
+      }
+    }
+  });
 
 // Use Zod *input* type so `createAgentApp`'s Zod generic constraints match.
 // The agent runtime always parses with this schema, so defaults are guaranteed at runtime.
