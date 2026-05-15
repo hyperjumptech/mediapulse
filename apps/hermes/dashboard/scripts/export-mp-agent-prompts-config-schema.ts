@@ -39,13 +39,18 @@ const AGENT_EXPORTS: Record<
   },
 };
 
+/** Agent ids supported by the export script. */
+export const MP_AGENT_PROMPT_EXPORT_AGENT_IDS = Object.keys(AGENT_EXPORTS);
+
 /**
  * Resolves CLI agent id and output directory.
  */
-const parseArgs = (): { agentId: string; outDir: string } => {
-  const agentId = process.argv[2];
+export const parseMpAgentPromptsExportArgs = (
+  argv: readonly string[] = process.argv,
+): { agentId: string; outDir: string } => {
+  const agentId = argv[2];
   const outDir =
-    process.argv[3] ??
+    argv[3] ??
     path.join(
       repoRoot,
       "artifacts/ui-evidence/mp-agent-prompts-hermes/schemas",
@@ -63,7 +68,7 @@ const parseArgs = (): { agentId: string; outDir: string } => {
  * Dynamically imports the agent config schema and writes JSON Schema to disk.
  */
 const main = async (): Promise<void> => {
-  const { agentId, outDir } = parseArgs();
+  const { agentId, outDir } = parseMpAgentPromptsExportArgs();
   const spec = AGENT_EXPORTS[agentId]!;
   const moduleUrl = path.join(repoRoot, spec.packageDir, spec.modulePath);
   const mod = (await import(moduleUrl)) as Record<string, unknown>;
@@ -84,4 +89,16 @@ const main = async (): Promise<void> => {
   process.stdout.write(`${outPath}\n`);
 };
 
-await main();
+const __filename = fileURLToPath(import.meta.url);
+const isCliEntry = process.argv[1]
+  ? path.resolve(process.argv[1]) === __filename
+  : false;
+
+if (isCliEntry) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error: unknown) => {
+      console.error("Failed to export mp-agent-prompts config schema", error);
+      process.exit(1);
+    });
+}
