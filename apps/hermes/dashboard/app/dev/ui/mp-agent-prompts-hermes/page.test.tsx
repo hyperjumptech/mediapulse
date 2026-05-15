@@ -3,16 +3,6 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { notFound } from "next/navigation";
 
-const envState: { NODE_ENV: string | undefined } = {
-  NODE_ENV: "development",
-};
-
-vi.mock("@hermes/env", () => ({
-  get env() {
-    return envState;
-  },
-}));
-
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
@@ -20,14 +10,24 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("./mp-agent-prompts-schemaform-fixture", () => ({
-  MpAgentPromptsSchemaformFixture: ({ agentId }: { agentId: string }) => (
-    <div data-testid="mp-agent-prompts-fixture">{agentId}</div>
+  MpAgentPromptsSchemaformFixture: ({
+    agentId,
+    focus,
+  }: {
+    agentId: string;
+    focus?: string;
+  }) => (
+    <div data-testid="mp-agent-prompts-fixture" data-focus={focus}>
+      {agentId}
+    </div>
   ),
 }));
 
 describe("MpAgentPromptsHermesDevPage", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
   beforeEach(() => {
-    envState.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     vi.mocked(notFound).mockClear();
     vi.mocked(notFound).mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND");
@@ -35,6 +35,7 @@ describe("MpAgentPromptsHermesDevPage", () => {
   });
 
   afterEach(() => {
+    vi.stubEnv("NODE_ENV", originalNodeEnv);
     vi.resetModules();
   });
 
@@ -52,6 +53,20 @@ describe("MpAgentPromptsHermesDevPage", () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
+  it("passes focus=prompts to the fixture", async () => {
+    const Page = (await import("./page")).default;
+
+    const ui = await Page({
+      searchParams: { agent: "query-analysis", focus: "prompts" },
+    });
+    render(ui);
+
+    expect(screen.getByTestId("mp-agent-prompts-fixture")).toHaveAttribute(
+      "data-focus",
+      "prompts",
+    );
+  });
+
   it("defaults to article-analysis when agent query param is omitted", async () => {
     const Page = (await import("./page")).default;
 
@@ -64,7 +79,7 @@ describe("MpAgentPromptsHermesDevPage", () => {
   });
 
   it("calls notFound when NODE_ENV is not development", async () => {
-    envState.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     const Page = (await import("./page")).default;
 
     await expect(

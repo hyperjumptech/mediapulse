@@ -1,21 +1,18 @@
 #!/usr/bin/env node
 /**
  * Captures mp-agent-prompts Hermes fixture screenshots (prompts textareas only).
- * Prerequisites: `pnpm dev:hermes` on port 3001.
+ * Prerequisites: `pnpm dev:hermes` on port 3001, `npx playwright install chromium` once.
  *
  * Usage: node apps/hermes/dashboard/scripts/capture-mp-agent-prompts-screenshots.mjs
  */
 
+import { spawnSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const outDir = join(
-  repoRoot,
-  "artifacts/ui-evidence/mp-agent-prompts-hermes",
-);
+const outDir = join(repoRoot, "artifacts/ui-evidence/mp-agent-prompts-hermes");
 const baseUrl = "http://127.0.0.1:3001/dev/ui/mp-agent-prompts-hermes";
 
 const shots = [
@@ -30,26 +27,26 @@ const shots = [
   },
 ];
 
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-
 await mkdir(outDir, { recursive: true });
 
 for (const { agent, file } of shots) {
   const url = `${baseUrl}?agent=${agent}&focus=prompts`;
-  await page.goto(url, { waitUntil: "networkidle" });
-  const textareas = page.locator("textarea");
-  await textareas.first().waitFor({ state: "visible", timeout: 30_000 });
-  const count = await textareas.count();
-  if (count < 2) {
-    throw new Error(
-      `Expected at least 2 prompt textareas on ${url}, found ${count}`,
-    );
+  const outPath = join(outDir, file);
+  const result = spawnSync(
+    "npx",
+    [
+      "--yes",
+      "playwright@1.51.0",
+      "screenshot",
+      url,
+      outPath,
+      "--wait-for-selector=textarea",
+      "--viewport-size=1280,720",
+    ],
+    { stdio: "inherit" },
+  );
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
   }
-  await page.locator('[data-visual-proof="prompts"]').screenshot({
-    path: join(outDir, file),
-  });
-  console.log(`wrote ${file} (${count} textareas)`);
+  console.log(`wrote ${file}`);
 }
-
-await browser.close();
