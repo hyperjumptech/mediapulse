@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { format } from "date-fns";
 
 import { PageHeader } from "@/components/page-header";
@@ -27,6 +26,8 @@ import {
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 
+import { useCreateApiKeyModalDevPreviewDialog } from "./use-create-api-key-modal-dev-preview-dialog";
+
 const FIXTURE_KEYS: McpApiKeyListRow[] = [
   {
     id: "11111111-1111-1111-1111-111111111111",
@@ -46,19 +47,6 @@ const FIXTURE_KEYS: McpApiKeyListRow[] = [
 type HermesMcpApiKeysFixtureProps = {
   /** `empty` | `list` | `create-modal` (dialog open, create form). */
   variant: "empty" | "list" | "create-modal";
-};
-
-/**
- * Opens the dev preview dialog after mount so Playwright can capture the create form.
- */
-const useCreateApiKeyModalDevPreviewDialog = () => {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    setOpen(true);
-  }, []);
-
-  return { open, setOpen };
 };
 
 /** Dev-only static create modal (no server action) for screenshots. */
