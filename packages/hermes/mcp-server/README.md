@@ -92,6 +92,29 @@ List tools accept optional `limit` and `cursor` query parameters. `hermes_list_c
 
 Wrong or revoked API keys return Hermes error JSON in the tool result (`isError: true`).
 
+## Mutation tools (`hermes_mutate_*`)
+
+Write tools call dashboard Phase B `POST` routes with the same Bearer key. Before HTTP, the server checks `GET /api/mcp/whoami` and blocks **read-only** keys.
+
+**Destructive tools** (delete, cancel, run pipeline) require a two-step flow:
+
+1. First call **without** `confirm` (or with `confirm: false`) — returns a tool error; **no HTTP request**.
+2. Second call with `confirm: true` after explicit user approval — sends the mutation.
+
+| MCP tool                                      | Destructive (needs `confirm: true`) | POST path                                              |
+| --------------------------------------------- | ----------------------------------- | ------------------------------------------------------ |
+| `hermes_mutate_create_agent`                  | No                                  | `/dashboard/agents/actions/create`                     |
+| `hermes_mutate_delete_agent`                  | Yes                                 | `/dashboard/agents/actions/delete`                     |
+| `hermes_mutate_create_variable`               | No                                  | `/dashboard/variables/actions/create`                  |
+| `hermes_mutate_delete_variable`               | Yes                                 | `/dashboard/variables/actions/delete`                  |
+| `hermes_mutate_run_pipeline`                  | Yes                                 | `/dashboard/pipelines/actions/run-pipeline`            |
+| `hermes_mutate_cancel_pipeline_execution`     | Yes                                 | `/dashboard/pipelines/actions/cancel-manual-execution` |
+| `hermes_mutate_delete_pipeline`               | Yes                                 | `/dashboard/pipelines/actions/delete`                  |
+| `hermes_mutate_cancel_schedule_execution`     | Yes                                 | `/dashboard/schedules/actions/cancel-execution`        |
+| `hermes_mutate_delete_schedule`               | Yes                                 | `/dashboard/schedules/actions/delete`                  |
+| `hermes_mutate_cancel_http_trigger_execution` | Yes                                 | `/dashboard/http-triggers/actions/cancel-execution`    |
+| `hermes_mutate_delete_http_trigger`           | Yes                                 | `/dashboard/http-triggers/actions/delete`              |
+
 ## Tests
 
 ```bash

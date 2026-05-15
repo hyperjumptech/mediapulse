@@ -24,3 +24,22 @@ export const formatHermesHttpAsToolResult = (
     ...(isError ? { isError: true } : {}),
   };
 };
+
+/**
+ * Formats a client-side tool error (no Hermes HTTP call).
+ *
+ * @param message - Human-readable error for the model.
+ * @param details - Optional structured details (never includes API keys).
+ * @returns MCP tool error result.
+ */
+export const formatHermesToolError = (
+  message: string,
+  details?: unknown,
+): CallToolResult => {
+  const payload =
+    details === undefined ? { error: message } : { error: message, details };
+  return {
+    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+    isError: true,
+  };
+};
