@@ -60,7 +60,7 @@ Every run emits a structured **info** log with message `article_analysis.run.sum
 | Persist | `postFailureCount`, **`postFailuresByChunkKind`**, **`postFailuresByErrorCategory`** (`agent_data_api_http` vs `unknown`) |
 | KG tallies | `entitiesCreated`, `entitiesReused`, **`entityReuseRatio`**, `relationsCreated`, `articlesScored`, `articlesSelected` |
 | Relevance stats | When relevance rows were built: `relevanceRowCount`, `scoreMin` / `scoreMax` / `scoreMean`, **`scoreBuckets`**, **`breakdownVersion`** (or `mixed`), **`breakdownKeyMeans`** / mins / maxes over canonical keys |
-| LLM | **`llmPromptTokens`**, **`llmCompletionTokens`**, **`llmTotalTokens`** summed over extraction calls **only if** the AI SDK reports usage for those calls; fields are **omitted** when the provider returns no token counts |
+| LLM | **`llmPromptTokens`**, **`llmCompletionTokens`**, **`llmTotalTokens`** summed over extraction calls **only if** the AI SDK reports usage for those calls; fields are **omitted** when the provider returns no token counts; **`llmPromptFingerprint`** (16-char hex) identifies the **last** extraction system+user prompt pair sent to the model (Hermes `details.llmPromptFingerprint` on success responses) |
 | Timing | **`extractionLatencyMsTotal`**, **`extractionCalls`**, **`avgExtractionLatencyMs`** |
 | Top-level throw | Summary includes `error: { type, message }`; **`warn` / `error` logs use the same safe shape**—never attach raw `Error` objects (avoids leaking rich provider payloads) |
 

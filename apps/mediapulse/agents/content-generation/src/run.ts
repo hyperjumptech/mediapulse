@@ -418,5 +418,5 @@ export async function run({
     pipelineRunId,
     executionId,
   });
-  return { success: true };
+  return { success: true, details: { promptHash } };
 }

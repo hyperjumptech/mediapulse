@@ -24,6 +24,10 @@ The content-generation agent takes **selected data sources** (scored by the anal
 
 - **Main:** `src/index.ts` — Exports a Bun/Hono-compatible `fetch` and `port` (default **4002**).
 
+## Hermes run payload (success)
+
+Successful runs include `details.promptHash` (16-character hex, same algorithm as stored newsletter provenance) so operators can correlate the invoke response with persisted rows without logging full prompts.
+
 ## Port
 
 - **4002** (default from `env.PORT`).

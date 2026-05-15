@@ -200,6 +200,34 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
     });
   });
 
+  it("includes llmPromptFingerprint when provided", () => {
+    const payload = buildArticleAnalysisRunSummaryPayload({
+      outcome: "success",
+      articlesProcessed: 1,
+      extractionSuccessCount: 1,
+      extractionFailures: [],
+      relevanceRowValidationFailures: 0,
+      chunkParseCounts: {
+        entityRelationChunkParseErrors: 0,
+        articleEntityChunkParseErrors: 0,
+        articleRelevanceChunkParseErrors: 0,
+      },
+      postFailures: [],
+      entitiesCreated: 0,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 0,
+      articlesSelected: 0,
+      relevanceAggregate: null,
+      llmUsage: null,
+      extractionLatencyMsTotal: 0,
+      extractionCalls: 1,
+      llmPromptFingerprint: "a1b2c3d4e5f6a7b8",
+    });
+
+    expect(payload.llmPromptFingerprint).toBe("a1b2c3d4e5f6a7b8");
+  });
+
   it("omits LLM usage keys when usage is null", () => {
     const payload = buildArticleAnalysisRunSummaryPayload({
       outcome: "success",
