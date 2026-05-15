@@ -496,6 +496,9 @@ importers:
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-data-api-contract
+      '@workspace/agent-llm-prompt-template':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-llm-prompt-template
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
@@ -557,6 +560,9 @@ importers:
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-data-api-contract
+      '@workspace/agent-llm-prompt-template':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-llm-prompt-template
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
@@ -746,6 +752,9 @@ importers:
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-data-api-contract
+      '@workspace/agent-llm-prompt-template':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-llm-prompt-template
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
@@ -1476,6 +1485,21 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+
+  packages/shared/agent-llm-prompt-template:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.33
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/shared/agent-runtime:
     dependencies:

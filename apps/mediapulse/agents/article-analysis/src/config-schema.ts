@@ -6,7 +6,7 @@ import {
   ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_PLACEHOLDERS,
   ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH,
 } from "./article-extraction-prompt-defaults.js";
-import { findUnknownLlmPromptPlaceholderTokens } from "./llm-prompt-template.js";
+import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
 import { z } from "zod";
 
 const articleAnalysisRunPolicySchema = z.object({

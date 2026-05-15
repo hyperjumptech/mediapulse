@@ -38,8 +38,8 @@ The content-generation agent takes **selected data sources** (scored by the anal
 | `openai.timeoutMs` | `number` | ❌ | `120000` | Per-request timeout in milliseconds. |
 | `openaiApiKey` | `string` | ❌ | — | **Deprecated**: Use `openai.apiKey`. |
 | `openaiModel` | `string` | ❌ | — | **Deprecated**: Use `openai.model`. |
-| `prompts.systemPrompt` | `string` | ❌ | standard | Custom system instructions. |
-| `prompts.userPromptTemplate` | `string` | ❌ | standard | Template with `{{sourceSummaries}}`, etc. |
+| `prompts.systemPrompt` | `string` | ❌ | built-in default | Full system template. Allowed placeholders: `{{topNewsCount}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`. Hermes JSON schema lists them for SchemaForm. Max length enforced at parse time (`CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH`). **Not for secrets** — use `openai.apiKey` only. |
+| `prompts.userPromptTemplate` | `string` | ❌ | built-in default | User template. Allowed placeholders: `{{sourceSummaries}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`, `{{date}}`, `{{topNewsCount}}`. Same max length and validation as system. **Not for secrets.** |
 | `llmRetry.maxAttempts` | `number` | ❌ | `3` | Max retry attempts (including first). |
 | `llmRetry.baseDelayMs` | `number` | ❌ | `500` | Base backoff delay in ms. |
 | `llmRetry.maxDelayMs` | `number` | ❌ | `8000` | Max backoff delay cap in ms. |

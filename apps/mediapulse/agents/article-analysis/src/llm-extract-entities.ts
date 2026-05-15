@@ -9,7 +9,7 @@ import {
   formatArticleAnalysisEntityTypesBlock,
   formatArticleAnalysisRelationTypesBlock,
 } from "./article-extraction-prompt-defaults.js";
-import { substituteLlmPromptTemplate } from "./llm-prompt-template.js";
+import { substituteLlmPromptTemplate } from "@workspace/agent-llm-prompt-template";
 
 const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
 

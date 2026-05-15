@@ -12,7 +12,7 @@ import {
   QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
   QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT,
 } from "./query-analysis-prompt-defaults";
-import { substituteLlmPromptTemplate } from "./llm-prompt-template";
+import { substituteLlmPromptTemplate } from "@workspace/agent-llm-prompt-template";
 
 /** Zod schema for structured LLM output (validated by AI SDK). */
 export const llmQueriesOutputSchema = z.object({

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { findUnknownLlmPromptPlaceholderTokens } from "./llm-prompt-template";
+import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
 import {
   QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH,
   QUERY_ANALYSIS_SYSTEM_PROMPT_PLACEHOLDERS,
