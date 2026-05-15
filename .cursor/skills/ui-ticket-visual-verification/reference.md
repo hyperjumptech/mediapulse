@@ -14,11 +14,11 @@
 
 ```text
 artifacts/ui-evidence/<slug>/
-  README.md          # optional: 3–5 lines, how captured, date, ticket link
-  before.png         # only if ticket needs comparison
-  after.png
+  after.png          # optional; gitignored — attach to PR/issue
   flow.webm          # optional
 ```
+
+Prefer a **co-located `README.md` next to the dev fixture route** (e.g. `app/dev/ui/<issue>/README.md`) for ticket URL, repro, and capture commands so app-level READMEs stay clean.
 
 Add `artifacts/` to the app or repo `.gitignore` if not already ignored.
 

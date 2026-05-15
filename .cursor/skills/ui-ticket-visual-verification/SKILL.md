@@ -50,7 +50,7 @@ Use the **Cursor IDE browser** tools when available:
 2. Take a **snapshot** before interactions; interact (click, open modal); snapshot again.
 3. Use **screenshot** for static proof; use **video** only when the ticket needs motion (animation, toast timing, drag). If the browser tool cannot record video, use a one-line note in the PR telling reviewers to run the repro script and record locally, or add an optional Playwright/Vitest browser script if the package already supports it.
 
-Save files under something like `artifacts/ui-evidence/<ticket-or-branch-slug>/` and ensure that path is **gitignored** (or use PR attachments only). Do not rely on binary blobs living in git unless the team already commits golden images.
+Save files under something like `artifacts/ui-evidence/<ticket-or-branch-slug>/` and ensure that path is **gitignored** (or use PR attachments only). Do not rely on binary blobs living in git unless the team already commits golden images. Put **repro notes, ticket link, and capture commands** in a **`README.md` next to the dev fixture** (e.g. `app/dev/ui/<issue>/README.md`) instead of the app’s top-level `README.md`.
 
 ## Repro script contract
 
