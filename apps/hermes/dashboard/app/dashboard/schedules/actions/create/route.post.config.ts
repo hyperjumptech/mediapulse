@@ -8,7 +8,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
+import { requireDashboardPrincipalForRoute } from "@/lib/auth-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
@@ -105,7 +105,7 @@ const isValidRepeatingCron = (
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: requireDashboardSessionForRoute,
+  user: requireDashboardPrincipalForRoute,
 });
 
 export const responseValidator = z.object({

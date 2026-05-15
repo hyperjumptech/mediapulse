@@ -7,7 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
+import { requireDashboardPrincipalForRoute } from "@/lib/auth-dashboard";
 import { createRequireHermesAdminManagementActor } from "@/lib/require-hermes-admin-management-actor";
 
 const bodyValidator = z.object({
@@ -19,7 +19,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: requireDashboardSessionForRoute,
+  user: requireDashboardPrincipalForRoute,
 });
 
 export const responseValidator = z.object({

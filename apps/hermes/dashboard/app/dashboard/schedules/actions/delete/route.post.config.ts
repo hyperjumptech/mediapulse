@@ -7,7 +7,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
+import { requireDashboardPrincipalForRoute } from "@/lib/auth-dashboard";
 
 const bodyValidator = z.object({
   scheduleId: z.string().uuid(),
@@ -15,7 +15,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: requireDashboardSessionForRoute,
+  user: requireDashboardPrincipalForRoute,
 });
 
 export const responseValidator = z.object({
