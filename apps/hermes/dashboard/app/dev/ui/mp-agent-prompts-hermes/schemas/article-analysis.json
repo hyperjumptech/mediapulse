@@ -1,0 +1,152 @@
+{
+  "type": "object",
+  "properties": {
+    "verbose": {
+      "type": "boolean"
+    },
+    "openaiApiKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "openaiModel": {
+      "type": "string",
+      "minLength": 1
+    },
+    "maxOutputTokens": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "maxContentChars": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "maxEntitiesPerArticle": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "maxRelationsPerArticle": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "maxEntitiesPerRun": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "maxRelationsPerRun": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "postChunkRelationBatchSize": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "maxArticleEntitiesPerArticle": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "maxArticleEntitiesPerRun": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "postChunkArticleEntityBatchSize": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "scoreBreakdownVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "relevanceWeightBreakingNews": {
+      "type": "number",
+      "minimum": 0
+    },
+    "relevanceWeightKgRelation": {
+      "type": "number",
+      "minimum": 0
+    },
+    "relevanceWeightFundamental": {
+      "type": "number",
+      "minimum": 0
+    },
+    "relevanceWeightTickerSalience": {
+      "type": "number",
+      "minimum": 0
+    },
+    "relevanceWeightSourceQuality": {
+      "type": "number",
+      "minimum": 0
+    },
+    "relevanceMinScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "maxSelectedRelevancePerTickerPerDay": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "postChunkArticleRelevanceBatchSize": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "runPolicy": {
+      "type": "object",
+      "properties": {
+        "minSuccessfulSources": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failOnZeroSuccess": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "postTransientRetries": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "postTransientRetryBaseDelayMs": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "defaultMaxBatchSize": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "analysisGetDataSourceLimitMax": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 10
+    },
+    "debounceMinUnanalyzedCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "debounceMinMinutesSinceLastScore": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "prompts": {
+      "type": "object",
+      "properties": {
+        "systemPrompt": {
+          "type": "string",
+          "maxLength": 50000,
+          "description": "Optional full system prompt for entity extraction. When omitted, a built-in default is used. Supported placeholders: {{entityTypesBlock}}, {{relationTypesBlock}} (vocabulary from analysis GET).",
+          "format": "textarea"
+        },
+        "userPromptTemplate": {
+          "type": "string",
+          "maxLength": 50000,
+          "description": "Optional user message template for extraction. Supported placeholders: {{tickerId}}, {{title}}, {{articleContent}} (truncated article body per maxContentChars).",
+          "format": "textarea"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["openaiApiKey"],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

@@ -1,0 +1,149 @@
+{
+  "type": "object",
+  "properties": {
+    "openai": {
+      "type": "object",
+      "properties": {
+        "apiKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "default": "gpt-4o-mini"
+        },
+        "maxTokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "default": 120000
+        }
+      },
+      "required": ["apiKey"],
+      "additionalProperties": false
+    },
+    "prompts": {
+      "type": "object",
+      "properties": {
+        "systemPrompt": {
+          "type": "string",
+          "maxLength": 50000,
+          "format": "textarea"
+        },
+        "userPromptTemplate": {
+          "type": "string",
+          "maxLength": 50000,
+          "format": "textarea"
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "topNewsCount": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "default": 3
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "maxCharsPerSource": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "default": 8000
+        },
+        "maxTotalContextChars": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "default": 100000
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "llmRetry": {
+      "type": "object",
+      "properties": {
+        "__defaultLlmRetry": {
+          "type": "boolean",
+          "const": true
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "baseDelayMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxDelayMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "jitter": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "freshness": {
+      "type": "object",
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "const": "calendar_day",
+          "default": "calendar_day"
+        },
+        "timezone": {
+          "type": "string",
+          "default": "Asia/Jakarta"
+        }
+      },
+      "additionalProperties": false,
+      "default": {
+        "strategy": "calendar_day",
+        "timezone": "Asia/Jakarta"
+      }
+    },
+    "persistRetry": {
+      "type": "object",
+      "properties": {
+        "__defaultPersistRetry": {
+          "type": "boolean",
+          "const": true
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "baseDelayMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxDelayMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["openai"],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

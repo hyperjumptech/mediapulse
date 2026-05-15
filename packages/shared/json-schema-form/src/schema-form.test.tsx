@@ -2,8 +2,8 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
-import { SchemaForm } from "./schema-form.js";
-import type { JsonSchema, StringFieldProps } from "./types.js";
+import { SchemaForm } from "./schema-form";
+import type { JsonSchema, StringFieldProps } from "./types";
 
 describe("SchemaForm", () => {
   it("renders nothing useful when schema is not object with properties", () => {
