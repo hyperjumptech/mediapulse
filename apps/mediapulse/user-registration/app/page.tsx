@@ -1,3 +1,4 @@
+import { HyperjumpProductAttribution } from "@/components/hyperjump-product-attribution";
 import { RegistrationForm } from "@/components/registration-form";
 import { loadRegistrationTickers } from "@/lib/load-registration-tickers";
 
@@ -15,8 +16,9 @@ const Page = async () => {
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 md:p-10">
-      <div className="w-full max-w-sm">
+      <div className="flex w-full max-w-sm flex-col items-center">
         <RegistrationForm tickers={tickers} />
+        <HyperjumpProductAttribution />
       </div>
     </div>
   );
