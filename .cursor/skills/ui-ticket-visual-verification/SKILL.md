@@ -25,6 +25,19 @@ Apply this skill whenever ticket work is **primarily UI/UX** (pages, components,
 3. **Repro script** — One entry point (e.g. `pnpm` script or `bash`/`tsx` under the touched app) that documents env vars, starts the minimal server, and states the URL to open. Devs must replay the same view the agent used.
 4. **Evidence** — At least one **screenshot** of the final state; add a **short video** only when motion, transitions, or multi-step interaction matters. Store artifacts under a **gitignored** path (see below) and **link or attach** them in the PR / ticket comment.
 
+## Hard rules (visual proof integrity)
+
+These are non-negotiable. Violating them invalidates the PR/ticket handoff.
+
+- **NEVER** commit or push placeholder, blank, 1×1, solid-color, generated-fake, or otherwise empty images as visual proof — this includes minimal valid PNGs created only to satisfy a link.
+- **NEVER** push to `issue-proofs` or paste image links into PR bodies or ticket comments until every screenshot passes **all** of the following gates:
+  - Dimensions: **≥ 800 px** on both width and height.
+  - File size: **≥ 20 KB**.
+  - Legible UI text, labels, and/or interactive fields are visible in the frame.
+- If browser capture, Hermes auth, or local dev is blocked, **stop and report the blocker immediately**. Do **not** substitute fake proof of any kind. Document repro-only steps in a README next to the fixture until a real capture is possible — but keep the todo open.
+- **Before** `orphan-branch-store.sh` (or any commit of proof images), **open or inspect** each file and verify: dimensions (`sips -g pixelWidth -g pixelHeight <file>` or equivalent), file size ≥ 20 KB, and that labels/fields are legible.
+- When a plan, ticket, or PR requires visual verification, marking that work **complete** without real, gate-passing images is **forbidden**.
+
 ## Isolation strategy (pick the smallest that proves the ticket)
 
 Prefer, in order:
@@ -51,6 +64,8 @@ Use the **Cursor IDE browser** tools when available:
 3. Use **screenshot** for static proof; use **video** only when the ticket needs motion (animation, toast timing, drag). If the browser tool cannot record video, use a one-line note in the PR telling reviewers to run the repro script and record locally, or add an optional Playwright/Vitest browser script if the package already supports it.
 
 Save files under something like `artifacts/ui-evidence/<ticket-or-branch-slug>/` and ensure that path is **gitignored** (or use PR attachments only). Do not rely on binary blobs living in git unless the team already commits golden images. Put **repro notes, ticket link, and capture commands** in a **`README.md` next to the dev fixture** (e.g. `app/dev/ui/<issue>/README.md`) instead of the app’s top-level `README.md`.
+
+After capture, run a mandatory sanity check on each PNG before `orphan-branch-store.sh --push issue-proofs`: confirm dimensions are **≥ 800 × 800 px** and file size is **≥ 20 KB**. If either check fails, re-capture — do not push.
 
 ## Repro script contract
 
