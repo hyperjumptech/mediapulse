@@ -31,7 +31,9 @@ describe("content-generation-runs-api", () => {
       data: [runFixture],
       nextCursor: "next-id",
     });
-    const client = { contentGenerationRuns: { get } };
+    const client = {
+      contentGenerationRuns: { get, create: vi.fn() },
+    };
 
     // Act
     const result = await listContentGenerationRuns(
@@ -57,7 +59,9 @@ describe("content-generation-runs-api", () => {
   it("getContentGenerationRunById returns the matching run", async () => {
     // Setup
     const get = vi.fn().mockResolvedValue({ data: [runFixture] });
-    const client = { contentGenerationRuns: { get } };
+    const client = {
+      contentGenerationRuns: { get, create: vi.fn() },
+    };
 
     // Act
     const result = await getContentGenerationRunById(runFixture.id, client);
@@ -73,7 +77,9 @@ describe("content-generation-runs-api", () => {
   it("getContentGenerationRunById returns null when id is missing", async () => {
     // Setup
     const get = vi.fn().mockResolvedValue({ data: [] });
-    const client = { contentGenerationRuns: { get } };
+    const client = {
+      contentGenerationRuns: { get, create: vi.fn() },
+    };
 
     // Act
     const result = await getContentGenerationRunById(runFixture.id, client);

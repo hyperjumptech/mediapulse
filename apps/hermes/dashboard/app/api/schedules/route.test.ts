@@ -11,6 +11,7 @@ vi.mock("@/lib/schedules", () => ({
 }));
 
 import { GET } from "./route";
+import type { SchedulesPageResult } from "@/lib/schedules";
 import { getSchedulesPage } from "@/lib/schedules";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
@@ -62,11 +63,33 @@ describe("GET /api/schedules", () => {
       principal,
     );
     vi.mocked(getSchedulesPage).mockResolvedValue({
-      schedules: [{ id: "sched-1", name: "Daily" }],
+      schedules: [
+        {
+          id: "sched-1",
+          name: "Daily",
+          description: null,
+          repeat: "repeating",
+          cronExpression: null,
+          interval: null,
+          timezone: "America/New_York",
+          startAt: null,
+          nextRunAt: null,
+          pipelineId: "p1",
+          retryConfig: null,
+          executionConfig: null,
+          priority: 0,
+          enabled: true,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+          createdById: null,
+          pipeline: { id: "p1", name: "Pipe" },
+          createdBy: null,
+        },
+      ],
       total: 1,
       page: 1,
       pageSize: 20,
-    });
+    } satisfies SchedulesPageResult);
     const res = await GET(new Request("http://localhost/api/schedules"));
     expect(getSchedulesPage).toHaveBeenCalledWith(1, 20);
     expect(res.status).toBe(200);

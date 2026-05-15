@@ -11,6 +11,7 @@ vi.mock("@/lib/agent-configs", () => ({
 }));
 
 import { GET } from "./route";
+import type { AgentConfigsPageResult } from "@/lib/agent-configs";
 import { getAgentConfigsPage } from "@/lib/agent-configs";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
@@ -70,11 +71,23 @@ describe("GET /api/agent-configs", () => {
       label: "k",
     });
     vi.mocked(getAgentConfigsPage).mockResolvedValue({
-      configs: [{ id: "c1", name: "Default", agentId: "a", agentVersion: "1" }],
+      configs: [
+        {
+          id: "c1",
+          name: "Default",
+          description: null,
+          agentId: "a",
+          agentVersion: "1",
+          config: {},
+          configSchemaFingerprint: null,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          createdBy: null,
+        },
+      ],
       total: 1,
       page: 1,
       pageSize: 20,
-    });
+    } satisfies AgentConfigsPageResult);
     const res = await GET(new Request("http://localhost/api/agent-configs"));
     expect(res.status).toBe(200);
   });
