@@ -58,6 +58,9 @@ docs-output
 
 tmp
 
+# Local UI evidence (screenshots, recordings) — attach to PRs instead of committing
+artifacts/
+
 # graphify data
 graphify*
 graphify*.*
