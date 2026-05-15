@@ -8,7 +8,10 @@ import {
 
 describe("listLlmPromptPlaceholderNames", () => {
   it("returns sorted unique names", () => {
-    expect(listLlmPromptPlaceholderNames("{{b}} {{a}} {{b}}")).toEqual(["a", "b"]);
+    expect(listLlmPromptPlaceholderNames("{{b}} {{a}} {{b}}")).toEqual([
+      "a",
+      "b",
+    ]);
   });
 });
 

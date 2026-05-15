@@ -57,9 +57,7 @@ export const buildQueryAnalysisSystemTemplateReplacements = (
       Math.round(ratioBreaking * strategy.queryCount),
     ),
     targetKgCount: String(Math.round(ratioKg * strategy.queryCount)),
-    targetFundamentalCount: String(
-      Math.round(ratioFund * strategy.queryCount),
-    ),
+    targetFundamentalCount: String(Math.round(ratioFund * strategy.queryCount)),
     minDeterministicCount: String(strategy.minDeterministicCount),
   };
 };

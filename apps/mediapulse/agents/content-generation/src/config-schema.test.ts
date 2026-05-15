@@ -87,7 +87,9 @@ describe("ContentGenerationConfigSchema", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(
-        result.error.issues.some((i) => i.message.includes("{{notARealToken}}")),
+        result.error.issues.some((i) =>
+          i.message.includes("{{notARealToken}}"),
+        ),
       ).toBe(true);
     }
   });
@@ -118,7 +120,9 @@ describe("ContentGenerationConfigSchema", () => {
     const parsed = ContentGenerationConfigSchema.parse({
       openai: { apiKey: "sk-test" },
       prompts: {
-        systemPrompt: "y".repeat(CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH),
+        systemPrompt: "y".repeat(
+          CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH,
+        ),
       },
     });
     expect(parsed.prompts.systemPrompt?.length).toBe(
