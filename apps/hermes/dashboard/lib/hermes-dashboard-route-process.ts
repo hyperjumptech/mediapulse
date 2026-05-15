@@ -1,6 +1,14 @@
-import { errorResponse } from "route-action-gen/lib";
+import {
+  createRequestValidator,
+  errorResponse,
+  type HandlerFunc,
+  type HandlerResponse,
+} from "route-action-gen/lib";
+import type { z } from "zod";
 
 import { DashboardReadOnlyApiKeyError } from "@/lib/dashboard-read-only-api-key-error";
+
+type Validator = ReturnType<typeof createRequestValidator>;
 
 type RequestValidator = {
   body?: { parseAsync: (value: unknown) => Promise<unknown> };
@@ -9,19 +17,6 @@ type RequestValidator = {
   searchParams?: { parseAsync: (value: unknown) => Promise<unknown> };
   user?: (request?: Request) => Promise<unknown>;
 };
-
-type RouteHandler = (data: {
-  body: unknown;
-  headers: unknown;
-  params: unknown;
-  searchParams: unknown;
-  user: unknown;
-}) => Promise<{
-  status: boolean;
-  statusCode: number;
-  data?: unknown;
-  message?: unknown;
-}>;
 
 /**
  * Authenticates the dashboard route user, mapping read-only MCP keys to HTTP 403.
@@ -43,11 +38,7 @@ const authenticateDashboardRouteUser = async (
   } catch (error) {
     if (error instanceof DashboardReadOnlyApiKeyError) {
       return {
-        error: errorResponse(
-          { code: error.code, message: error.message },
-          undefined,
-          403,
-        ),
+        error: errorResponse(error.message, { code: error.code }, 403),
       };
     }
     return { error: errorResponse("Unauthorized", undefined, 401) };
@@ -166,34 +157,48 @@ const validateSearchParamsFromRequest = async (
  * @returns JSON HTTP response.
  */
 const toErrorHttpResponse = (response: ReturnType<typeof errorResponse>) => {
-  const body =
-    typeof response.message === "object" &&
-    response.message !== null &&
-    "code" in response.message &&
-    (response.message as { code: string }).code === "read_only_key"
-      ? response.message
-      : {
-          message: response.message,
-          statusCode: response.statusCode,
-        };
+  const code =
+    typeof response.object === "object" &&
+    response.object !== null &&
+    "code" in response.object
+      ? (response.object as { code: string }).code
+      : undefined;
 
-  return new Response(JSON.stringify(body), {
-    status: response.statusCode,
-    headers: { "Content-Type": "application/json" },
-  });
+  if (code === "read_only_key") {
+    return new Response(
+      JSON.stringify({ code: "read_only_key", message: response.message }),
+      {
+        status: response.statusCode,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  return new Response(
+    JSON.stringify({
+      message: response.message,
+      statusCode: response.statusCode,
+    }),
+    {
+      status: response.statusCode,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
 };
 
 /**
  * Converts a route-action-gen handler result into a Next.js `Response`.
  *
+ * @typeParam TResponse - Zod schema for successful response body.
+ * @typeParam Input - Optional traced input carried on success responses.
  * @param response - Success or error payload from a route handler.
  * @returns JSON HTTP response.
  */
-const toHttpResponse = (response: Awaited<ReturnType<RouteHandler>>) => {
+const toHttpResponse = <TResponse extends z.ZodType, Input>(
+  response: HandlerResponse<TResponse, Input>,
+) => {
   if (response.status === false) {
-    return toErrorHttpResponse(
-      response as ReturnType<typeof errorResponse> & { status: false },
-    );
+    return toErrorHttpResponse(response as ReturnType<typeof errorResponse>);
   }
 
   return new Response(JSON.stringify(response.data), {
@@ -204,15 +209,22 @@ const toHttpResponse = (response: Awaited<ReturnType<RouteHandler>>) => {
 /**
  * Processes a dashboard POST route with read-only API key → 403 support.
  *
+ * @typeParam RV - Request validator from `createRequestValidator`.
+ * @typeParam TV - Zod schema for successful response body.
+ * @typeParam Input - Optional traced handler input metadata.
  * @param requestValidator - Route request validator.
  * @param responseValidator - Route response validator (unused; kept for parity with route-action-gen).
  * @param handler - Business handler.
- * @returns Next.js App Router POST handler.
+ * @returns Next.js App Router POST processor.
  */
-export const processHermesDashboardRequest = (
-  requestValidator: RequestValidator,
-  responseValidator: unknown,
-  handler: RouteHandler,
+export const processHermesDashboardRequest = <
+  RV extends Validator,
+  TV extends z.ZodType,
+  Input,
+>(
+  requestValidator: RV,
+  responseValidator: TV,
+  handler: HandlerFunc<RV, TV, Input>,
 ) => {
   void responseValidator;
 
@@ -238,28 +250,37 @@ export const processHermesDashboardRequest = (
       validateSearchParamsFromRequest(requestValidator.searchParams, request),
     ]);
 
+    type HandlerParameters = Parameters<HandlerFunc<RV, TV, Input>>[0];
+
     return handler({
       body: validatedBody,
       headers: validatedHeaders,
       params: validatedParams,
       searchParams: validatedSearchParams,
       user,
-    });
+    } as HandlerParameters).then(toHttpResponse);
   };
 };
 
 /**
  * Creates a dashboard POST route with read-only API key → 403 support.
  *
+ * @typeParam RV - Request validator from `createRequestValidator`.
+ * @typeParam TV - Zod schema for successful response body.
+ * @typeParam Input - Optional traced handler input metadata.
  * @param requestValidator - Route request validator.
  * @param responseValidator - Route response validator.
  * @param handler - Business handler.
  * @returns Next.js App Router POST export.
  */
-export const createHermesDashboardRoute = (
-  requestValidator: RequestValidator,
-  responseValidator: unknown,
-  handler: RouteHandler,
+export const createHermesDashboardRoute = <
+  RV extends Validator,
+  TV extends z.ZodType,
+  Input,
+>(
+  requestValidator: RV,
+  responseValidator: TV,
+  handler: HandlerFunc<RV, TV, Input>,
 ) => {
   return async (
     request: Request,
