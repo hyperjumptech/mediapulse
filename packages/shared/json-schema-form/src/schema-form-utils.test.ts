@@ -14,7 +14,7 @@ describe("getSchemaFormType", () => {
   });
 
   it("returns the first type when schema.type is an array", () => {
-    expect(getSchemaFormType({ type: ["string", "null"] })).toBe("string");
+    expect(getSchemaFormType({ type: ["string", "boolean"] })).toBe("string");
   });
 });
 
