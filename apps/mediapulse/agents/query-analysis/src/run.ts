@@ -4,8 +4,8 @@ import { logger } from "@workspace/logger";
 import { env } from "@mediapulse/env/agents-query-analysis";
 import type { QueryAnalysisConfig } from "./config-schema";
 import {
-  buildQueryAnalysisSystemContent,
-  buildQueryAnalysisUserContent,
+  resolveQueryAnalysisSystemContent,
+  resolveQueryAnalysisUserContent,
   fetchLlmQueryCandidates,
 } from "./llm-queries";
 import { mergeQueryCandidates } from "./merge-query-candidates";
@@ -67,17 +67,23 @@ export const runQueryAnalysis = async (
   const openaiModel = config.openaiModel!;
   const maxTokens = config.maxTokens!;
 
-  const systemContent = buildQueryAnalysisSystemContent({
-    queryCount,
-    allowedLanguages,
-    minDeterministicCount,
-    weights: {
-      breaking: weightBreaking,
-      kgChange: weightKgChange,
-      fundamental: weightFundamental,
+  const systemContent = resolveQueryAnalysisSystemContent(
+    config.prompts?.systemPrompt,
+    {
+      queryCount,
+      allowedLanguages,
+      minDeterministicCount,
+      weights: {
+        breaking: weightBreaking,
+        kgChange: weightKgChange,
+        fundamental: weightFundamental,
+      },
     },
-  });
-  const userContent = buildQueryAnalysisUserContent(queryContext);
+  );
+  const userContent = resolveQueryAnalysisUserContent(
+    config.prompts?.userPromptTemplate,
+    queryContext,
+  );
 
   let llmCandidates: Awaited<ReturnType<typeof fetchLlmQueryCandidates>> = [];
   try {
