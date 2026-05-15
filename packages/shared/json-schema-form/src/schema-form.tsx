@@ -393,6 +393,29 @@ const SchemaField = ({
       );
     }
 
+    if (format === "textarea") {
+      return (
+        <div className="grid gap-1.5">
+          <Label htmlFor={id}>{labelText}</Label>
+          <textarea
+            id={id}
+            rows={6}
+            value={str}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+            className={cn(
+              "flex min-h-[120px] w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs",
+              "outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+            )}
+          />
+          {description ? (
+            <p className="text-muted-foreground text-xs">{description}</p>
+          ) : null}
+        </div>
+      );
+    }
+
     if (
       (schema.enum == null || schema.enum.length === 0) &&
       components?.StringField != null

@@ -1,7 +1,9 @@
 /** @vitest-environment node */
 
 import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
+import { enrichConfigSchemaForHermesUi } from "@workspace/agent-runtime";
 import { describe, expect, it } from "vitest";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 import {
   buildDraftRelevanceRow,
@@ -72,6 +74,23 @@ describe("articleAnalysisConfigSchema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("exposes prompts fields as textarea in Hermes config JSON Schema", () => {
+    const jsonSchema = enrichConfigSchemaForHermesUi(
+      zodToJsonSchema(articleAnalysisConfigSchema, {
+        $refStrategy: "none",
+      }) as Record<string, unknown>,
+    );
+    const promptProps = (
+      (jsonSchema.properties as Record<string, unknown>).prompts as Record<
+        string,
+        unknown
+      >
+    ).properties as Record<string, { format?: string }>;
+
+    expect(promptProps.systemPrompt?.format).toBe("textarea");
+    expect(promptProps.userPromptTemplate?.format).toBe("textarea");
   });
 
   it("accepts valid prompts with known placeholders only", () => {

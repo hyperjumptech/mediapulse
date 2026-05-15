@@ -21,6 +21,24 @@ describe("SchemaForm", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders textarea when string format is textarea", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        body: { type: "string", title: "Body", format: "textarea" },
+      },
+    };
+    const value: Record<string, unknown> = { body: "line one" };
+    const onChange = vi.fn();
+
+    render(<SchemaForm schema={schema} value={value} onChange={onChange} />);
+    const textarea = screen.getByLabelText(/Body/i);
+    expect(textarea.tagName).toBe("TEXTAREA");
+    fireEvent.change(textarea, { target: { value: "line one\nline two" } });
+
+    expect(onChange).toHaveBeenCalledWith({ body: "line one\nline two" });
+  });
+
   it("renders string field and calls onChange when user types", () => {
     // Setup
     const schema: JsonSchema = {

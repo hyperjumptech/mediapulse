@@ -268,6 +268,56 @@ describe("createAgentApp", () => {
     ).toBeDefined();
   });
 
+  it("GET /schemas applies textarea format to prompts string fields", async () => {
+    const configSchema = z.object({
+      openaiApiKey: z.string(),
+      prompts: z
+        .object({
+          systemPrompt: z.string().optional(),
+          userPromptTemplate: z.string().optional(),
+        })
+        .optional(),
+    });
+    type Config = z.infer<typeof configSchema>;
+    const app = createAgentApp<
+      Input,
+      typeof schema,
+      Config,
+      typeof configSchema
+    >(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        configSchema,
+        run: async () => ({ success: true }),
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/schemas", {
+      method: "GET",
+    });
+    const body = (await res.json()) as {
+      configSchema: {
+        properties?: {
+          prompts?: {
+            properties?: Record<string, { format?: string }>;
+          };
+        };
+      };
+    };
+
+    expect(res.status).toBe(200);
+    expect(
+      body.configSchema.properties?.prompts?.properties?.systemPrompt?.format,
+    ).toBe("textarea");
+    expect(
+      body.configSchema.properties?.prompts?.properties?.userPromptTemplate
+        ?.format,
+    ).toBe("textarea");
+  });
+
   it("passes config from body to run when configSchema is provided", async () => {
     // Setup
     const configSchema = z.object({ limit: z.number().optional() });
