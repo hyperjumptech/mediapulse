@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 import { maskManualPipelineExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
 
@@ -9,14 +9,14 @@ import { getManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
  * Returns manual pipeline execution detail (steps + invocations) for admin debugging. Requires dashboard session.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: {
     params: Promise<{ pipelineId: string; executionId: string }>;
   },
 ) {
-  const session = await getDashboardSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await resolveDashboardPrincipalOrUnauthorized(request);
+  if (auth instanceof NextResponse) {
+    return auth;
   }
 
   const { pipelineId, executionId } = await context.params;

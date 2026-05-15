@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { maskScheduleExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 /**
  * GET /api/schedules/[scheduleId]/executions/[executionId]
@@ -13,14 +13,14 @@ import { getDashboardSession } from "@/lib/auth-dashboard";
  * (including `execution.errors` from the DB row, secret-masked).
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: {
     params: Promise<{ scheduleId: string; executionId: string }>;
   },
 ) {
-  const session = await getDashboardSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await resolveDashboardPrincipalOrUnauthorized(request);
+  if (auth instanceof NextResponse) {
+    return auth;
   }
 
   const { scheduleId, executionId } = await context.params;
