@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 
 import { PageHeader } from "@/components/page-header";
@@ -16,6 +17,15 @@ import {
 } from "@workspace/ui/components/table";
 
 import { CreateApiKeyModal } from "@/app/dashboard/api-keys/create-api-key-modal";
+import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog";
+import { Input } from "@workspace/ui/components/input";
+import { Label } from "@workspace/ui/components/label";
 
 const FIXTURE_KEYS: McpApiKeyListRow[] = [
   {
@@ -34,8 +44,50 @@ const FIXTURE_KEYS: McpApiKeyListRow[] = [
 ];
 
 type HermesMcpApiKeysFixtureProps = {
-  /** `empty` shows the empty list state; `list` shows sample rows. */
-  variant: "empty" | "list";
+  /** `empty` | `list` | `create-modal` (dialog open, create form). */
+  variant: "empty" | "list" | "create-modal";
+};
+
+/** Dev-only static create modal (no server action) for screenshots. */
+const CreateApiKeyModalDevPreview = () => {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setOpen(true);
+  }, []);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Create API key</DialogTitle>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="mcp-key-label">Label</Label>
+            <Input
+              id="mcp-key-label"
+              name="body.label"
+              placeholder="e.g. Cursor prod read-only"
+              autoComplete="off"
+            />
+          </div>
+          <FormBooleanCheckboxField
+            id="mcp-key-read-only"
+            name="body.readOnly"
+            defaultChecked={false}
+            checkedSubmitValue="true"
+            label="Read-only (no dashboard mutations via MCP)"
+            labelClassName="font-normal"
+          />
+          <Button type="submit">Create key</Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 /**
@@ -53,7 +105,14 @@ export const HermesMcpApiKeysFixture = ({
         description="Create keys for Cursor MCP and other programmatic access. Each key acts as the admin who created it."
       />
       <div className="flex justify-end">
-        <CreateApiKeyModal trigger={<Button>Create API key</Button>} />
+        {variant === "create-modal" ? (
+          <>
+            <Button type="button">Create API key</Button>
+            <CreateApiKeyModalDevPreview />
+          </>
+        ) : (
+          <CreateApiKeyModal trigger={<Button>Create API key</Button>} />
+        )}
       </div>
       <div className="rounded-md border">
         <Table>

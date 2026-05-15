@@ -10,6 +10,7 @@
 
 - Empty list: http://localhost:3001/dev/ui/hermes-mcp-api-keys?variant=empty
 - List with sample row: http://localhost:3001/dev/ui/hermes-mcp-api-keys?variant=list
+- Create modal (open): http://localhost:3001/dev/ui/hermes-mcp-api-keys?variant=create-modal
 
 Production page (requires login): http://localhost:3001/dashboard/api-keys
 

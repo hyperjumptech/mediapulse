@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 import { Button } from "@workspace/ui/components/button";
-import { Checkbox } from "@workspace/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -113,7 +113,7 @@ const ApiKeyRevealPanel = ({ apiKeyPlaintext }: ApiKeyRevealPanelProps) => {
   const { copied, copyToClipboard } = useApiKeyCopyState(apiKeyPlaintext);
 
   return (
-    <motionlessRevealContent
+    <ApiKeyRevealContent
       apiKeyPlaintext={apiKeyPlaintext}
       copied={copied}
       onCopy={copyToClipboard}
@@ -121,7 +121,7 @@ const ApiKeyRevealPanel = ({ apiKeyPlaintext }: ApiKeyRevealPanelProps) => {
   );
 };
 
-const motionlessRevealContent = ({
+const ApiKeyRevealContent = ({
   apiKeyPlaintext,
   copied,
   onCopy,
@@ -166,17 +166,15 @@ const CreateApiKeyFormFields = ({
         autoComplete="off"
       />
     </div>
-    <div className="flex items-center gap-2">
-      <Checkbox
-        id="mcp-key-read-only"
-        name="body.readOnly"
-        value="true"
-        disabled={pending}
-      />
-      <Label htmlFor="mcp-key-read-only" className="font-normal">
-        Read-only (no dashboard mutations via MCP)
-      </Label>
-    </div>
+    <FormBooleanCheckboxField
+      id="mcp-key-read-only"
+      name="body.readOnly"
+      defaultChecked={false}
+      checkedSubmitValue="true"
+      disabled={pending}
+      label="Read-only (no dashboard mutations via MCP)"
+      labelClassName="font-normal"
+    />
     {errorMessage ? (
       <p className="text-sm text-destructive" role="alert">
         {errorMessage}
