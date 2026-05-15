@@ -22,40 +22,40 @@ It uses:
 
 ## Environment variables
 
-| Variable                     | Required | Notes                                                      |
-| ---------------------------- | -------- | ---------------------------------------------------------- |
-| `PORT`                       | Yes      | Agent HTTP port                                            |
-| `AGENT_AUTH_API_URL`         | Yes      | JWT/API-key verification endpoint                          |
-| `AGENT_DATA_API_URL`         | Yes      | Base URL for data API calls                                |
-| `AGENT_REGISTRY_URL`         | Yes      | Agent-registry-api base URL (startup auto-register)        |
-| `AGENT_PUBLIC_URL`           | Yes      | Public URL of this agent (registry `endpoint`)             |
+| Variable                     | Required | Notes                                                          |
+| ---------------------------- | -------- | -------------------------------------------------------------- |
+| `PORT`                       | Yes      | Agent HTTP port                                                |
+| `AGENT_AUTH_API_URL`         | Yes      | JWT/API-key verification endpoint                              |
+| `AGENT_DATA_API_URL`         | Yes      | Base URL for data API calls                                    |
+| `AGENT_REGISTRY_URL`         | Yes      | Agent-registry-api base URL (startup auto-register)            |
+| `AGENT_PUBLIC_URL`           | Yes      | Public URL of this agent (registry `endpoint`)                 |
 | `DOMAIN_INTEGRATION_API_KEY` | Yes      | Hermes domain integration API key for auto-register (mint JWT) |
-| `DOMAIN_INTEGRATION_ID`      | Yes      | Stable Hermes domain integration id (e.g. `mediapulse`)      |
+| `DOMAIN_INTEGRATION_ID`      | Yes      | Stable Hermes domain integration id (e.g. `mediapulse`)        |
 
 ## Hermes agent `config` (strategy + LLM)
 
 This agent is configured per pipeline step via the Hermes invoke request body `config`.
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| `openaiApiKey` | Yes | OpenAI API key (never stored in `packages/mediapulse/env` for this agent). |
-| `openaiModel` | No | Defaults to `gpt-4o-mini`. |
-| `queryCount` | No | Total queries to persist (default `10`). |
-| `minDeterministicCount` | No | Deterministic “floor” before LLM complement (default `4`). |
-| `allowedLanguages` | No | Target languages as BCP-47 codes (default `["en"]`). |
-| `weightBreaking` / `weightKgChange` / `weightFundamental` | No | Intent mix weights (default `1`, `0.8`, `0.6`). |
-| `maxTokens` | No | LLM output token budget (default `800`). |
-| `prompts.systemPrompt` | No | Optional full system prompt template. When set, it replaces the built-in default wording; placeholders inject languages and **intent-count hints** derived from `queryCount`, `minDeterministicCount`, and the `weight*` fields (see below). |
-| `prompts.userPromptTemplate` | No | Optional user prompt template. Default is a single `{{queryContextBlock}}` (serialized GET /query-analysis context). |
+| Field                                                     | Required | Notes                                                                                                                                                                                                                                        |
+| --------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openaiApiKey`                                            | Yes      | OpenAI API key (never stored in `packages/mediapulse/env` for this agent).                                                                                                                                                                   |
+| `openaiModel`                                             | No       | Defaults to `gpt-4o-mini`.                                                                                                                                                                                                                   |
+| `queryCount`                                              | No       | Total queries to persist (default `10`).                                                                                                                                                                                                     |
+| `minDeterministicCount`                                   | No       | Deterministic “floor” before LLM complement (default `4`).                                                                                                                                                                                   |
+| `allowedLanguages`                                        | No       | Target languages as BCP-47 codes (default `["en"]`).                                                                                                                                                                                         |
+| `weightBreaking` / `weightKgChange` / `weightFundamental` | No       | Intent mix weights (default `1`, `0.8`, `0.6`).                                                                                                                                                                                              |
+| `maxTokens`                                               | No       | LLM output token budget (default `800`).                                                                                                                                                                                                     |
+| `prompts.systemPrompt`                                    | No       | Optional full system prompt template. When set, it replaces the built-in default wording; placeholders inject languages and **intent-count hints** derived from `queryCount`, `minDeterministicCount`, and the `weight*` fields (see below). |
+| `prompts.userPromptTemplate`                              | No       | Optional user prompt template. Default is a single `{{queryContextBlock}}` (serialized GET /query-analysis context).                                                                                                                         |
 
 ### Weights vs prompt overrides (REQ-010)
 
-| Situation | What still affects the LLM |
-| --------- | --------------------------- |
-| **No `prompts` fields** | Package defaults: system text includes approximate breaking / kg_change / fundamental counts computed from **`queryCount`** and **`weightBreaking`** / **`weightKgChange`** / **`weightFundamental`**; user text is the GET context. **`allowedLanguages`** and **`minDeterministicCount`** appear in the default system prompt. |
-| **`prompts.systemPrompt` set** | You replace the system instructions. Placeholders **`{{allowedLanguages}}`**, **`{{targetBreakingCount}}`**, **`{{targetKgCount}}`**, **`{{targetFundamentalCount}}`**, **`{{minDeterministicCount}}`** are still filled from the same strategy fields so you can reference numeric targets without redeploying. |
-| **`prompts.userPromptTemplate` set** | You control layout around **`{{queryContextBlock}}`** (or use only that token). The serialized context still reflects live GET data. |
-| **Merge / persistence** | **`mergeQueryCandidates`** still uses **`weight*`** and **`queryCount`** / **`minDeterministicCount`** for ordering and filling the persisted query set—prompt overrides do not change merge math. |
+| Situation                            | What still affects the LLM                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No `prompts` fields**              | Package defaults: system text includes approximate breaking / kg_change / fundamental counts computed from **`queryCount`** and **`weightBreaking`** / **`weightKgChange`** / **`weightFundamental`**; user text is the GET context. **`allowedLanguages`** and **`minDeterministicCount`** appear in the default system prompt. |
+| **`prompts.systemPrompt` set**       | You replace the system instructions. Placeholders **`{{allowedLanguages}}`**, **`{{targetBreakingCount}}`**, **`{{targetKgCount}}`**, **`{{targetFundamentalCount}}`**, **`{{minDeterministicCount}}`** are still filled from the same strategy fields so you can reference numeric targets without redeploying.                 |
+| **`prompts.userPromptTemplate` set** | You control layout around **`{{queryContextBlock}}`** (or use only that token). The serialized context still reflects live GET data.                                                                                                                                                                                             |
+| **Merge / persistence**              | **`mergeQueryCandidates`** still uses **`weight*`** and **`queryCount`** / **`minDeterministicCount`** for ordering and filling the persisted query set—prompt overrides do not change merge math.                                                                                                                               |
 
 ## Hermes run payload
 
