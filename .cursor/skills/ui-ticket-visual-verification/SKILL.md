@@ -100,6 +100,31 @@ Optional: add a collapsible `<details>` block for repro steps; keep the **image 
 
 **Forbidden:** bullet lists of text links only (e.g. `[SchemaForm](https://github.com/.../blob/...png)`) with no `![...](raw...)` embeds.
 
+## Pre-handoff checklist (required when visual proof is in scope)
+
+Run every item before marking visual-verification work complete or opening/updating a PR:
+
+1. **Capture** — Real UI in browser (or approved dev fixture using the same `SchemaForm` / component Hermes uses). No synthesized “valid PNG” files.
+2. **Gate** — Each PNG: ≥ 800×800 px, ≥ 20 KB, legible labels/fields (`sips -g pixelWidth -g pixelHeight` or PIL).
+3. **Archive** — Push to `issue-proofs` only after gates pass (`orphan-branch-store.sh --push`).
+4. **Embed** — PR body uses `![caption](https://raw.githubusercontent.com/<org>/<repo>/issue-proofs/...)` for **this layer’s** screenshot(s). Re-run `gh pr edit --body-file` after captures exist.
+5. **Verify render** — `gh pr view <n> --json body` contains `![` + `raw.githubusercontent.com`; spot-check the PR in the browser — images must show inline, not dead links.
+6. **Stack** — Each stacked PR embeds proof for **its** UI change; do not mark the stack’s visual todo done from layer 1 alone unless the plan says one shared proof block on the final PR only.
+7. **CI hygiene** — Root `pnpm format:check` before push (visual work still touches TS/MD often).
+8. **Blockers** — If Hermes/env/auth blocks capture: report blocker, leave todo **open**, no fake images.
+
+## Anti-patterns (never repeat)
+
+| Mistake | Why it fails | Do instead |
+| ------- | ------------ | ---------- |
+| 1×1 / blank / solid-color PNG on `issue-proofs` | Reviewers see empty images; violates trust | Real browser screenshot; stop if blocked |
+| `[label](https://github.com/.../blob/...png)` only | GitHub does not render `blob` links as images | `![label](https://raw.githubusercontent.com/.../path.png)` |
+| Marking visual todo complete without embeds | Plan/AC not met | Keep todo open until PR shows inline images |
+| Separate `chore/*` branch for stack-related rules/docs | Extra PR noise; stack already carries the feature | Commit guidance on **bottom stack branch** (layer 1) or final layer |
+| Pushing feature branch before `pnpm format:check` | CI “Code quality” fails on Prettier | Run format check (or `pnpm format`) at repo root before push |
+| Editing imports in `run.ts` without re-running agent tests | Broken production path (e.g. dropped `env` import) | Run package `pnpm vitest run` for touched agents |
+| Delegating capture to a subagent then shipping without verifying output | Subagent may hit env errors or skip work | Parent verifies local artifacts + PR body before handoff |
+
 ## Further patterns
 
-See [reference.md](reference.md) for a isolation ladder summary, artifact layout, and narrative examples aligned with this monorepo’s `pnpm` / Turbo layout.
+See [reference.md](reference.md) for isolation ladder, artifact layout, PR embed examples, and narrative patterns aligned with this monorepo’s `pnpm` / Turbo layout.

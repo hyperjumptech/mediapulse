@@ -165,6 +165,7 @@ Run from the **primary repository** clone (the one that owns the worktrees), not
      - `## Other changes`
      - `## Key files to review`
      - `## How to test`
+     - `## Visual verification` — **only when** the ticket/plan requires UI proof. Read `/ui-ticket-visual-verification` first. **Embed** each screenshot with `![alt](https://raw.githubusercontent.com/...)` (not `blob/` link lists). If captures are not ready, omit this section and do not mark visual todos complete.
 7. Create PR in one shot with a **body file** (no post-create edits for footer cleanup):
    - Create a temp file with `mktemp` under the system temp directory only; use the template below (not a path inside the clone).
    - Write the full markdown to `$BODY_FILE`. Remove any accidental signature lines if they appear (for example lines matching `Made with [Cursor](https://cursor.com)` or `Made with Cursor`).
@@ -209,6 +210,14 @@ Closes #123
 1. Run the relevant command(s).
 2. Execute feature flow in app/API.
 3. Confirm expected result and edge case behavior.
+
+## Visual verification
+
+<!-- Include only when ticket/plan requires UI proof. Remove this section if capture is blocked. -->
+
+![Short caption — what the screenshot shows](https://raw.githubusercontent.com/<owner>/<repo>/issue-proofs/<path>.png)
+
+**Reproduce:** command + URL. Archive on `issue-proofs` via `orphan-branch-store.sh` when using that workflow.
 EOF
 
 gh pr create --repo "<owner>/<repo>" --base "$BASE" --title "Add concise verb-first title" --body-file "$BODY_FILE"
@@ -237,3 +246,4 @@ Set `BASE` before this command so it matches the three-dot range in step 3: **st
 - Test steps are concrete and include expected outcomes.
 - The command uses `--repo <owner>/<repo>` and a verified account context (`gh auth switch -h <host> -u <account>` + `gh api` access check).
 - **Stacked PRs:** `--base` matches the real parent branch (`git town config get-parent` or equivalent); `git diff <base>...HEAD` matches what GitHub will show; each layer still has verified issue(s), using **`Refs`** until the appropriate final PR uses **`Closes`/`Fixes`** so issues are not closed prematurely.
+- **Visual verification (when required):** PR body contains inline `![...](https://raw.githubusercontent.com/...)` images that render on GitHub; no placeholder PNGs; no link-only `blob/` lists. Update with `gh pr edit --body-file` after captures land if the PR was opened earlier.

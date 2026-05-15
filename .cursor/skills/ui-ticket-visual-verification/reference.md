@@ -30,6 +30,20 @@ Use markdown images with **raw** URLs (not `github.com/.../blob/...` links):
 
 After pushing to `issue-proofs`, the branch name is typically `issue-proofs`.
 
+### Example PR embed (copy pattern)
+
+```markdown
+## Visual verification
+
+Hermes Agent configs → **article-analysis** — optional `prompts` fields in SchemaForm.
+
+![article-analysis SchemaForm — system and user prompt fields](https://raw.githubusercontent.com/hyperjumptech/mediapulse/issue-proofs/mp-agent-prompts-hermes/478-article-analysis-schemaform.png)
+
+**Reproduce:** `pnpm dev:hermes` → Agent configs → add/edit → article-analysis.
+```
+
+Stacked PRs: embed the screenshot for **that layer** in that PR’s body; use `gh pr edit --body-file` after capture.
+
 ## Monorepo dev entry points
 
 From repo root, prefer documented scripts in root `package.json` when they exist (`pnpm dev:hermes`, `pnpm dev:user-registration`, etc.). Otherwise:
