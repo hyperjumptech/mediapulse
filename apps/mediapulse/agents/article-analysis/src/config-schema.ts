@@ -18,109 +18,110 @@ const articleAnalysisRunPolicySchema = z.object({
  * Hermes agent config for article-analysis (extraction, caps, chunking, relevance, debounce).
  * Operational defaults are filled by {@link resolveArticleAnalysisConfig}.
  */
-export const articleAnalysisConfigSchema = z.object({
-  verbose: z.boolean().optional(),
-  /** OpenAI-compatible API key for structured extraction. */
-  openaiApiKey: z.string().min(1),
-  /** Chat model id (e.g. `gpt-4o-mini`). */
-  openaiModel: z.string().min(1).optional(),
-  /** Max output tokens for `generateObject`. */
-  maxOutputTokens: z.number().int().positive().optional(),
-  /** Truncate article text in the LLM user message (full text remains in DB). */
-  maxContentChars: z.number().int().positive().optional(),
-  maxEntitiesPerArticle: z.number().int().positive().optional(),
-  maxRelationsPerArticle: z.number().int().positive().optional(),
-  maxEntitiesPerRun: z.number().int().positive().optional(),
-  maxRelationsPerRun: z.number().int().positive().optional(),
-  /** Max relations per POST chunk (FR9); entity closure is added per chunk. */
-  postChunkRelationBatchSize: z.number().int().positive().optional(),
-  /** Max `articleEntities` rows per source after LLM extract (before run merge). */
-  maxArticleEntitiesPerArticle: z.number().int().positive().optional(),
-  /** Max `articleEntities` rows for the run after dedupe (before POST). */
-  maxArticleEntitiesPerRun: z.number().int().positive().optional(),
-  /** Max `articleEntities` rows per POST chunk. */
-  postChunkArticleEntityBatchSize: z.number().int().positive().optional(),
-  /** Stored in `scoreBreakdown._version` (must match Hermes when bumping breakdown schema). */
-  scoreBreakdownVersion: z.number().int().min(1).optional(),
-  relevanceWeightBreakingNews: z.number().nonnegative().optional(),
-  relevanceWeightKgRelation: z.number().nonnegative().optional(),
-  relevanceWeightFundamental: z.number().nonnegative().optional(),
-  relevanceWeightTickerSalience: z.number().nonnegative().optional(),
-  relevanceWeightSourceQuality: z.number().nonnegative().optional(),
-  /** Minimum score to be eligible for `selected: true`. */
-  relevanceMinScore: z.number().min(0).max(1).optional(),
-  /** Cap on additional `selected` rows per UTC day (budget minus GET `selectedCountToday`). */
-  maxSelectedRelevancePerTickerPerDay: z
-    .number()
-    .int()
-    .nonnegative()
-    .optional(),
-  /** Max `articleRelevances` rows per POST chunk. */
-  postChunkArticleRelevanceBatchSize: z.number().int().positive().optional(),
-  /**
-   * When `failOnZeroSuccess` is true, require at least this many sources to complete extraction
-   * (LLM + vocabulary) before POST (MP-ART-ANALYSIS-007).
-   */
-  runPolicy: articleAnalysisRunPolicySchema.optional(),
-  /**
-   * Retries after the first attempt for `analysis.create` when the API returns 429 or 5xx.
-   */
-  postTransientRetries: z.number().int().nonnegative().optional(),
-  /** Initial backoff in ms; delay doubles each retry (`base * 2^attempt`). */
-  postTransientRetryBaseDelayMs: z.number().int().positive().optional(),
-  /**
-   * When Hermes run input omits `maxBatchSize`, cap how many data sources are loaded and processed per run
-   * (also bounds `analysis.get` `limit` together with `analysisGetDataSourceLimitMax`).
-   * Override in Hermes agent config; package default applies when omitted.
-   */
-  defaultMaxBatchSize: z.number().int().positive().optional(),
-  /**
-   * Max `analysis.get` `limit` (must not exceed `ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX` from `@workspace/agent-data-api-contract`).
-   * Actual limit is `min(maxBatchSize, analysisGetDataSourceLimitMax)`. Set in Hermes agent config JSON.
-   */
-  analysisGetDataSourceLimitMax: z
-    .number()
-    .int()
-    .positive()
-    .max(ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX)
-    .optional(),
-  /**
-   * When greater than zero, skip the run (success no-op) if GET returns fewer unanalyzed sources than this threshold.
-   */
-  debounceMinUnanalyzedCount: z.number().int().nonnegative().optional(),
-  /**
-   * When greater than zero, skip the run (success no-op) if any relevance was scored for this ticker within the last N minutes (requires GET `lastRelevanceScoredAtIso`).
-   */
-  debounceMinMinutesSinceLastScore: z.number().int().nonnegative().optional(),
-  /**
-   * Optional overrides for extraction LLM system/user wording (Hermes agent config).
-   * Defaults remain in code; merge is `configured ?? default` before each extraction call.
-   * Do not put API keys or other secrets in prompt strings.
-   */
-  prompts: z
-    .object({
-      systemPrompt: z
-        .string()
-        .max(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
-          message: `prompts.systemPrompt must be at most ${String(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
-        })
-        .describe(
-          "Optional full system prompt for entity extraction. When omitted, a built-in default is used. Supported placeholders: {{entityTypesBlock}}, {{relationTypesBlock}} (vocabulary from analysis GET).",
-        )
-        .optional(),
-      userPromptTemplate: z
-        .string()
-        .max(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
-          message: `prompts.userPromptTemplate must be at most ${String(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
-        })
-        .describe(
-          "Optional user message template for extraction. Supported placeholders: {{tickerId}}, {{title}}, {{articleContent}} (truncated article body per maxContentChars).",
-        )
-        .optional(),
-    })
-    .strict()
-    .optional(),
-})
+export const articleAnalysisConfigSchema = z
+  .object({
+    verbose: z.boolean().optional(),
+    /** OpenAI-compatible API key for structured extraction. */
+    openaiApiKey: z.string().min(1),
+    /** Chat model id (e.g. `gpt-4o-mini`). */
+    openaiModel: z.string().min(1).optional(),
+    /** Max output tokens for `generateObject`. */
+    maxOutputTokens: z.number().int().positive().optional(),
+    /** Truncate article text in the LLM user message (full text remains in DB). */
+    maxContentChars: z.number().int().positive().optional(),
+    maxEntitiesPerArticle: z.number().int().positive().optional(),
+    maxRelationsPerArticle: z.number().int().positive().optional(),
+    maxEntitiesPerRun: z.number().int().positive().optional(),
+    maxRelationsPerRun: z.number().int().positive().optional(),
+    /** Max relations per POST chunk (FR9); entity closure is added per chunk. */
+    postChunkRelationBatchSize: z.number().int().positive().optional(),
+    /** Max `articleEntities` rows per source after LLM extract (before run merge). */
+    maxArticleEntitiesPerArticle: z.number().int().positive().optional(),
+    /** Max `articleEntities` rows for the run after dedupe (before POST). */
+    maxArticleEntitiesPerRun: z.number().int().positive().optional(),
+    /** Max `articleEntities` rows per POST chunk. */
+    postChunkArticleEntityBatchSize: z.number().int().positive().optional(),
+    /** Stored in `scoreBreakdown._version` (must match Hermes when bumping breakdown schema). */
+    scoreBreakdownVersion: z.number().int().min(1).optional(),
+    relevanceWeightBreakingNews: z.number().nonnegative().optional(),
+    relevanceWeightKgRelation: z.number().nonnegative().optional(),
+    relevanceWeightFundamental: z.number().nonnegative().optional(),
+    relevanceWeightTickerSalience: z.number().nonnegative().optional(),
+    relevanceWeightSourceQuality: z.number().nonnegative().optional(),
+    /** Minimum score to be eligible for `selected: true`. */
+    relevanceMinScore: z.number().min(0).max(1).optional(),
+    /** Cap on additional `selected` rows per UTC day (budget minus GET `selectedCountToday`). */
+    maxSelectedRelevancePerTickerPerDay: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    /** Max `articleRelevances` rows per POST chunk. */
+    postChunkArticleRelevanceBatchSize: z.number().int().positive().optional(),
+    /**
+     * When `failOnZeroSuccess` is true, require at least this many sources to complete extraction
+     * (LLM + vocabulary) before POST (MP-ART-ANALYSIS-007).
+     */
+    runPolicy: articleAnalysisRunPolicySchema.optional(),
+    /**
+     * Retries after the first attempt for `analysis.create` when the API returns 429 or 5xx.
+     */
+    postTransientRetries: z.number().int().nonnegative().optional(),
+    /** Initial backoff in ms; delay doubles each retry (`base * 2^attempt`). */
+    postTransientRetryBaseDelayMs: z.number().int().positive().optional(),
+    /**
+     * When Hermes run input omits `maxBatchSize`, cap how many data sources are loaded and processed per run
+     * (also bounds `analysis.get` `limit` together with `analysisGetDataSourceLimitMax`).
+     * Override in Hermes agent config; package default applies when omitted.
+     */
+    defaultMaxBatchSize: z.number().int().positive().optional(),
+    /**
+     * Max `analysis.get` `limit` (must not exceed `ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX` from `@workspace/agent-data-api-contract`).
+     * Actual limit is `min(maxBatchSize, analysisGetDataSourceLimitMax)`. Set in Hermes agent config JSON.
+     */
+    analysisGetDataSourceLimitMax: z
+      .number()
+      .int()
+      .positive()
+      .max(ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX)
+      .optional(),
+    /**
+     * When greater than zero, skip the run (success no-op) if GET returns fewer unanalyzed sources than this threshold.
+     */
+    debounceMinUnanalyzedCount: z.number().int().nonnegative().optional(),
+    /**
+     * When greater than zero, skip the run (success no-op) if any relevance was scored for this ticker within the last N minutes (requires GET `lastRelevanceScoredAtIso`).
+     */
+    debounceMinMinutesSinceLastScore: z.number().int().nonnegative().optional(),
+    /**
+     * Optional overrides for extraction LLM system/user wording (Hermes agent config).
+     * Defaults remain in code; merge is `configured ?? default` before each extraction call.
+     * Do not put API keys or other secrets in prompt strings.
+     */
+    prompts: z
+      .object({
+        systemPrompt: z
+          .string()
+          .max(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
+            message: `prompts.systemPrompt must be at most ${String(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
+          })
+          .describe(
+            "Optional full system prompt for entity extraction. When omitted, a built-in default is used. Supported placeholders: {{entityTypesBlock}}, {{relationTypesBlock}} (vocabulary from analysis GET).",
+          )
+          .optional(),
+        userPromptTemplate: z
+          .string()
+          .max(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
+            message: `prompts.userPromptTemplate must be at most ${String(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
+          })
+          .describe(
+            "Optional user message template for extraction. Supported placeholders: {{tickerId}}, {{title}}, {{articleContent}} (truncated article body per maxContentChars).",
+          )
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
   .superRefine((data, ctx) => {
     const prompts = data.prompts;
     if (!prompts) {
