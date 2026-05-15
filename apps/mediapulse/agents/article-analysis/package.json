@@ -31,6 +31,7 @@
     "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod-to-json-schema": "^3.25.1"
   }
 }

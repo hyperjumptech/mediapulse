@@ -12,6 +12,7 @@ import type { ZodError } from "zod";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
+import { enrichConfigSchemaForHermesUi } from "./enrich-config-schema-for-hermes-ui.js";
 import { registerWithRegistry } from "./register-with-registry.js";
 import type { HermesInvokeEnvelopeV1 } from "./invoke-envelope.js";
 import { hermesInvokeCorrelationFromGetHeader } from "./hermes-invoke-correlation.js";
@@ -85,9 +86,11 @@ export function createAgentApp<
     const inputSchema = zodToJsonSchema(config.inputSchema, {
       $refStrategy: "none",
     });
-    const configSchemaJson = zodToJsonSchema(configSchema, {
-      $refStrategy: "none",
-    });
+    const configSchemaJson = enrichConfigSchemaForHermesUi(
+      zodToJsonSchema(configSchema, {
+        $refStrategy: "none",
+      }) as Record<string, unknown>,
+    );
     return context.json({ inputSchema, configSchema: configSchemaJson });
   });
 
@@ -105,9 +108,11 @@ export function createAgentApp<
     const inputSchemaJson = zodToJsonSchema(config.inputSchema, {
       $refStrategy: "none",
     }) as Record<string, unknown>;
-    const configSchemaJson = zodToJsonSchema(configSchema, {
-      $refStrategy: "none",
-    }) as Record<string, unknown>;
+    const configSchemaJson = enrichConfigSchemaForHermesUi(
+      zodToJsonSchema(configSchema, {
+        $refStrategy: "none",
+      }) as Record<string, unknown>,
+    );
     const maxAttempts = 3;
     const delayMs = 2000;
     if (!authApiUrl) {

@@ -1,4 +1,5 @@
 export { createAgentApp } from "./create-agent-app.js";
+export { enrichConfigSchemaForHermesUi } from "./enrich-config-schema-for-hermes-ui.js";
 export {
   hermesTickerIdSchema,
   type HermesTickerId,
