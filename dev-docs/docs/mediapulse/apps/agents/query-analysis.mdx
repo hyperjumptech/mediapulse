@@ -57,6 +57,10 @@ This agent is configured per pipeline step via the Hermes invoke request body `c
 | **`prompts.userPromptTemplate` set** | You control layout around **`{{queryContextBlock}}`** (or use only that token). The serialized context still reflects live GET data. |
 | **Merge / persistence** | **`mergeQueryCandidates`** still uses **`weight*`** and **`queryCount`** / **`minDeterministicCount`** for ordering and filling the persisted query set—prompt overrides do not change merge math. |
 
+## Hermes run payload
+
+Successful runs return `details` including the agent-data-api create response fields plus **`llmPromptFingerprint`** (16-character hex, same algorithm as content-generation `promptHash`) so operators can tell runs apart when only prompt templates changed in Hermes config.
+
 ## Pipeline usage
 
 - Included in **Pipeline A: Query Analysis**

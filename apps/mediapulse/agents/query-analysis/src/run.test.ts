@@ -105,6 +105,26 @@ describe("query-analysis run", () => {
     );
   });
 
+  it("returns llmPromptFingerprint on success details", async () => {
+    const result = await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: baseConfig,
+      token: "Bearer t",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success && result.details) {
+      expect(
+        typeof (result.details as { llmPromptFingerprint?: string })
+          .llmPromptFingerprint,
+      ).toBe("string");
+      expect(
+        (result.details as { llmPromptFingerprint: string })
+          .llmPromptFingerprint,
+      ).toHaveLength(16);
+    }
+  });
+
   it("omits agentJobId when correlation is absent", async () => {
     // Act
     await runQueryAnalysis({

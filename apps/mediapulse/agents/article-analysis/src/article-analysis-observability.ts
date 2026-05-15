@@ -232,6 +232,8 @@ export type ArticleAnalysisRunSummaryInput = {
   runStatusLabel?: string;
   semanticFailureReason?: string;
   topLevelError?: ReturnType<typeof toSafeLogError>;
+  /** Fingerprint of the last extraction system+user prompts sent to the LLM (REQ-011). */
+  llmPromptFingerprint?: string;
 };
 
 /**
@@ -346,6 +348,10 @@ export const buildArticleAnalysisRunSummaryPayload = (
     extractionCalls,
     avgExtractionLatencyMs,
   };
+
+  if (input.llmPromptFingerprint !== undefined) {
+    base.llmPromptFingerprint = input.llmPromptFingerprint;
+  }
 
   if (input.runStatusLabel !== undefined) {
     base.runStatus = input.runStatusLabel;

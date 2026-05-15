@@ -1,5 +1,6 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
+import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 import { logger } from "@workspace/logger";
 import { env } from "@mediapulse/env/agents-query-analysis";
 import type { QueryAnalysisConfig } from "./config-schema";
@@ -85,6 +86,11 @@ export const runQueryAnalysis = async (
     queryContext,
   );
 
+  const llmPromptFingerprint = computeLlmPromptFingerprint(
+    systemContent,
+    userContent,
+  );
+
   let llmCandidates: Awaited<ReturnType<typeof fetchLlmQueryCandidates>> = [];
   try {
     llmCandidates = await fetchLlmQueryCandidates({
@@ -143,5 +149,8 @@ export const runQueryAnalysis = async (
     { tickerId: input.tickerId, created: response.created },
     "query analysis set persisted",
   );
-  return { success: true, details: response };
+  return {
+    success: true,
+    details: { ...response, llmPromptFingerprint },
+  };
 };
