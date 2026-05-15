@@ -2,19 +2,19 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@hermes/orchestration-database";
 
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 /**
  * GET /api/pipelines/[pipelineId]/schemas
- * Returns inputSchema and configSchema for each step's agent. Requires dashboard session.
+ * Returns inputSchema and configSchema for each step's agent. Requires dashboard session or MCP API key.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ pipelineId: string }> },
 ) {
-  const session = await getDashboardSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await resolveDashboardPrincipalOrUnauthorized(request);
+  if (auth instanceof NextResponse) {
+    return auth;
   }
 
   const { pipelineId } = await context.params;
