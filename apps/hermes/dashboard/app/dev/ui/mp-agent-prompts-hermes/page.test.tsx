@@ -3,6 +3,16 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { notFound } from "next/navigation";
 
+const envState: { NODE_ENV: string | undefined } = {
+  NODE_ENV: "development",
+};
+
+vi.mock("@hermes/env", () => ({
+  get env() {
+    return envState;
+  },
+}));
+
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
@@ -24,10 +34,8 @@ vi.mock("./mp-agent-prompts-schemaform-fixture", () => ({
 }));
 
 describe("MpAgentPromptsHermesDevPage", () => {
-  const originalNodeEnv = process.env.NODE_ENV;
-
   beforeEach(() => {
-    vi.stubEnv("NODE_ENV", "development");
+    envState.NODE_ENV = "development";
     vi.mocked(notFound).mockClear();
     vi.mocked(notFound).mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND");
@@ -35,7 +43,6 @@ describe("MpAgentPromptsHermesDevPage", () => {
   });
 
   afterEach(() => {
-    vi.stubEnv("NODE_ENV", originalNodeEnv);
     vi.resetModules();
   });
 
@@ -79,7 +86,7 @@ describe("MpAgentPromptsHermesDevPage", () => {
   });
 
   it("calls notFound when NODE_ENV is not development", async () => {
-    vi.stubEnv("NODE_ENV", "production");
+    envState.NODE_ENV = "production";
     const Page = (await import("./page")).default;
 
     await expect(
