@@ -1,0 +1,128 @@
+---
+title: MCP API keys and Cursor
+description: Create Hermes MCP API keys, connect Cursor, and operate read vs write tools safely
+---
+
+# MCP API keys and Cursor
+
+Hermes dashboard **API keys** let MCP clients (for example [Cursor](https://cursor.com)) call Hermes HTTP APIs as the **admin who created the key**. Keys are hashed at rest; the plaintext is shown once at creation.
+
+The **`@hermes/mcp-server`** package (monorepo: `packages/hermes/mcp-server`) exposes read and mutation tools over stdio. See that package README for build commands and the full tool catalog.
+
+## Security
+
+- Store keys only in **Cursor secrets** or your OS environment — never commit them to git or paste them into tickets.
+- Each key inherits the **permissions of the admin who created it** (same as that user’s dashboard session).
+- Use **read-only** keys when you only need to inspect production (list/get, whoami). Read-only keys cannot call mutation routes.
+- Use **HTTPS** for `HERMES_MCP_PROFILE_*_BASE_URL` in production.
+- **Revoke** keys when someone leaves the team, a laptop is lost, or a key may have leaked (`/dashboard/api-keys` → revoke).
+
+## Step-by-step setup
+
+### 1. Create an API key in Hermes
+
+1. Log in to the Hermes dashboard as an admin.
+2. Open **API keys** in the sidebar (`/dashboard/api-keys`).
+3. Choose **Create API key**, set a label, and pick **read-only** or full access.
+4. Copy the plaintext key immediately — it is not shown again.
+
+### 2. Configure Cursor
+
+Add a server entry to Cursor MCP config (user or project `mcp.json`). Example:
+
+```json
+{
+  "mcpServers": {
+    "hermes": {
+      "command": "pnpm",
+      "args": ["--filter", "@hermes/mcp-server", "start"],
+      "cwd": "/path/to/mediapulse",
+      "env": {
+        "HERMES_MCP_ACTIVE_PROFILE": "prod",
+        "HERMES_MCP_PROFILE_PROD_BASE_URL": "https://hermes.example.com",
+        "HERMES_MCP_PROFILE_PROD_API_KEY": "${env:HERMES_PROD_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Set `cwd` to your clone of this repository. Put the real API key in a Cursor secret referenced as `${env:HERMES_PROD_API_KEY}` (or export it in your shell).
+
+For multiple environments, define `HERMES_MCP_PROFILE_<NAME>_BASE_URL` and `HERMES_MCP_PROFILE_<NAME>_API_KEY` per profile and optional `HERMES_MCP_ACTIVE_PROFILE`.
+
+### 3. Verify with whoami
+
+In Cursor, run the MCP tool **`hermes_ping`** (HTTP `GET /api/mcp/whoami`). A successful result includes your key label, `readOnly`, and owner email.
+
+### 4. Example read question
+
+Ask the model to list agents: tool **`hermes_list_agents`**. Then fetch detail with **`hermes_get_agent_schemas`** using an `agentId` and `agentVersion` from the list.
+
+## Rollout (v1a → v1b)
+
+1. **v1a — reads only:** Issue a **read-only** API key. Enable MCP with read/list tools only. Confirm operators can triage without mutations.
+2. **v1b — writes:** Issue a **full-access** key only for admins who need mutations. Destructive MCP tools require `confirm: true` on a second call (see below).
+
+## Mutation tools and confirm gate
+
+Tools prefixed `hermes_mutate_*` call dashboard `POST` routes. **Delete, cancel, and run** tools require two steps:
+
+1. First call without `confirm: true` → tool error, **no HTTP**.
+2. Second call with `confirm: true` after explicit user approval.
+
+Read-only keys are rejected before HTTP (via whoami).
+
+## Rollback
+
+1. In Hermes → **API keys**, **revoke** the key.
+2. Remove or disable the `hermes` entry in Cursor `mcp.json`.
+3. Rotate any copy of the plaintext key that may have left Cursor secrets.
+
+## MCP tool → HTTP route
+
+### Read tools
+
+| MCP tool                              | HTTP | Path                                                      |
+| ------------------------------------- | ---- | --------------------------------------------------------- |
+| `hermes_ping`                         | GET  | `/api/mcp/whoami`                                         |
+| `hermes_get_agent_schemas`            | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`            |
+| `hermes_get_pipeline_schemas`         | GET  | `/api/pipelines/{pipelineId}/schemas`                     |
+| `hermes_get_schedule_execution`       | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`    |
+| `hermes_get_http_trigger_execution`   | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}` |
+| `hermes_get_pipeline_execution`       | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`    |
+| `hermes_get_variable`                 | POST | `/dashboard/variables/actions/get`                        |
+| `hermes_get_agent_config`             | POST | `/dashboard/agent-configs/actions/get`                    |
+| `hermes_list_agents`                  | GET  | `/api/agents`                                             |
+| `hermes_list_schedules`               | GET  | `/api/schedules`                                          |
+| `hermes_list_pipelines`               | GET  | `/api/pipelines`                                          |
+| `hermes_list_http_triggers`           | GET  | `/api/http-triggers`                                      |
+| `hermes_list_variables`               | GET  | `/api/variables`                                          |
+| `hermes_list_agent_configs`           | GET  | `/api/agent-configs`                                      |
+| `hermes_list_domain_integrations`     | GET  | `/api/domain-integrations`                                |
+| `hermes_list_content_generation_runs` | GET  | `/api/agents/content-generation-runs`                     |
+| `hermes_get_content_generation_run`   | GET  | `/api/agents/content-generation-runs/{id}`                |
+| `hermes_list_profiles`                | —    | In-process profile list                                   |
+| `hermes_set_active_profile`           | —    | In-process profile switch                                 |
+
+### Mutation tools
+
+| MCP tool                                      | Needs `confirm: true` | POST path                                              |
+| --------------------------------------------- | --------------------- | ------------------------------------------------------ |
+| `hermes_mutate_create_agent`                  | No                    | `/dashboard/agents/actions/create`                     |
+| `hermes_mutate_delete_agent`                  | Yes                   | `/dashboard/agents/actions/delete`                     |
+| `hermes_mutate_create_variable`               | No                    | `/dashboard/variables/actions/create`                  |
+| `hermes_mutate_delete_variable`               | Yes                   | `/dashboard/variables/actions/delete`                  |
+| `hermes_mutate_run_pipeline`                  | Yes                   | `/dashboard/pipelines/actions/run-pipeline`            |
+| `hermes_mutate_cancel_pipeline_execution`     | Yes                   | `/dashboard/pipelines/actions/cancel-manual-execution` |
+| `hermes_mutate_delete_pipeline`               | Yes                   | `/dashboard/pipelines/actions/delete`                  |
+| `hermes_mutate_cancel_schedule_execution`     | Yes                   | `/dashboard/schedules/actions/cancel-execution`        |
+| `hermes_mutate_delete_schedule`               | Yes                   | `/dashboard/schedules/actions/delete`                  |
+| `hermes_mutate_cancel_http_trigger_execution` | Yes                   | `/dashboard/http-triggers/actions/cancel-execution`    |
+| `hermes_mutate_delete_http_trigger`           | Yes                   | `/dashboard/http-triggers/actions/delete`              |
+
+## Related
+
+- [Dashboard app](/hermes/apps/dashboard) — UI overview
+- [Product requirements (PRD)](https://github.com/hyperjumptech/mediapulse/blob/prds/hermes-dashboard-mcp.prd.md) — full route catalog and phases
+- Package README: `packages/hermes/mcp-server/README.md` in the repository
