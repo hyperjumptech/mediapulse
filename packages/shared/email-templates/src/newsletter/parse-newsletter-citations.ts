@@ -52,14 +52,29 @@ const extractDomain = (url: string): string => {
 };
 
 /**
+ * Builds a short citation title from plain multi-line text.
+ *
+ * @param text - Body text before any `Read the full article` line was stripped.
+ * @returns First line, trimmed and capped for table display.
+ */
+const citationTitleFromPlainText = (text: string): string => {
+  const first = text.trim().split("\n")[0]?.trim() ?? "";
+  const base = first.length > 0 ? first : text.trim();
+  if (base.length === 0) {
+    return text.trim();
+  }
+  return base.length > 120 ? `${base.slice(0, 117)}...` : base;
+};
+
+/**
  * Extracts a deduplicated list of citations from a newsletter body.
  *
  * Sources, in document order:
  *
  * 1. Inline `[title](url)` markdown links (with bold/italic unwrapped).
- * 2. `Read the full article: <url>` lines, paired with the top-news item title
- *    when {@link parseNewsletterBody} returns structured items, or the URL
- *    itself otherwise.
+ * 2. `Read the full article: <url>` lines, paired with structured titles from
+ *    {@link parseNewsletterBody} when available (legacy top news, industry v2
+ *    bullets and quick hits, optional extras), or the URL itself otherwise.
  *
  * The result deduplicates by URL, preserving the first occurrence. The function
  * never throws — malformed markdown yields fewer citations rather than an error.
@@ -72,12 +87,36 @@ export const parseNewsletterCitations = (
 ): NewsletterCitation[] => {
   if (typeof body !== "string" || body.length === 0) return [];
 
-  const items = parseNewsletterBody(body);
+  const parsed = parseNewsletterBody(body);
   const titleByUrl = new Map<string, string>();
-  if (items) {
-    for (const item of items.topNewsItems) {
+  if (parsed?.format === "legacy") {
+    for (const item of parsed.topNewsItems) {
       if (item.url && !titleByUrl.has(item.url)) {
         titleByUrl.set(item.url, item.title);
+      }
+    }
+  } else if (parsed?.format === "industry-v2") {
+    for (const section of parsed.sections) {
+      if (section.machineKey === "quick-hits") {
+        for (const hit of section.items) {
+          if (hit.url && !titleByUrl.has(hit.url)) {
+            titleByUrl.set(hit.url, citationTitleFromPlainText(hit.text));
+          }
+        }
+      } else if (section.machineKey === "read-watch-listen") {
+        if (section.url && !titleByUrl.has(section.url)) {
+          titleByUrl.set(section.url, section.displayHeading);
+        }
+      } else if (section.machineKey === "quote-of-the-week") {
+        if (section.url && !titleByUrl.has(section.url)) {
+          titleByUrl.set(section.url, section.displayHeading);
+        }
+      } else if ("bullets" in section) {
+        for (const bullet of section.bullets) {
+          if (bullet.url && !titleByUrl.has(bullet.url)) {
+            titleByUrl.set(bullet.url, citationTitleFromPlainText(bullet.text));
+          }
+        }
       }
     }
   }

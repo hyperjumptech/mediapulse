@@ -153,4 +153,81 @@ describe("parseNewsletterCitations", () => {
       "https://example.com/tsla",
     ]);
   });
+
+  it("pairs read-the-full-article URLs in v2 wire bodies with quick-hit text titles", () => {
+    const body = [
+      "MP_NEWSLETTER_V2",
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "Lead",
+      "PROSE",
+      "Intro.",
+      "END",
+      "",
+      "BEGIN competitive-landscape",
+      "DISPLAY_HEADING",
+      "C",
+      "BULLET",
+      "b1",
+      "BULLET",
+      "b2",
+      "END",
+      "",
+      "BEGIN deals-and-movements",
+      "DISPLAY_HEADING",
+      "D",
+      "BULLET",
+      "d1",
+      "END",
+      "",
+      "BEGIN regulatory-policy-watch",
+      "DISPLAY_HEADING",
+      "R",
+      "BULLET",
+      "r1",
+      "END",
+      "",
+      "BEGIN disruptors-or-tech",
+      "DISPLAY_HEADING",
+      "X",
+      "FORMAT",
+      "prose",
+      "PROSE",
+      "p",
+      "END",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Q",
+      "ITEM",
+      "Apple beat",
+      "Read the full article: https://example.com/aapl-q2",
+      "ITEM",
+      "Tesla beat",
+      "Read the full article: https://example.com/tsla-q2",
+      "ITEM",
+      "h3",
+      "Read the full article: https://example.com/a",
+      "ITEM",
+      "h4",
+      "Read the full article: https://example.com/b",
+      "ITEM",
+      "h5",
+      "Read the full article: https://example.com/c",
+      "END",
+    ].join("\n");
+
+    const citations = parseNewsletterCitations(body);
+
+    expect(citations.map((c) => c.url)).toStrictEqual([
+      "https://example.com/aapl-q2",
+      "https://example.com/tsla-q2",
+      "https://example.com/a",
+      "https://example.com/b",
+      "https://example.com/c",
+    ]);
+    expect(citations[0]?.title).toBe("Apple beat");
+    expect(citations[1]?.title).toBe("Tesla beat");
+  });
 });

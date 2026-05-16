@@ -153,7 +153,7 @@ export const ContentGenerationConfigSchema = z
     output: z
       .object({
         /** Number of top news items to include in the output. */
-        topNewsCount: z.number().int().positive().default(3),
+        topNewsCount: z.number().int().positive().default(10),
       })
       .default({}),
 

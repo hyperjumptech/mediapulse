@@ -10,9 +10,10 @@ import {
   Section,
   Text,
 } from "@react-email/components";
-import type { CSSProperties, ReactElement } from "react";
+import { Fragment, type CSSProperties, type ReactElement } from "react";
 
 import { parseNewsletterBody } from "./parse-newsletter-body.js";
+import type { ParsedIndustryV2Section } from "./parse-industry-newsletter-wire-v2.js";
 import { renderInlineMarkdownLinks } from "./render-inline-markdown-links.js";
 
 export interface DefaultNewsletterEmailProps {
@@ -62,8 +63,9 @@ export const DEFAULT_HYPERJUMP_SITE_URL = "https://hyperjump.tech";
 /**
  * Default HTML newsletter layout for Mediapulse delivery.
  *
- * When `bodyText` follows the structured format (EXECUTIVE SUMMARY / --- / TOP N NEWS),
- * the content is rendered as labelled sections with visually separated news items.
+ * When `bodyText` follows a structured format (legacy executive summary + top news,
+ * or `MP_NEWSLETTER_V2` industry briefing wire), the content is rendered as labelled
+ * sections with separated items.
  * Otherwise it falls back to pre-wrapped plain-text rendering.
  *
  * The header includes a short ticker line under the title when `tickerSymbol`
@@ -92,6 +94,140 @@ export const DefaultNewsletterEmail = ({
   const showTickerLine =
     tickerSymbol !== undefined && tickerSymbol.trim().length > 0;
 
+  const renderIndustrySection = (
+    section: ParsedIndustryV2Section,
+    index: number,
+  ): ReactElement => {
+    if (section.machineKey === "industry-pulse") {
+      return (
+        <Section key={`${section.machineKey}-${String(index)}`}>
+          <Heading as="h2" style={sectionLabel}>
+            {section.displayHeading}
+          </Heading>
+          <Text style={bodyParagraph}>
+            {renderInlineMarkdownLinks(section.prose, link)}
+          </Text>
+        </Section>
+      );
+    }
+
+    if (
+      section.machineKey === "disruptors-or-tech" &&
+      "format" in section &&
+      section.format === "prose"
+    ) {
+      return (
+        <Section key={`${section.machineKey}-${String(index)}`}>
+          <Heading as="h2" style={sectionLabel}>
+            {section.displayHeading}
+          </Heading>
+          <Text style={bodyParagraph}>
+            {renderInlineMarkdownLinks(section.prose, link)}
+          </Text>
+        </Section>
+      );
+    }
+
+    if ("bullets" in section) {
+      return (
+        <Section key={`${section.machineKey}-${String(index)}`}>
+          <Heading as="h2" style={sectionLabel}>
+            {section.displayHeading}
+          </Heading>
+          {section.bullets.map((bullet, bulletIndex) => (
+            <Section
+              key={`${String(section.machineKey)}-b-${String(bulletIndex)}`}
+            >
+              <Text style={newsItemSummary}>
+                {renderInlineMarkdownLinks(bullet.text, link)}
+              </Text>
+              {bullet.url !== undefined && bullet.url !== "" ? (
+                <Text style={newsItemSourceLink}>
+                  <Link href={bullet.url} style={link}>
+                    Read the full article
+                  </Link>
+                </Text>
+              ) : null}
+              {bulletIndex < section.bullets.length - 1 ? (
+                <Hr style={itemSeparator} />
+              ) : null}
+            </Section>
+          ))}
+        </Section>
+      );
+    }
+
+    if (section.machineKey === "quick-hits") {
+      return (
+        <Section key={`${section.machineKey}-${String(index)}`}>
+          <Heading as="h2" style={sectionLabel}>
+            {section.displayHeading}
+          </Heading>
+          {section.items.map((item, itemIndex) => (
+            <Section key={`qh-${String(itemIndex)}`}>
+              <Text style={newsItemTitle}>
+                {itemIndex + 1}. {item.text}
+              </Text>
+              {item.url !== undefined && item.url !== "" ? (
+                <Text style={newsItemSourceLink}>
+                  <Link href={item.url} style={link}>
+                    Read the full article
+                  </Link>
+                </Text>
+              ) : null}
+              {itemIndex < section.items.length - 1 ? (
+                <Hr style={itemSeparator} />
+              ) : null}
+            </Section>
+          ))}
+        </Section>
+      );
+    }
+
+    if (section.machineKey === "read-watch-listen") {
+      return (
+        <Section key={`${section.machineKey}-${String(index)}`}>
+          <Heading as="h2" style={sectionLabel}>
+            {section.displayHeading}
+          </Heading>
+          <Text style={bodyParagraph}>
+            {renderInlineMarkdownLinks(section.summary, link)}
+          </Text>
+          {section.url !== undefined && section.url !== "" ? (
+            <Text style={newsItemSourceLink}>
+              <Link href={section.url} style={link}>
+                Read the full article
+              </Link>
+            </Text>
+          ) : null}
+        </Section>
+      );
+    }
+
+    if (section.machineKey === "quote-of-the-week") {
+      return (
+        <Section key={`${section.machineKey}-${String(index)}`}>
+          <Heading as="h2" style={sectionLabel}>
+            {section.displayHeading}
+          </Heading>
+          <Text style={newsItemSummary}>
+            {renderInlineMarkdownLinks(section.quote, link)}
+          </Text>
+          <Text style={newsItemTitle}>— {section.attribution}</Text>
+          {section.url !== undefined && section.url !== "" ? (
+            <Text style={newsItemSourceLink}>
+              <Link href={section.url} style={link}>
+                Read the full article
+              </Link>
+            </Text>
+          ) : null}
+        </Section>
+      );
+    }
+
+    return <Fragment key={`unknown-${String(index)}`} />;
+  };
+
   return (
     <Html>
       <Head />
@@ -108,40 +244,54 @@ export const DefaultNewsletterEmail = ({
           </Section>
           <Hr style={hr} />
           {parsed !== undefined ? (
-            <>
-              <Heading as="h2" style={sectionLabel}>
-                Executive Summary
-              </Heading>
-              <Text style={bodyParagraph}>
-                {renderInlineMarkdownLinks(parsed.executiveSummary, link)}
-              </Text>
-              <Hr style={hr} />
-              <Heading as="h2" style={sectionLabel}>
-                Top News
-              </Heading>
-              {parsed.topNewsItems.map(
-                (item: (typeof parsed.topNewsItems)[number], index: number) => (
-                  <Section key={item.number}>
-                    <Text style={newsItemTitle}>
-                      {item.number}. {item.title}
-                    </Text>
-                    <Text style={newsItemSummary}>
-                      {renderInlineMarkdownLinks(item.summary, link)}
-                    </Text>
-                    {item.url !== undefined && item.url !== "" ? (
-                      <Text style={newsItemSourceLink}>
-                        <Link href={item.url} style={link}>
-                          Read the full article
-                        </Link>
+            parsed.format === "industry-v2" ? (
+              <>
+                {parsed.sections.map((section, index) => (
+                  <Fragment key={`sec-${String(index)}`}>
+                    {index > 0 ? <Hr style={hr} /> : null}
+                    {renderIndustrySection(section, index)}
+                  </Fragment>
+                ))}
+              </>
+            ) : (
+              <>
+                <Heading as="h2" style={sectionLabel}>
+                  Executive Summary
+                </Heading>
+                <Text style={bodyParagraph}>
+                  {renderInlineMarkdownLinks(parsed.executiveSummary, link)}
+                </Text>
+                <Hr style={hr} />
+                <Heading as="h2" style={sectionLabel}>
+                  Top News
+                </Heading>
+                {parsed.topNewsItems.map(
+                  (
+                    item: (typeof parsed.topNewsItems)[number],
+                    index: number,
+                  ) => (
+                    <Section key={item.number}>
+                      <Text style={newsItemTitle}>
+                        {item.number}. {item.title}
                       </Text>
-                    ) : null}
-                    {index < parsed.topNewsItems.length - 1 ? (
-                      <Hr style={itemSeparator} />
-                    ) : null}
-                  </Section>
-                ),
-              )}
-            </>
+                      <Text style={newsItemSummary}>
+                        {renderInlineMarkdownLinks(item.summary, link)}
+                      </Text>
+                      {item.url !== undefined && item.url !== "" ? (
+                        <Text style={newsItemSourceLink}>
+                          <Link href={item.url} style={link}>
+                            Read the full article
+                          </Link>
+                        </Text>
+                      ) : null}
+                      {index < parsed.topNewsItems.length - 1 ? (
+                        <Hr style={itemSeparator} />
+                      ) : null}
+                    </Section>
+                  ),
+                )}
+              </>
+            )
           ) : (
             <Text style={bodyParagraph}>
               {renderInlineMarkdownLinks(bodyText, link)}

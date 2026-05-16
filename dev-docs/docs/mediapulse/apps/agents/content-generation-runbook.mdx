@@ -67,17 +67,17 @@ This runbook covers the major failure and skip outcomes for the content-generati
 
 **Resolution:**
 - Review the model's JSON compliance — some models occasionally break the structured output contract, particularly when response content is large.
-- Verify the schema in `newsletterStructureSchema` has not drifted from the prompt expectations. If prompt and schema disagree on field names or types, the model may produce valid JSON that fails schema parsing.
+- Verify the schema in `industryNewsletterStructureSchema` has not drifted from the prompt expectations. If prompt and schema disagree on field names or types, the model may produce valid JSON that fails schema parsing.
 - Consider switching to a model with native structured output support (`response_format: { type: "json_schema" }`) by using `openai.model` in config.
 
 ---
 
 ## Outcome: `validation_failed` (Error)
 
-**Cause:** The LLM returned JSON that passed HTTP validation and schema parsing, but failed Zod schema validation. The output did not match `newsletterStructureSchema`.
+**Cause:** The LLM returned JSON that passed HTTP validation and schema parsing, but failed Zod schema validation. The output did not match `industryNewsletterStructureSchema`.
 
 **Resolution:**
-- Review the prompt template for clarity on the required JSON shape (`subject`, `executiveSummary`, `topNews` with `title`, `summary`, `analysis`).
+- Review the prompt template for clarity on the required JSON shape (`subject`, `industryPulse`, `competitiveLandscape`, `quickHits`, optional extras).
 - Consider updating the prompt template to include a JSON example that mirrors the exact Zod schema.
 - Switch to a different model (`openai.model` in config) with better JSON compliance. Some models are more reliable with Zod validation than others.
 - If the model consistently produces near-valid output, check if the Zod schema tolerances can be relaxed (e.g. optional fields vs required).

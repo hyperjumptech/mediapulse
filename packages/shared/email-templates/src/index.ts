@@ -6,6 +6,7 @@ export {
 } from "./newsletter/default-newsletter.js";
 export {
   parseNewsletterBody,
+  type LegacyParsedNewsletterBody,
   type ParsedNewsletterBody,
 } from "./newsletter/parse-newsletter-body.js";
 export {
