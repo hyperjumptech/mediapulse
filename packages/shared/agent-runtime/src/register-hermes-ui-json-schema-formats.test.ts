@@ -1,3 +1,4 @@
+import Ajv from "ajv";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -7,22 +8,17 @@ import {
 
 describe("registerHermesUiJsonSchemaFormats", () => {
   it("registers textarea format so AJV compiles schemas with prompts.systemPrompt", () => {
-    const formats = new Map<string, unknown>();
-    const ajv = {
-      addFormat: (name: string, format: unknown) => {
-        formats.set(name, format);
-        return ajv;
-      },
-    };
-
+    const ajv = new Ajv({ allErrors: true });
     registerHermesUiJsonSchemaFormats(ajv);
 
-    expect(formats.has(HERMES_UI_TEXTAREA_FORMAT)).toBe(true);
-    const textarea = formats.get(HERMES_UI_TEXTAREA_FORMAT) as {
-      type?: string;
-      validate: (data: unknown) => boolean;
-    };
-    expect(textarea.type).toBe("string");
-    expect(textarea.validate("multi\nline")).toBe(true);
+    const validate = ajv.compile({
+      type: "object",
+      properties: {
+        systemPrompt: { type: "string", format: HERMES_UI_TEXTAREA_FORMAT },
+      },
+    });
+
+    expect(validate({ systemPrompt: "multi\nline" })).toBe(true);
+    expect(validate({ systemPrompt: 1 })).toBe(false);
   });
 });
