@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@workspace/typescript-config": "workspace:*",
+    "ajv": "^8.17.1",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
