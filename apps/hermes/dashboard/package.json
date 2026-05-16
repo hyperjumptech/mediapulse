@@ -31,6 +31,7 @@
     "@next/env": "catalog:",
     "@nicnocquee/dataqueue": "^1.39.0",
     "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/json-schema-form": "workspace:*",
     "@workspace/logger": "workspace:*",
