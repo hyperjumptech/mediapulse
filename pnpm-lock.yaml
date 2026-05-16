@@ -259,6 +259,9 @@ importers:
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-data-api-contract
+      '@workspace/agent-runtime':
+        specifier: workspace:*
+        version: link:../../../packages/shared/agent-runtime
       '@workspace/json-schema-form':
         specifier: workspace:*
         version: link:../../../packages/shared/json-schema-form
@@ -1232,6 +1235,9 @@ importers:
       '@nicnocquee/dataqueue':
         specifier: ^1.39.0
         version: 1.39.0(pg@8.18.0)
+      '@workspace/agent-runtime':
+        specifier: workspace:*
+        version: link:../../shared/agent-runtime
       ajv:
         specifier: ^8.17.1
         version: 8.17.1

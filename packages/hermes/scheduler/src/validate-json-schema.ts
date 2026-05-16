@@ -1,8 +1,10 @@
+import { registerHermesUiJsonSchemaFormats } from "@workspace/agent-runtime/register-hermes-ui-json-schema-formats";
 import Ajv, { type JSONSchemaType } from "ajv";
 import addFormats from "ajv-formats";
 
 const ajv = new Ajv({ allErrors: true });
 addFormats(ajv);
+registerHermesUiJsonSchemaFormats(ajv);
 
 type JsonSchemaLike = {
   type?: string | string[];

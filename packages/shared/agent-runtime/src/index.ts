@@ -1,6 +1,10 @@
 export { createAgentApp } from "./create-agent-app.js";
 export { enrichConfigSchemaForHermesUi } from "./enrich-config-schema-for-hermes-ui.js";
 export {
+  HERMES_UI_TEXTAREA_FORMAT,
+  registerHermesUiJsonSchemaFormats,
+} from "./register-hermes-ui-json-schema-formats.js";
+export {
   hermesTickerIdSchema,
   type HermesTickerId,
 } from "./schemas/hermes-ticker-id.js";

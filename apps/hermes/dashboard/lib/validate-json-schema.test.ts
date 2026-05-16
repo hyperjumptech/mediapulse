@@ -61,6 +61,24 @@ describe("validateWithJsonSchema", () => {
     }
   });
 
+  it("compiles and validates config schema with Hermes textarea format on prompt fields", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        prompts: {
+          type: "object",
+          properties: {
+            systemPrompt: { type: "string", format: "textarea" },
+          },
+        },
+      },
+    };
+    const result = validateWithJsonSchema(schema, {
+      prompts: { systemPrompt: "line one\nline two" },
+    });
+    expect(result.valid).toBe(true);
+  });
+
   it("accepts date-time format when ajv-formats is used", () => {
     const schema = {
       type: "object",
