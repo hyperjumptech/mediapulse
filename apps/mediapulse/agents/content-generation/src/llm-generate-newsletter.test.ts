@@ -11,6 +11,7 @@ import {
   type GenerateNewsletterObjectArgs,
   type GenerateNewsletterObjectFn,
 } from "./llm-generate-newsletter.js";
+import type { IndustryNewsletterStructure } from "./industry-newsletter-schema.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -29,35 +30,54 @@ const baseConfig = resolveContentGenerationConfig(
 /** A fake sleep that records call count without real delays. */
 const noopSleepFn = vi.fn().mockResolvedValue(undefined);
 
-/** A successful generateObjectFn stub. */
+/** Minimal valid industry briefing object returned by the mocked LLM. */
+const minimalIndustryBrief = (
+  patch: Partial<IndustryNewsletterStructure> = {},
+): IndustryNewsletterStructure => ({
+  subject: "Market Rally Continues",
+  industryPulse: {
+    displayHeading: "Pulse",
+    prose: "Stocks rose for the third day.",
+  },
+  competitiveLandscape: {
+    displayHeading: "Competitive",
+    bullets: [
+      { text: "B1", articleIndex: 1 },
+      { text: "B2", articleIndex: 2 },
+    ],
+  },
+  dealsAndMovements: {
+    displayHeading: "Deals",
+    bullets: [{ text: "D1", articleIndex: 3 }],
+  },
+  regulatoryPolicyWatch: {
+    displayHeading: "Regulatory",
+    bullets: [{ text: "R1" }],
+  },
+  disruptorsOrTech: {
+    format: "prose",
+    displayHeading: "Disruptors",
+    prose: "Innovation forward.",
+  },
+  quickHits: {
+    displayHeading: "Quick",
+    items: [
+      { text: "h1", articleIndex: 1 },
+      { text: "h2", articleIndex: 2 },
+      { text: "h3", articleIndex: 3 },
+      { text: "h4", articleIndex: 1 },
+      { text: "h5", articleIndex: 2 },
+    ],
+  },
+  ...patch,
+});
+
+/** A successful generateObjectFn stub returning an industry briefing. */
 function makeSuccessfulGenerateFn(
-  overrides: Partial<{
-    subject: string;
-    executiveSummary: string;
-    topNews: Array<{ title: string; summary: string }>;
-  }> = {},
+  patch: Partial<IndustryNewsletterStructure> = {},
 ): GenerateNewsletterObjectFn {
   return vi.fn().mockResolvedValue({
-    object: {
-      subject: overrides.subject ?? "Market Rally Continues",
-      executiveSummary:
-        overrides.executiveSummary ?? "Stocks rose for the third day.",
-      topNews: overrides.topNews ?? [
-        {
-          title: "Tech gains",
-          summary:
-            "Big tech stocks posted gains for the third consecutive day.",
-        },
-        {
-          title: "Fed pause",
-          summary: "Federal Reserve held interest rates steady at its meeting.",
-        },
-        {
-          title: "Oil dips",
-          summary: "Crude oil prices fell amid demand concerns.",
-        },
-      ],
-    },
+    object: { ...minimalIndustryBrief(), ...patch },
   });
 }
 
@@ -95,16 +115,16 @@ describe("generateNewsletterWithLlm — happy path", () => {
 
     // Assert
     expect(result.subject).toBe("Market Rally Continues");
-    expect(result.content).toContain("EXECUTIVE SUMMARY");
+    expect(result.content).toContain("MP_NEWSLETTER_V2");
     expect(result.content).toContain("Stocks rose for the third day.");
-    expect(result.content).toContain("TOP 3 NEWS");
+    expect(result.content).toContain("BEGIN quick-hits");
     expect(result.description).toBe("Stocks rose for the third day.");
   });
 
-  it("returns default subject when LLM omits subject field", async () => {
+  it("defaults subject when LLM returns an empty subject string", async () => {
     // Setup
     const generateObjectFn = vi.fn().mockResolvedValue({
-      object: { executiveSummary: "Summary.", topNews: [] },
+      object: { ...minimalIndustryBrief(), subject: "" },
     });
 
     // Act
@@ -122,22 +142,46 @@ describe("generateNewsletterWithLlm — happy path", () => {
     expect(result.subject).toBe("Your daily briefing");
   });
 
-  it("caps topNews at 3 items even if LLM returns more", async () => {
-    // Setup
+  it("slices sources to output.topNewsCount when building the user prompt", async () => {
+    // Setup — only two articles should appear in {{sourceSummaries}}.
+    const config = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        openai: { apiKey: "sk-test" },
+        output: { topNewsCount: 2 },
+      }),
+    );
     const generateObjectFn = makeSuccessfulGenerateFn({
-      topNews: [
-        { title: "Item 1", summary: "Summary 1." },
-        { title: "Item 2", summary: "Summary 2." },
-        { title: "Item 3", summary: "Summary 3." },
-        { title: "Item 4", summary: "Summary 4." },
-        { title: "Item 5", summary: "Summary 5." },
-      ],
+      competitiveLandscape: {
+        displayHeading: "C",
+        bullets: [
+          { text: "b1", articleIndex: 1 },
+          { text: "b2", articleIndex: 2 },
+        ],
+      },
+      dealsAndMovements: {
+        displayHeading: "D",
+        bullets: [{ text: "d1", articleIndex: 1 }],
+      },
+      regulatoryPolicyWatch: {
+        displayHeading: "R",
+        bullets: [{ text: "r1", articleIndex: 2 }],
+      },
+      quickHits: {
+        displayHeading: "Q",
+        items: [
+          { text: "h1", articleIndex: 1 },
+          { text: "h2", articleIndex: 2 },
+          { text: "h3", articleIndex: 1 },
+          { text: "h4", articleIndex: 2 },
+          { text: "h5", articleIndex: 1 },
+        ],
+      },
     });
 
     // Act
     const result = await generateNewsletterWithLlm(
       testSources,
-      baseConfig,
+      config,
       testContext,
       {
         generateObjectFn,
@@ -145,10 +189,13 @@ describe("generateNewsletterWithLlm — happy path", () => {
       },
     );
 
-    // Assert — only first 3 items in content
-    expect(result.content).toContain("1. Item 1");
-    expect(result.content).toContain("3. Item 3");
-    expect(result.content).not.toContain("4. Item 4");
+    // Assert — third source URL is never injected because it was not in the prompt slice.
+    expect(result.content).not.toContain("https://example.com/c");
+    const callArgs = (generateObjectFn as ReturnType<typeof vi.fn>).mock
+      .calls[0]![0] as GenerateNewsletterObjectArgs;
+    expect(callArgs.prompt).toContain("Article 1:");
+    expect(callArgs.prompt).toContain("Article 2:");
+    expect(callArgs.prompt).not.toContain("Article 3:");
   });
 
   it("appends a 'Read the full article' line for every top-news item using the matching source URL", async () => {
@@ -198,22 +245,32 @@ describe("generateNewsletterWithLlm — happy path", () => {
       },
     ];
     const generateObjectFn = makeSuccessfulGenerateFn({
-      topNews: [
-        {
-          title: "Tech gains",
-          summary:
-            "Big tech stocks posted strong gains for the third consecutive day.",
-        },
-        {
-          title: "Fed pause",
-          summary:
-            "Federal Reserve held interest rates steady at its latest meeting.",
-        },
-        {
-          title: "Oil dips",
-          summary: "Crude oil prices fell amid weakening demand concerns.",
-        },
-      ],
+      industryPulse: {
+        displayHeading: "Lead",
+        prose: "Plain recap without markdown links in the body.",
+      },
+      competitiveLandscape: {
+        displayHeading: "Competitive",
+        bullets: [
+          {
+            text: "Big tech posted strong gains for the third consecutive day.",
+            articleIndex: 1,
+          },
+          {
+            text: "Federal Reserve held interest rates steady at its latest meeting.",
+            articleIndex: 2,
+          },
+        ],
+      },
+      dealsAndMovements: {
+        displayHeading: "Deals",
+        bullets: [
+          {
+            text: "Crude oil prices fell amid weakening demand concerns.",
+            articleIndex: 3,
+          },
+        ],
+      },
     });
 
     // Act
@@ -227,19 +284,8 @@ describe("generateNewsletterWithLlm — happy path", () => {
       },
     );
 
-    // Assert — summaries are clean prose; the only URLs in the content come
-    // from the deterministic trailing source line, not from inline phrase
-    // markdown wrapping prose like `[Tech stocks gains](https://...)`.
-    const lines = result.content.split("\n");
-    const summaryLines = lines.filter(
-      (line) =>
-        !line.startsWith("Read the full article:") &&
-        !/^\d+\.\s/.test(line.trim()) &&
-        line.trim().length > 0,
-    );
-    for (const line of summaryLines) {
-      expect(line).not.toMatch(/\[[^\]]+]\(https?:\/\//);
-    }
+    // Assert — no inline phrase markdown; URLs only appear on Read-the-full-article lines.
+    expect(result.content).not.toMatch(/\[[^\]]+]\(https?:\/\/[^\s)]+\)/);
   });
 
   it("passes timeout to generateObjectFn when openai.timeoutMs is set", async () => {
@@ -433,11 +479,13 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
       .fn()
       .mockRejectedValueOnce(serverError)
       .mockResolvedValueOnce({
-        object: {
+        object: minimalIndustryBrief({
           subject: "Recovery",
-          executiveSummary: "All clear.",
-          topNews: [{ title: "Up", summary: "Markets recovered strongly." }],
-        },
+          industryPulse: {
+            displayHeading: "Lead",
+            prose: "All clear.",
+          },
+        }),
       });
 
     // Act
@@ -490,11 +538,13 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
   it("returns promptTokens, completionTokens, and totalTokens when usage is present", async () => {
     // Setup
     const generateObjectFn = vi.fn().mockResolvedValue({
-      object: {
+      object: minimalIndustryBrief({
         subject: "Market Update",
-        executiveSummary: "Stocks rose.",
-        topNews: [{ title: "Gains", summary: "Markets rose broadly today." }],
-      },
+        industryPulse: {
+          displayHeading: "Lead",
+          prose: "Stocks rose.",
+        },
+      }),
       usage: {
         promptTokens: 120,
         completionTokens: 80,
@@ -522,11 +572,13 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
   it("returns null for all token fields when usage is absent", async () => {
     // Setup — generateObjectFn returns no usage field
     const generateObjectFn = vi.fn().mockResolvedValue({
-      object: {
+      object: minimalIndustryBrief({
         subject: "No Usage",
-        executiveSummary: "No usage data.",
-        topNews: [{ title: "Story", summary: "A summary without usage data." }],
-      },
+        industryPulse: {
+          displayHeading: "Lead",
+          prose: "No usage data.",
+        },
+      }),
       // usage intentionally omitted
     });
 
@@ -550,11 +602,23 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
   it("returns null for all token fields when usage is undefined", async () => {
     // Setup
     const generateObjectFn = vi.fn().mockResolvedValue({
-      object: {
+      object: minimalIndustryBrief({
         subject: "Undefined Usage",
-        executiveSummary: "Undefined.",
-        topNews: [],
-      },
+        industryPulse: {
+          displayHeading: "Lead",
+          prose: "Undefined.",
+        },
+        quickHits: {
+          displayHeading: "Q",
+          items: [
+            { text: "a", articleIndex: 1 },
+            { text: "b", articleIndex: 2 },
+            { text: "c", articleIndex: 3 },
+            { text: "d", articleIndex: 1 },
+            { text: "e", articleIndex: 2 },
+          ],
+        },
+      }),
       usage: undefined,
     });
 
@@ -758,5 +822,6 @@ describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
     // Assert — articles are numbered in the prompt
     expect(result.resolvedUserPrompt).toContain("Article 1: Story A");
     expect(result.resolvedUserPrompt).toContain("Article 2: Story B");
+    expect(result.resolvedUserPrompt).toContain("Article 3: Story C");
   });
 });

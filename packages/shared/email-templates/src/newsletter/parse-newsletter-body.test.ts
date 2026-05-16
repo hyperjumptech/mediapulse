@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { parseNewsletterBody } from "./parse-newsletter-body.js";
+import {
+  parseNewsletterBody,
+  type LegacyParsedNewsletterBody,
+} from "./parse-newsletter-body.js";
+
+/**
+ * Parses a body that must use the legacy executive summary + top news wire shape.
+ *
+ * @param bodyText - Legacy wire body.
+ * @returns Legacy parse result.
+ */
+const expectLegacyBody = (bodyText: string): LegacyParsedNewsletterBody => {
+  const result = parseNewsletterBody(bodyText);
+  expect(result).toBeDefined();
+  expect(result!.format).toBe("legacy");
+  return result as LegacyParsedNewsletterBody;
+};
 
 describe("parseNewsletterBody", () => {
   it("parses a well-formed body with 3 news items", () => {
@@ -25,7 +41,7 @@ describe("parseNewsletterBody", () => {
     ].join("\n");
 
     // Act
-    const result = parseNewsletterBody(bodyText);
+    const result = expectLegacyBody(bodyText);
 
     // Assert
     expect(result).toBeDefined();
@@ -73,7 +89,7 @@ describe("parseNewsletterBody", () => {
     ].join("\n");
 
     // Act
-    const result = parseNewsletterBody(bodyText);
+    const result = expectLegacyBody(bodyText);
 
     // Assert
     expect(result).toBeDefined();
@@ -190,7 +206,7 @@ describe("parseNewsletterBody", () => {
     ].join("\n");
 
     // Act
-    const result = parseNewsletterBody(bodyText);
+    const result = expectLegacyBody(bodyText);
 
     // Assert
     expect(result).toBeDefined();
@@ -218,7 +234,7 @@ describe("parseNewsletterBody", () => {
     ].join("\n");
 
     // Act
-    const result = parseNewsletterBody(bodyText);
+    const result = expectLegacyBody(bodyText);
 
     // Assert
     expect(result).toBeDefined();
@@ -303,7 +319,7 @@ describe("parseNewsletterBody", () => {
     ].join("\n");
 
     // Act
-    const result = parseNewsletterBody(bodyText);
+    const result = expectLegacyBody(bodyText);
 
     // Assert
     expect(result).toBeDefined();
@@ -338,7 +354,7 @@ describe("parseNewsletterBody", () => {
     ].join("\n");
 
     // Act
-    const result = parseNewsletterBody(bodyText);
+    const result = expectLegacyBody(bodyText);
 
     // Assert
     expect(result).toBeDefined();
@@ -375,7 +391,7 @@ describe("parseNewsletterBody", () => {
     ].join("\n");
 
     // Act
-    const result = parseNewsletterBody(bodyText);
+    const result = expectLegacyBody(bodyText);
 
     // Assert
     expect(result).toBeDefined();
@@ -402,11 +418,95 @@ describe("parseNewsletterBody", () => {
     ].join("\n");
 
     // Act
-    const result = parseNewsletterBody(bodyText);
+    const result = expectLegacyBody(bodyText);
 
     // Assert
     expect(result).toBeDefined();
     expect(result!.topNewsItems[0]?.url).toBe("https://example.com/upper");
     expect(result!.topNewsItems[0]?.summary).toBe("Summary text.");
+  });
+});
+
+describe("parseNewsletterBody — industry wire v2", () => {
+  it("parses a minimal v2 wire body with prose disruptors", () => {
+    const bodyText = [
+      "MP_NEWSLETTER_V2",
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "Week in sector",
+      "PROSE",
+      "Lead paragraph only.",
+      "END",
+      "",
+      "BEGIN competitive-landscape",
+      "DISPLAY_HEADING",
+      "Battle lines",
+      "BULLET",
+      "First mover extended its lead.",
+      "Read the full article: https://example.com/a",
+      "BULLET",
+      "Second player responded with pricing.",
+      "END",
+      "",
+      "BEGIN deals-and-movements",
+      "DISPLAY_HEADING",
+      "Deals desk",
+      "BULLET",
+      "A regional acquisition closed.",
+      "END",
+      "",
+      "BEGIN regulatory-policy-watch",
+      "DISPLAY_HEADING",
+      "Policy",
+      "BULLET",
+      "Agencies hinted at tighter oversight.",
+      "END",
+      "",
+      "BEGIN disruptors-or-tech",
+      "DISPLAY_HEADING",
+      "Innovation",
+      "FORMAT",
+      "prose",
+      "PROSE",
+      "Founders keep shipping faster release cycles.",
+      "END",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Quick hits",
+      "ITEM",
+      "Hit one",
+      "Read the full article: https://example.com/a",
+      "ITEM",
+      "Hit two",
+      "Read the full article: https://example.com/b",
+      "ITEM",
+      "Hit three",
+      "Read the full article: https://example.com/c",
+      "ITEM",
+      "Hit four",
+      "Read the full article: https://example.com/a",
+      "ITEM",
+      "Hit five",
+      "Read the full article: https://example.com/b",
+      "END",
+    ].join("\n");
+
+    const result = parseNewsletterBody(bodyText);
+
+    expect(result?.format).toBe("industry-v2");
+    if (result?.format !== "industry-v2") {
+      throw new Error("expected v2");
+    }
+    expect(result.sections).toHaveLength(6);
+    expect(result.sections[0]?.machineKey).toBe("industry-pulse");
+    const quick = result.sections.find((s) => s.machineKey === "quick-hits");
+    expect(quick).toBeDefined();
+    if (!quick || quick.machineKey !== "quick-hits") {
+      throw new Error("expected quick hits");
+    }
+    expect(quick.items).toHaveLength(5);
+    expect(quick.items[0]?.url).toBe("https://example.com/a");
   });
 });
