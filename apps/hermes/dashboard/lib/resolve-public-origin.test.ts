@@ -17,12 +17,12 @@ describe("resolvePublicOrigin", () => {
       resolvePublicOrigin(
         new Request("http://0.0.0.0:3001/path", {
           headers: {
-            "x-forwarded-host": "mediapulse-hermes.fly.dev",
+            "x-forwarded-host": "dashboard.example.com",
             "x-forwarded-proto": "https",
           },
         }),
       ),
-    ).toBe("https://mediapulse-hermes.fly.dev");
+    ).toBe("https://dashboard.example.com");
   });
 
   it("defaults proto to https when forwarded host is set but proto is missing", () => {

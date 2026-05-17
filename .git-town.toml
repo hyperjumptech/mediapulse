@@ -1,0 +1,24 @@
+# Git Town configuration. Tracked so the whole team stays on the same
+# stacked-PR workflow without per-clone setup.
+#
+# Reference: https://www.git-town.com/configuration-file
+
+[sync]
+# Use `rebase` instead of the default `merge` when bringing parent and
+# tracking-branch changes into a feature branch.
+#
+# This repo merges PRs on GitHub with "Rebase and merge" (and sometimes
+# "Squash and merge"), both of which rewrite SHAs when a PR lands on `main`.
+# Default merge-mode sync leaves old-SHA copies of the parent's commits
+# inside child branches, which then makes GitHub refuse to rebase those
+# children with "This branch cannot be rebased due to conflicts" even
+# though no real content conflict exists.
+#
+# Rebase-mode sync drops those duplicate commits automatically via Git's
+# patch-id detection and safely force-pushes the result with
+# `--force-with-lease --force-if-includes`, so teammate commits are never
+# overwritten.
+#
+# See `.cursor/skills/git-town-stacked-changes/SKILL.md` for the full
+# rationale and the manual recovery recipe used when something goes wrong.
+feature-strategy = "rebase"

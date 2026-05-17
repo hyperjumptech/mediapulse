@@ -27,7 +27,7 @@ export interface JsonSchema {
   items?: JsonSchema;
   enum?: unknown[];
   default?: unknown;
-  /** JSON Schema format (e.g. "date", "date-time"). */
+  /** JSON Schema format (e.g. "date", "date-time", "textarea"). */
   format?: string;
 }
 

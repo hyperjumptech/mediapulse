@@ -26,6 +26,53 @@
  */
 
 /**
+ * Normalizes `Intl.DateTimeFormat` wall-clock parts when the hour field is `24`.
+ * Some engines emit `24:mm:ss` with non-zero minutes (invalid in ISO 8601); those
+ * are treated as `00:mm:ss` on the same civil date. A valid end-of-day `24:00:00`
+ * on civil date `D` is treated as `00:00:00` on the next civil day.
+ *
+ * @param year - Calendar year (e.g. 2026).
+ * @param month - Calendar month (1–12).
+ * @param day - Calendar day (1–31).
+ * @param hour - Hour from formatter (may be 24).
+ * @param minute - Minute (0–59).
+ * @param second - Second (0–59).
+ * @returns Normalized civil date/time fields.
+ */
+export const normalizeHour24WallClock = (
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+} => {
+  if (hour !== 24) {
+    return { year, month, day, hour, minute, second };
+  }
+  if (minute === 0 && second === 0) {
+    const shiftedMs = Date.UTC(year, month - 1, day + 1);
+    const shifted = new Date(shiftedMs);
+    return {
+      year: shifted.getUTCFullYear(),
+      month: shifted.getUTCMonth() + 1,
+      day: shifted.getUTCDate(),
+      hour: 0,
+      minute: 0,
+      second: 0,
+    };
+  }
+  return { year, month, day, hour: 0, minute, second };
+};
+
+/**
  * Returns the UTC start and end timestamps for the current calendar day
  * in the given IANA timezone.
  *
@@ -55,23 +102,28 @@ export function computeFreshnessWindow(
     return part?.value ?? "";
   };
 
-  const year = parseInt(get("year"), 10);
-  const month = parseInt(get("month"), 10);
-  const day = parseInt(get("day"), 10);
+  const rawYear = parseInt(get("year"), 10);
+  const rawMonth = parseInt(get("month"), 10);
+  const rawDay = parseInt(get("day"), 10);
+  const rawHour = parseInt(get("hour"), 10);
+  const rawMinute = parseInt(get("minute"), 10);
+  const rawSecond = parseInt(get("second"), 10);
+
+  const { year, month, day, hour, minute, second } = normalizeHour24WallClock(
+    rawYear,
+    rawMonth,
+    rawDay,
+    rawHour,
+    rawMinute,
+    rawSecond,
+  );
 
   // Compute the offset between the UTC time and the local time in the timezone
   // by creating a Date from the local parts and comparing it to the original `now`.
   const localMidnightUTC = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
 
   // Determine the timezone offset by comparing the formatted local time to UTC
-  const localTimeAsUTC = Date.UTC(
-    year,
-    month - 1,
-    day,
-    parseInt(get("hour"), 10),
-    parseInt(get("minute"), 10),
-    parseInt(get("second"), 10),
-  );
+  const localTimeAsUTC = Date.UTC(year, month - 1, day, hour, minute, second);
 
   const offsetMs = localTimeAsUTC - now.getTime();
 

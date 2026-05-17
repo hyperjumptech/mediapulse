@@ -1,5 +1,26 @@
 import { z } from "zod";
 
+import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
+
+/** Maximum length for each optional `prompts.*` string (Hermes JSON config). */
+export const CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH = 50_000;
+
+const contentGenerationSystemPromptPlaceholders = new Set([
+  "topNewsCount",
+  "tickerId",
+  "tickerName",
+  "tickerSymbol",
+]);
+
+const contentGenerationUserPromptPlaceholders = new Set([
+  "sourceSummaries",
+  "tickerId",
+  "tickerName",
+  "tickerSymbol",
+  "date",
+  "topNewsCount",
+]);
+
 const llmRetrySchema = z.object({
   /** Maximum total attempts (including the first). */
   maxAttempts: z.number().int().nonnegative().optional(),
@@ -28,16 +49,6 @@ const openaiOptionsSchema = z.object({
   maxTokens: z.number().int().positive().optional(),
   /** Per-request timeout in milliseconds passed to the AI SDK `generateObject` call. */
   timeoutMs: z.number().int().positive().optional(),
-});
-
-const promptsSchema = z.object({
-  /** System prompt for the agent. */
-  systemPrompt: z.string().optional(),
-  /**
-   * User prompt template.
-   * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{date}}, {{topNewsCount}}
-   */
-  userPromptTemplate: z.string().optional(),
 });
 
 const outputSchema = z.object({
@@ -114,13 +125,28 @@ export const ContentGenerationConfigSchema = z
 
     prompts: z
       .object({
-        /** System prompt for the agent. */
-        systemPrompt: z.string().optional(),
         /**
-         * User prompt template.
-         * Supported placeholders: {{sourceSummaries}}, {{tickerId}}, {{date}}, {{topNewsCount}}
+         * System prompt template. Defaults in code apply when omitted.
+         * Supported placeholders: `{{topNewsCount}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`.
+         * Do not put API keys or secrets here — use `openai.apiKey` only.
          */
-        userPromptTemplate: z.string().optional(),
+        systemPrompt: z
+          .string()
+          .max(CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH, {
+            message: `prompts.systemPrompt must be at most ${String(CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
+          })
+          .optional(),
+        /**
+         * User prompt template. Supported placeholders: `{{sourceSummaries}}`, `{{tickerId}}`,
+         * `{{tickerName}}`, `{{tickerSymbol}}`, `{{date}}`, `{{topNewsCount}}`.
+         * Do not put API keys or secrets here — use `openai.apiKey` only.
+         */
+        userPromptTemplate: z
+          .string()
+          .max(CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH, {
+            message: `prompts.userPromptTemplate must be at most ${String(CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
+          })
+          .optional(),
       })
       .default({}),
 
@@ -220,7 +246,34 @@ export const ContentGenerationConfigSchema = z
     ),
   })
   /** Reject unknown keys (e.g. removed top-level `openaiApiKey`) so configs fail fast. */
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    const prompts = data.prompts;
+    if (prompts.systemPrompt) {
+      for (const token of findUnknownLlmPromptPlaceholderTokens(
+        prompts.systemPrompt,
+        contentGenerationSystemPromptPlaceholders,
+      )) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Unknown placeholder {{${token}}} in prompts.systemPrompt`,
+          path: ["prompts", "systemPrompt"],
+        });
+      }
+    }
+    if (prompts.userPromptTemplate) {
+      for (const token of findUnknownLlmPromptPlaceholderTokens(
+        prompts.userPromptTemplate,
+        contentGenerationUserPromptPlaceholders,
+      )) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Unknown placeholder {{${token}}} in prompts.userPromptTemplate`,
+          path: ["prompts", "userPromptTemplate"],
+        });
+      }
+    }
+  });
 
 export type ContentGenerationConfig = z.infer<
   typeof ContentGenerationConfigSchema

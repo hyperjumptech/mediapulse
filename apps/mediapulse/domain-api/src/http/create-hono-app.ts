@@ -1,5 +1,5 @@
 import { env } from "@mediapulse/env";
-import { logger } from "@workspace/logger";
+import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
 import { Hono } from "hono";
 import { pinoLogger } from "hono-pino";
 import {
@@ -25,6 +25,13 @@ export const createDomainApiServer = (): {
 } => {
   const app = new Hono();
 
+  app.use(
+    pinoLogger({
+      pino: logger,
+      http: slimHonoPinoHttpLoggerOptions,
+    }),
+  );
+
   // Public routes — no agent-auth JWT required.
   app.route("/api", unsubscribeRoutes);
 
@@ -34,28 +41,13 @@ export const createDomainApiServer = (): {
     );
   }
 
-  const api = app.basePath("/v1");
+  /** Liveness for load balancers; same contract as Hermes `GET /health` on domain integrations. */
+  app.route("/health", healthRoutes);
 
-  api.use(
-    pinoLogger({
-      pino: logger,
-      http: {
-        onResBindings: (c) => ({
-          res: {
-            status: c.res.status,
-            headers: Object.fromEntries(c.res.headers.entries()),
-          },
-        }),
-      },
-    }),
-  );
+  const api = app.basePath("/v1");
 
   if (env.AGENT_AUTH_API_URL?.trim()) {
     api.use("*", async (c, next) => {
-      const path = new URL(c.req.url).pathname;
-      if (path.endsWith("/health")) {
-        return next();
-      }
       const ok = await verifyInvocationJwtFromHeader(
         c.req.header("Authorization"),
       );
@@ -66,8 +58,6 @@ export const createDomainApiServer = (): {
     });
   }
 
-  api.route("/health", healthRoutes);
-
   for (const { segment, app: subApp } of hermesDashboardRouteMounts) {
     api.route(hermesDashboardTableMountPath(segment), subApp);
   }
@@ -77,6 +67,6 @@ export const createDomainApiServer = (): {
 
   return {
     port: env.PORT ?? 8090,
-    fetch: api.fetch,
+    fetch: app.fetch,
   };
 };

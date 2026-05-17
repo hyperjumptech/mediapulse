@@ -16,12 +16,14 @@ import { useFormAction as useUpdateFormAction } from "@/app/dashboard/pipelines/
 
 import { PipelineFormFields } from "./pipeline-form-fields";
 import type { PipelineForEdit } from "@/app/dashboard/pipelines/actions/get-for-edit";
+import type { PipelineDomainIntegrationOption } from "./pipelines-with-modal";
 
 export type PipelineFormModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: "create" | "edit";
   editPipelineId: string | null;
+  domainIntegrations: PipelineDomainIntegrationOption[];
 };
 
 /**
@@ -32,6 +34,7 @@ const usePipelineFormModalState = ({
   onOpenChange,
   mode,
   editPipelineId,
+  domainIntegrations,
 }: PipelineFormModalProps) => {
   const router = useRouter();
   const [pipeline, setPipeline] = useState<PipelineForEdit | null | "loading">(
@@ -101,6 +104,7 @@ const usePipelineFormModalState = ({
           defaultDescription: pipeline.description ?? "",
           defaultIsActive: pipeline.isActive,
           defaultTimeoutMs: pipeline.timeout ?? undefined,
+          defaultDomainIntegrationId: pipeline.domainIntegrationId,
           pipelineId: pipeline.id,
         }
       : {
@@ -108,6 +112,7 @@ const usePipelineFormModalState = ({
           defaultDescription: "",
           defaultIsActive: true,
           defaultTimeoutMs: undefined,
+          defaultDomainIntegrationId: undefined as string | undefined,
           pipelineId: undefined as string | undefined,
         }
     : {
@@ -115,6 +120,7 @@ const usePipelineFormModalState = ({
         defaultDescription: "",
         defaultIsActive: true,
         defaultTimeoutMs: undefined,
+        defaultDomainIntegrationId: undefined as string | undefined,
         pipelineId: undefined as string | undefined,
       };
 
@@ -130,6 +136,7 @@ const usePipelineFormModalState = ({
     errorMessage,
     submitLabel,
     formFieldsProps,
+    domainIntegrations,
     isLoadingEdit,
     notFound,
     canShowForm,
@@ -149,6 +156,7 @@ export const PipelineFormModal = (props: PipelineFormModalProps) => {
     errorMessage,
     submitLabel,
     formFieldsProps,
+    domainIntegrations,
     isLoadingEdit,
     notFound,
     canShowForm,
@@ -173,6 +181,7 @@ export const PipelineFormModal = (props: PipelineFormModalProps) => {
                   pending={pending}
                   errorMessage={errorMessage}
                   submitLabel={submitLabel}
+                  domainIntegrations={domainIntegrations}
                   {...formFieldsProps}
                 />
               </Form>

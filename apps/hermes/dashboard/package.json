@@ -17,6 +17,7 @@
     "create:admin": "tsx scripts/create-admin.ts",
     "seed-local-domain-integration": "tsx scripts/seed-local-domain-integration.ts",
     "seed-kg-pipelines": "tsx scripts/seed-kg-pipelines.ts",
+    "simulate:api-keys-ui": "node scripts/capture-hermes-mcp-api-keys-screenshots.mjs",
     "test": "pnpm generate && vitest --run",
     "test:coverage": "pnpm generate && vitest --run --coverage"
   },
@@ -30,6 +31,7 @@
     "@next/env": "catalog:",
     "@nicnocquee/dataqueue": "^1.39.0",
     "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/json-schema-form": "workspace:*",
     "@workspace/logger": "workspace:*",

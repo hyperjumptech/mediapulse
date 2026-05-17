@@ -1,0 +1,224 @@
+import { tableV1ListResponseSchema } from "@hermes/domain-contract";
+import { prisma, Prisma } from "@mediapulse/database";
+import { parseNewsletterCitations } from "@workspace/email-templates/parse-newsletter-citations";
+import { logger } from "@workspace/logger";
+import { Hono } from "hono";
+import { z } from "zod";
+
+import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
+import { parsePagination } from "../../lib/list-pagination";
+import { findActiveQuerySetForNewsletter } from "./active-query-set";
+import { buildHermesLinks } from "./build-hermes-links";
+import {
+  buildRecipients,
+  NEWSLETTER_DETAIL_RECIPIENTS_CAP,
+} from "./build-recipients";
+import { buildSelectedSources } from "./build-selected-sources";
+import { buildDeliveryAggregateMap } from "./delivery-aggregate";
+import { detailInclude, mapRowToDetailItem } from "./detail-mapper";
+import { renderEmailPreview } from "./render-email-preview";
+import {
+  buildNewsletterListOrderBy,
+  buildNewsletterListWhere,
+  type NewsletterListSortField,
+} from "./list-filters";
+import { listInclude, mapRowToListItem } from "./list-mapper";
+
+const NEWSLETTERS_PATH_SEGMENT = "newsletters" as const;
+
+/**
+ * Hermes `table-v1` API for read-only newsletters (list, meta, detail).
+ * The detail handler returns the full payload defined by the
+ * `hermes-admin-newsletter-visibility` PRD §5; the manifest declares
+ * `detailBlocks` so the Hermes dashboard renders it via the generic detail
+ * page.
+ */
+export const newslettersRoutes = new Hono();
+
+const parseSortBy = (
+  raw: string | undefined,
+): NewsletterListSortField | undefined => {
+  if (raw === "subject") return "subject";
+  if (raw === "createdAt") return "createdAt";
+  return undefined;
+};
+
+const parseDate = (raw: string | undefined): Date | undefined => {
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
+newslettersRoutes.get("/", async (c) => {
+  const { page, pageSize } = parsePagination(
+    c.req.query("page"),
+    c.req.query("pageSize"),
+  );
+  const skip = (page - 1) * pageSize;
+
+  const tickerFilter = z
+    .string()
+    .uuid()
+    .safeParse(c.req.query("tickerId")?.trim() ?? "");
+
+  const where = buildNewsletterListWhere({
+    q: c.req.query("q"),
+    tickerId: tickerFilter.success ? tickerFilter.data : undefined,
+    from: parseDate(c.req.query("from")),
+    to: parseDate(c.req.query("to")),
+  });
+
+  const orderBy = buildNewsletterListOrderBy(
+    parseSortBy(c.req.query("sortBy")),
+    c.req.query("sortDir") === "asc" ? "asc" : "desc",
+  );
+
+  const findManyArgs = {
+    where,
+    include: listInclude,
+    skip,
+    take: pageSize,
+    orderBy,
+  } satisfies Prisma.NewsletterFindManyArgs;
+
+  const [rows, total] = await Promise.all([
+    prisma.newsletter.findMany(findManyArgs),
+    prisma.newsletter.count({ where }),
+  ]);
+
+  const aggregates = await buildDeliveryAggregateMap(
+    rows.map((row) => ({ id: row.id, tickerId: row.tickerId })),
+    {
+      newsletterDeliveryCheckpoint: prisma.newsletterDeliveryCheckpoint,
+      deliveryRun: prisma.deliveryRun,
+      userTicker: prisma.userTicker,
+    },
+  );
+
+  const payload = tableV1ListResponseSchema.parse({
+    items: rows.map((row) =>
+      mapRowToListItem(
+        row,
+        aggregates.get(row.id) ?? {
+          deliveryDelivered: 0,
+          deliveryEnabledAtSendTime: 0,
+          deliveryHasRun: false,
+        },
+      ),
+    ),
+    total,
+    page,
+    pageSize,
+  });
+
+  return c.json(payload);
+});
+
+newslettersRoutes.get("/meta", async (c) => {
+  const base = buildMetaPayloadForPathSegment(NEWSLETTERS_PATH_SEGMENT);
+  if (!base) {
+    return c.json({ message: "Unknown dashboard resource" }, 404);
+  }
+
+  const tickerOptions = await prisma.ticker.findMany({
+    select: { id: true, symbol: true, name: true },
+    orderBy: { symbol: "asc" },
+  } satisfies Prisma.TickerFindManyArgs);
+
+  return c.json({
+    ...base,
+    tickerOptions: tickerOptions.map((ticker) => ({
+      value: ticker.id,
+      label: `${ticker.symbol} — ${ticker.name}`,
+    })),
+  });
+});
+
+newslettersRoutes.get("/:id", async (c) => {
+  const id = c.req.param("id");
+  const findUniqueArgs = {
+    where: { id },
+    include: detailInclude,
+  } satisfies Prisma.NewsletterFindUniqueArgs;
+  const row = await prisma.newsletter.findUnique(findUniqueArgs);
+
+  if (!row) {
+    return c.json({ message: "Newsletter not found" }, 404);
+  }
+
+  const [
+    recipientsResult,
+    selectedSourcesResult,
+    activeQuerySet,
+    hermesLinks,
+    emailPreviewHtml,
+  ] = await Promise.all([
+    buildRecipients(row.id, row.tickerId, {
+      userTicker: prisma.userTicker,
+      newsletterDeliveryCheckpoint: prisma.newsletterDeliveryCheckpoint,
+      deliveryRun: prisma.deliveryRun,
+    }),
+    buildSelectedSources(row.id, row.tickerId, row.createdAt, {
+      dataSource: prisma.dataSource,
+    }),
+    findActiveQuerySetForNewsletter(row.tickerId, row.createdAt, {
+      searchQuerySet: prisma.searchQuerySet,
+    }),
+    buildHermesLinks(row.id, {
+      contentGenerationRun: prisma.contentGenerationRun,
+      deliveryRun: prisma.deliveryRun,
+    }),
+    renderEmailPreview(
+      {
+        newsletterId: row.id,
+        subject: row.subject,
+        bodyText: row.content,
+        tickerSymbol: row.ticker.symbol,
+      },
+      { logger },
+    ),
+  ]);
+
+  for (const entry of recipientsResult.notAttemptedAtSendTime) {
+    logger.warn(
+      {
+        newsletterId: row.id,
+        userTickerId: entry.userTickerId,
+        runId: entry.runId,
+      },
+      "Enabled subscriber resolved to not_attempted for newsletter",
+    );
+  }
+  for (const userTickerId of recipientsResult.inconsistentUserTickerIds) {
+    logger.warn(
+      {
+        newsletterId: row.id,
+        userTickerId,
+        runId: hermesLinks.deliveryRunIds[0] ?? null,
+      },
+      "Newsletter recipient outcome=success without checkpoint (inconsistent)",
+    );
+  }
+
+  const citations = parseNewsletterCitations(row.content);
+
+  return c.json(
+    mapRowToDetailItem(row, {
+      emailPreviewHtml,
+      citations,
+      recipients: recipientsResult.recipients,
+      recipientsTruncated: recipientsResult.truncated,
+      recipientsCap: NEWSLETTER_DETAIL_RECIPIENTS_CAP,
+      recipientsTotalCount: recipientsResult.totalCount,
+      recipientsDeliveredCount: recipientsResult.deliveredCount,
+      recipientsEnabledAtSendTime: recipientsResult.enabledAtSendTime,
+      selectedSources: selectedSourcesResult.sources,
+      selectedSourcesWindow: {
+        start: selectedSourcesResult.windowStart,
+        end: selectedSourcesResult.windowEnd,
+      },
+      activeQuerySet,
+      hermesLinks,
+    }),
+  );
+});

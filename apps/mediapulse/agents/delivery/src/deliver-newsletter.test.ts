@@ -1,14 +1,24 @@
 /** @vitest-environment node */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Resend } from "resend";
-import { renderNewsletterEmail } from "@workspace/email-templates";
+import {
+  DEFAULT_HYPERJUMP_SITE_URL,
+  DEFAULT_MEDIAPULSE_SITE_URL,
+  renderNewsletterEmail,
+} from "@workspace/email-templates";
 
 import { DeliveryConfigSchema } from "./config-schema.js";
 import { deliverNewsletterToSubscribers } from "./deliver-newsletter.js";
 
-vi.mock("@workspace/email-templates", () => ({
-  renderNewsletterEmail: vi.fn(),
-}));
+vi.mock("@workspace/email-templates", async () => {
+  const actual = await vi.importActual<
+    typeof import("@workspace/email-templates")
+  >("@workspace/email-templates");
+  return {
+    ...actual,
+    renderNewsletterEmail: vi.fn(),
+  };
+});
 
 const newsletter = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -64,6 +74,8 @@ describe("deliverNewsletterToSubscribers", () => {
         "https://example.com/api/unsubscribe",
       ),
       tickerSymbol: "AAPL",
+      mediapulseSiteUrl: DEFAULT_MEDIAPULSE_SITE_URL,
+      hyperjumpSiteUrl: DEFAULT_HYPERJUMP_SITE_URL,
     });
     expect(acquire).toHaveBeenCalledOnce();
     expect(sendWithRetry).toHaveBeenCalledOnce();
@@ -220,6 +232,44 @@ describe("deliverNewsletterToSubscribers", () => {
     expect(sendWithRetry.mock.calls[0]?.[1]).toMatchObject({
       replyTo: "replies@example.com",
       tags: [{ name: "env", value: "test" }],
+    });
+  });
+
+  it("forwards operator-configured branding URLs to renderNewsletterEmail", async () => {
+    // Setup
+    const mediapulseSiteUrl = "https://staging.mediapulse.example";
+    const hyperjumpSiteUrl = "https://staging.hyperjump.example";
+    const cfg = DeliveryConfigSchema.parse({
+      resendApiKey: "re_k",
+      resend: { from: "from@example.com" },
+      branding: { mediapulseSiteUrl, hyperjumpSiteUrl },
+      unsubscribe: {
+        secret: "test-secret",
+        baseUrl: "https://example.com/api",
+      },
+    });
+    const sendWithRetry = vi
+      .fn()
+      .mockResolvedValue({ id: "re_brand", attempts: 1 });
+
+    // Act
+    await deliverNewsletterToSubscribers(
+      newsletter,
+      [{ userTickerId, email: "u@example.com" }],
+      [],
+      cfg,
+      {
+        resend: {} as Resend,
+        rateLimiter: { acquire: vi.fn().mockResolvedValue(0) },
+        sendWithRetry,
+      },
+    );
+
+    // Assert
+    const renderCall = vi.mocked(renderNewsletterEmail).mock.calls[0]?.[0];
+    expect(renderCall).toMatchObject({
+      mediapulseSiteUrl,
+      hyperjumpSiteUrl,
     });
   });
 

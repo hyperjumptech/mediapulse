@@ -14,16 +14,34 @@ vi.mock("@hermes/orchestration-database", () => ({
   },
 }));
 
-process.env.ORCHESTRATION_DATABASE_URL ??=
-  "postgresql://localhost:5432/test?schema=orchestration";
-process.env.HERMES_INTERNAL_API_KEY ??= "test-internal-key-for-index-test";
-process.env.TEMP_ADMIN_USERNAME ??= "test-admin";
-process.env.TEMP_ADMIN_PASSWORD ??= "test-password";
+vi.mock("@hermes/env", () => ({
+  env: {
+    ORCHESTRATION_DATABASE_URL:
+      "postgresql://localhost:5432/test?schema=orchestration",
+    AGENT_AUTH_API_URL: "http://localhost:8080",
+    AGENT_AUTH_JWT_SECRET: "test-jwt-secret-for-index-test-at-least-16-chars",
+    HERMES_INTERNAL_API_KEY: "test-internal-key-for-index-test",
+    TEMP_ADMIN_USERNAME: "test-admin",
+    TEMP_ADMIN_PASSWORD: "test-password",
+    PORT: 8080,
+  },
+}));
 
 describe("agent-auth-api", () => {
   it("exports a fetch handler", async () => {
     const mod = await import("./index.js");
     expect(typeof mod.agentAuthApiServer.fetch).toBe("function");
     expect(mod.default).toBe(mod.agentAuthApiServer);
+  });
+
+  it("GET /health returns domain health JSON", async () => {
+    const mod = await import("./index.js");
+    const res = await mod.agentAuthApiServer.fetch(
+      new Request("http://localhost/health", { method: "GET" }),
+    );
+    const body = (await res.json()) as { ok: boolean; service: string };
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ ok: true, service: "agent-auth-api" });
   });
 });

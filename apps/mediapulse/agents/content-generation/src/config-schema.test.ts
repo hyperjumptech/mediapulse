@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   contentGenerationConfigDefaults,
   ContentGenerationConfigSchema,
+  CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH,
   resolveContentGenerationConfig,
 } from "./config-schema.js";
 
@@ -74,6 +75,59 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.output.topNewsCount).toBe(5);
     expect(parsed.prompts.userPromptTemplate).toBe("Hello {{tickerId}}");
     expect(parsed.freshness.timezone).toBe("America/New_York");
+  });
+
+  it("rejects unknown placeholder in prompts.systemPrompt", () => {
+    const result = ContentGenerationConfigSchema.safeParse({
+      openai: { apiKey: "sk-test" },
+      prompts: {
+        systemPrompt: "{{tickerId}} {{notARealToken}}",
+      },
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) =>
+          i.message.includes("{{notARealToken}}"),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("rejects unknown placeholder in prompts.userPromptTemplate", () => {
+    const result = ContentGenerationConfigSchema.safeParse({
+      openai: { apiKey: "sk-test" },
+      prompts: {
+        userPromptTemplate: "{{tickerId}} {{bogus}}",
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects prompts.systemPrompt longer than max", () => {
+    const result = ContentGenerationConfigSchema.safeParse({
+      openai: { apiKey: "sk-test" },
+      prompts: {
+        systemPrompt: "x".repeat(
+          CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH + 1,
+        ),
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts systemPrompt at exactly max length", () => {
+    const parsed = ContentGenerationConfigSchema.parse({
+      openai: { apiKey: "sk-test" },
+      prompts: {
+        systemPrompt: "y".repeat(
+          CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH,
+        ),
+      },
+    });
+    expect(parsed.prompts.systemPrompt?.length).toBe(
+      CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH,
+    );
   });
 
   it("rejects missing openai object", () => {

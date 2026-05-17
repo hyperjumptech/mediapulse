@@ -5,15 +5,16 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
+    NODE_ENV: z.string().optional(),
     ORCHESTRATION_DATABASE_URL: z.string().min(1),
     PG_DATAQUEUE_DATABASE: z.string().optional(),
     HERMES_DATA_SOURCE_MAX_TAKE: z.number({ coerce: true }).optional(),
     DATABASE_CERT_BASE64: z.string().optional(),
     PORT: z.number({ coerce: true }).optional(),
-    AGENT_AUTH_API_URL: z.string().optional(),
+    AGENT_AUTH_API_URL: z.string().min(1),
     HERMES_INTERNAL_API_KEY: z.string().min(1),
     HERMES_INTERNAL_API_KEY_PREVIOUS: z.string().optional(),
-    AGENT_AUTH_JWT_SECRET: z.string().optional(),
+    AGENT_AUTH_JWT_SECRET: z.string().min(1),
     TEMP_ADMIN_USERNAME: z.string().min(1),
     TEMP_ADMIN_PASSWORD: z.string().min(1),
     HERMES_DASHBOARD_PUBLIC_URL: z.string().min(1).default("http://localhost:3001"),
@@ -21,6 +22,7 @@ export const env = createEnv({
     HERMES_RESEND_FROM: z.string().optional(),
     AGENT_DATA_API_URL: z.string().optional(),
     HERMES_CGA_DIAGNOSTICS_ENABLED: z.string().optional(),
+    HERMES_MCP_API_KEY_PEPPER: z.string().min(1),
   },
   client: {
   },

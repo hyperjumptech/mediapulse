@@ -1,7 +1,7 @@
-import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
-import { prisma } from "@hermes/orchestration-database";
+import { domainHealthResponseSchema } from "@hermes/domain-contract/contracts";
 import { env } from "@hermes/env";
-import { logger } from "@workspace/logger";
+import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
+import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
@@ -11,20 +11,27 @@ if (!env.AGENT_AUTH_API_URL) {
   throw new Error("AGENT_AUTH_API_URL is required for agent-registry-api");
 }
 
-const app = new Hono();
-const api = app.basePath("/api");
+/**
+ * Builds the JSON body for the public liveness route `GET /health`.
+ *
+ * @returns Parsed payload matching the Hermes domain health contract.
+ */
+const buildAgentRegistryApiHealthBody = () =>
+  domainHealthResponseSchema.parse({
+    ok: true,
+    service: "agent-registry-api",
+  });
+
+const rootApp = new Hono();
+
+rootApp.get("/health", (c) => c.json(buildAgentRegistryApiHealthBody()));
+
+const api = new Hono();
 
 api.use(
   pinoLogger({
     pino: logger,
-    http: {
-      onResBindings: (c) => ({
-        res: {
-          status: c.res.status,
-          headers: Object.fromEntries(c.res.headers.entries()),
-        },
-      }),
-    },
+    http: slimHonoPinoHttpLoggerOptions,
   }),
 );
 
@@ -38,7 +45,9 @@ api.use(
 
 api.post("/agents/register", registerAgent);
 
+rootApp.route("/api", api);
+
 export default {
   port: env.PORT ?? 8082,
-  fetch: api.fetch,
+  fetch: rootApp.fetch,
 };

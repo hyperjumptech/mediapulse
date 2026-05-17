@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { detailBlockSchema } from "./detail-blocks";
+
 /**
  * Capabilities supported by the domain integration. Currently only `expand-step-inputs` and `preview-expansion` are supported.
  */
@@ -149,6 +151,11 @@ export const dashboardPageSchema = z.object({
   customActions: z.array(dashboardPageCustomActionSchema).default([]),
   createNavigation: dashboardPageCreateNavigationSchema,
   preview: dashboardPagePreviewSchema.optional(),
+  /**
+   * Optional list of detail blocks rendered on the read-only detail page in order.
+   * When omitted, the detail page falls back to its built-in key/value rendering.
+   */
+  detailBlocks: z.array(detailBlockSchema).optional(),
 });
 
 /**
@@ -207,6 +214,11 @@ export const tableV1MetaResponseSchema = z.object({
   customActions: z.array(dashboardPageCustomActionSchema).default([]),
   createNavigation: dashboardPageCreateNavigationSchema,
   preview: dashboardPagePreviewSchema.optional(),
+  /**
+   * Optional list of detail blocks rendered on the read-only detail page (echoed
+   * from {@link dashboardPageSchema} so Hermes can render the detail view from meta).
+   */
+  detailBlocks: z.array(detailBlockSchema).optional(),
 });
 
 /**

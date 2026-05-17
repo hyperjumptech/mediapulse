@@ -1,0 +1,21 @@
+---
+description: Keep PR branches linear for GitHub Rebase/Squash merge — never merge main into the branch
+alwaysApply: true
+---
+
+# Sync PR branches with `main` using rebase, not merge
+
+This repository merges PRs with **Rebase and merge** or **Squash and merge** on GitHub. Those flows **rewrite commit SHAs** on `main`.
+
+## Do not
+
+- Run `git merge origin/main` (or merge `main`) into an open feature/stacked PR branch to “catch up”. That creates a **merge commit** whose second parent duplicates the same patches already on `main` under **different SHAs**. GitHub then often shows **“This branch cannot be rebased due to conflicts”** even when there is no real line-level conflict.
+
+## Do instead
+
+- Prefer **`git town sync --stack`** (this repo’s `.git-town.toml` sets `sync.feature-strategy = "rebase"`).
+- Or manually: `git fetch origin` then **`git rebase origin/main`** on the PR branch, then **`git push --force-with-lease`** when the branch was already published.
+
+## If the banner already appeared
+
+- Follow the recovery in **`.cursor/skills/git-town-stacked-changes/SKILL.md`** (“Rebase- or squash-merge rewrites SHAs…”, reset to `origin/main` + cherry-pick only commits unique to the PR, force-push with lease).

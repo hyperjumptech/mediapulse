@@ -992,6 +992,174 @@ describe("run", () => {
     expect(result.details?.mentionPostChunks).toBe(0);
   });
 
+  it("continues to relevance scoring when article_entities POST fails", async () => {
+    // Setup
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: "u",
+            title: "T",
+            content: "c",
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+        relations: [],
+        articleMentions: [
+          {
+            entityName: "A",
+            mentionCount: 1,
+            confidence: 0.8,
+            sentiment: "NEUTRAL",
+          },
+        ],
+      }),
+    );
+
+    // ER chunk succeeds; article_entities chunk fails; relevance chunk succeeds.
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockRejectedValueOnce(
+        new Error(
+          'Agent data API error: 400 - {"error":"Unknown entityName for article entity: A"}',
+        ),
+      )
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 1,
+      });
+
+    // Act
+    const result = await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    // Assert: run still succeeds and relevance was scored despite article_entities failure.
+    expect(result.success).toBe(true);
+    expect(result.details?.articlesScored).toBe(1);
+    expect(result.details?.articlesSelected).toBe(1);
+    expect(result.details?.relevancePostChunks).toBe(1);
+    expect(result.details?.postFailures).toHaveLength(1);
+    expect(
+      (result.details?.postFailures as { chunkKind: string }[])[0]?.chunkKind,
+    ).toBe("article_entities");
+    // 3 calls: ER chunk + article_entities chunk (failed) + relevance chunk.
+    expect(analysisCreate).toHaveBeenCalledTimes(3);
+    expect(mockLog.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ chunkKind: "article_entities", chunkIndex: 0 }),
+      expect.stringContaining("continuing to next chunk"),
+    );
+  });
+
+  it("continues to remaining article_entities chunks after one chunk fails", async () => {
+    // Setup: one article with two distinct entities → two article_entities chunks (batchSize=1).
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: "u",
+            title: "T",
+            content: "c",
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+
+    // LLM extracts two entities A and B, each with a mention.
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "A", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "B", typeId: TYPE_ID, aliases: [] },
+        ],
+        relations: [],
+        articleMentions: [
+          {
+            entityName: "A",
+            mentionCount: 1,
+            confidence: 0.8,
+            sentiment: "NEUTRAL",
+          },
+          {
+            entityName: "B",
+            mentionCount: 1,
+            confidence: 0.7,
+            sentiment: "NEUTRAL",
+          },
+        ],
+      }),
+    );
+
+    // ER chunk succeeds; article_entities chunk 0 (entity A) fails; chunk 1 (entity B) succeeds; relevance succeeds.
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 2,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockRejectedValueOnce(new Error("Agent data API error: 400"))
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 1,
+      });
+
+    // Act
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { postChunkArticleEntityBatchSize: 1 },
+      }),
+    );
+
+    // Assert: second chunk was attempted, relevance proceeds, only 1 postFailure.
+    expect(result.success).toBe(true);
+    expect(result.details?.mentionPostChunks).toBe(1);
+    expect(result.details?.postFailures).toHaveLength(1);
+    expect(result.details?.relevancePostChunks).toBe(1);
+    // 4 calls: ER chunk + failed article_entities chunk 0 + article_entities chunk 1 + relevance chunk.
+    expect(analysisCreate).toHaveBeenCalledTimes(4);
+  });
+
   it("fails run when extraction successes are below runPolicy minimum", async () => {
     analysisGet.mockResolvedValue(
       analysisGetOk({

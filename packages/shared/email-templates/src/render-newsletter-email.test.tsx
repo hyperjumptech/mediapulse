@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { renderNewsletterEmail } from "./index.js";
+import {
+  DEFAULT_HYPERJUMP_SITE_URL,
+  DEFAULT_MEDIAPULSE_SITE_URL,
+  renderNewsletterEmail,
+} from "./index.js";
 
 describe("renderNewsletterEmail", () => {
   it("returns html and plain text containing the title", async () => {
@@ -172,5 +176,293 @@ describe("renderNewsletterEmail", () => {
     expect(html).toContain("Here is your newsletter content");
     expect(html).not.toContain("Executive Summary");
     expect(html).not.toContain("Top News");
+  });
+
+  it("renders a ticker line under the heading when tickerSymbol is set", async () => {
+    // Act
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+      tickerSymbol: "AAPL",
+    });
+
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+    expect(stripped).toContain("This digest covers");
+    expect(stripped).toMatch(/<strong[^>]*>\s*AAPL\s*<\/strong>/i);
+    const tickerLineIndex = stripped.indexOf("This digest covers");
+    const firstHrIndex = stripped.search(/<hr[^>]*>/i);
+    expect(tickerLineIndex).toBeGreaterThan(-1);
+    expect(firstHrIndex).toBeGreaterThan(-1);
+    expect(tickerLineIndex).toBeLessThan(firstHrIndex);
+    expect(text).toMatch(/this digest covers/i);
+    expect(text).toContain("AAPL");
+  });
+
+  it("hides the ticker line when tickerSymbol is omitted", async () => {
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+    });
+
+    // Assert
+    expect(html).not.toMatch(/this digest covers/i);
+  });
+
+  it("hides the ticker line when tickerSymbol is blank", async () => {
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+      tickerSymbol: "   ",
+    });
+
+    // Assert
+    expect(html).not.toMatch(/this digest covers/i);
+  });
+
+  it("renders default Mediapulse and Hyperjump branding links in the footer", async () => {
+    // Act
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+    });
+
+    // Assert
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${DEFAULT_MEDIAPULSE_SITE_URL}["']?[^>]*>\\s*Mediapulse\\s*</a>`,
+        "i",
+      ),
+    );
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${DEFAULT_HYPERJUMP_SITE_URL}["']?[^>]*>\\s*Hyperjump\\s*</a>`,
+        "i",
+      ),
+    );
+    expect(text.toLowerCase()).toContain("mediapulse");
+    expect(text.toLowerCase()).toContain("hyperjump");
+    expect(text).toContain(DEFAULT_MEDIAPULSE_SITE_URL);
+    expect(text).toContain(DEFAULT_HYPERJUMP_SITE_URL);
+  });
+
+  it("honours operator-configured branding URLs when provided", async () => {
+    // Setup
+    const mediapulseSiteUrl = "https://staging.mediapulse.example/";
+    const hyperjumpSiteUrl = "https://staging.hyperjump.example/";
+
+    // Act
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+      mediapulseSiteUrl,
+      hyperjumpSiteUrl,
+    });
+
+    // Assert
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*Mediapulse\\s*</a>`,
+        "i",
+      ),
+    );
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${hyperjumpSiteUrl}["']?[^>]*>\\s*Hyperjump\\s*</a>`,
+        "i",
+      ),
+    );
+    expect(html).not.toContain(DEFAULT_MEDIAPULSE_SITE_URL);
+    expect(html).not.toContain(DEFAULT_HYPERJUMP_SITE_URL);
+    expect(text).toContain(mediapulseSiteUrl);
+    expect(text).toContain(hyperjumpSiteUrl);
+  });
+
+  it("renders ticker copy and branding link targets together when all props are supplied", async () => {
+    // Setup
+    const mediapulseSiteUrl = "https://staging.mediapulse.example/";
+    const hyperjumpSiteUrl = "https://staging.hyperjump.example/";
+    const tickerSymbol = "BBCA";
+
+    // Act
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+      tickerSymbol,
+      mediapulseSiteUrl,
+      hyperjumpSiteUrl,
+    });
+
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+    expect(stripped).toContain("This digest covers");
+    expect(stripped).toMatch(
+      new RegExp(`<strong[^>]*>\\s*${tickerSymbol}\\s*</strong>`, "i"),
+    );
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*Mediapulse\\s*</a>`,
+        "i",
+      ),
+    );
+    expect(html).toMatch(
+      new RegExp(
+        `<a[^>]+href=["']?${hyperjumpSiteUrl}["']?[^>]*>\\s*Hyperjump\\s*</a>`,
+        "i",
+      ),
+    );
+    expect(text).toContain(tickerSymbol);
+    expect(text).toMatch(/this digest covers/i);
+    expect(text).toContain(mediapulseSiteUrl);
+    expect(text).toContain(hyperjumpSiteUrl);
+  });
+
+  it("places the branding block above the subscription footer note", async () => {
+    // Setup
+    const footerNote = "You are receiving this because you subscribed.";
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+      footerNote,
+    });
+
+    // Assert
+    const brandingIndex = html.indexOf("Brought to you by");
+    const footerNoteIndex = html.indexOf(footerNote);
+    expect(brandingIndex).toBeGreaterThan(-1);
+    expect(footerNoteIndex).toBeGreaterThan(-1);
+    expect(brandingIndex).toBeLessThan(footerNoteIndex);
+  });
+
+  it("renders a 'Read the full article' link below each top-news item that has a source URL", async () => {
+    // Setup
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 3 NEWS",
+      "",
+      "1. Fed holds rates steady",
+      "The Federal Reserve announced no change.",
+      "Read the full article: https://example.com/fed",
+      "",
+      "2. Apple beats estimates",
+      "Apple reported record quarterly revenue.",
+      "Read the full article: https://example.com/apple",
+      "",
+      "3. Oil prices dip",
+      "Crude oil fell 2%.",
+      "Read the full article: https://example.com/oil",
+    ].join("\n");
+
+    // Act
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: structuredBody,
+    });
+
+    // Assert — three anchors with the expected label, one per source.
+    expect(html.match(/Read the full article/g)?.length).toBe(3);
+    expect(html).toContain('href="https://example.com/fed"');
+    expect(html).toContain('href="https://example.com/apple"');
+    expect(html).toContain('href="https://example.com/oil"');
+    expect(text).toContain("https://example.com/fed");
+    expect(text).toContain("https://example.com/apple");
+    expect(text).toContain("https://example.com/oil");
+  });
+
+  it("omits the source link cleanly when a top-news item has no URL", async () => {
+    // Setup
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 2 NEWS",
+      "",
+      "1. With URL",
+      "Summary with source.",
+      "Read the full article: https://example.com/with-url",
+      "",
+      "2. Without URL",
+      "Summary without source.",
+    ].join("\n");
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: structuredBody,
+    });
+
+    // Assert — only one anchor with the new label, no empty href.
+    expect(html.match(/Read the full article/g)?.length).toBe(1);
+    expect(html).toContain('href="https://example.com/with-url"');
+    expect(html).not.toMatch(/href=""/);
+  });
+
+  it("keeps top-news summaries free of leftover 'Read the full article' label text", async () => {
+    // Setup
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Markets rallied today.",
+      "",
+      "---",
+      "",
+      "TOP 1 NEWS",
+      "",
+      "1. Fed holds rates steady",
+      "The Federal Reserve announced no change to interest rates.",
+      "Read the full article: https://example.com/fed",
+    ].join("\n");
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: structuredBody,
+    });
+
+    // Assert — the summary paragraph does not still contain "Read the full article: <url>".
+    expect(html).not.toMatch(
+      /announced no change to interest rates\.\s*Read the full article:/,
+    );
+  });
+
+  it("renders markdown links in structured summaries as HTML anchors", async () => {
+    const articleUrl = "https://www.investing.com/equities/bnk-central-as";
+    const structuredBody = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Overview with [Bank Central Asia](" + articleUrl + ") in the lead.",
+      "",
+      "---",
+      "",
+      "TOP 1 NEWS",
+      "",
+      "1. BBCA profit strength",
+      "[Bank Central Asia](" + articleUrl + ") reported strong net profit.",
+    ].join("\n");
+
+    const { html, text } = await renderNewsletterEmail({
+      title: "BBCA digest",
+      bodyText: structuredBody,
+    });
+
+    expect(html).toMatch(
+      /<a[^>]+href=["']?https:\/\/www\.investing\.com\/equities\/bnk-central-as["']?/i,
+    );
+    expect(html).toContain("Bank Central Asia");
+    expect(html).not.toContain("[Bank Central Asia](");
+    expect(text).toContain("Bank Central Asia");
+    expect(text).toContain(articleUrl);
   });
 });

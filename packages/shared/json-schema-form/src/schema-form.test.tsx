@@ -2,8 +2,8 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
-import { SchemaForm } from "./schema-form.js";
-import type { JsonSchema, StringFieldProps } from "./types.js";
+import { SchemaForm } from "./schema-form";
+import type { JsonSchema, StringFieldProps } from "./types";
 
 describe("SchemaForm", () => {
   it("renders nothing useful when schema is not object with properties", () => {
@@ -19,6 +19,24 @@ describe("SchemaForm", () => {
     expect(
       screen.getByText(/Schema must be an object with properties/i),
     ).toBeInTheDocument();
+  });
+
+  it("renders textarea when string format is textarea", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        body: { type: "string", title: "Body", format: "textarea" },
+      },
+    };
+    const value: Record<string, unknown> = { body: "line one" };
+    const onChange = vi.fn();
+
+    render(<SchemaForm schema={schema} value={value} onChange={onChange} />);
+    const textarea = screen.getByLabelText(/Body/i);
+    expect(textarea.tagName).toBe("TEXTAREA");
+    fireEvent.change(textarea, { target: { value: "line one\nline two" } });
+
+    expect(onChange).toHaveBeenCalledWith({ body: "line one\nline two" });
   });
 
   it("renders string field and calls onChange when user types", () => {

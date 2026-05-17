@@ -27,7 +27,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
+import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { createExpandStepInputsForManualPipelineRun } from "@/lib/expand-step-inputs-for-manual-pipeline";
 import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 import { validatePipeline } from "@/lib/validate-pipeline";
@@ -75,7 +75,7 @@ const logRunPipelineIssue = (
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: requireDashboardSessionForRoute,
+  user: requireMutationDashboardPrincipalForRoute,
 });
 
 export const responseValidator = z.object({
@@ -316,6 +316,7 @@ export const createRunPipelineHandler = ({
         sourceId: pipeline.id,
         expandStepInputs,
         variableSecretMasterKey: env.HERMES_INTERNAL_API_KEY,
+        variableSecretFallbackMasterKey: env.HERMES_INTERNAL_API_KEY_PREVIOUS,
         requireHttpsAgentEndpoints: false,
       });
       const executionTime = now();

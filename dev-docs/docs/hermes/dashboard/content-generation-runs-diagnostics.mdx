@@ -73,7 +73,7 @@ The detail page shows all fields for a single run:
 - `durationMs`, `pipelineRunId`, `newsletterId`
 - `createdAt`
 
-When `newsletterId` is present, it renders as a copy-to-clipboard button (since no newsletter detail route exists yet).
+When `newsletterId` is present, it renders as a link to `/dashboard/{integrationId}/newsletters/{newsletterId}` (for example `/dashboard/mediapulse/newsletters/{newsletterId}`). The newsletter detail page shows subject, ticker, recipients, selected sources, the active SearchQuerySet, the rendered email preview, and the Hermes execution links — see [Newsletters list and detail](./newsletters-list-and-detail.mdx).
 
 ## Components
 

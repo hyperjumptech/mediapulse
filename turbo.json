@@ -9,10 +9,7 @@
     },
     "build": {
       "dependsOn": ["^db:generate", "^build", "generate"],
-      "env": [
-        "ORCHESTRATION_DATABASE_URL",
-        "MEDIAPULSE_DATABASE_URL"
-      ],
+      "env": ["ORCHESTRATION_DATABASE_URL", "MEDIAPULSE_DATABASE_URL"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
@@ -36,20 +33,15 @@
     "dev": {
       "dependsOn": ["generate", "^build"],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": ["NODE_ENV"]
     },
     "db:migrate:deploy": {
-      "env": [
-        "ORCHESTRATION_DATABASE_URL",
-        "MEDIAPULSE_DATABASE_URL"
-      ]
+      "env": ["ORCHESTRATION_DATABASE_URL", "MEDIAPULSE_DATABASE_URL"]
     },
     "db:migrate:dev": {},
     "db:generate": {
-      "env": [
-        "ORCHESTRATION_DATABASE_URL",
-        "MEDIAPULSE_DATABASE_URL"
-      ],
+      "env": ["ORCHESTRATION_DATABASE_URL", "MEDIAPULSE_DATABASE_URL"],
       "cache": false
     },
     "db:push": {

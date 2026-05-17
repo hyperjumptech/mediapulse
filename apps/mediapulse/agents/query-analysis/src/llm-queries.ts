@@ -8,6 +8,12 @@ import {
 } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
+import {
+  QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
+  QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT,
+} from "./query-analysis-prompt-defaults";
+import { substituteLlmPromptTemplate } from "@workspace/agent-llm-prompt-template";
+
 /** Zod schema for structured LLM output (validated by AI SDK). */
 export const llmQueriesOutputSchema = z.object({
   queries: z.array(
@@ -30,14 +36,14 @@ export type LlmQueryStrategyPrompt = {
 };
 
 /**
- * Builds the system prompt describing JSON shape, intent mix targets, languages, and strategy knobs.
+ * Builds replacement map for the default query-analysis system prompt template.
  *
  * @param strategy - Counts, languages, deterministic floor, and relative intent weights.
- * @returns System message content for the chat model.
+ * @returns String values for each supported `{{token}}` in the system template.
  */
-export const buildQueryAnalysisSystemContent = (
+export const buildQueryAnalysisSystemTemplateReplacements = (
   strategy: LlmQueryStrategyPrompt,
-): string => {
+): Record<string, string> => {
   const sum =
     strategy.weights.breaking +
     strategy.weights.kgChange +
@@ -45,17 +51,63 @@ export const buildQueryAnalysisSystemContent = (
   const ratioBreaking = sum > 0 ? strategy.weights.breaking / sum : 1 / 3;
   const ratioKg = sum > 0 ? strategy.weights.kgChange / sum : 1 / 3;
   const ratioFund = sum > 0 ? strategy.weights.fundamental / sum : 1 / 3;
-  const langList = strategy.allowedLanguages.join(", ");
-  return [
-    "You generate finance search queries for news and data retrieval.",
-    'Return ONLY a JSON object matching the schema: { "queries": [ { "text": string, "intent": "breaking" | "kg_change" | "fundamental" } ] }.',
-    "Each query must be concise web-search style text.",
-    `Write queries in these languages (BCP-47 codes as configured): ${langList}. If multiple, you may mix languages across queries.`,
-    `Target roughly ${Math.round(ratioBreaking * strategy.queryCount)} breaking, ${Math.round(ratioKg * strategy.queryCount)} kg_change, ${Math.round(ratioFund * strategy.queryCount)} fundamental queries (approximate; total queries should not exceed the remaining budget after the deterministic baseline).`,
-    `At least ${strategy.minDeterministicCount} high-quality queries will be added deterministically by the system; your queries complement that set (avoid duplicating obvious symbol+news patterns).`,
-    "Intent meanings: breaking = timely news/events; kg_change = knowledge-graph style relation or entity changes; fundamental = earnings, guidance, regulatory, balance-sheet style.",
-  ].join("\n");
+  return {
+    allowedLanguages: strategy.allowedLanguages.join(", "),
+    targetBreakingCount: String(
+      Math.round(ratioBreaking * strategy.queryCount),
+    ),
+    targetKgCount: String(Math.round(ratioKg * strategy.queryCount)),
+    targetFundamentalCount: String(Math.round(ratioFund * strategy.queryCount)),
+    minDeterministicCount: String(strategy.minDeterministicCount),
+  };
 };
+
+/**
+ * Resolves the query-analysis system prompt (Hermes override or built-in default template).
+ *
+ * @param configuredSystemPrompt - Optional `prompts.systemPrompt` from Hermes.
+ * @param strategy - Strategy knobs used to fill template placeholders.
+ * @returns System message content for the chat model.
+ */
+export const resolveQueryAnalysisSystemContent = (
+  configuredSystemPrompt: string | undefined,
+  strategy: LlmQueryStrategyPrompt,
+): string => {
+  const template =
+    configuredSystemPrompt ?? QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT;
+  return substituteLlmPromptTemplate(
+    template,
+    buildQueryAnalysisSystemTemplateReplacements(strategy),
+  );
+};
+
+/**
+ * Resolves the query-analysis user prompt (Hermes override or built-in default template).
+ *
+ * @param configuredUserPromptTemplate - Optional `prompts.userPromptTemplate` from Hermes.
+ * @param context - Serialized GET /query-analysis context for `{{queryContextBlock}}`.
+ * @returns User message content for the chat model.
+ */
+export const resolveQueryAnalysisUserContent = (
+  configuredUserPromptTemplate: string | undefined,
+  context: GetQueryAnalysisResponse,
+): string => {
+  const template =
+    configuredUserPromptTemplate ?? QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT;
+  return substituteLlmPromptTemplate(template, {
+    queryContextBlock: buildQueryAnalysisUserContent(context),
+  });
+};
+
+/**
+ * Builds the system prompt describing JSON shape, intent mix targets, languages, and strategy knobs.
+ *
+ * @param strategy - Counts, languages, deterministic floor, and relative intent weights.
+ * @returns System message content for the chat model.
+ */
+export const buildQueryAnalysisSystemContent = (
+  strategy: LlmQueryStrategyPrompt,
+): string => resolveQueryAnalysisSystemContent(undefined, strategy);
 
 /**
  * Serializes GET /query-analysis context for the user message (ticker, entities, themes, relation deltas).

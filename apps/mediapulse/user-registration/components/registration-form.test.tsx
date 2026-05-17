@@ -20,12 +20,12 @@ describe("RegistrationForm", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the email and ticker search inputs", () => {
+  it("renders the name and ticker search inputs", () => {
     // Act
     render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
 
     // Assert
-    expect(screen.getByLabelText(/Email address/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Your name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Stock ticker/i)).toBeInTheDocument();
   });
 
@@ -34,7 +34,9 @@ describe("RegistrationForm", () => {
     render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
 
     // Assert
-    expect(screen.getByRole("button", { name: /Subscribe/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Open email app to subscribe/i }),
+    ).toBeDisabled();
   });
 
   it("shows ticker dropdown when search input is focused", async () => {
@@ -58,18 +60,16 @@ describe("RegistrationForm", () => {
     );
 
     // Act
-    await user.type(
-      screen.getByLabelText(/Email address/i),
-      "test@example.com",
-    );
-    await user.type(screen.getByLabelText(/Full name/i), "John Doe");
+    await user.type(screen.getByLabelText(/Your name/i), "John Doe");
 
     // Select Ticker
     await user.click(screen.getByLabelText(/Stock ticker/i));
     await user.click(screen.getByText(/Bank Central Asia Tbk/i));
 
     // Submit
-    const subscribeBtn = screen.getByRole("button", { name: /Subscribe/i });
+    const subscribeBtn = screen.getByRole("button", {
+      name: /Open email app to subscribe/i,
+    });
     expect(subscribeBtn).not.toBeDisabled();
     await user.click(subscribeBtn);
 
@@ -80,11 +80,12 @@ describe("RegistrationForm", () => {
     expect(calledUrl).toContain(
       encodeURIComponent("[MediaPulse] Newsletter Subscription - BBCA"),
     );
-    expect(calledUrl).toContain(encodeURIComponent("test@example.com"));
+    expect(calledUrl).toContain(encodeURIComponent("Name: John Doe"));
+    expect(calledUrl).toContain(encodeURIComponent("Ticker: BBCA"));
 
     // Assert Success screen rendered
-    expect(
-      screen.getByText(/Your subscription request is being processed/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Almost done/i)).toBeInTheDocument();
+    expect(screen.getByText(/tap/i)).toBeInTheDocument();
+    expect(screen.getByText(/Send/i)).toBeInTheDocument();
   });
 });

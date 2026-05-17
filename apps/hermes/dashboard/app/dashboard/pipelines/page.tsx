@@ -11,10 +11,13 @@ import { PipelinesWithModal } from "./pipelines-with-modal";
  */
 const PipelinesPage = async () => {
   const pipelines = await getPipelinesWithSteps();
-  const pipelineValidationById = await getPipelinesValidationMap(
-    pipelines,
-    prisma,
-  );
+  const [pipelineValidationById, domainIntegrations] = await Promise.all([
+    getPipelinesValidationMap(pipelines, prisma),
+    prisma.domainIntegration.findMany({
+      orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
+      select: { id: true, integrationId: true, name: true },
+    }),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -25,6 +28,7 @@ const PipelinesPage = async () => {
       <PipelinesWithModal
         pipelines={pipelines}
         pipelineValidationById={pipelineValidationById}
+        domainIntegrations={domainIntegrations}
       />
     </div>
   );

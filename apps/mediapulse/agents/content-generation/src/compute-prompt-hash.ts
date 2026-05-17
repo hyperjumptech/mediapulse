@@ -1,14 +1,10 @@
-import { createHash } from "node:crypto";
+import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 
 /**
  * Computes a deterministic short hash of the exact prompts sent to the LLM.
  *
- * Algorithm: SHA-256(systemPrompt + "\n\n" + resolvedUserPrompt) → first 16 hex chars.
- *
- * The hash captures the concatenation of both prompt strings **after**
- * placeholder substitution (i.e. `{{sourceSummaries}}`, `{{tickerId}}`, and
- * `{{date}}` have already been resolved), so any change to either the prompt
- * template or the source content will produce a different hash.
+ * Delegates to {@link computeLlmPromptFingerprint} from `@workspace/agent-llm-prompt-template`
+ * so all agents share one algorithm (MP-CGA-008, REQ-011).
  *
  * @param systemPrompt - The system-role prompt sent to the model.
  * @param resolvedUserPrompt - The user-role prompt after all placeholder substitution.
@@ -18,6 +14,5 @@ export function computePromptHash(
   systemPrompt: string,
   resolvedUserPrompt: string,
 ): string {
-  const combined = `${systemPrompt}\n\n${resolvedUserPrompt}`;
-  return createHash("sha256").update(combined).digest("hex").slice(0, 16);
+  return computeLlmPromptFingerprint(systemPrompt, resolvedUserPrompt);
 }

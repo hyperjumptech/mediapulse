@@ -10,6 +10,11 @@ RUN pnpm exec turbo build --filter=@mediapulse/content-generation --env-mode=loo
 
 FROM oven/bun:1
 WORKDIR /app
+USER root
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends wget curl \
+  && rm -rf /var/lib/apt/lists/*
+USER bun
 ENV NODE_ENV=production
 ENV PORT=4002
 EXPOSE 4002

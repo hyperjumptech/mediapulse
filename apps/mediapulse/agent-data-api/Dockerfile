@@ -13,6 +13,11 @@ RUN pnpm exec turbo build --filter=@mediapulse/agent-data-api --env-mode=loose
 
 FROM oven/bun:1
 WORKDIR /app
+USER root
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends wget curl \
+  && rm -rf /var/lib/apt/lists/*
+USER bun
 ENV NODE_ENV=production
 ENV PORT=8081
 EXPOSE 8081

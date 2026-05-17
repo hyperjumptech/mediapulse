@@ -1,7 +1,9 @@
 /** @vitest-environment node */
 
 import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
+import { enrichConfigSchemaForHermesUi } from "@workspace/agent-runtime";
 import { describe, expect, it } from "vitest";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 import {
   buildDraftRelevanceRow,
@@ -13,6 +15,7 @@ import {
   resolveArticleAnalysisConfig,
   toRelevanceWeightMapV1,
 } from "./config-schema.js";
+import { ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH } from "./article-extraction-prompt-defaults.js";
 
 const minimalConfig = {
   openaiApiKey: "sk-test",
@@ -21,7 +24,6 @@ const minimalConfig = {
 const minimalSignals = {
   dataSourceId: "00000000-0000-4000-8000-000000000001",
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
-  url: "https://reuters.com/article",
   entityCount: 1,
   relationCount: 1,
   mentionCount: 1,
@@ -31,6 +33,80 @@ const minimalSignals = {
 } satisfies PerSourceRelevanceSignals;
 
 describe("articleAnalysisConfigSchema", () => {
+  it("rejects unknown placeholder in prompts.userPromptTemplate", () => {
+    const result = articleAnalysisConfigSchema.safeParse({
+      ...minimalConfig,
+      prompts: {
+        userPromptTemplate: "{{tickerId}} {{oops}}",
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join(" ");
+      expect(messages).toContain("{{oops}}");
+    }
+  });
+
+  it("rejects unknown placeholder in prompts.systemPrompt", () => {
+    const result = articleAnalysisConfigSchema.safeParse({
+      ...minimalConfig,
+      prompts: {
+        systemPrompt: "Hello {{entityTypesBlock}} {{typo}}",
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join(" ");
+      expect(messages).toContain("{{typo}}");
+    }
+  });
+
+  it("rejects prompts.systemPrompt over max length", () => {
+    const result = articleAnalysisConfigSchema.safeParse({
+      ...minimalConfig,
+      prompts: {
+        systemPrompt: "x".repeat(
+          ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH + 1,
+        ),
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("exposes prompts fields as textarea in Hermes config JSON Schema", () => {
+    const jsonSchema = enrichConfigSchemaForHermesUi(
+      zodToJsonSchema(articleAnalysisConfigSchema, {
+        $refStrategy: "none",
+      }) as Record<string, unknown>,
+    );
+    const promptProps = (
+      (jsonSchema.properties as Record<string, unknown>).prompts as Record<
+        string,
+        unknown
+      >
+    ).properties as Record<string, { format?: string }>;
+
+    expect(promptProps.systemPrompt?.format).toBe("textarea");
+    expect(promptProps.userPromptTemplate?.format).toBe("textarea");
+  });
+
+  it("accepts valid prompts with known placeholders only", () => {
+    const parsed = articleAnalysisConfigSchema.parse({
+      ...minimalConfig,
+      prompts: {
+        systemPrompt:
+          "Types:\n{{entityTypesBlock}}\nRels:\n{{relationTypesBlock}}",
+        userPromptTemplate: "{{tickerId}}\n{{title}}\n{{articleContent}}",
+      },
+    });
+
+    expect(parsed.prompts?.systemPrompt).toContain("{{entityTypesBlock}}");
+    expect(parsed.prompts?.userPromptTemplate).toContain("{{tickerId}}");
+  });
+
   it("parses optional debounce and default batch fields", () => {
     // Act
     const parsed = articleAnalysisConfigSchema.parse({

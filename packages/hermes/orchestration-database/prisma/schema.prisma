@@ -28,8 +28,32 @@ model User {
   pipelineStepsCreated                PipelineStep[]                @relation("PipelineStepCreatedBy")
   dataSourceExpansionTemplatesCreated DataSourceExpansionTemplate[] @relation("DataSourceExpansionTemplateCreatedBy")
   hermesAdminPasswordResetTokens      HermesAdminPasswordResetToken[]
+  mcpApiKeysCreated                   McpApiKey[]                   @relation("McpApiKeyCreatedBy")
+  mcpApiKeysRevoked                   McpApiKey[]                   @relation("McpApiKeyRevokedBy")
 
   @@map("user")
+}
+
+/// Hashed MCP API key for Hermes dashboard programmatic access (Cursor MCP). Plaintext shown only at creation.
+model McpApiKey {
+  id                     String    @id @default(uuid())
+  label                  String
+  /// SHA-256 hex of `HERMES_MCP_API_KEY_PEPPER` concatenated with the raw Bearer token.
+  keyHash                String    @unique @map("key_hash")
+  readOnly               Boolean   @default(false) @map("read_only")
+  createdByUserId        String    @map("created_by_user_id")
+  /// Snapshot of owner `User.credentialVersion` at key creation; invalidates key on password reset.
+  ownerCredentialVersion Int       @map("owner_credential_version")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  revokedAt              DateTime? @map("revoked_at")
+  revokedByUserId        String?   @map("revoked_by_user_id")
+  lastUsedAt             DateTime? @map("last_used_at")
+
+  createdBy User  @relation("McpApiKeyCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  revokedBy User? @relation("McpApiKeyRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdByUserId])
+  @@map("mcp_api_key")
 }
 
 /// Single-use token for Hermes dashboard admin self-service password reset (secret stored hashed only).

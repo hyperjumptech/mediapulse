@@ -89,6 +89,7 @@ const post = async (body: unknown) => {
 describe("user-registration agent – improved run loop", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    emailSendMock.mockResolvedValue({ data: { id: "email-id" } });
   });
 
   afterEach(() => {
@@ -216,6 +217,27 @@ describe("user-registration agent – improved run loop", () => {
       }),
     );
     expect(archiveMessageMock).toHaveBeenCalledWith("msg-1");
+  });
+
+  it("does not confirm when Resend returns an error envelope for a new subscription", async () => {
+    const msg = makeMessage({ receivedDateTime: "2024-01-01T12:00:00Z" });
+    listMessagesMock.mockResolvedValue([msg]);
+    registerCreateMock.mockResolvedValue({
+      tickerKnown: true,
+      isNewSubscription: true,
+      userTickerId: "ut-uuid-1",
+    });
+    emailSendMock.mockResolvedValue({
+      error: { message: "Invalid API key" },
+      data: null,
+    });
+
+    const res = await post({ input: {}, config: VALID_CONFIG });
+    const body = (await res.json()) as any;
+
+    expect(body.details.results[0].status).toBe("failed_retry");
+    expect(confirmCreateMock).not.toHaveBeenCalled();
+    expect(archiveMessageMock).not.toHaveBeenCalled();
   });
 
   it("returns failed_retry on unexpected error during processing", async () => {

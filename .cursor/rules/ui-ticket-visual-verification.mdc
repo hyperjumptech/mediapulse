@@ -1,0 +1,34 @@
+---
+description: >-
+  When changing user-facing UI in apps, require isolated fixtures, mocks, reproducible dev
+  commands, and screenshot or video evidence per the ui-ticket-visual-verification skill—especially
+  for ticket or issue-driven work.
+globs: apps/**/*.tsx,apps/**/*.css
+alwaysApply: false
+---
+
+# UI ticket visual verification
+
+When the task **changes user-visible UI or UX** in `apps/` (pages, components, layout, styles, flows, modals, forms, copy placement)—**especially** when the user references a GitHub issue, ticket, or acceptance criteria—you MUST:
+
+1. **Read** the project skill **`/ui-ticket-visual-verification`** before handoff and follow its checklist.
+2. **Prefer isolation** (dev fixture route, query-driven demo state, minimal dev server) over full multi-service manual setup when that proves the ticket.
+3. **Ship reproducibility**: mocks or stubs for external data, plus a documented command (e.g. `pnpm` script) and URL so reviewers can replay the same view.
+4. **Ship evidence**: screenshots for static outcomes; short video only when motion or multi-step interaction matters. Use browser tools when available; keep binaries gitignored or attach to the PR. **Embed** each screenshot in the PR/issue body with `![alt](https://raw.githubusercontent.com/...)` — not link-only lists to `blob/` URLs.
+
+## Hard rules (no fake proof)
+
+- **NEVER** use placeholder, blank, 1×1, solid-color, generated-fake, or otherwise empty images as visual proof — this includes minimal valid PNGs created only to satisfy a link.
+- **NEVER** push to `issue-proofs` or link images in any PR body or ticket comment until **every** screenshot passes **all** of the following gates:
+  - Dimensions: **≥ 800 px** on both width and height.
+  - File size: **≥ 20 KB**.
+  - Legible UI text, labels, and/or interactive fields are visible in the frame.
+- If browser capture, Hermes auth, or local dev is blocked, **stop and report the blocker immediately**. Do **not** substitute fake proof of any kind. A repro-only README is acceptable as a temporary placeholder, but the todo must stay open until a real capture exists.
+- **Before** any `orphan-branch-store.sh` run or `git push`, open or inspect every image file: verify dimensions (`sips -g pixelWidth -g pixelHeight <file>` or browser screenshot tool metadata) and confirm the file size is ≥ 20 KB.
+- Marking a visual-verification todo **complete** without real, gate-passing images is **forbidden** when the ticket or plan requires visual proof.
+- **Embed** screenshots in the PR with `![alt](https://raw.githubusercontent.com/...)` — never ship a Visual verification section that is only `blob/` text links.
+- Before handoff, follow the **Pre-handoff checklist** and **Anti-patterns** table in `/ui-ticket-visual-verification` (skill).
+
+If the change is purely non-visual (types, internal APIs, no UI contract change), this rule does not require visual artifacts unless the ticket explicitly asks for them.
+
+When a **plan or ticket** explicitly requires visual verification (e.g. Hermes SchemaForm, `issue-proofs`), that requirement overrides “ship fast”: capture real UI or report a blocker; do not close the todo with placeholders or links alone.

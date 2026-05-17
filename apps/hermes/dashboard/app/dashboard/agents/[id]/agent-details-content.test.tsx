@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AgentDetailsContent } from "./agent-details-content";
 
@@ -57,6 +57,9 @@ const createMockAgent = () => ({
   isActive: true,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
+  domainIntegration: {
+    integrationId: "mediapulse-local",
+  },
 });
 
 describe("AgentDetailsContent", () => {
@@ -103,17 +106,24 @@ describe("AgentDetailsContent", () => {
     render(<AgentDetailsContent agent={agent} />);
 
     // Assert
-    expect(screen.getByText("Agent ID")).toBeInTheDocument();
-    expect(screen.getByText("test-agent")).toBeInTheDocument();
-    expect(screen.getByText("Version")).toBeInTheDocument();
-    expect(screen.getByText("1.0")).toBeInTheDocument();
-    expect(screen.getByText("Description")).toBeInTheDocument();
-    expect(screen.getByText("Test description")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Yes")).toBeInTheDocument();
-    expect(screen.getByText("Created")).toBeInTheDocument();
-    expect(screen.getByText("Last updated")).toBeInTheDocument();
-    expect(screen.getByText("Feb 20, 2024")).toBeInTheDocument();
+    const detailsHeading = screen.getByRole("heading", { name: "Details" });
+    const detailsSection = detailsHeading.parentElement;
+    expect(detailsSection).toBeTruthy();
+    const details = within(detailsSection as HTMLElement);
+
+    expect(details.getByText("Agent ID")).toBeInTheDocument();
+    expect(details.getByText("test-agent")).toBeInTheDocument();
+    expect(details.getByText("Version")).toBeInTheDocument();
+    expect(details.getByText("1.0")).toBeInTheDocument();
+    expect(details.getByText("Description")).toBeInTheDocument();
+    expect(details.getByText("Test description")).toBeInTheDocument();
+    expect(details.getByText("Active")).toBeInTheDocument();
+    expect(details.getByText("Yes")).toBeInTheDocument();
+    expect(details.getByText("Created")).toBeInTheDocument();
+    expect(details.getByText("Last updated")).toBeInTheDocument();
+    expect(details.getByText("Feb 20, 2024")).toBeInTheDocument();
+    expect(details.getByText("Domain integration id")).toBeInTheDocument();
+    expect(details.getByText("mediapulse-local")).toBeInTheDocument();
   });
 
   it("renders Endpoint section via EndpointDisplay in General tab", () => {

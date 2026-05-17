@@ -21,7 +21,6 @@ export type RelevanceWeightMapV1 = Record<
 export type PerSourceRelevanceSignals = {
   dataSourceId: string;
   createdAt: Date;
-  url: string;
   entityCount: number;
   relationCount: number;
   mentionCount: number;
@@ -36,7 +35,6 @@ const BREAKING_HINTS =
   /\b(breaking|urgent|halt|crash|plunge|surge|lawsuit|investigation|sec investigation|wire:|alert)\b/i;
 const FUNDAMENTAL_HINTS =
   /\b(earnings|revenue|eps|guidance|ebitda|margin|dividend|buyback|10-k|10-q|8-k|fiscal|outlook|forecast)\b/i;
-const TIER1_HOST = /\b(reuters\.|bloomberg\.|wsj\.|ft\.com|cnbc\.)/i;
 
 /**
  * Clamps a number into `[0, 1]`.
@@ -81,9 +79,8 @@ export const buildScoreBreakdownV1 = (
             Math.min(0.25, signals.entityCount * 0.04),
         ),
   );
-  const sourceQuality = clampUnitInterval(
-    TIER1_HOST.test(signals.url.toLowerCase()) ? 0.78 : 0.52,
-  );
+  // Fixed neutral value — all sources treated equally regardless of origin.
+  const sourceQuality = 0.5;
 
   return {
     _version: scoreBreakdownVersion,

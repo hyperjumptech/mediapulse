@@ -141,6 +141,8 @@ export async function deliverNewsletterToSubscribers(
       variant: config.template.newsletterVariant,
       unsubscribeUrl,
       tickerSymbol: newsletter.symbol,
+      mediapulseSiteUrl: config.branding.mediapulseSiteUrl,
+      hyperjumpSiteUrl: config.branding.hyperjumpSiteUrl,
     });
     logger?.info?.(
       {

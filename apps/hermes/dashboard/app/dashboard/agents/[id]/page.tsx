@@ -6,7 +6,7 @@ import { getAgentById } from "@/lib/agents";
 import { AgentDetailsContent } from "./agent-details-content";
 
 /**
- * Agent detail page. Loads agent by id; shows 404 if not found, otherwise tabbed details (General, Input schema, Config schema).
+ * Agent detail page. Loads agent by id (with domain integration id); shows 404 if not found, otherwise tabbed details (General, Input schema, Config schema).
  */
 const AgentDetailPage = async ({
   params,

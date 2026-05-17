@@ -24,6 +24,9 @@ ENV ORCHESTRATION_DATABASE_URL="postgresql://localhost:5432/dummy"
 ENV TEMP_ADMIN_USERNAME="dummy"
 ENV TEMP_ADMIN_PASSWORD="dummy"
 ENV HERMES_INTERNAL_API_KEY="dummy-internal-key"
+ENV HERMES_MCP_API_KEY_PEPPER="dummy-mcp-api-key-pepper"
+ENV AGENT_AUTH_API_URL="http://localhost:8080"
+ENV AGENT_AUTH_JWT_SECRET="dummy-jwt-secret-for-build"
 RUN rm -f apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local && \
     touch apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local
 
@@ -42,6 +45,10 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/dashboard/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/hermes/dashboard/.next/static ./apps/hermes/dashboard/.next/static
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends wget curl \
+  && rm -rf /var/lib/apt/lists/*
 
 USER nextjs
 

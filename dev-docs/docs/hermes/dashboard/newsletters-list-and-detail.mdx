@@ -1,0 +1,47 @@
+---
+title: Newsletters list and detail
+description: Newsletter visibility for Hermes admins — filter the daily output, inspect what went out to whom, and jump back into the Hermes execution that produced it.
+icon: Mails
+---
+
+The Mediapulse domain integration registers a read-only `newsletters` resource that appears in the Hermes admin sidebar. Admins can filter the list by ticker or date range, click into a newsletter, and answer the day-zero question without leaving Hermes:
+
+> What went out, to whom, with which sources, on which Hermes execution?
+
+The list and detail pages are rendered by Hermes' generic `table-v1` template against the `detailBlocks` declared in the domain manifest. No Hermes-side code lives in this feature.
+
+## List page
+
+URL: `/dashboard/{integrationId}/newsletters` (e.g. `/dashboard/mediapulse/newsletters`).
+
+| Column      | Notes                                                                                                                  |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Ticker      | Symbol from the joined `Ticker`.                                                                                       |
+| Subject     | Searchable substring filter (`?q=`).                                                                                   |
+| Created     | Sortable (`?sortBy=createdAt`); filter by `?from=` / `?to=`.                                                           |
+| Delivery    | Checkpoint count over enabled-at-send-time count from the latest `DeliveryRun`. Falls back to the current enabled set. |
+
+The ticker filter is populated by the `/meta` endpoint (`tickerOptions: { value, label }[]`).
+
+## Detail page
+
+URL: `/dashboard/{integrationId}/newsletters/{newsletterId}`.
+
+The detail blocks render in this order:
+
+1. **Metadata** — id, subject, ticker (linked), agent metadata, prompt/config hashes, and tokens formatted as `prompt + completion = total`. Copy buttons on id, subject, ticker symbol, prompt hash, and config snapshot id.
+2. **Body** — newsletter `content` rendered as markdown. Clamps at 4,000 characters for bodies over 10,000 chars; the **Copy** button writes the raw markdown.
+3. **Recipients** — one row per `(newsletterId, userTickerId)` pair, sorted alphabetically by email. Status badge maps the four states (`delivered`, `failed`, `skipped`, `not_attempted`); recipients with `inconsistent: true` get a `!` marker. Section badge `partial delivery` (warning) when `recipientsDeliveredCount < recipientsEnabledAtSendTime`. Capped at 2,000 rows; the response sets `recipientsTruncated: true` when the cap fires.
+4. **Selected sources** — DataSource rows selected during the newsletter's UTC calendar day, ordered by score desc. Title links to the data-sources detail page. Section badge `no sources` (muted) when the list is empty.
+5. **Search queries** — queries from the active `SearchQuerySet` at the newsletter's `createdAt`. Each row links to `/dashboard/{integrationId}/search-queries?tickerId={tickerId}`. Section badge `stale set` (muted) when the set was generated more than 24 hours before the newsletter.
+6. **Citations** — deduplicated `[title](url)` and `Read the full article: <url>` references parsed from the body; the URL column opens in a new tab with `rel="noopener noreferrer"`.
+7. **Email preview** — sandboxed iframe rendering the production `default-newsletter` React Email template against this newsletter's data. `sandbox="allow-popups"` only.
+8. **Hermes execution links** — schedule, execution, pipeline run/step, content-generation run, with copy buttons on every id.
+
+## Manifest contract
+
+Block types and the section-header rule grammar are documented in [`hermes-domain-contract` detail blocks](../integration/detail-blocks.mdx). The newsletter manifest lives at `apps/mediapulse/domain-api/src/resources/newsletters/dashboard-page.ts`.
+
+## Privacy
+
+Subscriber email appears in the recipients sub-table (admins need it to identify recipients) but is never written to server logs or to DOM data attributes used for telemetry. The detail handler logs only `newsletterId`, `userTickerId`, and `runId` for the `not_attempted` and `inconsistent` warnings.

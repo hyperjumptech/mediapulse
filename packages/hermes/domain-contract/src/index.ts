@@ -41,3 +41,41 @@ export {
   type TableV1ListResponse,
   type TableV1MetaResponse,
 } from "./contracts";
+export {
+  detailBlockBadgeVariantSchema,
+  detailBlockHtmlPreviewSchema,
+  detailBlockKeyValueRowSchema,
+  detailBlockKeyValueSchema,
+  detailBlockLeafSchema,
+  detailBlockMarkdownSchema,
+  detailBlockSchema,
+  detailBlockSectionRuleSchema,
+  detailBlockSubTableColumnSchema,
+  detailBlockSubTableSchema,
+  detailBlockTabSchema,
+  detailBlockTabsSchema,
+  type DetailBlock,
+  type DetailBlockBadgeVariant,
+  type DetailBlockHtmlPreview,
+  type DetailBlockKeyValue,
+  type DetailBlockKeyValueRow,
+  type DetailBlockLeaf,
+  type DetailBlockMarkdown,
+  type DetailBlockSectionRule,
+  type DetailBlockSubTable,
+  type DetailBlockSubTableColumn,
+  type DetailBlockTab,
+  type DetailBlockTabs,
+} from "./detail-blocks";
+export {
+  evaluateDetailBlockRule,
+  parseDetailBlockRule,
+  renderCaptionTemplate,
+  renderUrlTemplate,
+  resolvePath,
+  type DetailBlockRuleAst,
+} from "./detail-block-rules";
+export {
+  clampMarkdownBody,
+  type ClampMarkdownBodyResult,
+} from "./clamp-markdown-body";

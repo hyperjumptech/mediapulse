@@ -18,14 +18,14 @@ Core responsibilities:
 
 The **article-analysis** agent stores subscores in `article_relevance.score_breakdown` JSON. Required keys for charts and observability (MP-ART-ANALYSIS-006):
 
-| Key               | Role (product order)                                      |
-| ----------------- | ----------------------------------------------------------- |
-| `breakingNews`    | Timely / market-moving event signal                         |
-| `kgRelation`      | Strength of extracted KG relations for the article          |
-| `fundamental`     | Earnings, filings, guidance-style fundamentals              |
-| `tickerSalience`  | How strongly the ticker / entities show up in the piece   |
-| `sourceQuality`   | Trust / tier prior for the source                           |
-| `_version`        | Integer schema version (Hermes `scoreBreakdownVersion`)     |
+| Key              | Role (product order)                                    |
+| ---------------- | ------------------------------------------------------- |
+| `breakingNews`   | Timely / market-moving event signal                     |
+| `kgRelation`     | Strength of extracted KG relations for the article      |
+| `fundamental`    | Earnings, filings, guidance-style fundamentals          |
+| `tickerSalience` | How strongly the ticker / entities show up in the piece |
+| `sourceQuality`  | Trust / tier prior for the source                       |
+| `_version`       | Integer schema version (Hermes `scoreBreakdownVersion`) |
 
 Optional additional numeric keys may appear for experiments. **Weighted `score`** is in `[0, 1]` and defaults to equal weights (`0.2` each) over the five dimensions; tune via Hermes config (`relevanceWeight*` keys).
 
@@ -35,10 +35,10 @@ Optional additional numeric keys may appear for experiments. **Weighted `score`*
 
 Hermes config **`runPolicy`** mirrors data-collection semantics:
 
-| Field | Default | Meaning |
-| ----- | ------- | ------- |
-| `minSuccessfulSources` | `1` | Minimum sources that must complete LLM + vocabulary validation before any `POST` |
-| `failOnZeroSuccess` | `true` | When true, the run returns **`success: false`** if fewer than `minSuccessfulSources` extract successfully |
+| Field                  | Default | Meaning                                                                                                   |
+| ---------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `minSuccessfulSources` | `1`     | Minimum sources that must complete LLM + vocabulary validation before any `POST`                          |
+| `failOnZeroSuccess`    | `true`  | When true, the run returns **`success: false`** if fewer than `minSuccessfulSources` extract successfully |
 
 Per-source **LLM** or **vocabulary** errors are **skipped** (no whole-run abort); the response includes **`extractionFailures`** (`dataSourceId`, `stage`, `message`) and **`extractionSuccessCount`**. If some sources succeed, the run can continue with **`details.runStatus`: `partial_success`**.
 
@@ -50,19 +50,19 @@ Per-source **LLM** or **vocabulary** errors are **skipped** (no whole-run abort)
 
 Every run emits a structured **info** log with message `article_analysis.run.summary` and payload fields suitable for metrics backends or log pipelines.
 
-| Area | Fields (examples) |
-| ---- | ----------------- |
-| Correlation | Log child bindings: `component`, `runId`, `tickerId`, and optional Hermes ids (`jobId`, `executionId`, `scheduleId`, `scheduleExecutionId`, `pipelineStepId`) when invoke headers are present |
-| Outcome | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy, **`debounce_min_unanalyzed_count`**, **`debounce_min_minutes_since_last_score`**, pre-POST **`relevance_row_validation`**, relevance chunk build **`relevance_chunk_parse`**) |
-| Stages | **`stageMetrics.extract`** (`articlesProcessed`, `articlesSucceeded`, `articlesFailedExtraction`), **`stageMetrics.scorePrepare.schemaValidationFailures`**, **`stageMetrics.persist`** (`postChunkFailures`, `articlesScored`, `articlesSelected`) |
-| Extraction | `articlesProcessed`, `extractionSuccessCount`, `extractionFailureCount`, **`extractionFailuresVocabulary`** vs **`extractionFailuresLlm`** |
-| Validation | **`relevanceRowValidationFailures`**, **`chunkParseErrors*`**, rolled-up **`schemaValidationFailureCount`**; **`failureCountsByKind`** splits **`llm`**, **`vocabulary`**, **`schemaValidation`**, **`persistenceHttp`**, **`persistenceOther`** from POST failures |
-| Persist | `postFailureCount`, **`postFailuresByChunkKind`**, **`postFailuresByErrorCategory`** (`agent_data_api_http` vs `unknown`) |
-| KG tallies | `entitiesCreated`, `entitiesReused`, **`entityReuseRatio`**, `relationsCreated`, `articlesScored`, `articlesSelected` |
-| Relevance stats | When relevance rows were built: `relevanceRowCount`, `scoreMin` / `scoreMax` / `scoreMean`, **`scoreBuckets`**, **`breakdownVersion`** (or `mixed`), **`breakdownKeyMeans`** / mins / maxes over canonical keys |
-| LLM | **`llmPromptTokens`**, **`llmCompletionTokens`**, **`llmTotalTokens`** summed over extraction calls **only if** the AI SDK reports usage for those calls; fields are **omitted** when the provider returns no token counts |
-| Timing | **`extractionLatencyMsTotal`**, **`extractionCalls`**, **`avgExtractionLatencyMs`** |
-| Top-level throw | Summary includes `error: { type, message }`; **`warn` / `error` logs use the same safe shape**—never attach raw `Error` objects (avoids leaking rich provider payloads) |
+| Area            | Fields (examples)                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Correlation     | Log child bindings: `component`, `runId`, `tickerId`, and optional Hermes ids (`jobId`, `executionId`, `scheduleId`, `scheduleExecutionId`, `pipelineStepId`) when invoke headers are present                                                                                                                                                                                                                  |
+| Outcome         | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy, **`debounce_min_unanalyzed_count`**, **`debounce_min_minutes_since_last_score`**, pre-POST **`relevance_row_validation`**, relevance chunk build **`relevance_chunk_parse`**)                                                                       |
+| Stages          | **`stageMetrics.extract`** (`articlesProcessed`, `articlesSucceeded`, `articlesFailedExtraction`), **`stageMetrics.scorePrepare.schemaValidationFailures`**, **`stageMetrics.persist`** (`postChunkFailures`, `articlesScored`, `articlesSelected`)                                                                                                                                                            |
+| Extraction      | `articlesProcessed`, `extractionSuccessCount`, `extractionFailureCount`, **`extractionFailuresVocabulary`** vs **`extractionFailuresLlm`**                                                                                                                                                                                                                                                                     |
+| Validation      | **`relevanceRowValidationFailures`**, **`chunkParseErrors*`**, rolled-up **`schemaValidationFailureCount`**; **`failureCountsByKind`** splits **`llm`**, **`vocabulary`**, **`schemaValidation`**, **`persistenceHttp`**, **`persistenceOther`** from POST failures                                                                                                                                            |
+| Persist         | `postFailureCount`, **`postFailuresByChunkKind`**, **`postFailuresByErrorCategory`** (`agent_data_api_http` vs `unknown`)                                                                                                                                                                                                                                                                                      |
+| KG tallies      | `entitiesCreated`, `entitiesReused`, **`entityReuseRatio`**, `relationsCreated`, `articlesScored`, `articlesSelected`                                                                                                                                                                                                                                                                                          |
+| Relevance stats | When relevance rows were built: `relevanceRowCount`, `scoreMin` / `scoreMax` / `scoreMean`, **`scoreBuckets`**, **`breakdownVersion`** (or `mixed`), **`breakdownKeyMeans`** / mins / maxes over canonical keys                                                                                                                                                                                                |
+| LLM             | **`llmPromptTokens`**, **`llmCompletionTokens`**, **`llmTotalTokens`** summed over extraction calls **only if** the AI SDK reports usage for those calls; fields are **omitted** when the provider returns no token counts; **`llmPromptFingerprint`** (16-char hex) identifies the **last** extraction system+user prompt pair sent to the model (Hermes `details.llmPromptFingerprint` on success responses) |
+| Timing          | **`extractionLatencyMsTotal`**, **`extractionCalls`**, **`avgExtractionLatencyMs`**                                                                                                                                                                                                                                                                                                                            |
+| Top-level throw | Summary includes `error: { type, message }`; **`warn` / `error` logs use the same safe shape**—never attach raw `Error` objects (avoids leaking rich provider payloads)                                                                                                                                                                                                                                        |
 
 **Security:** Logs intentionally exclude raw article `content`, API keys, and bearer tokens. Chunk and summary payloads use ids and counts only.
 
@@ -94,18 +94,31 @@ These are **additive** to calendar staggering: prefer running **data-collection*
 
 Tuning for extraction, chunking, **`scoreBreakdownVersion`** (maps to `_version` in stored breakdowns), relevance weights, selection caps, **`runPolicy`**, POST retries, **`defaultMaxBatchSize`** (per-run source cap when input omits `maxBatchSize`; default **10** in code), **`analysisGetDataSourceLimitMax`** (cap on **`analysis.get`** `limit`; default **10**), and **debounce** fields lives in the **article-analysis** agent config in Hermes (Zod schema `articleAnalysisConfigSchema`). **`openaiApiKey`** and model limits are set there—**not** via `OPENAI_*` process env on the agent container.
 
+### LLM extraction prompts (`prompts`, REQ-010)
+
+Optional **`prompts.systemPrompt`** and **`prompts.userPromptTemplate`** in Hermes override the **built-in default** extraction wording. When a field is omitted, the agent uses the package default template (same behavior as before this feature). **`openaiApiKey`** and model settings stay in their dedicated config fields—**do not** embed secrets inside prompt text.
+
+| Hermes field                     | Role when set                | Placeholders (must be spelled exactly)                                                          |
+| -------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| **`prompts.systemPrompt`**       | Full system message template | `{{entityTypesBlock}}`, `{{relationTypesBlock}}` (formatted lists from analysis GET vocabulary) |
+| **`prompts.userPromptTemplate`** | Full user message template   | `{{tickerId}}`, `{{title}}`, `{{articleContent}}` (body is truncated per **`maxContentChars`**) |
+
+**Scalar knobs that still affect extraction** when prompts are empty (defaults): **`maxContentChars`**, **`maxOutputTokens`**, **`openaiModel`**, caps (`maxEntitiesPerArticle`, …), and vocabulary from GET—these are independent of prompt wording. When you set full-string overrides, you replace the instruction text only; caps and truncation still apply before substitution.
+
+Unknown `{{token}}` values fail **config validation** in Hermes with the bad token name. Each prompt field has a **maximum length** enforced by Zod (see `ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH` in the agent package).
+
 ## Deployment environment (`@mediapulse/env/agents-article-analysis`)
 
-| Variable                     | Required | Notes                                                      |
-| ---------------------------- | -------- | ---------------------------------------------------------- |
-| `PORT`                       | Yes      | Agent HTTP port                                            |
-| `AGENT_AUTH_API_URL`         | Yes      | JWT/API-key verification endpoint                          |
-| `AGENT_DATA_API_URL`         | Yes      | Base URL for agent-data-api                                |
-| `AGENT_REGISTRY_URL`         | No       | Needed for auto-register                                   |
+| Variable                     | Required | Notes                                                          |
+| ---------------------------- | -------- | -------------------------------------------------------------- |
+| `PORT`                       | Yes      | Agent HTTP port                                                |
+| `AGENT_AUTH_API_URL`         | Yes      | JWT/API-key verification endpoint                              |
+| `AGENT_DATA_API_URL`         | Yes      | Base URL for agent-data-api                                    |
+| `AGENT_REGISTRY_URL`         | No       | Needed for auto-register                                       |
 | `DOMAIN_INTEGRATION_API_KEY` | No       | Hermes domain integration API key for auto-register (mint JWT) |
-| `AGENT_PUBLIC_URL`           | No       | Needed for auto-register                                   |
-| `DOMAIN_INTEGRATION_ID`      | No       | Domain id (default `mediapulse`)                           |
-| `ALLOW_ANY_BEARER_FOR_LOCAL` | No       | Local-only; never use in production                        |
+| `AGENT_PUBLIC_URL`           | No       | Needed for auto-register                                       |
+| `DOMAIN_INTEGRATION_ID`      | No       | Domain id (default `mediapulse`)                               |
+| `ALLOW_ANY_BEARER_FOR_LOCAL` | No       | Local-only; never use in production                            |
 
 ## Pipeline usage
 

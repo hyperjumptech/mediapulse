@@ -24,44 +24,48 @@ The content-generation agent takes **selected data sources** (scored by the anal
 
 - **Main:** `src/index.ts` — Exports a Bun/Hono-compatible `fetch` and `port` (default **4002**).
 
+## Hermes run payload (success)
+
+Successful runs include `details.promptHash` (16-character hex, same algorithm as stored newsletter provenance) so operators can correlate the invoke response with persisted rows without logging full prompts.
+
 ## Port
 
 - **4002** (default from `env.PORT`).
 
 ## Config schema
 
-| Field | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `openai.apiKey` | `string` | ✅ | — | OpenAI API key. Required if `openaiApiKey` is omitted. |
-| `openai.model` | `string` | ❌ | `gpt-4o-mini` | Chat model id. |
-| `openai.baseUrl` | `string (url)` | ❌ | official | OpenAI-compatible API base URL. |
-| `openai.timeoutMs` | `number` | ❌ | `120000` | Per-request timeout in milliseconds. |
-| `openaiApiKey` | `string` | ❌ | — | **Deprecated**: Use `openai.apiKey`. |
-| `openaiModel` | `string` | ❌ | — | **Deprecated**: Use `openai.model`. |
-| `prompts.systemPrompt` | `string` | ❌ | standard | Custom system instructions. |
-| `prompts.userPromptTemplate` | `string` | ❌ | standard | Template with `{{sourceSummaries}}`, etc. |
-| `llmRetry.maxAttempts` | `number` | ❌ | `3` | Max retry attempts (including first). |
-| `llmRetry.baseDelayMs` | `number` | ❌ | `500` | Base backoff delay in ms. |
-| `llmRetry.maxDelayMs` | `number` | ❌ | `8000` | Max backoff delay cap in ms. |
-| `llmRetry.jitter` | `boolean` | ❌ | `true` | Apply ±50% jitter to delays. |
-| `persistRetry.maxAttempts` | `number` | ❌ | `2` | Max persist retry attempts (including first). |
-| `persistRetry.baseDelayMs` | `number` | ❌ | `200` | Base backoff delay in ms. |
-| `persistRetry.maxDelayMs` | `number` | ❌ | `2000` | Max backoff delay cap in ms. No jitter (unlike llmRetry). |
+| Field                        | Type           | Required | Default          | Description                                                                                                                                                                                                                                                                                               |
+| ---------------------------- | -------------- | -------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openai.apiKey`              | `string`       | ✅       | —                | OpenAI API key. Required if `openaiApiKey` is omitted.                                                                                                                                                                                                                                                    |
+| `openai.model`               | `string`       | ❌       | `gpt-4o-mini`    | Chat model id.                                                                                                                                                                                                                                                                                            |
+| `openai.baseUrl`             | `string (url)` | ❌       | official         | OpenAI-compatible API base URL.                                                                                                                                                                                                                                                                           |
+| `openai.timeoutMs`           | `number`       | ❌       | `120000`         | Per-request timeout in milliseconds.                                                                                                                                                                                                                                                                      |
+| `openaiApiKey`               | `string`       | ❌       | —                | **Deprecated**: Use `openai.apiKey`.                                                                                                                                                                                                                                                                      |
+| `openaiModel`                | `string`       | ❌       | —                | **Deprecated**: Use `openai.model`.                                                                                                                                                                                                                                                                       |
+| `prompts.systemPrompt`       | `string`       | ❌       | built-in default | Full system template. Allowed placeholders: `{{topNewsCount}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`. Hermes JSON schema lists them for SchemaForm. Max length enforced at parse time (`CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH`). **Not for secrets** — use `openai.apiKey` only. |
+| `prompts.userPromptTemplate` | `string`       | ❌       | built-in default | User template. Allowed placeholders: `{{sourceSummaries}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`, `{{date}}`, `{{topNewsCount}}`. Same max length and validation as system. **Not for secrets.**                                                                                          |
+| `llmRetry.maxAttempts`       | `number`       | ❌       | `3`              | Max retry attempts (including first).                                                                                                                                                                                                                                                                     |
+| `llmRetry.baseDelayMs`       | `number`       | ❌       | `500`            | Base backoff delay in ms.                                                                                                                                                                                                                                                                                 |
+| `llmRetry.maxDelayMs`        | `number`       | ❌       | `8000`           | Max backoff delay cap in ms.                                                                                                                                                                                                                                                                              |
+| `llmRetry.jitter`            | `boolean`      | ❌       | `true`           | Apply ±50% jitter to delays.                                                                                                                                                                                                                                                                              |
+| `persistRetry.maxAttempts`   | `number`       | ❌       | `2`              | Max persist retry attempts (including first).                                                                                                                                                                                                                                                             |
+| `persistRetry.baseDelayMs`   | `number`       | ❌       | `200`            | Base backoff delay in ms.                                                                                                                                                                                                                                                                                 |
+| `persistRetry.maxDelayMs`    | `number`       | ❌       | `2000`           | Max backoff delay cap in ms. No jitter (unlike llmRetry).                                                                                                                                                                                                                                                 |
 
 ## Error taxonomy
 
 Every run exit path maps to a canonical `OutcomeCode` (defined in `src/types/outcome.ts`):
 
-| Code | Description |
-|---|---|
-| `no_sources` | No data sources found; run skipped without calling OpenAI |
-| `skipped_fresh_newsletter_exists` | Fresh newsletter exists; run skipped (MP-CGA-006) |
-| `openai_retry_exhausted` | LLM returned retryable errors and all retries were exhausted |
-| `openai_non_retryable` | LLM returned a non-retryable error (auth, bad request, etc.) |
-| `openai_invalid_response` | LLM returned HTTP 200 but no structured object was produced |
-| `validation_failed` | LLM output failed Zod schema validation (`TypeValidationError`) |
-| `persist_transient` | agent-data-api returned 429 or 5xx on newsletter create and all persist retries were exhausted |
-| `persist_client_error` | agent-data-api returned a non-retryable 4xx client error on newsletter create (no retry attempted) |
+| Code                              | Description                                                                                        |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `no_sources`                      | No data sources found; run skipped without calling OpenAI                                          |
+| `skipped_fresh_newsletter_exists` | Fresh newsletter exists; run skipped (MP-CGA-006)                                                  |
+| `openai_retry_exhausted`          | LLM returned retryable errors and all retries were exhausted                                       |
+| `openai_non_retryable`            | LLM returned a non-retryable error (auth, bad request, etc.)                                       |
+| `openai_invalid_response`         | LLM returned HTTP 200 but no structured object was produced                                        |
+| `validation_failed`               | LLM output failed Zod schema validation (`TypeValidationError`)                                    |
+| `persist_transient`               | agent-data-api returned 429 or 5xx on newsletter create and all persist retries were exhausted     |
+| `persist_client_error`            | agent-data-api returned a non-retryable 4xx client error on newsletter create (no retry attempted) |
 
 The `AgentRunResult` envelope returned to Hermes is unchanged: `{ success: false, message: "..." }` for all failure/skip paths. The `AgentOutcome` internal type (with `OutcomeCode` and `skipped` flag) is available for future diagnostic writes (MP-CGA-007). Persist retry logic uses `persistRetry` config (MP-CGA-009); the `stage` field in diagnostic records is `"persist"` for both persist outcome codes (MP-CGA-007).
 

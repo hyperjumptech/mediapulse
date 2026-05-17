@@ -35,6 +35,47 @@ describe("ViewDomainTableItemPage", () => {
     getDomainIntegrationByIntegrationIdMock.mockReset();
   });
 
+  it("renders detailBlocks when the manifest declares them", async () => {
+    getDomainIntegrationByIntegrationIdMock.mockResolvedValue({
+      id: "int-1",
+      integrationId: "mediapulse",
+    });
+    getDomainTableMetaMock.mockResolvedValue({
+      title: "Newsletters",
+      description: "Generated newsletters",
+      actions: {
+        create: false,
+        update: false,
+        delete: false,
+        view: true,
+      },
+      detailBlocks: [
+        {
+          type: "keyValue",
+          label: "Metadata",
+          rows: [{ field: "subject", label: "Subject" }],
+        },
+      ],
+    });
+    getDomainTableItemByIdMock.mockResolvedValue({
+      id: "n-1",
+      subject: "Apple weekly digest",
+      title: "Newsletter detail",
+    });
+
+    const ui = await ViewDomainTableItemPage({
+      params: Promise.resolve({
+        integrationId: "mediapulse",
+        resource: "newsletters",
+        itemId: "n-1",
+      }),
+    });
+    render(ui);
+
+    expect(screen.getByText("Metadata")).toBeInTheDocument();
+    expect(screen.getByText("Apple weekly digest")).toBeInTheDocument();
+  });
+
   it("renders detail when manifest has view action and row loads", async () => {
     getDomainIntegrationByIntegrationIdMock.mockResolvedValue({
       id: "int-1",

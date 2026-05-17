@@ -1,11 +1,12 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
+import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 import { logger } from "@workspace/logger";
 import { env } from "@mediapulse/env/agents-query-analysis";
 import type { QueryAnalysisConfig } from "./config-schema";
 import {
-  buildQueryAnalysisSystemContent,
-  buildQueryAnalysisUserContent,
+  resolveQueryAnalysisSystemContent,
+  resolveQueryAnalysisUserContent,
   fetchLlmQueryCandidates,
 } from "./llm-queries";
 import { mergeQueryCandidates } from "./merge-query-candidates";
@@ -67,17 +68,28 @@ export const runQueryAnalysis = async (
   const openaiModel = config.openaiModel!;
   const maxTokens = config.maxTokens!;
 
-  const systemContent = buildQueryAnalysisSystemContent({
-    queryCount,
-    allowedLanguages,
-    minDeterministicCount,
-    weights: {
-      breaking: weightBreaking,
-      kgChange: weightKgChange,
-      fundamental: weightFundamental,
+  const systemContent = resolveQueryAnalysisSystemContent(
+    config.prompts?.systemPrompt,
+    {
+      queryCount,
+      allowedLanguages,
+      minDeterministicCount,
+      weights: {
+        breaking: weightBreaking,
+        kgChange: weightKgChange,
+        fundamental: weightFundamental,
+      },
     },
-  });
-  const userContent = buildQueryAnalysisUserContent(queryContext);
+  );
+  const userContent = resolveQueryAnalysisUserContent(
+    config.prompts?.userPromptTemplate,
+    queryContext,
+  );
+
+  const llmPromptFingerprint = computeLlmPromptFingerprint(
+    systemContent,
+    userContent,
+  );
 
   let llmCandidates: Awaited<ReturnType<typeof fetchLlmQueryCandidates>> = [];
   try {
@@ -137,5 +149,8 @@ export const runQueryAnalysis = async (
     { tickerId: input.tickerId, created: response.created },
     "query analysis set persisted",
   );
-  return { success: true, details: response };
+  return {
+    success: true,
+    details: { ...response, llmPromptFingerprint },
+  };
 };

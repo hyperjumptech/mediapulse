@@ -1,11 +1,18 @@
 export {
   DefaultNewsletterEmail,
   type DefaultNewsletterEmailProps,
+  DEFAULT_MEDIAPULSE_SITE_URL,
+  DEFAULT_HYPERJUMP_SITE_URL,
 } from "./newsletter/default-newsletter.js";
 export {
   parseNewsletterBody,
   type ParsedNewsletterBody,
 } from "./newsletter/parse-newsletter-body.js";
+export {
+  parseNewsletterCitations,
+  unwrapInlineFormatting,
+  type NewsletterCitation,
+} from "./newsletter/parse-newsletter-citations.js";
 export {
   RegistrationConfirmationEmail,
   type RegistrationConfirmationEmailProps,

@@ -1,4 +1,4 @@
-import { domainHealthResponseSchema } from "@hermes/domain-contract";
+import { domainHealthResponseSchema } from "@hermes/domain-contract/contracts";
 import { env } from "@mediapulse/env";
 import { Hono } from "hono";
 

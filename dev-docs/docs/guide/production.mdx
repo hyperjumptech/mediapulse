@@ -22,13 +22,31 @@ Provision **three** PostgreSQL logical databases (they can be three schemas on o
 | **Mediapulse (domain)**    | Tickers, newsletters, KG, subscribers, user registration data, etc. | `MEDIAPULSE_DATABASE_URL`                                                                  | `pnpm --filter @mediapulse/database db:migrate:deploy`                       |
 | **DataQueue**              | hermes-worker job queue (scheduler)                                 | `PG_DATAQUEUE_DATABASE` (same host is fine; use `?schema=dataqueue&search_path=dataqueue`) | `pnpm --filter @hermes/worker run migrate-dataqueue` (with queue URL in env) |
 
-Pushes to **main** run the same two **`pnpm --filter … db:migrate:deploy`** commands from CI: workflow jobs **`db-migrate`** in **`.github/workflows/app-deploy.yml`** and **`.github/workflows/agent-deploy.yml`** (after **`db-ready`**, before image publish). Both workflows share the concurrency group **`prisma-migrate-production`** so only one migrate runs at a time if both workflows start together.
+Pushes to **main** run the same two **`pnpm --filter … db:migrate:deploy`** commands from CI: workflow jobs **`db-migrate`** in **`.github/workflows/app-deploy.yml`** and **`.github/workflows/agent-deploy.yml`** (before image publish). Both workflows share the concurrency group **`prisma-migrate-production`** so only one migrate runs at a time if both workflows start together.
 
 After migrations succeed, each workflow builds and pushes per-service images to **GitHub Container Registry (GHCR)** as `ghcr.io/<owner>/<image>:sha-<commit>` and `ghcr.io/<owner>/<image>:latest`. Images are built from the repository root using each app's **`Dockerfile`**. Dockerfiles set **`MEDIAPULSE_ENV_BUILD_TARGETS`** or **`HERMES_ENV_BUILD_TARGETS`** so `@mediapulse/env` / `@hermes/env` only run `env-to-t3` for the slices that image needs (faster builds); leave those unset locally for full codegen.
 
-Once an image is published, CI triggers a **Coolify deploy webhook** for each service. Coolify pulls the new image from GHCR and rolls it out. A **cleanup job** runs after all deploys succeed and deletes older GHCR package versions, retaining the **two newest versions** per service for rollback.
+Once an image is published, CI triggers a **Coolify deploy webhook** for each service. Coolify pulls the new image from GHCR and rolls it out. A **cleanup job** runs after all deploys succeed and deletes older GHCR package versions, retaining the **five newest versions** per service for rollback.
 
 Keep **branch protection** on **`main`** so **Code Quality Checks** (which still run full **`pnpm build`** and tests on PRs / heavy pushes) stay green before merges; deploy workflows start on the same **`push` to `main`** in parallel. If you need a strict "tests then deploy" order, add a **`workflow_run`**-triggered deploy after code quality succeeds.
+
+---
+
+## HTTP liveness (`GET /health`)
+
+Every **HTTP** service exposes **unauthenticated** `GET /health` with JSON matching the Hermes domain health contract: `{ "ok": true, "service": "<name>" }`, and optionally `"version"`. Point **Coolify** health checks (or your load balancer) at this path on each container’s HTTP port.
+
+| Component                    | Package                         | `service` field (typical)                             |
+| ---------------------------- | ------------------------------- | ----------------------------------------------------- |
+| agent-auth-api               | `@hermes/agent-auth-api`        | `agent-auth-api`                                      |
+| agent-registry-api           | `@hermes/agent-registry-api`    | `agent-registry-api`                                  |
+| Hermes dashboard             | `@hermes/dashboard`             | `hermes-dashboard`                                    |
+| agent-data-api               | `@mediapulse/agent-data-api`    | `agent-data-api`                                      |
+| domain-api                   | `@mediapulse/domain-api`        | `DOMAIN_INTEGRATION_NAME` env or `Mediapulse` default |
+| Mediapulse user-registration | `@mediapulse/user-registration` | `mediapulse-user-registration`                        |
+| Mediapulse agents (Bun)      | `apps/mediapulse/agents/*`      | each agent’s stable `agentId`                         |
+
+**hermes-worker** (`@hermes/worker`) does **not** listen on HTTP — there is no `GET /health`. Rely on your orchestrator’s **process** health (container PID 1, optional exec script, or equivalent).
 
 ---
 
@@ -106,6 +124,8 @@ Deploy in this order: **agent-auth-api → agent-registry-api → dashboard → 
 
 **Package:** `@hermes/worker` · **Path:** `apps/hermes/worker`
 
+This process has **no HTTP port** and **no `GET /health`** — use **process-level** liveness in Coolify or your scheduler host (see [HTTP liveness](#http-liveness-get-health) above).
+
 Merge **`packages/hermes/env/env.example`** with **`packages/hermes/env/env.hermes-worker.example`** in the runtime environment (same pattern as `merge-env-examples.sh`).
 
 | Step                 | Command                                                                                                 |
@@ -182,7 +202,7 @@ After domain-api is live, set **`AGENT_AUTH_API_URL`** on domain-api (same auth 
 
 **Package:** `@mediapulse/user-registration` · **Path:** `apps/mediapulse/user-registration`
 
-Public-facing newsletter signup UI. The current implementation serves ticker choices from **`public/tickers.json`** and opens a prefilled **mailto** draft (no direct database or API calls in app code). The app is built with **`output: "standalone"`** for container-friendly deploys.
+Public-facing newsletter signup UI. The home page loads ticker choices from **agent-data-api** (`GET /api/v1/user-registration-tickers`; server env **`AGENT_DATA_API_URL`** only) and opens a prefilled **mailto** draft. It also hosts the unsubscribe endpoint (`/api/unsubscribe`) and forwards token verification/update calls to agent-data-api. The app is built with **`output: "standalone"`** for container-friendly deploys.
 
 `next.config.js` loads dotenv files from **`packages/mediapulse/env`** (same directory you merge with `merge-env-examples.sh` for other Mediapulse services). If you later add server code that imports **`@mediapulse/env`**, provide the same merged variables as **domain-api** / **agent-data-api** (at minimum **`MEDIAPULSE_DATABASE_URL`** per the schema).
 
@@ -193,6 +213,8 @@ Public-facing newsletter signup UI. The current implementation serves ticker cho
 | Run (production)     | From app directory: `pnpm start` (set `PORT` if you need a fixed port). |
 
 **Docker:** `apps/mediapulse/user-registration/Dockerfile`.
+
+**GitHub Actions:** For **`App Deployment`**, add repository secrets **`NEXT_PUBLIC_REGISTRATION_EMAIL`** and **`AGENT_DATA_API_URL`** (public agent-data-api base URL). If **`AGENT_DATA_API_URL`** is missing, the workflow falls back to a localhost placeholder so the Docker build still succeeds; production traffic still needs the real URL on the **running container** (e.g. Coolify env) so server routes such as unsubscribe call the correct host.
 
 ---
 
@@ -226,12 +248,12 @@ For **knowledge-graph** behaviour and data model details, see [Knowledge Graph](
 
 ## Extra variables (reference)
 
-| Variable                                                                | Typical location                              | Explanation                                                                                             |
-| ----------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `HERMES_DATA_SOURCE_MAX_TAKE`                                           | Hermes dashboard, worker, Mediapulse base env | Max rows for `db:` expansion (default `5000`); keep the same everywhere.                                |
-| `AGENT_DATA_API_URL`                                                    | Hermes env                                    | Required on **agents** that call agent-data-api; optional on Hermes if you centralize URLs elsewhere.   |
-| `HERMES_INVOKE_AGENT_MAX_ATTEMPTS` / `HERMES_INVOKE_AGENT_DLQ_JOB_TYPE` | hermes-worker                                 | Optional DataQueue retry and dead-letter tuning for agent invocation (see `env.hermes-worker.example`). |
-| `OUTLOOK_*`                                                             | `packages/mediapulse/env`                     | Outlook / Graph scripts; see [Microsoft setup](/mediapulse/packages/outlook-inbox/microsoft-setup).     |
+| Variable                                                                | Typical location                              | Explanation                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HERMES_DATA_SOURCE_MAX_TAKE`                                           | Hermes dashboard, worker, Mediapulse base env | Max rows for `db:` expansion (default `5000`); keep the same everywhere.                                                                                                                                      |
+| `AGENT_DATA_API_URL`                                                    | Hermes env                                    | Required on **agents** that call agent-data-api; optional on Hermes if you centralize URLs elsewhere.                                                                                                         |
+| `HERMES_INVOKE_AGENT_MAX_ATTEMPTS` / `HERMES_INVOKE_AGENT_DLQ_JOB_TYPE` | hermes-worker                                 | Optional DataQueue retry and dead-letter tuning for agent invocation (see `env.hermes-worker.example`).                                                                                                       |
+| Outlook / Graph                                                         | Hermes agent config (and CLI for `test:lib`)  | No `OUTLOOK_*` in `@mediapulse/env`. Agents pass `outlookClientId` / secret / tenant / user from Hermes; local script uses flags — see [Microsoft setup](/mediapulse/packages/outlook-inbox/microsoft-setup). |
 
 Annotated templates: **`packages/hermes/env/env.example`**, **`env.hermes-worker.example`**, **`packages/mediapulse/env/env.example`**, **`env.agents.*.example`**. After editing those files, run `pnpm build` in `packages/hermes/env` and/or `packages/mediapulse/env` to regenerate types.
 
@@ -247,7 +269,7 @@ Annotated templates: **`packages/hermes/env/env.example`**, **`env.hermes-worker
 ## Summary
 
 - **Order:** Prerequisites (three DB roles + migrations) → **Hermes** (auth API → registry API → dashboard → worker, with **`HERMES_INTERNAL_API_KEY`** aligned) → **Mediapulse** (agent-data-api → domain-api → optional **user-registration** → agents).
-- **CI deploy flow:** Every merge to `main` runs `db-ready` → `db-migrate` → build and push per-service images to GHCR → trigger Coolify deploy webhooks → prune old GHCR versions (keep newest 2 per service for rollback).
+- **CI deploy flow:** Every merge to `main` runs `db-migrate` → build and push per-service images to GHCR → trigger Coolify deploy webhooks → prune old GHCR versions (keep newest 5 per service for rollback).
 - **Rollback:** Promote the previous image tag (`sha-<commit>`) in Coolify to roll back a service without a new merge.
 - **Secrets:** Never commit real values; use your platform’s secret storage. **`HERMES_INTERNAL_API_KEY`** is a deploy-time preset. **`DOMAIN_INTEGRATION_API_KEY`** on Mediapulse/agents is the API key generated in **Domain integrations** (Hermes dashboard). Apps require **`COOLIFY_WEBHOOK_APP_<SERVICE>`** secrets and agents require **`COOLIFY_WEBHOOK_AGENT_<SERVICE>`** secrets in GitHub Actions; GHCR access uses the built-in **`GITHUB_TOKEN`** with `packages: write`.
 - **JWTs:** agent-auth-api issues tokens for the internal preset and for **domain_integration** API keys (hash in DB); Hermes decrypts per-integration ciphertext for outbound domain/agent calls where configured. Verification uses **`AGENT_AUTH_API_URL`** / **`AGENT_AUTH_JWT_SECRET`** on the auth API.

@@ -3,7 +3,7 @@ info:
   title: Hermes Domain Integration Contract
   version: 1.0.0
 paths:
-  /v1/health:
+  /health:
     get:
       operationId: getHealth
       responses:

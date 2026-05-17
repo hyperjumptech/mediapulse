@@ -25,7 +25,12 @@ RUN rm -f apps/mediapulse/user-registration/.env apps/mediapulse/user-registrati
     touch apps/mediapulse/user-registration/.env apps/mediapulse/user-registration/.env.local
 
 ENV MEDIAPULSE_ENV_BUILD_TARGETS=app.user-registration
-ENV NEXT_PUBLIC_REGISTRATION_EMAIL="registration@mediapulse.example"
+ARG NEXT_PUBLIC_REGISTRATION_EMAIL=registration@example.com
+ARG AGENT_DATA_API_URL=http://127.0.0.1:8081
+ENV NEXT_PUBLIC_REGISTRATION_EMAIL=$NEXT_PUBLIC_REGISTRATION_EMAIL
+ENV AGENT_DATA_API_URL=$AGENT_DATA_API_URL
+RUN test -n "$NEXT_PUBLIC_REGISTRATION_EMAIL"
+RUN test -n "$AGENT_DATA_API_URL"
 RUN pnpm exec turbo build --filter=@mediapulse/user-registration --env-mode=loose
 
 ARG NODE_VERSION=24.12.0
@@ -41,6 +46,10 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 COPY --from=builder --chown=nextjs:nodejs /app/apps/mediapulse/user-registration/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/mediapulse/user-registration/.next/static ./apps/mediapulse/user-registration/.next/static
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends wget curl \
+  && rm -rf /var/lib/apt/lists/*
 
 USER nextjs
 

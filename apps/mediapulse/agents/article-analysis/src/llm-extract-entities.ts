@@ -3,6 +3,14 @@ import { generateObject, type ModelMessage } from "ai";
 import type { GetAnalysisResponse } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
+import {
+  ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
+  ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_TEMPLATE_DEFAULT,
+  formatArticleAnalysisEntityTypesBlock,
+  formatArticleAnalysisRelationTypesBlock,
+} from "./article-extraction-prompt-defaults.js";
+import { substituteLlmPromptTemplate } from "@workspace/agent-llm-prompt-template";
+
 const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
 
 const llmExtractionOpenAiWireSchema = z.object({
@@ -144,33 +152,62 @@ const defaultGenerateObjectForExtraction: GenerateObjectForExtraction = async (
 };
 
 /**
- * System prompt listing allowed entity and relation type UUIDs from analysis GET.
+ * Resolves the extraction system prompt after merging Hermes `prompts.systemPrompt` with code defaults.
+ *
+ * @param configuredSystemPrompt - Optional override from Hermes agent config.
+ * @param ctx - Vocabulary from analysis GET.
+ * @returns System message string (no article body, no secrets).
+ */
+export const resolveArticleAnalysisExtractionSystemContent = (
+  configuredSystemPrompt: string | undefined,
+  ctx: Pick<GetAnalysisResponse, "entityTypes" | "relationTypes">,
+): string => {
+  const template =
+    configuredSystemPrompt ??
+    ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT;
+  return substituteLlmPromptTemplate(template, {
+    entityTypesBlock: formatArticleAnalysisEntityTypesBlock(ctx),
+    relationTypesBlock: formatArticleAnalysisRelationTypesBlock(ctx),
+  });
+};
+
+/**
+ * Resolves the extraction user prompt after merging Hermes `prompts.userPromptTemplate` with code defaults.
+ *
+ * @param configuredUserPromptTemplate - Optional override from Hermes agent config.
+ * @param args - Ticker, title, truncated body (already capped for token budget).
+ * @returns User message string.
+ */
+export const resolveArticleAnalysisExtractionUserContent = (
+  configuredUserPromptTemplate: string | undefined,
+  args: {
+    tickerId: string;
+    title: string;
+    contentTruncated: string;
+  },
+): string => {
+  const template =
+    configuredUserPromptTemplate ??
+    ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_TEMPLATE_DEFAULT;
+  return substituteLlmPromptTemplate(template, {
+    tickerId: args.tickerId,
+    title: args.title,
+    articleContent: args.contentTruncated,
+  });
+};
+
+/**
+ * System prompt listing allowed entity and relation type UUIDs from analysis GET (package defaults only).
  *
  * @param ctx - Vocabulary from analysis GET.
  * @returns System message string (no article body, no secrets).
  */
 export const buildExtractionSystemContent = (
   ctx: Pick<GetAnalysisResponse, "entityTypes" | "relationTypes">,
-): string => {
-  const et = ctx.entityTypes.map((e) => `- ${e.id} — ${e.name}`).join("\n");
-  const rt = ctx.relationTypes.map((r) => `- ${r.id} — ${r.name}`).join("\n");
-  return [
-    "You extract knowledge-graph entities and relations from ONE article for equity research tooling.",
-    "Use ONLY entity typeId values listed under ENTITY TYPES and ONLY relationTypeId values under RELATION TYPES.",
-    "Relation fromEntityName and toEntityName must match canonicalName strings of entities you output (not aliases).",
-    "Prefer high-precision entities; omit uncertain extractions.",
-    'Every entity must include description as a string; use an empty string "" when there is no short description.',
-    "Every entity must include aliases as an array (use [] when there are no aliases beyond canonicalName).",
-    "Also populate articleMentions: for entities in your entities array that appear in the article text, estimate mentionCount (positive integer), confidence (0–1), and sentiment POSITIVE | NEGATIVE | NEUTRAL, or NONE when not applicable.",
-    "Each articleMentions.entityName must exactly match the canonicalName of one row in your entities array (same spelling as canonicalName).",
-    "Return JSON object with keys entities, relations, and articleMentions (arrays; articleMentions may be empty).",
-    "ENTITY TYPES (uuid — label):\n" + et,
-    "RELATION TYPES (uuid — label):\n" + rt,
-  ].join("\n\n");
-};
+): string => resolveArticleAnalysisExtractionSystemContent(undefined, ctx);
 
 /**
- * User message with ticker metadata and truncated article text.
+ * User message with ticker metadata and truncated article text (package defaults only).
  *
  * @param args - Ticker, title, truncated body (already capped for token budget).
  * @returns User message string.
@@ -179,13 +216,7 @@ export const buildExtractionUserContent = (args: {
   tickerId: string;
   title: string;
   contentTruncated: string;
-}): string =>
-  [
-    `tickerId: ${args.tickerId}`,
-    `title: ${args.title}`,
-    "article:",
-    args.contentTruncated,
-  ].join("\n\n");
+}): string => resolveArticleAnalysisExtractionUserContent(undefined, args);
 
 /**
  * Runs structured extraction for one data source via `generateObject`.

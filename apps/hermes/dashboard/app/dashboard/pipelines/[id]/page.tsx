@@ -46,10 +46,13 @@ const PipelineDetailPage = async ({
 
   const pipeline = loaded;
 
-  const agents = await getAgentRegistryList(
-    orchestrationPrisma,
-    pipeline.domainIntegrationId,
-  );
+  const [agents, domainIntegrations] = await Promise.all([
+    getAgentRegistryList(orchestrationPrisma, pipeline.domainIntegrationId),
+    orchestrationPrisma.domainIntegration.findMany({
+      orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
+      select: { id: true, integrationId: true, name: true },
+    }),
+  ]);
 
   const [configsByAgentKey, validation, executions] = await Promise.all([
     getAgentConfigsByAgentKeys(
@@ -66,6 +69,7 @@ const PipelineDetailPage = async ({
     <PipelineDetailContent
       pipeline={pipeline}
       agents={agents}
+      domainIntegrations={domainIntegrations}
       configsByAgentKey={configsByAgentKey}
       pipelineValidation={validation}
       executions={executions.executions}

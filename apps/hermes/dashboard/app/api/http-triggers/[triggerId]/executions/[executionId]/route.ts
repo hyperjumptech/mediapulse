@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 import { getHttpTriggerExecutionDetail } from "@/lib/http-triggers";
 import { maskHttpTriggerExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 
@@ -9,14 +9,14 @@ import { maskHttpTriggerExecutionDetailForDisplay } from "@/lib/mask-json-secret
  * Returns execution detail (steps + invocations) for admin debugging. Requires dashboard session.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: {
     params: Promise<{ triggerId: string; executionId: string }>;
   },
 ) {
-  const session = await getDashboardSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await resolveDashboardPrincipalOrUnauthorized(request);
+  if (auth instanceof NextResponse) {
+    return auth;
   }
 
   const { triggerId, executionId } = await context.params;

@@ -16,7 +16,7 @@ Use this rule whenever you add, delete, or change an `agent-data-api` endpoint.
 4. Update `@workspace/agent-data-api-client` behavior if the contract shape changed.
 5. Update all agent consumers and tests that call the SDK methods.
 6. Update docs in `dev-docs/docs/mediapulse/apps/agent-data-api.mdx`.
-7. Run `pnpm code-quality` before finishing.
+7. Before finishing, run verification via the **verifier** subagent (`.cursor/agents/verifier.md`), or run the equivalent checks in `.cursor/agents/verifier.md` (Contract section): mandatory **`pnpm format:check`**, prefer **`pnpm code-quality`** when feasible.
 
 ## Endpoint-specific checks
 

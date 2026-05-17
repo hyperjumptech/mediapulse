@@ -34,9 +34,10 @@ If two tickets are **independent**, do **not** stack them: use separate top-leve
 ## Core rules
 
 1. **One focused change per branch** — single responsibility per branch; resist mixing unrelated edits.
+   1b. **Process/docs for the same feature** — `.cursor/rules`, `.cursor/skills`, or dev-docs updates that exist **only** because of the stacked feature (e.g. visual-proof gates for that UI) belong on the **bottom stack branch** (layer 1), not a separate `chore/*` PR, unless the user explicitly wants a standalone docs PR.
 2. **Stack only real dependencies** — child branch contains work that truly requires the parent’s commits.
 3. **Merge / ship oldest first** — the branch whose base is `main` (or the stack’s root) ships before branches that sit on top of it.
-4. **Sync often** — run `git town sync --stack` or `git town sync --all` regularly to reduce drift and [phantom conflicts](https://www.git-town.com/stacked-changes.html) (especially with squash-merge workflows).
+4. **Configure rebase-mode sync once, then sync freely** — Git Town's default `merge` sync strategy is incompatible with GitHub's **Rebase and merge** and **Squash and merge** (both rewrite SHAs on `main`). Set `sync.feature-strategy = "rebase"` in `.git-town.toml` (tracked) for any repo that uses those merge buttons. With rebase-mode, `git town sync --stack` after a parent PR merges is a one-liner: Git's patch-id detection drops the duplicated commits automatically and force-pushes safely (`--force-with-lease --force-if-includes`). See [Rebase- or squash-merge rewrites SHAs and breaks merge-based stack sync](#rebase--or-squash-merge-rewrites-shas-and-breaks-merge-based-stack-sync) for the failure mode and the manual recovery recipe used when rebase-mode isn't available.
 5. **Temporary flags are debt** — flags introduced only to survive partial stack merges must be **removed** (see [Remove the flag when it is no longer needed](#remove-the-flag-when-it-is-no-longer-needed)) after all related tickets are on `main`, unless the PRD calls for a **long-lived** kill switch or gradual rollout.
 
 ## Typical Git Town commands
@@ -91,7 +92,124 @@ git town sync --stack
 git town sync --all
 ```
 
-**After the bottom PR merges:** sync so local branches rebase onto updated `main` as Git Town expects.
+**After the bottom PR merges:** sync so local branches rebase onto updated `main` as Git Town expects. If GitHub used **Rebase and merge** or **Squash and merge**, sync **after** the merge — see [Rebase- or squash-merge rewrites SHAs and breaks merge-based stack sync](#rebase--or-squash-merge-rewrites-shas-and-breaks-merge-based-stack-sync) first; a plain merge-mode sync at this point may produce a stack GitHub refuses to rebase.
+
+## Rebase- or squash-merge rewrites SHAs and breaks merge-based stack sync
+
+This is the specific failure that shows up in GitHub as **“This branch cannot be rebased due to conflicts”** on the next PR in the stack even though no one wrote conflicting code.
+
+### What happens
+
+1. Bottom PR (e.g. `branch-A`) has commits `X1, X2, X3` while it is open.
+2. You run `git town sync --stack` so dependent branches stay current. Git Town does `git merge --no-edit --ff parent` into each child, so `branch-B` (the next PR) now contains `X1, X2, X3` (old SHAs) plus a merge bringing them in.
+3. The bottom PR is merged on GitHub with **Rebase and merge** or **Squash and merge**. GitHub replays / squashes the commits onto `main` with **new SHAs** (`X1', X2', X3'`) or one squash SHA. Same content, different commit objects.
+4. GitHub tries to rebase `branch-B` onto the new `main`. It sees both the old `X1, X2, X3` (from the earlier sync merge) and the new `X1', X2', X3'` on `main` touching the same lines, and bails out with the rebase-conflict banner.
+
+This is **not** a real content conflict. Both sides of the “conflict” are the same patch under different SHAs.
+
+### Prevention (do this once per repo)
+
+**Set Git Town to rebase-mode sync.** This is the actual fix for repos that merge PRs via **Rebase and merge** or **Squash and merge** on GitHub — both rewrite SHAs and break merge-mode sync. Rebase-mode sync uses `git rebase`, which detects identical patches by patch-id and silently drops the duplicate commits that confuse GitHub.
+
+Add `.git-town.toml` (tracked, so the whole team gets it) at the repo root:
+
+```toml
+[sync]
+feature-strategy = "rebase"
+```
+
+Or, for just your clone: `git config git-town.sync-feature-strategy rebase`.
+
+Once set, the daily flow is:
+
+1. Bottom PR merges on GitHub (Rebase or Squash both fine).
+2. `git checkout` any branch in the stack and run `git town sync --stack`.
+3. Done. Git Town rebases each child onto its new parent, drops the now-duplicated old-SHA commits, and force-pushes with `--force-with-lease --force-if-includes` so teammate commits are never overwritten.
+
+This repo ships `.git-town.toml` with `feature-strategy = "rebase"`. Do not change it back to `merge` without also reverting to non-rewriting merge buttons on GitHub.
+
+### Fallback (manual recovery)
+
+Only needed when rebase-mode sync isn't configured, or when you ran a merge-mode sync earlier and the trap already fired. GitHub shows it as **"This branch cannot be rebased due to conflicts"** even though no one wrote conflicting code — both sides of the "conflict" are the same patch under different SHAs.
+
+For every child branch above the freshly merged one, do this once, in stack order from the lowest dependent branch upward:
+
+```bash
+# 1. Switch to the affected branch (the one PR is complaining about).
+git checkout <child-branch>
+
+# 2. Identify the one (or few) feature commits that actually belong to this branch.
+#    Everything else in `git log origin/main..HEAD` is sync-merge noise + old-SHA
+#    copies of commits now on main.
+git log --oneline <parent-branch>..HEAD
+
+# 3. Reset the branch onto the new parent (either `main` for the first level,
+#    or the just-rebased ancestor branch for deeper levels) and replay only the
+#    feature commit(s):
+git reset --hard <parent-branch-or-origin/main>
+git cherry-pick <feature-sha-1> [<feature-sha-2> ...]
+
+# 4. Force-push.
+git push --force-with-lease
+```
+
+Repeat for each deeper child, using the branch you just fixed as the new parent for the next reset. After all branches are reset + cherry-picked, GitHub re-evaluates the PRs and the banner clears (`mergeable: MERGEABLE`).
+
+Notes:
+
+- Use `--force-with-lease`, not `--force`, so a concurrent push by a teammate is not silently overwritten.
+- The cherry-picks should be clean if the feature commits do not actually touch the same lines as the rebased / squashed bottom PR. If they do, resolve the conflict once; that is a real content conflict, not the SHA-rewrite artifact.
+- If Git Town’s parent-branch metadata still points at a deleted local branch, run `git town sync --stack` once **after** the recovery to let Git Town reparent and prune.
+
+### Lineage hygiene after a parent PR merges
+
+When GitHub merges a stacked PR it usually **deletes the remote branch**. Locally you still have the branch and Git Town still has a `git-town-branch.<name>.parent` config entry that points at it. If you skip the cleanup below, the next `git town sync --stack` will either:
+
+- Prompt you interactively to choose a new parent for the orphaned child branch — which **fails in non-TTY shells** (CI runners, agent shells, automation) with `Error: no interactive terminal available`, even when `TERM` is set.
+- Rebase the child onto a stale parent (the now-merged ancestor branch), producing duplicate-patch noise and confusing fork-points on the next sync.
+
+Run these three steps after every parent PR merges, before the next sync:
+
+```bash
+# 1. Update local refs and prune deleted remote branches.
+git fetch --prune origin
+
+# 2. Delete the local branch whose PR just merged.
+git branch -D <merged-branch>
+
+# 3. Drop Git Town's stale parent-metadata for that deleted branch
+#    and reparent the immediate child onto its new actual parent
+#    (usually `main`, or the next branch down the stack).
+git config --remove-section git-town-branch.<merged-branch>
+git config git-town-branch.<immediate-child>.parent main
+```
+
+After this, either `git town sync --stack` or — in non-TTY shells — the explicit rebase cascade below will work cleanly. The patch-id detection built into `git rebase` drops the already-merged commit automatically, exactly like rebase-mode sync would.
+
+```bash
+# On the now-orphaned child:
+git rebase origin/main
+git push --force-with-lease --force-if-includes
+
+# Then walk up the stack, rebasing each branch onto the freshly fixed one below it:
+git checkout <next-child>
+git rebase <previous-fixed-branch>
+git push --force-with-lease --force-if-includes
+# ...repeat for each layer.
+```
+
+Skipping step 3 is the most common cause of `git town sync` failing in CI or an agent shell after a stacked PR merges. The actual git state is fine; only Git Town's lineage cache is stale.
+
+### Quick decision tree
+
+| Situation                                                                                  | Action                                                                                                                                    |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Repo has `.git-town.toml` with `feature-strategy = "rebase"`.                              | `git town sync --stack` is always safe — at any point in the stack's lifecycle, including right after a Rebase or Squash merge.           |
+| Repo is on default **merge-mode** sync **and** uses Rebase/Squash merge buttons on GitHub. | Add `.git-town.toml` with `feature-strategy = "rebase"` and stop reading. If you can't change repo config, follow the rules below.        |
+| Bottom PR is **open and being iterated on**, merge-mode sync.                              | `git town sync --stack` is fine.                                                                                                          |
+| Bottom PR is **approved**, awaiting Rebase/Squash merge, merge-mode sync.                  | Pause sync. Run it **after** the merge.                                                                                                   |
+| Bottom PR **just merged via Rebase or Squash on GitHub**, merge-mode sync.                 | Apply the fallback recovery above (reset + cherry-pick the unique feature commit per child branch, force-push with `--force-with-lease`). |
+| Bottom PR **just merged via a merge commit (no rewrite)**.                                 | `git town sync --stack` works as advertised; no recovery needed.                                                                          |
 
 ## PRs and review
 
@@ -108,8 +226,10 @@ When moving from tickets to code:
 3. For each ticket in order: ensure a **dedicated branch**; use `hack` for the first independent slice, `append` for dependent slices.
 4. **Assess feature-flag need** (see next section): if an earlier ticket would expose UI, routes, or product behavior that depends on a **later** ticket (API, schema, worker, permissions), gate that behavior behind a flag defaulting **off** until the stack is complete—or reorder tickets so vertical slices merge safely without dead ends.
 5. **Plan flag removal**: if you add a **temporary** merge-order flag, record in the **last** integrating ticket (or a dedicated cleanup ticket) that the gate must be **deleted** and env/docs updated—do not leave the feature forever behind `if (env.FLAG)`.
-6. Keep commits scoped; run **`pnpm code-quality`** (or project equivalent) before pushing each layer if the repo requires it.
+6. Keep commits scoped; before pushing each layer, run the **verifier** subagent (`.cursor/agents/verifier.md`) or the **Contract** checks in that file (**`pnpm format:check`** mandatory; **`pnpm code-quality`** when feasible).
 7. Open PRs from **leaf to root** is wrong — **ship/merge from root of stack toward tip** (oldest / closest to `main` first).
+8. Check the repo for `.git-town.toml` with `feature-strategy = "rebase"`. If present (this repo has it), `git town sync --stack` is safe at any point and is the right move after each parent PR merges. If the repo is still on default **merge-mode** sync **and** uses GitHub's Rebase- or Squash-and-merge, propose adding `.git-town.toml` before continuing — see [Rebase- or squash-merge rewrites SHAs and breaks merge-based stack sync](#rebase--or-squash-merge-rewrites-shas-and-breaks-merge-based-stack-sync). Use the fallback recovery only when changing repo config isn't an option.
+9. **After every parent PR merge, prune Git Town's lineage cache** for the merged branch and reparent its immediate child before syncing — see [Lineage hygiene after a parent PR merges](#lineage-hygiene-after-a-parent-pr-merges). Otherwise `git town sync --stack` will prompt for a new parent and fail in non-TTY shells (CI, agent runs).
 
 ## Feature flags when the stack splits UI and backend (or any unsafe partial ship)
 

@@ -64,4 +64,4 @@ After edits:
 1. Ensure no implicit `any` in callbacks.
 2. Ensure query objects use `satisfies Prisma.<...>Args`.
 3. Ensure payload aliases come from `Prisma.<Model>GetPayload<...>`.
-4. Run `pnpm code-quality`.
+4. Use the **verifier** subagent (`.cursor/agents/verifier.md`) for workspace lint, types, tests, **`pnpm format:check`**, and Docker builds affected by your changes (or satisfy the **Contract** section in that file inline).

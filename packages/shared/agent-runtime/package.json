@@ -6,7 +6,8 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./register-hermes-ui-json-schema-formats": "./src/register-hermes-ui-json-schema-formats.ts"
   },
   "scripts": {
     "test": "vitest run",
@@ -15,6 +16,7 @@
     "type:check": "tsc --noEmit"
   },
   "dependencies": {
+    "@hermes/domain-contract": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",
@@ -24,6 +26,7 @@
   },
   "devDependencies": {
     "@workspace/typescript-config": "workspace:*",
+    "ajv": "^8.17.1",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

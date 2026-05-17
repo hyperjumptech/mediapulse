@@ -16,6 +16,7 @@
     "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
+    "@hermes/domain-contract": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@next/env": "catalog:",
     "@workspace/logger": "workspace:*",
@@ -27,7 +28,8 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "sonner": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@workspace/agent-data-api-client": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

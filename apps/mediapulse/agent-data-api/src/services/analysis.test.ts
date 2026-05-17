@@ -9,6 +9,20 @@ vi.mock("@mediapulse/database", () => ({
   prisma: {},
 }));
 
+const mockLoggerWarn = vi.fn();
+vi.mock("@workspace/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: mockLoggerWarn,
+    error: vi.fn(),
+    child: vi.fn(() => ({
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    })),
+  },
+}));
+
 let AnalysisPostValidationError: typeof import("./analysis.js").AnalysisPostValidationError;
 let applyAnalysisPost: typeof import("./analysis.js").applyAnalysisPost;
 let deleteAnalysisDataSource: typeof import("./analysis.js").deleteAnalysisDataSource;
@@ -563,6 +577,67 @@ describe("applyAnalysisPost", () => {
           },
         },
       }),
+    );
+  });
+
+  it("skips article entity mention when entityName is not in ticker vocabulary", async () => {
+    // Setup
+    const DS = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const tx = {
+      dataSource: {
+        findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
+      },
+      entity: {
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+      articleEntity: { upsert: vi.fn() },
+    };
+    const db = {
+      dataSource: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+      },
+      entityType: { findMany: vi.fn() },
+      relationType: { findMany: vi.fn() },
+      entity: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+      entityAlias: { createMany: vi.fn() },
+      tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
+      entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      articleEntity: { upsert: vi.fn() },
+      articleRelevance: { upsert: vi.fn(), count: vi.fn() },
+      $transaction: vi.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
+    };
+
+    // Act: mention references an entity name not in the vocab and not in entities list.
+    const result = await applyAnalysisPost(
+      {
+        tickerId: "ticker-1",
+        entities: [],
+        relations: [],
+        articleEntities: [
+          {
+            dataSourceId: DS,
+            entityName: "Unknown Corp",
+            mentionCount: 1,
+            confidence: 0.9,
+          },
+        ],
+        articleRelevances: [],
+      },
+      { db: db as never },
+    );
+
+    // Assert: resolves without throwing; articleEntity.upsert never called; warn logged.
+    expect(result.entitiesCreated).toBe(0);
+    expect(tx.articleEntity.upsert).not.toHaveBeenCalled();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tickerId: "ticker-1",
+        entityName: "Unknown Corp",
+        dataSourceId: DS,
+      }),
+      expect.stringContaining("entityName not in ticker vocabulary"),
     );
   });
 });

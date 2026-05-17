@@ -1,0 +1,191 @@
+---
+title: Detail blocks
+description: Declarative detail-page layout for table-v1 resources — keyValue, markdown, htmlPreview, subTable, and tabs blocks plus section-header rules
+icon: LayoutTemplate
+---
+
+`table-v1` pages opt into rich detail layouts by declaring an optional **`detailBlocks`** array on the manifest. The Hermes generic detail page (`/dashboard/{integrationId}/{resource}/{itemId}`) reads the blocks and renders each one in order. When `detailBlocks` is omitted the page falls back to the built-in key/value rendering — existing integrations stay unchanged.
+
+The block types ship in `@hermes/domain-contract`. Manifests declare them server-side; Hermes renders them client- and server-side without needing per-resource code.
+
+## Block types
+
+### keyValue
+
+A grid of label/value rows pulled from the detail response.
+
+```typescript
+{
+  type: "keyValue",
+  label: "Metadata",
+  rows: [
+    { field: "subject", label: "Subject" },
+    {
+      field: "tickerName",
+      label: "Ticker",
+      linkTemplate: "/dashboard/{integrationId}/tickers/{tickerId}",
+    },
+    {
+      field: "totalTokens",
+      label: "Tokens",
+      format: "tokens",
+      tokenFields: {
+        prompt: "promptTokens",
+        completion: "completionTokens",
+        total: "totalTokens",
+      },
+    },
+  ],
+}
+```
+
+- `linkTemplate` turns a row into a link; placeholders resolve against the detail response (plus `integrationId` / `resource` / `itemId` injected by the page).
+- `format: "tokens"` renders `prompt + completion = total` with locale-formatted numbers; missing parts render as `—`.
+- `copyAction: true` adds a copy-to-clipboard button next to the value.
+
+### markdown
+
+Renders a string field as markdown — paragraphs, headings (`#`, `##`, `###`), bullet / ordered lists, inline `[label](url)` links, and `**bold**`/`*italic*` runs.
+
+```typescript
+{
+  type: "markdown",
+  field: "newsletter.content",
+  label: "Body",
+  clampChars: 4000,
+  clampThreshold: 10000,
+  copyAction: true,
+}
+```
+
+- External links open in a new tab with `rel="noopener noreferrer"`.
+- `clampChars` (with optional `clampThreshold`, default `clampChars * 2`) shows the first N characters when the body exceeds the threshold; a "Show full" button expands the body in place.
+- `copyAction: true` adds a copy-to-clipboard button that writes the raw markdown.
+
+### htmlPreview
+
+A sandboxed iframe whose content comes from a named field on the response. The iframe is `sandbox="allow-popups"` — no `allow-scripts`, no `allow-same-origin`.
+
+```typescript
+{
+  type: "htmlPreview",
+  field: "emailPreviewHtml",
+  label: "Preview of the email template as sent",
+}
+```
+
+Broken assets inside the preview do not break the surrounding page; errors stay scoped to the iframe.
+
+### subTable
+
+A small table fed by a named array field on the response.
+
+```typescript
+{
+  type: "subTable",
+  field: "citations",
+  label: "Citations",
+  columns: [
+    { field: "title", label: "Title", type: "text", truncate: 80 },
+    {
+      field: "url",
+      label: "URL",
+      type: "text",
+      linkTemplate: "{url}",
+      linkExternal: true,
+    },
+    {
+      field: "status",
+      label: "Status",
+      type: "badge",
+      badgeVariants: {
+        delivered: "success",
+        failed: "destructive",
+        skipped: "muted",
+        not_attempted: "outline",
+      },
+      inconsistentField: "inconsistent",
+    },
+  ],
+  captionTemplate: "Citations ({citations.length} unique)",
+  emptyState: "No citations yet.",
+}
+```
+
+- `linkTemplate` works the same as on `keyValue` rows. `linkExternal: true` opens in a new tab.
+- `type: "badge"` maps the cell value to a badge variant; `inconsistentField` flags rows that need a `!` adornment + tooltip.
+- `truncate: N` truncates long values with a hover/focus tooltip.
+- `captionTemplate` supports `{path}` and `{path.length}` placeholders.
+- `pageSize: N` paginates the rows client-side once the row count exceeds N. The renderer shows prev/next buttons plus a "Showing X–Y of Z" range. The caption and any `sectionRule` still evaluate against the unsliced response, so aggregate badges (e.g. "partial delivery") stay correct across pages.
+
+### tabs
+
+Groups two or more related leaf blocks under a single tabbed section. Useful when blocks describe the same content from different angles (e.g. a markdown body and an HTML email preview of the same newsletter).
+
+```typescript
+{
+  type: "tabs",
+  label: "Content",
+  tabs: [
+    {
+      label: "Body",
+      block: {
+        type: "markdown",
+        field: "newsletter.content",
+        clampChars: 4000,
+        copyAction: true,
+      },
+    },
+    {
+      label: "Email preview",
+      block: { type: "htmlPreview", field: "emailPreviewHtml" },
+    },
+  ],
+}
+```
+
+- Tab content must be a **leaf block** (`keyValue`, `markdown`, `htmlPreview`, or `subTable`). Tabs may not nest other tabs — the schema rejects nested `tabs` blocks at parse time.
+- Each inner block's own `label` is stripped at render time so the tab trigger acts as the heading; the outer `label` and `sectionRule` still render above the tab list.
+- The first tab is active by default.
+
+## Section-header rules
+
+Every block accepts an optional `sectionRule` that drives a data-dependent badge in the section header.
+
+```typescript
+{
+  type: "subTable",
+  field: "recipients",
+  label: "Recipients",
+  sectionRule: {
+    when: "deliveryDelivered < deliveryEnabledAtSendTime",
+    badge: "warning",
+    label: "partial delivery",
+  },
+  // …
+}
+```
+
+The expression language is intentionally tiny and parsed at render time:
+
+| Form | Example |
+| ---- | ------- |
+| Numeric comparison | `delivered < enabled`, `a >= 5` |
+| Equality | `status == "failed"`, `outcome != "success"` |
+| Length | `selectedSources.length == 0` |
+| Presence | `present(activeQuerySet)`, `absent(newsletter.runId)` |
+| Hours between two ISO-8601 strings | `hoursBetween(a.generatedAt, b.createdAt) > 24` |
+
+Anything else (boolean `&&`/`||`, arbitrary function calls, arithmetic, etc.) is rejected so the rules stay declarative metadata. Bad expressions never crash the page — invalid rules silently skip the badge.
+
+## How Hermes evaluates blocks
+
+Hermes reads `detailBlocks` from the meta response (`tableV1MetaResponseSchema`) and renders each block against the row returned by `GET {apiPrefix}/{id}`. The renderer passes `integrationId`, `resource`, and `itemId` into the data namespace so link templates can build dashboard URLs without the domain needing to know its own integration id.
+
+## Adding a new block type to an existing resource
+
+1. Update the domain `dashboard-page.ts` manifest with a `detailBlocks` entry.
+2. Make sure the detail handler (`GET {apiPrefix}/:id`) returns the fields the blocks reference.
+3. Restart the domain API so the manifest re-registers with Hermes (the manifest is pulled from the orchestration `DomainIntegration` row on dashboard load).
+
+Existing integrations that do not declare `detailBlocks` keep their current behavior — the detail page falls back to the built-in key/value layout.

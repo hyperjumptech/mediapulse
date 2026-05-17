@@ -1,11 +1,17 @@
 "use client";
 
+import Link from "next/link";
+
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
+import { cn } from "@workspace/ui/lib/utils";
 
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 import { usePipelineTimeoutInputDefaultValue } from "@/hooks/use-pipeline-timeout-input-default-value";
+import { usePipelineTimeoutPreview } from "@/hooks/use-pipeline-timeout-preview";
+
+import type { PipelineDomainIntegrationOption } from "./pipelines-with-modal";
 
 export type PipelineFormFieldsProps = {
   /** Name prefix for form fields, e.g. "body" for body.name */
@@ -20,10 +26,20 @@ export type PipelineFormFieldsProps = {
   defaultTimeoutMs?: number;
   /** When set, renders hidden pipelineId for update action */
   pipelineId?: string;
+  /** Domain integrations for the pipeline owner `<select>` (same order as create fallback). */
+  domainIntegrations: PipelineDomainIntegrationOption[];
+  /** Selected integration id for edit, or omit on create to default to first option. */
+  defaultDomainIntegrationId?: string;
 };
 
+const selectClassName = cn(
+  "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow]",
+  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+  "disabled:pointer-events-none disabled:opacity-50",
+);
+
 /**
- * Shared pipeline form fields: name, description, optional agent request timeout, isActive.
+ * Shared pipeline form fields: domain integration, name, description, optional agent request timeout, isActive.
  * Used by both create and edit modals to avoid duplication.
  */
 export const PipelineFormFields = ({
@@ -36,10 +52,17 @@ export const PipelineFormFields = ({
   defaultIsActive,
   defaultTimeoutMs,
   pipelineId,
+  domainIntegrations,
+  defaultDomainIntegrationId,
 }: PipelineFormFieldsProps) => {
   const pre = namePrefix ? `${namePrefix}.` : "";
   const timeoutInputDefaultValue =
     usePipelineTimeoutInputDefaultValue(defaultTimeoutMs);
+  const { timeoutPreviewText, onTimeoutInput } =
+    usePipelineTimeoutPreview(defaultTimeoutMs);
+
+  const selectDefaultValue =
+    defaultDomainIntegrationId ?? domainIntegrations[0]?.id ?? "";
 
   return (
     <>
@@ -51,6 +74,40 @@ export const PipelineFormFields = ({
           readOnly
         />
       ) : null}
+      <div className="grid gap-2">
+        <Label htmlFor={`${pre}domainIntegrationId`}>Domain integration</Label>
+        {domainIntegrations.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No domain integration configured.{" "}
+            <Link
+              href="/dashboard/domain-integrations"
+              className="text-primary underline underline-offset-4"
+            >
+              Add one under Domain integrations
+            </Link>{" "}
+            before creating pipelines.
+          </p>
+        ) : (
+          <select
+            id={`${pre}domainIntegrationId`}
+            name={`${pre}domainIntegrationId`}
+            className={selectClassName}
+            defaultValue={selectDefaultValue}
+            disabled={pending}
+            required
+          >
+            {domainIntegrations.map((row) => (
+              <option key={row.id} value={row.id}>
+                {row.integrationId} — {row.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Pipelines are scoped to one integration (JWT mint, agent registry, and
+          step expansion). Must match where agents are registered.
+        </p>
+      </div>
       <div className="grid gap-2">
         <Label htmlFor={`${pre}name`}>Name</Label>
         <Input
@@ -84,10 +141,17 @@ export const PipelineFormFields = ({
           defaultValue={timeoutInputDefaultValue}
           placeholder="e.g. 900000"
           disabled={pending}
+          onInput={onTimeoutInput}
         />
         <p className="text-xs text-muted-foreground">
-          Optional per-agent request timeout in milliseconds. Leave empty to use
-          the default 5 minutes (300000). Example: 900000 = 15 minutes.
+          Optional. Leave empty for the Hermes default (5 minutes).
+        </p>
+        <p
+          className="text-xs text-muted-foreground"
+          aria-live="polite"
+          role="status"
+        >
+          {timeoutPreviewText}
         </p>
       </div>
       <FormBooleanCheckboxField
@@ -102,7 +166,10 @@ export const PipelineFormFields = ({
           {errorMessage}
         </p>
       ) : null}
-      <Button type="submit" disabled={pending}>
+      <Button
+        type="submit"
+        disabled={pending || domainIntegrations.length === 0}
+      >
         {submitLabel}
       </Button>
     </>

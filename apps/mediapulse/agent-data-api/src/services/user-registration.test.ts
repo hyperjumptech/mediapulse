@@ -331,3 +331,116 @@ describe("processRegistration with immediate confirmation", () => {
     });
   });
 });
+
+describe("processUnsubscribe", () => {
+  const SECRET = "test-unsubscribe-secret";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns invalid when token is malformed", async () => {
+    const { processUnsubscribe } = await import("./user-registration.js");
+    const result = await processUnsubscribe({
+      token: "bad-token",
+      secret: SECRET,
+      method: "link",
+    });
+    expect(result).toEqual({ status: "invalid" });
+    const { prisma } = await import("@mediapulse/database");
+    expect(prisma.userTicker.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns not_found when token is valid but subscription is missing", async () => {
+    const { createUnsubscribeToken } = await import("@workspace/utils");
+    const token = createUnsubscribeToken({
+      userTickerId: "11111111-1111-4111-a111-111111111111",
+      tickerSymbol: "BBCA",
+      secret: SECRET,
+    });
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue(null);
+
+    const { processUnsubscribe } = await import("./user-registration.js");
+    const result = await processUnsubscribe({
+      token,
+      secret: SECRET,
+      method: "link",
+    });
+
+    expect(result).toEqual({ status: "not_found", displaySymbol: "BBCA" });
+  });
+
+  it("returns already_unsubscribed for idempotent retries", async () => {
+    const { createUnsubscribeToken } = await import("@workspace/utils");
+    const token = createUnsubscribeToken({
+      userTickerId: "11111111-1111-4111-a111-111111111111",
+      tickerSymbol: "BBCA",
+      secret: SECRET,
+    });
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue({
+      ...makeUserTicker({
+        enabled: false,
+      }),
+      unsubscribedAt: new Date(),
+      ticker: { symbol: "BBCA" },
+    } as unknown as Awaited<ReturnType<typeof prisma.userTicker.findUnique>>);
+
+    const { processUnsubscribe } = await import("./user-registration.js");
+    const result = await processUnsubscribe({
+      token,
+      secret: SECRET,
+      method: "link",
+    });
+
+    expect(result).toEqual({
+      status: "already_unsubscribed",
+      displaySymbol: "BBCA",
+    });
+    expect(prisma.userTicker.update).not.toHaveBeenCalled();
+  });
+
+  it("disables the subscription and records method", async () => {
+    const { createUnsubscribeToken } = await import("@workspace/utils");
+    const token = createUnsubscribeToken({
+      userTickerId: "11111111-1111-4111-a111-111111111111",
+      tickerSymbol: "BBCA",
+      secret: SECRET,
+    });
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue({
+      ...makeUserTicker({
+        enabled: true,
+      }),
+      unsubscribedAt: null,
+      ticker: { symbol: "BBCA" },
+    } as unknown as Awaited<ReturnType<typeof prisma.userTicker.findUnique>>);
+    vi.mocked(prisma.userTicker.update).mockResolvedValue(
+      makeUserTicker({ enabled: false }) as unknown as Awaited<
+        ReturnType<typeof prisma.userTicker.update>
+      >,
+    );
+
+    const { processUnsubscribe } = await import("./user-registration.js");
+    const result = await processUnsubscribe({
+      token,
+      secret: SECRET,
+      method: "one_click",
+    });
+
+    expect(result).toEqual({ status: "unsubscribed", displaySymbol: "BBCA" });
+    expect(prisma.userTicker.update).toHaveBeenCalledWith({
+      where: { id: "11111111-1111-4111-a111-111111111111" },
+      data: {
+        enabled: false,
+        unsubscribedAt: expect.any(Date),
+        unsubscribeMethod: "one_click",
+      },
+    });
+  });
+});

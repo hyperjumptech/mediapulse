@@ -1,5 +1,35 @@
 import type { GraphMessage } from "@mediapulse/outlook-inbox";
 
+/** Same shape as extractSenderEmail validation (reject if "display name" is an email string). */
+const EMAIL_SHAPE_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Converts Graph message body content (plain text or HTML) into newline-oriented text for line-based field parsing.
+ *
+ * @param content - Raw `body.content` from Microsoft Graph (may be HTML).
+ * @returns Plain-ish text with meaningful newlines, or empty string when missing.
+ */
+function normalizeGraphBodyContentForLineParsing(
+  content: string | null | undefined,
+): string {
+  if (!content || typeof content !== "string") return "";
+  let text = content.trim();
+  if (!text) return "";
+
+  const looksLikeHtml = /<\s*[a-z][\s\S]*>/i.test(text);
+  if (!looksLikeHtml) return text;
+
+  text = text
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/\s*(p|div|tr|li|h[1-6])\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t\f\v]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .trim();
+}
+
 /**
  * Normalizes an email address to trimmed lowercase.
  *
@@ -61,6 +91,108 @@ export function extractSenderEmail(graphMessage: GraphMessage): string | null {
   }
 
   return normalized;
+}
+
+const MAX_SUBSCRIBER_NAME_LENGTH = 500;
+
+/**
+ * Trims and caps subscriber display name length for storage.
+ *
+ * @param raw - Raw captured substring.
+ * @returns Trimmed name or null when empty.
+ */
+function trimCapSubscriberName(raw: string): string | null {
+  const trimmed = raw.replace(/\s+/g, " ").trim();
+  if (!trimmed) return null;
+  return trimmed.length > MAX_SUBSCRIBER_NAME_LENGTH
+    ? trimmed.slice(0, MAX_SUBSCRIBER_NAME_LENGTH).trim()
+    : trimmed;
+}
+
+/** Boundary after `Name:` / `Subscriber Name:` values (pipes, ticker line, rule, disclaimer, or EOS). */
+const SUBSCRIBER_NAME_VALUE_BOUNDARY = String.raw`(?=\s+\|\s+|\s*Ticker:|[\r\n]+\s*---|\s*---|\s*Please do not modify|$)`;
+
+/**
+ * Returns Graph `from.emailAddress.name` when it is a plausible human display name
+ * (not empty, not the same as the sender email, not itself an email address).
+ *
+ * @param fromName - Optional display name from Graph.
+ * @param normalizedSenderEmail - Already-normalized sender address for comparison.
+ * @returns Trimmed display name or null.
+ */
+export function extractUsableFromDisplayName(
+  fromName: string | null | undefined,
+  normalizedSenderEmail: string,
+): string | null {
+  if (!fromName || typeof fromName !== "string") return null;
+  const trimmed = fromName.trim();
+  if (trimmed.length < 2) return null;
+  if (normalizeEmail(trimmed) === normalizedSenderEmail) return null;
+  if (EMAIL_SHAPE_REGEX.test(normalizeEmail(trimmed))) return null;
+  return trimmed;
+}
+
+/**
+ * Extracts subscriber display name from the message body.
+ * Prefers `Name:` (current registration mailto), then `Subscriber Name:` (legacy), using
+ * pipe/`Ticker:`/`---`/disclaimer boundaries so one-line clients do not swallow the footer.
+ *
+ * @param bodyContent - Optional `body.content` from Graph (plain or HTML).
+ * @returns Trimmed name or null when absent.
+ */
+export function extractSubscriberName(
+  bodyContent?: string | null,
+): string | null {
+  const normalized = normalizeGraphBodyContentForLineParsing(bodyContent);
+  if (!normalized) return null;
+
+  const nameBlock = normalized.match(
+    new RegExp(
+      `(?<!Subscriber )Name:\\s*(.*?)${SUBSCRIBER_NAME_VALUE_BOUNDARY}`,
+      "is",
+    ),
+  );
+  if (nameBlock?.[1]) {
+    const capped = trimCapSubscriberName(nameBlock[1]);
+    if (capped) return capped;
+  }
+
+  const subscriberBlock = normalized.match(
+    new RegExp(
+      `Subscriber Name:\\s*(.*?)${SUBSCRIBER_NAME_VALUE_BOUNDARY}`,
+      "is",
+    ),
+  );
+  if (subscriberBlock?.[1]) {
+    const capped = trimCapSubscriberName(subscriberBlock[1]);
+    if (capped) return capped;
+  }
+
+  return null;
+}
+
+/**
+ * Resolves the display name to send to user-registration-register: body `Name:` / legacy lines first,
+ * then Graph sender display name, then title-cased local part of the email.
+ *
+ * @param graphMessage - Full Graph message (from + body).
+ * @param senderEmail - Normalized sender email from {@link extractSenderEmail}.
+ * @returns Display name or null if no source produced a value.
+ */
+export function resolveSubscriberDisplayName(
+  graphMessage: GraphMessage,
+  senderEmail: string,
+): string | null {
+  const fromBody = extractSubscriberName(graphMessage.body?.content);
+  if (fromBody) return fromBody;
+
+  const fromHeader = extractUsableFromDisplayName(
+    graphMessage.from?.emailAddress?.name,
+    senderEmail,
+  );
+  if (fromHeader) return fromHeader;
+
+  return deriveNameFromEmailLocalPart(senderEmail);
 }
 
 /**

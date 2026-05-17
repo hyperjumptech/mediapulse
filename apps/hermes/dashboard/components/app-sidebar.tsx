@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Plug,
   Radio,
+  KeyRound,
   Users,
   Variable,
 } from "lucide-react";
@@ -79,6 +80,7 @@ const mainNavGroups = [
         icon: Plug,
         label: "Domain integrations",
       },
+      { href: "/dashboard/api-keys", icon: KeyRound, label: "API keys" },
       { href: "/dashboard/admins", icon: Users, label: "Admins" },
     ],
   },

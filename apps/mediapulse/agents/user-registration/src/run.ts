@@ -17,7 +17,7 @@ import type { UserRegistrationConfig } from "./config-schema.js";
 import {
   extractSenderEmail,
   extractTickerSymbol,
-  deriveNameFromEmailLocalPart,
+  resolveSubscriberDisplayName,
 } from "./lib/parser.js";
 
 export type Input = { maxMessagesPerRun: number; watermark?: string };
@@ -82,6 +82,95 @@ const isRetryable = (error: any): boolean => {
   // to avoid infinite loops on unexpected error objects.
   return false;
 };
+
+/** Minimal shape of `resend.emails.send` resolution (SDK returns `{ data, error }` without rejecting). */
+type ResendEmailsSendResult = {
+  error?: { message: string } | null;
+  data?: unknown;
+};
+
+/**
+ * Throws when Resend returns an error in the result envelope so a failed send is not treated as success.
+ * Without this, the agent can call `user-registration-confirm` even though no email was accepted.
+ *
+ * @param result - Resolved value from {@link Resend.prototype.emails.send}.
+ * @throws Error when `result.error` is set.
+ */
+function assertResendSendSucceeded(result: ResendEmailsSendResult): void {
+  if (result.error) {
+    throw new Error(`Resend email send failed: ${result.error.message}`);
+  }
+}
+
+type ResendTransactionalPayload = {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+};
+
+/**
+ * Sends one transactional email via Resend with retries, validates the SDK `{ data, error }` envelope,
+ * and logs before/after so operators can tell whether a run actually invoked Resend (the dashboard only
+ * shows traffic that reached Resend with your API key).
+ *
+ * @param params.resend - Resend client instance.
+ * @param params.payload - From, to, subject, html, and text.
+ * @param params.retryConfig - Backoff configuration for transient failures.
+ * @param params.logBase - Structured fields included on every log line (e.g. `messageId`, `senderEmail` = subscriber). Logs also emit `resendFrom` and `resendRecipientEmail` (Resend From / To).
+ * @returns Resend email id from `data.id` when the API returns it.
+ */
+async function sendResendTransactionalEmail(params: {
+  resend: Resend;
+  payload: ResendTransactionalPayload;
+  retryConfig: RetryConfig;
+  logBase: Record<string, unknown>;
+}): Promise<string | undefined> {
+  const { resend, payload, retryConfig, logBase } = params;
+
+  // `payload.from` = Hermes resendSender. `payload.to` = subscriber (Outlook From), i.e. confirmation recipient.
+  logger.info(
+    {
+      ...logBase,
+      resendFrom: payload.from,
+      resendRecipientEmail: payload.to,
+      resendSubject: payload.subject,
+    },
+    "user-registration: calling Resend emails.send",
+  );
+
+  const result = await withRetry(
+    async () => {
+      const sendResult = await resend.emails.send(payload);
+      assertResendSendSucceeded(sendResult);
+      return sendResult;
+    },
+    retryConfig,
+    isRetryable,
+  );
+
+  const data = result.data;
+  const resendEmailId =
+    data !== null &&
+    data !== undefined &&
+    typeof data === "object" &&
+    "id" in data &&
+    typeof (data as { id: unknown }).id === "string"
+      ? (data as { id: string }).id
+      : undefined;
+
+  logger.info(
+    {
+      ...logBase,
+      resendEmailId,
+      resendSubject: payload.subject,
+    },
+    "user-registration: Resend emails.send accepted",
+  );
+
+  return resendEmailId;
+}
 
 /**
  * Purges expired rate limit entries to prevent memory leaks over time.
@@ -324,7 +413,7 @@ async function processMessage({
     return { id: msg.id, status: "failed_retry" };
   }
 
-  const name = deriveNameFromEmailLocalPart(senderEmail);
+  const name = resolveSubscriberDisplayName(msg, senderEmail);
 
   try {
     // Step 2: Register via API
@@ -354,18 +443,23 @@ async function processMessage({
         tickerSymbol,
       });
 
-      await withRetry(
-        () =>
-          resend.emails.send({
-            from: config.resendSender,
-            to: senderEmail,
-            subject: "Invalid Ticker Selection - MediaPulse",
-            html,
-            text,
-          }),
+      await sendResendTransactionalEmail({
+        resend,
         retryConfig,
-        isRetryable,
-      );
+        logBase: {
+          messageId: msg.id,
+          senderEmail,
+          tickerSymbol,
+          template: "invalid-ticker",
+        },
+        payload: {
+          from: config.resendSender,
+          to: senderEmail,
+          subject: "Invalid Ticker Selection - MediaPulse",
+          html,
+          text,
+        },
+      });
 
       await withRetry(
         () => inboxClient.archiveMessage(msg.id!),
@@ -375,26 +469,37 @@ async function processMessage({
       return { id: msg.id, status: "invalid_ticker_archived" };
     }
 
-    if (registerResponse.isNewSubscription) {
-      logger.info({ senderEmail, tickerSymbol }, "Sending confirmation email.");
+    const isNewSubscription = registerResponse.isNewSubscription;
+
+    if (isNewSubscription) {
+      logger.info(
+        { senderEmail, tickerSymbol },
+        "Sending confirmation email for new or unconfirmed subscription.",
+      );
 
       const { html, text } = await renderNewsletterEmail({
         variant: "registration-confirmation",
         tickerSymbol,
       });
 
-      await withRetry(
-        () =>
-          resend.emails.send({
-            from: config.resendSender,
-            to: senderEmail,
-            subject: "Subscription Confirmed - MediaPulse",
-            html,
-            text,
-          }),
+      await sendResendTransactionalEmail({
+        resend,
         retryConfig,
-        isRetryable,
-      );
+        logBase: {
+          messageId: msg.id,
+          senderEmail,
+          tickerSymbol,
+          isNewSubscription: true,
+          template: "registration-confirmation",
+        },
+        payload: {
+          from: config.resendSender,
+          to: senderEmail,
+          subject: "Subscription Confirmed - MediaPulse",
+          html,
+          text,
+        },
+      });
 
       await withRetry(
         () =>
@@ -407,28 +512,35 @@ async function processMessage({
         retryConfig,
         isRetryable,
       );
-
-      await withRetry(
-        () => inboxClient.archiveMessage(msg.id!),
-        retryConfig,
-        isRetryable,
-      );
-      return { id: msg.id, status: "confirmed_archived" };
     } else {
       logger.info(
         { senderEmail, tickerSymbol },
-        "Subscription already active, archiving with no email.",
+        "Subscription already confirmed; skipping outbound email.",
       );
-      await withRetry(
-        () => inboxClient.archiveMessage(msg.id!),
-        retryConfig,
-        isRetryable,
-      );
-      return { id: msg.id, status: "idempotent_archived" };
     }
+
+    await withRetry(
+      () => inboxClient.archiveMessage(msg.id!),
+      retryConfig,
+      isRetryable,
+    );
+    return {
+      id: msg.id,
+      status: isNewSubscription
+        ? "confirmed_archived"
+        : "acknowledged_archived",
+    };
   } catch (error) {
     logger.error(
-      { error, messageId: msg.id },
+      {
+        messageId: msg.id,
+        senderEmail,
+        tickerSymbol,
+        err:
+          error instanceof Error
+            ? { message: error.message, name: error.name, stack: error.stack }
+            : error,
+      },
       "Failed processing message during agent run. Leaving unarchived for retry.",
     );
     return { id: msg.id, status: "failed_retry" };

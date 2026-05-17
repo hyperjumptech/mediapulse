@@ -2,6 +2,7 @@ import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-article-analysis";
 import { logger } from "@workspace/logger";
+import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 import crypto from "node:crypto";
 
 import {
@@ -63,8 +64,8 @@ import {
 } from "./config-schema.js";
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import {
-  buildExtractionSystemContent,
-  buildExtractionUserContent,
+  resolveArticleAnalysisExtractionSystemContent,
+  resolveArticleAnalysisExtractionUserContent,
   extractEntitiesAndRelationsForSource,
   type LlmExtractionUsage,
 } from "./llm-extract-entities.js";
@@ -278,6 +279,7 @@ export const run = async ({
   let llmUsageAccumulated = false;
   let extractionLatencyMsTotal = 0;
   let extractionCalls = 0;
+  let lastLlmPromptFingerprint: string | undefined;
   let relevanceRowsForObservability: ArticleRelevanceRow[] | null = null;
   const extractionFailures: ArticleAnalysisExtractionFailureRecord[] = [];
   let extractionSuccessCount = 0;
@@ -493,7 +495,10 @@ export const run = async ({
       };
     }
 
-    const systemContent = buildExtractionSystemContent(ctx);
+    const systemContent = resolveArticleAnalysisExtractionSystemContent(
+      cfg.prompts?.systemPrompt,
+      ctx,
+    );
     const existingLookup = buildExistingEntityLookup(ctx.existingEntities);
 
     const mergedEntities: EntityProposal[] = [];
@@ -558,6 +563,19 @@ export const run = async ({
 
       try {
         const t0 = Date.now();
+        const extractionUserContent =
+          resolveArticleAnalysisExtractionUserContent(
+            cfg.prompts?.userPromptTemplate,
+            {
+              tickerId: input.tickerId,
+              title: source.title,
+              contentTruncated: truncated,
+            },
+          );
+        lastLlmPromptFingerprint = computeLlmPromptFingerprint(
+          systemContent,
+          extractionUserContent,
+        );
         const extractedResult = await extractEntitiesAndRelationsForSource({
           apiKey: cfg.openaiApiKey,
           model: cfg.openaiModel,
@@ -566,11 +584,7 @@ export const run = async ({
             { role: "system", content: systemContent },
             {
               role: "user",
-              content: buildExtractionUserContent({
-                tickerId: input.tickerId,
-                title: source.title,
-                contentTruncated: truncated,
-              }),
+              content: extractionUserContent,
             },
           ],
         });
@@ -638,7 +652,6 @@ export const run = async ({
         perSourceSignals.push({
           dataSourceId: source.id,
           createdAt: source.createdAt,
-          url: source.url,
           entityCount: capped.entities.length,
           relationCount: capped.relations.length,
           mentionCount: mentionCapped.length,
@@ -962,7 +975,6 @@ export const run = async ({
 
     let articleEntityRowsPosted = 0;
     let mentionPostChunksCompleted = 0;
-    let mentionPhaseFailed = false;
     let articleEntityParseErrors: string[] = [];
 
     if (!erPhaseFailed) {
@@ -1017,17 +1029,17 @@ export const run = async ({
               chunkIndex: j,
               err: toSafeLogError(err),
             },
-            "article-analysis articleEntities POST failed; aborting relevance phase",
+            // Intentionally not breaking: article_entities are KG enrichment only.
+            // Remaining chunks and the relevance phase proceed regardless.
+            "article-analysis articleEntities POST failed; continuing to next chunk",
           );
-          mentionPhaseFailed = true;
-          break;
         }
       }
     }
 
     let relevancePostChunksCompleted = 0;
 
-    if (!erPhaseFailed && !mentionPhaseFailed && perSourceSignals.length > 0) {
+    if (!erPhaseFailed && perSourceSignals.length > 0) {
       const weightMap = toRelevanceWeightMapV1(cfg);
       const relevanceDrafts = perSourceSignals.map((sig) =>
         buildDraftRelevanceRow(sig, cfg.scoreBreakdownVersion, weightMap),
@@ -1214,6 +1226,9 @@ export const run = async ({
       extractionLatencyMsTotal,
       extractionCalls,
       runStatusLabel: runStatus,
+      ...(lastLlmPromptFingerprint !== undefined
+        ? { llmPromptFingerprint: lastLlmPromptFingerprint }
+        : {}),
     });
 
     return {
@@ -1246,6 +1261,9 @@ export const run = async ({
         articleEntityParseErrors: articleEntityParseErrors.slice(0, 20),
         reanalyze,
         vocabularyFailures,
+        ...(lastLlmPromptFingerprint !== undefined
+          ? { llmPromptFingerprint: lastLlmPromptFingerprint }
+          : {}),
       },
     };
   } catch (error) {
@@ -1272,6 +1290,9 @@ export const run = async ({
       extractionLatencyMsTotal,
       extractionCalls,
       topLevelError: toSafeLogError(error),
+      ...(lastLlmPromptFingerprint !== undefined
+        ? { llmPromptFingerprint: lastLlmPromptFingerprint }
+        : {}),
     });
     return { success: false, message };
   }

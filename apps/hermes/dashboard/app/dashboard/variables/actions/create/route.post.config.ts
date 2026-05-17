@@ -8,7 +8,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
-import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
+import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import {
   encryptSecretVariableForPayload,
   toStoredVariableValue,
@@ -28,7 +28,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: requireDashboardSessionForRoute,
+  user: requireMutationDashboardPrincipalForRoute,
 });
 
 export const responseValidator = z.object({

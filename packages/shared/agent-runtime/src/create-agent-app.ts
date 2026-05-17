@@ -1,5 +1,9 @@
+import { domainHealthResponseSchema } from "@hermes/domain-contract/contracts";
 import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
-import { logger as defaultLogger } from "@workspace/logger";
+import {
+  logger as defaultLogger,
+  slimHonoPinoHttpLoggerOptions,
+} from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { pinoLogger } from "hono-pino";
@@ -8,6 +12,7 @@ import type { ZodError } from "zod";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
+import { enrichConfigSchemaForHermesUi } from "./enrich-config-schema-for-hermes-ui.js";
 import { registerWithRegistry } from "./register-with-registry.js";
 import type { HermesInvokeEnvelopeV1 } from "./invoke-envelope.js";
 import { hermesInvokeCorrelationFromGetHeader } from "./hermes-invoke-correlation.js";
@@ -16,7 +21,7 @@ import type { AgentConfig, CreateAgentAppOptions } from "./types.js";
 const emptyConfigSchema = z.object({});
 
 /**
- * Creates a Hono app that handles GET /schemas (no auth), POST "/" with bearer auth,
+ * Creates a Hono app that handles GET /health and GET /schemas (no auth), POST "/" with bearer auth,
  * body validation (`input` and `config`), and the agent run function.
  *
  * When a `configSchema` is provided, the posted `config` object is validated on every request.
@@ -32,7 +37,7 @@ const emptyConfigSchema = z.object({});
  *
  * @param config - Agent id, version, Zod input/config schemas, and run function.
  * @param options - Optional authApiUrl, verifyToken, and logger (DI for tests).
- * @returns Hono app with logger, GET /schemas, bearer auth, and POST "/" handler.
+ * @returns Hono app with logger, GET /health, GET /schemas, bearer auth, and POST "/" handler.
  */
 export function createAgentApp<
   TInput,
@@ -60,25 +65,32 @@ export function createAgentApp<
   app.use(
     pinoLogger({
       pino: logger,
-      http: {
-        onResBindings: (c) => ({
-          res: {
-            status: c.res.status,
-            headers: Object.fromEntries(c.res.headers.entries()),
-          },
-        }),
-      },
+      http: slimHonoPinoHttpLoggerOptions,
     }),
   );
+
+  /**
+   * Public liveness for load balancers (no auth). Aligns with Hermes domain `domainHealthResponseSchema`.
+   */
+  app.get("/health", (context) => {
+    const response = domainHealthResponseSchema.parse({
+      ok: true,
+      service: config.agentId,
+      version: config.agentVersion,
+    });
+    return context.json(response);
+  });
 
   /** GET /schemas returns input and config JSON Schemas (no auth). */
   app.get("/schemas", (context) => {
     const inputSchema = zodToJsonSchema(config.inputSchema, {
       $refStrategy: "none",
     });
-    const configSchemaJson = zodToJsonSchema(configSchema, {
-      $refStrategy: "none",
-    });
+    const configSchemaJson = enrichConfigSchemaForHermesUi(
+      zodToJsonSchema(configSchema, {
+        $refStrategy: "none",
+      }) as Record<string, unknown>,
+    );
     return context.json({ inputSchema, configSchema: configSchemaJson });
   });
 
@@ -96,9 +108,11 @@ export function createAgentApp<
     const inputSchemaJson = zodToJsonSchema(config.inputSchema, {
       $refStrategy: "none",
     }) as Record<string, unknown>;
-    const configSchemaJson = zodToJsonSchema(configSchema, {
-      $refStrategy: "none",
-    }) as Record<string, unknown>;
+    const configSchemaJson = enrichConfigSchemaForHermesUi(
+      zodToJsonSchema(configSchema, {
+        $refStrategy: "none",
+      }) as Record<string, unknown>,
+    );
     const maxAttempts = 3;
     const delayMs = 2000;
     if (!authApiUrl) {

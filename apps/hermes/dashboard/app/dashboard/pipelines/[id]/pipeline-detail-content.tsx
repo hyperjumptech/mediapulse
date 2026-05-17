@@ -28,6 +28,7 @@ import { PipelineStepsColumn } from "./pipeline-steps-column";
 import { RunPipelineButton } from "./run-pipeline-button";
 import { ListPagination } from "@/components/list-pagination";
 import { PipelineFormModal } from "../pipeline-form-modal";
+import type { PipelineDomainIntegrationOption } from "../pipelines-with-modal";
 import { PipelineStatusBadge } from "../pipeline-status-badge";
 
 type PipelineWithSteps = NonNullable<
@@ -40,6 +41,7 @@ type AgentRegistryEntry = Awaited<
 export type PipelineDetailContentProps = {
   pipeline: PipelineWithSteps;
   agents: AgentRegistryEntry[];
+  domainIntegrations: PipelineDomainIntegrationOption[];
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
   pipelineValidation: PipelineValidationResult;
   executions: PipelineExecutionRow[];
@@ -189,6 +191,7 @@ const usePipelineEditModalState = () => {
 export const PipelineDetailContent = ({
   pipeline,
   agents,
+  domainIntegrations,
   configsByAgentKey,
   pipelineValidation,
   executions,
@@ -310,6 +313,7 @@ export const PipelineDetailContent = ({
         onOpenChange={setEditModalOpen}
         mode="edit"
         editPipelineId={pipeline.id}
+        domainIntegrations={domainIntegrations}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

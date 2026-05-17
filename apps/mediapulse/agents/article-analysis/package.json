@@ -17,9 +17,11 @@
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
+    "@workspace/agent-llm-prompt-template": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",
+    "@workspace/utils": "workspace:*",
     "ai": "^6.0.142",
     "hono": "catalog:",
     "hono-pino": "catalog:",
@@ -30,6 +32,7 @@
     "@workspace/typescript-config": "workspace:*",
     "dotenv-cli": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod-to-json-schema": "^3.25.1"
   }
 }

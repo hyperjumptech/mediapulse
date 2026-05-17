@@ -118,6 +118,22 @@ describe("agent-data-api", () => {
     vi.restoreAllMocks();
   });
 
+  describe("GET /health", () => {
+    it("returns 200 and domain health JSON without Authorization", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request("http://localhost/health", {
+        method: "GET",
+      });
+      const body = (await res.json()) as {
+        ok: boolean;
+        service: string;
+      };
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ ok: true, service: "agent-data-api" });
+    });
+  });
+
   describe(`GET ${contentGenerationPath}`, () => {
     it("returns 401 without Authorization header", async () => {
       const { app } = await import("./index.js");
@@ -129,19 +145,23 @@ describe("agent-data-api", () => {
 
     it("returns 200 and dataSources when service returns data", async () => {
       const mod = await getContentGenerationService();
-      vi.mocked(mod.getDataSourcesForTicker).mockResolvedValue([
-        {
-          id: "ds-1",
-          url: "https://example.com",
-          title: "Example",
-          content: "Content",
-          metadata: null,
-          tickerId: TICKER_ID,
-          searchQueryId: SEARCH_QUERY_ID,
-          createdAt: new Date("2026-03-19T00:00:00.000Z"),
-          updatedAt: new Date("2026-03-19T00:00:00.000Z"),
-        },
-      ]);
+      vi.mocked(mod.getDataSourcesForTicker).mockResolvedValue({
+        dataSources: [
+          {
+            id: "ds-1",
+            url: "https://example.com",
+            title: "Example",
+            content: "Content",
+            metadata: null,
+            tickerId: TICKER_ID,
+            searchQueryId: SEARCH_QUERY_ID,
+            createdAt: new Date("2026-03-19T00:00:00.000Z"),
+            updatedAt: new Date("2026-03-19T00:00:00.000Z"),
+          },
+        ],
+        tickerSymbol: "TEST",
+        tickerName: "Test Company",
+      });
 
       const { app } = await import("./index.js");
       const res = await app.request(
@@ -154,6 +174,8 @@ describe("agent-data-api", () => {
       expect(body).toHaveProperty("dataSources");
       expect(body.dataSources).toHaveLength(1);
       expect(body.dataSources[0].title).toBe("Example");
+      expect(body.tickerSymbol).toBe("TEST");
+      expect(body.tickerName).toBe("Test Company");
     });
 
     it("returns 400 when query validation fails (missing tickerId)", async () => {

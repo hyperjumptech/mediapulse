@@ -1,25 +1,4 @@
-const BLOCKED_PATH_PATTERNS = [
-  /\/quote(\/|$)/i,
-  /\/financials(\/|$)/i,
-  /\/key-statistics(\/|$)/i,
-  /\/company(\/|$)/i,
-  /\/company-profile(\/|$)/i,
-  /\/management(\/|$)/i,
-  /\/history(\/|$)/i,
-  /\/forecast(\/|$)/i,
-  /\/consensus(\/|$)/i,
-  /\/calendar(\/|$)/i,
-  /\/investor-relations(\/|$)/i,
-] as const;
-
-const BLOCKED_HOST_PATTERNS = [
-  /(^|\.)linkedin\.com$/i,
-  /(^|\.)youtube\.com$/i,
-  /(^|\.)instagram\.com$/i,
-  /(^|\.)facebook\.com$/i,
-  /(^|\.)tiktok\.com$/i,
-  /(^|\.)reddit\.com$/i,
-] as const;
+import { classifyNoisyUrl } from "@workspace/utils";
 
 const NON_ARTICLE_TITLE_MARKERS = [
   "key statistics",
@@ -39,7 +18,7 @@ export type NonArticleReason =
  *
  * @param sourceUrl - Data source URL.
  * @param sourceTitle - Source title.
- * @param sourceContent - Source content.
+ * @param sourceContent - Source content (unused; reserved for future heuristics).
  * @returns Null for likely article content, otherwise a concrete non-article reason.
  */
 export const classifyNonArticleSource = (
@@ -47,18 +26,17 @@ export const classifyNonArticleSource = (
   sourceTitle: string,
   _sourceContent: string,
 ): NonArticleReason | null => {
-  let parsed: URL;
   try {
-    parsed = new URL(sourceUrl);
+    new URL(sourceUrl);
   } catch {
     return null;
   }
 
-  if (BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(parsed.hostname))) {
-    return "prefilter_blocked_host";
-  }
-
-  if (BLOCKED_PATH_PATTERNS.some((pattern) => pattern.test(parsed.pathname))) {
+  const urlDecision = classifyNoisyUrl(sourceUrl);
+  if (urlDecision.blocked) {
+    if (urlDecision.reason === "blocked_host") {
+      return "prefilter_blocked_host";
+    }
     return "prefilter_blocked_path";
   }
 
