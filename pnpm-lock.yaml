@@ -259,9 +259,6 @@ importers:
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-data-api-contract
-      '@workspace/agent-runtime':
-        specifier: workspace:*
-        version: link:../../../packages/shared/agent-runtime
       '@workspace/json-schema-form':
         specifier: workspace:*
         version: link:../../../packages/shared/json-schema-form
@@ -297,7 +294,7 @@ importers:
         version: 0.562.0(react@19.2.4)
       next:
         specifier: 'catalog:'
-        version: 16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next-themes:
         specifier: 'catalog:'
         version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -312,7 +309,7 @@ importers:
         version: 6.9.2(@react-email/render@1.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       route-action-gen:
         specifier: 'catalog:'
-        version: 0.0.10(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76)
+        version: 0.0.10(next@16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76)
       sonner:
         specifier: 'catalog:'
         version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -992,7 +989,7 @@ importers:
         version: 0.562.0(react@19.2.4)
       next:
         specifier: 'catalog:'
-        version: 16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next-themes:
         specifier: 'catalog:'
         version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1235,9 +1232,6 @@ importers:
       '@nicnocquee/dataqueue':
         specifier: ^1.39.0
         version: 1.39.0(pg@8.18.0)
-      '@workspace/agent-runtime':
-        specifier: workspace:*
-        version: link:../../shared/agent-runtime
       ajv:
         specifier: ^8.17.1
         version: 8.17.1
@@ -17182,7 +17176,7 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  next@16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@next/env': 16.2.3
       '@swc/helpers': 0.5.15
@@ -17191,7 +17185,7 @@ snapshots:
       postcss: 8.4.31
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
-      styled-jsx: 5.1.6(react@19.2.4)
+      styled-jsx: 5.1.6(@babel/core@7.29.0)(react@19.2.4)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.2.3
       '@next/swc-darwin-x64': 16.2.3
@@ -18317,12 +18311,12 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.57.1
       fsevents: 2.3.3
 
-  route-action-gen@0.0.10(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76):
+  route-action-gen@0.0.10(next@16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76):
     dependencies:
       glob: 13.0.2
       zod: 3.25.76
     optionalDependencies:
-      next: 16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      next: 16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
 
   router@2.2.0:
@@ -18810,10 +18804,12 @@ snapshots:
 
   stubborn-utils@1.0.2: {}
 
-  styled-jsx@5.1.6(react@19.2.4):
+  styled-jsx@5.1.6(@babel/core@7.29.0)(react@19.2.4):
     dependencies:
       client-only: 0.0.1
       react: 19.2.4
+    optionalDependencies:
+      '@babel/core': 7.29.0
 
   supports-color@10.2.2: {}
 

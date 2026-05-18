@@ -1,10 +1,14 @@
-import { registerHermesUiJsonSchemaFormats } from "@workspace/agent-runtime/register-hermes-ui-json-schema-formats";
 import Ajv, { type JSONSchemaType } from "ajv";
 import addFormats from "ajv-formats";
 
 const ajv = new Ajv({ allErrors: true });
 addFormats(ajv);
-registerHermesUiJsonSchemaFormats(ajv);
+
+/** Hermes UI-only format for multiline prompt fields in enriched agent config schemas. */
+ajv.addFormat("textarea", {
+  type: "string",
+  validate: () => true,
+});
 
 type JsonSchemaLike = {
   type?: string | string[];
