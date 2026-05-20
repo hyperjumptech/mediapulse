@@ -81,7 +81,9 @@ const makeMessage = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-let appModulePromise: ReturnType<typeof import("./index.js")> | undefined;
+type UserRegistrationAppModule = typeof import("./index.js");
+
+let appModulePromise: Promise<UserRegistrationAppModule> | undefined;
 
 const post = async (body: unknown) => {
   appModulePromise ??= import("./index.js");
