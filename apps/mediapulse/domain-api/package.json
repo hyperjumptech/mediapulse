@@ -13,8 +13,12 @@
     "type:check": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\""
   },
+  "exports": {
+    "./search-query-set-persist": "./src/lib/search-query-set-persist.ts"
+  },
   "dependencies": {
     "@mediapulse/env": "workspace:*",
+    "@workspace/agent-data-api-contract": "workspace:*",
     "@hermes/domain-contract": "workspace:*",
     "@hermes/step-input-syntax": "workspace:*",
     "@workspace/email-templates": "workspace:*",

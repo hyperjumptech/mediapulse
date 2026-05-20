@@ -432,6 +432,9 @@ importers:
       '@mediapulse/database':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/database
+      '@mediapulse/domain-api':
+        specifier: workspace:*
+        version: link:../domain-api
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/env
@@ -911,6 +914,9 @@ importers:
       '@mediapulse/idx-tickers-importer':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/idx-tickers-importer
+      '@workspace/agent-data-api-contract':
+        specifier: workspace:*
+        version: link:../../../packages/shared/agent-data-api-contract
       '@workspace/email-templates':
         specifier: workspace:*
         version: link:../../../packages/shared/email-templates
