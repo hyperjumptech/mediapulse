@@ -70,6 +70,7 @@ describe("Hermes dashboard routing contract", () => {
     expect(HermesDashboardResource.entities).toBe("entities");
     expect(HermesDashboardResource.entityRelations).toBe("entity-relations");
     expect(HermesDashboardResource.dataSources).toBe("data-sources");
+    expect(HermesDashboardResource.searchQuerySets).toBe("search-query-sets");
     expect(HermesDashboardResource.deliveryRuns).toBe("delivery-runs");
     expect(hermesDashboardTableMountPath(HermesDashboardResource.tickers)).toBe(
       "/hermes-dashboard/tickers",

@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from "@mediapulse/database";
+import { createSearchQuerySet } from "@mediapulse/domain-api/search-query-set-persist";
 import type {
   GetQueryAnalysisQuery,
   PostQueryAnalysisBody,
@@ -8,7 +9,11 @@ type QueryAnalysisDb = {
   ticker: Pick<typeof prisma.ticker, "findUniqueOrThrow">;
   tickerEntity: Pick<typeof prisma.tickerEntity, "findMany">;
   dataSource: Pick<typeof prisma.dataSource, "findMany">;
-  searchQuerySet: Pick<typeof prisma.searchQuerySet, "updateMany" | "create">;
+  searchQuerySet: Pick<
+    typeof prisma.searchQuerySet,
+    "updateMany" | "create" | "update" | "findUnique" | "delete"
+  >;
+  searchQuery: Pick<typeof prisma.searchQuery, "deleteMany" | "createMany">;
 };
 
 const defaultDb: QueryAnalysisDb = {
@@ -16,6 +21,7 @@ const defaultDb: QueryAnalysisDb = {
   tickerEntity: prisma.tickerEntity,
   dataSource: prisma.dataSource,
   searchQuerySet: prisma.searchQuerySet,
+  searchQuery: prisma.searchQuery,
 };
 
 /**
@@ -77,34 +83,21 @@ export const createAndActivateQuerySet = async (
   body: PostQueryAnalysisBody,
   db: QueryAnalysisDb = defaultDb,
 ) => {
-  await db.searchQuerySet.updateMany({
-    where: { tickerId: body.tickerId, isActive: true },
-    data: { isActive: false },
-  } satisfies Prisma.SearchQuerySetUpdateManyArgs);
-
-  const createdSet = await db.searchQuerySet.create({
-    data: {
+  const { id, queryCount } = await createSearchQuerySet(
+    {
       tickerId: body.tickerId,
       isActive: body.activate,
-      generatedAt: new Date(),
       generationSource: body.generationSource,
-      strategySnapshot: body.strategySnapshot as Prisma.InputJsonObject,
+      strategySnapshot: body.strategySnapshot,
       agentJobId: body.agentJobId,
-      searchQueries: {
-        create: body.queries.map((query) => ({
-          tickerId: body.tickerId,
-          text: query.text,
-          source: query.source,
-          intent: query.intent,
-          rank: query.rank,
-        })),
-      },
+      queries: body.queries,
     },
-  } satisfies Prisma.SearchQuerySetCreateArgs);
+    db,
+  );
 
   return {
-    created: body.queries.length,
-    createdSetId: createdSet.id,
-    activeSetId: createdSet.id,
+    created: queryCount,
+    createdSetId: id,
+    activeSetId: id,
   };
 };
