@@ -7,7 +7,6 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
-import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 
 const stepIdsSchema = z.union([
   z.array(z.string().uuid()),
@@ -76,8 +75,6 @@ export const createReorderStepsHandler = ({
         data: { order: i },
       });
     }
-
-    await disableSchedulesForPipelineIfNotEnabled(db, pipelineId);
 
     return successResponse({ ok: true as const });
   };

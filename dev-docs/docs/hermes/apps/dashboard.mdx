@@ -49,10 +49,6 @@ Each pipeline has a **status** shown on `/dashboard/pipelines`:
 
 When creating or editing a **schedule**, the pipeline dropdown lists all pipelines but only **enabled** ones are selectable; incomplete or disabled pipelines appear with a suffix and are disabled. The server rejects create/update if the chosen pipeline is not enabled.
 
-If a pipeline becomes not enabled (e.g. you turn it off or a step breaks validation), all schedules that reference that pipeline are **automatically marked disabled** so hermes-scheduler will not run them. Re-enable the pipeline (and fix validation if needed), then re-enable the schedule if desired.
-
-To backfill existing data once: from `apps/hermes`, run `pnpm exec tsx scripts/backfill-disable-schedules-for-invalid-pipelines.ts` to disable any schedule whose pipeline is not enabled.
-
 ## Port
 
 - **3001** (via `next dev --turbopack -p 3001`).

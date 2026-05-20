@@ -8,7 +8,6 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
-import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 
 const jsonObjectSchema = z
@@ -127,8 +126,6 @@ export const createAddStepHandler = ({
         createdById: userId,
       },
     });
-
-    await disableSchedulesForPipelineIfNotEnabled(db, pipelineId);
 
     return successResponse({ stepId: step.id });
   };

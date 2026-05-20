@@ -11,10 +11,6 @@ const mockDashboardUser = {
 const CURRENT_DOMAIN_ID = "11111111-1111-1111-1111-111111111111";
 const OTHER_DOMAIN_ID = "22222222-2222-2222-2222-222222222222";
 
-vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
-  disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
-}));
-
 describe("createUpdatePipelineHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();

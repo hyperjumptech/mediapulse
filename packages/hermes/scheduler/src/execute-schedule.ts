@@ -369,7 +369,7 @@ async function updateScheduleAfterExecution(
   if (schedule.repeat === "once") {
     await db.schedule.update({
       where: { id: schedule.id },
-      data: { enabled: false },
+      data: { nextRunAt: null },
     });
     return;
   }
