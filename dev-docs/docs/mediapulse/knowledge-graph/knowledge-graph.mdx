@@ -147,7 +147,7 @@ In short:
 | `entity`            | Canonical node (`canonical_name`, `type_id`, optional metadata). | One real-world concept per row.                                     |
 | `entity_alias`      | Alternate spellings/aliases for entity matching and dedup.       | Indexed by `normalized_alias`.                                      |
 | `ticker_entity`     | Membership of entities in a ticker graph.                        | Not a new entity row; it links existing `ticker` + `entity`.        |
-| `entity_relation`   | Directed typed edge from one entity to another.                  | "Relationship" table; unique by `(from, to, relation_type)`.        |
+| `entity_relation`   | Directed typed edge from one entity to another.                  | "Relationship" table; unique by `(from, to, relation_type)`. Hermes: `/dashboard/{integrationId}/entity-relations` (create, edit, delete, view detail, **Reset all**). |
 | `article_entity`    | Mentions linking article (`data_source`) to extracted entities.  | Evidence table; one row means "this article mentioned this entity". |
 | `article_relevance` | Per-ticker article score and selection state.                    | Includes `score_breakdown` JSON.                                    |
 

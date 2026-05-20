@@ -38,7 +38,10 @@ export const dashboardPageActionsSchema = z.object({
 /**
  * Metadata for an optional custom action (e.g. bulk import) registered on a dashboard page.
  */
-export const dashboardPageCustomActionUiSchema = z.enum(["json-file-upload"]);
+export const dashboardPageCustomActionUiSchema = z.enum([
+  "json-file-upload",
+  "danger-confirm",
+]);
 
 /** How Hermes opens create/edit flows for a table-v1 page. */
 export const dashboardPageCreateNavigationSchema = z
@@ -72,6 +75,10 @@ export const dashboardPageCustomActionSchema = z.object({
     }),
   /** Optional `accept` attribute for file inputs (e.g. `.json,application/json`). */
   accept: z.string().optional(),
+  /** Shown in a browser confirm dialog before POST (danger-confirm UI). */
+  confirmMessage: z.string().min(1).optional(),
+  /** Literal value the client must send as `confirm` in the POST JSON body. */
+  confirmToken: z.string().min(1).optional(),
 });
 
 /**

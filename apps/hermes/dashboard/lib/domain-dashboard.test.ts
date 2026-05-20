@@ -198,6 +198,89 @@ describe("invokeDomainTableCustomAction", () => {
     }
   });
 
+  it("returns error when danger-confirm action is missing confirm token", async () => {
+    const getMeta = vi.fn().mockResolvedValue({
+      title: "T",
+      columns: [],
+      searchableFields: [],
+      sortableFields: [],
+      actions: { create: false, update: false, delete: false, view: false },
+      customActions: [
+        {
+          id: "reset-all",
+          label: "Reset",
+          ui: "danger-confirm",
+          method: "POST",
+          path: "/reset-all",
+        },
+      ],
+    });
+
+    const { invokeDomainTableDangerConfirmAction } =
+      await import("./domain-dashboard");
+
+    const result = await invokeDomainTableDangerConfirmAction(
+      "k",
+      "entity-relations",
+      "reset-all",
+      { getMeta },
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.message).toBe("Custom action is missing confirm token");
+    }
+  });
+
+  it("posts confirm token for danger-confirm actions", async () => {
+    const getMeta = vi.fn().mockResolvedValue({
+      title: "T",
+      columns: [],
+      searchableFields: [],
+      sortableFields: [],
+      actions: { create: false, update: false, delete: false, view: false },
+      customActions: [
+        {
+          id: "reset-all",
+          label: "Reset",
+          ui: "danger-confirm",
+          method: "POST",
+          path: "/reset-all",
+          confirmToken: "DELETE_ALL_ENTITY_RELATIONS",
+        },
+      ],
+    });
+    const getPage = vi.fn().mockResolvedValue({
+      page: {
+        apiPrefix: "/v1/hermes-dashboard/entity-relations",
+        pathSegment: "entity-relations",
+      },
+      baseUrl: "http://localhost",
+      domainIntegrationId: "di-1",
+    });
+    const callPost = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { deleted: 3 },
+    });
+
+    const { invokeDomainTableDangerConfirmAction } =
+      await import("./domain-dashboard");
+
+    const result = await invokeDomainTableDangerConfirmAction(
+      "k",
+      "entity-relations",
+      "reset-all",
+      { getMeta, getPage, callPost },
+    );
+
+    expect(result.success).toBe(true);
+    expect(callPost).toHaveBeenCalledWith(
+      "http://localhost/v1/hermes-dashboard/entity-relations/reset-all",
+      { confirm: "DELETE_ALL_ENTITY_RELATIONS" },
+      "di-1",
+    );
+  });
+
   it("returns error when action ui is not json-file-upload", async () => {
     const getMeta = vi.fn().mockResolvedValue({
       title: "T",

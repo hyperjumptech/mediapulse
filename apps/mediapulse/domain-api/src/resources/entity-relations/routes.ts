@@ -1,18 +1,25 @@
 /**
- * HTTP handlers for KG entity relations: paginated list and read-only GET by id (Hermes detail view).
+ * HTTP handlers for KG entity relations: list, detail, CRUD, and reset-all custom action.
  */
 
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
+import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
 import { parsePagination } from "../../lib/list-pagination";
+import { entityRelationsTableV1CustomActionRegistrations } from "./custom-actions";
+import { entityRelationsHermesPathSegment } from "./dashboard-page";
 import {
   listInclude,
   mapRowToDetailItem,
   mapRowToListItem,
 } from "./list-mapper";
-import { entityRelationsHermesPathSegment } from "./dashboard-page";
+import { resolveEntityRelationEndpointIds } from "./lib/resolve-entity-relation-endpoints";
+import {
+  entityRelationCreateBodySchema,
+  entityRelationUpdateBodySchema,
+} from "./write-body-schemas";
 
 /**
  * Maps table-v1 `sortBy` query values to a Prisma `orderBy` for {@link EntityRelation}.
@@ -43,9 +50,75 @@ const resolveEntityRelationListOrderBy = (
 };
 
 /**
- * Hermes `table-v1` API for entity relations (list + read-only detail).
+ * Returns true when the error is a Prisma known request error with the given code.
+ *
+ * @param error - Caught unknown from Prisma.
+ * @param code - Prisma error code (e.g. P2002).
+ */
+const isPrismaErrorCode = (error: unknown, code: string): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  (error as { code: string }).code === code;
+
+/**
+ * Hermes `table-v1` API for entity relations (list, detail, create, update, delete).
  */
 export const entityRelationsRoutes = new Hono();
+
+/**
+ * Table-v1 metadata for Hermes. Registered **before** `GET /:id` so `/meta` is not captured as an id
+ * (see {@link buildMetaPayloadForPathSegment}).
+ */
+entityRelationsRoutes.get("/meta", (c) => {
+  const meta = buildMetaPayloadForPathSegment(entityRelationsHermesPathSegment);
+  if (!meta) {
+    return c.json({ message: "Unknown dashboard resource" }, 404);
+  }
+  return c.json(meta);
+});
+
+/** Registers manifest-driven custom POST routes (e.g. reset all relations). */
+registerTableV1CustomActionRoutes(
+  entityRelationsRoutes,
+  entityRelationsTableV1CustomActionRegistrations,
+);
+
+/** Creates a new entity relation from canonical names and relation type label. */
+entityRelationsRoutes.post("/", async (c) => {
+  const body = entityRelationCreateBodySchema.safeParse(await c.req.json());
+  if (!body.success) {
+    return c.json({ message: "Invalid request body" }, 400);
+  }
+
+  const resolved = await resolveEntityRelationEndpointIds(
+    { entity: prisma.entity, relationType: prisma.relationType },
+    body.data,
+  );
+  if (!resolved.ok) {
+    return c.json({ message: resolved.message }, 400);
+  }
+
+  try {
+    const created = await prisma.entityRelation.create({
+      data: {
+        fromEntityId: resolved.ids.fromEntityId,
+        toEntityId: resolved.ids.toEntityId,
+        relationTypeId: resolved.ids.relationTypeId,
+        weight: body.data.weight,
+      },
+    });
+    return c.json({ id: created.id }, 201);
+  } catch (error: unknown) {
+    if (isPrismaErrorCode(error, "P2002")) {
+      return c.json(
+        { message: "An entity relation with these endpoints already exists" },
+        409,
+      );
+    }
+    throw error;
+  }
+});
 
 /** Paginated list of entity relations for the Hermes dashboard (search `q`; sort `sortBy` / `sortDir`). */
 entityRelationsRoutes.get("/", async (c) => {
@@ -106,19 +179,58 @@ entityRelationsRoutes.get("/", async (c) => {
   return c.json(payload);
 });
 
-/**
- * Table-v1 metadata for Hermes. Registered **before** `GET /:id` so `/meta` is not captured as an id
- * (see {@link buildMetaPayloadForPathSegment}).
- */
-entityRelationsRoutes.get("/meta", (c) => {
-  const meta = buildMetaPayloadForPathSegment(entityRelationsHermesPathSegment);
-  if (!meta) {
-    return c.json({ message: "Unknown dashboard resource" }, 404);
+/** Updates an entity relation by id (resolves canonical names to foreign keys). */
+entityRelationsRoutes.patch("/:id", async (c) => {
+  const body = entityRelationUpdateBodySchema.safeParse(await c.req.json());
+  if (!body.success) {
+    return c.json({ message: "Invalid request body" }, 400);
   }
-  return c.json(meta);
+
+  const resolved = await resolveEntityRelationEndpointIds(
+    { entity: prisma.entity, relationType: prisma.relationType },
+    body.data,
+  );
+  if (!resolved.ok) {
+    return c.json({ message: resolved.message }, 400);
+  }
+
+  try {
+    const updated = await prisma.entityRelation.update({
+      where: { id: c.req.param("id") },
+      data: {
+        fromEntityId: resolved.ids.fromEntityId,
+        toEntityId: resolved.ids.toEntityId,
+        relationTypeId: resolved.ids.relationTypeId,
+        weight: body.data.weight,
+      },
+    });
+    return c.json({ id: updated.id });
+  } catch (error: unknown) {
+    if (isPrismaErrorCode(error, "P2025")) {
+      return c.json({ message: "Entity relation not found" }, 404);
+    }
+    if (isPrismaErrorCode(error, "P2002")) {
+      return c.json(
+        { message: "An entity relation with these endpoints already exists" },
+        409,
+      );
+    }
+    throw error;
+  }
 });
 
-/** Returns one entity relation by id for the Hermes read-only detail page. */
+/** Deletes an entity relation by id (Hermes table row delete). */
+entityRelationsRoutes.delete("/:id", async (c) => {
+  const result = await prisma.entityRelation.deleteMany({
+    where: { id: c.req.param("id") },
+  });
+  if (result.count < 1) {
+    return c.json({ message: "Entity relation not found" }, 404);
+  }
+  return c.json({ ok: true });
+});
+
+/** Returns one entity relation by id for the Hermes detail page. */
 entityRelationsRoutes.get("/:id", async (c) => {
   const row = await prisma.entityRelation.findUnique({
     where: { id: c.req.param("id") },
