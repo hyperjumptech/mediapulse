@@ -15,6 +15,7 @@ import { ListPagination } from "@/components/list-pagination";
 import { PageHeader } from "@/components/page-header";
 import { DomainCreateModal } from "@/app/dashboard/domain-create-modal";
 import { DomainTableRowActions } from "@/app/dashboard/domain-table-row-actions";
+import { DomainTableDangerConfirmCard } from "@/app/dashboard/domain-table-danger-confirm-card";
 import { DomainTableJsonUploadCard } from "@/app/dashboard/domain-table-json-upload-card";
 import { DomainTableSearch } from "@/app/dashboard/domain-table-search";
 import {
@@ -23,7 +24,9 @@ import {
   getDomainTableList,
   getDomainTableMeta,
   invokeDomainTableCustomAction,
+  invokeDomainTableDangerConfirmAction,
   updateDomainTableItem,
+  type DomainTableDangerConfirmState,
   type DomainTableJsonImportState,
 } from "@/lib/domain-dashboard";
 import {
@@ -210,6 +213,33 @@ export const DomainTablePage = async ({
     (entry) => entry.ui === "json-file-upload",
   );
 
+  const dangerConfirmServerAction = async (
+    _prevState: DomainTableDangerConfirmState,
+    formData: FormData,
+  ): Promise<DomainTableDangerConfirmState> => {
+    "use server";
+    const actionId = String(formData.get("__actionId") ?? "");
+    if (!actionId) {
+      return { status: "error", message: "Missing action identifier." };
+    }
+    const result = await invokeDomainTableDangerConfirmAction(
+      integrationId,
+      resource,
+      actionId,
+    );
+    if (!result.success) {
+      return { status: "error", message: result.message };
+    }
+    const data = result.data as Record<string, unknown>;
+    const deleted = typeof data.deleted === "number" ? data.deleted : 0;
+    revalidatePath(basePath);
+    return { status: "success", deleted };
+  };
+
+  const dangerConfirmActions = meta.customActions.filter(
+    (entry) => entry.ui === "danger-confirm",
+  );
+
   const hasRowActions =
     meta.actions.update || meta.actions.delete || meta.actions.view;
   const columnCount = meta.columns.length + (hasRowActions ? 1 : 0);
@@ -243,13 +273,20 @@ export const DomainTablePage = async ({
         </div>
       </div>
 
-      {jsonImportActions.length > 0 ? (
+      {jsonImportActions.length > 0 || dangerConfirmActions.length > 0 ? (
         <div className="flex flex-col gap-4">
           {jsonImportActions.map((action) => (
             <DomainTableJsonUploadCard
               key={action.id}
               action={action}
               serverAction={jsonImportServerAction}
+            />
+          ))}
+          {dangerConfirmActions.map((action) => (
+            <DomainTableDangerConfirmCard
+              key={action.id}
+              action={action}
+              serverAction={dangerConfirmServerAction}
             />
           ))}
         </div>

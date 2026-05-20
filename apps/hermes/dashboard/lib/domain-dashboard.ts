@@ -34,6 +34,12 @@ export type DomainTableJsonImportState =
   | { status: "error"; message: string }
   | { status: "success"; added: number; updated: number };
 
+/** Result state for danger-confirm custom actions (e.g. reset all relations). */
+export type DomainTableDangerConfirmState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "success"; deleted: number };
+
 export type DomainTableListParams = {
   page: number;
   pageSize: number;
@@ -270,6 +276,66 @@ export const invokeDomainTableCustomAction = async (
   );
   const url = `${baseUrl}${page.apiPrefix}${action.path}`;
   const result = await callPost(url, { payloadJson }, domainIntegrationId);
+
+  if (!result.ok) {
+    return { success: false, message: result.message };
+  }
+
+  return { success: true, data: result.data };
+};
+
+export type InvokeDomainTableDangerConfirmActionDependencies = {
+  getMeta?: typeof getDomainTableMeta;
+  getPage?: typeof getDashboardPage;
+  callPost?: typeof callDomainCustomPost;
+};
+
+/**
+ * Invokes a danger-confirm table-v1 custom action (POST with confirm token).
+ *
+ * @param integrationId - Registered integration id (URL segment).
+ * @param resource - Dashboard path segment.
+ * @param actionId - Custom action `id` from manifest/meta.
+ * @param dependencies - Optional collaborators for tests.
+ * @returns Success with parsed response data or failure with message.
+ */
+export const invokeDomainTableDangerConfirmAction = async (
+  integrationId: string,
+  resource: string,
+  actionId: string,
+  dependencies: InvokeDomainTableDangerConfirmActionDependencies = {},
+): Promise<
+  { success: true; data: unknown } | { success: false; message: string }
+> => {
+  const getMeta = dependencies.getMeta ?? getDomainTableMeta;
+  const getPage = dependencies.getPage ?? getDashboardPage;
+  const callPost = dependencies.callPost ?? callDomainCustomPost;
+
+  const meta = await getMeta(integrationId, resource);
+  const action = meta.customActions.find((entry) => entry.id === actionId);
+  if (!action) {
+    return { success: false, message: "Unknown custom action" };
+  }
+  if (action.ui !== "danger-confirm" || action.method !== "POST") {
+    return { success: false, message: "Unsupported custom action" };
+  }
+  if (!action.confirmToken) {
+    return {
+      success: false,
+      message: "Custom action is missing confirm token",
+    };
+  }
+
+  const { page, baseUrl, domainIntegrationId } = await getPage(
+    integrationId,
+    resource,
+  );
+  const url = `${baseUrl}${page.apiPrefix}${action.path}`;
+  const result = await callPost(
+    url,
+    { confirm: action.confirmToken },
+    domainIntegrationId,
+  );
 
   if (!result.ok) {
     return { success: false, message: result.message };
