@@ -1,7 +1,7 @@
 /** @vitest-environment node */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createRunHandler } from "./run.js";
+import { createRunHandler, resetRegistrationRateLimitsForTest } from "./run.js";
 
 vi.mock("@mediapulse/env/agents-user-registration", () => ({
   env: {
@@ -85,11 +85,8 @@ const makeCtx = (overrides: Record<string, unknown> = {}) => ({
 
 describe("createRunHandler", () => {
   beforeEach(() => {
+    resetRegistrationRateLimitsForTest();
     vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   it("returns zero processed count when the inbox is empty", async () => {
