@@ -10,7 +10,7 @@ A **schedule** runs a [pipeline](/hermes/orchestration/pipelines) on a timer. Th
 
 - **Pipeline**: Which pipeline to run. Invalid or incomplete pipelines are blocked when creating or updating a schedule.
 - **Repeat**:
-  - **Once**: A single run at **start at** (date/time in the chosen timezone).
+  - **Once**: A single run at **start at** (date/time in the chosen timezone). After it runs, the schedule stays **enabled** but **next run** is cleared so it does not fire again unless you edit the start time.
   - **Repeating**: Either a **preset** (for example hourly, daily at midnight), a **fixed interval** in minutes, or a **cron expression** for custom cadence.
 - **Timezone**: IANA zone (for example `America/New_York`, `UTC`). Stored times and “next run” use this zone.
 - **Enabled**: Turn off without deleting the schedule.

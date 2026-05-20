@@ -8,7 +8,6 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
-import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 import { collectEmptyRequiredStringErrors } from "@/lib/validate-required-fields";
 import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 import { validateWithJsonSchema } from "@/lib/validate-json-schema";
@@ -180,8 +179,6 @@ export const createUpdateStepHandler = ({
             : ((config ?? {}) as object),
       },
     });
-
-    await disableSchedulesForPipelineIfNotEnabled(db, pipelineId);
 
     return successResponse({
       ok: true as const,
