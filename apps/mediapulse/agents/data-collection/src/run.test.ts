@@ -651,29 +651,6 @@ describe("runDataCollection", () => {
     });
   });
 
-  it("passes time window fields to dataCollection.get when input includes timeWindow", async () => {
-    // Setup
-    const start = "2024-01-01T00:00:00.000Z";
-    const end = "2024-01-02T00:00:00.000Z";
-
-    // Act
-    await runDataCollection(
-      createContext({
-        input: {
-          tickerId: TICKER_ID,
-          timeWindow: { start, end },
-        },
-      }),
-    );
-
-    // Assert
-    expect(getMock).toHaveBeenCalledWith({
-      tickerId: TICKER_ID,
-      start,
-      end,
-    });
-  });
-
   it("does not call dataCollection.create when there are no fetch successes", async () => {
     // Setup
     vi.mocked(performWebFetch).mockResolvedValueOnce([]);

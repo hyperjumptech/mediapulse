@@ -69,7 +69,6 @@ export async function runDataCollection(
 
   log.info(
     {
-      timeWindow: input.timeWindow,
       runPolicy: config.runPolicy,
     },
     "data collection run started",
@@ -148,15 +147,9 @@ export async function runDataCollection(
     );
   }
 
-  const query: { tickerId: string; start?: string; end?: string } = {
+  const { data: queries = [] } = await dataApiClient.dataCollection.get({
     tickerId: input.tickerId,
-  };
-  if (input.timeWindow) {
-    query.start = input.timeWindow.start;
-    query.end = input.timeWindow.end;
-  }
-
-  const { data: queries = [] } = await dataApiClient.dataCollection.get(query);
+  });
 
   log.info(
     { queryCount: queries.length },
