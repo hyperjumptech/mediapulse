@@ -20,6 +20,8 @@
     "type:check": "turbo run type:check",
     "format": "prettier --write \"apps/**/*.{ts,tsx,md}\" \"packages/**/*.{ts,tsx,md}\" \"*.{ts,tsx,md}\"",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,md}\" \"packages/**/*.{ts,tsx,md}\" \"*.{ts,tsx,md}\"",
+    "format:check:changed": "node scripts/prettier-check-changed.mjs",
+    "code-quality:affected": "turbo run build lint type:check test:coverage --affected && pnpm run merge-workspace-coverage && pnpm run format:check:changed --",
     "deploy": "turbo deploy",
     "docs:dev": "pnpm dlx speed-docs --dev ./dev-docs",
     "docs:build": "pnpm dlx speed-docs ./dev-docs",

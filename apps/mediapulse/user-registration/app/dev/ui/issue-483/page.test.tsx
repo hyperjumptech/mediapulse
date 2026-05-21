@@ -27,6 +27,26 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("@/components/registration-form", () => ({
+  RegistrationForm: () => (
+    <div>
+      <label htmlFor="name">Your name</label>
+      <input id="name" />
+      <label htmlFor="ticker">Stock ticker</label>
+      <input id="ticker" />
+      <button type="button">Open email app to subscribe</button>
+    </div>
+  ),
+}));
+
+vi.mock("@/components/hyperjump-product-attribution", () => ({
+  HyperjumpProductAttribution: () => (
+    <a href="https://hyperjump.tech" target="_blank" rel="noopener noreferrer">
+      Hyperjump
+    </a>
+  ),
+}));
+
 describe("DevUiIssue483Page", () => {
   beforeEach(() => {
     envState.NODE_ENV = "development";
