@@ -7,10 +7,9 @@ import {
   camelCaseResourceKeyToPathSegment,
 } from "@workspace/agent-data-api-contract";
 import { env } from "@mediapulse/env";
-import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
+import { logger, slimPinoLogger } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
-import { pinoLogger } from "hono-pino";
 
 import { getAnalysis, postAnalysis } from "./routes/analysis.js";
 import { postAnalysisDataSourceDelete } from "./routes/analysis-data-source-delete.js";
@@ -71,12 +70,7 @@ const buildAgentDataApiHealthBody = () =>
 
 const app = new Hono();
 
-app.use(
-  pinoLogger({
-    pino: logger,
-    http: slimHonoPinoHttpLoggerOptions,
-  }),
-);
+app.use(slimPinoLogger({ pino: logger }));
 
 app.get("/health", (c) => c.json(buildAgentDataApiHealthBody()));
 

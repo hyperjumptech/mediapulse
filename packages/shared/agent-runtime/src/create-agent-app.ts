@@ -1,12 +1,8 @@
 import { domainHealthResponseSchema } from "@hermes/domain-contract/contracts";
 import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
-import {
-  logger as defaultLogger,
-  slimHonoPinoHttpLoggerOptions,
-} from "@workspace/logger";
+import { logger as defaultLogger, slimPinoLogger } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
-import { pinoLogger } from "hono-pino";
 import type { ZodError } from "zod";
 
 import { z } from "zod";
@@ -62,12 +58,7 @@ export function createAgentApp<
     emptyConfigSchema) as TConfigSchema;
 
   const app = new Hono();
-  app.use(
-    pinoLogger({
-      pino: logger,
-      http: slimHonoPinoHttpLoggerOptions,
-    }),
-  );
+  app.use(slimPinoLogger({ pino: logger }));
 
   /**
    * Public liveness for load balancers (no auth). Aligns with Hermes domain `domainHealthResponseSchema`.

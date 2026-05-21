@@ -1,8 +1,7 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
-import { pinoLogger } from "hono-pino";
-import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
+import { logger, slimPinoLogger } from "@workspace/logger";
 import { SignJWT } from "jose";
 import { verifyJwt } from "./verify-jwt";
 
@@ -26,7 +25,7 @@ vi.mock("@hermes/env", () => ({
 
 describe("verifyJwt route", () => {
   const app = new Hono();
-  app.use(pinoLogger({ pino: logger, http: slimHonoPinoHttpLoggerOptions }));
+  app.use(slimPinoLogger({ pino: logger }));
   app.post("/api/verify", verifyJwt);
 
   beforeEach(() => {

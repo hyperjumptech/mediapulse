@@ -8,6 +8,12 @@ import { buildDefaultRootLogger } from "./build-default-root-logger";
 export const logger = buildDefaultRootLogger(process.env);
 
 export { slimHonoPinoHttpLoggerOptions } from "./hono-pino-slim-http";
+export { slimPinoLogger } from "./slim-pino-logger";
+export type { SlimPinoLoggerOptions } from "./slim-pino-logger";
+export {
+  normalizeHttpAccessLogPath,
+  shouldSkipHttpAccessLog,
+} from "./should-skip-http-access-log";
 export { isLogPrettyEnabled } from "./is-log-pretty-enabled";
 export {
   HERMES_ACCESS_LOG_CORRELATION_HEADER_NAMES,

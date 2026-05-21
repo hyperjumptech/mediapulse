@@ -13,7 +13,9 @@ icon: FileText
 - **`logger`** — Default Pino instance (level from `LOG_LEVEL`, default `info`).
 - **`pino`** — Pino constructor for custom instances.
 - **`Logger`** — Type from `pino`.
-- **`slimHonoPinoHttpLoggerOptions`** — Recommended `hono-pino` `http` bindings: logs method, path, optional Hermes correlation headers (`x-job-id`, `x-execution-id`, etc.), and response status only (no full header dumps).
+- **`slimPinoLogger`** — Recommended Hono middleware: slim access logs via `slimHonoPinoHttpLoggerOptions`, with **`GET /health`** completion logs suppressed (load-balancer noise).
+- **`slimHonoPinoHttpLoggerOptions`** — `hono-pino` `http` bindings used by `slimPinoLogger`: logs method, path, optional Hermes correlation headers (`x-job-id`, `x-execution-id`, etc.), and response status only (no full header dumps).
+- **`shouldSkipHttpAccessLog`**, **`normalizeHttpAccessLogPath`** — Helpers for health-check access-log suppression (mainly for tests and custom wiring).
 - **`buildDefaultRootLogger`**, **`isLogPrettyEnabled`**, **`pickHermesCorrelationHeadersForAccessLog`** — Building blocks and helpers (mainly for tests and advanced wiring).
 
 ## Human-readable output (local / debugging)

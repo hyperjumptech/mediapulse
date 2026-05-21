@@ -1,10 +1,9 @@
 import { domainHealthResponseSchema } from "@hermes/domain-contract/contracts";
 import { env } from "@hermes/env";
 import { verifyTokenViaAuthApi } from "@workspace/agent-auth-client";
-import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
+import { logger, slimPinoLogger } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
-import { pinoLogger } from "hono-pino";
 import { registerAgent } from "./routes/register-agent";
 
 if (!env.AGENT_AUTH_API_URL) {
@@ -28,12 +27,7 @@ rootApp.get("/health", (c) => c.json(buildAgentRegistryApiHealthBody()));
 
 const api = new Hono();
 
-api.use(
-  pinoLogger({
-    pino: logger,
-    http: slimHonoPinoHttpLoggerOptions,
-  }),
-);
+api.use(slimPinoLogger({ pino: logger }));
 
 api.use(
   "*",
