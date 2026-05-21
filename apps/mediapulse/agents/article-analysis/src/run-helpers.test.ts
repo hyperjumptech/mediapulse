@@ -1,8 +1,6 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
-import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
-import { articleAnalysisInputSchema } from "./schemas/article-analysis-input-schema.js";
 import {
   applyMaxBatchSizeCap,
   buildAnalysisGetQuery,
@@ -11,49 +9,14 @@ import {
 
 describe("buildAnalysisGetQuery", () => {
   it("maps incremental run to unanalyzed true", () => {
-    const input = articleAnalysisInputSchema.parse({
-      tickerId: "tick-a",
-    });
-    expect(buildAnalysisGetQuery(input)).toEqual({
+    expect(buildAnalysisGetQuery("tick-a")).toEqual({
       tickerId: "tick-a",
       unanalyzed: true,
-    });
-  });
-
-  it("maps reanalyze to unanalyzed false", () => {
-    const input = articleAnalysisInputSchema.parse({
-      tickerId: "tick-b",
-      reanalyze: true,
-      maxBatchSize: 5,
-    });
-    expect(buildAnalysisGetQuery(input)).toEqual({
-      tickerId: "tick-b",
-      unanalyzed: false,
-    });
-  });
-
-  it("forwards timeWindow start and end", () => {
-    const input: ArticleAnalysisInput = {
-      tickerId: "tick-c",
-      reanalyze: false,
-      timeWindow: {
-        start: "2026-01-01T00:00:00.000Z",
-        end: "2026-01-31T00:00:00.000Z",
-      },
-    };
-    expect(buildAnalysisGetQuery(input)).toEqual({
-      tickerId: "tick-c",
-      unanalyzed: true,
-      start: "2026-01-01T00:00:00.000Z",
-      end: "2026-01-31T00:00:00.000Z",
     });
   });
 
   it("includes limit when options provide it", () => {
-    const input = articleAnalysisInputSchema.parse({
-      tickerId: "tick-d",
-    });
-    expect(buildAnalysisGetQuery(input, { limit: 10 })).toEqual({
+    expect(buildAnalysisGetQuery("tick-d", { limit: 10 })).toEqual({
       tickerId: "tick-d",
       unanalyzed: true,
       limit: 10,

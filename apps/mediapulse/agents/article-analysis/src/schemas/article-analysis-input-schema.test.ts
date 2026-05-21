@@ -4,34 +4,46 @@ import { describe, expect, it } from "vitest";
 import { articleAnalysisInputSchema } from "./article-analysis-input-schema.js";
 
 describe("articleAnalysisInputSchema", () => {
-  it("rejects reanalyze without maxBatchSize or timeWindow bounds", () => {
+  it("accepts tickerId only", () => {
+    const result = articleAnalysisInputSchema.safeParse({
+      tickerId: "t1",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ tickerId: "t1" });
+    }
+  });
+
+  it("rejects reanalyze as an unknown field", () => {
     const result = articleAnalysisInputSchema.safeParse({
       tickerId: "t1",
       reanalyze: true,
     });
     expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toMatch(/unrecognized/i);
+    }
   });
 
-  it("accepts reanalyze with maxBatchSize only", () => {
+  it("rejects timeWindow as an unknown field", () => {
     const result = articleAnalysisInputSchema.safeParse({
       tickerId: "t1",
-      reanalyze: true,
-      maxBatchSize: 10,
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("accepts reanalyze with timeWindow start only", () => {
-    const result = articleAnalysisInputSchema.safeParse({
-      tickerId: "t1",
-      reanalyze: true,
       timeWindow: { start: "2026-01-01T00:00:00.000Z" },
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toMatch(/unrecognized/i);
+    }
   });
 
-  it("allows omitted reanalyze", () => {
-    const result = articleAnalysisInputSchema.parse({ tickerId: "t1" });
-    expect(result.reanalyze).toBeUndefined();
+  it("rejects maxBatchSize as an unknown field", () => {
+    const result = articleAnalysisInputSchema.safeParse({
+      tickerId: "t1",
+      maxBatchSize: 5,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toMatch(/unrecognized/i);
+    }
   });
 });

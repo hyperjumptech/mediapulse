@@ -26,79 +26,10 @@ import {
   normalizeLlmExtractionWire,
   normalizeLlmUsageFromSdk,
   parseArticleBrainstormText,
-  resolveArticleAnalysisExtractionSystemContent,
-  resolveArticleAnalysisExtractionUserContent,
 } from "./llm-extract-entities.js";
 
 const TID = "11111111-1111-4111-a111-111111111111";
 const RID = "22222222-2222-4222-a222-222222222222";
-
-describe("resolveArticleAnalysisExtractionSystemContent", () => {
-  it("matches buildExtractionSystemContent when Hermes omits override", () => {
-    const ctx = {
-      entityTypes: [{ id: TID, name: "Company", description: null }],
-      relationTypes: [{ id: RID, name: "PART_OF", description: null }],
-    };
-
-    // Act
-    const resolved = resolveArticleAnalysisExtractionSystemContent(
-      undefined,
-      ctx,
-    );
-    const legacy = buildExtractionSystemContent(ctx);
-
-    // Assert
-    expect(resolved).toBe(legacy);
-  });
-
-  it("applies configured system template with placeholders", () => {
-    const ctx = {
-      entityTypes: [{ id: TID, name: "Company", description: null }],
-      relationTypes: [{ id: RID, name: "PART_OF", description: null }],
-    };
-    const text = resolveArticleAnalysisExtractionSystemContent(
-      "E:\n{{entityTypesBlock}}\nR:\n{{relationTypesBlock}}",
-      ctx,
-    );
-
-    expect(text).toContain(TID);
-    expect(text).toContain("E:");
-    expect(text.startsWith("E:")).toBe(true);
-  });
-});
-
-describe("resolveArticleAnalysisExtractionUserContent", () => {
-  it("matches buildExtractionUserContent when Hermes omits override", () => {
-    const args = {
-      tickerId: "T",
-      title: "Hello",
-      contentTruncated: "Body text",
-    };
-
-    // Act
-    const resolved = resolveArticleAnalysisExtractionUserContent(
-      undefined,
-      args,
-    );
-    const legacy = buildExtractionUserContent(args);
-
-    // Assert
-    expect(resolved).toBe(legacy);
-  });
-
-  it("uses custom user template with placeholders", () => {
-    const u = resolveArticleAnalysisExtractionUserContent(
-      "ID={{tickerId}} BODY={{articleContent}}",
-      {
-        tickerId: "ABC",
-        title: "ignored",
-        contentTruncated: "X",
-      },
-    );
-
-    expect(u).toBe("ID=ABC BODY=X");
-  });
-});
 
 describe("buildExtractionSystemContent", () => {
   it("includes vocabulary ids and labels", () => {

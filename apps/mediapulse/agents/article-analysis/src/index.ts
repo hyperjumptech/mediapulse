@@ -22,7 +22,7 @@ const app = createAgentApp<
     agentId: "article-analysis",
     agentVersion: "1.0.0",
     description:
-      "Loads analysis context (incremental or reanalyze), extracts KG entities/relations and per-article entity mentions via LLM with vocabulary constraints, canonicalizes against existing KG entities, scores article relevance with canonical breakdown v1, and persists entities/relations, articleEntities, and articleRelevances in chunked POSTs to agent-data-api. Supports configurable runPolicy for partial extraction failure, per-chunk POST error isolation with optional transient retries, structured diagnostics (MP-ART-ANALYSIS-007), and structured run-summary observability with safe log fields (MP-ART-ANALYSIS-008).",
+      "Loads analysis context incrementally, extracts KG entities/relations and per-article entity mentions via LLM with vocabulary constraints, canonicalizes against existing KG entities, scores article relevance with canonical breakdown v1, and persists entities/relations, articleEntities, and articleRelevances in chunked POSTs to agent-data-api. Supports configurable runPolicy for partial extraction failure, per-chunk POST error isolation with optional transient retries, structured diagnostics (MP-ART-ANALYSIS-007), and structured run-summary observability with safe log fields (MP-ART-ANALYSIS-008).",
     inputSchema: articleAnalysisInputSchema,
     configSchema: articleAnalysisConfigSchema,
     run,

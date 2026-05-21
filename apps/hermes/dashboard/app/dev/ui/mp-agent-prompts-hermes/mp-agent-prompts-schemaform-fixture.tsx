@@ -33,7 +33,7 @@ const PROMPTS_SEED: Record<string, string> = {
 const seedConfigForAgent = (agentId: string): Record<string, unknown> => {
   const prompts = { ...PROMPTS_SEED };
   if (agentId === "article-analysis" || agentId === "query-analysis") {
-    return { openaiApiKey: "sk-visual-proof", prompts };
+    return { openaiApiKey: "sk-visual-proof" };
   }
   if (agentId === "content-generation") {
     return { openai: { apiKey: "sk-visual-proof" }, prompts };

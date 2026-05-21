@@ -4,15 +4,15 @@ import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-templat
 import { describe, expect, it } from "vitest";
 
 import {
-  resolveArticleAnalysisExtractionSystemContent,
-  resolveArticleAnalysisExtractionUserContent,
+  buildArticleAnalysisExtractionSystemContent,
+  buildArticleAnalysisExtractionUserContent,
 } from "./llm-extract-entities.js";
 
 const TID = "11111111-1111-4111-a111-111111111111";
 const RID = "22222222-2222-4222-a222-222222222222";
 
 describe("agent prompt fingerprinting (REQ-011)", () => {
-  it("differs when Hermes system prompt override differs but user and context match", () => {
+  it("is stable for the same vocabulary and user args", () => {
     const ctx = {
       entityTypes: [{ id: TID, name: "Company", description: null }],
       relationTypes: [{ id: RID, name: "PART_OF", description: null }],
@@ -22,21 +22,43 @@ describe("agent prompt fingerprinting (REQ-011)", () => {
       title: "Title",
       contentTruncated: "Body",
     };
-    const user = resolveArticleAnalysisExtractionUserContent(
-      undefined,
-      userArgs,
-    );
-    const sysA = resolveArticleAnalysisExtractionSystemContent(undefined, ctx);
-    const sysB = resolveArticleAnalysisExtractionSystemContent(
-      "Custom intro\n\nENTITY TYPES (uuid — label):\n{{entityTypesBlock}}\n\nRELATION TYPES (uuid — label):\n{{relationTypesBlock}}",
-      ctx,
+    const sys = buildArticleAnalysisExtractionSystemContent(ctx);
+    const user = buildArticleAnalysisExtractionUserContent(userArgs);
+
+    const fpA = computeLlmPromptFingerprint(sys, user);
+    const fpB = computeLlmPromptFingerprint(
+      buildArticleAnalysisExtractionSystemContent(ctx),
+      buildArticleAnalysisExtractionUserContent(userArgs),
     );
 
-    // Act
+    expect(fpA).toBe(fpB);
+  });
+
+  it("differs when analysis GET vocabulary differs but user args match", () => {
+    const userArgs = {
+      tickerId: "t-1",
+      title: "Title",
+      contentTruncated: "Body",
+    };
+    const user = buildArticleAnalysisExtractionUserContent(userArgs);
+    const sysA = buildArticleAnalysisExtractionSystemContent({
+      entityTypes: [{ id: TID, name: "Company", description: null }],
+      relationTypes: [{ id: RID, name: "PART_OF", description: null }],
+    });
+    const sysB = buildArticleAnalysisExtractionSystemContent({
+      entityTypes: [
+        {
+          id: "33333333-3333-4333-a333-333333333333",
+          name: "Person",
+          description: null,
+        },
+      ],
+      relationTypes: [{ id: RID, name: "PART_OF", description: null }],
+    });
+
     const fpA = computeLlmPromptFingerprint(sysA, user);
     const fpB = computeLlmPromptFingerprint(sysB, user);
 
-    // Assert
     expect(fpA).not.toBe(fpB);
   });
 });

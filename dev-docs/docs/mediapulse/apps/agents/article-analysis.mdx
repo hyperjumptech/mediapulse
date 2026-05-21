@@ -4,6 +4,24 @@ description: LLM extraction, relevance scoring, and source-quality v2 for articl
 icon: FileSearch
 ---
 
+## Hermes input
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| `tickerId` | yes | Ticker whose unanalyzed data sources this run processes |
+
+Runs are **always incremental**: `analysis.get` uses `unanalyzed: true`. Batch size, debounce, and extraction tuning are Hermes **agent config** fields (see the analysis agent doc for `maxBatchSize` and related knobs).
+
+### Reanalysis is out-of-band
+
+Re-extracting articles across an arbitrary time window is not an agent run mode. To re-process specific sources, reset their analyzed marker (for example clear `articleAnalysis.scoredAt` on selected `data_source` rows via a one-shot data-fix script). The next normal incremental run picks them up as unanalyzed.
+
+Do not send `reanalyze`, `timeWindow`, or `maxBatchSize` on run input — the schema is strict and rejects unknown keys.
+
+## Extraction prompts
+
+Extraction prompts live in source. To change them, open a PR. Query-analysis uses the same approach (see [Query Analysis](./query-analysis)).
+
 ## Source quality v2
 
 Relevance scoring stores five subscores in `article_relevance.score_breakdown`. Before source quality v2, `sourceQuality` was always **0.5**, so the weighted aggregate only used four live dimensions.
@@ -80,7 +98,7 @@ Two eligible rows (`score >= relevanceMinScore`) merge into the same cluster whe
 | Entity overlap | `selectionEntityOverlapThreshold` **0.5** | Jaccard over normalized canonical names, aliases, and mention names |
 | Title similarity | `selectionTitleSimilarityThreshold` **0.4** | Jaccard over 4-word lowercase title shingles |
 
-Clustering is O(n²) on the batch (n ≤ `maxBatchSize`). No embeddings or LLM calls.
+Clustering is O(n²) on the batch (n ≤ config `maxBatchSize`). No embeddings or LLM calls.
 
 ### Selection walk
 
@@ -103,6 +121,78 @@ With **`useSelectionDiversification`: `false`**, `applyRelevanceSelection` runs 
 Run summary field **`selection`** reports `eligibleRows`, `clustersFormed`, `selectedAfterDiversification`, `suppressedAsDuplicates` (rows classic top-K would have taken but diversification skipped because they were not cluster representatives), and `largestClusterSize`.
 
 Pair with **source quality v2**: the cluster representative is usually the highest-scored row, which tends to be the best outlet when `useSourceQualityV2` is on.
+
+## Yield feedback
+
+Each run emits two structured log lines: the existing **`article_analysis.run.summary`** and a separate **`article_analysis.yield.snapshot`**. The snapshot rolls up where sources and rows were dropped across pipeline stages so you can tune gates without parsing per-source noise.
+
+The same snapshot is returned on the agent result as **`details.yieldSnapshot`** for Hermes and downstream consumers.
+
+### Ratios
+
+| Ratio | Meaning |
+| ----- | ------- |
+| `extractionYield` | Sources that produced at least one grounded entity (`extractionSuccessCount / batchSize`) |
+| `groundingYield` | Sources that passed quality gate and LLM/vocab failures, before row-level grounding drops |
+| `vocabularyYield` | Same as extraction yield (sources with vocabulary-valid output) |
+| `selectionYield` | Sources selected for the daily relevance budget (`articlesSelected / batchSize`) |
+
+### Sample snapshot
+
+```json
+{
+  "event": "article_analysis.yield.snapshot",
+  "batchSize": 10,
+  "passed": {
+    "qualityGate": 8,
+    "grounding": 7,
+    "vocabulary": 6,
+    "scoring": 6,
+    "selection": 2
+  },
+  "dropped": {
+    "byContentQuality": { "content_soft_404": 2 },
+    "byGrounding": { "entities": 1, "relations": 0, "mentions": 0 },
+    "byVocabulary": { "entities": 1, "relations": 0, "repaired": 0 },
+    "bySelectionDiversification": 1,
+    "byDeadline": 0,
+    "byCritique": 0
+  },
+  "ratios": {
+    "extractionYield": 0.6,
+    "groundingYield": 0.7,
+    "vocabularyYield": 0.6,
+    "selectionYield": 0.2
+  },
+  "latency": {
+    "extractionMsP50": 4200,
+    "extractionMsP95": 9100,
+    "brainstormMsP50": 800,
+    "critiqueMsP50": null
+  }
+}
+```
+
+### Baseline regression warnings
+
+Optional Hermes config **`yieldBaseline`** supplies operator-measured P50 ratios (not auto-computed from history):
+
+| Key | Meaning |
+| --- | ------- |
+| `extractionYieldP50` | Expected median extraction yield |
+| `groundingYieldP50` | Expected median grounding yield |
+| `vocabularyYieldP50` | Expected median vocabulary yield |
+
+When any configured dimension drops **more than 15 points** below its baseline, the run logs **`article_analysis.yield.regression`** once with deltas. When `yieldBaseline` is unset, comparison is silent (no false positives on new deployments).
+
+### Recommended workflow
+
+1. Export `article_analysis.yield.snapshot` lines for a ticker over ~7 days.
+2. Compute P50 per ratio from those exports.
+3. Set `yieldBaseline` in Hermes agent config to those P50s.
+4. Watch for regression warnings; when they fire, inspect `dropped.*` buckets and adjust gate thresholds (content quality, grounding, diversification) rather than chasing raw `entitiesCreated` alone.
+
+When enabling **entity grounding** for the first time, expect extraction yield to drop until hallucinated entities are removed. Observe the new normal for a week, then update `yieldBaseline` — otherwise regression alerts will fire on every run.
 
 ## Related docs
 

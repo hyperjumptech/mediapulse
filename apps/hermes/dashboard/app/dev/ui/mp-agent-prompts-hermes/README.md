@@ -23,11 +23,11 @@ Repeat after checking out:
 pnpm dev:hermes
 ```
 
-Use **`focus=prompts`** so the screenshot shows only the prompt textareas (not the full 30+ field config):
+Use **`focus=prompts`** so the screenshot shows only the prompt textareas (not the full config):
 
-- http://localhost:3001/dev/ui/mp-agent-prompts-hermes?agent=article-analysis&focus=prompts
-- http://localhost:3001/dev/ui/mp-agent-prompts-hermes?agent=query-analysis&focus=prompts
 - http://localhost:3001/dev/ui/mp-agent-prompts-hermes?agent=content-generation&focus=prompts
+
+`article-analysis` and `query-analysis` no longer expose Hermes `prompts` overrides; use `content-generation` for prompts-only capture on this fixture.
 
 Automated capture (waits for two `<textarea>` elements, then screenshots the prompts panel):
 

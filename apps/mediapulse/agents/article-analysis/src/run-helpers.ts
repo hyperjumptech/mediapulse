@@ -1,43 +1,25 @@
 import type { GetAnalysisQuery } from "@workspace/agent-data-api-contract";
 
-import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
-
 export type BuildAnalysisGetQueryOptions = {
   /** Passed as analysis GET `limit` (caller should use resolved Hermes `analysisGetDataSourceLimitMax`). */
   limit?: number;
 };
 
 /**
- * Builds the typed agent-data-api `analysis.get` query from validated run input.
+ * Builds the typed agent-data-api `analysis.get` query for an incremental run.
  *
- * @param input - Parsed article-analysis input (`timeWindow` bounds forward as `start` / `end` when set).
+ * @param tickerId - Hermes run input ticker id.
  * @param options - Optional `limit` to cap rows returned from agent-data-api.
  * @returns Query object for `createAgentDataApiClient().analysis.get`.
  */
 export const buildAnalysisGetQuery = (
-  input: ArticleAnalysisInput,
+  tickerId: string,
   options?: BuildAnalysisGetQueryOptions,
-): GetAnalysisQuery => {
-  const reanalyze = input.reanalyze ?? false;
-  const base = {
-    tickerId: input.tickerId,
-    unanalyzed: !reanalyze,
-    ...(options?.limit !== undefined ? { limit: options.limit } : {}),
-  } satisfies Pick<GetAnalysisQuery, "tickerId" | "unanalyzed" | "limit">;
-
-  const start = input.timeWindow?.start;
-  const end = input.timeWindow?.end;
-  if (start !== undefined && end !== undefined) {
-    return { ...base, start, end };
-  }
-  if (start !== undefined) {
-    return { ...base, start };
-  }
-  if (end !== undefined) {
-    return { ...base, end };
-  }
-  return base;
-};
+): GetAnalysisQuery => ({
+  tickerId,
+  unanalyzed: true,
+  ...(options?.limit !== undefined ? { limit: options.limit } : {}),
+});
 
 /**
  * Returns a new array sorted by `createdAt` ascending, then `id` lexicographically for stable ordering.

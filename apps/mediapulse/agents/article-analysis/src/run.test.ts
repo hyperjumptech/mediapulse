@@ -2,15 +2,15 @@
 import type { AgentRunContext } from "@workspace/agent-runtime";
 import { logger } from "@workspace/logger";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE } from "./article-analysis-observability.js";
+import {
+  ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+  ARTICLE_ANALYSIS_YIELD_SNAPSHOT_MESSAGE,
+} from "./article-analysis-observability.js";
 import * as RelevancePostChunks from "./analysis-relevance-post-chunks.js";
 import * as Llm from "./llm-extract-entities.js";
 import * as RelevanceScoring from "./analysis-relevance-scoring.js";
 import * as RelevanceSelection from "./analysis-relevance-selection.js";
-import {
-  articleAnalysisConfigDefaults,
-  type ArticleAnalysisConfig,
-} from "./config-schema.js";
+import { type ArticleAnalysisConfig } from "./config-schema.js";
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import { run } from "./run.js";
 
@@ -237,34 +237,6 @@ describe("run", () => {
     expect(analysisCreate).not.toHaveBeenCalled();
   });
 
-  it("uses unanalyzed false when reanalyze with maxBatchSize", async () => {
-    analysisGet.mockResolvedValue(
-      analysisGetOk({
-        dataSources: [],
-        entityTypes: [],
-        relationTypes: [],
-        existingEntities: [],
-        relevanceSelectionState,
-      }),
-    );
-
-    await run(
-      runContext({
-        input: {
-          tickerId: "ticker-r",
-          reanalyze: true,
-          maxBatchSize: 3,
-        },
-      }),
-    );
-
-    expect(analysisGet).toHaveBeenCalledWith({
-      tickerId: "ticker-r",
-      unanalyzed: false,
-      limit: 3,
-    });
-  });
-
   it("caps analysis GET limit by analysisGetDataSourceLimitMax from Hermes config", async () => {
     analysisGet.mockResolvedValue(
       analysisGetOk({
@@ -280,9 +252,8 @@ describe("run", () => {
       runContext({
         input: {
           tickerId: "ticker-cap",
-          maxBatchSize: 10,
         },
-        config: { analysisGetDataSourceLimitMax: 4 },
+        config: { maxBatchSize: 10, analysisGetDataSourceLimitMax: 4 },
       }),
     );
 
@@ -293,7 +264,7 @@ describe("run", () => {
     });
   });
 
-  it("passes timeWindow as start and end on GET", async () => {
+  it("uses cfg.maxBatchSize as analysis GET limit when under API cap", async () => {
     analysisGet.mockResolvedValue(
       analysisGetOk({
         dataSources: [],
@@ -306,22 +277,15 @@ describe("run", () => {
 
     await run(
       runContext({
-        input: {
-          tickerId: "ticker-w",
-          timeWindow: {
-            start: "2026-01-01T00:00:00.000Z",
-            end: "2026-01-31T00:00:00.000Z",
-          },
-        },
+        input: { tickerId: "ticker-limit" },
+        config: { maxBatchSize: 3 },
       }),
     );
 
     expect(analysisGet).toHaveBeenCalledWith({
-      tickerId: "ticker-w",
+      tickerId: "ticker-limit",
       unanalyzed: true,
-      start: "2026-01-01T00:00:00.000Z",
-      end: "2026-01-31T00:00:00.000Z",
-      limit: articleAnalysisConfigDefaults.defaultMaxBatchSize,
+      limit: 3,
     });
   });
 
@@ -811,6 +775,14 @@ describe("run", () => {
     expect(result).toEqual({
       success: false,
       message: "upstream error",
+      details: {
+        yieldSnapshot: expect.objectContaining({
+          batchSize: 0,
+          ratios: expect.objectContaining({
+            extractionYield: 0,
+          }),
+        }),
+      },
     });
     expect(mockLog.error).toHaveBeenCalled();
   });
@@ -1605,7 +1577,7 @@ describe("run", () => {
     expect(mockLog.info).toHaveBeenCalled();
   });
 
-  it("applies defaultMaxBatchSize on incremental runs when input omits maxBatchSize", async () => {
+  it("applies maxBatchSize from config on incremental runs", async () => {
     analysisGet.mockResolvedValue(
       analysisGetOk({
         dataSources: [
@@ -1663,7 +1635,7 @@ describe("run", () => {
     await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { defaultMaxBatchSize: 1 },
+        config: { maxBatchSize: 1 },
       }),
     );
 
@@ -2687,5 +2659,262 @@ describe("run", () => {
       budget!,
     );
     expect(classicSpy.mock.results[0]?.value).toEqual(expected);
+  });
+
+  const sleepMs = (ms: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  const buildIndexedSources = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `${String(index).padStart(8, "0")}-0000-4000-8000-000000000001`,
+      url: `https://example.com/news/article-${String(index)}`,
+      title: `Indexed headline ${String(index)} ${VALID_SOURCE_TITLE}`,
+      content: validSourceContent(),
+      tickerId: "ticker-1",
+      createdAt: new Date(
+        `2026-01-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`,
+      ),
+    }));
+
+  const mockIndexedExtraction = (
+    sources: ReturnType<typeof buildIndexedSources>,
+    delayForIndex: (index: number) => number,
+  ): void => {
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockImplementation(
+      async (params) => {
+        const rawUserContent = params.messages.find(
+          (message) => message.role === "user",
+        )?.content;
+        const userContent =
+          typeof rawUserContent === "string" ? rawUserContent : "";
+        const index = sources.findIndex((row) =>
+          userContent.includes(row.title),
+        );
+        if (index < 0) {
+          throw new Error("unknown source in extraction mock");
+        }
+        await sleepMs(delayForIndex(index));
+        return llmResult({
+          entities: [
+            {
+              canonicalName: `Entity-${String(index)}`,
+              typeId: TYPE_ID,
+              aliases: [],
+            },
+          ],
+          relations: [],
+          articleMentions: [],
+        });
+      },
+    );
+  };
+
+  it("preserves merged entity order under parallel extraction", async () => {
+    const sources = buildIndexedSources(5);
+
+    const runWithConcurrency = async (concurrency: number) => {
+      mockIndexedExtraction(sources, (index) => (index === 3 ? 1000 : 10));
+      analysisGet.mockResolvedValue(
+        analysisGetOk({
+          dataSources: sources,
+          entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+          relationTypes: [{ id: REL_ID, name: "r", description: null }],
+          existingEntities: [],
+          relevanceSelectionState,
+          lastRelevanceScoredAtIso: null,
+        }),
+      );
+      analysisCreate.mockResolvedValue({
+        entitiesCreated: 5,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 5,
+        articlesSelected: 5,
+      });
+
+      const result = await run(
+        runContext({
+          input: { tickerId: "ticker-1" },
+          config: { extractionConcurrency: concurrency, maxBatchSize: 5 },
+        }),
+      );
+
+      expect(result.success).toBe(true);
+      return analysisCreate.mock.calls[0]?.[0]?.entities.map(
+        (entity: { canonicalName: string }) => entity.canonicalName,
+      );
+    };
+
+    const sequentialOrder = await runWithConcurrency(1);
+    analysisGet.mockReset();
+    analysisCreate.mockReset();
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockReset();
+
+    const parallelOrder = await runWithConcurrency(4);
+
+    expect(parallelOrder).toEqual(sequentialOrder);
+    expect(parallelOrder).toEqual([
+      "Entity-0",
+      "Entity-1",
+      "Entity-2",
+      "Entity-3",
+      "Entity-4",
+    ]);
+  });
+
+  it("completes partial success when run deadline skips remaining sources", async () => {
+    const sources = buildIndexedSources(10);
+    mockIndexedExtraction(sources, () => 100);
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: sources,
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 2,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 2,
+      articlesSelected: 2,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: {
+          extractionConcurrency: 1,
+          runDeadlineMs: 200,
+          maxBatchSize: 10,
+        },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.details?.extractionSuccessCount).toBe(2);
+    expect(analysisCreate).toHaveBeenCalled();
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (call) =>
+        typeof call[0] === "object" &&
+        call[0] !== null &&
+        (call[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (
+        summaryCall?.[0] as {
+          parallelism?: { extractionSkippedDueToDeadline: number };
+        }
+      ).parallelism?.extractionSkippedDueToDeadline,
+    ).toBe(8);
+  });
+
+  it("emits one yield snapshot log per run with stage attribution", async () => {
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: paywallSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+          {
+            id: DS_ID_2,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: `${validSourceContent()} Apple expanded manufacturing capacity this year.`,
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "FakeCo", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "Apple", typeId: TYPE_ID, aliases: [] },
+        ],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: {
+          maxBatchSize: 2,
+          entityGroundingPolicy: "drop",
+          useSelectionDiversification: true,
+        },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.details?.yieldSnapshot).toMatchObject({
+      batchSize: 2,
+      passed: expect.objectContaining({
+        qualityGate: expect.any(Number),
+        grounding: expect.any(Number),
+        vocabulary: expect.any(Number),
+      }),
+      dropped: expect.objectContaining({
+        byContentQuality: expect.any(Object),
+        byGrounding: expect.objectContaining({
+          entities: expect.any(Number),
+        }),
+      }),
+      ratios: expect.objectContaining({
+        extractionYield: expect.any(Number),
+      }),
+      latency: expect.objectContaining({
+        extractionMsP50: expect.any(Number),
+      }),
+    });
+
+    const summaryLogs = mockLog.info.mock.calls.filter(
+      (call) =>
+        typeof call[0] === "object" &&
+        call[0] !== null &&
+        (call[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    const yieldLogs = mockLog.info.mock.calls.filter(
+      (call) =>
+        typeof call[0] === "object" &&
+        call[0] !== null &&
+        (call[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_YIELD_SNAPSHOT_MESSAGE,
+    );
+
+    expect(summaryLogs).toHaveLength(1);
+    expect(yieldLogs).toHaveLength(1);
+    expect(yieldLogs[0]?.[1]).toBe(ARTICLE_ANALYSIS_YIELD_SNAPSHOT_MESSAGE);
+    expect(yieldLogs[0]?.[0]).toMatchObject({
+      event: ARTICLE_ANALYSIS_YIELD_SNAPSHOT_MESSAGE,
+      batchSize: 2,
+    });
   });
 });
