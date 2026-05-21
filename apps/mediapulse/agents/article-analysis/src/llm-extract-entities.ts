@@ -328,7 +328,9 @@ export const parseArticleBrainstormText = (text: string): ArticleBrainstorm => {
 
     const matchedSection = sectionMatchers.find((section) =>
       section.labels.some(
-        (label) => line.toUpperCase() === label || line.toUpperCase().startsWith(`${label} `),
+        (label) =>
+          line.toUpperCase() === label ||
+          line.toUpperCase().startsWith(`${label} `),
       ),
     );
     if (matchedSection) {
@@ -446,7 +448,8 @@ export const extractEntitiesAndRelationsForSource = async (
   const userContent = String(params.messages.at(-1)?.content ?? "");
   const shouldBuildMessages =
     (params.exemplars !== undefined && params.exemplars.length > 0) ||
-    (params.brainstormText !== undefined && params.brainstormText.trim().length > 0);
+    (params.brainstormText !== undefined &&
+      params.brainstormText.trim().length > 0);
   const messages = shouldBuildMessages
     ? buildExtractionModelMessages(
         systemContent,

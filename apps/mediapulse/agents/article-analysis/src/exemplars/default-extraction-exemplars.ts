@@ -58,7 +58,8 @@ const earningsExemplar: ExtractionExemplar = {
       {
         canonicalName: "Bank Central Asia",
         typeId: "{{ENTITY_TYPE:COMPANY}}",
-        description: "Indonesian lender reporting earnings beat and raised guidance",
+        description:
+          "Indonesian lender reporting earnings beat and raised guidance",
         aliases: ["BBCA", "the bank"],
       },
       {
@@ -104,13 +105,15 @@ const legalExemplar: ExtractionExemplar = {
       {
         canonicalName: "NovaTech Systems",
         typeId: "{{ENTITY_TYPE:COMPANY}}",
-        description: "Cloud vendor under SEC investigation over revenue disclosures",
+        description:
+          "Cloud vendor under SEC investigation over revenue disclosures",
         aliases: ["NovaTech", "the company"],
       },
       {
         canonicalName: "Securities and Exchange Commission",
         typeId: "{{ENTITY_TYPE:Regulator}}",
-        description: "US regulator investigating alleged misstated recurring revenue",
+        description:
+          "US regulator investigating alleged misstated recurring revenue",
         aliases: ["SEC", "regulators"],
       },
     ],

@@ -40,7 +40,12 @@ export const articleAnalysisConfigSchema = z
     /** When true, use structure-aware paragraph truncation instead of naive slice. */
     useStructureAwareTruncation: z.boolean().optional(),
     /** Lead paragraphs always kept before score-ranked allocation. */
-    truncationLeadParagraphsAlwaysKept: z.number().int().min(0).max(8).optional(),
+    truncationLeadParagraphsAlwaysKept: z
+      .number()
+      .int()
+      .min(0)
+      .max(8)
+      .optional(),
     /** Operator-extensible financial keywords for truncation scoring. */
     truncationFinancialKeywordsExtra: z.array(z.string()).optional(),
     /** Number of few-shot extraction exemplars to inject (0 disables). */
@@ -308,8 +313,9 @@ export const resolveArticleAnalysisConfig = (
       config.truncationLeadParagraphsAlwaysKept ??
       articleAnalysisConfigDefaults.truncationLeadParagraphsAlwaysKept,
     truncationFinancialKeywordsExtra:
-      config.truncationFinancialKeywordsExtra ??
-      [...articleAnalysisConfigDefaults.truncationFinancialKeywordsExtra],
+      config.truncationFinancialKeywordsExtra ?? [
+        ...articleAnalysisConfigDefaults.truncationFinancialKeywordsExtra,
+      ],
     fewShotExemplarCount:
       config.fewShotExemplarCount ??
       articleAnalysisConfigDefaults.fewShotExemplarCount,

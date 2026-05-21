@@ -93,9 +93,8 @@ describe("shouldHardDeleteDataSourceForNonArticleReason", () => {
     const paywall = shouldHardDeleteDataSourceForNonArticleReason(
       "content_access_gated",
     );
-    const tooShort = shouldHardDeleteDataSourceForNonArticleReason(
-      "content_too_short",
-    );
+    const tooShort =
+      shouldHardDeleteDataSourceForNonArticleReason("content_too_short");
 
     // Assert
     expect(paywall).toBe(false);

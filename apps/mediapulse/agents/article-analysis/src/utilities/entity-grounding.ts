@@ -48,11 +48,12 @@ const CORPORATE_SUFFIXES = [
 /**
  * Returns zeroed run-level grounding counters.
  */
-export const createEmptyGroundingTotals = (): GroundingObservabilityAggregate => ({
-  entitiesUngroundedTotal: 0,
-  relationsDroppedTotal: 0,
-  mentionsDroppedTotal: 0,
-});
+export const createEmptyGroundingTotals =
+  (): GroundingObservabilityAggregate => ({
+    entitiesUngroundedTotal: 0,
+    relationsDroppedTotal: 0,
+    mentionsDroppedTotal: 0,
+  });
 
 /**
  * Adds per-source grounding counters into run-level totals.
@@ -80,7 +81,11 @@ export const isAcronymName = (name: string): boolean => {
   if (trimmed.length <= 3) {
     return true;
   }
-  return trimmed.length > 0 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
+  return (
+    trimmed.length > 0 &&
+    trimmed === trimmed.toUpperCase() &&
+    /[A-Z]/.test(trimmed)
+  );
 };
 
 /**
@@ -157,7 +162,10 @@ export const isLooseMatch = (name: string, haystack: string): string | null => {
 
   const suffixStripped = stripCorporateSuffixes(name);
   if (suffixStripped !== name.trim()) {
-    const strippedMatch = findExactNormalizedSubstring(suffixStripped, haystack);
+    const strippedMatch = findExactNormalizedSubstring(
+      suffixStripped,
+      haystack,
+    );
     if (strippedMatch !== null) {
       return strippedMatch;
     }
@@ -192,15 +200,15 @@ export const verifyEntityGrounding = (params: {
   title: string;
   entityGroundingMinTitleHits?: number;
 }): EntityGroundingResult => {
-  const candidates = [
-    params.entity.canonicalName,
-    ...params.entity.aliases,
-  ];
+  const candidates = [params.entity.canonicalName, ...params.entity.aliases];
   let bodyMatch: { alias: string } | null = null;
   let titleMatch: { alias: string } | null = null;
 
   for (const alias of candidates) {
-    if (bodyMatch === null && isLooseMatch(alias, params.articleText) !== null) {
+    if (
+      bodyMatch === null &&
+      isLooseMatch(alias, params.articleText) !== null
+    ) {
       bodyMatch = { alias };
     }
     if (titleMatch === null && isLooseMatch(alias, params.title) !== null) {

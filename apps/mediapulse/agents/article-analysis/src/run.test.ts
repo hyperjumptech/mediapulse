@@ -1344,16 +1344,15 @@ describe("run", () => {
         lastRelevanceScoredAtIso: null,
       }),
     );
-    const extractSpy = vi.spyOn(
-      Llm,
-      "extractEntitiesAndRelationsForSource",
-    ).mockResolvedValue(
-      llmResult({
-        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
-        relations: [],
-        articleMentions: [],
-      }),
-    );
+    const extractSpy = vi
+      .spyOn(Llm, "extractEntitiesAndRelationsForSource")
+      .mockResolvedValue(
+        llmResult({
+          entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+          relations: [],
+          articleMentions: [],
+        }),
+      );
     analysisCreate.mockResolvedValue({
       entitiesCreated: 1,
       entitiesReused: 0,
@@ -1456,9 +1455,7 @@ describe("run", () => {
     const structuredUserMessage = extractSpy.mock.calls[0]?.[0]?.messages?.[1]
       ?.content as string;
     expect(structuredUserMessage).toContain("AAPL shares rose");
-    expect(structuredUserMessage).not.toContain(
-      "Sign up for our newsletter",
-    );
+    expect(structuredUserMessage).not.toContain("Sign up for our newsletter");
 
     extractSpy.mockClear();
     analysisGet.mockResolvedValue(baseGetResponse);
@@ -1475,9 +1472,7 @@ describe("run", () => {
 
     const slicedUserMessage = extractSpy.mock.calls[0]?.[0]?.messages?.[1]
       ?.content as string;
-    expect(slicedUserMessage).toContain(
-      longContent.slice(0, 260).slice(0, 40),
-    );
+    expect(slicedUserMessage).toContain(longContent.slice(0, 260).slice(0, 40));
     expect(slicedUserMessage).not.toContain("AAPL shares rose");
   });
 
@@ -1835,9 +1830,9 @@ describe("run", () => {
           ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
     );
     expect(summaryCall).toBeDefined();
-    expect((summaryCall?.[0] as { brainstormCalls?: number }).brainstormCalls).toBe(
-      0,
-    );
+    expect(
+      (summaryCall?.[0] as { brainstormCalls?: number }).brainstormCalls,
+    ).toBe(0);
     expect(
       (summaryCall?.[0] as { extractionCalls?: number }).extractionCalls,
     ).toBe(1);
@@ -2098,9 +2093,9 @@ describe("run", () => {
     const postedEntities = analysisCreate.mock.calls[0]?.[0]?.entities as
       | Array<{ canonicalName: string }>
       | undefined;
-    expect(postedEntities?.map((entity) => entity.canonicalName).sort()).toEqual(
-      ["Apple", "FakeCo"],
-    );
+    expect(
+      postedEntities?.map((entity) => entity.canonicalName).sort(),
+    ).toEqual(["Apple", "FakeCo"]);
     expect(analysisCreate.mock.calls[0]?.[0]?.relations).toEqual([]);
     expect(
       analysisCreate.mock.calls[1]?.[0]?.articleEntities?.[0]?.confidence,

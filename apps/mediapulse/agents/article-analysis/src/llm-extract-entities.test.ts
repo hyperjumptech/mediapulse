@@ -122,10 +122,7 @@ describe("buildExtractionModelMessages", () => {
   const systemContent = "system prompt";
   const userContent = "real article user prompt";
 
-  const exemplar = (
-    id: string,
-    snippet: string,
-  ): ResolvedExemplar => ({
+  const exemplar = (id: string, snippet: string): ResolvedExemplar => ({
     archetype: "earnings",
     articleSnippet: snippet,
     expectedOutput: {
@@ -366,7 +363,9 @@ describe("buildBrainstormUserContent", () => {
       contentTruncated: "Body text",
     };
 
-    expect(buildBrainstormUserContent(args)).toBe(buildExtractionUserContent(args));
+    expect(buildBrainstormUserContent(args)).toBe(
+      buildExtractionUserContent(args),
+    );
   });
 });
 

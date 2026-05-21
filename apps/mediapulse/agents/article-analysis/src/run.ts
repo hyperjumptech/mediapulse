@@ -270,8 +270,9 @@ export const run = async ({
     log.info(
       buildArticleAnalysisRunSummaryPayload({
         ...summary,
-        droppedByContentQuality:
-          summary.droppedByContentQuality ?? { ...droppedByContentQuality },
+        droppedByContentQuality: summary.droppedByContentQuality ?? {
+          ...droppedByContentQuality,
+        },
         truncation:
           summary.truncation ??
           (truncationTotals.paragraphsKept > 0 ||
@@ -359,7 +360,9 @@ export const run = async ({
     llmUsageTotals.totalTokens += usage.totalTokens;
   };
 
-  const accumulateBrainstormUsage = (usage: LlmExtractionUsage | null): void => {
+  const accumulateBrainstormUsage = (
+    usage: LlmExtractionUsage | null,
+  ): void => {
     if (!usage) {
       return;
     }
@@ -577,7 +580,9 @@ export const run = async ({
     exemplarsObservability = {
       requestedCount: cfg.fewShotExemplarCount,
       resolvedCount: resolvedExemplars.length,
-      appliedArchetypes: resolvedExemplars.map((exemplar) => exemplar.archetype),
+      appliedArchetypes: resolvedExemplars.map(
+        (exemplar) => exemplar.archetype,
+      ),
     };
     const existingLookup = buildExistingEntityLookup(ctx.existingEntities);
 
@@ -650,8 +655,7 @@ export const run = async ({
               maxChars: cfg.maxContentChars,
               tickerSymbols: truncationTickerContext.tickerSymbols,
               companyAliases: truncationTickerContext.companyAliases,
-              leadParagraphsAlwaysKept:
-                cfg.truncationLeadParagraphsAlwaysKept,
+              leadParagraphsAlwaysKept: cfg.truncationLeadParagraphsAlwaysKept,
               financialKeywordsExtra: cfg.truncationFinancialKeywordsExtra,
             });
             accumulateTruncationMeta(truncationTotals, result.meta);
@@ -781,7 +785,10 @@ export const run = async ({
           policy: cfg.entityGroundingPolicy,
           entityGroundingMinTitleHits: cfg.entityGroundingMinTitleHits,
         });
-        accumulateGroundingCounters(groundingTotals, groundedExtraction.counters);
+        accumulateGroundingCounters(
+          groundingTotals,
+          groundedExtraction.counters,
+        );
         if (cfg.verbose && cfg.entityGroundingPolicy !== "off") {
           log.info(
             {
@@ -792,7 +799,8 @@ export const run = async ({
                 groundedExtraction.counters
                   .relationsDroppedDueToUngroundedEndpoint,
               mentionsDroppedDueToUngroundedEntity:
-                groundedExtraction.counters.mentionsDroppedDueToUngroundedEntity,
+                groundedExtraction.counters
+                  .mentionsDroppedDueToUngroundedEntity,
             },
             "article-analysis entity grounding applied for source",
           );

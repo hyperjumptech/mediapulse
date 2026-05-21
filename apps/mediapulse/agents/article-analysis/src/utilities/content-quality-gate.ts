@@ -211,9 +211,7 @@ const blockedUrl = (ctx: QualityRuleContext): QualityDecision => {
  */
 const indexLikeTitle = (ctx: QualityRuleContext): QualityDecision => {
   const titleLower = ctx.title.toLowerCase();
-  if (
-    NON_ARTICLE_TITLE_MARKERS.some((marker) => titleLower.includes(marker))
-  ) {
+  if (NON_ARTICLE_TITLE_MARKERS.some((marker) => titleLower.includes(marker))) {
     return { blocked: true, reason: "prefilter_index_title" };
   }
 
@@ -331,10 +329,6 @@ export const classifyNonArticleSource = (
   sourceTitle: string,
   sourceContent: string,
 ): QualityDropReason | null => {
-  const decision = runArticleQualityGate(
-    sourceUrl,
-    sourceTitle,
-    sourceContent,
-  );
+  const decision = runArticleQualityGate(sourceUrl, sourceTitle, sourceContent);
   return decision.blocked ? decision.reason : null;
 };

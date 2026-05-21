@@ -159,15 +159,11 @@ export const scoreParagraphForTicker = (
 ): number => {
   let score = 0;
 
-  if (
-    tickerSymbols.some((symbol) => matchesWordBoundary(paragraph, symbol))
-  ) {
+  if (tickerSymbols.some((symbol) => matchesWordBoundary(paragraph, symbol))) {
     score += 3;
   }
 
-  if (
-    companyAliases.some((alias) => matchesWordBoundary(paragraph, alias))
-  ) {
+  if (companyAliases.some((alias) => matchesWordBoundary(paragraph, alias))) {
     score += 2;
   }
 
@@ -176,9 +172,7 @@ export const scoreParagraphForTicker = (
     ...financialKeywords.map((keyword) => keyword.trim().toLowerCase()),
   ].filter(Boolean);
 
-  if (
-    keywords.some((keyword) => matchesWordBoundary(paragraph, keyword))
-  ) {
+  if (keywords.some((keyword) => matchesWordBoundary(paragraph, keyword))) {
     score += 1;
   }
 

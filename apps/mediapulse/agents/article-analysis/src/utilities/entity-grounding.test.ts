@@ -37,7 +37,9 @@ describe("isAcronymName", () => {
 
 describe("isLooseMatch", () => {
   it("matches suffix-stripped company names against shorter body text", () => {
-    expect(isLooseMatch("Apple Inc.", "Shares of Apple rose today.")).not.toBeNull();
+    expect(
+      isLooseMatch("Apple Inc.", "Shares of Apple rose today."),
+    ).not.toBeNull();
   });
 
   it("does not loose-match acronyms against punctuated variants", () => {
