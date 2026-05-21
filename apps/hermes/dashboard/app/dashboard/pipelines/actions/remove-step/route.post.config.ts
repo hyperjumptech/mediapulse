@@ -8,7 +8,6 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
-import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 
 const bodyValidator = z.object({
   pipelineId: z.string().uuid(),
@@ -69,8 +68,6 @@ export const createRemoveStepHandler = ({
         data: { order: i },
       });
     }
-
-    await disableSchedulesForPipelineIfNotEnabled(db, pipelineId);
 
     return successResponse({ ok: true as const });
   };

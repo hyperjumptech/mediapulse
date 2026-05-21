@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
@@ -53,6 +53,10 @@ vi.mock("@workspace/email-templates", () => ({
   }),
 }));
 
+vi.mock("@workspace/utils", () => ({
+  withRetry: async <T>(fn: () => Promise<T>): Promise<T> => fn(),
+}));
+
 const AUTH_HEADERS = {
   Authorization: "Bearer test-token",
   "Content-Type": "application/json",
@@ -77,8 +81,13 @@ const makeMessage = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+type UserRegistrationAppModule = typeof import("./index.js");
+
+let appModulePromise: Promise<UserRegistrationAppModule> | undefined;
+
 const post = async (body: unknown) => {
-  const { app } = await import("./index.js");
+  appModulePromise ??= import("./index.js");
+  const { app } = await appModulePromise;
   return app.request("http://localhost/", {
     method: "POST",
     headers: AUTH_HEADERS,
@@ -87,13 +96,11 @@ const post = async (body: unknown) => {
 };
 
 describe("user-registration agent – improved run loop", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { resetRegistrationRateLimitsForTest } = await import("./run.js");
+    resetRegistrationRateLimitsForTest();
     vi.clearAllMocks();
     emailSendMock.mockResolvedValue({ data: { id: "email-id" } });
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   it("returns success and new watermark for new subscription", async () => {

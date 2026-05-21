@@ -9,6 +9,7 @@ import {
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
+import { relationTypesCustomActionsForManifest } from "./custom-actions";
 import {
   relationTypeCreateFormJsonSchema,
   relationTypeUpdateFormJsonSchema,
@@ -22,7 +23,7 @@ export const relationTypesDashboardPage = {
   id: relationTypesHermesPathSegment,
   label: "Relation Types",
   description:
-    "Manage vocabulary used by the knowledge graph relation classifier.",
+    "Admin-managed relation classification vocabulary used by the analysis agent extraction prompts.",
   pathSegment: relationTypesHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(relationTypesHermesPathSegment),
@@ -37,4 +38,5 @@ export const relationTypesDashboardPage = {
   actions: { create: true, update: true, delete: true, view: false },
   createSchema: relationTypeCreateFormJsonSchema,
   updateSchema: relationTypeUpdateFormJsonSchema,
+  customActions: relationTypesCustomActionsForManifest,
 } satisfies DashboardPageInput;

@@ -76,6 +76,7 @@ describe("createAgentDataApiClient", () => {
     const postFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
         existingUrls: ["https://exists.example"],
+        hostCounts: { "exists.example": 1 },
       }),
       statusCode: 200,
     });
@@ -381,6 +382,10 @@ describe("createAgentDataApiClient", () => {
         },
         topEntities: [],
         recentThemes: [],
+        peers: [],
+        calendar: { recentEventTypes: [] },
+        headlineSamples: [],
+        kgNeighborhood: [],
       }),
       statusCode: 200,
     });
@@ -662,5 +667,36 @@ describe("agent-data-api path helpers", () => {
 
     // Assert
     expect(pathname).toBe("/api/v1/content-generation");
+  });
+
+  it("supports ticker GET", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        id: "11111111-1111-4111-a111-111111111111",
+        symbol: "BBCA",
+        name: "Bank Central Asia Tbk",
+        aliases: ["BCA"],
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
+    });
+
+    // Act
+    const result = await client.ticker.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+    });
+
+    // Assert
+    expect(result.symbol).toBe("BBCA");
+    expect(result.aliases).toEqual(["BCA"]);
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "ticker")}?tickerId=11111111-1111-4111-a111-111111111111`,
+      expect.anything(),
+    );
   });
 });

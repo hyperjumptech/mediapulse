@@ -2,6 +2,7 @@
   "title": "Dashboard",
   "pages": [
     "newsletters-list-and-detail",
+    "search-query-sets",
     "content-generation-runs-diagnostics"
   ]
 }

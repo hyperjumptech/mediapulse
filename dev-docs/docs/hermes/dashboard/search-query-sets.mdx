@@ -1,0 +1,45 @@
+---
+title: Search query sets
+description: Hermes dashboard CRUD for versioned Mediapulse search query sets
+icon: List
+---
+
+## Purpose
+
+**Search query sets** group the search strings the data-collection agent uses for one ticker. Each set is versioned (`generatedAt`), may be marked **active** (only one active set per ticker at a time), and stores a **strategy snapshot** JSON blob plus child **search query** rows (text, intent, source, rank).
+
+The Hermes dashboard page is served from the Mediapulse domain integration at `/dashboard/mediapulse/search-query-sets`. Implementation lives in `apps/mediapulse/domain-api` under `src/resources/search-query-sets/`.
+
+## Actions
+
+| Action | Behavior |
+| ------ | -------- |
+| List | Search across ticker symbol/name, generation source, Hermes job id, and set id. Filter with `tickerId` (UUID) or `isActive` (`true` / `false`) query params when deep-linking. |
+| View | Metadata, strategy snapshot (JSON markdown), and a queries sub-table. |
+| Create | Full-page form. Paste **strategy snapshot** and **queries** as JSON textareas. Setting **Active** deactivates other sets for the same ticker. |
+| Edit | Same fields as create except ticker id (immutable). Submitting a **queries** JSON array replaces all queries in the set; leave queries empty on the form only if your edit flow omits the field (PATCH without `queries` leaves existing rows). |
+| Delete | Removes the set and all child search queries. |
+
+## Query JSON shape
+
+The **queries** textarea expects a JSON array:
+
+```json
+[
+  {
+    "text": "AAPL latest news",
+    "source": "deterministic",
+    "intent": "breaking",
+    "rank": 1
+  }
+]
+```
+
+`source` is `deterministic` or `llm`. `intent` is `breaking`, `kg_change`, or `fundamental`. Duplicate `text` values in one set are rejected.
+
+Use `generationSource: "manual"` (or another label) for sets created in the dashboard so you can tell them apart from agent-generated sets.
+
+## Related
+
+- [Domain API](/mediapulse/apps/domain-api) — resource registration
+- [Newsletters list and detail](./newsletters-list-and-detail) — shows the active set at newsletter send time

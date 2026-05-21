@@ -1,12 +1,16 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api-contract";
+
 import { queryAnalysisConfigSchema } from "./config-schema";
 
-const { mockGet, mockCreate, mockFetchLlm } = vi.hoisted(() => ({
-  mockGet: vi.fn(),
-  mockCreate: vi.fn(),
-  mockFetchLlm: vi.fn(),
-}));
+const { mockGet, mockCreate, mockFetchQueryLlm, mockFetchWildcard } =
+  vi.hoisted(() => ({
+    mockGet: vi.fn(),
+    mockCreate: vi.fn(),
+    mockFetchQueryLlm: vi.fn(),
+    mockFetchWildcard: vi.fn(),
+  }));
 
 vi.mock("@mediapulse/env/agents-query-analysis", () => ({
   env: {
@@ -28,7 +32,9 @@ vi.mock("./llm-queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./llm-queries")>();
   return {
     ...actual,
-    fetchLlmQueryCandidates: mockFetchLlm,
+    fetchLlmQueryCandidatesByPersona: mockFetchQueryLlm,
+    fetchWildcardCandidates: mockFetchWildcard,
+    fetchBrainstormBullets: vi.fn(),
   };
 });
 
@@ -40,7 +46,13 @@ vi.mock("@workspace/logger", () => ({
   },
 }));
 
-import { buildDeterministicQueries, runQueryAnalysis } from "./run";
+import { buildDeterministicQueries } from "./templates/build-deterministic-queries";
+import {
+  clampPerPersonaQuotaCount,
+  computeWildcardCount,
+  deriveMinDeterministicCount,
+  runQueryAnalysis,
+} from "./run";
 
 const ctxResponse = {
   ticker: {
@@ -51,15 +63,25 @@ const ctxResponse = {
   },
   topEntities: [] as [],
   recentThemes: [] as [],
+  peers: [] as [],
+  calendar: { recentEventTypes: [] as string[] },
+  headlineSamples: [] as [],
+  kgNeighborhood: [] as [],
 };
 
 const baseConfig = queryAnalysisConfigSchema.parse({ openaiApiKey: "sk" });
 
 describe("query-analysis run", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockGet.mockReset();
     mockCreate.mockReset();
-    mockFetchLlm.mockReset();
+    mockFetchQueryLlm.mockReset();
+    mockFetchWildcard.mockReset();
+
+    mockFetchWildcard.mockResolvedValue([]);
+
+    const { fetchBrainstormBullets } = await import("./llm-queries");
+    vi.mocked(fetchBrainstormBullets).mockReset();
 
     mockGet.mockResolvedValue(ctxResponse);
     mockCreate.mockResolvedValue({
@@ -67,8 +89,8 @@ describe("query-analysis run", () => {
       createdSetId: "33333333-3333-4333-a333-333333333333",
       activeSetId: "44444444-4444-4444-a444-444444444444",
     });
-    mockFetchLlm.mockResolvedValue([
-      { text: "LLM extra", intent: "kg_change" as const },
+    mockFetchQueryLlm.mockResolvedValue([
+      { text: "LLM extra", intent: "kg_change" as const, persona: "analyst" },
     ]);
   });
 
@@ -77,13 +99,15 @@ describe("query-analysis run", () => {
   });
 
   describe("buildDeterministicQueries", () => {
-    it("creates deterministic baseline queries", () => {
+    it("creates deterministic baseline queries from default-v1 pack", () => {
       // Act
-      const queries = buildDeterministicQueries("AAPL", "Apple Inc.");
+      const queries = buildDeterministicQueries(ctxResponse, {
+        pack: "default-v1",
+      });
 
       // Assert
-      expect(queries.length).toBeGreaterThan(0);
-      expect(queries[0]?.text).toContain("AAPL");
+      expect(queries.length).toBe(5);
+      expect(queries[0]?.text).toContain("ABC");
       expect(queries.some((query) => query.intent === "fundamental")).toBe(
         true,
       );
@@ -146,7 +170,7 @@ describe("query-analysis run", () => {
 
   it("continues with deterministic merge when LLM throws", async () => {
     // Setup
-    mockFetchLlm.mockRejectedValue(new Error("LLM down"));
+    mockFetchQueryLlm.mockRejectedValue(new Error("LLM down"));
 
     // Act
     const result = await runQueryAnalysis({
@@ -165,5 +189,288 @@ describe("query-analysis run", () => {
       }
     ).queries;
     expect(queries.every((q) => q.source === "deterministic")).toBe(true);
+  });
+
+  it("passes useBrainstormPass through to the LLM orchestrator", async () => {
+    const { fetchBrainstormBullets } = await import("./llm-queries");
+    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
+    fetchBrainstormBulletsMock.mockResolvedValue(["angle"]);
+
+    // Act
+    const result = await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        useBrainstormPass: true,
+      }),
+      token: "Bearer t",
+    });
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(fetchBrainstormBulletsMock).toHaveBeenCalledTimes(1);
+    expect(mockFetchQueryLlm).toHaveBeenCalledWith(
+      expect.objectContaining({ brainstormBullets: ["angle"] }),
+      expect.anything(),
+    );
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queries: expect.arrayContaining([
+          expect.objectContaining({ text: "LLM extra", intent: "kg_change" }),
+        ]),
+      }),
+    );
+  });
+
+  it("defaults useBrainstormPass to false in the LLM orchestrator", async () => {
+    const { fetchBrainstormBullets } = await import("./llm-queries");
+    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
+
+    // Act
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: baseConfig,
+      token: "Bearer t",
+    });
+
+    // Assert
+    expect(fetchBrainstormBulletsMock).not.toHaveBeenCalled();
+    expect(mockFetchQueryLlm).toHaveBeenCalledWith(
+      expect.objectContaining({ brainstormBullets: undefined }),
+      expect.anything(),
+    );
+  });
+
+  it("fires one diversity-gate broaden regenerate when the first batch is near-identical", async () => {
+    const lowDiversityBatch = Array.from({ length: 10 }, () => ({
+      text: "ABC latest news",
+      intent: "breaking" as const,
+      persona: "analyst",
+    }));
+    mockFetchQueryLlm
+      .mockResolvedValueOnce(lowDiversityBatch)
+      .mockResolvedValueOnce([
+        {
+          text: "ABC supply chain risk Q2",
+          intent: "supply_chain" as const,
+          persona: "retail",
+        },
+      ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        diversityGate: { enabled: true, threshold: 0.6 },
+      }),
+      token: "Bearer t",
+    });
+
+    expect(mockFetchQueryLlm).toHaveBeenCalledTimes(2);
+    const secondCall = mockFetchQueryLlm.mock.calls[1]?.[0] as {
+      broadenSystemNudge?: string;
+    };
+    expect(secondCall.broadenSystemNudge).toContain("diversity");
+    expect(secondCall.broadenSystemNudge).toContain("Vary phrasing");
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      strategySnapshot: {
+        diversityScore?: { composite: number };
+        diversityGate?: { diversityRegenerateFired: boolean };
+      };
+    };
+    expect(createPayload.strategySnapshot.diversityScore).toBeDefined();
+    expect(
+      createPayload.strategySnapshot.diversityGate?.diversityRegenerateFired,
+    ).toBe(true);
+  });
+
+  it("persists wildcardFraction budget as wildcard intent rows", async () => {
+    mockFetchQueryLlm.mockResolvedValue(
+      Array.from({ length: 8 }, (_, index) => ({
+        text: `Standard LLM ${String(index + 1)}`,
+        intent: "breaking" as const,
+        persona: "analyst",
+      })),
+    );
+    mockFetchWildcard.mockResolvedValue([
+      { text: "Wildcard lateral angle A", intent: "wildcard" as const },
+      { text: "Wildcard lateral angle B", intent: "wildcard" as const },
+    ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        queryCount: 10,
+        wildcardFraction: 0.2,
+      }),
+      token: "Bearer t",
+    });
+
+    expect(mockFetchWildcard).toHaveBeenCalledTimes(1);
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      queries: Array<{ intent: string }>;
+    };
+    const wildcardRows = createPayload.queries.filter(
+      (row) => row.intent === "wildcard",
+    );
+    expect(wildcardRows).toHaveLength(2);
+    expect(createPayload.queries).toHaveLength(10);
+  });
+
+  it("distributes queryCount across language quotas into locale-specific rows", async () => {
+    mockFetchQueryLlm.mockResolvedValue([]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        queryCount: 10,
+        wildcardFraction: 0,
+        personas: [],
+        languageQuotas: [
+          { language: "en", share: 0.6 },
+          { language: "id", share: 0.4 },
+        ],
+      }),
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      queries: Array<{ text: string }>;
+      strategySnapshot: {
+        languageQuotas: Array<{ language: string; share: number }>;
+      };
+    };
+
+    expect(createPayload.queries).toHaveLength(10);
+    expect(createPayload.strategySnapshot.languageQuotas).toEqual([
+      { language: "en", share: 0.6 },
+      { language: "id", share: 0.4 },
+    ]);
+
+    const indonesianPattern =
+      /berita terbaru|laporan keuangan|prospek saham|perubahan relasi|update regulasi/i;
+
+    const englishSlice = createPayload.queries.slice(0, 6);
+    const indonesianSlice = createPayload.queries.slice(6);
+
+    expect(englishSlice).toHaveLength(6);
+    expect(indonesianSlice).toHaveLength(4);
+    expect(englishSlice.every((row) => !indonesianPattern.test(row.text))).toBe(
+      true,
+    );
+    expect(
+      indonesianSlice.every((row) => indonesianPattern.test(row.text)),
+    ).toBe(true);
+  });
+
+  it("boosts fundamental intent weight in snapshot when earnings are within 14 days", async () => {
+    const fiveDaysFromNow = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    mockGet.mockResolvedValue({
+      ...ctxResponse,
+      calendar: {
+        recentEventTypes: [],
+        nextEarningsAt: fiveDaysFromNow.toISOString(),
+      },
+    });
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        wildcardFraction: 0,
+      }),
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      strategySnapshot: {
+        intentWeights: { fundamental: number };
+        appliedEventBias?: {
+          firedRuleIds: string[];
+          multipliers: { fundamental?: number };
+        };
+      };
+    };
+    expect(createPayload.strategySnapshot.intentWeights.fundamental).toBe(
+      DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.fundamental * 2,
+    );
+    expect(
+      createPayload.strategySnapshot.appliedEventBias?.firedRuleIds,
+    ).toContain("near-earnings");
+    expect(
+      createPayload.strategySnapshot.appliedEventBias?.multipliers.fundamental,
+    ).toBe(2);
+  });
+});
+
+describe("clampPerPersonaQuotaCount", () => {
+  it("returns configured quota when fan-out is within the guard", () => {
+    expect(clampPerPersonaQuotaCount(3, 3, 10)).toBe(3);
+  });
+
+  it("clamps quota when fan-out exceeds queryCount * 3", () => {
+    expect(clampPerPersonaQuotaCount(3, 10, 5)).toBe(5);
+  });
+});
+
+describe("computeWildcardCount", () => {
+  it("rounds queryCount times wildcardFraction", () => {
+    expect(computeWildcardCount(10, 0.2)).toBe(2);
+    expect(computeWildcardCount(10, 0.1)).toBe(1);
+    expect(computeWildcardCount(10, 0)).toBe(0);
+  });
+});
+
+describe("deriveMinDeterministicCount", () => {
+  it("derives floor 4 for default queryCount 10", () => {
+    expect(deriveMinDeterministicCount(10)).toBe(4);
+  });
+
+  it("floors at 2 for small queryCount values", () => {
+    expect(deriveMinDeterministicCount(3)).toBe(2);
+  });
+});
+
+describe("runQueryAnalysis derived minDeterministicCount", () => {
+  it("persists derived minDeterministicCount 4 when queryCount is 10", async () => {
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        queryCount: 10,
+        wildcardFraction: 0,
+      }),
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      strategySnapshot: { minDeterministicCount: number; maxTokens?: number };
+    };
+    expect(createPayload.strategySnapshot.minDeterministicCount).toBe(4);
+    expect(createPayload.strategySnapshot.maxTokens).toBeUndefined();
+  });
+
+  it("persists derived minDeterministicCount 2 when queryCount is 3", async () => {
+    mockFetchQueryLlm.mockResolvedValue([
+      { text: "LLM one", intent: "breaking" as const, persona: "analyst" },
+    ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        queryCount: 3,
+        wildcardFraction: 0,
+      }),
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      strategySnapshot: { minDeterministicCount: number };
+    };
+    expect(createPayload.strategySnapshot.minDeterministicCount).toBe(2);
   });
 });

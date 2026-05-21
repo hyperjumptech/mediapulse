@@ -1,8 +1,9 @@
 import got from "got";
 import { z } from "zod";
 import { logger as defaultLogger } from "@workspace/logger";
-import { RateLimiter, withRetry } from "./resilience";
+import { RateLimiter, type StageThrottleStats, withRetry } from "./resilience";
 import { classifyError, isRetryableError } from "./error-classification";
+import { pMap } from "./p-map";
 import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
 
@@ -19,6 +20,7 @@ export interface WebSearchResult {
   tickerId: string;
   searchQueryId: string;
   searchQueryText: string;
+  serpIndex: number;
 }
 
 export interface WebSearchSuccess {
@@ -50,6 +52,8 @@ export interface WebSearchDeps {
   gotClient?: typeof got;
   /** Logger with run correlation; defaults to workspace logger. */
   logger?: WebSearchLogger;
+  /** Optional counter mutated with adaptive throttle events for this stage. */
+  throttleStats?: StageThrottleStats;
 }
 
 /** Zod schema for Serper.dev API organic search result item. */
@@ -67,6 +71,112 @@ export const serperResponseSchema = z.object({
 export type SerperResponse = z.infer<typeof serperResponseSchema>;
 
 /**
+ * Resolves effective mapper concurrency capped by the configured rate limit.
+ *
+ * @param config - Web search provider configuration.
+ */
+const resolveSearchConcurrency = (
+  config: NonNullable<ConfigSchemaType["webSearch"]>,
+): number => Math.min(config.concurrency ?? 4, config.rateLimit.requests);
+
+/**
+ * Executes one Serper query and returns attempt results for that query.
+ *
+ * @param query - Search query row from the Agent Data API.
+ * @param deps - Shared dependencies for the search stage.
+ */
+const searchOneQuery = async (
+  query: SearchQuery,
+  deps: {
+    config: NonNullable<ConfigSchemaType["webSearch"]>;
+    gotClient: typeof got;
+    log: WebSearchLogger;
+    rateLimiter: RateLimiter;
+    authHeaders: Record<string, string>;
+  },
+): Promise<WebSearchAttemptResult[]> => {
+  const { config, gotClient, log, rateLimiter, authHeaders } = deps;
+
+  try {
+    await rateLimiter.acquire();
+
+    const fetchTask = async () => {
+      const response = await gotClient.post(config.baseUrl, {
+        json: { q: query.text },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        timeout: config.timeoutMs ? { request: config.timeoutMs } : undefined,
+      });
+      rateLimiter.recordResponse(response.statusCode);
+      const raw = JSON.parse(response.body) as unknown;
+
+      const parsed = serperResponseSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw parsed.error;
+      }
+
+      const organic = parsed.data.organic ?? [];
+      if (organic.length === 0) {
+        throw new Error("Semantic validation failed");
+      }
+      return organic;
+    };
+
+    const organic = config.retry
+      ? await withRetry(fetchTask, config.retry, isRetryableError)
+      : await fetchTask();
+
+    const queryResults: WebSearchAttemptResult[] = [];
+    for (const [serpIndex, item] of organic.entries()) {
+      if (!item.link) {
+        continue;
+      }
+      queryResults.push({
+        success: true,
+        data: {
+          url: item.link,
+          title: item.title ?? "",
+          content: item.snippet ?? "",
+          tickerId: query.tickerId,
+          searchQueryId: query.id,
+          searchQueryText: query.text,
+          serpIndex,
+        },
+      });
+    }
+    return queryResults;
+  } catch (error) {
+    const classified = classifyError(error);
+    rateLimiter.recordResponse(classified.httpStatus);
+    log.warn(
+      {
+        queryId: query.id,
+        errorCategory: classified.category,
+        retryable: isRetryableError(error),
+        ...(classified.httpStatus !== undefined
+          ? { httpStatus: classified.httpStatus }
+          : {}),
+      },
+      "web search: query failed",
+    );
+    return [
+      {
+        success: false,
+        queryId: query.id,
+        queryText: query.text,
+        tickerId: query.tickerId,
+        errorCategory: classified.category,
+        message: classified.message,
+        retryable: isRetryableError(error),
+        httpStatus: classified.httpStatus,
+      },
+    ];
+  }
+};
+
+/**
  * Performs web search for each query using the configured provider.
  * Uses config-driven limits, retries, and yields partial success items.
  *
@@ -78,9 +188,8 @@ export async function performWebSearch(
   queries: SearchQuery[],
   deps: WebSearchDeps,
 ): Promise<WebSearchAttemptResult[]> {
-  const { config, gotClient = got, logger: logOpt } = deps;
+  const { config, gotClient = got, logger: logOpt, throttleStats } = deps;
   const log = logOpt ?? defaultLogger;
-  const results: WebSearchAttemptResult[] = [];
 
   log.info({ queryCount: queries.length }, "web search: starting");
 
@@ -111,81 +220,24 @@ export async function performWebSearch(
       `${prefix}${config.authentication.apiKey}`;
   }
 
-  for (const query of queries) {
-    try {
-      await rateLimiter.acquire();
+  const concurrency = resolveSearchConcurrency(config);
+  const sharedDeps = {
+    config,
+    gotClient,
+    log,
+    rateLimiter,
+    authHeaders,
+  };
 
-      const fetchTask = async () => {
-        const raw = await gotClient
-          .post(config.baseUrl, {
-            json: { q: query.text },
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeaders,
-            },
-            timeout: config.timeoutMs
-              ? { request: config.timeoutMs }
-              : undefined,
-          })
-          .json<unknown>();
+  const perQueryResults = await pMap(
+    queries,
+    (query) => searchOneQuery(query, sharedDeps),
+    { concurrency },
+  );
 
-        const parsed = serperResponseSchema.safeParse(raw);
-        if (!parsed.success) {
-          throw parsed.error;
-        }
-
-        const organic = parsed.data.organic ?? [];
-        if (organic.length === 0) {
-          throw new Error("Semantic validation failed");
-        }
-        return organic;
-      };
-
-      const organic = config.retry
-        ? await withRetry(fetchTask, config.retry, isRetryableError)
-        : await fetchTask();
-
-      for (const item of organic) {
-        if (!item.link) {
-          continue;
-        }
-        results.push({
-          success: true,
-          data: {
-            url: item.link,
-            title: item.title ?? "",
-            content: item.snippet ?? "",
-            tickerId: query.tickerId,
-            searchQueryId: query.id,
-            searchQueryText: query.text,
-          },
-        });
-      }
-    } catch (e) {
-      const classified = classifyError(e);
-      log.warn(
-        {
-          queryId: query.id,
-          errorCategory: classified.category,
-          retryable: isRetryableError(e),
-          ...(classified.httpStatus !== undefined
-            ? { httpStatus: classified.httpStatus }
-            : {}),
-        },
-        "web search: query failed",
-      );
-      results.push({
-        success: false,
-        queryId: query.id,
-        queryText: query.text,
-        tickerId: query.tickerId,
-        errorCategory: classified.category,
-        message: classified.message,
-        retryable: isRetryableError(e),
-        httpStatus: classified.httpStatus,
-      });
-    }
+  if (throttleStats) {
+    throttleStats.throttleEvents += rateLimiter.getThrottleEvents();
   }
 
-  return results;
+  return perQueryResults.flat();
 }

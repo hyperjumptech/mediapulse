@@ -35,6 +35,13 @@ type RateLimitConfig = {
 };
 
 const registrationAttempts = new Map<string, number[]>();
+
+/**
+ * Clears in-memory per-sender rate-limit counters (for unit tests only).
+ */
+export const resetRegistrationRateLimitsForTest = (): void => {
+  registrationAttempts.clear();
+};
 const DEFAULT_RATE_LIMIT_CONFIG: RateLimitConfig = {
   windowMs: 60 * 60 * 1000,
   maxAttempts: 5,

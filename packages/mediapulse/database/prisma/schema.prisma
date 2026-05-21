@@ -28,6 +28,13 @@ enum SearchQueryIntent {
   breaking
   kg_change
   fundamental
+  sentiment
+  competitor
+  supply_chain
+  esg
+  macro
+  technical
+  wildcard
 }
 
 model DataSource {
@@ -219,10 +226,27 @@ model SearchQuery {
   set         SearchQuerySet? @relation(fields: [setId], references: [id], onDelete: SetNull)
   dataSources DataSource[]
   dataCollectionFailures  DataCollectionFailure[]
+  searchQueryYields       SearchQueryYield[]
 
   @@unique([setId, text])
   @@index([tickerId, setId])
   @@map("search_query")
+}
+
+/// Daily rollup of articles surfaced per search query via data-collection.
+model SearchQueryYield {
+  id                String   @id @default(uuid())
+  searchQueryId     String   @map("search_query_id")
+  runDate           DateTime @db.Date @map("run_date")
+  articleCount      Int      @map("article_count")
+  novelArticleCount Int      @map("novel_article_count")
+  computedAt        DateTime @default(now()) @map("computed_at")
+
+  searchQuery SearchQuery @relation(fields: [searchQueryId], references: [id], onDelete: Cascade)
+
+  @@unique([searchQueryId, runDate])
+  @@index([searchQueryId, runDate(sort: Desc)])
+  @@map("search_query_yield")
 }
 
 model SearchQuerySet {

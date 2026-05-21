@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Resend } from "resend";
+import type { SlidingWindowRateLimiter } from "@workspace/utils";
 import {
   DEFAULT_HYPERJUMP_SITE_URL,
   DEFAULT_MEDIAPULSE_SITE_URL,
@@ -9,6 +10,19 @@ import {
 
 import { DeliveryConfigSchema } from "./config-schema.js";
 import { deliverNewsletterToSubscribers } from "./deliver-newsletter.js";
+
+/**
+ * Builds a test double for {@link SlidingWindowRateLimiter}.
+ *
+ * @param acquire - Optional acquire mock override.
+ */
+const mockRateLimiter = (
+  acquire: SlidingWindowRateLimiter["acquire"] = vi.fn().mockResolvedValue(0),
+): SlidingWindowRateLimiter => ({
+  acquire,
+  setWindowMs: vi.fn(),
+  getWindowMs: vi.fn().mockReturnValue(1000),
+});
 
 vi.mock("@workspace/email-templates", async () => {
   const actual = await vi.importActual<
@@ -59,7 +73,7 @@ describe("deliverNewsletterToSubscribers", () => {
       baseConfig,
       {
         resend: {} as Resend,
-        rateLimiter: { acquire },
+        rateLimiter: mockRateLimiter(acquire),
         sendWithRetry,
         logger: { info: logInfo, error: logError },
       },
@@ -117,7 +131,7 @@ describe("deliverNewsletterToSubscribers", () => {
       baseConfig,
       {
         resend: {} as Resend,
-        rateLimiter: { acquire },
+        rateLimiter: mockRateLimiter(acquire),
         sendWithRetry,
         logger: { info: logInfo, error: logError },
       },
@@ -159,7 +173,7 @@ describe("deliverNewsletterToSubscribers", () => {
       cfg,
       {
         resend: {} as Resend,
-        rateLimiter: { acquire: vi.fn().mockResolvedValue(0) },
+        rateLimiter: mockRateLimiter(),
         sendWithRetry,
       },
     );
@@ -190,7 +204,7 @@ describe("deliverNewsletterToSubscribers", () => {
       cfg,
       {
         resend: {} as Resend,
-        rateLimiter: { acquire: vi.fn().mockResolvedValue(0) },
+        rateLimiter: mockRateLimiter(),
         sendWithRetry,
       },
     );
@@ -224,7 +238,7 @@ describe("deliverNewsletterToSubscribers", () => {
       cfg,
       {
         resend: {} as Resend,
-        rateLimiter: { acquire: vi.fn().mockResolvedValue(0) },
+        rateLimiter: mockRateLimiter(),
         sendWithRetry,
       },
     );
@@ -260,7 +274,7 @@ describe("deliverNewsletterToSubscribers", () => {
       cfg,
       {
         resend: {} as Resend,
-        rateLimiter: { acquire: vi.fn().mockResolvedValue(0) },
+        rateLimiter: mockRateLimiter(),
         sendWithRetry,
       },
     );
@@ -283,7 +297,7 @@ describe("deliverNewsletterToSubscribers", () => {
       baseConfig,
       {
         resend: {} as Resend,
-        rateLimiter: { acquire: vi.fn().mockResolvedValue(0) },
+        rateLimiter: mockRateLimiter(),
         sendWithRetry,
       },
     );

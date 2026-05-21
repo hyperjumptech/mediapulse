@@ -315,7 +315,7 @@ describe("executeSchedule", () => {
     expect(p!.body.config).toEqual({ token: "resolved-secret" });
   });
 
-  it("disables schedule when repeat is once", async () => {
+  it("clears nextRunAt when repeat is once", async () => {
     const schedule = createMockSchedule({ repeat: "once" });
     const scheduleUpdate = vi.fn().mockResolvedValue(undefined);
     const db = createMockDb();
@@ -330,7 +330,7 @@ describe("executeSchedule", () => {
 
     expect(scheduleUpdate).toHaveBeenCalledWith({
       where: { id: schedule.id },
-      data: { enabled: false },
+      data: { nextRunAt: null },
     });
   });
 

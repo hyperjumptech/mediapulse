@@ -193,6 +193,33 @@ describe("dashboardObjectFormJsonSchema", () => {
 });
 
 describe("dashboardPageSchema", () => {
+  it("accepts a danger-confirm custom action with confirm fields", () => {
+    const parsed = dashboardPageSchema.parse({
+      id: "entity-relations",
+      label: "Entity Relations",
+      pathSegment: "entity-relations",
+      template: "table-v1",
+      apiPrefix: "/v1/hermes-dashboard/entity-relations",
+      columns: [],
+      customActions: [
+        {
+          id: "reset-all",
+          label: "Reset all relations",
+          ui: "danger-confirm",
+          method: "POST",
+          path: "/reset-all",
+          confirmMessage: "Delete all?",
+          confirmToken: "DELETE_ALL_ENTITY_RELATIONS",
+        },
+      ],
+    });
+
+    expect(parsed.customActions[0]?.ui).toBe("danger-confirm");
+    expect(parsed.customActions[0]?.confirmToken).toBe(
+      "DELETE_ALL_ENTITY_RELATIONS",
+    );
+  });
+
   it("defaults customActions on a page definition", () => {
     const parsed = dashboardPageSchema.parse({
       id: "tickers",

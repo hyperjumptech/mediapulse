@@ -1,7 +1,6 @@
 import { env } from "@mediapulse/env";
-import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
+import { logger, slimPinoLogger } from "@workspace/logger";
 import { Hono } from "hono";
-import { pinoLogger } from "hono-pino";
 import {
   HERMES_DASHBOARD_V1_MOUNT_PATH,
   hermesDashboardTableMountPath,
@@ -25,12 +24,7 @@ export const createDomainApiServer = (): {
 } => {
   const app = new Hono();
 
-  app.use(
-    pinoLogger({
-      pino: logger,
-      http: slimHonoPinoHttpLoggerOptions,
-    }),
-  );
+  app.use(slimPinoLogger({ pino: logger }));
 
   // Public routes — no agent-auth JWT required.
   app.route("/api", unsubscribeRoutes);

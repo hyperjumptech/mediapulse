@@ -11,6 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@mediapulse/domain-api": "workspace:*",
     "@hermes/domain-contract": "workspace:*",
     "@mediapulse/database": "workspace:*",
     "@mediapulse/env": "workspace:*",

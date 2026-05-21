@@ -3,11 +3,12 @@ import { generateObject } from "ai";
 import type { z } from "zod";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
-import { formatNewsletterContent } from "./format-newsletter-content.js";
+import { formatIndustryNewsletterV2Wire } from "./format-industry-newsletter-v2.js";
+import { industryNewsletterStructureSchema } from "./industry-newsletter-schema.js";
+import { attachIndustryNewsletterSourceUrls } from "./industry-newsletter-urls.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import { retryWithBackoff } from "./lib/retry.js";
 import { truncateSources } from "./lib/truncate-sources.js";
-import { newsletterStructureSchema } from "./parse-newsletter-json.js";
 
 /** A single data source passed as input to the LLM for newsletter generation. */
 export type SourceForGeneration = {
@@ -20,7 +21,7 @@ export type SourceForGeneration = {
 export interface GeneratedContent {
   /** Compelling email subject line (under ~60 chars). */
   subject: string;
-  /** Formatted plain-text newsletter body (executive summary + top 3 news). */
+  /** Formatted plain-text newsletter body (`MP_NEWSLETTER_V2` industry wire). */
   content: string;
   /** Optional executive summary for newsletter preview or listing. */
   description?: string;
@@ -55,7 +56,7 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
 /** Minimal arguments for a single `generateObject` call for newsletter generation. */
 export type GenerateNewsletterObjectArgs = {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
-  schema: typeof newsletterStructureSchema;
+  schema: typeof industryNewsletterStructureSchema;
   system: string;
   prompt: string;
   /** Should always be 0 — we manage our own retry loop via retryWithBackoff. */
@@ -75,7 +76,7 @@ export type GenerateNewsletterObjectUsage = {
 
 /** Result of a single `generateObject` call for newsletter generation. */
 export type GenerateNewsletterObjectResult = {
-  object: z.infer<typeof newsletterStructureSchema>;
+  object: z.infer<typeof industryNewsletterStructureSchema>;
   /**
    * Token usage from the AI SDK response.
    * Present when the model/provider returns usage data; absent otherwise.
@@ -117,19 +118,41 @@ const defaultGenerateNewsletterObject: GenerateNewsletterObjectFn = async (
  *
  * Supported placeholders: `{{topNewsCount}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`.
  */
-export const SYSTEM_PROMPT = `You are a newsletter writer for busy executives. You are writing for subscribers interested in {{tickerName}} ({{tickerSymbol}}). Given numbered article summaries, produce a structured newsletter about this company.
+export const SYSTEM_PROMPT = `You are an industry intelligence editor for busy business owners and executives.
 
-Return a JSON object with:
-- "subject": a compelling email subject line that mentions {{tickerName}} or {{tickerSymbol}} (short, under ~60 chars).
-- "executiveSummary": 2–3 sentences summarizing the main themes and why they matter for {{tickerName}} investors. No bullet points; use clear prose.
-- "topNews": an array of exactly {{topNewsCount}} items in the same order as the numbered articles. Each item must have:
-  - "title": short headline capturing the key point of that article
-  - "summary": 2–4 plain sentences summarizing the article. Do not include any markdown links or citation markers.`;
+Audience: leaders who want sector context, competition, regulation, and deals — not stock tips. Never give buy/sell/hold guidance, price targets, or personal investment advice.
+
+Use {{tickerName}} ({{tickerSymbol}}) to orient the sector lens. Do not make every paragraph only about that single ticker; widen to industry dynamics when the articles support it.
+
+You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{topNewsCount}}). Ground claims in those articles. When a bullet or quick hit should link to a source in the final email, set "articleIndex" to the 1-based article number from that list. Never output URLs in JSON; the system injects them.
+
+Return JSON matching this shape (camelCase keys):
+- "subject": short email subject (under ~60 chars), sector-relevant, may mention {{tickerName}} or {{tickerSymbol}} once if natural.
+- "industryPulse": { "displayHeading", "prose" } — short lead framing the industry story (no bullet characters in prose).
+- "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets; each bullet { "text", optional "articleIndex" }.
+- "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets with optional articleIndex.
+- "regulatoryPolicyWatch": { "displayHeading", "bullets" } — 1–3 bullets with optional articleIndex.
+- "disruptorsOrTech": either { "format": "prose", "displayHeading", "prose" } OR { "format": "bullets", "displayHeading", "bullets" } with 1–3 bullets.
+- "quickHits": { "displayHeading", "items" } — 5–7 items; each item { "text", "articleIndex" } (index required for every quick hit).
+- Optional "readWatchListen": { "displayHeading", "summary", "articleIndex" } — include only when grounded.
+- Optional "quoteOfTheWeek": { "displayHeading", "quote", "attribution", optional "articleIndex" } — include only when grounded.
+
+Headings ("displayHeading") can be personality titles. Keep JSON valid; omit optional blocks entirely when unsupported by the articles.`;
 
 /**
  * Default user prompt template used when no template is provided in config.
  */
-export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from the {{topNewsCount}} articles below. Write exactly one top-news item per numbered article, in the same order.\n\n{{sourceSummaries}}`;
+export const DEFAULT_USER_PROMPT_TEMPLATE = `Today is {{date}}. Use that date to vary emphasis week to week (for example alternate between global macro vs regional industry notes) without inventing facts.
+
+Write one JSON industry briefing using the {{topNewsCount}} numbered articles below. Follow the system JSON shape exactly.
+
+Rules reminder:
+- Industry and competitive lens; no trading advice.
+- Use "articleIndex" only to point at Article 1 … Article {{topNewsCount}} from this prompt. Omit articleIndex on a bullet when there is no clear single-article grounding.
+- Quick hits must all include articleIndex.
+- Omit optional blocks when you cannot ground them.
+
+{{sourceSummaries}}`;
 
 /**
  * Builds the LLM user prompt from the list of data sources, substituting
@@ -141,7 +164,7 @@ export const DEFAULT_USER_PROMPT_TEMPLATE = `Create a newsletter from the {{topN
  * - `{{tickerName}}`: The human-readable company name (e.g. "Bank Central Asia").
  * - `{{tickerSymbol}}`: The exchange ticker symbol (e.g. "BBCA").
  * - `{{date}}`: The current ISO date (YYYY-MM-DD).
- * - `{{topNewsCount}}`: The number of top news items to generate.
+ * - `{{topNewsCount}}`: The number of articles included in this prompt (and max articleIndex).
  *
  * Exported so callers can compute `promptHash` from the exact string passed to
  * the model after source substitution.
@@ -179,10 +202,9 @@ export function buildUserPrompt(
  * Generates newsletter content from data sources via the Vercel AI SDK with retry logic.
  *
  * Selects the top `topNewsCount` sources (by relevance order from the caller) and asks
- * the LLM to write plain prose summaries — one item per article. The source URL chosen
- * for each item is passed through to `formatNewsletterContent`, which appends a
- * deterministic `Read the full article: <url>` line so every top-news item gets a
- * trailing source link without depending on fuzzy phrase matching against the title.
+ * the LLM for an industry briefing JSON object. Source URLs are attached after the call
+ * from each optional or required `articleIndex`, then serialized to the `MP_NEWSLETTER_V2`
+ * plain-text wire format for email parsing.
  *
  * Retries on transient errors (rate limits, server errors, timeouts) up to
  * `config.llmRetry.maxAttempts` times with exponential backoff and optional jitter.
@@ -216,7 +238,7 @@ export async function generateNewsletterWithLlm(
 ): Promise<GeneratedContentWithProvenance> {
   const generateFn = deps.generateObjectFn ?? defaultGenerateNewsletterObject;
 
-  const topNewsCount = config.output?.topNewsCount ?? 3;
+  const topNewsCount = config.output?.topNewsCount ?? 10;
 
   // Truncate sources per configurable character limits before building prompts
   // (MP-CGA-004 / FR8). Sources are tail-truncated per-source, then overall
@@ -229,10 +251,9 @@ export async function generateNewsletterWithLlm(
     maxTotalContextChars,
   );
 
-  // Pre-select exactly N sources (one per news item). Sources arrive sorted by
-  // relevance score from getDataSourcesForTicker; we take the top N so the LLM
-  // writes one summary per article and phrase-link injection can map each item
-  // back to its source URL deterministically.
+  // Pre-select up to N sources for the prompt. Sources arrive sorted by relevance
+  // from getDataSourcesForTicker; articleIndex values refer to Article 1 … Article N
+  // in the user prompt in this same order.
   const selectedSources = truncatedSources.slice(0, topNewsCount);
 
   const openai = createOpenAI({
@@ -267,7 +288,7 @@ export async function generateNewsletterWithLlm(
     async () => {
       return generateFn({
         model,
-        schema: newsletterStructureSchema,
+        schema: industryNewsletterStructureSchema,
         system: systemPrompt,
         prompt,
         maxRetries: 0,
@@ -281,34 +302,16 @@ export async function generateNewsletterWithLlm(
   );
 
   const { object, usage } = result;
-  const topNews = Array.isArray(object.topNews)
-    ? object.topNews.slice(0, topNewsCount)
-    : [];
-
-  // Pair each LLM-generated item with the source URL we picked at the same
-  // index. The summary text stays clean prose; the URL is emitted as a
-  // trailing `Read the full article: <url>` line by `formatNewsletterContent`,
-  // which `parseNewsletterBody` later extracts back into a `url` field for the
-  // email template.
-  const topNewsWithUrls = topNews.map((item, i) => {
-    const source = selectedSources[i];
-    return {
-      title: item.title,
-      summary: item.summary,
-      ...(source?.url ? { url: source.url } : {}),
-    };
-  });
-
-  const content = formatNewsletterContent(
-    object.executiveSummary ?? "",
-    topNewsWithUrls,
-    topNewsCount,
-  );
+  const resolved = attachIndustryNewsletterSourceUrls(object, selectedSources);
+  const content = formatIndustryNewsletterV2Wire(resolved);
 
   return {
-    subject: object.subject ?? "Your daily briefing",
+    subject:
+      object.subject !== undefined && object.subject.trim().length > 0
+        ? object.subject.trim()
+        : "Your daily briefing",
     content,
-    description: object.executiveSummary?.trim() || undefined,
+    description: object.industryPulse.prose.trim() || undefined,
     promptTokens: usage?.promptTokens ?? null,
     completionTokens: usage?.completionTokens ?? null,
     totalTokens: usage?.totalTokens ?? null,

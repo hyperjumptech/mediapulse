@@ -1,10 +1,52 @@
 import { z } from "zod";
 
-export const queryAnalysisIntentSchema = z.enum([
+/** All supported query-analysis intent labels (contract source of truth). */
+export const QUERY_ANALYSIS_INTENTS = [
   "breaking",
   "kg_change",
   "fundamental",
-]);
+  "sentiment",
+  "competitor",
+  "supply_chain",
+  "esg",
+  "macro",
+  "technical",
+  "wildcard",
+] as const;
+
+/** Intent labels used by the standard (non-wildcard) query-generation pipeline. */
+export const QUERY_ANALYSIS_STANDARD_INTENTS = [
+  "breaking",
+  "kg_change",
+  "fundamental",
+  "sentiment",
+  "competitor",
+  "supply_chain",
+  "esg",
+  "macro",
+  "technical",
+] as const;
+
+export const queryAnalysisIntentSchema = z.enum(QUERY_ANALYSIS_INTENTS);
+
+export type QueryAnalysisIntent = z.infer<typeof queryAnalysisIntentSchema>;
+
+/** Default merge / sampling weights keyed by intent (new intents intentionally ≤ 0.5). */
+export const DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS: Record<
+  QueryAnalysisIntent,
+  number
+> = {
+  breaking: 1,
+  kg_change: 0.8,
+  fundamental: 0.6,
+  sentiment: 0.5,
+  competitor: 0.5,
+  supply_chain: 0.4,
+  esg: 0.3,
+  macro: 0.4,
+  technical: 0.3,
+  wildcard: 0,
+};
 
 export const queryAnalysisSourceSchema = z.enum(["deterministic", "llm"]);
 
@@ -16,11 +58,17 @@ export const queryAnalysisConfigSnapshotSchema = z.object({
   queryCount: z.number().int().positive(),
   allowedLanguages: z.array(z.string().trim().min(1)),
   minDeterministicCount: z.number().int().nonnegative(),
-  weights: z.object({
-    breaking: z.number().nonnegative(),
-    kgChange: z.number().nonnegative(),
-    fundamental: z.number().nonnegative(),
-  }),
+  /** @deprecated Prefer `intentWeights`; legacy snapshots may only include the original trio. */
+  weights: z
+    .object({
+      breaking: z.number().nonnegative(),
+      kgChange: z.number().nonnegative(),
+      fundamental: z.number().nonnegative(),
+    })
+    .optional(),
+  intentWeights: z
+    .record(queryAnalysisIntentSchema, z.number().nonnegative())
+    .optional(),
   model: z.string().trim().min(1).optional(),
   maxTokens: z.number().int().positive().optional(),
 });
@@ -67,12 +115,66 @@ export const queryAnalysisRecentThemeSchema = z.object({
   articleCount: z.number().int().nonnegative(),
 });
 
+export const queryAnalysisPeerSchema = z.object({
+  symbol: z.string(),
+  name: z.string(),
+  relevance: z.number(),
+});
+
+export const queryAnalysisCalendarSchema = z.object({
+  nextEarningsAt: z.string().datetime().optional(),
+  recentEventTypes: z.array(z.string()),
+});
+
+export const queryAnalysisHeadlineSampleSchema = z.object({
+  title: z.string(),
+  publishedAt: z.string(),
+  sourceName: z.string(),
+});
+
+export const queryAnalysisKgNeighborhoodSchema = z.object({
+  fromEntity: z.string(),
+  relationType: z.string(),
+  toEntity: z.string(),
+});
+
+export const queryAnalysisYieldBucketSchema = z.object({
+  avgArticles: z.number().nonnegative(),
+  avgNovel: z.number().nonnegative(),
+});
+
+export const queryAnalysisTemplateYieldBucketSchema =
+  queryAnalysisYieldBucketSchema.extend({
+    templateId: z.string(),
+  });
+
+export const queryAnalysisIntentYieldBucketSchema =
+  queryAnalysisYieldBucketSchema.extend({
+    intent: queryAnalysisIntentSchema,
+  });
+
+export const queryAnalysisPersonaYieldBucketSchema =
+  queryAnalysisYieldBucketSchema.extend({
+    persona: z.string(),
+  });
+
+export const queryAnalysisPriorYieldSchema = z.object({
+  perTemplate: z.array(queryAnalysisTemplateYieldBucketSchema),
+  perIntent: z.array(queryAnalysisIntentYieldBucketSchema),
+  perPersona: z.array(queryAnalysisPersonaYieldBucketSchema),
+});
+
 export const getQueryAnalysisResponseSchema = z.object({
   ticker: queryAnalysisTickerSchema,
   topEntities: z.array(queryAnalysisTopEntitySchema),
   recentThemes: z.array(queryAnalysisRecentThemeSchema),
   recentRelationDeltas: z.array(queryAnalysisRelationDeltaSchema).optional(),
   configSnapshot: queryAnalysisConfigSnapshotSchema.optional(),
+  peers: z.array(queryAnalysisPeerSchema).default([]),
+  calendar: queryAnalysisCalendarSchema.default({ recentEventTypes: [] }),
+  headlineSamples: z.array(queryAnalysisHeadlineSampleSchema).default([]),
+  kgNeighborhood: z.array(queryAnalysisKgNeighborhoodSchema).default([]),
+  priorYield: queryAnalysisPriorYieldSchema.optional(),
 });
 
 export const postQueryAnalysisResponseSchema = z.object({
@@ -89,5 +191,17 @@ export type GetQueryAnalysisResponse = z.infer<
 export type PostQueryAnalysisResponse = z.infer<
   typeof postQueryAnalysisResponseSchema
 >;
-export type QueryAnalysisIntent = z.infer<typeof queryAnalysisIntentSchema>;
 export type QueryAnalysisSource = z.infer<typeof queryAnalysisSourceSchema>;
+export type QueryAnalysisIntentWeights = Record<QueryAnalysisIntent, number>;
+export type QueryAnalysisPriorYield = z.infer<
+  typeof queryAnalysisPriorYieldSchema
+>;
+export type QueryAnalysisTemplateYieldBucket = z.infer<
+  typeof queryAnalysisTemplateYieldBucketSchema
+>;
+export type QueryAnalysisIntentYieldBucket = z.infer<
+  typeof queryAnalysisIntentYieldBucketSchema
+>;
+export type QueryAnalysisPersonaYieldBucket = z.infer<
+  typeof queryAnalysisPersonaYieldBucketSchema
+>;

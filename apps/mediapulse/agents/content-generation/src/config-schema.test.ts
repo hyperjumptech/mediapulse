@@ -18,7 +18,7 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.openai.baseUrl).toBeUndefined();
     expect(parsed.openai.model).toBe("gpt-4o-mini");
     expect(parsed.openai.timeoutMs).toBe(120000);
-    expect(parsed.output.topNewsCount).toBe(3);
+    expect(parsed.output.topNewsCount).toBe(10);
     expect(parsed.context.maxCharsPerSource).toBe(8000);
     expect(parsed.context.maxTotalContextChars).toBe(100000);
     expect(parsed.llmRetry.maxAttempts).toBe(3);

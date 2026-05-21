@@ -6,7 +6,9 @@ import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
+import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
 import { parsePagination } from "../../lib/list-pagination";
+import { dataSourcesTableV1CustomActionRegistrations } from "./custom-actions";
 import {
   listInclude,
   mapRowToDetailItem,
@@ -132,3 +134,8 @@ dataSourcesRoutes.get("/:id", async (c) => {
 
   return c.json(mapRowToDetailItem(row));
 });
+
+registerTableV1CustomActionRoutes(
+  dataSourcesRoutes,
+  dataSourcesTableV1CustomActionRegistrations,
+);

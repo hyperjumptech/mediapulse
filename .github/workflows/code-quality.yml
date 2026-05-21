@@ -19,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       run_heavy_jobs: ${{ steps.determine.outputs.run_heavy_jobs }}
+      turbo_scope: ${{ steps.determine.outputs.turbo_scope }}
+      turbo_base_sha: ${{ steps.determine.outputs.turbo_base_sha }}
+      turbo_head_sha: ${{ steps.determine.outputs.turbo_head_sha }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -35,8 +38,18 @@ jobs:
         run: |
           set -eu
 
+          write_turbo_outputs() {
+            local scope="$1"
+            local base_sha="$2"
+            local head_sha="$3"
+            echo "turbo_scope=$scope" >> "$GITHUB_OUTPUT"
+            echo "turbo_base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+            echo "turbo_head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          }
+
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "run_heavy_jobs=true" >> "$GITHUB_OUTPUT"
+            write_turbo_outputs "full" "" ""
             exit 0
           fi
 
@@ -54,6 +67,7 @@ jobs:
 
           if [ -z "$base_sha" ] || [ -z "$head_sha" ]; then
             echo "run_heavy_jobs=true" >> "$GITHUB_OUTPUT"
+            write_turbo_outputs "full" "" ""
             exit 0
           fi
 
@@ -61,6 +75,7 @@ jobs:
 
           if [ -z "$changed_files" ]; then
             echo "run_heavy_jobs=true" >> "$GITHUB_OUTPUT"
+            write_turbo_outputs "full" "$base_sha" "$head_sha"
             exit 0
           fi
 
@@ -79,9 +94,40 @@ jobs:
 
           echo "run_heavy_jobs=$run_heavy_jobs" >> "$GITHUB_OUTPUT"
 
-  build:
-    name: Build everything
+          if [ "$run_heavy_jobs" != "true" ]; then
+            exit 0
+          fi
+
+          ci_infra_only="true"
+          while IFS= read -r file_path; do
+            [ -z "$file_path" ] && continue
+            case "$file_path" in
+              dev-docs/*|*.md|*.mdx|.github/*|.github/**|.cursor/*|.cursor/**|scripts/*|scripts/**|turbo.json|turbo/*|turbo/**|package.json)
+                ;;
+              *)
+                ci_infra_only="false"
+                break
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          if echo "$changed_files" | grep -qx 'pnpm-lock.yaml'; then
+            ci_infra_only="false"
+          fi
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if [ "$ci_infra_only" = "true" ]; then
+              write_turbo_outputs "ci_infra" "$base_sha" "$head_sha"
+            else
+              write_turbo_outputs "affected" "$base_sha" "$head_sha"
+            fi
+          else
+            write_turbo_outputs "full" "$base_sha" "$head_sha"
+          fi
+
+  code-quality:
     runs-on: ubuntu-latest
+    name: Code quality check
     needs: changes
     if: needs.changes.outputs.run_heavy_jobs == 'true'
 
@@ -102,88 +148,41 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-
-      - name: Turbo local cache
-        uses: actions/cache@v4
         with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml', 'turbo.json') }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
+          fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: pnpm/action-setup@v5
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: "pnpm"
-
-      - name: Set up local environment
-        env:
-          DEV_SETUP_ADMIN_EMAIL: ci-setup@example.invalid
-          DEV_SETUP_ADMIN_PASSWORD: CiLocalDevSetup2024
-        run: |
-          ./dev-setup-local.sh --non-interactive \
-            --admin-email "$DEV_SETUP_ADMIN_EMAIL" \
-            --admin-password "$DEV_SETUP_ADMIN_PASSWORD"
+      - uses: ./.github/actions/setup-monorepo
 
       - name: Generate route actions
-        run: pnpm generate
-
-      - name: Build
-        run: pnpm build
-
-  code-quality:
-    runs-on: ubuntu-latest
-    name: Code quality check
-    needs: [changes, build]
-    if: needs.changes.outputs.run_heavy_jobs == 'true'
-
-    services:
-      postgres:
-        image: postgres
+        if: needs.changes.outputs.turbo_scope != 'ci_infra'
         env:
-          POSTGRES_USER: mediapulse
-          POSTGRES_PASSWORD: mediapulse
-          POSTGRES_DB: mediapulse
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Turbo local cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml', 'turbo.json') }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
-
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: pnpm/action-setup@v5
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: "pnpm"
-
-      - name: Set up local environment
-        env:
-          DEV_SETUP_ADMIN_EMAIL: ci-setup@example.invalid
-          DEV_SETUP_ADMIN_PASSWORD: CiLocalDevSetup2024
+          TURBO_SCM_BASE: ${{ needs.changes.outputs.turbo_base_sha }}
         run: |
-          ./dev-setup-local.sh --non-interactive \
-            --admin-email "$DEV_SETUP_ADMIN_EMAIL" \
-            --admin-password "$DEV_SETUP_ADMIN_PASSWORD"
+          set -eu
+          if [ "${{ needs.changes.outputs.turbo_scope }}" = "affected" ]; then
+            pnpm exec turbo run generate --affected
+          else
+            pnpm generate
+          fi
 
       - name: Code quality
-        run: pnpm code-quality
+        env:
+          TURBO_SCM_BASE: ${{ needs.changes.outputs.turbo_base_sha }}
+        run: |
+          set -eu
+          if [ "${{ needs.changes.outputs.turbo_scope }}" = "ci_infra" ]; then
+            pnpm --filter @workspace/cursor-pr-review-tests test
+            pnpm run format:check:changed -- \
+              --base "${{ needs.changes.outputs.turbo_base_sha }}" \
+              --head "${{ needs.changes.outputs.turbo_head_sha }}"
+          elif [ "${{ needs.changes.outputs.turbo_scope }}" = "affected" ]; then
+            pnpm exec turbo run build lint type:check test:coverage --affected
+            pnpm run merge-workspace-coverage
+            pnpm run format:check:changed -- \
+              --base "${{ needs.changes.outputs.turbo_base_sha }}" \
+              --head "${{ needs.changes.outputs.turbo_head_sha }}"
+          else
+            pnpm exec turbo run build lint type:check test:coverage
+            pnpm run merge-workspace-coverage
+            pnpm run format:check
+          fi

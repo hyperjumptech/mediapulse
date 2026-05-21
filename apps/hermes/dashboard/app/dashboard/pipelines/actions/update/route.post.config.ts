@@ -8,7 +8,6 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
-import { disableSchedulesForPipelineIfNotEnabled } from "@/lib/disable-schedules-for-pipeline";
 import { zFormBoolean } from "@/lib/form-boolean-schema";
 
 const stepItemValidator = z.object({
@@ -215,8 +214,6 @@ export const createUpdatePipelineHandler = ({
       where: { id: pipelineId },
       data: updateData,
     });
-
-    await disableSchedulesForPipelineIfNotEnabled(db, pipelineId);
 
     return successResponse({ ok: true as const });
   };

@@ -5,6 +5,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 
+/** Article-like body that passes the content quality gate. */
+const validArticleContent = [
+  "Bank Central Asia announced strategic expansion plans across regional markets.",
+  "The company reported improved margins, higher loan growth, and stronger risk controls.",
+  ...Array.from(
+    { length: 90 },
+    (_, index) =>
+      `Analyst note ${index} discusses lending trends and deposit growth in Indonesia.`,
+  ),
+].join(" ");
+
+const validArticleTitle = "Bank Central Asia expands regional operations";
+
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
 }));
@@ -29,6 +42,7 @@ const existingUrlsCreateMock = vi.fn();
 const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
 const analysisGetMock = vi.fn();
+const tickerGetMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => {
   return {
@@ -49,6 +63,9 @@ vi.mock("@workspace/agent-data-api-client", () => {
       analysis: {
         get: analysisGetMock,
       },
+      ticker: {
+        get: tickerGetMock,
+      },
     })),
   };
 });
@@ -66,11 +83,12 @@ const defaultSearchSuccess = [
     success: true,
     data: {
       url: "http://example.com",
-      title: "Test",
+      title: validArticleTitle,
       content: "Snippet",
       tickerId: TICKER_ID,
       searchQueryId: "sq-1",
       searchQueryText: "test query",
+      serpIndex: 0,
     },
   },
 ];
@@ -80,11 +98,12 @@ const defaultFetchSuccess = [
     success: true,
     data: {
       url: "http://example.com",
-      title: "Test",
-      content: "Main content",
+      title: validArticleTitle,
+      content: validArticleContent,
       tickerId: TICKER_ID,
       searchQueryId: "sq-1",
       searchQueryText: "test query",
+      serpIndex: 0,
     },
   },
 ];
@@ -94,7 +113,10 @@ describe("data-collection agent (HTTP)", () => {
     vi.clearAllMocks();
     performWebSearchMock.mockResolvedValue(defaultSearchSuccess);
     performWebFetchMock.mockResolvedValue(defaultFetchSuccess);
-    existingUrlsCreateMock.mockResolvedValue({ existingUrls: [] });
+    existingUrlsCreateMock.mockResolvedValue({
+      existingUrls: [],
+      hostCounts: {},
+    });
     analysisGetMock.mockResolvedValue({
       dataSources: [],
       dataSourceTotalCount: 0,
@@ -106,6 +128,12 @@ describe("data-collection agent (HTTP)", () => {
         selectedCountToday: 0,
       },
       lastRelevanceScoredAtIso: null,
+    });
+    tickerGetMock.mockResolvedValue({
+      id: TICKER_ID,
+      symbol: "BBCA",
+      name: "Bank Central Asia",
+      aliases: ["BCA"],
     });
   });
 

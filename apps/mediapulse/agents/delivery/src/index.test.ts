@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoistedLogger = vi.hoisted(() => ({
   info: vi.fn(),
@@ -45,10 +45,11 @@ vi.mock("@mediapulse/env/agents-delivery", () => ({
   env: {
     AGENT_DATA_API_URL: "http://agent-data-api",
     AGENT_AUTH_API_URL: "http://agent-auth-api",
-    AGENT_REGISTRY_URL: "http://registry",
-    AGENT_PUBLIC_URL: "http://delivery",
-    DOMAIN_INTEGRATION_API_KEY: "key",
-    DOMAIN_INTEGRATION_ID: "mediapulse",
+    PORT: undefined,
+    AGENT_REGISTRY_URL: undefined,
+    AGENT_PUBLIC_URL: undefined,
+    DOMAIN_INTEGRATION_API_KEY: undefined,
+    DOMAIN_INTEGRATION_ID: undefined,
   },
 }));
 
@@ -67,13 +68,19 @@ const getGot = async () => (await import("got")).default;
 const getDeliver = async () =>
   (await import("./deliver-newsletter.js")).deliverNewsletterToSubscribers;
 
+type DeliveryAgentModule = typeof import("./index.js");
+
+let agentModulePromise: Promise<DeliveryAgentModule> | undefined;
+
+const fetchAgent = async (init: RequestInit) => {
+  agentModulePromise ??= import("./index.js");
+  const { default: agent } = await agentModulePromise;
+  return agent.fetch(new Request("http://localhost/", init));
+};
+
 describe("delivery-agent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   it("returns 200 and success when delivery is successful", async () => {
@@ -110,17 +117,14 @@ describe("delivery-agent", () => {
       resendMessageIds: ["re_1"],
     });
 
-    const { default: agent } = await import("./index.js");
-    const res = await agent.fetch(
-      new Request("http://localhost/", {
-        method: "POST",
-        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input: { tickerId: TICKER_ID },
-          config: DELIVERY_CONFIG,
-        }),
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: TICKER_ID },
+        config: DELIVERY_CONFIG,
       }),
-    );
+    });
 
     const body = (await res.json()) as {
       schemaVersion: number;
@@ -173,17 +177,14 @@ describe("delivery-agent", () => {
       body: JSON.stringify({ message: "ok" }),
     });
 
-    const { default: agent } = await import("./index.js");
-    const res = await agent.fetch(
-      new Request("http://localhost/", {
-        method: "POST",
-        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input: { tickerId: NON_UUID_TICKER_ID },
-          config: DELIVERY_CONFIG,
-        }),
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: NON_UUID_TICKER_ID },
+        config: DELIVERY_CONFIG,
       }),
-    );
+    });
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { status: string; message?: string };
@@ -224,17 +225,14 @@ describe("delivery-agent", () => {
       body: JSON.stringify({ message: "ok" }),
     });
 
-    const { default: agent } = await import("./index.js");
-    const res = await agent.fetch(
-      new Request("http://localhost/", {
-        method: "POST",
-        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input: { tickerId: EXPANSION_TICKER_ID },
-          config: DELIVERY_CONFIG,
-        }),
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: EXPANSION_TICKER_ID },
+        config: DELIVERY_CONFIG,
       }),
-    );
+    });
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { status: string; message?: string };
@@ -275,17 +273,14 @@ describe("delivery-agent", () => {
       resendMessageIds: [],
     });
 
-    const { default: agent } = await import("./index.js");
-    const res = await agent.fetch(
-      new Request("http://localhost/", {
-        method: "POST",
-        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input: { tickerId: TICKER_ID },
-          config: DELIVERY_CONFIG,
-        }),
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: TICKER_ID },
+        config: DELIVERY_CONFIG,
       }),
-    );
+    });
 
     const body = (await res.json()) as {
       status: string;
@@ -319,35 +314,29 @@ describe("delivery-agent", () => {
   });
 
   it("returns 400 when tickerId is only whitespace", async () => {
-    const { default: agent } = await import("./index.js");
-    const res = await agent.fetch(
-      new Request("http://localhost/", {
-        method: "POST",
-        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input: { tickerId: "   " },
-          config: DELIVERY_CONFIG,
-        }),
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: "   " },
+        config: DELIVERY_CONFIG,
       }),
-    );
+    });
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when config validation fails", async () => {
-    const { default: agent } = await import("./index.js");
-    const res = await agent.fetch(
-      new Request("http://localhost/", {
-        method: "POST",
-        headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input: { tickerId: TICKER_ID },
-          config: {
-            ...DELIVERY_CONFIG,
-            rateLimit: { minIntervalMs: -1, maxSendsPerMinute: 8 },
-          },
-        }),
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: TICKER_ID },
+        config: {
+          ...DELIVERY_CONFIG,
+          rateLimit: { minIntervalMs: -1, maxSendsPerMinute: 8 },
+        },
       }),
-    );
+    });
     expect(res.status).toBe(400);
   });
 });

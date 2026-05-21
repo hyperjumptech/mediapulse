@@ -20,9 +20,9 @@ export const mediapulseUsersHermesPathSegment = "mediapulse-users" as const;
 /** Hermes `table-v1` manifest page for Mediapulse end users. */
 export const mediapulseUsersDashboardPage = {
   id: mediapulseUsersHermesPathSegment,
-  label: "Mediapulse users",
+  label: "Mediapulse Users",
   description:
-    "End users and newsletter subscribers (distinct from Hermes dashboard admins).",
+    "End-user newsletter subscribers; admin-created in Hermes (distinct from dashboard admins).",
   pathSegment: mediapulseUsersHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(mediapulseUsersHermesPathSegment),

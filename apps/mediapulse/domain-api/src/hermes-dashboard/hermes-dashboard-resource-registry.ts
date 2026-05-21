@@ -10,6 +10,7 @@ import { mediapulseUsersHermesDashboardResource } from "../resources/mediapulse-
 import { newslettersHermesDashboardResource } from "../resources/newsletters/resource-definition";
 import { relationTypesHermesDashboardResource } from "../resources/relation-types/resource-definition";
 import { searchQueriesHermesDashboardResource } from "../resources/search-queries/resource-definition";
+import { searchQuerySetsHermesDashboardResource } from "../resources/search-query-sets/resource-definition";
 import { tickersHermesDashboardResource } from "../resources/tickers/resource-definition";
 import type { HermesDashboardResourceDefinition } from "./hermes-dashboard-resource-types";
 
@@ -27,6 +28,7 @@ export const hermesDashboardResources = [
   entitiesHermesDashboardResource,
   entityRelationsHermesDashboardResource,
   dataSourcesHermesDashboardResource,
+  searchQuerySetsHermesDashboardResource,
   searchQueriesHermesDashboardResource,
   deliveryRunsHermesDashboardResource,
   newslettersHermesDashboardResource,

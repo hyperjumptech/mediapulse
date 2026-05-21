@@ -96,6 +96,9 @@ export {
   postQueryAnalysisResponseSchema,
   queryAnalysisConfigSnapshotSchema,
   queryAnalysisIntentSchema,
+  QUERY_ANALYSIS_INTENTS,
+  QUERY_ANALYSIS_STANDARD_INTENTS,
+  DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
   queryAnalysisRecentThemeSchema,
   queryAnalysisRelationDeltaSchema,
   queryAnalysisSourceSchema,
@@ -107,7 +110,13 @@ export {
   type PostQueryAnalysisBody,
   type PostQueryAnalysisResponse,
   type QueryAnalysisIntent,
+  type QueryAnalysisIntentWeights,
+  type QueryAnalysisPriorYield,
   type QueryAnalysisSource,
+  type QueryAnalysisTemplateYieldBucket,
+  type QueryAnalysisIntentYieldBucket,
+  type QueryAnalysisPersonaYieldBucket,
+  queryAnalysisPriorYieldSchema,
 } from "./query-analysis.js";
 export {
   dataCollectionFailureErrorCategorySchema,
@@ -151,4 +160,10 @@ export {
   type PostContentGenerationRunBody,
   type PostContentGenerationRunResponse,
 } from "./content-generation-run.js";
+export {
+  getTickerQuerySchema,
+  getTickerResponseSchema,
+  type GetTickerQuery,
+  type GetTickerResponse,
+} from "./ticker.js";
 export * from "./user-registration.js";

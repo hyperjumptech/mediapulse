@@ -5,6 +5,7 @@ import {
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
+import { deliveryRunsCustomActionsForManifest } from "./custom-actions";
 
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const deliveryRunsHermesPathSegment = "delivery-runs" as const;
@@ -12,9 +13,9 @@ export const deliveryRunsHermesPathSegment = "delivery-runs" as const;
 /** Hermes `table-v1` manifest for read-only delivery diagnostics. */
 export const deliveryRunsDashboardPage = {
   id: deliveryRunsHermesPathSegment,
-  label: "Delivery runs",
+  label: "Delivery Runs",
   description:
-    "Recent newsletter delivery attempts: outcomes, counts, and error summaries.",
+    "Diagnostic records written by the delivery agent for each newsletter send attempt (read-only).",
   pathSegment: deliveryRunsHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(deliveryRunsHermesPathSegment),
@@ -40,4 +41,5 @@ export const deliveryRunsDashboardPage = {
   ]),
   sortableFields: rowFieldKeysFor<ListItem>()(["createdAt", "outcome"]),
   actions: { create: false, update: false, delete: false, view: true },
+  customActions: deliveryRunsCustomActionsForManifest,
 } satisfies DashboardPageInput;

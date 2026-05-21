@@ -65,13 +65,30 @@ vi.mock("@mediapulse/database", () => ({
     },
     ticker: {
       findUniqueOrThrow: vi.fn(),
+      findMany: vi.fn(),
     },
     tickerEntity: {
       findMany: vi.fn(),
     },
     dataSource: {
       createMany: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    entityRelation: {
       findMany: vi.fn(),
+    },
+    searchQueryYield: {
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue({
+        id: "yield-1",
+        searchQueryId: "22222222-2222-4222-a222-222222222222",
+        runDate: new Date("2026-05-21T00:00:00.000Z"),
+        articleCount: 1,
+        novelArticleCount: 1,
+        computedAt: new Date("2026-05-21T00:00:00.000Z"),
+        createdAt: new Date("2026-05-21T00:00:00.000Z"),
+        updatedAt: new Date("2026-05-21T00:00:00.000Z"),
+      }),
     },
   },
 }));
@@ -572,7 +589,11 @@ describe("agent-data-api", () => {
         updatedAt: new Date("2026-03-19T00:00:00.000Z"),
       });
       vi.mocked(prisma.tickerEntity.findMany).mockResolvedValue([]);
-      vi.mocked(prisma.dataSource.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.dataSource.findMany)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      vi.mocked(prisma.entityRelation.findMany).mockResolvedValue([]);
 
       // Act
       const { app } = await import("./index.js");
@@ -587,6 +608,10 @@ describe("agent-data-api", () => {
       expect(body.ticker.symbol).toBe("AAPL");
       expect(body.topEntities).toEqual([]);
       expect(body.recentThemes).toEqual([]);
+      expect(body.peers).toEqual([]);
+      expect(body.calendar).toEqual({ recentEventTypes: [] });
+      expect(body.headlineSamples).toEqual([]);
+      expect(body.kgNeighborhood).toEqual([]);
     });
   });
 
@@ -709,6 +734,7 @@ describe("agent-data-api", () => {
 
     it("returns 200 with empty existingUrls when urls is empty", async () => {
       const { prisma } = await getDatabase();
+      vi.mocked(prisma.dataSource.findMany).mockResolvedValueOnce([] as never);
 
       const { app } = await import("./index.js");
       const res = await app.request(
@@ -719,19 +745,25 @@ describe("agent-data-api", () => {
           body: JSON.stringify({ tickerId: TICKER_ID, urls: [] }),
         },
       );
-      const body = (await res.json()) as { existingUrls: string[] };
+      const body = (await res.json()) as {
+        existingUrls: string[];
+        hostCounts: Record<string, number>;
+      };
 
       expect(res.status).toBe(200);
       expect(body.existingUrls).toEqual([]);
-      expect(prisma.dataSource.findMany).not.toHaveBeenCalled();
+      expect(body.hostCounts).toEqual({});
+      expect(prisma.dataSource.findMany).toHaveBeenCalledTimes(1);
     });
 
     it("returns 200 with URLs that exist for the ticker", async () => {
       const { prisma } = await getDatabase();
-      vi.mocked(prisma.dataSource.findMany).mockResolvedValue([
-        { url: "https://exists.example/a" },
-        { url: "https://exists.example/a" },
-      ] as never);
+      vi.mocked(prisma.dataSource.findMany)
+        .mockResolvedValueOnce([{ url: "https://exists.example/a" }] as never)
+        .mockResolvedValueOnce([
+          { url: "https://exists.example/a" },
+          { url: "https://exists.example/a" },
+        ] as never);
 
       const { app } = await import("./index.js");
       const res = await app.request(
@@ -745,11 +777,16 @@ describe("agent-data-api", () => {
           }),
         },
       );
-      const body = (await res.json()) as { existingUrls: string[] };
+      const body = (await res.json()) as {
+        existingUrls: string[];
+        hostCounts: Record<string, number>;
+      };
 
       expect(res.status).toBe(200);
       expect(body.existingUrls).toEqual(["https://exists.example/a"]);
-      expect(prisma.dataSource.findMany).toHaveBeenCalledWith({
+      expect(body.hostCounts).toEqual({ "exists.example": 1 });
+      expect(prisma.dataSource.findMany).toHaveBeenCalledTimes(2);
+      expect(prisma.dataSource.findMany).toHaveBeenLastCalledWith({
         where: {
           tickerId: TICKER_ID,
           url: {

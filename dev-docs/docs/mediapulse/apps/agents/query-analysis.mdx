@@ -20,6 +20,42 @@ It uses:
 - **Reads:** `GET /api/query-analysis?tickerId=...`
 - **Writes:** `POST /api/query-analysis` (upsert search queries)
 
+### GET response fields
+
+| Field                  | Shape                                            | Notes                                                                                                        |
+| ---------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `ticker`               | `{ id, symbol, name, metadata }`                 | Anchor company                                                                                               |
+| `topEntities`          | `{ canonicalName, typeName, relevanceWeight }[]` | Up to 10 KG entities                                                                                         |
+| `recentThemes`         | `{ theme, articleCount }[]`                      | Recent article-title themes                                                                                  |
+| `recentRelationDeltas` | optional relation delta rows                     | When present from upstream                                                                                   |
+| `peers`                | `{ symbol, name, relevance }[]`                  | Up to 5 sector/industry siblings from ticker metadata                                                        |
+| `calendar`             | `{ nextEarningsAt?, recentEventTypes[] }`        | `nextEarningsAt` is omitted until a calendar table exists; event types come from recent data-source metadata |
+| `headlineSamples`      | `{ title, publishedAt, sourceName }[]`           | Up to 5 recent headlines (`publishedAt` uses ingestion time or metadata)                                     |
+| `kgNeighborhood`       | `{ fromEntity, relationType, toEntity }[]`       | One-hop KG edges for top entities (deduped, capped at 30)                                                    |
+
+Empty fixtures still return the four enriched collections as empty arrays (never omitted keys).
+
+### Sample user-prompt block
+
+When the LLM user prompt is built, non-empty enriched sections appear beneath themes and relation deltas:
+
+```
+Sector peers:
+- PEER1 (Peer One Corp) relevance=1
+- PEER2 (Peer Two Inc) relevance=0.9
+
+Calendar:
+- Recent events: ratings_change, executive_departure
+
+Recent headlines:
+- 2026-05-18 (reuters.com) — "Acme beats estimates"
+
+KG neighborhood:
+- Alpha Subsidiary --PARTNER_OF--> Beta Partner
+```
+
+System and user prompts are built in source — see `buildQueryAnalysisSystemContent` and `buildQueryAnalysisUserContent` in `apps/mediapulse/agents/query-analysis/src/llm-queries.ts`. Strategy knobs (`queryCount`, `languageQuotas`, `intentWeights`, and the derived deterministic floor) are interpolated at run time; there is no Hermes override surface for prompt text.
+
 ## Environment variables
 
 | Variable                     | Required | Notes                                                          |
@@ -41,25 +77,103 @@ This agent is configured per pipeline step via the Hermes invoke request body `c
 | `openaiApiKey`                                            | Yes      | OpenAI API key (never stored in `packages/mediapulse/env` for this agent).                                                                                                                                                                   |
 | `openaiModel`                                             | No       | Defaults to `gpt-4o-mini`.                                                                                                                                                                                                                   |
 | `queryCount`                                              | No       | Total queries to persist (default `10`).                                                                                                                                                                                                     |
-| `minDeterministicCount`                                   | No       | Deterministic “floor” before LLM complement (default `4`).                                                                                                                                                                                   |
-| `allowedLanguages`                                        | No       | Target languages as BCP-47 codes (default `["en"]`).                                                                                                                                                                                         |
-| `weightBreaking` / `weightKgChange` / `weightFundamental` | No       | Intent mix weights (default `1`, `0.8`, `0.6`).                                                                                                                                                                                              |
-| `maxTokens`                                               | No       | LLM output token budget (default `800`).                                                                                                                                                                                                     |
-| `prompts.systemPrompt`                                    | No       | Optional full system prompt template. When set, it replaces the built-in default wording; placeholders inject languages and **intent-count hints** derived from `queryCount`, `minDeterministicCount`, and the `weight*` fields (see below). |
-| `prompts.userPromptTemplate`                              | No       | Optional user prompt template. Default is a single `{{queryContextBlock}}` (serialized GET /query-analysis context).                                                                                                                         |
+| `languageQuotas`                                          | No       | Per-language budget shares (BCP-47 `language`, `share` summing to `1.0`). Defaults to English-only when omitted.                                                                                                                           |
+| `intentWeights`                                           | No       | Per-intent merge and LLM target-count weights (default favors `breaking` / `kg_change` / `fundamental`; new intents default ≤ `0.5`). Keys: `breaking`, `kg_change`, `fundamental`, `sentiment`, `competitor`, `supply_chain`, `esg`, `macro`, `technical`. |
+| `templatePack`                                            | No       | Deterministic template pack name (default `default-v1`). Set to `rich-v2` for the expanded ~20-template pack, or `rich-v2-extended` for all nine intents. Operators can switch packs via Hermes invoke config without redeploying the agent. |
 
-### Weights vs prompt overrides (REQ-010)
+### Derived strategy values
 
-| Situation                            | What still affects the LLM                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No `prompts` fields**              | Package defaults: system text includes approximate breaking / kg_change / fundamental counts computed from **`queryCount`** and **`weightBreaking`** / **`weightKgChange`** / **`weightFundamental`**; user text is the GET context. **`allowedLanguages`** and **`minDeterministicCount`** appear in the default system prompt. |
-| **`prompts.systemPrompt` set**       | You replace the system instructions. Placeholders **`{{allowedLanguages}}`**, **`{{targetBreakingCount}}`**, **`{{targetKgCount}}`**, **`{{targetFundamentalCount}}`**, **`{{minDeterministicCount}}`** are still filled from the same strategy fields so you can reference numeric targets without redeploying.                 |
-| **`prompts.userPromptTemplate` set** | You control layout around **`{{queryContextBlock}}`** (or use only that token). The serialized context still reflects live GET data.                                                                                                                                                                                             |
-| **Merge / persistence**              | **`mergeQueryCandidates`** still uses **`weight*`** and **`queryCount`** / **`minDeterministicCount`** for ordering and filling the persisted query set—prompt overrides do not change merge math.                                                                                                                               |
+These are computed at run time from `queryCount` and recorded on **`strategySnapshot`** for audit — they are not Hermes config fields.
+
+| Derived field             | Formula                                      | Examples                          |
+| ------------------------- | -------------------------------------------- | --------------------------------- |
+| `minDeterministicCount`   | `max(2, floor(queryCount × 0.4))`            | `queryCount: 10` → `4`; `3` → `2` |
+
+LLM output token budget is fixed in source as `QUERY_ANALYSIS_MAX_OUTPUT_TOKENS` (`800`) in `llm-queries.ts`. Change it via a code deploy, not Hermes config.
+
+Prompts live in source. To change them, open a PR. Tune model behavior via `intentWeights` and sampling (see [Creativity sampling](#creativity-sampling)).
+
+### Creativity sampling
+
+LLM query generation uses higher-variance defaults than the AI SDK baseline so operators get lateral phrasing without redeploying. All fields are persisted in the run **`strategySnapshot`** for audit and reproduction.
+
+| Field              | Range    | Default     | Notes                                                                                                       |
+| ------------------ | -------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `temperature`      | `0`–`2`  | `0.9`       | Overall randomness. Raise for more varied phrasing; lower if outputs drift off-topic.                       |
+| `topP`             | `0`–`1`  | `0.95`      | Nucleus sampling cutoff. Usually leave near default unless you are tuning alongside `temperature`.          |
+| `presencePenalty`  | `-2`–`2` | `0.4`       | Pushes the model toward new topics. **Tune this first** when duplicate query angles dominate the LLM pool.  |
+| `frequencyPenalty` | `-2`–`2` | `0.5`       | Reduces repeated tokens. Raise slightly if the model keeps reusing the same words across rows.              |
+| `seed`             | integer  | _(omitted)_ | Fixed seed for reproducible output during regression hunts. Leave unset in production for genuine variance. |
+
+**Tune-up recipe:** If persisted queries feel repetitive, bump `presencePenalty` by `0.1`–`0.2` before touching `temperature`. If phrasing is too wild, lower `temperature` toward `0.7` and keep penalties steady. Set `seed` only when you need bit-for-bit comparison across prompt edits.
+
+## Query intents
+
+Each persisted query row carries an **`intent`** label. Legacy rows use the original trio; new runs may emit any value below.
+
+| Intent         | Meaning                                              | Example query                         | Default weight |
+| -------------- | ---------------------------------------------------- | ------------------------------------- | -------------- |
+| `breaking`     | Timely news, catalysts, price-moving events           | `why is ACME moving today`            | `1.0`          |
+| `kg_change`    | Knowledge-graph relation or entity changes           | `Acme Co relation changes`            | `0.8`          |
+| `fundamental`  | Earnings, guidance, regulatory, balance-sheet angles | `Acme Co Q2 2026 guidance`            | `0.6`          |
+| `sentiment`    | Social buzz, analyst tone, reputation swings         | `Acme Co social media sentiment`      | `0.5`          |
+| `competitor`   | Peer positioning, share shifts, competitive threats  | `Acme Co vs peers market share`       | `0.5`          |
+| `supply_chain` | Suppliers, logistics, input costs, bottlenecks       | `Acme Co supplier risk`               | `0.4`          |
+| `esg`          | Environmental, social, governance controversies    | `Acme Co ESG controversies`           | `0.3`          |
+| `macro`        | Rates, FX, commodity, geopolitical drivers           | `Acme Co interest rate sensitivity`   | `0.4`          |
+| `technical`    | Chart patterns, momentum, support/resistance         | `ACME chart pattern May`              | `0.3`          |
+
+New intents default to lower weights so enabling the taxonomy without re-tuning does not crowd out breaking news in the persisted set.
+
+## Deterministic template packs
+
+Deterministic queries are built from a named **template pack** before the LLM complement is merged. Set **`templatePack`** in Hermes invoke config to switch packs without redeploying the agent.
+
+| Pack                  | Templates | Slots used                                                                                                  | Example row                    |
+| --------------------- | --------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **`default-v1`**      | 5         | `{symbol}`, `{name}`                                                                                        | `ACME latest news`             |
+| **`rich-v2`**         | ~20       | `{symbol}`, `{name}`, `{topEntity}`, `{recentTheme}`, `{currentQuarter}`, `{currentYear}`, `{currentMonth}` | `Acme Co AI impact`            |
+| **`rich-v2-extended`**| ~20       | Same as `rich-v2` plus templates for sentiment, competitor, supply chain, ESG, macro, and technical intents | `Acme Co ESG controversies`    |
+
+Templates whose required slots cannot be filled from live GET /query-analysis context are **skipped** (never persisted with literal `{slot}` tokens). For example, `{recentTheme}` templates are omitted when the ticker has no recent themes.
+
+Slot resolution uses the agent clock at run time:
+
+- **`{currentQuarter}`** — e.g. `Q2 2026` for May 2026
+- **`{currentYear}`** — calendar year, e.g. `2026`
+- **`{currentMonth}`** — full English month name, e.g. `May`
+- **`{topEntity}`** — highest-weight entity from `topEntities`
+- **`{recentTheme}`** — first entry from `recentThemes`
+
+## Diversity score and regenerate gate
+
+Before merge, the agent scores the LLM candidate batch on three axes and persists the breakdown in **`strategySnapshot.diversityScore`** (always, even when the gate is off). That lets operators collect telemetry before turning enforcement on.
+
+| Axis | What it measures | Penalizes |
+| ---- | ---------------- | --------- |
+| **Lexical** | Distinct-token ratio across all query texts | Repeated wording and copy-paste phrasing |
+| **Intent coverage** | Normalized entropy of intent labels (`÷ log(n_distinct_intents)`) | Collapse to one or two intents |
+| **Semantic spread** | Mean pairwise cosine distance from embeddings (when semantic dedupe is enabled) | Paraphrases that mean the same thing |
+
+**Persona coverage** (normalized entropy of persona tags) is recorded when rows carry `persona`; it does not enter the composite unless you extend weights in a future change.
+
+The **composite** is a weighted sum of lexical, intent, and semantic terms (defaults `0.4` / `0.3` / `0.3`). When semantic dedupe is off, the semantic term is omitted and the remaining weights are renormalized.
+
+| Config field | Default | Notes |
+| ------------ | ------- | ----- |
+| `diversityGate.enabled` | `false` | When `true` and composite &lt; threshold, one extra persona fan-out runs with a broaden nudge |
+| `diversityGate.threshold` | `0.6` | Scores below this trigger regenerate (max **one** pass per run) |
+| `diversityGate.weights.lexical` | `0.4` | Lexical axis weight |
+| `diversityGate.weights.intent` | `0.3` | Intent entropy weight |
+| `diversityGate.weights.semantic` | `0.3` | Semantic spread weight (ignored when semantic dedupe is off) |
+
+**When to enable:** Turn the gate on after you have a week of `diversityScore` snapshots and a sense of typical composite ranges for your tickers. Start with the default threshold; lower it if you still see narrow batches slipping through, raise it if regenerate passes add cost without improving persisted sets.
+
+The regenerate pass **appends** a second LLM batch; it does not discard the first. Semantic or string dedupe during merge collapses overlap. Even if the second batch is still low-diversity, the run ships after that single retry.
 
 ## Hermes run payload
 
-Successful runs return `details` including the agent-data-api create response fields plus **`llmPromptFingerprint`** (16-character hex, same algorithm as content-generation `promptHash`) so operators can tell runs apart when only prompt templates changed in Hermes config.
+Successful runs return `details` including the agent-data-api create response fields plus **`llmPromptFingerprint`** (16-character hex, same algorithm as content-generation `promptHash`) so operators can tell runs apart when prompt prose or strategy knobs change across agent deploys.
 
 ## Pipeline usage
 

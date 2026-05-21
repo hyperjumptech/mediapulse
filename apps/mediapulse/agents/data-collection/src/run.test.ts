@@ -8,28 +8,57 @@ import type { ConfigSchemaType } from "./utilities/config-schema";
 
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 
+/** Article-like body that passes the content quality gate. */
+const validArticleContent = [
+  "Bank Central Asia announced strategic expansion plans across regional markets.",
+  "The company reported improved margins, higher loan growth, and stronger risk controls.",
+  ...Array.from(
+    { length: 90 },
+    (_, index) =>
+      `Analyst note ${index} discusses lending trends and deposit growth in Indonesia.`,
+  ),
+].join(" ");
+
+const validArticleTitle = "Bank Central Asia expands regional operations";
+
+/** Builds a long off-topic article body that passes the content quality gate. */
+const longOffTopicArticle = (lead: string): string =>
+  [
+    lead,
+    ...Array.from(
+      { length: 90 },
+      (_, index) =>
+        `Unrelated detail ${index} covers global technology vendor commentary.`,
+    ),
+  ].join(" ");
+
 const baseConfig = {
   webSearch: {
     baseUrl: "https://search.example",
     authentication: { type: "bearer" as const },
     rateLimit: { requests: 1, perSeconds: 1 },
+    concurrency: 4,
   },
   webFetch: {
     baseUrl: "https://fetch.example",
     authentication: { type: "bearer" as const },
     rateLimit: { requests: 1, perSeconds: 1 },
+    concurrency: 4,
   },
   targetDailySuccessfulSources: 1,
   maxRefillRounds: 3,
+  perQueryFetchBudget: 3,
+  perRunFetchBudget: 40,
 } satisfies ConfigSchemaType;
 
 const searchSuccessPage = {
   url: "http://example.com",
-  title: "Test",
+  title: validArticleTitle,
   content: "Snippet",
   tickerId: TICKER_ID,
   searchQueryId: "sq-1",
   searchQueryText: "test query",
+  serpIndex: 0,
 };
 
 vi.mock("@mediapulse/env/agents-data-collection", () => ({
@@ -55,6 +84,7 @@ const existingUrlsCreateMock = vi.fn();
 const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
 const analysisGetMock = vi.fn();
+const tickerGetMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -73,6 +103,9 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     analysis: {
       get: analysisGetMock,
+    },
+    ticker: {
+      get: tickerGetMock,
     },
   })),
 }));
@@ -120,7 +153,7 @@ describe("runDataCollection", () => {
         success: true,
         data: {
           ...searchSuccessPage,
-          content: "Main content",
+          content: validArticleContent,
         },
       },
     ]);
@@ -128,7 +161,10 @@ describe("runDataCollection", () => {
       data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
     });
     createMock.mockResolvedValue("{}");
-    existingUrlsCreateMock.mockResolvedValue({ existingUrls: [] });
+    existingUrlsCreateMock.mockResolvedValue({
+      existingUrls: [],
+      hostCounts: {},
+    });
     analysisGetMock.mockResolvedValue({
       dataSources: [],
       dataSourceTotalCount: 0,
@@ -140,6 +176,12 @@ describe("runDataCollection", () => {
         selectedCountToday: 0,
       },
       lastRelevanceScoredAtIso: null,
+    });
+    tickerGetMock.mockResolvedValue({
+      id: TICKER_ID,
+      symbol: "BBCA",
+      name: "Bank Central Asia",
+      aliases: ["BCA"],
     });
   });
 
@@ -183,8 +225,8 @@ describe("runDataCollection", () => {
     expect(createMock).toHaveBeenCalledWith([
       {
         url: "http://example.com",
-        title: "Test",
-        content: "Main content",
+        title: validArticleTitle,
+        content: validArticleContent,
         tickerId: TICKER_ID,
         searchQueryId: "sq-1",
       },
@@ -205,6 +247,7 @@ describe("runDataCollection", () => {
   it("skips web fetch for URLs already returned by dataCollectionExistingUrls", async () => {
     existingUrlsCreateMock.mockResolvedValueOnce({
       existingUrls: ["http://example.com"],
+      hostCounts: {},
     });
     vi.mocked(performWebFetch).mockResolvedValueOnce([]);
 
@@ -375,7 +418,7 @@ describe("runDataCollection", () => {
         success: true,
         data: {
           ...searchSuccessPage,
-          content: "Main content",
+          content: validArticleContent,
         },
       },
     ]);
@@ -436,6 +479,217 @@ describe("runDataCollection", () => {
     expect(performWebFetch).toHaveBeenCalledWith([], expect.anything());
   });
 
+  it("drops off-topic, quality-gated, and clean pages with separate counters", async () => {
+    // Setup
+    const paywallContent = "!!! $$$ ### subscribe to read !!! $$$ ### ".repeat(
+      25,
+    );
+    const offTopicContent = longOffTopicArticle(
+      "Microsoft Q2 earnings beat analyst expectations across cloud segments.",
+    );
+
+    vi.mocked(performWebSearch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/clean",
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/off-topic",
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/paywall",
+        },
+      },
+    ]);
+    vi.mocked(performWebFetch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/clean",
+          title: validArticleTitle,
+          content: validArticleContent,
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/off-topic",
+          title: "Microsoft earnings headline here",
+          content: offTopicContent,
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/paywall",
+          title: "Premium article headline here",
+          content: paywallContent,
+        },
+      },
+    ]);
+
+    // Act
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+        },
+      }),
+    );
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        url: "https://example.com/clean",
+        title: validArticleTitle,
+      }),
+    ]);
+    expect(mockRunLog.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        droppedByContentQuality: expect.objectContaining({
+          content_access_gated: 1,
+        }),
+        droppedByRelevance: 1,
+      }),
+      "web fetch stage finished",
+    );
+    expect(runCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        counters: expect.objectContaining({
+          droppedByRelevance: 1,
+        }),
+      }),
+    );
+  });
+
+  it("tracks per-rule quality counters and persists only clean sources", async () => {
+    // Setup
+    const paywallContent = "!!! $$$ ### subscribe to read !!! $$$ ### ".repeat(
+      25,
+    );
+    const soft404Content = `Sorry, page not found. ${"x".repeat(200)}`;
+    const shortContent = "word ".repeat(50);
+
+    vi.mocked(performWebSearch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/clean",
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/paywall",
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/soft-404",
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/short",
+        },
+      },
+    ]);
+    vi.mocked(performWebFetch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/clean",
+          title: validArticleTitle,
+          content: validArticleContent,
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/paywall",
+          title: "Premium article headline here",
+          content: paywallContent,
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/soft-404",
+          title: "Missing article headline here",
+          content: soft404Content,
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "https://example.com/short",
+          title: "Valid headline for short body",
+          content: shortContent,
+        },
+      },
+    ]);
+
+    // Act
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+        },
+      }),
+    );
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        url: "https://example.com/clean",
+        title: validArticleTitle,
+      }),
+    ]);
+    expect(mockRunLog.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        droppedByContentQuality: {
+          content_no_title: 0,
+          content_soft_404: 1,
+          content_access_gated: 1,
+          content_too_short: 1,
+          content_repetitive: 0,
+          content_link_farm: 0,
+          content_index_like: 0,
+        },
+      }),
+      "web fetch stage finished",
+    );
+  });
+
   it("drops index-like content after fetch and does not persist source", async () => {
     // Setup
     vi.mocked(performWebSearch).mockResolvedValueOnce([
@@ -455,7 +709,7 @@ describe("runDataCollection", () => {
           ...searchSuccessPage,
           title: "Company profile and key statistics",
           url: "https://example.com/stocks",
-          content: `Financial summary and key statistics with market cap details. ${"data ".repeat(120)}`,
+          content: `Financial summary and key statistics with market cap details. ${Array.from({ length: 120 }, (_, index) => `Detail paragraph ${index} covers regional lending trends.`).join(" ")}`,
         },
       },
     ]);
@@ -523,7 +777,7 @@ describe("runDataCollection", () => {
           success: true,
           data: {
             ...searchSuccessPage,
-            content: "Main content",
+            content: validArticleContent,
           },
         },
       ])
@@ -532,7 +786,7 @@ describe("runDataCollection", () => {
           success: true,
           data: {
             ...searchSuccessPage,
-            content: "Main content",
+            content: validArticleContent,
           },
         },
       ]);
@@ -596,7 +850,7 @@ describe("runDataCollection", () => {
         success: true,
         data: {
           ...searchSuccessPage,
-          content: "Main content",
+          content: validArticleContent,
         },
       },
     ]);
@@ -619,5 +873,110 @@ describe("runDataCollection", () => {
       (result.details?.summary as { refill?: { stopReason: string } }).refill
         ?.stopReason,
     ).toBe("max_rounds_reached");
+  });
+
+  it("applies per-query and per-run fetch budgets before issuing fetches", async () => {
+    // Setup
+    const queryIds = ["sq-1", "sq-2", "sq-3", "sq-4"];
+    const searchHits = queryIds.flatMap((searchQueryId, queryIndex) =>
+      Array.from({ length: 8 }, (_, hitIndex) => ({
+        success: true as const,
+        data: {
+          url: `https://example.com/q${queryIndex}-h${hitIndex}`,
+          title: validArticleTitle,
+          content: "Snippet",
+          tickerId: TICKER_ID,
+          searchQueryId,
+          searchQueryText: `query-${queryIndex}`,
+          serpIndex: hitIndex,
+        },
+      })),
+    );
+
+    vi.mocked(performWebSearch).mockResolvedValueOnce(searchHits);
+    vi.mocked(performWebFetch).mockImplementation(async (results) =>
+      results.map((page) => ({
+        success: true as const,
+        data: {
+          ...page,
+          content: validArticleContent,
+        },
+      })),
+    );
+
+    // Act
+    await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          perQueryFetchBudget: 2,
+          perRunFetchBudget: 6,
+          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+        },
+      }),
+    );
+
+    // Assert
+    expect(performWebFetch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(performWebFetch).mock.calls[0]?.[0]).toHaveLength(6);
+    expect(mockRunLog.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedForFetch: 6,
+        droppedByPerQueryBudget: 24,
+        droppedByPerRunBudget: 2,
+      }),
+      "applied pre-fetch ranking and fetch budgets",
+    );
+  });
+});
+
+describe("parallel fetch wall-clock", () => {
+  it("fetches 12 URLs with concurrency 4 faster than sequential execution", async () => {
+    // Setup
+    const { performWebFetch: performWebFetchActual } = await vi.importActual<
+      typeof import("./utilities/web-fetch")
+    >("./utilities/web-fetch");
+
+    const searchResults = Array.from({ length: 12 }, (_, index) => ({
+      url: `http://example.com/${index}`,
+      title: validArticleTitle,
+      content: "Snippet",
+      tickerId: TICKER_ID,
+      searchQueryId: `sq-${index}`,
+      searchQueryText: "test query",
+      serpIndex: index,
+    }));
+
+    const postMock = vi.fn().mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return {
+        statusCode: 200,
+        json: async () => ({
+          data: {
+            url: "http://example.com/page",
+            title: validArticleTitle,
+            content: validArticleContent,
+          },
+        }),
+      };
+    });
+    const fakeGot = { post: postMock };
+
+    // Act
+    const startedAt = Date.now();
+    await performWebFetchActual(searchResults, {
+      config: {
+        baseUrl: "https://fetch.example",
+        authentication: { type: "bearer" as const },
+        rateLimit: { requests: 12, perSeconds: 1 },
+        concurrency: 4,
+      },
+      gotClient: fakeGot as never,
+      logger: { info: vi.fn(), warn: vi.fn() },
+    });
+    const elapsedMs = Date.now() - startedAt;
+
+    // Assert — 12 × 50ms sequential would be 600ms; concurrency 4 targets ~150ms
+    expect(elapsedMs).toBeLessThan((12 * 50) / 4 + 100);
   });
 });

@@ -1,0 +1,42 @@
+name: Setup monorepo
+description: Turbo cache, pnpm/Bun/Node install, and local dev setup for CI. Run actions/checkout first when using this as a local composite action.
+
+inputs:
+  admin-email:
+    description: Admin email passed to dev-setup-local.sh.
+    required: false
+    default: ci-setup@example.invalid
+  admin-password:
+    description: Admin password passed to dev-setup-local.sh.
+    required: false
+    default: CiLocalDevSetup2024
+
+runs:
+  using: composite
+  steps:
+    - name: Turbo local cache
+      uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml', 'turbo.json') }}
+        restore-keys: |
+          ${{ runner.os }}-turbo-
+
+    - uses: oven-sh/setup-bun@v2
+
+    - uses: pnpm/action-setup@v5
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - name: Set up local environment
+      shell: bash
+      env:
+        DEV_SETUP_ADMIN_EMAIL: ${{ inputs.admin-email }}
+        DEV_SETUP_ADMIN_PASSWORD: ${{ inputs.admin-password }}
+      run: |
+        ./dev-setup-local.sh --non-interactive \
+          --admin-email "$DEV_SETUP_ADMIN_EMAIL" \
+          --admin-password "$DEV_SETUP_ADMIN_PASSWORD"

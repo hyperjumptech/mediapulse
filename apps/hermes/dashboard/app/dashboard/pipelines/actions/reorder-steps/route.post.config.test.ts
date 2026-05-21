@@ -8,10 +8,6 @@ const mockDashboardUser = {
   email: "a@b.com",
 } as const;
 
-vi.mock("@/lib/disable-schedules-for-pipeline", () => ({
-  disableSchedulesForPipelineIfNotEnabled: vi.fn().mockResolvedValue(undefined),
-}));
-
 describe("createReorderStepsHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();

@@ -3,7 +3,9 @@ import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 import { z } from "zod";
 import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
+import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
 import { parsePagination } from "../../lib/list-pagination";
+import { deliveryRunsTableV1CustomActionRegistrations } from "./custom-actions";
 import {
   listInclude,
   mapRowToDetailItem,
@@ -141,3 +143,8 @@ deliveryRunsRoutes.get("/:id", async (c) => {
 
   return c.json(mapRowToDetailItem(row));
 });
+
+registerTableV1CustomActionRoutes(
+  deliveryRunsRoutes,
+  deliveryRunsTableV1CustomActionRegistrations,
+);

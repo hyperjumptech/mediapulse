@@ -6,7 +6,9 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
+import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
 import { parsePagination } from "../../lib/list-pagination";
+import { newslettersTableV1CustomActionRegistrations } from "./custom-actions";
 import { findActiveQuerySetForNewsletter } from "./active-query-set";
 import { buildHermesLinks } from "./build-hermes-links";
 import {
@@ -222,3 +224,8 @@ newslettersRoutes.get("/:id", async (c) => {
     }),
   );
 });
+
+registerTableV1CustomActionRoutes(
+  newslettersRoutes,
+  newslettersTableV1CustomActionRegistrations,
+);

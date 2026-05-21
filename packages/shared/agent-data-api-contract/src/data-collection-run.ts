@@ -20,6 +20,8 @@ export const dataCollectionRunInputSchema = z.object({
     fetchSuccess: z.number().int().nonnegative(),
     fetchFailed: z.number().int().nonnegative(),
     retryCount: z.number().int().nonnegative(),
+    droppedByRelevance: z.number().int().nonnegative(),
+    throttleEvents: z.number().int().nonnegative(),
   }),
 });
 

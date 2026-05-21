@@ -1,5 +1,5 @@
 /**
- * Hermes `table-v1` manifest for knowledge-graph entity relations (read-only list + detail).
+ * Hermes `table-v1` manifest for knowledge-graph entity relations (CRUD list + detail).
  */
 
 import type { DashboardPageInput } from "@hermes/domain-contract";
@@ -8,7 +8,12 @@ import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
+import { entityRelationsCustomActionsForManifest } from "./custom-actions";
 import type { ListItem } from "./list-mapper";
+import {
+  entityRelationCreateFormJsonSchema,
+  entityRelationUpdateFormJsonSchema,
+} from "./write-body-schemas";
 
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const entityRelationsHermesPathSegment = "entity-relations" as const;
@@ -16,8 +21,9 @@ export const entityRelationsHermesPathSegment = "entity-relations" as const;
 /** Hermes `table-v1` manifest page for KG entity relations (edges). */
 export const entityRelationsDashboardPage = {
   id: entityRelationsHermesPathSegment,
-  label: "Entity relations",
-  description: "Directed typed edges between canonical entities (read-only).",
+  label: "Entity Relations",
+  description:
+    "Directed typed edges between entities, extracted from articles by the analysis agent. Create, edit, or delete manually; use Reset all to wipe the graph.",
   pathSegment: entityRelationsHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(entityRelationsHermesPathSegment),
@@ -43,5 +49,8 @@ export const entityRelationsDashboardPage = {
     "lastSeenAt",
     "createdAt",
   ]),
-  actions: { create: false, update: false, delete: false, view: true },
+  actions: { create: true, update: true, delete: true, view: true },
+  createSchema: entityRelationCreateFormJsonSchema,
+  updateSchema: entityRelationUpdateFormJsonSchema,
+  customActions: entityRelationsCustomActionsForManifest,
 } satisfies DashboardPageInput;

@@ -35,6 +35,57 @@ The data-collection agent fetches **search queries** for a ticker from agent-dat
 - `@workspace/logger` — Logging.
 - `@workspace/utils` — Helpers (e.g. `sleep`).
 
+## Content quality gate
+
+After web fetch, each page runs through a deterministic post-fetch quality gate before persistence. Rules run in order; the first match wins and the source is dropped with that reason.
+
+| Rule | Drop reason | Example trigger |
+| --- | --- | --- |
+| Title empty or too short | `content_no_title` | Title `Access denied` or any title under 12 characters |
+| Soft 404 | `content_soft_404` | Body contains `page not found` and is under 1,500 characters |
+| Access gated | `content_access_gated` | Body contains `subscribe to read` with alphabetic density below 55% |
+| Minimum prose | `content_too_short` | Body has fewer than 80 words |
+| Repetitive boilerplate | `content_repetitive` | One six-word shingle accounts for more than 20% of all shingles |
+| Link farm | `content_link_farm` | Outbound link density exceeds 8% of words |
+| Index-like page | `content_index_like` | Financial summary markers (e.g. `key statistics`, `market cap`) in title or body |
+
+Each refill round logs a `droppedByContentQuality` breakdown so operators can see which gate fires most often.
+
+Implementation lives in `src/utilities/content-quality-gate.ts` (`runQualityGate`). The legacy `classifyNonArticleContent` name is re-exported from `content-shape-filter.ts` for backward compatibility.
+
+## Ticker relevance gate
+
+After the content quality gate, each page is checked for mentions of the target ticker before persistence. At run start the agent loads ticker identity via `GET /api/v1/ticker?tickerId=…` and builds a lowercased alias list from `symbol`, `name`, and `aliases`.
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `relevanceGate.enabled` | `true` | Toggle the gate per pipeline config |
+| `relevanceGate.headChars` | `1500` | Scan window in the page body (title always included) |
+| `relevanceGate.minMatches` | `1` | Minimum distinct alias hits required |
+
+Pages with no alias match in the scan window are dropped with reason `no_alias_match`. The run summary and persisted run counters include `droppedByRelevance` so operators can spot overly aggressive gates.
+
+Word-boundary matching prevents short symbols from matching inside unrelated words (e.g. `AAPL` vs `snapple`, `BBRI` vs `abbreviation`). Implementation lives in `src/utilities/ticker-relevance-gate.ts` (`isRelevant`).
+
+## Bounded parallelism and adaptive backoff
+
+Web search and web fetch run through `pMap` with configurable concurrency (default `4`, capped at `min(concurrency, rateLimit.requests)`). Each HTTP call still acquires a slot from the sliding-window rate limiter before running.
+
+When the provider returns `429` or `5xx`, the limiter enlarges its window by 1.5× (up to 4× baseline) for the rest of the run. After ten consecutive successful responses, the window decays back toward baseline. Run counters include `throttleEvents` so operators can see how often adaptive backoff fired.
+
+## Pre-fetch ranking and fetch budgets
+
+Before Jina fetch, surviving search hits are ranked by domain reputation, snippet alias matches, SERP position, and host-fatigue penalties from the existing corpus. Config caps:
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `perQueryFetchBudget` | `3` | Maximum fetches contributed by each search query per round |
+| `perRunFetchBudget` | `40` | Maximum fetches for the entire round after per-query selection |
+
+Skipped hits increment `droppedByPerQueryBudget` and `droppedByPerRunBudget` in the run summary. These are intentional skips, not fetch failures.
+
+Implementation lives in `src/utilities/hit-ranker.ts` (`rankSearchHits`, `applyFetchBudget`) and `src/utilities/domain-reputation.ts`.
+
 ## Related docs
 
 - [agent-data-api](/mediapulse/apps/agent-data-api) — Read/write data-collection data.

@@ -10,6 +10,7 @@ import {
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
+import { entityTypesCustomActionsForManifest } from "./custom-actions";
 import {
   entityTypeCreateFormJsonSchema,
   entityTypeUpdateFormJsonSchema,
@@ -23,7 +24,7 @@ export const entityTypesDashboardPage = {
   id: entityTypesHermesPathSegment,
   label: "Entity Types",
   description:
-    "Manage vocabulary used by the knowledge graph entity classifier.",
+    "Admin-managed entity classification vocabulary used by the analysis agent extraction prompts.",
   pathSegment: entityTypesHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(entityTypesHermesPathSegment),
@@ -38,4 +39,5 @@ export const entityTypesDashboardPage = {
   actions: { create: true, update: true, delete: true, view: false },
   createSchema: entityTypeCreateFormJsonSchema,
   updateSchema: entityTypeUpdateFormJsonSchema,
+  customActions: entityTypesCustomActionsForManifest,
 } satisfies DashboardPageInput;

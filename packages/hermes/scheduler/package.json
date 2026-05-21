@@ -21,7 +21,6 @@
     "@nicnocquee/dataqueue": "^1.39.0",
     "@hermes/domain-integration-crypto": "workspace:*",
     "@hermes/orchestration-database": "workspace:*",
-    "@workspace/agent-runtime": "workspace:*",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "cron-parser": "^5.0.0",
