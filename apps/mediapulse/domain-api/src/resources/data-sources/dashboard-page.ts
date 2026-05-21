@@ -9,6 +9,7 @@ import {
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
+import { dataSourcesCustomActionsForManifest } from "./custom-actions";
 
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const dataSourcesHermesPathSegment = "data-sources" as const;
@@ -16,9 +17,9 @@ export const dataSourcesHermesPathSegment = "data-sources" as const;
 /** Hermes `table-v1` manifest page for collected data sources. */
 export const dataSourcesDashboardPage = {
   id: dataSourcesHermesPathSegment,
-  label: "Data sources",
+  label: "Data Sources",
   description:
-    "Articles and pages collected by the data-collection agent (search, open a row to read full content).",
+    "Articles and pages collected by the data-collection agent from active search queries (read-only).",
   pathSegment: dataSourcesHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(dataSourcesHermesPathSegment),
@@ -47,4 +48,5 @@ export const dataSourcesDashboardPage = {
     "searchQueryText",
   ]),
   actions: { create: false, update: false, delete: false, view: true },
+  customActions: dataSourcesCustomActionsForManifest,
 } satisfies DashboardPageInput;

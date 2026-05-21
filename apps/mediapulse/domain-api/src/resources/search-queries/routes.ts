@@ -5,7 +5,9 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
+import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
 import { parsePagination } from "../../lib/list-pagination";
+import { searchQueriesTableV1CustomActionRegistrations } from "./custom-actions";
 import { listInclude, mapRowToListItem } from "./list-mapper";
 
 /**
@@ -81,3 +83,8 @@ searchQueriesRoutes.delete("/:id", async (c) => {
   }
   return c.json({ ok: true });
 });
+
+registerTableV1CustomActionRoutes(
+  searchQueriesRoutes,
+  searchQueriesTableV1CustomActionRegistrations,
+);

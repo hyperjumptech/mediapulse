@@ -22,7 +22,8 @@ export const tickersHermesPathSegment = "tickers" as const;
 export const tickersDashboardPage = {
   id: tickersHermesPathSegment,
   label: "Tickers",
-  description: "Manage ticker symbols and company names for data sources.",
+  description:
+    "Ticker symbols and company names; admin-created or imported via IDX JSON.",
   pathSegment: tickersHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(tickersHermesPathSegment),

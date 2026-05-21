@@ -196,7 +196,7 @@ describe("dashboardPageSchema", () => {
   it("accepts a danger-confirm custom action with confirm fields", () => {
     const parsed = dashboardPageSchema.parse({
       id: "entity-relations",
-      label: "Entity relations",
+      label: "Entity Relations",
       pathSegment: "entity-relations",
       template: "table-v1",
       apiPrefix: "/v1/hermes-dashboard/entity-relations",

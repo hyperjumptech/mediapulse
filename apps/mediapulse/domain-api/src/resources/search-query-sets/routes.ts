@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
+import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
 import {
   createSearchQuerySet,
   deleteSearchQuerySet,
@@ -17,6 +18,7 @@ import {
 import { parsePagination } from "../../lib/list-pagination";
 import { mapRowToDetailItem, detailInclude } from "./detail-mapper";
 import { searchQuerySetsHermesPathSegment } from "./dashboard-page";
+import { searchQuerySetsTableV1CustomActionRegistrations } from "./custom-actions";
 import { listInclude, mapRowToListItem } from "./list-mapper";
 import { parseJsonArrayField, parseJsonObjectField } from "./parse-json-fields";
 import {
@@ -283,3 +285,8 @@ searchQuerySetsRoutes.delete("/:id", async (c) => {
     throw error;
   }
 });
+
+registerTableV1CustomActionRoutes(
+  searchQuerySetsRoutes,
+  searchQuerySetsTableV1CustomActionRegistrations,
+);

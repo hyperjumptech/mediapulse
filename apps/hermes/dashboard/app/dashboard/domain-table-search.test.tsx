@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DomainTableSearch } from "./domain-table-search";
 
@@ -11,12 +11,6 @@ vi.mock("next/link", () => ({
     children: React.ReactNode;
     href: string;
   }) => <a href={href}>{children}</a>,
-}));
-
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({ children, type }: React.PropsWithChildren<{ type?: string }>) => (
-    <button type={type as "submit" | "button" | "reset"}>{children}</button>
-  ),
 }));
 
 vi.mock("@workspace/ui/components/input", () => ({
@@ -52,7 +46,7 @@ describe("DomainTableSearch", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders placeholder and submit button", () => {
+  it("does not render a Search submit button", () => {
     render(
       <DomainTableSearch
         basePath="/dashboard/mp/tickers"
@@ -67,7 +61,24 @@ describe("DomainTableSearch", () => {
     expect(
       screen.getByPlaceholderText("Search by symbol…"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Search" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("submits the search form on submit event", () => {
+    render(
+      <DomainTableSearch
+        basePath="/dashboard/mp/tickers"
+        initialQuery="abc"
+        pageSize={15}
+        sortDir="asc"
+        ariaLabel="Search"
+      />,
+    );
+
+    const form = screen.getByRole("search");
+    expect(() => fireEvent.submit(form)).not.toThrow();
   });
 
   it("shows clear search link when query is active", () => {

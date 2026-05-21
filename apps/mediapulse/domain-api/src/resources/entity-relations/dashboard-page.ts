@@ -21,9 +21,9 @@ export const entityRelationsHermesPathSegment = "entity-relations" as const;
 /** Hermes `table-v1` manifest page for KG entity relations (edges). */
 export const entityRelationsDashboardPage = {
   id: entityRelationsHermesPathSegment,
-  label: "Entity relations",
+  label: "Entity Relations",
   description:
-    "Directed typed edges between canonical entities. Create, edit, or delete edges; use Reset all to wipe the graph.",
+    "Directed typed edges between entities, extracted from articles by the analysis agent. Create, edit, or delete manually; use Reset all to wipe the graph.",
   pathSegment: entityRelationsHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(entityRelationsHermesPathSegment),
