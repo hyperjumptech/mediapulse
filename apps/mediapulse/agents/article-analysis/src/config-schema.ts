@@ -2,12 +2,6 @@ import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-co
 import type { RelevanceWeightMapV1 } from "./analysis-relevance-scoring.js";
 import type { ArticleAnalysisRunPolicy } from "./article-analysis-run-policy.js";
 import type { ExtractionExemplarArchetype } from "./exemplars/default-extraction-exemplars.js";
-import {
-  ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_PLACEHOLDERS,
-  ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_PLACEHOLDERS,
-  ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH,
-} from "./article-extraction-prompt-defaults.js";
-import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
 import { z } from "zod";
 
 const extractionExemplarArchetypeSchema = z.enum([
@@ -60,8 +54,10 @@ export const articleAnalysisConfigSchema = z
     brainstormModel: z.string().min(1).optional(),
     /** Max output tokens for the brainstorm `generateText` call. */
     brainstormMaxOutputTokens: z.number().int().positive().optional(),
-    /** Wall-clock budget in ms; after this elapsed time, skip brainstorm on remaining sources. */
-    runDeadlineMs: z.number().positive().optional(),
+    /** Max concurrent per-source extractions (1 = sequential; opt-in parallelism). */
+    extractionConcurrency: z.number().int().min(1).max(16).optional(),
+    /** Wall-clock budget in ms from run start; skips undispatched sources and late brainstorm/critique. */
+    runDeadlineMs: z.number().int().positive().optional(),
     /** When true, run a second LLM pass to critique and prune noisy relation triples. */
     useRelationSelfCritique: z.boolean().optional(),
     /** Max fraction of relations per source that critique may drop (hard cap). */
@@ -140,11 +136,11 @@ export const articleAnalysisConfigSchema = z
     /** Initial backoff in ms; delay doubles each retry (`base * 2^attempt`). */
     postTransientRetryBaseDelayMs: z.number().int().positive().optional(),
     /**
-     * When Hermes run input omits `maxBatchSize`, cap how many data sources are loaded and processed per run
+     * Cap on data sources loaded and processed per run
      * (also bounds `analysis.get` `limit` together with `analysisGetDataSourceLimitMax`).
      * Override in Hermes agent config; package default applies when omitted.
      */
-    defaultMaxBatchSize: z.number().int().positive().optional(),
+    maxBatchSize: z.number().int().positive().optional(),
     /**
      * Max `analysis.get` `limit` (must not exceed `ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX` from `@workspace/agent-data-api-contract`).
      * Actual limit is `min(maxBatchSize, analysisGetDataSourceLimitMax)`. Set in Hermes agent config JSON.
@@ -164,70 +160,17 @@ export const articleAnalysisConfigSchema = z
      */
     debounceMinMinutesSinceLastScore: z.number().int().nonnegative().optional(),
     /**
-     * Optional overrides for extraction LLM system/user wording (Hermes agent config).
-     * Defaults remain in code; merge is `configured ?? default` before each extraction call.
-     * Do not put API keys or other secrets in prompt strings.
+     * Operator-supplied yield P50 baselines for regression warnings (not auto-computed from history).
      */
-    prompts: z
+    yieldBaseline: z
       .object({
-        systemPrompt: z
-          .string()
-          .max(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
-            message: `prompts.systemPrompt must be at most ${String(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
-          })
-          .describe(
-            "Optional full system prompt for entity extraction. When omitted, a built-in default is used. Supported placeholders: {{entityTypesBlock}}, {{relationTypesBlock}} (vocabulary from analysis GET).",
-          )
-          .optional(),
-        userPromptTemplate: z
-          .string()
-          .max(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
-            message: `prompts.userPromptTemplate must be at most ${String(ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
-          })
-          .describe(
-            "Optional user message template for extraction. Supported placeholders: {{tickerId}}, {{title}}, {{articleContent}} (truncated article body per maxContentChars).",
-          )
-          .optional(),
+        extractionYieldP50: z.number().min(0).max(1).optional(),
+        groundingYieldP50: z.number().min(0).max(1).optional(),
+        vocabularyYieldP50: z.number().min(0).max(1).optional(),
       })
-      .strict()
       .optional(),
   })
-  .superRefine((data, ctx) => {
-    const prompts = data.prompts;
-    if (!prompts) {
-      return;
-    }
-    const systemAllowed = new Set<string>(
-      ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_PLACEHOLDERS,
-    );
-    const userAllowed = new Set<string>(
-      ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_PLACEHOLDERS,
-    );
-    if (prompts.systemPrompt) {
-      for (const token of findUnknownLlmPromptPlaceholderTokens(
-        prompts.systemPrompt,
-        systemAllowed,
-      )) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Unknown placeholder {{${token}}} in prompts.systemPrompt`,
-          path: ["prompts", "systemPrompt"],
-        });
-      }
-    }
-    if (prompts.userPromptTemplate) {
-      for (const token of findUnknownLlmPromptPlaceholderTokens(
-        prompts.userPromptTemplate,
-        userAllowed,
-      )) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Unknown placeholder {{${token}}} in prompts.userPromptTemplate`,
-          path: ["prompts", "userPromptTemplate"],
-        });
-      }
-    }
-  });
+  .strict();
 
 export type ArticleAnalysisConfig = z.infer<typeof articleAnalysisConfigSchema>;
 
@@ -244,7 +187,8 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   useBrainstormPass: boolean;
   brainstormModel: string;
   brainstormMaxOutputTokens: number;
-  runDeadlineMs: number;
+  extractionConcurrency: number;
+  runDeadlineMs?: number;
   useRelationSelfCritique: boolean;
   relationCritiqueDropFraction: number;
   relationCritiqueMinRelationCount: number;
@@ -284,8 +228,8 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   postTransientRetryBaseDelayMs: number;
   debounceMinUnanalyzedCount: number;
   debounceMinMinutesSinceLastScore: number;
-  /** Cap on sources per run when Hermes input omits `maxBatchSize`. */
-  defaultMaxBatchSize: number;
+  /** Cap on sources per run (Hermes agent config). */
+  maxBatchSize: number;
   /** Upper bound for `analysis.get` `limit` (see `analysisGetDataSourceLimitMax` on Hermes config). */
   analysisGetDataSourceLimitMax: number;
 };
@@ -301,7 +245,7 @@ export const articleAnalysisConfigDefaults = {
   fewShotExemplarCount: 0,
   useBrainstormPass: false,
   brainstormMaxOutputTokens: 800,
-  runDeadlineMs: Number.POSITIVE_INFINITY,
+  extractionConcurrency: 1,
   useRelationSelfCritique: false,
   relationCritiqueDropFraction: 0.25,
   relationCritiqueMinRelationCount: 3,
@@ -339,13 +283,13 @@ export const articleAnalysisConfigDefaults = {
   postTransientRetryBaseDelayMs: 500,
   debounceMinUnanalyzedCount: 0,
   debounceMinMinutesSinceLastScore: 0,
-  defaultMaxBatchSize: 10,
+  maxBatchSize: 10,
   analysisGetDataSourceLimitMax: ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
 } as const;
 
 /**
  * Returns effective config with defaults applied for optional numeric/string fields,
- * including debounce knobs, `defaultMaxBatchSize`, and `analysisGetDataSourceLimitMax`
+ * including debounce knobs, `maxBatchSize`, and `analysisGetDataSourceLimitMax`
  * (Hermes config overrides or package defaults).
  *
  * @param config - Parsed Hermes config.
@@ -387,8 +331,12 @@ export const resolveArticleAnalysisConfig = (
     brainstormMaxOutputTokens:
       config.brainstormMaxOutputTokens ??
       articleAnalysisConfigDefaults.brainstormMaxOutputTokens,
-    runDeadlineMs:
-      config.runDeadlineMs ?? articleAnalysisConfigDefaults.runDeadlineMs,
+    extractionConcurrency:
+      config.extractionConcurrency ??
+      articleAnalysisConfigDefaults.extractionConcurrency,
+    ...(config.runDeadlineMs !== undefined
+      ? { runDeadlineMs: config.runDeadlineMs }
+      : {}),
     useRelationSelfCritique:
       config.useRelationSelfCritique ??
       articleAnalysisConfigDefaults.useRelationSelfCritique,
@@ -506,9 +454,8 @@ export const resolveArticleAnalysisConfig = (
     debounceMinMinutesSinceLastScore:
       config.debounceMinMinutesSinceLastScore ??
       articleAnalysisConfigDefaults.debounceMinMinutesSinceLastScore,
-    defaultMaxBatchSize:
-      config.defaultMaxBatchSize ??
-      articleAnalysisConfigDefaults.defaultMaxBatchSize,
+    maxBatchSize:
+      config.maxBatchSize ?? articleAnalysisConfigDefaults.maxBatchSize,
     analysisGetDataSourceLimitMax:
       config.analysisGetDataSourceLimitMax ??
       articleAnalysisConfigDefaults.analysisGetDataSourceLimitMax,

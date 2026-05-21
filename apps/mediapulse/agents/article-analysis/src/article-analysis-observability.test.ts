@@ -4,11 +4,16 @@ import { describe, expect, it } from "vitest";
 import type { ArticleRelevanceRow } from "./analysis-relevance-scoring.js";
 import {
   ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+  ARTICLE_ANALYSIS_YIELD_SNAPSHOT_MESSAGE,
   aggregateRelevanceObservability,
   buildArticleAnalysisRunSummaryPayload,
+  buildYieldSnapshot,
+  compareYieldAgainstBaseline,
+  percentileOf,
   scoreBucketFor,
   toSafeLogError,
 } from "./article-analysis-observability.js";
+import { createEmptyQualityCounters } from "./utilities/content-quality-gate.js";
 
 describe("toSafeLogError", () => {
   it("returns name and message for Error", () => {
@@ -435,5 +440,147 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
     expect(payload.exemplarsRequestedCount).toBe(4);
     expect(payload.exemplarsResolvedCount).toBe(2);
     expect(payload.exemplarsApplied).toEqual(["earnings", "leadership"]);
+  });
+});
+
+describe("percentileOf", () => {
+  it("returns null for an empty sample", () => {
+    expect(percentileOf([], 0.5)).toBeNull();
+  });
+
+  it("returns the median for an odd-length sample", () => {
+    expect(percentileOf([100, 200, 300], 0.5)).toBe(200);
+  });
+});
+
+describe("buildYieldSnapshot", () => {
+  it("derives pass counts and extraction yield from run summary counters", () => {
+    const droppedByContentQuality = createEmptyQualityCounters();
+    droppedByContentQuality.content_soft_404 = 1;
+    droppedByContentQuality.content_too_short = 1;
+
+    const snapshot = buildYieldSnapshot({
+      outcome: "success",
+      articlesProcessed: 10,
+      extractionSuccessCount: 6,
+      extractionFailures: [
+        {
+          dataSourceId: "vocab",
+          stage: "vocabulary",
+          message: "bad type",
+        },
+      ],
+      droppedByContentQuality,
+      grounding: {
+        entitiesUngroundedTotal: 1,
+        relationsDroppedTotal: 0,
+        mentionsDroppedTotal: 0,
+      },
+      vocabularyPartitioning: {
+        badEntitiesDropped: 1,
+        badRelationsDropped: 0,
+        repairCallsAttempted: 0,
+        repairCallsSucceeded: 0,
+        repairCallsFailed: 0,
+        rowsRecoveredByRepair: 0,
+      },
+      relevanceRowValidationFailures: 0,
+      chunkParseCounts: {
+        entityRelationChunkParseErrors: 0,
+        articleEntityChunkParseErrors: 0,
+        articleRelevanceChunkParseErrors: 0,
+      },
+      postFailures: [],
+      entitiesCreated: 6,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 6,
+      articlesSelected: 2,
+      relevanceAggregate: null,
+      llmUsage: null,
+      extractionLatencyMsTotal: 600,
+      extractionCalls: 6,
+      perSourceLatency: {
+        extractionMs: [100, 200, 300, 400, 500, 600],
+        brainstormMs: [50],
+        critiqueMs: [75],
+      },
+    });
+
+    expect(snapshot.batchSize).toBe(10);
+    expect(snapshot.passed.qualityGate).toBe(8);
+    expect(snapshot.passed.grounding).toBe(7);
+    expect(snapshot.passed.vocabulary).toBe(6);
+    expect(snapshot.ratios.extractionYield).toBe(0.6);
+    expect(snapshot.dropped.byGrounding.entities).toBe(1);
+    expect(snapshot.dropped.byVocabulary.entities).toBe(1);
+    expect(snapshot.latency.extractionMsP50).toBe(300);
+    expect(snapshot.latency.brainstormMsP50).toBe(50);
+    expect(snapshot.latency.critiqueMsP50).toBe(75);
+  });
+});
+
+describe("compareYieldAgainstBaseline", () => {
+  it("flags regression when a ratio drops more than 15 points below baseline", () => {
+    const comparison = compareYieldAgainstBaseline(
+      buildYieldSnapshot({
+        outcome: "success",
+        articlesProcessed: 10,
+        extractionSuccessCount: 6,
+        extractionFailures: [],
+        relevanceRowValidationFailures: 0,
+        chunkParseCounts: {
+          entityRelationChunkParseErrors: 0,
+          articleEntityChunkParseErrors: 0,
+          articleRelevanceChunkParseErrors: 0,
+        },
+        postFailures: [],
+        entitiesCreated: 6,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 6,
+        articlesSelected: 2,
+        relevanceAggregate: null,
+        llmUsage: null,
+        extractionLatencyMsTotal: 0,
+        extractionCalls: 6,
+      }),
+      { extractionYieldP50: 0.8 },
+    );
+
+    expect(comparison.regression).toBe(true);
+    expect(comparison.deltas?.extractionYieldDelta).toBeCloseTo(-0.2);
+  });
+
+  it("returns no regression when baseline is unset", () => {
+    const comparison = compareYieldAgainstBaseline(
+      buildYieldSnapshot({
+        outcome: "success",
+        articlesProcessed: 1,
+        extractionSuccessCount: 1,
+        extractionFailures: [],
+        relevanceRowValidationFailures: 0,
+        chunkParseCounts: {
+          entityRelationChunkParseErrors: 0,
+          articleEntityChunkParseErrors: 0,
+          articleRelevanceChunkParseErrors: 0,
+        },
+        postFailures: [],
+        entitiesCreated: 1,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 1,
+        relevanceAggregate: null,
+        llmUsage: null,
+        extractionLatencyMsTotal: 0,
+        extractionCalls: 1,
+      }),
+      undefined,
+    );
+
+    expect(comparison.regression).toBe(false);
+    expect(comparison.baseline).toBe("unset");
+    expect(comparison.deltas).toBeNull();
   });
 });

@@ -110,7 +110,7 @@
       "type": "integer",
       "exclusiveMinimum": 0
     },
-    "defaultMaxBatchSize": {
+    "maxBatchSize": {
       "type": "integer",
       "exclusiveMinimum": 0
     },
@@ -126,24 +126,6 @@
     "debounceMinMinutesSinceLastScore": {
       "type": "integer",
       "minimum": 0
-    },
-    "prompts": {
-      "type": "object",
-      "properties": {
-        "systemPrompt": {
-          "type": "string",
-          "maxLength": 50000,
-          "description": "Optional full system prompt for entity extraction. When omitted, a built-in default is used. Supported placeholders: {{entityTypesBlock}}, {{relationTypesBlock}} (vocabulary from analysis GET).",
-          "format": "textarea"
-        },
-        "userPromptTemplate": {
-          "type": "string",
-          "maxLength": 50000,
-          "description": "Optional user message template for extraction. Supported placeholders: {{tickerId}}, {{title}}, {{articleContent}} (truncated article body per maxContentChars).",
-          "format": "textarea"
-        }
-      },
-      "additionalProperties": false
     }
   },
   "required": ["openaiApiKey"],

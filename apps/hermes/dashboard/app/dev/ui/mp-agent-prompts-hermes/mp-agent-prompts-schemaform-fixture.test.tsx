@@ -29,13 +29,27 @@ describe("MpAgentPromptsSchemaformFixture", () => {
   it("renders prompts-only mode when focus is prompts", () => {
     render(
       <MpAgentPromptsSchemaformFixture
-        agentId="article-analysis"
+        agentId="content-generation"
         focus="prompts"
       />,
     );
 
     expect(screen.getByText(/^Prompts$/i)).toBeInTheDocument();
     expect(screen.getByText(/focus=prompts/i)).toBeInTheDocument();
+  });
+
+  it("shows no prompts sub-schema for article-analysis in prompts-only mode", () => {
+    render(
+      <MpAgentPromptsSchemaformFixture
+        agentId="article-analysis"
+        focus="prompts"
+      />,
+    );
+
+    expect(
+      screen.getByText(/has no prompts sub-schema on this branch/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("schema-form")).not.toBeInTheDocument();
   });
 
   it("shows an error message for an unknown agent id", () => {

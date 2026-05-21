@@ -304,71 +304,49 @@ const BRAINSTORM_FOLLOW_UP_PREFIX = [
 ].join(" ");
 
 /**
- * Resolves the extraction system prompt after merging Hermes `prompts.systemPrompt` with code defaults.
- *
- * @param configuredSystemPrompt - Optional override from Hermes agent config.
- * @param ctx - Vocabulary from analysis GET.
- * @returns System message string (no article body, no secrets).
- */
-export const resolveArticleAnalysisExtractionSystemContent = (
-  configuredSystemPrompt: string | undefined,
-  ctx: Pick<GetAnalysisResponse, "entityTypes" | "relationTypes">,
-): string => {
-  const template =
-    configuredSystemPrompt ??
-    ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT;
-  return substituteLlmPromptTemplate(template, {
-    entityTypesBlock: formatArticleAnalysisEntityTypesBlock(ctx),
-    relationTypesBlock: formatArticleAnalysisRelationTypesBlock(ctx),
-  });
-};
-
-/**
- * Resolves the extraction user prompt after merging Hermes `prompts.userPromptTemplate` with code defaults.
- *
- * @param configuredUserPromptTemplate - Optional override from Hermes agent config.
- * @param args - Ticker, title, truncated body (already capped for token budget).
- * @returns User message string.
- */
-export const resolveArticleAnalysisExtractionUserContent = (
-  configuredUserPromptTemplate: string | undefined,
-  args: {
-    tickerId: string;
-    title: string;
-    contentTruncated: string;
-  },
-): string => {
-  const template =
-    configuredUserPromptTemplate ??
-    ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_TEMPLATE_DEFAULT;
-  return substituteLlmPromptTemplate(template, {
-    tickerId: args.tickerId,
-    title: args.title,
-    articleContent: args.contentTruncated,
-  });
-};
-
-/**
- * System prompt listing allowed entity and relation type UUIDs from analysis GET (package defaults only).
+ * Builds the extraction system prompt from the in-code default template.
  *
  * @param ctx - Vocabulary from analysis GET.
  * @returns System message string (no article body, no secrets).
  */
-export const buildExtractionSystemContent = (
+export const buildArticleAnalysisExtractionSystemContent = (
   ctx: Pick<GetAnalysisResponse, "entityTypes" | "relationTypes">,
-): string => resolveArticleAnalysisExtractionSystemContent(undefined, ctx);
+): string =>
+  substituteLlmPromptTemplate(
+    ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
+    {
+      entityTypesBlock: formatArticleAnalysisEntityTypesBlock(ctx),
+      relationTypesBlock: formatArticleAnalysisRelationTypesBlock(ctx),
+    },
+  );
 
 /**
- * User message with ticker metadata and truncated article text (package defaults only).
+ * Builds the extraction user prompt from the in-code default template.
  *
  * @param args - Ticker, title, truncated body (already capped for token budget).
  * @returns User message string.
  */
-export const buildExtractionUserContent = (args: {
+export const buildArticleAnalysisExtractionUserContent = (args: {
   tickerId: string;
   title: string;
   contentTruncated: string;
-}): string => resolveArticleAnalysisExtractionUserContent(undefined, args);
+}): string =>
+  substituteLlmPromptTemplate(
+    ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_TEMPLATE_DEFAULT,
+    {
+      tickerId: args.tickerId,
+      title: args.title,
+      articleContent: args.contentTruncated,
+    },
+  );
+
+/** @see {@link buildArticleAnalysisExtractionSystemContent} */
+export const buildExtractionSystemContent =
+  buildArticleAnalysisExtractionSystemContent;
+
+/** @see {@link buildArticleAnalysisExtractionUserContent} */
+export const buildExtractionUserContent =
+  buildArticleAnalysisExtractionUserContent;
 
 /**
  * Returns the brainstorm-pass system prompt (plain-text enumeration, no JSON schema).

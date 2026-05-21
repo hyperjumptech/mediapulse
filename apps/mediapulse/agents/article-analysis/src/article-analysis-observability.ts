@@ -5,12 +5,24 @@ import type {
   ArticleAnalysisPostFailureRecord,
 } from "./article-analysis-run-policy.js";
 import type { QualityDropReason } from "./utilities/content-quality-gate.js";
+import { createEmptyQualityCounters } from "./utilities/content-quality-gate.js";
 import type { ExtractionExemplarArchetype } from "./exemplars/default-extraction-exemplars.js";
 import type { GroundingObservabilityAggregate } from "./utilities/entity-grounding.js";
 
 /** Stable name for grep / log pipelines. */
 export const ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE =
   "article_analysis.run.summary";
+
+/** Stable name for per-run yield attribution logs. */
+export const ARTICLE_ANALYSIS_YIELD_SNAPSHOT_MESSAGE =
+  "article_analysis.yield.snapshot";
+
+/** Stable name for yield regression warnings against operator baseline. */
+export const ARTICLE_ANALYSIS_YIELD_REGRESSION_MESSAGE =
+  "article_analysis.yield.regression";
+
+/** Regression threshold: a ratio more than 15 points below baseline triggers a warning. */
+export const YIELD_REGRESSION_DELTA_THRESHOLD = -0.15;
 
 /**
  * Serializes an unknown error for structured logs without attaching rich provider payloads.
@@ -268,6 +280,75 @@ export type ExemplarsObservabilityAggregate = {
   appliedArchetypes: readonly ExtractionExemplarArchetype[];
 };
 
+export type ParallelismObservabilityAggregate = {
+  concurrency: number;
+  peakInFlight: number;
+  extractionSkippedDueToDeadline: number;
+  deadlineFiredAtMs?: number;
+};
+
+/** Per-source latency samples collected during parallel extraction. */
+export type PerSourceLatencyObservability = {
+  extractionMs: number[];
+  brainstormMs: number[];
+  critiqueMs: number[];
+};
+
+/** Operator-supplied P50 baselines for yield regression comparison (not auto-computed). */
+export type HistoricalYieldBaseline = {
+  extractionYieldP50?: number;
+  groundingYieldP50?: number;
+  vocabularyYieldP50?: number;
+};
+
+export type YieldSnapshotRatios = {
+  extractionYield: number;
+  groundingYield: number;
+  vocabularyYield: number;
+  selectionYield: number;
+};
+
+export type YieldSnapshotLatency = {
+  extractionMsP50: number | null;
+  extractionMsP95: number | null;
+  brainstormMsP50: number | null;
+  critiqueMsP50: number | null;
+};
+
+/** Per-run rollup of pass/drop attribution across pipeline stages. */
+export type YieldSnapshot = {
+  batchSize: number;
+  passed: {
+    qualityGate: number;
+    grounding: number;
+    vocabulary: number;
+    scoring: number;
+    selection: number;
+  };
+  dropped: {
+    byContentQuality: Record<QualityDropReason, number>;
+    byGrounding: { entities: number; relations: number; mentions: number };
+    byVocabulary: { entities: number; relations: number; repaired: number };
+    bySelectionDiversification: number;
+    byDeadline: number;
+    byCritique: number;
+  };
+  ratios: YieldSnapshotRatios;
+  latency: YieldSnapshotLatency;
+};
+
+export type YieldBaselineComparisonDeltas = {
+  extractionYieldDelta?: number;
+  groundingYieldDelta?: number;
+  vocabularyYieldDelta?: number;
+};
+
+export type YieldBaselineComparison = {
+  regression: boolean;
+  baseline: HistoricalYieldBaseline | "unset";
+  deltas: YieldBaselineComparisonDeltas | null;
+};
+
 export type ArticleAnalysisRunSummaryInput = {
   outcome: "success" | "failure";
   articlesProcessed: number;
@@ -299,6 +380,174 @@ export type ArticleAnalysisRunSummaryInput = {
   topLevelError?: ReturnType<typeof toSafeLogError>;
   /** Fingerprint of the last extraction system+user prompts sent to the LLM (REQ-011). */
   llmPromptFingerprint?: string;
+  parallelism?: ParallelismObservabilityAggregate;
+  perSourceLatency?: PerSourceLatencyObservability;
+};
+
+/**
+ * Computes the p-th percentile (0–1) from a numeric sample.
+ *
+ * @param values - Unsorted latency or score samples.
+ * @param p - Percentile in `[0, 1]` (e.g. `0.5` for median).
+ * @returns Percentile value or `null` when `values` is empty.
+ */
+export const percentileOf = (
+  values: readonly number[],
+  p: number,
+): number | null => {
+  if (values.length === 0) {
+    return null;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil(p * sorted.length) - 1),
+  );
+  return sorted[index] ?? null;
+};
+
+/**
+ * Rolls up per-stage pass/drop counters and ratios from a run summary input.
+ *
+ * @param input - Same counters emitted on `article_analysis.run.summary`.
+ * @returns Forward-compatible yield snapshot for logs and agent result details.
+ */
+export const buildYieldSnapshot = (
+  input: ArticleAnalysisRunSummaryInput,
+): YieldSnapshot => {
+  const batchSize = input.articlesProcessed;
+  const byContentQuality = {
+    ...createEmptyQualityCounters(),
+    ...(input.droppedByContentQuality ?? {}),
+  };
+  const contentQualityDrops = Object.values(byContentQuality).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+  const deadlineDrops = input.parallelism?.extractionSkippedDueToDeadline ?? 0;
+
+  const llmFails = input.extractionFailures.filter(
+    (failure) => failure.stage === "llm",
+  ).length;
+  const vocabFails = input.extractionFailures.filter(
+    (failure) => failure.stage === "vocabulary",
+  ).length;
+
+  const passedQualityGate = batchSize - contentQualityDrops - deadlineDrops;
+  const passedGrounding = passedQualityGate - llmFails - vocabFails;
+  const passedVocabulary = input.extractionSuccessCount;
+  const passedScoring = input.articlesScored;
+  const passedSelection = input.articlesSelected;
+
+  const grounding = input.grounding;
+  const vocabulary = input.vocabularyPartitioning;
+  const selection = input.selection;
+  const relationCritique = input.relationCritique;
+
+  const safeRatio = (numerator: number): number =>
+    batchSize > 0 ? numerator / batchSize : 0;
+
+  const latencySamples = input.perSourceLatency ?? {
+    extractionMs: [],
+    brainstormMs: [],
+    critiqueMs: [],
+  };
+
+  return {
+    batchSize,
+    passed: {
+      qualityGate: passedQualityGate,
+      grounding: passedGrounding,
+      vocabulary: passedVocabulary,
+      scoring: passedScoring,
+      selection: passedSelection,
+    },
+    dropped: {
+      byContentQuality,
+      byGrounding: {
+        entities: grounding?.entitiesUngroundedTotal ?? 0,
+        relations: grounding?.relationsDroppedTotal ?? 0,
+        mentions: grounding?.mentionsDroppedTotal ?? 0,
+      },
+      byVocabulary: {
+        entities: vocabulary?.badEntitiesDropped ?? 0,
+        relations: vocabulary?.badRelationsDropped ?? 0,
+        repaired: vocabulary?.rowsRecoveredByRepair ?? 0,
+      },
+      bySelectionDiversification: selection?.suppressedAsDuplicates ?? 0,
+      byDeadline: deadlineDrops,
+      byCritique: relationCritique?.relationsDroppedByCritique ?? 0,
+    },
+    ratios: {
+      extractionYield: safeRatio(passedVocabulary),
+      groundingYield: safeRatio(passedGrounding),
+      vocabularyYield: safeRatio(passedVocabulary),
+      selectionYield: safeRatio(passedSelection),
+    },
+    latency: {
+      extractionMsP50: percentileOf(latencySamples.extractionMs, 0.5),
+      extractionMsP95: percentileOf(latencySamples.extractionMs, 0.95),
+      brainstormMsP50: percentileOf(latencySamples.brainstormMs, 0.5),
+      critiqueMsP50: percentileOf(latencySamples.critiqueMs, 0.5),
+    },
+  };
+};
+
+/** Alias for {@link buildYieldSnapshot} used when attaching yield to run results. */
+export const getRunYieldSnapshot = buildYieldSnapshot;
+
+/**
+ * Builds a JSON-safe log payload for `article_analysis.yield.snapshot`.
+ *
+ * @param snapshot - Derived yield snapshot for one run.
+ * @returns Payload to pass as first argument to `log.info`.
+ */
+export const buildYieldSnapshotLogPayload = (
+  snapshot: YieldSnapshot,
+): Record<string, unknown> => ({
+  event: ARTICLE_ANALYSIS_YIELD_SNAPSHOT_MESSAGE,
+  ...snapshot,
+});
+
+/**
+ * Compares run yield ratios against operator-supplied P50 baselines.
+ *
+ * @param snapshot - Current run yield snapshot.
+ * @param baseline - Optional Hermes config baselines; when unset, comparison is silent.
+ * @returns Regression flag and per-dimension deltas (null when baseline unset).
+ */
+export const compareYieldAgainstBaseline = (
+  snapshot: YieldSnapshot,
+  baseline: HistoricalYieldBaseline | undefined,
+): YieldBaselineComparison => {
+  if (
+    baseline === undefined ||
+    (baseline.extractionYieldP50 === undefined &&
+      baseline.groundingYieldP50 === undefined &&
+      baseline.vocabularyYieldP50 === undefined)
+  ) {
+    return { regression: false, baseline: "unset", deltas: null };
+  }
+
+  const deltas: YieldBaselineComparisonDeltas = {};
+  if (baseline.extractionYieldP50 !== undefined) {
+    deltas.extractionYieldDelta =
+      snapshot.ratios.extractionYield - baseline.extractionYieldP50;
+  }
+  if (baseline.groundingYieldP50 !== undefined) {
+    deltas.groundingYieldDelta =
+      snapshot.ratios.groundingYield - baseline.groundingYieldP50;
+  }
+  if (baseline.vocabularyYieldP50 !== undefined) {
+    deltas.vocabularyYieldDelta =
+      snapshot.ratios.vocabularyYield - baseline.vocabularyYieldP50;
+  }
+
+  const regression = Object.values(deltas).some(
+    (delta) => delta !== undefined && delta <= YIELD_REGRESSION_DELTA_THRESHOLD,
+  );
+
+  return { regression, baseline, deltas };
 };
 
 /**
@@ -485,6 +734,10 @@ export const buildArticleAnalysisRunSummaryPayload = (
 
   if (input.selection !== undefined) {
     base.selection = input.selection;
+  }
+
+  if (input.parallelism !== undefined) {
+    base.parallelism = input.parallelism;
   }
 
   return base;

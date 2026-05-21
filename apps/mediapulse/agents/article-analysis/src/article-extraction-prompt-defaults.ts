@@ -1,29 +1,7 @@
 import type { GetAnalysisResponse } from "@workspace/agent-data-api-contract";
 
-/** Maximum characters allowed for each Hermes `prompts.*` string on article-analysis. */
-export const ARTICLE_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH = 50_000;
-
-/** Allowed `{{...}}` names in `prompts.systemPrompt` (Hermes config). */
-export const ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_PLACEHOLDERS = [
-  "entityTypesBlock",
-  "relationTypesBlock",
-] as const;
-
-/** Allowed `{{...}}` names in `prompts.userPromptTemplate` (Hermes config). */
-export const ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_PLACEHOLDERS = [
-  "tickerId",
-  "title",
-  "articleContent",
-] as const;
-
-/** Allowed `{{...}}` names in the vocabulary-repair system prompt template. */
-export const ARTICLE_ANALYSIS_REPAIR_SYSTEM_PROMPT_PLACEHOLDERS = [
-  "entityTypesBlock",
-  "relationTypesBlock",
-] as const;
-
 /**
- * Default system prompt for the vocabulary-repair `generateObject` pass.
+ * System prompt for the vocabulary-repair `generateObject` pass.
  * Must include `{{entityTypesBlock}}` and `{{relationTypesBlock}}`.
  */
 export const ARTICLE_ANALYSIS_REPAIR_SYSTEM_PROMPT_TEMPLATE_DEFAULT = [
@@ -36,7 +14,7 @@ export const ARTICLE_ANALYSIS_REPAIR_SYSTEM_PROMPT_TEMPLATE_DEFAULT = [
 ].join("\n\n");
 
 /**
- * Default extraction system prompt template (code default when Hermes omits `prompts.systemPrompt`).
+ * Extraction system prompt template (in-code default).
  * Must include `{{entityTypesBlock}}` and `{{relationTypesBlock}}`.
  */
 export const ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT = [
@@ -54,7 +32,7 @@ export const ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT = [
 ].join("\n\n");
 
 /**
- * Default extraction user prompt template (code default when Hermes omits `prompts.userPromptTemplate`).
+ * Extraction user prompt template (in-code default).
  */
 export const ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_TEMPLATE_DEFAULT = [
   "tickerId: {{tickerId}}",

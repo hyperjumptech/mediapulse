@@ -18,11 +18,6 @@ const baseUrl = "http://127.0.0.1:3001/dev/ui/mp-agent-prompts-hermes";
 
 const shots = [
   {
-    agent: "article-analysis",
-    file: "478-article-analysis-prompts-textarea.png",
-  },
-  { agent: "query-analysis", file: "480-query-analysis-prompts-textarea.png" },
-  {
     agent: "content-generation",
     file: "481-content-generation-prompts-textarea.png",
   },

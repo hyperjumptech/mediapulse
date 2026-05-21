@@ -2,26 +2,20 @@ import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-article-analysis";
 import { logger } from "@workspace/logger";
-import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 import crypto from "node:crypto";
 
 import {
-  applyPerArticleExtractionCaps,
   applyPerRunCaps,
   dedupeEntities,
   dedupeRelations,
 } from "./analysis-caps-dedupe.js";
 import {
-  applyPerArticleArticleMentionCap,
   applyPerRunArticleEntityCap,
   buildArticleEntityPostChunks,
-  buildNormalizedEntityCatalogForArticle,
   buildNormalizedEntityCatalogFromProposals,
   canonicalizeArticleEntityRowsToRunEntities,
   dedupeArticleEntityMentions,
   filterArticleEntityRowsToRunCatalog,
-  filterMentionsToArticleEntityCatalog,
-  toArticleEntityRowsForSource,
   type ArticleEntityRow,
 } from "./analysis-article-mentions.js";
 import { buildArticleRelevancePostChunks } from "./analysis-relevance-post-chunks.js";
@@ -36,8 +30,6 @@ import {
   applyRelevanceSelectionDiversified,
 } from "./analysis-relevance-selection.js";
 import {
-  partitionExtractionByVocabulary,
-  validateExtractionVocabulary,
   type EntityProposal,
   type RelationProposal,
 } from "./analysis-vocabulary.js";
@@ -47,8 +39,13 @@ import {
 } from "./article-analysis-agent-data-api-post.js";
 import {
   ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+  ARTICLE_ANALYSIS_YIELD_REGRESSION_MESSAGE,
+  ARTICLE_ANALYSIS_YIELD_SNAPSHOT_MESSAGE,
   aggregateRelevanceObservability,
   buildArticleAnalysisRunSummaryPayload,
+  buildYieldSnapshotLogPayload,
+  compareYieldAgainstBaseline,
+  getRunYieldSnapshot,
   toSafeLogError,
   type ArticleAnalysisRunSummaryInput,
   type ChunkBuildParseCounts,
@@ -56,6 +53,7 @@ import {
   type LlmUsageTotals,
   type RelationCritiqueObservabilityAggregate,
   type VocabularyPartitioningObservabilityAggregate,
+  type YieldSnapshot,
 } from "./article-analysis-observability.js";
 import {
   deriveArticleAnalysisRunStatusLabel,
@@ -71,17 +69,7 @@ import {
 } from "./config-schema.js";
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import {
-  resolveArticleAnalysisExtractionSystemContent,
-  resolveArticleAnalysisExtractionUserContent,
-  buildBrainstormSystemContent,
-  buildBrainstormUserContent,
-  applyRelationCritiqueDrops,
-  buildRelationCritiqueModelMessages,
-  critiqueExtractedRelations,
-  relationCritiqueRowKey,
-  extractEntitiesAndRelationsForSource,
-  fetchArticleBrainstorm,
-  repairExtractionVocabulary,
+  buildArticleAnalysisExtractionSystemContent,
   type LlmExtractionUsage,
 } from "./llm-extract-entities.js";
 import { DEFAULT_EXTRACTION_EXEMPLARS } from "./exemplars/default-extraction-exemplars.js";
@@ -91,32 +79,28 @@ import {
   applyMaxBatchSizeCap,
   sortAnalysisDataSourcesByCreatedAt,
 } from "./run-helpers.js";
-import {
-  hardDeleteDataSourceById,
-  shouldHardDeleteDataSourceForNonArticleReason,
-  shouldHardDeleteDataSourceForExtractionError,
-} from "./extraction-failure-pruning.js";
+import { hardDeleteDataSourceById } from "./extraction-failure-pruning.js";
 import { normalizeEntityName } from "./normalize-entity-name.js";
 import {
   accumulateTruncationMeta,
   createEmptyTruncationTotals,
   resolveTruncationTickerContext,
-  truncateArticleForExtraction,
 } from "./utilities/article-content-truncator.js";
 import {
-  computeSourceQualityWithMeta,
+  createProcessOneSource,
+  type SourceProcessingOutcome,
+} from "./run-process-one-source.js";
+import { runExtractionsInParallel } from "./utilities/parallel-extraction.js";
+import {
   type HostTier,
   type SourceQualityComputeCtx,
 } from "./utilities/source-quality.js";
-import { buildEntityNamesForDiversification } from "./utilities/selection-diversification.js";
 import {
   createEmptyQualityCounters,
-  runArticleQualityGate,
   type QualityDropReason,
 } from "./utilities/content-quality-gate.js";
 import {
   accumulateGroundingCounters,
-  applyExtractionEntityGrounding,
   createEmptyGroundingTotals,
 } from "./utilities/entity-grounding.js";
 
@@ -259,10 +243,9 @@ export const run = async ({
   ArticleAnalysisInput,
   ArticleAnalysisConfig
 >): Promise<AgentRunResult> => {
-  const reanalyze = input.reanalyze ?? false;
-  const inputForQuery = { ...input, reanalyze };
   const cfg = resolveArticleAnalysisConfig(config);
   const runId = crypto.randomUUID();
+  const runStart = Date.now();
 
   const log = logger.child({
     component: "article-analysis",
@@ -283,103 +266,150 @@ export const run = async ({
       : {}),
   });
 
-  const emitRunSummary = (summary: ArticleAnalysisRunSummaryInput): void => {
+  const mergeRunSummaryInput = (
+    summary: ArticleAnalysisRunSummaryInput,
+  ): ArticleAnalysisRunSummaryInput => ({
+    ...summary,
+    perSourceLatency: summary.perSourceLatency ?? {
+      extractionMs: perSourceExtractionLatencyMs,
+      brainstormMs: perSourceBrainstormLatencyMs,
+      critiqueMs: perSourceCritiqueLatencyMs,
+    },
+    droppedByContentQuality: summary.droppedByContentQuality ?? {
+      ...droppedByContentQuality,
+    },
+    truncation:
+      summary.truncation ??
+      (truncationTotals.paragraphsKept > 0 ||
+      truncationTotals.paragraphsDropped > 0 ||
+      truncationTotals.leadCharsKept > 0 ||
+      truncationTotals.tickerSentencesKept > 0
+        ? {
+            leadCharsKept: truncationTotals.leadCharsKept,
+            tickerSentencesKept: truncationTotals.tickerSentencesKept,
+            paragraphsKept: truncationTotals.paragraphsKept,
+            paragraphsDropped: truncationTotals.paragraphsDropped,
+          }
+        : undefined),
+    exemplars: summary.exemplars ?? exemplarsObservability ?? undefined,
+    grounding:
+      summary.grounding ??
+      (groundingTotals.entitiesUngroundedTotal > 0 ||
+      groundingTotals.relationsDroppedTotal > 0 ||
+      groundingTotals.mentionsDroppedTotal > 0
+        ? {
+            entitiesUngroundedTotal: groundingTotals.entitiesUngroundedTotal,
+            relationsDroppedTotal: groundingTotals.relationsDroppedTotal,
+            mentionsDroppedTotal: groundingTotals.mentionsDroppedTotal,
+          }
+        : undefined),
+    relationCritique:
+      summary.relationCritique ??
+      (relationsCritiquedSources > 0 ||
+      relationsDroppedByCritique > 0 ||
+      relationsCritiqueSkippedDueToDeadline > 0 ||
+      relationCritiqueCalls > 0
+        ? {
+            sourcesCritiqued: relationsCritiquedSources,
+            relationsDroppedByCritique,
+            critiqueCalls: relationCritiqueCalls,
+            critiquePromptTokens: llmUsageTotals.critiquePromptTokens,
+            critiqueCompletionTokens: llmUsageTotals.critiqueCompletionTokens,
+          }
+        : undefined),
+    vocabularyPartitioning:
+      summary.vocabularyPartitioning ??
+      (badEntitiesDropped > 0 ||
+      badRelationsDropped > 0 ||
+      vocabularyRepairCallsAttempted > 0 ||
+      rowsRecoveredByRepair > 0
+        ? {
+            badEntitiesDropped,
+            badRelationsDropped,
+            repairCallsAttempted: vocabularyRepairCallsAttempted,
+            repairCallsSucceeded: vocabularyRepairCallsSucceeded,
+            repairCallsFailed: vocabularyRepairCallsFailed,
+            rowsRecoveredByRepair,
+          }
+        : undefined),
+    sourceQuality:
+      summary.sourceQuality ??
+      (sourceQualityScoredSourceCount > 0
+        ? {
+            tier1Sources: sourceQualityTier1Sources,
+            tier2Sources: sourceQualityTier2Sources,
+            tier3Sources: sourceQualityTier3Sources,
+            unknownHostSources: sourceQualityUnknownHostSources,
+            avgRecencyHours:
+              sourceQualityRecencyHoursCount > 0
+                ? sourceQualityRecencyHoursSum / sourceQualityRecencyHoursCount
+                : null,
+            avgQualityScore:
+              sourceQualityScoreSum / sourceQualityScoredSourceCount,
+          }
+        : undefined),
+    selection:
+      summary.selection ??
+      (selectionEligibleRows > 0 ||
+      selectionSuppressedAsDuplicates > 0 ||
+      selectionClustersFormed > 0
+        ? {
+            eligibleRows: selectionEligibleRows,
+            clustersFormed: selectionClustersFormed,
+            selectedAfterDiversification: selectionSelectedAfterDiversification,
+            suppressedAsDuplicates: selectionSuppressedAsDuplicates,
+            largestClusterSize: selectionLargestClusterSize,
+          }
+        : undefined),
+    parallelism:
+      summary.parallelism ??
+      (cfg.extractionConcurrency > 1 ||
+      extractionSkippedDueToDeadline > 0 ||
+      parallelPeakInFlight > 0
+        ? {
+            concurrency: cfg.extractionConcurrency,
+            peakInFlight: parallelPeakInFlight,
+            extractionSkippedDueToDeadline,
+            ...(parallelDeadlineFiredAtMs !== undefined
+              ? { deadlineFiredAtMs: parallelDeadlineFiredAtMs }
+              : {}),
+          }
+        : undefined),
+  });
+
+  /**
+   * Emits run summary and yield snapshot logs; returns snapshot for agent details.
+   *
+   * @param summary - Partial run summary; missing counters are filled from run scope.
+   * @returns Yield snapshot derived from the merged summary input.
+   */
+  const emitRunSummaryAndYield = (
+    summary: ArticleAnalysisRunSummaryInput,
+  ): YieldSnapshot => {
+    const merged = mergeRunSummaryInput(summary);
     log.info(
-      buildArticleAnalysisRunSummaryPayload({
-        ...summary,
-        droppedByContentQuality: summary.droppedByContentQuality ?? {
-          ...droppedByContentQuality,
-        },
-        truncation:
-          summary.truncation ??
-          (truncationTotals.paragraphsKept > 0 ||
-          truncationTotals.paragraphsDropped > 0 ||
-          truncationTotals.leadCharsKept > 0 ||
-          truncationTotals.tickerSentencesKept > 0
-            ? {
-                leadCharsKept: truncationTotals.leadCharsKept,
-                tickerSentencesKept: truncationTotals.tickerSentencesKept,
-                paragraphsKept: truncationTotals.paragraphsKept,
-                paragraphsDropped: truncationTotals.paragraphsDropped,
-              }
-            : undefined),
-        exemplars: summary.exemplars ?? exemplarsObservability ?? undefined,
-        grounding:
-          summary.grounding ??
-          (groundingTotals.entitiesUngroundedTotal > 0 ||
-          groundingTotals.relationsDroppedTotal > 0 ||
-          groundingTotals.mentionsDroppedTotal > 0
-            ? {
-                entitiesUngroundedTotal:
-                  groundingTotals.entitiesUngroundedTotal,
-                relationsDroppedTotal: groundingTotals.relationsDroppedTotal,
-                mentionsDroppedTotal: groundingTotals.mentionsDroppedTotal,
-              }
-            : undefined),
-        relationCritique:
-          summary.relationCritique ??
-          (relationsCritiquedSources > 0 ||
-          relationsDroppedByCritique > 0 ||
-          relationsCritiqueSkippedDueToDeadline > 0 ||
-          relationCritiqueCalls > 0
-            ? {
-                sourcesCritiqued: relationsCritiquedSources,
-                relationsDroppedByCritique,
-                critiqueCalls: relationCritiqueCalls,
-                critiquePromptTokens: llmUsageTotals.critiquePromptTokens,
-                critiqueCompletionTokens:
-                  llmUsageTotals.critiqueCompletionTokens,
-              }
-            : undefined),
-        vocabularyPartitioning:
-          summary.vocabularyPartitioning ??
-          (badEntitiesDropped > 0 ||
-          badRelationsDropped > 0 ||
-          vocabularyRepairCallsAttempted > 0 ||
-          rowsRecoveredByRepair > 0
-            ? {
-                badEntitiesDropped,
-                badRelationsDropped,
-                repairCallsAttempted: vocabularyRepairCallsAttempted,
-                repairCallsSucceeded: vocabularyRepairCallsSucceeded,
-                repairCallsFailed: vocabularyRepairCallsFailed,
-                rowsRecoveredByRepair,
-              }
-            : undefined),
-        sourceQuality:
-          summary.sourceQuality ??
-          (sourceQualityScoredSourceCount > 0
-            ? {
-                tier1Sources: sourceQualityTier1Sources,
-                tier2Sources: sourceQualityTier2Sources,
-                tier3Sources: sourceQualityTier3Sources,
-                unknownHostSources: sourceQualityUnknownHostSources,
-                avgRecencyHours:
-                  sourceQualityRecencyHoursCount > 0
-                    ? sourceQualityRecencyHoursSum /
-                      sourceQualityRecencyHoursCount
-                    : null,
-                avgQualityScore:
-                  sourceQualityScoreSum / sourceQualityScoredSourceCount,
-              }
-            : undefined),
-        selection:
-          summary.selection ??
-          (selectionEligibleRows > 0 ||
-          selectionSuppressedAsDuplicates > 0 ||
-          selectionClustersFormed > 0
-            ? {
-                eligibleRows: selectionEligibleRows,
-                clustersFormed: selectionClustersFormed,
-                selectedAfterDiversification:
-                  selectionSelectedAfterDiversification,
-                suppressedAsDuplicates: selectionSuppressedAsDuplicates,
-                largestClusterSize: selectionLargestClusterSize,
-              }
-            : undefined),
-      }),
+      buildArticleAnalysisRunSummaryPayload(merged),
       ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
     );
+    const yieldSnapshot = getRunYieldSnapshot(merged);
+    log.info(
+      buildYieldSnapshotLogPayload(yieldSnapshot),
+      ARTICLE_ANALYSIS_YIELD_SNAPSHOT_MESSAGE,
+    );
+    const comparison = compareYieldAgainstBaseline(
+      yieldSnapshot,
+      cfg.yieldBaseline,
+    );
+    if (comparison.regression && comparison.deltas !== null) {
+      log.warn(
+        {
+          baseline: comparison.baseline,
+          ...comparison.deltas,
+        },
+        ARTICLE_ANALYSIS_YIELD_REGRESSION_MESSAGE,
+      );
+    }
+    return yieldSnapshot;
   };
 
   const sourceQualityHostTiers: SourceQualityComputeCtx["hostTiers"] = {
@@ -478,6 +508,12 @@ export const run = async ({
   let relationsCreated = 0;
   let articlesScoredTotal = 0;
   let articlesSelectedTotal = 0;
+  let extractionSkippedDueToDeadline = 0;
+  let parallelPeakInFlight = 0;
+  let parallelDeadlineFiredAtMs: number | undefined;
+  const perSourceExtractionLatencyMs: number[] = [];
+  const perSourceBrainstormLatencyMs: number[] = [];
+  const perSourceCritiqueLatencyMs: number[] = [];
 
   const accumulateLlmUsage = (usage: LlmExtractionUsage | null): void => {
     if (!usage) {
@@ -512,12 +548,12 @@ export const run = async ({
   };
 
   try {
-    const effectiveMaxBatchSize = input.maxBatchSize ?? cfg.defaultMaxBatchSize;
+    const effectiveMaxBatchSize = cfg.maxBatchSize;
     const analysisGetLimit = Math.min(
       effectiveMaxBatchSize,
       cfg.analysisGetDataSourceLimitMax,
     );
-    const query = buildAnalysisGetQuery(inputForQuery, {
+    const query = buildAnalysisGetQuery(input.tickerId, {
       limit: analysisGetLimit,
     });
     const ctx = await dataApiClient.analysis.get(query);
@@ -528,7 +564,7 @@ export const run = async ({
       cfg.debounceMinUnanalyzedCount > 0 &&
       unanalyzedBacklogTotal < cfg.debounceMinUnanalyzedCount
     ) {
-      emitRunSummary({
+      const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "success",
         articlesProcessed: 0,
         extractionSuccessCount: 0,
@@ -552,9 +588,9 @@ export const run = async ({
         success: true,
         message: `debounce: ${unanalyzedBacklogTotal} unanalyzed source(s) below min ${cfg.debounceMinUnanalyzedCount}; skipping run`,
         details: {
+          yieldSnapshot,
           dataSourcesReturned: unanalyzedBacklogTotal,
           dataSourcesSelected: 0,
-          reanalyze,
           runStatus: "success" as const,
           extractionFailures: [] as ArticleAnalysisExtractionFailureRecord[],
           extractionSuccessCount: 0,
@@ -579,7 +615,7 @@ export const run = async ({
       minutesSinceUtcIso(ctx.lastRelevanceScoredAtIso) <
         cfg.debounceMinMinutesSinceLastScore
     ) {
-      emitRunSummary({
+      const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "success",
         articlesProcessed: 0,
         extractionSuccessCount: 0,
@@ -603,9 +639,9 @@ export const run = async ({
         success: true,
         message: `debounce: last relevance scored at ${ctx.lastRelevanceScoredAtIso} is within ${cfg.debounceMinMinutesSinceLastScore} minute(s); skipping run`,
         details: {
+          yieldSnapshot,
           dataSourcesReturned: unanalyzedBacklogTotal,
           dataSourcesSelected: 0,
-          reanalyze,
           runStatus: "success" as const,
           extractionFailures: [] as ArticleAnalysisExtractionFailureRecord[],
           extractionSuccessCount: 0,
@@ -628,7 +664,7 @@ export const run = async ({
     articlesProcessedForSummary = batch.length;
 
     if (batch.length === 0) {
-      emitRunSummary({
+      const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "success",
         articlesProcessed: 0,
         extractionSuccessCount: 0,
@@ -651,9 +687,9 @@ export const run = async ({
         success: true,
         message: "analysis context loaded (0 source(s)); nothing to process",
         details: {
+          yieldSnapshot,
           dataSourcesReturned: ctx.dataSourceTotalCount,
           dataSourcesSelected: 0,
-          reanalyze,
           runStatus: "success" as const,
           extractionFailures: [] as ArticleAnalysisExtractionFailureRecord[],
           extractionSuccessCount: 0,
@@ -673,7 +709,7 @@ export const run = async ({
     }
 
     if (ctx.entityTypes.length === 0 || ctx.relationTypes.length === 0) {
-      emitRunSummary({
+      const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "failure",
         articlesProcessed: batch.length,
         extractionSuccessCount: 0,
@@ -697,6 +733,7 @@ export const run = async ({
         message:
           "KG vocabulary from analysis GET is empty (entityTypes or relationTypes); cannot extract",
         details: {
+          yieldSnapshot,
           entityTypeCount: ctx.entityTypes.length,
           relationTypeCount: ctx.relationTypes.length,
           articlesScored: 0,
@@ -706,10 +743,7 @@ export const run = async ({
       };
     }
 
-    const systemContent = resolveArticleAnalysisExtractionSystemContent(
-      cfg.prompts?.systemPrompt,
-      ctx,
-    );
+    const systemContent = buildArticleAnalysisExtractionSystemContent(ctx);
     const resolvedExemplars = resolveExemplarsForContext(
       DEFAULT_EXTRACTION_EXEMPLARS,
       ctx,
@@ -735,513 +769,151 @@ export const run = async ({
       ctx.entityTypes,
       ctx.existingEntities,
     );
-    const runProcessingStartedAt = Date.now();
+    const isRunDeadlineElapsed = (): boolean =>
+      cfg.runDeadlineMs !== undefined &&
+      Date.now() - runStart >= cfg.runDeadlineMs;
 
-    for (const source of batch) {
-      const qualityDecision = runArticleQualityGate(
-        source.url,
-        source.title,
-        source.content,
-      );
-      if (qualityDecision.blocked) {
-        const nonArticleReason: QualityDropReason = qualityDecision.reason;
-        droppedByContentQuality[nonArticleReason] += 1;
-        extractionFailures.push({
-          dataSourceId: source.id,
-          stage: "prefilter",
-          message: nonArticleReason,
-        });
-        log.info(
-          {
-            dataSourceId: source.id,
-            stage: "prefilter",
-            nonArticleReason,
-          },
-          "article-analysis skipped source with non-article prefilter",
-        );
-        if (shouldHardDeleteDataSourceForNonArticleReason(nonArticleReason)) {
-          try {
-            await hardDeleteDataSourceById(source.id, {
-              dataApiClient,
-              tickerId: input.tickerId,
-            });
-            log.warn(
-              {
-                dataSourceId: source.id,
-                stage: "prefilter",
-                nonArticleReason,
-              },
-              "article-analysis hard-deleted data source after non-article prefilter",
-            );
-          } catch (deleteErr) {
-            log.warn(
-              {
-                dataSourceId: source.id,
-                stage: "prefilter",
-                err: toSafeLogError(deleteErr),
-                nonArticleReason,
-              },
-              "article-analysis failed to hard-delete data source after non-article prefilter",
-            );
-          }
-        }
-        continue;
+    const applySourceProcessingOutcome = (
+      outcome: SourceProcessingOutcome,
+    ): void => {
+      mergedEntities.push(...outcome.mergedEntities);
+      mergedRelations.push(...outcome.mergedRelations);
+      mergedArticleEntityRows.push(...outcome.mergedArticleEntityRows);
+      if (outcome.perSourceSignal !== undefined) {
+        perSourceSignals.push(outcome.perSourceSignal);
       }
-
-      const truncated = cfg.useStructureAwareTruncation
-        ? (() => {
-            const result = truncateArticleForExtraction(source.content, {
-              maxChars: cfg.maxContentChars,
-              tickerSymbols: truncationTickerContext.tickerSymbols,
-              companyAliases: truncationTickerContext.companyAliases,
-              leadParagraphsAlwaysKept: cfg.truncationLeadParagraphsAlwaysKept,
-              financialKeywordsExtra: cfg.truncationFinancialKeywordsExtra,
-            });
-            accumulateTruncationMeta(truncationTotals, result.meta);
-            return result.content;
-          })()
-        : source.content.length > cfg.maxContentChars
-          ? source.content.slice(0, cfg.maxContentChars)
-          : source.content;
-
-      try {
-        const t0 = Date.now();
-        const extractionUserContent =
-          resolveArticleAnalysisExtractionUserContent(
-            cfg.prompts?.userPromptTemplate,
-            {
-              tickerId: input.tickerId,
-              title: source.title,
-              contentTruncated: truncated,
-            },
-          );
-        lastLlmPromptFingerprint = computeLlmPromptFingerprint(
-          systemContent,
-          extractionUserContent,
-        );
-
-        let brainstormText: string | undefined;
-        const runElapsedMs = Date.now() - runProcessingStartedAt;
-        const shouldRunBrainstorm =
-          cfg.useBrainstormPass && runElapsedMs < cfg.runDeadlineMs;
-
-        if (shouldRunBrainstorm) {
-          try {
-            const brainstormResult = await fetchArticleBrainstorm({
-              apiKey: cfg.openaiApiKey,
-              model: cfg.brainstormModel,
-              maxOutputTokens: cfg.brainstormMaxOutputTokens,
-              messages: [
-                {
-                  role: "system",
-                  content: buildBrainstormSystemContent(ctx),
-                },
-                {
-                  role: "user",
-                  content: buildBrainstormUserContent({
-                    tickerId: input.tickerId,
-                    title: source.title,
-                    contentTruncated: truncated,
-                  }),
-                },
-              ],
-            });
-            brainstormCalls += 1;
-            accumulateBrainstormUsage(brainstormResult.usage);
-            if (brainstormResult.text.trim().length > 0) {
-              brainstormText = brainstormResult.text;
-            }
-          } catch (brainstormErr) {
-            log.warn(
-              {
-                dataSourceId: source.id,
-                stage: "brainstorm",
-                err: toSafeLogError(brainstormErr),
-              },
-              "article-analysis brainstorm pass failed; falling back to single-pass extraction",
-            );
-          }
-        } else if (cfg.useBrainstormPass && runElapsedMs >= cfg.runDeadlineMs) {
-          log.warn(
-            {
-              dataSourceId: source.id,
-              runElapsedMs,
-              runDeadlineMs: cfg.runDeadlineMs,
-            },
-            "article-analysis skipping brainstorm pass due to run deadline",
-          );
+      extractionFailures.push(...outcome.extractionFailures);
+      for (const [reason, count] of Object.entries(
+        outcome.droppedByContentQualityDelta,
+      )) {
+        if (count !== undefined && count > 0) {
+          droppedByContentQuality[reason as QualityDropReason] += count;
         }
+      }
+      if (outcome.truncationMeta !== undefined) {
+        accumulateTruncationMeta(truncationTotals, outcome.truncationMeta);
+      }
+      if (outcome.groundingCounters !== undefined) {
+        accumulateGroundingCounters(groundingTotals, outcome.groundingCounters);
+      }
+      if (outcome.llmPromptFingerprint !== undefined) {
+        lastLlmPromptFingerprint = outcome.llmPromptFingerprint;
+      }
+      if (outcome.extractionUsage !== undefined) {
+        accumulateLlmUsage(outcome.extractionUsage);
+      }
+      if (outcome.repairUsage !== undefined) {
+        accumulateLlmUsage(outcome.repairUsage);
+      }
+      if (outcome.brainstormUsage !== undefined) {
+        accumulateBrainstormUsage(outcome.brainstormUsage);
+      }
+      if (outcome.critiqueUsage !== undefined) {
+        accumulateCritiqueUsage(outcome.critiqueUsage);
+      }
+      extractionLatencyMsTotal += outcome.extractionLatencyMs;
+      extractionCalls += outcome.extractionCalls;
+      if (outcome.extractionCalls > 0) {
+        perSourceExtractionLatencyMs.push(outcome.extractionLatencyMs);
+      }
+      if (outcome.brainstormCalls > 0) {
+        perSourceBrainstormLatencyMs.push(outcome.brainstormLatencyMs);
+      }
+      if (outcome.relationCritiqueCalls > 0) {
+        perSourceCritiqueLatencyMs.push(outcome.critiqueLatencyMs);
+      }
+      brainstormCalls += outcome.brainstormCalls;
+      vocabularyFailures += outcome.vocabularyFailures;
+      badEntitiesDropped += outcome.badEntitiesDropped;
+      badRelationsDropped += outcome.badRelationsDropped;
+      vocabularyRepairCallsAttempted += outcome.vocabularyRepairCallsAttempted;
+      vocabularyRepairCallsSucceeded += outcome.vocabularyRepairCallsSucceeded;
+      vocabularyRepairCallsFailed += outcome.vocabularyRepairCallsFailed;
+      vocabularyRepairFailures += outcome.vocabularyRepairFailures;
+      rowsRecoveredByRepair += outcome.rowsRecoveredByRepair;
+      relationsCritiquedSources += outcome.relationsCritiquedSources;
+      relationsCritiqueSkippedDueToDeadline +=
+        outcome.relationsCritiqueSkippedDueToDeadline;
+      relationsDroppedByCritique += outcome.relationsDroppedByCritique;
+      relationCritiqueCalls += outcome.relationCritiqueCalls;
+      if (outcome.sourceQualityTier !== undefined) {
+        recordSourceQualityTier(outcome.sourceQualityTier);
+      }
+      if (outcome.sourceQualityScore !== undefined) {
+        sourceQualityScoredSourceCount += 1;
+        sourceQualityScoreSum += outcome.sourceQualityScore;
+      }
+      if (outcome.sourceQualityRecencyHours != null) {
+        sourceQualityRecencyHoursSum += outcome.sourceQualityRecencyHours;
+        sourceQualityRecencyHoursCount += 1;
+      }
+    };
 
-        const extractedResult = await extractEntitiesAndRelationsForSource({
-          apiKey: cfg.openaiApiKey,
-          model: cfg.openaiModel,
-          maxOutputTokens: cfg.maxOutputTokens,
-          messages: [
-            { role: "system", content: systemContent },
-            {
-              role: "user",
-              content: extractionUserContent,
-            },
-          ],
-          ...(resolvedExemplars.length > 0
-            ? { exemplars: resolvedExemplars }
-            : {}),
-          ...(brainstormText !== undefined ? { brainstormText } : {}),
-        });
-        extractionLatencyMsTotal += Date.now() - t0;
-        extractionCalls += 1;
-        accumulateLlmUsage(extractedResult.usage);
-        const extracted = extractedResult.object;
+    const processOneSource = createProcessOneSource({
+      cfg,
+      ctx,
+      tickerId: input.tickerId,
+      systemContent,
+      resolvedExemplars,
+      existingLookup,
+      truncationTickerContext,
+      sourceQualityHostTiers,
+      runStart,
+      isRunDeadlineElapsed,
+      resolveAgainstExistingEntities,
+      dataApiClient,
+      log,
+      hardDeleteDataSource: hardDeleteDataSourceById,
+    });
 
-        let entitiesForPipeline: EntityProposal[] = [...extracted.entities];
-        let relationsForPipeline: RelationProposal[] = [...extracted.relations];
+    const extractionDeadlineAtMs =
+      cfg.runDeadlineMs !== undefined && cfg.runDeadlineMs > 0
+        ? runStart + cfg.runDeadlineMs
+        : undefined;
 
-        if (cfg.vocabularyPolicy === "strict") {
-          const vocab = validateExtractionVocabulary(
-            entitiesForPipeline,
-            relationsForPipeline,
-            ctx,
-          );
-          if (!vocab.ok) {
-            vocabularyFailures += 1;
-            extractionFailures.push({
-              dataSourceId: source.id,
-              stage: "vocabulary",
-              message: vocab.message,
-            });
-            log.warn(
-              {
-                dataSourceId: source.id,
-                stage: "vocabulary",
-              },
-              "article-analysis vocabulary validation failed for source; skipping",
-            );
-            continue;
-          }
-        } else {
-          const partitioned = partitionExtractionByVocabulary(
-            entitiesForPipeline,
-            relationsForPipeline,
-            ctx,
-          );
-          badEntitiesDropped += partitioned.badEntities.length;
-          badRelationsDropped += partitioned.badRelations.length;
-          entitiesForPipeline = [...partitioned.okEntities];
-          relationsForPipeline = [...partitioned.okRelations];
-
-          const rejectedCount =
-            partitioned.badEntities.length + partitioned.badRelations.length;
-
-          if (
-            cfg.vocabularyPolicy === "repair" &&
-            rejectedCount > 0 &&
-            rejectedCount <= cfg.vocabularyRepairMaxItems
-          ) {
-            vocabularyRepairCallsAttempted += 1;
-            try {
-              const repairResult = await repairExtractionVocabulary({
-                apiKey: cfg.openaiApiKey,
-                model: cfg.vocabularyRepairModel,
-                maxOutputTokens: cfg.maxOutputTokens,
-                ctx,
-                badEntities: partitioned.badEntities,
-                badRelations: partitioned.badRelations,
-              });
-              accumulateLlmUsage(repairResult.usage);
-
-              const repairedPartition = partitionExtractionByVocabulary(
-                repairResult.entities,
-                repairResult.relations,
-                ctx,
-              );
-              badEntitiesDropped += repairedPartition.badEntities.length;
-              badRelationsDropped += repairedPartition.badRelations.length;
-
-              const recoveredCount =
-                repairedPartition.okEntities.length +
-                repairedPartition.okRelations.length;
-              if (recoveredCount > 0) {
-                vocabularyRepairCallsSucceeded += 1;
-                rowsRecoveredByRepair += recoveredCount;
-                entitiesForPipeline.push(...repairedPartition.okEntities);
-                relationsForPipeline.push(...repairedPartition.okRelations);
-              } else {
-                vocabularyRepairCallsFailed += 1;
-              }
-            } catch (repairErr) {
-              vocabularyRepairFailures += 1;
-              vocabularyRepairCallsFailed += 1;
-              log.warn(
-                {
-                  dataSourceId: source.id,
-                  stage: "vocabulary_repair",
-                  err: toSafeLogError(repairErr),
-                },
-                "article-analysis vocabulary repair failed; keeping partitioned good rows only",
-              );
-            }
-          } else if (
-            cfg.vocabularyPolicy === "repair" &&
-            rejectedCount > cfg.vocabularyRepairMaxItems
-          ) {
-            log.warn(
-              {
-                dataSourceId: source.id,
-                rejectedCount,
-                vocabularyRepairMaxItems: cfg.vocabularyRepairMaxItems,
-              },
-              "article-analysis skipping vocabulary repair due to rejected row cap",
-            );
-          }
-
-          if (
-            entitiesForPipeline.length === 0 &&
-            relationsForPipeline.length === 0
-          ) {
-            log.warn(
-              {
-                dataSourceId: source.id,
-                stage: "vocabulary",
-                vocabularyPolicy: cfg.vocabularyPolicy,
-              },
-              "article-analysis no vocabulary-valid rows remain for source; skipping",
-            );
-            continue;
-          }
-        }
-
-        const groundedExtraction = applyExtractionEntityGrounding({
-          entities: entitiesForPipeline,
-          relations: relationsForPipeline,
-          mentions: extracted.articleMentions,
-          articleText: source.content,
-          title: source.title,
-          policy: cfg.entityGroundingPolicy,
-          entityGroundingMinTitleHits: cfg.entityGroundingMinTitleHits,
-        });
-        accumulateGroundingCounters(
-          groundingTotals,
-          groundedExtraction.counters,
-        );
-        if (cfg.verbose && cfg.entityGroundingPolicy !== "off") {
-          log.info(
-            {
-              dataSourceId: source.id,
-              ungroundedEntityCount:
-                groundedExtraction.counters.ungroundedEntityCount,
-              relationsDroppedDueToUngroundedEndpoint:
-                groundedExtraction.counters
-                  .relationsDroppedDueToUngroundedEndpoint,
-              mentionsDroppedDueToUngroundedEntity:
-                groundedExtraction.counters
-                  .mentionsDroppedDueToUngroundedEntity,
-            },
-            "article-analysis entity grounding applied for source",
-          );
-        }
-
-        const resolved = resolveAgainstExistingEntities(
-          groundedExtraction.entities,
-          groundedExtraction.relations,
-          existingLookup,
-        );
-
-        let relationsAfterCritique = resolved.relations;
-        const critiqueEligible =
-          cfg.useRelationSelfCritique &&
-          resolved.relations.length >= cfg.relationCritiqueMinRelationCount;
-        const critiqueDeadlineElapsed =
-          Date.now() - runProcessingStartedAt >= cfg.runDeadlineMs;
-
-        if (critiqueEligible && critiqueDeadlineElapsed) {
-          relationsCritiqueSkippedDueToDeadline += 1;
-          log.warn(
-            {
-              dataSourceId: source.id,
-              runElapsedMs: Date.now() - runProcessingStartedAt,
-              runDeadlineMs: cfg.runDeadlineMs,
-              relationCount: resolved.relations.length,
-            },
-            "article-analysis skipping relation critique due to run deadline",
-          );
-        } else if (critiqueEligible) {
-          try {
-            const critiqueResult = await critiqueExtractedRelations({
-              apiKey: cfg.openaiApiKey,
-              model: cfg.relationCritiqueModel,
-              maxOutputTokens: cfg.maxOutputTokens,
-              messages: buildRelationCritiqueModelMessages(ctx, {
-                articleTitle: source.title,
-                articleBody: source.content,
-                candidates: resolved.relations,
-              }),
-            });
-            relationCritiqueCalls += 1;
-            relationsCritiquedSources += 1;
-            accumulateCritiqueUsage(critiqueResult.usage);
-            const critiqueApplied = applyRelationCritiqueDrops(
-              resolved.relations,
-              critiqueResult.ratings,
-              cfg.relationCritiqueDropFraction,
-            );
-            relationsDroppedByCritique += critiqueApplied.droppedCount;
-            relationsAfterCritique = critiqueApplied.relations;
-            for (const relation of resolved.relations) {
-              const evidenceSpan = critiqueApplied.evidenceByKey.get(
-                relationCritiqueRowKey(relation),
-              );
-              if (evidenceSpan !== undefined) {
-                log.info(
-                  {
-                    dataSourceId: source.id,
-                    from: relation.fromEntityName,
-                    to: relation.toEntityName,
-                    relationTypeId: relation.relationTypeId,
-                    evidenceSpan,
-                  },
-                  "article-analysis relation critique evidence",
-                );
-              }
-            }
-          } catch (critiqueErr) {
-            log.warn(
-              {
-                dataSourceId: source.id,
-                stage: "relation_critique",
-                err: toSafeLogError(critiqueErr),
-              },
-              "article-analysis relation critique failed; keeping post-grounding relations",
-            );
-          }
-        }
-
-        const capped = applyPerArticleExtractionCaps(
-          resolved.entities,
-          relationsAfterCritique,
-          cfg.maxEntitiesPerArticle,
-          cfg.maxRelationsPerArticle,
-        );
-        mergedEntities.push(...capped.entities);
-        mergedRelations.push(...capped.relations);
-
-        const allowedCatalog = buildNormalizedEntityCatalogForArticle(
-          capped.entities,
-        );
-        const mentionFiltered = filterMentionsToArticleEntityCatalog(
-          groundedExtraction.mentions,
-          allowedCatalog,
-        );
-        const mentionCapped = applyPerArticleArticleMentionCap(
-          mentionFiltered,
-          cfg.maxArticleEntitiesPerArticle,
-        );
-        mergedArticleEntityRows.push(
-          ...toArticleEntityRowsForSource(source.id, mentionCapped),
-        );
-
-        const avgMentionConfidence =
-          mentionCapped.length === 0
-            ? 0
-            : mentionCapped.reduce((s, m) => s + m.confidence, 0) /
-              mentionCapped.length;
-        const sourceWithOptionalPublishedAt = source as typeof source & {
-          publishedAt?: Date | null;
-        };
-        let sourceQualityScore: number | undefined;
-        if (cfg.useSourceQualityV2) {
-          const qualityMeta = computeSourceQualityWithMeta(
-            {
-              url: source.url,
-              title: source.title,
-              content: source.content,
-              createdAt: source.createdAt,
-              publishedAt: sourceWithOptionalPublishedAt.publishedAt,
-            },
-            {
-              now: new Date(),
-              recencyHalfLifeHours: cfg.sourceQualityRecencyHalfLifeHours,
-              hostTiers: sourceQualityHostTiers,
-            },
-          );
-          sourceQualityScore = qualityMeta.qualityScore;
-          recordSourceQualityTier(qualityMeta.hostTier);
-          sourceQualityScoredSourceCount += 1;
-          sourceQualityScoreSum += qualityMeta.qualityScore;
-          if (qualityMeta.ageHours !== null) {
-            sourceQualityRecencyHoursSum += qualityMeta.ageHours;
-            sourceQualityRecencyHoursCount += 1;
-          }
-          if (cfg.verbose) {
-            log.info(
-              {
-                dataSourceId: source.id,
-                hostTier: qualityMeta.hostTier,
-                hostClassScore: qualityMeta.hostClassScore,
-                recencyScore: qualityMeta.recencyScore,
-                ageHours: qualityMeta.ageHours,
-                structuralScore: qualityMeta.structuralScore,
-                qualityScore: qualityMeta.qualityScore,
-              },
-              "article-analysis source quality breakdown",
-            );
-          }
-        }
-
-        perSourceSignals.push({
-          dataSourceId: source.id,
-          createdAt: source.createdAt,
-          entityCount: capped.entities.length,
-          relationCount: capped.relations.length,
-          mentionCount: mentionCapped.length,
-          avgMentionConfidence,
-          titleLower: source.title.toLowerCase(),
-          textLower: truncated.toLowerCase(),
-          entityNames: buildEntityNamesForDiversification(
-            capped.entities,
-            mentionCapped.map((mention) => mention.entityName),
-          ),
-          ...(sourceQualityScore !== undefined ? { sourceQualityScore } : {}),
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        extractionFailures.push({
-          dataSourceId: source.id,
-          stage: "llm",
-          message,
-        });
+    const walkResult = await runExtractionsInParallel(batch, processOneSource, {
+      concurrency: cfg.extractionConcurrency,
+      deadlineAtMs: extractionDeadlineAtMs,
+      onDeadlineSkip: (source) => {
         log.warn(
           {
             dataSourceId: source.id,
-            stage: "llm",
-            err: toSafeLogError(err),
+            runDeadlineMs: cfg.runDeadlineMs,
           },
-          "article-analysis LLM extraction failed for source; skipping",
+          "article-analysis skipped source extraction due to run deadline",
         );
-        if (shouldHardDeleteDataSourceForExtractionError(message)) {
-          try {
-            await hardDeleteDataSourceById(source.id, {
-              dataApiClient,
-              tickerId: input.tickerId,
-            });
-            log.warn(
-              {
-                dataSourceId: source.id,
-                stage: "llm",
-              },
-              "article-analysis hard-deleted data source after unrecoverable extraction parse failure",
-            );
-          } catch (deleteErr) {
-            log.warn(
-              {
-                dataSourceId: source.id,
-                stage: "llm",
-                err: toSafeLogError(deleteErr),
-              },
-              "article-analysis failed to hard-delete data source after extraction parse failure",
-            );
-          }
-        }
+      },
+    });
+
+    extractionSkippedDueToDeadline =
+      walkResult.stats.extractionSkippedDueToDeadline;
+    parallelPeakInFlight = walkResult.stats.peakInFlight;
+    parallelDeadlineFiredAtMs = walkResult.stats.deadlineFiredAtMs;
+
+    for (const itemOutcome of walkResult.results) {
+      if (itemOutcome.ok) {
+        applySourceProcessingOutcome(itemOutcome.value);
+        continue;
       }
+
+      const source = batch[itemOutcome.index]!;
+      const message =
+        itemOutcome.error instanceof Error
+          ? itemOutcome.error.message
+          : String(itemOutcome.error);
+      extractionFailures.push({
+        dataSourceId: source.id,
+        stage: "llm",
+        message,
+      });
+      log.warn(
+        {
+          dataSourceId: source.id,
+          stage: "llm",
+          err: toSafeLogError(itemOutcome.error),
+        },
+        "article-analysis unexpected per-source processing failure; skipping",
+      );
     }
 
     extractionSuccessCount = perSourceSignals.length;
@@ -1252,7 +924,7 @@ export const run = async ({
         cfg.runPolicy,
       )
     ) {
-      emitRunSummary({
+      const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "failure",
         articlesProcessed: batch.length,
         extractionSuccessCount,
@@ -1275,6 +947,7 @@ export const run = async ({
         success: false,
         message: `Article analysis run failed: only ${extractionSuccessCount} source(s) extracted successfully, but run policy requires at least ${cfg.runPolicy.minSuccessfulSources}.`,
         details: {
+          yieldSnapshot,
           extractionFailures,
           extractionSuccessCount,
           runPolicy: cfg.runPolicy,
@@ -1283,7 +956,6 @@ export const run = async ({
           relevancePostChunks: 0,
           postFailures: [] as ArticleAnalysisPostFailureRecord[],
           dataSourcesProcessed: batch.length,
-          reanalyze,
           vocabularyFailures,
         },
       };
@@ -1309,7 +981,7 @@ export const run = async ({
         extractionFailures.length,
         postFailures.length,
       );
-      emitRunSummary({
+      const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "success",
         articlesProcessed: batch.length,
         extractionSuccessCount,
@@ -1335,6 +1007,7 @@ export const run = async ({
             ? `no extraction produced (${extractionFailures.length} source(s) failed extraction; check logs)`
             : "extraction produced no entities or relations",
         details: {
+          yieldSnapshot,
           dataSourcesProcessed: batch.length,
           extractionFailures,
           extractionSuccessCount,
@@ -1350,7 +1023,6 @@ export const run = async ({
           articlesScored: 0,
           articlesSelected: 0,
           relevancePostChunks: 0,
-          reanalyze,
           vocabularyFailures,
         },
       };
@@ -1426,7 +1098,7 @@ export const run = async ({
         extractionFailures.length,
         postFailures.length,
       );
-      emitRunSummary({
+      const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "success",
         articlesProcessed: batch.length,
         extractionSuccessCount,
@@ -1450,6 +1122,7 @@ export const run = async ({
         message:
           "no valid POST chunks after extraction (check relation endpoint names vs entity canonicalName)",
         details: {
+          yieldSnapshot,
           dataSourcesProcessed: batch.length,
           relationCountAfterCaps: relations.length,
           droppedRelations,
@@ -1465,7 +1138,6 @@ export const run = async ({
           articlesScored: 0,
           articlesSelected: 0,
           relevancePostChunks: 0,
-          reanalyze,
           vocabularyFailures,
         },
       };
@@ -1600,7 +1272,7 @@ export const run = async ({
         }
       }
       if (relevanceValidationErrors.length > 0) {
-        emitRunSummary({
+        const yieldSnapshot = emitRunSummaryAndYield({
           outcome: "failure",
           articlesProcessed: batch.length,
           extractionSuccessCount,
@@ -1628,6 +1300,7 @@ export const run = async ({
           message:
             "article-analysis relevance row validation failed before selection",
           details: {
+            yieldSnapshot,
             tickerId: input.tickerId,
             validationErrorCount: relevanceValidationErrors.length,
             relevanceValidationErrors: relevanceValidationErrors.slice(0, 20),
@@ -1688,7 +1361,7 @@ export const run = async ({
           },
           "article-analysis relevance chunk build reported parse issues",
         );
-        emitRunSummary({
+        const yieldSnapshot = emitRunSummaryAndYield({
           outcome: "failure",
           articlesProcessed: batch.length,
           extractionSuccessCount,
@@ -1715,6 +1388,7 @@ export const run = async ({
           success: false,
           message: "article-analysis relevance chunk parse failed",
           details: {
+            yieldSnapshot,
             tickerId: input.tickerId,
             parseErrorCount: relevanceParseErrors.length,
             relevanceParseErrors: relevanceParseErrors.slice(0, 20),
@@ -1772,7 +1446,7 @@ export const run = async ({
         ? aggregateRelevanceObservability(relevanceRowsForObservability)
         : null;
 
-    emitRunSummary({
+    const yieldSnapshot = emitRunSummaryAndYield({
       outcome: "success",
       articlesProcessed: batch.length,
       extractionSuccessCount,
@@ -1800,6 +1474,7 @@ export const run = async ({
       success: true,
       message: `complete (${runStatus}): ${erPostChunksCompleted}/${chunks.length} ER chunk(s), ${mentionPostChunksCompleted} articleEntity chunk(s), ${relevancePostChunksCompleted} relevance chunk(s); entitiesCreated=${entitiesCreated} entitiesReused=${entitiesReused} relationsCreated=${relationsCreated} articleEntityRowsPosted=${articleEntityRowsPosted} articlesScored=${articlesScoredTotal} articlesSelected=${articlesSelectedTotal}`,
       details: {
+        yieldSnapshot,
         dataSourcesProcessed: batch.length,
         dataSourcesReturned: ctx.dataSourceTotalCount,
         extractionFailures,
@@ -1824,7 +1499,6 @@ export const run = async ({
         ),
         droppedRelations,
         articleEntityParseErrors: articleEntityParseErrors.slice(0, 20),
-        reanalyze,
         vocabularyFailures,
         ...(lastLlmPromptFingerprint !== undefined
           ? { llmPromptFingerprint: lastLlmPromptFingerprint }
@@ -1837,7 +1511,7 @@ export const run = async ({
         ? error.message
         : "agent-data-api article-analysis run failed";
     log.error({ err: toSafeLogError(error) }, message);
-    emitRunSummary({
+    const yieldSnapshot = emitRunSummaryAndYield({
       outcome: "failure",
       articlesProcessed: articlesProcessedForSummary,
       extractionSuccessCount,
@@ -1859,6 +1533,6 @@ export const run = async ({
         ? { llmPromptFingerprint: lastLlmPromptFingerprint }
         : {}),
     });
-    return { success: false, message };
+    return { success: false, message, details: { yieldSnapshot } };
   }
 };
