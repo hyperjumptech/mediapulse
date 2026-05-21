@@ -21,7 +21,14 @@ const defaultConfig = {
     headerName: "Authorization",
   },
   rateLimit: { requests: 2, perSeconds: 1 },
+  concurrency: 4,
 };
+
+/** Builds a got POST response stub with HTTP status metadata. */
+const mockGotPostResponse = (jsonValue: unknown, statusCode = 200) => ({
+  statusCode,
+  json: vi.fn().mockResolvedValue(jsonValue),
+});
 
 describe("performWebFetch", () => {
   afterEach(() => {
@@ -30,15 +37,15 @@ describe("performWebFetch", () => {
 
   it("calls Jina and returns enriched pages", async () => {
     // Setup
-    const postMock = vi.fn().mockReturnValue({
-      json: vi.fn().mockResolvedValue({
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
         data: {
           url: "http://example.com",
           title: "Title",
           content: "Full content",
         },
       }),
-    });
+    );
 
     const fakeGot = { post: postMock } as unknown as typeof got;
 
@@ -50,6 +57,7 @@ describe("performWebFetch", () => {
         tickerId: "ticker-1",
         searchQueryId: "q1",
         searchQueryText: "query",
+        serpIndex: 0,
       },
     ];
 
@@ -86,11 +94,11 @@ describe("performWebFetch", () => {
 
   it("returns failure when Jina returns invalid response shape", async () => {
     // Setup
-    const postMock = vi.fn().mockReturnValue({
-      json: vi.fn().mockResolvedValue({
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
         data: "not-an-object",
       }),
-    });
+    );
 
     const fakeGot = { post: postMock } as unknown as typeof got;
     const searchResults: WebSearchResult[] = [
@@ -101,6 +109,7 @@ describe("performWebFetch", () => {
         tickerId: "ticker-1",
         searchQueryId: "q1",
         searchQueryText: "query",
+        serpIndex: 0,
       },
     ];
 
@@ -125,11 +134,11 @@ describe("performWebFetch", () => {
     // Setup
     const warnMock = vi.fn();
     const infoMock = vi.fn();
-    const postMock = vi.fn().mockReturnValue({
-      json: vi.fn().mockResolvedValue({
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
         data: "not-an-object",
       }),
-    });
+    );
 
     const fakeGot = { post: postMock } as unknown as typeof got;
     const longPath = "a".repeat(130);
@@ -142,6 +151,7 @@ describe("performWebFetch", () => {
         tickerId: "ticker-1",
         searchQueryId: "q1",
         searchQueryText: "query",
+        serpIndex: 0,
       },
     ];
 

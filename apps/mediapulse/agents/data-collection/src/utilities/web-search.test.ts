@@ -20,7 +20,14 @@ const defaultConfig = {
     headerName: "X-API-KEY",
   },
   rateLimit: { requests: 2, perSeconds: 1 },
+  concurrency: 4,
 };
+
+/** Builds a got POST response stub with HTTP status metadata. */
+const mockGotPostResponse = (jsonValue: unknown, statusCode = 200) => ({
+  statusCode,
+  json: vi.fn().mockResolvedValue(jsonValue),
+});
 
 describe("performWebSearch", () => {
   afterEach(() => {
@@ -40,11 +47,11 @@ describe("performWebSearch", () => {
   it("warns when webSearch.baseUrl is Jina (expects Serper for { q } POSTs)", async () => {
     const warnMock = vi.fn();
     const infoMock = vi.fn();
-    const postMock = vi.fn().mockReturnValue({
-      json: vi.fn().mockResolvedValue({
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
         organic: [{ link: "https://a.com", title: "t", snippet: "s" }],
       }),
-    });
+    );
     const fakeGot = { post: postMock } as unknown as typeof got;
 
     await performWebSearch([{ id: "q1", text: "x", tickerId: "t-1" }], {
@@ -72,8 +79,8 @@ describe("performWebSearch", () => {
 
   it("calls Serper and maps the first organic result", async () => {
     // Setup
-    const postMock = vi.fn().mockReturnValue({
-      json: vi.fn().mockResolvedValue({
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
         organic: [
           {
             link: "http://example.com",
@@ -82,7 +89,7 @@ describe("performWebSearch", () => {
           },
         ],
       }),
-    });
+    );
 
     const fakeGot = { post: postMock } as unknown as typeof got;
     const queries: SearchQuery[] = [
@@ -116,17 +123,18 @@ describe("performWebSearch", () => {
         tickerId: "ticker-1",
         searchQueryId: "q1",
         searchQueryText: "search",
+        serpIndex: 0,
       },
     });
   });
 
   it("returns failure when Serper returns invalid response shape", async () => {
     // Setup
-    const postMock = vi.fn().mockReturnValue({
-      json: vi.fn().mockResolvedValue({
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
         organic: "not-an-array",
       }),
-    });
+    );
 
     const fakeGot = { post: postMock } as unknown as typeof got;
     const queries: SearchQuery[] = [
@@ -153,11 +161,11 @@ describe("performWebSearch", () => {
     // Setup
     const warnMock = vi.fn();
     const infoMock = vi.fn();
-    const postMock = vi.fn().mockReturnValue({
-      json: vi.fn().mockResolvedValue({
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
         organic: "not-an-array",
       }),
-    });
+    );
 
     const fakeGot = { post: postMock } as unknown as typeof got;
     const queries: SearchQuery[] = [

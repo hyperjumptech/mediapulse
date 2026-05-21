@@ -72,6 +72,7 @@ import {
   postQueryAnalysisBodySchema,
   postQueryAnalysisResponseSchema,
 } from "./query-analysis.js";
+import { getTickerQuerySchema, getTickerResponseSchema } from "./ticker.js";
 
 type AgentDataApiMethodSchema =
   | {
@@ -334,6 +335,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postQueryAnalysisBodySchema,
         response: postQueryAnalysisResponseSchema,
+      },
+    },
+  },
+  ticker: {
+    v1: {
+      get: {
+        query: getTickerQuerySchema,
+        response: getTickerResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getTickerQuerySchema,
+        response: getTickerResponseSchema,
       },
     },
   },

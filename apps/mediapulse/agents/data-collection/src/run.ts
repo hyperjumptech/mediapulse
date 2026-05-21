@@ -9,9 +9,17 @@ import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import { performWebFetch } from "./utilities/web-fetch";
 import { performWebSearch } from "./utilities/web-search";
-import { classifyNonArticleContent } from "./utilities/content-shape-filter";
+import {
+  createEmptyQualityCounters,
+  runQualityGate,
+} from "./utilities/content-quality-gate";
 import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
 import { resolveExistingDataSourceUrls } from "./utilities/resolve-existing-data-source-urls";
+import { applyFetchBudget } from "./utilities/hit-ranker";
+import {
+  buildTickerAliases,
+  isRelevant,
+} from "./utilities/ticker-relevance-gate";
 import {
   deriveRunStatus,
   type RunCounters,
@@ -72,6 +80,33 @@ export async function runDataCollection(
 
   const webSearchConfig = config.webSearch;
   const webFetchConfig = config.webFetch;
+  const relevanceGateConfig = config.relevanceGate ?? {
+    enabled: true,
+    headChars: 1500,
+    minMatches: 1,
+  };
+  const perQueryFetchBudget = config.perQueryFetchBudget ?? 3;
+  const perRunFetchBudget = config.perRunFetchBudget ?? 40;
+
+  const tickerRecord = await dataApiClient.ticker.get({
+    tickerId: input.tickerId,
+  });
+  const tickerAliases = buildTickerAliases(
+    tickerRecord.symbol,
+    tickerRecord.name,
+    tickerRecord.aliases,
+  );
+  if (tickerAliases.length === 0) {
+    log.warn(
+      { tickerId: input.tickerId },
+      "ticker has no aliases; relevance gate is a no-op for this run",
+    );
+  } else {
+    log.info(
+      { aliasCount: tickerAliases.length },
+      "loaded ticker aliases for relevance gate",
+    );
+  }
 
   const query: { tickerId: string; start?: string; end?: string } = {
     tickerId: input.tickerId,
@@ -141,7 +176,11 @@ export async function runDataCollection(
   };
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
-  let droppedByContentShape = 0;
+  const droppedByContentQuality = createEmptyQualityCounters();
+  let droppedByRelevance = 0;
+  let droppedByPerQueryBudget = 0;
+  let droppedByPerRunBudget = 0;
+  let throttleEvents = 0;
 
   if (queries.length === 0) {
     refillStopReason = "no_queries";
@@ -150,10 +189,13 @@ export async function runDataCollection(
   } else {
     for (let round = 1; round <= maxTotalRounds; round += 1) {
       roundsExecuted += 1;
+      const searchThrottleStats = { throttleEvents: 0 };
       const searchAttemptResults = await performWebSearch(queries, {
         config: webSearchConfig,
         logger: log,
+        throttleStats: searchThrottleStats,
       });
+      throttleEvents += searchThrottleStats.throttleEvents;
       const roundSearchSuccesses = searchAttemptResults
         .filter((r) => r.success)
         .map((r) => r.data);
@@ -197,11 +239,12 @@ export async function runDataCollection(
 
       const filteredSearchSuccesses = [...canonicalUniqueHits.values()];
       const candidateUrls = filteredSearchSuccesses.map((hit) => hit.url);
-      const existingUrlSet = await resolveExistingDataSourceUrls(
-        input.tickerId,
-        candidateUrls,
-        (body) => dataApiClient.dataCollectionExistingUrls.create(body),
-      );
+      const { existingUrls: existingUrlSet, hostCounts } =
+        await resolveExistingDataSourceUrls(
+          input.tickerId,
+          candidateUrls,
+          (body) => dataApiClient.dataCollectionExistingUrls.create(body),
+        );
       const searchSuccessesForFetch = filteredSearchSuccesses.filter(
         (hit) => !existingUrlSet.has(hit.url),
       );
@@ -219,13 +262,37 @@ export async function runDataCollection(
         );
       }
 
-      const fetchAttemptResults = await performWebFetch(
-        searchSuccessesForFetch,
-        {
-          config: webFetchConfig,
-          logger: log,
-        },
-      );
+      const budgetSelection = applyFetchBudget(searchSuccessesForFetch, {
+        tickerAliases,
+        hostCounts,
+        perQueryFetchBudget,
+        perRunFetchBudget,
+      });
+      droppedByPerQueryBudget += budgetSelection.droppedByPerQueryBudget;
+      droppedByPerRunBudget += budgetSelection.droppedByPerRunBudget;
+      if (
+        budgetSelection.droppedByPerQueryBudget > 0 ||
+        budgetSelection.droppedByPerRunBudget > 0
+      ) {
+        log.info(
+          {
+            round,
+            selectedForFetch: budgetSelection.hits.length,
+            droppedByPerQueryBudget: budgetSelection.droppedByPerQueryBudget,
+            droppedByPerRunBudget: budgetSelection.droppedByPerRunBudget,
+            skippedByQuery: budgetSelection.skippedByQuery,
+          },
+          "applied pre-fetch ranking and fetch budgets",
+        );
+      }
+
+      const fetchThrottleStats = { throttleEvents: 0 };
+      const fetchAttemptResults = await performWebFetch(budgetSelection.hits, {
+        config: webFetchConfig,
+        logger: log,
+        throttleStats: fetchThrottleStats,
+      });
+      throttleEvents += fetchThrottleStats.throttleEvents;
       const roundFetchSuccesses = fetchAttemptResults
         .filter((r) => r.success)
         .map((r) => r.data);
@@ -241,13 +308,40 @@ export async function runDataCollection(
           continue;
         }
 
-        const contentDecision = classifyNonArticleContent(
+        const contentDecision = runQualityGate(
           page.title,
           page.content,
+          page.url,
         );
         if (contentDecision.blocked) {
-          droppedByContentShape += 1;
+          droppedByContentQuality[contentDecision.reason] += 1;
           continue;
+        }
+
+        if (relevanceGateConfig.enabled) {
+          const relevanceDecision = isRelevant(
+            {
+              title: page.title,
+              content: page.content,
+              aliases: tickerAliases,
+            },
+            {
+              headChars: relevanceGateConfig.headChars,
+              minMatches: relevanceGateConfig.minMatches,
+            },
+          );
+          if (!relevanceDecision.relevant) {
+            droppedByRelevance += 1;
+            log.info(
+              {
+                round,
+                url: page.url.slice(0, 120),
+                reason: relevanceDecision.reason,
+              },
+              "dropped page that did not mention the target ticker",
+            );
+            continue;
+          }
         }
 
         finalFetchSuccesses.push({
@@ -265,7 +359,11 @@ export async function runDataCollection(
           droppedByUrlReason,
           droppedByDuplicateCanonicalUrl,
           droppedByExistingCanonicalUrl,
-          droppedByContentShape,
+          droppedByContentQuality,
+          droppedByRelevance,
+          droppedByPerQueryBudget,
+          droppedByPerRunBudget,
+          throttleEvents,
         },
         "web fetch stage finished",
       );
@@ -351,6 +449,8 @@ export async function runDataCollection(
     fetchSuccess: fetchSuccessCount,
     fetchFailed: fetchFailedCount,
     retryCount: 0,
+    droppedByRelevance,
+    throttleEvents,
   };
 
   const runPayload = {
@@ -381,6 +481,10 @@ export async function runDataCollection(
     status,
     searchSuccess: searchSuccessCount,
     fetchSuccess: fetchSuccessCount,
+    droppedByRelevance,
+    droppedByPerQueryBudget,
+    droppedByPerRunBudget,
+    throttleEvents,
     refill: {
       roundsExecuted,
       maxTotalRounds,
@@ -434,6 +538,10 @@ export async function runDataCollection(
       durationMs,
       totalSources,
       failureCount: failuresPayload.length,
+      droppedByRelevance,
+      droppedByPerQueryBudget,
+      droppedByPerRunBudget,
+      throttleEvents,
     },
     completionMessage,
   );

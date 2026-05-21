@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
+const concurrencySchema = z.number().int().min(1).max(16).default(4);
+
 const webSearchSchema = z.object({
   baseUrl: z.string(),
   authentication: z.object({
@@ -12,6 +14,7 @@ const webSearchSchema = z.object({
     requests: z.number().int().positive(),
     perSeconds: z.number().positive(),
   }),
+  concurrency: concurrencySchema,
   timeoutMs: z.number().int().positive().optional(),
   retry: z
     .object({
@@ -33,6 +36,7 @@ const webFetchSchema = z.object({
     requests: z.number().int().positive(),
     perSeconds: z.number().positive(),
   }),
+  concurrency: concurrencySchema,
   timeoutMs: z.number().int().positive().optional(),
   retry: z
     .object({
@@ -43,12 +47,21 @@ const webFetchSchema = z.object({
     .optional(),
 });
 
+const relevanceGateSchema = z.object({
+  enabled: z.boolean().default(true),
+  headChars: z.number().int().positive().default(1500),
+  minMatches: z.number().int().positive().default(1),
+});
+
 /** Zod schema for agent config: web search/fetch providers, optional run policy. */
 export const ConfigSchema = z.object({
   webSearch: webSearchSchema,
   webFetch: webFetchSchema,
   targetDailySuccessfulSources: z.number().int().positive().optional(),
   maxRefillRounds: z.number().int().nonnegative().optional(),
+  relevanceGate: relevanceGateSchema.optional(),
+  perQueryFetchBudget: z.number().int().positive().default(3),
+  perRunFetchBudget: z.number().int().positive().default(40),
   runPolicy: z
     .object({
       minSuccessfulSources: z.number().int().nonnegative(),

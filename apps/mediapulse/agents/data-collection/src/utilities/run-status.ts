@@ -16,6 +16,8 @@ export type RunCounters = {
   fetchSuccess: number;
   fetchFailed: number;
   retryCount: number;
+  droppedByRelevance: number;
+  throttleEvents: number;
 };
 
 /**

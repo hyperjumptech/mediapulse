@@ -52,4 +52,18 @@ describe("createSlidingWindowRateLimiter data-collection parity", () => {
 
     await expect(pending).resolves.toBeGreaterThanOrEqual(0);
   });
+
+  it("updates the active window length", () => {
+    // Setup
+    const limiter = createSlidingWindowRateLimiter({
+      windowMs: 1000,
+      maxInWindow: 2,
+    });
+
+    // Act
+    limiter.setWindowMs(2000);
+
+    // Assert
+    expect(limiter.getWindowMs()).toBe(2000);
+  });
 });

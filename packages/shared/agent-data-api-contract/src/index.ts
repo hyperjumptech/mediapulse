@@ -160,4 +160,9 @@ export {
   type PostContentGenerationRunBody,
   type PostContentGenerationRunResponse,
 } from "./content-generation-run.js";
-export * from "./user-registration.js";
+export {
+  getTickerQuerySchema,
+  getTickerResponseSchema,
+  type GetTickerQuery,
+  type GetTickerResponse,
+} from "./ticker.js";

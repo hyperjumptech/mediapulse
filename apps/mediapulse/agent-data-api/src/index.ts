@@ -40,6 +40,7 @@ import {
   postUserRegistrationUnsubscribeHandler,
   getUserRegistrationTickersHandler,
 } from "./routes/user-registration.js";
+import { getTicker } from "./routes/ticker.js";
 import {
   getQueryAnalysis,
   postQueryAnalysis,
@@ -111,6 +112,9 @@ const routeHandlers = {
   queryAnalysis: {
     get: getQueryAnalysis,
     post: postQueryAnalysis,
+  },
+  ticker: {
+    get: getTicker,
   },
   deliveryRun: {
     get: getDeliveryRun,

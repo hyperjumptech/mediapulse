@@ -61,6 +61,51 @@ describe("dataCollectionAgentConfigSchema", () => {
     expect(parsed.maxRefillRounds).toBe(3);
   });
 
+  it("applies relevance gate defaults when omitted", () => {
+    // Setup
+    const config = {
+      webSearch: {
+        baseUrl: "https://google.serper.dev",
+        authentication: {
+          type: "bearer" as const,
+          apiKey: "key",
+          headerName: "X-API-KEY",
+        },
+        rateLimit: {
+          requests: 100,
+          perSeconds: 60,
+        },
+      },
+      webFetch: {
+        baseUrl: "https://r.jina.ai",
+        authentication: {
+          type: "bearer" as const,
+          apiKey: "key",
+          headerName: "Authorization",
+        },
+        rateLimit: {
+          requests: 100,
+          perSeconds: 60,
+        },
+      },
+      relevanceGate: {
+        enabled: true,
+        headChars: 1500,
+        minMatches: 1,
+      },
+    };
+
+    // Act
+    const parsed = dataCollectionAgentConfigSchema.parse(config);
+
+    // Assert
+    expect(parsed.relevanceGate).toEqual({
+      enabled: true,
+      headChars: 1500,
+      minMatches: 1,
+    });
+  });
+
   it("rejects non-positive webSearch rate limits", () => {
     const base = {
       webSearch: {
