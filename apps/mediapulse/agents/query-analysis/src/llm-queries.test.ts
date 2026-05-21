@@ -13,6 +13,7 @@ import {
   fetchLlmQueryCandidates,
   fetchLlmQueryCandidatesByPersona,
   fetchQueryAnalysisLlmCandidates,
+  fetchWildcardCandidates,
   mergeCritiqueReplacements,
   parseBrainstormBullets,
   regenerateDroppedQueries,
@@ -26,6 +27,7 @@ describe("resolveQueryAnalysisSystemContent", () => {
   it("matches buildQueryAnalysisSystemContent when Hermes omits override", () => {
     const strategy = {
       queryCount: 10,
+      language: "en",
       allowedLanguages: ["en", "de"],
       minDeterministicCount: 3,
       intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
@@ -98,17 +100,17 @@ describe("resolveQueryAnalysisUserContent", () => {
 });
 
 describe("buildQueryAnalysisSystemContent", () => {
-  it("includes languages, intent mix hints, and schema instructions", () => {
+  it("includes language lock, intent mix hints, and schema instructions", () => {
     // Act
     const text = buildQueryAnalysisSystemContent({
       queryCount: 10,
-      allowedLanguages: ["en", "de"],
+      language: "id",
       minDeterministicCount: 3,
       intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
     });
 
     // Assert
-    expect(text).toContain("en, de");
+    expect(text).toContain("All queries must be in id");
     expect(text).toContain("kg_change");
     expect(text).toContain("3");
     expect(text).toContain('"queries"');
@@ -225,6 +227,7 @@ describe("buildBrainstormPrompt", () => {
     const prompt = buildBrainstormPrompt(
       {
         queryCount: 10,
+        language: "en",
         allowedLanguages: ["en"],
         minDeterministicCount: 4,
         intentWeights: {
@@ -278,6 +281,7 @@ describe("fetchBrainstormBullets", () => {
         maxOutputTokens: 200,
         strategy: {
           queryCount: 10,
+          language: "en",
           allowedLanguages: ["en"],
           minDeterministicCount: 4,
           intentWeights: {
@@ -332,6 +336,7 @@ describe("fetchQueryAnalysisLlmCandidates", () => {
     },
     strategy: {
       queryCount: 10,
+      language: "en",
       allowedLanguages: ["en"],
       minDeterministicCount: 4,
       intentWeights: {
@@ -796,5 +801,94 @@ describe("fetchLlmQueryCandidates", () => {
         { generateObjectForQueries },
       ),
     ).rejects.toThrow("api down");
+  });
+});
+
+describe("fetchWildcardCandidates", () => {
+  const defaultSampling = {
+    temperature: 0.9,
+    topP: 0.95,
+    presencePenalty: 0.4,
+    frequencyPenalty: 0.5,
+  };
+
+  const baseContext = {
+    ticker: {
+      id: "11111111-1111-4111-a111-111111111111",
+      symbol: "ACME",
+      name: "Acme Co",
+      metadata: null,
+    },
+    topEntities: [] as [],
+    recentThemes: [] as [],
+    recentRelationDeltas: [] as [],
+    ...emptyEnrichedContext,
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("passes wildcardTemperature instead of global temperature to generateObject", async () => {
+    const generateObjectForWildcards = vi.fn().mockResolvedValue({
+      object: {
+        queries: [{ text: "Oblique supply rumor" }],
+      },
+    });
+
+    await fetchWildcardCandidates(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        maxOutputTokens: 100,
+        count: 2,
+        context: baseContext,
+        allowedLanguages: ["en"],
+        sampling: defaultSampling,
+        wildcardTemperature: 1.2,
+      },
+      { generateObjectForWildcards },
+    );
+
+    expect(generateObjectForWildcards).toHaveBeenCalledWith(
+      expect.objectContaining({
+        temperature: 1.2,
+        topP: 0.95,
+      }),
+    );
+    expect(generateObjectForWildcards.mock.calls[0]?.[0].temperature).not.toBe(
+      defaultSampling.temperature,
+    );
+  });
+
+  it("tags rows with wildcard intent and respects count cap", async () => {
+    const generateObjectForWildcards = vi.fn().mockResolvedValue({
+      object: {
+        queries: [
+          { text: "First odd angle" },
+          { text: "Second odd angle" },
+          { text: "Third odd angle" },
+        ],
+      },
+    });
+
+    const rows = await fetchWildcardCandidates(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        maxOutputTokens: 100,
+        count: 2,
+        context: baseContext,
+        allowedLanguages: ["en"],
+        sampling: defaultSampling,
+        wildcardTemperature: 1.2,
+      },
+      { generateObjectForWildcards },
+    );
+
+    expect(rows).toEqual([
+      { text: "First odd angle", intent: "wildcard" },
+      { text: "Second odd angle", intent: "wildcard" },
+    ]);
   });
 });

@@ -1,5 +1,7 @@
 import type { QueryAnalysisIntent } from "@workspace/agent-data-api-contract";
 
+import { primaryLanguageSubtag } from "../i18n/entity-aliases";
+
 /** Per-intent sampling multiplier applied when merging persona-scoped candidates. */
 export type PersonaIntentBias = {
   breaking: number;
@@ -14,6 +16,8 @@ export type QueryPersona = {
   /** One–two sentences appended to the base system prompt for this voice. */
   systemNudge: string;
   intentBias: PersonaIntentBias;
+  /** BCP-47 primary subtags this persona supports; omitted means all languages. */
+  preferredLanguages?: string[];
 };
 
 /** Sell-side equity research voice. */
@@ -23,6 +27,7 @@ const analystPersona: QueryPersona = {
   systemNudge:
     "Write like a sell-side equity analyst: earnings drivers, segment trends, and peer comps. Prefer institutional phrasing.",
   intentBias: { breaking: 1.0, kg_change: 0.9, fundamental: 1.2 },
+  preferredLanguages: ["en"],
 };
 
 /** Retail trader / momentum-focused voice. */
@@ -32,6 +37,7 @@ const retailPersona: QueryPersona = {
   systemNudge:
     "Write like an active retail trader: catalysts, price action, social buzz, and near-term setups. Keep queries short and searchable.",
   intentBias: { breaking: 1.5, kg_change: 0.7, fundamental: 0.6 },
+  preferredLanguages: ["en", "id"],
 };
 
 /** Regulatory and disclosure-focused voice. */
@@ -41,6 +47,7 @@ const regulatorPersona: QueryPersona = {
   systemNudge:
     "Focus on compliance, disclosure, and rulemaking angles. Skip price action and trading slang.",
   intentBias: { breaking: 0.5, kg_change: 1.0, fundamental: 1.5 },
+  preferredLanguages: ["en"],
 };
 
 /** ESG and sustainability research voice. */
@@ -50,6 +57,7 @@ const esgPersona: QueryPersona = {
   systemNudge:
     "Emphasize environmental, social, and governance risks, controversies, and stewardship angles. Avoid pure technical chart queries.",
   intentBias: { breaking: 0.8, kg_change: 1.1, fundamental: 1.3 },
+  preferredLanguages: ["en"],
 };
 
 /** Contrarian / short-thesis voice. */
@@ -59,6 +67,7 @@ const shortSellerPersona: QueryPersona = {
   systemNudge:
     "Surface bearish and forensic angles: accounting red flags, supply-chain weakness, auditor concerns, and downside catalysts others ignore.",
   intentBias: { breaking: 1.2, kg_change: 1.0, fundamental: 1.4 },
+  preferredLanguages: ["en"],
 };
 
 /** In-process persona library keyed by stable id. */
@@ -101,6 +110,42 @@ export const resolveQueryPersonas = (
   }
   return resolved;
 };
+
+/**
+ * Returns whether a persona should run for the given query language.
+ *
+ * @param persona - Persona definition from the in-process library.
+ * @param language - Target BCP-47 language for the generation pass.
+ * @returns `true` when the persona supports the language or has no preference list.
+ */
+export const personaSupportsLanguage = (
+  persona: QueryPersona,
+  language: string,
+): boolean => {
+  if (
+    persona.preferredLanguages === undefined ||
+    persona.preferredLanguages.length === 0
+  ) {
+    return true;
+  }
+  const primary = primaryLanguageSubtag(language);
+  return persona.preferredLanguages.some(
+    (preferred) => primaryLanguageSubtag(preferred) === primary,
+  );
+};
+
+/**
+ * Filters personas to those compatible with a language slice.
+ *
+ * @param personas - Resolved persona list for the run.
+ * @param language - Target BCP-47 language for the generation pass.
+ * @returns Personas whose `preferredLanguages` include the language primary subtag.
+ */
+export const filterPersonasForLanguage = (
+  personas: QueryPersona[],
+  language: string,
+): QueryPersona[] =>
+  personas.filter((persona) => personaSupportsLanguage(persona, language));
 
 /**
  * Returns the persona-scoped merge weight for a candidate intent.

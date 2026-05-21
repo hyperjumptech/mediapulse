@@ -7,6 +7,8 @@ import { maxCosineSimilarity } from "./embeddings";
 export type DeterministicCandidate = {
   text: string;
   intent: QueryAnalysisIntent;
+  /** BCP-47 language tag when produced by a language slice (observability). */
+  language?: string;
 };
 
 /** One LLM row after validation (trimmed text, intent per model output). */
@@ -15,6 +17,8 @@ export type LlmCandidate = {
   intent: QueryAnalysisIntent;
   /** Persona id when produced by multi-persona fan-out (observability only). */
   persona?: string;
+  /** BCP-47 language tag when produced by a language slice (observability). */
+  language?: string;
 };
 
 /** Row persisted via agent-data-api `queryAnalysis.create`. */
@@ -25,6 +29,8 @@ export type MergedQueryRow = {
   rank: number;
   /** Persona id for LLM rows from multi-persona fan-out (observability only). */
   persona?: string;
+  /** BCP-47 language tag for multilingual quota observability. */
+  language?: string;
 };
 
 import type { QueryAnalysisIntentWeights } from "@workspace/agent-data-api-contract";
@@ -74,7 +80,11 @@ export const dedupeDeterministic = (
       continue;
     }
     seen.add(key);
-    out.push({ text, intent: row.intent });
+    out.push({
+      text,
+      intent: row.intent,
+      ...(row.language !== undefined ? { language: row.language } : {}),
+    });
   }
   return out;
 };
@@ -116,9 +126,117 @@ export const dedupeLlmAgainstKeys = (
       intent: row.intent,
       source: "llm",
       ...(row.persona !== undefined ? { persona: row.persona } : {}),
+      ...(row.language !== undefined ? { language: row.language } : {}),
     });
   }
   return out;
+};
+
+/**
+ * Dedupes wildcard rows against existing keys while preserving reserved slot count.
+ * When collisions drop rows, optionally retries once via `retryFetch`.
+ *
+ * @param params - Wildcard batch, occupied keys, slot budget, and optional retry fetcher.
+ * @returns Accepted wildcard rows (length ≤ `wildcardCount`) tagged as `source: "llm"`.
+ */
+export const finalizeWildcardCandidates = async (params: {
+  wildcards: LlmCandidate[];
+  seenKeys: Set<string>;
+  wildcardCount: number;
+  retryFetch?: (avoidTexts: string[]) => Promise<LlmCandidate[]>;
+}): Promise<
+  Array<{
+    text: string;
+    intent: QueryAnalysisIntent;
+    source: "llm";
+  }>
+> => {
+  const acceptFromBatch = (
+    batch: LlmCandidate[],
+    accepted: Array<{
+      text: string;
+      intent: QueryAnalysisIntent;
+      source: "llm";
+    }>,
+  ): number => {
+    let dropped = 0;
+    for (const row of batch) {
+      if (accepted.length >= params.wildcardCount) {
+        break;
+      }
+      const text = row.text.trim();
+      if (text.length === 0) {
+        continue;
+      }
+      const key = normalizeQueryKey(text);
+      if (params.seenKeys.has(key)) {
+        dropped += 1;
+        continue;
+      }
+      params.seenKeys.add(key);
+      accepted.push({
+        text,
+        intent: row.intent,
+        source: "llm",
+      });
+    }
+    return dropped;
+  };
+
+  const accepted: Array<{
+    text: string;
+    intent: QueryAnalysisIntent;
+    source: "llm";
+  }> = [];
+  const dropped = acceptFromBatch(params.wildcards, accepted);
+
+  if (
+    params.retryFetch !== undefined &&
+    accepted.length < params.wildcardCount &&
+    (dropped > 0 || params.wildcards.length < params.wildcardCount)
+  ) {
+    const avoidTexts = [
+      ...params.wildcards.map((row) => row.text.trim()).filter(Boolean),
+      ...accepted.map((row) => row.text),
+    ];
+    const retryCount = params.wildcardCount - accepted.length;
+    const replacements = await params.retryFetch(avoidTexts);
+    acceptFromBatch(replacements.slice(0, retryCount), accepted);
+  }
+
+  return accepted;
+};
+
+/**
+ * Appends wildcard rows to a merged set and reassigns contiguous ranks up to `queryCount`.
+ *
+ * @param merged - Standard pipeline rows from {@link mergeQueryCandidates}.
+ * @param wildcardRows - Reserved-slot wildcard rows.
+ * @param queryCount - Total rows to persist in the active query set.
+ * @returns Combined rows with updated ranks (length ≤ `queryCount`).
+ */
+export const appendWildcardRowsToMerged = (
+  merged: MergedQueryRow[],
+  wildcardRows: Array<{
+    text: string;
+    intent: QueryAnalysisIntent;
+    source: "llm";
+  }>,
+  queryCount: number,
+): MergedQueryRow[] => {
+  const combined = [...merged];
+  for (const row of wildcardRows) {
+    if (combined.length >= queryCount) {
+      break;
+    }
+    combined.push({
+      text: row.text,
+      source: row.source,
+      intent: row.intent,
+      rank: combined.length + 1,
+    });
+  }
+  return combined.map((row, index) => ({ ...row, rank: index + 1 }));
 };
 
 /**
@@ -179,6 +297,7 @@ export const dedupeLlmBySimilarity = (
       intent: row.intent,
       source: "llm",
       ...(row.persona !== undefined ? { persona: row.persona } : {}),
+      ...(row.language !== undefined ? { language: row.language } : {}),
     });
   }
 
@@ -190,6 +309,7 @@ type PoolRow = {
   intent: QueryAnalysisIntent;
   source: "deterministic" | "llm";
   persona?: string;
+  language?: string;
 };
 
 /**
@@ -296,11 +416,13 @@ export const mergeQueryCandidates = (params: {
     text: row.text,
     intent: row.intent,
     source: "deterministic" as const,
+    ...(row.language !== undefined ? { language: row.language } : {}),
   }));
   const detExtra: PoolRow[] = dedupedDet.slice(effectiveMin).map((row) => ({
     text: row.text,
     intent: row.intent,
     source: "deterministic" as const,
+    ...(row.language !== undefined ? { language: row.language } : {}),
   }));
   const seenKeys = new Set(
     dedupedDet.map((row) => normalizeQueryKey(row.text)),
@@ -346,5 +468,6 @@ export const mergeQueryCandidates = (params: {
     intent: row.intent,
     rank: i + 1,
     ...(row.persona !== undefined ? { persona: row.persona } : {}),
+    ...(row.language !== undefined ? { language: row.language } : {}),
   }));
 };

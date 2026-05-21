@@ -27,6 +27,16 @@ describe("queryAnalysisIntentSchema", () => {
     expect(parsed.intent).toBe("esg");
   });
 
+  it("accepts wildcard intent rows", () => {
+    const parsed = queryAnalysisPostQuerySchema.parse({
+      text: "Oblique cultural narrative angle",
+      source: "llm",
+      intent: "wildcard",
+      rank: 10,
+    });
+    expect(parsed.intent).toBe("wildcard");
+  });
+
   it("rejects unknown intent labels", () => {
     const result = queryAnalysisIntentSchema.safeParse("unknown_intent");
     expect(result.success).toBe(false);

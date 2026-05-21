@@ -1,4 +1,11 @@
-import type { GetQueryAnalysisResponse } from "@workspace/agent-data-api-contract";
+import type {
+  GetQueryAnalysisResponse,
+  QueryAnalysisIntent,
+} from "@workspace/agent-data-api-contract";
+
+import { daysUntilEarnings } from "../temporal/event-bias";
+import { resolveEntityDisplayName } from "../i18n/entity-aliases";
+import { resolveRelationVerb } from "./relation-verbs";
 
 /** Clock dependency for time-anchored template slots. */
 export type SlotResolverClock = () => Date;
@@ -12,6 +19,29 @@ export type ResolvedTemplateSlots = {
   currentQuarter: string;
   currentYear: string;
   currentMonth: string;
+  daysToEarnings?: string;
+  lastEventType?: string;
+};
+
+/** Per-relation slot values merged with {@link ResolvedTemplateSlots}. */
+export type KgRelationSlots = {
+  fromEntity: string;
+  toEntity: string;
+  relationVerb: string;
+};
+
+/** One KG relation row prioritized for template expansion. */
+export type OrderedKgRelationRow = KgRelationSlots & {
+  source: "delta" | "neighborhood";
+  change?: "added" | "removed" | "updated";
+};
+
+/** KG relation template applied per relation row during expansion. */
+export type KgRelationTemplate = {
+  template: string;
+  intent: QueryAnalysisIntent;
+  sources: Array<"delta" | "neighborhood">;
+  whenChange?: "added" | "removed" | "updated";
 };
 
 const TEMPLATE_SLOT_PATTERN = /\{([a-zA-Z]+)\}/g;
@@ -54,6 +84,103 @@ export const formatCurrentMonth = (date: Date): string =>
   date.toLocaleString("en-US", { month: "long" });
 
 /**
+ * Formats days-until-earnings for template slots when calendar data is present.
+ *
+ * @param context - GET /query-analysis response.
+ * @param clock - Reference instant (default: now).
+ * @returns Day count as a string, or `undefined` when earnings date is absent.
+ */
+export const formatDaysToEarnings = (
+  context: GetQueryAnalysisResponse,
+  clock: SlotResolverClock = () => new Date(),
+): string | undefined => {
+  const days = daysUntilEarnings(context, clock);
+  return days === undefined ? undefined : String(days);
+};
+
+/**
+ * Collects relation rows for KG template expansion: deltas first, then neighborhood.
+ *
+ * @param context - GET /query-analysis response.
+ * @param cap - Maximum relation rows to include (`0` yields an empty list).
+ * @returns Ordered relation rows with resolved verb phrases.
+ */
+export const collectOrderedKgRelationRows = (
+  context: GetQueryAnalysisResponse,
+  cap: number,
+): OrderedKgRelationRow[] => {
+  if (cap <= 0) {
+    return [];
+  }
+
+  const rows: OrderedKgRelationRow[] = [];
+
+  for (const delta of context.recentRelationDeltas ?? []) {
+    if (rows.length >= cap) {
+      break;
+    }
+    rows.push({
+      source: "delta",
+      change: delta.change,
+      fromEntity: delta.fromEntity,
+      toEntity: delta.toEntity,
+      relationVerb: resolveRelationVerb(delta.relationType, delta.change),
+    });
+  }
+
+  for (const edge of context.kgNeighborhood) {
+    if (rows.length >= cap) {
+      break;
+    }
+    rows.push({
+      source: "neighborhood",
+      fromEntity: edge.fromEntity,
+      toEntity: edge.toEntity,
+      relationVerb: resolveRelationVerb(edge.relationType),
+    });
+  }
+
+  return rows;
+};
+
+/**
+ * Selects the best KG relation template for a row (specific `whenChange` wins over generic).
+ *
+ * @param templates - KG relation templates from the active pack.
+ * @param row - Ordered relation row with source and optional change.
+ * @returns First matching template in pack order, or `undefined` when none apply.
+ */
+export const selectKgRelationTemplate = (
+  templates: KgRelationTemplate[],
+  row: OrderedKgRelationRow,
+): KgRelationTemplate | undefined => {
+  const matching = templates.filter(
+    (template) =>
+      template.sources.includes(row.source) &&
+      (template.whenChange === undefined || template.whenChange === row.change),
+  );
+  if (matching.length === 0) {
+    return undefined;
+  }
+
+  const sourceSpecific = matching.filter((template) => {
+    if (row.source === "delta") {
+      return (
+        template.sources.includes("delta") &&
+        !template.sources.includes("neighborhood")
+      );
+    }
+    return (
+      template.sources.includes("neighborhood") &&
+      !template.sources.includes("delta")
+    );
+  });
+  const pool = sourceSpecific.length > 0 ? sourceSpecific : matching;
+
+  return pool.find((template) => template.whenChange !== undefined) ?? pool[0];
+};
+
+/**
  * Resolves slot values from query-analysis context and an injectable clock.
  *
  * @param context - GET /query-analysis response.
@@ -63,8 +190,17 @@ export const formatCurrentMonth = (date: Date): string =>
 export const resolveSlots = (
   context: GetQueryAnalysisResponse,
   clock: SlotResolverClock = () => new Date(),
+  language?: string,
 ): ResolvedTemplateSlots => {
   const now = clock();
+  const companyName =
+    language !== undefined
+      ? resolveEntityDisplayName(
+          context.ticker.symbol,
+          context.ticker.name,
+          language,
+        )
+      : context.ticker.name;
   const topEntity =
     context.topEntities.length > 0
       ? [...context.topEntities].sort(
@@ -74,12 +210,14 @@ export const resolveSlots = (
 
   return {
     symbol: context.ticker.symbol,
-    name: context.ticker.name,
+    name: companyName,
     topEntity,
     recentTheme: context.recentThemes[0]?.theme,
     currentQuarter: formatCurrentQuarter(now),
     currentYear: String(now.getFullYear()),
     currentMonth: formatCurrentMonth(now),
+    daysToEarnings: formatDaysToEarnings(context, clock),
+    lastEventType: context.calendar.recentEventTypes[0],
   };
 };
 
@@ -87,12 +225,13 @@ export const resolveSlots = (
  * Renders a template when every referenced slot resolves to a non-empty string.
  *
  * @param pattern - Template text with `{slot}` placeholders.
- * @param slots - Resolved slot values from {@link resolveSlots}.
+ * @param slots - Resolved slot values from {@link resolveSlots} plus optional KG slots.
  * @returns Rendered query text, or `null` when a required slot is missing.
  */
 export const resolveTemplatePattern = (
   pattern: string,
   slots: ResolvedTemplateSlots,
+  kgSlots?: KgRelationSlots,
 ): string | null => {
   const required = extractSlotsFromPattern(pattern);
   const slotRecord: Record<string, string | undefined> = {
@@ -103,6 +242,11 @@ export const resolveTemplatePattern = (
     currentQuarter: slots.currentQuarter,
     currentYear: slots.currentYear,
     currentMonth: slots.currentMonth,
+    daysToEarnings: slots.daysToEarnings,
+    lastEventType: slots.lastEventType,
+    fromEntity: kgSlots?.fromEntity,
+    toEntity: kgSlots?.toEntity,
+    relationVerb: kgSlots?.relationVerb,
   };
 
   for (const name of required) {
@@ -116,4 +260,44 @@ export const resolveTemplatePattern = (
     const value = slotRecord[key];
     return value?.trim() ?? "";
   });
+};
+
+/**
+ * Expands KG relation templates into one deterministic query per relation row.
+ *
+ * @param context - GET /query-analysis response.
+ * @param templates - KG relation templates from the active pack.
+ * @param baseSlots - Ticker-level slots from {@link resolveSlots}.
+ * @param cap - Maximum KG-derived rows (`0` disables expansion).
+ * @returns Rendered KG query candidates in delta-first order.
+ */
+export const expandKgRelationQueries = (
+  context: GetQueryAnalysisResponse,
+  templates: KgRelationTemplate[],
+  baseSlots: ResolvedTemplateSlots,
+  cap: number,
+): Array<{ text: string; intent: QueryAnalysisIntent }> => {
+  if (cap <= 0 || templates.length === 0) {
+    return [];
+  }
+
+  const rows = collectOrderedKgRelationRows(context, cap);
+  const candidates: Array<{ text: string; intent: QueryAnalysisIntent }> = [];
+
+  for (const row of rows) {
+    const template = selectKgRelationTemplate(templates, row);
+    if (!template) {
+      continue;
+    }
+    const text = resolveTemplatePattern(template.template, baseSlots, {
+      fromEntity: row.fromEntity,
+      toEntity: row.toEntity,
+      relationVerb: row.relationVerb,
+    });
+    if (text) {
+      candidates.push({ text, intent: template.intent });
+    }
+  }
+
+  return candidates;
 };

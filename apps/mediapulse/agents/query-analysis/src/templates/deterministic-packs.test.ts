@@ -146,3 +146,108 @@ describe("rich-v2-extended pack", () => {
     ).toBeLessThanOrEqual(MAX_TEMPLATES_PER_PACK);
   });
 });
+
+describe("kg-aware-v1 pack", () => {
+  const kgContext: GetQueryAnalysisResponse = {
+    ...fullContext,
+    recentRelationDeltas: [
+      {
+        fromEntity: "Acme Co",
+        toEntity: "Delta One",
+        relationType: "supplies",
+        change: "added",
+      },
+      {
+        fromEntity: "Acme Co",
+        toEntity: "Delta Two",
+        relationType: "partners_with",
+        change: "updated",
+      },
+      {
+        fromEntity: "Acme Co",
+        toEntity: "Delta Three",
+        relationType: "competes_with",
+        change: "removed",
+      },
+    ],
+    kgNeighborhood: [
+      {
+        fromEntity: "Acme Co",
+        toEntity: "Nb One",
+        relationType: "supplies",
+      },
+      {
+        fromEntity: "Acme Co",
+        toEntity: "Nb Two",
+        relationType: "partners_with",
+      },
+      {
+        fromEntity: "Acme Co",
+        toEntity: "Nb Three",
+        relationType: "competes_with",
+      },
+      {
+        fromEntity: "Acme Co",
+        toEntity: "Nb Four",
+        relationType: "regulates",
+      },
+    ],
+  };
+
+  it("expands deltas first then neighborhood rows up to kgTemplateCap", () => {
+    const queries = buildDeterministicQueries(kgContext, {
+      pack: "kg-aware-v1",
+      clock: FIXED_CLOCK,
+      kgTemplateCap: 6,
+    });
+
+    const kgQueries = queries.filter(
+      (row) =>
+        row.text.includes("Delta One") ||
+        row.text.includes("Delta Two") ||
+        row.text.includes("Delta Three") ||
+        row.text.includes("Nb One") ||
+        row.text.includes("Nb Two") ||
+        row.text.includes("Nb Three") ||
+        row.text.includes("Nb Four"),
+    );
+
+    expect(kgQueries).toHaveLength(6);
+    expect(kgQueries[0]?.text).toContain("Delta One");
+    expect(kgQueries[1]?.text).toContain("Delta Two");
+    expect(kgQueries[2]?.text).toContain("Delta Three");
+    expect(kgQueries[3]?.text).toContain("Nb One");
+    expect(kgQueries[4]?.text).toContain("Nb Two");
+    expect(kgQueries[5]?.text).toContain("Nb Three");
+    expect(kgQueries.every((row) => !row.text.includes("Nb Four"))).toBe(true);
+  });
+
+  it("tags delta rows as kg_change and neighborhood rows as competitor", () => {
+    const queries = buildDeterministicQueries(kgContext, {
+      pack: "kg-aware-v1",
+      clock: FIXED_CLOCK,
+      kgTemplateCap: 6,
+    });
+
+    const deltaQueries = queries.filter((row) => row.text.includes("Delta"));
+    const neighborhoodQueries = queries.filter((row) =>
+      row.text.includes("Nb "),
+    );
+
+    expect(deltaQueries.every((row) => row.intent === "kg_change")).toBe(true);
+    expect(
+      neighborhoodQueries.every((row) => row.intent === "competitor"),
+    ).toBe(true);
+  });
+
+  it("skips KG expansion when kgTemplateCap is zero", () => {
+    const queries = buildDeterministicQueries(kgContext, {
+      pack: "kg-aware-v1",
+      clock: FIXED_CLOCK,
+      kgTemplateCap: 0,
+    });
+
+    expect(queries.every((row) => !row.text.includes("Delta One"))).toBe(true);
+    expect(queries.every((row) => !row.text.includes("Nb One"))).toBe(true);
+  });
+});

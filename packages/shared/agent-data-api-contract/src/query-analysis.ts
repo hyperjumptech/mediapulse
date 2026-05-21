@@ -11,6 +11,20 @@ export const QUERY_ANALYSIS_INTENTS = [
   "esg",
   "macro",
   "technical",
+  "wildcard",
+] as const;
+
+/** Intent labels used by the standard (non-wildcard) query-generation pipeline. */
+export const QUERY_ANALYSIS_STANDARD_INTENTS = [
+  "breaking",
+  "kg_change",
+  "fundamental",
+  "sentiment",
+  "competitor",
+  "supply_chain",
+  "esg",
+  "macro",
+  "technical",
 ] as const;
 
 export const queryAnalysisIntentSchema = z.enum(QUERY_ANALYSIS_INTENTS);
@@ -31,6 +45,7 @@ export const DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS: Record<
   esg: 0.3,
   macro: 0.4,
   technical: 0.3,
+  wildcard: 0,
 };
 
 export const queryAnalysisSourceSchema = z.enum(["deterministic", "llm"]);

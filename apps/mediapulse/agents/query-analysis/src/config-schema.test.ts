@@ -35,12 +35,25 @@ describe("queryAnalysisConfigSchema templatePack", () => {
     expect(parsed.templatePack).toBe("rich-v2-extended");
   });
 
+  it("accepts kg-aware-v1 template pack", () => {
+    const parsed = queryAnalysisConfigSchema.parse({
+      ...minimal,
+      templatePack: "kg-aware-v1",
+    });
+    expect(parsed.templatePack).toBe("kg-aware-v1");
+  });
+
   it("rejects unknown template pack names", () => {
     const result = queryAnalysisConfigSchema.safeParse({
       ...minimal,
       templatePack: "unknown",
     });
     expect(result.success).toBe(false);
+  });
+
+  it("defaults kgTemplateCap to 6", () => {
+    const parsed = queryAnalysisConfigSchema.parse(minimal);
+    expect(parsed.kgTemplateCap).toBe(6);
   });
 });
 
@@ -324,5 +337,81 @@ describe("resolveDiversityGateConfig", () => {
       threshold: 0.6,
       weights: { lexical: 0.4, intent: 0.3, semantic: 0.3 },
     });
+  });
+});
+
+describe("resolveTemporalBiasConfig", () => {
+  it("defaults temporal bias to enabled", async () => {
+    const { resolveTemporalBiasConfig } = await import("./config-schema");
+    expect(resolveTemporalBiasConfig({})).toEqual({ enabled: true });
+  });
+
+  it("honors temporalBias.enabled=false", async () => {
+    const { resolveTemporalBiasConfig } = await import("./config-schema");
+    expect(
+      resolveTemporalBiasConfig({ temporalBias: { enabled: false } }),
+    ).toEqual({ enabled: false });
+  });
+});
+
+describe("queryAnalysisConfigSchema temporalBias", () => {
+  it("defaults temporalBias.enabled to true when the object is present", () => {
+    const parsed = queryAnalysisConfigSchema.parse({
+      ...minimal,
+      temporalBias: {},
+    });
+    expect(parsed.temporalBias?.enabled).toBe(true);
+  });
+});
+
+describe("queryAnalysisConfigSchema languageQuotas", () => {
+  it("accepts valid languageQuotas whose shares sum to 1.0", () => {
+    const parsed = queryAnalysisConfigSchema.parse({
+      ...minimal,
+      languageQuotas: [
+        { language: "en", share: 0.6 },
+        { language: "id", share: 0.4 },
+      ],
+    });
+    expect(parsed.languageQuotas).toEqual([
+      { language: "en", share: 0.6 },
+      { language: "id", share: 0.4 },
+    ]);
+  });
+
+  it("rejects languageQuotas shares summing to 0.99", () => {
+    const result = queryAnalysisConfigSchema.safeParse({
+      ...minimal,
+      languageQuotas: [
+        { language: "en", share: 0.59 },
+        { language: "id", share: 0.4 },
+      ],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) =>
+          issue.message.includes("languageQuotas shares must sum to 1.0"),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("rejects languageQuotas shares summing to 1.01", () => {
+    const result = queryAnalysisConfigSchema.safeParse({
+      ...minimal,
+      languageQuotas: [
+        { language: "en", share: 0.61 },
+        { language: "id", share: 0.4 },
+      ],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) =>
+          issue.message.includes("languageQuotas shares must sum to 1.0"),
+        ),
+      ).toBe(true);
+    }
   });
 });

@@ -1,11 +1,13 @@
 /** @vitest-environment node */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api-contract";
 
 import {
+  appendWildcardRowsToMerged,
   dedupeDeterministic,
   dedupeLlmAgainstKeys,
+  finalizeWildcardCandidates,
   intentMergeWeight,
   mergeQueryCandidates,
   normalizeQueryKey,
@@ -246,5 +248,70 @@ describe("sortPoolByIntentWeight", () => {
       weights,
     );
     expect(sorted.map((row) => row.text)).toEqual(["break", "fund"]);
+  });
+});
+
+describe("finalizeWildcardCandidates", () => {
+  it("retries once when dedupe drops wildcard rows", async () => {
+    const seenKeys = new Set<string>(["duplicate query"]);
+    const retryFetch = vi
+      .fn()
+      .mockResolvedValue([
+        { text: "Fresh lateral angle", intent: "wildcard" as const },
+      ]);
+
+    const accepted = await finalizeWildcardCandidates({
+      wildcards: [
+        { text: "Duplicate query", intent: "wildcard" },
+        { text: "Unique wildcard", intent: "wildcard" },
+      ],
+      seenKeys,
+      wildcardCount: 2,
+      retryFetch,
+    });
+
+    expect(accepted).toEqual([
+      { text: "Unique wildcard", intent: "wildcard", source: "llm" },
+      { text: "Fresh lateral angle", intent: "wildcard", source: "llm" },
+    ]);
+    expect(retryFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("appendWildcardRowsToMerged", () => {
+  it("appends wildcard rows and reassigns ranks up to queryCount", () => {
+    const merged = appendWildcardRowsToMerged(
+      [
+        {
+          text: "standard",
+          source: "llm",
+          intent: "breaking",
+          rank: 1,
+        },
+      ],
+      [
+        {
+          text: "wildcard one",
+          intent: "wildcard",
+          source: "llm",
+        },
+      ],
+      2,
+    );
+
+    expect(merged).toEqual([
+      {
+        text: "standard",
+        source: "llm",
+        intent: "breaking",
+        rank: 1,
+      },
+      {
+        text: "wildcard one",
+        source: "llm",
+        intent: "wildcard",
+        rank: 2,
+      },
+    ]);
   });
 });
