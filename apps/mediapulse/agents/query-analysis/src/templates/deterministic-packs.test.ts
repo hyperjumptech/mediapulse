@@ -121,3 +121,28 @@ describe("rich-v2 pack", () => {
     );
   });
 });
+
+describe("rich-v2-extended pack", () => {
+  it("covers every intent in the expanded taxonomy", () => {
+    const queries = buildDeterministicQueries(fullContext, {
+      pack: "rich-v2-extended",
+      clock: FIXED_CLOCK,
+    });
+    const intents = new Set(queries.map((row) => row.intent));
+    expect(intents.has("breaking")).toBe(true);
+    expect(intents.has("kg_change")).toBe(true);
+    expect(intents.has("fundamental")).toBe(true);
+    expect(intents.has("sentiment")).toBe(true);
+    expect(intents.has("competitor")).toBe(true);
+    expect(intents.has("supply_chain")).toBe(true);
+    expect(intents.has("esg")).toBe(true);
+    expect(intents.has("macro")).toBe(true);
+    expect(intents.has("technical")).toBe(true);
+  });
+
+  it("stays within the pack template cap", () => {
+    expect(
+      DETERMINISTIC_PACKS["rich-v2-extended"].templates.length,
+    ).toBeLessThanOrEqual(MAX_TEMPLATES_PER_PACK);
+  });
+});

@@ -28,6 +28,12 @@ enum SearchQueryIntent {
   breaking
   kg_change
   fundamental
+  sentiment
+  competitor
+  supply_chain
+  esg
+  macro
+  technical
 }
 
 model DataSource {

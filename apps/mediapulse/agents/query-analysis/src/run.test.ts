@@ -28,7 +28,8 @@ vi.mock("./llm-queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./llm-queries")>();
   return {
     ...actual,
-    fetchQueryAnalysisLlmCandidates: mockFetchQueryLlm,
+    fetchLlmQueryCandidatesByPersona: mockFetchQueryLlm,
+    fetchBrainstormBullets: vi.fn(),
   };
 });
 
@@ -41,7 +42,7 @@ vi.mock("@workspace/logger", () => ({
 }));
 
 import { buildDeterministicQueries } from "./templates/build-deterministic-queries";
-import { runQueryAnalysis } from "./run";
+import { clampPerPersonaQuotaCount, runQueryAnalysis } from "./run";
 
 const ctxResponse = {
   ticker: {
@@ -61,10 +62,13 @@ const ctxResponse = {
 const baseConfig = queryAnalysisConfigSchema.parse({ openaiApiKey: "sk" });
 
 describe("query-analysis run", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockGet.mockReset();
     mockCreate.mockReset();
     mockFetchQueryLlm.mockReset();
+
+    const { fetchBrainstormBullets } = await import("./llm-queries");
+    vi.mocked(fetchBrainstormBullets).mockReset();
 
     mockGet.mockResolvedValue(ctxResponse);
     mockCreate.mockResolvedValue({
@@ -73,7 +77,7 @@ describe("query-analysis run", () => {
       activeSetId: "44444444-4444-4444-a444-444444444444",
     });
     mockFetchQueryLlm.mockResolvedValue([
-      { text: "LLM extra", intent: "kg_change" as const },
+      { text: "LLM extra", intent: "kg_change" as const, persona: "analyst" },
     ]);
   });
 
@@ -175,6 +179,10 @@ describe("query-analysis run", () => {
   });
 
   it("passes useBrainstormPass through to the LLM orchestrator", async () => {
+    const { fetchBrainstormBullets } = await import("./llm-queries");
+    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
+    fetchBrainstormBulletsMock.mockResolvedValue(["angle"]);
+
     // Act
     const result = await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
@@ -187,8 +195,10 @@ describe("query-analysis run", () => {
 
     // Assert
     expect(result.success).toBe(true);
+    expect(fetchBrainstormBulletsMock).toHaveBeenCalledTimes(1);
     expect(mockFetchQueryLlm).toHaveBeenCalledWith(
-      expect.objectContaining({ useBrainstormPass: true }),
+      expect.objectContaining({ brainstormBullets: ["angle"] }),
+      expect.anything(),
     );
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -200,6 +210,9 @@ describe("query-analysis run", () => {
   });
 
   it("defaults useBrainstormPass to false in the LLM orchestrator", async () => {
+    const { fetchBrainstormBullets } = await import("./llm-queries");
+    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
+
     // Act
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
@@ -208,8 +221,64 @@ describe("query-analysis run", () => {
     });
 
     // Assert
+    expect(fetchBrainstormBulletsMock).not.toHaveBeenCalled();
     expect(mockFetchQueryLlm).toHaveBeenCalledWith(
-      expect.objectContaining({ useBrainstormPass: false }),
+      expect.objectContaining({ brainstormBullets: undefined }),
+      expect.anything(),
     );
+  });
+
+  it("fires one diversity-gate broaden regenerate when the first batch is near-identical", async () => {
+    const lowDiversityBatch = Array.from({ length: 10 }, () => ({
+      text: "ABC latest news",
+      intent: "breaking" as const,
+      persona: "analyst",
+    }));
+    mockFetchQueryLlm
+      .mockResolvedValueOnce(lowDiversityBatch)
+      .mockResolvedValueOnce([
+        {
+          text: "ABC supply chain risk Q2",
+          intent: "supply_chain" as const,
+          persona: "retail",
+        },
+      ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        diversityGate: { enabled: true, threshold: 0.6 },
+      }),
+      token: "Bearer t",
+    });
+
+    expect(mockFetchQueryLlm).toHaveBeenCalledTimes(2);
+    const secondCall = mockFetchQueryLlm.mock.calls[1]?.[0] as {
+      broadenSystemNudge?: string;
+    };
+    expect(secondCall.broadenSystemNudge).toContain("diversity");
+    expect(secondCall.broadenSystemNudge).toContain("Vary phrasing");
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      strategySnapshot: {
+        diversityScore?: { composite: number };
+        diversityGate?: { diversityRegenerateFired: boolean };
+      };
+    };
+    expect(createPayload.strategySnapshot.diversityScore).toBeDefined();
+    expect(
+      createPayload.strategySnapshot.diversityGate?.diversityRegenerateFired,
+    ).toBe(true);
+  });
+});
+
+describe("clampPerPersonaQuotaCount", () => {
+  it("returns configured quota when fan-out is within the guard", () => {
+    expect(clampPerPersonaQuotaCount(3, 3, 10)).toBe(3);
+  });
+
+  it("clamps quota when fan-out exceeds queryCount * 3", () => {
+    expect(clampPerPersonaQuotaCount(3, 10, 5)).toBe(5);
   });
 });

@@ -13,13 +13,15 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "type:check": "tsc --noEmit"
+    "type:check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "zod": "catalog:"
   },
   "devDependencies": {
     "@workspace/typescript-config": "workspace:*",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

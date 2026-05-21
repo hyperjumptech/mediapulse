@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+  queryAnalysisIntentSchema,
+  type QueryAnalysisIntent,
+  type QueryAnalysisIntentWeights,
+} from "@workspace/agent-data-api-contract";
 import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
 import {
   DEFAULT_DETERMINISTIC_PACK,
@@ -10,6 +16,77 @@ import {
   QUERY_ANALYSIS_SYSTEM_PROMPT_PLACEHOLDERS,
   QUERY_ANALYSIS_USER_PROMPT_PLACEHOLDERS,
 } from "./query-analysis-prompt-defaults";
+
+/**
+ * Resolves intent weights from Hermes config, lifting legacy `weight*` fields when
+ * `intentWeights` is absent.
+ *
+ * @param config - Parsed invoke config fields related to intent weighting.
+ * @returns Full intent weight record with defaults for any omitted intents.
+ */
+export const resolveIntentWeights = (config: {
+  intentWeights?: Partial<QueryAnalysisIntentWeights>;
+  weightBreaking?: number;
+  weightKgChange?: number;
+  weightFundamental?: number;
+}): QueryAnalysisIntentWeights => {
+  if (config.intentWeights !== undefined) {
+    return {
+      ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+      ...config.intentWeights,
+    };
+  }
+  return {
+    ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+    breaking:
+      config.weightBreaking ?? DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.breaking,
+    kg_change:
+      config.weightKgChange ?? DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.kg_change,
+    fundamental:
+      config.weightFundamental ??
+      DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.fundamental,
+  };
+};
+
+/** Resolved diversity gate settings with defaults applied. */
+export type ResolvedDiversityGateConfig = {
+  enabled: boolean;
+  threshold: number;
+  weights: {
+    lexical: number;
+    intent: number;
+    semantic: number;
+  };
+};
+
+/**
+ * Resolves diversity gate config with schema defaults when fields are omitted.
+ *
+ * @param config - Parsed or raw Hermes invoke config.
+ * @returns Effective gate settings for scoring and regenerate decisions.
+ */
+export const resolveDiversityGateConfig = (config: {
+  diversityGate?: {
+    enabled?: boolean;
+    threshold?: number;
+    weights?: {
+      lexical?: number;
+      intent?: number;
+      semantic?: number;
+    };
+  };
+}): ResolvedDiversityGateConfig => {
+  const gate = config.diversityGate;
+  return {
+    enabled: gate?.enabled ?? false,
+    threshold: gate?.threshold ?? 0.6,
+    weights: {
+      lexical: gate?.weights?.lexical ?? 0.4,
+      intent: gate?.weights?.intent ?? 0.3,
+      semantic: gate?.weights?.semantic ?? 0.3,
+    },
+  };
+};
 
 /**
  * Runtime configuration from Hermes invoke `config` (variable substitution).
@@ -40,10 +117,22 @@ export const queryAnalysisConfigSchema = z
      */
     allowedLanguages: z.array(z.string().min(1)).optional().default(["en"]),
     /**
-     * Relative weights used to shape ordering / selection of the non-deterministic pool.
+     * Relative weights keyed by intent for merge ordering and LLM target counts.
+     */
+    intentWeights: z
+      .record(queryAnalysisIntentSchema, z.number().nonnegative())
+      .optional(),
+    /**
+     * @deprecated Use `intentWeights.breaking`. Lifted when `intentWeights` is absent.
      */
     weightBreaking: z.number().nonnegative().optional().default(1),
+    /**
+     * @deprecated Use `intentWeights.kg_change`. Lifted when `intentWeights` is absent.
+     */
     weightKgChange: z.number().nonnegative().optional().default(0.8),
+    /**
+     * @deprecated Use `intentWeights.fundamental`. Lifted when `intentWeights` is absent.
+     */
     weightFundamental: z.number().nonnegative().optional().default(0.6),
     /**
      * LLM output token budget for generating structured query candidates.
@@ -90,6 +179,55 @@ export const queryAnalysisConfigSchema = z
      */
     fewShotExemplarCount: z.number().int().min(0).max(6).optional().default(3),
     /**
+     * Persona ids from the in-process library to fan out parallel LLM calls.
+     */
+    personas: z
+      .array(z.string().min(1))
+      .optional()
+      .default(["analyst", "retail", "regulator"]),
+    /**
+     * Maximum structured query rows requested from each persona call.
+     */
+    perPersonaQuotaCount: z.number().int().positive().optional().default(3),
+    /**
+     * When true, runs a self-critique pass after LLM generation to replace the weakest rows.
+     */
+    useSelfCritique: z.boolean().optional().default(false),
+    /**
+     * Maximum fraction of LLM candidates the critique pass may replace (one-for-one).
+     */
+    critiqueDropFraction: z.number().min(0).max(0.5).optional().default(0.25),
+    /**
+     * Model id for the critique pass (defaults to `openaiModel` in `run.ts` when omitted).
+     */
+    critiqueModel: z.string().min(1).optional(),
+    /**
+     * Optional semantic deduplication of LLM candidates via embedding cosine similarity.
+     */
+    semanticDedupe: z
+      .object({
+        enabled: z.boolean().default(false),
+        threshold: z.number().min(0).max(1).default(0.85),
+        embeddingModel: z.string().default("text-embedding-3-small"),
+      })
+      .optional(),
+    /**
+     * Optional diversity score gate: one broaden regenerate pass when composite is below threshold.
+     */
+    diversityGate: z
+      .object({
+        enabled: z.boolean().default(false),
+        threshold: z.number().min(0).max(1).default(0.6),
+        weights: z
+          .object({
+            lexical: z.number().nonnegative().default(0.4),
+            intent: z.number().nonnegative().default(0.3),
+            semantic: z.number().nonnegative().default(0.3),
+          })
+          .default({ lexical: 0.4, intent: 0.3, semantic: 0.3 }),
+      })
+      .optional(),
+    /**
      * Optional overrides for query-generation LLM system/user templates (Hermes).
      * When omitted, built-in defaults are used. Do not put API keys inside prompt text.
      */
@@ -101,7 +239,7 @@ export const queryAnalysisConfigSchema = z
             message: `prompts.systemPrompt must be at most ${String(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
           })
           .describe(
-            "Optional system prompt template. Placeholders: {{allowedLanguages}}, {{targetBreakingCount}}, {{targetKgCount}}, {{targetFundamentalCount}}, {{minDeterministicCount}} (derived from queryCount, allowedLanguages, minDeterministicCount, and weight* fields when overrides are absent).",
+            "Optional system prompt template. Placeholders: {{allowedLanguages}}, {{targetBreakingCount}}, {{targetKgCount}}, {{targetFundamentalCount}}, {{targetSentimentCount}}, {{targetCompetitorCount}}, {{targetSupplyChainCount}}, {{targetEsgCount}}, {{targetMacroCount}}, {{targetTechnicalCount}}, {{minDeterministicCount}} (derived from queryCount, allowedLanguages, minDeterministicCount, and intentWeights when overrides are absent).",
           )
           .optional(),
         userPromptTemplate: z
