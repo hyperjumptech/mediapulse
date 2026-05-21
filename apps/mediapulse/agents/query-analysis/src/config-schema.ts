@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
 import {
+  DEFAULT_DETERMINISTIC_PACK,
+  DETERMINISTIC_PACK_NAMES,
+} from "./templates/deterministic-packs";
+import {
   QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH,
   QUERY_ANALYSIS_SYSTEM_PROMPT_PLACEHOLDERS,
   QUERY_ANALYSIS_USER_PROMPT_PLACEHOLDERS,
@@ -45,6 +49,14 @@ export const queryAnalysisConfigSchema = z
      * LLM output token budget for generating structured query candidates.
      */
     maxTokens: z.number().int().positive().optional().default(800),
+    /**
+     * Named deterministic template pack used for the query floor.
+     * Switch via Hermes invoke config without redeploying the agent.
+     */
+    templatePack: z
+      .enum(DETERMINISTIC_PACK_NAMES)
+      .optional()
+      .default(DEFAULT_DETERMINISTIC_PACK),
     /**
      * Optional overrides for query-generation LLM system/user templates (Hermes).
      * When omitted, built-in defaults are used. Do not put API keys inside prompt text.

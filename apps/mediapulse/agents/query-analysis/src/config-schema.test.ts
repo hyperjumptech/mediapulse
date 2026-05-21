@@ -9,6 +9,29 @@ const minimal = { openaiApiKey: "sk-test" } satisfies Parameters<
   typeof queryAnalysisConfigSchema.parse
 >[0];
 
+describe("queryAnalysisConfigSchema templatePack", () => {
+  it("defaults templatePack to default-v1", () => {
+    const parsed = queryAnalysisConfigSchema.parse(minimal);
+    expect(parsed.templatePack).toBe("default-v1");
+  });
+
+  it("accepts rich-v2 template pack", () => {
+    const parsed = queryAnalysisConfigSchema.parse({
+      ...minimal,
+      templatePack: "rich-v2",
+    });
+    expect(parsed.templatePack).toBe("rich-v2");
+  });
+
+  it("rejects unknown template pack names", () => {
+    const result = queryAnalysisConfigSchema.safeParse({
+      ...minimal,
+      templatePack: "unknown",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("queryAnalysisConfigSchema prompts", () => {
   it("rejects unknown placeholder in systemPrompt", () => {
     const result = queryAnalysisConfigSchema.safeParse({

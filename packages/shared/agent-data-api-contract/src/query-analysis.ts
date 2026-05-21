@@ -67,12 +67,39 @@ export const queryAnalysisRecentThemeSchema = z.object({
   articleCount: z.number().int().nonnegative(),
 });
 
+export const queryAnalysisPeerSchema = z.object({
+  symbol: z.string(),
+  name: z.string(),
+  relevance: z.number(),
+});
+
+export const queryAnalysisCalendarSchema = z.object({
+  nextEarningsAt: z.string().datetime().optional(),
+  recentEventTypes: z.array(z.string()),
+});
+
+export const queryAnalysisHeadlineSampleSchema = z.object({
+  title: z.string(),
+  publishedAt: z.string(),
+  sourceName: z.string(),
+});
+
+export const queryAnalysisKgNeighborhoodSchema = z.object({
+  fromEntity: z.string(),
+  relationType: z.string(),
+  toEntity: z.string(),
+});
+
 export const getQueryAnalysisResponseSchema = z.object({
   ticker: queryAnalysisTickerSchema,
   topEntities: z.array(queryAnalysisTopEntitySchema),
   recentThemes: z.array(queryAnalysisRecentThemeSchema),
   recentRelationDeltas: z.array(queryAnalysisRelationDeltaSchema).optional(),
   configSnapshot: queryAnalysisConfigSnapshotSchema.optional(),
+  peers: z.array(queryAnalysisPeerSchema).default([]),
+  calendar: queryAnalysisCalendarSchema.default({ recentEventTypes: [] }),
+  headlineSamples: z.array(queryAnalysisHeadlineSampleSchema).default([]),
+  kgNeighborhood: z.array(queryAnalysisKgNeighborhoodSchema).default([]),
 });
 
 export const postQueryAnalysisResponseSchema = z.object({

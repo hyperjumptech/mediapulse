@@ -145,6 +145,39 @@ export const buildQueryAnalysisUserContent = (
       );
     }
   }
+  if (context.peers.length > 0) {
+    lines.push("Sector peers:");
+    for (const peer of context.peers) {
+      lines.push(`- ${peer.symbol} (${peer.name}) relevance=${peer.relevance}`);
+    }
+  }
+  const calendar = context.calendar;
+  if (calendar.nextEarningsAt || calendar.recentEventTypes.length > 0) {
+    lines.push("Calendar:");
+    if (calendar.nextEarningsAt) {
+      lines.push(`- Next earnings: ${calendar.nextEarningsAt}`);
+    }
+    if (calendar.recentEventTypes.length > 0) {
+      lines.push(`- Recent events: ${calendar.recentEventTypes.join(", ")}`);
+    }
+  }
+  if (context.headlineSamples.length > 0) {
+    lines.push("Recent headlines:");
+    for (const headline of context.headlineSamples) {
+      const publishedDate = headline.publishedAt.slice(0, 10);
+      lines.push(
+        `- ${publishedDate} (${headline.sourceName}) — "${headline.title}"`,
+      );
+    }
+  }
+  if (context.kgNeighborhood.length > 0) {
+    lines.push("KG neighborhood:");
+    for (const edge of context.kgNeighborhood) {
+      lines.push(
+        `- ${edge.fromEntity} --${edge.relationType}--> ${edge.toEntity}`,
+      );
+    }
+  }
   return lines.join("\n");
 };
 

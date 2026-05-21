@@ -10,29 +10,11 @@ import {
   fetchLlmQueryCandidates,
 } from "./llm-queries";
 import { mergeQueryCandidates } from "./merge-query-candidates";
+import { buildDeterministicQueries } from "./templates/build-deterministic-queries";
+
+export { buildDeterministicQueries } from "./templates/build-deterministic-queries";
 
 type QueryAnalysisInput = { tickerId: string };
-
-/**
- * Builds deterministic baseline query candidates.
- *
- * @param symbol - Ticker symbol.
- * @param name - Ticker display name.
- * @returns Deterministic query texts with intent labels.
- */
-export const buildDeterministicQueries = (
-  symbol: string,
-  name: string,
-): Array<{
-  text: string;
-  intent: "breaking" | "kg_change" | "fundamental";
-}> => [
-  { text: `${symbol} latest news`, intent: "breaking" },
-  { text: `${name} breaking news`, intent: "breaking" },
-  { text: `${name} relation changes`, intent: "kg_change" },
-  { text: `${name} earnings guidance`, intent: "fundamental" },
-  { text: `${name} regulatory update`, intent: "fundamental" },
-];
 
 /**
  * Runs the query-analysis agent for one ticker and persists an active query set.
@@ -53,10 +35,11 @@ export const runQueryAnalysis = async (
   const queryContext = await client.queryAnalysis.get({
     tickerId: input.tickerId,
   });
-  const deterministic = buildDeterministicQueries(
-    queryContext.ticker.symbol,
-    queryContext.ticker.name,
-  );
+  const templatePack = config.templatePack!;
+
+  const deterministic = buildDeterministicQueries(queryContext, {
+    pack: templatePack,
+  });
 
   // Zod applies defaults in `createAgentApp` before calling `run`.
   const queryCount = config.queryCount!;

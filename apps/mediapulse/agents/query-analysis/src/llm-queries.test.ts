@@ -25,6 +25,13 @@ describe("resolveQueryAnalysisSystemContent", () => {
   });
 });
 
+const emptyEnrichedContext = {
+  peers: [] as [],
+  calendar: { recentEventTypes: [] as string[] },
+  headlineSamples: [] as [],
+  kgNeighborhood: [] as [],
+};
+
 describe("resolveQueryAnalysisUserContent", () => {
   it("matches buildQueryAnalysisUserContent when Hermes omits override", () => {
     const ctx = {
@@ -46,6 +53,7 @@ describe("resolveQueryAnalysisUserContent", () => {
         relationType: string;
         change: "added";
       }[],
+      ...emptyEnrichedContext,
     };
 
     const resolved = resolveQueryAnalysisUserContent(undefined, ctx);
@@ -64,6 +72,7 @@ describe("resolveQueryAnalysisUserContent", () => {
       topEntities: [],
       recentThemes: [],
       recentRelationDeltas: [],
+      ...emptyEnrichedContext,
     };
     const text = resolveQueryAnalysisUserContent(
       "START\n{{queryContextBlock}}\nEND",
@@ -119,6 +128,25 @@ describe("buildQueryAnalysisUserContent", () => {
           change: "added" as const,
         },
       ],
+      peers: [{ symbol: "PEER1", name: "Peer One", relevance: 0.9 }],
+      calendar: {
+        nextEarningsAt: "2026-07-22T00:00:00.000Z",
+        recentEventTypes: ["ratings_change"],
+      },
+      headlineSamples: [
+        {
+          title: "Acme beats estimates",
+          publishedAt: "2026-05-18T08:00:00.000Z",
+          sourceName: "reuters.com",
+        },
+      ],
+      kgNeighborhood: [
+        {
+          fromEntity: "Subsidiary",
+          relationType: "PARTNER_OF",
+          toEntity: "Vendor",
+        },
+      ],
     };
 
     // Act
@@ -130,6 +158,32 @@ describe("buildQueryAnalysisUserContent", () => {
     expect(text).toContain("Subsidiary");
     expect(text).toContain("AI");
     expect(text).toContain("owns");
+    expect(text).toContain("Sector peers:");
+    expect(text).toContain("PEER1");
+    expect(text).toContain("Next earnings: 2026-07-22T00:00:00.000Z");
+    expect(text).toContain("Recent headlines:");
+    expect(text).toContain("reuters.com");
+    expect(text).toContain("KG neighborhood:");
+    expect(text).toContain("PARTNER_OF");
+  });
+
+  it("omits empty enriched blocks from the user prompt", () => {
+    const text = buildQueryAnalysisUserContent({
+      ticker: {
+        id: "11111111-1111-4111-a111-111111111111",
+        symbol: "ACME",
+        name: "Acme Co",
+        metadata: null,
+      },
+      topEntities: [],
+      recentThemes: [],
+      ...emptyEnrichedContext,
+    });
+
+    expect(text).not.toContain("Sector peers:");
+    expect(text).not.toContain("Calendar:");
+    expect(text).not.toContain("Recent headlines:");
+    expect(text).not.toContain("KG neighborhood:");
   });
 });
 
