@@ -1,11 +1,7 @@
 name: Setup monorepo
-description: Checkout, Turbo cache, pnpm/Bun/Node install, and local dev setup for CI.
+description: Turbo cache, pnpm/Bun/Node install, and local dev setup for CI. Run actions/checkout first when using this as a local composite action.
 
 inputs:
-  fetch-depth:
-    description: Git fetch depth for checkout (0 = full history for Turbo SCM).
-    required: false
-    default: "0"
   admin-email:
     description: Admin email passed to dev-setup-local.sh.
     required: false
@@ -18,10 +14,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: ${{ inputs.fetch-depth }}
-
     - name: Turbo local cache
       uses: actions/cache@v4
       with:
