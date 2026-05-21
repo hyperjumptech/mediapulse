@@ -30,7 +30,8 @@ This step is **non-negotiable** before declaring verification complete.
 
 From repo root, prefer the single workspace gate:
 
-- **`pnpm code-quality`** — runs `turbo` lint, type-check, test coverage, merges coverage, then **`format:check`** again at the end.
+- **`pnpm code-quality:affected`** — when verifying a focused change set (matches PR CI). Set `TURBO_SCM_BASE=origin/main` when Turbo needs an explicit base ref locally.
+- **`pnpm code-quality`** — full workspace lint, type-check, test coverage, merged coverage, then **`format:check`** again at the end. Use when the user asks for **full** verification or before relying on main-push CI scope.
 
 If `code-quality` is blocked (unrelated packages, missing DB, env, or known flaky suites):
 
@@ -71,7 +72,7 @@ Include the exact commands you ran so the user can replay them.
 Any session that creates or edits TypeScript, JavaScript, Markdown, or tests must still meet this bar before handoff:
 
 - **`pnpm format:check`** from repo root is mandatory; fix with **`pnpm format`** (or targeted Prettier write) until clean. If you only run package-scoped lint/typecheck/tests, you **still** run root **`pnpm format:check`** afterward.
-- Prefer **`pnpm code-quality`** from repo root when the workspace allows it; if blocked, run scoped package checks and document what was skipped.
+- Prefer **`pnpm code-quality:affected`** (or scoped package checks) when diff-scoping; use **`pnpm code-quality`** for full workspace verification when the user asks.
 - **New test files** that import server-side modules (e.g. `@hermes/orchestration-database`, `@mediapulse/database`, `@hermes/env`, `@mediapulse/env`, or code using `env.*`) need `/** @vitest-environment node */` at the top so Vitest uses Node.
 
 This subagent implements that contract **plus** optional Docker validation in one pass.
