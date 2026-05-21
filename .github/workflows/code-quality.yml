@@ -138,7 +138,7 @@ jobs:
         run: |
           set -eu
           if [ "${{ needs.changes.outputs.turbo_scope }}" = "affected" ]; then
-            turbo run generate --affected
+            pnpm exec turbo run generate --affected
           else
             pnpm generate
           fi
@@ -149,13 +149,13 @@ jobs:
         run: |
           set -eu
           if [ "${{ needs.changes.outputs.turbo_scope }}" = "affected" ]; then
-            turbo run build lint type:check test:coverage --affected
+            pnpm exec turbo run build lint type:check test:coverage --affected
             pnpm run merge-workspace-coverage
             pnpm run format:check:changed -- \
               --base "${{ needs.changes.outputs.turbo_base_sha }}" \
               --head "${{ needs.changes.outputs.turbo_head_sha }}"
           else
-            turbo run build lint type:check test:coverage
+            pnpm exec turbo run build lint type:check test:coverage
             pnpm run merge-workspace-coverage
             pnpm run format:check
           fi
