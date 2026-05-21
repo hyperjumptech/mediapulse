@@ -36,7 +36,9 @@ export const shouldHardDeleteDataSourceForExtractionError = (
 export const shouldHardDeleteDataSourceForNonArticleReason = (
   reason: NonArticleReason,
 ): boolean =>
-  reason === "prefilter_blocked_host" || reason === "prefilter_blocked_path";
+  reason === "prefilter_blocked_host" ||
+  reason === "prefilter_blocked_path" ||
+  reason === "content_soft_404";
 
 /**
  * Hard-deletes a data source row through agent-data-api.

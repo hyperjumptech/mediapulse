@@ -8,7 +8,7 @@ describe("classifyNonArticleSource", () => {
     // Act
     const result = classifyNonArticleSource(
       "https://finance.yahoo.com/quote/BBCA.JK/",
-      "BBCA Quote",
+      "BBCA Quote Page Title",
       "Some long placeholder content ".repeat(20),
     );
 
@@ -20,7 +20,7 @@ describe("classifyNonArticleSource", () => {
     // Act
     const result = classifyNonArticleSource(
       "https://www.linkedin.com/posts/example_company-update",
-      "Post title",
+      "LinkedIn company update post",
       "content",
     );
 

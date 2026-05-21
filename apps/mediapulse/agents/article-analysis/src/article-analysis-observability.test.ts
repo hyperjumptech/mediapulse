@@ -151,7 +151,14 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
       articlesScored: 2,
       articlesSelected: 1,
       relevanceAggregate: null,
-      llmUsage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+      llmUsage: {
+        promptTokens: 10,
+        completionTokens: 20,
+        totalTokens: 30,
+        brainstormCalls: 1,
+        brainstormPromptTokens: 5,
+        brainstormCompletionTokens: 7,
+      },
       extractionLatencyMsTotal: 300,
       extractionCalls: 2,
       runStatusLabel: "partial_success",
@@ -176,6 +183,9 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
     expect(payload.entityReuseRatio).toBe(0.5);
     expect(payload.avgExtractionLatencyMs).toBe(150);
     expect(payload.llmTotalTokens).toBe(30);
+    expect(payload.llmBrainstormCalls).toBe(1);
+    expect(payload.llmBrainstormPromptTokens).toBe(5);
+    expect(payload.llmBrainstormCompletionTokens).toBe(7);
     expect(payload.schemaValidationFailureCount).toBe(3);
     expect(payload.failureCountsByKind).toEqual({
       llm: 1,
@@ -304,5 +314,123 @@ describe("buildArticleAnalysisRunSummaryPayload", () => {
     });
     expect(payload.semanticFailureReason).toBe("empty vocabulary");
     expect(payload.error).toEqual({ type: "Error", message: "network" });
+  });
+
+  it("includes droppedByContentQuality when provided", () => {
+    const payload = buildArticleAnalysisRunSummaryPayload({
+      outcome: "success",
+      articlesProcessed: 4,
+      extractionSuccessCount: 1,
+      extractionFailures: [],
+      droppedByContentQuality: {
+        prefilter_blocked_host: 0,
+        prefilter_blocked_path: 0,
+        prefilter_index_title: 0,
+        content_no_title: 0,
+        content_soft_404: 1,
+        content_access_gated: 1,
+        content_too_short: 1,
+        content_repetitive: 0,
+      },
+      relevanceRowValidationFailures: 0,
+      chunkParseCounts: {
+        entityRelationChunkParseErrors: 0,
+        articleEntityChunkParseErrors: 0,
+        articleRelevanceChunkParseErrors: 0,
+      },
+      postFailures: [],
+      entitiesCreated: 0,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 0,
+      articlesSelected: 0,
+      relevanceAggregate: null,
+      llmUsage: null,
+      extractionLatencyMsTotal: 0,
+      extractionCalls: 1,
+    });
+
+    expect(payload.droppedByContentQuality).toEqual({
+      prefilter_blocked_host: 0,
+      prefilter_blocked_path: 0,
+      prefilter_index_title: 0,
+      content_no_title: 0,
+      content_soft_404: 1,
+      content_access_gated: 1,
+      content_too_short: 1,
+      content_repetitive: 0,
+    });
+  });
+
+  it("includes truncation aggregates when provided", () => {
+    const payload = buildArticleAnalysisRunSummaryPayload({
+      outcome: "success",
+      articlesProcessed: 1,
+      extractionSuccessCount: 1,
+      extractionFailures: [],
+      truncation: {
+        leadCharsKept: 120,
+        tickerSentencesKept: 1,
+        paragraphsKept: 4,
+        paragraphsDropped: 2,
+      },
+      relevanceRowValidationFailures: 0,
+      chunkParseCounts: {
+        entityRelationChunkParseErrors: 0,
+        articleEntityChunkParseErrors: 0,
+        articleRelevanceChunkParseErrors: 0,
+      },
+      postFailures: [],
+      entitiesCreated: 0,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 0,
+      articlesSelected: 0,
+      relevanceAggregate: null,
+      llmUsage: null,
+      extractionLatencyMsTotal: 0,
+      extractionCalls: 1,
+    });
+
+    expect(payload.truncation).toEqual({
+      leadCharsKept: 120,
+      tickerSentencesKept: 1,
+      paragraphsKept: 4,
+      paragraphsDropped: 2,
+    });
+  });
+
+  it("includes exemplars counters when provided", () => {
+    const payload = buildArticleAnalysisRunSummaryPayload({
+      outcome: "success",
+      articlesProcessed: 1,
+      extractionSuccessCount: 1,
+      extractionFailures: [],
+      exemplars: {
+        requestedCount: 4,
+        resolvedCount: 2,
+        appliedArchetypes: ["earnings", "leadership"],
+      },
+      relevanceRowValidationFailures: 0,
+      chunkParseCounts: {
+        entityRelationChunkParseErrors: 0,
+        articleEntityChunkParseErrors: 0,
+        articleRelevanceChunkParseErrors: 0,
+      },
+      postFailures: [],
+      entitiesCreated: 0,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 0,
+      articlesSelected: 0,
+      relevanceAggregate: null,
+      llmUsage: null,
+      extractionLatencyMsTotal: 0,
+      extractionCalls: 1,
+    });
+
+    expect(payload.exemplarsRequestedCount).toBe(4);
+    expect(payload.exemplarsResolvedCount).toBe(2);
+    expect(payload.exemplarsApplied).toEqual(["earnings", "leadership"]);
   });
 });

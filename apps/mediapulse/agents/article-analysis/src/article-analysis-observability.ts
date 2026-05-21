@@ -4,6 +4,9 @@ import type {
   ArticleAnalysisExtractionFailureRecord,
   ArticleAnalysisPostFailureRecord,
 } from "./article-analysis-run-policy.js";
+import type { QualityDropReason } from "./utilities/content-quality-gate.js";
+import type { ExtractionExemplarArchetype } from "./exemplars/default-extraction-exemplars.js";
+import type { GroundingObservabilityAggregate } from "./utilities/entity-grounding.js";
 
 /** Stable name for grep / log pipelines. */
 export const ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE =
@@ -210,6 +213,22 @@ export type LlmUsageTotals = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  brainstormCalls: number;
+  brainstormPromptTokens: number;
+  brainstormCompletionTokens: number;
+};
+
+export type TruncationObservabilityAggregate = {
+  leadCharsKept: number;
+  tickerSentencesKept: number;
+  paragraphsKept: number;
+  paragraphsDropped: number;
+};
+
+export type ExemplarsObservabilityAggregate = {
+  requestedCount: number;
+  resolvedCount: number;
+  appliedArchetypes: readonly ExtractionExemplarArchetype[];
 };
 
 export type ArticleAnalysisRunSummaryInput = {
@@ -217,6 +236,10 @@ export type ArticleAnalysisRunSummaryInput = {
   articlesProcessed: number;
   extractionSuccessCount: number;
   extractionFailures: readonly ArticleAnalysisExtractionFailureRecord[];
+  droppedByContentQuality?: Record<QualityDropReason, number>;
+  truncation?: TruncationObservabilityAggregate;
+  exemplars?: ExemplarsObservabilityAggregate;
+  grounding?: GroundingObservabilityAggregate;
   relevanceRowValidationFailures: number;
   chunkParseCounts: ChunkBuildParseCounts;
   postFailures: readonly ArticleAnalysisPostFailureRecord[];
@@ -229,6 +252,7 @@ export type ArticleAnalysisRunSummaryInput = {
   llmUsage: LlmUsageTotals | null;
   extractionLatencyMsTotal: number;
   extractionCalls: number;
+  brainstormCalls?: number;
   runStatusLabel?: string;
   semanticFailureReason?: string;
   topLevelError?: ReturnType<typeof toSafeLogError>;
@@ -289,6 +313,7 @@ export const buildArticleAnalysisRunSummaryPayload = (
     postByKind.article_relevances;
 
   const extractionCalls = input.extractionCalls;
+  const brainstormCalls = input.brainstormCalls ?? 0;
   const avgExtractionLatencyMs =
     extractionCalls > 0
       ? input.extractionLatencyMsTotal / extractionCalls
@@ -346,6 +371,7 @@ export const buildArticleAnalysisRunSummaryPayload = (
     articlesSelected: input.articlesSelected,
     extractionLatencyMsTotal: input.extractionLatencyMsTotal,
     extractionCalls,
+    brainstormCalls,
     avgExtractionLatencyMs,
   };
 
@@ -366,6 +392,10 @@ export const buildArticleAnalysisRunSummaryPayload = (
     base.llmPromptTokens = input.llmUsage.promptTokens;
     base.llmCompletionTokens = input.llmUsage.completionTokens;
     base.llmTotalTokens = input.llmUsage.totalTokens;
+    base.llmBrainstormCalls = input.llmUsage.brainstormCalls;
+    base.llmBrainstormPromptTokens = input.llmUsage.brainstormPromptTokens;
+    base.llmBrainstormCompletionTokens =
+      input.llmUsage.brainstormCompletionTokens;
   }
   if (input.relevanceAggregate !== null) {
     base.relevanceRowCount = input.relevanceAggregate.rowCount;
@@ -377,6 +407,24 @@ export const buildArticleAnalysisRunSummaryPayload = (
     base.breakdownKeyMeans = input.relevanceAggregate.breakdownKeyMeans;
     base.breakdownKeyMins = input.relevanceAggregate.breakdownKeyMins;
     base.breakdownKeyMaxs = input.relevanceAggregate.breakdownKeyMaxs;
+  }
+
+  if (input.droppedByContentQuality !== undefined) {
+    base.droppedByContentQuality = input.droppedByContentQuality;
+  }
+
+  if (input.truncation !== undefined) {
+    base.truncation = input.truncation;
+  }
+
+  if (input.exemplars !== undefined) {
+    base.exemplarsRequestedCount = input.exemplars.requestedCount;
+    base.exemplarsResolvedCount = input.exemplars.resolvedCount;
+    base.exemplarsApplied = input.exemplars.appliedArchetypes;
+  }
+
+  if (input.grounding !== undefined) {
+    base.grounding = input.grounding;
   }
 
   return base;

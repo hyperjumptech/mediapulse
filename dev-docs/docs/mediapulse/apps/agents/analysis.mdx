@@ -55,7 +55,7 @@ Every run emits a structured **info** log with message `article_analysis.run.sum
 | Correlation     | Log child bindings: `component`, `runId`, `tickerId`, and optional Hermes ids (`jobId`, `executionId`, `scheduleId`, `scheduleExecutionId`, `pipelineStepId`) when invoke headers are present                                                                                                                                                                                                                  |
 | Outcome         | `event`, `outcome` (`success` \| `failure`), `runStatus` (when applicable), `semanticFailureReason` for semantic exits (e.g. empty vocabulary, run policy, **`debounce_min_unanalyzed_count`**, **`debounce_min_minutes_since_last_score`**, pre-POST **`relevance_row_validation`**, relevance chunk build **`relevance_chunk_parse`**)                                                                       |
 | Stages          | **`stageMetrics.extract`** (`articlesProcessed`, `articlesSucceeded`, `articlesFailedExtraction`), **`stageMetrics.scorePrepare.schemaValidationFailures`**, **`stageMetrics.persist`** (`postChunkFailures`, `articlesScored`, `articlesSelected`)                                                                                                                                                            |
-| Extraction      | `articlesProcessed`, `extractionSuccessCount`, `extractionFailureCount`, **`extractionFailuresVocabulary`** vs **`extractionFailuresLlm`**                                                                                                                                                                                                                                                                     |
+| Extraction      | `articlesProcessed`, `extractionSuccessCount`, `extractionFailureCount`, **`extractionFailuresVocabulary`** vs **`extractionFailuresLlm`**, **`droppedByContentQuality`** (per-rule prefilter counters)                                                                                                                                                                                                                                                                     |
 | Validation      | **`relevanceRowValidationFailures`**, **`chunkParseErrors*`**, rolled-up **`schemaValidationFailureCount`**; **`failureCountsByKind`** splits **`llm`**, **`vocabulary`**, **`schemaValidation`**, **`persistenceHttp`**, **`persistenceOther`** from POST failures                                                                                                                                            |
 | Persist         | `postFailureCount`, **`postFailuresByChunkKind`**, **`postFailuresByErrorCategory`** (`agent_data_api_http` vs `unknown`)                                                                                                                                                                                                                                                                                      |
 | KG tallies      | `entitiesCreated`, `entitiesReused`, **`entityReuseRatio`**, `relationsCreated`, `articlesScored`, `articlesSelected`                                                                                                                                                                                                                                                                                          |
@@ -83,6 +83,23 @@ Optional guards reduce thrash when schedules fire more often than needed. All ar
 - **`analysisGetDataSourceLimitMax`** — Upper bound for **`analysis.get`** `limit` (API hard cap **10**). Default **10**; lower it in Hermes **Agent configs** when you want smaller GET batches than `maxBatchSize` / `defaultMaxBatchSize`.
 
 These are **additive** to calendar staggering: prefer running **data-collection** before **article-analysis** so backlog exists when analysis runs.
+
+## Content quality gate
+
+Before LLM extraction, each source runs through a deterministic pre-extraction quality gate in `src/utilities/content-quality-gate.ts` (`runArticleQualityGate`). Rules run in order; the first match wins and the source is skipped with that reason. This mirrors the [data-collection content quality gate](/mediapulse/apps/agents/data-collection#content-quality-gate) (plan 20), but runs at analysis time on bodies that already passed collection — catching challenge pages, soft-404s, paywall stubs, and nav-heavy skeletons that slipped through or only show up as text shape.
+
+| Rule | Drop reason | Example trigger |
+| --- | --- | --- |
+| Title empty or too short | `content_no_title` | Title `Access denied`, `Just a moment...`, or any title under 12 characters |
+| Blocked host | `prefilter_blocked_host` | URL on a known non-article host (e.g. LinkedIn posts) |
+| Blocked path | `prefilter_blocked_path` | URL path patterns such as Yahoo Finance quote pages |
+| Index-like title | `prefilter_index_title` | Title contains financial summary markers (e.g. `key statistics`, `company profile`) |
+| Soft 404 | `content_soft_404` | Body contains `page not found` and is under 1,500 characters |
+| Access gated | `content_access_gated` | Body contains `subscribe to read` with alphabetic density below 55% |
+| Minimum prose | `content_too_short` | Body has fewer than 120 words after URL stripping |
+| Repetitive boilerplate | `content_repetitive` | One six-word shingle accounts for more than 18% of all shingles |
+
+Each run logs a `droppedByContentQuality` breakdown in the `article_analysis.run.summary` structured log so operators can see which gate fires most often. Only `content_soft_404` is hard-delete-eligible alongside URL-based blocks; other content drops are soft-skips because the page may recover (paywall lifted, JS render, transient cookie wall).
 
 ## I/O contract
 

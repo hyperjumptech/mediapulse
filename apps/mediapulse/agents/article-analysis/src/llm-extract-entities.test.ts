@@ -1,11 +1,20 @@
 /** @vitest-environment node */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { ResolvedExemplar } from "./exemplars/default-extraction-exemplars.js";
 import {
+  buildExtractionModelMessages,
   buildExtractionSystemContent,
   buildExtractionUserContent,
+  buildBrainstormFollowUpUserContent,
+  buildBrainstormSystemContent,
+  buildBrainstormUserContent,
+  extractEntitiesAndRelationsForSource,
+  fetchArticleBrainstorm,
+  llmExtractionOpenAiWireSchema,
   normalizeLlmExtractionWire,
   normalizeLlmUsageFromSdk,
+  parseArticleBrainstormText,
   resolveArticleAnalysisExtractionSystemContent,
   resolveArticleAnalysisExtractionUserContent,
 } from "./llm-extract-entities.js";
@@ -106,6 +115,307 @@ describe("buildExtractionUserContent", () => {
     expect(u).toContain("T");
     expect(u).toContain("Hello");
     expect(u).toContain("Body text");
+  });
+});
+
+describe("buildExtractionModelMessages", () => {
+  const systemContent = "system prompt";
+  const userContent = "real article user prompt";
+
+  const exemplar = (
+    id: string,
+    snippet: string,
+  ): ResolvedExemplar => ({
+    archetype: "earnings",
+    articleSnippet: snippet,
+    expectedOutput: {
+      entities: [
+        {
+          canonicalName: id,
+          typeId: TID,
+          description: "",
+          aliases: [],
+        },
+      ],
+      relations: [],
+      articleMentions: [],
+    },
+  });
+
+  it("inserts exemplar turns between system and the real user message", () => {
+    // Act
+    const messages = buildExtractionModelMessages(systemContent, userContent, [
+      exemplar("One", "snippet one"),
+      exemplar("Two", "snippet two"),
+    ]);
+
+    // Assert
+    expect(messages.map((message) => message.role)).toEqual([
+      "system",
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+      "user",
+    ]);
+    expect(messages[1]?.content).toContain("snippet one");
+    expect(messages[2]?.content).toContain('"One"');
+    expect(messages[3]?.content).toContain("snippet two");
+    expect(messages[5]?.content).toBe(userContent);
+  });
+
+  it("returns the existing two-turn shape when no exemplars are provided", () => {
+    // Act
+    const messages = buildExtractionModelMessages(systemContent, userContent);
+
+    // Assert
+    expect(messages).toEqual([
+      { role: "system", content: systemContent },
+      { role: "user", content: userContent },
+    ]);
+  });
+
+  it("appends a brainstorm follow-up user turn after the article user message", () => {
+    const brainstormText =
+      "KEY PLAYERS:\n- Apple\n- Tim Cook\nEVENTS:\n- Q2 earnings beat";
+
+    // Act
+    const messages = buildExtractionModelMessages(
+      systemContent,
+      userContent,
+      [],
+      brainstormText,
+    );
+
+    // Assert
+    expect(messages.map((message) => message.role)).toEqual([
+      "system",
+      "user",
+      "user",
+    ]);
+    expect(messages[2]?.content).toBe(
+      buildBrainstormFollowUpUserContent(brainstormText),
+    );
+    expect(String(messages[2]?.content)).toContain("Apple");
+  });
+});
+
+describe("extractEntitiesAndRelationsForSource", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("passes few-shot turns to generateObject in order", async () => {
+    // Setup
+    const generateObjectForExtraction = vi.fn().mockResolvedValue({
+      object: {
+        entities: [],
+        relations: [],
+        articleMentions: [],
+      },
+      usage: null,
+    });
+    const exemplars: ResolvedExemplar[] = [
+      {
+        archetype: "earnings",
+        articleSnippet: "snippet one",
+        expectedOutput: {
+          entities: [
+            {
+              canonicalName: "One",
+              typeId: TID,
+              description: "",
+              aliases: [],
+            },
+          ],
+          relations: [],
+          articleMentions: [],
+        },
+      },
+      {
+        archetype: "leadership",
+        articleSnippet: "snippet two",
+        expectedOutput: {
+          entities: [
+            {
+              canonicalName: "Two",
+              typeId: TID,
+              description: "",
+              aliases: [],
+            },
+          ],
+          relations: [],
+          articleMentions: [],
+        },
+      },
+    ];
+
+    // Act
+    await extractEntitiesAndRelationsForSource(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        maxOutputTokens: 100,
+        messages: [
+          { role: "system", content: "system prompt" },
+          { role: "user", content: "real user prompt" },
+        ],
+        exemplars,
+      },
+      { generateObjectForExtraction },
+    );
+
+    // Assert
+    const capturedMessages =
+      generateObjectForExtraction.mock.calls[0]?.[0]?.messages;
+    expect(
+      capturedMessages?.map((message: { role: string }) => message.role),
+    ).toEqual(["system", "user", "assistant", "user", "assistant", "user"]);
+    expect(capturedMessages?.[5]?.content).toBe("real user prompt");
+  });
+
+  it("keeps the legacy two-turn message array when exemplars are omitted", async () => {
+    // Setup
+    const generateObjectForExtraction = vi.fn().mockResolvedValue({
+      object: {
+        entities: [],
+        relations: [],
+        articleMentions: [],
+      },
+      usage: null,
+    });
+    const messages = [
+      { role: "system" as const, content: "system prompt" },
+      { role: "user" as const, content: "real user prompt" },
+    ];
+
+    // Act
+    await extractEntitiesAndRelationsForSource(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        maxOutputTokens: 100,
+        messages,
+      },
+      { generateObjectForExtraction },
+    );
+
+    // Assert
+    expect(generateObjectForExtraction.mock.calls[0]?.[0]?.messages).toEqual(
+      messages,
+    );
+  });
+
+  it("includes brainstorm text in the structured-pass messages when provided", async () => {
+    // Setup
+    const generateObjectForExtraction = vi.fn().mockResolvedValue({
+      object: {
+        entities: [],
+        relations: [],
+        articleMentions: [],
+      },
+      usage: null,
+    });
+    const brainstormText =
+      "KEY PLAYERS:\n- Apple\n- Tim Cook\nEVENTS:\n- Q2 earnings beat";
+    const messages = [
+      { role: "system" as const, content: "system prompt" },
+      { role: "user" as const, content: "real user prompt" },
+    ];
+
+    // Act
+    await extractEntitiesAndRelationsForSource(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        maxOutputTokens: 100,
+        messages,
+        brainstormText,
+      },
+      { generateObjectForExtraction },
+    );
+
+    // Assert
+    const capturedMessages =
+      generateObjectForExtraction.mock.calls[0]?.[0]?.messages;
+    expect(capturedMessages?.at(-1)?.content).toBe(
+      buildBrainstormFollowUpUserContent(brainstormText),
+    );
+    expect(String(capturedMessages?.at(-1)?.content)).toContain("Apple");
+  });
+});
+
+describe("buildBrainstormSystemContent", () => {
+  it("returns plain-text instructions without JSON schema wording", () => {
+    const text = buildBrainstormSystemContent({
+      entityTypes: [{ id: TID, name: "Company", description: null }],
+      relationTypes: [{ id: RID, name: "PART_OF", description: null }],
+    });
+
+    expect(text).toContain("KEY PLAYERS");
+    expect(text).toContain("Plain text only, no JSON");
+    expect(text).not.toContain(TID);
+  });
+});
+
+describe("buildBrainstormUserContent", () => {
+  it("matches extraction user content for the same article fields", () => {
+    const args = {
+      tickerId: "T",
+      title: "Hello",
+      contentTruncated: "Body text",
+    };
+
+    expect(buildBrainstormUserContent(args)).toBe(buildExtractionUserContent(args));
+  });
+});
+
+describe("parseArticleBrainstormText", () => {
+  it("parses bullet sections into ArticleBrainstorm arrays", () => {
+    const parsed = parseArticleBrainstormText(
+      [
+        "KEY PLAYERS:",
+        "- Apple",
+        "- Tim Cook",
+        "EVENTS:",
+        "- Q2 earnings beat",
+      ].join("\n"),
+    );
+
+    expect(parsed.keyPlayers).toEqual(["Apple", "Tim Cook"]);
+    expect(parsed.events).toEqual(["Q2 earnings beat"]);
+    expect(parsed.relationships).toEqual([]);
+    expect(parsed.sentimentNotes).toEqual([]);
+  });
+});
+
+describe("fetchArticleBrainstorm", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns text and usage from generateText", async () => {
+    const generateTextForBrainstorm = vi.fn().mockResolvedValue({
+      text: "KEY PLAYERS:\n- Apple",
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+    });
+
+    const result = await fetchArticleBrainstorm(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        maxOutputTokens: 800,
+        messages: [{ role: "user", content: "article" }],
+      },
+      { generateTextForBrainstorm },
+    );
+
+    expect(result.text).toContain("Apple");
+    expect(result.usage).toEqual({
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+    });
   });
 });
 

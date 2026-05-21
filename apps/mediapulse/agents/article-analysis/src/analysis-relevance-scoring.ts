@@ -115,7 +115,10 @@ export const computeWeightedScore = (
 /**
  * Builds a relevance POST row with `selected: false` (selection applied later).
  *
- * @param signals - Source signals after extraction caps.
+ * Expects {@link PerSourceRelevanceSignals} counts after post-extraction entity grounding
+ * so ticker salience and mention confidence reflect grounded entities only.
+ *
+ * @param signals - Source signals after extraction caps and grounding.
  * @param scoreBreakdownVersion - `_version` in breakdown JSON.
  * @param weights - Hermes-configured weights.
  * @returns One `articleRelevances` element.

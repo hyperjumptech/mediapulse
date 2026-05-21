@@ -91,6 +91,57 @@ const TYPE_ID = "11111111-1111-4111-a111-111111111111";
 const REL_ID = "22222222-2222-4222-a222-222222222222";
 const DS_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const DS_ID_2 = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const DS_ID_3 = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const DS_ID_4 = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
+const VALID_SOURCE_URL = "https://example.com/news/article";
+const VALID_SOURCE_TITLE = "Company expands regional operations headline";
+
+/** Builds article-like body text with at least 120 unique words. */
+const validSourceContent = (): string =>
+  [
+    "Bank Central Asia announced strategic expansion plans across regional markets.",
+    ...Array.from(
+      { length: 130 },
+      (_, index) =>
+        `Analyst note ${index} discusses lending trends and deposit growth in Indonesia.`,
+    ),
+  ].join(" ");
+
+/** Builds paywall stub text with low alphabetic density. */
+const paywallSourceContent = (): string =>
+  "!!! $$$ ### subscribe to read !!! $$$ ### ".repeat(25);
+
+/** Builds soft-404 stub text under the length threshold. */
+const soft404SourceContent = (): string =>
+  `Sorry, page not found. ${"x".repeat(200)}`;
+
+/** Builds body text below the minimum word count. */
+const shortSourceContent = (): string => "word ".repeat(50);
+
+/** Builds a long article body for structure-aware truncation tests. */
+const longTruncationFixtureContent = (): string =>
+  [
+    "Structure headline",
+    "",
+    "Lead paragraph one without ticker mention in this opening block.",
+    "",
+    "Lead paragraph two without ticker mention in this opening block.",
+    "",
+    "Filler paragraph three has generic market commentary only here.",
+    "",
+    "Filler paragraph four has generic market commentary only here.",
+    "",
+    "Apple reported earnings and AAPL shares rose on guidance today.",
+    "",
+    "Sign up for our newsletter",
+    "",
+    ...Array.from(
+      { length: 130 },
+      (_, index) =>
+        `Trailing filler paragraph ${index} adds length beyond the truncation budget.`,
+    ),
+  ].join("\n");
 
 /** Required on `analysis.get` responses (see `getAnalysisResponseSchema`). */
 const relevanceSelectionState = {
@@ -159,9 +210,9 @@ describe("run", () => {
 
   const source = {
     id: DS_ID,
-    url: "u",
-    title: "T",
-    content: "c",
+    url: VALID_SOURCE_URL,
+    title: VALID_SOURCE_TITLE,
+    content: validSourceContent(),
     tickerId: "ticker-1",
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
   };
@@ -298,7 +349,7 @@ describe("run", () => {
           {
             ...source,
             id: DS_ID_2,
-            title: "T2",
+            title: "Article headline two test",
           },
         ],
         entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
@@ -468,9 +519,9 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -552,9 +603,9 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -623,9 +674,9 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -689,9 +740,9 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -836,16 +887,16 @@ describe("run", () => {
           {
             id: DS_ID,
             url: "u1",
-            title: "T1",
-            content: "c",
+            title: "Article headline one test",
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
           {
             id: DS_ID_2,
             url: "u2",
-            title: "T2",
-            content: "c",
+            title: "Article headline two test",
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -933,9 +984,9 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -999,9 +1050,9 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -1078,9 +1129,9 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -1166,17 +1217,17 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
           {
             id: DS_ID_2,
             url: "u2",
-            title: "T2",
-            content: "c",
+            title: "Article headline two test",
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -1218,8 +1269,8 @@ describe("run", () => {
           {
             id: DS_ID,
             url: "https://finance.yahoo.com/quote/BBCA.JK/",
-            title: "BBCA quote",
-            content: "Long but non-article page body ".repeat(20),
+            title: "BBCA Quote Page Title",
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -1248,15 +1299,197 @@ describe("run", () => {
     ).toBe("prefilter");
   });
 
+  it("tracks droppedByContentQuality counters and only extracts clean sources", async () => {
+    // Setup
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+          {
+            id: DS_ID_2,
+            url: "https://example.com/paywall",
+            title: "Premium article headline here",
+            content: paywallSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+          {
+            id: DS_ID_3,
+            url: "https://example.com/missing",
+            title: "Missing article headline here",
+            content: soft404SourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+          {
+            id: DS_ID_4,
+            url: "https://example.com/stub",
+            title: "Wire stub headline here",
+            content: shortSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    const extractSpy = vi.spyOn(
+      Llm,
+      "extractEntitiesAndRelationsForSource",
+    ).mockResolvedValue(
+      llmResult({
+        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 0,
+    });
+
+    // Act
+    await run(runContext({ input: { tickerId: "ticker-1" } }));
+
+    // Assert
+    expect(extractSpy).toHaveBeenCalledTimes(1);
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(summaryCall).toBeDefined();
+    expect(
+      (summaryCall?.[0] as { droppedByContentQuality: Record<string, number> })
+        .droppedByContentQuality,
+    ).toEqual({
+      prefilter_blocked_host: 0,
+      prefilter_blocked_path: 0,
+      prefilter_index_title: 0,
+      content_no_title: 0,
+      content_soft_404: 1,
+      content_access_gated: 1,
+      content_too_short: 1,
+      content_repetitive: 0,
+    });
+    expect(
+      (summaryCall?.[0] as { extractionCalls: number }).extractionCalls,
+    ).toBe(1);
+  });
+
+  it("uses structure-aware truncation when enabled and naive slice when disabled", async () => {
+    const COMPANY_TYPE_ID = "33333333-3333-4333-a333-333333333333";
+    const longContent = longTruncationFixtureContent();
+    const baseGetResponse = analysisGetOk({
+      dataSources: [
+        {
+          id: DS_ID,
+          url: VALID_SOURCE_URL,
+          title: VALID_SOURCE_TITLE,
+          content: longContent,
+          tickerId: "ticker-1",
+          createdAt: new Date(),
+        },
+      ],
+      entityTypes: [
+        { id: TYPE_ID, name: "Co", description: null },
+        { id: COMPANY_TYPE_ID, name: "Company", description: null },
+      ],
+      relationTypes: [{ id: REL_ID, name: "r", description: null }],
+      existingEntities: [
+        {
+          id: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee",
+          canonicalName: "AAPL",
+          typeId: COMPANY_TYPE_ID,
+          aliases: ["Apple Inc"],
+        },
+      ],
+      relevanceSelectionState,
+      lastRelevanceScoredAtIso: null,
+    });
+
+    analysisGet.mockResolvedValue(baseGetResponse);
+    const extractSpy = vi
+      .spyOn(Llm, "extractEntitiesAndRelationsForSource")
+      .mockResolvedValue(
+        llmResult({
+          entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+          relations: [],
+          articleMentions: [],
+        }),
+      );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 0,
+    });
+
+    await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: {
+          useStructureAwareTruncation: true,
+          maxContentChars: 260,
+        },
+      }),
+    );
+
+    const structuredUserMessage = extractSpy.mock.calls[0]?.[0]?.messages?.[1]
+      ?.content as string;
+    expect(structuredUserMessage).toContain("AAPL shares rose");
+    expect(structuredUserMessage).not.toContain(
+      "Sign up for our newsletter",
+    );
+
+    extractSpy.mockClear();
+    analysisGet.mockResolvedValue(baseGetResponse);
+
+    await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: {
+          useStructureAwareTruncation: false,
+          maxContentChars: 260,
+        },
+      }),
+    );
+
+    const slicedUserMessage = extractSpy.mock.calls[0]?.[0]?.messages?.[1]
+      ?.content as string;
+    expect(slicedUserMessage).toContain(
+      longContent.slice(0, 260).slice(0, 40),
+    );
+    expect(slicedUserMessage).not.toContain("AAPL shares rose");
+  });
+
   it("logs safe error shape when LLM extraction throws", async () => {
     analysisGet.mockResolvedValue(
       analysisGetOk({
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "short",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -1294,9 +1527,9 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: secretBody,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: `${secretBody} ${validSourceContent()}`,
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -1382,16 +1615,16 @@ describe("run", () => {
           {
             id: DS_ID,
             url: "u1",
-            title: "T1",
-            content: "c",
+            title: "Article headline one test",
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
           {
             id: DS_ID_2,
             url: "u2",
-            title: "T2",
-            content: "c",
+            title: "Article headline two test",
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -1446,17 +1679,17 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
           {
             id: DS_ID_2,
             url: "u2",
-            title: "T2",
-            content: "c",
+            title: "Article headline two test",
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -1497,9 +1730,9 @@ describe("run", () => {
         dataSources: [
           {
             id: DS_ID,
-            url: "u",
-            title: "T",
-            content: "c",
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
             tickerId: "ticker-1",
             createdAt: new Date(),
           },
@@ -1531,5 +1764,346 @@ describe("run", () => {
           "debounce_min_minutes_since_last_score",
     );
     expect(summaryCall).toBeDefined();
+  });
+
+  it("falls back to single-pass extraction when brainstorm fails", async () => {
+    // Setup
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "fetchArticleBrainstorm").mockRejectedValue(
+      new Error("timeout"),
+    );
+    const extractSpy = vi
+      .spyOn(Llm, "extractEntitiesAndRelationsForSource")
+      .mockResolvedValue(
+        llmResult({
+          entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+          relations: [],
+          articleMentions: [],
+        }),
+      );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    // Act
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { useBrainstormPass: true },
+      }),
+    );
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(extractSpy).toHaveBeenCalledTimes(1);
+    expect(extractSpy.mock.calls[0]?.[0]?.brainstormText).toBeUndefined();
+    expect(mockLog.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dataSourceId: DS_ID,
+        stage: "brainstorm",
+      }),
+      "article-analysis brainstorm pass failed; falling back to single-pass extraction",
+    );
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(summaryCall).toBeDefined();
+    expect((summaryCall?.[0] as { brainstormCalls?: number }).brainstormCalls).toBe(
+      0,
+    );
+    expect(
+      (summaryCall?.[0] as { extractionCalls?: number }).extractionCalls,
+    ).toBe(1);
+    expect(
+      (summaryCall?.[0] as { extractionSuccessCount?: number })
+        .extractionSuccessCount,
+    ).toBe(1);
+  });
+
+  it("passes brainstorm notes into structured extraction when enabled", async () => {
+    // Setup
+    const brainstormText =
+      "KEY PLAYERS:\n- Apple\n- Tim Cook\nEVENTS:\n- Q2 earnings beat";
+    const entityCounts: number[] = [];
+    const buildWire = (count: number) => ({
+      entities: Array.from({ length: count }, (_, index) => ({
+        canonicalName: `Entity${String(index)}`,
+        typeId: TYPE_ID,
+        description: "",
+        aliases: [] as string[],
+      })),
+      relations: [],
+      articleMentions: [],
+    });
+    const extractSpy = vi
+      .spyOn(Llm, "extractEntitiesAndRelationsForSource")
+      .mockImplementation(async (params) => {
+        const count = params.brainstormText ? 2 : 1;
+        entityCounts.push(count);
+        const wire = buildWire(count);
+        expect(Llm.llmExtractionOpenAiWireSchema.safeParse(wire).success).toBe(
+          true,
+        );
+        return llmResult({
+          entities: wire.entities.map((entity) => ({
+            canonicalName: entity.canonicalName,
+            typeId: entity.typeId,
+            description: entity.description,
+            aliases: entity.aliases,
+          })),
+          relations: wire.relations,
+          articleMentions: wire.articleMentions,
+        });
+      });
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 2,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+    vi.spyOn(Llm, "fetchArticleBrainstorm").mockResolvedValue({
+      text: brainstormText,
+      usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20 },
+    });
+
+    // Act — with brainstorm
+    const withBrainstorm = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { useBrainstormPass: true },
+      }),
+    );
+
+    // Assert
+    expect(withBrainstorm.success).toBe(true);
+    expect(extractSpy.mock.calls[0]?.[0]?.brainstormText).toBe(brainstormText);
+
+    // Act — without brainstorm on the same fixture
+    const withoutBrainstorm = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { useBrainstormPass: false },
+      }),
+    );
+
+    expect(withoutBrainstorm.success).toBe(true);
+    expect(extractSpy.mock.calls[1]?.[0]?.brainstormText).toBeUndefined();
+    expect(entityCounts).toEqual([2, 1]);
+    expect(entityCounts[0]).toBeGreaterThanOrEqual(entityCounts[1] ?? 0);
+  });
+
+  it("drops ungrounded entities and relations under the drop grounding policy", async () => {
+    const appleArticleContent = (): string =>
+      `${validSourceContent()} Apple expanded manufacturing capacity this year.`;
+    const hallucinatedExtraction = llmResult({
+      entities: [
+        { canonicalName: "FakeCo", typeId: TYPE_ID, aliases: [] },
+        { canonicalName: "Apple", typeId: TYPE_ID, aliases: [] },
+      ],
+      relations: [
+        {
+          fromEntityName: "FakeCo",
+          toEntityName: "Apple",
+          relationTypeId: REL_ID,
+        },
+      ],
+      articleMentions: [
+        {
+          entityName: "FakeCo",
+          mentionCount: 2,
+          confidence: 0.95,
+          sentiment: null,
+        },
+      ],
+    });
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: appleArticleContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      hallucinatedExtraction,
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { entityGroundingPolicy: "drop" },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    const postedEntities = analysisCreate.mock.calls[0]?.[0]?.entities as
+      | Array<{ canonicalName: string }>
+      | undefined;
+    expect(postedEntities?.map((entity) => entity.canonicalName)).toEqual([
+      "Apple",
+    ]);
+    expect(analysisCreate.mock.calls[0]?.[0]?.relations).toEqual([]);
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (summaryCall?.[0] as { grounding?: { entitiesUngroundedTotal: number } })
+        .grounding?.entitiesUngroundedTotal,
+    ).toBe(1);
+  });
+
+  it("flags ungrounded entities but drops their relations under the flag policy", async () => {
+    const appleArticleContent = (): string =>
+      `${validSourceContent()} Apple expanded manufacturing capacity this year.`;
+    const hallucinatedExtraction = llmResult({
+      entities: [
+        { canonicalName: "FakeCo", typeId: TYPE_ID, aliases: [] },
+        { canonicalName: "Apple", typeId: TYPE_ID, aliases: [] },
+      ],
+      relations: [
+        {
+          fromEntityName: "FakeCo",
+          toEntityName: "Apple",
+          relationTypeId: REL_ID,
+        },
+      ],
+      articleMentions: [
+        {
+          entityName: "FakeCo",
+          mentionCount: 2,
+          confidence: 0.95,
+          sentiment: null,
+        },
+      ],
+    });
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: appleArticleContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      hallucinatedExtraction,
+    );
+    analysisCreate
+      .mockResolvedValueOnce({
+        entitiesCreated: 2,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 0,
+        articlesSelected: 0,
+      })
+      .mockResolvedValueOnce({
+        entitiesCreated: 0,
+        entitiesReused: 0,
+        relationsCreated: 0,
+        articlesScored: 1,
+        articlesSelected: 1,
+      });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { entityGroundingPolicy: "flag" },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    const postedEntities = analysisCreate.mock.calls[0]?.[0]?.entities as
+      | Array<{ canonicalName: string }>
+      | undefined;
+    expect(postedEntities?.map((entity) => entity.canonicalName).sort()).toEqual(
+      ["Apple", "FakeCo"],
+    );
+    expect(analysisCreate.mock.calls[0]?.[0]?.relations).toEqual([]);
+    expect(
+      analysisCreate.mock.calls[1]?.[0]?.articleEntities?.[0]?.confidence,
+    ).toBe(0.4);
   });
 });

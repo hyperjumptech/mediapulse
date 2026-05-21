@@ -1,0 +1,78 @@
+---
+title: Article Analysis Agent
+description: Pre-LLM content quality gate reference for the article-analysis agent
+icon: Brain
+---
+
+## Content quality gate
+
+Before LLM extraction, each source runs through a deterministic pre-extraction quality gate in `src/utilities/content-quality-gate.ts` (`runArticleQualityGate`). Rules run in order; the first match wins and the source is skipped with that reason. This mirrors the [data-collection content quality gate](/mediapulse/apps/agents/data-collection#content-quality-gate) (plan 20), but runs at analysis time on bodies that already passed collection — catching challenge pages, soft-404s, paywall stubs, and nav-heavy skeletons that slipped through or only show up as text shape.
+
+| Rule | Drop reason | Example trigger |
+| --- | --- | --- |
+| Title empty or too short | `content_no_title` | Title `Access denied`, `Just a moment...`, or any title under 12 characters |
+| Blocked host | `prefilter_blocked_host` | URL on a known non-article host (e.g. LinkedIn posts) |
+| Blocked path | `prefilter_blocked_path` | URL path patterns such as Yahoo Finance quote pages |
+| Index-like title | `prefilter_index_title` | Title contains financial summary markers (e.g. `key statistics`, `company profile`) |
+| Soft 404 | `content_soft_404` | Body contains `page not found` and is under 1,500 characters |
+| Access gated | `content_access_gated` | Body contains `subscribe to read` with alphabetic density below 55% |
+| Minimum prose | `content_too_short` | Body has fewer than 120 words after URL stripping |
+| Repetitive boilerplate | `content_repetitive` | One six-word shingle accounts for more than 18% of all shingles |
+
+Each run logs a `droppedByContentQuality` breakdown in the `article_analysis.run.summary` structured log so operators can see which gate fires most often. Only `content_soft_404` is hard-delete-eligible alongside URL-based blocks; other content drops are soft-skips because the page may recover (paywall lifted, JS render, transient cookie wall).
+
+## Few-shot exemplars
+
+The extraction prompt can include curated `(article snippet → structured JSON)` pairs so the model sees concrete examples of entity granularity, alias handling, mention confidence, and relation direction. Exemplars live in `src/exemplars/default-extraction-exemplars.ts` and are resolved once per run against the ticker's `entityTypes` / `relationTypes` vocabulary.
+
+| Archetype | When it helps | Example snippet theme |
+| --- | --- | --- |
+| `earnings` | Guidance beats, margin commentary, CFO quotes | Bank reports Q4 beat and raises outlook |
+| `legal` | Regulatory probes, enforcement risk | SEC opens investigation into revenue disclosures |
+| `leadership` | CEO/C-suite transitions | Board names new CEO and founder becomes chairman |
+| `product` | Launches and partnerships | Vendor unveils platform and signs co-sell deal |
+
+Hermes config knobs:
+
+| Field | Default | Purpose |
+| --- | --- | --- |
+| `fewShotExemplarCount` | `0` | How many exemplars to inject (`0` disables few-shot entirely) |
+| `fewShotExemplarArchetypes` | omitted | Optional allow-list of archetypes eligible for selection |
+
+Selection is deterministic: the library order is earnings → legal → leadership → product, and the resolver takes the first N exemplars whose sentinel placeholders (`{{ENTITY_TYPE:COMPANY}}`, `{{RELATION_TYPE:CEO_OF}}`, etc.) map to UUIDs present in the ticker's vocabulary. Archetypes with missing types are skipped rather than substituted with the wrong UUID.
+
+When enabled, each exemplar becomes one `user` turn (snippet) plus one `assistant` turn (JSON output) inserted between the system prompt and the real article user message:
+
+```text
+system → user(exemplar 1) → assistant(JSON 1) → user(exemplar 2) → assistant(JSON 2) → user(real article)
+```
+
+The run summary logs `exemplarsRequestedCount`, `exemplarsResolvedCount`, and `exemplarsApplied` so operators can audit token cost. Bumping `fewShotExemplarCount` from `0` to `2` roughly increases per-source input tokens by 1.5–2× depending on snippet length; output tokens are unchanged.
+
+## Entity grounding
+
+After LLM extraction and vocabulary validation, each entity is verified against the **full** article body (`source.content`) and title — not the truncated text sent to the model. Structure-aware truncation may remove paragraphs from the prompt, but grounding still checks the persisted body so a mention in a dropped paragraph counts as grounded.
+
+Matching is deterministic:
+
+| Rule | Behavior |
+| --- | --- |
+| Exact substring | Case-insensitive match after trim and whitespace collapse (`normalizeEntityName` rules) |
+| Corporate suffix strip | `Apple Inc.` matches body text containing `Apple` |
+| Whitespace collapse | Inner whitespace in the haystack is collapsed before comparison |
+| Acronyms | Names ≤ 3 characters or all-uppercase use exact match only — `IBM` does **not** match `I.B.M.` |
+
+Hermes config:
+
+| Field | Default | Purpose |
+| --- | --- | --- |
+| `entityGroundingPolicy` | `off` | `drop` removes ungrounded entities; `flag` keeps them but caps mention confidence at `0.4` and still drops their relations; `off` is legacy behavior |
+| `entityGroundingMinTitleHits` | `0` | When greater than zero, the entity must appear in the title to count as grounded |
+
+Relations require **both** endpoints to be grounded — even under `flag`, a relation touching an ungrounded entity is dropped. Relevance scoring (`perSourceSignals.entityCount`, `mentionCount`, `avgMentionConfidence`) uses post-grounding counts so ticker salience is not inflated by hallucinated entities.
+
+The run summary includes `grounding.entitiesUngroundedTotal`, `grounding.relationsDroppedTotal`, and `grounding.mentionsDroppedTotal`. Per-source counters are logged at info level when `verbose` is true and grounding is enabled.
+
+## Related docs
+
+- [Analysis Agent](/mediapulse/apps/agents/analysis) — full agent reference (extraction, relevance, observability, config)

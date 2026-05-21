@@ -78,4 +78,27 @@ describe("shouldHardDeleteDataSourceForNonArticleReason", () => {
     // Assert
     expect(result).toBe(false);
   });
+
+  it("returns true for soft-404 content drops", () => {
+    // Act
+    const result =
+      shouldHardDeleteDataSourceForNonArticleReason("content_soft_404");
+
+    // Assert
+    expect(result).toBe(true);
+  });
+
+  it("returns false for recoverable content quality drops", () => {
+    // Act
+    const paywall = shouldHardDeleteDataSourceForNonArticleReason(
+      "content_access_gated",
+    );
+    const tooShort = shouldHardDeleteDataSourceForNonArticleReason(
+      "content_too_short",
+    );
+
+    // Assert
+    expect(paywall).toBe(false);
+    expect(tooShort).toBe(false);
+  });
 });

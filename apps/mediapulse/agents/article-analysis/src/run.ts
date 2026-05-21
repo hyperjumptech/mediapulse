@@ -48,6 +48,7 @@ import {
   toSafeLogError,
   type ArticleAnalysisRunSummaryInput,
   type ChunkBuildParseCounts,
+  type ExemplarsObservabilityAggregate,
   type LlmUsageTotals,
 } from "./article-analysis-observability.js";
 import {
@@ -66,9 +67,14 @@ import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-sche
 import {
   resolveArticleAnalysisExtractionSystemContent,
   resolveArticleAnalysisExtractionUserContent,
+  buildBrainstormSystemContent,
+  buildBrainstormUserContent,
   extractEntitiesAndRelationsForSource,
+  fetchArticleBrainstorm,
   type LlmExtractionUsage,
 } from "./llm-extract-entities.js";
+import { DEFAULT_EXTRACTION_EXEMPLARS } from "./exemplars/default-extraction-exemplars.js";
+import { resolveExemplarsForContext } from "./exemplars/resolve-extraction-exemplars.js";
 import {
   buildAnalysisGetQuery,
   applyMaxBatchSizeCap,
@@ -80,7 +86,22 @@ import {
   shouldHardDeleteDataSourceForExtractionError,
 } from "./extraction-failure-pruning.js";
 import { normalizeEntityName } from "./normalize-entity-name.js";
-import { classifyNonArticleSource } from "./non-article-source-filter.js";
+import {
+  accumulateTruncationMeta,
+  createEmptyTruncationTotals,
+  resolveTruncationTickerContext,
+  truncateArticleForExtraction,
+} from "./utilities/article-content-truncator.js";
+import {
+  createEmptyQualityCounters,
+  runArticleQualityGate,
+  type QualityDropReason,
+} from "./utilities/content-quality-gate.js";
+import {
+  accumulateGroundingCounters,
+  applyExtractionEntityGrounding,
+  createEmptyGroundingTotals,
+} from "./utilities/entity-grounding.js";
 
 type ExistingEntity = {
   canonicalName: string;
@@ -247,7 +268,37 @@ export const run = async ({
 
   const emitRunSummary = (summary: ArticleAnalysisRunSummaryInput): void => {
     log.info(
-      buildArticleAnalysisRunSummaryPayload(summary),
+      buildArticleAnalysisRunSummaryPayload({
+        ...summary,
+        droppedByContentQuality:
+          summary.droppedByContentQuality ?? { ...droppedByContentQuality },
+        truncation:
+          summary.truncation ??
+          (truncationTotals.paragraphsKept > 0 ||
+          truncationTotals.paragraphsDropped > 0 ||
+          truncationTotals.leadCharsKept > 0 ||
+          truncationTotals.tickerSentencesKept > 0
+            ? {
+                leadCharsKept: truncationTotals.leadCharsKept,
+                tickerSentencesKept: truncationTotals.tickerSentencesKept,
+                paragraphsKept: truncationTotals.paragraphsKept,
+                paragraphsDropped: truncationTotals.paragraphsDropped,
+              }
+            : undefined),
+        exemplars: summary.exemplars ?? exemplarsObservability ?? undefined,
+        grounding:
+          summary.grounding ??
+          (groundingTotals.entitiesUngroundedTotal > 0 ||
+          groundingTotals.relationsDroppedTotal > 0 ||
+          groundingTotals.mentionsDroppedTotal > 0
+            ? {
+                entitiesUngroundedTotal:
+                  groundingTotals.entitiesUngroundedTotal,
+                relationsDroppedTotal: groundingTotals.relationsDroppedTotal,
+                mentionsDroppedTotal: groundingTotals.mentionsDroppedTotal,
+              }
+            : undefined),
+      }),
       ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
     );
   };
@@ -275,13 +326,21 @@ export const run = async ({
     promptTokens: 0,
     completionTokens: 0,
     totalTokens: 0,
+    brainstormCalls: 0,
+    brainstormPromptTokens: 0,
+    brainstormCompletionTokens: 0,
   };
   let llmUsageAccumulated = false;
   let extractionLatencyMsTotal = 0;
   let extractionCalls = 0;
+  let brainstormCalls = 0;
   let lastLlmPromptFingerprint: string | undefined;
   let relevanceRowsForObservability: ArticleRelevanceRow[] | null = null;
+  let exemplarsObservability: ExemplarsObservabilityAggregate | null = null;
   const extractionFailures: ArticleAnalysisExtractionFailureRecord[] = [];
+  const droppedByContentQuality = createEmptyQualityCounters();
+  const truncationTotals = createEmptyTruncationTotals();
+  const groundingTotals = createEmptyGroundingTotals();
   let extractionSuccessCount = 0;
   const postFailures: ArticleAnalysisPostFailureRecord[] = [];
   let entitiesCreated = 0;
@@ -298,6 +357,16 @@ export const run = async ({
     llmUsageTotals.promptTokens += usage.inputTokens;
     llmUsageTotals.completionTokens += usage.outputTokens;
     llmUsageTotals.totalTokens += usage.totalTokens;
+  };
+
+  const accumulateBrainstormUsage = (usage: LlmExtractionUsage | null): void => {
+    if (!usage) {
+      return;
+    }
+    llmUsageAccumulated = true;
+    llmUsageTotals.brainstormCalls += 1;
+    llmUsageTotals.brainstormPromptTokens += usage.inputTokens;
+    llmUsageTotals.brainstormCompletionTokens += usage.outputTokens;
   };
 
   try {
@@ -499,6 +568,17 @@ export const run = async ({
       cfg.prompts?.systemPrompt,
       ctx,
     );
+    const resolvedExemplars = resolveExemplarsForContext(
+      DEFAULT_EXTRACTION_EXEMPLARS,
+      ctx,
+      cfg.fewShotExemplarCount,
+      cfg.fewShotExemplarArchetypes,
+    );
+    exemplarsObservability = {
+      requestedCount: cfg.fewShotExemplarCount,
+      resolvedCount: resolvedExemplars.length,
+      appliedArchetypes: resolvedExemplars.map((exemplar) => exemplar.archetype),
+    };
     const existingLookup = buildExistingEntityLookup(ctx.existingEntities);
 
     const mergedEntities: EntityProposal[] = [];
@@ -507,13 +587,21 @@ export const run = async ({
     const perSourceSignals: PerSourceRelevanceSignals[] = [];
     let vocabularyFailures = 0;
 
+    const truncationTickerContext = resolveTruncationTickerContext(
+      ctx.entityTypes,
+      ctx.existingEntities,
+    );
+    const runProcessingStartedAt = Date.now();
+
     for (const source of batch) {
-      const nonArticleReason = classifyNonArticleSource(
+      const qualityDecision = runArticleQualityGate(
         source.url,
         source.title,
         source.content,
       );
-      if (nonArticleReason) {
+      if (qualityDecision.blocked) {
+        const nonArticleReason: QualityDropReason = qualityDecision.reason;
+        droppedByContentQuality[nonArticleReason] += 1;
         extractionFailures.push({
           dataSourceId: source.id,
           stage: "prefilter",
@@ -556,8 +644,20 @@ export const run = async ({
         continue;
       }
 
-      const truncated =
-        source.content.length > cfg.maxContentChars
+      const truncated = cfg.useStructureAwareTruncation
+        ? (() => {
+            const result = truncateArticleForExtraction(source.content, {
+              maxChars: cfg.maxContentChars,
+              tickerSymbols: truncationTickerContext.tickerSymbols,
+              companyAliases: truncationTickerContext.companyAliases,
+              leadParagraphsAlwaysKept:
+                cfg.truncationLeadParagraphsAlwaysKept,
+              financialKeywordsExtra: cfg.truncationFinancialKeywordsExtra,
+            });
+            accumulateTruncationMeta(truncationTotals, result.meta);
+            return result.content;
+          })()
+        : source.content.length > cfg.maxContentChars
           ? source.content.slice(0, cfg.maxContentChars)
           : source.content;
 
@@ -576,6 +676,59 @@ export const run = async ({
           systemContent,
           extractionUserContent,
         );
+
+        let brainstormText: string | undefined;
+        const runElapsedMs = Date.now() - runProcessingStartedAt;
+        const shouldRunBrainstorm =
+          cfg.useBrainstormPass && runElapsedMs < cfg.runDeadlineMs;
+
+        if (shouldRunBrainstorm) {
+          try {
+            const brainstormResult = await fetchArticleBrainstorm({
+              apiKey: cfg.openaiApiKey,
+              model: cfg.brainstormModel,
+              maxOutputTokens: cfg.brainstormMaxOutputTokens,
+              messages: [
+                {
+                  role: "system",
+                  content: buildBrainstormSystemContent(ctx),
+                },
+                {
+                  role: "user",
+                  content: buildBrainstormUserContent({
+                    tickerId: input.tickerId,
+                    title: source.title,
+                    contentTruncated: truncated,
+                  }),
+                },
+              ],
+            });
+            brainstormCalls += 1;
+            accumulateBrainstormUsage(brainstormResult.usage);
+            if (brainstormResult.text.trim().length > 0) {
+              brainstormText = brainstormResult.text;
+            }
+          } catch (brainstormErr) {
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "brainstorm",
+                err: toSafeLogError(brainstormErr),
+              },
+              "article-analysis brainstorm pass failed; falling back to single-pass extraction",
+            );
+          }
+        } else if (cfg.useBrainstormPass && runElapsedMs >= cfg.runDeadlineMs) {
+          log.warn(
+            {
+              dataSourceId: source.id,
+              runElapsedMs,
+              runDeadlineMs: cfg.runDeadlineMs,
+            },
+            "article-analysis skipping brainstorm pass due to run deadline",
+          );
+        }
+
         const extractedResult = await extractEntitiesAndRelationsForSource({
           apiKey: cfg.openaiApiKey,
           model: cfg.openaiModel,
@@ -587,6 +740,10 @@ export const run = async ({
               content: extractionUserContent,
             },
           ],
+          ...(resolvedExemplars.length > 0
+            ? { exemplars: resolvedExemplars }
+            : {}),
+          ...(brainstormText !== undefined ? { brainstormText } : {}),
         });
         extractionLatencyMsTotal += Date.now() - t0;
         extractionCalls += 1;
@@ -615,9 +772,35 @@ export const run = async ({
           continue;
         }
 
+        const groundedExtraction = applyExtractionEntityGrounding({
+          entities: extracted.entities,
+          relations: extracted.relations,
+          mentions: extracted.articleMentions,
+          articleText: source.content,
+          title: source.title,
+          policy: cfg.entityGroundingPolicy,
+          entityGroundingMinTitleHits: cfg.entityGroundingMinTitleHits,
+        });
+        accumulateGroundingCounters(groundingTotals, groundedExtraction.counters);
+        if (cfg.verbose && cfg.entityGroundingPolicy !== "off") {
+          log.info(
+            {
+              dataSourceId: source.id,
+              ungroundedEntityCount:
+                groundedExtraction.counters.ungroundedEntityCount,
+              relationsDroppedDueToUngroundedEndpoint:
+                groundedExtraction.counters
+                  .relationsDroppedDueToUngroundedEndpoint,
+              mentionsDroppedDueToUngroundedEntity:
+                groundedExtraction.counters.mentionsDroppedDueToUngroundedEntity,
+            },
+            "article-analysis entity grounding applied for source",
+          );
+        }
+
         const resolved = resolveAgainstExistingEntities(
-          extracted.entities,
-          extracted.relations,
+          groundedExtraction.entities,
+          groundedExtraction.relations,
           existingLookup,
         );
         const capped = applyPerArticleExtractionCaps(
@@ -633,7 +816,7 @@ export const run = async ({
           capped.entities,
         );
         const mentionFiltered = filterMentionsToArticleEntityCatalog(
-          extracted.articleMentions,
+          groundedExtraction.mentions,
           allowedCatalog,
         );
         const mentionCapped = applyPerArticleArticleMentionCap(
@@ -1225,6 +1408,7 @@ export const run = async ({
       llmUsage: llmUsageAccumulated ? llmUsageTotals : null,
       extractionLatencyMsTotal,
       extractionCalls,
+      brainstormCalls,
       runStatusLabel: runStatus,
       ...(lastLlmPromptFingerprint !== undefined
         ? { llmPromptFingerprint: lastLlmPromptFingerprint }
