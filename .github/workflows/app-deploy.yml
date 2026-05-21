@@ -10,9 +10,30 @@ permissions:
   packages: write
 
 jobs:
+  changes:
+    name: Detect changed app services
+    runs-on: ubuntu-latest
+    outputs:
+      any: ${{ steps.detect.outputs.any }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect which app services changed
+        id: detect
+        env:
+          WORKFLOW: app
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: bash .github/scripts/detect-changed-services.sh
+
   db-migrate:
     name: Apply Prisma migrations (production DBs)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
     concurrency:
       group: prisma-migrate-production
       cancel-in-progress: false
@@ -38,35 +59,15 @@ jobs:
       - name: Migrate deploy (mediapulse)
         run: pnpm --filter=@mediapulse/database run db:migrate:deploy
 
-  publish:
-    name: Publish ${{ matrix.service }}
+  publish-and-deploy:
+    name: Publish & deploy ${{ matrix.service }}
     runs-on: ubuntu-latest
-    needs: db-migrate
+    needs: [changes, db-migrate]
+    if: needs.changes.outputs.any == 'true'
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        include:
-          - service: agent-auth-api
-            dockerfile: apps/hermes/agent-auth-api/Dockerfile
-            image: app-agent-auth-api
-          - service: agent-data-api
-            dockerfile: apps/mediapulse/agent-data-api/Dockerfile
-            image: app-agent-data-api
-          - service: domain-api
-            dockerfile: apps/mediapulse/domain-api/Dockerfile
-            image: app-domain-api
-          - service: agent-registry-api
-            dockerfile: apps/hermes/agent-registry-api/Dockerfile
-            image: app-agent-registry-api
-          - service: user-registration
-            dockerfile: apps/mediapulse/user-registration/Dockerfile
-            image: app-user-registration
-          - service: hermes
-            dockerfile: apps/hermes/dashboard/Dockerfile
-            image: app-hermes
-          - service: hermes-worker
-            dockerfile: apps/hermes/worker/Dockerfile
-            image: app-hermes-worker
+        include: ${{ fromJson(needs.changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
 
@@ -94,130 +95,16 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-  deploy:
-    name: Deploy ${{ matrix.service }} via Coolify
-    runs-on: ubuntu-latest
-    needs: publish
-    strategy:
-      fail-fast: false
-      max-parallel: 3
-      matrix:
-        include:
-          - service: agent-auth-api
-            webhook_secret: COOLIFY_WEBHOOK_APP_AGENT_AUTH_API
-          - service: agent-data-api
-            webhook_secret: COOLIFY_WEBHOOK_APP_AGENT_DATA_API
-          - service: domain-api
-            webhook_secret: COOLIFY_WEBHOOK_APP_DOMAIN_API
-          - service: agent-registry-api
-            webhook_secret: COOLIFY_WEBHOOK_APP_AGENT_REGISTRY_API
-          - service: user-registration
-            webhook_secret: COOLIFY_WEBHOOK_APP_USER_REGISTRATION
-          - service: hermes
-            webhook_secret: COOLIFY_WEBHOOK_APP_HERMES
-          - service: hermes-worker
-            webhook_secret: COOLIFY_WEBHOOK_APP_HERMES_WORKER
-    steps:
-      - name: Trigger Coolify deployment over OpenVPN
-        env:
-          COOLIFY_WEBHOOK_URL: ${{ secrets[matrix.webhook_secret] }}
-          COOLIFY_WEBHOOK_SECRET: ${{ secrets.COOLIFY_WEBHOOK_SECRET }}
-          OPENVPN_CONFIG_B64: ${{ secrets.OPENVPN_CONFIG_B64 }}
-          OPENVPN_PASSWORD: ${{ secrets.OPENVPN_PASSWORD }}
-        run: |
-          set -euo pipefail
+      - name: Deploy
+        uses: ./.github/actions/remote-deploy
+        with:
+          webhook-url: ${{ secrets[matrix.webhook_secret] }}
+          webhook-secret: ${{ secrets.COOLIFY_WEBHOOK_SECRET }}
+          vpn-config-b64: ${{ secrets.OPENVPN_CONFIG_B64 }}
+          vpn-password: ${{ secrets.OPENVPN_PASSWORD }}
 
-          if ! command -v openvpn >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y openvpn
-          fi
-
-          WORKDIR="$(mktemp -d)"
-          cleanup() {
-            if [ -f "$WORKDIR/openvpn.pid" ]; then
-              sudo kill "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
-            fi
-            rm -rf "$WORKDIR"
-          }
-          trap cleanup EXIT
-
-          printf "%s" "$OPENVPN_CONFIG_B64" | base64 --decode > "$WORKDIR/client.ovpn"
-          printf "%s\n" "$OPENVPN_PASSWORD" > "$WORKDIR/passphrase.txt"
-          chmod 600 "$WORKDIR/passphrase.txt"
-
-          vpn_connected="false"
-          for attempt in 1 2 3; do
-            if [ -f "$WORKDIR/openvpn.pid" ]; then
-              sudo kill "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1 || true
-              sudo rm -f "$WORKDIR/openvpn.pid"
-            fi
-            sudo rm -f "$WORKDIR/openvpn.log"
-
-            sudo openvpn \
-              --config "$WORKDIR/client.ovpn" \
-              --askpass "$WORKDIR/passphrase.txt" \
-              --daemon \
-              --writepid "$WORKDIR/openvpn.pid" \
-              --log "$WORKDIR/openvpn.log"
-
-            connected="false"
-            for _ in {1..30}; do
-              if sudo grep -q "Initialization Sequence Completed" "$WORKDIR/openvpn.log"; then
-                connected="true"
-                break
-              fi
-              if [ -f "$WORKDIR/openvpn.pid" ] && ! sudo kill -0 "$(sudo cat "$WORKDIR/openvpn.pid")" >/dev/null 2>&1; then
-                break
-              fi
-              sleep 2
-            done
-
-            if [ "$connected" = "true" ]; then
-              vpn_connected="true"
-              break
-            fi
-
-            echo "::warning::OpenVPN did not reach Initialization Sequence Completed (attempt ${attempt}/3)." >&2
-            sudo cat "$WORKDIR/openvpn.log" || true
-            if [ "$attempt" -lt 3 ]; then
-              echo "Retrying VPN in 15s..." >&2
-              sleep 15
-            fi
-          done
-
-          if [ "$vpn_connected" != "true" ]; then
-            exit 1
-          fi
-
-          curl --fail --silent --show-error --verbose \
-            --retry 6 \
-            --retry-all-errors \
-            --retry-delay 5 \
-            --retry-max-time 300 \
-            --connect-timeout 20 \
-            --max-time 120 \
-            -X GET "$COOLIFY_WEBHOOK_URL" \
-            --header "Authorization: Bearer $COOLIFY_WEBHOOK_SECRET"
-
-  cleanup:
-    name: Prune old GHCR versions (${{ matrix.image }})
-    runs-on: ubuntu-latest
-    needs: deploy
-    permissions:
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        image:
-          - app-agent-auth-api
-          - app-agent-data-api
-          - app-domain-api
-          - app-agent-registry-api
-          - app-user-registration
-          - app-hermes
-          - app-hermes-worker
-    steps:
-      - uses: actions/delete-package-versions@v5
+      - name: Prune old GHCR versions
+        uses: actions/delete-package-versions@v5
         with:
           package-name: ${{ matrix.image }}
           package-type: container
