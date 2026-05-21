@@ -3,13 +3,24 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ResolvedExemplar } from "./exemplars/default-extraction-exemplars.js";
 import {
+  partitionExtractionByVocabulary,
+  type BadEntityRecord,
+} from "./analysis-vocabulary.js";
+import {
+  applyRelationCritiqueDrops,
   buildExtractionModelMessages,
   buildExtractionSystemContent,
   buildExtractionUserContent,
   buildBrainstormFollowUpUserContent,
   buildBrainstormSystemContent,
   buildBrainstormUserContent,
+  buildRelationCritiqueModelMessages,
+  buildRelationCritiqueSystemContent,
+  buildRelationCritiqueUserContent,
+  buildVocabularyRepairSystemContent,
   extractEntitiesAndRelationsForSource,
+  repairExtractionVocabulary,
+  vocabularyRepairPreservesIdentity,
   fetchArticleBrainstorm,
   llmExtractionOpenAiWireSchema,
   normalizeLlmExtractionWire,
@@ -465,6 +476,282 @@ describe("normalizeLlmExtractionWire", () => {
     });
     expect(out.entities[0]?.description).toBe("HQ");
     expect(out.articleMentions[0]?.sentiment).toBe("NEGATIVE");
+  });
+});
+
+describe("applyRelationCritiqueDrops", () => {
+  const REL_TYPE = "22222222-2222-4222-a222-222222222222";
+
+  it("removes at most dropFraction of drop-flagged rows, lowest scores first", () => {
+    const candidates = Array.from({ length: 8 }, (_, index) => ({
+      fromEntityName: `From${String(index)}`,
+      toEntityName: `To${String(index)}`,
+      relationTypeId: REL_TYPE,
+    }));
+
+    const ratings = candidates.map((relation, index) => ({
+      ...relation,
+      textualSupport: index < 5 ? 1 : 5,
+      correctnessOfType: index < 5 ? 1 : 5,
+      novelty: index < 5 ? 1 : 5,
+      drop: index < 5,
+      evidenceSpan: `evidence ${String(index)}`,
+    }));
+
+    const result = applyRelationCritiqueDrops(candidates, ratings, 0.25);
+
+    expect(result.droppedCount).toBe(2);
+    expect(result.relations).toHaveLength(6);
+    expect(result.relations.map((relation) => relation.fromEntityName)).toEqual(
+      ["From2", "From3", "From4", "From5", "From6", "From7"],
+    );
+  });
+});
+
+describe("buildRelationCritiqueModelMessages", () => {
+  it("includes vocabulary and numbered candidates in system and user turns", () => {
+    const candidates = [
+      {
+        fromEntityName: "A",
+        toEntityName: "B",
+        relationTypeId: RID,
+      },
+    ];
+    const messages = buildRelationCritiqueModelMessages(
+      {
+        relationTypes: [{ id: RID, name: "PART_OF", description: null }],
+      },
+      {
+        articleTitle: "Headline",
+        articleBody: "Full article body text.",
+        candidates,
+      },
+    );
+
+    expect(messages).toHaveLength(2);
+    expect(String(messages[0]?.content)).toContain(RID);
+    expect(String(messages[1]?.content)).toContain("Headline");
+    expect(String(messages[1]?.content)).toContain("1. from=A");
+  });
+});
+
+describe("buildRelationCritiqueSystemContent", () => {
+  it("includes relation type ids from context", () => {
+    const text = buildRelationCritiqueSystemContent({
+      relationTypes: [{ id: RID, name: "PART_OF", description: null }],
+    });
+    expect(text).toContain(RID);
+    expect(text).toContain("PART_OF");
+  });
+});
+
+describe("buildRelationCritiqueUserContent", () => {
+  it("includes title, body, and candidate list", () => {
+    const text = buildRelationCritiqueUserContent({
+      articleTitle: "T",
+      articleBody: "Body",
+      candidates: [
+        {
+          fromEntityName: "X",
+          toEntityName: "Y",
+          relationTypeId: RID,
+        },
+      ],
+    });
+    expect(text).toContain("T");
+    expect(text).toContain("Body");
+    expect(text).toContain("from=X");
+  });
+});
+
+describe("repairExtractionVocabulary", () => {
+  const badEntity = (
+    canonicalName: string,
+    typeId: string,
+  ): BadEntityRecord => ({
+    entity: { canonicalName, typeId, aliases: [] },
+    reason: "unknown_typeId",
+  });
+
+  it("returns repaired entities when the repair call supplies valid UUIDs", async () => {
+    const generateObjectForVocabularyRepair = vi.fn().mockResolvedValue({
+      object: {
+        entities: [
+          {
+            canonicalName: "Bad",
+            typeId: TID,
+            description: "",
+            aliases: [],
+          },
+        ],
+        relations: [],
+      },
+      usage: { inputTokens: 4, outputTokens: 2, totalTokens: 6 },
+    });
+
+    const result = await repairExtractionVocabulary(
+      {
+        apiKey: "sk-test",
+        model: "gpt-test",
+        maxOutputTokens: 512,
+        ctx: {
+          entityTypes: [{ id: TID, name: "Company", description: null }],
+          relationTypes: [{ id: RID, name: "PART_OF", description: null }],
+        },
+        badEntities: [badEntity("Bad", "99999999-9999-4999-a999-999999999999")],
+        badRelations: [],
+      },
+      { generateObjectForVocabularyRepair },
+    );
+
+    expect(result.entities).toEqual([
+      { canonicalName: "Bad", typeId: TID, aliases: [] },
+    ]);
+    expect(generateObjectForVocabularyRepair).toHaveBeenCalledOnce();
+  });
+});
+
+describe("vocabulary repair with partition (repair policy flow)", () => {
+  const ctx = {
+    entityTypes: [{ id: TID, name: "Company", description: null }],
+    relationTypes: [{ id: RID, name: "PART_OF", description: null }],
+  };
+
+  it("merges okEntities with repaired badEntities when repair returns valid UUIDs", async () => {
+    const entities = [
+      { canonicalName: "Good1", typeId: TID, aliases: [] as string[] },
+      { canonicalName: "Good2", typeId: TID, aliases: [] as string[] },
+      {
+        canonicalName: "Bad",
+        typeId: "99999999-9999-4999-a999-999999999999",
+        aliases: [] as string[],
+      },
+    ];
+    const relations = [
+      {
+        fromEntityName: "Good1",
+        toEntityName: "Good2",
+        relationTypeId: RID,
+      },
+    ];
+
+    const partitioned = partitionExtractionByVocabulary(
+      entities,
+      relations,
+      ctx,
+    );
+    expect(partitioned.okEntities).toHaveLength(2);
+    expect(partitioned.okRelations).toHaveLength(1);
+    expect(partitioned.badRelations).toHaveLength(0);
+    expect(partitioned.badEntities).toHaveLength(1);
+
+    const repairResult = await repairExtractionVocabulary(
+      {
+        apiKey: "sk-test",
+        model: "gpt-test",
+        maxOutputTokens: 512,
+        ctx,
+        badEntities: partitioned.badEntities,
+        badRelations: partitioned.badRelations,
+      },
+      {
+        generateObjectForVocabularyRepair: vi.fn().mockResolvedValue({
+          object: {
+            entities: [
+              {
+                canonicalName: "Bad",
+                typeId: TID,
+                description: "",
+                aliases: [],
+              },
+            ],
+            relations: [],
+          },
+          usage: null,
+        }),
+      },
+    );
+
+    const repairedPartition = partitionExtractionByVocabulary(
+      repairResult.entities,
+      repairResult.relations,
+      ctx,
+    );
+    const finalEntities = [
+      ...partitioned.okEntities,
+      ...repairedPartition.okEntities,
+    ];
+
+    expect(finalEntities).toHaveLength(3);
+    expect(repairedPartition.okEntities).toHaveLength(1);
+    expect(partitioned.badEntities.length).toBe(
+      repairedPartition.okEntities.length,
+    );
+  });
+
+  it("keeps only okEntities when the repair call throws", async () => {
+    const partitioned = partitionExtractionByVocabulary(
+      [
+        { canonicalName: "Good", typeId: TID, aliases: [] },
+        {
+          canonicalName: "Bad",
+          typeId: "99999999-9999-4999-a999-999999999999",
+          aliases: [],
+        },
+      ],
+      [],
+      ctx,
+    );
+
+    await expect(
+      repairExtractionVocabulary(
+        {
+          apiKey: "sk-test",
+          model: "gpt-test",
+          maxOutputTokens: 512,
+          ctx,
+          badEntities: partitioned.badEntities,
+          badRelations: partitioned.badRelations,
+        },
+        {
+          generateObjectForVocabularyRepair: vi
+            .fn()
+            .mockRejectedValue(new Error("repair down")),
+        },
+      ),
+    ).rejects.toThrow("repair down");
+
+    expect(partitioned.okEntities).toHaveLength(1);
+    expect(partitioned.okEntities[0]?.canonicalName).toBe("Good");
+  });
+});
+
+describe("vocabularyRepairPreservesIdentity", () => {
+  it("rejects repair output that renames entities or relation endpoints", () => {
+    expect(
+      vocabularyRepairPreservesIdentity(
+        [
+          {
+            entity: { canonicalName: "A", typeId: TID, aliases: [] },
+            reason: "unknown_typeId",
+          },
+        ],
+        [],
+        { entities: [{ canonicalName: "Renamed" }], relations: [] },
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("buildVocabularyRepairSystemContent", () => {
+  it("includes entity and relation vocabulary blocks", () => {
+    const text = buildVocabularyRepairSystemContent({
+      entityTypes: [{ id: TID, name: "Company", description: null }],
+      relationTypes: [{ id: RID, name: "PART_OF", description: null }],
+    });
+    expect(text).toContain(TID);
+    expect(text).toContain(RID);
+    expect(text).toContain("unchanged");
   });
 });
 

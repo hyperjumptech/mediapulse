@@ -62,6 +62,23 @@ export const articleAnalysisConfigSchema = z
     brainstormMaxOutputTokens: z.number().int().positive().optional(),
     /** Wall-clock budget in ms; after this elapsed time, skip brainstorm on remaining sources. */
     runDeadlineMs: z.number().positive().optional(),
+    /** When true, run a second LLM pass to critique and prune noisy relation triples. */
+    useRelationSelfCritique: z.boolean().optional(),
+    /** Max fraction of relations per source that critique may drop (hard cap). */
+    relationCritiqueDropFraction: z.number().min(0).max(0.5).optional(),
+    /** Skip critique when a source has fewer relations than this threshold. */
+    relationCritiqueMinRelationCount: z.number().int().nonnegative().optional(),
+    /** Chat model for relation critique (defaults to `openaiModel`). */
+    relationCritiqueModel: z.string().min(1).optional(),
+    /**
+     * How to handle vocabulary-invalid extraction rows.
+     * `strict` skips the whole source (legacy). `partition` drops bad rows. `repair` partitions then re-labels bad rows once.
+     */
+    vocabularyPolicy: z.enum(["strict", "partition", "repair"]).optional(),
+    /** Chat model for vocabulary repair (defaults to `openaiModel`). */
+    vocabularyRepairModel: z.string().min(1).optional(),
+    /** Skip repair when rejected row count exceeds this cap (likely systemic vocabulary drift). */
+    vocabularyRepairMaxItems: z.number().int().positive().optional(),
     /** Post-extraction grounding policy for hallucinated entities. */
     entityGroundingPolicy: z.enum(["drop", "flag", "off"]).optional(),
     /** When greater than zero, entity must appear in the title to count as grounded. */
@@ -85,6 +102,22 @@ export const articleAnalysisConfigSchema = z
     relevanceWeightFundamental: z.number().nonnegative().optional(),
     relevanceWeightTickerSalience: z.number().nonnegative().optional(),
     relevanceWeightSourceQuality: z.number().nonnegative().optional(),
+    /** When true, compute real `sourceQuality` from host tier, recency, and structural cues. */
+    useSourceQualityV2: z.boolean().optional(),
+    /** Recency half-life (hours) for source-quality exponential decay. */
+    sourceQualityRecencyHalfLifeHours: z.number().positive().optional(),
+    /** Replaces default tier-1 host suffix list when set. */
+    sourceQualityHostTier1: z.array(z.string()).optional(),
+    /** Replaces default tier-2 host suffix list when set. */
+    sourceQualityHostTier2: z.array(z.string()).optional(),
+    /** Replaces default tier-3 host suffix list when set. */
+    sourceQualityHostTier3: z.array(z.string()).optional(),
+    /** When true, diversify `selected` rows by entity/title event clusters. */
+    useSelectionDiversification: z.boolean().optional(),
+    /** Jaccard threshold for merging rows by shared entity names (default 0.5). */
+    selectionEntityOverlapThreshold: z.number().min(0).max(1).optional(),
+    /** Jaccard threshold for merging rows by title 4-gram overlap (default 0.4). */
+    selectionTitleSimilarityThreshold: z.number().min(0).max(1).optional(),
     /** Minimum score to be eligible for `selected: true`. */
     relevanceMinScore: z.number().min(0).max(1).optional(),
     /** Cap on additional `selected` rows per UTC day (budget minus GET `selectedCountToday`). */
@@ -212,6 +245,13 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   brainstormModel: string;
   brainstormMaxOutputTokens: number;
   runDeadlineMs: number;
+  useRelationSelfCritique: boolean;
+  relationCritiqueDropFraction: number;
+  relationCritiqueMinRelationCount: number;
+  relationCritiqueModel: string;
+  vocabularyPolicy: "strict" | "partition" | "repair";
+  vocabularyRepairModel: string;
+  vocabularyRepairMaxItems: number;
   entityGroundingPolicy: "drop" | "flag" | "off";
   entityGroundingMinTitleHits: number;
   maxEntitiesPerArticle: number;
@@ -228,6 +268,14 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   relevanceWeightFundamental: number;
   relevanceWeightTickerSalience: number;
   relevanceWeightSourceQuality: number;
+  useSourceQualityV2: boolean;
+  sourceQualityRecencyHalfLifeHours: number;
+  sourceQualityHostTier1?: string[];
+  sourceQualityHostTier2?: string[];
+  sourceQualityHostTier3?: string[];
+  useSelectionDiversification: boolean;
+  selectionEntityOverlapThreshold: number;
+  selectionTitleSimilarityThreshold: number;
   relevanceMinScore: number;
   maxSelectedRelevancePerTickerPerDay: number;
   postChunkArticleRelevanceBatchSize: number;
@@ -254,6 +302,11 @@ export const articleAnalysisConfigDefaults = {
   useBrainstormPass: false,
   brainstormMaxOutputTokens: 800,
   runDeadlineMs: Number.POSITIVE_INFINITY,
+  useRelationSelfCritique: false,
+  relationCritiqueDropFraction: 0.25,
+  relationCritiqueMinRelationCount: 3,
+  vocabularyPolicy: "strict",
+  vocabularyRepairMaxItems: 20,
   entityGroundingPolicy: "off",
   entityGroundingMinTitleHits: 0,
   maxEntitiesPerArticle: 20,
@@ -270,6 +323,11 @@ export const articleAnalysisConfigDefaults = {
   relevanceWeightFundamental: 0.2,
   relevanceWeightTickerSalience: 0.2,
   relevanceWeightSourceQuality: 0.2,
+  useSourceQualityV2: false,
+  sourceQualityRecencyHalfLifeHours: 72,
+  useSelectionDiversification: false,
+  selectionEntityOverlapThreshold: 0.5,
+  selectionTitleSimilarityThreshold: 0.4,
   relevanceMinScore: 0.35,
   maxSelectedRelevancePerTickerPerDay: 10,
   postChunkArticleRelevanceBatchSize: 40,
@@ -331,6 +389,22 @@ export const resolveArticleAnalysisConfig = (
       articleAnalysisConfigDefaults.brainstormMaxOutputTokens,
     runDeadlineMs:
       config.runDeadlineMs ?? articleAnalysisConfigDefaults.runDeadlineMs,
+    useRelationSelfCritique:
+      config.useRelationSelfCritique ??
+      articleAnalysisConfigDefaults.useRelationSelfCritique,
+    relationCritiqueDropFraction:
+      config.relationCritiqueDropFraction ??
+      articleAnalysisConfigDefaults.relationCritiqueDropFraction,
+    relationCritiqueMinRelationCount:
+      config.relationCritiqueMinRelationCount ??
+      articleAnalysisConfigDefaults.relationCritiqueMinRelationCount,
+    relationCritiqueModel: config.relationCritiqueModel ?? openaiModel,
+    vocabularyPolicy:
+      config.vocabularyPolicy ?? articleAnalysisConfigDefaults.vocabularyPolicy,
+    vocabularyRepairModel: config.vocabularyRepairModel ?? openaiModel,
+    vocabularyRepairMaxItems:
+      config.vocabularyRepairMaxItems ??
+      articleAnalysisConfigDefaults.vocabularyRepairMaxItems,
     entityGroundingPolicy:
       config.entityGroundingPolicy ??
       articleAnalysisConfigDefaults.entityGroundingPolicy,
@@ -379,6 +453,30 @@ export const resolveArticleAnalysisConfig = (
     relevanceWeightSourceQuality:
       config.relevanceWeightSourceQuality ??
       articleAnalysisConfigDefaults.relevanceWeightSourceQuality,
+    useSourceQualityV2:
+      config.useSourceQualityV2 ??
+      articleAnalysisConfigDefaults.useSourceQualityV2,
+    sourceQualityRecencyHalfLifeHours:
+      config.sourceQualityRecencyHalfLifeHours ??
+      articleAnalysisConfigDefaults.sourceQualityRecencyHalfLifeHours,
+    ...(config.sourceQualityHostTier1 !== undefined
+      ? { sourceQualityHostTier1: config.sourceQualityHostTier1 }
+      : {}),
+    ...(config.sourceQualityHostTier2 !== undefined
+      ? { sourceQualityHostTier2: config.sourceQualityHostTier2 }
+      : {}),
+    ...(config.sourceQualityHostTier3 !== undefined
+      ? { sourceQualityHostTier3: config.sourceQualityHostTier3 }
+      : {}),
+    useSelectionDiversification:
+      config.useSelectionDiversification ??
+      articleAnalysisConfigDefaults.useSelectionDiversification,
+    selectionEntityOverlapThreshold:
+      config.selectionEntityOverlapThreshold ??
+      articleAnalysisConfigDefaults.selectionEntityOverlapThreshold,
+    selectionTitleSimilarityThreshold:
+      config.selectionTitleSimilarityThreshold ??
+      articleAnalysisConfigDefaults.selectionTitleSimilarityThreshold,
     relevanceMinScore:
       config.relevanceMinScore ??
       articleAnalysisConfigDefaults.relevanceMinScore,

@@ -216,6 +216,43 @@ export type LlmUsageTotals = {
   brainstormCalls: number;
   brainstormPromptTokens: number;
   brainstormCompletionTokens: number;
+  critiqueCalls: number;
+  critiquePromptTokens: number;
+  critiqueCompletionTokens: number;
+};
+
+export type RelationCritiqueObservabilityAggregate = {
+  sourcesCritiqued: number;
+  relationsDroppedByCritique: number;
+  critiqueCalls: number;
+  critiquePromptTokens: number;
+  critiqueCompletionTokens: number;
+};
+
+export type VocabularyPartitioningObservabilityAggregate = {
+  badEntitiesDropped: number;
+  badRelationsDropped: number;
+  repairCallsAttempted: number;
+  repairCallsSucceeded: number;
+  repairCallsFailed: number;
+  rowsRecoveredByRepair: number;
+};
+
+export type SourceQualityObservabilityAggregate = {
+  tier1Sources: number;
+  tier2Sources: number;
+  tier3Sources: number;
+  unknownHostSources: number;
+  avgRecencyHours: number | null;
+  avgQualityScore: number;
+};
+
+export type SelectionObservabilityAggregate = {
+  eligibleRows: number;
+  clustersFormed: number;
+  selectedAfterDiversification: number;
+  suppressedAsDuplicates: number;
+  largestClusterSize: number;
 };
 
 export type TruncationObservabilityAggregate = {
@@ -240,6 +277,10 @@ export type ArticleAnalysisRunSummaryInput = {
   truncation?: TruncationObservabilityAggregate;
   exemplars?: ExemplarsObservabilityAggregate;
   grounding?: GroundingObservabilityAggregate;
+  relationCritique?: RelationCritiqueObservabilityAggregate;
+  vocabularyPartitioning?: VocabularyPartitioningObservabilityAggregate;
+  sourceQuality?: SourceQualityObservabilityAggregate;
+  selection?: SelectionObservabilityAggregate;
   relevanceRowValidationFailures: number;
   chunkParseCounts: ChunkBuildParseCounts;
   postFailures: readonly ArticleAnalysisPostFailureRecord[];
@@ -396,6 +437,9 @@ export const buildArticleAnalysisRunSummaryPayload = (
     base.llmBrainstormPromptTokens = input.llmUsage.brainstormPromptTokens;
     base.llmBrainstormCompletionTokens =
       input.llmUsage.brainstormCompletionTokens;
+    base.llmCritiqueCalls = input.llmUsage.critiqueCalls;
+    base.llmCritiquePromptTokens = input.llmUsage.critiquePromptTokens;
+    base.llmCritiqueCompletionTokens = input.llmUsage.critiqueCompletionTokens;
   }
   if (input.relevanceAggregate !== null) {
     base.relevanceRowCount = input.relevanceAggregate.rowCount;
@@ -425,6 +469,22 @@ export const buildArticleAnalysisRunSummaryPayload = (
 
   if (input.grounding !== undefined) {
     base.grounding = input.grounding;
+  }
+
+  if (input.relationCritique !== undefined) {
+    base.relationCritique = input.relationCritique;
+  }
+
+  if (input.vocabularyPartitioning !== undefined) {
+    base.vocabularyPartitioning = input.vocabularyPartitioning;
+  }
+
+  if (input.sourceQuality !== undefined) {
+    base.sourceQuality = input.sourceQuality;
+  }
+
+  if (input.selection !== undefined) {
+    base.selection = input.selection;
   }
 
   return base;

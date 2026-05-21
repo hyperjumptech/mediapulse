@@ -27,6 +27,10 @@ export type PerSourceRelevanceSignals = {
   avgMentionConfidence: number;
   titleLower: string;
   textLower: string;
+  /** When set (source quality v2), replaces the fixed 0.5 `sourceQuality` breakdown value. */
+  sourceQualityScore?: number;
+  /** Normalized canonical names and aliases for selection diversification clustering. */
+  entityNames: readonly string[];
 };
 
 export type ArticleRelevanceRow = PostAnalysisBody["articleRelevances"][number];
@@ -79,8 +83,7 @@ export const buildScoreBreakdownV1 = (
             Math.min(0.25, signals.entityCount * 0.04),
         ),
   );
-  // Fixed neutral value — all sources treated equally regardless of origin.
-  const sourceQuality = 0.5;
+  const sourceQuality = clampUnitInterval(signals.sourceQualityScore ?? 0.5);
 
   return {
     _version: scoreBreakdownVersion,

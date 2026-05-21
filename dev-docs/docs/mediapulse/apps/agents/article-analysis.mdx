@@ -1,78 +1,109 @@
 ---
 title: Article Analysis Agent
-description: Pre-LLM content quality gate reference for the article-analysis agent
-icon: Brain
+description: LLM extraction, relevance scoring, and source-quality v2 for article-analysis
+icon: FileSearch
 ---
 
-## Content quality gate
+## Source quality v2
 
-Before LLM extraction, each source runs through a deterministic pre-extraction quality gate in `src/utilities/content-quality-gate.ts` (`runArticleQualityGate`). Rules run in order; the first match wins and the source is skipped with that reason. This mirrors the [data-collection content quality gate](/mediapulse/apps/agents/data-collection#content-quality-gate) (plan 20), but runs at analysis time on bodies that already passed collection — catching challenge pages, soft-404s, paywall stubs, and nav-heavy skeletons that slipped through or only show up as text shape.
+Relevance scoring stores five subscores in `article_relevance.score_breakdown`. Before source quality v2, `sourceQuality` was always **0.5**, so the weighted aggregate only used four live dimensions.
 
-| Rule | Drop reason | Example trigger |
-| --- | --- | --- |
-| Title empty or too short | `content_no_title` | Title `Access denied`, `Just a moment...`, or any title under 12 characters |
-| Blocked host | `prefilter_blocked_host` | URL on a known non-article host (e.g. LinkedIn posts) |
-| Blocked path | `prefilter_blocked_path` | URL path patterns such as Yahoo Finance quote pages |
-| Index-like title | `prefilter_index_title` | Title contains financial summary markers (e.g. `key statistics`, `company profile`) |
-| Soft 404 | `content_soft_404` | Body contains `page not found` and is under 1,500 characters |
-| Access gated | `content_access_gated` | Body contains `subscribe to read` with alphabetic density below 55% |
-| Minimum prose | `content_too_short` | Body has fewer than 120 words after URL stripping |
-| Repetitive boilerplate | `content_repetitive` | One six-word shingle accounts for more than 18% of all shingles |
+When Hermes sets **`useSourceQualityV2`: `true`**, the agent computes a real `sourceQuality` value per data source from three deterministic signals (no extra LLM call):
 
-Each run logs a `droppedByContentQuality` breakdown in the `article_analysis.run.summary` structured log so operators can see which gate fires most often. Only `content_soft_404` is hard-delete-eligible alongside URL-based blocks; other content drops are soft-skips because the page may recover (paywall lifted, JS render, transient cookie wall).
+| Sub-signal | Default internal weight | What it measures |
+| ---------- | ----------------------- | ---------------- |
+| Host class | 0.5 | Publisher tier from URL hostname (suffix match) |
+| Recency | 0.3 | Exponential decay from `publishedAt` or `createdAt` |
+| Structural | 0.2 | Body length, paragraph breaks, shouting (uppercase ratio in body only) |
 
-## Few-shot exemplars
+The combined score is clamped to `[0, 1]` and passed into `buildScoreBreakdownV1` as `signals.sourceQualityScore`. When the flag is off, the field is omitted and the breakdown still uses **0.5** — same math as before for `scoreBreakdownVersion` **1**.
 
-The extraction prompt can include curated `(article snippet → structured JSON)` pairs so the model sees concrete examples of entity granularity, alias handling, mention confidence, and relation direction. Exemplars live in `src/exemplars/default-extraction-exemplars.ts` and are resolved once per run against the ticker's `entityTypes` / `relationTypes` vocabulary.
+### Host tiers (default suffix lists)
 
-| Archetype | When it helps | Example snippet theme |
-| --- | --- | --- |
-| `earnings` | Guidance beats, margin commentary, CFO quotes | Bank reports Q4 beat and raises outlook |
-| `legal` | Regulatory probes, enforcement risk | SEC opens investigation into revenue disclosures |
-| `leadership` | CEO/C-suite transitions | Board names new CEO and founder becomes chairman |
-| `product` | Launches and partnerships | Vendor unveils platform and signs co-sell deal |
+| Tier | Score | Example domains |
+| ---- | ----- | ---------------- |
+| tier1 | 0.9 | `reuters.com`, `bloomberg.com`, `apnews.com`, `wsj.com`, `ft.com`, `nytimes.com` |
+| tier2 | 0.7 | `cnbc.com`, `marketwatch.com`, `barrons.com`, `forbes.com`, `businessinsider.com`, `seekingalpha.com`, `reuters.co.uk` |
+| tier3 | 0.4 | `medium.com`, `substack.com`, `benzinga.com` |
+| unknown | 0.5 | Everything else (`markets.reuters.com` matches `reuters.com`) |
 
-Hermes config knobs:
+Operator overrides **`sourceQualityHostTier1`**, **`sourceQualityHostTier2`**, and **`sourceQualityHostTier3`** **replace** the built-in list for that tier (they do not merge).
 
-| Field | Default | Purpose |
-| --- | --- | --- |
-| `fewShotExemplarCount` | `0` | How many exemplars to inject (`0` disables few-shot entirely) |
-| `fewShotExemplarArchetypes` | omitted | Optional allow-list of archetypes eligible for selection |
+### Recency
 
-Selection is deterministic: the library order is earnings → legal → leadership → product, and the resolver takes the first N exemplars whose sentinel placeholders (`{{ENTITY_TYPE:COMPANY}}`, `{{RELATION_TYPE:CEO_OF}}`, etc.) map to UUIDs present in the ticker's vocabulary. Archetypes with missing types are skipped rather than substituted with the wrong UUID.
+`recencyScore = exp(-ageHours / halfLifeHours)` with default **`sourceQualityRecencyHalfLifeHours`: 72**. Age uses **`publishedAt`** when present, otherwise **`createdAt`**. If no usable date is available, recency is **0.5** (neutral).
 
-When enabled, each exemplar becomes one `user` turn (snippet) plus one `assistant` turn (JSON output) inserted between the system prompt and the real article user message:
+### Structural cues
 
-```text
-system → user(exemplar 1) → assistant(JSON 1) → user(exemplar 2) → assistant(JSON 2) → user(real article)
+- **Length:** peak **1.0** between 1500–8000 characters; below 500 → **0.2**; above 15000 → **0.6**
+- **Paragraphs:** rewards `\n\n` breaks (≥ 3 for full credit)
+- **Shouting:** penalizes uppercase ratio **> 0.15** in the body (title excluded)
+
+### Example breakdown computation
+
+Suppose host class **0.9** (Reuters), recency **0.95** (2 hours old, 72h half-life), structural **0.88**:
+
+```
+sourceQuality = 0.5×0.9 + 0.3×0.95 + 0.2×0.88 ≈ 0.911
 ```
 
-The run summary logs `exemplarsRequestedCount`, `exemplarsResolvedCount`, and `exemplarsApplied` so operators can audit token cost. Bumping `fewShotExemplarCount` from `0` to `2` roughly increases per-source input tokens by 1.5–2× depending on snippet length; output tokens are unchanged.
+That value becomes `scoreBreakdown.sourceQuality`. The final relevance **`score`** still uses Hermes `relevanceWeight*` keys (default **0.2** each across five dimensions).
 
-## Entity grounding
+### Config knobs
 
-After LLM extraction and vocabulary validation, each entity is verified against the **full** article body (`source.content`) and title — not the truncated text sent to the model. Structure-aware truncation may remove paragraphs from the prompt, but grounding still checks the persisted body so a mention in a dropped paragraph counts as grounded.
+| Key | Default | Meaning |
+| --- | ------- | ------- |
+| `useSourceQualityV2` | `false` | Enable real source-quality scoring |
+| `sourceQualityRecencyHalfLifeHours` | `72` | Recency decay half-life |
+| `sourceQualityHostTier1` | (built-in) | Optional tier-1 host suffix list override |
+| `sourceQualityHostTier2` | (built-in) | Optional tier-2 override |
+| `sourceQualityHostTier3` | (built-in) | Optional tier-3 override |
 
-Matching is deterministic:
+### Observability
 
-| Rule | Behavior |
-| --- | --- |
-| Exact substring | Case-insensitive match after trim and whitespace collapse (`normalizeEntityName` rules) |
-| Corporate suffix strip | `Apple Inc.` matches body text containing `Apple` |
-| Whitespace collapse | Inner whitespace in the haystack is collapsed before comparison |
-| Acronyms | Names ≤ 3 characters or all-uppercase use exact match only — `IBM` does **not** match `I.B.M.` |
+Run summary field **`sourceQuality`** includes `tier1Sources`, `tier2Sources`, `tier3Sources`, `unknownHostSources`, `avgRecencyHours`, and `avgQualityScore`. With **`verbose`: `true`**, each source logs a per-row breakdown (`hostTier`, `recencyScore`, `structuralScore`, etc.).
 
-Hermes config:
+### Upgrade path
 
-| Field | Default | Purpose |
-| --- | --- | --- |
-| `entityGroundingPolicy` | `off` | `drop` removes ungrounded entities; `flag` keeps them but caps mention confidence at `0.4` and still drops their relations; `off` is legacy behavior |
-| `entityGroundingMinTitleHits` | `0` | When greater than zero, the entity must appear in the title to count as grounded |
+Existing rows with `sourceQuality: 0.5` remain valid under **`scoreBreakdownVersion` 1** — only the source of that number changes when v2 is enabled. Bump breakdown version when you change canonical keys or weight semantics, not when turning on v2.
 
-Relations require **both** endpoints to be grounded — even under `flag`, a relation touching an ungrounded entity is dropped. Relevance scoring (`perSourceSignals.entityCount`, `mentionCount`, `avgMentionConfidence`) uses post-grounding counts so ticker salience is not inflated by hallucinated entities.
+## Selection diversification
 
-The run summary includes `grounding.entitiesUngroundedTotal`, `grounding.relationsDroppedTotal`, and `grounding.mentionsDroppedTotal`. Per-source counters are logged at info level when `verbose` is true and grounding is enabled.
+When **`useSelectionDiversification`: `true`**, the daily `selected: true` budget prefers distinct event clusters instead of pure top-K by score. Syndicated wires that share entities and near-identical headlines compete for one representative slot first; remaining budget still fills by score so slots are not wasted when only a few clusters exist.
+
+### Adjacency rules (union-find)
+
+Two eligible rows (`score >= relevanceMinScore`) merge into the same cluster when **either**:
+
+| Signal | Default threshold | Rule |
+| ------ | ----------------- | ---- |
+| Entity overlap | `selectionEntityOverlapThreshold` **0.5** | Jaccard over normalized canonical names, aliases, and mention names |
+| Title similarity | `selectionTitleSimilarityThreshold` **0.4** | Jaccard over 4-word lowercase title shingles |
+
+Clustering is O(n²) on the batch (n ≤ `maxBatchSize`). No embeddings or LLM calls.
+
+### Selection walk
+
+1. Sort rows by score (desc), then newer `createdAt`.
+2. **Phase 1:** Select the highest-scored row in each cluster (cluster representative) until budget is exhausted.
+3. **Phase 2:** Fill any remaining budget with the next highest-scored eligible rows, including additional rows from clusters that already have a representative.
+
+With **`useSelectionDiversification`: `false`**, `applyRelevanceSelection` runs unchanged (byte-identical to the legacy top-K path).
+
+### Config knobs
+
+| Key | Default | Meaning |
+| --- | ------- | ------- |
+| `useSelectionDiversification` | `false` | Enable event-cluster diversification |
+| `selectionEntityOverlapThreshold` | `0.5` | Entity Jaccard merge threshold (higher → more clusters) |
+| `selectionTitleSimilarityThreshold` | `0.4` | Title shingle Jaccard merge threshold |
+
+### Observability
+
+Run summary field **`selection`** reports `eligibleRows`, `clustersFormed`, `selectedAfterDiversification`, `suppressedAsDuplicates` (rows classic top-K would have taken but diversification skipped because they were not cluster representatives), and `largestClusterSize`.
+
+Pair with **source quality v2**: the cluster representative is usually the highest-scored row, which tends to be the best outlet when `useSourceQualityV2` is on.
 
 ## Related docs
 
-- [Analysis Agent](/mediapulse/apps/agents/analysis) — full agent reference (extraction, relevance, observability, config)
+See [Analysis Agent](./analysis) for the full extraction, POST phases, and relevance selection flow.

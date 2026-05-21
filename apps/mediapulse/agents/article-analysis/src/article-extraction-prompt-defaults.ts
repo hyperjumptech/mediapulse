@@ -16,6 +16,25 @@ export const ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_PLACEHOLDERS = [
   "articleContent",
 ] as const;
 
+/** Allowed `{{...}}` names in the vocabulary-repair system prompt template. */
+export const ARTICLE_ANALYSIS_REPAIR_SYSTEM_PROMPT_PLACEHOLDERS = [
+  "entityTypesBlock",
+  "relationTypesBlock",
+] as const;
+
+/**
+ * Default system prompt for the vocabulary-repair `generateObject` pass.
+ * Must include `{{entityTypesBlock}}` and `{{relationTypesBlock}}`.
+ */
+export const ARTICLE_ANALYSIS_REPAIR_SYSTEM_PROMPT_TEMPLATE_DEFAULT = [
+  "Each item below was rejected because its typeId or relationTypeId was not in the allowed vocabulary.",
+  "Re-label each row using ONLY the UUIDs listed under ENTITY TYPES and RELATION TYPES.",
+  "Keep every canonicalName, fromEntityName, and toEntityName string unchanged — only rewrite typeId and relationTypeId.",
+  "Return JSON with keys entities and relations (arrays; either may be empty).",
+  "ENTITY TYPES (uuid — label):\n{{entityTypesBlock}}",
+  "RELATION TYPES (uuid — label):\n{{relationTypesBlock}}",
+].join("\n\n");
+
 /**
  * Default extraction system prompt template (code default when Hermes omits `prompts.systemPrompt`).
  * Must include `{{entityTypesBlock}}` and `{{relationTypesBlock}}`.

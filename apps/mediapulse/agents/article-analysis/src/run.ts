@@ -31,8 +31,12 @@ import {
   type ArticleRelevanceRow,
   type PerSourceRelevanceSignals,
 } from "./analysis-relevance-scoring.js";
-import { applyRelevanceSelection } from "./analysis-relevance-selection.js";
 import {
+  applyRelevanceSelection,
+  applyRelevanceSelectionDiversified,
+} from "./analysis-relevance-selection.js";
+import {
+  partitionExtractionByVocabulary,
   validateExtractionVocabulary,
   type EntityProposal,
   type RelationProposal,
@@ -50,6 +54,8 @@ import {
   type ChunkBuildParseCounts,
   type ExemplarsObservabilityAggregate,
   type LlmUsageTotals,
+  type RelationCritiqueObservabilityAggregate,
+  type VocabularyPartitioningObservabilityAggregate,
 } from "./article-analysis-observability.js";
 import {
   deriveArticleAnalysisRunStatusLabel,
@@ -69,8 +75,13 @@ import {
   resolveArticleAnalysisExtractionUserContent,
   buildBrainstormSystemContent,
   buildBrainstormUserContent,
+  applyRelationCritiqueDrops,
+  buildRelationCritiqueModelMessages,
+  critiqueExtractedRelations,
+  relationCritiqueRowKey,
   extractEntitiesAndRelationsForSource,
   fetchArticleBrainstorm,
+  repairExtractionVocabulary,
   type LlmExtractionUsage,
 } from "./llm-extract-entities.js";
 import { DEFAULT_EXTRACTION_EXEMPLARS } from "./exemplars/default-extraction-exemplars.js";
@@ -92,6 +103,12 @@ import {
   resolveTruncationTickerContext,
   truncateArticleForExtraction,
 } from "./utilities/article-content-truncator.js";
+import {
+  computeSourceQualityWithMeta,
+  type HostTier,
+  type SourceQualityComputeCtx,
+} from "./utilities/source-quality.js";
+import { buildEntityNamesForDiversification } from "./utilities/selection-diversification.js";
 import {
   createEmptyQualityCounters,
   runArticleQualityGate,
@@ -299,9 +316,94 @@ export const run = async ({
                 mentionsDroppedTotal: groundingTotals.mentionsDroppedTotal,
               }
             : undefined),
+        relationCritique:
+          summary.relationCritique ??
+          (relationsCritiquedSources > 0 ||
+          relationsDroppedByCritique > 0 ||
+          relationsCritiqueSkippedDueToDeadline > 0 ||
+          relationCritiqueCalls > 0
+            ? {
+                sourcesCritiqued: relationsCritiquedSources,
+                relationsDroppedByCritique,
+                critiqueCalls: relationCritiqueCalls,
+                critiquePromptTokens: llmUsageTotals.critiquePromptTokens,
+                critiqueCompletionTokens:
+                  llmUsageTotals.critiqueCompletionTokens,
+              }
+            : undefined),
+        vocabularyPartitioning:
+          summary.vocabularyPartitioning ??
+          (badEntitiesDropped > 0 ||
+          badRelationsDropped > 0 ||
+          vocabularyRepairCallsAttempted > 0 ||
+          rowsRecoveredByRepair > 0
+            ? {
+                badEntitiesDropped,
+                badRelationsDropped,
+                repairCallsAttempted: vocabularyRepairCallsAttempted,
+                repairCallsSucceeded: vocabularyRepairCallsSucceeded,
+                repairCallsFailed: vocabularyRepairCallsFailed,
+                rowsRecoveredByRepair,
+              }
+            : undefined),
+        sourceQuality:
+          summary.sourceQuality ??
+          (sourceQualityScoredSourceCount > 0
+            ? {
+                tier1Sources: sourceQualityTier1Sources,
+                tier2Sources: sourceQualityTier2Sources,
+                tier3Sources: sourceQualityTier3Sources,
+                unknownHostSources: sourceQualityUnknownHostSources,
+                avgRecencyHours:
+                  sourceQualityRecencyHoursCount > 0
+                    ? sourceQualityRecencyHoursSum /
+                      sourceQualityRecencyHoursCount
+                    : null,
+                avgQualityScore:
+                  sourceQualityScoreSum / sourceQualityScoredSourceCount,
+              }
+            : undefined),
+        selection:
+          summary.selection ??
+          (selectionEligibleRows > 0 ||
+          selectionSuppressedAsDuplicates > 0 ||
+          selectionClustersFormed > 0
+            ? {
+                eligibleRows: selectionEligibleRows,
+                clustersFormed: selectionClustersFormed,
+                selectedAfterDiversification:
+                  selectionSelectedAfterDiversification,
+                suppressedAsDuplicates: selectionSuppressedAsDuplicates,
+                largestClusterSize: selectionLargestClusterSize,
+              }
+            : undefined),
       }),
       ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
     );
+  };
+
+  const sourceQualityHostTiers: SourceQualityComputeCtx["hostTiers"] = {
+    ...(cfg.sourceQualityHostTier1 !== undefined
+      ? { tier1: cfg.sourceQualityHostTier1 }
+      : {}),
+    ...(cfg.sourceQualityHostTier2 !== undefined
+      ? { tier2: cfg.sourceQualityHostTier2 }
+      : {}),
+    ...(cfg.sourceQualityHostTier3 !== undefined
+      ? { tier3: cfg.sourceQualityHostTier3 }
+      : {}),
+  };
+
+  const recordSourceQualityTier = (tier: HostTier): void => {
+    if (tier === "tier1") {
+      sourceQualityTier1Sources += 1;
+    } else if (tier === "tier2") {
+      sourceQualityTier2Sources += 1;
+    } else if (tier === "tier3") {
+      sourceQualityTier3Sources += 1;
+    } else {
+      sourceQualityUnknownHostSources += 1;
+    }
   };
 
   if (cfg.verbose) {
@@ -330,11 +432,38 @@ export const run = async ({
     brainstormCalls: 0,
     brainstormPromptTokens: 0,
     brainstormCompletionTokens: 0,
+    critiqueCalls: 0,
+    critiquePromptTokens: 0,
+    critiqueCompletionTokens: 0,
   };
   let llmUsageAccumulated = false;
   let extractionLatencyMsTotal = 0;
   let extractionCalls = 0;
   let brainstormCalls = 0;
+  let relationsCritiquedSources = 0;
+  let relationsCritiqueSkippedDueToDeadline = 0;
+  let relationsDroppedByCritique = 0;
+  let relationCritiqueCalls = 0;
+  let badEntitiesDropped = 0;
+  let badRelationsDropped = 0;
+  let vocabularyRepairCallsAttempted = 0;
+  let vocabularyRepairCallsSucceeded = 0;
+  let vocabularyRepairCallsFailed = 0;
+  let vocabularyRepairFailures = 0;
+  let rowsRecoveredByRepair = 0;
+  let sourceQualityTier1Sources = 0;
+  let sourceQualityTier2Sources = 0;
+  let sourceQualityTier3Sources = 0;
+  let sourceQualityUnknownHostSources = 0;
+  let sourceQualityRecencyHoursSum = 0;
+  let sourceQualityRecencyHoursCount = 0;
+  let sourceQualityScoreSum = 0;
+  let sourceQualityScoredSourceCount = 0;
+  let selectionEligibleRows = 0;
+  let selectionClustersFormed = 0;
+  let selectionSelectedAfterDiversification = 0;
+  let selectionSuppressedAsDuplicates = 0;
+  let selectionLargestClusterSize = 0;
   let lastLlmPromptFingerprint: string | undefined;
   let relevanceRowsForObservability: ArticleRelevanceRow[] | null = null;
   let exemplarsObservability: ExemplarsObservabilityAggregate | null = null;
@@ -370,6 +499,16 @@ export const run = async ({
     llmUsageTotals.brainstormCalls += 1;
     llmUsageTotals.brainstormPromptTokens += usage.inputTokens;
     llmUsageTotals.brainstormCompletionTokens += usage.outputTokens;
+  };
+
+  const accumulateCritiqueUsage = (usage: LlmExtractionUsage | null): void => {
+    if (!usage) {
+      return;
+    }
+    llmUsageAccumulated = true;
+    llmUsageTotals.critiqueCalls += 1;
+    llmUsageTotals.critiquePromptTokens += usage.inputTokens;
+    llmUsageTotals.critiqueCompletionTokens += usage.outputTokens;
   };
 
   try {
@@ -754,31 +893,126 @@ export const run = async ({
         accumulateLlmUsage(extractedResult.usage);
         const extracted = extractedResult.object;
 
-        const vocab = validateExtractionVocabulary(
-          extracted.entities,
-          extracted.relations,
-          ctx,
-        );
-        if (!vocab.ok) {
-          vocabularyFailures += 1;
-          extractionFailures.push({
-            dataSourceId: source.id,
-            stage: "vocabulary",
-            message: vocab.message,
-          });
-          log.warn(
-            {
+        let entitiesForPipeline: EntityProposal[] = [...extracted.entities];
+        let relationsForPipeline: RelationProposal[] = [...extracted.relations];
+
+        if (cfg.vocabularyPolicy === "strict") {
+          const vocab = validateExtractionVocabulary(
+            entitiesForPipeline,
+            relationsForPipeline,
+            ctx,
+          );
+          if (!vocab.ok) {
+            vocabularyFailures += 1;
+            extractionFailures.push({
               dataSourceId: source.id,
               stage: "vocabulary",
-            },
-            "article-analysis vocabulary validation failed for source; skipping",
+              message: vocab.message,
+            });
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "vocabulary",
+              },
+              "article-analysis vocabulary validation failed for source; skipping",
+            );
+            continue;
+          }
+        } else {
+          const partitioned = partitionExtractionByVocabulary(
+            entitiesForPipeline,
+            relationsForPipeline,
+            ctx,
           );
-          continue;
+          badEntitiesDropped += partitioned.badEntities.length;
+          badRelationsDropped += partitioned.badRelations.length;
+          entitiesForPipeline = [...partitioned.okEntities];
+          relationsForPipeline = [...partitioned.okRelations];
+
+          const rejectedCount =
+            partitioned.badEntities.length + partitioned.badRelations.length;
+
+          if (
+            cfg.vocabularyPolicy === "repair" &&
+            rejectedCount > 0 &&
+            rejectedCount <= cfg.vocabularyRepairMaxItems
+          ) {
+            vocabularyRepairCallsAttempted += 1;
+            try {
+              const repairResult = await repairExtractionVocabulary({
+                apiKey: cfg.openaiApiKey,
+                model: cfg.vocabularyRepairModel,
+                maxOutputTokens: cfg.maxOutputTokens,
+                ctx,
+                badEntities: partitioned.badEntities,
+                badRelations: partitioned.badRelations,
+              });
+              accumulateLlmUsage(repairResult.usage);
+
+              const repairedPartition = partitionExtractionByVocabulary(
+                repairResult.entities,
+                repairResult.relations,
+                ctx,
+              );
+              badEntitiesDropped += repairedPartition.badEntities.length;
+              badRelationsDropped += repairedPartition.badRelations.length;
+
+              const recoveredCount =
+                repairedPartition.okEntities.length +
+                repairedPartition.okRelations.length;
+              if (recoveredCount > 0) {
+                vocabularyRepairCallsSucceeded += 1;
+                rowsRecoveredByRepair += recoveredCount;
+                entitiesForPipeline.push(...repairedPartition.okEntities);
+                relationsForPipeline.push(...repairedPartition.okRelations);
+              } else {
+                vocabularyRepairCallsFailed += 1;
+              }
+            } catch (repairErr) {
+              vocabularyRepairFailures += 1;
+              vocabularyRepairCallsFailed += 1;
+              log.warn(
+                {
+                  dataSourceId: source.id,
+                  stage: "vocabulary_repair",
+                  err: toSafeLogError(repairErr),
+                },
+                "article-analysis vocabulary repair failed; keeping partitioned good rows only",
+              );
+            }
+          } else if (
+            cfg.vocabularyPolicy === "repair" &&
+            rejectedCount > cfg.vocabularyRepairMaxItems
+          ) {
+            log.warn(
+              {
+                dataSourceId: source.id,
+                rejectedCount,
+                vocabularyRepairMaxItems: cfg.vocabularyRepairMaxItems,
+              },
+              "article-analysis skipping vocabulary repair due to rejected row cap",
+            );
+          }
+
+          if (
+            entitiesForPipeline.length === 0 &&
+            relationsForPipeline.length === 0
+          ) {
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "vocabulary",
+                vocabularyPolicy: cfg.vocabularyPolicy,
+              },
+              "article-analysis no vocabulary-valid rows remain for source; skipping",
+            );
+            continue;
+          }
         }
 
         const groundedExtraction = applyExtractionEntityGrounding({
-          entities: extracted.entities,
-          relations: extracted.relations,
+          entities: entitiesForPipeline,
+          relations: relationsForPipeline,
           mentions: extracted.articleMentions,
           articleText: source.content,
           title: source.title,
@@ -811,9 +1045,79 @@ export const run = async ({
           groundedExtraction.relations,
           existingLookup,
         );
+
+        let relationsAfterCritique = resolved.relations;
+        const critiqueEligible =
+          cfg.useRelationSelfCritique &&
+          resolved.relations.length >= cfg.relationCritiqueMinRelationCount;
+        const critiqueDeadlineElapsed =
+          Date.now() - runProcessingStartedAt >= cfg.runDeadlineMs;
+
+        if (critiqueEligible && critiqueDeadlineElapsed) {
+          relationsCritiqueSkippedDueToDeadline += 1;
+          log.warn(
+            {
+              dataSourceId: source.id,
+              runElapsedMs: Date.now() - runProcessingStartedAt,
+              runDeadlineMs: cfg.runDeadlineMs,
+              relationCount: resolved.relations.length,
+            },
+            "article-analysis skipping relation critique due to run deadline",
+          );
+        } else if (critiqueEligible) {
+          try {
+            const critiqueResult = await critiqueExtractedRelations({
+              apiKey: cfg.openaiApiKey,
+              model: cfg.relationCritiqueModel,
+              maxOutputTokens: cfg.maxOutputTokens,
+              messages: buildRelationCritiqueModelMessages(ctx, {
+                articleTitle: source.title,
+                articleBody: source.content,
+                candidates: resolved.relations,
+              }),
+            });
+            relationCritiqueCalls += 1;
+            relationsCritiquedSources += 1;
+            accumulateCritiqueUsage(critiqueResult.usage);
+            const critiqueApplied = applyRelationCritiqueDrops(
+              resolved.relations,
+              critiqueResult.ratings,
+              cfg.relationCritiqueDropFraction,
+            );
+            relationsDroppedByCritique += critiqueApplied.droppedCount;
+            relationsAfterCritique = critiqueApplied.relations;
+            for (const relation of resolved.relations) {
+              const evidenceSpan = critiqueApplied.evidenceByKey.get(
+                relationCritiqueRowKey(relation),
+              );
+              if (evidenceSpan !== undefined) {
+                log.info(
+                  {
+                    dataSourceId: source.id,
+                    from: relation.fromEntityName,
+                    to: relation.toEntityName,
+                    relationTypeId: relation.relationTypeId,
+                    evidenceSpan,
+                  },
+                  "article-analysis relation critique evidence",
+                );
+              }
+            }
+          } catch (critiqueErr) {
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "relation_critique",
+                err: toSafeLogError(critiqueErr),
+              },
+              "article-analysis relation critique failed; keeping post-grounding relations",
+            );
+          }
+        }
+
         const capped = applyPerArticleExtractionCaps(
           resolved.entities,
-          resolved.relations,
+          relationsAfterCritique,
           cfg.maxEntitiesPerArticle,
           cfg.maxRelationsPerArticle,
         );
@@ -840,6 +1144,49 @@ export const run = async ({
             ? 0
             : mentionCapped.reduce((s, m) => s + m.confidence, 0) /
               mentionCapped.length;
+        const sourceWithOptionalPublishedAt = source as typeof source & {
+          publishedAt?: Date | null;
+        };
+        let sourceQualityScore: number | undefined;
+        if (cfg.useSourceQualityV2) {
+          const qualityMeta = computeSourceQualityWithMeta(
+            {
+              url: source.url,
+              title: source.title,
+              content: source.content,
+              createdAt: source.createdAt,
+              publishedAt: sourceWithOptionalPublishedAt.publishedAt,
+            },
+            {
+              now: new Date(),
+              recencyHalfLifeHours: cfg.sourceQualityRecencyHalfLifeHours,
+              hostTiers: sourceQualityHostTiers,
+            },
+          );
+          sourceQualityScore = qualityMeta.qualityScore;
+          recordSourceQualityTier(qualityMeta.hostTier);
+          sourceQualityScoredSourceCount += 1;
+          sourceQualityScoreSum += qualityMeta.qualityScore;
+          if (qualityMeta.ageHours !== null) {
+            sourceQualityRecencyHoursSum += qualityMeta.ageHours;
+            sourceQualityRecencyHoursCount += 1;
+          }
+          if (cfg.verbose) {
+            log.info(
+              {
+                dataSourceId: source.id,
+                hostTier: qualityMeta.hostTier,
+                hostClassScore: qualityMeta.hostClassScore,
+                recencyScore: qualityMeta.recencyScore,
+                ageHours: qualityMeta.ageHours,
+                structuralScore: qualityMeta.structuralScore,
+                qualityScore: qualityMeta.qualityScore,
+              },
+              "article-analysis source quality breakdown",
+            );
+          }
+        }
+
         perSourceSignals.push({
           dataSourceId: source.id,
           createdAt: source.createdAt,
@@ -849,6 +1196,11 @@ export const run = async ({
           avgMentionConfidence,
           titleLower: source.title.toLowerCase(),
           textLower: truncated.toLowerCase(),
+          entityNames: buildEntityNamesForDiversification(
+            capped.entities,
+            mentionCapped.map((mention) => mention.entityName),
+          ),
+          ...(sourceQualityScore !== undefined ? { sourceQualityScore } : {}),
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -1292,11 +1644,32 @@ export const run = async ({
         cfg.maxSelectedRelevancePerTickerPerDay -
           ctx.relevanceSelectionState.selectedCountToday,
       );
-      const relevanceRows = applyRelevanceSelection(
-        selectionInput,
-        cfg.relevanceMinScore,
-        remainingBudget,
-      );
+      const relevanceRows = cfg.useSelectionDiversification
+        ? (() => {
+            const diversified = applyRelevanceSelectionDiversified(
+              selectionInput,
+              perSourceSignals,
+              {
+                minScore: cfg.relevanceMinScore,
+                remainingBudget,
+                entityOverlapThreshold: cfg.selectionEntityOverlapThreshold,
+                titleSimilarityThreshold: cfg.selectionTitleSimilarityThreshold,
+              },
+            );
+            selectionEligibleRows = diversified.stats.eligibleRows;
+            selectionClustersFormed = diversified.stats.clustersFormed;
+            selectionSelectedAfterDiversification =
+              diversified.stats.selectedAfterDiversification;
+            selectionSuppressedAsDuplicates =
+              diversified.stats.suppressedAsDuplicates;
+            selectionLargestClusterSize = diversified.stats.largestClusterSize;
+            return diversified.rows;
+          })()
+        : applyRelevanceSelection(
+            selectionInput,
+            cfg.relevanceMinScore,
+            remainingBudget,
+          );
       relevanceRowsForObservability = relevanceRows;
 
       const { chunks: relevanceChunks, parseErrors: relevanceParseErrors } =
