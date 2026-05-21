@@ -8,6 +8,8 @@ import { pMap } from "./p-map";
 import type { WebSearchResult } from "./web-search";
 import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
+import type { HostErrorTracker } from "./host-error-tracker";
+import { hostFromUrl } from "./host-error-tracker";
 
 export interface WebFetchSuccess {
   success: true;
@@ -40,6 +42,8 @@ export interface WebFetchDeps {
   logger?: WebFetchLogger;
   /** Optional counter mutated with adaptive throttle events for this stage. */
   throttleStats?: StageThrottleStats;
+  /** Optional per-run host error tracker updated on every fetch attempt. */
+  hostErrorTracker?: HostErrorTracker;
 }
 
 /**
@@ -61,6 +65,13 @@ const jinaDataSchema = z.object({
   url: z.string().url().optional(),
   title: z.string().optional(),
   content: z.string().optional(),
+  publishedTime: z.string().optional(),
+  published_at: z.string().optional(),
+  usage: z
+    .object({
+      tokens: z.number().optional(),
+    })
+    .optional(),
 });
 
 /** Zod schema for Jina AI Reader API response. */
@@ -94,9 +105,18 @@ const fetchOneResult = async (
     rateLimiter: RateLimiter;
     authHeaders: Record<string, string>;
     endpoint: string;
+    hostErrorTracker?: HostErrorTracker;
   },
 ): Promise<WebFetchAttemptResult> => {
-  const { config, gotClient, log, rateLimiter, authHeaders, endpoint } = deps;
+  const {
+    config,
+    gotClient,
+    log,
+    rateLimiter,
+    authHeaders,
+    endpoint,
+    hostErrorTracker,
+  } = deps;
 
   try {
     await rateLimiter.acquire();
@@ -131,6 +151,14 @@ const fetchOneResult = async (
       ? await withRetry(fetchTask, config.retry, isRetryableError)
       : await fetchTask();
 
+    hostErrorTracker?.record(hostFromUrl(result.url), true);
+
+    const jinaMetadata = {
+      ...(data.publishedTime ? { publishedTime: data.publishedTime } : {}),
+      ...(data.published_at ? { published_at: data.published_at } : {}),
+      ...(data.usage ? { usage: data.usage } : {}),
+    };
+
     return {
       success: true,
       data: {
@@ -141,11 +169,13 @@ const fetchOneResult = async (
         searchQueryId: result.searchQueryId,
         searchQueryText: result.searchQueryText,
         serpIndex: result.serpIndex,
+        ...(Object.keys(jinaMetadata).length > 0 ? { jinaMetadata } : {}),
       },
     };
   } catch (error) {
     const classified = classifyError(error);
     rateLimiter.recordResponse(classified.httpStatus);
+    hostErrorTracker?.record(hostFromUrl(result.url), false);
     log.warn(
       {
         searchQueryId: result.searchQueryId,
@@ -209,6 +239,7 @@ export async function performWebFetch(
     rateLimiter,
     authHeaders,
     endpoint,
+    hostErrorTracker: deps.hostErrorTracker,
   };
 
   const results = await pMap(

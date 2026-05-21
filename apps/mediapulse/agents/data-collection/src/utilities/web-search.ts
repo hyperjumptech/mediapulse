@@ -13,6 +13,8 @@ export interface SearchQuery {
   tickerId: string;
 }
 
+import type { JinaFetchMetadata } from "./date-extractor";
+
 export interface WebSearchResult {
   url: string;
   title: string;
@@ -21,6 +23,8 @@ export interface WebSearchResult {
   searchQueryId: string;
   searchQueryText: string;
   serpIndex: number;
+  /** Optional Jina Reader metadata captured during web fetch. */
+  jinaMetadata?: JinaFetchMetadata;
 }
 
 export interface WebSearchSuccess {

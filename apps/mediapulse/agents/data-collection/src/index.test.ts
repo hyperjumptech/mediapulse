@@ -54,6 +54,18 @@ vi.mock("@workspace/agent-data-api-client", () => {
       dataCollectionExistingUrls: {
         create: existingUrlsCreateMock,
       },
+      dataCollectionDeadUrlsLookup: {
+        create: vi.fn().mockResolvedValue({ deadUrls: [] }),
+      },
+      dataCollectionDeadUrlsRecord: {
+        create: vi.fn().mockResolvedValue({
+          message: "Dead URLs recorded",
+          recordedCount: 0,
+        }),
+      },
+      dataCollectionRecentSourceFingerprints: {
+        get: vi.fn().mockResolvedValue({ fingerprints: [] }),
+      },
       dataCollectionRun: {
         create: runCreateMock,
       },

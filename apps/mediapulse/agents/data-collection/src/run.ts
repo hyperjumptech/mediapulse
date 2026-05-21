@@ -15,7 +15,14 @@ import {
 } from "./utilities/content-quality-gate";
 import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
 import { resolveExistingDataSourceUrls } from "./utilities/resolve-existing-data-source-urls";
+import { resolveDeadUrls } from "./utilities/resolve-dead-urls";
 import { applyFetchBudget } from "./utilities/hit-ranker";
+import {
+  buildDeadUrlRecords,
+  HostErrorTracker,
+  hostFromUrl,
+  type QualityDropForDeadUrl,
+} from "./utilities/host-error-tracker";
 import {
   buildTickerAliases,
   isRelevant,
@@ -25,6 +32,10 @@ import {
   type RunCounters,
   type RunPolicy,
 } from "./utilities/run-status";
+import { extractPublishedDate } from "./utilities/date-extractor";
+import { isFresh } from "./utilities/freshness-gate";
+import { embedTexts } from "./utilities/embeddings";
+import { dedupeAgainstCorpus } from "./utilities/semantic-dedupe";
 
 /**
  * Executes the data-collection pipeline: load search queries, run web search and fetch,
@@ -87,6 +98,35 @@ export async function runDataCollection(
   };
   const perQueryFetchBudget = config.perQueryFetchBudget ?? 3;
   const perRunFetchBudget = config.perRunFetchBudget ?? 40;
+  const deadUrlCacheConfig = config.deadUrlCache ?? {
+    enabled: true,
+    skipLookupBatchSize: 50,
+  };
+  const hostErrorBreakerConfig = config.hostErrorBreaker ?? {
+    enabled: true,
+    minAttempts: 5,
+    errorRateThreshold: 0.5,
+  };
+  const freshnessGateConfig = config.freshnessGate ?? {
+    enabled: true,
+    maxAgeDays: 14,
+    allowUnknown: true,
+  };
+  const semanticDedupeConfig = config.semanticDedupe ?? {
+    enabled: false,
+    threshold: 0.88,
+    windowDays: 7,
+    embeddingModel: "text-embedding-3-small",
+  };
+  let semanticDedupeActive = semanticDedupeConfig.enabled;
+  if (semanticDedupeActive && !config.openaiApiKey) {
+    log.warn(
+      {},
+      "semantic dedupe enabled in config but openaiApiKey is missing; falling back to URL-only dedupe",
+    );
+    semanticDedupeActive = false;
+  }
+  const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
 
   const tickerRecord = await dataApiClient.ticker.get({
     tickerId: input.tickerId,
@@ -180,6 +220,10 @@ export async function runDataCollection(
   let droppedByRelevance = 0;
   let droppedByPerQueryBudget = 0;
   let droppedByPerRunBudget = 0;
+  let droppedByDeadUrlCache = 0;
+  let droppedByHostErrorRate = 0;
+  let droppedByFreshness = 0;
+  let droppedBySemanticDedupe = 0;
   let throttleEvents = 0;
 
   if (queries.length === 0) {
@@ -262,12 +306,66 @@ export async function runDataCollection(
         );
       }
 
-      const budgetSelection = applyFetchBudget(searchSuccessesForFetch, {
-        tickerAliases,
-        hostCounts,
-        perQueryFetchBudget,
-        perRunFetchBudget,
-      });
+      let searchSuccessesAfterDeadUrl = searchSuccessesForFetch;
+      if (deadUrlCacheConfig.enabled) {
+        const deadUrlSet = await resolveDeadUrls(
+          input.tickerId,
+          searchSuccessesForFetch.map((hit) => hit.url),
+          (body) => dataApiClient.dataCollectionDeadUrlsLookup.create(body),
+          deadUrlCacheConfig.skipLookupBatchSize,
+        );
+        if (deadUrlSet.size > 0) {
+          const beforeCount = searchSuccessesAfterDeadUrl.length;
+          searchSuccessesAfterDeadUrl = searchSuccessesAfterDeadUrl.filter(
+            (hit) => !deadUrlSet.has(hit.url),
+          );
+          const skippedDeadUrlCount =
+            beforeCount - searchSuccessesAfterDeadUrl.length;
+          droppedByDeadUrlCache += skippedDeadUrlCount;
+          log.info(
+            {
+              round,
+              skippedDeadUrlCount,
+              deadUrlLookupCount: deadUrlSet.size,
+            },
+            "skipped web fetch for URLs in dead-url negative cache",
+          );
+        }
+      }
+
+      const searchSuccessesAfterHostBreaker =
+        searchSuccessesAfterDeadUrl.filter((hit) => {
+          const host = hostFromUrl(hit.url);
+          if (hostErrorTracker.isSkipped(host)) {
+            droppedByHostErrorRate += 1;
+            return false;
+          }
+          return true;
+        });
+      if (
+        searchSuccessesAfterHostBreaker.length <
+        searchSuccessesAfterDeadUrl.length
+      ) {
+        log.info(
+          {
+            round,
+            skippedHostErrorRateCount:
+              searchSuccessesAfterDeadUrl.length -
+              searchSuccessesAfterHostBreaker.length,
+          },
+          "skipped web fetch for hosts over error-rate threshold",
+        );
+      }
+
+      const budgetSelection = applyFetchBudget(
+        searchSuccessesAfterHostBreaker,
+        {
+          tickerAliases,
+          hostCounts,
+          perQueryFetchBudget,
+          perRunFetchBudget,
+        },
+      );
       droppedByPerQueryBudget += budgetSelection.droppedByPerQueryBudget;
       droppedByPerRunBudget += budgetSelection.droppedByPerRunBudget;
       if (
@@ -291,6 +389,7 @@ export async function runDataCollection(
         config: webFetchConfig,
         logger: log,
         throttleStats: fetchThrottleStats,
+        hostErrorTracker,
       });
       throttleEvents += fetchThrottleStats.throttleEvents;
       const roundFetchSuccesses = fetchAttemptResults
@@ -301,6 +400,7 @@ export async function runDataCollection(
       fetchFailures.push(...roundFetchFailures);
 
       const finalFetchSuccesses: typeof roundFetchSuccesses = [];
+      const roundQualityDrops: QualityDropForDeadUrl[] = [];
       for (const page of roundFetchSuccesses) {
         const urlDecision = classifyNoisyUrl(page.url);
         if (urlDecision.blocked) {
@@ -315,6 +415,10 @@ export async function runDataCollection(
         );
         if (contentDecision.blocked) {
           droppedByContentQuality[contentDecision.reason] += 1;
+          roundQualityDrops.push({
+            url: urlDecision.canonicalUrl,
+            reason: contentDecision.reason,
+          });
           continue;
         }
 
@@ -344,6 +448,30 @@ export async function runDataCollection(
           }
         }
 
+        if (freshnessGateConfig.enabled) {
+          const publishedAt = extractPublishedDate({
+            jinaMetadata: page.jinaMetadata,
+            content: page.content,
+          });
+          const freshnessDecision = isFresh(publishedAt, {
+            maxAgeDays: freshnessGateConfig.maxAgeDays,
+            allowUnknown: freshnessGateConfig.allowUnknown,
+          });
+          if (!freshnessDecision.fresh) {
+            droppedByFreshness += 1;
+            log.info(
+              {
+                round,
+                url: urlDecision.canonicalUrl.slice(0, 120),
+                publishedAt: publishedAt?.toISOString() ?? null,
+                reason: freshnessDecision.reason,
+              },
+              "dropped page outside freshness window",
+            );
+            continue;
+          }
+        }
+
         finalFetchSuccesses.push({
           ...page,
           url: urlDecision.canonicalUrl,
@@ -363,27 +491,112 @@ export async function runDataCollection(
           droppedByRelevance,
           droppedByPerQueryBudget,
           droppedByPerRunBudget,
+          droppedByDeadUrlCache,
+          droppedByHostErrorRate,
+          droppedByFreshness,
+          droppedBySemanticDedupe,
           throttleEvents,
         },
         "web fetch stage finished",
       );
 
+      if (deadUrlCacheConfig.enabled) {
+        const deadUrlRecords = buildDeadUrlRecords(
+          input.tickerId,
+          roundFetchFailures,
+          roundQualityDrops,
+        );
+        if (deadUrlRecords.length > 0) {
+          try {
+            await dataApiClient.dataCollectionDeadUrlsRecord.create(
+              deadUrlRecords,
+            );
+            log.info(
+              { round, deadUrlRecordCount: deadUrlRecords.length },
+              "recorded dead URLs to negative cache",
+            );
+          } catch (recordError) {
+            log.warn(
+              {
+                round,
+                deadUrlRecordCount: deadUrlRecords.length,
+                err: recordError,
+              },
+              "failed to record dead URLs; continuing without negative cache write",
+            );
+          }
+        }
+      }
+
       if (finalFetchSuccesses.length > 0) {
-        const sources: DataCollectionInput[] = finalFetchSuccesses.map(
-          (page) => ({
-            url: page.url,
-            title: page.title,
-            content: page.content,
-            tickerId: input.tickerId,
-            searchQueryId: page.searchQueryId,
-          }),
-        );
-        log.info(
-          { round, sourcesToPersist: sources.length },
-          "persisting collected sources to Agent Data API",
-        );
-        await dataApiClient.dataCollection.create(sources);
-        persistedThisRunCount += sources.length;
+        let pagesToPersist = finalFetchSuccesses;
+
+        if (semanticDedupeActive) {
+          try {
+            const { fingerprints } =
+              await dataApiClient.dataCollectionRecentSourceFingerprints.get({
+                tickerId: input.tickerId,
+                windowDays: semanticDedupeConfig.windowDays,
+              });
+            const dedupeResult = await dedupeAgainstCorpus(
+              pagesToPersist,
+              fingerprints,
+              {
+                threshold: semanticDedupeConfig.threshold,
+                embedder: (texts) =>
+                  embedTexts(texts, {
+                    apiKey: config.openaiApiKey!,
+                    model: semanticDedupeConfig.embeddingModel,
+                  }),
+              },
+            );
+            droppedBySemanticDedupe += dedupeResult.dropped.length;
+            for (const drop of dedupeResult.dropped) {
+              log.info(
+                {
+                  round,
+                  url: drop.candidate.url.slice(0, 120),
+                  matchedExistingId: drop.matchedExistingId,
+                  similarity: Number(drop.similarity.toFixed(3)),
+                },
+                "dropped semantically duplicate page against existing corpus",
+              );
+            }
+            pagesToPersist = dedupeResult.kept;
+          } catch (dedupeError) {
+            log.warn(
+              { round, err: dedupeError },
+              "semantic dedupe failed; continuing with URL-only dedupe",
+            );
+          }
+        }
+
+        if (pagesToPersist.length > 0) {
+          const sources: DataCollectionInput[] = pagesToPersist.map((page) => {
+            const publishedAt = extractPublishedDate({
+              jinaMetadata: page.jinaMetadata,
+              content: page.content,
+            });
+            return {
+              url: page.url,
+              title: page.title,
+              content: page.content,
+              tickerId: input.tickerId,
+              searchQueryId: page.searchQueryId,
+              ...(publishedAt
+                ? { publishedAt: publishedAt.toISOString() }
+                : {}),
+            };
+          });
+          log.info(
+            { round, sourcesToPersist: sources.length },
+            "persisting collected sources to Agent Data API",
+          );
+          await dataApiClient.dataCollection.create(sources);
+          persistedThisRunCount += sources.length;
+        } else {
+          log.info({ round }, "no sources to persist after semantic dedupe");
+        }
       } else {
         log.info({ round }, "no sources to persist after fetch stage");
       }
@@ -484,6 +697,10 @@ export async function runDataCollection(
     droppedByRelevance,
     droppedByPerQueryBudget,
     droppedByPerRunBudget,
+    droppedByDeadUrlCache,
+    droppedByHostErrorRate,
+    droppedByFreshness,
+    droppedBySemanticDedupe,
     throttleEvents,
     refill: {
       roundsExecuted,

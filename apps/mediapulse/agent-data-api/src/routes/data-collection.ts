@@ -38,7 +38,12 @@ export async function postDataCollection(context: Context): Promise<Response> {
   try {
     const body = await context.req.json();
     const data = await dataCollectionBodySchema.parseAsync(body);
-    await prisma.dataSource.createMany({ data });
+    await prisma.dataSource.createMany({
+      data: data.map((row) => ({
+        ...row,
+        ...(row.publishedAt ? { publishedAt: new Date(row.publishedAt) } : {}),
+      })),
+    });
 
     const tickerIds = [...new Set(data.map((row) => row.tickerId))];
     await Promise.all(

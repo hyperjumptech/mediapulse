@@ -26,6 +26,16 @@ import {
   postDataCollectionResponseSchema,
 } from "./data-collection.js";
 import {
+  postDataCollectionDeadUrlsLookupBodySchema,
+  postDataCollectionDeadUrlsLookupResponseSchema,
+  postDataCollectionDeadUrlsRecordBodySchema,
+  postDataCollectionDeadUrlsRecordResponseSchema,
+} from "./data-collection-dead-url.js";
+import {
+  getDataCollectionRecentSourceFingerprintsQuerySchema,
+  getDataCollectionRecentSourceFingerprintsResponseSchema,
+} from "./data-collection.js";
+import {
   deliveryRunQuerySchema,
   getDeliveryRunResponseSchema,
   postDeliveryRunBodySchema,
@@ -224,6 +234,54 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDataCollectionExistingUrlsBodySchema,
         response: postDataCollectionExistingUrlsResponseSchema,
+      },
+    },
+  },
+  dataCollectionDeadUrlsLookup: {
+    v1: {
+      pathSegment: "/data-collection/dead-urls/lookup",
+      post: {
+        body: postDataCollectionDeadUrlsLookupBodySchema,
+        response: postDataCollectionDeadUrlsLookupResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/data-collection/dead-urls/lookup",
+      post: {
+        body: postDataCollectionDeadUrlsLookupBodySchema,
+        response: postDataCollectionDeadUrlsLookupResponseSchema,
+      },
+    },
+  },
+  dataCollectionDeadUrlsRecord: {
+    v1: {
+      pathSegment: "/data-collection/dead-urls/record",
+      post: {
+        body: postDataCollectionDeadUrlsRecordBodySchema,
+        response: postDataCollectionDeadUrlsRecordResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/data-collection/dead-urls/record",
+      post: {
+        body: postDataCollectionDeadUrlsRecordBodySchema,
+        response: postDataCollectionDeadUrlsRecordResponseSchema,
+      },
+    },
+  },
+  dataCollectionRecentSourceFingerprints: {
+    v1: {
+      pathSegment: "/data-collection/recent-source-fingerprints",
+      get: {
+        query: getDataCollectionRecentSourceFingerprintsQuerySchema,
+        response: getDataCollectionRecentSourceFingerprintsResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/data-collection/recent-source-fingerprints",
+      get: {
+        query: getDataCollectionRecentSourceFingerprintsQuerySchema,
+        response: getDataCollectionRecentSourceFingerprintsResponseSchema,
       },
     },
   },

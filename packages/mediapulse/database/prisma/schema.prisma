@@ -38,15 +38,16 @@ enum SearchQueryIntent {
 }
 
 model DataSource {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   url           String
   title         String
   content       String
   metadata      Json?
-  tickerId      String   @map("ticker_id")
-  searchQueryId String   @map("search_query_id")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  publishedAt   DateTime? @map("published_at")
+  tickerId      String    @map("ticker_id")
+  searchQueryId String    @map("search_query_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   ticker            Ticker             @relation(fields: [tickerId], references: [id])
   searchQuery       SearchQuery        @relation(fields: [searchQueryId], references: [id])
@@ -54,6 +55,19 @@ model DataSource {
   articleRelevances ArticleRelevance[]
 
   @@map("data_source")
+}
+
+/// Negative cache for URLs that recently failed terminally during data collection.
+model DeadUrl {
+  id            String   @id @default(uuid())
+  tickerId      String   @map("ticker_id")
+  url           String   @unique
+  errorCategory String   @map("error_category")
+  recordedAt    DateTime @default(now()) @map("recorded_at")
+  expiresAt     DateTime @map("expires_at")
+
+  @@index([tickerId, expiresAt])
+  @@map("dead_url")
 }
 
 model Newsletter {
