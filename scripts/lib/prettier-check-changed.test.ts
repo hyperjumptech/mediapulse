@@ -95,7 +95,8 @@ describe("runPrettierCheck", () => {
     // Act
     runPrettierCheck({
       paths: ["apps/a/foo.ts"],
-      execFileSync: execFileSync as typeof import("node:child_process").execFileSync,
+      execFileSync:
+        execFileSync as typeof import("node:child_process").execFileSync,
     });
 
     // Assert
@@ -140,7 +141,8 @@ describe("runPrettierCheckChanged", () => {
     const result = runPrettierCheckChanged({
       baseRef: "base",
       headRef: "head",
-      execFileSync: execFileSync as typeof import("node:child_process").execFileSync,
+      execFileSync:
+        execFileSync as typeof import("node:child_process").execFileSync,
     });
 
     // Assert
