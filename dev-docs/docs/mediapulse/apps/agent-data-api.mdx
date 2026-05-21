@@ -87,6 +87,46 @@ const { existingUrls, hostCounts } =
 // hostCounts maps hostname → total sources for the ticker (for fetch ranking)
 ```
 
+### Data collection dead URLs (`POST /api/v1/data-collection/dead-urls/lookup`, `POST /api/v1/data-collection/dead-urls/record`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/data-collection-dead-url.ts`. Schemas and TTL helpers live in `@workspace/agent-data-api-contract` (`data-collection-dead-url.ts`). Manifest keys are **`dataCollectionDeadUrlsLookup`** and **`dataCollectionDeadUrlsRecord`** (custom path segments under `/data-collection/dead-urls/…`).
+
+- **POST lookup** — Body: **`tickerId`**, **`urls`** (at most **`DATA_COLLECTION_DEAD_URLS_LOOKUP_MAX`**, 500). Response: **`deadUrls`** — subset of **`urls`** that are still cached in the `dead_url` table for that ticker with **`expiresAt > now()`**.
+- **POST record** — Body: array of **`{ tickerId, url, errorCategory, httpStatus? }`**. Only terminal categories are stored (`provider_http_error` with status 404/403/410/451, `provider_data_invalid`, `content_too_short`). The service computes TTL (`expiresAt`) and upserts by URL (refreshing expiry on repeat failures). Response: **`{ message, recordedCount }`**.
+
+From agents, use SDK namespaces **`dataCollectionDeadUrlsLookup`** and **`dataCollectionDeadUrlsRecord`**: **`create`** for POST. The data-collection agent looks up dead URLs after existing-URL dedupe and records cacheable failures after each fetch round (best-effort; lookup/record failures do not abort the run).
+
+```ts
+const { deadUrls } = await dataApiClient.dataCollectionDeadUrlsLookup.create({
+  tickerId,
+  urls: candidateUrls,
+});
+
+await dataApiClient.dataCollectionDeadUrlsRecord.create([
+  {
+    tickerId,
+    url: "https://news.example/missing",
+    errorCategory: "provider_http_error",
+    httpStatus: 404,
+  },
+]);
+```
+
+### Data collection recent source fingerprints (`GET /api/v1/data-collection/recent-source-fingerprints`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/data-collection-recent-source-fingerprints.ts`. Schemas live in `@workspace/agent-data-api-contract` (`data-collection.ts`). Manifest key is **`dataCollectionRecentSourceFingerprints`**.
+
+- **GET** — Query: **`tickerId`** (required), **`windowDays`** (optional positive integer, default **7**). Response: **`fingerprints`** — up to **`DATA_COLLECTION_MAX_FINGERPRINTS`** (200) recent `data_source` rows with **`id`**, **`title`**, and **`headSnippet`** (first **`DATA_COLLECTION_FINGERPRINT_HEAD_CHARS`** = 600 characters of content). Ordered by **`created_at` desc** within the lookback window. No embeddings are stored server-side.
+- From agents, use SDK namespace **`dataCollectionRecentSourceFingerprints`**: **`get`**. The data-collection agent embeds fingerprints and candidates client-side when **`semanticDedupe.enabled`** is true and **`openaiApiKey`** is set in the Hermes agent config (same pattern as query-analysis; not process env).
+
+```ts
+const { fingerprints } =
+  await dataApiClient.dataCollectionRecentSourceFingerprints.get({
+    tickerId,
+    windowDays: 7,
+  });
+```
+
 ### Content generation newsletters latest (`/api/v1/content-generation-newsletters-latest`)
 
 Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`. Schemas live in `@workspace/agent-data-api-contract` (`content-generation.ts`).

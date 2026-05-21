@@ -170,6 +170,7 @@ describe("agent-data-api", () => {
             title: "Example",
             content: "Content",
             metadata: null,
+            publishedAt: null,
             tickerId: TICKER_ID,
             searchQueryId: SEARCH_QUERY_ID,
             createdAt: new Date("2026-03-19T00:00:00.000Z"),

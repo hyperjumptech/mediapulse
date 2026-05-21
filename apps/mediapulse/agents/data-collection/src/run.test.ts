@@ -81,10 +81,24 @@ vi.mock("@workspace/logger", () => ({
 const getMock = vi.fn();
 const createMock = vi.fn();
 const existingUrlsCreateMock = vi.fn();
+const deadUrlsLookupMock = vi.fn();
+const deadUrlsRecordMock = vi.fn();
 const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
 const analysisGetMock = vi.fn();
 const tickerGetMock = vi.fn();
+const recentSourceFingerprintsGetMock = vi.fn();
+
+const embedTextsMock = vi.hoisted(() => vi.fn());
+
+vi.mock("./utilities/embeddings", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./utilities/embeddings")>();
+  return {
+    ...actual,
+    embedTexts: (...args: unknown[]) => embedTextsMock(...args),
+  };
+});
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -94,6 +108,15 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     dataCollectionExistingUrls: {
       create: existingUrlsCreateMock,
+    },
+    dataCollectionDeadUrlsLookup: {
+      create: deadUrlsLookupMock,
+    },
+    dataCollectionDeadUrlsRecord: {
+      create: deadUrlsRecordMock,
+    },
+    dataCollectionRecentSourceFingerprints: {
+      get: recentSourceFingerprintsGetMock,
     },
     dataCollectionRun: {
       create: runCreateMock,
@@ -165,6 +188,12 @@ describe("runDataCollection", () => {
       existingUrls: [],
       hostCounts: {},
     });
+    deadUrlsLookupMock.mockResolvedValue({ deadUrls: [] });
+    deadUrlsRecordMock.mockResolvedValue({
+      message: "Dead URLs recorded",
+      recordedCount: 0,
+    });
+    recentSourceFingerprintsGetMock.mockResolvedValue({ fingerprints: [] });
     analysisGetMock.mockResolvedValue({
       dataSources: [],
       dataSourceTotalCount: 0,
@@ -272,26 +301,353 @@ describe("runDataCollection", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it("passes time window fields to dataCollection.get when input includes timeWindow", async () => {
-    // Setup
-    const start = "2024-01-01T00:00:00.000Z";
-    const end = "2024-01-02T00:00:00.000Z";
+  it("skips web fetch for URLs returned by dead-url lookup", async () => {
+    const searchHits = Array.from({ length: 10 }, (_, index) => ({
+      success: true as const,
+      data: {
+        ...searchSuccessPage,
+        url: `http://example.com/page-${index}`,
+      },
+    }));
+    vi.mocked(performWebSearch).mockResolvedValueOnce(searchHits);
+    deadUrlsLookupMock.mockResolvedValueOnce({
+      deadUrls: ["http://example.com/page-0", "http://example.com/page-1"],
+    });
+    vi.mocked(performWebFetch).mockResolvedValueOnce([]);
 
-    // Act
-    await runDataCollection(
+    const result = await runDataCollection(
       createContext({
-        input: {
-          tickerId: TICKER_ID,
-          timeWindow: { start, end },
+        config: {
+          ...baseConfig,
+          perQueryFetchBudget: 20,
+          perRunFetchBudget: 100,
+          runPolicy: {
+            minSuccessfulSources: 0,
+            failOnZeroSuccess: false,
+          },
         },
       }),
     );
 
-    // Assert
-    expect(getMock).toHaveBeenCalledWith({
+    expect(result.success).toBe(true);
+    expect(deadUrlsLookupMock).toHaveBeenCalledWith({
       tickerId: TICKER_ID,
-      start,
-      end,
+      urls: expect.arrayContaining([
+        "http://example.com/page-0",
+        "http://example.com/page-9",
+      ]),
+    });
+    expect(performWebFetch).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ url: "http://example.com/page-2" }),
+      ]),
+      expect.anything(),
+    );
+    expect(vi.mocked(performWebFetch).mock.calls[0]?.[0]).toHaveLength(8);
+    expect(result.details?.summary).toMatchObject({
+      droppedByDeadUrlCache: 2,
+    });
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("records 404 fetch failures to the dead-url cache", async () => {
+    vi.mocked(performWebFetch).mockResolvedValueOnce([
+      {
+        success: false,
+        url: "http://failed.com",
+        queryId: "sq-1",
+        tickerId: TICKER_ID,
+        errorCategory: "provider_http_error",
+        message: "404 Not Found",
+        retryable: false,
+        httpStatus: 404,
+      },
+    ]);
+
+    await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          runPolicy: {
+            minSuccessfulSources: 0,
+            failOnZeroSuccess: false,
+          },
+        },
+      }),
+    );
+
+    expect(deadUrlsRecordMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        tickerId: TICKER_ID,
+        url: "http://failed.com",
+        errorCategory: "provider_http_error",
+        httpStatus: 404,
+      }),
+    ]);
+  });
+
+  it("drops stale and far-future pages via the freshness gate", async () => {
+    const fixedNow = new Date("2026-05-21T12:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(fixedNow);
+
+    try {
+      const isoDaysAgo = (days: number): string =>
+        new Date(fixedNow.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
+      const isoDaysAhead = (days: number): string =>
+        new Date(fixedNow.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+
+      vi.mocked(performWebSearch).mockResolvedValueOnce([
+        {
+          success: true,
+          data: { ...searchSuccessPage, url: "http://example.com/fresh" },
+        },
+        {
+          success: true,
+          data: { ...searchSuccessPage, url: "http://example.com/stale" },
+        },
+        {
+          success: true,
+          data: { ...searchSuccessPage, url: "http://example.com/unknown" },
+        },
+        {
+          success: true,
+          data: { ...searchSuccessPage, url: "http://example.com/future" },
+        },
+      ]);
+
+      vi.mocked(performWebFetch).mockResolvedValueOnce([
+        {
+          success: true,
+          data: {
+            ...searchSuccessPage,
+            url: "http://example.com/fresh",
+            content: validArticleContent,
+            jinaMetadata: { publishedTime: isoDaysAgo(2) },
+          },
+        },
+        {
+          success: true,
+          data: {
+            ...searchSuccessPage,
+            url: "http://example.com/stale",
+            content: validArticleContent,
+            jinaMetadata: { publishedTime: isoDaysAgo(30) },
+          },
+        },
+        {
+          success: true,
+          data: {
+            ...searchSuccessPage,
+            url: "http://example.com/unknown",
+            content: validArticleContent,
+          },
+        },
+        {
+          success: true,
+          data: {
+            ...searchSuccessPage,
+            url: "http://example.com/future",
+            content: validArticleContent,
+            jinaMetadata: { publishedTime: isoDaysAhead(5) },
+          },
+        },
+      ]);
+
+      const result = await runDataCollection(
+        createContext({
+          config: {
+            ...baseConfig,
+            runPolicy: {
+              minSuccessfulSources: 0,
+              failOnZeroSuccess: false,
+            },
+          },
+        }),
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.details?.summary).toMatchObject({
+        droppedByFreshness: 2,
+        fetchSuccess: 2,
+      });
+
+      const persisted = createMock.mock.calls[0]?.[0] as Array<{
+        url: string;
+        publishedAt?: string;
+      }>;
+      expect(persisted).toHaveLength(2);
+      expect(persisted).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            url: "http://example.com/fresh",
+            publishedAt: isoDaysAgo(2),
+          }),
+          expect.objectContaining({ url: "http://example.com/unknown" }),
+        ]),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("falls back to URL-only dedupe when embedding fails", async () => {
+    embedTextsMock.mockRejectedValueOnce(new Error("quota exceeded"));
+    recentSourceFingerprintsGetMock.mockResolvedValueOnce({
+      fingerprints: [
+        {
+          id: "11111111-1111-4111-a111-111111111111",
+          title: "Apple Q2 earnings beat",
+          headSnippet: "Apple reported record Q2 earnings.",
+        },
+      ],
+    });
+
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          openaiApiKey: "sk-test",
+          relevanceGate: { enabled: false, headChars: 1500, minMatches: 1 },
+          semanticDedupe: {
+            enabled: true,
+            threshold: 0.88,
+            windowDays: 7,
+            embeddingModel: "text-embedding-3-small",
+          },
+          runPolicy: {
+            minSuccessfulSources: 0,
+            failOnZeroSuccess: false,
+          },
+        },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.details?.summary).toMatchObject({
+      droppedBySemanticDedupe: 0,
+      totalSources: 1,
+    });
+    expect(createMock).toHaveBeenCalledWith([
+      expect.objectContaining({ url: "http://example.com" }),
+    ]);
+    expect(mockRunLog.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ round: 1 }),
+      "semantic dedupe failed; continuing with URL-only dedupe",
+    );
+  });
+
+  it("drops semantically duplicate candidates against the existing corpus", async () => {
+    const earningsContent = [
+      "Apple Q2 earnings beat analyst expectations across every segment.",
+      ...Array.from(
+        { length: 90 },
+        (_, index) =>
+          `Earnings detail ${index} covers revenue and margin trends.`,
+      ),
+    ].join(" ");
+    const visionContent = [
+      "Apple unveils new Vision Pro features for enterprise customers worldwide.",
+      ...Array.from(
+        { length: 90 },
+        (_, index) =>
+          `Vision Pro detail ${index} covers hardware and software.`,
+      ),
+    ].join(" ");
+
+    recentSourceFingerprintsGetMock.mockResolvedValueOnce({
+      fingerprints: [
+        {
+          id: "11111111-1111-4111-a111-111111111111",
+          title: "Apple Q2 earnings beat",
+          headSnippet: "Apple reported record Q2 earnings.",
+        },
+      ],
+    });
+    embedTextsMock.mockImplementation((texts: string[]) =>
+      Promise.resolve(
+        texts.map((text) => {
+          if (text.includes("Vision Pro")) {
+            return [0, 1, 0];
+          }
+          if (text.includes("estimates")) {
+            return [0.89, 0.45, 0];
+          }
+          return [1, 0, 0];
+        }),
+      ),
+    );
+
+    vi.mocked(performWebSearch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "http://example.com/earnings",
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "http://example.com/vision",
+        },
+      },
+    ]);
+    vi.mocked(performWebFetch).mockResolvedValueOnce([
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "http://example.com/earnings",
+          title: "Apple Q2 earnings beat estimates",
+          content: earningsContent,
+        },
+      },
+      {
+        success: true,
+        data: {
+          ...searchSuccessPage,
+          url: "http://example.com/vision",
+          title: "Apple unveils new Vision Pro",
+          content: visionContent,
+        },
+      },
+    ]);
+
+    const result = await runDataCollection(
+      createContext({
+        config: {
+          ...baseConfig,
+          perQueryFetchBudget: 20,
+          perRunFetchBudget: 100,
+          openaiApiKey: "sk-test",
+          relevanceGate: { enabled: false, headChars: 1500, minMatches: 1 },
+          semanticDedupe: {
+            enabled: true,
+            threshold: 0.88,
+            windowDays: 7,
+            embeddingModel: "text-embedding-3-small",
+          },
+          runPolicy: {
+            minSuccessfulSources: 0,
+            failOnZeroSuccess: false,
+          },
+        },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.details?.summary).toMatchObject({
+      droppedBySemanticDedupe: 1,
+      totalSources: 1,
+    });
+    expect(createMock).toHaveBeenCalledWith([
+      expect.objectContaining({ url: "http://example.com/vision" }),
+    ]);
+    expect(recentSourceFingerprintsGetMock).toHaveBeenCalledWith({
+      tickerId: TICKER_ID,
+      windowDays: 7,
     });
   });
 

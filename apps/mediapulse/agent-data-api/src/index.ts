@@ -20,6 +20,11 @@ import {
 } from "./routes/content-generation.js";
 import { postDataCollectionExistingUrls } from "./routes/data-collection-existing-urls.js";
 import {
+  postDataCollectionDeadUrlsLookup,
+  postDataCollectionDeadUrlsRecord,
+} from "./routes/data-collection-dead-url.js";
+import { getDataCollectionRecentSourceFingerprints } from "./routes/data-collection-recent-source-fingerprints.js";
+import {
   getDataCollection,
   postDataCollection,
 } from "./routes/data-collection.js";
@@ -96,6 +101,15 @@ const routeHandlers = {
   },
   dataCollectionExistingUrls: {
     post: postDataCollectionExistingUrls,
+  },
+  dataCollectionDeadUrlsLookup: {
+    post: postDataCollectionDeadUrlsLookup,
+  },
+  dataCollectionDeadUrlsRecord: {
+    post: postDataCollectionDeadUrlsRecord,
+  },
+  dataCollectionRecentSourceFingerprints: {
+    get: getDataCollectionRecentSourceFingerprints,
   },
   dataCollectionRun: {
     get: getDataCollectionRun,

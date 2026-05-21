@@ -53,6 +53,12 @@ const relevanceGateSchema = z.object({
   minMatches: z.number().int().positive().default(1),
 });
 
+const freshnessGateSchema = z.object({
+  enabled: z.boolean().default(true),
+  maxAgeDays: z.number().int().positive().default(14),
+  allowUnknown: z.boolean().default(true),
+});
+
 /** Zod schema for agent config: web search/fetch providers, optional run policy. */
 export const ConfigSchema = z.object({
   webSearch: webSearchSchema,
@@ -60,8 +66,35 @@ export const ConfigSchema = z.object({
   targetDailySuccessfulSources: z.number().int().positive().optional(),
   maxRefillRounds: z.number().int().nonnegative().optional(),
   relevanceGate: relevanceGateSchema.optional(),
+  freshnessGate: freshnessGateSchema.optional(),
   perQueryFetchBudget: z.number().int().positive().default(3),
   perRunFetchBudget: z.number().int().positive().default(40),
+  deadUrlCache: z
+    .object({
+      enabled: z.boolean().default(true),
+      skipLookupBatchSize: z.number().int().positive().default(50),
+    })
+    .optional(),
+  hostErrorBreaker: z
+    .object({
+      enabled: z.boolean().default(true),
+      minAttempts: z.number().int().positive().default(5),
+      errorRateThreshold: z.number().min(0).max(1).default(0.5),
+    })
+    .optional(),
+  semanticDedupe: z
+    .object({
+      enabled: z.boolean().default(false),
+      threshold: z.number().min(0).max(1).default(0.88),
+      windowDays: z.number().int().positive().default(7),
+      embeddingModel: z.string().default("text-embedding-3-small"),
+    })
+    .optional(),
+  /**
+   * OpenAI API key for semantic dedupe embeddings (Hermes config / variable expansion).
+   * Not read from process env — same pattern as query-analysis.
+   */
+  openaiApiKey: z.string().min(1).optional(),
   runPolicy: z
     .object({
       minSuccessfulSources: z.number().int().nonnegative(),

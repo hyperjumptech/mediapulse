@@ -24,21 +24,6 @@ describe("BodySchema", () => {
     ).rejects.toBeInstanceOf(Error);
   });
 
-  it("parses a valid body with timeWindow", async () => {
-    // Act
-    const result = await BodySchema.parseAsync({
-      tickerId: "123",
-      timeWindow: {
-        start: new Date().toISOString(),
-        end: new Date().toISOString(),
-      },
-    });
-
-    // Assert
-    expect(result.tickerId).toBe("123");
-    expect(result.timeWindow).toBeDefined();
-  });
-
   it("rejects an invalid body", async () => {
     // Act & Assert
     await expect(

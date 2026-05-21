@@ -13,6 +13,7 @@ const dataCollectionInputSchema = z.object({
   content: z.string(),
   tickerId: z.string().trim().min(1),
   searchQueryId: z.string().uuid(),
+  publishedAt: z.string().datetime().optional(),
 });
 
 export const dataCollectionBodySchema = z.array(dataCollectionInputSchema);
@@ -65,3 +66,40 @@ export type PostDataCollectionExistingUrlsBody = z.infer<
 export type PostDataCollectionExistingUrlsResponse = z.infer<
   typeof postDataCollectionExistingUrlsResponseSchema
 >;
+
+/** Max recent sources returned for semantic dedupe fingerprinting. */
+export const DATA_COLLECTION_MAX_FINGERPRINTS = 200;
+
+/** Head snippet length (chars) for corpus fingerprint text. */
+export const DATA_COLLECTION_FINGERPRINT_HEAD_CHARS = 600;
+
+/**
+ * Query for GET `/data-collection/recent-source-fingerprints`: recent corpus titles and head snippets.
+ */
+export const getDataCollectionRecentSourceFingerprintsQuerySchema = z.object({
+  tickerId: z.string().trim().min(1),
+  windowDays: z.coerce.number().int().positive().default(7),
+});
+
+export const sourceFingerprintSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  headSnippet: z.string(),
+});
+
+/**
+ * Response: recent `data_source` rows as embeddable fingerprints (no vectors stored server-side).
+ */
+export const getDataCollectionRecentSourceFingerprintsResponseSchema = z.object(
+  {
+    fingerprints: z.array(sourceFingerprintSchema),
+  },
+);
+
+export type GetDataCollectionRecentSourceFingerprintsQuery = z.infer<
+  typeof getDataCollectionRecentSourceFingerprintsQuerySchema
+>;
+export type GetDataCollectionRecentSourceFingerprintsResponse = z.infer<
+  typeof getDataCollectionRecentSourceFingerprintsResponseSchema
+>;
+export type SourceFingerprint = z.infer<typeof sourceFingerprintSchema>;

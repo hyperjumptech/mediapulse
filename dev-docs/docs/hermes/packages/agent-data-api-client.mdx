@@ -31,8 +31,6 @@ const dataApiClient = createAgentDataApiClient({
 
 const { data } = await dataApiClient.dataCollection.get({
   tickerId: input.tickerId,
-  start: input.timeWindow?.start,
-  end: input.timeWindow?.end,
 });
 
 if (data.length > 0) {
