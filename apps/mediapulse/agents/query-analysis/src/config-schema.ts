@@ -59,6 +59,25 @@ export type ResolvedDiversityGateConfig = {
   };
 };
 
+/** Resolved temporal event-bias settings with defaults applied. */
+export type ResolvedTemporalBiasConfig = {
+  enabled: boolean;
+};
+
+/**
+ * Resolves temporal event-bias config with schema defaults when fields are omitted.
+ *
+ * @param config - Parsed or raw Hermes invoke config.
+ * @returns Effective temporal bias toggle for the run loop.
+ */
+export const resolveTemporalBiasConfig = (config: {
+  temporalBias?: {
+    enabled?: boolean;
+  };
+}): ResolvedTemporalBiasConfig => ({
+  enabled: config.temporalBias?.enabled ?? true,
+});
+
 /**
  * Resolves diversity gate config with schema defaults when fields are omitted.
  *
@@ -113,9 +132,21 @@ export const queryAnalysisConfigSchema = z
      */
     minDeterministicCount: z.number().int().nonnegative().optional().default(4),
     /**
-     * Target languages (BCP-47 codes) for LLM-generated query text.
+     * Per-language query budget shares and optional template pack overrides.
      */
-    allowedLanguages: z.array(z.string().min(1)).optional().default(["en"]),
+    languageQuotas: z
+      .array(
+        z.object({
+          language: z.string().min(1),
+          share: z.number().min(0).max(1),
+          templatePack: z.string().min(1).optional(),
+        }),
+      )
+      .optional(),
+    /**
+     * @deprecated Use `languageQuotas`. Lifted to equal shares when `languageQuotas` is absent.
+     */
+    allowedLanguages: z.array(z.string().min(1)).optional(),
     /**
      * Relative weights keyed by intent for merge ordering and LLM target counts.
      */
@@ -147,6 +178,11 @@ export const queryAnalysisConfigSchema = z
       .optional()
       .default(DEFAULT_DETERMINISTIC_PACK),
     /**
+     * Maximum KG relation rows expanded into deterministic templates per run.
+     * `0` disables KG-template expansion without changing the pack.
+     */
+    kgTemplateCap: z.number().int().nonnegative().optional().default(6),
+    /**
      * LLM sampling temperature (higher = more varied phrasing).
      */
     temperature: z.number().min(0).max(2).optional().default(0.9),
@@ -166,6 +202,14 @@ export const queryAnalysisConfigSchema = z
      * Optional fixed seed for reproducible LLM output during regression hunts.
      */
     seed: z.number().int().optional(),
+    /**
+     * Fraction of each query set reserved for stochastic wildcard (lateral) queries.
+     */
+    wildcardFraction: z.number().min(0).max(0.5).optional().default(0.1),
+    /**
+     * Sampling temperature for wildcard generation (defaults higher than `temperature`).
+     */
+    wildcardTemperature: z.number().min(0).max(2).optional().default(1.2),
     /**
      * When true, runs a free-form brainstorm pass before structured query generation.
      */
@@ -228,6 +272,14 @@ export const queryAnalysisConfigSchema = z
       })
       .optional(),
     /**
+     * Optional calendar-driven intent weight boosts (default on; conservative multipliers).
+     */
+    temporalBias: z
+      .object({
+        enabled: z.boolean().default(true),
+      })
+      .optional(),
+    /**
      * Optional overrides for query-generation LLM system/user templates (Hermes).
      * When omitted, built-in defaults are used. Do not put API keys inside prompt text.
      */
@@ -256,6 +308,20 @@ export const queryAnalysisConfigSchema = z
       .optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.languageQuotas !== undefined && data.languageQuotas.length > 0) {
+      const sum = data.languageQuotas.reduce(
+        (total, quota) => total + quota.share,
+        0,
+      );
+      if (Math.abs(sum - 1) > 0.001) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `languageQuotas shares must sum to 1.0 (received ${String(sum)})`,
+          path: ["languageQuotas"],
+        });
+      }
+    }
+
     const prompts = data.prompts;
     if (!prompts) {
       return;

@@ -2,7 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject, generateText } from "ai";
 import type { ModelMessage } from "ai";
 import {
-  QUERY_ANALYSIS_INTENTS,
+  QUERY_ANALYSIS_STANDARD_INTENTS,
   queryAnalysisIntentSchema,
   type GetQueryAnalysisResponse,
   type QueryAnalysisIntent,
@@ -14,6 +14,8 @@ import {
   QUERY_ANALYSIS_INTENT_TARGET_PLACEHOLDERS,
   QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
   QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT,
+  WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
+  WILDCARD_USER_PROMPT_TEMPLATE_DEFAULT,
 } from "./query-analysis-prompt-defaults";
 import { substituteLlmPromptTemplate } from "@workspace/agent-llm-prompt-template";
 
@@ -24,6 +26,7 @@ import {
 import type { QueryPersona } from "./personas/default-personas";
 import type { LlmCandidate } from "./merge-query-candidates";
 import { normalizeQueryKey } from "./merge-query-candidates";
+import { resolveEntityDisplayName } from "./i18n/entity-aliases";
 
 /** Zod schema for structured LLM output (validated by AI SDK). */
 export const llmQueriesOutputSchema = z.object({
@@ -31,6 +34,15 @@ export const llmQueriesOutputSchema = z.object({
     z.object({
       text: z.string(),
       intent: queryAnalysisIntentSchema,
+    }),
+  ),
+});
+
+/** Zod schema for structured wildcard LLM output (no intent field). */
+export const llmWildcardOutputSchema = z.object({
+  queries: z.array(
+    z.object({
+      text: z.string(),
     }),
   ),
 });
@@ -53,7 +65,10 @@ export type CritiqueRating = z.infer<
 
 export type LlmQueryStrategyPrompt = {
   queryCount: number;
-  allowedLanguages: string[];
+  /** Single target language for this generation pass (BCP-47). */
+  language: string;
+  /** @deprecated Legacy list placeholder for Hermes custom templates. */
+  allowedLanguages?: string[];
   minDeterministicCount: number;
   intentWeights: QueryAnalysisIntentWeights;
 };
@@ -67,19 +82,22 @@ export type LlmQueryStrategyPrompt = {
 export const buildQueryAnalysisSystemTemplateReplacements = (
   strategy: LlmQueryStrategyPrompt,
 ): Record<string, string> => {
-  const sum = QUERY_ANALYSIS_INTENTS.reduce(
+  const sum = QUERY_ANALYSIS_STANDARD_INTENTS.reduce(
     (total, intent) => total + strategy.intentWeights[intent],
     0,
   );
   const replacements: Record<string, string> = {
-    allowedLanguages: strategy.allowedLanguages.join(", "),
+    language: strategy.language,
+    allowedLanguages: (strategy.allowedLanguages ?? [strategy.language]).join(
+      ", ",
+    ),
     minDeterministicCount: String(strategy.minDeterministicCount),
   };
-  for (const intent of QUERY_ANALYSIS_INTENTS) {
+  for (const intent of QUERY_ANALYSIS_STANDARD_INTENTS) {
     const ratio =
       sum > 0
         ? strategy.intentWeights[intent] / sum
-        : 1 / QUERY_ANALYSIS_INTENTS.length;
+        : 1 / QUERY_ANALYSIS_STANDARD_INTENTS.length;
     replacements[QUERY_ANALYSIS_INTENT_TARGET_PLACEHOLDERS[intent]] = String(
       Math.round(ratio * strategy.queryCount),
     );
@@ -116,11 +134,12 @@ export const resolveQueryAnalysisSystemContent = (
 export const resolveQueryAnalysisUserContent = (
   configuredUserPromptTemplate: string | undefined,
   context: GetQueryAnalysisResponse,
+  language?: string,
 ): string => {
   const template =
     configuredUserPromptTemplate ?? QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT;
   return substituteLlmPromptTemplate(template, {
-    queryContextBlock: buildQueryAnalysisUserContent(context),
+    queryContextBlock: buildQueryAnalysisUserContent(context, language),
   });
 };
 
@@ -142,10 +161,19 @@ export const buildQueryAnalysisSystemContent = (
  */
 export const buildQueryAnalysisUserContent = (
   context: GetQueryAnalysisResponse,
+  language?: string,
 ): string => {
+  const companyName =
+    language !== undefined
+      ? resolveEntityDisplayName(
+          context.ticker.symbol,
+          context.ticker.name,
+          language,
+        )
+      : context.ticker.name;
   const lines: string[] = [
     `Ticker symbol: ${context.ticker.symbol}`,
-    `Company name: ${context.ticker.name}`,
+    `Company name: ${companyName}`,
   ];
   if (context.topEntities.length > 0) {
     lines.push("Top entities:");
@@ -227,9 +255,9 @@ export const buildBrainstormPrompt = (
 ): { system: string; user: string } => ({
   system: [
     BRAINSTORM_SYSTEM_PROMPT,
-    `Write angles in these languages when natural: ${strategy.allowedLanguages.join(", ")}.`,
+    `Write angles in ${strategy.language}. Do not translate ticker symbols or proper nouns.`,
   ].join("\n\n"),
-  user: buildQueryAnalysisUserContent(context),
+  user: buildQueryAnalysisUserContent(context, strategy.language),
 });
 
 /**
@@ -325,6 +353,18 @@ export type LlmQuerySampling = {
   frequencyPenalty: number;
   seed?: number;
 };
+
+export type GenerateObjectForWildcards = (args: {
+  model: ReturnType<ReturnType<typeof createOpenAI>>;
+  schema: typeof llmWildcardOutputSchema;
+  maxOutputTokens: number;
+  messages: ModelMessage[];
+  temperature: number;
+  topP: number;
+  presencePenalty: number;
+  frequencyPenalty: number;
+  seed?: number;
+}) => Promise<{ object: z.infer<typeof llmWildcardOutputSchema> }>;
 
 export type GenerateObjectForQueries = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
@@ -439,6 +479,113 @@ export const fetchLlmQueryCandidates = async (
   return (object.queries ?? [])
     .map((q) => ({ text: q.text.trim(), intent: q.intent }))
     .filter((q) => q.text.length > 0);
+};
+
+/**
+ * Resolves the wildcard system prompt from the built-in template and slot count.
+ *
+ * @param wildcardCount - Reserved wildcard slots for this run.
+ * @param allowedLanguages - BCP-47 language codes for phrasing hints.
+ * @returns System message content for the wildcard structured-output call.
+ */
+export const resolveWildcardSystemContent = (
+  wildcardCount: number,
+  allowedLanguages: string[],
+): string =>
+  substituteLlmPromptTemplate(WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT, {
+    wildcardCount: String(wildcardCount),
+    allowedLanguages: allowedLanguages.join(", "),
+  });
+
+/**
+ * Resolves the wildcard user prompt (built-in template with serialized context).
+ *
+ * @param context - Serialized GET /query-analysis context for `{{queryContextBlock}}`.
+ * @returns User message content for the wildcard call.
+ */
+export const resolveWildcardUserContent = (
+  context: GetQueryAnalysisResponse,
+): string =>
+  substituteLlmPromptTemplate(WILDCARD_USER_PROMPT_TEMPLATE_DEFAULT, {
+    queryContextBlock: buildQueryAnalysisUserContent(context),
+  });
+
+/**
+ * Appends a dedupe nudge when regenerating wildcards after collision with existing rows.
+ *
+ * @param userContent - Base wildcard user message.
+ * @param avoidTexts - Query texts the model must not repeat.
+ * @returns User message with optional anti-duplication block.
+ */
+export const buildWildcardUserContentWithAvoidNudge = (
+  userContent: string,
+  avoidTexts: string[],
+): string => {
+  if (avoidTexts.length === 0) {
+    return userContent;
+  }
+  const block = avoidTexts.map((text) => `- "${text}"`).join("\n");
+  return [
+    userContent,
+    "",
+    "Do NOT repeat or lightly rephrase these queries:",
+    block,
+    "",
+    "Generate distinctly different lateral angles.",
+  ].join("\n");
+};
+
+/**
+ * Calls the chat model with minimal structured output for wildcard query slots.
+ *
+ * @param params - API key, model, token budget, count, context, sampling, and wildcard temperature.
+ * @param deps - Injectable `generateObject` (default: production `generateObject` from `ai`).
+ * @returns Trimmed wildcard candidate rows tagged with `intent: "wildcard"`.
+ */
+export const fetchWildcardCandidates = async (
+  params: {
+    apiKey: string;
+    model: string;
+    maxOutputTokens: number;
+    count: number;
+    context: GetQueryAnalysisResponse;
+    allowedLanguages: string[];
+    sampling: LlmQuerySampling;
+    wildcardTemperature: number;
+    avoidTexts?: string[];
+  },
+  deps: { generateObjectForWildcards: GenerateObjectForWildcards } = {
+    generateObjectForWildcards: generateObject,
+  },
+): Promise<Array<{ text: string; intent: "wildcard" }>> => {
+  const openai = createOpenAI({ apiKey: params.apiKey });
+  const { sampling } = params;
+  const systemContent = resolveWildcardSystemContent(
+    params.count,
+    params.allowedLanguages,
+  );
+  const userContent = buildWildcardUserContentWithAvoidNudge(
+    resolveWildcardUserContent(params.context),
+    params.avoidTexts ?? [],
+  );
+  const { object } = await deps.generateObjectForWildcards({
+    model: openai(params.model),
+    schema: llmWildcardOutputSchema,
+    maxOutputTokens: params.maxOutputTokens,
+    messages: [
+      { role: "system", content: systemContent },
+      { role: "user", content: userContent },
+    ],
+    temperature: params.wildcardTemperature,
+    topP: sampling.topP,
+    presencePenalty: sampling.presencePenalty,
+    frequencyPenalty: sampling.frequencyPenalty,
+    ...(sampling.seed !== undefined ? { seed: sampling.seed } : {}),
+  });
+  return (object.queries ?? [])
+    .map((q) => ({ text: q.text.trim(), intent: "wildcard" as const }))
+    .filter((q) => q.text.length > 0)
+    .slice(0, params.count);
 };
 
 /** Parameters for the full query-analysis LLM path (optional brainstorm + structured call). */

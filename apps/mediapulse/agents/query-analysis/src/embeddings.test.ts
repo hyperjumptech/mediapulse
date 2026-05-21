@@ -114,6 +114,7 @@ describe("mergeQueryCandidates with semantic embedder", () => {
         esg: 0.3,
         macro: 0.4,
         technical: 0.3,
+        wildcard: 0,
       },
       embedder: fakeEmbedder(0.85),
     });

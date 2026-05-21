@@ -97,6 +97,7 @@ export {
   queryAnalysisConfigSnapshotSchema,
   queryAnalysisIntentSchema,
   QUERY_ANALYSIS_INTENTS,
+  QUERY_ANALYSIS_STANDARD_INTENTS,
   DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
   queryAnalysisRecentThemeSchema,
   queryAnalysisRelationDeltaSchema,

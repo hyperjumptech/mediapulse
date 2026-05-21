@@ -1,12 +1,16 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api-contract";
+
 import { queryAnalysisConfigSchema } from "./config-schema";
 
-const { mockGet, mockCreate, mockFetchQueryLlm } = vi.hoisted(() => ({
-  mockGet: vi.fn(),
-  mockCreate: vi.fn(),
-  mockFetchQueryLlm: vi.fn(),
-}));
+const { mockGet, mockCreate, mockFetchQueryLlm, mockFetchWildcard } =
+  vi.hoisted(() => ({
+    mockGet: vi.fn(),
+    mockCreate: vi.fn(),
+    mockFetchQueryLlm: vi.fn(),
+    mockFetchWildcard: vi.fn(),
+  }));
 
 vi.mock("@mediapulse/env/agents-query-analysis", () => ({
   env: {
@@ -29,6 +33,7 @@ vi.mock("./llm-queries", async (importOriginal) => {
   return {
     ...actual,
     fetchLlmQueryCandidatesByPersona: mockFetchQueryLlm,
+    fetchWildcardCandidates: mockFetchWildcard,
     fetchBrainstormBullets: vi.fn(),
   };
 });
@@ -42,7 +47,11 @@ vi.mock("@workspace/logger", () => ({
 }));
 
 import { buildDeterministicQueries } from "./templates/build-deterministic-queries";
-import { clampPerPersonaQuotaCount, runQueryAnalysis } from "./run";
+import {
+  clampPerPersonaQuotaCount,
+  computeWildcardCount,
+  runQueryAnalysis,
+} from "./run";
 
 const ctxResponse = {
   ticker: {
@@ -66,6 +75,9 @@ describe("query-analysis run", () => {
     mockGet.mockReset();
     mockCreate.mockReset();
     mockFetchQueryLlm.mockReset();
+    mockFetchWildcard.mockReset();
+
+    mockFetchWildcard.mockResolvedValue([]);
 
     const { fetchBrainstormBullets } = await import("./llm-queries");
     vi.mocked(fetchBrainstormBullets).mockReset();
@@ -271,6 +283,127 @@ describe("query-analysis run", () => {
       createPayload.strategySnapshot.diversityGate?.diversityRegenerateFired,
     ).toBe(true);
   });
+
+  it("persists wildcardFraction budget as wildcard intent rows", async () => {
+    mockFetchQueryLlm.mockResolvedValue(
+      Array.from({ length: 8 }, (_, index) => ({
+        text: `Standard LLM ${String(index + 1)}`,
+        intent: "breaking" as const,
+        persona: "analyst",
+      })),
+    );
+    mockFetchWildcard.mockResolvedValue([
+      { text: "Wildcard lateral angle A", intent: "wildcard" as const },
+      { text: "Wildcard lateral angle B", intent: "wildcard" as const },
+    ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        queryCount: 10,
+        wildcardFraction: 0.2,
+        minDeterministicCount: 0,
+      }),
+      token: "Bearer t",
+    });
+
+    expect(mockFetchWildcard).toHaveBeenCalledTimes(1);
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      queries: Array<{ intent: string }>;
+    };
+    const wildcardRows = createPayload.queries.filter(
+      (row) => row.intent === "wildcard",
+    );
+    expect(wildcardRows).toHaveLength(2);
+    expect(createPayload.queries).toHaveLength(10);
+  });
+
+  it("distributes queryCount across language quotas into locale-specific rows", async () => {
+    mockFetchQueryLlm.mockResolvedValue([]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        queryCount: 10,
+        wildcardFraction: 0,
+        personas: [],
+        languageQuotas: [
+          { language: "en", share: 0.6 },
+          { language: "id", share: 0.4 },
+        ],
+      }),
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      queries: Array<{ text: string }>;
+      strategySnapshot: {
+        languageQuotas: Array<{ language: string; share: number }>;
+      };
+    };
+
+    expect(createPayload.queries).toHaveLength(10);
+    expect(createPayload.strategySnapshot.languageQuotas).toEqual([
+      { language: "en", share: 0.6 },
+      { language: "id", share: 0.4 },
+    ]);
+
+    const indonesianPattern =
+      /berita terbaru|laporan keuangan|prospek saham|perubahan relasi|update regulasi/i;
+
+    const englishSlice = createPayload.queries.slice(0, 6);
+    const indonesianSlice = createPayload.queries.slice(6);
+
+    expect(englishSlice).toHaveLength(6);
+    expect(indonesianSlice).toHaveLength(4);
+    expect(englishSlice.every((row) => !indonesianPattern.test(row.text))).toBe(
+      true,
+    );
+    expect(
+      indonesianSlice.every((row) => indonesianPattern.test(row.text)),
+    ).toBe(true);
+  });
+
+  it("boosts fundamental intent weight in snapshot when earnings are within 14 days", async () => {
+    const fiveDaysFromNow = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    mockGet.mockResolvedValue({
+      ...ctxResponse,
+      calendar: {
+        recentEventTypes: [],
+        nextEarningsAt: fiveDaysFromNow.toISOString(),
+      },
+    });
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        wildcardFraction: 0,
+      }),
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      strategySnapshot: {
+        intentWeights: { fundamental: number };
+        appliedEventBias?: {
+          firedRuleIds: string[];
+          multipliers: { fundamental?: number };
+        };
+      };
+    };
+    expect(createPayload.strategySnapshot.intentWeights.fundamental).toBe(
+      DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.fundamental * 2,
+    );
+    expect(
+      createPayload.strategySnapshot.appliedEventBias?.firedRuleIds,
+    ).toContain("near-earnings");
+    expect(
+      createPayload.strategySnapshot.appliedEventBias?.multipliers.fundamental,
+    ).toBe(2);
+  });
 });
 
 describe("clampPerPersonaQuotaCount", () => {
@@ -280,5 +413,13 @@ describe("clampPerPersonaQuotaCount", () => {
 
   it("clamps quota when fan-out exceeds queryCount * 3", () => {
     expect(clampPerPersonaQuotaCount(3, 10, 5)).toBe(5);
+  });
+});
+
+describe("computeWildcardCount", () => {
+  it("rounds queryCount times wildcardFraction", () => {
+    expect(computeWildcardCount(10, 0.2)).toBe(2);
+    expect(computeWildcardCount(10, 0.1)).toBe(1);
+    expect(computeWildcardCount(10, 0)).toBe(0);
   });
 });

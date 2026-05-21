@@ -6,12 +6,14 @@ import {
   QUERY_ANALYSIS_INTENT_TARGET_PLACEHOLDERS,
   QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
   QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT,
+  WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
+  WILDCARD_USER_PROMPT_TEMPLATE_DEFAULT,
 } from "./query-analysis-prompt-defaults";
 
 describe("query-analysis default prompt templates", () => {
   it("system default lists all system placeholders", () => {
     expect(QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT).toContain(
-      "{{allowedLanguages}}",
+      "{{language}}",
     );
     expect(QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT).toContain(
       "{{targetBreakingCount}}",
@@ -47,5 +49,25 @@ describe("query-analysis default prompt templates", () => {
     expect(QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT).toBe(
       "{{queryContextBlock}}",
     );
+  });
+
+  it("wildcard system default omits intent taxonomy and includes slot count", () => {
+    expect(WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT).toContain(
+      "{{wildcardCount}}",
+    );
+    expect(WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT).toContain(
+      "{{allowedLanguages}}",
+    );
+    expect(WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT.toLowerCase()).toContain(
+      "lateral",
+    );
+    expect(WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT).not.toContain(
+      "targetBreakingCount",
+    );
+    expect(WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT).not.toContain("breaking:");
+  });
+
+  it("wildcard user default is queryContextBlock only", () => {
+    expect(WILDCARD_USER_PROMPT_TEMPLATE_DEFAULT).toBe("{{queryContextBlock}}");
   });
 });

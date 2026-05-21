@@ -1,10 +1,15 @@
 import type { QueryAnalysisIntent } from "@workspace/agent-data-api-contract";
 
+import type { KgRelationTemplate } from "./slot-resolver";
+
 /** Named deterministic template pack identifiers. */
 export const DETERMINISTIC_PACK_NAMES = [
   "default-v1",
+  "default-en-v1",
+  "default-id-v1",
   "rich-v2",
   "rich-v2-extended",
+  "kg-aware-v1",
 ] as const;
 
 /** Valid `templatePack` config value. */
@@ -26,6 +31,16 @@ export type DeterministicTemplate = {
 export type DeterministicPack = {
   name: DeterministicPackName;
   templates: DeterministicTemplate[];
+  /** Optional per-relation templates expanded from KG deltas and neighborhood rows. */
+  kgRelationTemplates?: KgRelationTemplate[];
+};
+
+/** Default localized pack per primary language subtag. */
+export const DEFAULT_TEMPLATE_PACK_BY_LANGUAGE: Partial<
+  Record<string, DeterministicPackName>
+> = {
+  en: "default-en-v1",
+  id: "default-id-v1",
 };
 
 /** Original five-template baseline (symbol/name only). */
@@ -37,6 +52,35 @@ const defaultV1Pack: DeterministicPack = {
     { template: "{name} relation changes", intent: "kg_change" },
     { template: "{name} earnings guidance", intent: "fundamental" },
     { template: "{name} regulatory update", intent: "fundamental" },
+  ],
+};
+
+/** English locale pack mirroring `default-v1` with natural search phrasing. */
+const defaultEnV1Pack: DeterministicPack = {
+  name: "default-en-v1",
+  templates: [
+    { template: "{symbol} latest news", intent: "breaking" },
+    { template: "{name} breaking news", intent: "breaking" },
+    { template: "{name} relation changes", intent: "kg_change" },
+    { template: "{name} earnings guidance", intent: "fundamental" },
+    { template: "{name} regulatory update", intent: "fundamental" },
+    { template: "{name} {currentQuarter} earnings", intent: "fundamental" },
+  ],
+};
+
+/** Bahasa Indonesia locale pack with natural IDX search phrasing. */
+const defaultIdV1Pack: DeterministicPack = {
+  name: "default-id-v1",
+  templates: [
+    { template: "berita terbaru {symbol}", intent: "breaking" },
+    { template: "berita terbaru {name}", intent: "breaking" },
+    { template: "perubahan relasi {name}", intent: "kg_change" },
+    {
+      template: "laporan keuangan {name} {currentQuarter}",
+      intent: "fundamental",
+    },
+    { template: "prospek saham {name}", intent: "fundamental" },
+    { template: "update regulasi {name}", intent: "fundamental" },
   ],
 };
 
@@ -106,14 +150,49 @@ const richV2ExtendedPack: DeterministicPack = {
   ],
 };
 
+/** KG-relation templates layered on top of rich-v2 static templates. */
+const KG_AWARE_RELATION_TEMPLATES: KgRelationTemplate[] = [
+  {
+    template: "{name} {relationVerb} {toEntity}",
+    intent: "kg_change",
+    sources: ["delta"],
+  },
+  {
+    template: "why did {name} stop {relationVerb} {toEntity}",
+    intent: "kg_change",
+    sources: ["delta"],
+    whenChange: "removed",
+  },
+  {
+    template: "impact on {name} from {fromEntity} {relationVerb} {toEntity}",
+    intent: "kg_change",
+    sources: ["delta", "neighborhood"],
+  },
+  {
+    template: "{name} {relationVerb} {toEntity}",
+    intent: "competitor",
+    sources: ["neighborhood"],
+  },
+];
+
+/** Extends rich-v2 with relation-driven deterministic queries from KG context. */
+const kgAwareV1Pack: DeterministicPack = {
+  name: "kg-aware-v1",
+  templates: richV2Pack.templates,
+  kgRelationTemplates: KG_AWARE_RELATION_TEMPLATES,
+};
+
 /** All registered deterministic template packs keyed by name. */
 export const DETERMINISTIC_PACKS: Record<
   DeterministicPackName,
   DeterministicPack
 > = {
   "default-v1": defaultV1Pack,
+  "default-en-v1": defaultEnV1Pack,
+  "default-id-v1": defaultIdV1Pack,
   "rich-v2": richV2Pack,
   "rich-v2-extended": richV2ExtendedPack,
+  "kg-aware-v1": kgAwareV1Pack,
 };
 
 /**

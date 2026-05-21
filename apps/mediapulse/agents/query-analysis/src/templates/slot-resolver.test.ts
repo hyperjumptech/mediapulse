@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { GetQueryAnalysisResponse } from "@workspace/agent-data-api-contract";
 
 import {
+  collectOrderedKgRelationRows,
   extractSlotsFromPattern,
   formatCurrentQuarter,
   resolveSlots,
@@ -98,6 +99,54 @@ describe("resolveSlots", () => {
     // Assert
     expect(slots.topEntity).toBeUndefined();
     expect(slots.recentTheme).toBeUndefined();
+    expect(slots.daysToEarnings).toBeUndefined();
+    expect(slots.lastEventType).toBeUndefined();
+  });
+
+  it("resolves earnings and calendar slots when present", () => {
+    const context: GetQueryAnalysisResponse = {
+      ...sparseContext,
+      calendar: {
+        recentEventTypes: ["regulatory_filing"],
+        nextEarningsAt: "2026-05-28T12:00:00.000Z",
+      },
+    };
+
+    const slots = resolveSlots(context, FIXED_CLOCK);
+
+    expect(slots.daysToEarnings).toBe("7");
+    expect(slots.lastEventType).toBe("regulatory_filing");
+  });
+});
+
+describe("collectOrderedKgRelationRows", () => {
+  it("drains relation deltas before static neighborhood rows", () => {
+    const context: GetQueryAnalysisResponse = {
+      ...sparseContext,
+      recentRelationDeltas: [
+        {
+          fromEntity: "Acme Co",
+          toEntity: "Delta One",
+          relationType: "supplies",
+          change: "added",
+        },
+      ],
+      kgNeighborhood: [
+        {
+          fromEntity: "Acme Co",
+          toEntity: "Nb One",
+          relationType: "partners_with",
+        },
+      ],
+    };
+
+    const rows = collectOrderedKgRelationRows(context, 2);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.source).toBe("delta");
+    expect(rows[0]?.toEntity).toBe("Delta One");
+    expect(rows[1]?.source).toBe("neighborhood");
+    expect(rows[1]?.toEntity).toBe("Nb One");
   });
 });
 
