@@ -1,0 +1,101 @@
+name: Remote deploy
+description: Connect over VPN and trigger a deployment webhook.
+
+inputs:
+  webhook-url:
+    description: Deployment webhook URL.
+    required: true
+  webhook-secret:
+    description: Bearer token for the deployment webhook.
+    required: true
+  vpn-config-b64:
+    description: Base64-encoded VPN client configuration.
+    required: true
+  vpn-password:
+    description: VPN key passphrase.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Trigger deployment
+      shell: bash
+      env:
+        WEBHOOK_URL: ${{ inputs.webhook-url }}
+        WEBHOOK_SECRET: ${{ inputs.webhook-secret }}
+        VPN_CONFIG_B64: ${{ inputs.vpn-config-b64 }}
+        VPN_PASSWORD: ${{ inputs.vpn-password }}
+      run: |
+        set -euo pipefail
+
+        if ! command -v openvpn >/dev/null 2>&1; then
+          sudo apt-get update
+          sudo apt-get install -y openvpn
+        fi
+
+        WORKDIR="$(mktemp -d)"
+        cleanup() {
+          if [ -f "$WORKDIR/vpn.pid" ]; then
+            sudo kill "$(sudo cat "$WORKDIR/vpn.pid")" >/dev/null 2>&1 || true
+          fi
+          rm -rf "$WORKDIR"
+        }
+        trap cleanup EXIT
+
+        printf "%s" "$VPN_CONFIG_B64" | base64 --decode >"$WORKDIR/client.ovpn"
+        printf "%s\n" "$VPN_PASSWORD" >"$WORKDIR/passphrase.txt"
+        chmod 600 "$WORKDIR/passphrase.txt"
+
+        vpn_connected="false"
+        for attempt in 1 2 3; do
+          if [ -f "$WORKDIR/vpn.pid" ]; then
+            sudo kill "$(sudo cat "$WORKDIR/vpn.pid")" >/dev/null 2>&1 || true
+            sudo rm -f "$WORKDIR/vpn.pid"
+          fi
+          sudo rm -f "$WORKDIR/vpn.log"
+
+          sudo openvpn \
+            --config "$WORKDIR/client.ovpn" \
+            --askpass "$WORKDIR/passphrase.txt" \
+            --daemon \
+            --writepid "$WORKDIR/vpn.pid" \
+            --log "$WORKDIR/vpn.log"
+
+          connected="false"
+          for _ in {1..30}; do
+            if sudo grep -q "Initialization Sequence Completed" "$WORKDIR/vpn.log"; then
+              connected="true"
+              break
+            fi
+            if [ -f "$WORKDIR/vpn.pid" ] && ! sudo kill -0 "$(sudo cat "$WORKDIR/vpn.pid")" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$connected" = "true" ]; then
+            vpn_connected="true"
+            break
+          fi
+
+          echo "::warning::VPN did not connect (attempt ${attempt}/3)." >&2
+          sudo cat "$WORKDIR/vpn.log" || true
+          if [ "$attempt" -lt 3 ]; then
+            echo "Retrying VPN in 15s..." >&2
+            sleep 15
+          fi
+        done
+
+        if [ "$vpn_connected" != "true" ]; then
+          exit 1
+        fi
+
+        curl --fail --silent --show-error --verbose \
+          --retry 6 \
+          --retry-all-errors \
+          --retry-delay 5 \
+          --retry-max-time 300 \
+          --connect-timeout 20 \
+          --max-time 120 \
+          -X GET "$WEBHOOK_URL" \
+          --header "Authorization: Bearer $WEBHOOK_SECRET"
