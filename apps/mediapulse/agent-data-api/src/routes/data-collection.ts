@@ -7,6 +7,8 @@ import {
 import { internalError } from "@workspace/api-utils";
 import { prisma } from "@mediapulse/database";
 
+import { aggregateSearchQueryYieldForTicker } from "../services/search-query-yield.js";
+
 export async function getDataCollection(context: Context): Promise<Response> {
   try {
     const query = dataCollectionQuerySchema.parse(context.req.query());
@@ -37,6 +39,13 @@ export async function postDataCollection(context: Context): Promise<Response> {
     const body = await context.req.json();
     const data = await dataCollectionBodySchema.parseAsync(body);
     await prisma.dataSource.createMany({ data });
+
+    const tickerIds = [...new Set(data.map((row) => row.tickerId))];
+    await Promise.all(
+      tickerIds.map((tickerId) =>
+        aggregateSearchQueryYieldForTicker({ tickerId }),
+      ),
+    );
 
     return context.json({ message: "Success" }, 200);
   } catch (error) {

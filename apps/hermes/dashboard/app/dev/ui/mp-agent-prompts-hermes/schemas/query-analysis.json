@@ -15,53 +15,42 @@
       "exclusiveMinimum": 0,
       "default": 10
     },
-    "minDeterministicCount": {
-      "type": "integer",
-      "minimum": 0,
-      "default": 4
-    },
-    "allowedLanguages": {
+    "languageQuotas": {
       "type": "array",
       "items": {
-        "type": "string",
-        "minLength": 1
-      },
-      "default": ["en"]
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string",
+            "minLength": 1
+          },
+          "share": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": ["language", "share"],
+        "additionalProperties": false
+      }
     },
-    "weightBreaking": {
-      "type": "number",
-      "minimum": 0,
-      "default": 1
-    },
-    "weightKgChange": {
-      "type": "number",
-      "minimum": 0,
-      "default": 0.8
-    },
-    "weightFundamental": {
-      "type": "number",
-      "minimum": 0,
-      "default": 0.6
-    },
-    "maxTokens": {
-      "type": "integer",
-      "exclusiveMinimum": 0,
-      "default": 800
-    },
-    "prompts": {
+    "intentWeights": {
       "type": "object",
       "properties": {
-        "systemPrompt": {
-          "type": "string",
-          "maxLength": 50000,
-          "description": "Optional system prompt template. Placeholders: {{allowedLanguages}}, {{targetBreakingCount}}, {{targetKgCount}}, {{targetFundamentalCount}}, {{minDeterministicCount}} (derived from queryCount, allowedLanguages, minDeterministicCount, and weight* fields when overrides are absent).",
-          "format": "textarea"
+        "breaking": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1
         },
-        "userPromptTemplate": {
-          "type": "string",
-          "maxLength": 50000,
-          "description": "Optional user prompt template. Placeholder: {{queryContextBlock}} (serialized GET /query-analysis context: ticker, entities, themes, relation deltas).",
-          "format": "textarea"
+        "kg_change": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.8
+        },
+        "fundamental": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.6
         }
       },
       "additionalProperties": false

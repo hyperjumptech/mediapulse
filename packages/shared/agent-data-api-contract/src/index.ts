@@ -111,7 +111,12 @@ export {
   type PostQueryAnalysisResponse,
   type QueryAnalysisIntent,
   type QueryAnalysisIntentWeights,
+  type QueryAnalysisPriorYield,
   type QueryAnalysisSource,
+  type QueryAnalysisTemplateYieldBucket,
+  type QueryAnalysisIntentYieldBucket,
+  type QueryAnalysisPersonaYieldBucket,
+  queryAnalysisPriorYieldSchema,
 } from "./query-analysis.js";
 export {
   dataCollectionFailureErrorCategorySchema,

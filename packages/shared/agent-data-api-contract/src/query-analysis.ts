@@ -138,6 +138,32 @@ export const queryAnalysisKgNeighborhoodSchema = z.object({
   toEntity: z.string(),
 });
 
+export const queryAnalysisYieldBucketSchema = z.object({
+  avgArticles: z.number().nonnegative(),
+  avgNovel: z.number().nonnegative(),
+});
+
+export const queryAnalysisTemplateYieldBucketSchema =
+  queryAnalysisYieldBucketSchema.extend({
+    templateId: z.string(),
+  });
+
+export const queryAnalysisIntentYieldBucketSchema =
+  queryAnalysisYieldBucketSchema.extend({
+    intent: queryAnalysisIntentSchema,
+  });
+
+export const queryAnalysisPersonaYieldBucketSchema =
+  queryAnalysisYieldBucketSchema.extend({
+    persona: z.string(),
+  });
+
+export const queryAnalysisPriorYieldSchema = z.object({
+  perTemplate: z.array(queryAnalysisTemplateYieldBucketSchema),
+  perIntent: z.array(queryAnalysisIntentYieldBucketSchema),
+  perPersona: z.array(queryAnalysisPersonaYieldBucketSchema),
+});
+
 export const getQueryAnalysisResponseSchema = z.object({
   ticker: queryAnalysisTickerSchema,
   topEntities: z.array(queryAnalysisTopEntitySchema),
@@ -148,6 +174,7 @@ export const getQueryAnalysisResponseSchema = z.object({
   calendar: queryAnalysisCalendarSchema.default({ recentEventTypes: [] }),
   headlineSamples: z.array(queryAnalysisHeadlineSampleSchema).default([]),
   kgNeighborhood: z.array(queryAnalysisKgNeighborhoodSchema).default([]),
+  priorYield: queryAnalysisPriorYieldSchema.optional(),
 });
 
 export const postQueryAnalysisResponseSchema = z.object({
@@ -166,3 +193,15 @@ export type PostQueryAnalysisResponse = z.infer<
 >;
 export type QueryAnalysisSource = z.infer<typeof queryAnalysisSourceSchema>;
 export type QueryAnalysisIntentWeights = Record<QueryAnalysisIntent, number>;
+export type QueryAnalysisPriorYield = z.infer<
+  typeof queryAnalysisPriorYieldSchema
+>;
+export type QueryAnalysisTemplateYieldBucket = z.infer<
+  typeof queryAnalysisTemplateYieldBucketSchema
+>;
+export type QueryAnalysisIntentYieldBucket = z.infer<
+  typeof queryAnalysisIntentYieldBucketSchema
+>;
+export type QueryAnalysisPersonaYieldBucket = z.infer<
+  typeof queryAnalysisPersonaYieldBucketSchema
+>;

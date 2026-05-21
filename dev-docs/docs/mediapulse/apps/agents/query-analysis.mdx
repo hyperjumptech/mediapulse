@@ -54,6 +54,8 @@ KG neighborhood:
 - Alpha Subsidiary --PARTNER_OF--> Beta Partner
 ```
 
+System and user prompts are built in source — see `buildQueryAnalysisSystemContent` and `buildQueryAnalysisUserContent` in `apps/mediapulse/agents/query-analysis/src/llm-queries.ts`. Strategy knobs (`queryCount`, `languageQuotas`, `intentWeights`, and the derived deterministic floor) are interpolated at run time; there is no Hermes override surface for prompt text.
+
 ## Environment variables
 
 | Variable                     | Required | Notes                                                          |
@@ -75,14 +77,21 @@ This agent is configured per pipeline step via the Hermes invoke request body `c
 | `openaiApiKey`                                            | Yes      | OpenAI API key (never stored in `packages/mediapulse/env` for this agent).                                                                                                                                                                   |
 | `openaiModel`                                             | No       | Defaults to `gpt-4o-mini`.                                                                                                                                                                                                                   |
 | `queryCount`                                              | No       | Total queries to persist (default `10`).                                                                                                                                                                                                     |
-| `minDeterministicCount`                                   | No       | Deterministic “floor” before LLM complement (default `4`).                                                                                                                                                                                   |
-| `allowedLanguages`                                        | No       | Target languages as BCP-47 codes (default `["en"]`).                                                                                                                                                                                         |
+| `languageQuotas`                                          | No       | Per-language budget shares (BCP-47 `language`, `share` summing to `1.0`). Defaults to English-only when omitted.                                                                                                                           |
 | `intentWeights`                                           | No       | Per-intent merge and LLM target-count weights (default favors `breaking` / `kg_change` / `fundamental`; new intents default ≤ `0.5`). Keys: `breaking`, `kg_change`, `fundamental`, `sentiment`, `competitor`, `supply_chain`, `esg`, `macro`, `technical`. |
-| `weightBreaking` / `weightKgChange` / `weightFundamental` | No       | **Deprecated.** Lifted into `intentWeights` when `intentWeights` is absent (default `1`, `0.8`, `0.6`).                                                                                                                                      |
-| `maxTokens`                                               | No       | LLM output token budget (default `800`).                                                                                                                                                                                                     |
 | `templatePack`                                            | No       | Deterministic template pack name (default `default-v1`). Set to `rich-v2` for the expanded ~20-template pack, or `rich-v2-extended` for all nine intents. Operators can switch packs via Hermes invoke config without redeploying the agent. |
-| `prompts.systemPrompt`                                    | No       | Optional full system prompt template. When set, it replaces the built-in default wording; placeholders inject languages and **intent-count hints** derived from `queryCount`, `minDeterministicCount`, and `intentWeights` (see below). |
-| `prompts.userPromptTemplate`                              | No       | Optional user prompt template. Default is a single `{{queryContextBlock}}` (serialized GET /query-analysis context).                                                                                                                         |
+
+### Derived strategy values
+
+These are computed at run time from `queryCount` and recorded on **`strategySnapshot`** for audit — they are not Hermes config fields.
+
+| Derived field             | Formula                                      | Examples                          |
+| ------------------------- | -------------------------------------------- | --------------------------------- |
+| `minDeterministicCount`   | `max(2, floor(queryCount × 0.4))`            | `queryCount: 10` → `4`; `3` → `2` |
+
+LLM output token budget is fixed in source as `QUERY_ANALYSIS_MAX_OUTPUT_TOKENS` (`800`) in `llm-queries.ts`. Change it via a code deploy, not Hermes config.
+
+Prompts live in source. To change them, open a PR. Tune model behavior via `intentWeights` and sampling (see [Creativity sampling](#creativity-sampling)).
 
 ### Creativity sampling
 
@@ -97,15 +106,6 @@ LLM query generation uses higher-variance defaults than the AI SDK baseline so o
 | `seed`             | integer  | _(omitted)_ | Fixed seed for reproducible output during regression hunts. Leave unset in production for genuine variance. |
 
 **Tune-up recipe:** If persisted queries feel repetitive, bump `presencePenalty` by `0.1`–`0.2` before touching `temperature`. If phrasing is too wild, lower `temperature` toward `0.7` and keep penalties steady. Set `seed` only when you need bit-for-bit comparison across prompt edits.
-
-### Weights vs prompt overrides (REQ-010)
-
-| Situation                            | What still affects the LLM                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No `prompts` fields**              | Package defaults: system text includes approximate counts for all nine intents computed from **`queryCount`** and **`intentWeights`**; user text is the GET context. **`allowedLanguages`** and **`minDeterministicCount`** appear in the default system prompt. |
-| **`prompts.systemPrompt` set**       | You replace the system instructions. Placeholders **`{{allowedLanguages}}`**, **`{{targetBreakingCount}}`**, **`{{targetKgCount}}`**, **`{{targetFundamentalCount}}`**, **`{{targetSentimentCount}}`**, **`{{targetCompetitorCount}}`**, **`{{targetSupplyChainCount}}`**, **`{{targetEsgCount}}`**, **`{{targetMacroCount}}`**, **`{{targetTechnicalCount}}`**, and **`{{minDeterministicCount}}`** are still filled from the same strategy fields. |
-| **`prompts.userPromptTemplate` set** | You control layout around **`{{queryContextBlock}}`** (or use only that token). The serialized context still reflects live GET data.                                                                                                                                                                                             |
-| **Merge / persistence**              | **`mergeQueryCandidates`** still uses **`intentWeights`** and **`queryCount`** / **`minDeterministicCount`** for ordering and filling the persisted query set—prompt overrides do not change merge math.                                                                                                                         |
 
 ## Query intents
 
@@ -173,7 +173,7 @@ The regenerate pass **appends** a second LLM batch; it does not discard the firs
 
 ## Hermes run payload
 
-Successful runs return `details` including the agent-data-api create response fields plus **`llmPromptFingerprint`** (16-character hex, same algorithm as content-generation `promptHash`) so operators can tell runs apart when only prompt templates changed in Hermes config.
+Successful runs return `details` including the agent-data-api create response fields plus **`llmPromptFingerprint`** (16-character hex, same algorithm as content-generation `promptHash`) so operators can tell runs apart when prompt prose or strategy knobs change across agent deploys.
 
 ## Pipeline usage
 

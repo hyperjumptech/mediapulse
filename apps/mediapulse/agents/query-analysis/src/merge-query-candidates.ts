@@ -1,4 +1,7 @@
-import type { QueryAnalysisIntent } from "@workspace/agent-data-api-contract";
+import type {
+  QueryAnalysisIntent,
+  QueryAnalysisPriorYield,
+} from "@workspace/agent-data-api-contract";
 
 import type { QuerySemanticEmbedder } from "./embeddings";
 import { maxCosineSimilarity } from "./embeddings";
@@ -7,6 +10,8 @@ import { maxCosineSimilarity } from "./embeddings";
 export type DeterministicCandidate = {
   text: string;
   intent: QueryAnalysisIntent;
+  /** Template pattern id for yield feedback (e.g. `{symbol} latest news`). */
+  templateId?: string;
   /** BCP-47 language tag when produced by a language slice (observability). */
   language?: string;
 };
@@ -27,6 +32,8 @@ export type MergedQueryRow = {
   source: "deterministic" | "llm";
   intent: QueryAnalysisIntent;
   rank: number;
+  /** Template pattern id for deterministic rows (yield attribution). */
+  templateId?: string;
   /** Persona id for LLM rows from multi-persona fan-out (observability only). */
   persona?: string;
   /** BCP-47 language tag for multilingual quota observability. */
@@ -60,6 +67,57 @@ export const intentMergeWeight = (
 ): number => weights[intent] ?? 0;
 
 /**
+ * Computes a log-scaled novel-yield bonus multiplier for merge ordering.
+ *
+ * @param params - Intent, optional template id, and prior yield rollups.
+ * @returns Multiplier ≥ 1 when yield data exists; 1 when absent.
+ */
+export const yieldMergeMultiplier = (params: {
+  intent: QueryAnalysisIntent;
+  templateId?: string;
+  priorYield?: QueryAnalysisPriorYield;
+}): number => {
+  const { priorYield, intent, templateId } = params;
+  if (priorYield === undefined) {
+    return 1;
+  }
+  if (templateId !== undefined) {
+    const templateBucket = priorYield.perTemplate.find(
+      (row) => row.templateId === templateId,
+    );
+    if (templateBucket !== undefined) {
+      return 1 + Math.log(1 + templateBucket.avgNovel);
+    }
+  }
+  const intentBucket = priorYield.perIntent.find(
+    (row) => row.intent === intent,
+  );
+  if (intentBucket !== undefined) {
+    return 1 + Math.log(1 + intentBucket.avgNovel);
+  }
+  return 1;
+};
+
+/**
+ * Returns intent merge weight multiplied by optional prior-yield bonus.
+ *
+ * @param params - Intent, weights, optional template id, and prior yield rollups.
+ * @returns Effective merge weight for sorting.
+ */
+export const effectiveMergeWeight = (params: {
+  intent: QueryAnalysisIntent;
+  weights: QueryMergeWeights;
+  templateId?: string;
+  priorYield?: QueryAnalysisPriorYield;
+}): number =>
+  intentMergeWeight(params.intent, params.weights) *
+  yieldMergeMultiplier({
+    intent: params.intent,
+    templateId: params.templateId,
+    priorYield: params.priorYield,
+  });
+
+/**
  * Dedupes deterministic rows by {@link normalizeQueryKey}, preserving first occurrence order.
  *
  * @param deterministic - Template rows (may contain duplicates or empty strings).
@@ -83,6 +141,7 @@ export const dedupeDeterministic = (
     out.push({
       text,
       intent: row.intent,
+      ...(row.templateId !== undefined ? { templateId: row.templateId } : {}),
       ...(row.language !== undefined ? { language: row.language } : {}),
     });
   }
@@ -310,6 +369,7 @@ type PoolRow = {
   source: "deterministic" | "llm";
   persona?: string;
   language?: string;
+  templateId?: string;
 };
 
 /**
@@ -317,15 +377,22 @@ type PoolRow = {
  *
  * @param rows - Candidate rows with original indices.
  * @param weights - Relative intent weights from strategy snapshot.
+ * @param priorYield - Optional rolling yield rollups for log-scaled bonuses.
  * @returns Rows ordered by descending weight.
  */
 export const sortPoolByIntentWeight = (
   rows: Array<{ row: PoolRow; index: number }>,
   weights: QueryMergeWeights,
+  priorYield?: QueryAnalysisPriorYield,
 ): PoolRow[] => {
   const pool = rows.map((entry) => ({
     ...entry,
-    weight: intentMergeWeight(entry.row.intent, weights),
+    weight: effectiveMergeWeight({
+      intent: entry.row.intent,
+      weights,
+      templateId: entry.row.templateId,
+      priorYield,
+    }),
   }));
   pool.sort((a, b) => {
     if (b.weight !== a.weight) {
@@ -404,8 +471,9 @@ export const mergeQueryCandidates = (params: {
   minDeterministicCount: number;
   weights: QueryMergeWeights;
   embedder?: QuerySemanticEmbedder;
+  priorYield?: QueryAnalysisPriorYield;
 }): MergedQueryRow[] => {
-  const { queryCount, minDeterministicCount, weights } = params;
+  const { queryCount, minDeterministicCount, weights, priorYield } = params;
   const dedupedDet = dedupeDeterministic(params.deterministic);
   const effectiveMin = Math.min(
     minDeterministicCount,
@@ -416,12 +484,14 @@ export const mergeQueryCandidates = (params: {
     text: row.text,
     intent: row.intent,
     source: "deterministic" as const,
+    ...(row.templateId !== undefined ? { templateId: row.templateId } : {}),
     ...(row.language !== undefined ? { language: row.language } : {}),
   }));
   const detExtra: PoolRow[] = dedupedDet.slice(effectiveMin).map((row) => ({
     text: row.text,
     intent: row.intent,
     source: "deterministic" as const,
+    ...(row.templateId !== undefined ? { templateId: row.templateId } : {}),
     ...(row.language !== undefined ? { language: row.language } : {}),
   }));
   const seenKeys = new Set(
@@ -440,7 +510,11 @@ export const mergeQueryCandidates = (params: {
 
   let tail: PoolRow[];
   if (hasPersonaTaggedLlm) {
-    const detExtraOrdered = sortPoolByIntentWeight(detExtraIndexed, weights);
+    const detExtraOrdered = sortPoolByIntentWeight(
+      detExtraIndexed,
+      weights,
+      priorYield,
+    );
     const llmOrdered = orderLlmRowsByPersonaRoundRobin(
       llmIndexed.map((entry) => entry.row),
     );
@@ -449,7 +523,13 @@ export const mergeQueryCandidates = (params: {
     const pool = [...detExtraIndexed, ...llmIndexed].map((entry) => ({
       row: entry.row,
       index: entry.index,
-      weight: intentMergeWeight(entry.row.intent, weights),
+      weight: effectiveMergeWeight({
+        intent: entry.row.intent,
+        weights,
+        templateId:
+          "templateId" in entry.row ? entry.row.templateId : undefined,
+        priorYield,
+      }),
     }));
     pool.sort((a, b) => {
       if (b.weight !== a.weight) {
@@ -467,6 +547,7 @@ export const mergeQueryCandidates = (params: {
     source: row.source,
     intent: row.intent,
     rank: i + 1,
+    ...(row.templateId !== undefined ? { templateId: row.templateId } : {}),
     ...(row.persona !== undefined ? { persona: row.persona } : {}),
     ...(row.language !== undefined ? { language: row.language } : {}),
   }));

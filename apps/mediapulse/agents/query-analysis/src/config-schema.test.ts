@@ -6,8 +6,8 @@ import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api
 import {
   queryAnalysisConfigSchema,
   resolveIntentWeights,
+  resolveYieldFeedbackConfig,
 } from "./config-schema";
-import { QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH } from "./query-analysis-prompt-defaults";
 
 const minimal = { openaiApiKey: "sk-test" } satisfies Parameters<
   typeof queryAnalysisConfigSchema.parse
@@ -58,86 +58,89 @@ describe("queryAnalysisConfigSchema templatePack", () => {
 });
 
 describe("resolveIntentWeights", () => {
-  it("returns defaults when neither intentWeights nor legacy fields are overridden", () => {
+  it("returns defaults when intentWeights is omitted", () => {
     const parsed = queryAnalysisConfigSchema.parse(minimal);
     expect(resolveIntentWeights(parsed)).toEqual(
       DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
     );
   });
 
-  it("lifts legacy weightBreaking fields when intentWeights is absent", () => {
+  it("parses nested intentWeights from modern Hermes config", () => {
     const parsed = queryAnalysisConfigSchema.parse({
       ...minimal,
-      weightBreaking: 2,
-      weightKgChange: 1.5,
-      weightFundamental: 0.25,
+      intentWeights: { breaking: 2, kg_change: 1.1 },
     });
+
     expect(resolveIntentWeights(parsed)).toMatchObject({
       breaking: 2,
-      kg_change: 1.5,
-      fundamental: 0.25,
-      esg: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.esg,
-    });
-  });
-
-  it("prefers intentWeights when explicitly provided", () => {
-    const parsed = queryAnalysisConfigSchema.parse({
-      ...minimal,
-      intentWeights: { esg: 0.9, technical: 0.2 },
-      weightBreaking: 99,
-    });
-    expect(resolveIntentWeights(parsed)).toMatchObject({
-      breaking: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.breaking,
-      esg: 0.9,
-      technical: 0.2,
+      kg_change: 1.1,
     });
   });
 });
 
-describe("queryAnalysisConfigSchema prompts", () => {
-  it("rejects unknown placeholder in systemPrompt", () => {
+describe("queryAnalysisConfigSchema strict mode", () => {
+  it("rejects legacy prompts overrides with an unrecognized key error", () => {
     const result = queryAnalysisConfigSchema.safeParse({
       ...minimal,
-      prompts: { systemPrompt: "{{allowedLanguages}} {{nope}}" },
+      prompts: {
+        systemPrompt: "Custom system prompt",
+        userPromptTemplate: "{{queryContextBlock}}",
+      },
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(
-        result.error.issues.some((i) => i.message.includes("{{nope}}")),
+        result.error.issues.some((issue) =>
+          issue.message.toLowerCase().includes("unrecognized"),
+        ),
       ).toBe(true);
     }
   });
 
-  it("rejects unknown placeholder in userPromptTemplate", () => {
+  it("rejects removed maxTokens config key under strict mode", () => {
     const result = queryAnalysisConfigSchema.safeParse({
       ...minimal,
-      prompts: { userPromptTemplate: "{{queryContextBlock}} {{bad}}" },
+      maxTokens: 1200,
     });
     expect(result.success).toBe(false);
-  });
-
-  it("rejects overlong systemPrompt", () => {
-    const result = queryAnalysisConfigSchema.safeParse({
-      ...minimal,
-      prompts: {
-        systemPrompt: "x".repeat(
-          QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH + 1,
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) =>
+          issue.message.toLowerCase().includes("unrecognized"),
         ),
-      },
+      ).toBe(true);
+    }
+  });
+
+  it("rejects removed minDeterministicCount config key under strict mode", () => {
+    const result = queryAnalysisConfigSchema.safeParse({
+      ...minimal,
+      minDeterministicCount: 4,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) =>
+          issue.message.toLowerCase().includes("unrecognized"),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("rejects legacy weightBreaking config key under strict mode", () => {
+    const result = queryAnalysisConfigSchema.safeParse({
+      ...minimal,
+      weightBreaking: 2,
     });
     expect(result.success).toBe(false);
   });
 
-  it("accepts valid prompt placeholders including expanded intent counts", () => {
-    const parsed = queryAnalysisConfigSchema.parse({
+  it("rejects legacy allowedLanguages config key under strict mode", () => {
+    const result = queryAnalysisConfigSchema.safeParse({
       ...minimal,
-      prompts: {
-        systemPrompt:
-          "L: {{allowedLanguages}} B:{{targetBreakingCount}} E:{{targetEsgCount}}",
-        userPromptTemplate: "CTX:\n{{queryContextBlock}}",
-      },
+      allowedLanguages: ["en", "id"],
     });
-    expect(parsed.prompts?.systemPrompt).toContain("targetEsgCount");
+    expect(result.success).toBe(false);
   });
 });
 
@@ -413,5 +416,31 @@ describe("queryAnalysisConfigSchema languageQuotas", () => {
         ),
       ).toBe(true);
     }
+  });
+});
+
+describe("resolveYieldFeedbackConfig", () => {
+  it("defaults yield feedback to disabled with a 30-day window", () => {
+    expect(resolveYieldFeedbackConfig({})).toEqual({
+      enabled: false,
+      windowDays: 30,
+      minTemplateYield: 0.05,
+    });
+  });
+
+  it("parses enabled yield feedback overrides from Hermes config", () => {
+    const parsed = queryAnalysisConfigSchema.parse({
+      ...minimal,
+      yieldFeedback: {
+        enabled: true,
+        windowDays: 14,
+        minTemplateYield: 0.1,
+      },
+    });
+    expect(resolveYieldFeedbackConfig(parsed)).toEqual({
+      enabled: true,
+      windowDays: 14,
+      minTemplateYield: 0.1,
+    });
   });
 });

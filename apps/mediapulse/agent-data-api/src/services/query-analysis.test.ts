@@ -5,6 +5,14 @@ vi.mock("@mediapulse/database", () => ({
   prisma: {},
 }));
 
+vi.mock("./search-query-yield.js", () => ({
+  getQueryYieldSummary: vi.fn().mockResolvedValue({
+    perTemplate: [],
+    perIntent: [],
+    perPersona: [],
+  }),
+}));
+
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const PEER_ONE_ID = "22222222-2222-4222-a222-222222222222";
 const PEER_TWO_ID = "33333333-3333-4333-a333-333333333333";
@@ -169,6 +177,11 @@ describe("getQueryAnalysisContext", () => {
         toEntity: "Gamma Vendor",
       },
     ]);
+    expect(payload.priorYield).toEqual({
+      perTemplate: [],
+      perIntent: [],
+      perPersona: [],
+    });
     expect(tickerFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

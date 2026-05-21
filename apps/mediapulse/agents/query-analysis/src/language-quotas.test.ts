@@ -37,17 +37,7 @@ describe("resolveLanguageQuotas", () => {
     expect(resolveLanguageQuotas({ languageQuotas: quotas })).toEqual(quotas);
   });
 
-  it("lifts legacy allowedLanguages to equal shares", () => {
-    expect(
-      resolveLanguageQuotas({ allowedLanguages: ["en", "id", "de"] }),
-    ).toEqual([
-      { language: "en", share: 1 / 3 },
-      { language: "id", share: 1 / 3 },
-      { language: "de", share: 1 / 3 },
-    ]);
-  });
-
-  it("defaults to English-only when neither field is set", () => {
+  it("defaults to English-only when languageQuotas is omitted", () => {
     expect(resolveLanguageQuotas({})).toEqual([{ language: "en", share: 1 }]);
   });
 });

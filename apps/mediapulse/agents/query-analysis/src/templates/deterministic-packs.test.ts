@@ -6,6 +6,7 @@ import type { GetQueryAnalysisResponse } from "@workspace/agent-data-api-contrac
 import { buildDeterministicQueries } from "./build-deterministic-queries";
 import {
   DETERMINISTIC_PACKS,
+  filterPackTemplatesByYield,
   getDeterministicPack,
   MAX_TEMPLATES_PER_PACK,
 } from "./deterministic-packs";
@@ -57,11 +58,31 @@ describe("default-v1 pack", () => {
 
     // Assert
     expect(queries).toEqual([
-      { text: "ACME latest news", intent: "breaking" },
-      { text: "Acme Co breaking news", intent: "breaking" },
-      { text: "Acme Co relation changes", intent: "kg_change" },
-      { text: "Acme Co earnings guidance", intent: "fundamental" },
-      { text: "Acme Co regulatory update", intent: "fundamental" },
+      {
+        text: "ACME latest news",
+        intent: "breaking",
+        templateId: "{symbol} latest news",
+      },
+      {
+        text: "Acme Co breaking news",
+        intent: "breaking",
+        templateId: "{name} breaking news",
+      },
+      {
+        text: "Acme Co relation changes",
+        intent: "kg_change",
+        templateId: "{name} relation changes",
+      },
+      {
+        text: "Acme Co earnings guidance",
+        intent: "fundamental",
+        templateId: "{name} earnings guidance",
+      },
+      {
+        text: "Acme Co regulatory update",
+        intent: "fundamental",
+        templateId: "{name} regulatory update",
+      },
     ]);
   });
 });
@@ -249,5 +270,57 @@ describe("kg-aware-v1 pack", () => {
 
     expect(queries.every((row) => !row.text.includes("Delta One"))).toBe(true);
     expect(queries.every((row) => !row.text.includes("Nb One"))).toBe(true);
+  });
+});
+
+describe("filterPackTemplatesByYield", () => {
+  it("removes templates below the minimum novel-yield threshold", () => {
+    const pack = getDeterministicPack("default-v1");
+    const filtered = filterPackTemplatesByYield(
+      pack,
+      {
+        perTemplate: [
+          {
+            templateId: "{symbol} latest news",
+            avgArticles: 0,
+            avgNovel: 0.01,
+          },
+          {
+            templateId: "{name} breaking news",
+            avgArticles: 2,
+            avgNovel: 0.2,
+          },
+        ],
+        perIntent: [],
+        perPersona: [],
+      },
+      0.05,
+    );
+
+    expect(filtered.templates.map((row) => row.template)).toEqual([
+      "{name} breaking news",
+      "{name} relation changes",
+      "{name} earnings guidance",
+      "{name} regulatory update",
+    ]);
+  });
+
+  it("keeps the original pack when every template is below threshold", () => {
+    const pack = getDeterministicPack("default-v1");
+    const filtered = filterPackTemplatesByYield(
+      pack,
+      {
+        perTemplate: pack.templates.map((row) => ({
+          templateId: row.template,
+          avgArticles: 0,
+          avgNovel: 0,
+        })),
+        perIntent: [],
+        perPersona: [],
+      },
+      0.05,
+    );
+
+    expect(filtered.templates).toEqual(pack.templates);
   });
 });

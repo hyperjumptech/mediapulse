@@ -1,4 +1,7 @@
-import type { QueryAnalysisIntent } from "@workspace/agent-data-api-contract";
+import type {
+  QueryAnalysisIntent,
+  QueryAnalysisPriorYield,
+} from "@workspace/agent-data-api-contract";
 
 import type { KgRelationTemplate } from "./slot-resolver";
 
@@ -212,5 +215,40 @@ export const getDeterministicPack = (
   return {
     ...pack,
     templates: pack.templates.slice(0, MAX_TEMPLATES_PER_PACK),
+  };
+};
+
+/**
+ * Drops low-yield templates from a pack while preserving at least one template per pack.
+ *
+ * @param pack - Source deterministic pack.
+ * @param priorYield - Rolling yield rollups from GET /query-analysis.
+ * @param minTemplateYield - Minimum average novel articles per run to stay in rotation.
+ * @returns Pack with low-yield templates removed when yield data exists.
+ */
+export const filterPackTemplatesByYield = (
+  pack: DeterministicPack,
+  priorYield: QueryAnalysisPriorYield | undefined,
+  minTemplateYield: number,
+): DeterministicPack => {
+  if (priorYield === undefined || priorYield.perTemplate.length === 0) {
+    return pack;
+  }
+  const yieldByTemplate = new Map(
+    priorYield.perTemplate.map((row) => [row.templateId, row.avgNovel]),
+  );
+  const filtered = pack.templates.filter((row) => {
+    const avgNovel = yieldByTemplate.get(row.template);
+    if (avgNovel === undefined) {
+      return true;
+    }
+    return avgNovel >= minTemplateYield;
+  });
+  if (filtered.length === 0) {
+    return pack;
+  }
+  return {
+    ...pack,
+    templates: filtered,
   };
 };

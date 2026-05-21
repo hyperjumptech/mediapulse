@@ -3,50 +3,25 @@ import { z } from "zod";
 import {
   DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
   queryAnalysisIntentSchema,
-  type QueryAnalysisIntent,
   type QueryAnalysisIntentWeights,
 } from "@workspace/agent-data-api-contract";
-import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
 import {
   DEFAULT_DETERMINISTIC_PACK,
   DETERMINISTIC_PACK_NAMES,
 } from "./templates/deterministic-packs";
-import {
-  QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH,
-  QUERY_ANALYSIS_SYSTEM_PROMPT_PLACEHOLDERS,
-  QUERY_ANALYSIS_USER_PROMPT_PLACEHOLDERS,
-} from "./query-analysis-prompt-defaults";
 
 /**
- * Resolves intent weights from Hermes config, lifting legacy `weight*` fields when
- * `intentWeights` is absent.
+ * Resolves intent weights from parsed Hermes config with contract defaults applied.
  *
  * @param config - Parsed invoke config fields related to intent weighting.
- * @returns Full intent weight record with defaults for any omitted intents.
+ * @returns Full intent weight record for merge math, prompts, and snapshots.
  */
 export const resolveIntentWeights = (config: {
   intentWeights?: Partial<QueryAnalysisIntentWeights>;
-  weightBreaking?: number;
-  weightKgChange?: number;
-  weightFundamental?: number;
-}): QueryAnalysisIntentWeights => {
-  if (config.intentWeights !== undefined) {
-    return {
-      ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
-      ...config.intentWeights,
-    };
-  }
-  return {
-    ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
-    breaking:
-      config.weightBreaking ?? DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.breaking,
-    kg_change:
-      config.weightKgChange ?? DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.kg_change,
-    fundamental:
-      config.weightFundamental ??
-      DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.fundamental,
-  };
-};
+}): QueryAnalysisIntentWeights => ({
+  ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+  ...config.intentWeights,
+});
 
 /** Resolved diversity gate settings with defaults applied. */
 export type ResolvedDiversityGateConfig = {
@@ -63,6 +38,31 @@ export type ResolvedDiversityGateConfig = {
 export type ResolvedTemporalBiasConfig = {
   enabled: boolean;
 };
+
+/** Resolved yield feedback settings with defaults applied. */
+export type ResolvedYieldFeedbackConfig = {
+  enabled: boolean;
+  windowDays: number;
+  minTemplateYield: number;
+};
+
+/**
+ * Resolves yield feedback config with schema defaults when fields are omitted.
+ *
+ * @param config - Parsed or raw Hermes invoke config.
+ * @returns Effective yield feedback settings for merge, prompts, and template rotation.
+ */
+export const resolveYieldFeedbackConfig = (config: {
+  yieldFeedback?: {
+    enabled?: boolean;
+    windowDays?: number;
+    minTemplateYield?: number;
+  };
+}): ResolvedYieldFeedbackConfig => ({
+  enabled: config.yieldFeedback?.enabled ?? false,
+  windowDays: config.yieldFeedback?.windowDays ?? 30,
+  minTemplateYield: config.yieldFeedback?.minTemplateYield ?? 0.05,
+});
 
 /**
  * Resolves temporal event-bias config with schema defaults when fields are omitted.
@@ -127,11 +127,6 @@ export const queryAnalysisConfigSchema = z
      */
     queryCount: z.number().int().positive().optional().default(10),
     /**
-     * Minimum number of deterministic template queries to include
-     * before the LLM-generated candidates are used to fill the remaining budget.
-     */
-    minDeterministicCount: z.number().int().nonnegative().optional().default(4),
-    /**
      * Per-language query budget shares and optional template pack overrides.
      */
     languageQuotas: z
@@ -144,31 +139,11 @@ export const queryAnalysisConfigSchema = z
       )
       .optional(),
     /**
-     * @deprecated Use `languageQuotas`. Lifted to equal shares when `languageQuotas` is absent.
-     */
-    allowedLanguages: z.array(z.string().min(1)).optional(),
-    /**
      * Relative weights keyed by intent for merge ordering and LLM target counts.
      */
     intentWeights: z
       .record(queryAnalysisIntentSchema, z.number().nonnegative())
       .optional(),
-    /**
-     * @deprecated Use `intentWeights.breaking`. Lifted when `intentWeights` is absent.
-     */
-    weightBreaking: z.number().nonnegative().optional().default(1),
-    /**
-     * @deprecated Use `intentWeights.kg_change`. Lifted when `intentWeights` is absent.
-     */
-    weightKgChange: z.number().nonnegative().optional().default(0.8),
-    /**
-     * @deprecated Use `intentWeights.fundamental`. Lifted when `intentWeights` is absent.
-     */
-    weightFundamental: z.number().nonnegative().optional().default(0.6),
-    /**
-     * LLM output token budget for generating structured query candidates.
-     */
-    maxTokens: z.number().int().positive().optional().default(800),
     /**
      * Named deterministic template pack used for the query floor.
      * Switch via Hermes invoke config without redeploying the agent.
@@ -280,33 +255,17 @@ export const queryAnalysisConfigSchema = z
       })
       .optional(),
     /**
-     * Optional overrides for query-generation LLM system/user templates (Hermes).
-     * When omitted, built-in defaults are used. Do not put API keys inside prompt text.
+     * Optional rolling query-yield feedback loop (merge ranking, prompts, template rotation).
      */
-    prompts: z
+    yieldFeedback: z
       .object({
-        systemPrompt: z
-          .string()
-          .max(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
-            message: `prompts.systemPrompt must be at most ${String(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
-          })
-          .describe(
-            "Optional system prompt template. Placeholders: {{allowedLanguages}}, {{targetBreakingCount}}, {{targetKgCount}}, {{targetFundamentalCount}}, {{targetSentimentCount}}, {{targetCompetitorCount}}, {{targetSupplyChainCount}}, {{targetEsgCount}}, {{targetMacroCount}}, {{targetTechnicalCount}}, {{minDeterministicCount}} (derived from queryCount, allowedLanguages, minDeterministicCount, and intentWeights when overrides are absent).",
-          )
-          .optional(),
-        userPromptTemplate: z
-          .string()
-          .max(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH, {
-            message: `prompts.userPromptTemplate must be at most ${String(QUERY_ANALYSIS_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
-          })
-          .describe(
-            "Optional user prompt template. Placeholder: {{queryContextBlock}} (serialized GET /query-analysis context: ticker, entities, themes, relation deltas).",
-          )
-          .optional(),
+        enabled: z.boolean().default(false),
+        windowDays: z.number().int().positive().default(30),
+        minTemplateYield: z.number().nonnegative().default(0.05),
       })
-      .strict()
       .optional(),
   })
+  .strict()
   .superRefine((data, ctx) => {
     if (data.languageQuotas !== undefined && data.languageQuotas.length > 0) {
       const sum = data.languageQuotas.reduce(
@@ -318,41 +277,6 @@ export const queryAnalysisConfigSchema = z
           code: z.ZodIssueCode.custom,
           message: `languageQuotas shares must sum to 1.0 (received ${String(sum)})`,
           path: ["languageQuotas"],
-        });
-      }
-    }
-
-    const prompts = data.prompts;
-    if (!prompts) {
-      return;
-    }
-    const systemAllowed = new Set<string>(
-      QUERY_ANALYSIS_SYSTEM_PROMPT_PLACEHOLDERS,
-    );
-    const userAllowed = new Set<string>(
-      QUERY_ANALYSIS_USER_PROMPT_PLACEHOLDERS,
-    );
-    if (prompts.systemPrompt) {
-      for (const token of findUnknownLlmPromptPlaceholderTokens(
-        prompts.systemPrompt,
-        systemAllowed,
-      )) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Unknown placeholder {{${token}}} in prompts.systemPrompt`,
-          path: ["prompts", "systemPrompt"],
-        });
-      }
-    }
-    if (prompts.userPromptTemplate) {
-      for (const token of findUnknownLlmPromptPlaceholderTokens(
-        prompts.userPromptTemplate,
-        userAllowed,
-      )) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Unknown placeholder {{${token}}} in prompts.userPromptTemplate`,
-          path: ["prompts", "userPromptTemplate"],
         });
       }
     }

@@ -50,6 +50,7 @@ import { buildDeterministicQueries } from "./templates/build-deterministic-queri
 import {
   clampPerPersonaQuotaCount,
   computeWildcardCount,
+  deriveMinDeterministicCount,
   runQueryAnalysis,
 } from "./run";
 
@@ -303,7 +304,6 @@ describe("query-analysis run", () => {
         openaiApiKey: "sk",
         queryCount: 10,
         wildcardFraction: 0.2,
-        minDeterministicCount: 0,
       }),
       token: "Bearer t",
     });
@@ -421,5 +421,56 @@ describe("computeWildcardCount", () => {
     expect(computeWildcardCount(10, 0.2)).toBe(2);
     expect(computeWildcardCount(10, 0.1)).toBe(1);
     expect(computeWildcardCount(10, 0)).toBe(0);
+  });
+});
+
+describe("deriveMinDeterministicCount", () => {
+  it("derives floor 4 for default queryCount 10", () => {
+    expect(deriveMinDeterministicCount(10)).toBe(4);
+  });
+
+  it("floors at 2 for small queryCount values", () => {
+    expect(deriveMinDeterministicCount(3)).toBe(2);
+  });
+});
+
+describe("runQueryAnalysis derived minDeterministicCount", () => {
+  it("persists derived minDeterministicCount 4 when queryCount is 10", async () => {
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        queryCount: 10,
+        wildcardFraction: 0,
+      }),
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      strategySnapshot: { minDeterministicCount: number; maxTokens?: number };
+    };
+    expect(createPayload.strategySnapshot.minDeterministicCount).toBe(4);
+    expect(createPayload.strategySnapshot.maxTokens).toBeUndefined();
+  });
+
+  it("persists derived minDeterministicCount 2 when queryCount is 3", async () => {
+    mockFetchQueryLlm.mockResolvedValue([
+      { text: "LLM one", intent: "breaking" as const, persona: "analyst" },
+    ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        queryCount: 3,
+        wildcardFraction: 0,
+      }),
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      strategySnapshot: { minDeterministicCount: number };
+    };
+    expect(createPayload.strategySnapshot.minDeterministicCount).toBe(2);
   });
 });
