@@ -1,8 +1,7 @@
 import { domainHealthResponseSchema } from "@hermes/domain-contract/contracts";
 import { env } from "@hermes/env";
-import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
+import { logger, slimPinoLogger } from "@workspace/logger";
 import { Hono } from "hono";
-import { pinoLogger } from "hono-pino";
 import { issueToken } from "./routes/issue-token";
 import { verifyJwt } from "./routes/verify-jwt";
 
@@ -18,12 +17,7 @@ const buildAgentAuthApiHealthBody = () =>
   });
 
 const mainApp = new Hono();
-mainApp.use(
-  pinoLogger({
-    pino: logger,
-    http: slimHonoPinoHttpLoggerOptions,
-  }),
-);
+mainApp.use(slimPinoLogger({ pino: logger }));
 
 /** GET /health — public liveness for load balancers. */
 mainApp.get("/health", (c) => c.json(buildAgentAuthApiHealthBody()));

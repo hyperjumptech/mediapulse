@@ -1,6 +1,6 @@
 ---
 name: open-github-pr
-description: Open a GitHub pull request for this repository using gh CLI, including branch checks, push, a reviewer-friendly PR body, and verified GitHub issue links (Closes/Fixes/Refs). Always resolve or create related issues before gh pr create so the PR can link to tickets; when drafting new issues, follow the create-github-issue skill for title and body structure. **After every successful gh pr create**, launch the **pr-check-monitor** subagent in the background to watch CI and report failures to the authoring agent. **PR title and body prose are humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). Use when the user asks to create/open/submit a PR or pull request, and format title and description with the pr-title-description skill structure (including Related issues).
+description: Open a GitHub pull request for this repository using gh CLI, including branch checks, push, a reviewer-friendly PR body, and verified GitHub issue links (Closes/Fixes/Refs). **Run full workspace code quality (`pnpm code-quality`) before push and `gh pr create`.** Always resolve or create related issues before gh pr create so the PR can link to tickets; when drafting new issues, follow the create-github-issue skill for title and body structure. **After every successful gh pr create**, launch the **pr-check-monitor** subagent in the background to watch CI and report failures to the authoring agent. **PR title and body prose are humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). Use when the user asks to create/open/submit a PR or pull request, and format title and description with the pr-title-description skill structure (including Related issues).
 ---
 
 # Open GitHub Pull Request
@@ -106,6 +106,23 @@ If unsure whether intermediate merges close issues in your org, prefer **`Refs`*
 
 Verify the published body with `gh pr view --json body` as usual. The temp file should not remain on disk after the workflow finishes.
 
+## Mandatory: code quality before push and PR
+
+**Hard gate:** do not `git push` or run `gh pr create` until workspace code quality passes from the **repository root**.
+
+From repo root:
+
+```bash
+pnpm code-quality
+```
+
+1. If it fails, fix the reported issues in your change set and re-run until exit code 0.
+2. Do not open a PR hoping CI will catch lint, type, test, or format failures you could have fixed locally.
+
+**When `pnpm code-quality` is blocked** (missing env, database, or unrelated failing packages outside your change set): follow the fallback in [verifier](../../agents/verifier.md) — at minimum **`pnpm format:check`** plus scoped **`pnpm --filter <package> lint`**, **`type:check`**, and **`test`** for every package you touched. Document what you ran and what you skipped. Do not push until those scoped checks pass.
+
+Prefer launching the **verifier** subagent (`.cursor/agents/verifier.md`) when the change set is large, touches Dockerfiles, or you want CI parity (format, lint, types, tests, and scoped Docker builds) in one pass before opening the PR.
+
 ## Mandatory: watch CI after `gh pr create`
 
 After a successful **`gh pr create`** and body verification, **always** start the [**pr-check-monitor**](../../agents/pr-check-monitor.md) subagent so the agent that opened the PR learns when GitHub checks fail.
@@ -147,7 +164,7 @@ Do not fix CI unless I ask — only report.
 
 1. Forward the monitor’s **handoff** to the authoring agent (same session or resumed agent).
 2. Fix scoped CI issues yourself, or delegate **babysit** when the user wants an automated fix loop.
-3. Re-run **verifier** locally before pushing again when failures look like format/lint/test drift.
+3. Re-run **`pnpm code-quality`** (or the **verifier** subagent) locally before pushing again when failures look like format/lint/test drift.
 
 Do not mark “PR opened” complete on your side until the monitor has been **started** (background is enough). You do not need to wait for CI unless the user chose foreground watch.
 
@@ -168,19 +185,21 @@ Run from the **primary repository** clone (the one that owns the worktrees), not
 3. **Work only in that directory**  
    Apply commits there (`cd <path>`).
 
-4. **Publish**  
+4. **Run code quality** — Follow **Mandatory: code quality before push and PR** (`pnpm code-quality` from repo root, or **verifier** when appropriate). Fix failures before publishing.
+
+5. **Publish**  
    `git push -u origin HEAD`
 
-5. **Resolve or create related issues, then open the PR** — Run **Mandatory: resolve or create issues before the PR** (same `<base>` / `--repo` / auth as the main workflow). Then create the PR using **`--body-file`** with `--repo`, `--base`, and `--head` as needed.
+6. **Resolve or create related issues, then open the PR** — Run **Mandatory: resolve or create issues before the PR** (same `<base>` / `--repo` / auth as the main workflow). Then create the PR using **`--body-file`** with `--repo`, `--base`, and `--head` as needed.
 
-6. **Start pr-check-monitor** — Same as **Mandatory: watch CI after `gh pr create`** (background by default).
+7. **Start pr-check-monitor** — Same as **Mandatory: watch CI after `gh pr create`** (background by default).
 
-7. **Remove the worktree** (branch stays on `origin`; the PR remains open)  
+8. **Remove the worktree** (branch stays on `origin`; the PR remains open)  
    From the primary repo:  
    `git worktree remove <path>`  
    If Git reports the path is locked or dirty, commit or stash in that worktree first, then retry. Use `git worktree prune` only if Git leaves stale metadata.
 
-8. **Mirror user-global skills** (if the repo ships skills under `.cursor/skills/` and the user also keeps copies under `~/.cursor/skills/`): update both so local invocations match the merged repo version.
+9. **Mirror user-global skills** (if the repo ships skills under `.cursor/skills/` and the user also keeps copies under `~/.cursor/skills/`): update both so local invocations match the merged repo version.
 
 ## Workflow (run in order)
 
@@ -197,11 +216,12 @@ Run from the **primary repository** clone (the one that owns the worktrees), not
    - `git diff`
    - `git log --oneline -n 10`
    - `git diff <base>...HEAD` (three-dot diff against the **same** base you will pass to `gh pr create --base`)
-4. Ensure the branch exists and is pushed:
-   - If needed, create/switch to feature branch.
+4. **Run code quality** — Follow **Mandatory: code quality before push and PR**. Fix failures before continuing. Do not push or open a PR until checks pass.
+5. Ensure the branch exists and is pushed:
+   - If needed, create/switch to feature branch and commit pending changes.
    - Push with upstream tracking: `git push -u origin HEAD`.
-5. **Resolve or create related GitHub issue(s)** — Follow **Mandatory: resolve or create issues before the PR** (discover → select or create with `--body-file` + `mktemp` when creating → capture number → verify each issue is **OPEN**). Do not continue until you have stable issue number(s) or URL(s) for every line that will appear under **`## Related issues`**.
-6. Draft PR content using `/pr-title-description`:
+6. **Resolve or create related GitHub issue(s)** — Follow **Mandatory: resolve or create issues before the PR** (discover → select or create with `--body-file` + `mktemp` when creating → capture number → verify each issue is **OPEN**). Do not continue until you have stable issue number(s) or URL(s) for every line that will appear under **`## Related issues`**.
+7. Draft PR content using `/pr-title-description`:
    - Title: short, imperative, verb-first.
    - **Humanize** title and narrative body sections per [Prose and voice (humanizer)](#prose-and-voice-humanizer) before writing to the temp body file.
    - **`## Related issues` is always mandatory.** Use `#N` for this repo, or `owner/repo#N` / full URLs when work is tracked elsewhere (**Cross-repo / external tracking**). Include `Refs`/`Closes`/`Fixes` per **Stacked PRs + tickets** so GitHub links the PR.
@@ -213,15 +233,16 @@ Run from the **primary repository** clone (the one that owns the worktrees), not
      - `## Key files to review`
      - `## How to test`
      - `## Visual verification` — **only when** the ticket/plan requires UI proof. Read `/ui-ticket-visual-verification` first. **Embed** each screenshot with `![alt](https://raw.githubusercontent.com/...)` (not `blob/` link lists). If captures are not ready, omit this section and do not mark visual todos complete.
-7. Create PR in one shot with a **body file** (no post-create edits for footer cleanup):
+8. Create PR in one shot with a **body file** (no post-create edits for footer cleanup):
    - Create a temp file with `mktemp` under the system temp directory only; use the template below (not a path inside the clone).
    - Write the full markdown to `$BODY_FILE`. Remove any accidental signature lines if they appear (for example lines matching `Made with [Cursor](https://cursor.com)` or `Made with Cursor`).
    - `gh pr create --repo "<owner>/<repo>" --title "..." --body-file "$BODY_FILE"`
    - Add `--base <base>` when the PR must not target the repo default (stacked branches). Add `--head <head>` if the head branch name is not inferred correctly (e.g. fork or multiple remotes).
-   - When verification (step 8) finishes in the same shell, exiting the shell runs the `trap` and deletes the file. If you run `gh` in separate tool invocations without a persistent shell, run `rm -f "$BODY_FILE"` after step 8.
+   - When verification (step 9) finishes in the same shell, exiting the shell runs the `trap` and deletes the file. If you run `gh` in separate tool invocations without a persistent shell, run `rm -f "$BODY_FILE"` after step 9.
 
 ```bash
-# Prerequisites: Steps 1–5 completed — related issues exist, are OPEN, and verified via gh issue view.
+# Prerequisites: Steps 1–6 completed — code quality passed, related issues exist,
+# are OPEN, and verified via gh issue view.
 # Set BASE to the parent branch for stacked PRs, or the repo default for the root of the stack.
 # Example (Git Town): BASE="$(git town config get-parent)"
 # Example (single PR off main): BASE="main"  # or output of gh repo view --json defaultBranchRef ...
@@ -269,22 +290,23 @@ EOF
 
 gh pr create --repo "<owner>/<repo>" --base "$BASE" --title "Add concise verb-first title" --body-file "$BODY_FILE"
 
-# After create: capture PR_NUM / PR_URL, verify body (workflow step 8), then launch
-# pr-check-monitor in the background (workflow step 9).
+# After create: capture PR_NUM / PR_URL, verify body (workflow step 9), then launch
+# pr-check-monitor in the background (workflow step 10).
 ```
 
 Set `BASE` before this command so it matches the three-dot range in step 3: **stacked PRs** → parent from `git town config get-parent` (or equivalent); **root of stack or single PR** → repo default branch name (same as `gh repo view --json defaultBranchRef`). Passing `--base "$BASE"` when `BASE` is the default branch is equivalent to omitting `--base` but keeps diff and PR creation in sync.
 
-8. Verify body after create (read-only check only):
+9. Verify body after create (read-only check only):
    - Fetch body: `gh pr view --repo "<owner>/<repo>" --json number,body --jq '.body'`
    - Confirm it does **not** contain `Made with [Cursor](https://cursor.com)` or `Made with Cursor`.
    - Confirm the body still contains the intended `Closes`/`Fixes`/`Refs` lines (GitHub parses these from the merged body text).
    - Do **not** run `gh pr edit` for footer cleanup; if cleanup is needed, close/recreate so final PR is not marked edited.
-9. **Start CI monitor** — Follow **Mandatory: watch CI after `gh pr create`**: capture `PR_NUM` / `PR_URL`, then launch **pr-check-monitor** in the background (unless the user skipped watch or needs foreground wait).
-10. Return the PR URL and a short test note (mention `<base>` → `<head>` if useful for reviewers). State that **pr-check-monitor** is watching CI in the background and will report failures to this session.
+10. **Start CI monitor** — Follow **Mandatory: watch CI after `gh pr create`**: capture `PR_NUM` / `PR_URL`, then launch **pr-check-monitor** in the background (unless the user skipped watch or needs foreground wait).
+11. Return the PR URL and a short test note (mention `<base>` → `<head>` if useful for reviewers). State that **pr-check-monitor** is watching CI in the background and will report failures to this session.
 
 ## Quality checklist
 
+- **`pnpm code-quality`** passed from repo root (or **verifier** / scoped fallback documented) before **`git push`** and **`gh pr create`**.
 - PR title and body read naturally (not generic AI cadence); humanizer pass completed without altering issue link lines.
 - PR title starts with a verb and has no trailing period.
 - **Related issues:** Before `gh pr create`, every referenced issue was verified **OPEN** via `gh issue view`. If an issue was created in-session, it used **`gh issue create`** with **`--body-file`** and a **`mktemp`** path (plus `trap` cleanup), never a path inside the repo.

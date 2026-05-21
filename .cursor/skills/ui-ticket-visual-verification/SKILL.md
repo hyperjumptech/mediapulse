@@ -110,7 +110,7 @@ Run every item before marking visual-verification work complete or opening/updat
 4. **Embed** — PR body uses `![caption](https://raw.githubusercontent.com/<org>/<repo>/issue-proofs/...)` for **this layer’s** screenshot(s). Re-run `gh pr edit --body-file` after captures exist.
 5. **Verify render** — `gh pr view <n> --json body` contains `![` + `raw.githubusercontent.com`; spot-check the PR in the browser — images must show inline, not dead links.
 6. **Stack** — Each stacked PR embeds proof for **its** UI change; do not mark the stack’s visual todo done from layer 1 alone unless the plan says one shared proof block on the final PR only.
-7. **CI hygiene** — Root `pnpm format:check` before push (visual work still touches TS/MD often).
+7. **CI hygiene** — Run **`pnpm code-quality`** from repo root before push and PR (see [open-github-pr](../open-github-pr/SKILL.md)). Visual work still touches TS/MD often; do not rely on format check alone.
 8. **Blockers** — If Hermes/env/auth blocks capture: report blocker, leave todo **open**, no fake images.
 
 ## Anti-patterns (never repeat)
@@ -121,7 +121,7 @@ Run every item before marking visual-verification work complete or opening/updat
 | `[label](https://github.com/.../blob/...png)` only                      | GitHub does not render `blob` links as images      | `![label](https://raw.githubusercontent.com/.../path.png)`          |
 | Marking visual todo complete without embeds                             | Plan/AC not met                                    | Keep todo open until PR shows inline images                         |
 | Separate `chore/*` branch for stack-related rules/docs                  | Extra PR noise; stack already carries the feature  | Commit guidance on **bottom stack branch** (layer 1) or final layer |
-| Pushing feature branch before `pnpm format:check`                       | CI “Code quality” fails on Prettier                | Run format check (or `pnpm format`) at repo root before push        |
+| Pushing feature branch before **`pnpm code-quality`**                 | CI “Code quality” fails on lint, types, tests, or Prettier | Run **`pnpm code-quality`** at repo root before push (see open-github-pr skill) |
 | Editing imports in `run.ts` without re-running agent tests              | Broken production path (e.g. dropped `env` import) | Run package `pnpm vitest run` for touched agents                    |
 | Delegating capture to a subagent then shipping without verifying output | Subagent may hit env errors or skip work           | Parent verifies local artifacts + PR body before handoff            |
 

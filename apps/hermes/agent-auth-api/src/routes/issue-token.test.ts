@@ -2,8 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { decodeJwt } from "jose";
 import { Hono } from "hono";
-import { pinoLogger } from "hono-pino";
-import { logger, slimHonoPinoHttpLoggerOptions } from "@workspace/logger";
+import { logger, slimPinoLogger } from "@workspace/logger";
 import { HERMES_INTERNAL_TOKEN_SUBJECT, issueToken } from "./issue-token";
 
 const mockFindFirst = vi.fn();
@@ -40,7 +39,7 @@ vi.mock("@hermes/env", () => ({
 
 describe("issueToken route", () => {
   const app = new Hono();
-  app.use(pinoLogger({ pino: logger, http: slimHonoPinoHttpLoggerOptions }));
+  app.use(slimPinoLogger({ pino: logger }));
   app.post("/api/token", issueToken);
 
   beforeEach(() => {
