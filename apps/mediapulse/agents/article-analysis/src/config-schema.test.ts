@@ -141,6 +141,18 @@ describe("resolveArticleAnalysisConfig", () => {
     expect(resolved.analysisGetDataSourceLimitMax).toBe(
       articleAnalysisConfigDefaults.analysisGetDataSourceLimitMax,
     );
+    expect(resolved.useStructureAwareTruncation).toBe(false);
+    expect(resolved.truncationLeadParagraphsAlwaysKept).toBe(2);
+    expect(resolved.truncationFinancialKeywordsExtra).toEqual([]);
+    expect(resolved.fewShotExemplarCount).toBe(0);
+    expect(resolved.useBrainstormPass).toBe(false);
+    expect(resolved.brainstormModel).toBe(
+      articleAnalysisConfigDefaults.openaiModel,
+    );
+    expect(resolved.brainstormMaxOutputTokens).toBe(800);
+    expect(resolved.runDeadlineMs).toBe(Number.POSITIVE_INFINITY);
+    expect(resolved.entityGroundingPolicy).toBe("off");
+    expect(resolved.entityGroundingMinTitleHits).toBe(0);
   });
 
   it("preserves Hermes debounce and defaultMaxBatchSize overrides", () => {

@@ -1,6 +1,7 @@
 import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
 import type { RelevanceWeightMapV1 } from "./analysis-relevance-scoring.js";
 import type { ArticleAnalysisRunPolicy } from "./article-analysis-run-policy.js";
+import type { ExtractionExemplarArchetype } from "./exemplars/default-extraction-exemplars.js";
 import {
   ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_PLACEHOLDERS,
   ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_PLACEHOLDERS,
@@ -8,6 +9,13 @@ import {
 } from "./article-extraction-prompt-defaults.js";
 import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
 import { z } from "zod";
+
+const extractionExemplarArchetypeSchema = z.enum([
+  "earnings",
+  "legal",
+  "leadership",
+  "product",
+]);
 
 const articleAnalysisRunPolicySchema = z.object({
   minSuccessfulSources: z.number().int().nonnegative().optional(),
@@ -29,6 +37,35 @@ export const articleAnalysisConfigSchema = z
     maxOutputTokens: z.number().int().positive().optional(),
     /** Truncate article text in the LLM user message (full text remains in DB). */
     maxContentChars: z.number().int().positive().optional(),
+    /** When true, use structure-aware paragraph truncation instead of naive slice. */
+    useStructureAwareTruncation: z.boolean().optional(),
+    /** Lead paragraphs always kept before score-ranked allocation. */
+    truncationLeadParagraphsAlwaysKept: z
+      .number()
+      .int()
+      .min(0)
+      .max(8)
+      .optional(),
+    /** Operator-extensible financial keywords for truncation scoring. */
+    truncationFinancialKeywordsExtra: z.array(z.string()).optional(),
+    /** Number of few-shot extraction exemplars to inject (0 disables). */
+    fewShotExemplarCount: z.number().int().min(0).max(4).optional(),
+    /** When set, only these archetypes are eligible for few-shot selection. */
+    fewShotExemplarArchetypes: z
+      .array(extractionExemplarArchetypeSchema)
+      .optional(),
+    /** When true, run a free-form brainstorm pass before structured extraction. */
+    useBrainstormPass: z.boolean().optional(),
+    /** Chat model for the brainstorm pass (defaults to `openaiModel`). */
+    brainstormModel: z.string().min(1).optional(),
+    /** Max output tokens for the brainstorm `generateText` call. */
+    brainstormMaxOutputTokens: z.number().int().positive().optional(),
+    /** Wall-clock budget in ms; after this elapsed time, skip brainstorm on remaining sources. */
+    runDeadlineMs: z.number().positive().optional(),
+    /** Post-extraction grounding policy for hallucinated entities. */
+    entityGroundingPolicy: z.enum(["drop", "flag", "off"]).optional(),
+    /** When greater than zero, entity must appear in the title to count as grounded. */
+    entityGroundingMinTitleHits: z.number().int().nonnegative().optional(),
     maxEntitiesPerArticle: z.number().int().positive().optional(),
     maxRelationsPerArticle: z.number().int().positive().optional(),
     maxEntitiesPerRun: z.number().int().positive().optional(),
@@ -166,6 +203,17 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   openaiModel: string;
   maxOutputTokens: number;
   maxContentChars: number;
+  useStructureAwareTruncation: boolean;
+  truncationLeadParagraphsAlwaysKept: number;
+  truncationFinancialKeywordsExtra: string[];
+  fewShotExemplarCount: number;
+  fewShotExemplarArchetypes?: ExtractionExemplarArchetype[];
+  useBrainstormPass: boolean;
+  brainstormModel: string;
+  brainstormMaxOutputTokens: number;
+  runDeadlineMs: number;
+  entityGroundingPolicy: "drop" | "flag" | "off";
+  entityGroundingMinTitleHits: number;
   maxEntitiesPerArticle: number;
   maxRelationsPerArticle: number;
   maxEntitiesPerRun: number;
@@ -199,6 +247,15 @@ export const articleAnalysisConfigDefaults = {
   openaiModel: "gpt-4o-mini",
   maxOutputTokens: 8192,
   maxContentChars: 12_000,
+  useStructureAwareTruncation: false,
+  truncationLeadParagraphsAlwaysKept: 2,
+  truncationFinancialKeywordsExtra: [],
+  fewShotExemplarCount: 0,
+  useBrainstormPass: false,
+  brainstormMaxOutputTokens: 800,
+  runDeadlineMs: Number.POSITIVE_INFINITY,
+  entityGroundingPolicy: "off",
+  entityGroundingMinTitleHits: 0,
   maxEntitiesPerArticle: 20,
   maxRelationsPerArticle: 20,
   maxEntitiesPerRun: 200,
@@ -239,14 +296,47 @@ export const articleAnalysisConfigDefaults = {
 export const resolveArticleAnalysisConfig = (
   config: ArticleAnalysisConfig,
 ): ResolvedArticleAnalysisConfig => {
+  const openaiModel =
+    config.openaiModel ?? articleAnalysisConfigDefaults.openaiModel;
+
   return {
     ...config,
-    openaiModel:
-      config.openaiModel ?? articleAnalysisConfigDefaults.openaiModel,
+    openaiModel,
     maxOutputTokens:
       config.maxOutputTokens ?? articleAnalysisConfigDefaults.maxOutputTokens,
     maxContentChars:
       config.maxContentChars ?? articleAnalysisConfigDefaults.maxContentChars,
+    useStructureAwareTruncation:
+      config.useStructureAwareTruncation ??
+      articleAnalysisConfigDefaults.useStructureAwareTruncation,
+    truncationLeadParagraphsAlwaysKept:
+      config.truncationLeadParagraphsAlwaysKept ??
+      articleAnalysisConfigDefaults.truncationLeadParagraphsAlwaysKept,
+    truncationFinancialKeywordsExtra:
+      config.truncationFinancialKeywordsExtra ?? [
+        ...articleAnalysisConfigDefaults.truncationFinancialKeywordsExtra,
+      ],
+    fewShotExemplarCount:
+      config.fewShotExemplarCount ??
+      articleAnalysisConfigDefaults.fewShotExemplarCount,
+    ...(config.fewShotExemplarArchetypes !== undefined
+      ? { fewShotExemplarArchetypes: config.fewShotExemplarArchetypes }
+      : {}),
+    useBrainstormPass:
+      config.useBrainstormPass ??
+      articleAnalysisConfigDefaults.useBrainstormPass,
+    brainstormModel: config.brainstormModel ?? openaiModel,
+    brainstormMaxOutputTokens:
+      config.brainstormMaxOutputTokens ??
+      articleAnalysisConfigDefaults.brainstormMaxOutputTokens,
+    runDeadlineMs:
+      config.runDeadlineMs ?? articleAnalysisConfigDefaults.runDeadlineMs,
+    entityGroundingPolicy:
+      config.entityGroundingPolicy ??
+      articleAnalysisConfigDefaults.entityGroundingPolicy,
+    entityGroundingMinTitleHits:
+      config.entityGroundingMinTitleHits ??
+      articleAnalysisConfigDefaults.entityGroundingMinTitleHits,
     maxEntitiesPerArticle:
       config.maxEntitiesPerArticle ??
       articleAnalysisConfigDefaults.maxEntitiesPerArticle,
