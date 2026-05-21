@@ -40,7 +40,8 @@ vi.mock("@workspace/logger", () => ({
   },
 }));
 
-import { buildDeterministicQueries, runQueryAnalysis } from "./run";
+import { buildDeterministicQueries } from "./templates/build-deterministic-queries";
+import { runQueryAnalysis } from "./run";
 
 const ctxResponse = {
   ticker: {
@@ -51,6 +52,10 @@ const ctxResponse = {
   },
   topEntities: [] as [],
   recentThemes: [] as [],
+  peers: [] as [],
+  calendar: { recentEventTypes: [] as string[] },
+  headlineSamples: [] as [],
+  kgNeighborhood: [] as [],
 };
 
 const baseConfig = queryAnalysisConfigSchema.parse({ openaiApiKey: "sk" });
@@ -77,13 +82,15 @@ describe("query-analysis run", () => {
   });
 
   describe("buildDeterministicQueries", () => {
-    it("creates deterministic baseline queries", () => {
+    it("creates deterministic baseline queries from default-v1 pack", () => {
       // Act
-      const queries = buildDeterministicQueries("AAPL", "Apple Inc.");
+      const queries = buildDeterministicQueries(ctxResponse, {
+        pack: "default-v1",
+      });
 
       // Assert
-      expect(queries.length).toBeGreaterThan(0);
-      expect(queries[0]?.text).toContain("AAPL");
+      expect(queries.length).toBe(5);
+      expect(queries[0]?.text).toContain("ABC");
       expect(queries.some((query) => query.intent === "fundamental")).toBe(
         true,
       );

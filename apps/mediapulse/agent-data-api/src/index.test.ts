@@ -65,12 +65,16 @@ vi.mock("@mediapulse/database", () => ({
     },
     ticker: {
       findUniqueOrThrow: vi.fn(),
+      findMany: vi.fn(),
     },
     tickerEntity: {
       findMany: vi.fn(),
     },
     dataSource: {
       createMany: vi.fn(),
+      findMany: vi.fn(),
+    },
+    entityRelation: {
       findMany: vi.fn(),
     },
   },
@@ -572,7 +576,11 @@ describe("agent-data-api", () => {
         updatedAt: new Date("2026-03-19T00:00:00.000Z"),
       });
       vi.mocked(prisma.tickerEntity.findMany).mockResolvedValue([]);
-      vi.mocked(prisma.dataSource.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.dataSource.findMany)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      vi.mocked(prisma.entityRelation.findMany).mockResolvedValue([]);
 
       // Act
       const { app } = await import("./index.js");
@@ -587,6 +595,10 @@ describe("agent-data-api", () => {
       expect(body.ticker.symbol).toBe("AAPL");
       expect(body.topEntities).toEqual([]);
       expect(body.recentThemes).toEqual([]);
+      expect(body.peers).toEqual([]);
+      expect(body.calendar).toEqual({ recentEventTypes: [] });
+      expect(body.headlineSamples).toEqual([]);
+      expect(body.kgNeighborhood).toEqual([]);
     });
   });
 

@@ -381,6 +381,10 @@ describe("createAgentDataApiClient", () => {
         },
         topEntities: [],
         recentThemes: [],
+        peers: [],
+        calendar: { recentEventTypes: [] },
+        headlineSamples: [],
+        kgNeighborhood: [],
       }),
       statusCode: 200,
     });
