@@ -7,12 +7,14 @@ import {
   appendWildcardRowsToMerged,
   dedupeDeterministic,
   dedupeLlmAgainstKeys,
+  effectiveMergeWeight,
   finalizeWildcardCandidates,
   intentMergeWeight,
   mergeQueryCandidates,
   normalizeQueryKey,
   orderLlmRowsByPersonaRoundRobin,
   sortPoolByIntentWeight,
+  yieldMergeMultiplier,
 } from "./merge-query-candidates";
 
 const baseWeights = DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS;
@@ -313,5 +315,119 @@ describe("appendWildcardRowsToMerged", () => {
         rank: 2,
       },
     ]);
+  });
+});
+
+describe("yieldMergeMultiplier", () => {
+  it("returns 1 when prior yield is absent", () => {
+    expect(
+      yieldMergeMultiplier({
+        intent: "fundamental",
+        templateId: "{name} earnings guidance",
+      }),
+    ).toBe(1);
+  });
+
+  it("prefers template-level novel yield over intent fallback", () => {
+    const priorYield = {
+      perTemplate: [
+        {
+          templateId: "{name} earnings guidance",
+          avgArticles: 2,
+          avgNovel: 3,
+        },
+      ],
+      perIntent: [
+        { intent: "fundamental" as const, avgArticles: 0.2, avgNovel: 0.1 },
+      ],
+      perPersona: [],
+    };
+    expect(
+      yieldMergeMultiplier({
+        intent: "fundamental",
+        templateId: "{name} earnings guidance",
+        priorYield,
+      }),
+    ).toBeCloseTo(1 + Math.log(1 + 3));
+  });
+});
+
+describe("mergeQueryCandidates with priorYield", () => {
+  it("ranks high-novel-yield templates above same-intent peers", () => {
+    const weights = {
+      ...baseWeights,
+      fundamental: 0.6,
+    };
+    const priorYield = {
+      perTemplate: [
+        {
+          templateId: "low-yield-template",
+          avgArticles: 0.1,
+          avgNovel: 0.01,
+        },
+        {
+          templateId: "high-yield-template",
+          avgArticles: 3,
+          avgNovel: 2.5,
+        },
+      ],
+      perIntent: [],
+      perPersona: [],
+    };
+    const withoutYield = mergeQueryCandidates({
+      deterministic: [
+        {
+          text: "d-low",
+          intent: "fundamental",
+          templateId: "low-yield-template",
+        },
+        {
+          text: "d-high",
+          intent: "fundamental",
+          templateId: "high-yield-template",
+        },
+      ],
+      llm: [],
+      queryCount: 2,
+      minDeterministicCount: 0,
+      weights,
+    });
+    const withYield = mergeQueryCandidates({
+      deterministic: [
+        {
+          text: "d-low",
+          intent: "fundamental",
+          templateId: "low-yield-template",
+        },
+        {
+          text: "d-high",
+          intent: "fundamental",
+          templateId: "high-yield-template",
+        },
+      ],
+      llm: [],
+      queryCount: 2,
+      minDeterministicCount: 0,
+      weights,
+      priorYield,
+    });
+
+    expect(withoutYield.map((row) => row.text)).toEqual(["d-low", "d-high"]);
+    expect(withYield.map((row) => row.text)).toEqual(["d-high", "d-low"]);
+    expect(
+      effectiveMergeWeight({
+        intent: "fundamental",
+        weights,
+        templateId: "high-yield-template",
+        priorYield,
+      }),
+    ).toBeGreaterThan(
+      effectiveMergeWeight({
+        intent: "fundamental",
+        weights,
+        templateId: "low-yield-template",
+        priorYield,
+      }),
+    );
   });
 });

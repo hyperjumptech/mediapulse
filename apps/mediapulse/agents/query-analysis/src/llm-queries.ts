@@ -11,15 +11,6 @@ import {
 import { z } from "zod";
 
 import {
-  QUERY_ANALYSIS_INTENT_TARGET_PLACEHOLDERS,
-  QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
-  QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT,
-  WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
-  WILDCARD_USER_PROMPT_TEMPLATE_DEFAULT,
-} from "./query-analysis-prompt-defaults";
-import { substituteLlmPromptTemplate } from "@workspace/agent-llm-prompt-template";
-
-import {
   formatExemplarAssistantContent,
   selectFewShotExemplars,
 } from "./exemplars/default-exemplars";
@@ -27,6 +18,9 @@ import type { QueryPersona } from "./personas/default-personas";
 import type { LlmCandidate } from "./merge-query-candidates";
 import { normalizeQueryKey } from "./merge-query-candidates";
 import { resolveEntityDisplayName } from "./i18n/entity-aliases";
+
+/** Fixed LLM output token budget for all query-analysis structured and brainstorm calls. */
+export const QUERY_ANALYSIS_MAX_OUTPUT_TOKENS = 800;
 
 /** Zod schema for structured LLM output (validated by AI SDK). */
 export const llmQueriesOutputSchema = z.object({
@@ -73,93 +67,116 @@ export type LlmQueryStrategyPrompt = {
   intentWeights: QueryAnalysisIntentWeights;
 };
 
+const QUERY_ANALYSIS_INTENT_JSON_UNION = QUERY_ANALYSIS_STANDARD_INTENTS.map(
+  (intent) => `"${intent}"`,
+).join(" | ");
+
 /**
- * Builds replacement map for the default query-analysis system prompt template.
+ * Computes approximate LLM target counts per standard intent from strategy weights.
  *
- * @param strategy - Counts, languages, deterministic floor, and relative intent weights.
- * @returns String values for each supported `{{token}}` in the system template.
+ * @param strategy - Query budget and relative intent weights for the language slice.
+ * @returns Rounded target count per standard intent label.
  */
-export const buildQueryAnalysisSystemTemplateReplacements = (
-  strategy: LlmQueryStrategyPrompt,
-): Record<string, string> => {
+export const computeQueryAnalysisIntentTargetCounts = (
+  strategy: Pick<LlmQueryStrategyPrompt, "queryCount" | "intentWeights">,
+): Record<(typeof QUERY_ANALYSIS_STANDARD_INTENTS)[number], number> => {
   const sum = QUERY_ANALYSIS_STANDARD_INTENTS.reduce(
     (total, intent) => total + strategy.intentWeights[intent],
     0,
   );
-  const replacements: Record<string, string> = {
-    language: strategy.language,
-    allowedLanguages: (strategy.allowedLanguages ?? [strategy.language]).join(
-      ", ",
-    ),
-    minDeterministicCount: String(strategy.minDeterministicCount),
-  };
+  const counts = {} as Record<
+    (typeof QUERY_ANALYSIS_STANDARD_INTENTS)[number],
+    number
+  >;
   for (const intent of QUERY_ANALYSIS_STANDARD_INTENTS) {
     const ratio =
       sum > 0
         ? strategy.intentWeights[intent] / sum
         : 1 / QUERY_ANALYSIS_STANDARD_INTENTS.length;
-    replacements[QUERY_ANALYSIS_INTENT_TARGET_PLACEHOLDERS[intent]] = String(
-      Math.round(ratio * strategy.queryCount),
-    );
+    counts[intent] = Math.round(ratio * strategy.queryCount);
   }
-  return replacements;
+  return counts;
 };
 
 /**
- * Resolves the query-analysis system prompt (Hermes override or built-in default template).
+ * Builds the query-analysis system prompt with inline strategy interpolation.
  *
- * @param configuredSystemPrompt - Optional `prompts.systemPrompt` from Hermes.
- * @param strategy - Strategy knobs used to fill template placeholders.
- * @returns System message content for the chat model.
- */
-export const resolveQueryAnalysisSystemContent = (
-  configuredSystemPrompt: string | undefined,
-  strategy: LlmQueryStrategyPrompt,
-): string => {
-  const template =
-    configuredSystemPrompt ?? QUERY_ANALYSIS_SYSTEM_PROMPT_TEMPLATE_DEFAULT;
-  return substituteLlmPromptTemplate(
-    template,
-    buildQueryAnalysisSystemTemplateReplacements(strategy),
-  );
-};
-
-/**
- * Resolves the query-analysis user prompt (Hermes override or built-in default template).
- *
- * @param configuredUserPromptTemplate - Optional `prompts.userPromptTemplate` from Hermes.
- * @param context - Serialized GET /query-analysis context for `{{queryContextBlock}}`.
- * @returns User message content for the chat model.
- */
-export const resolveQueryAnalysisUserContent = (
-  configuredUserPromptTemplate: string | undefined,
-  context: GetQueryAnalysisResponse,
-  language?: string,
-): string => {
-  const template =
-    configuredUserPromptTemplate ?? QUERY_ANALYSIS_USER_PROMPT_TEMPLATE_DEFAULT;
-  return substituteLlmPromptTemplate(template, {
-    queryContextBlock: buildQueryAnalysisUserContent(context, language),
-  });
-};
-
-/**
- * Builds the system prompt describing JSON shape, intent mix targets, languages, and strategy knobs.
- *
- * @param strategy - Counts, languages, deterministic floor, and relative intent weights.
+ * @param strategy - Strategy knobs for language lock, intent targets, and deterministic floor.
  * @returns System message content for the chat model.
  */
 export const buildQueryAnalysisSystemContent = (
   strategy: LlmQueryStrategyPrompt,
-): string => resolveQueryAnalysisSystemContent(undefined, strategy);
+): string => {
+  const targets = computeQueryAnalysisIntentTargetCounts(strategy);
+  const intentTargetLines = QUERY_ANALYSIS_STANDARD_INTENTS.map(
+    (intent) => `- ${intent}: ${String(targets[intent])}`,
+  ).join("\n");
+
+  return [
+    "You generate finance search queries for news and data retrieval.",
+    `Return ONLY a JSON object matching the schema: { "queries": [ { "text": string, "intent": ${QUERY_ANALYSIS_INTENT_JSON_UNION} } ] }.`,
+    "Each query must be concise web-search style text.",
+    `All queries must be in ${strategy.language} (BCP-47). Do not code-mix or translate ticker symbols and proper nouns.`,
+    "Do not translate ticker symbols or proper nouns into other languages.",
+    [
+      "Target approximate intent counts (total queries should not exceed the remaining budget after the deterministic baseline):",
+      intentTargetLines,
+    ].join("\n"),
+    `At least ${String(strategy.minDeterministicCount)} high-quality queries will be added deterministically by the system; your queries complement that set (avoid duplicating obvious symbol+news patterns).`,
+    [
+      "Intent meanings:",
+      "- breaking: timely news, catalysts, and price-moving events",
+      "- kg_change: knowledge-graph relation or entity changes",
+      "- fundamental: earnings, guidance, regulatory filings, balance-sheet style",
+      "- sentiment: social buzz, analyst tone, retail chatter, reputation swings",
+      "- competitor: peer positioning, share shifts, competitive threats",
+      "- supply_chain: suppliers, logistics, input costs, production bottlenecks",
+      "- esg: environmental, social, governance risks and controversies",
+      "- macro: rates, FX, commodity, geopolitical, and sector-wide drivers",
+      "- technical: chart patterns, momentum, support/resistance, volume signals",
+    ].join("\n"),
+  ].join("\n\n");
+};
 
 /**
- * Serializes GET /query-analysis context for the user message (ticker, entities, themes, relation deltas).
+ * Formats rolling intent-level yield as a prompt hint block for the LLM user message.
+ *
+ * @param priorYield - Rolling yield rollups from GET /query-analysis.
+ * @param windowDays - Rolling window length used for the summary.
+ * @returns Multi-line hint block, or empty string when intent yield is absent.
+ */
+export const formatPriorYieldIntentHints = (
+  priorYield: GetQueryAnalysisResponse["priorYield"],
+  windowDays = 30,
+): string => {
+  if (priorYield === undefined || priorYield.perIntent.length === 0) {
+    return "";
+  }
+  const parts = priorYield.perIntent
+    .filter((row) => row.avgNovel > 0 || row.avgArticles > 0)
+    .sort((left, right) => right.avgNovel - left.avgNovel)
+    .map(
+      (row) =>
+        `${row.intent} queries surfaced ${row.avgNovel.toFixed(1)} novel articles each on average`,
+    );
+  if (parts.length === 0) {
+    return "";
+  }
+  return [
+    "Past performance hints:",
+    `Last ${String(windowDays)} days — ${parts.join("; ")}.`,
+    "Bias your generation accordingly.",
+  ].join("\n");
+};
+
+/**
+ * Serializes GET /query-analysis context for inclusion in the user prompt.
  *
  * @param context - Typed agent-data-api GET payload.
- * @returns Multi-line string for the user message.
+ * @param language - Optional BCP-47 language for localized entity display names.
+ * @returns Multi-line context block (ticker, entities, themes, relation deltas).
  */
-export const buildQueryAnalysisUserContent = (
+export const serializeQueryAnalysisContextBlock = (
   context: GetQueryAnalysisResponse,
   language?: string,
 ): string => {
@@ -231,8 +248,24 @@ export const buildQueryAnalysisUserContent = (
       );
     }
   }
+  const yieldHints = formatPriorYieldIntentHints(context.priorYield);
+  if (yieldHints.length > 0) {
+    lines.push(yieldHints);
+  }
   return lines.join("\n");
 };
+
+/**
+ * Builds the query-analysis user prompt from serialized GET context.
+ *
+ * @param context - Live GET /query-analysis payload.
+ * @param language - Optional BCP-47 language for localized entity display names.
+ * @returns User message content for the chat model.
+ */
+export const buildQueryAnalysisUserContent = (
+  context: GetQueryAnalysisResponse,
+  language?: string,
+): string => serializeQueryAnalysisContextBlock(context, language);
 
 /** System instruction for the free-form brainstorm pass. */
 const BRAINSTORM_SYSTEM_PROMPT = [
@@ -257,7 +290,7 @@ export const buildBrainstormPrompt = (
     BRAINSTORM_SYSTEM_PROMPT,
     `Write angles in ${strategy.language}. Do not translate ticker symbols or proper nouns.`,
   ].join("\n\n"),
-  user: buildQueryAnalysisUserContent(context, strategy.language),
+  user: serializeQueryAnalysisContextBlock(context, strategy.language),
 });
 
 /**
@@ -412,7 +445,6 @@ export const fetchBrainstormBullets = async (
   params: {
     apiKey: string;
     model: string;
-    maxOutputTokens: number;
     strategy: LlmQueryStrategyPrompt;
     context: GetQueryAnalysisResponse;
     sampling: LlmQuerySampling;
@@ -433,7 +465,7 @@ export const fetchBrainstormBullets = async (
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    maxOutputTokens: params.maxOutputTokens,
+    maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
     temperature: sampling.temperature,
     topP: sampling.topP,
     presencePenalty: sampling.presencePenalty,
@@ -455,7 +487,6 @@ export const fetchLlmQueryCandidates = async (
   params: {
     apiKey: string;
     model: string;
-    maxOutputTokens: number;
     messages: ModelMessage[];
     sampling: LlmQuerySampling;
   },
@@ -468,7 +499,7 @@ export const fetchLlmQueryCandidates = async (
   const { object } = await deps.generateObjectForQueries({
     model: openai(params.model),
     schema: llmQueriesOutputSchema,
-    maxOutputTokens: params.maxOutputTokens,
+    maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
     messages: params.messages,
     temperature: sampling.temperature,
     topP: sampling.topP,
@@ -482,7 +513,7 @@ export const fetchLlmQueryCandidates = async (
 };
 
 /**
- * Resolves the wildcard system prompt from the built-in template and slot count.
+ * Builds the wildcard system prompt with inline slot count and language list.
  *
  * @param wildcardCount - Reserved wildcard slots for this run.
  * @param allowedLanguages - BCP-47 language codes for phrasing hints.
@@ -492,23 +523,24 @@ export const resolveWildcardSystemContent = (
   wildcardCount: number,
   allowedLanguages: string[],
 ): string =>
-  substituteLlmPromptTemplate(WILDCARD_SYSTEM_PROMPT_TEMPLATE_DEFAULT, {
-    wildcardCount: String(wildcardCount),
-    allowedLanguages: allowedLanguages.join(", "),
-  });
+  [
+    `Generate ${String(wildcardCount)} short search queries unlike anything an institutional analyst would typically search for.`,
+    "Lateral, surprising, second-order, contrarian, narrative, or culturally-grounded angles welcome.",
+    "Do not use the standard intent taxonomy — these queries are deliberately unconventional.",
+    "Reward odd framings, long-tail questions, and angles a typical analyst would not search for.",
+    'Return ONLY a JSON object: { "queries": [ { "text": string } ] }.',
+    `Write in these languages when natural (BCP-47 codes): ${allowedLanguages.join(", ")}.`,
+  ].join("\n\n");
 
 /**
- * Resolves the wildcard user prompt (built-in template with serialized context).
+ * Builds the wildcard user prompt from serialized GET context.
  *
- * @param context - Serialized GET /query-analysis context for `{{queryContextBlock}}`.
+ * @param context - Live GET /query-analysis payload.
  * @returns User message content for the wildcard call.
  */
 export const resolveWildcardUserContent = (
   context: GetQueryAnalysisResponse,
-): string =>
-  substituteLlmPromptTemplate(WILDCARD_USER_PROMPT_TEMPLATE_DEFAULT, {
-    queryContextBlock: buildQueryAnalysisUserContent(context),
-  });
+): string => serializeQueryAnalysisContextBlock(context);
 
 /**
  * Appends a dedupe nudge when regenerating wildcards after collision with existing rows.
@@ -546,7 +578,6 @@ export const fetchWildcardCandidates = async (
   params: {
     apiKey: string;
     model: string;
-    maxOutputTokens: number;
     count: number;
     context: GetQueryAnalysisResponse;
     allowedLanguages: string[];
@@ -571,7 +602,7 @@ export const fetchWildcardCandidates = async (
   const { object } = await deps.generateObjectForWildcards({
     model: openai(params.model),
     schema: llmWildcardOutputSchema,
-    maxOutputTokens: params.maxOutputTokens,
+    maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
     messages: [
       { role: "system", content: systemContent },
       { role: "user", content: userContent },
@@ -593,7 +624,6 @@ export type FetchQueryAnalysisLlmCandidatesParams = {
   apiKey: string;
   model: string;
   brainstormModel: string;
-  maxOutputTokens: number;
   systemContent: string;
   userContent: string;
   context: GetQueryAnalysisResponse;
@@ -625,7 +655,6 @@ export const fetchQueryAnalysisLlmCandidates = async (
     brainstormBullets = await runBrainstorm({
       apiKey: params.apiKey,
       model: params.brainstormModel,
-      maxOutputTokens: params.maxOutputTokens,
       strategy: params.strategy,
       context: params.context,
       sampling: params.sampling,
@@ -642,7 +671,6 @@ export const fetchQueryAnalysisLlmCandidates = async (
   return runStructured({
     apiKey: params.apiKey,
     model: params.model,
-    maxOutputTokens: params.maxOutputTokens,
     messages,
     sampling: params.sampling,
   });
@@ -651,7 +679,6 @@ export const fetchQueryAnalysisLlmCandidates = async (
 export type FetchLlmQueryCandidatesByPersonaParams = {
   apiKey: string;
   model: string;
-  maxOutputTokens: number;
   systemContent: string;
   userContent: string;
   personas: QueryPersona[];
@@ -707,7 +734,6 @@ export const fetchLlmQueryCandidatesByPersona = async (
         const rows = await runStructured({
           apiKey: params.apiKey,
           model: params.model,
-          maxOutputTokens: params.maxOutputTokens,
           messages,
           sampling: params.sampling,
         });
@@ -838,7 +864,6 @@ export const critiqueQueryCandidates = async (
   params: {
     apiKey: string;
     model: string;
-    maxOutputTokens: number;
     context: GetQueryAnalysisResponse;
     candidates: LlmCandidate[];
     dropFraction: number;
@@ -859,7 +884,7 @@ export const critiqueQueryCandidates = async (
   const { object } = await deps.generateObjectForCritique({
     model: openai(params.model),
     schema: llmCritiqueOutputSchema,
-    maxOutputTokens: params.maxOutputTokens,
+    maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
     messages: [
       {
         role: "system",
@@ -887,7 +912,6 @@ export const regenerateDroppedQueries = async (
   params: {
     apiKey: string;
     model: string;
-    maxOutputTokens: number;
     systemContent: string;
     userContent: string;
     keptCandidates: LlmCandidate[];
@@ -923,7 +947,6 @@ export const regenerateDroppedQueries = async (
   const rows = await runStructured({
     apiKey: params.apiKey,
     model: params.model,
-    maxOutputTokens: params.maxOutputTokens,
     messages,
     sampling: params.sampling,
   });
@@ -945,7 +968,6 @@ export const applySelfCritiqueToCandidateBatch = async (
     apiKey: string;
     critiqueModel: string;
     generationModel: string;
-    maxOutputTokens: number;
     systemContent: string;
     userContent: string;
     context: GetQueryAnalysisResponse;
@@ -965,7 +987,6 @@ export const applySelfCritiqueToCandidateBatch = async (
   const ratings = await runCritique({
     apiKey: params.apiKey,
     model: params.critiqueModel,
-    maxOutputTokens: params.maxOutputTokens,
     context: params.context,
     candidates,
     dropFraction: params.dropFraction,
@@ -989,7 +1010,6 @@ export const applySelfCritiqueToCandidateBatch = async (
   const replacements = await runRegenerate({
     apiKey: params.apiKey,
     model: params.generationModel,
-    maxOutputTokens: params.maxOutputTokens,
     systemContent: params.systemContent,
     userContent: params.userContent,
     keptCandidates,
@@ -1016,7 +1036,6 @@ export const applySelfCritiquePass = async (
     apiKey: string;
     critiqueModel: string;
     generationModel: string;
-    maxOutputTokens: number;
     systemContent: string;
     userContent: string;
     context: GetQueryAnalysisResponse;

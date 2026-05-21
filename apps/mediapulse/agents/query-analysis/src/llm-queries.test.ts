@@ -1,12 +1,19 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 
-import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api-contract";
+import {
+  DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+  QUERY_ANALYSIS_STANDARD_INTENTS,
+} from "@workspace/agent-data-api-contract";
 
 import {
   buildBrainstormPrompt,
   buildQueryAnalysisSystemContent,
   buildQueryAnalysisUserContent,
+  computeQueryAnalysisIntentTargetCounts,
+  formatPriorYieldIntentHints,
+  serializeQueryAnalysisContextBlock,
   buildStructuredQueryMessages,
   applySelfCritiqueToCandidateBatch,
   fetchBrainstormBullets,
@@ -16,29 +23,38 @@ import {
   fetchWildcardCandidates,
   mergeCritiqueReplacements,
   parseBrainstormBullets,
+  QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
   regenerateDroppedQueries,
-  resolveQueryAnalysisSystemContent,
-  resolveQueryAnalysisUserContent,
+  resolveWildcardSystemContent,
+  resolveWildcardUserContent,
   selectCandidatesToDropFromCritique,
 } from "./llm-queries";
 import { DEFAULT_QUERY_PERSONAS } from "./personas/default-personas";
 
-describe("resolveQueryAnalysisSystemContent", () => {
-  it("matches buildQueryAnalysisSystemContent when Hermes omits override", () => {
-    const strategy = {
-      queryCount: 10,
-      language: "en",
-      allowedLanguages: ["en", "de"],
-      minDeterministicCount: 3,
-      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
-    };
-
-    const resolved = resolveQueryAnalysisSystemContent(undefined, strategy);
-    const legacy = buildQueryAnalysisSystemContent(strategy);
-
-    expect(resolved).toBe(legacy);
-  });
-});
+/** Fixed strategy/context pair for golden fingerprint regression (plan 16). */
+const GOLDEN_PROMPT_FINGERPRINT_FIXTURE = {
+  strategy: {
+    queryCount: 10,
+    language: "en",
+    minDeterministicCount: 4,
+    intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+  },
+  context: {
+    ticker: {
+      id: "22222222-2222-4222-a222-222222222222",
+      symbol: "ABC",
+      name: "ABC Ltd",
+      metadata: null,
+    },
+    topEntities: [] as [],
+    recentThemes: [] as [],
+    peers: [] as [],
+    calendar: { recentEventTypes: [] as string[] },
+    headlineSamples: [] as [],
+    kgNeighborhood: [] as [],
+  },
+  fingerprint: "bf939f1ac1d82831",
+} as const;
 
 const emptyEnrichedContext = {
   peers: [] as [],
@@ -47,55 +63,58 @@ const emptyEnrichedContext = {
   kgNeighborhood: [] as [],
 };
 
-describe("resolveQueryAnalysisUserContent", () => {
-  it("matches buildQueryAnalysisUserContent when Hermes omits override", () => {
-    const ctx = {
-      ticker: {
-        id: "11111111-1111-4111-a111-111111111111",
-        symbol: "ACME",
-        name: "Acme Co",
-        metadata: null,
-      },
-      topEntities: [] as {
-        canonicalName: string;
-        typeName: string;
-        relevanceWeight: number;
-      }[],
-      recentThemes: [] as { theme: string; articleCount: number }[],
-      recentRelationDeltas: [] as {
-        fromEntity: string;
-        toEntity: string;
-        relationType: string;
-        change: "added";
-      }[],
-      ...emptyEnrichedContext,
-    };
+describe("computeQueryAnalysisIntentTargetCounts", () => {
+  it("returns a rounded target count for every standard intent", () => {
+    const counts = computeQueryAnalysisIntentTargetCounts({
+      queryCount: 10,
+      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+    });
 
-    const resolved = resolveQueryAnalysisUserContent(undefined, ctx);
-    const legacy = buildQueryAnalysisUserContent(ctx);
-    expect(resolved).toBe(legacy);
+    expect(Object.keys(counts)).toHaveLength(
+      QUERY_ANALYSIS_STANDARD_INTENTS.length,
+    );
+    for (const intent of QUERY_ANALYSIS_STANDARD_INTENTS) {
+      expect(counts[intent]).toBeGreaterThanOrEqual(0);
+    }
   });
 
-  it("wraps context with a custom user template", () => {
-    const ctx = {
-      ticker: {
-        id: "11111111-1111-4111-a111-111111111111",
-        symbol: "SYM",
-        name: "N",
-        metadata: null,
+  it("weights higher-priority intents toward larger targets", () => {
+    const counts = computeQueryAnalysisIntentTargetCounts({
+      queryCount: 10,
+      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+    });
+
+    expect(counts.breaking).toBeGreaterThanOrEqual(counts.esg);
+    expect(counts.kg_change).toBeGreaterThanOrEqual(counts.technical);
+  });
+});
+
+describe("QUERY_ANALYSIS_MAX_OUTPUT_TOKENS", () => {
+  it("is forwarded to generateObject for structured query calls", async () => {
+    const generateObjectForQueries = vi.fn().mockResolvedValue({
+      object: { queries: [] },
+    });
+
+    await fetchLlmQueryCandidates(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: "hi" }],
+        sampling: {
+          temperature: 0.9,
+          topP: 0.95,
+          presencePenalty: 0.4,
+          frequencyPenalty: 0.5,
+        },
       },
-      topEntities: [],
-      recentThemes: [],
-      recentRelationDeltas: [],
-      ...emptyEnrichedContext,
-    };
-    const text = resolveQueryAnalysisUserContent(
-      "START\n{{queryContextBlock}}\nEND",
-      ctx,
+      { generateObjectForQueries },
     );
-    expect(text.startsWith("START\n")).toBe(true);
-    expect(text).toContain("SYM");
-    expect(text.endsWith("END")).toBe(true);
+
+    expect(generateObjectForQueries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
+      }),
+    );
   });
 });
 
@@ -114,6 +133,72 @@ describe("buildQueryAnalysisSystemContent", () => {
     expect(text).toContain("kg_change");
     expect(text).toContain("3");
     expect(text).toContain('"queries"');
+  });
+
+  it("interpolates per-intent target counts and taxonomy labels inline", () => {
+    const text = buildQueryAnalysisSystemContent({
+      queryCount: 10,
+      language: "en",
+      minDeterministicCount: 4,
+      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+    });
+    const targets = computeQueryAnalysisIntentTargetCounts({
+      queryCount: 10,
+      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+    });
+
+    expect(text).toContain("- breaking:");
+    expect(text).toContain(`- esg: ${String(targets.esg)}`);
+    expect(text).toContain(`- supply_chain: ${String(targets.supply_chain)}`);
+    expect(text).toContain(`- technical: ${String(targets.technical)}`);
+    expect(text).toContain("supply_chain: suppliers, logistics");
+    expect(text).toContain("esg: environmental, social, governance");
+    expect(text).not.toContain("{{");
+  });
+});
+
+describe("llm prompt fingerprint", () => {
+  it("stays stable for a fixed strategy and context fixture", () => {
+    const { strategy, context, fingerprint } =
+      GOLDEN_PROMPT_FINGERPRINT_FIXTURE;
+    const computed = computeLlmPromptFingerprint(
+      buildQueryAnalysisSystemContent(strategy),
+      buildQueryAnalysisUserContent(context, strategy.language),
+    );
+
+    expect(computed).toBe(fingerprint);
+  });
+});
+
+describe("wildcard prompt builders", () => {
+  const wildcardContext = {
+    ticker: {
+      id: "11111111-1111-4111-a111-111111111111",
+      symbol: "ACME",
+      name: "Acme Co",
+      metadata: null,
+    },
+    topEntities: [] as [],
+    recentThemes: [] as [],
+    ...emptyEnrichedContext,
+  };
+
+  it("system prompt omits intent taxonomy and includes slot count and languages", () => {
+    const text = resolveWildcardSystemContent(3, ["en", "id"]);
+
+    expect(text).toContain("Generate 3 short search queries");
+    expect(text).toContain("en, id");
+    expect(text.toLowerCase()).toContain("lateral");
+    expect(text).not.toContain("breaking:");
+    expect(text).not.toContain("targetBreakingCount");
+  });
+
+  it("user prompt is serialized GET context only", () => {
+    const text = resolveWildcardUserContent(wildcardContext);
+
+    expect(text).toContain("ACME");
+    expect(text).toContain("Acme Co");
+    expect(text).not.toContain("{{");
   });
 });
 
@@ -200,6 +285,39 @@ describe("buildQueryAnalysisUserContent", () => {
     expect(text).not.toContain("Recent headlines:");
     expect(text).not.toContain("KG neighborhood:");
   });
+
+  it("includes past performance hints when priorYield perIntent is present", () => {
+    const text = buildQueryAnalysisUserContent({
+      ticker: {
+        id: "11111111-1111-4111-a111-111111111111",
+        symbol: "ACME",
+        name: "Acme Co",
+        metadata: null,
+      },
+      topEntities: [],
+      recentThemes: [],
+      ...emptyEnrichedContext,
+      priorYield: {
+        perTemplate: [],
+        perIntent: [
+          { intent: "fundamental", avgArticles: 3.2, avgNovel: 3.2 },
+          { intent: "sentiment", avgArticles: 0.4, avgNovel: 0.4 },
+        ],
+        perPersona: [],
+      },
+    });
+
+    expect(text).toContain("Past performance hints:");
+    expect(text).toContain("fundamental queries surfaced 3.2 novel articles");
+    expect(text).toContain("sentiment queries surfaced 0.4 novel articles");
+    expect(text).toContain("Bias your generation accordingly.");
+  });
+});
+
+describe("formatPriorYieldIntentHints", () => {
+  it("returns empty string when prior yield is absent", () => {
+    expect(formatPriorYieldIntentHints(undefined)).toBe("");
+  });
 });
 
 describe("parseBrainstormBullets", () => {
@@ -278,7 +396,6 @@ describe("fetchBrainstormBullets", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 200,
         strategy: {
           queryCount: 10,
           language: "en",
@@ -320,7 +437,6 @@ describe("fetchQueryAnalysisLlmCandidates", () => {
     apiKey: "sk-test",
     model: "gpt-4o-mini",
     brainstormModel: "gpt-4o-mini",
-    maxOutputTokens: 100,
     systemContent: "system",
     userContent: "user context",
     context: {
@@ -443,7 +559,6 @@ describe("applySelfCritiqueToCandidateBatch", () => {
     apiKey: "sk-test",
     critiqueModel: "gpt-4o-mini",
     generationModel: "gpt-4o-mini",
-    maxOutputTokens: 200,
     systemContent: "system",
     userContent: "user context",
     context: {
@@ -570,7 +685,6 @@ describe("regenerateDroppedQueries", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 100,
         systemContent: "system",
         userContent: "user",
         keptCandidates: [],
@@ -595,7 +709,6 @@ describe("fetchLlmQueryCandidatesByPersona", () => {
   const baseParams = {
     apiKey: "sk-test",
     model: "gpt-4o-mini",
-    maxOutputTokens: 100,
     systemContent: "system",
     userContent: "user context",
     personas,
@@ -716,7 +829,6 @@ describe("fetchLlmQueryCandidates", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 100,
         messages: [{ role: "user", content: "hi" }],
         sampling: defaultSampling,
       },
@@ -739,7 +851,6 @@ describe("fetchLlmQueryCandidates", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 100,
         messages: [{ role: "user", content: "hi" }],
         sampling: defaultSampling,
       },
@@ -771,7 +882,6 @@ describe("fetchLlmQueryCandidates", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 100,
         messages: [{ role: "user", content: "hi" }],
         sampling: { ...defaultSampling, seed: 42 },
       },
@@ -794,7 +904,6 @@ describe("fetchLlmQueryCandidates", () => {
         {
           apiKey: "sk-test",
           model: "gpt-4o-mini",
-          maxOutputTokens: 100,
           messages: [{ role: "user", content: "hi" }],
           sampling: defaultSampling,
         },
@@ -840,7 +949,6 @@ describe("fetchWildcardCandidates", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 100,
         count: 2,
         context: baseContext,
         allowedLanguages: ["en"],
@@ -876,7 +984,6 @@ describe("fetchWildcardCandidates", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 100,
         count: 2,
         context: baseContext,
         allowedLanguages: ["en"],

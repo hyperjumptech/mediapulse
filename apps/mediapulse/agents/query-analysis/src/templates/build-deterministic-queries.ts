@@ -3,6 +3,7 @@ import type { GetQueryAnalysisResponse } from "@workspace/agent-data-api-contrac
 import type { DeterministicCandidate } from "../merge-query-candidates";
 import {
   type DeterministicPackName,
+  filterPackTemplatesByYield,
   getDeterministicPack,
 } from "./deterministic-packs";
 import {
@@ -23,6 +24,10 @@ export type BuildDeterministicQueriesOptions = {
   kgTemplateCap?: number;
   /** BCP-47 language for localized slot resolution and row tagging. */
   language?: string;
+  /** Optional rolling yield rollups for template rotation. */
+  priorYield?: GetQueryAnalysisResponse["priorYield"];
+  /** Minimum average novel articles per run to keep a template in rotation. */
+  minTemplateYield?: number;
 };
 
 /**
@@ -39,7 +44,15 @@ export const buildDeterministicQueries = (
   const packName = options.pack ?? "default-v1";
   const clock = options.clock ?? (() => new Date());
   const kgTemplateCap = options.kgTemplateCap ?? DEFAULT_KG_TEMPLATE_CAP;
-  const pack = getDeterministicPack(packName);
+  const basePack = getDeterministicPack(packName);
+  const pack =
+    options.priorYield !== undefined
+      ? filterPackTemplatesByYield(
+          basePack,
+          options.priorYield,
+          options.minTemplateYield ?? 0.05,
+        )
+      : basePack;
   const slots = resolveSlots(context, clock, options.language);
   const candidates: DeterministicCandidate[] = [];
 
@@ -49,6 +62,7 @@ export const buildDeterministicQueries = (
       candidates.push({
         text,
         intent: row.intent,
+        templateId: row.template,
         ...(options.language !== undefined
           ? { language: options.language }
           : {}),

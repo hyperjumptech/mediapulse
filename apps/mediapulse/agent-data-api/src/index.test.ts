@@ -72,10 +72,23 @@ vi.mock("@mediapulse/database", () => ({
     },
     dataSource: {
       createMany: vi.fn(),
-      findMany: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     entityRelation: {
       findMany: vi.fn(),
+    },
+    searchQueryYield: {
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue({
+        id: "yield-1",
+        searchQueryId: "22222222-2222-4222-a222-222222222222",
+        runDate: new Date("2026-05-21T00:00:00.000Z"),
+        articleCount: 1,
+        novelArticleCount: 1,
+        computedAt: new Date("2026-05-21T00:00:00.000Z"),
+        createdAt: new Date("2026-05-21T00:00:00.000Z"),
+        updatedAt: new Date("2026-05-21T00:00:00.000Z"),
+      }),
     },
   },
 }));

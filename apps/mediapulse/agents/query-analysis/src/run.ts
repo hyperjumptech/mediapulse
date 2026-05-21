@@ -9,10 +9,11 @@ import {
   resolveDiversityGateConfig,
   resolveIntentWeights,
   resolveTemporalBiasConfig,
+  resolveYieldFeedbackConfig,
 } from "./config-schema";
 import {
-  resolveQueryAnalysisSystemContent,
-  resolveQueryAnalysisUserContent,
+  buildQueryAnalysisSystemContent,
+  buildQueryAnalysisUserContent,
   fetchBrainstormBullets,
   fetchLlmQueryCandidatesByPersona,
   fetchWildcardCandidates,
@@ -77,6 +78,15 @@ export const computeWildcardCount = (
   queryCount: number,
   wildcardFraction: number,
 ): number => Math.round(queryCount * wildcardFraction);
+
+/**
+ * Derives the deterministic query floor from total `queryCount` (40% ratio, minimum 2).
+ *
+ * @param queryCount - Total rows to persist in the active query set.
+ * @returns Minimum deterministic template rows to include before LLM complement.
+ */
+export const deriveMinDeterministicCount = (queryCount: number): number =>
+  Math.max(2, Math.floor(queryCount * 0.4));
 
 /**
  * Builds the sampling object shared by standard and wildcard LLM calls.
@@ -364,7 +374,6 @@ export const clampPerPersonaQuotaCount = (
 type LanguageSliceSharedConfig = {
   openaiApiKey: string;
   openaiModel: string;
-  maxTokens: number;
   globalTemplatePack: string;
   kgTemplateCap: number;
   intentWeights: LlmQueryStrategyPrompt["intentWeights"];
@@ -379,10 +388,10 @@ type LanguageSliceSharedConfig = {
   diversityGate: ReturnType<typeof resolveDiversityGateConfig>;
   semanticDedupeEnabled: boolean;
   embeddingModel: string;
-  configuredSystemPrompt?: string;
-  configuredUserPromptTemplate?: string;
   runStartMs: number;
   tickerId: string;
+  yieldFeedback: ReturnType<typeof resolveYieldFeedbackConfig>;
+  priorYield?: GetQueryAnalysisResponse["priorYield"];
 };
 
 /**
@@ -417,6 +426,12 @@ export const runLanguageQuerySlice = async (params: {
     pack: templatePack,
     kgTemplateCap: shared.kgTemplateCap,
     language,
+    ...(shared.yieldFeedback.enabled
+      ? {
+          priorYield: shared.priorYield,
+          minTemplateYield: shared.yieldFeedback.minTemplateYield,
+        }
+      : {}),
   });
 
   const strategyPrompt: LlmQueryStrategyPrompt = {
@@ -426,12 +441,8 @@ export const runLanguageQuerySlice = async (params: {
     intentWeights: shared.intentWeights,
   };
 
-  const systemContent = resolveQueryAnalysisSystemContent(
-    shared.configuredSystemPrompt,
-    strategyPrompt,
-  );
-  const userContent = resolveQueryAnalysisUserContent(
-    shared.configuredUserPromptTemplate,
+  const systemContent = buildQueryAnalysisSystemContent(strategyPrompt);
+  const userContent = buildQueryAnalysisUserContent(
     params.queryContext,
     language,
   );
@@ -443,7 +454,6 @@ export const runLanguageQuerySlice = async (params: {
       brainstormBullets = await fetchBrainstormBullets({
         apiKey: shared.openaiApiKey,
         model: shared.brainstormModel,
-        maxOutputTokens: shared.maxTokens,
         strategy: strategyPrompt,
         context: params.queryContext,
         sampling: shared.llmSampling,
@@ -455,7 +465,6 @@ export const runLanguageQuerySlice = async (params: {
         {
           apiKey: shared.openaiApiKey,
           model: shared.openaiModel,
-          maxOutputTokens: shared.maxTokens,
           systemContent,
           userContent,
           personas: langPersonas,
@@ -498,7 +507,6 @@ export const runLanguageQuerySlice = async (params: {
           apiKey: shared.openaiApiKey,
           critiqueModel: shared.critiqueModel,
           generationModel: shared.openaiModel,
-          maxOutputTokens: shared.maxTokens,
           systemContent,
           userContent,
           context: params.queryContext,
@@ -550,7 +558,6 @@ export const runLanguageQuerySlice = async (params: {
           {
             apiKey: shared.openaiApiKey,
             model: shared.openaiModel,
-            maxOutputTokens: shared.maxTokens,
             systemContent,
             userContent,
             personas: langPersonas,
@@ -607,6 +614,7 @@ export const runLanguageQuerySlice = async (params: {
     queryCount: languageQuota.queryCount,
     minDeterministicCount: params.minDeterministicCount,
     weights: shared.intentWeights,
+    ...(shared.yieldFeedback.enabled ? { priorYield: shared.priorYield } : {}),
   });
 
   return {
@@ -661,7 +669,7 @@ export const runQueryAnalysis = async (
   const wildcardCount = computeWildcardCount(queryCount, wildcardFraction);
   const standardQueryCount = queryCount - wildcardCount;
   const languageQuotas = resolveLanguageQuotas(config);
-  const minDeterministicCount = config.minDeterministicCount!;
+  const minDeterministicCount = deriveMinDeterministicCount(queryCount);
   const baseIntentWeights = resolveIntentWeights(config);
   const temporalBias = resolveTemporalBiasConfig(config);
   const { intentWeights, appliedEventBias } = resolveIntentWeightsWithEventBias(
@@ -680,7 +688,6 @@ export const runQueryAnalysis = async (
     );
   }
   const openaiModel = config.openaiModel!;
-  const maxTokens = config.maxTokens!;
   const temperature = config.temperature!;
   const topP = config.topP!;
   const presencePenalty = config.presencePenalty!;
@@ -746,29 +753,25 @@ export const runQueryAnalysis = async (
   });
 
   const diversityGate = resolveDiversityGateConfig(config);
+  const yieldFeedback = resolveYieldFeedbackConfig(config);
   const semanticDedupeConfig = config.semanticDedupe;
   const embeddingModel =
     semanticDedupeConfig?.embeddingModel ?? "text-embedding-3-small";
 
   const primaryLanguage = languageQuotas[0]?.language ?? "en";
   const llmPromptFingerprint = computeLlmPromptFingerprint(
-    resolveQueryAnalysisSystemContent(config.prompts?.systemPrompt, {
+    buildQueryAnalysisSystemContent({
       queryCount: standardQueryCount,
       language: primaryLanguage,
       minDeterministicCount,
       intentWeights,
     }),
-    resolveQueryAnalysisUserContent(
-      config.prompts?.userPromptTemplate,
-      queryContext,
-      primaryLanguage,
-    ),
+    buildQueryAnalysisUserContent(queryContext, primaryLanguage),
   );
 
   const sharedSliceConfig: LanguageSliceSharedConfig = {
     openaiApiKey: config.openaiApiKey,
     openaiModel,
-    maxTokens,
     globalTemplatePack: templatePack,
     kgTemplateCap,
     intentWeights,
@@ -783,10 +786,10 @@ export const runQueryAnalysis = async (
     diversityGate,
     semanticDedupeEnabled: semanticDedupeConfig?.enabled ?? false,
     embeddingModel,
-    configuredSystemPrompt: config.prompts?.systemPrompt,
-    configuredUserPromptTemplate: config.prompts?.userPromptTemplate,
     runStartMs,
     tickerId: input.tickerId,
+    yieldFeedback,
+    priorYield: yieldFeedback.enabled ? queryContext.priorYield : undefined,
   };
 
   const sliceResults = await Promise.all(
@@ -849,7 +852,6 @@ export const runQueryAnalysis = async (
       wildcardBatch = await fetchWildcardCandidates({
         apiKey: config.openaiApiKey,
         model: openaiModel,
-        maxOutputTokens: maxTokens,
         count: wildcardCount,
         context: queryContext,
         allowedLanguages: wildcardLanguages,
@@ -874,7 +876,6 @@ export const runQueryAnalysis = async (
                 return await fetchWildcardCandidates({
                   apiKey: config.openaiApiKey,
                   model: openaiModel,
-                  maxOutputTokens: maxTokens,
                   count: wildcardCount,
                   context: queryContext,
                   allowedLanguages: wildcardLanguages,
@@ -917,7 +918,6 @@ export const runQueryAnalysis = async (
         }
       : {}),
     model: openaiModel,
-    maxTokens,
     temperature,
     topP,
     presencePenalty,
@@ -961,6 +961,24 @@ export const runQueryAnalysis = async (
             : {}),
         }
       : {}),
+    ...(yieldFeedback.enabled
+      ? {
+          yieldFeedback: {
+            enabled: true,
+            windowDays: yieldFeedback.windowDays,
+            minTemplateYield: yieldFeedback.minTemplateYield,
+          },
+        }
+      : {}),
+    queryAttribution: merged.map(
+      ({ text, source, intent, persona, templateId }) => ({
+        text,
+        source,
+        intent,
+        ...(persona !== undefined ? { persona } : {}),
+        ...(templateId !== undefined ? { templateId } : {}),
+      }),
+    ),
   };
 
   const response = await client.queryAnalysis.create({
