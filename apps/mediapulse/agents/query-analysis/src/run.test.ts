@@ -2,10 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { queryAnalysisConfigSchema } from "./config-schema";
 
-const { mockGet, mockCreate, mockFetchLlm } = vi.hoisted(() => ({
+const { mockGet, mockCreate, mockFetchQueryLlm } = vi.hoisted(() => ({
   mockGet: vi.fn(),
   mockCreate: vi.fn(),
-  mockFetchLlm: vi.fn(),
+  mockFetchQueryLlm: vi.fn(),
 }));
 
 vi.mock("@mediapulse/env/agents-query-analysis", () => ({
@@ -28,7 +28,7 @@ vi.mock("./llm-queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./llm-queries")>();
   return {
     ...actual,
-    fetchLlmQueryCandidates: mockFetchLlm,
+    fetchQueryAnalysisLlmCandidates: mockFetchQueryLlm,
   };
 });
 
@@ -64,7 +64,7 @@ describe("query-analysis run", () => {
   beforeEach(() => {
     mockGet.mockReset();
     mockCreate.mockReset();
-    mockFetchLlm.mockReset();
+    mockFetchQueryLlm.mockReset();
 
     mockGet.mockResolvedValue(ctxResponse);
     mockCreate.mockResolvedValue({
@@ -72,7 +72,7 @@ describe("query-analysis run", () => {
       createdSetId: "33333333-3333-4333-a333-333333333333",
       activeSetId: "44444444-4444-4444-a444-444444444444",
     });
-    mockFetchLlm.mockResolvedValue([
+    mockFetchQueryLlm.mockResolvedValue([
       { text: "LLM extra", intent: "kg_change" as const },
     ]);
   });
@@ -153,7 +153,7 @@ describe("query-analysis run", () => {
 
   it("continues with deterministic merge when LLM throws", async () => {
     // Setup
-    mockFetchLlm.mockRejectedValue(new Error("LLM down"));
+    mockFetchQueryLlm.mockRejectedValue(new Error("LLM down"));
 
     // Act
     const result = await runQueryAnalysis({
@@ -172,5 +172,44 @@ describe("query-analysis run", () => {
       }
     ).queries;
     expect(queries.every((q) => q.source === "deterministic")).toBe(true);
+  });
+
+  it("passes useBrainstormPass through to the LLM orchestrator", async () => {
+    // Act
+    const result = await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: queryAnalysisConfigSchema.parse({
+        openaiApiKey: "sk",
+        useBrainstormPass: true,
+      }),
+      token: "Bearer t",
+    });
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(mockFetchQueryLlm).toHaveBeenCalledWith(
+      expect.objectContaining({ useBrainstormPass: true }),
+    );
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queries: expect.arrayContaining([
+          expect.objectContaining({ text: "LLM extra", intent: "kg_change" }),
+        ]),
+      }),
+    );
+  });
+
+  it("defaults useBrainstormPass to false in the LLM orchestrator", async () => {
+    // Act
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: baseConfig,
+      token: "Bearer t",
+    });
+
+    // Assert
+    expect(mockFetchQueryLlm).toHaveBeenCalledWith(
+      expect.objectContaining({ useBrainstormPass: false }),
+    );
   });
 });
