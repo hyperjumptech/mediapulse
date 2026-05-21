@@ -47,6 +47,8 @@ const baseConfig = {
   },
   targetDailySuccessfulSources: 1,
   maxRefillRounds: 3,
+  perQueryFetchBudget: 3,
+  perRunFetchBudget: 40,
 } satisfies ConfigSchemaType;
 
 const searchSuccessPage = {
@@ -916,7 +918,7 @@ describe("runDataCollection", () => {
 
     // Assert
     expect(performWebFetch).toHaveBeenCalledTimes(1);
-    expect(performWebFetch.mock.calls[0]?.[0]).toHaveLength(6);
+    expect(vi.mocked(performWebFetch).mock.calls[0]?.[0]).toHaveLength(6);
     expect(mockRunLog.info).toHaveBeenCalledWith(
       expect.objectContaining({
         selectedForFetch: 6,

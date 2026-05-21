@@ -26,6 +26,7 @@ const defaultConfig = {
 /** Builds a got POST response stub with HTTP status metadata. */
 const mockGotPostResponse = (jsonValue: unknown, statusCode = 200) => ({
   statusCode,
+  body: JSON.stringify(jsonValue),
   json: vi.fn().mockResolvedValue(jsonValue),
 });
 

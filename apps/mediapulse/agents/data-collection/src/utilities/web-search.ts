@@ -110,7 +110,7 @@ const searchOneQuery = async (
         timeout: config.timeoutMs ? { request: config.timeoutMs } : undefined,
       });
       rateLimiter.recordResponse(response.statusCode);
-      const raw = await response.json<unknown>();
+      const raw = JSON.parse(response.body) as unknown;
 
       const parsed = serperResponseSchema.safeParse(raw);
       if (!parsed.success) {

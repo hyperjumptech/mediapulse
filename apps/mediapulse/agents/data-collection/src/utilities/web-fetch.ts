@@ -112,7 +112,7 @@ const fetchOneResult = async (
         timeout: config.timeoutMs ? { request: config.timeoutMs } : undefined,
       });
       rateLimiter.recordResponse(response.statusCode);
-      const raw = await response.json<unknown>();
+      const raw = JSON.parse(response.body) as unknown;
 
       const parsed = webFetchResponseSchema.safeParse(raw);
       if (!parsed.success) {
@@ -140,6 +140,7 @@ const fetchOneResult = async (
         tickerId: result.tickerId,
         searchQueryId: result.searchQueryId,
         searchQueryText: result.searchQueryText,
+        serpIndex: result.serpIndex,
       },
     };
   } catch (error) {
