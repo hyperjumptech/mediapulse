@@ -12,6 +12,7 @@ vi.mock("@mediapulse/database", () => ({
     newsletter: {
       create: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
@@ -20,7 +21,8 @@ import {
   createNewsletter,
   getDataSourcesForTicker,
   getLatestNewsletter,
-} from "./content-generation";
+  getRecentNewsletterSubjects,
+} from "./content-generation.js";
 
 type MockDb = {
   dataSource: {
@@ -51,12 +53,16 @@ const createMockDb = (): MockDb => ({
 type MockNewsletterDb = {
   newsletter: {
     create: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
   };
 };
 
 const createMockNewsletterDb = (): MockNewsletterDb => ({
   newsletter: {
     create: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
   },
 });
 
@@ -418,5 +424,45 @@ describe("getLatestNewsletter", () => {
       select: { id: true },
       orderBy: { createdAt: "desc" },
     });
+  });
+});
+
+describe("getRecentNewsletterSubjects", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns subjects and createdAt for newsletters within the lookback window", async () => {
+    // Setup
+    const db = createMockNewsletterDb();
+    const createdAt = new Date("2026-04-20T12:00:00.000Z");
+    db.newsletter.findMany.mockResolvedValue([
+      { subject: "BCA profit up 12%", createdAt },
+    ]);
+
+    // Act
+    const result = await getRecentNewsletterSubjects(
+      "ticker-1",
+      7,
+      db as unknown as Parameters<typeof getRecentNewsletterSubjects>[2],
+    );
+
+    // Assert
+    expect(result.items).toEqual([
+      {
+        subject: "BCA profit up 12%",
+        createdAt: createdAt.toISOString(),
+      },
+    ]);
+    expect(db.newsletter.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tickerId: "ticker-1",
+          createdAt: expect.objectContaining({ gte: expect.any(Date) }),
+        }),
+        select: { subject: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      }),
+    );
   });
 });

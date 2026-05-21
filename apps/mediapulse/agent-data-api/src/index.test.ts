@@ -42,6 +42,14 @@ const contentGenerationNewslettersLatestPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "contentGenerationNewslettersLatest",
 );
+const contentGenerationNewslettersRecentPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "contentGenerationNewslettersRecent",
+);
+const contentGenerationBulletsRecentPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "contentGenerationBulletsRecent",
+);
 
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
@@ -107,6 +115,8 @@ vi.mock("./services/content-generation.js", () => ({
   getDataSourcesForTicker: vi.fn(),
   createNewsletter: vi.fn(),
   getLatestNewsletter: vi.fn(),
+  getRecentNewsletterSubjects: vi.fn(),
+  getRecentNewsletterBullets: vi.fn(),
 }));
 
 vi.mock("./services/delivery.js", () => ({
@@ -280,6 +290,65 @@ describe("agent-data-api", () => {
         { headers: AUTH_HEADERS },
       );
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe(`GET ${contentGenerationBulletsRecentPath}`, () => {
+    it("returns flattened bullets for a ticker", async () => {
+      const mod = await getContentGenerationService();
+      vi.mocked(mod.getRecentNewsletterBullets).mockResolvedValue({
+        items: [
+          {
+            newsletterId: "nl-1",
+            sectionKey: "quickHits",
+            bulletText: "BCA profit up 12%",
+            createdAt: "2026-04-20T12:00:00.000Z",
+          },
+        ],
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationBulletsRecentPath}?tickerId=${TICKER_ID}&days=14`,
+        { headers: AUTH_HEADERS },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.items).toHaveLength(1);
+      expect(mod.getRecentNewsletterBullets).toHaveBeenCalledWith(
+        TICKER_ID,
+        14,
+      );
+    });
+  });
+
+  describe(`GET ${contentGenerationNewslettersRecentPath}`, () => {
+    it("returns recent subjects for a ticker", async () => {
+      const mod = await getContentGenerationService();
+      vi.mocked(mod.getRecentNewsletterSubjects).mockResolvedValue({
+        items: [
+          {
+            subject: "BCA profit up 12%",
+            createdAt: "2026-04-20T12:00:00.000Z",
+          },
+        ],
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationNewslettersRecentPath}?tickerId=${TICKER_ID}&days=7`,
+        { headers: AUTH_HEADERS },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.items).toHaveLength(1);
+      expect(body.items[0].subject).toBe("BCA profit up 12%");
+      expect(mod.getRecentNewsletterSubjects).toHaveBeenCalledWith(
+        TICKER_ID,
+        7,
+      );
     });
   });
 

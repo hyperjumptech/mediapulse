@@ -51,6 +51,38 @@ export const getContentGenerationNewslettersLatestResponseSchema = z.object({
   newsletterId: z.string().nullable(),
 });
 
+export const getContentGenerationNewslettersRecentQuerySchema = z.object({
+  tickerId: z.string().trim().min(1),
+  /** Lookback window in calendar days (default 7). */
+  days: z.coerce.number().int().positive().max(30).default(7),
+});
+
+export const contentGenerationNewsletterRecentItemSchema = z.object({
+  subject: z.string(),
+  createdAt: z.string().datetime(),
+});
+
+export const getContentGenerationNewslettersRecentResponseSchema = z.object({
+  items: z.array(contentGenerationNewsletterRecentItemSchema),
+});
+
+export const getContentGenerationBulletsRecentQuerySchema = z.object({
+  tickerId: z.string().trim().min(1),
+  /** Lookback window in calendar days (default 14). */
+  days: z.coerce.number().int().positive().max(90).default(14),
+});
+
+export const contentGenerationBulletRecentItemSchema = z.object({
+  newsletterId: z.string(),
+  sectionKey: z.string(),
+  bulletText: z.string(),
+  createdAt: z.string().datetime(),
+});
+
+export const getContentGenerationBulletsRecentResponseSchema = z.object({
+  items: z.array(contentGenerationBulletRecentItemSchema),
+});
+
 export type GetContentGenerationQuery = z.infer<
   typeof getContentGenerationQuerySchema
 >;
@@ -68,4 +100,16 @@ export type GetContentGenerationNewslettersLatestQuery = z.infer<
 >;
 export type GetContentGenerationNewslettersLatestResponse = z.infer<
   typeof getContentGenerationNewslettersLatestResponseSchema
+>;
+export type GetContentGenerationNewslettersRecentQuery = z.infer<
+  typeof getContentGenerationNewslettersRecentQuerySchema
+>;
+export type GetContentGenerationNewslettersRecentResponse = z.infer<
+  typeof getContentGenerationNewslettersRecentResponseSchema
+>;
+export type GetContentGenerationBulletsRecentQuery = z.infer<
+  typeof getContentGenerationBulletsRecentQuerySchema
+>;
+export type GetContentGenerationBulletsRecentResponse = z.infer<
+  typeof getContentGenerationBulletsRecentResponseSchema
 >;

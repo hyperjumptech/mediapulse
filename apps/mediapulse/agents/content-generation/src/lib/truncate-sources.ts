@@ -40,6 +40,9 @@ export function truncateSources(
       url: source.url,
       title: source.title,
       content,
+      ...(source.publishedAt !== undefined
+        ? { publishedAt: source.publishedAt }
+        : {}),
     };
   });
 
@@ -55,6 +58,9 @@ export function truncateSources(
       url: truncated[0]!.url,
       title: truncated[0]!.title,
       content: truncated[0]!.content.slice(0, maxTotalContextChars),
+      ...(truncated[0]!.publishedAt !== undefined
+        ? { publishedAt: truncated[0]!.publishedAt }
+        : {}),
     };
   }
 

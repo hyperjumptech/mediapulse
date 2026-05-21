@@ -6,6 +6,10 @@ import {
   getContentGenerationResponseSchema,
   getContentGenerationNewslettersLatestQuerySchema,
   getContentGenerationNewslettersLatestResponseSchema,
+  getContentGenerationNewslettersRecentQuerySchema,
+  getContentGenerationNewslettersRecentResponseSchema,
+  getContentGenerationBulletsRecentQuerySchema,
+  getContentGenerationBulletsRecentResponseSchema,
   postContentGenerationBodySchema,
   postContentGenerationResponseSchema,
 } from "@workspace/agent-data-api-contract";
@@ -13,6 +17,8 @@ import {
   createNewsletter,
   getDataSourcesForTicker,
   getLatestNewsletter,
+  getRecentNewsletterSubjects,
+  getRecentNewsletterBullets,
 } from "../services/content-generation.js";
 
 export async function getContentGeneration(
@@ -58,6 +64,51 @@ export async function getContentGenerationNewslettersLatest(
     );
     const response =
       getContentGenerationNewslettersLatestResponseSchema.parse(result);
+    return context.json(response, 200);
+  } catch (error) {
+    return internalError(context, error);
+  }
+}
+
+/**
+ * GET recent newsletter subjects for a ticker (subject-line novelty scoring).
+ *
+ * @param context - Hono request context.
+ */
+export async function getContentGenerationNewslettersRecent(
+  context: Context,
+): Promise<Response> {
+  try {
+    const query = getContentGenerationNewslettersRecentQuerySchema.parse(
+      context.req.query(),
+    );
+    const result = await getRecentNewsletterSubjects(
+      query.tickerId,
+      query.days,
+    );
+    const response =
+      getContentGenerationNewslettersRecentResponseSchema.parse(result);
+    return context.json(response, 200);
+  } catch (error) {
+    return internalError(context, error);
+  }
+}
+
+/**
+ * GET recent flattened newsletter bullets for cross-run dedup.
+ *
+ * @param context - Hono request context.
+ */
+export async function getContentGenerationBulletsRecent(
+  context: Context,
+): Promise<Response> {
+  try {
+    const query = getContentGenerationBulletsRecentQuerySchema.parse(
+      context.req.query(),
+    );
+    const result = await getRecentNewsletterBullets(query.tickerId, query.days);
+    const response =
+      getContentGenerationBulletsRecentResponseSchema.parse(result);
     return context.json(response, 200);
   } catch (error) {
     return internalError(context, error);

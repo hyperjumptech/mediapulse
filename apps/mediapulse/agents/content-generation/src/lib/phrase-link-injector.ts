@@ -2,7 +2,7 @@
  * Short common words excluded from overlap scoring to focus on meaningful terms.
  * Kept minimal so the filter is fast and language-agnostic.
  */
-const STOP_WORDS = new Set([
+export const STOP_WORDS = new Set([
   "a",
   "an",
   "the",

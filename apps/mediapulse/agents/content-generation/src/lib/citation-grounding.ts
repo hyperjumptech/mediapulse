@@ -1,0 +1,544 @@
+import type { IndustryNewsletterStructure } from "../industry-newsletter-schema.js";
+import { industryNewsletterStructureSchema } from "../industry-newsletter-schema.js";
+import type { SourceForGeneration } from "../types.js";
+import { tokenize } from "./phrase-link-injector.js";
+
+/** How a single citation row is handled after overlap scoring. */
+export type GroundingDecision =
+  | { kind: "pass" }
+  | { kind: "unlink"; reason: "low_overlap" | "no_source" }
+  | { kind: "drop"; reason: "low_overlap" | "no_source" };
+
+/** Per-row grounding outcome for run details (not info-level logs). */
+export type BulletGroundingReport = {
+  sectionKey: string;
+  bulletIndex: number;
+  articleIndex: number | null;
+  overlapScore: number;
+  decision: GroundingDecision;
+};
+
+/** Rolled-up counters emitted once per newsletter run. */
+export type CitationGroundingSummary = {
+  totalCitations: number;
+  unlinked: number;
+  dropped: number;
+  floorPreserved: number;
+  p50Overlap: number;
+  p10Overlap: number;
+};
+
+export type CitationGroundingPolicy = "warn" | "unlink" | "drop";
+
+export type CitationGroundingOptions = {
+  policy: CitationGroundingPolicy;
+  minOverlapScore: number;
+  numericBonus: number;
+};
+
+export type GroundNewsletterCitationsResult = {
+  structure: IndustryNewsletterStructure;
+  reports: BulletGroundingReport[];
+  summary: CitationGroundingSummary;
+  /** Quick-hit rows kept despite failed grounding to preserve schema minimums. */
+  quickHitsKeptDespiteFailedGrounding: number;
+};
+
+const SHINGLE_SIZE = 3;
+const ARTICLE_BODY_CHAR_LIMIT = 2000;
+const NUMERIC_PATTERN = /\d+(?:[.,]\d+)?/g;
+
+const SECTION_MIN_COUNTS: Partial<Record<string, number>> = {
+  competitiveLandscape: 2,
+  dealsAndMovements: 1,
+  regulatoryPolicyWatch: 1,
+  "disruptorsOrTech.bullets": 1,
+  quickHits: 5,
+};
+
+/**
+ * Builds word n-gram shingles from tokenized text.
+ *
+ * @param tokens - Filtered content tokens.
+ * @param size - Shingle width (default 3).
+ */
+export const buildWordShingles = (
+  tokens: readonly string[],
+  size: number = SHINGLE_SIZE,
+): Set<string> => {
+  const shingles = new Set<string>();
+  if (tokens.length === 0) {
+    return shingles;
+  }
+
+  const effectiveSize = Math.min(size, tokens.length);
+  for (let index = 0; index <= tokens.length - effectiveSize; index += 1) {
+    shingles.add(tokens.slice(index, index + effectiveSize).join(" "));
+  }
+
+  return shingles;
+};
+
+/**
+ * Computes Jaccard similarity between two shingle sets.
+ *
+ * @param left - First shingle set.
+ * @param right - Second shingle set.
+ */
+export const shingleJaccardSimilarity = (
+  left: Set<string>,
+  right: Set<string>,
+): number => {
+  if (left.size === 0 && right.size === 0) {
+    return 0;
+  }
+
+  let intersection = 0;
+  for (const shingle of left) {
+    if (right.has(shingle)) {
+      intersection += 1;
+    }
+  }
+
+  const union = left.size + right.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+};
+
+/**
+ * Returns true when any numeric token in the bullet appears in the article text.
+ *
+ * @param bulletText - Generated bullet or quick-hit text.
+ * @param articleText - Title plus truncated body used for grounding.
+ */
+export const bulletNumbersMatchArticle = (
+  bulletText: string,
+  articleText: string,
+): boolean => {
+  const bulletNumbers = bulletText.match(NUMERIC_PATTERN) ?? [];
+  if (bulletNumbers.length === 0) {
+    return false;
+  }
+
+  const normalizedArticle = articleText.replace(/,/g, "");
+  return bulletNumbers.some((value) =>
+    normalizedArticle.includes(value.replace(/,/g, "")),
+  );
+};
+
+/**
+ * Scores how well a bullet's cited claim overlaps its source article.
+ *
+ * Uses 3-gram Jaccard over stopword-filtered tokens plus an optional numeric bonus.
+ *
+ * @param bulletText - Generated bullet or quick-hit text.
+ * @param article - Cited source row from the prompt list.
+ * @param options - Numeric bonus applied when figures match the article body.
+ */
+export const scoreBulletAgainstArticle = (
+  bulletText: string,
+  article: SourceForGeneration,
+  options: { numericBonus?: number } = {},
+): number => {
+  const numericBonus = options.numericBonus ?? 0.2;
+  const articleText = `${article.title}\n${article.content.slice(0, ARTICLE_BODY_CHAR_LIMIT)}`;
+  const bulletShingles = buildWordShingles(tokenize(bulletText));
+  const articleShingles = buildWordShingles(tokenize(articleText));
+  let score = shingleJaccardSimilarity(bulletShingles, articleShingles);
+
+  if (bulletNumbersMatchArticle(bulletText, articleText)) {
+    score = Math.min(1, score + numericBonus);
+  }
+
+  return score;
+};
+
+type PendingCitationRow = {
+  sectionKey: string;
+  bulletIndex: number;
+  text: string;
+  articleIndex: number;
+  overlapScore: number;
+  reason: "low_overlap" | "no_source" | null;
+};
+
+/**
+ * Returns the p-th percentile from a numeric array (0–1).
+ *
+ * @param values - Sample values (may be empty).
+ * @param percentile - Percentile in [0, 1].
+ */
+export const percentile = (values: readonly number[], p: number): number => {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  const sorted = [...values].sort((left, right) => left - right);
+  const index = Math.floor((sorted.length - 1) * p);
+  return sorted[index] ?? 0;
+};
+
+/**
+ * Applies the configured policy to one optional bullet row.
+ *
+ * @param bullet - Bullet with optional citation.
+ * @param decision - Grounding decision for this row.
+ */
+const applyOptionalBulletDecision = (
+  bullet: { text: string; articleIndex?: number },
+  decision: GroundingDecision,
+): { text: string; articleIndex?: number } | null => {
+  if (decision.kind === "drop") {
+    return null;
+  }
+  if (decision.kind === "unlink") {
+    return { text: bullet.text };
+  }
+  return bullet;
+};
+
+/**
+ * Verifies and optionally mutates newsletter citations against source overlap.
+ *
+ * @param structure - Validated LLM newsletter JSON.
+ * @param sources - Ordered prompt sources (`Article 1` first).
+ * @param opts - Grounding policy and scoring thresholds.
+ */
+export const groundNewsletterCitations = (
+  structure: IndustryNewsletterStructure,
+  sources: readonly SourceForGeneration[],
+  opts: CitationGroundingOptions,
+): GroundNewsletterCitationsResult => {
+  const next: IndustryNewsletterStructure = structuredClone(structure);
+  const pending: PendingCitationRow[] = [];
+  const reports: BulletGroundingReport[] = [];
+
+  const queueBulletArray = (
+    sectionKey: string,
+    bullets: Array<{ text: string; articleIndex?: number }>,
+  ) => {
+    bullets.forEach((bullet, bulletIndex) => {
+      if (bullet.articleIndex === undefined) {
+        return;
+      }
+
+      const article = sources[bullet.articleIndex - 1];
+      let overlapScore = 0;
+      let reason: "low_overlap" | "no_source" | null = null;
+
+      if (article === undefined) {
+        reason = "no_source";
+      } else {
+        overlapScore = scoreBulletAgainstArticle(bullet.text, article, {
+          numericBonus: opts.numericBonus,
+        });
+        if (overlapScore < opts.minOverlapScore) {
+          reason = "low_overlap";
+        }
+      }
+
+      pending.push({
+        sectionKey,
+        bulletIndex,
+        text: bullet.text,
+        articleIndex: bullet.articleIndex,
+        overlapScore,
+        reason,
+      });
+    });
+  };
+
+  queueBulletArray("competitiveLandscape", next.competitiveLandscape.bullets);
+  queueBulletArray("dealsAndMovements", next.dealsAndMovements.bullets);
+  queueBulletArray("regulatoryPolicyWatch", next.regulatoryPolicyWatch.bullets);
+
+  if (next.disruptorsOrTech.format === "bullets") {
+    queueBulletArray("disruptorsOrTech.bullets", next.disruptorsOrTech.bullets);
+  }
+
+  next.quickHits.items.forEach((item, bulletIndex) => {
+    pending.push({
+      sectionKey: "quickHits",
+      bulletIndex,
+      text: item.text,
+      articleIndex: item.articleIndex,
+      overlapScore: 0,
+      reason: null,
+    });
+    const row = pending[pending.length - 1]!;
+    const article = sources[row.articleIndex - 1];
+    if (article === undefined) {
+      row.reason = "no_source";
+      row.overlapScore = 0;
+      return;
+    }
+    row.overlapScore = scoreBulletAgainstArticle(row.text, article, {
+      numericBonus: opts.numericBonus,
+    });
+    if (row.overlapScore < opts.minOverlapScore) {
+      row.reason = "low_overlap";
+    }
+  });
+
+  if (next.readWatchListen !== undefined) {
+    const article = sources[next.readWatchListen.articleIndex - 1];
+    let overlapScore = 0;
+    let reason: "low_overlap" | "no_source" | null = null;
+    if (article === undefined) {
+      reason = "no_source";
+    } else {
+      overlapScore = scoreBulletAgainstArticle(
+        next.readWatchListen.summary,
+        article,
+        { numericBonus: opts.numericBonus },
+      );
+      if (overlapScore < opts.minOverlapScore) {
+        reason = "low_overlap";
+      }
+    }
+    pending.push({
+      sectionKey: "readWatchListen",
+      bulletIndex: 0,
+      text: next.readWatchListen.summary,
+      articleIndex: next.readWatchListen.articleIndex,
+      overlapScore,
+      reason,
+    });
+  }
+
+  if (
+    next.quoteOfTheWeek !== undefined &&
+    next.quoteOfTheWeek.articleIndex !== undefined
+  ) {
+    const article = sources[next.quoteOfTheWeek.articleIndex - 1];
+    let overlapScore = 0;
+    let reason: "low_overlap" | "no_source" | null = null;
+    if (article === undefined) {
+      reason = "no_source";
+    } else {
+      overlapScore = scoreBulletAgainstArticle(
+        `${next.quoteOfTheWeek.quote} ${next.quoteOfTheWeek.attribution}`,
+        article,
+        { numericBonus: opts.numericBonus },
+      );
+      if (overlapScore < opts.minOverlapScore) {
+        reason = "low_overlap";
+      }
+    }
+    pending.push({
+      sectionKey: "quoteOfTheWeek",
+      bulletIndex: 0,
+      text: next.quoteOfTheWeek.quote,
+      articleIndex: next.quoteOfTheWeek.articleIndex,
+      overlapScore,
+      reason,
+    });
+  }
+
+  const decide = (row: PendingCitationRow): GroundingDecision => {
+    if (row.reason === null) {
+      return { kind: "pass" };
+    }
+    if (opts.policy === "warn") {
+      return { kind: "pass" };
+    }
+    if (
+      row.sectionKey === "quickHits" ||
+      row.sectionKey === "readWatchListen"
+    ) {
+      return { kind: "drop", reason: row.reason };
+    }
+    if (opts.policy === "unlink") {
+      return { kind: "unlink", reason: row.reason };
+    }
+    return { kind: "drop", reason: row.reason };
+  };
+
+  const decisions = new Map<string, GroundingDecision>();
+  for (const row of pending) {
+    decisions.set(`${row.sectionKey}:${String(row.bulletIndex)}`, decide(row));
+  }
+
+  let floorPreserved = 0;
+  let quickHitsKeptDespiteFailedGrounding = 0;
+
+  for (const [sectionKey, minCount] of Object.entries(SECTION_MIN_COUNTS)) {
+    const sectionMin = minCount ?? 0;
+    const sectionRows = pending.filter((row) => row.sectionKey === sectionKey);
+    const dropKeys = sectionRows
+      .filter((row) => {
+        const decision = decisions.get(
+          `${row.sectionKey}:${String(row.bulletIndex)}`,
+        );
+        return decision?.kind === "drop";
+      })
+      .map((row) => `${row.sectionKey}:${String(row.bulletIndex)}`);
+
+    if (sectionRows.length - dropKeys.length < sectionMin) {
+      for (const key of dropKeys) {
+        const row = sectionRows.find(
+          (candidate) =>
+            `${candidate.sectionKey}:${String(candidate.bulletIndex)}` === key,
+        );
+        if (row === undefined) {
+          continue;
+        }
+        if (sectionKey === "quickHits") {
+          decisions.set(key, { kind: "pass" });
+          quickHitsKeptDespiteFailedGrounding += 1;
+        } else {
+          const prior = decisions.get(key);
+          if (prior?.kind === "drop") {
+            decisions.set(key, {
+              kind: "unlink",
+              reason: prior.reason,
+            });
+            floorPreserved += 1;
+          }
+        }
+      }
+    }
+  }
+
+  const applyBulletArray = (
+    sectionKey: string,
+    bullets: Array<{ text: string; articleIndex?: number }>,
+  ): Array<{ text: string; articleIndex?: number }> => {
+    return bullets.flatMap((bullet, bulletIndex) => {
+      if (bullet.articleIndex === undefined) {
+        return [bullet];
+      }
+
+      const decision = decisions.get(
+        `${sectionKey}:${String(bulletIndex)}`,
+      ) ?? {
+        kind: "pass" as const,
+      };
+      const row = pending.find(
+        (candidate) =>
+          candidate.sectionKey === sectionKey &&
+          candidate.bulletIndex === bulletIndex,
+      );
+      reports.push({
+        sectionKey,
+        bulletIndex,
+        articleIndex: bullet.articleIndex,
+        overlapScore: row?.overlapScore ?? 0,
+        decision,
+      });
+
+      const applied = applyOptionalBulletDecision(bullet, decision);
+      return applied === null ? [] : [applied];
+    });
+  };
+
+  next.competitiveLandscape.bullets = applyBulletArray(
+    "competitiveLandscape",
+    next.competitiveLandscape.bullets,
+  ) as IndustryNewsletterStructure["competitiveLandscape"]["bullets"];
+  next.dealsAndMovements.bullets = applyBulletArray(
+    "dealsAndMovements",
+    next.dealsAndMovements.bullets,
+  ) as IndustryNewsletterStructure["dealsAndMovements"]["bullets"];
+  next.regulatoryPolicyWatch.bullets = applyBulletArray(
+    "regulatoryPolicyWatch",
+    next.regulatoryPolicyWatch.bullets,
+  ) as IndustryNewsletterStructure["regulatoryPolicyWatch"]["bullets"];
+
+  if (next.disruptorsOrTech.format === "bullets") {
+    const bullets = applyBulletArray(
+      "disruptorsOrTech.bullets",
+      next.disruptorsOrTech.bullets,
+    );
+    next.disruptorsOrTech = {
+      format: "bullets",
+      displayHeading: next.disruptorsOrTech.displayHeading,
+      bullets,
+    };
+  }
+
+  next.quickHits.items = next.quickHits.items.flatMap((item, bulletIndex) => {
+    const decision = decisions.get(`quickHits:${String(bulletIndex)}`) ?? {
+      kind: "pass" as const,
+    };
+    const row = pending.find(
+      (candidate) =>
+        candidate.sectionKey === "quickHits" &&
+        candidate.bulletIndex === bulletIndex,
+    );
+    reports.push({
+      sectionKey: "quickHits",
+      bulletIndex,
+      articleIndex: item.articleIndex,
+      overlapScore: row?.overlapScore ?? 0,
+      decision,
+    });
+
+    if (decision.kind === "drop") {
+      return [];
+    }
+    return [item];
+  }) as IndustryNewsletterStructure["quickHits"]["items"];
+
+  if (next.readWatchListen !== undefined) {
+    const decision = decisions.get("readWatchListen:0") ?? { kind: "pass" };
+    const row = pending.find(
+      (candidate) => candidate.sectionKey === "readWatchListen",
+    );
+    reports.push({
+      sectionKey: "readWatchListen",
+      bulletIndex: 0,
+      articleIndex: next.readWatchListen.articleIndex,
+      overlapScore: row?.overlapScore ?? 0,
+      decision,
+    });
+    if (decision.kind === "drop") {
+      delete next.readWatchListen;
+    }
+  }
+
+  if (
+    next.quoteOfTheWeek !== undefined &&
+    next.quoteOfTheWeek.articleIndex !== undefined
+  ) {
+    const decision = decisions.get("quoteOfTheWeek:0") ?? { kind: "pass" };
+    const row = pending.find(
+      (candidate) => candidate.sectionKey === "quoteOfTheWeek",
+    );
+    reports.push({
+      sectionKey: "quoteOfTheWeek",
+      bulletIndex: 0,
+      articleIndex: next.quoteOfTheWeek.articleIndex,
+      overlapScore: row?.overlapScore ?? 0,
+      decision,
+    });
+    if (decision.kind === "drop") {
+      delete next.quoteOfTheWeek;
+    } else if (decision.kind === "unlink") {
+      next.quoteOfTheWeek = {
+        displayHeading: next.quoteOfTheWeek.displayHeading,
+        quote: next.quoteOfTheWeek.quote,
+        attribution: next.quoteOfTheWeek.attribution,
+      };
+    }
+  }
+
+  industryNewsletterStructureSchema.parse(next);
+
+  const overlapScores = reports.map((report) => report.overlapScore);
+  const summary: CitationGroundingSummary = {
+    totalCitations: reports.length,
+    unlinked: reports.filter((report) => report.decision.kind === "unlink")
+      .length,
+    dropped: reports.filter((report) => report.decision.kind === "drop").length,
+    floorPreserved,
+    p50Overlap: percentile(overlapScores, 0.5),
+    p10Overlap: percentile(overlapScores, 0.1),
+  };
+
+  return {
+    structure: next,
+    reports,
+    summary,
+    quickHitsKeptDespiteFailedGrounding,
+  };
+};

@@ -14,6 +14,8 @@ import {
 const contentGenerationGet = vi.fn();
 const contentGenerationCreate = vi.fn();
 const contentGenerationNewslettersLatestGet = vi.fn();
+const contentGenerationNewslettersRecentGet = vi.fn();
+const contentGenerationBulletsRecentGet = vi.fn();
 const contentGenerationRunsCreate = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
@@ -24,6 +26,12 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     contentGenerationNewslettersLatest: {
       get: contentGenerationNewslettersLatestGet,
+    },
+    contentGenerationNewslettersRecent: {
+      get: contentGenerationNewslettersRecentGet,
+    },
+    contentGenerationBulletsRecent: {
+      get: contentGenerationBulletsRecentGet,
     },
     contentGenerationRuns: {
       create: contentGenerationRunsCreate,
@@ -98,6 +106,9 @@ const generatedNewsletter = {
   systemPrompt: "You are a newsletter writer for busy executives.",
   resolvedUserPrompt:
     "Create a newsletter from these data sources.\n\nSource: Story A\nContent for story A.",
+  brainstormUsed: false,
+  brainstormPromptTokens: null,
+  brainstormCompletionTokens: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -109,6 +120,8 @@ describe("run", () => {
     contentGenerationGet.mockReset();
     contentGenerationCreate.mockReset();
     contentGenerationNewslettersLatestGet.mockReset();
+    contentGenerationNewslettersRecentGet.mockReset();
+    contentGenerationBulletsRecentGet.mockReset();
     contentGenerationRunsCreate.mockReset();
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockReset();
   });
@@ -997,7 +1010,17 @@ describe("provenance fields in contentGeneration.create", () => {
   };
 
   function makeGeneratedWithProvenance(
-    overrides?: Partial<typeof provenanceDefaults>,
+    overrides?: Partial<typeof provenanceDefaults> &
+      Partial<
+        Pick<
+          import("./llm-generate-newsletter.js").GeneratedContentWithProvenance,
+          | "brainstormUsed"
+          | "brainstormPromptTokens"
+          | "brainstormCompletionTokens"
+          | "citationGroundingSummary"
+          | "critiqueSkippedDueToBudget"
+        >
+      >,
   ) {
     // Use object spread so explicit null overrides are preserved.
     // Do NOT use ?? here - null ?? default replaces null with the default,
@@ -1055,6 +1078,94 @@ describe("provenance fields in contentGeneration.create", () => {
     expect(createArg.promptTokens).toBe(100);
     expect(createArg.completionTokens).toBe(50);
     expect(createArg.totalTokens).toBe(150);
+  });
+
+  it("returns brainstorm observability in run details when the memo leg ran", async () => {
+    // Setup
+    setupHappyPath({
+      brainstormUsed: true,
+      brainstormPromptTokens: 40,
+      brainstormCompletionTokens: 20,
+    });
+
+    // Act
+    const result = (await run(
+      makeContext({
+        config: ContentGenerationConfigSchema.parse({
+          openai: { apiKey: "sk-test" },
+          useBrainstormPass: true,
+        }),
+      }),
+    )) as AgentRunResult & {
+      details?: {
+        brainstormUsed?: boolean;
+        brainstormPromptTokens?: number;
+        brainstormCompletionTokens?: number;
+      };
+    };
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(result.details?.brainstormUsed).toBe(true);
+    expect(result.details?.brainstormPromptTokens).toBe(40);
+    expect(result.details?.brainstormCompletionTokens).toBe(20);
+  });
+
+  it("returns citation grounding summary in run details when grounding ran", async () => {
+    // Setup
+    setupHappyPath();
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue({
+      ...makeGeneratedWithProvenance(),
+      citationGroundingSummary: {
+        totalCitations: 10,
+        unlinked: 2,
+        dropped: 1,
+        floorPreserved: 0,
+        p50Overlap: 0.42,
+        p10Overlap: 0.08,
+      },
+    });
+
+    // Act
+    const result = (await run(
+      makeContext({
+        config: ContentGenerationConfigSchema.parse({
+          openai: { apiKey: "sk-test" },
+          citationGrounding: { enabled: true },
+        }),
+      }),
+    )) as AgentRunResult & {
+      details?: {
+        grounding?: {
+          unlinked: number;
+          dropped: number;
+          floorPreserved: number;
+          p50Overlap: number;
+        };
+      };
+    };
+
+    // Assert
+    expect(result.details?.grounding?.unlinked).toBe(2);
+    expect(result.details?.grounding?.dropped).toBe(1);
+    expect(result.details?.grounding?.p50Overlap).toBe(0.42);
+  });
+
+  it("forwards critiqueSkippedDueToBudget in run details", async () => {
+    // Setup
+    setupHappyPath();
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue({
+      ...makeGeneratedWithProvenance(),
+      critiqueSkippedDueToBudget: true,
+    });
+
+    // Act
+    const result = (await run(makeContext())) as AgentRunResult & {
+      details?: { critiqueSkippedDueToBudget?: boolean };
+    };
+
+    // Assert
+    expect(result.details?.critiqueSkippedDueToBudget).toBe(true);
   });
 
   // -------------------------------------------------------------------------
@@ -1209,6 +1320,53 @@ describe("provenance fields in contentGeneration.create", () => {
   // -------------------------------------------------------------------------
   // Provenance fields are NOT passed on non-success paths
   // -------------------------------------------------------------------------
+
+  it("completes when recent subject history is unavailable and passes empty recentSubjects", async () => {
+    // Setup
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
+    contentGenerationGet.mockResolvedValue({ dataSources: testSources });
+    contentGenerationCreate.mockResolvedValue({ message: "ok" });
+    contentGenerationNewslettersRecentGet.mockRejectedValue(
+      Object.assign(new Error("Not Found"), { statusCode: 404 }),
+    );
+    const generateSpy = vi
+      .spyOn(LlmGenerate, "generateNewsletterWithLlm")
+      .mockResolvedValue(generatedNewsletter);
+
+    // Act
+    const result = await run(
+      makeContext({
+        config: ContentGenerationConfigSchema.parse({
+          openai: { apiKey: "sk-test" },
+          subjectLine: { enabled: true },
+        }),
+      }),
+    );
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(contentGenerationNewslettersRecentGet).toHaveBeenCalledTimes(1);
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        subjectLine: expect.objectContaining({ enabled: true }),
+      }),
+      expect.objectContaining({
+        tickerId: TEST_TICKER_ID,
+        recentSubjects: [],
+      }),
+    );
+    const { logger } = await import("@workspace/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "subject_line_recent_history_unavailable",
+      }),
+      expect.any(String),
+    );
+  });
 
   it("does not call contentGeneration.create when LLM generation fails", async () => {
     // Setup
