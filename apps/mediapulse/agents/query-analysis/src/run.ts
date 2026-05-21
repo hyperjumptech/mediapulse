@@ -7,7 +7,7 @@ import type { QueryAnalysisConfig } from "./config-schema";
 import {
   resolveQueryAnalysisSystemContent,
   resolveQueryAnalysisUserContent,
-  fetchLlmQueryCandidates,
+  fetchQueryAnalysisLlmCandidates,
 } from "./llm-queries";
 import { mergeQueryCandidates } from "./merge-query-candidates";
 import { buildDeterministicQueries } from "./templates/build-deterministic-queries";
@@ -50,19 +50,29 @@ export const runQueryAnalysis = async (
   const weightFundamental = config.weightFundamental!;
   const openaiModel = config.openaiModel!;
   const maxTokens = config.maxTokens!;
+  const temperature = config.temperature!;
+  const topP = config.topP!;
+  const presencePenalty = config.presencePenalty!;
+  const frequencyPenalty = config.frequencyPenalty!;
+  const seed = config.seed;
+  const useBrainstormPass = config.useBrainstormPass!;
+  const fewShotExemplarCount = config.fewShotExemplarCount!;
+  const brainstormModel = config.brainstormModel ?? openaiModel;
+
+  const strategyPrompt = {
+    queryCount,
+    allowedLanguages,
+    minDeterministicCount,
+    weights: {
+      breaking: weightBreaking,
+      kgChange: weightKgChange,
+      fundamental: weightFundamental,
+    },
+  };
 
   const systemContent = resolveQueryAnalysisSystemContent(
     config.prompts?.systemPrompt,
-    {
-      queryCount,
-      allowedLanguages,
-      minDeterministicCount,
-      weights: {
-        breaking: weightBreaking,
-        kgChange: weightKgChange,
-        fundamental: weightFundamental,
-      },
-    },
+    strategyPrompt,
   );
   const userContent = resolveQueryAnalysisUserContent(
     config.prompts?.userPromptTemplate,
@@ -74,16 +84,28 @@ export const runQueryAnalysis = async (
     userContent,
   );
 
-  let llmCandidates: Awaited<ReturnType<typeof fetchLlmQueryCandidates>> = [];
+  let llmCandidates: Awaited<
+    ReturnType<typeof fetchQueryAnalysisLlmCandidates>
+  > = [];
   try {
-    llmCandidates = await fetchLlmQueryCandidates({
+    llmCandidates = await fetchQueryAnalysisLlmCandidates({
       apiKey: config.openaiApiKey,
       model: openaiModel,
+      brainstormModel,
       maxOutputTokens: maxTokens,
-      messages: [
-        { role: "system", content: systemContent },
-        { role: "user", content: userContent },
-      ],
+      systemContent,
+      userContent,
+      context: queryContext,
+      strategy: strategyPrompt,
+      useBrainstormPass,
+      fewShotExemplarCount,
+      sampling: {
+        temperature,
+        topP,
+        presencePenalty,
+        frequencyPenalty,
+        ...(seed !== undefined ? { seed } : {}),
+      },
     });
   } catch (error) {
     logger.warn(
@@ -115,6 +137,14 @@ export const runQueryAnalysis = async (
     },
     model: openaiModel,
     maxTokens,
+    temperature,
+    topP,
+    presencePenalty,
+    frequencyPenalty,
+    useBrainstormPass,
+    fewShotExemplarCount,
+    ...(useBrainstormPass ? { brainstormModel } : {}),
+    ...(seed !== undefined ? { seed } : {}),
   };
 
   const response = await client.queryAnalysis.create({

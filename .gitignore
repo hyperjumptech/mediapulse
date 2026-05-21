@@ -67,3 +67,6 @@ graphify*.*
 .graphifyignore
 graph.*
 GRAPH_REPORT.md
+
+# Cursor
+.cursor/plans

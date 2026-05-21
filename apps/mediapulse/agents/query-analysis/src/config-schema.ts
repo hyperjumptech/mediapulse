@@ -58,6 +58,38 @@ export const queryAnalysisConfigSchema = z
       .optional()
       .default(DEFAULT_DETERMINISTIC_PACK),
     /**
+     * LLM sampling temperature (higher = more varied phrasing).
+     */
+    temperature: z.number().min(0).max(2).optional().default(0.9),
+    /**
+     * Nucleus sampling top-p cutoff.
+     */
+    topP: z.number().min(0).max(1).optional().default(0.95),
+    /**
+     * Penalizes tokens already present in the output (encourages new topics).
+     */
+    presencePenalty: z.number().min(-2).max(2).optional().default(0.4),
+    /**
+     * Penalizes tokens by prior frequency in the output (reduces repetition).
+     */
+    frequencyPenalty: z.number().min(-2).max(2).optional().default(0.5),
+    /**
+     * Optional fixed seed for reproducible LLM output during regression hunts.
+     */
+    seed: z.number().int().optional(),
+    /**
+     * When true, runs a free-form brainstorm pass before structured query generation.
+     */
+    useBrainstormPass: z.boolean().optional().default(false),
+    /**
+     * Model id for the brainstorm pass (defaults to `openaiModel` in `run.ts` when omitted).
+     */
+    brainstormModel: z.string().min(1).optional(),
+    /**
+     * Number of curated few-shot exemplars to inject (0 disables exemplars).
+     */
+    fewShotExemplarCount: z.number().int().min(0).max(6).optional().default(3),
+    /**
      * Optional overrides for query-generation LLM system/user templates (Hermes).
      * When omitted, built-in defaults are used. Do not put API keys inside prompt text.
      */
