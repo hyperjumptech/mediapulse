@@ -1,14 +1,17 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { pinoLogger } from "hono-pino";
-import type { Logger } from "pino";
+import type { Options as HonoPinoOptions } from "hono-pino";
 
 import { slimHonoPinoHttpLoggerOptions } from "./hono-pino-slim-http";
 import { shouldSkipHttpAccessLog } from "./should-skip-http-access-log";
 
+/** Root logger accepted by hono-pino (same as {@link pinoLogger} `pino` option). */
+export type SlimPinoRootLogger = NonNullable<HonoPinoOptions["pino"]>;
+
 /** Options for {@link slimPinoLogger}. */
 export type SlimPinoLoggerOptions = {
   /** Root Pino logger instance. Defaults to the package default when omitted at call sites. */
-  pino?: Logger;
+  pino?: SlimPinoRootLogger;
   /** Hono context key for the logger. @default "logger" */
   contextKey?: "logger";
 };

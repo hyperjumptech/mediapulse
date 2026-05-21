@@ -9,7 +9,10 @@ export const logger = buildDefaultRootLogger(process.env);
 
 export { slimHonoPinoHttpLoggerOptions } from "./hono-pino-slim-http";
 export { slimPinoLogger } from "./slim-pino-logger";
-export type { SlimPinoLoggerOptions } from "./slim-pino-logger";
+export type {
+  SlimPinoLoggerOptions,
+  SlimPinoRootLogger,
+} from "./slim-pino-logger";
 export {
   normalizeHttpAccessLogPath,
   shouldSkipHttpAccessLog,
