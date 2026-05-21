@@ -159,8 +159,9 @@ For repeat runs (already installed + migrated):
 
 ## Pull requests (code quality and Cursor rules)
 
-- **`pnpm code-quality:affected`** — run before opening a PR when you only changed part of the monorepo. Uses Turbo `--affected` for build, lint, type-check, and tests, then merges coverage and runs Prettier. Set `TURBO_SCM_BASE=origin/main` (or your PR base) if Turbo cannot infer the comparison ref locally.
+- **`pnpm code-quality:affected`** — run before opening a PR when you only changed part of the monorepo. Uses Turbo `--affected` for build, lint, type-check, and tests, then merges coverage and runs Prettier on changed files (`pnpm run format:check:changed -- --base origin/main --head HEAD`). Set `TURBO_SCM_BASE=origin/main` (or your PR base) if Turbo cannot infer the comparison ref locally.
 - **`pnpm code-quality`** — full workspace type-check, lint, tests with coverage, merged coverage report, and Prettier check. CI runs this scope on **push to `main`** and **`workflow_dispatch`**; PR CI uses affected checks instead (see [Production](/guide/production)).
+- **CI-only PRs** (workflows, scripts, root `package.json` scripts, docs — no lockfile or app code changes) run a lighter **`ci_infra`** scope in CI: `@workspace/cursor-pr-review-tests` plus changed-file Prettier only.
 - **`pnpm format:check:changed -- --base origin/main --head HEAD`** — Prettier on changed files only (what PR CI uses for formatting).
 - **`pnpm cursor:review -- --base origin/main --head HEAD`** — fast diff check against `.cursor/rules` (heuristics only; not a substitute for `code-quality`).
 - **AI review (optional)** — `pnpm ai:review` with `CURSOR_REVIEW_BASE_SHA` / `CURSOR_REVIEW_HEAD_SHA` and `OPENAI_API_KEY`; GitHub Actions can post an advisory comment when `OPENAI_API_KEY` is configured as a repo secret.

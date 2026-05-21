@@ -30,8 +30,9 @@ This step is **non-negotiable** before declaring verification complete.
 
 From repo root, prefer the single workspace gate:
 
-- **`pnpm code-quality:affected`** — when verifying a focused change set (matches PR CI). Set `TURBO_SCM_BASE=origin/main` when Turbo needs an explicit base ref locally.
+- **`pnpm code-quality:affected`** — when verifying a focused change set (matches PR CI). Set `TURBO_SCM_BASE=origin/main` when Turbo needs an explicit base ref locally. Pass `-- --base origin/main --head HEAD` to the trailing `format:check:changed` step.
 - **`pnpm code-quality`** — full workspace lint, type-check, test coverage, merged coverage, then **`format:check`** again at the end. Use when the user asks for **full** verification or before relying on main-push CI scope.
+- **CI-only diffs** (`.github/**`, `scripts/**`, root `package.json` without lockfile changes, docs) match PR CI **`ci_infra`** scope: run `@workspace/cursor-pr-review-tests` and `pnpm format:check:changed -- --base … --head …` instead of full Turbo affected.
 
 If `code-quality` is blocked (unrelated packages, missing DB, env, or known flaky suites):
 
