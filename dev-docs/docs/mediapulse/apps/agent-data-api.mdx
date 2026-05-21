@@ -71,18 +71,20 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`
 
 Implemented in `apps/mediapulse/agent-data-api/src/routes/data-collection-existing-urls.ts`. Zod schemas and the **`DATA_COLLECTION_EXISTING_URLS_MAX`** constant (500) live in `@workspace/agent-data-api-contract` (`data-collection.ts`); the manifest resource key is **`dataCollectionExistingUrls`**, so the same route exists under **`/api/v2/data-collection-existing-urls`** when callers pin `version: "v2"` on the SDK.
 
-- **POST** — Body (`postDataCollectionExistingUrlsBodySchema`): **`tickerId`** (required, non-empty string), **`urls`** (required array of URL strings, each valid URL, at most **`DATA_COLLECTION_EXISTING_URLS_MAX`** entries per request). Response (`postDataCollectionExistingUrlsResponseSchema`): **`existingUrls`** — deduplicated list of strings from **`urls`** that already have at least one `data_source` row for that **`tickerId`** (exact match on the stored `url` column; no normalization).
-- **Empty list** — If **`urls`** is `[]`, the handler returns **`200`** with **`{ "existingUrls": [] }`** and does not query Prisma for an empty `IN` clause.
+- **POST** — Body (`postDataCollectionExistingUrlsBodySchema`): **`tickerId`** (required, non-empty string), **`urls`** (required array of URL strings, each valid URL, at most **`DATA_COLLECTION_EXISTING_URLS_MAX`** entries per request). Response (`postDataCollectionExistingUrlsResponseSchema`): **`existingUrls`** — deduplicated list of strings from **`urls`** that already have at least one `data_source` row for that **`tickerId`** (exact match on the stored `url` column; no normalization); **`hostCounts`** — map of hostname → count of all `data_source` rows for that ticker (full corpus aggregation, used for pre-fetch host-fatigue ranking).
+- **Empty list** — If **`urls`** is `[]`, the handler returns **`200`** with **`{ "existingUrls": [], "hostCounts": { … } }`** and still loads **`hostCounts`** from Prisma (no URL `IN` filter).
 - **Errors** — **`401`** without a valid bearer JWT (same as other versioned routes). Invalid JSON body or Zod validation failures return **`400`** with `message: "Bad Request"` and **`errors`** (via shared `internalError` handling), consistent with other POST handlers.
 
 From agents, use the SDK namespace **`dataCollectionExistingUrls`**: **`create`** for POST. The data-collection agent dedupes candidate URLs, then chunks requests so each POST stays within **`DATA_COLLECTION_EXISTING_URLS_MAX`**.
 
 ```ts
-const { existingUrls } = await dataApiClient.dataCollectionExistingUrls.create({
+const { existingUrls, hostCounts } =
+  await dataApiClient.dataCollectionExistingUrls.create({
   tickerId,
   urls: ["https://news.example/a", "https://news.example/b"],
 });
 // existingUrls is a subset of urls that already exist in data_source for this ticker
+// hostCounts maps hostname → total sources for the ticker (for fetch ranking)
 ```
 
 ### Content generation newsletters latest (`/api/v1/content-generation-newsletters-latest`)

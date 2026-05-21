@@ -10,6 +10,14 @@ export type SlidingWindowRateLimiter = {
    * @returns Milliseconds waited before acquiring the slot.
    */
   acquire: () => Promise<number>;
+  /**
+   * Updates the sliding window length used by subsequent `acquire` calls.
+   *
+   * @param windowMs - New window length in milliseconds.
+   */
+  setWindowMs: (windowMs: number) => void;
+  /** Returns the active sliding window length in milliseconds. */
+  getWindowMs: () => number;
 };
 
 /**
@@ -44,6 +52,7 @@ export function createSlidingWindowRateLimiter(options: {
     );
   }
   const clock = options.clock ?? { now: () => Date.now() };
+  let windowMs = options.windowMs;
   let lastAcquireAt = 0;
   const timestamps: number[] = [];
 
@@ -52,10 +61,7 @@ export function createSlidingWindowRateLimiter(options: {
       let totalWaitMs = 0;
       for (;;) {
         const now = clock.now();
-        while (
-          timestamps.length > 0 &&
-          timestamps[0]! < now - options.windowMs
-        ) {
+        while (timestamps.length > 0 && timestamps[0]! < now - windowMs) {
           timestamps.shift();
         }
 
@@ -65,7 +71,7 @@ export function createSlidingWindowRateLimiter(options: {
         );
         const waitForWindow =
           timestamps.length >= options.maxInWindow
-            ? Math.max(0, timestamps[0]! + options.windowMs - now)
+            ? Math.max(0, timestamps[0]! + windowMs - now)
             : 0;
         const waitMs = Math.max(waitForMinInterval, waitForWindow);
 
@@ -78,6 +84,17 @@ export function createSlidingWindowRateLimiter(options: {
         await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
         totalWaitMs += waitMs;
       }
+    },
+    setWindowMs(nextWindowMs: number) {
+      if (!Number.isFinite(nextWindowMs) || nextWindowMs <= 0) {
+        throw new Error(
+          `createSlidingWindowRateLimiter.setWindowMs: windowMs must be > 0 (got ${String(nextWindowMs)})`,
+        );
+      }
+      windowMs = nextWindowMs;
+    },
+    getWindowMs() {
+      return windowMs;
     },
   };
 }

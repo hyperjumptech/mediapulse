@@ -13,8 +13,11 @@ describe("resolveExistingDataSourceUrls", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns empty set when there are no candidate URLs", async () => {
-    const lookup = vi.fn();
+  it("returns empty set and host counts when there are no candidate URLs", async () => {
+    const lookup = vi.fn().mockResolvedValue({
+      existingUrls: [],
+      hostCounts: { "example.com": 2 },
+    });
 
     const result = await resolveExistingDataSourceUrls(
       "ticker-1",
@@ -22,13 +25,15 @@ describe("resolveExistingDataSourceUrls", () => {
       lookup as LookupExistingDataSourceUrls,
     );
 
-    expect(result.size).toBe(0);
-    expect(lookup).not.toHaveBeenCalled();
+    expect(result.existingUrls.size).toBe(0);
+    expect(result.hostCounts).toEqual({ "example.com": 2 });
+    expect(lookup).toHaveBeenCalledWith({ tickerId: "ticker-1", urls: [] });
   });
 
   it("merges existing URLs from a single lookup chunk", async () => {
     const lookup = vi.fn().mockResolvedValue({
       existingUrls: ["https://a.example", "https://b.example"],
+      hostCounts: { "a.example": 1 },
     });
 
     const result = await resolveExistingDataSourceUrls(
@@ -42,18 +47,20 @@ describe("resolveExistingDataSourceUrls", () => {
       tickerId: "ticker-1",
       urls: ["https://a.example", "https://c.example"],
     });
-    expect(result.has("https://a.example")).toBe(true);
-    expect(result.has("https://b.example")).toBe(true);
-    expect(result.has("https://c.example")).toBe(false);
+    expect(result.existingUrls.has("https://a.example")).toBe(true);
+    expect(result.existingUrls.has("https://b.example")).toBe(true);
+    expect(result.existingUrls.has("https://c.example")).toBe(false);
+    expect(result.hostCounts).toEqual({ "a.example": 1 });
   });
 
   it("chunks requests when candidate count exceeds max", async () => {
     const urls = Array.from(
       { length: DATA_COLLECTION_EXISTING_URLS_MAX + 1 },
-      (_, i) => `https://example.com/p/${i}`,
+      (_, index) => `https://example.com/p/${index}`,
     );
     const lookup = vi.fn().mockResolvedValue({
       existingUrls: [],
+      hostCounts: {},
     });
 
     await resolveExistingDataSourceUrls(

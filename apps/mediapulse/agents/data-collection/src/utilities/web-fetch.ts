@@ -1,8 +1,9 @@
 import got from "got";
 import { z } from "zod";
 import { logger as defaultLogger } from "@workspace/logger";
-import { RateLimiter, withRetry } from "./resilience";
+import { RateLimiter, type StageThrottleStats, withRetry } from "./resilience";
 import { classifyError, isRetryableError } from "./error-classification";
+import { pMap } from "./p-map";
 
 import type { WebSearchResult } from "./web-search";
 import type { ConfigSchemaType } from "./config-schema";
@@ -37,6 +38,8 @@ export interface WebFetchDeps {
   gotClient?: typeof got;
   /** Logger with run correlation; defaults to workspace logger. */
   logger?: WebFetchLogger;
+  /** Optional counter mutated with adaptive throttle events for this stage. */
+  throttleStats?: StageThrottleStats;
 }
 
 /**
@@ -68,6 +71,107 @@ export const webFetchResponseSchema = z.object({
 export type WebFetchResponse = z.infer<typeof webFetchResponseSchema>;
 
 /**
+ * Resolves effective mapper concurrency capped by the configured rate limit.
+ *
+ * @param config - Web fetch provider configuration.
+ */
+const resolveFetchConcurrency = (
+  config: NonNullable<ConfigSchemaType["webFetch"]>,
+): number => Math.min(config.concurrency ?? 4, config.rateLimit.requests);
+
+/**
+ * Fetches one search hit and returns the attempt result.
+ *
+ * @param result - Search hit to fetch.
+ * @param deps - Shared dependencies for the fetch stage.
+ */
+const fetchOneResult = async (
+  result: WebSearchResult,
+  deps: {
+    config: NonNullable<ConfigSchemaType["webFetch"]>;
+    gotClient: typeof got;
+    log: WebFetchLogger;
+    rateLimiter: RateLimiter;
+    authHeaders: Record<string, string>;
+    endpoint: string;
+  },
+): Promise<WebFetchAttemptResult> => {
+  const { config, gotClient, log, rateLimiter, authHeaders, endpoint } = deps;
+
+  try {
+    await rateLimiter.acquire();
+
+    const fetchTask = async () => {
+      const response = await gotClient.post(endpoint, {
+        json: { url: result.url },
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        timeout: config.timeoutMs ? { request: config.timeoutMs } : undefined,
+      });
+      rateLimiter.recordResponse(response.statusCode);
+      const raw = JSON.parse(response.body) as unknown;
+
+      const parsed = webFetchResponseSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw parsed.error;
+      }
+
+      const data = parsed.data.data;
+      if (!data || !data.content || data.content.trim() === "") {
+        throw new Error("Semantic validation failed");
+      }
+
+      return data;
+    };
+
+    const data = config.retry
+      ? await withRetry(fetchTask, config.retry, isRetryableError)
+      : await fetchTask();
+
+    return {
+      success: true,
+      data: {
+        url: data.url ?? result.url,
+        title: data.title ?? result.title,
+        content: data.content ?? "",
+        tickerId: result.tickerId,
+        searchQueryId: result.searchQueryId,
+        searchQueryText: result.searchQueryText,
+        serpIndex: result.serpIndex,
+      },
+    };
+  } catch (error) {
+    const classified = classifyError(error);
+    rateLimiter.recordResponse(classified.httpStatus);
+    log.warn(
+      {
+        searchQueryId: result.searchQueryId,
+        url: truncateUrlForLog(result.url),
+        errorCategory: classified.category,
+        retryable: isRetryableError(error),
+        ...(classified.httpStatus !== undefined
+          ? { httpStatus: classified.httpStatus }
+          : {}),
+      },
+      "web fetch: URL failed",
+    );
+    return {
+      success: false,
+      url: result.url,
+      queryId: result.searchQueryId,
+      tickerId: result.tickerId,
+      errorCategory: classified.category,
+      message: classified.message,
+      retryable: isRetryableError(error),
+      httpStatus: classified.httpStatus,
+    };
+  }
+};
+
+/**
  * Fetches and enriches web page contents for each search result using the Jina AI API.
  * Uses config-driven limits, retries, and yields partial success items.
  *
@@ -79,9 +183,8 @@ export async function performWebFetch(
   searchResults: WebSearchResult[],
   deps: WebFetchDeps,
 ): Promise<WebFetchAttemptResult[]> {
-  const { config, gotClient = got, logger: logOpt } = deps;
+  const { config, gotClient = got, logger: logOpt, throttleStats } = deps;
   const log = logOpt ?? defaultLogger;
-  const results: WebFetchAttemptResult[] = [];
 
   log.info({ urlCount: searchResults.length }, "web fetch: starting");
 
@@ -97,81 +200,25 @@ export async function performWebFetch(
       `${prefix}${config.authentication.apiKey}`;
   }
 
-  // ensure trailing slash if required by fetcher or handle path correctly
   const endpoint = config.baseUrl;
+  const concurrency = resolveFetchConcurrency(config);
+  const sharedDeps = {
+    config,
+    gotClient,
+    log,
+    rateLimiter,
+    authHeaders,
+    endpoint,
+  };
 
-  for (const result of searchResults) {
-    try {
-      await rateLimiter.acquire();
+  const results = await pMap(
+    searchResults,
+    (result) => fetchOneResult(result, sharedDeps),
+    { concurrency },
+  );
 
-      const fetchTask = async () => {
-        const raw = await gotClient
-          .post(endpoint, {
-            json: { url: result.url },
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-              ...authHeaders,
-            },
-            timeout: config.timeoutMs
-              ? { request: config.timeoutMs }
-              : undefined,
-          })
-          .json<unknown>();
-
-        const parsed = webFetchResponseSchema.safeParse(raw);
-        if (!parsed.success) {
-          throw parsed.error;
-        }
-
-        const data = parsed.data.data;
-        if (!data || !data.content || data.content.trim() === "") {
-          throw new Error("Semantic validation failed");
-        }
-
-        return data;
-      };
-
-      const data = config.retry
-        ? await withRetry(fetchTask, config.retry, isRetryableError)
-        : await fetchTask();
-
-      results.push({
-        success: true,
-        data: {
-          url: data.url ?? result.url,
-          title: data.title ?? result.title,
-          content: data.content ?? "",
-          tickerId: result.tickerId,
-          searchQueryId: result.searchQueryId,
-          searchQueryText: result.searchQueryText,
-        },
-      });
-    } catch (e) {
-      const classified = classifyError(e);
-      log.warn(
-        {
-          searchQueryId: result.searchQueryId,
-          url: truncateUrlForLog(result.url),
-          errorCategory: classified.category,
-          retryable: isRetryableError(e),
-          ...(classified.httpStatus !== undefined
-            ? { httpStatus: classified.httpStatus }
-            : {}),
-        },
-        "web fetch: URL failed",
-      );
-      results.push({
-        success: false,
-        url: result.url,
-        queryId: result.searchQueryId,
-        tickerId: result.tickerId,
-        errorCategory: classified.category,
-        message: classified.message,
-        retryable: isRetryableError(e),
-        httpStatus: classified.httpStatus,
-      });
-    }
+  if (throttleStats) {
+    throttleStats.throttleEvents += rateLimiter.getThrottleEvents();
   }
 
   return results;

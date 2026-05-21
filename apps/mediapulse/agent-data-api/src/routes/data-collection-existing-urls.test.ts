@@ -26,7 +26,11 @@ describe("postDataCollectionExistingUrls", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns 200 with empty existingUrls without querying when urls is empty", async () => {
+  it("returns host counts when urls is empty", async () => {
+    vi.mocked(prisma.dataSource.findMany).mockResolvedValueOnce([
+      { url: "https://exists.example/page" },
+    ] as never);
+
     const app = new Hono();
     app.post("/test", postDataCollectionExistingUrls);
 
@@ -37,15 +41,20 @@ describe("postDataCollectionExistingUrls", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ existingUrls: [] });
-    expect(prisma.dataSource.findMany).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({
+      existingUrls: [],
+      hostCounts: { "exists.example": 1 },
+    });
+    expect(prisma.dataSource.findMany).toHaveBeenCalledTimes(1);
   });
 
   it("returns 200 with URLs returned by prisma for the ticker", async () => {
-    vi.mocked(prisma.dataSource.findMany).mockResolvedValue([
-      { url: "https://exists.example" },
-      { url: "https://exists.example" },
-    ] as never);
+    vi.mocked(prisma.dataSource.findMany)
+      .mockResolvedValueOnce([{ url: "https://exists.example/other" }] as never)
+      .mockResolvedValueOnce([
+        { url: "https://exists.example" },
+        { url: "https://exists.example" },
+      ] as never);
 
     const app = new Hono();
     app.post("/test", postDataCollectionExistingUrls);
@@ -60,17 +69,13 @@ describe("postDataCollectionExistingUrls", () => {
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { existingUrls: string[] };
+    const body = (await res.json()) as {
+      existingUrls: string[];
+      hostCounts: Record<string, number>;
+    };
     expect(body.existingUrls).toEqual(["https://exists.example"]);
-    expect(prisma.dataSource.findMany).toHaveBeenCalledWith({
-      where: {
-        tickerId: TICKER_ID,
-        url: {
-          in: ["https://exists.example", "https://new.example"],
-        },
-      },
-      select: { url: true },
-    });
+    expect(body.hostCounts).toEqual({ "exists.example": 1 });
+    expect(prisma.dataSource.findMany).toHaveBeenCalledTimes(2);
   });
 
   it("returns 400 when body fails schema validation", async () => {

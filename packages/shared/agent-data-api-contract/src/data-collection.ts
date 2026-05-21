@@ -43,10 +43,12 @@ export const postDataCollectionExistingUrlsBodySchema = z.object({
 });
 
 /**
- * Response: subset of requested URLs that already have a `data_source` row for the ticker (exact URL match).
+ * Response: subset of requested URLs that already have a `data_source` row for the ticker (exact URL match),
+ * plus host counts for host-fatigue ranking.
  */
 export const postDataCollectionExistingUrlsResponseSchema = z.object({
   existingUrls: z.array(z.string()),
+  hostCounts: z.record(z.string(), z.number().int().nonnegative()),
 });
 
 export type DataCollectionBody = z.infer<typeof dataCollectionBodySchema>;
