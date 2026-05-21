@@ -30,6 +30,7 @@ const minimalSignals = {
   avgMentionConfidence: 0.5,
   titleLower: "headline",
   textLower: "body",
+  entityNames: [],
 } satisfies PerSourceRelevanceSignals;
 
 describe("articleAnalysisConfigSchema", () => {

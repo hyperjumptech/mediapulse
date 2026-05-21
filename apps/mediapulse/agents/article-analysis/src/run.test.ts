@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE } from "./article-analysis-observability.js";
 import * as RelevancePostChunks from "./analysis-relevance-post-chunks.js";
 import * as Llm from "./llm-extract-entities.js";
+import * as RelevanceScoring from "./analysis-relevance-scoring.js";
+import * as RelevanceSelection from "./analysis-relevance-selection.js";
 import {
   articleAnalysisConfigDefaults,
   type ArticleAnalysisConfig,
@@ -2100,5 +2102,590 @@ describe("run", () => {
     expect(
       analysisCreate.mock.calls[1]?.[0]?.articleEntities?.[0]?.confidence,
     ).toBe(0.4);
+  });
+
+  it("skips relation critique when a source has fewer relations than relationCritiqueMinRelationCount", async () => {
+    const critiqueSpy = vi
+      .spyOn(Llm, "critiqueExtractedRelations")
+      .mockResolvedValue({ ratings: [], usage: null });
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "A", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "B", typeId: TYPE_ID, aliases: [] },
+        ],
+        relations: [
+          {
+            fromEntityName: "A",
+            toEntityName: "B",
+            relationTypeId: REL_ID,
+          },
+          {
+            fromEntityName: "B",
+            toEntityName: "A",
+            relationTypeId: REL_ID,
+          },
+        ],
+        articleMentions: [],
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 2,
+      entitiesReused: 0,
+      relationsCreated: 2,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: {
+          useRelationSelfCritique: true,
+          relationCritiqueMinRelationCount: 3,
+        },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(critiqueSpy).not.toHaveBeenCalled();
+    expect(analysisCreate.mock.calls[0]?.[0]?.relations).toHaveLength(2);
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (summaryCall?.[0] as { relationCritique?: { sourcesCritiqued: number } })
+        .relationCritique,
+    ).toBeUndefined();
+  });
+
+  it("skips relation critique when the run deadline has elapsed", async () => {
+    const critiqueSpy = vi
+      .spyOn(Llm, "critiqueExtractedRelations")
+      .mockResolvedValue({ ratings: [], usage: null });
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "A", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "B", typeId: TYPE_ID, aliases: [] },
+          { canonicalName: "C", typeId: TYPE_ID, aliases: [] },
+        ],
+        relations: [
+          {
+            fromEntityName: "A",
+            toEntityName: "B",
+            relationTypeId: REL_ID,
+          },
+          {
+            fromEntityName: "B",
+            toEntityName: "C",
+            relationTypeId: REL_ID,
+          },
+          {
+            fromEntityName: "C",
+            toEntityName: "A",
+            relationTypeId: REL_ID,
+          },
+        ],
+        articleMentions: [],
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 3,
+      entitiesReused: 0,
+      relationsCreated: 3,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: {
+          useRelationSelfCritique: true,
+          runDeadlineMs: 0,
+        },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(critiqueSpy).not.toHaveBeenCalled();
+    expect(analysisCreate.mock.calls[0]?.[0]?.relations).toHaveLength(3);
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (summaryCall?.[0] as { relationCritique?: { critiqueCalls: number } })
+        .relationCritique?.critiqueCalls,
+    ).toBe(0);
+    expect(mockLog.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dataSourceId: DS_ID,
+        runDeadlineMs: 0,
+      }),
+      "article-analysis skipping relation critique due to run deadline",
+    );
+  });
+
+  it("skips the entire source under strict vocabulary policy when one UUID is invalid", async () => {
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [source],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "Good", typeId: TYPE_ID, aliases: [] },
+          {
+            canonicalName: "Bad",
+            typeId: "99999999-9999-4999-a999-999999999999",
+            aliases: [],
+          },
+        ],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { vocabularyPolicy: "strict" },
+      }),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.details?.vocabularyFailures).toBe(1);
+    expect(analysisCreate).not.toHaveBeenCalled();
+    expect(
+      (result.details?.extractionFailures as { stage: string }[])[0]?.stage,
+    ).toBe("vocabulary");
+  });
+
+  it("keeps valid rows under partition policy when one entity UUID is invalid", async () => {
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [source],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "Good", typeId: TYPE_ID, aliases: [] },
+          {
+            canonicalName: "Bad",
+            typeId: "99999999-9999-4999-a999-999999999999",
+            aliases: [],
+          },
+        ],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { vocabularyPolicy: "partition" },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.details?.vocabularyFailures).toBe(0);
+    expect(
+      (
+        analysisCreate.mock.calls[0]?.[0]?.entities as Array<{
+          canonicalName: string;
+        }>
+      )?.map((entity) => entity.canonicalName),
+    ).toEqual(["Good"]);
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (
+        summaryCall?.[0] as {
+          vocabularyPartitioning?: { badEntitiesDropped: number };
+        }
+      ).vocabularyPartitioning?.badEntitiesDropped,
+    ).toBe(1);
+  });
+
+  it("recovers repaired entities under repair vocabulary policy", async () => {
+    const repairSpy = vi
+      .spyOn(Llm, "repairExtractionVocabulary")
+      .mockResolvedValue({
+        entities: [
+          {
+            canonicalName: "Bad",
+            typeId: TYPE_ID,
+            aliases: [],
+          },
+        ],
+        relations: [],
+        usage: null,
+      });
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [source],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "Good", typeId: TYPE_ID, aliases: [] },
+          {
+            canonicalName: "Bad",
+            typeId: "99999999-9999-4999-a999-999999999999",
+            aliases: [],
+          },
+        ],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 2,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { vocabularyPolicy: "repair" },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(repairSpy).toHaveBeenCalledOnce();
+    const postedNames = (
+      analysisCreate.mock.calls[0]?.[0]?.entities as Array<{
+        canonicalName: string;
+      }>
+    )?.map((entity) => entity.canonicalName);
+    expect(postedNames?.sort()).toEqual(["Bad", "Good"]);
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (
+        summaryCall?.[0] as {
+          vocabularyPartitioning?: { rowsRecoveredByRepair: number };
+        }
+      ).vocabularyPartitioning?.rowsRecoveredByRepair,
+    ).toBe(1);
+  });
+
+  it("falls back to partitioned good rows when vocabulary repair throws", async () => {
+    vi.spyOn(Llm, "repairExtractionVocabulary").mockRejectedValue(
+      new Error("repair failed"),
+    );
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [source],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [
+          { canonicalName: "Good", typeId: TYPE_ID, aliases: [] },
+          {
+            canonicalName: "Bad",
+            typeId: "99999999-9999-4999-a999-999999999999",
+            aliases: [],
+          },
+        ],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { vocabularyPolicy: "repair" },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(
+      (
+        analysisCreate.mock.calls[0]?.[0]?.entities as Array<{
+          canonicalName: string;
+        }>
+      )?.map((entity) => entity.canonicalName),
+    ).toEqual(["Good"]);
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (
+        summaryCall?.[0] as {
+          vocabularyPartitioning?: {
+            repairCallsFailed: number;
+            rowsRecoveredByRepair: number;
+          };
+        }
+      ).vocabularyPartitioning,
+    ).toMatchObject({
+      repairCallsFailed: 1,
+      rowsRecoveredByRepair: 0,
+    });
+  });
+
+  it("ranks Reuters above a stale unknown blog when useSourceQualityV2 is enabled", async () => {
+    vi.useFakeTimers({ now: new Date("2026-06-01T12:00:00.000Z") });
+    const now = new Date("2026-06-01T12:00:00.000Z");
+    const twoHoursAgo = new Date(now.getTime() - 2 * 3_600_000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 3_600_000);
+
+    const relevanceSpy = vi.spyOn(RelevanceScoring, "buildDraftRelevanceRow");
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: "https://www.reuters.com/business/story-123",
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: twoHoursAgo,
+            publishedAt: twoHoursAgo,
+          },
+          {
+            id: DS_ID_2,
+            url: "https://random-blog.example.com/opinion-piece",
+            title: "Article headline two test",
+            content: `${validSourceContent()}\n\n${"SHOUTING RUMOR OPINION ".repeat(90)}`,
+            tickerId: "ticker-1",
+            createdAt: fourteenDaysAgo,
+            publishedAt: fourteenDaysAgo,
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
+
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { useSourceQualityV2: true },
+      }),
+    );
+
+    vi.useRealTimers();
+
+    expect(result.success).toBe(true);
+
+    const reutersRow = relevanceSpy.mock.results
+      .map((call) => call.value)
+      .find(
+        (row) =>
+          row !== undefined &&
+          (row as RelevanceScoring.ArticleRelevanceRow).dataSourceId === DS_ID,
+      ) as RelevanceScoring.ArticleRelevanceRow | undefined;
+    const blogRow = relevanceSpy.mock.results
+      .map((call) => call.value)
+      .find(
+        (row) =>
+          row !== undefined &&
+          (row as RelevanceScoring.ArticleRelevanceRow).dataSourceId ===
+            DS_ID_2,
+      ) as RelevanceScoring.ArticleRelevanceRow | undefined;
+
+    expect(reutersRow).toBeDefined();
+    expect(blogRow).toBeDefined();
+    expect(reutersRow!.score).toBeGreaterThan(blogRow!.score);
+    expect(reutersRow!.scoreBreakdown.sourceQuality).toBeGreaterThan(0.8);
+    expect(blogRow!.scoreBreakdown.sourceQuality).toBeLessThan(0.4);
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (c) =>
+        typeof c[0] === "object" &&
+        c[0] !== null &&
+        (c[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(
+      (summaryCall?.[0] as { sourceQuality?: { tier1Sources: number } })
+        .sourceQuality?.tier1Sources,
+    ).toBe(1);
+  });
+
+  it("matches classic applyRelevanceSelection when useSelectionDiversification is false", async () => {
+    const diversifiedSpy = vi.spyOn(
+      RelevanceSelection,
+      "applyRelevanceSelectionDiversified",
+    );
+    const classicSpy = vi.spyOn(RelevanceSelection, "applyRelevanceSelection");
+
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [source],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockResolvedValue(
+      llmResult({
+        entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+        relations: [],
+        articleMentions: [],
+      }),
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: { useSelectionDiversification: false },
+      }),
+    );
+
+    expect(diversifiedSpy).not.toHaveBeenCalled();
+    expect(classicSpy).toHaveBeenCalledTimes(1);
+
+    const [inputRows, minScore, budget] = classicSpy.mock.calls[0]!;
+    const expected = RelevanceSelection.applyRelevanceSelection(
+      inputRows!,
+      minScore!,
+      budget!,
+    );
+    expect(classicSpy.mock.results[0]?.value).toEqual(expected);
   });
 });

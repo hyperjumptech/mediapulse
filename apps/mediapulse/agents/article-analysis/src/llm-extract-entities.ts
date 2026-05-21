@@ -3,9 +3,16 @@ import { generateObject, generateText, type ModelMessage } from "ai";
 import type { GetAnalysisResponse } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
+import type {
+  BadEntityRecord,
+  BadRelationRecord,
+  EntityProposal,
+  RelationProposal,
+} from "./analysis-vocabulary.js";
 import {
   ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
   ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_TEMPLATE_DEFAULT,
+  ARTICLE_ANALYSIS_REPAIR_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
   formatArticleAnalysisEntityTypesBlock,
   formatArticleAnalysisRelationTypesBlock,
 } from "./article-extraction-prompt-defaults.js";
@@ -125,6 +132,47 @@ export type LlmExtractionCallResult = {
   usage: LlmExtractionUsage | null;
 };
 
+/** Wire schema for the relation self-critique pass (`generateObject`). */
+export const llmRelationCritiqueSchema = z.object({
+  ratings: z.array(
+    z.object({
+      fromEntityName: z.string(),
+      toEntityName: z.string(),
+      relationTypeId: z.string().uuid(),
+      textualSupport: z.number().min(1).max(5),
+      correctnessOfType: z.number().min(1).max(5),
+      novelty: z.number().min(1).max(5),
+      drop: z.boolean(),
+      evidenceSpan: z.string().max(280),
+    }),
+  ),
+});
+
+export type LlmRelationCritiqueWireOutput = z.infer<
+  typeof llmRelationCritiqueSchema
+>;
+
+export type LlmRelationCritiqueRating =
+  LlmRelationCritiqueWireOutput["ratings"][number];
+
+export type RelationCritiqueCandidate =
+  LlmExtractionOutput["relations"][number];
+
+export type LlmRelationCritiqueCallResult = {
+  ratings: LlmRelationCritiqueRating[];
+  usage: LlmExtractionUsage | null;
+};
+
+export type GenerateObjectForRelationCritique = (args: {
+  model: ReturnType<ReturnType<typeof createOpenAI>>;
+  schema: typeof llmRelationCritiqueSchema;
+  maxOutputTokens: number;
+  messages: ModelMessage[];
+}) => Promise<{
+  object: LlmRelationCritiqueWireOutput;
+  usage: LlmExtractionUsage | null;
+}>;
+
 export type GenerateObjectForExtraction = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmExtractionOpenAiWireSchema;
@@ -132,6 +180,45 @@ export type GenerateObjectForExtraction = (args: {
   messages: ModelMessage[];
 }) => Promise<{
   object: LlmExtractionWireOutput;
+  usage: LlmExtractionUsage | null;
+}>;
+
+/** Wire schema for the vocabulary-repair pass (`generateObject`). */
+export const llmVocabularyRepairWireSchema = z.object({
+  entities: z.array(
+    z.object({
+      canonicalName: z.string().trim().min(1),
+      typeId: z.string().uuid(),
+      description: z.string().max(4000),
+      aliases: z.array(z.string().trim().min(1)),
+    }),
+  ),
+  relations: z.array(
+    z.object({
+      fromEntityName: z.string().trim().min(1),
+      toEntityName: z.string().trim().min(1),
+      relationTypeId: z.string().uuid(),
+    }),
+  ),
+});
+
+export type LlmVocabularyRepairWireOutput = z.infer<
+  typeof llmVocabularyRepairWireSchema
+>;
+
+export type LlmVocabularyRepairCallResult = {
+  entities: EntityProposal[];
+  relations: RelationProposal[];
+  usage: LlmExtractionUsage | null;
+};
+
+export type GenerateObjectForVocabularyRepair = (args: {
+  model: ReturnType<ReturnType<typeof createOpenAI>>;
+  schema: typeof llmVocabularyRepairWireSchema;
+  maxOutputTokens: number;
+  messages: ModelMessage[];
+}) => Promise<{
+  object: LlmVocabularyRepairWireOutput;
   usage: LlmExtractionUsage | null;
 }>;
 
@@ -180,6 +267,24 @@ const defaultGenerateTextForBrainstorm: GenerateTextForBrainstorm = async (
     usage: normalizeLlmUsageFromSdk(result.usage),
   };
 };
+
+const defaultGenerateObjectForRelationCritique: GenerateObjectForRelationCritique =
+  async (args) => {
+    const result = await generateObject(args);
+    return {
+      object: result.object,
+      usage: normalizeLlmUsageFromSdk(result.usage),
+    };
+  };
+
+const defaultGenerateObjectForVocabularyRepair: GenerateObjectForVocabularyRepair =
+  async (args) => {
+    const result = await generateObject(args);
+    return {
+      object: result.object,
+      usage: normalizeLlmUsageFromSdk(result.usage),
+    };
+  };
 
 const BRAINSTORM_SYSTEM_PROMPT = [
   "You are an equity analyst reading ONE article.",
@@ -466,6 +571,369 @@ export const extractEntitiesAndRelationsForSource = async (
   });
   return {
     object: normalizeLlmExtractionWire(raw.object),
+    usage: raw.usage,
+  };
+};
+
+const RELATION_CRITIQUE_SYSTEM_PROMPT = [
+  "You critique knowledge-graph relation triples extracted from ONE article.",
+  "For each candidate triple (fromEntityName, toEntityName, relationTypeId), score:",
+  "textualSupport (1–5): does the article text actually assert this relationship?",
+  "correctnessOfType (1–5): is relationTypeId the best label from RELATION TYPES?",
+  "novelty (1–5): does the triple add information beyond naming the entities?",
+  "Set drop=true only when the triple should not be persisted.",
+  "Provide evidenceSpan: one sentence quoting or paraphrasing the article (max 280 chars).",
+  "Rate ONLY the numbered candidates — do not invent new triples.",
+  "RELATION TYPES (uuid — label):\n{{relationTypesBlock}}",
+].join("\n\n");
+
+/**
+ * Stable key for matching critique ratings to extracted relation rows.
+ *
+ * @param relation - Candidate or rating row with endpoint names and type id.
+ */
+export const relationCritiqueRowKey = (relation: {
+  fromEntityName: string;
+  toEntityName: string;
+  relationTypeId: string;
+}): string =>
+  `${relation.fromEntityName}\0${relation.toEntityName}\0${relation.relationTypeId}`;
+
+/**
+ * Serializes relation candidates as a numbered list for the critique user turn.
+ *
+ * @param candidates - Post-grounding relations for one source.
+ */
+export const formatRelationCritiqueCandidatesBlock = (
+  candidates: readonly RelationCritiqueCandidate[],
+): string =>
+  candidates
+    .map(
+      (relation, index) =>
+        `${String(index + 1)}. from=${relation.fromEntityName} to=${relation.toEntityName} relationTypeId=${relation.relationTypeId}`,
+    )
+    .join("\n");
+
+/**
+ * Builds the relation-critique system prompt with allowed relation type vocabulary.
+ *
+ * @param ctx - Analysis GET vocabulary slice.
+ */
+export const buildRelationCritiqueSystemContent = (
+  ctx: Pick<GetAnalysisResponse, "relationTypes">,
+): string =>
+  substituteLlmPromptTemplate(RELATION_CRITIQUE_SYSTEM_PROMPT, {
+    relationTypesBlock: formatArticleAnalysisRelationTypesBlock(ctx),
+  });
+
+/**
+ * Builds the relation-critique user message with full article text and candidates.
+ *
+ * @param args - Article title, full body, and candidate triples.
+ */
+export const buildRelationCritiqueUserContent = (args: {
+  articleTitle: string;
+  articleBody: string;
+  candidates: readonly RelationCritiqueCandidate[];
+}): string =>
+  [
+    `title: ${args.articleTitle}`,
+    "article:",
+    args.articleBody,
+    "Candidate relation triples (rate every row; use exact from/to/relationTypeId strings):",
+    formatRelationCritiqueCandidatesBlock(args.candidates),
+  ].join("\n\n");
+
+/**
+ * Builds chat messages for the relation self-critique pass.
+ *
+ * @param ctx - Vocabulary from analysis GET.
+ * @param args - Article title, full body, and candidate triples.
+ */
+export const buildRelationCritiqueModelMessages = (
+  ctx: Pick<GetAnalysisResponse, "relationTypes">,
+  args: {
+    articleTitle: string;
+    articleBody: string;
+    candidates: readonly RelationCritiqueCandidate[];
+  },
+): ModelMessage[] => [
+  { role: "system", content: buildRelationCritiqueSystemContent(ctx) },
+  { role: "user", content: buildRelationCritiqueUserContent(args) },
+];
+
+/**
+ * Applies critique ratings to relations with a hard cap on how many rows may drop.
+ *
+ * Only ratings with `drop: true` that match a candidate triple are eligible.
+ * Among those, the lowest `textualSupport + correctnessOfType + novelty` scores
+ * are removed first, up to `floor(candidates.length * dropFraction)`.
+ *
+ * @param relations - Post-grounding relation candidates for one source.
+ * @param ratings - Model critique output (unmatched ratings are ignored).
+ * @param dropFraction - Maximum fraction of candidates that may be removed (0–0.5).
+ * @returns Filtered relations, drop count, and evidence spans for kept/dropped rows.
+ */
+export const applyRelationCritiqueDrops = (
+  relations: readonly RelationCritiqueCandidate[],
+  ratings: readonly LlmRelationCritiqueRating[],
+  dropFraction: number,
+): {
+  relations: RelationCritiqueCandidate[];
+  droppedCount: number;
+  evidenceByKey: ReadonlyMap<string, string>;
+} => {
+  const candidateKeys = new Set(
+    relations.map((r) => relationCritiqueRowKey(r)),
+  );
+  const maxDrops = Math.floor(relations.length * dropFraction);
+  const evidenceByKey = new Map<string, string>();
+
+  for (const rating of ratings) {
+    const key = relationCritiqueRowKey(rating);
+    if (candidateKeys.has(key) && rating.evidenceSpan.trim().length > 0) {
+      evidenceByKey.set(key, rating.evidenceSpan.trim());
+    }
+  }
+
+  if (maxDrops <= 0) {
+    return { relations: [...relations], droppedCount: 0, evidenceByKey };
+  }
+
+  const flagged = ratings
+    .filter(
+      (rating) =>
+        rating.drop && candidateKeys.has(relationCritiqueRowKey(rating)),
+    )
+    .map((rating) => ({
+      key: relationCritiqueRowKey(rating),
+      sortScore:
+        rating.textualSupport + rating.correctnessOfType + rating.novelty,
+    }))
+    .sort((left, right) => left.sortScore - right.sortScore);
+
+  const keysToDrop = new Set(flagged.slice(0, maxDrops).map((row) => row.key));
+
+  const kept = relations.filter(
+    (relation) => !keysToDrop.has(relationCritiqueRowKey(relation)),
+  );
+
+  return {
+    relations: kept,
+    droppedCount: relations.length - kept.length,
+    evidenceByKey,
+  };
+};
+
+/**
+ * Runs the relation self-critique pass for one source via `generateObject`.
+ *
+ * @param params - API key, model, token limit, and chat messages.
+ * @param deps - Injectable `generateObject` wrapper (tests swap mock).
+ */
+export const critiqueExtractedRelations = async (
+  params: {
+    apiKey: string;
+    model: string;
+    maxOutputTokens: number;
+    messages: ModelMessage[];
+  },
+  deps: {
+    generateObjectForRelationCritique: GenerateObjectForRelationCritique;
+  } = {
+    generateObjectForRelationCritique: defaultGenerateObjectForRelationCritique,
+  },
+): Promise<LlmRelationCritiqueCallResult> => {
+  const openai = createOpenAI({ apiKey: params.apiKey });
+  const raw = await deps.generateObjectForRelationCritique({
+    model: openai(params.model),
+    schema: llmRelationCritiqueSchema,
+    maxOutputTokens: params.maxOutputTokens,
+    messages: params.messages,
+  });
+  return {
+    ratings: raw.object.ratings,
+    usage: raw.usage,
+  };
+};
+
+/**
+ * Builds the vocabulary-repair system prompt with allowed type UUID blocks.
+ *
+ * @param ctx - Vocabulary from analysis GET.
+ */
+export const buildVocabularyRepairSystemContent = (
+  ctx: Pick<GetAnalysisResponse, "entityTypes" | "relationTypes">,
+): string =>
+  substituteLlmPromptTemplate(
+    ARTICLE_ANALYSIS_REPAIR_SYSTEM_PROMPT_TEMPLATE_DEFAULT,
+    {
+      entityTypesBlock: formatArticleAnalysisEntityTypesBlock(ctx),
+      relationTypesBlock: formatArticleAnalysisRelationTypesBlock(ctx),
+    },
+  );
+
+/**
+ * Serializes rejected entities and relations for the repair user turn.
+ *
+ * @param badEntities - Rows rejected for unknown `typeId`.
+ * @param badRelations - Rows rejected for unknown type or bad endpoints.
+ */
+export const formatVocabularyRepairRejectedBlock = (
+  badEntities: readonly BadEntityRecord[],
+  badRelations: readonly BadRelationRecord[],
+): string => {
+  const entityLines = badEntities.map(
+    (row) =>
+      `- entity canonicalName=${row.entity.canonicalName} typeId=${row.entity.typeId} reason=${row.reason}`,
+  );
+  const relationLines = badRelations.map(
+    (row) =>
+      `- relation from=${row.relation.fromEntityName} to=${row.relation.toEntityName} relationTypeId=${row.relation.relationTypeId} reason=${row.reason}`,
+  );
+  return [...entityLines, ...relationLines].join("\n");
+};
+
+/**
+ * Builds the vocabulary-repair user message listing rejected rows.
+ *
+ * @param badEntities - Rows rejected for unknown `typeId`.
+ * @param badRelations - Rows rejected for unknown type or bad endpoints.
+ */
+export const buildVocabularyRepairUserContent = (
+  badEntities: readonly BadEntityRecord[],
+  badRelations: readonly BadRelationRecord[],
+): string =>
+  [
+    "Rejected extraction rows:",
+    formatVocabularyRepairRejectedBlock(badEntities, badRelations),
+  ].join("\n\n");
+
+/**
+ * Builds chat messages for the vocabulary-repair pass.
+ *
+ * @param ctx - Vocabulary from analysis GET.
+ * @param badEntities - Rows to re-label.
+ * @param badRelations - Rows to re-label.
+ */
+export const buildVocabularyRepairModelMessages = (
+  ctx: Pick<GetAnalysisResponse, "entityTypes" | "relationTypes">,
+  badEntities: readonly BadEntityRecord[],
+  badRelations: readonly BadRelationRecord[],
+): ModelMessage[] => [
+  { role: "system", content: buildVocabularyRepairSystemContent(ctx) },
+  {
+    role: "user",
+    content: buildVocabularyRepairUserContent(badEntities, badRelations),
+  },
+];
+
+/**
+ * Ensures repair output preserves canonical and endpoint name strings from the input.
+ *
+ * @param badEntities - Original rejected entities sent to repair.
+ * @param badRelations - Original rejected relations sent to repair.
+ * @param repaired - Parsed repair model output.
+ */
+export const vocabularyRepairPreservesIdentity = (
+  badEntities: readonly BadEntityRecord[],
+  badRelations: readonly BadRelationRecord[],
+  repaired: {
+    entities: readonly { canonicalName: string }[];
+    relations: readonly {
+      fromEntityName: string;
+      toEntityName: string;
+    }[];
+  },
+): boolean => {
+  const expectedEntityNames = new Set(
+    badEntities.map((row) => row.entity.canonicalName),
+  );
+  const repairedEntityNames = new Set(
+    repaired.entities.map((entity) => entity.canonicalName),
+  );
+  if (expectedEntityNames.size !== repairedEntityNames.size) {
+    return false;
+  }
+  for (const name of expectedEntityNames) {
+    if (!repairedEntityNames.has(name)) {
+      return false;
+    }
+  }
+
+  const relationKey = (relation: {
+    fromEntityName: string;
+    toEntityName: string;
+  }): string => `${relation.fromEntityName}\0${relation.toEntityName}`;
+
+  const expectedRelationKeys = new Set(
+    badRelations.map((row) => relationKey(row.relation)),
+  );
+  const repairedRelationKeys = new Set(
+    repaired.relations.map((relation) => relationKey(relation)),
+  );
+  if (expectedRelationKeys.size !== repairedRelationKeys.size) {
+    return false;
+  }
+  for (const key of expectedRelationKeys) {
+    if (!repairedRelationKeys.has(key)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+/**
+ * Runs a one-shot vocabulary repair call for rejected extraction rows.
+ *
+ * @param params - API key, model, limits, vocabulary context, and rejected rows.
+ * @param deps - Injectable `generateObject` wrapper (tests swap mock).
+ */
+export const repairExtractionVocabulary = async (
+  params: {
+    apiKey: string;
+    model: string;
+    maxOutputTokens: number;
+    ctx: Pick<GetAnalysisResponse, "entityTypes" | "relationTypes">;
+    badEntities: readonly BadEntityRecord[];
+    badRelations: readonly BadRelationRecord[];
+  },
+  deps: {
+    generateObjectForVocabularyRepair: GenerateObjectForVocabularyRepair;
+  } = {
+    generateObjectForVocabularyRepair: defaultGenerateObjectForVocabularyRepair,
+  },
+): Promise<LlmVocabularyRepairCallResult> => {
+  const openai = createOpenAI({ apiKey: params.apiKey });
+  const raw = await deps.generateObjectForVocabularyRepair({
+    model: openai(params.model),
+    schema: llmVocabularyRepairWireSchema,
+    maxOutputTokens: params.maxOutputTokens,
+    messages: buildVocabularyRepairModelMessages(
+      params.ctx,
+      params.badEntities,
+      params.badRelations,
+    ),
+  });
+
+  if (
+    !vocabularyRepairPreservesIdentity(
+      params.badEntities,
+      params.badRelations,
+      raw.object,
+    )
+  ) {
+    return { entities: [], relations: [], usage: raw.usage };
+  }
+
+  return {
+    entities: raw.object.entities.map((entity) => ({
+      canonicalName: entity.canonicalName,
+      typeId: entity.typeId,
+      aliases: entity.aliases,
+    })),
+    relations: raw.object.relations,
     usage: raw.usage,
   };
 };

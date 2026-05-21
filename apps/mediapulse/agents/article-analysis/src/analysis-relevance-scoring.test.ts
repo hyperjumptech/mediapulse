@@ -28,6 +28,7 @@ const baseSignals = (): PerSourceRelevanceSignals => ({
   avgMentionConfidence: 0.8,
   titleLower: "company reports earnings",
   textLower: "revenue grew year over year",
+  entityNames: ["acme"],
 });
 
 describe("clampUnitInterval", () => {
@@ -47,6 +48,19 @@ describe("buildScoreBreakdownV1", () => {
       expect(b[k]).toBeGreaterThanOrEqual(0);
       expect(b[k]).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("defaults sourceQuality to 0.5 when sourceQualityScore is omitted", () => {
+    const b = buildScoreBreakdownV1(baseSignals(), 1);
+    expect(b.sourceQuality).toBe(0.5);
+  });
+
+  it("uses sourceQualityScore when provided by source quality v2", () => {
+    const b = buildScoreBreakdownV1(
+      { ...baseSignals(), sourceQualityScore: 0.92 },
+      1,
+    );
+    expect(b.sourceQuality).toBe(0.92);
   });
 });
 
