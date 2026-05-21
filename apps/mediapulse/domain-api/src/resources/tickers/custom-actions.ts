@@ -3,8 +3,13 @@
  */
 
 import type { DashboardPageCustomAction } from "@hermes/domain-contract";
+import { prisma } from "@mediapulse/database";
 import type { Handler } from "hono";
 
+import {
+  buildResetAllActionManifest,
+  createResetAllPostHandler,
+} from "../../lib/table-v1-reset-all-action";
 import { importIdxTickersFromRequestBody } from "./lib/import-idx-json";
 
 /**
@@ -19,7 +24,10 @@ export type TickersTableV1CustomActionDefinition = {
  * Allowed custom-action slugs for the tickers table. Add a member here, then add the matching key
  * on {@link tickersTableV1CustomActionRegistry}; TypeScript rejects wrong keys, missing entries, or extras.
  */
-export type TickersTableV1CustomActionId = "import-idx-json";
+export type TickersTableV1CustomActionId = "import-idx-json" | "reset-all";
+
+/** Confirm token required in the POST body for reset-all. */
+export const tickersResetAllConfirmToken = "DELETE_ALL_TICKERS" as const;
 
 type TickersTableV1CustomActionRegistryValue = Omit<
   DashboardPageCustomAction,
@@ -61,6 +69,22 @@ const tickersTableV1CustomActionRegistry = {
     method: "POST",
     accept: ".json,application/json",
     handler: handleTickersImportIdxJsonPost,
+  },
+  "reset-all": {
+    ...buildResetAllActionManifest({
+      label: "Reset all tickers",
+      description:
+        "Permanently deletes every ticker row. Tickers referenced by other records will block this operation.",
+      confirmMessage:
+        "Delete ALL tickers? Tickers referenced by other records will block this operation.",
+      confirmToken: tickersResetAllConfirmToken,
+    }),
+    handler: createResetAllPostHandler({
+      confirmToken: tickersResetAllConfirmToken,
+      deleteAll: () => prisma.ticker.deleteMany({}),
+      blockedMessage:
+        "Cannot delete tickers while other records still reference them.",
+    }),
   },
 } satisfies Record<
   TickersTableV1CustomActionId,

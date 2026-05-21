@@ -25,7 +25,7 @@ const mediapulsePagesWithSearchQueries: DashboardPage[] = [
   ...mediapulsePages,
   {
     id: "search-queries",
-    label: "Search Query",
+    label: "Search Queries",
     pathSegment: "search-queries",
     template: "table-v1",
     apiPrefix: "/v1/hermes-dashboard/search-queries",
@@ -215,7 +215,7 @@ describe("DashboardShell", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows Search Query title on keyed /dashboard/mediapulse/search-queries", () => {
+  it("shows Search Queries title on keyed /dashboard/mediapulse/search-queries", () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/search-queries");
 
     render(
@@ -233,7 +233,7 @@ describe("DashboardShell", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Search Query" }),
+      screen.getByRole("heading", { name: "Search Queries" }),
     ).toBeInTheDocument();
   });
 

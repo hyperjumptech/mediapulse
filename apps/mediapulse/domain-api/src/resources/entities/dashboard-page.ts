@@ -9,6 +9,7 @@ import {
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
+import { entitiesCustomActionsForManifest } from "./custom-actions";
 
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const entitiesHermesPathSegment = "entities" as const;
@@ -18,7 +19,7 @@ export const entitiesDashboardPage = {
   id: entitiesHermesPathSegment,
   label: "Entities",
   description:
-    "Canonical knowledge-graph entities extracted from articles (read-only).",
+    "Canonical knowledge-graph entities extracted from collected articles by the analysis agent (read-only).",
   pathSegment: entitiesHermesPathSegment,
   template: "table-v1" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(entitiesHermesPathSegment),
@@ -40,4 +41,5 @@ export const entitiesDashboardPage = {
     "createdAt",
   ]),
   actions: { create: false, update: false, delete: false, view: true },
+  customActions: entitiesCustomActionsForManifest,
 } satisfies DashboardPageInput;

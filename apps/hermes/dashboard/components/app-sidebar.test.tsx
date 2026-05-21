@@ -94,7 +94,7 @@ const domainPages: DashboardPage[] = [
   },
   {
     id: "search-queries",
-    label: "Search Query",
+    label: "Search Queries",
     pathSegment: "search-queries",
     template: "table-v1",
     apiPrefix: "/v1/hermes-dashboard/search-queries",
@@ -177,7 +177,7 @@ describe("AppSidebar", () => {
     expect(screen.getByText("Pipelines")).toBeInTheDocument();
     expect(screen.getByText("Mediapulse")).toBeInTheDocument();
     expect(screen.getByText("Tickers")).toBeInTheDocument();
-    expect(screen.getByText("Search Query")).toBeInTheDocument();
+    expect(screen.getByText("Search Queries")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Agents" })).toBeInTheDocument();
     expect(screen.getByText("Agent configs")).toBeInTheDocument();
     expect(screen.getByText("Variables")).toBeInTheDocument();
@@ -237,14 +237,14 @@ describe("AppSidebar", () => {
     expect(domainIntegrationsButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Search Query as active when on keyed search-queries path", () => {
+  it("marks Search Queries as active when on keyed search-queries path", () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/search-queries");
 
     render(<AppSidebar domainIntegrations={domainIntegrations} />);
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const searchQueriesButton = buttons.find((btn) =>
-      btn.textContent?.includes("Search Query"),
+      btn.textContent?.includes("Search Queries"),
     );
     expect(searchQueriesButton).toHaveAttribute("data-active", "true");
   });

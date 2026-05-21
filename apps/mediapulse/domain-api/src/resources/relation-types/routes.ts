@@ -5,7 +5,9 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
+import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
 import { parsePagination } from "../../lib/list-pagination";
+import { relationTypesTableV1CustomActionRegistrations } from "./custom-actions";
 import { nullableText } from "../../lib/nullable-text";
 import { mapRowToListItem } from "./list-mapper";
 import {
@@ -108,3 +110,8 @@ relationTypesRoutes.delete("/:id", async (c) => {
   }
   return c.json({ ok: true });
 });
+
+registerTableV1CustomActionRoutes(
+  relationTypesRoutes,
+  relationTypesTableV1CustomActionRegistrations,
+);

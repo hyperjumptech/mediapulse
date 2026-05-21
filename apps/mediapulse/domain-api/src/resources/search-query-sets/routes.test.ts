@@ -19,6 +19,7 @@ vi.mock("@mediapulse/database", async (importOriginal) => {
         update: vi.fn(),
         updateMany: vi.fn(),
         delete: vi.fn(),
+        deleteMany: vi.fn(),
       },
       searchQuery: {
         deleteMany: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("@mediapulse/database", async (importOriginal) => {
 });
 
 import { prisma } from "@mediapulse/database";
+import { searchQuerySetsResetAllConfirmToken } from "./custom-actions";
 import { searchQuerySetsRoutes } from "./routes";
 
 describe("searchQuerySetsRoutes", () => {
@@ -45,7 +47,7 @@ describe("searchQuerySetsRoutes", () => {
     // Assert
     expect(res.status).toBe(200);
     const body = (await res.json()) as { title?: string };
-    expect(body.title).toBe("Search query sets");
+    expect(body.title).toBe("Search Query Sets");
   });
 
   it("returns paginated list items", async () => {
@@ -100,5 +102,26 @@ describe("searchQuerySetsRoutes", () => {
     expect(res.status).toBe(400);
     const body = (await res.json()) as { message?: string };
     expect(body.message).toContain("Duplicate");
+  });
+
+  it("reset-all deletes member queries and sets when confirm token matches", async () => {
+    vi.mocked(prisma.searchQuery.deleteMany).mockResolvedValue({ count: 4 });
+    vi.mocked(prisma.searchQuerySet.deleteMany).mockResolvedValue({ count: 2 });
+
+    const res = await searchQuerySetsRoutes.request(
+      "http://localhost/reset-all",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: searchQuerySetsResetAllConfirmToken }),
+      },
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: 2 });
+    expect(prisma.searchQuery.deleteMany).toHaveBeenCalledWith({
+      where: { setId: { not: null } },
+    });
+    expect(prisma.searchQuerySet.deleteMany).toHaveBeenCalledWith({});
   });
 });

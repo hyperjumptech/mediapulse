@@ -6,61 +6,54 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DashboardPageCustomAction } from "@hermes/domain-contract";
 
-import { DomainTableDangerConfirmCard } from "./domain-table-danger-confirm-card";
+import { DomainTableDangerConfirmButton } from "./domain-table-danger-confirm-button";
 
 const action: DashboardPageCustomAction = {
   id: "reset-all",
-  label: "Reset all relations",
-  description: "Deletes every edge.",
+  label: "Reset all entities",
   ui: "danger-confirm",
   method: "POST",
   path: "/reset-all",
   confirmMessage: "Delete all?",
-  confirmToken: "DELETE_ALL_ENTITY_RELATIONS",
+  confirmToken: "DELETE_ALL_ENTITIES",
 };
 
-describe("DomainTableDangerConfirmCard", () => {
+describe("DomainTableDangerConfirmButton", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("renders the action label and description", () => {
-    // Act
+  it("renders the action label as a destructive button", () => {
     render(
-      <DomainTableDangerConfirmCard
+      <DomainTableDangerConfirmButton
         action={action}
         serverAction={async () => ({ status: "idle" })}
       />,
     );
 
-    // Assert
     expect(
-      screen.getByRole("heading", { name: "Reset all relations" }),
+      screen.getByRole("button", { name: "Reset all entities" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Deletes every edge.")).toBeInTheDocument();
   });
 
   it("does not submit when the user cancels confirm", () => {
-    // Setup
     const serverAction = vi.fn();
     vi.stubGlobal("confirm", vi.fn().mockReturnValue(false));
 
     render(
-      <DomainTableDangerConfirmCard
+      <DomainTableDangerConfirmButton
         action={action}
         serverAction={serverAction}
       />,
     );
 
-    // Act
     fireEvent.submit(
       screen
-        .getByRole("button", { name: "Reset all relations" })
+        .getByRole("button", { name: "Reset all entities" })
         .closest("form")!,
     );
 
-    // Assert
     expect(serverAction).not.toHaveBeenCalled();
   });
 });

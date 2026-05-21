@@ -56,7 +56,7 @@ describe("entityRelationsRoutes", () => {
     // Assert
     expect(res.status).toBe(200);
     const body = (await res.json()) as { title?: string; actions?: unknown };
-    expect(body.title).toBe("Entity relations");
+    expect(body.title).toBe("Entity Relations");
     expect(body.actions).toEqual({
       create: true,
       update: true,
