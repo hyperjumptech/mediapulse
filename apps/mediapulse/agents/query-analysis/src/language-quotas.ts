@@ -25,7 +25,9 @@ const SHARE_SUM_TOLERANCE = 0.001;
  * @param quotas - Parsed language quota rows.
  * @returns `true` when shares sum to approximately 1.0.
  */
-export const languageQuotaSharesAreValid = (quotas: LanguageQuota[]): boolean => {
+export const languageQuotaSharesAreValid = (
+  quotas: LanguageQuota[],
+): boolean => {
   if (quotas.length === 0) {
     return false;
   }
@@ -78,7 +80,8 @@ export const distributeQueryCountAcrossLanguages = (
     };
   });
 
-  let remainder = totalCount - entries.reduce((sum, row) => sum + row.queryCount, 0);
+  let remainder =
+    totalCount - entries.reduce((sum, row) => sum + row.queryCount, 0);
   const byRemainder = [...entries].sort(
     (left, right) =>
       right.exact - right.queryCount - (left.exact - left.queryCount),

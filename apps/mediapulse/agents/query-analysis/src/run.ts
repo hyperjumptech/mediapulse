@@ -33,8 +33,15 @@ import {
   collectQueryTextsForEmbedding,
   embedQueries,
 } from "./embeddings";
-import type { DeterministicCandidate, MergedQueryRow } from "./merge-query-candidates";
-import { resolveQueryPersonas, filterPersonasForLanguage, type QueryPersona } from "./personas/default-personas";
+import type {
+  DeterministicCandidate,
+  MergedQueryRow,
+} from "./merge-query-candidates";
+import {
+  resolveQueryPersonas,
+  filterPersonasForLanguage,
+  type QueryPersona,
+} from "./personas/default-personas";
 import { buildDeterministicQueries } from "./templates/build-deterministic-queries";
 import {
   distributeQueryCountAcrossLanguages,
@@ -698,7 +705,10 @@ export const runQueryAnalysis = async (
 
   const languageCount = languageQuotas.length;
   const personaCellCount = resolvedPersonas.length * languageCount;
-  if (personaCellCount > 0 && personaCellCount * perPersonaQuotaCount > standardQueryCount * 3) {
+  if (
+    personaCellCount > 0 &&
+    personaCellCount * perPersonaQuotaCount > standardQueryCount * 3
+  ) {
     const clamped = clampPerPersonaQuotaCount(
       personaCellCount,
       perPersonaQuotaCount,
@@ -802,7 +812,8 @@ export const runQueryAnalysis = async (
   for (const slice of sliceResults) {
     selfCritiqueReplacedCount += slice.selfCritiqueReplacedCount;
     selfCritiqueSkippedDueToDeadline =
-      selfCritiqueSkippedDueToDeadline || slice.selfCritiqueSkippedDueToDeadline;
+      selfCritiqueSkippedDueToDeadline ||
+      slice.selfCritiqueSkippedDueToDeadline;
     diversityRegenerateFired =
       diversityRegenerateFired || slice.diversityRegenerateFired;
     if (slice.diversityScore !== undefined) {

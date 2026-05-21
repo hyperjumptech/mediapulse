@@ -350,16 +350,17 @@ describe("query-analysis run", () => {
       { language: "id", share: 0.4 },
     ]);
 
-    const indonesianPattern = /berita terbaru|laporan keuangan|prospek saham|perubahan relasi|update regulasi/i;
+    const indonesianPattern =
+      /berita terbaru|laporan keuangan|prospek saham|perubahan relasi|update regulasi/i;
 
     const englishSlice = createPayload.queries.slice(0, 6);
     const indonesianSlice = createPayload.queries.slice(6);
 
     expect(englishSlice).toHaveLength(6);
     expect(indonesianSlice).toHaveLength(4);
-    expect(
-      englishSlice.every((row) => !indonesianPattern.test(row.text)),
-    ).toBe(true);
+    expect(englishSlice.every((row) => !indonesianPattern.test(row.text))).toBe(
+      true,
+    );
     expect(
       indonesianSlice.every((row) => indonesianPattern.test(row.text)),
     ).toBe(true);

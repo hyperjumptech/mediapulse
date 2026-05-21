@@ -49,7 +49,9 @@ export const buildDeterministicQueries = (
       candidates.push({
         text,
         intent: row.intent,
-        ...(options.language !== undefined ? { language: options.language } : {}),
+        ...(options.language !== undefined
+          ? { language: options.language }
+          : {}),
       });
     }
   }
@@ -63,7 +65,9 @@ export const buildDeterministicQueries = (
         kgTemplateCap,
       ).map((row) => ({
         ...row,
-        ...(options.language !== undefined ? { language: options.language } : {}),
+        ...(options.language !== undefined
+          ? { language: options.language }
+          : {}),
       })),
     );
   }

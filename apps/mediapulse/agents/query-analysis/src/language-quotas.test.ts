@@ -69,9 +69,9 @@ describe("distributeQueryCountAcrossLanguages", () => {
 
 describe("resolveLanguageTemplatePack", () => {
   it("prefers per-quota templatePack override", () => {
-    expect(
-      resolveLanguageTemplatePack("id", "kg-aware-v1", "default-v1"),
-    ).toBe("kg-aware-v1");
+    expect(resolveLanguageTemplatePack("id", "kg-aware-v1", "default-v1")).toBe(
+      "kg-aware-v1",
+    );
   });
 
   it("selects localized default pack by primary language subtag", () => {

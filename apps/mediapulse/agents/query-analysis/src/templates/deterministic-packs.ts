@@ -75,7 +75,10 @@ const defaultIdV1Pack: DeterministicPack = {
     { template: "berita terbaru {symbol}", intent: "breaking" },
     { template: "berita terbaru {name}", intent: "breaking" },
     { template: "perubahan relasi {name}", intent: "kg_change" },
-    { template: "laporan keuangan {name} {currentQuarter}", intent: "fundamental" },
+    {
+      template: "laporan keuangan {name} {currentQuarter}",
+      intent: "fundamental",
+    },
     { template: "prospek saham {name}", intent: "fundamental" },
     { template: "update regulasi {name}", intent: "fundamental" },
   ],
