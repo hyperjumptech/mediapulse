@@ -1,7 +1,11 @@
 import type { QueryAnalysisIntent } from "@workspace/agent-data-api-contract";
 
 /** Named deterministic template pack identifiers. */
-export const DETERMINISTIC_PACK_NAMES = ["default-v1", "rich-v2"] as const;
+export const DETERMINISTIC_PACK_NAMES = [
+  "default-v1",
+  "rich-v2",
+  "rich-v2-extended",
+] as const;
 
 /** Valid `templatePack` config value. */
 export type DeterministicPackName = (typeof DETERMINISTIC_PACK_NAMES)[number];
@@ -69,6 +73,39 @@ const richV2Pack: DeterministicPack = {
   ],
 };
 
+/** Opt-in pack extending rich-v2 with coverage for the expanded intent taxonomy. */
+const richV2ExtendedPack: DeterministicPack = {
+  name: "rich-v2-extended",
+  templates: [
+    { template: "{symbol} latest news", intent: "breaking" },
+    { template: "why is {symbol} moving today", intent: "breaking" },
+    { template: "{name} {recentTheme} reaction", intent: "breaking" },
+    { template: "{name} relation changes", intent: "kg_change" },
+    { template: "{topEntity} impact on {name}", intent: "kg_change" },
+    { template: "{name} earnings guidance", intent: "fundamental" },
+    { template: "{name} vs sector peers", intent: "fundamental" },
+    { template: "{name} {currentQuarter} guidance", intent: "fundamental" },
+    { template: "{name} social media sentiment", intent: "sentiment" },
+    { template: "{name} analyst sentiment shift", intent: "sentiment" },
+    {
+      template: "{name} vs {topEntity} competitive threat",
+      intent: "competitor",
+    },
+    {
+      template: "{name} market share vs peers {currentYear}",
+      intent: "competitor",
+    },
+    { template: "{name} supplier risk", intent: "supply_chain" },
+    { template: "{name} supply chain disruption", intent: "supply_chain" },
+    { template: "{name} ESG controversies", intent: "esg" },
+    { template: "{name} sustainability disclosure", intent: "esg" },
+    { template: "{name} interest rate sensitivity", intent: "macro" },
+    { template: "{name} FX headwind {currentQuarter}", intent: "macro" },
+    { template: "{name} chart pattern {currentMonth}", intent: "technical" },
+    { template: "{symbol} support resistance levels", intent: "technical" },
+  ],
+};
+
 /** All registered deterministic template packs keyed by name. */
 export const DETERMINISTIC_PACKS: Record<
   DeterministicPackName,
@@ -76,6 +113,7 @@ export const DETERMINISTIC_PACKS: Record<
 > = {
   "default-v1": defaultV1Pack,
   "rich-v2": richV2Pack,
+  "rich-v2-extended": richV2ExtendedPack,
 };
 
 /**

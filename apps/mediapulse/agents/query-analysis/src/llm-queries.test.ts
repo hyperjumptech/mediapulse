@@ -1,18 +1,26 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api-contract";
+
 import {
   buildBrainstormPrompt,
   buildQueryAnalysisSystemContent,
   buildQueryAnalysisUserContent,
   buildStructuredQueryMessages,
+  applySelfCritiqueToCandidateBatch,
   fetchBrainstormBullets,
   fetchLlmQueryCandidates,
+  fetchLlmQueryCandidatesByPersona,
   fetchQueryAnalysisLlmCandidates,
+  mergeCritiqueReplacements,
   parseBrainstormBullets,
+  regenerateDroppedQueries,
   resolveQueryAnalysisSystemContent,
   resolveQueryAnalysisUserContent,
+  selectCandidatesToDropFromCritique,
 } from "./llm-queries";
+import { DEFAULT_QUERY_PERSONAS } from "./personas/default-personas";
 
 describe("resolveQueryAnalysisSystemContent", () => {
   it("matches buildQueryAnalysisSystemContent when Hermes omits override", () => {
@@ -20,7 +28,7 @@ describe("resolveQueryAnalysisSystemContent", () => {
       queryCount: 10,
       allowedLanguages: ["en", "de"],
       minDeterministicCount: 3,
-      weights: { breaking: 1, kgChange: 1, fundamental: 1 } as const,
+      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
     };
 
     const resolved = resolveQueryAnalysisSystemContent(undefined, strategy);
@@ -96,7 +104,7 @@ describe("buildQueryAnalysisSystemContent", () => {
       queryCount: 10,
       allowedLanguages: ["en", "de"],
       minDeterministicCount: 3,
-      weights: { breaking: 1, kgChange: 1, fundamental: 1 },
+      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
     });
 
     // Assert
@@ -219,7 +227,12 @@ describe("buildBrainstormPrompt", () => {
         queryCount: 10,
         allowedLanguages: ["en"],
         minDeterministicCount: 4,
-        weights: { breaking: 1, kgChange: 0.8, fundamental: 0.6 },
+        intentWeights: {
+          ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+          breaking: 1,
+          kg_change: 0.8,
+          fundamental: 0.6,
+        },
       },
       ctx,
     );
@@ -267,7 +280,12 @@ describe("fetchBrainstormBullets", () => {
           queryCount: 10,
           allowedLanguages: ["en"],
           minDeterministicCount: 4,
-          weights: { breaking: 1, kgChange: 0.8, fundamental: 0.6 },
+          intentWeights: {
+            ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+            breaking: 1,
+            kg_change: 0.8,
+            fundamental: 0.6,
+          },
         },
         context: {
           ticker: {
@@ -316,7 +334,12 @@ describe("fetchQueryAnalysisLlmCandidates", () => {
       queryCount: 10,
       allowedLanguages: ["en"],
       minDeterministicCount: 4,
-      weights: { breaking: 1, kgChange: 0.8, fundamental: 0.6 },
+      intentWeights: {
+        ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+        breaking: 1,
+        kg_change: 0.8,
+        fundamental: 0.6,
+      },
     },
     sampling: {
       temperature: 0.9,
@@ -367,6 +390,296 @@ describe("fetchQueryAnalysisLlmCandidates", () => {
 
     expect(fetchBrainstormBulletsSpy).not.toHaveBeenCalled();
     expect(fetchLlmQueryCandidatesSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("selectCandidatesToDropFromCritique", () => {
+  const candidates = Array.from({ length: 10 }, (_, index) => ({
+    text: `query-${String(index + 1)}`,
+    intent: "breaking" as const,
+  }));
+
+  it("returns at most floor(n * dropFraction) flagged rows, worst first", () => {
+    const toDrop = selectCandidatesToDropFromCritique(
+      candidates,
+      [
+        { text: "query-1", relevance: 2, novelty: 1, drop: true },
+        { text: "query-5", relevance: 1, novelty: 2, drop: true },
+        { text: "query-9", relevance: 3, novelty: 1, drop: true },
+        { text: "query-2", relevance: 5, novelty: 5, drop: false },
+      ],
+      0.3,
+    );
+    expect(toDrop).toHaveLength(3);
+    expect(toDrop.map((row) => row.text)).toEqual([
+      "query-1",
+      "query-5",
+      "query-9",
+    ]);
+  });
+
+  it("returns an empty list when no rows are flagged drop", () => {
+    const toDrop = selectCandidatesToDropFromCritique(
+      candidates,
+      candidates.map((row) => ({
+        text: row.text,
+        relevance: 4,
+        novelty: 4,
+        drop: false,
+      })),
+      0.25,
+    );
+    expect(toDrop).toEqual([]);
+  });
+});
+
+describe("applySelfCritiqueToCandidateBatch", () => {
+  const baseParams = {
+    apiKey: "sk-test",
+    critiqueModel: "gpt-4o-mini",
+    generationModel: "gpt-4o-mini",
+    maxOutputTokens: 200,
+    systemContent: "system",
+    userContent: "user context",
+    context: {
+      ticker: {
+        id: "11111111-1111-4111-a111-111111111111",
+        symbol: "ACME",
+        name: "Acme Co",
+        metadata: null,
+      },
+      topEntities: [],
+      recentThemes: [],
+      ...emptyEnrichedContext,
+    },
+    dropFraction: 0.3,
+    fewShotExemplarCount: 0,
+    sampling: {
+      temperature: 0.9,
+      topP: 0.95,
+      presencePenalty: 0.4,
+      frequencyPenalty: 0.5,
+    },
+  };
+
+  const tenCandidates = Array.from({ length: 10 }, (_, index) => ({
+    text: `query-${String(index + 1)}`,
+    intent: "breaking" as const,
+  }));
+
+  it("calls the regenerator with dropCount matching flagged rows and preserves total count", async () => {
+    const critiqueQueryCandidatesSpy = vi.fn().mockResolvedValue([
+      { text: "query-1", relevance: 1, novelty: 1, drop: true },
+      { text: "query-4", relevance: 2, novelty: 1, drop: true },
+      { text: "query-7", relevance: 1, novelty: 2, drop: true },
+      ...tenCandidates
+        .filter((row) => !["query-1", "query-4", "query-7"].includes(row.text))
+        .map((row) => ({
+          text: row.text,
+          relevance: 5,
+          novelty: 5,
+          drop: false,
+        })),
+    ]);
+    const regenerateDroppedQueriesSpy = vi.fn().mockResolvedValue([
+      { text: "replacement-1", intent: "fundamental" as const },
+      { text: "replacement-2", intent: "fundamental" as const },
+      { text: "replacement-3", intent: "fundamental" as const },
+    ]);
+
+    const result = await applySelfCritiqueToCandidateBatch(
+      tenCandidates,
+      baseParams,
+      {
+        critiqueQueryCandidates: critiqueQueryCandidatesSpy,
+        regenerateDroppedQueries: regenerateDroppedQueriesSpy,
+      },
+    );
+
+    expect(regenerateDroppedQueriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ dropCount: 3 }),
+    );
+    expect(result.replacedCount).toBe(3);
+    expect(result.candidates).toHaveLength(10);
+    expect(result.candidates.map((row) => row.text)).toEqual([
+      "query-2",
+      "query-3",
+      "query-5",
+      "query-6",
+      "query-8",
+      "query-9",
+      "query-10",
+      "replacement-1",
+      "replacement-2",
+      "replacement-3",
+    ]);
+  });
+
+  it("does not call the regenerator when zero rows are flagged drop", async () => {
+    const critiqueQueryCandidatesSpy = vi.fn().mockResolvedValue(
+      tenCandidates.map((row) => ({
+        text: row.text,
+        relevance: 5,
+        novelty: 5,
+        drop: false,
+      })),
+    );
+    const regenerateDroppedQueriesSpy = vi.fn();
+
+    const result = await applySelfCritiqueToCandidateBatch(
+      tenCandidates,
+      baseParams,
+      {
+        critiqueQueryCandidates: critiqueQueryCandidatesSpy,
+        regenerateDroppedQueries: regenerateDroppedQueriesSpy,
+      },
+    );
+
+    expect(regenerateDroppedQueriesSpy).not.toHaveBeenCalled();
+    expect(result.candidates).toEqual(tenCandidates);
+    expect(result.replacedCount).toBe(0);
+  });
+});
+
+describe("mergeCritiqueReplacements", () => {
+  it("preserves persona tags on replacement rows", () => {
+    const merged = mergeCritiqueReplacements(
+      [
+        { text: "keep", intent: "breaking", persona: "analyst" },
+        { text: "drop me", intent: "breaking", persona: "analyst" },
+      ],
+      [{ text: "drop me", intent: "breaking", persona: "analyst" }],
+      [{ text: "new query", intent: "fundamental" }],
+    );
+    expect(merged).toEqual([
+      { text: "keep", intent: "breaking", persona: "analyst" },
+      { text: "new query", intent: "fundamental", persona: "analyst" },
+    ]);
+  });
+});
+
+describe("regenerateDroppedQueries", () => {
+  it("returns an empty array when dropCount is zero", async () => {
+    const fetchLlmQueryCandidatesSpy = vi.fn();
+    const rows = await regenerateDroppedQueries(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        maxOutputTokens: 100,
+        systemContent: "system",
+        userContent: "user",
+        keptCandidates: [],
+        dropCount: 0,
+        fewShotExemplarCount: 0,
+        sampling: {
+          temperature: 0.9,
+          topP: 0.95,
+          presencePenalty: 0.4,
+          frequencyPenalty: 0.5,
+        },
+      },
+      { fetchLlmQueryCandidates: fetchLlmQueryCandidatesSpy },
+    );
+    expect(rows).toEqual([]);
+    expect(fetchLlmQueryCandidatesSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("fetchLlmQueryCandidatesByPersona", () => {
+  const personas = DEFAULT_QUERY_PERSONAS.slice(0, 3);
+  const baseParams = {
+    apiKey: "sk-test",
+    model: "gpt-4o-mini",
+    maxOutputTokens: 100,
+    systemContent: "system",
+    userContent: "user context",
+    personas,
+    perPersonaQuota: 3,
+    fewShotExemplarCount: 0,
+    sampling: {
+      temperature: 0.9,
+      topP: 0.95,
+      presencePenalty: 0.4,
+      frequencyPenalty: 0.5,
+    },
+  };
+
+  it("calls generateObject once per persona and tags results", async () => {
+    const fetchLlmQueryCandidatesSpy = vi
+      .fn()
+      .mockImplementation(async (_params, _deps) => {
+        const callIndex = fetchLlmQueryCandidatesSpy.mock.calls.length - 1;
+        const persona = personas[callIndex];
+        return [
+          {
+            text: `${persona?.id}-q1`,
+            intent: "breaking" as const,
+          },
+        ];
+      });
+
+    const rows = await fetchLlmQueryCandidatesByPersona(baseParams, {
+      fetchLlmQueryCandidates: fetchLlmQueryCandidatesSpy,
+    });
+
+    expect(fetchLlmQueryCandidatesSpy).toHaveBeenCalledTimes(3);
+    expect(rows).toEqual([
+      { text: "analyst-q1", intent: "breaking", persona: "analyst" },
+      { text: "retail-q1", intent: "breaking", persona: "retail" },
+      { text: "regulator-q1", intent: "breaking", persona: "regulator" },
+    ]);
+  });
+
+  it("continues when one persona call fails", async () => {
+    const fetchLlmQueryCandidatesSpy = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("rate limit"))
+      .mockResolvedValueOnce([
+        { text: "retail ok", intent: "breaking" as const },
+      ])
+      .mockResolvedValueOnce([
+        { text: "regulator ok", intent: "fundamental" as const },
+      ]);
+    const warn = vi.fn();
+
+    const rows = await fetchLlmQueryCandidatesByPersona(baseParams, {
+      fetchLlmQueryCandidates: fetchLlmQueryCandidatesSpy,
+      warn,
+    });
+
+    expect(fetchLlmQueryCandidatesSpy).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(rows).toEqual([
+      { text: "retail ok", intent: "breaking", persona: "retail" },
+      { text: "regulator ok", intent: "fundamental", persona: "regulator" },
+    ]);
+  });
+
+  it("caps each persona at perPersonaQuota", async () => {
+    const fetchLlmQueryCandidatesSpy = vi.fn().mockResolvedValue([
+      { text: "one", intent: "breaking" as const },
+      { text: "two", intent: "breaking" as const },
+      { text: "three", intent: "breaking" as const },
+      { text: "four", intent: "breaking" as const },
+    ]);
+
+    const rows = await fetchLlmQueryCandidatesByPersona(
+      { ...baseParams, perPersonaQuota: 2 },
+      { fetchLlmQueryCandidates: fetchLlmQueryCandidatesSpy },
+    );
+
+    expect(rows.filter((row) => row.persona === "analyst")).toHaveLength(2);
+  });
+
+  it("appends persona system nudge to the structured system prompt", async () => {
+    const fetchLlmQueryCandidatesSpy = vi.fn().mockResolvedValue([]);
+    await fetchLlmQueryCandidatesByPersona(baseParams, {
+      fetchLlmQueryCandidates: fetchLlmQueryCandidatesSpy,
+    });
+    const firstMessages = fetchLlmQueryCandidatesSpy.mock.calls[0]?.[0]
+      ?.messages as { role: string; content: string }[] | undefined;
+    expect(firstMessages?.[0]?.content).toContain("system");
+    expect(firstMessages?.[0]?.content).toContain(personas[0]!.systemNudge);
   });
 });
 

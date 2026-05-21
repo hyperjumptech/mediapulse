@@ -1,10 +1,37 @@
 import { z } from "zod";
 
-export const queryAnalysisIntentSchema = z.enum([
+/** All supported query-analysis intent labels (contract source of truth). */
+export const QUERY_ANALYSIS_INTENTS = [
   "breaking",
   "kg_change",
   "fundamental",
-]);
+  "sentiment",
+  "competitor",
+  "supply_chain",
+  "esg",
+  "macro",
+  "technical",
+] as const;
+
+export const queryAnalysisIntentSchema = z.enum(QUERY_ANALYSIS_INTENTS);
+
+export type QueryAnalysisIntent = z.infer<typeof queryAnalysisIntentSchema>;
+
+/** Default merge / sampling weights keyed by intent (new intents intentionally ≤ 0.5). */
+export const DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS: Record<
+  QueryAnalysisIntent,
+  number
+> = {
+  breaking: 1,
+  kg_change: 0.8,
+  fundamental: 0.6,
+  sentiment: 0.5,
+  competitor: 0.5,
+  supply_chain: 0.4,
+  esg: 0.3,
+  macro: 0.4,
+  technical: 0.3,
+};
 
 export const queryAnalysisSourceSchema = z.enum(["deterministic", "llm"]);
 
@@ -16,11 +43,17 @@ export const queryAnalysisConfigSnapshotSchema = z.object({
   queryCount: z.number().int().positive(),
   allowedLanguages: z.array(z.string().trim().min(1)),
   minDeterministicCount: z.number().int().nonnegative(),
-  weights: z.object({
-    breaking: z.number().nonnegative(),
-    kgChange: z.number().nonnegative(),
-    fundamental: z.number().nonnegative(),
-  }),
+  /** @deprecated Prefer `intentWeights`; legacy snapshots may only include the original trio. */
+  weights: z
+    .object({
+      breaking: z.number().nonnegative(),
+      kgChange: z.number().nonnegative(),
+      fundamental: z.number().nonnegative(),
+    })
+    .optional(),
+  intentWeights: z
+    .record(queryAnalysisIntentSchema, z.number().nonnegative())
+    .optional(),
   model: z.string().trim().min(1).optional(),
   maxTokens: z.number().int().positive().optional(),
 });
@@ -116,5 +149,5 @@ export type GetQueryAnalysisResponse = z.infer<
 export type PostQueryAnalysisResponse = z.infer<
   typeof postQueryAnalysisResponseSchema
 >;
-export type QueryAnalysisIntent = z.infer<typeof queryAnalysisIntentSchema>;
 export type QueryAnalysisSource = z.infer<typeof queryAnalysisSourceSchema>;
+export type QueryAnalysisIntentWeights = Record<QueryAnalysisIntent, number>;
