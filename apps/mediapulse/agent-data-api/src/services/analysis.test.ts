@@ -447,8 +447,9 @@ describe("loadAnalysisContext", () => {
 describe("applyAnalysisPost", () => {
   it("throws when a dataSourceId is not scoped to the ticker", async () => {
     const DS_BAD = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    const tx = {
+    const db = {
       dataSource: {
+        findMany: vi.fn(),
         findUnique: vi
           .fn()
           .mockImplementation(({ where: { id } }: { where: { id: string } }) =>
@@ -456,13 +457,6 @@ describe("applyAnalysisPost", () => {
               id === DS_BAD ? { tickerId: "other-ticker" } : null,
             ),
           ),
-      },
-    };
-
-    const db = {
-      dataSource: {
-        findMany: vi.fn(),
-        findUnique: vi.fn(),
         findFirst: vi.fn(),
       },
       entityType: { findMany: vi.fn() },
@@ -473,7 +467,6 @@ describe("applyAnalysisPost", () => {
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: { upsert: vi.fn() },
-      $transaction: vi.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
     };
 
     await expect(
@@ -499,16 +492,10 @@ describe("applyAnalysisPost", () => {
 
   it("upserts article relevance on repeat POST with the same keys (idempotent)", async () => {
     const DS = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    const tx = {
-      dataSource: {
-        findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
-      },
-      articleRelevance: { upsert: vi.fn() },
-    };
     const db = {
       dataSource: {
         findMany: vi.fn(),
-        findUnique: vi.fn(),
+        findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
         findFirst: vi.fn(),
       },
       entityType: { findMany: vi.fn() },
@@ -519,7 +506,6 @@ describe("applyAnalysisPost", () => {
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: { upsert: vi.fn(), count: vi.fn() },
-      $transaction: vi.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
     };
 
     const body = {
@@ -547,8 +533,8 @@ describe("applyAnalysisPost", () => {
     await applyAnalysisPost(body, { db: db as never });
     await applyAnalysisPost(body, { db: db as never });
 
-    expect(tx.articleRelevance.upsert).toHaveBeenCalledTimes(2);
-    expect(tx.articleRelevance.upsert).toHaveBeenNthCalledWith(
+    expect(db.articleRelevance.upsert).toHaveBeenCalledTimes(2);
+    expect(db.articleRelevance.upsert).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
         where: {
@@ -567,7 +553,7 @@ describe("applyAnalysisPost", () => {
         }),
       }),
     );
-    expect(tx.articleRelevance.upsert).toHaveBeenNthCalledWith(
+    expect(db.articleRelevance.upsert).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
         where: {
@@ -583,30 +569,24 @@ describe("applyAnalysisPost", () => {
   it("skips article entity mention when entityName is not in ticker vocabulary", async () => {
     // Setup
     const DS = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    const tx = {
-      dataSource: {
-        findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
-      },
-      entity: {
-        findFirst: vi.fn().mockResolvedValue(null),
-      },
-      articleEntity: { upsert: vi.fn() },
-    };
     const db = {
       dataSource: {
         findMany: vi.fn(),
-        findUnique: vi.fn(),
+        findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
         findFirst: vi.fn(),
       },
       entityType: { findMany: vi.fn() },
       relationType: { findMany: vi.fn() },
-      entity: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+      entity: {
+        findMany: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn(),
+      },
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: { upsert: vi.fn(), count: vi.fn() },
-      $transaction: vi.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
     };
 
     // Act: mention references an entity name not in the vocab and not in entities list.
@@ -630,7 +610,7 @@ describe("applyAnalysisPost", () => {
 
     // Assert: resolves without throwing; articleEntity.upsert never called; warn logged.
     expect(result.entitiesCreated).toBe(0);
-    expect(tx.articleEntity.upsert).not.toHaveBeenCalled();
+    expect(db.articleEntity.upsert).not.toHaveBeenCalled();
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       expect.objectContaining({
         tickerId: "ticker-1",
