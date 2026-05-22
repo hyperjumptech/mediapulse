@@ -41,6 +41,12 @@ type AnalysisDb = {
   $transaction: typeof prisma.$transaction;
 };
 
+/** Database delegates used by analysis POST persistence (no interactive transaction). */
+type AnalysisWriteDb = Omit<
+  AnalysisDb,
+  "$transaction" | "entityType" | "relationType"
+>;
+
 const defaultDb: AnalysisDb = prisma;
 
 /**
@@ -206,6 +212,7 @@ export const loadAnalysisContext = async (
 
 /**
  * Persists analysis POST payloads: entities, relations, per-article mentions, and relevance rows.
+ * Writes run without a Prisma interactive transaction so large batches are not capped by the 5s default timeout.
  *
  * @param body - Validated POST body.
  * @param deps - Injectable database delegates for tests.
@@ -213,7 +220,7 @@ export const loadAnalysisContext = async (
  */
 export const applyAnalysisPost = async (
   body: PostAnalysisBody,
-  deps: { db?: AnalysisDb } = {},
+  deps: { db?: AnalysisWriteDb } = {},
 ): Promise<PostAnalysisResponse> => {
   const db = deps.db ?? defaultDb;
 
@@ -225,84 +232,40 @@ export const applyAnalysisPost = async (
     dataSourceIds.add(row.dataSourceId);
   }
 
-  return db.$transaction(async (tx) => {
-    for (const dataSourceId of dataSourceIds) {
-      const ds = await tx.dataSource.findUnique({
-        where: { id: dataSourceId },
-        select: { tickerId: true },
-      });
-      if (!ds || ds.tickerId !== body.tickerId) {
-        throw new AnalysisPostValidationError(
-          `dataSourceId ${dataSourceId} is missing or not scoped to tickerId`,
-        );
-      }
-    }
-
-    const nameToEntityId = new Map<string, string>();
-    let entitiesCreated = 0;
-    let entitiesReused = 0;
-
-    for (const ent of body.entities) {
-      const existing = await findReusableEntity(
-        tx,
-        ent.typeId,
-        ent.canonicalName,
-        [ent.canonicalName, ...ent.aliases],
+  for (const dataSourceId of dataSourceIds) {
+    const ds = await db.dataSource.findUnique({
+      where: { id: dataSourceId },
+      select: { tickerId: true },
+    });
+    if (!ds || ds.tickerId !== body.tickerId) {
+      throw new AnalysisPostValidationError(
+        `dataSourceId ${dataSourceId} is missing or not scoped to tickerId`,
       );
+    }
+  }
 
-      let entityId: string;
-      if (existing) {
-        entityId = existing.id;
-        entitiesReused += 1;
-        const linked = await tx.tickerEntity.findFirst({
-          where: { tickerId: body.tickerId, entityId },
-          select: { id: true },
-        });
-        if (!linked) {
-          await tx.tickerEntity.create({
-            data: {
-              tickerId: body.tickerId,
-              entityId,
-              source: "EXTRACTED",
-            },
-          });
-        }
-      } else {
-        const created = await tx.entity.create({
-          data: {
-            typeId: ent.typeId,
-            canonicalName: ent.canonicalName.trim(),
-            description: ent.description?.trim() ?? null,
-          },
-        });
-        entityId = created.id;
-        entitiesCreated += 1;
+  const nameToEntityId = new Map<string, string>();
+  let entitiesCreated = 0;
+  let entitiesReused = 0;
 
-        const aliasRows: Prisma.EntityAliasCreateManyInput[] = [];
-        const seenNorm = new Set<string>();
-        const addAlias = (raw: string) => {
-          const trimmed = raw.trim();
-          const n = normalizeAnalysisName(trimmed);
-          if (seenNorm.has(n)) return;
-          seenNorm.add(n);
-          aliasRows.push({
-            entityId,
-            alias: trimmed,
-            normalizedAlias: n,
-          });
-        };
-        addAlias(ent.canonicalName);
-        for (const a of ent.aliases) {
-          addAlias(a);
-        }
-        if (aliasRows.length > 0) {
-          await tx.entityAlias.createMany({
-            data: aliasRows,
-            skipDuplicates: true,
-          });
-        }
+  for (const ent of body.entities) {
+    const existing = await findReusableEntity(
+      db,
+      ent.typeId,
+      ent.canonicalName,
+      [ent.canonicalName, ...ent.aliases],
+    );
 
-        await tx.tickerEntity.create({
+    let entityId: string;
+    if (existing) {
+      entityId = existing.id;
+      entitiesReused += 1;
+      const linked = await db.tickerEntity.findFirst({
+        where: { tickerId: body.tickerId, entityId },
+        select: { id: true },
+      });
+      if (!linked) {
+        await db.tickerEntity.create({
           data: {
             tickerId: body.tickerId,
             entityId,
@@ -310,136 +273,178 @@ export const applyAnalysisPost = async (
           },
         });
       }
-
-      const registerName = (raw: string) => {
-        nameToEntityId.set(normalizeAnalysisName(raw), entityId);
-      };
-      registerName(ent.canonicalName);
-      for (const a of ent.aliases) {
-        registerName(a);
-      }
-    }
-
-    let relationsCreated = 0;
-    for (const rel of body.relations) {
-      const fromId = nameToEntityId.get(
-        normalizeAnalysisName(rel.fromEntityName),
-      );
-      const toId = nameToEntityId.get(normalizeAnalysisName(rel.toEntityName));
-      if (!fromId || !toId) {
-        throw new AnalysisPostValidationError(
-          `Unknown entity name in relation: ${rel.fromEntityName} -> ${rel.toEntityName}`,
-        );
-      }
-
-      const existingRel = await tx.entityRelation.findUnique({
-        where: {
-          fromEntityId_toEntityId_relationTypeId: {
-            fromEntityId: fromId,
-            toEntityId: toId,
-            relationTypeId: rel.relationTypeId,
-          },
+    } else {
+      const created = await db.entity.create({
+        data: {
+          typeId: ent.typeId,
+          canonicalName: ent.canonicalName.trim(),
+          description: ent.description?.trim() ?? null,
         },
-        select: { id: true },
       });
-      if (!existingRel) {
-        await tx.entityRelation.create({
-          data: {
-            fromEntityId: fromId,
-            toEntityId: toId,
-            relationTypeId: rel.relationTypeId,
-          },
+      entityId = created.id;
+      entitiesCreated += 1;
+
+      const aliasRows: Prisma.EntityAliasCreateManyInput[] = [];
+      const seenNorm = new Set<string>();
+      const addAlias = (raw: string) => {
+        const trimmed = raw.trim();
+        const n = normalizeAnalysisName(trimmed);
+        if (seenNorm.has(n)) return;
+        seenNorm.add(n);
+        aliasRows.push({
+          entityId,
+          alias: trimmed,
+          normalizedAlias: n,
         });
-        relationsCreated += 1;
+      };
+      addAlias(ent.canonicalName);
+      for (const a of ent.aliases) {
+        addAlias(a);
       }
+      if (aliasRows.length > 0) {
+        await db.entityAlias.createMany({
+          data: aliasRows,
+          skipDuplicates: true,
+        });
+      }
+
+      await db.tickerEntity.create({
+        data: {
+          tickerId: body.tickerId,
+          entityId,
+          source: "EXTRACTED",
+        },
+      });
     }
 
-    for (const mention of body.articleEntities) {
-      let entityId: string | undefined = nameToEntityId.get(
-        normalizeAnalysisName(mention.entityName),
-      );
-      if (entityId === undefined) {
-        entityId =
-          (await resolveEntityIdByNameForTicker(
-            tx,
-            body.tickerId,
-            mention.entityName,
-          )) ?? undefined;
-      }
-      if (entityId === undefined) {
-        logger.warn(
-          {
-            tickerId: body.tickerId,
-            entityName: mention.entityName,
-            dataSourceId: mention.dataSourceId,
-          },
-          "article entity mention skipped: entityName not in ticker vocabulary",
-        );
-        continue;
-      }
+    const registerName = (raw: string) => {
+      nameToEntityId.set(normalizeAnalysisName(raw), entityId);
+    };
+    registerName(ent.canonicalName);
+    for (const a of ent.aliases) {
+      registerName(a);
+    }
+  }
 
-      await tx.articleEntity.upsert({
-        where: {
-          dataSourceId_entityId: {
-            dataSourceId: mention.dataSourceId,
-            entityId,
-          },
+  let relationsCreated = 0;
+  for (const rel of body.relations) {
+    const fromId = nameToEntityId.get(
+      normalizeAnalysisName(rel.fromEntityName),
+    );
+    const toId = nameToEntityId.get(normalizeAnalysisName(rel.toEntityName));
+    if (!fromId || !toId) {
+      throw new AnalysisPostValidationError(
+        `Unknown entity name in relation: ${rel.fromEntityName} -> ${rel.toEntityName}`,
+      );
+    }
+
+    const existingRel = await db.entityRelation.findUnique({
+      where: {
+        fromEntityId_toEntityId_relationTypeId: {
+          fromEntityId: fromId,
+          toEntityId: toId,
+          relationTypeId: rel.relationTypeId,
         },
-        create: {
+      },
+      select: { id: true },
+    });
+    if (!existingRel) {
+      await db.entityRelation.create({
+        data: {
+          fromEntityId: fromId,
+          toEntityId: toId,
+          relationTypeId: rel.relationTypeId,
+        },
+      });
+      relationsCreated += 1;
+    }
+  }
+
+  for (const mention of body.articleEntities) {
+    let entityId: string | undefined = nameToEntityId.get(
+      normalizeAnalysisName(mention.entityName),
+    );
+    if (entityId === undefined) {
+      entityId =
+        (await resolveEntityIdByNameForTicker(
+          db,
+          body.tickerId,
+          mention.entityName,
+        )) ?? undefined;
+    }
+    if (entityId === undefined) {
+      logger.warn(
+        {
+          tickerId: body.tickerId,
+          entityName: mention.entityName,
+          dataSourceId: mention.dataSourceId,
+        },
+        "article entity mention skipped: entityName not in ticker vocabulary",
+      );
+      continue;
+    }
+
+    await db.articleEntity.upsert({
+      where: {
+        dataSourceId_entityId: {
           dataSourceId: mention.dataSourceId,
           entityId,
-          mentionCount: mention.mentionCount,
-          confidence: mention.confidence,
-          sentiment: mention.sentiment ?? null,
         },
-        update: {
-          mentionCount: mention.mentionCount,
-          confidence: mention.confidence,
-          sentiment: mention.sentiment ?? null,
-        },
-      });
-    }
+      },
+      create: {
+        dataSourceId: mention.dataSourceId,
+        entityId,
+        mentionCount: mention.mentionCount,
+        confidence: mention.confidence,
+        sentiment: mention.sentiment ?? null,
+      },
+      update: {
+        mentionCount: mention.mentionCount,
+        confidence: mention.confidence,
+        sentiment: mention.sentiment ?? null,
+      },
+    });
+  }
 
-    let articlesScored = 0;
-    for (const relRow of body.articleRelevances) {
-      const scoreBreakdown = relRow.scoreBreakdown as Prisma.InputJsonValue;
-      await tx.articleRelevance.upsert({
-        where: {
-          dataSourceId_tickerId: {
-            dataSourceId: relRow.dataSourceId,
-            tickerId: body.tickerId,
-          },
-        },
-        create: {
+  let articlesScored = 0;
+  for (const relRow of body.articleRelevances) {
+    const scoreBreakdown = relRow.scoreBreakdown as Prisma.InputJsonValue;
+    await db.articleRelevance.upsert({
+      where: {
+        dataSourceId_tickerId: {
           dataSourceId: relRow.dataSourceId,
           tickerId: body.tickerId,
-          score: relRow.score,
-          scoreBreakdown,
-          selected: relRow.selected,
-          scoredAt: new Date(),
         },
-        update: {
-          score: relRow.score,
-          scoreBreakdown,
-          selected: relRow.selected,
-          scoredAt: new Date(),
-        },
-      });
-      articlesScored += 1;
-    }
+      },
+      create: {
+        dataSourceId: relRow.dataSourceId,
+        tickerId: body.tickerId,
+        score: relRow.score,
+        scoreBreakdown,
+        selected: relRow.selected,
+        scoredAt: new Date(),
+      },
+      update: {
+        score: relRow.score,
+        scoreBreakdown,
+        selected: relRow.selected,
+        scoredAt: new Date(),
+      },
+    });
+    articlesScored += 1;
+  }
 
-    const articlesSelected = body.articleRelevances.filter(
-      (r) => r.selected,
-    ).length;
+  const articlesSelected = body.articleRelevances.filter(
+    (r) => r.selected,
+  ).length;
 
-    return {
-      entitiesCreated,
-      entitiesReused,
-      relationsCreated,
-      articlesScored,
-      articlesSelected,
-    };
-  });
+  return {
+    entitiesCreated,
+    entitiesReused,
+    relationsCreated,
+    articlesScored,
+    articlesSelected,
+  };
 };
 
 /**
@@ -468,14 +473,14 @@ export const deleteAnalysisDataSource = async (
 /**
  * Finds an entity that matches canonical name or alias (case-insensitive) for a given type.
  *
- * @param tx - Prisma transaction client.
+ * @param db - Injectable database delegates for entity lookup.
  * @param typeId - Entity type UUID.
  * @param canonicalName - Primary name from the payload.
  * @param nameVariants - Canonical plus alias strings to match.
  * @returns Existing entity id or null.
  */
 async function findReusableEntity(
-  tx: Prisma.TransactionClient,
+  db: Pick<AnalysisWriteDb, "entity">,
   typeId: string,
   canonicalName: string,
   nameVariants: string[],
@@ -485,7 +490,7 @@ async function findReusableEntity(
   );
   const normalizedList = [...normalizedSet];
 
-  return tx.entity.findFirst({
+  return db.entity.findFirst({
     where: {
       typeId,
       OR: [
@@ -511,18 +516,18 @@ async function findReusableEntity(
 /**
  * Resolves an entity id by display name for a ticker when not present in the run-local map.
  *
- * @param tx - Prisma transaction client.
+ * @param db - Injectable database delegates for entity lookup.
  * @param tickerId - Ticker scope.
  * @param entityName - Mention name from the payload.
  * @returns Entity id or null.
  */
 async function resolveEntityIdByNameForTicker(
-  tx: Prisma.TransactionClient,
+  db: Pick<AnalysisWriteDb, "entity">,
   tickerId: string,
   entityName: string,
 ): Promise<string | null> {
   const n = normalizeAnalysisName(entityName);
-  const entity = await tx.entity.findFirst({
+  const entity = await db.entity.findFirst({
     where: {
       tickerEntities: { some: { tickerId } },
       OR: [
