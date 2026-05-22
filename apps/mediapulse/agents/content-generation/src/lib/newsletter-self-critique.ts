@@ -30,9 +30,36 @@ export const newsletterCritiqueRatingSchema = z.object({
   rationale: z.string().max(200),
 });
 
+const newsletterCritiqueRatingLlmSchema = z
+  .object({
+    sectionKey: z.string(),
+    bulletIndex: z.number().int().nonnegative(),
+    specificity: z.number().min(1).max(5),
+    citationStrength: z.number().min(1).max(5),
+    redundancy: z.number().min(1).max(5),
+    readerValue: z.number().min(1).max(5),
+    drop: z.boolean(),
+    suggestedRewrite: z.union([z.string().max(400), z.null()]),
+    rationale: z.string().max(200),
+  })
+  .transform(
+    ({
+      suggestedRewrite,
+      ...rest
+    }): z.infer<typeof newsletterCritiqueRatingSchema> => ({
+      ...rest,
+      ...(suggestedRewrite === null ? {} : { suggestedRewrite }),
+    }),
+  );
+
 /** Self-critique JSON shape from the critic model. */
 export const newsletterCritiqueSchema = z.object({
   ratings: z.array(newsletterCritiqueRatingSchema),
+});
+
+/** OpenAI strict JSON schema for the self-critique `generateObject` pass. */
+export const newsletterCritiqueLlmSchema = z.object({
+  ratings: z.array(newsletterCritiqueRatingLlmSchema),
 });
 
 export type NewsletterCritiqueRating = z.infer<
@@ -210,7 +237,7 @@ export const critiqueCompositeScore = (
 /** Arguments for a newsletter self-critique `generateObject` call. */
 export type GenerateObjectForNewsletterCritiqueArgs = {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
-  schema: typeof newsletterCritiqueSchema;
+  schema: typeof newsletterCritiqueLlmSchema;
   system: string;
   prompt: string;
   maxOutputTokens: number;
@@ -278,7 +305,7 @@ export const critiqueNewsletter = async (
 
   const result = await generateObjectFn({
     model: openai(params.model),
-    schema: newsletterCritiqueSchema,
+    schema: newsletterCritiqueLlmSchema,
     system: params.system,
     prompt: params.prompt,
     maxOutputTokens: params.maxOutputTokens,

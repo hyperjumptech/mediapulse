@@ -6,7 +6,10 @@ import { logger } from "@workspace/logger";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
 import { formatIndustryNewsletterV2Wire } from "./format-industry-newsletter-v2.js";
-import { industryNewsletterStructureSchema } from "./industry-newsletter-schema.js";
+import {
+  industryNewsletterStructureLlmSchema,
+  industryNewsletterStructureSchema,
+} from "./industry-newsletter-schema.js";
 import { attachIndustryNewsletterSourceUrls } from "./industry-newsletter-urls.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import {
@@ -154,7 +157,7 @@ export type NewsletterBrainstorm = {
 /** Minimal arguments for a single `generateObject` call for newsletter generation. */
 export type GenerateNewsletterObjectArgs = {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
-  schema: typeof industryNewsletterStructureSchema;
+  schema: typeof industryNewsletterStructureLlmSchema;
   system: string;
   prompt: string;
   /** Should always be 0 — we manage our own retry loop via retryWithBackoff. */
@@ -466,15 +469,15 @@ You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{
 Return JSON matching this shape (camelCase keys):
 - "subject": short email subject (under ~60 chars), sector-relevant, may mention {{tickerName}} or {{tickerSymbol}} once if natural.
 - "industryPulse": { "displayHeading", "prose" } — short lead framing the industry story (no bullet characters in prose).
-- "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets; each bullet { "text", optional "articleIndex" }.
-- "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets with optional articleIndex.
-- "regulatoryPolicyWatch": { "displayHeading", "bullets" } — 1–3 bullets with optional articleIndex.
-- "disruptorsOrTech": either { "format": "prose", "displayHeading", "prose" } OR { "format": "bullets", "displayHeading", "bullets" } with 1–3 bullets.
+- "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets; each bullet { "text", "articleIndex" } where articleIndex is a 1-based article number or null when uncited.
+- "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets; same articleIndex rule.
+- "regulatoryPolicyWatch": { "displayHeading", "bullets" } — 1–3 bullets; same articleIndex rule.
+- "disruptorsOrTech": either { "format": "prose", "displayHeading", "prose" } OR { "format": "bullets", "displayHeading", "bullets" } with 1–3 bullets (same articleIndex rule).
 - "quickHits": { "displayHeading", "items" } — 5–7 items; each item { "text", "articleIndex" } (index required for every quick hit).
-- Optional "readWatchListen": { "displayHeading", "summary", "articleIndex" } — include only when grounded.
-- Optional "quoteOfTheWeek": { "displayHeading", "quote", "attribution", optional "articleIndex" } — include only when grounded.
+- "readWatchListen": { "displayHeading", "summary", "articleIndex" } or null when unsupported by the articles.
+- "quoteOfTheWeek": { "displayHeading", "quote", "attribution", "articleIndex" } or null when unsupported; articleIndex may be null when uncited.
 
-Headings ("displayHeading") can be personality titles. Keep JSON valid; omit optional blocks entirely when unsupported by the articles.`;
+Headings ("displayHeading") can be personality titles. Keep JSON valid; use null for optional blocks and uncited articleIndex values.`;
 
 /**
  * Default user prompt template used when no template is provided in config.
@@ -485,9 +488,9 @@ Write one JSON industry briefing using the {{topNewsCount}} numbered articles be
 
 Rules reminder:
 - Industry and competitive lens; no trading advice.
-- Use "articleIndex" only to point at Article 1 … Article {{topNewsCount}} from this prompt. Omit articleIndex on a bullet when there is no clear single-article grounding.
+- Use "articleIndex" to point at Article 1 … Article {{topNewsCount}} from this prompt. Set articleIndex to null on a bullet when there is no clear single-article grounding.
 - Quick hits must all include articleIndex.
-- Omit optional blocks when you cannot ground them.
+- Set readWatchListen and quoteOfTheWeek to null when you cannot ground them.
 
 {{sourceSummaries}}`;
 
@@ -849,7 +852,7 @@ export async function generateNewsletterWithLlm(
     async () => {
       return generateFn({
         model,
-        schema: industryNewsletterStructureSchema,
+        schema: industryNewsletterStructureLlmSchema,
         system: systemPrompt,
         prompt,
         maxRetries: 0,

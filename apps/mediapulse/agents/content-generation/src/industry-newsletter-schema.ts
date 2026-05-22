@@ -81,3 +81,100 @@ export const industryNewsletterStructureSchema = z.object({
 export type IndustryNewsletterStructure = z.infer<
   typeof industryNewsletterStructureSchema
 >;
+
+/** Maps a nullable LLM article index to the optional parsed shape. */
+const normalizeOptionalArticleIndex = (
+  articleIndex: number | null,
+): number | undefined => (articleIndex === null ? undefined : articleIndex);
+
+/** OpenAI strict JSON schema requires every property key in `required`; bullets use null when uncited. */
+const industryBriefBulletLlmSchema = z
+  .object({
+    text: z.string().min(1),
+    articleIndex: z.union([articleIndexSchema, z.null()]),
+  })
+  .transform(
+    ({ text, articleIndex }): z.infer<typeof industryBriefBulletSchema> => {
+      const normalizedIndex = normalizeOptionalArticleIndex(articleIndex);
+      return normalizedIndex === undefined
+        ? { text }
+        : { text, articleIndex: normalizedIndex };
+    },
+  );
+
+const disruptorsOrTechBulletsLlmSchema = z.object({
+  format: z.literal("bullets"),
+  displayHeading: z.string().min(1),
+  bullets: z.array(industryBriefBulletLlmSchema).min(1).max(3),
+});
+
+const disruptorsOrTechLlmSchema = z.discriminatedUnion("format", [
+  disruptorsOrTechProseSchema,
+  disruptorsOrTechBulletsLlmSchema,
+]);
+
+const quoteOfTheWeekLlmSchema = z
+  .object({
+    displayHeading: z.string().min(1),
+    quote: z.string().min(1),
+    attribution: z.string().min(1),
+    articleIndex: z.union([articleIndexSchema, z.null()]),
+  })
+  .transform(
+    ({
+      displayHeading,
+      quote,
+      attribution,
+      articleIndex,
+    }): z.infer<typeof quoteOfTheWeekSchema> => {
+      const normalizedIndex = normalizeOptionalArticleIndex(articleIndex);
+      return normalizedIndex === undefined
+        ? { displayHeading, quote, attribution }
+        : { displayHeading, quote, attribution, articleIndex: normalizedIndex };
+    },
+  );
+
+/**
+ * OpenAI-compatible schema for structured newsletter generation.
+ *
+ * Nullable fields satisfy strict JSON-schema `required` rules; transforms
+ * normalize output to {@link industryNewsletterStructureSchema}.
+ */
+export const industryNewsletterStructureLlmSchema = z
+  .object({
+    subject: z.string().min(1),
+    industryPulse: z.object({
+      displayHeading: z.string().min(1),
+      prose: z.string().min(1),
+    }),
+    competitiveLandscape: z.object({
+      displayHeading: z.string().min(1),
+      bullets: z.array(industryBriefBulletLlmSchema).min(2).max(3),
+    }),
+    dealsAndMovements: z.object({
+      displayHeading: z.string().min(1),
+      bullets: z.array(industryBriefBulletLlmSchema).min(1).max(3),
+    }),
+    regulatoryPolicyWatch: z.object({
+      displayHeading: z.string().min(1),
+      bullets: z.array(industryBriefBulletLlmSchema).min(1).max(3),
+    }),
+    disruptorsOrTech: disruptorsOrTechLlmSchema,
+    quickHits: z.object({
+      displayHeading: z.string().min(1),
+      items: z.array(industryQuickHitSchema).min(5).max(7),
+    }),
+    readWatchListen: z
+      .union([readWatchListenSchema, z.null()])
+      .transform(
+        (value): z.infer<typeof readWatchListenSchema> | undefined =>
+          value ?? undefined,
+      ),
+    quoteOfTheWeek: z
+      .union([quoteOfTheWeekLlmSchema, z.null()])
+      .transform(
+        (value): z.infer<typeof quoteOfTheWeekSchema> | undefined =>
+          value ?? undefined,
+      ),
+  })
+  .transform((value): IndustryNewsletterStructure => value);
