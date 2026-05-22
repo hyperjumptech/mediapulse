@@ -4,6 +4,10 @@ import type { PostContentGenerationBody } from "@workspace/agent-data-api-contra
 
 import type { Prisma } from "@mediapulse/database";
 
+import { flattenBulletsFromNewsletterWire } from "../lib/flatten-newsletter-wire-bullets.js";
+
+const MAX_RECENT_BULLETS = 200;
+
 type DataSourceWithScore = Prisma.DataSourceGetPayload<{
   include: {
     articleRelevances: {
@@ -17,7 +21,10 @@ type DataSourceWithScore = Prisma.DataSourceGetPayload<{
 type ContentGenerationDb = {
   dataSource: Pick<typeof prisma.dataSource, "findMany">;
   ticker: Pick<typeof prisma.ticker, "findUniqueOrThrow">;
-  newsletter: Pick<typeof prisma.newsletter, "create" | "findFirst">;
+  newsletter: Pick<
+    typeof prisma.newsletter,
+    "create" | "findFirst" | "findMany"
+  >;
 };
 
 /**
@@ -161,4 +168,96 @@ export const getLatestNewsletter = async (
     hasNewsletter: newsletter !== null,
     newsletterId: newsletter?.id ?? null,
   };
+};
+
+/**
+ * Lists recent newsletter subjects for a ticker (novelty scoring in content-generation).
+ *
+ * @param tickerId - Ticker id to match.
+ * @param days - Lookback window in calendar days.
+ * @param db - Database dependency, injectable for tests.
+ */
+export const getRecentNewsletterSubjects = async (
+  tickerId: string,
+  days: number,
+  db: Pick<ContentGenerationDb, "newsletter"> = prisma,
+): Promise<{
+  items: Array<{ subject: string; createdAt: string }>;
+}> => {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - days);
+
+  const findArgs = {
+    where: {
+      tickerId,
+      createdAt: { gte: since },
+    },
+    select: { subject: true, createdAt: true },
+    orderBy: { createdAt: "desc" as const },
+  } satisfies Prisma.NewsletterFindManyArgs;
+
+  const rows = await db.newsletter.findMany(findArgs);
+
+  return {
+    items: rows.map((row) => ({
+      subject: row.subject,
+      createdAt: row.createdAt.toISOString(),
+    })),
+  };
+};
+
+/**
+ * Lists flattened bullets from recent newsletter wire bodies for cross-run dedup.
+ *
+ * @param tickerId - Ticker id to match.
+ * @param days - Lookback window in calendar days.
+ * @param db - Database dependency, injectable for tests.
+ */
+export const getRecentNewsletterBullets = async (
+  tickerId: string,
+  days: number,
+  db: Pick<ContentGenerationDb, "newsletter"> = prisma,
+): Promise<{
+  items: Array<{
+    newsletterId: string;
+    sectionKey: string;
+    bulletText: string;
+    createdAt: string;
+  }>;
+}> => {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - days);
+
+  const findArgs = {
+    where: {
+      tickerId,
+      createdAt: { gte: since },
+    },
+    select: { id: true, content: true, createdAt: true },
+    orderBy: { createdAt: "desc" as const },
+  } satisfies Prisma.NewsletterFindManyArgs;
+
+  const rows = await db.newsletter.findMany(findArgs);
+  const items: Array<{
+    newsletterId: string;
+    sectionKey: string;
+    bulletText: string;
+    createdAt: string;
+  }> = [];
+
+  for (const row of rows) {
+    const flattened = flattenBulletsFromNewsletterWire(
+      row.id,
+      row.content,
+      row.createdAt.toISOString(),
+    );
+    for (const bullet of flattened) {
+      items.push(bullet);
+      if (items.length >= MAX_RECENT_BULLETS) {
+        return { items };
+      }
+    }
+  }
+
+  return { items };
 };

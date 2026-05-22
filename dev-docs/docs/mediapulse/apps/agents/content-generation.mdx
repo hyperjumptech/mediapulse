@@ -35,24 +35,43 @@ Successful runs include `details.promptHash` (16-character hex, same algorithm a
 
 ## Config schema
 
-| Field                        | Type           | Required | Default          | Description                                                                                                                                                                                                                                                                                               |
-| ---------------------------- | -------------- | -------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `openai.apiKey`              | `string`       | ✅       | —                | OpenAI API key. Required if `openaiApiKey` is omitted.                                                                                                                                                                                                                                                    |
-| `openai.model`               | `string`       | ❌       | `gpt-4o-mini`    | Chat model id.                                                                                                                                                                                                                                                                                            |
-| `openai.baseUrl`             | `string (url)` | ❌       | official         | OpenAI-compatible API base URL.                                                                                                                                                                                                                                                                           |
-| `openai.timeoutMs`           | `number`       | ❌       | `120000`         | Per-request timeout in milliseconds.                                                                                                                                                                                                                                                                      |
-| `openaiApiKey`               | `string`       | ❌       | —                | **Deprecated**: Use `openai.apiKey`.                                                                                                                                                                                                                                                                      |
-| `openaiModel`                | `string`       | ❌       | —                | **Deprecated**: Use `openai.model`.                                                                                                                                                                                                                                                                       |
-| `prompts.systemPrompt`       | `string`       | ❌       | built-in default | Full system template. Allowed placeholders: `{{topNewsCount}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`. Hermes JSON schema lists them for SchemaForm. Max length enforced at parse time (`CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH`). **Not for secrets** — use `openai.apiKey` only. |
-| `prompts.userPromptTemplate` | `string`       | ❌       | built-in default | User template. Allowed placeholders: `{{sourceSummaries}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`, `{{date}}`, `{{topNewsCount}}`. Same max length and validation as system. **Not for secrets.**                                                                                          |
-| `output.topNewsCount`        | `number`       | ❌       | `10`             | Number of highest-relevance articles included in the LLM prompt (`Article 1` … `Article N`). Also caps how many distinct URLs can be injected from `articleIndex`.                                                                                                                                       |
-| `llmRetry.maxAttempts`       | `number`       | ❌       | `3`              | Max retry attempts (including first).                                                                                                                                                                                                                                                                     |
-| `llmRetry.baseDelayMs`       | `number`       | ❌       | `500`            | Base backoff delay in ms.                                                                                                                                                                                                                                                                                 |
-| `llmRetry.maxDelayMs`        | `number`       | ❌       | `8000`           | Max backoff delay cap in ms.                                                                                                                                                                                                                                                                              |
-| `llmRetry.jitter`            | `boolean`      | ❌       | `true`           | Apply ±50% jitter to delays.                                                                                                                                                                                                                                                                              |
-| `persistRetry.maxAttempts`   | `number`       | ❌       | `2`              | Max persist retry attempts (including first).                                                                                                                                                                                                                                                             |
-| `persistRetry.baseDelayMs`   | `number`       | ❌       | `200`            | Base backoff delay in ms.                                                                                                                                                                                                                                                                                 |
-| `persistRetry.maxDelayMs`    | `number`       | ❌       | `2000`           | Max backoff delay cap in ms. No jitter (unlike llmRetry).                                                                                                                                                                                                                                                 |
+| Field                            | Type           | Required | Default          | Description                                                                                                                                                                                                                                                                                               |
+| -------------------------------- | -------------- | -------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openai.apiKey`                  | `string`       | ✅       | —                | OpenAI API key. Required if `openaiApiKey` is omitted.                                                                                                                                                                                                                                                    |
+| `openai.model`                   | `string`       | ❌       | `gpt-4o-mini`    | Chat model id.                                                                                                                                                                                                                                                                                            |
+| `openai.baseUrl`                 | `string (url)` | ❌       | official         | OpenAI-compatible API base URL.                                                                                                                                                                                                                                                                           |
+| `openai.timeoutMs`               | `number`       | ❌       | `120000`         | Per-request timeout in milliseconds.                                                                                                                                                                                                                                                                      |
+| `openaiApiKey`                   | `string`       | ❌       | —                | **Deprecated**: Use `openai.apiKey`.                                                                                                                                                                                                                                                                      |
+| `openaiModel`                    | `string`       | ❌       | —                | **Deprecated**: Use `openai.model`.                                                                                                                                                                                                                                                                       |
+| `prompts.systemPrompt`           | `string`       | ❌       | built-in default | Full system template. Allowed placeholders: `{{topNewsCount}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`. Hermes JSON schema lists them for SchemaForm. Max length enforced at parse time (`CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH`). **Not for secrets** — use `openai.apiKey` only. |
+| `prompts.userPromptTemplate`     | `string`       | ❌       | built-in default | User template. Allowed placeholders: `{{sourceSummaries}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`, `{{date}}`, `{{topNewsCount}}`. Same max length and validation as system. **Not for secrets.**                                                                                          |
+| `output.topNewsCount`            | `number`       | ❌       | `10`             | Number of highest-relevance articles included in the LLM prompt (`Article 1` … `Article N`). Also caps how many distinct URLs can be injected from `articleIndex`.                                                                                                                                        |
+| `llmRetry.maxAttempts`           | `number`       | ❌       | `3`              | Max retry attempts (including first).                                                                                                                                                                                                                                                                     |
+| `llmRetry.baseDelayMs`           | `number`       | ❌       | `500`            | Base backoff delay in ms.                                                                                                                                                                                                                                                                                 |
+| `llmRetry.maxDelayMs`            | `number`       | ❌       | `8000`           | Max backoff delay cap in ms.                                                                                                                                                                                                                                                                              |
+| `llmRetry.jitter`                | `boolean`      | ❌       | `true`           | Apply ±50% jitter to delays.                                                                                                                                                                                                                                                                              |
+| `persistRetry.maxAttempts`       | `number`       | ❌       | `2`              | Max persist retry attempts (including first).                                                                                                                                                                                                                                                             |
+| `persistRetry.baseDelayMs`       | `number`       | ❌       | `200`            | Base backoff delay in ms.                                                                                                                                                                                                                                                                                 |
+| `persistRetry.maxDelayMs`        | `number`       | ❌       | `2000`           | Max backoff delay cap in ms. No jitter (unlike llmRetry).                                                                                                                                                                                                                                                 |
+| `sourceRanking.enabled`          | `boolean`      | ❌       | `true`           | Pre-LLM re-rank and host diversification; set `false` for legacy relevance-only order. See [Source ranking](#source-ranking).                                                                                                                                                                             |
+| `fewShot.enabled`                | `boolean`      | ❌       | `false`          | Inject curated newsletter exemplars before source summaries for voice calibration. See [Few-shot exemplars](#few-shot-exemplars).                                                                                                                                                                         |
+| `fewShot.maxExemplars`           | `number` (1–2) | ❌       | `1`              | How many exemplar blocks to prepend when `fewShot.enabled` is true.                                                                                                                                                                                                                                       |
+| `fewShot.sectorTag`              | enum           | ❌       | _(keyword pick)_ | Pin a sector exemplar (`industrial`, `consumer`, `financial`, `tech`, `commodities`); when omitted, keyword heuristics choose.                                                                                                                                                                            |
+| `useBrainstormPass`              | `boolean`      | ❌       | `false`          | Run a free-form editor's memo before structured JSON generation. See [Two-pass generation](#two-pass-generation).                                                                                                                                                                                         |
+| `brainstormModel`                | `string`       | ❌       | `openai.model`   | Model for the brainstorm leg (can be cheaper than the structured pass).                                                                                                                                                                                                                                   |
+| `brainstormMaxOutputTokens`      | `number`       | ❌       | `700`            | Output token cap for the memo pass.                                                                                                                                                                                                                                                                       |
+| `citationGrounding.enabled`      | `boolean`      | ❌       | `false`          | Post-generation citation overlap verification. See [Citation grounding](#citation-grounding).                                                                                                                                                                                                             |
+| `citationGrounding.policy`       | enum           | ❌       | `unlink`         | `warn`, `unlink`, or `drop` for low-overlap citations.                                                                                                                                                                                                                                                    |
+| `numericAnchors.enabled`         | `boolean`      | ❌       | `false`          | Pre-LLM verbatim figure sidecar and post-generation figure audit. See [Numeric anchors](#numeric-anchors).                                                                                                                                                                                                |
+| `numericAnchors.unmatchedPolicy` | enum           | ❌       | `warn`           | `warn` (log only) or `strip` (replace figures missing from sources).                                                                                                                                                                                                                                      |
+| `subjectLine.enabled`            | `boolean`      | ❌       | `false`          | Generate and score subject-line candidates. See [Subject line scoring](#subject-line-scoring).                                                                                                                                                                                                            |
+| `subjectLine.candidateCount`     | `number` (3–8) | ❌       | `5`              | How many alternative subjects the sidecar LLM pass requests.                                                                                                                                                                                                                                              |
+| `crossRunDedup.enabled`          | `boolean`      | ❌       | `false`          | Preventive prompt block + post-generation similarity walker. See [Cross-run dedup](#cross-run-dedup).                                                                                                                                                                                                     |
+| `crossRunDedup.policy`           | enum           | ❌       | `warn`           | `warn`, `mark` (`[follow-up]` prefix), or `drop` for near-duplicates.                                                                                                                                                                                                                                     |
+| `polish.enabled`                 | `boolean`      | ❌       | `false`          | Deterministic filler/hedge/register cleanup before grounding. See [Style polish](#style-polish).                                                                                                                                                                                                          |
+| `polish.tier`                    | enum           | ❌       | `safe`           | `safe` (filler, hedge, register) or `aggressive` (adds overused-word replacement).                                                                                                                                                                                                                        |
+| `selfCritique.enabled`           | `boolean`      | ❌       | `false`          | Bounded bullet self-critique before polish and grounding. See [Self-critique](#self-critique).                                                                                                                                                                                                            |
+| `sourceRanking.maxPerHost`       | `number`       | ❌       | `2`              | Max articles per host in the LLM prompt.                                                                                                                                                                                                                                                                  |
 
 ## Error taxonomy
 
@@ -90,3 +109,418 @@ The `AgentRunResult` envelope returned to Hermes is unchanged: `{ success: false
 - [Operational Runbook](/mediapulse/apps/agents/content-generation-runbook) — Triage guide for every outcome code.
 - [agent-data-api](/mediapulse/apps/agent-data-api) — Read/write content-generation data.
 - [Packages: agent-runtime](/hermes/packages/agent-runtime), [agent-types](/hermes/packages/agent-types).
+
+## Source ranking
+
+Before the LLM call, the agent can re-rank and diversify the truncated source list so the prompt is not dominated by one wire repeating the same lede. Ranking is **pre-LLM only** — no extra model cost, and `articleIndex` still refers to the numbered articles in the final prompt order.
+
+### Composite score
+
+Each candidate gets a deterministic score (higher is better):
+
+```
+score = relevanceWeight × (1 / (relevanceRank + 1))
+      + recencyWeight × recencyFactor
+      + tierWeight × tierFactor
+      + lengthWeight × lengthFactor
+```
+
+| Component | Default weight | Factor                                                                                                |
+| --------- | -------------- | ----------------------------------------------------------------------------------------------------- |
+| Relevance | 0.45           | `1 / (rank + 1)` where rank 0 is the most relevant source from agent-data-api                         |
+| Recency   | 0.25           | `exp(-hours / recencyHalfLifeHours)` clamped to [0, 1]; **neutral 0.5** when `publishedAt` is missing |
+| Tier      | 0.20           | tier1 = 1.0, tier2 = 0.7, tier3 = 0.4, unknown = 0.2                                                  |
+| Length    | 0.10           | `min(1, bodyChars / 1200)` — thin bodies under ~250 words score lower                                 |
+
+Default half-life is **36 hours** (a 12h-old article ≈ 0.79, 36h ≈ 0.50, 72h ≈ 0.25).
+
+### Host diversification
+
+After sorting by score, a greedy pass picks sources while capping each host at `sourceRanking.maxPerHost` (default **2**). If every remaining host is at cap, spillover fills remaining slots in score order so the prompt is always full.
+
+### Host tier table
+
+Hand-maintained suffix list (longest match wins). Hosts not listed but with a normal TLD fall to **tier3**; bare IPs, `.xyz`, and unparseable URLs are **unknown**.
+
+| Tier  | Example domains                                                                      |
+| ----- | ------------------------------------------------------------------------------------ |
+| tier1 | `reuters.com`, `bloomberg.com`, `ft.com`, `wsj.com`, `kontan.co.id`, `bisnis.com`, … |
+| tier2 | `cnbcindonesia.com`, `detik.com`, `tempo.co`, `kompas.com`, `idnfinancials.com`, …   |
+| tier3 | `medium.com`, `substack.com`, unlisted publishers with a recognizable TLD            |
+
+Keep this table aligned with [article-analysis source quality](/mediapulse/apps/agents/article-analysis) — tier drift between agents is confusing in ops dashboards.
+
+### Config
+
+| Field                                | Default         | Description                                    |
+| ------------------------------------ | --------------- | ---------------------------------------------- |
+| `sourceRanking.enabled`              | `true`          | Set `false` to restore relevance-only ordering |
+| `sourceRanking.maxPerHost`           | `2`             | Max articles per host in the prompt            |
+| `sourceRanking.recencyHalfLifeHours` | `36`            | Recency decay half-life                        |
+| `sourceRanking.weights.*`            | see table above | Per-component weights (each 0–1)               |
+
+### Tuning workflow
+
+- **Indonesian locals drowned out by global tier1 wires** — raise `weights.tier` or add local domains to tier1/tier2 via PR.
+- **Breaking-news tickers** — lower `recencyHalfLifeHours` (e.g. 12) or raise `weights.recency`.
+- **Slow-news / weekly tickers** — raise half-life toward 72h so yesterday’s context still scores well.
+
+Each run logs `selectedHosts`, `hostTierDistribution`, and `recencyP50Hours` before the LLM call for week-over-week mix dashboards.
+
+## Few-shot exemplars
+
+Newsletter generation can prepend one or two hand-curated **voice exemplars** before the numbered articles. Exemplars are prose-formatted (not JSON) so the model calibrates tone, bullet length (~25–40 words), and creative `displayHeading` titles — not schema shape, which `generateObject` already enforces.
+
+### What each exemplar teaches
+
+| Exemplar bank id  | Sector tag   | Teaches                                                                                                     |
+| ----------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
+| `industrial-INDX` | `industrial` | Grounded industrial prose, cited bullets, personality headings; omits `quoteOfTheWeek` when unsupported     |
+| `consumer-CONSM`  | `consumer`   | Consumer/financial voice, quick-hit density, optional quote block; omits `readWatchListen` when unsupported |
+
+Fictional tickers and article titles — the live run must ground only in real sources.
+
+### Selection heuristic
+
+When `fewShot.sectorTag` is unset, the agent concatenates `tickerName`, `tickerSymbol`, and source titles and keyword-matches:
+
+- **Consumer/financial exemplar** when text mentions `bank`, `finance`, `consumer`, `lending`, `deposits`, etc.
+- **Industrial exemplar** otherwise
+
+Set `fewShot.sectorTag` to pin a sector regardless of keywords. Set `fewShot.maxExemplars` to `2` to show both voices (~1500 prompt tokens each).
+
+### Token budget
+
+Each exemplar adds roughly **1500 prompt tokens**. If exemplars plus source summaries would exceed `context.maxTotalContextChars`, **sources drop from the end first** — exemplars are never removed. Ops logs include `exemplarsUsed`, `promptCharsAddedByExemplars`, and `sourcesDroppedForExemplarSpace`.
+
+### Plagiarism fail-safe
+
+After generation, local **Jaccard similarity** compares bullet text to the active exemplar. Overlap above **0.6** emits `newsletter_possibly_plagiarized_exemplar` in logs. The prompt disclaimer is the primary guard; detection is a fail-safe.
+
+### Adding a new exemplar
+
+1. Open a PR adding a full `IndustryNewsletterStructure` entry to `NEWSLETTER_EXEMPLAR_BANK` in `src/lib/newsletter-exemplars.ts`.
+2. Assign a unique `id`, `sectorTag`, fictional `tickerSymbol`, and `sourceTitles`.
+3. Omit at least one optional block (`readWatchListen` or `quoteOfTheWeek`) so the model learns omission is valid.
+4. Document expected token cost in the PR (~1500 tokens per exemplar).
+5. Extend selection tests if the new sector needs distinct keyword routing.
+
+Default rollout: ship with `fewShot.enabled: false`, pilot on one or two tickers, then flip the default once lift is confirmed.
+
+## Two-pass generation
+
+When `useBrainstormPass` is true, the agent runs **two LLM calls** per newsletter:
+
+1. **Brainstorm pass** (`generateText`) — a free-form editor's memo with six labeled sections: `HEADLINE THESIS`, `THREADS TO WEAVE`, `STANDOUT NUMBERS`, `WHAT CHANGED`, `WHAT TO WATCH`, and `TONE NOTE`. No JSON, no schema — the model commits to thesis, threads, numbers, and tone before formatting.
+2. **Structured pass** (`generateObject`) — the existing industry briefing JSON, conditioned on the memo plus numbered articles (and optional few-shot exemplars on the structured pass only).
+
+The structured user prompt prepends:
+
+> Below is your editor's memo for this week. Use it as the spine for the briefing…
+
+Exemplars from [Few-shot exemplars](#few-shot-exemplars) are **not** shown to the brainstorm pass — only the structured pass sees them.
+
+### Why six memo sections
+
+Each label forces a different cognitive mode (synthesis, expansion, concrete figures, comparison, forecast, voice). Free prose alone often skips "what changed" and "what to watch." The `TONE NOTE` line is the biggest qualitative lever — it sets sober vs contrarian vs technical register for the JSON pass.
+
+### Config
+
+| Field                       | Default        | Description                            |
+| --------------------------- | -------------- | -------------------------------------- |
+| `useBrainstormPass`         | `false`        | Enable two-pass generation             |
+| `brainstormModel`           | `openai.model` | Cheaper model for the memo leg is fine |
+| `brainstormMaxOutputTokens` | `700`          | Memos are short by design              |
+
+### Cost and timeout
+
+Expect roughly **2× prompt tokens** and **~1.3× completion tokens** versus single-pass. On brainstorm failure (transport, timeout, empty memo) the run **falls back to single-pass** — consumers still get a newsletter. If the brainstorm consumes more than **half** of `openai.timeoutMs`, the memo is dropped for that run so the structured pass keeps enough budget.
+
+### Observability
+
+- Structured-pass tokens remain in `promptTokens` / `completionTokens` on the persisted newsletter row.
+- Brainstorm tokens surface on the agent run `details`: `brainstormUsed`, `brainstormPromptTokens`, `brainstormCompletionTokens`.
+- Logs: `Newsletter brainstorm pass complete`, `brainstorm_failed_fallback`, `brainstorm_slow_single_pass_fallback`.
+
+### Rollout
+
+Enable on one or two pilot tickers, watch yield and subjective quality for a week, then enable per ticker where briefing quality moves the product needle.
+
+## Citation grounding
+
+After the structured LLM call, the agent can walk every row with an `articleIndex` and verify that the cited article actually supports the claim. This is a **deterministic post-generation check** — no extra LLM or embedding cost.
+
+### Overlap score
+
+Each cited bullet is scored in `[0, 1]` using:
+
+1. **3-gram Jaccard** over stopword-filtered tokens from the bullet vs. the article title plus the first 2000 characters of body (same stopword list as phrase link injection).
+2. **Numeric bonus** (+0.2 by default, capped at 1.0) when the bullet contains digits and a matching number appears in the article text. Industry briefings live on figures — `$2.3B`, `12.4%`, etc. — so shared numbers are the strongest grounding signal.
+
+Default minimum overlap is **0.18**. Rows below the threshold are handled per policy.
+
+### Policies
+
+| Policy   | Behavior                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------- |
+| `warn`   | Observability only — structure unchanged; use for the first rollout week to size failure rate         |
+| `unlink` | Clear `articleIndex` on optional bullets; prose ships without the implied citation link (**default**) |
+| `drop`   | Remove the row entirely, subject to schema-floor protection                                           |
+
+`quickHits` require `articleIndex` on every item — unlink is not valid. Failed quick hits can only be dropped or kept. When dropping would fall below `min(5)`, the row is **kept** and a `quickHits_ground_failed_keeping_item` warning is logged.
+
+### Schema-floor protection
+
+The walker never emits output that fails `industryNewsletterStructureSchema`. When a `drop` would violate a section minimum (`competitiveLandscape` min 2, `quickHits` min 5, etc.), drops are downgraded to `unlink` (or kept for quick hits). A `groundingFloorPreserved` log event records how many rows were protected.
+
+### Config
+
+| Field                               | Default  | Description                                   |
+| ----------------------------------- | -------- | --------------------------------------------- |
+| `citationGrounding.enabled`         | `false`  | Turn on post-generation citation verification |
+| `citationGrounding.policy`          | `unlink` | `warn`, `unlink`, or `drop`                   |
+| `citationGrounding.minOverlapScore` | `0.18`   | Minimum score to keep a citation              |
+| `citationGrounding.numericBonus`    | `0.2`    | Bonus when bullet numbers match the article   |
+
+### Observability
+
+One rolled-up log line per run: `totalCitations`, `unlinked`, `dropped`, `floorPreserved`, `p50Overlap`, `p10Overlap`. Per-bullet reports are attached to the agent run result (`details.grounding`) — not logged at info level.
+
+### Rollout
+
+Start with `enabled: true, policy: 'warn'` for one week. Watch `p10Overlap` and tune `minOverlapScore`, then flip to `unlink`.
+
+## Numeric anchors
+
+Industry briefings lose signal when the model rounds or paraphrases figures. Numeric anchors extract concrete numbers from source bodies **before** the structured LLM call, show them to the model as a verbatim-quote sidecar, then audit every figure in the generated briefing.
+
+### Regex bank
+
+Deterministic patterns (no extra LLM cost) cover the highest-value units:
+
+| Unit         | Examples                                    |
+| ------------ | ------------------------------------------- |
+| **currency** | `Rp 12.4 trillion`, `$2.3B`, `IDR 500 juta` |
+| **percent**  | `12.4%`, `6,1%`                             |
+| **count**    | `8 new branches`, `1,200 customers`         |
+| **ratio**    | `3.5x`, `2 kali`                            |
+
+Currency and percent matches get salience **1.0**; counts and ratios get **0.7**. `selectTopAnchors` keeps at most `perArticleCap` (default **5**) per article and `totalCap` (default **25**) overall, sorted by salience then earlier position in the body.
+
+### Prompt sidecar
+
+When `numericAnchors.enabled` is true, the user prompt includes a block immediately above the article list:
+
+```text
+VERBATIM FIGURES AVAILABLE FROM SOURCES:
+- Rp 12.4 trillion (Article 3)
+...
+When quoting a figure in a bullet, use the EXACT string above. Do not paraphrase or round.
+```
+
+### Post-generation audit
+
+After generation (and optional [citation grounding](#citation-grounding)), the agent walks every prose line, bullet, and quick hit, re-runs the same regex bank, and checks each figure as a **substring** of some source title+body. Figures with no source match land in `unmatchedFigures`.
+
+**Anchor coverage** is the headline quality metric:
+
+`anchorCoverageRatio = anchorsQuotedVerbatim / anchorsTopSelected`
+
+A briefing that quotes 8 of 18 top anchors is numerically grounded; one that quotes 1 of 18 is competent prose but thin on signal.
+
+### Unmatched policy
+
+| Policy  | Behavior                                                                    |
+| ------- | --------------------------------------------------------------------------- |
+| `warn`  | Observability only — briefing text unchanged (**default**)                  |
+| `strip` | Replace unmatched tokens with `[figure removed]` and log `numeric_stripped` |
+
+`strip` can produce awkward grammar, so operators usually run `warn` for a week, watch coverage and unmatched counts, then enable `strip` on tickers where `anchorCoverageRatio` is already above ~50%.
+
+### Config
+
+| Field                            | Default | Description                                        |
+| -------------------------------- | ------- | -------------------------------------------------- |
+| `numericAnchors.enabled`         | `false` | Extract anchors and run the figure audit           |
+| `numericAnchors.perArticleCap`   | `5`     | Max anchors per article in the sidecar             |
+| `numericAnchors.totalCap`        | `25`    | Max anchors overall in the sidecar                 |
+| `numericAnchors.unmatchedPolicy` | `warn`  | `warn` or `strip` for figures missing from sources |
+
+### Observability
+
+One info log per run: `anchorsExtracted`, `anchorsTopSelected`, `anchorsQuotedVerbatim`, `anchorCoverageRatio`, `unmatchedFigures` (count). Run `details.numericAnchors` carries the same rollup for dashboards.
+
+### Rollout
+
+Enable `warn` on one or two pilot tickers for a week. Track `anchorCoverageRatio` trend. Where coverage stays above 50% and unmatched counts are low, try `strip` on those tickers only.
+
+## Subject line scoring
+
+The structured JSON pass emits one subject line. That is high leverage for open rate but leaves no comparison. When `subjectLine.enabled` is true, a small sidecar LLM call requests 3–8 stylistically mixed candidates (declarative, numeric, curiosity, contrast), each with a 50–110 character preheader. A deterministic scorer picks the winner.
+
+### Scoring axes
+
+| Axis               | Default weight | What it measures                                                            |
+| ------------------ | -------------- | --------------------------------------------------------------------------- |
+| **lengthFit**      | 0.20           | Triangular curve peaking at ~42 characters (mobile inbox sweet spot)        |
+| **tickerPresence** | 0.15           | Symbol or company name in the subject vs generic references                 |
+| **curiosityGap**   | 0.25           | Question marks, numbers, contrast words, curiosity verbs; clickbait penalty |
+| **novelty**        | 0.20           | `1 - max Jaccard` vs subjects from the last 7 days (floor 0.6)              |
+| **readability**    | 0.20           | Shorter mean syllables per word score higher                                |
+
+Weights are tunable per ticker via `subjectLine.weights`.
+
+### Original-wins-on-tie
+
+The subject from the main structured pass competes as **candidate 0** with a preheader derived from the first 110 characters of `industryPulse.prose`. If a generated candidate ties the original score, the **original wins** — same voice as the body.
+
+### Recent subject history
+
+`run.ts` loads the last 7 days of subjects via `contentGenerationNewslettersRecent.get({ tickerId, days: 7 })`. Network or 404 failures fall back to `recentSubjects: []` (novelty = 1.0 for all candidates). The run never blocks on history.
+
+### Config
+
+| Field                        | Default        | Description                              |
+| ---------------------------- | -------------- | ---------------------------------------- |
+| `subjectLine.enabled`        | `false`        | Enable candidate generation and scoring  |
+| `subjectLine.candidateCount` | `5`            | Target number of LLM candidates (3–8)    |
+| `subjectLine.model`          | `openai.model` | Sidecar model (cheaper tier is fine)     |
+| `subjectLine.weights.*`      | see axes above | Per-axis weights for the composite score |
+
+### Observability
+
+One info log per run with `originalSubject`, `winnerSubject`, `winnerScore`, `originalScore`, `candidateCount`, and `candidateScores`. Run `details.subjectLine` and `details.preheader` surface the winner for delivery preview text ([delivery preview optimization](../delivery) when plan 50 lands).
+
+### Non-goals
+
+This is **not** per-recipient A/B testing. The agent picks one winner per newsletter. Production variant testing is a delivery-side concern.
+
+### Rollout
+
+Enable on one pilot ticker, aggregate a week of ranked logs into a “subject style winners by ticker” view, then tune `subjectLine.weights` for tickers where declarative lines underperform.
+
+## Cross-run dedup
+
+Subscribers should not see the same bullet on Monday, Wednesday, and Friday when nothing new happened. Cross-run dedup adds **longitudinal memory** across the last N days of persisted newsletters.
+
+### Two-arm strategy
+
+| Arm            | When                                 | What it does                                                                                                                    |
+| -------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Preventive** | Before the structured LLM call       | Injects the 15 most recent bullets into the user prompt under `AVOID REPEATING THESE RECENT BULLETS (last {{windowDays}} days)` |
+| **Detective**  | After generation (post subject-line) | Jaccard 3-gram similarity walk over every bullet and quick hit vs up to **200** recent bullets                                  |
+
+Both arms use the same tokenizer as citation grounding — deterministic, no embedding cost.
+
+### Policies
+
+| Policy | Behavior                                                                              |
+| ------ | ------------------------------------------------------------------------------------- |
+| `warn` | Log near-duplicates only (**default**)                                                |
+| `mark` | Prepend `[follow-up] ` to flagged bullets (visible to subscribers)                    |
+| `drop` | Remove the row, subject to schema-floor protection (downgrades to `mark` when needed) |
+
+Default `minSimilarity` is **0.55**. Tune per ticker after a week of `warn` logs.
+
+### Low-information day
+
+When more than `lowInfoDayThreshold` (default **50%**) of today's bullets match recent history, the run sets `lowInformationDay: true` on agent `details`. This plan does **not** auto-skip delivery — wire a Hermes gate if operators want skip-publish on quiet days.
+
+### Config
+
+| Field                               | Default | Description                                       |
+| ----------------------------------- | ------- | ------------------------------------------------- |
+| `crossRunDedup.enabled`             | `false` | Enable both preventive and detective arms         |
+| `crossRunDedup.windowDays`          | `14`    | Lookback for recent bullets (daily briefings)     |
+| `crossRunDedup.minSimilarity`       | `0.55`  | Jaccard threshold for near-duplicate              |
+| `crossRunDedup.policy`              | `warn`  | `warn`, `mark`, or `drop`                         |
+| `crossRunDedup.lowInfoDayThreshold` | `0.5`   | Fraction of flagged bullets → `lowInformationDay` |
+
+### Observability
+
+One info log per run: `recentBulletCount`, `bulletsCompared`, `nearDuplicates`, `droppedByDedup`, `markedByDedup`, `p50Similarity`, **`p95Similarity`**, `lowInformationDay`. Watch **p95Similarity** week over week — a climbing trend means the ticker is repeating itself.
+
+### Rollout
+
+1. `enabled: true`, `policy: warn` for one week — size false-positive rate.
+2. Move to `mark` on tickers with duplicate complaints.
+3. Use `drop` only where terse briefings are acceptable and duplicate rates stay high.
+
+Composes with [self-critique](#self-critique): critique redundancy is **within** today's briefing; cross-run dedup is **across** prior briefings.
+
+## Style polish
+
+A deterministic pass removes common LLM tics from prose, bullets, quick hits, summaries, and quotes — no extra model call. It runs **after** [self-critique](#self-critique) and **before** [citation grounding](#citation-grounding) so overlap scores reflect content words, not warmup fillers like "It's worth noting that".
+
+### Rule bank
+
+| Tier               | Rules                                                                                                                                                                                                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **safe** (default) | Filler removal (`It's worth noting that`, `Importantly,`, `As mentioned earlier`, …), hedge collapse (`could potentially` → `could`), register-mix cleanup (strip `dan` / `atau` / `yang` / `dengan` from English-dominant bullets) |
+| **aggressive**     | Above plus overused-word replacement when `robust`, `significant`, `noteworthy`, or `compelling` appears in **3+** bullets (at most **one** replacement per word per briefing)                                                      |
+
+Filler rules preserve capitalization on the following word (`Importantly, the regulator` → `The regulator`).
+
+### Config
+
+| Field                    | Default | Description                                                                          |
+| ------------------------ | ------- | ------------------------------------------------------------------------------------ |
+| `polish.enabled`         | `false` | Enable the polish pass                                                               |
+| `polish.tier`            | `safe`  | `safe` or `aggressive`                                                               |
+| `polish.disabledRuleIds` | `[]`    | Skip specific rule ids (e.g. `filler-its-worth-noting`) without turning off the pass |
+
+### Observability
+
+One info log per run: `polishTier`, `rulesFired` (per-rule counts), `totalReplacements`. Rising counts for a rule id week over week signal model habit drift.
+
+### Rollout
+
+1. Enable `polish.enabled` with `tier: safe` for all tickers.
+2. After rule firings stabilize, opt high-chatter tickers into `tier: aggressive`.
+3. Pin noisy rules off per ticker via `disabledRuleIds` in Hermes config.
+
+Composes with [cross-run dedup](#cross-run-dedup): dedup catches **across** briefings; polish catches **within**-briefing word over-use and filler.
+
+## Self-critique
+
+After structured generation and optional numeric anchor audit, the agent can run **one bounded critic pass** that scores each bullet on four dimensions:
+
+| Dimension            | What it catches                                                 |
+| -------------------- | --------------------------------------------------------------- |
+| **specificity**      | Cargo-cult prose vs concrete claims                             |
+| **citationStrength** | Whether the cited article is the best source (lexical re-check) |
+| **redundancy**       | Near-duplicate bullets in the same briefing                     |
+| **readerValue**      | Whether an operator would act on the line                       |
+
+The critic returns `drop`, optional `suggestedRewrite`, and numeric scores. The system applies at most `dropFraction × total` actions (default **20%**). With `preferRewriteOverDrop: true` (default), rewrites keep briefing density; drops are the fallback.
+
+### Schema-floor invariant
+
+Critique **never** emits output that fails `industryNewsletterStructureSchema`. Drops that would violate section minimums (`competitiveLandscape` min 2, `quickHits` min 5, etc.) are blocked and logged as `critiqueFloorPreserved`. Rewrites only mutate text — they are not constrained by the floor.
+
+### Config
+
+| Field                                  | Default        | Description                                  |
+| -------------------------------------- | -------------- | -------------------------------------------- |
+| `selfCritique.enabled`                 | `false`        | Enable the critic pass                       |
+| `selfCritique.dropFraction`            | `0.2`          | Max fraction of bullets rewritten or dropped |
+| `selfCritique.minBulletCount`          | `8`            | Skip critique below this bullet count        |
+| `selfCritique.critiqueModel`           | `openai.model` | Critic model (cheaper tier is fine)          |
+| `selfCritique.critiqueMaxOutputTokens` | `1500`         | Output cap for the critic call               |
+| `selfCritique.preferRewriteOverDrop`   | `true`         | Use `suggestedRewrite` before dropping       |
+
+### Deadline guard
+
+When wall-clock since run start exceeds **70%** of `openai.timeoutMs` after structured generation, critique is skipped — the briefing continues through polish and grounding without critic scores. Run details include `critiqueSkippedDueToBudget: true`.
+
+### Pipeline order
+
+`structured JSON` → numeric anchor audit (optional) → self-critique (optional) → style polish (optional) → citation grounding (optional) → subject line (optional) → cross-run dedup (optional) → wire format.
+
+### Observability
+
+Logs include `critique: { bulletsRated, bulletsRewritten, bulletsDropped, floorPreserved, promptTokens, completionTokens, p50Specificity, p50ReaderValue }`. Track `p50Specificity` and `p50ReaderValue` week over week in yield dashboards — a drop often means source quality or prompt drift loosened citation discipline.
+
+### Rollout
+
+Opt in per ticker with `selfCritique.enabled: true`. A cheaper `critiqueModel` paired with a premium structured pass is a sensible default.

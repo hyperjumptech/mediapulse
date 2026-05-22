@@ -461,6 +461,74 @@ describe("createAgentDataApiClient", () => {
     expect(result.newsletterId).toBe("nl-456");
   });
 
+  it("supports content-generation-newsletters-recent GET", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        items: [
+          {
+            subject: "BCA profit up 12%",
+            createdAt: "2026-04-20T12:00:00.000Z",
+          },
+        ],
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
+    });
+
+    // Act
+    const result = await client.contentGenerationNewslettersRecent.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      days: 7,
+    });
+
+    // Assert
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationNewslettersRecent")}?tickerId=11111111-1111-4111-a111-111111111111&days=7`,
+      expect.objectContaining({
+        headers: { Authorization: "Bearer sdk-token" },
+      }),
+    );
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.subject).toBe("BCA profit up 12%");
+  });
+
+  it("supports content-generation-bullets-recent GET", async () => {
+    // Setup
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        items: [
+          {
+            newsletterId: "nl-1",
+            sectionKey: "quickHits",
+            bulletText: "BCA profit up 12%",
+            createdAt: "2026-04-20T12:00:00.000Z",
+          },
+        ],
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      getFn,
+    });
+
+    // Act
+    const result = await client.contentGenerationBulletsRecent.get({
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      days: 14,
+    });
+
+    // Assert
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.bulletText).toBe("BCA profit up 12%");
+  });
+
   it("builds contentGenerationRuns GET with typed query", async () => {
     // Setup
     const getFn = vi.fn().mockResolvedValue({

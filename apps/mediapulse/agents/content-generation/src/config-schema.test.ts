@@ -30,6 +30,61 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.persistRetry.maxAttempts).toBe(2);
     expect(parsed.persistRetry.baseDelayMs).toBe(200);
     expect(parsed.persistRetry.maxDelayMs).toBe(2000);
+    expect(parsed.sourceRanking.enabled).toBe(true);
+    expect(parsed.sourceRanking.maxPerHost).toBe(2);
+    expect(parsed.sourceRanking.recencyHalfLifeHours).toBe(36);
+    expect(parsed.sourceRanking.weights.relevance).toBe(0.45);
+    expect(parsed.sourceRanking.weights.recency).toBe(0.25);
+    expect(parsed.sourceRanking.weights.tier).toBe(0.2);
+    expect(parsed.sourceRanking.weights.length).toBe(0.1);
+    expect(parsed.fewShot.enabled).toBe(false);
+    expect(parsed.fewShot.maxExemplars).toBe(1);
+    expect(parsed.fewShot.sectorTag).toBeUndefined();
+    expect(parsed.useBrainstormPass).toBe(false);
+    expect(parsed.brainstormMaxOutputTokens).toBe(700);
+    expect(parsed.brainstormModel).toBeUndefined();
+    expect(parsed.citationGrounding.enabled).toBe(false);
+    expect(parsed.citationGrounding.policy).toBe("unlink");
+    expect(parsed.citationGrounding.minOverlapScore).toBe(0.18);
+    expect(parsed.citationGrounding.numericBonus).toBe(0.2);
+    expect(parsed.numericAnchors.enabled).toBe(false);
+    expect(parsed.numericAnchors.perArticleCap).toBe(5);
+    expect(parsed.numericAnchors.totalCap).toBe(25);
+    expect(parsed.numericAnchors.unmatchedPolicy).toBe("warn");
+    expect(parsed.crossRunDedup.enabled).toBe(false);
+    expect(parsed.crossRunDedup.windowDays).toBe(14);
+    expect(parsed.crossRunDedup.minSimilarity).toBe(0.55);
+    expect(parsed.crossRunDedup.policy).toBe("warn");
+    expect(parsed.crossRunDedup.lowInfoDayThreshold).toBe(0.5);
+    expect(parsed.subjectLine.enabled).toBe(false);
+    expect(parsed.subjectLine.candidateCount).toBe(5);
+    expect(parsed.subjectLine.weights.lengthFit).toBe(0.2);
+    expect(parsed.subjectLine.weights.curiosityGap).toBe(0.25);
+    expect(parsed.polish.enabled).toBe(false);
+    expect(parsed.polish.tier).toBe("safe");
+    expect(parsed.polish.disabledRuleIds).toEqual([]);
+    expect(parsed.selfCritique.enabled).toBe(false);
+    expect(parsed.selfCritique.dropFraction).toBe(0.2);
+    expect(parsed.selfCritique.minBulletCount).toBe(8);
+    expect(parsed.selfCritique.preferRewriteOverDrop).toBe(true);
+  });
+
+  it("resolveContentGenerationConfig defaults brainstormModel to openai.model", () => {
+    const resolved = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        openai: { apiKey: "sk-test", model: "gpt-4o" },
+        brainstormModel: "gpt-4o-mini",
+      }),
+    );
+
+    expect(resolved.brainstormModel).toBe("gpt-4o-mini");
+
+    const defaulted = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        openai: { apiKey: "sk-test", model: "gpt-4o" },
+      }),
+    );
+    expect(defaulted.brainstormModel).toBe("gpt-4o");
   });
 
   it("parses valid full config", () => {

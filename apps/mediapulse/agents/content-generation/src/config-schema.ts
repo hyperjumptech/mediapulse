@@ -95,6 +95,46 @@ const persistRetrySchema = z.object({
   maxDelayMs: z.number().int().nonnegative().optional(),
 });
 
+const sourceRankingWeightsSchema = z
+  .object({
+    relevance: z.number().min(0).max(1).default(0.45),
+    recency: z.number().min(0).max(1).default(0.25),
+    tier: z.number().min(0).max(1).default(0.2),
+    length: z.number().min(0).max(1).default(0.1),
+  })
+  .default({});
+
+const sourceRankingSchema = z
+  .object({
+    /** When false, sources keep relevance-only order (pre-ranking behavior). */
+    enabled: z.boolean().default(true),
+    /** Maximum articles from the same host in the final prompt. */
+    maxPerHost: z.number().int().positive().default(2),
+    /** Recency decay half-life in hours for the composite score. */
+    recencyHalfLifeHours: z.number().positive().default(36),
+    weights: sourceRankingWeightsSchema,
+  })
+  .default({});
+
+const fewShotSectorTagSchema = z.enum([
+  "industrial",
+  "consumer",
+  "financial",
+  "tech",
+  "commodities",
+]);
+
+const fewShotSchema = z
+  .object({
+    /** When true, inject curated newsletter exemplars before source summaries. */
+    enabled: z.boolean().default(false),
+    /** Maximum exemplars to include in the user prompt (1–2). */
+    maxExemplars: z.number().int().min(1).max(2).default(1),
+    /** When set, always use exemplars for this sector instead of keyword selection. */
+    sectorTag: fewShotSectorTagSchema.optional(),
+  })
+  .default({});
+
 /**
  * Runtime config for the content-generation agent, supplied by Hermes on each invocation
  * (from the admin-selected agent config for the pipeline step).
@@ -244,6 +284,106 @@ export const ContentGenerationConfigSchema = z
           return rest;
         }),
     ),
+
+    sourceRanking: sourceRankingSchema,
+
+    fewShot: fewShotSchema,
+
+    citationGrounding: z
+      .object({
+        /** When true, verify each articleIndex against source overlap after generation. */
+        enabled: z.boolean().default(false),
+        /** warn = log only; unlink = strip bad links; drop = remove rows (with schema floors). */
+        policy: z.enum(["warn", "unlink", "drop"]).default("unlink"),
+        /** Minimum Jaccard overlap required to keep a citation link. */
+        minOverlapScore: z.number().min(0).max(1).default(0.18),
+        /** Bonus added when bullet numbers appear in the cited article body. */
+        numericBonus: z.number().min(0).max(0.5).default(0.2),
+      })
+      .default({}),
+
+    numericAnchors: z
+      .object({
+        /** When true, extract verbatim figures for the prompt and audit the briefing. */
+        enabled: z.boolean().default(false),
+        /** Maximum anchors per article in the prompt sidecar. */
+        perArticleCap: z.number().int().positive().default(5),
+        /** Maximum anchors overall in the prompt sidecar. */
+        totalCap: z.number().int().positive().default(25),
+        /** warn = log only; strip = replace figures missing from sources. */
+        unmatchedPolicy: z.enum(["warn", "strip"]).default("warn"),
+      })
+      .default({}),
+
+    /** When true, run a free-form editor's memo pass before structured JSON generation. */
+    useBrainstormPass: z.boolean().default(false),
+    /** Chat model for the brainstorm pass (defaults to `openai.model` when omitted). */
+    brainstormModel: z.string().min(1).optional(),
+    /** Max output tokens for the brainstorm `generateText` call. */
+    brainstormMaxOutputTokens: z.number().int().positive().default(700),
+
+    crossRunDedup: z
+      .object({
+        /** When true, inject recent-bullet avoidance and post-walk dedup. */
+        enabled: z.boolean().default(false),
+        /** Lookback window in days for the recent bullet corpus. */
+        windowDays: z.number().int().positive().default(14),
+        /** Minimum Jaccard similarity to flag a near-duplicate. */
+        minSimilarity: z.number().min(0).max(1).default(0.55),
+        /** warn = log only; mark = prepend [follow-up]; drop = remove rows. */
+        policy: z.enum(["warn", "mark", "drop"]).default("warn"),
+        /** Fraction of near-duplicate bullets that sets lowInformationDay. */
+        lowInfoDayThreshold: z.number().min(0).max(1).default(0.5),
+      })
+      .default({}),
+
+    subjectLine: z
+      .object({
+        /** When true, generate and score subject-line candidates after structured generation. */
+        enabled: z.boolean().default(false),
+        /** Number of alternative subjects to request from the sidecar LLM call. */
+        candidateCount: z.number().int().min(3).max(8).default(5),
+        /** Chat model for subject candidates (defaults to `openai.model`). */
+        model: z.string().min(1).optional(),
+        weights: z
+          .object({
+            lengthFit: z.number().min(0).max(1).default(0.2),
+            tickerPresence: z.number().min(0).max(1).default(0.15),
+            curiosityGap: z.number().min(0).max(1).default(0.25),
+            novelty: z.number().min(0).max(1).default(0.2),
+            readability: z.number().min(0).max(1).default(0.2),
+          })
+          .default({}),
+      })
+      .default({}),
+
+    polish: z
+      .object({
+        /** When true, run deterministic filler/hedge/register polish before grounding. */
+        enabled: z.boolean().default(false),
+        /** `safe` = filler, hedge, register; `aggressive` adds overused-word replacement. */
+        tier: z.enum(["safe", "aggressive"]).default("safe"),
+        /** Rule ids to skip without disabling the whole pass. */
+        disabledRuleIds: z.array(z.string()).default([]),
+      })
+      .default({}),
+
+    selfCritique: z
+      .object({
+        /** When true, run a bounded self-critique pass before polish and grounding. */
+        enabled: z.boolean().default(false),
+        /** Maximum fraction of bullets that may be rewritten or dropped. */
+        dropFraction: z.number().min(0).max(0.4).default(0.2),
+        /** Skip critique when the briefing has fewer than this many bullets. */
+        minBulletCount: z.number().int().nonnegative().default(8),
+        /** Chat model for the critique pass (defaults to `openai.model`). */
+        critiqueModel: z.string().min(1).optional(),
+        /** Max output tokens for the critique `generateObject` call. */
+        critiqueMaxOutputTokens: z.number().int().positive().default(1500),
+        /** Prefer `suggestedRewrite` over dropping a bullet when both apply. */
+        preferRewriteOverDrop: z.boolean().default(true),
+      })
+      .default({}),
   })
   /** Reject unknown keys (e.g. removed top-level `openaiApiKey`) so configs fail fast. */
   .strict()
@@ -301,6 +441,9 @@ export type ResolvedPersistRetryConfig = {
 export type ResolvedContentGenerationConfig = ContentGenerationConfig & {
   llmRetry: ResolvedLlmRetryConfig;
   persistRetry: ResolvedPersistRetryConfig;
+  brainstormModel: string;
+  critiqueModel: string;
+  subjectLineModel: string;
 };
 
 /** Production defaults for fields that may be omitted in Hermes config. */
@@ -315,6 +458,15 @@ export const contentGenerationConfigDefaults = {
     maxAttempts: 2,
     baseDelayMs: 200,
     maxDelayMs: 2000,
+  },
+  useBrainstormPass: false,
+  brainstormMaxOutputTokens: 700,
+  selfCritique: {
+    enabled: false,
+    dropFraction: 0.2,
+    minBulletCount: 8,
+    critiqueMaxOutputTokens: 1500,
+    preferRewriteOverDrop: true,
   },
 } as const;
 
@@ -356,5 +508,8 @@ export function resolveContentGenerationConfig(
         parsed.persistRetry?.maxDelayMs ??
         contentGenerationConfigDefaults.persistRetry.maxDelayMs,
     },
+    brainstormModel: parsed.brainstormModel ?? parsed.openai.model,
+    critiqueModel: parsed.selfCritique.critiqueModel ?? parsed.openai.model,
+    subjectLineModel: parsed.subjectLine.model ?? parsed.openai.model,
   } as ResolvedContentGenerationConfig;
 }

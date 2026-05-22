@@ -80,9 +80,9 @@ From agents, use the SDK namespace **`dataCollectionExistingUrls`**: **`create`*
 ```ts
 const { existingUrls, hostCounts } =
   await dataApiClient.dataCollectionExistingUrls.create({
-  tickerId,
-  urls: ["https://news.example/a", "https://news.example/b"],
-});
+    tickerId,
+    urls: ["https://news.example/a", "https://news.example/b"],
+  });
 // existingUrls is a subset of urls that already exist in data_source for this ticker
 // hostCounts maps hostname → total sources for the ticker (for fetch ranking)
 ```
@@ -142,6 +142,29 @@ Used by the content-generation agent for the **skip-if-fresh** precheck (MP-CGA-
   - `newsletterId` (string | null) — ID of the most recent qualifying newsletter, or `null`.
 
 From agents, use the SDK namespace **`contentGenerationNewslettersLatest`**: `get` for the query object.
+
+### Content generation newsletters recent (`/api/v1/content-generation-newsletters-recent`)
+
+Returns recent newsletter **subjects** for subject-line novelty scoring in the content-generation agent.
+
+- **GET** — Query (`getContentGenerationNewslettersRecentQuerySchema`):
+  - `tickerId` (required).
+  - `days` — optional positive integer, default **7**, max **30** (lookback from now).
+- **GET response** — `getContentGenerationNewslettersRecentResponseSchema`:
+  - `items` — `{ subject, createdAt }[]` ordered by `createdAt` descending.
+
+From agents, use **`contentGenerationNewslettersRecent.get({ tickerId, days })`**. When the call fails (network, 404), the agent continues with empty history rather than failing the run.
+
+### Content generation bullets recent (`/api/v1/content-generation-bullets-recent`)
+
+Flattens persisted `MP_NEWSLETTER_V2` wire bodies into bullet rows for cross-run dedup in the content-generation agent.
+
+- **GET** — Query (`getContentGenerationBulletsRecentQuerySchema`):
+  - `tickerId` (required).
+  - `days` — optional positive integer, default **14**, max **90**.
+- **GET response** — `items`: `{ newsletterId, sectionKey, bulletText, createdAt }[]`, capped at **200** bullets overall.
+
+Use **`contentGenerationBulletsRecent.get({ tickerId, days })`**. Failures fall back to an empty corpus in the agent.
 
 ### Analysis (`/api/v1/analysis`)
 

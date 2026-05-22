@@ -19,6 +19,7 @@
     "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@workspace/api-utils": "workspace:*",
+    "@workspace/email-templates": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/utils": "workspace:*",
     "hono": "catalog:",

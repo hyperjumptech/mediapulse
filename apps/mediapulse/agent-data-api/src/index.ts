@@ -16,6 +16,8 @@ import { postAnalysisDataSourceDelete } from "./routes/analysis-data-source-dele
 import {
   getContentGeneration,
   getContentGenerationNewslettersLatest,
+  getContentGenerationNewslettersRecent,
+  getContentGenerationBulletsRecent,
   postContentGeneration,
 } from "./routes/content-generation.js";
 import { postDataCollectionExistingUrls } from "./routes/data-collection-existing-urls.js";
@@ -94,6 +96,12 @@ const routeHandlers = {
   },
   contentGenerationNewslettersLatest: {
     get: getContentGenerationNewslettersLatest,
+  },
+  contentGenerationNewslettersRecent: {
+    get: getContentGenerationNewslettersRecent,
+  },
+  contentGenerationBulletsRecent: {
+    get: getContentGenerationBulletsRecent,
   },
   dataCollection: {
     get: getDataCollection,

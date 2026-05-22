@@ -1,21 +1,74 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateObject } from "ai";
+import { generateObject, generateText } from "ai";
 import type { z } from "zod";
+
+import { logger } from "@workspace/logger";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
 import { formatIndustryNewsletterV2Wire } from "./format-industry-newsletter-v2.js";
 import { industryNewsletterStructureSchema } from "./industry-newsletter-schema.js";
 import { attachIndustryNewsletterSourceUrls } from "./industry-newsletter-urls.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
+import {
+  buildExemplarPromptSection,
+  detectExemplarPlagiarism,
+  fitSourcesForExemplarBudget,
+  pickExemplarsForTicker,
+} from "./lib/newsletter-exemplars.js";
+import {
+  groundNewsletterCitations,
+  type BulletGroundingReport,
+  type CitationGroundingSummary,
+} from "./lib/citation-grounding.js";
+import {
+  applyNewsletterCritiqueResults,
+  buildNewsletterCritiqueSystemPrompt,
+  buildNewsletterCritiqueUserPrompt,
+  collectNewsletterCritiqueCandidates,
+  countNewsletterCritiqueBullets,
+  critiqueNewsletter,
+  type GenerateObjectForNewsletterCritique,
+  type NewsletterCritiqueSummary,
+  newsletterCritiqueSchema,
+} from "./lib/newsletter-self-critique.js";
+import {
+  applyNumericAnchorPolicy,
+  extractNumericAnchorsFromSources,
+  formatAnchorsForPrompt,
+  selectTopAnchors,
+  type NumericAnchorSummary,
+} from "./lib/numeric-anchors.js";
+import {
+  buildCrossRunDedupObservability,
+  dedupBullets,
+  formatRecentBulletsAvoidanceBlock,
+  type RecentBullet,
+} from "./lib/cross-run-dedup.js";
+import {
+  polishNewsletter,
+  type PolishNewsletterResult,
+} from "./lib/newsletter-polish.js";
+import {
+  buildSubjectCandidatePrompt,
+  buildSubjectCandidateSystemPrompt,
+  fetchSubjectCandidates,
+  pickBestSubject,
+  type GenerateObjectForSubjectCandidates,
+  type SubjectLineSummary,
+} from "./lib/subject-line.js";
+import {
+  buildSourceMixObservability,
+  diversifyByHost,
+  rankSourcesForNewsletter,
+} from "./lib/source-ranking.js";
 import { retryWithBackoff } from "./lib/retry.js";
 import { truncateSources } from "./lib/truncate-sources.js";
+import type { SourceForGeneration } from "./types.js";
 
-/** A single data source passed as input to the LLM for newsletter generation. */
-export type SourceForGeneration = {
-  url: string;
-  title: string;
-  content: string;
-};
+export type { SourceForGeneration };
+
+/** Self-critique JSON schema for the critic `generateObject` pass. */
+export { newsletterCritiqueSchema };
 
 /** Structured newsletter content returned after a successful LLM call. */
 export interface GeneratedContent {
@@ -51,7 +104,52 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   systemPrompt: string;
   /** The exact user prompt sent to the model after source substitution. */
   resolvedUserPrompt: string;
+  /** Whether the structured pass was conditioned on a brainstorm memo. */
+  brainstormUsed: boolean;
+  /**
+   * Brainstorm-pass prompt tokens.
+   * Structured-pass tokens remain in {@link promptTokens}.
+   */
+  brainstormPromptTokens: number | null;
+  /** Brainstorm-pass completion tokens. */
+  brainstormCompletionTokens: number | null;
+  /** Per-bullet grounding reports (present when citation grounding is enabled). */
+  citationGroundingReports?: BulletGroundingReport[];
+  /** Rolled-up citation grounding counters for run details. */
+  citationGroundingSummary?: CitationGroundingSummary;
+  /** Numeric anchor extraction and coverage metrics when enabled. */
+  numericAnchorSummary?: NumericAnchorSummary;
+  /** Email preheader from subject-line selection (for delivery preview text). */
+  preheader?: string;
+  /** Subject-line candidate ranking summary when enabled. */
+  subjectLineSummary?: SubjectLineSummary;
+  /** Cross-run dedup counters when enabled. */
+  crossRunDedupSummary?: ReturnType<typeof buildCrossRunDedupObservability>;
+  /** True when most new bullets overlap recent history (operator signal). */
+  lowInformationDay?: boolean;
+  /** Self-critique counters when the critic pass ran. */
+  critiqueSummary?: NewsletterCritiqueSummary;
+  /** True when critique was skipped because the run exceeded 70% of timeout budget. */
+  critiqueSkippedDueToBudget?: boolean;
+  /** Style polish rule-firing summary when enabled. */
+  polishSummary?: Pick<
+    PolishNewsletterResult,
+    "reports" | "totalReplacements" | "rulesFired"
+  >;
 }
+
+/**
+ * In-memory contract for parsed brainstorm sections (plain-text memo, not JSON).
+ * Used for tests and optional downstream conditioning — the LLM sees raw text.
+ */
+export type NewsletterBrainstorm = {
+  headlineThesis: string;
+  threadsToWeave: string[];
+  standoutNumbers: string[];
+  whatChanged: string[];
+  whatToWatch: string[];
+  toneNote: string;
+};
 
 /** Minimal arguments for a single `generateObject` call for newsletter generation. */
 export type GenerateNewsletterObjectArgs = {
@@ -108,6 +206,245 @@ const defaultGenerateNewsletterObject: GenerateNewsletterObjectFn = async (
       }
     : undefined;
   return { object: result.object, usage };
+};
+
+/** Arguments for a single brainstorm `generateText` call. */
+export type GenerateTextForNewsletterBrainstormArgs = {
+  model: ReturnType<ReturnType<typeof createOpenAI>>;
+  system: string;
+  prompt: string;
+  maxOutputTokens: number;
+  /** Should always be 0 — retries are managed at the orchestration layer. */
+  maxRetries: number;
+  /** Per-request timeout in milliseconds (passed to the AI SDK). */
+  timeout?: number;
+};
+
+/** Token usage from a brainstorm `generateText` response. */
+export type NewsletterBrainstormUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+};
+
+/** Result of the free-form brainstorm pass. */
+export type NewsletterBrainstormCallResult = {
+  text: string;
+  usage: NewsletterBrainstormUsage | null;
+};
+
+/** Injectable wrapper around brainstorm `generateText` for tests. */
+export type GenerateTextForNewsletterBrainstorm = (
+  args: GenerateTextForNewsletterBrainstormArgs,
+) => Promise<NewsletterBrainstormCallResult>;
+
+const defaultGenerateTextForNewsletterBrainstorm: GenerateTextForNewsletterBrainstorm =
+  async (args) => {
+    const result = await generateText(args);
+    const usage =
+      result.usage !== undefined
+        ? {
+            inputTokens: result.usage.inputTokens,
+            outputTokens: result.usage.outputTokens,
+          }
+        : null;
+    return { text: result.text, usage };
+  };
+
+const BRAINSTORM_SYSTEM_PROMPT = [
+  "You are an editorial planner for a daily industry briefing.",
+  "Before drafting the briefing, write a one-page editor's memo with six labeled sections:",
+  "HEADLINE THESIS (one sentence — what is THE story this week?),",
+  "THREADS TO WEAVE (3–5 sub-themes, prose, no bullets),",
+  "STANDOUT NUMBERS (any concrete figures worth quoting verbatim — revenue, %, deal size; one per line, with the Article N source),",
+  "WHAT CHANGED (3–5 changes vs. the previous baseline — leadership, market share, regulation),",
+  "WHAT TO WATCH (1–3 forward-looking items grounded in the articles),",
+  "TONE NOTE (one sentence — should this week be sober, optimistic, contrarian, technical?).",
+  "Plain text only. No JSON.",
+].join(" ");
+
+/** Prefix injected before brainstorm text in the structured-pass user prompt. */
+export const BRAINSTORM_STRUCTURED_PASS_PREFIX = [
+  "Below is your editor's memo for this week.",
+  "Use it as the spine for the briefing — every section should reflect a thread from the memo, every quoted number should come from STANDOUT NUMBERS, and the tone should match TONE NOTE.",
+  "Then produce the JSON briefing.",
+].join(" ");
+
+/**
+ * Builds the numbered `Article N:` block shared by brainstorm and structured passes.
+ *
+ * @param sources - Sources in prompt order.
+ * @returns Joined article summaries.
+ */
+export const buildArticleSummariesBlock = (
+  sources: readonly SourceForGeneration[],
+): string => {
+  return sources
+    .map(
+      (source, index) =>
+        `Article ${String(index + 1)}: ${source.title}\n${source.content}`,
+    )
+    .join("\n\n---\n\n");
+};
+
+/**
+ * Returns the brainstorm-pass system prompt (plain-text memo, no JSON schema).
+ *
+ * @param ctx - Ticker and article-count context for orientation.
+ */
+export const buildBrainstormSystemPrompt = (ctx: {
+  tickerName?: string;
+  tickerSymbol?: string;
+  topNewsCount: number;
+}): string => {
+  const tickerLabel =
+    ctx.tickerName !== undefined && ctx.tickerSymbol !== undefined
+      ? `${ctx.tickerName} (${ctx.tickerSymbol})`
+      : (ctx.tickerName ?? ctx.tickerSymbol ?? "the sector");
+  return `${BRAINSTORM_SYSTEM_PROMPT}\n\nOrient around ${tickerLabel}. You receive ${String(ctx.topNewsCount)} numbered articles.`;
+};
+
+/**
+ * Builds the brainstorm user prompt using the same article block as the structured pass.
+ *
+ * @param sources - Selected sources for this run.
+ * @param context - Date and ticker placeholders for optional template reuse.
+ */
+export const buildBrainstormUserPrompt = (
+  sources: readonly SourceForGeneration[],
+  context: {
+    date: string;
+    topNewsCount: number;
+  },
+): string => {
+  return [
+    `Today is ${context.date}. Read the ${String(context.topNewsCount)} articles below and write the editor's memo.`,
+    "",
+    buildArticleSummariesBlock(sources),
+  ].join("\n");
+};
+
+/**
+ * Parses brainstorm plain text into the in-memory {@link NewsletterBrainstorm} contract.
+ *
+ * @param text - Raw brainstorm model output.
+ */
+export const parseNewsletterBrainstormText = (
+  text: string,
+): NewsletterBrainstorm => {
+  const sections: NewsletterBrainstorm = {
+    headlineThesis: "",
+    threadsToWeave: [],
+    standoutNumbers: [],
+    whatChanged: [],
+    whatToWatch: [],
+    toneNote: "",
+  };
+
+  const sectionMatchers: Array<{
+    key: keyof NewsletterBrainstorm;
+    labels: string[];
+    multiLine: boolean;
+  }> = [
+    { key: "headlineThesis", labels: ["HEADLINE THESIS"], multiLine: false },
+    { key: "threadsToWeave", labels: ["THREADS TO WEAVE"], multiLine: true },
+    {
+      key: "standoutNumbers",
+      labels: ["STANDOUT NUMBERS"],
+      multiLine: true,
+    },
+    { key: "whatChanged", labels: ["WHAT CHANGED"], multiLine: true },
+    { key: "whatToWatch", labels: ["WHAT TO WATCH"], multiLine: true },
+    { key: "toneNote", labels: ["TONE NOTE"], multiLine: false },
+  ];
+
+  const lines = text.split("\n");
+  let current: { key: keyof NewsletterBrainstorm; multiLine: boolean } | null =
+    null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line.length === 0) {
+      continue;
+    }
+
+    const matched = sectionMatchers.find((section) =>
+      section.labels.some((label) => {
+        const upper = line.toUpperCase();
+        return (
+          upper === label ||
+          upper.startsWith(`${label}:`) ||
+          upper.startsWith(`${label} `)
+        );
+      }),
+    );
+
+    if (matched) {
+      current = { key: matched.key, multiLine: matched.multiLine };
+      const inlineValue = line.replace(/^[^:]+:\s*/i, "").trim();
+      if (!matched.multiLine && inlineValue.length > 0) {
+        sections[matched.key] = inlineValue as never;
+        current = null;
+      }
+      continue;
+    }
+
+    if (current === null) {
+      continue;
+    }
+
+    const value = line.replace(/^[-*•]\s*/, "").trim();
+    if (value.length === 0) {
+      continue;
+    }
+
+    if (current.multiLine) {
+      const bucket = sections[current.key];
+      if (Array.isArray(bucket)) {
+        bucket.push(value);
+      }
+    } else {
+      sections[current.key] = value as never;
+    }
+  }
+
+  return sections;
+};
+
+/**
+ * Runs the free-form brainstorm pass via `generateText`.
+ *
+ * @param params - API credentials, model, prompts, and token limit.
+ * @param deps - Injectable `generateText` wrapper for tests.
+ */
+export const fetchNewsletterBrainstorm = async (
+  params: {
+    apiKey: string;
+    baseUrl?: string;
+    model: string;
+    maxOutputTokens: number;
+    system: string;
+    prompt: string;
+    timeout?: number;
+  },
+  deps: {
+    generateTextFn?: GenerateTextForNewsletterBrainstorm;
+  } = {},
+): Promise<NewsletterBrainstormCallResult> => {
+  const generateTextFn =
+    deps.generateTextFn ?? defaultGenerateTextForNewsletterBrainstorm;
+  const openai = createOpenAI({
+    apiKey: params.apiKey,
+    ...(params.baseUrl !== undefined ? { baseURL: params.baseUrl } : {}),
+  });
+
+  return generateTextFn({
+    model: openai(params.model),
+    system: params.system,
+    prompt: params.prompt,
+    maxOutputTokens: params.maxOutputTokens,
+    maxRetries: 0,
+    ...(params.timeout !== undefined ? { timeout: params.timeout } : {}),
+  });
 };
 
 /**
@@ -184,13 +521,47 @@ export function buildUserPrompt(
     tickerName?: string;
     tickerSymbol?: string;
   },
+  options: {
+    /** Exemplar section prepended before `{{sourceSummaries}}` when few-shot is enabled. */
+    exemplarSection?: string;
+    /** Editor's memo from the brainstorm pass, injected before article summaries. */
+    brainstormText?: string;
+    /** Verbatim figures sidecar injected immediately above article summaries. */
+    numericAnchorSection?: string;
+    /** Recent bullets to avoid repeating (cross-run dedup preventive arm). */
+    crossRunDedupAvoidanceSection?: string;
+  } = {},
 ): string {
-  const sourceSummaries = sources
-    .map((source, i) => `Article ${i + 1}: ${source.title}\n${source.content}`)
-    .join("\n\n---\n\n");
+  const sourceSummaries = buildArticleSummariesBlock(sources);
+
+  const exemplarPrefix =
+    options.exemplarSection !== undefined && options.exemplarSection.length > 0
+      ? `${options.exemplarSection}\n\n`
+      : "";
+
+  const brainstormPrefix =
+    options.brainstormText !== undefined &&
+    options.brainstormText.trim().length > 0
+      ? `${BRAINSTORM_STRUCTURED_PASS_PREFIX}\n\n${options.brainstormText.trim()}\n\n`
+      : "";
+
+  const numericAnchorPrefix =
+    options.numericAnchorSection !== undefined &&
+    options.numericAnchorSection.length > 0
+      ? `${options.numericAnchorSection}\n\n`
+      : "";
+
+  const crossRunDedupPrefix =
+    options.crossRunDedupAvoidanceSection !== undefined &&
+    options.crossRunDedupAvoidanceSection.length > 0
+      ? `${options.crossRunDedupAvoidanceSection}\n\n`
+      : "";
 
   return template
-    .replaceAll("{{sourceSummaries}}", sourceSummaries)
+    .replaceAll(
+      "{{sourceSummaries}}",
+      `${exemplarPrefix}${brainstormPrefix}${crossRunDedupPrefix}${numericAnchorPrefix}${sourceSummaries}`,
+    )
     .replaceAll("{{tickerId}}", context.tickerId)
     .replaceAll("{{tickerName}}", context.tickerName ?? context.tickerId)
     .replaceAll("{{tickerSymbol}}", context.tickerSymbol ?? context.tickerId)
@@ -230,13 +601,26 @@ export async function generateNewsletterWithLlm(
     date: string;
     tickerName?: string;
     tickerSymbol?: string;
+    /** Wall-clock start of the agent run for deadline guards (from `run.ts`). */
+    runStartedAt?: number;
+    /** Recent newsletter subjects for novelty scoring (last 7 days). */
+    recentSubjects?: string[];
+    /** Recent flattened bullets for cross-run dedup. */
+    recentBullets?: RecentBullet[];
   },
   deps: {
     generateObjectFn?: GenerateNewsletterObjectFn;
+    generateTextFn?: GenerateTextForNewsletterBrainstorm;
+    critiqueGenerateObjectFn?: GenerateObjectForNewsletterCritique;
+    subjectGenerateObjectFn?: GenerateObjectForSubjectCandidates;
     sleepFn?: (ms: number) => Promise<void>;
+    /** Injectable clock for deadline-budget tests. */
+    nowFn?: () => number;
   } = {},
 ): Promise<GeneratedContentWithProvenance> {
   const generateFn = deps.generateObjectFn ?? defaultGenerateNewsletterObject;
+  const nowFn = deps.nowFn ?? Date.now;
+  const generationStartedAt = nowFn();
 
   const topNewsCount = config.output?.topNewsCount ?? 10;
 
@@ -251,10 +635,30 @@ export async function generateNewsletterWithLlm(
     maxTotalContextChars,
   );
 
-  // Pre-select up to N sources for the prompt. Sources arrive sorted by relevance
-  // from getDataSourcesForTicker; articleIndex values refer to Article 1 … Article N
-  // in the user prompt in this same order.
-  const selectedSources = truncatedSources.slice(0, topNewsCount);
+  const sourceRanking = config.sourceRanking;
+  let selectedSources: SourceForGeneration[];
+
+  if (sourceRanking.enabled) {
+    const ranked = rankSourcesForNewsletter(truncatedSources, {
+      recencyHalfLifeHours: sourceRanking.recencyHalfLifeHours,
+      weights: sourceRanking.weights,
+    });
+    const diversified = diversifyByHost(ranked, {
+      maxPerHost: sourceRanking.maxPerHost,
+      limit: topNewsCount,
+    });
+    selectedSources = diversified.slice(0, topNewsCount);
+
+    logger.info(
+      buildSourceMixObservability(context.tickerId, diversified),
+      "Source ranking: selected mix for LLM prompt",
+    );
+  } else {
+    // Pre-select up to N sources for the prompt. Sources arrive sorted by relevance
+    // from getDataSourcesForTicker; articleIndex values refer to Article 1 … Article N
+    // in the user prompt in this same order.
+    selectedSources = truncatedSources.slice(0, topNewsCount);
+  }
 
   const openai = createOpenAI({
     apiKey: config.openai.apiKey,
@@ -263,26 +667,183 @@ export async function generateNewsletterWithLlm(
   const model = openai(config.openai.model);
 
   // Wire prompts from config with fallback to defaults (MP-CGA-003 / MP-CGA-008).
+  const fewShot = config.fewShot;
+  let exemplarSection = "";
+  let exemplarsUsed: string[] = [];
+  let activeExemplars: ReturnType<typeof pickExemplarsForTicker> = [];
+  let sourcesDroppedForExemplarSpace = 0;
+  let promptSources = selectedSources;
+
+  if (fewShot.enabled) {
+    activeExemplars = pickExemplarsForTicker(
+      context.tickerSymbol ?? context.tickerId,
+      context.tickerName ?? context.tickerId,
+      selectedSources,
+      {
+        maxExemplars: fewShot.maxExemplars,
+        ...(fewShot.sectorTag !== undefined
+          ? { sectorTag: fewShot.sectorTag }
+          : {}),
+      },
+    );
+    exemplarSection = buildExemplarPromptSection(activeExemplars);
+    exemplarsUsed = activeExemplars.map((exemplar) => exemplar.id);
+
+    // When exemplars + sources exceed the context cap, drop sources from the end
+    // before dropping exemplars — voice calibration is more valuable than tail sources.
+    const fitted = fitSourcesForExemplarBudget(
+      selectedSources,
+      exemplarSection,
+      maxTotalContextChars,
+    );
+    promptSources = fitted.sources;
+    sourcesDroppedForExemplarSpace = fitted.sourcesDroppedForExemplarSpace;
+
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        exemplarsUsed,
+        promptCharsAddedByExemplars: exemplarSection.length,
+        sourcesDroppedForExemplarSpace,
+      },
+      "Few-shot exemplars: injected into newsletter prompt",
+    );
+  }
+
+  const effectiveTopNewsCount = promptSources.length;
+
+  const timeout = config.openai?.timeoutMs;
+  const maxTokens = config.openai?.maxTokens;
+
+  let brainstormText: string | undefined;
+  let brainstormUsed = false;
+  let brainstormPromptTokens: number | null = null;
+  let brainstormCompletionTokens: number | null = null;
+
+  if (config.useBrainstormPass) {
+    const brainstormSystemPrompt = buildBrainstormSystemPrompt({
+      tickerName: context.tickerName,
+      tickerSymbol: context.tickerSymbol,
+      topNewsCount: effectiveTopNewsCount,
+    });
+    const brainstormUserPrompt = buildBrainstormUserPrompt(promptSources, {
+      date: context.date,
+      topNewsCount: effectiveTopNewsCount,
+    });
+
+    try {
+      const brainstormStartedAt = nowFn();
+      const brainstormResult = await fetchNewsletterBrainstorm(
+        {
+          apiKey: config.openai.apiKey,
+          ...(config.openai.baseUrl !== undefined
+            ? { baseUrl: config.openai.baseUrl }
+            : {}),
+          model: config.brainstormModel,
+          maxOutputTokens: config.brainstormMaxOutputTokens,
+          system: brainstormSystemPrompt,
+          prompt: brainstormUserPrompt,
+          ...(timeout !== undefined ? { timeout } : {}),
+        },
+        { generateTextFn: deps.generateTextFn },
+      );
+
+      brainstormPromptTokens = brainstormResult.usage?.inputTokens ?? null;
+      brainstormCompletionTokens = brainstormResult.usage?.outputTokens ?? null;
+
+      const elapsedMs = nowFn() - generationStartedAt;
+      const budgetExceeded = timeout !== undefined && elapsedMs > timeout * 0.5;
+
+      if (budgetExceeded) {
+        logger.warn(
+          {
+            tickerId: context.tickerId,
+            elapsedMs,
+            timeoutMs: timeout,
+            event: "brainstorm_slow_single_pass_fallback",
+          },
+          "Brainstorm pass consumed more than half the LLM timeout budget; skipping memo for structured pass",
+        );
+      } else if (brainstormResult.text.trim().length > 0) {
+        brainstormText = brainstormResult.text.trim();
+        brainstormUsed = true;
+        logger.info(
+          {
+            tickerId: context.tickerId,
+            brainstormLatencyMs: nowFn() - brainstormStartedAt,
+            brainstormPromptTokens,
+            brainstormCompletionTokens,
+          },
+          "Newsletter brainstorm pass complete",
+        );
+      }
+    } catch (brainstormErr) {
+      logger.warn(
+        {
+          tickerId: context.tickerId,
+          event: "brainstorm_failed_fallback",
+          err: brainstormErr,
+        },
+        "Newsletter brainstorm pass failed; falling back to single-pass generation",
+      );
+    }
+  }
+
   // Apply placeholder substitution to the system prompt so {{topNewsCount}},
   // {{tickerName}}, and {{tickerSymbol}} are resolved before the LLM call.
   const rawSystemPrompt = config.prompts?.systemPrompt || SYSTEM_PROMPT;
   const systemPrompt = rawSystemPrompt
-    .replaceAll("{{topNewsCount}}", String(topNewsCount))
+    .replaceAll("{{topNewsCount}}", String(effectiveTopNewsCount))
     .replaceAll("{{tickerId}}", context.tickerId)
     .replaceAll("{{tickerName}}", context.tickerName ?? context.tickerId)
     .replaceAll("{{tickerSymbol}}", context.tickerSymbol ?? context.tickerId);
+
+  const numericAnchors = config.numericAnchors;
+  let numericAnchorSection = "";
+  let topNumericAnchors: ReturnType<typeof selectTopAnchors> = [];
+  let anchorsExtracted = 0;
+
+  if (numericAnchors.enabled) {
+    const extracted = extractNumericAnchorsFromSources(promptSources);
+    anchorsExtracted = extracted.length;
+    topNumericAnchors = selectTopAnchors(
+      extracted,
+      numericAnchors.perArticleCap,
+      numericAnchors.totalCap,
+    );
+    numericAnchorSection = formatAnchorsForPrompt(topNumericAnchors);
+  }
+
+  const crossRunDedup = config.crossRunDedup;
+  const recentBullets = context.recentBullets ?? [];
+  const crossRunDedupAvoidanceSection = crossRunDedup.enabled
+    ? formatRecentBulletsAvoidanceBlock(recentBullets, crossRunDedup.windowDays)
+    : "";
+
   const userTemplate =
     config.prompts?.userPromptTemplate || DEFAULT_USER_PROMPT_TEMPLATE;
-  const prompt = buildUserPrompt(selectedSources, userTemplate, {
-    tickerId: context.tickerId,
-    date: context.date,
-    topNewsCount,
-    tickerName: context.tickerName,
-    tickerSymbol: context.tickerSymbol,
-  });
+  const prompt = buildUserPrompt(
+    promptSources,
+    userTemplate,
+    {
+      tickerId: context.tickerId,
+      date: context.date,
+      topNewsCount: effectiveTopNewsCount,
+      tickerName: context.tickerName,
+      tickerSymbol: context.tickerSymbol,
+    },
+    {
+      exemplarSection,
+      brainstormText,
+      crossRunDedupAvoidanceSection,
+      numericAnchorSection,
+    },
+  );
 
-  const timeout = config.openai?.timeoutMs;
-  const maxTokens = config.openai?.maxTokens;
+  const structuredTimeout =
+    timeout !== undefined && brainstormUsed
+      ? Math.max(1, timeout - (nowFn() - generationStartedAt))
+      : timeout;
 
   const result = await retryWithBackoff(
     async () => {
@@ -292,7 +853,9 @@ export async function generateNewsletterWithLlm(
         system: systemPrompt,
         prompt,
         maxRetries: 0,
-        ...(timeout !== undefined ? { timeout } : {}),
+        ...(structuredTimeout !== undefined
+          ? { timeout: structuredTimeout }
+          : {}),
         ...(maxTokens !== undefined ? { maxTokens } : {}),
       });
     },
@@ -302,20 +865,434 @@ export async function generateNewsletterWithLlm(
   );
 
   const { object, usage } = result;
-  const resolved = attachIndustryNewsletterSourceUrls(object, selectedSources);
+
+  if (fewShot.enabled && activeExemplars.length > 0) {
+    const plagiarismCheck = detectExemplarPlagiarism(
+      object,
+      activeExemplars[0]!,
+    );
+    if (plagiarismCheck.possiblyPlagiarized) {
+      logger.warn(
+        {
+          tickerId: context.tickerId,
+          exemplarId: activeExemplars[0]!.id,
+          maxJaccardSimilarity: plagiarismCheck.maxSimilarity,
+          event: "newsletter_possibly_plagiarized_exemplar",
+        },
+        "Generated newsletter bullets overlap heavily with few-shot exemplar text",
+      );
+    }
+  }
+
+  let workingStructure = object;
+  let numericAnchorSummary: NumericAnchorSummary | undefined;
+  let citationGroundingReports: BulletGroundingReport[] | undefined;
+  let citationGroundingSummary: CitationGroundingSummary | undefined;
+
+  if (numericAnchors.enabled) {
+    const applied = applyNumericAnchorPolicy(
+      workingStructure,
+      promptSources,
+      topNumericAnchors,
+      anchorsExtracted,
+      numericAnchors.unmatchedPolicy,
+    );
+    workingStructure = applied.structure;
+    numericAnchorSummary = applied.report;
+
+    for (const figure of applied.strippedFigures) {
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          event: "numeric_stripped",
+          figure,
+        },
+        "Numeric figure stripped from briefing — not found in sources",
+      );
+    }
+
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        anchorsExtracted: applied.report.anchorsExtracted,
+        anchorsTopSelected: applied.report.anchorsTopSelected,
+        anchorsQuotedVerbatim: applied.report.anchorsQuotedVerbatim,
+        anchorCoverageRatio: applied.report.anchorCoverageRatio,
+        unmatchedFigures: applied.report.unmatchedFigures.length,
+      },
+      "Numeric anchor coverage summary",
+    );
+  }
+
+  let critiquedStructure = workingStructure;
+  let critiqueSummary: NewsletterCritiqueSummary | undefined;
+  let critiqueSkippedDueToBudget = false;
+
+  const selfCritique = config.selfCritique;
+  const runElapsedMs = nowFn() - (context.runStartedAt ?? generationStartedAt);
+  const critiqueBudgetExceeded =
+    timeout !== undefined && runElapsedMs > timeout * 0.7;
+
+  if (selfCritique.enabled) {
+    if (critiqueBudgetExceeded) {
+      critiqueSkippedDueToBudget = true;
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          runElapsedMs,
+          timeoutMs: timeout,
+          event: "critiqueSkippedDueToBudget",
+        },
+        "Self-critique skipped — run exceeded 70% of LLM timeout budget",
+      );
+    } else {
+      const bulletCount = countNewsletterCritiqueBullets(workingStructure);
+      if (bulletCount < selfCritique.minBulletCount) {
+        critiqueSummary = {
+          bulletsRated: 0,
+          bulletsRewritten: 0,
+          bulletsDropped: 0,
+          floorPreserved: 0,
+          promptTokens: null,
+          completionTokens: null,
+          p50Specificity: 0,
+          p50ReaderValue: 0,
+        };
+      } else {
+        const candidates =
+          collectNewsletterCritiqueCandidates(workingStructure);
+        const critiqueSystem = buildNewsletterCritiqueSystemPrompt();
+        const critiquePrompt = buildNewsletterCritiqueUserPrompt({
+          tickerName: context.tickerName,
+          tickerSymbol: context.tickerSymbol,
+          sources: promptSources,
+          candidates,
+        });
+        const critiqueTimeout =
+          timeout !== undefined
+            ? Math.max(1, timeout - (nowFn() - generationStartedAt))
+            : undefined;
+
+        const critiqueResult = await critiqueNewsletter(
+          {
+            apiKey: config.openai.apiKey,
+            ...(config.openai.baseUrl !== undefined
+              ? { baseUrl: config.openai.baseUrl }
+              : {}),
+            model: config.critiqueModel,
+            maxOutputTokens: selfCritique.critiqueMaxOutputTokens,
+            system: critiqueSystem,
+            prompt: critiquePrompt,
+            ...(critiqueTimeout !== undefined
+              ? { timeout: critiqueTimeout }
+              : {}),
+          },
+          { generateObjectFn: deps.critiqueGenerateObjectFn },
+        );
+
+        const applied = applyNewsletterCritiqueResults(
+          workingStructure,
+          critiqueResult.object.ratings,
+          {
+            dropFraction: selfCritique.dropFraction,
+            preferRewriteOverDrop: selfCritique.preferRewriteOverDrop,
+          },
+        );
+
+        critiquedStructure = applied.structure;
+
+        if (applied.summary.floorPreserved > 0) {
+          logger.info(
+            {
+              tickerId: context.tickerId,
+              floorPreserved: applied.summary.floorPreserved,
+              event: "critiqueFloorPreserved",
+            },
+            "Self-critique preserved schema row minimums",
+          );
+        }
+
+        critiqueSummary = {
+          ...applied.summary,
+          promptTokens: critiqueResult.usage.promptTokens,
+          completionTokens: critiqueResult.usage.completionTokens,
+          p50Specificity: applied.p50Specificity,
+          p50ReaderValue: applied.p50ReaderValue,
+        };
+
+        logger.info(
+          {
+            tickerId: context.tickerId,
+            critique: critiqueSummary,
+          },
+          "Newsletter self-critique summary",
+        );
+      }
+    }
+  }
+
+  let polishedStructure = critiquedStructure;
+  let polishSummary:
+    | Pick<
+        PolishNewsletterResult,
+        "reports" | "totalReplacements" | "rulesFired"
+      >
+    | undefined;
+
+  const polish = config.polish;
+  if (polish.enabled) {
+    const polished = polishNewsletter(critiquedStructure, {
+      tier: polish.tier,
+      disabledRuleIds: polish.disabledRuleIds,
+    });
+    polishedStructure = polished.structure;
+    polishSummary = {
+      reports: polished.reports,
+      totalReplacements: polished.totalReplacements,
+      rulesFired: polished.rulesFired,
+    };
+
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        polishTier: polish.tier,
+        rulesFired: polished.rulesFired,
+        totalReplacements: polished.totalReplacements,
+      },
+      "Newsletter style polish summary",
+    );
+  }
+
+  let groundedStructure = polishedStructure;
+  const citationGrounding = config.citationGrounding;
+  if (citationGrounding.enabled) {
+    const grounded = groundNewsletterCitations(
+      polishedStructure,
+      promptSources,
+      {
+        policy: citationGrounding.policy,
+        minOverlapScore: citationGrounding.minOverlapScore,
+        numericBonus: citationGrounding.numericBonus,
+      },
+    );
+    groundedStructure = grounded.structure;
+    citationGroundingReports = grounded.reports;
+    citationGroundingSummary = grounded.summary;
+
+    if (grounded.quickHitsKeptDespiteFailedGrounding > 0) {
+      logger.warn(
+        {
+          tickerId: context.tickerId,
+          keptCount: grounded.quickHitsKeptDespiteFailedGrounding,
+          event: "quickHits_ground_failed_keeping_item",
+        },
+        "Quick hits below grounding threshold kept to satisfy schema minimum",
+      );
+    }
+
+    if (grounded.summary.floorPreserved > 0) {
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          floorPreserved: grounded.summary.floorPreserved,
+          event: "groundingFloorPreserved",
+        },
+        "Citation grounding downgraded drops to preserve schema row minimums",
+      );
+    }
+
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        groundingPolicy: citationGrounding.policy,
+        totalCitations: grounded.summary.totalCitations,
+        unlinked: grounded.summary.unlinked,
+        dropped: grounded.summary.dropped,
+        floorPreserved: grounded.summary.floorPreserved,
+        p50Overlap: grounded.summary.p50Overlap,
+        p10Overlap: grounded.summary.p10Overlap,
+      },
+      "Citation grounding summary",
+    );
+  }
+
+  let finalStructure = groundedStructure;
+  let preheader: string | undefined;
+  let subjectLineSummary: SubjectLineSummary | undefined;
+
+  const subjectLine = config.subjectLine;
+  const recentSubjects = context.recentSubjects ?? [];
+
+  if (subjectLine.enabled) {
+    const originalSubject =
+      critiquedStructure.subject.trim().length > 0
+        ? critiquedStructure.subject.trim()
+        : "Your daily briefing";
+
+    try {
+      const subjectSystem = buildSubjectCandidateSystemPrompt(
+        subjectLine.candidateCount,
+      );
+      const subjectPrompt = buildSubjectCandidatePrompt({
+        tickerName: context.tickerName,
+        tickerSymbol: context.tickerSymbol,
+        primarySubject: originalSubject,
+        candidateCount: subjectLine.candidateCount,
+        ...(brainstormText !== undefined ? { brainstormText } : {}),
+      });
+
+      const subjectTimeout =
+        timeout !== undefined
+          ? Math.max(1, timeout - (nowFn() - generationStartedAt))
+          : undefined;
+
+      const subjectResult = await fetchSubjectCandidates(
+        {
+          apiKey: config.openai.apiKey,
+          ...(config.openai.baseUrl !== undefined
+            ? { baseUrl: config.openai.baseUrl }
+            : {}),
+          model: config.subjectLineModel,
+          candidateCount: subjectLine.candidateCount,
+          system: subjectSystem,
+          prompt: subjectPrompt,
+          ...(subjectTimeout !== undefined ? { timeout: subjectTimeout } : {}),
+        },
+        { generateObjectFn: deps.subjectGenerateObjectFn },
+      );
+
+      const picked = pickBestSubject(
+        subjectResult.object.candidates,
+        originalSubject,
+        polishedStructure.industryPulse.prose,
+        {
+          tickerSymbol: context.tickerSymbol,
+          tickerName: context.tickerName,
+          weights: subjectLine.weights,
+          recentSubjects,
+        },
+      );
+
+      finalStructure = {
+        ...critiquedStructure,
+        subject: picked.winnerSubject,
+      };
+      preheader = picked.winnerPreheader;
+
+      subjectLineSummary = {
+        originalSubject,
+        winnerSubject: picked.winnerSubject,
+        winnerScore: picked.winnerScore,
+        originalScore: picked.originalScore,
+        candidateCount: subjectResult.object.candidates.length,
+        candidateScores: picked.rankedTable
+          .filter((row) => row.candidate.subject !== originalSubject)
+          .map((row) => ({
+            subject: row.candidate.subject,
+            style: row.candidate.style,
+            score: row.score,
+          })),
+        promptTokens: subjectResult.usage.promptTokens,
+        completionTokens: subjectResult.usage.completionTokens,
+      };
+
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          originalSubject,
+          winnerSubject: picked.winnerSubject,
+          winnerScore: picked.winnerScore,
+          originalScore: picked.originalScore,
+          candidateCount: subjectResult.object.candidates.length,
+          candidateScores: subjectLineSummary.candidateScores,
+        },
+        "Subject line candidate ranking",
+      );
+    } catch (subjectErr) {
+      logger.warn(
+        {
+          tickerId: context.tickerId,
+          event: "subject_line_failed_fallback",
+          err: subjectErr,
+        },
+        "Subject line candidate pass failed; keeping structured-pass subject",
+      );
+    }
+  }
+
+  let crossRunDedupSummary:
+    | ReturnType<typeof buildCrossRunDedupObservability>
+    | undefined;
+  let lowInformationDay: boolean | undefined;
+
+  if (crossRunDedup.enabled) {
+    const deduped = dedupBullets(finalStructure, recentBullets, {
+      policy: crossRunDedup.policy,
+      minSimilarity: crossRunDedup.minSimilarity,
+      lowInfoDayThreshold: crossRunDedup.lowInfoDayThreshold,
+    });
+    finalStructure = deduped.structure;
+    lowInformationDay = deduped.lowInformationDay;
+    crossRunDedupSummary = buildCrossRunDedupObservability(
+      deduped,
+      recentBullets.length,
+    );
+
+    if (deduped.floorPreserved > 0) {
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          floorPreserved: deduped.floorPreserved,
+          event: "dedupFloorPreserved",
+        },
+        "Cross-run dedup downgraded drops to preserve schema row minimums",
+      );
+    }
+
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        ...crossRunDedupSummary,
+      },
+      "Cross-run newsletter dedup summary",
+    );
+  }
+
+  const resolved = attachIndustryNewsletterSourceUrls(
+    finalStructure,
+    promptSources,
+  );
   const content = formatIndustryNewsletterV2Wire(resolved);
 
   return {
     subject:
-      object.subject !== undefined && object.subject.trim().length > 0
-        ? object.subject.trim()
+      finalStructure.subject !== undefined &&
+      finalStructure.subject.trim().length > 0
+        ? finalStructure.subject.trim()
         : "Your daily briefing",
     content,
-    description: object.industryPulse.prose.trim() || undefined,
+    description: finalStructure.industryPulse.prose.trim() || undefined,
     promptTokens: usage?.promptTokens ?? null,
     completionTokens: usage?.completionTokens ?? null,
     totalTokens: usage?.totalTokens ?? null,
     systemPrompt,
     resolvedUserPrompt: prompt,
+    brainstormUsed,
+    brainstormPromptTokens,
+    brainstormCompletionTokens,
+    ...(citationGroundingReports !== undefined
+      ? { citationGroundingReports }
+      : {}),
+    ...(citationGroundingSummary !== undefined
+      ? { citationGroundingSummary }
+      : {}),
+    ...(numericAnchorSummary !== undefined ? { numericAnchorSummary } : {}),
+    ...(preheader !== undefined ? { preheader } : {}),
+    ...(subjectLineSummary !== undefined ? { subjectLineSummary } : {}),
+    ...(crossRunDedupSummary !== undefined ? { crossRunDedupSummary } : {}),
+    ...(lowInformationDay !== undefined ? { lowInformationDay } : {}),
+    ...(critiqueSummary !== undefined ? { critiqueSummary } : {}),
+    ...(critiqueSkippedDueToBudget ? { critiqueSkippedDueToBudget: true } : {}),
+    ...(polishSummary !== undefined ? { polishSummary } : {}),
   };
 }

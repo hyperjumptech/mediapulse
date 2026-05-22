@@ -282,7 +282,59 @@ export async function run({
     url: s.url,
     title: s.title,
     content: s.content,
+    ...(typeof s.publishedAt === "string"
+      ? { publishedAt: s.publishedAt }
+      : {}),
   }));
+
+  let recentBullets: Array<{
+    newsletterId: string;
+    sectionKey: string;
+    bulletText: string;
+    createdAt: string;
+  }> = [];
+  if (resolvedConfig.crossRunDedup.enabled) {
+    try {
+      const recent = await dataApiClient.contentGenerationBulletsRecent.get({
+        tickerId: input.tickerId,
+        days: resolvedConfig.crossRunDedup.windowDays,
+      });
+      recentBullets = recent.items;
+    } catch (recentErr) {
+      logger.warn(
+        {
+          tickerId: input.tickerId,
+          event: "cross_run_dedup_recent_bullets_unavailable",
+          err: recentErr,
+        },
+        "Recent newsletter bullets unavailable; cross-run dedup uses empty corpus",
+      );
+      recentBullets = [];
+    }
+  }
+
+  let recentSubjects: string[] = [];
+  if (resolvedConfig.subjectLine.enabled) {
+    try {
+      const recent = await dataApiClient.contentGenerationNewslettersRecent.get(
+        {
+          tickerId: input.tickerId,
+          days: 7,
+        },
+      );
+      recentSubjects = recent.items.map((item) => item.subject);
+    } catch (recentErr) {
+      logger.warn(
+        {
+          tickerId: input.tickerId,
+          event: "subject_line_recent_history_unavailable",
+          err: recentErr,
+        },
+        "Recent newsletter subjects unavailable; novelty scoring uses empty history",
+      );
+      recentSubjects = [];
+    }
+  }
 
   // Generate newsletter with retry-wrapped generateObject.
   let generated: Awaited<ReturnType<typeof generateNewsletterWithLlm>>;
@@ -293,6 +345,9 @@ export async function run({
       date: new Date(runStart).toISOString().slice(0, 10),
       tickerName,
       tickerSymbol,
+      runStartedAt: runStart,
+      recentSubjects,
+      recentBullets,
     });
   } catch (err) {
     const code = classifyLlmError(err);
@@ -322,6 +377,18 @@ export async function run({
   }
 
   logger.info({ tickerId: input.tickerId }, "LLM generation: complete");
+
+  if (generated.brainstormUsed) {
+    logger.info(
+      {
+        tickerId: input.tickerId,
+        brainstormUsed: true,
+        brainstormPromptTokens: generated.brainstormPromptTokens,
+        brainstormCompletionTokens: generated.brainstormCompletionTokens,
+      },
+      "Newsletter two-pass generation: brainstorm leg complete",
+    );
+  }
 
   // -------------------------------------------------------------------------
   // Compute provenance fields (MP-CGA-008)
@@ -418,5 +485,92 @@ export async function run({
     pipelineRunId,
     executionId,
   });
-  return { success: true, details: { promptHash } };
+  return {
+    success: true,
+    details: {
+      promptHash,
+      brainstormUsed: generated.brainstormUsed,
+      ...(generated.brainstormPromptTokens !== null
+        ? { brainstormPromptTokens: generated.brainstormPromptTokens }
+        : {}),
+      ...(generated.brainstormCompletionTokens !== null
+        ? { brainstormCompletionTokens: generated.brainstormCompletionTokens }
+        : {}),
+      ...(generated.citationGroundingSummary !== undefined
+        ? {
+            grounding: {
+              unlinked: generated.citationGroundingSummary.unlinked,
+              dropped: generated.citationGroundingSummary.dropped,
+              floorPreserved: generated.citationGroundingSummary.floorPreserved,
+              p50Overlap: generated.citationGroundingSummary.p50Overlap,
+            },
+          }
+        : {}),
+      ...(generated.numericAnchorSummary !== undefined
+        ? {
+            numericAnchors: {
+              anchorsExtracted: generated.numericAnchorSummary.anchorsExtracted,
+              anchorsTopSelected:
+                generated.numericAnchorSummary.anchorsTopSelected,
+              anchorsQuotedVerbatim:
+                generated.numericAnchorSummary.anchorsQuotedVerbatim,
+              anchorCoverageRatio:
+                generated.numericAnchorSummary.anchorCoverageRatio,
+              unmatchedFigures:
+                generated.numericAnchorSummary.unmatchedFigures.length,
+            },
+          }
+        : {}),
+      ...(generated.critiqueSummary !== undefined
+        ? {
+            critique: {
+              bulletsRated: generated.critiqueSummary.bulletsRated,
+              bulletsRewritten: generated.critiqueSummary.bulletsRewritten,
+              bulletsDropped: generated.critiqueSummary.bulletsDropped,
+              floorPreserved: generated.critiqueSummary.floorPreserved,
+              p50Specificity: generated.critiqueSummary.p50Specificity,
+              p50ReaderValue: generated.critiqueSummary.p50ReaderValue,
+            },
+          }
+        : {}),
+      ...(generated.critiqueSkippedDueToBudget
+        ? { critiqueSkippedDueToBudget: true }
+        : {}),
+      ...(generated.polishSummary !== undefined
+        ? {
+            polish: {
+              totalReplacements: generated.polishSummary.totalReplacements,
+              rulesFired: generated.polishSummary.rulesFired,
+            },
+          }
+        : {}),
+      ...(generated.subjectLineSummary !== undefined
+        ? {
+            subjectLine: {
+              originalSubject: generated.subjectLineSummary.originalSubject,
+              winnerSubject: generated.subjectLineSummary.winnerSubject,
+              winnerScore: generated.subjectLineSummary.winnerScore,
+              originalScore: generated.subjectLineSummary.originalScore,
+              candidateCount: generated.subjectLineSummary.candidateCount,
+            },
+          }
+        : {}),
+      ...(generated.preheader !== undefined
+        ? { preheader: generated.preheader }
+        : {}),
+      ...(generated.lowInformationDay !== undefined
+        ? { lowInformationDay: generated.lowInformationDay }
+        : {}),
+      ...(generated.crossRunDedupSummary !== undefined
+        ? {
+            crossRunDedup: {
+              nearDuplicates: generated.crossRunDedupSummary.nearDuplicates,
+              droppedByDedup: generated.crossRunDedupSummary.droppedByDedup,
+              markedByDedup: generated.crossRunDedupSummary.markedByDedup,
+              p95Similarity: generated.crossRunDedupSummary.p95Similarity,
+            },
+          }
+        : {}),
+    },
+  };
 }
