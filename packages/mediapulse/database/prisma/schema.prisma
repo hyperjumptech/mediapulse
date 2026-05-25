@@ -34,6 +34,10 @@ enum SearchQueryIntent {
   esg
   macro
   technical
+  regulatory
+  technology_trend
+  geopolitical
+  industry_trend
   wildcard
 }
 
