@@ -53,7 +53,7 @@ const GOLDEN_PROMPT_FINGERPRINT_FIXTURE = {
     headlineSamples: [] as [],
     kgNeighborhood: [] as [],
   },
-  fingerprint: "bf939f1ac1d82831",
+  fingerprint: "4e966f9cc2d595b4",
 } as const;
 
 const emptyEnrichedContext = {
@@ -260,7 +260,8 @@ describe("buildQueryAnalysisUserContent", () => {
     expect(text).toContain("owns");
     expect(text).toContain("Sector peers:");
     expect(text).toContain("PEER1");
-    expect(text).toContain("Next earnings: 2026-07-22T00:00:00.000Z");
+    expect(text).toContain("Recent events: ratings_change");
+    expect(text).not.toContain("Next earnings:");
     expect(text).toContain("Recent headlines:");
     expect(text).toContain("reuters.com");
     expect(text).toContain("KG neighborhood:");

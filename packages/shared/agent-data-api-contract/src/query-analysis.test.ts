@@ -28,6 +28,16 @@ describe("queryAnalysisIntentSchema", () => {
     expect(parsed.intent).toBe("esg");
   });
 
+  it("accepts industry-focused intent rows", () => {
+    const parsed = queryAnalysisPostQuerySchema.parse({
+      text: "Indonesian telecom regulatory licensing",
+      source: "deterministic",
+      intent: "regulatory",
+      rank: 4,
+    });
+    expect(parsed.intent).toBe("regulatory");
+  });
+
   it("accepts wildcard intent rows", () => {
     const parsed = queryAnalysisPostQuerySchema.parse({
       text: "Oblique cultural narrative angle",

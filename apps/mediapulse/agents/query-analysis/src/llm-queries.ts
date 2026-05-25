@@ -118,6 +118,7 @@ export const buildQueryAnalysisSystemContent = (
     "Each query must be concise web-search style text.",
     `All queries must be in ${strategy.language} (BCP-47). Do not code-mix or translate ticker symbols and proper nouns.`,
     "Do not translate ticker symbols or proper nouns into other languages.",
+    "Focus on external industry intelligence: competitors, regulation, macro forces, technology disruption, and sector trends. Avoid earnings guidance, internal financial projections, and company-specific forecast queries.",
     [
       "Target approximate intent counts (total queries should not exceed the remaining budget after the deterministic baseline):",
       intentTargetLines,
@@ -127,13 +128,16 @@ export const buildQueryAnalysisSystemContent = (
       "Intent meanings:",
       "- breaking: timely news, catalysts, and price-moving events",
       "- kg_change: knowledge-graph relation or entity changes",
-      "- fundamental: earnings, guidance, regulatory filings, balance-sheet style",
       "- sentiment: social buzz, analyst tone, retail chatter, reputation swings",
       "- competitor: peer positioning, share shifts, competitive threats",
       "- supply_chain: suppliers, logistics, input costs, production bottlenecks",
       "- esg: environmental, social, governance risks and controversies",
-      "- macro: rates, FX, commodity, geopolitical, and sector-wide drivers",
+      "- macro: rates, FX, commodity, and sector-wide drivers",
       "- technical: chart patterns, momentum, support/resistance, volume signals",
+      "- regulatory: licensing, compliance, policy enforcement, rulemaking",
+      "- technology_trend: digital disruption, AI adoption, tech shifts in the sector",
+      "- geopolitical: trade, sanctions, cross-border dynamics affecting the sector",
+      "- industry_trend: sector outlook, analyst views on the industry overall",
     ].join("\n"),
   ].join("\n\n");
 };
@@ -222,14 +226,9 @@ export const serializeQueryAnalysisContextBlock = (
     }
   }
   const calendar = context.calendar;
-  if (calendar.nextEarningsAt || calendar.recentEventTypes.length > 0) {
+  if (calendar.recentEventTypes.length > 0) {
     lines.push("Calendar:");
-    if (calendar.nextEarningsAt) {
-      lines.push(`- Next earnings: ${calendar.nextEarningsAt}`);
-    }
-    if (calendar.recentEventTypes.length > 0) {
-      lines.push(`- Recent events: ${calendar.recentEventTypes.join(", ")}`);
-    }
+    lines.push(`- Recent events: ${calendar.recentEventTypes.join(", ")}`);
   }
   if (context.headlineSamples.length > 0) {
     lines.push("Recent headlines:");

@@ -46,15 +46,15 @@ export const DEFAULT_TEMPLATE_PACK_BY_LANGUAGE: Partial<
   id: "default-id-v1",
 };
 
-/** Original five-template baseline (symbol/name only). */
+/** Original five-template baseline (symbol/name plus sector/industry when metadata exists). */
 const defaultV1Pack: DeterministicPack = {
   name: "default-v1",
   templates: [
     { template: "{symbol} latest news", intent: "breaking" },
     { template: "{name} breaking news", intent: "breaking" },
     { template: "{name} relation changes", intent: "kg_change" },
-    { template: "{name} earnings guidance", intent: "fundamental" },
-    { template: "{name} regulatory update", intent: "fundamental" },
+    { template: "{sector} industry trends", intent: "industry_trend" },
+    { template: "{industry} regulatory policy", intent: "regulatory" },
   ],
 };
 
@@ -65,9 +65,12 @@ const defaultEnV1Pack: DeterministicPack = {
     { template: "{symbol} latest news", intent: "breaking" },
     { template: "{name} breaking news", intent: "breaking" },
     { template: "{name} relation changes", intent: "kg_change" },
-    { template: "{name} earnings guidance", intent: "fundamental" },
-    { template: "{name} regulatory update", intent: "fundamental" },
-    { template: "{name} {currentQuarter} earnings", intent: "fundamental" },
+    {
+      template: "{sector} industry outlook {currentYear}",
+      intent: "industry_trend",
+    },
+    { template: "{industry} regulatory changes", intent: "regulatory" },
+    { template: "{industry} competitive landscape", intent: "competitor" },
   ],
 };
 
@@ -78,16 +81,13 @@ const defaultIdV1Pack: DeterministicPack = {
     { template: "berita terbaru {symbol}", intent: "breaking" },
     { template: "berita terbaru {name}", intent: "breaking" },
     { template: "perubahan relasi {name}", intent: "kg_change" },
-    {
-      template: "laporan keuangan {name} {currentQuarter}",
-      intent: "fundamental",
-    },
-    { template: "prospek saham {name}", intent: "fundamental" },
-    { template: "update regulasi {name}", intent: "fundamental" },
+    { template: "tren industri {sector}", intent: "industry_trend" },
+    { template: "regulasi {industry}", intent: "regulatory" },
+    { template: "kompetitor {industry}", intent: "competitor" },
   ],
 };
 
-/** Expanded pack with comparative, time-anchored, theme-, entity-, and question-form angles. */
+/** Expanded pack with comparative, time-anchored, theme-, entity-, and industry-wide angles. */
 const richV2Pack: DeterministicPack = {
   name: "rich-v2",
   templates: [
@@ -99,24 +99,29 @@ const richV2Pack: DeterministicPack = {
     { template: "{name} relation changes", intent: "kg_change" },
     { template: "{topEntity} impact on {name}", intent: "kg_change" },
     { template: "{name} {topEntity} risk", intent: "kg_change" },
-    { template: "{name} earnings guidance", intent: "fundamental" },
-    { template: "{name} regulatory update", intent: "fundamental" },
-    { template: "{name} {currentQuarter} earnings", intent: "fundamental" },
+    { template: "{industry} competitive landscape", intent: "competitor" },
+    { template: "{name} vs sector peers", intent: "competitor" },
+    { template: "{name} vs peers {currentQuarter}", intent: "competitor" },
+    { template: "{name} market share {currentYear}", intent: "competitor" },
+    { template: "{name} {recentTheme} analyst view", intent: "industry_trend" },
+    { template: "{name} {recentTheme} impact", intent: "industry_trend" },
     {
-      template: "{symbol} guidance update {currentYear}",
-      intent: "fundamental",
+      template: "{sector} industry outlook {currentYear}",
+      intent: "industry_trend",
     },
-    { template: "{name} vs sector peers", intent: "fundamental" },
-    { template: "{name} vs peers {currentQuarter}", intent: "fundamental" },
-    { template: "{name} market share {currentYear}", intent: "fundamental" },
-    { template: "{name} {currentQuarter} guidance", intent: "fundamental" },
-    { template: "{name} {recentTheme} analyst view", intent: "fundamental" },
-    { template: "{name} {recentTheme} impact", intent: "fundamental" },
-    { template: "is {name} a buy {currentMonth}", intent: "fundamental" },
-    { template: "is {name} a buy now", intent: "fundamental" },
-    { template: "{name} long-term thesis", intent: "fundamental" },
-    { template: "{name} bear case", intent: "fundamental" },
-    { template: "{name} bull case", intent: "fundamental" },
+    { template: "{industry} regulatory changes", intent: "regulatory" },
+    {
+      template: "{industry} technology disruption",
+      intent: "technology_trend",
+    },
+    { template: "{sector} macro headwinds {currentQuarter}", intent: "macro" },
+    { template: "{name} FX headwind {currentQuarter}", intent: "macro" },
+    { template: "{industry} trade policy impact", intent: "geopolitical" },
+    { template: "{name} supplier risk", intent: "supply_chain" },
+    { template: "{name} supply chain disruption", intent: "supply_chain" },
+    { template: "{name} ESG controversies", intent: "esg" },
+    { template: "{name} sustainability disclosure", intent: "esg" },
+    { template: "{name} social media sentiment", intent: "sentiment" },
   ],
 };
 
@@ -126,12 +131,10 @@ const richV2ExtendedPack: DeterministicPack = {
   templates: [
     { template: "{symbol} latest news", intent: "breaking" },
     { template: "why is {symbol} moving today", intent: "breaking" },
-    { template: "{name} {recentTheme} reaction", intent: "breaking" },
     { template: "{name} relation changes", intent: "kg_change" },
     { template: "{topEntity} impact on {name}", intent: "kg_change" },
-    { template: "{name} earnings guidance", intent: "fundamental" },
-    { template: "{name} vs sector peers", intent: "fundamental" },
-    { template: "{name} {currentQuarter} guidance", intent: "fundamental" },
+    { template: "{industry} competitive landscape", intent: "competitor" },
+    { template: "{name} vs sector peers", intent: "competitor" },
     { template: "{name} social media sentiment", intent: "sentiment" },
     { template: "{name} analyst sentiment shift", intent: "sentiment" },
     {
@@ -146,10 +149,29 @@ const richV2ExtendedPack: DeterministicPack = {
     { template: "{name} supply chain disruption", intent: "supply_chain" },
     { template: "{name} ESG controversies", intent: "esg" },
     { template: "{name} sustainability disclosure", intent: "esg" },
-    { template: "{name} interest rate sensitivity", intent: "macro" },
+    { template: "{sector} macro outlook {currentYear}", intent: "macro" },
     { template: "{name} FX headwind {currentQuarter}", intent: "macro" },
+    { template: "{industry} regulatory changes", intent: "regulatory" },
+    { template: "{industry} licensing policy", intent: "regulatory" },
+    {
+      template: "{industry} technology disruption",
+      intent: "technology_trend",
+    },
+    {
+      template: "{sector} digital transformation trends",
+      intent: "technology_trend",
+    },
+    { template: "{industry} trade policy impact", intent: "geopolitical" },
+    {
+      template: "{sector} cross-border investment trends",
+      intent: "geopolitical",
+    },
+    {
+      template: "{sector} industry outlook {currentYear}",
+      intent: "industry_trend",
+    },
+    { template: "{industry} analyst sector view", intent: "industry_trend" },
     { template: "{name} chart pattern {currentMonth}", intent: "technical" },
-    { template: "{symbol} support resistance levels", intent: "technical" },
   ],
 };
 

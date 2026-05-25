@@ -11,6 +11,10 @@ export const QUERY_ANALYSIS_INTENTS = [
   "esg",
   "macro",
   "technical",
+  "regulatory",
+  "technology_trend",
+  "geopolitical",
+  "industry_trend",
   "wildcard",
 ] as const;
 
@@ -18,13 +22,16 @@ export const QUERY_ANALYSIS_INTENTS = [
 export const QUERY_ANALYSIS_STANDARD_INTENTS = [
   "breaking",
   "kg_change",
-  "fundamental",
   "sentiment",
   "competitor",
   "supply_chain",
   "esg",
   "macro",
   "technical",
+  "regulatory",
+  "technology_trend",
+  "geopolitical",
+  "industry_trend",
 ] as const;
 
 export const queryAnalysisIntentSchema = z.enum(QUERY_ANALYSIS_INTENTS);
@@ -38,13 +45,17 @@ export const DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS: Record<
 > = {
   breaking: 1,
   kg_change: 0.8,
-  fundamental: 0.6,
+  fundamental: 0,
   sentiment: 0.5,
-  competitor: 0.5,
+  competitor: 0.7,
   supply_chain: 0.4,
-  esg: 0.3,
-  macro: 0.4,
+  esg: 0.5,
+  macro: 0.7,
   technical: 0.3,
+  regulatory: 0.6,
+  technology_trend: 0.55,
+  geopolitical: 0.5,
+  industry_trend: 0.6,
   wildcard: 0,
 };
 

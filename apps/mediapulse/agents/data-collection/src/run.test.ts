@@ -211,6 +211,8 @@ describe("runDataCollection", () => {
       symbol: "BBCA",
       name: "Bank Central Asia",
       aliases: ["BCA"],
+      sector: "Keuangan",
+      industry: "Perbankan",
     });
   });
 

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   aliasMatchesHaystack,
+  buildIndustryAliases,
   buildTickerAliases,
   isRelevant,
 } from "./ticker-relevance-gate";
@@ -18,6 +19,14 @@ const longBody = (middle: string): string =>
         `Analyst note ${index} discusses lending trends and deposit growth in Indonesia.`,
     ),
   ].join(" ");
+
+describe("buildIndustryAliases", () => {
+  it("deduplicates sector and industry labels", () => {
+    const aliases = buildIndustryAliases("Telekomunikasi", "Telekomunikasi");
+
+    expect(aliases).toEqual(["telekomunikasi"]);
+  });
+});
 
 describe("buildTickerAliases", () => {
   it("deduplicates symbol, name, and known aliases", () => {
@@ -150,7 +159,20 @@ describe("isRelevant", () => {
     });
   });
 
-  it("is a no-op when the alias list is empty", () => {
+  it("matches a page via industry aliases when company aliases are absent", () => {
+    const decision = isRelevant({
+      title: "Telecom sector update headline",
+      content: longBody(
+        "Indonesia Telekomunikasi sector sees new licensing rules this quarter.",
+      ),
+      aliases: ["aapl", "apple"],
+      industryAliases: ["telekomunikasi"],
+    });
+
+    expect(decision).toEqual({ relevant: true });
+  });
+
+  it("is a no-op when both alias lists are empty", () => {
     // Act
     const decision = isRelevant({
       title: "Any headline",

@@ -12,6 +12,7 @@ import {
   hasRecentRegulatoryEvent,
   mergeEventBiasMultipliers,
 } from "./event-bias";
+import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api-contract";
 
 const FIXED_NOW = new Date("2026-05-21T12:00:00.000Z");
 const FIXED_CLOCK = (): Date => FIXED_NOW;
@@ -81,16 +82,16 @@ describe("hasRecentRegulatoryEvent", () => {
 describe("mergeEventBiasMultipliers", () => {
   it("multiplies overlapping intents across rules", () => {
     const merged = mergeEventBiasMultipliers(
-      { fundamental: 2 },
-      { fundamental: 1.5, sentiment: 1.5 },
+      { regulatory: 2 },
+      { regulatory: 1.5, macro: 1.3 },
     );
 
-    expect(merged).toEqual({ fundamental: 3, sentiment: 1.5 });
+    expect(merged).toEqual({ regulatory: 3, macro: 1.3 });
   });
 });
 
 describe("computeEventBias", () => {
-  it("fires the near-earnings rule when earnings are within 14 days", () => {
+  it("does not boost earnings-related intents when earnings are near", () => {
     const context: GetQueryAnalysisResponse = {
       ...baseContext,
       calendar: {
@@ -105,18 +106,14 @@ describe("computeEventBias", () => {
       DEFAULT_EVENT_BIAS_RULES,
     );
 
-    expect(result.firedRuleIds).toContain("near-earnings");
-    expect(result.multipliers.fundamental).toBe(2);
-    expect(result.multipliers.sentiment).toBe(1.5);
+    expect(result.firedRuleIds).not.toContain("near-earnings");
+    expect(result.multipliers.fundamental).toBeUndefined();
   });
 
-  it("does not fire near-earnings when earnings are more than 14 days out", () => {
+  it("boosts regulatory intent when recent regulatory events are present", () => {
     const context: GetQueryAnalysisResponse = {
       ...baseContext,
-      calendar: {
-        recentEventTypes: [],
-        nextEarningsAt: "2026-06-21T12:00:00.000Z",
-      },
+      calendar: { recentEventTypes: ["regulatory_filing"] },
     };
 
     const result = computeEventBias(
@@ -125,8 +122,9 @@ describe("computeEventBias", () => {
       DEFAULT_EVENT_BIAS_RULES,
     );
 
-    expect(result.firedRuleIds).not.toContain("near-earnings");
-    expect(result.multipliers.fundamental).toBeUndefined();
+    expect(result.firedRuleIds).toContain("recent-regulatory-event");
+    expect(result.multipliers.regulatory).toBe(1.5);
+    expect(result.multipliers.macro).toBe(1.3);
   });
 
   it("fires merger boost regardless of earnings timing", () => {
@@ -153,7 +151,6 @@ describe("computeEventBias", () => {
     );
 
     expect(result.firedRuleIds).toContain("recent-merger-delta");
-    expect(result.firedRuleIds).not.toContain("near-earnings");
     expect(result.multipliers.kg_change).toBe(2);
     expect(result.multipliers.competitor).toBe(1.5);
   });
@@ -162,23 +159,12 @@ describe("computeEventBias", () => {
 describe("applyEventBiasToIntentWeights", () => {
   it("multiplies only intents present in the bias map", () => {
     const adjusted = applyEventBiasToIntentWeights(
-      {
-        breaking: 1,
-        kg_change: 0.8,
-        fundamental: 0.6,
-        sentiment: 0.5,
-        competitor: 0.5,
-        supply_chain: 0.4,
-        esg: 0.3,
-        macro: 0.4,
-        technical: 0.3,
-        wildcard: 0,
-      },
-      { fundamental: 2, sentiment: 1.5 },
+      DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+      { regulatory: 1.5, macro: 1.3 },
     );
 
-    expect(adjusted.fundamental).toBe(1.2);
-    expect(adjusted.sentiment).toBe(0.75);
+    expect(adjusted.regulatory).toBeCloseTo(0.6 * 1.5);
+    expect(adjusted.macro).toBeCloseTo(0.7 * 1.3);
     expect(adjusted.breaking).toBe(1);
   });
 });

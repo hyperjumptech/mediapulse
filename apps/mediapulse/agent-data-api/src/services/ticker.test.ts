@@ -32,7 +32,7 @@ describe("getTickerForAgent", () => {
     expect(result).toBeNull();
   });
 
-  it("returns symbol, name, and metadata aliases", async () => {
+  it("returns symbol, name, metadata aliases, and sector labels", async () => {
     // Setup
     vi.mocked(prisma.ticker.findUnique).mockResolvedValueOnce({
       id: "11111111-1111-4111-a111-111111111111",
@@ -40,6 +40,8 @@ describe("getTickerForAgent", () => {
       name: "Bank Central Asia Tbk",
       metadata: {
         aliases: ["BCA", "Bank Central Asia", "BCA"],
+        Sektor: "Keuangan",
+        Industri: "Perbankan",
       },
     } as never);
 
@@ -54,6 +56,8 @@ describe("getTickerForAgent", () => {
       symbol: "BBCA",
       name: "Bank Central Asia Tbk",
       aliases: ["BCA", "Bank Central Asia"],
+      sector: "Keuangan",
+      industry: "Perbankan",
     });
   });
 });
