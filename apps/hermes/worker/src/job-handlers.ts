@@ -28,6 +28,7 @@ import {
 } from "@hermes/scheduler";
 import { getJobQueue } from "./queue";
 import { executeHttpTrigger } from "./execute-http-trigger";
+import { cleanupOrphanedExecutions } from "./cleanup-orphaned-executions";
 
 /**
  * Parses optional positive integer env strings (DataQueue retry delay fields are in seconds).
@@ -245,6 +246,10 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
               payload: item.payload,
               priority: item.payload.priority,
               idempotencyKey: item.payload.jobId,
+              // Mirror the HTTP-request timeout as a DataQueue-level job deadline so
+              // DataQueue's supervisor can force-kill the job if the got timeout fails
+              // to fire (e.g. TCP-level hang where the OS never delivers a close event).
+              timeoutMs: item.payload.timeoutMs,
               maxAttempts,
               deadLetterJobType,
               ...(retryDelaySec !== undefined
@@ -311,6 +316,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
           payload: item.payload,
           priority: item.payload.priority,
           idempotencyKey: item.payload.jobId,
+          timeoutMs: item.payload.timeoutMs,
           dependsOn:
             item.dependsOnBatchIndices && item.dependsOnBatchIndices.length > 0
               ? {
@@ -354,8 +360,22 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       "invoke_agent started",
     );
 
+    // Claim either a pending record (first attempt) or an already-running record left
+    // behind by a prior attempt whose worker process crashed before completing. When
+    // DataQueue's stuckJobsTimeout recovers the DataQueue job and retries it, the
+    // orchestration row is still "running" because the crash left no cleanup path.
+    // Including "running" here lets the retry re-enter and drive the row to a terminal
+    // state via applyInvocationCompletion or handleTransientInvokeFailure.
     const claimed = await orchestrationPrisma.agentJobExecution.updateMany({
-      where: { jobId: payload.jobId, status: AgentJobExecutionStatus.pending },
+      where: {
+        jobId: payload.jobId,
+        status: {
+          in: [
+            AgentJobExecutionStatus.pending,
+            AgentJobExecutionStatus.running,
+          ],
+        },
+      },
       data: {
         status: AgentJobExecutionStatus.running,
         startedAt: new Date(),
@@ -651,5 +671,13 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
         completionDeps,
       );
     }
+  },
+
+  cleanup_orphaned_executions: async () => {
+    const resolved = await cleanupOrphanedExecutions({
+      db: orchestrationPrisma,
+      logger,
+    });
+    logger.info({ resolved }, "cleanup_orphaned_executions: sweep complete");
   },
 };

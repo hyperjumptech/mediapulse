@@ -10,6 +10,7 @@ import {
   parseAgentResponseEnvelope,
 } from "@hermes/scheduler";
 import { logger } from "@workspace/logger";
+import { cleanupOrphanedExecutions } from "./cleanup-orphaned-executions";
 import { jobHandlers } from "./job-handlers";
 
 const mockPrisma = vi.hoisted(() => ({
@@ -94,6 +95,10 @@ vi.mock("@hermes/scheduler", async (importOriginal) => {
 const mockAddJobs = vi.fn().mockResolvedValue([1]);
 const mockEditJob = vi.fn().mockResolvedValue(undefined);
 const mockGetJob = vi.fn();
+
+vi.mock("./cleanup-orphaned-executions", () => ({
+  cleanupOrphanedExecutions: vi.fn().mockResolvedValue(0),
+}));
 
 vi.mock("./queue", () => ({
   getJobQueue: () => ({
@@ -217,6 +222,7 @@ describe("jobHandlers", () => {
         payload: expect.objectContaining({ jobId: "j1" }),
         priority: 0,
         idempotencyKey: "j1",
+        timeoutMs: 60_000,
       });
       expect(mockEditJob).toHaveBeenCalledTimes(1);
       expect(mockEditJob).toHaveBeenCalledWith(1, {
@@ -441,7 +447,12 @@ describe("jobHandlers", () => {
       expect(mockPrisma.agentJobExecution.updateMany).toHaveBeenCalledWith({
         where: {
           jobId: payload.jobId,
-          status: AgentJobExecutionStatus.pending,
+          status: {
+            in: [
+              AgentJobExecutionStatus.pending,
+              AgentJobExecutionStatus.running,
+            ],
+          },
         },
         data: {
           status: AgentJobExecutionStatus.running,
@@ -717,6 +728,44 @@ describe("jobHandlers", () => {
       expect(mockPrisma.agentJobExecution.update).not.toHaveBeenCalled();
     });
 
+    it("re-claims an already-running row left by a crashed prior attempt (retry path)", async () => {
+      // Setup — simulate a prior attempt that crashed: the claim Prisma call
+      // must include 'running' so the retry can take over the orphaned row.
+      vi.mocked(invokeAgentPost).mockResolvedValue({
+        kind: "http",
+        response: {
+          statusCode: 200,
+          rawBody: '{"schemaVersion":1,"status":"success"}',
+          isEmptyBody: false,
+        },
+      });
+      vi.mocked(parseAgentResponseEnvelope).mockReturnValue({
+        ok: true,
+        envelope: { schemaVersion: 1, status: "success", truncated: {} },
+      });
+
+      // Act
+      await jobHandlers.invoke_agent(payload, signal, jobCtx);
+
+      // Assert — claim where clause must accept both pending AND running
+      expect(mockPrisma.agentJobExecution.updateMany).toHaveBeenCalledWith({
+        where: {
+          jobId: payload.jobId,
+          status: {
+            in: [
+              AgentJobExecutionStatus.pending,
+              AgentJobExecutionStatus.running,
+            ],
+          },
+        },
+        data: {
+          status: AgentJobExecutionStatus.running,
+          startedAt: expect.any(Date),
+        },
+      });
+      expect(invokeAgentPost).toHaveBeenCalledTimes(1);
+    });
+
     it("on 4xx uses JSON body message when present (e.g. agent skipped + message)", async () => {
       vi.mocked(invokeAgentPost).mockResolvedValue({
         kind: "http",
@@ -744,6 +793,30 @@ describe("jobHandlers", () => {
           },
         }),
         expect.any(Object),
+      );
+    });
+  });
+
+  describe("cleanup_orphaned_executions", () => {
+    it("calls cleanupOrphanedExecutions with orchestration prisma and logs resolved count", async () => {
+      // Setup
+      vi.mocked(cleanupOrphanedExecutions).mockResolvedValue(3);
+
+      // Act
+      await jobHandlers.cleanup_orphaned_executions(
+        {},
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.cleanup_orphaned_executions>[2],
+      );
+
+      // Assert
+      expect(cleanupOrphanedExecutions).toHaveBeenCalledTimes(1);
+      expect(cleanupOrphanedExecutions).toHaveBeenCalledWith(
+        expect.objectContaining({ db: expect.any(Object) }),
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        { resolved: 3 },
+        "cleanup_orphaned_executions: sweep complete",
       );
     });
   });
