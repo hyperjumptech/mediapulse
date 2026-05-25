@@ -24,4 +24,12 @@ USER bun
 ENV NODE_ENV=production
 
 COPY --from=builder /app/apps/hermes/worker/dist/server.js ./server.js
+
+# The worker writes /tmp/hermes-worker-heartbeat every 60 s.
+# If the file is older than 2 minutes the event loop has hung; mark unhealthy
+# so Docker / Kubernetes restarts the container.
+# --start-period gives the worker time to connect to the DB before checks begin.
+HEALTHCHECK --interval=60s --timeout=10s --start-period=60s --retries=3 \
+  CMD test "$(find /tmp/hermes-worker-heartbeat -mmin -2 2>/dev/null | wc -l)" = "1"
+
 CMD ["bun", "server.js"]

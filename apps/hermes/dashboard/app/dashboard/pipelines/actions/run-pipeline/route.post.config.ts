@@ -183,6 +183,7 @@ const defaultEnqueueManualAgentInvocations = async (
     payload: item.payload,
     priority: item.payload.priority,
     idempotencyKey: item.payload.jobId,
+    timeoutMs: item.payload.timeoutMs,
     dependsOn:
       item.dependsOnBatchIndices && item.dependsOnBatchIndices.length > 0
         ? {

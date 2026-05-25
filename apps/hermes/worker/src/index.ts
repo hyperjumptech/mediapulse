@@ -4,9 +4,15 @@
  * Hermes (Next.js) stays stateless and does not run the queue.
  */
 
+import { writeFileSync } from "node:fs";
 import { env } from "@hermes/env/hermes-worker";
 
 const DRAIN_TIMEOUT_MS = 30_000;
+/** Written every minute; Docker HEALTHCHECK reads recency to detect hangs. */
+const HEARTBEAT_PATH = "/tmp/hermes-worker-heartbeat";
+const HEARTBEAT_INTERVAL_MS = 60_000;
+/** Logged every 5 minutes to surface memory growth early. */
+const MEMORY_LOG_INTERVAL_MS = 5 * 60 * 1_000;
 
 const processorBatchSize = Math.max(
   1,
@@ -16,6 +22,57 @@ const processorConcurrency = Math.max(
   1,
   Number.parseInt(env.PROCESSOR_CONCURRENCY ?? "3", 10) || 3,
 );
+
+// ─── Module-level shutdown hook ───────────────────────────────────────────────
+// Set inside main() once the processor/supervisor are running.
+// The global error handlers below reference this so they can drain gracefully
+// even when the error fires outside the main() scope.
+let _shutdown: (() => Promise<void>) | null = null;
+let _fatalHandlerTriggered = false;
+
+/**
+ * Logs a fatal error and initiates a graceful shutdown, falling back to a
+ * forced `process.exit(1)` if shutdown does not complete within 10 seconds.
+ * Guards against being triggered twice (e.g. cascading unhandled rejections).
+ *
+ * @param label - Short label for the error category (e.g. "unhandledRejection").
+ * @param err - The thrown value or rejection reason.
+ */
+const handleFatalError = (label: string, err: unknown): void => {
+  if (_fatalHandlerTriggered) return;
+  _fatalHandlerTriggered = true;
+
+  // Use console.error because the structured logger may not yet be initialised.
+  console.error(`[hermes-worker] ${label}:`, err);
+
+  // Force-exit if graceful shutdown stalls.
+  const forceExitTimer = setTimeout(() => {
+    console.error(
+      "[hermes-worker] Graceful shutdown timed out — force exiting",
+    );
+    process.exit(1);
+  }, 10_000);
+  // .unref() so this timer does not keep the event loop alive on its own.
+  forceExitTimer.unref();
+
+  if (_shutdown) {
+    _shutdown()
+      .catch((shutdownErr) => {
+        console.error("[hermes-worker] Shutdown error:", shutdownErr);
+      })
+      .finally(() => process.exit(1));
+  } else {
+    process.exit(1);
+  }
+};
+
+// Register before main() so errors during startup are also caught.
+process.on("unhandledRejection", (reason) => {
+  handleFatalError("unhandledRejection", reason);
+});
+process.on("uncaughtException", (err) => {
+  handleFatalError("uncaughtException", err);
+});
 
 async function main(): Promise<void> {
   const { getJobQueue } = await import("./queue");
@@ -50,6 +107,19 @@ async function main(): Promise<void> {
       scheduleName: "hermes-check-schedules",
       cronExpression: "* * * * *",
       jobType: "check_schedules",
+      payload: {},
+      timezone: "UTC",
+    });
+  }
+
+  const existingCleanupCron = await jobQueue
+    .getCronJobByName("hermes-cleanup-orphaned-executions")
+    .catch(() => null);
+  if (!existingCleanupCron) {
+    await jobQueue.addCronJob({
+      scheduleName: "hermes-cleanup-orphaned-executions",
+      cronExpression: "*/15 * * * *",
+      jobType: "cleanup_orphaned_executions",
       payload: {},
       timezone: "UTC",
     });
@@ -95,6 +165,9 @@ async function main(): Promise<void> {
     }
   };
 
+  // Expose to the module-level fatal handler so it can drain gracefully.
+  _shutdown = shutdown;
+
   const onShutdownSignal = async (): Promise<void> => {
     let exitCode = 0;
     try {
@@ -112,7 +185,48 @@ async function main(): Promise<void> {
     void onShutdownSignal();
   });
 
-  logger.info("Hermes worker started (processor + supervisor)");
+  // ─── Memory monitoring ─────────────────────────────────────────────────────
+  // Logs heap and RSS every 5 minutes so memory growth is visible in the logs
+  // before the OS kills the process with SIGKILL (OOM). If RSS climbs steadily
+  // across restarts, there is a memory leak that needs profiling.
+  const memTimer = setInterval(() => {
+    const mem = process.memoryUsage();
+    logger.info(
+      {
+        heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+        heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+        rssMb: Math.round(mem.rss / 1024 / 1024),
+        externalMb: Math.round(mem.external / 1024 / 1024),
+      },
+      "worker memory usage",
+    );
+  }, MEMORY_LOG_INTERVAL_MS);
+  memTimer.unref();
+
+  // ─── Heartbeat file ────────────────────────────────────────────────────────
+  // Docker HEALTHCHECK (see Dockerfile) confirms the main loop is alive by
+  // checking that this file was touched within the last 2 minutes. A hung
+  // event loop will stop updating the file and Docker will mark the container
+  // unhealthy, triggering a restart per the deployment restart policy.
+  const writeHeartbeat = (): void => {
+    try {
+      writeFileSync(HEARTBEAT_PATH, Date.now().toString());
+    } catch {
+      // Best-effort — a single failed write should not crash the worker.
+    }
+  };
+  writeHeartbeat();
+  const heartbeatTimer = setInterval(writeHeartbeat, HEARTBEAT_INTERVAL_MS);
+  heartbeatTimer.unref();
+
+  logger.info(
+    {
+      pid: process.pid,
+      concurrency: processorConcurrency,
+      batchSize: processorBatchSize,
+    },
+    "Hermes worker started (processor + supervisor)",
+  );
 }
 
 main().catch((err) => {
