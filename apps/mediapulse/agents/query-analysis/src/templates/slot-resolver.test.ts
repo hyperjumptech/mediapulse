@@ -103,6 +103,21 @@ describe("resolveSlots", () => {
     expect(slots.lastEventType).toBeUndefined();
   });
 
+  it("resolves sector and industry slots from ticker metadata", () => {
+    const context: GetQueryAnalysisResponse = {
+      ...sparseContext,
+      ticker: {
+        ...sparseContext.ticker,
+        metadata: { Sektor: "Telekomunikasi", Industri: "Telecom" },
+      },
+    };
+
+    const slots = resolveSlots(context, FIXED_CLOCK);
+
+    expect(slots.sector).toBe("Telekomunikasi");
+    expect(slots.industry).toBe("Telecom");
+  });
+
   it("resolves earnings and calendar slots when present", () => {
     const context: GetQueryAnalysisResponse = {
       ...sparseContext,

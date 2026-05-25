@@ -59,7 +59,7 @@ const ctxResponse = {
     id: "22222222-2222-4222-a222-222222222222",
     symbol: "ABC",
     name: "ABC Ltd",
-    metadata: null as null,
+    metadata: { Sektor: "Technology", Industri: "Software" },
   },
   topEntities: [] as [],
   recentThemes: [] as [],
@@ -108,7 +108,7 @@ describe("query-analysis run", () => {
       // Assert
       expect(queries.length).toBe(5);
       expect(queries[0]?.text).toContain("ABC");
-      expect(queries.some((query) => query.intent === "fundamental")).toBe(
+      expect(queries.some((query) => query.intent === "industry_trend")).toBe(
         true,
       );
     });
@@ -351,7 +351,7 @@ describe("query-analysis run", () => {
     ]);
 
     const indonesianPattern =
-      /berita terbaru|laporan keuangan|prospek saham|perubahan relasi|update regulasi/i;
+      /berita terbaru|perubahan relasi|tren industri|regulasi|kompetitor/i;
 
     const englishSlice = createPayload.queries.slice(0, 6);
     const indonesianSlice = createPayload.queries.slice(6);
@@ -366,13 +366,11 @@ describe("query-analysis run", () => {
     ).toBe(true);
   });
 
-  it("boosts fundamental intent weight in snapshot when earnings are within 14 days", async () => {
-    const fiveDaysFromNow = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+  it("boosts regulatory intent weight in snapshot when recent regulatory events are present", async () => {
     mockGet.mockResolvedValue({
       ...ctxResponse,
       calendar: {
-        recentEventTypes: [],
-        nextEarningsAt: fiveDaysFromNow.toISOString(),
+        recentEventTypes: ["regulatory_filing"],
       },
     });
 
@@ -387,22 +385,22 @@ describe("query-analysis run", () => {
 
     const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
       strategySnapshot: {
-        intentWeights: { fundamental: number };
+        intentWeights: { regulatory: number };
         appliedEventBias?: {
           firedRuleIds: string[];
-          multipliers: { fundamental?: number };
+          multipliers: { regulatory?: number };
         };
       };
     };
-    expect(createPayload.strategySnapshot.intentWeights.fundamental).toBe(
-      DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.fundamental * 2,
+    expect(createPayload.strategySnapshot.intentWeights.regulatory).toBe(
+      DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.regulatory * 1.5,
     );
     expect(
       createPayload.strategySnapshot.appliedEventBias?.firedRuleIds,
-    ).toContain("near-earnings");
+    ).toContain("recent-regulatory-event");
     expect(
-      createPayload.strategySnapshot.appliedEventBias?.multipliers.fundamental,
-    ).toBe(2);
+      createPayload.strategySnapshot.appliedEventBias?.multipliers.regulatory,
+    ).toBe(1.5);
   });
 });
 

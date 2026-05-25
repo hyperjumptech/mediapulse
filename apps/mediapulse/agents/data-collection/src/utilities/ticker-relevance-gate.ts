@@ -8,6 +8,8 @@ export type RelevanceGateInput = {
   title: string;
   content: string;
   aliases: string[];
+  /** Sector/industry labels that also satisfy the relevance gate when matched. */
+  industryAliases?: string[];
 };
 
 export type RelevanceGateOptions = {
@@ -88,9 +90,38 @@ export const buildTickerAliases = (
 };
 
 /**
- * Checks whether a fetched page mentions the target ticker in the title or head content.
+ * Builds sector/industry alias tokens for the relevance gate.
  *
- * @param input - Page title, body, and ticker alias list.
+ * @param sector - Sector label from ticker metadata, when present.
+ * @param industry - Industry label from ticker metadata, when present.
+ */
+export const buildIndustryAliases = (
+  sector: string | null | undefined,
+  industry: string | null | undefined,
+): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of [sector, industry]) {
+    if (value === null || value === undefined) {
+      continue;
+    }
+    const trimmed = value.trim();
+    const normalized = trimmed.toLowerCase();
+    if (trimmed.length === 0 || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+
+  return result;
+};
+
+/**
+ * Checks whether a fetched page mentions the target ticker or its sector/industry in the title or head content.
+ *
+ * @param input - Page title, body, company aliases, and optional industry aliases.
  * @param options - Scan window and minimum distinct alias matches required.
  * @returns Relevance decision for persistence gating.
  */
@@ -103,7 +134,9 @@ export const isRelevant = (
 
   const normalizedAliases = [
     ...new Set(
-      input.aliases.map((alias) => alias.trim().toLowerCase()).filter(Boolean),
+      [...input.aliases, ...(input.industryAliases ?? [])]
+        .map((alias) => alias.trim().toLowerCase())
+        .filter(Boolean),
     ),
   ];
 

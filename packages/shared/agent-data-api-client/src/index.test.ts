@@ -745,6 +745,8 @@ describe("agent-data-api path helpers", () => {
         symbol: "BBCA",
         name: "Bank Central Asia Tbk",
         aliases: ["BCA"],
+        sector: "Keuangan",
+        industry: "Perbankan",
       }),
       statusCode: 200,
     });

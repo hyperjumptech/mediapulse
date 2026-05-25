@@ -70,7 +70,7 @@ export const buildScoreBreakdownV1 = (
       : Math.min(1, 0.35 + signals.relationCount * 0.12),
   );
   const fundamental = clampUnitInterval(
-    FUNDAMENTAL_HINTS.test(haystack) ? 0.75 : 0.28,
+    FUNDAMENTAL_HINTS.test(haystack) ? 0.2 : 0.28,
   );
   const tickerSalience = clampUnitInterval(
     signals.mentionCount === 0 && signals.entityCount === 0

@@ -62,6 +62,11 @@ describe("buildScoreBreakdownV1", () => {
     );
     expect(b.sourceQuality).toBe(0.92);
   });
+
+  it("lowers the fundamental boost for earnings-heavy articles", () => {
+    const b = buildScoreBreakdownV1(baseSignals(), 1);
+    expect(b.fundamental).toBe(0.2);
+  });
 });
 
 describe("computeWeightedScore", () => {

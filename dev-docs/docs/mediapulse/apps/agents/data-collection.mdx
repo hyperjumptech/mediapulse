@@ -55,15 +55,18 @@ Implementation lives in `src/utilities/content-quality-gate.ts` (`runQualityGate
 
 ## Ticker relevance gate
 
-After the content quality gate, each page is checked for mentions of the target ticker before persistence. At run start the agent loads ticker identity via `GET /api/v1/ticker?tickerId=…` and builds a lowercased alias list from `symbol`, `name`, and `aliases`.
+After the content quality gate, each page is checked for mentions of the target ticker **or its sector/industry labels** before persistence. At run start the agent loads ticker identity via `GET /api/v1/ticker?tickerId=…` and builds:
+
+- **Company aliases** — lowercased `symbol`, `name`, and metadata `aliases`
+- **Industry aliases** — lowercased `sector` and `industry` from ticker metadata
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
 | `relevanceGate.enabled` | `true` | Toggle the gate per pipeline config |
 | `relevanceGate.headChars` | `1500` | Scan window in the page body (title always included) |
-| `relevanceGate.minMatches` | `1` | Minimum distinct alias hits required |
+| `relevanceGate.minMatches` | `1` | Minimum distinct alias hits required across company or industry aliases |
 
-Pages with no alias match in the scan window are dropped with reason `no_alias_match`. The run summary and persisted run counters include `droppedByRelevance` so operators can spot overly aggressive gates.
+Pages with no company or industry alias match in the scan window are dropped with reason `no_alias_match`. This lets competitor and sector-wide articles through when they mention the subscribed ticker's industry (e.g. TLKM subscribers can collect XL Axiata news that mentions `Telekomunikasi`). The run summary and persisted run counters include `droppedByRelevance` so operators can spot overly aggressive gates.
 
 Word-boundary matching prevents short symbols from matching inside unrelated words (e.g. `AAPL` vs `snapple`, `BBRI` vs `abbreviation`). Implementation lives in `src/utilities/ticker-relevance-gate.ts` (`isRelevant`).
 

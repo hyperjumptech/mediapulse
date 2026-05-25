@@ -22,12 +22,12 @@ The **article-analysis** agent stores subscores in `article_relevance.score_brea
 | ---------------- | ------------------------------------------------------- |
 | `breakingNews`   | Timely / market-moving event signal                     |
 | `kgRelation`     | Strength of extracted KG relations for the article      |
-| `fundamental`    | Earnings, filings, guidance-style fundamentals          |
+| `fundamental`    | Earnings, filings, guidance-style fundamentals (de-prioritized; low default weight) |
 | `tickerSalience` | How strongly the ticker / entities show up in the piece |
 | `sourceQuality`  | Trust / tier prior for the source                       |
 | `_version`       | Integer schema version (Hermes `scoreBreakdownVersion`) |
 
-Optional additional numeric keys may appear for experiments. **Weighted `score`** is in `[0, 1]` and defaults to equal weights (`0.2` each) over the five dimensions; tune via Hermes config (`relevanceWeight*` keys).
+Optional additional numeric keys may appear for experiments. **Weighted `score`** is in `[0, 1]` and defaults to tuned weights over the five dimensions (`breakingNews` `0.2`, `kgRelation` `0.3`, `fundamental` `0.05`, `tickerSalience` `0.2`, `sourceQuality` `0.25`); tune via Hermes config (`relevanceWeight*` keys).
 
 **Selection:** `GET /api/v1/analysis` includes `relevanceSelectionState` (`utcDayStartIso`, `selectedCountToday`) so the agent can enforce **max additional `selected` rows per UTC day** after applying **`relevanceMinScore`**. Tie-break: higher `score`, then newer article `createdAt`.
 

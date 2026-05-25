@@ -25,7 +25,7 @@ const fullContext: GetQueryAnalysisResponse = {
     id: "11111111-1111-4111-a111-111111111111",
     symbol: "ACME",
     name: "Acme Co",
-    metadata: null,
+    metadata: { Sektor: "Technology", Industri: "Software" },
   },
   topEntities: [
     {
@@ -74,14 +74,14 @@ describe("default-v1 pack", () => {
         templateId: "{name} relation changes",
       },
       {
-        text: "Acme Co earnings guidance",
-        intent: "fundamental",
-        templateId: "{name} earnings guidance",
+        text: "Technology industry trends",
+        intent: "industry_trend",
+        templateId: "{sector} industry trends",
       },
       {
-        text: "Acme Co regulatory update",
-        intent: "fundamental",
-        templateId: "{name} regulatory update",
+        text: "Software regulatory policy",
+        intent: "regulatory",
+        templateId: "{industry} regulatory policy",
       },
     ]);
   });
@@ -101,7 +101,7 @@ describe("rich-v2 pack", () => {
     expect(distinctTexts.size).toBe(queries.length);
   });
 
-  it("covers all three intent categories", () => {
+  it("covers industry-focused intent categories", () => {
     // Act
     const queries = buildDeterministicQueries(fullContext, {
       pack: "rich-v2",
@@ -112,7 +112,9 @@ describe("rich-v2 pack", () => {
     // Assert
     expect(intents.has("breaking")).toBe(true);
     expect(intents.has("kg_change")).toBe(true);
-    expect(intents.has("fundamental")).toBe(true);
+    expect(intents.has("competitor")).toBe(true);
+    expect(intents.has("industry_trend")).toBe(true);
+    expect(intents.has("regulatory")).toBe(true);
   });
 
   it("drops theme-coupled templates when recent themes are absent", () => {
@@ -152,13 +154,16 @@ describe("rich-v2-extended pack", () => {
     const intents = new Set(queries.map((row) => row.intent));
     expect(intents.has("breaking")).toBe(true);
     expect(intents.has("kg_change")).toBe(true);
-    expect(intents.has("fundamental")).toBe(true);
     expect(intents.has("sentiment")).toBe(true);
     expect(intents.has("competitor")).toBe(true);
     expect(intents.has("supply_chain")).toBe(true);
     expect(intents.has("esg")).toBe(true);
     expect(intents.has("macro")).toBe(true);
     expect(intents.has("technical")).toBe(true);
+    expect(intents.has("regulatory")).toBe(true);
+    expect(intents.has("technology_trend")).toBe(true);
+    expect(intents.has("geopolitical")).toBe(true);
+    expect(intents.has("industry_trend")).toBe(true);
   });
 
   it("stays within the pack template cap", () => {
@@ -300,8 +305,8 @@ describe("filterPackTemplatesByYield", () => {
     expect(filtered.templates.map((row) => row.template)).toEqual([
       "{name} breaking news",
       "{name} relation changes",
-      "{name} earnings guidance",
-      "{name} regulatory update",
+      "{sector} industry trends",
+      "{industry} regulatory policy",
     ]);
   });
 

@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api-contract";
 
 import {
   buildEmbeddingByText,
@@ -104,18 +105,7 @@ describe("mergeQueryCandidates with semantic embedder", () => {
       ],
       queryCount: 3,
       minDeterministicCount: 1,
-      weights: {
-        breaking: 1,
-        kg_change: 0.8,
-        fundamental: 0.6,
-        sentiment: 0.5,
-        competitor: 0.5,
-        supply_chain: 0.4,
-        esg: 0.3,
-        macro: 0.4,
-        technical: 0.3,
-        wildcard: 0,
-      },
+      weights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
       embedder: fakeEmbedder(0.85),
     });
 

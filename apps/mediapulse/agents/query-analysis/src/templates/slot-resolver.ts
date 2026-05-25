@@ -16,6 +16,8 @@ export type ResolvedTemplateSlots = {
   name: string;
   topEntity?: string;
   recentTheme?: string;
+  sector?: string;
+  industry?: string;
   currentQuarter: string;
   currentYear: string;
   currentMonth: string;
@@ -45,6 +47,45 @@ export type KgRelationTemplate = {
 };
 
 const TEMPLATE_SLOT_PATTERN = /\{([a-zA-Z]+)\}/g;
+
+type TickerMetadataRecord = Record<string, unknown>;
+
+/**
+ * Reads the first non-empty string from ticker metadata for the given keys.
+ *
+ * @param metadata - Ticker JSON metadata from GET /query-analysis.
+ * @param keys - Candidate field names in priority order.
+ * @returns Trimmed string value, or `undefined` when absent.
+ */
+const pickMetadataString = (
+  metadata: unknown,
+  keys: string[],
+): string | undefined => {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return undefined;
+  }
+  const record = metadata as TickerMetadataRecord;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
+};
+
+/**
+ * Extracts sector and industry labels from ticker metadata (IDX or admin keys).
+ *
+ * @param metadata - Ticker JSON metadata from GET /query-analysis.
+ * @returns Sector/industry strings when present.
+ */
+export const extractTemplateSectorIndustry = (
+  metadata: unknown,
+): { sector?: string; industry?: string } => ({
+  sector: pickMetadataString(metadata, ["Sektor", "sector"]),
+  industry: pickMetadataString(metadata, ["Industri", "industry"]),
+});
 
 /**
  * Extracts unique slot names referenced in a template string (e.g. `{name}` → `name`).
@@ -207,12 +248,17 @@ export const resolveSlots = (
           (a, b) => b.relevanceWeight - a.relevanceWeight,
         )[0]?.canonicalName
       : undefined;
+  const { sector, industry } = extractTemplateSectorIndustry(
+    context.ticker.metadata,
+  );
 
   return {
     symbol: context.ticker.symbol,
     name: companyName,
     topEntity,
     recentTheme: context.recentThemes[0]?.theme,
+    sector,
+    industry,
     currentQuarter: formatCurrentQuarter(now),
     currentYear: String(now.getFullYear()),
     currentMonth: formatCurrentMonth(now),
@@ -239,6 +285,8 @@ export const resolveTemplatePattern = (
     name: slots.name,
     topEntity: slots.topEntity,
     recentTheme: slots.recentTheme,
+    sector: slots.sector,
+    industry: slots.industry,
     currentQuarter: slots.currentQuarter,
     currentYear: slots.currentYear,
     currentMonth: slots.currentMonth,

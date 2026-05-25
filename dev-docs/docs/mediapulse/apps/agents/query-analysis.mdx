@@ -78,8 +78,8 @@ This agent is configured per pipeline step via the Hermes invoke request body `c
 | `openaiModel`                                             | No       | Defaults to `gpt-4o-mini`.                                                                                                                                                                                                                   |
 | `queryCount`                                              | No       | Total queries to persist (default `10`).                                                                                                                                                                                                     |
 | `languageQuotas`                                          | No       | Per-language budget shares (BCP-47 `language`, `share` summing to `1.0`). Defaults to English-only when omitted.                                                                                                                           |
-| `intentWeights`                                           | No       | Per-intent merge and LLM target-count weights (default favors `breaking` / `kg_change` / `fundamental`; new intents default ≤ `0.5`). Keys: `breaking`, `kg_change`, `fundamental`, `sentiment`, `competitor`, `supply_chain`, `esg`, `macro`, `technical`. |
-| `templatePack`                                            | No       | Deterministic template pack name (default `default-v1`). Set to `rich-v2` for the expanded ~20-template pack, or `rich-v2-extended` for all nine intents. Operators can switch packs via Hermes invoke config without redeploying the agent. |
+| `intentWeights`                                           | No       | Per-intent merge and LLM target-count weights (default favors `breaking`, `kg_change`, and industry-wide intents such as `competitor`, `macro`, `regulatory`, and `industry_trend`; legacy `fundamental` weight is `0`). Keys: `breaking`, `kg_change`, `fundamental`, `sentiment`, `competitor`, `supply_chain`, `esg`, `macro`, `technical`, `regulatory`, `technology_trend`, `geopolitical`, `industry_trend`. |
+| `templatePack`                                            | No       | Deterministic template pack name (default `default-v1`). Set to `rich-v2` for the expanded industry-focused pack, or `rich-v2-extended` for all twelve standard intents. Operators can switch packs via Hermes invoke config without redeploying the agent. |
 
 ### Derived strategy values
 
@@ -111,19 +111,23 @@ LLM query generation uses higher-variance defaults than the AI SDK baseline so o
 
 Each persisted query row carries an **`intent`** label. Legacy rows use the original trio; new runs may emit any value below.
 
-| Intent         | Meaning                                              | Example query                         | Default weight |
-| -------------- | ---------------------------------------------------- | ------------------------------------- | -------------- |
-| `breaking`     | Timely news, catalysts, price-moving events           | `why is ACME moving today`            | `1.0`          |
-| `kg_change`    | Knowledge-graph relation or entity changes           | `Acme Co relation changes`            | `0.8`          |
-| `fundamental`  | Earnings, guidance, regulatory, balance-sheet angles | `Acme Co Q2 2026 guidance`            | `0.6`          |
-| `sentiment`    | Social buzz, analyst tone, reputation swings         | `Acme Co social media sentiment`      | `0.5`          |
-| `competitor`   | Peer positioning, share shifts, competitive threats  | `Acme Co vs peers market share`       | `0.5`          |
-| `supply_chain` | Suppliers, logistics, input costs, bottlenecks       | `Acme Co supplier risk`               | `0.4`          |
-| `esg`          | Environmental, social, governance controversies    | `Acme Co ESG controversies`           | `0.3`          |
-| `macro`        | Rates, FX, commodity, geopolitical drivers           | `Acme Co interest rate sensitivity`   | `0.4`          |
-| `technical`    | Chart patterns, momentum, support/resistance         | `ACME chart pattern May`              | `0.3`          |
+| Intent              | Meaning                                              | Example query                         | Default weight |
+| ------------------- | ---------------------------------------------------- | ------------------------------------- | -------------- |
+| `breaking`          | Timely news, catalysts, price-moving events           | `why is ACME moving today`            | `1.0`          |
+| `kg_change`         | Knowledge-graph relation or entity changes           | `Acme Co relation changes`            | `0.8`          |
+| `sentiment`         | Social buzz, analyst tone, reputation swings         | `Acme Co social media sentiment`      | `0.5`          |
+| `competitor`        | Peer positioning, share shifts, competitive threats  | `Software competitive landscape`      | `0.7`          |
+| `supply_chain`      | Suppliers, logistics, input costs, bottlenecks       | `Acme Co supplier risk`               | `0.4`          |
+| `esg`               | Environmental, social, governance controversies    | `Acme Co ESG controversies`           | `0.5`          |
+| `macro`             | Rates, FX, commodity, sector-wide drivers            | `Technology macro outlook 2026`       | `0.7`          |
+| `technical`         | Chart patterns, momentum, support/resistance         | `ACME chart pattern May`              | `0.3`          |
+| `regulatory`        | Licensing, compliance, policy enforcement            | `Software regulatory changes`         | `0.6`          |
+| `technology_trend`  | Digital disruption, AI adoption, tech shifts         | `Software technology disruption`      | `0.55`         |
+| `geopolitical`      | Trade, sanctions, cross-border sector dynamics       | `Software trade policy impact`        | `0.5`          |
+| `industry_trend`    | Sector outlook, analyst views on the industry        | `Technology industry outlook 2026`    | `0.6`          |
+| `fundamental`       | Legacy earnings/guidance intent (retained for old rows) | _(not emitted in new runs)_         | `0`            |
 
-New intents default to lower weights so enabling the taxonomy without re-tuning does not crowd out breaking news in the persisted set.
+New runs prioritize external industry intelligence. The standard pipeline no longer emits `fundamental` queries.
 
 ## Deterministic template packs
 
@@ -131,9 +135,9 @@ Deterministic queries are built from a named **template pack** before the LLM co
 
 | Pack                  | Templates | Slots used                                                                                                  | Example row                    |
 | --------------------- | --------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **`default-v1`**      | 5         | `{symbol}`, `{name}`                                                                                        | `ACME latest news`             |
-| **`rich-v2`**         | ~20       | `{symbol}`, `{name}`, `{topEntity}`, `{recentTheme}`, `{currentQuarter}`, `{currentYear}`, `{currentMonth}` | `Acme Co AI impact`            |
-| **`rich-v2-extended`**| ~20       | Same as `rich-v2` plus templates for sentiment, competitor, supply chain, ESG, macro, and technical intents | `Acme Co ESG controversies`    |
+| **`default-v1`**      | 5         | `{symbol}`, `{name}`, `{sector}`, `{industry}`                                                              | `Technology industry trends`   |
+| **`rich-v2`**         | ~25       | `{symbol}`, `{name}`, `{topEntity}`, `{recentTheme}`, `{sector}`, `{industry}`, `{currentQuarter}`, `{currentYear}`, `{currentMonth}` | `Software competitive landscape` |
+| **`rich-v2-extended`**| ~28       | Same as `rich-v2` plus templates for all twelve standard intents including `regulatory`, `technology_trend`, `geopolitical`, and `industry_trend` | `Software regulatory changes`  |
 
 Templates whose required slots cannot be filled from live GET /query-analysis context are **skipped** (never persisted with literal `{slot}` tokens). For example, `{recentTheme}` templates are omitted when the ticker has no recent themes.
 
@@ -144,6 +148,8 @@ Slot resolution uses the agent clock at run time:
 - **`{currentMonth}`** — full English month name, e.g. `May`
 - **`{topEntity}`** — highest-weight entity from `topEntities`
 - **`{recentTheme}`** — first entry from `recentThemes`
+- **`{sector}`** — sector label from ticker metadata (`Sektor` / `sector`)
+- **`{industry}`** — industry label from ticker metadata (`Industri` / `industry`)
 
 ## Diversity score and regenerate gate
 

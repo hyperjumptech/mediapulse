@@ -2,6 +2,8 @@ import { prisma } from "@mediapulse/database";
 import type { GetTickerResponse } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
+import { extractTickerSectorIndustry } from "./query-analysis-context-helpers";
+
 const tickerMetadataSchema = z
   .object({
     aliases: z.array(z.string()).optional(),
@@ -43,10 +45,14 @@ export const getTickerForAgent = async (
     aliases.push(trimmed);
   }
 
+  const { sector, industry } = extractTickerSectorIndustry(row.metadata);
+
   return {
     id: row.id,
     symbol: row.symbol,
     name: row.name,
     aliases,
+    sector: sector ?? null,
+    industry: industry ?? null,
   };
 };

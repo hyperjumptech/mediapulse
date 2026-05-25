@@ -25,6 +25,7 @@ import {
 } from "./utilities/host-error-tracker";
 import {
   buildTickerAliases,
+  buildIndustryAliases,
   isRelevant,
 } from "./utilities/ticker-relevance-gate";
 import {
@@ -135,15 +136,22 @@ export async function runDataCollection(
     tickerRecord.name,
     tickerRecord.aliases,
   );
-  if (tickerAliases.length === 0) {
+  const industryAliases = buildIndustryAliases(
+    tickerRecord.sector,
+    tickerRecord.industry,
+  );
+  if (tickerAliases.length === 0 && industryAliases.length === 0) {
     log.warn(
       { tickerId: input.tickerId },
-      "ticker has no aliases; relevance gate is a no-op for this run",
+      "ticker has no aliases or industry labels; relevance gate is a no-op for this run",
     );
   } else {
     log.info(
-      { aliasCount: tickerAliases.length },
-      "loaded ticker aliases for relevance gate",
+      {
+        aliasCount: tickerAliases.length,
+        industryAliasCount: industryAliases.length,
+      },
+      "loaded ticker and industry aliases for relevance gate",
     );
   }
 
@@ -421,6 +429,7 @@ export async function runDataCollection(
               title: page.title,
               content: page.content,
               aliases: tickerAliases,
+              industryAliases,
             },
             {
               headChars: relevanceGateConfig.headChars,
@@ -435,7 +444,7 @@ export async function runDataCollection(
                 url: page.url.slice(0, 120),
                 reason: relevanceDecision.reason,
               },
-              "dropped page that did not mention the target ticker",
+              "dropped page that did not mention the target ticker or industry",
             );
             continue;
           }

@@ -24,9 +24,13 @@ describe("getTickerResponseSchema", () => {
       symbol: "BBCA",
       name: "Bank Central Asia Tbk",
       aliases: ["BCA", "Bank Central Asia"],
+      sector: "Keuangan",
+      industry: "Perbankan",
     });
 
     // Assert
     expect(parsed.aliases).toEqual(["BCA", "Bank Central Asia"]);
+    expect(parsed.sector).toBe("Keuangan");
+    expect(parsed.industry).toBe("Perbankan");
   });
 });
