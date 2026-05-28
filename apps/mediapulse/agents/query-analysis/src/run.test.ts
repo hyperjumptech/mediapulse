@@ -69,7 +69,9 @@ const ctxResponse = {
   kgNeighborhood: [] as [],
 };
 
-const baseConfig = queryAnalysisConfigSchema.parse({ openaiApiKey: "sk" });
+const baseConfig = queryAnalysisConfigSchema.parse({
+  credentials: { openaiApiKey: "sk" },
+});
 
 describe("query-analysis run", () => {
   beforeEach(async () => {
@@ -200,8 +202,8 @@ describe("query-analysis run", () => {
     const result = await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: queryAnalysisConfigSchema.parse({
-        openaiApiKey: "sk",
-        useBrainstormPass: true,
+        credentials: { openaiApiKey: "sk" },
+        creativity: { useBrainstormPass: true },
       }),
       token: "Bearer t",
     });
@@ -260,8 +262,8 @@ describe("query-analysis run", () => {
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: queryAnalysisConfigSchema.parse({
-        openaiApiKey: "sk",
-        diversityGate: { enabled: true, threshold: 0.6 },
+        credentials: { openaiApiKey: "sk" },
+        quality: { diversityGate: { enabled: true, threshold: 0.6 } },
       }),
       token: "Bearer t",
     });
@@ -301,9 +303,9 @@ describe("query-analysis run", () => {
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: queryAnalysisConfigSchema.parse({
-        openaiApiKey: "sk",
-        queryCount: 10,
-        wildcardFraction: 0.2,
+        credentials: { openaiApiKey: "sk" },
+        output: { queryCount: 10 },
+        creativity: { wildcardFraction: 0.2 },
       }),
       token: "Bearer t",
     });
@@ -325,14 +327,16 @@ describe("query-analysis run", () => {
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: queryAnalysisConfigSchema.parse({
-        openaiApiKey: "sk",
-        queryCount: 10,
-        wildcardFraction: 0,
-        personas: [],
-        languageQuotas: [
-          { language: "en", share: 0.6 },
-          { language: "id", share: 0.4 },
-        ],
+        credentials: { openaiApiKey: "sk" },
+        output: {
+          queryCount: 10,
+          languageQuotas: [
+            { language: "en", share: 0.6 },
+            { language: "id", share: 0.4 },
+          ],
+        },
+        creativity: { wildcardFraction: 0 },
+        prompting: { personas: [] },
       }),
       token: "Bearer t",
     });
@@ -377,8 +381,8 @@ describe("query-analysis run", () => {
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: queryAnalysisConfigSchema.parse({
-        openaiApiKey: "sk",
-        wildcardFraction: 0,
+        credentials: { openaiApiKey: "sk" },
+        creativity: { wildcardFraction: 0 },
       }),
       token: "Bearer t",
     });
@@ -437,9 +441,9 @@ describe("runQueryAnalysis derived minDeterministicCount", () => {
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: queryAnalysisConfigSchema.parse({
-        openaiApiKey: "sk",
-        queryCount: 10,
-        wildcardFraction: 0,
+        credentials: { openaiApiKey: "sk" },
+        output: { queryCount: 10 },
+        creativity: { wildcardFraction: 0 },
       }),
       token: "Bearer t",
     });
@@ -459,9 +463,9 @@ describe("runQueryAnalysis derived minDeterministicCount", () => {
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: queryAnalysisConfigSchema.parse({
-        openaiApiKey: "sk",
-        queryCount: 3,
-        wildcardFraction: 0,
+        credentials: { openaiApiKey: "sk" },
+        output: { queryCount: 3 },
+        creativity: { wildcardFraction: 0 },
       }),
       token: "Bearer t",
     });
