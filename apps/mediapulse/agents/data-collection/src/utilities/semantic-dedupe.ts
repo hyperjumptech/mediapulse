@@ -4,10 +4,10 @@ import {
 } from "@workspace/agent-data-api-contract";
 
 import { cosineSimilarity } from "./embeddings";
-import type { WebSearchResult } from "./web-search";
+import type { FetchedWebSearchResult } from "./web-fetch";
 
 /** Candidate page that survived pre-persistence gates. */
-export type SemanticDedupeCandidate = WebSearchResult;
+export type SemanticDedupeCandidate = FetchedWebSearchResult;
 
 export type SemanticDedupeDrop = {
   candidate: SemanticDedupeCandidate;

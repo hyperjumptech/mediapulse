@@ -107,8 +107,7 @@ const defaultSearchSuccess = [
 
 const defaultFetchSuccess = [
   {
-    success: true,
-    data: {
+    success: {
       url: "http://example.com",
       title: validArticleTitle,
       content: validArticleContent,
@@ -116,7 +115,9 @@ const defaultFetchSuccess = [
       searchQueryId: "sq-1",
       searchQueryText: "test query",
       serpIndex: 0,
+      provider: "jina" as const,
     },
+    failures: [],
   },
 ];
 
@@ -175,9 +176,14 @@ describe("data-collection agent (HTTP)", () => {
               rateLimit: { requests: 1, perSeconds: 1 },
             },
             webFetch: {
-              baseUrl: "https://fetch.example",
-              authentication: { type: "bearer" },
-              rateLimit: { requests: 1, perSeconds: 1 },
+              providers: [
+                {
+                  type: "jina",
+                  baseUrl: "https://fetch.example",
+                  authentication: { type: "bearer" },
+                  rateLimit: { requests: 1, perSeconds: 1 },
+                },
+              ],
             },
           },
         }),
@@ -249,9 +255,14 @@ describe("data-collection agent (HTTP)", () => {
               rateLimit: { requests: 1, perSeconds: 1 },
             },
             webFetch: {
-              baseUrl: "https://fetch.example",
-              authentication: { type: "bearer" },
-              rateLimit: { requests: 1, perSeconds: 1 },
+              providers: [
+                {
+                  type: "jina",
+                  baseUrl: "https://fetch.example",
+                  authentication: { type: "bearer" },
+                  rateLimit: { requests: 1, perSeconds: 1 },
+                },
+              ],
             },
           },
         }),

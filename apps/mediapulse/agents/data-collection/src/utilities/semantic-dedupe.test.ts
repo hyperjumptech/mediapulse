@@ -27,6 +27,7 @@ const earningsCandidate = (
   searchQueryId: "22222222-2222-4222-a222-222222222222",
   searchQueryText: "Apple earnings",
   serpIndex: 0,
+  provider: "jina",
 });
 
 /** Deterministic embedder for syndicated earnings headline pairs. */

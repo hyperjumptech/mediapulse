@@ -204,10 +204,7 @@ export async function runDataCollection(
     >
   > = [];
   const fetchFailures: Array<
-    Extract<
-      Awaited<ReturnType<typeof performWebFetch>>[number],
-      { success: false }
-    >
+    Awaited<ReturnType<typeof performWebFetch>>[number]["failures"][number]
   > = [];
   const droppedByUrlReason: Record<UrlNoiseReason, number> = {
     blocked_host: 0,
@@ -394,10 +391,15 @@ export async function runDataCollection(
       });
       throttleEvents += fetchThrottleStats.throttleEvents;
       const roundFetchSuccesses = fetchAttemptResults
-        .filter((r) => r.success)
-        .map((r) => r.data);
-      const roundFetchFailures = fetchAttemptResults.filter((r) => !r.success);
-      fetchFailedCount += roundFetchFailures.length;
+        .filter((outcome) => outcome.success !== null)
+        .map((outcome) => outcome.success!);
+      const roundFetchFailures = fetchAttemptResults.flatMap(
+        (outcome) => outcome.failures,
+      );
+      const roundFailedUrlCount = fetchAttemptResults.filter(
+        (outcome) => outcome.success === null,
+      ).length;
+      fetchFailedCount += roundFailedUrlCount;
       fetchFailures.push(...roundFetchFailures);
 
       const finalFetchSuccesses: typeof roundFetchSuccesses = [];
@@ -452,7 +454,7 @@ export async function runDataCollection(
 
         if (freshnessGateConfig.enabled) {
           const publishedAt = extractPublishedDate({
-            jinaMetadata: page.jinaMetadata,
+            fetchMetadata: page.fetchMetadata ?? page.jinaMetadata,
             content: page.content,
           });
           const freshnessDecision = isFresh(publishedAt, {
@@ -485,7 +487,7 @@ export async function runDataCollection(
         {
           round,
           fetchSuccess: finalFetchSuccesses.length,
-          fetchFailed: roundFetchFailures.length,
+          fetchFailed: roundFailedUrlCount,
           droppedByUrlReason,
           droppedByDuplicateCanonicalUrl,
           droppedByExistingCanonicalUrl,
@@ -503,9 +505,12 @@ export async function runDataCollection(
       );
 
       if (deadUrlCacheConfig.enabled) {
+        const deadUrlFetchFailures = fetchAttemptResults
+          .filter((outcome) => outcome.success === null)
+          .flatMap((outcome) => outcome.failures);
         const deadUrlRecords = buildDeadUrlRecords(
           input.tickerId,
-          roundFetchFailures,
+          deadUrlFetchFailures,
           roundQualityDrops,
         );
         if (deadUrlRecords.length > 0) {
@@ -576,7 +581,7 @@ export async function runDataCollection(
         if (pagesToPersist.length > 0) {
           const sources: DataCollectionInput[] = pagesToPersist.map((page) => {
             const publishedAt = extractPublishedDate({
-              jinaMetadata: page.jinaMetadata,
+              fetchMetadata: page.fetchMetadata ?? page.jinaMetadata,
               content: page.content,
             });
             return {
@@ -638,7 +643,7 @@ export async function runDataCollection(
       runId,
       tickerId: input.tickerId,
       stage: "web-fetch" as const,
-      provider: "jina" as const,
+      provider: f.provider,
       searchQueryId: f.queryId,
       url: f.url,
       errorCategory: f.errorCategory,

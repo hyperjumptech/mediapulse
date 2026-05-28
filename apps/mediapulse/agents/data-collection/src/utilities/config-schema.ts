@@ -25,26 +25,37 @@ const webSearchSchema = z.object({
     .optional(),
 });
 
-const webFetchSchema = z.object({
+const fetchProviderAuthenticationSchema = z.object({
+  type: z.enum(["bearer", "none"]),
+  apiKey: z.string().optional(),
+  headerName: z.string().optional(),
+});
+
+const fetchProviderRateLimitSchema = z.object({
+  requests: z.number().int().positive(),
+  perSeconds: z.number().positive(),
+});
+
+const fetchProviderRetrySchema = z
+  .object({
+    maxAttempts: z.number().int().nonnegative(),
+    baseDelayMs: z.number().int().positive(),
+    maxDelayMs: z.number().int().positive(),
+  })
+  .optional();
+
+export const fetchProviderConfigSchema = z.object({
+  type: z.string(),
   baseUrl: z.string(),
-  authentication: z.object({
-    type: z.enum(["bearer", "none"]),
-    apiKey: z.string().optional(),
-    headerName: z.string().optional(),
-  }),
-  rateLimit: z.object({
-    requests: z.number().int().positive(),
-    perSeconds: z.number().positive(),
-  }),
+  authentication: fetchProviderAuthenticationSchema,
+  rateLimit: fetchProviderRateLimitSchema,
   concurrency: concurrencySchema,
   timeoutMs: z.number().int().positive().optional(),
-  retry: z
-    .object({
-      maxAttempts: z.number().int().nonnegative(),
-      baseDelayMs: z.number().int().positive(),
-      maxDelayMs: z.number().int().positive(),
-    })
-    .optional(),
+  retry: fetchProviderRetrySchema,
+});
+
+const webFetchSchema = z.object({
+  providers: z.array(fetchProviderConfigSchema).min(1),
 });
 
 const relevanceGateSchema = z.object({

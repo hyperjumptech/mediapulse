@@ -1,12 +1,17 @@
-/** Metadata fields from a Jina Reader response used for publication-date extraction. */
-export type JinaFetchMetadata = {
+/** Metadata fields from a fetch provider response used for publication-date extraction. */
+export type FetchMetadata = {
   publishedTime?: string;
   published_at?: string;
   usage?: { tokens?: number };
 };
 
+/** @deprecated Use {@link FetchMetadata} instead. */
+export type JinaFetchMetadata = FetchMetadata;
+
 export type ExtractPublishedDateInput = {
-  jinaMetadata?: JinaFetchMetadata;
+  fetchMetadata?: FetchMetadata;
+  /** @deprecated Use {@link ExtractPublishedDateInput.fetchMetadata} instead. */
+  jinaMetadata?: FetchMetadata;
   content: string;
 };
 
@@ -50,13 +55,13 @@ const parseInSanityRange = (value: string, now: Date): Date | null => {
 };
 
 /**
- * Reads explicit publication timestamps from Jina Reader metadata.
+ * Reads explicit publication timestamps from fetch provider metadata.
  *
- * @param metadata - Optional Jina metadata object.
+ * @param metadata - Optional fetch metadata object.
  * @param now - Reference time for range validation.
  */
-const extractFromJinaMetadata = (
-  metadata: JinaFetchMetadata | undefined,
+const extractFromFetchMetadata = (
+  metadata: FetchMetadata | undefined,
   now: Date,
 ): Date | null => {
   if (!metadata) {
@@ -113,9 +118,9 @@ const extractFromContent = (content: string, now: Date): Date | null => {
 };
 
 /**
- * Extracts the best-effort publication date from Jina metadata and page content.
+ * Extracts the best-effort publication date from fetch metadata and page content.
  *
- * @param input - Jina metadata and fetched content.
+ * @param input - Fetch metadata and fetched content.
  * @param now - Reference time for sanity-range validation.
  * @returns Parsed publication date, or `null` when no reliable signal is found.
  */
@@ -123,7 +128,8 @@ export const extractPublishedDate = (
   input: ExtractPublishedDateInput,
   now: Date = new Date(),
 ): Date | null => {
-  const fromMetadata = extractFromJinaMetadata(input.jinaMetadata, now);
+  const metadata = input.fetchMetadata ?? input.jinaMetadata;
+  const fromMetadata = extractFromFetchMetadata(metadata, now);
   if (fromMetadata) {
     return fromMetadata;
   }
