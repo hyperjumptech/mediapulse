@@ -14,7 +14,7 @@ export const dataCollectionFailureInputSchema = z.object({
   runId: z.string().uuid(),
   tickerId: z.string().trim().min(1),
   stage: z.enum(["web-search", "web-fetch"]),
-  provider: z.enum(["serper", "jina"]),
+  provider: z.enum(["serper", "jina", "firecrawl", "diffbot"]),
   searchQueryId: z.string().uuid().optional(),
   url: z.string().url().optional(),
   errorCategory: dataCollectionFailureErrorCategorySchema,

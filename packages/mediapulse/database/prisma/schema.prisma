@@ -441,6 +441,8 @@ enum DataCollectionProviderStage {
 enum DataCollectionProvider {
   serper
   jina
+  firecrawl
+  diffbot
 }
 
 enum DataCollectionErrorCategory {

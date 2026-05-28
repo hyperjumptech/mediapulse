@@ -1,33 +1,45 @@
 import got from "got";
-import { z } from "zod";
+
 import { logger as defaultLogger } from "@workspace/logger";
-import { RateLimiter, type StageThrottleStats, withRetry } from "./resilience";
+import { RateLimiter, type StageThrottleStats } from "./resilience";
 import { classifyError, isRetryableError } from "./error-classification";
 import { pMap } from "./p-map";
+import {
+  createFetchProviderChain,
+  type FetchProviderConfig,
+} from "./fetch-providers/registry";
+import type { FetchProvider } from "./fetch-providers/types";
 
-import type { WebSearchResult } from "./web-search";
+import type { FetchMetadata, WebSearchResult } from "./web-search";
 import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
 import type { HostErrorTracker } from "./host-error-tracker";
 import { hostFromUrl } from "./host-error-tracker";
 
-export interface WebFetchSuccess {
-  success: true;
-  data: WebSearchResult;
-}
+export type WebFetchProviderName = Extract<
+  DataCollectionFailure["provider"],
+  "jina" | "firecrawl" | "diffbot"
+>;
+
+export type FetchedWebSearchResult = WebSearchResult & {
+  provider: WebFetchProviderName;
+};
 
 export interface WebFetchFailure {
-  success: false;
   url: string;
   queryId: string;
   tickerId: string;
+  provider: WebFetchProviderName;
   errorCategory: DataCollectionFailure["errorCategory"];
   message: string;
   retryable: boolean;
   httpStatus?: number;
 }
 
-export type WebFetchAttemptResult = WebFetchSuccess | WebFetchFailure;
+export interface WebFetchOutcome {
+  success: FetchedWebSearchResult | null;
+  failures: WebFetchFailure[];
+}
 
 /** Minimal structured logger for web-fetch (e.g. pino or pino child). */
 export type WebFetchLogger = {
@@ -46,6 +58,18 @@ export interface WebFetchDeps {
   hostErrorTracker?: HostErrorTracker;
 }
 
+type ProviderChainEntry = {
+  provider: FetchProvider;
+  config: FetchProviderConfig;
+  rateLimiter: RateLimiter;
+};
+
+const WEB_FETCH_PROVIDER_NAMES = new Set<WebFetchProviderName>([
+  "jina",
+  "firecrawl",
+  "diffbot",
+]);
+
 /**
  * Truncates a URL for log fields so long query strings do not flood logs.
  *
@@ -60,197 +84,200 @@ function truncateUrlForLog(url: string, maxChars = 120): string {
   return `${url.slice(0, maxChars)}…`;
 }
 
-/** Zod schema for Jina AI Reader API response data object. */
-const jinaDataSchema = z.object({
-  url: z.string().url().optional(),
-  title: z.string().optional(),
-  content: z.string().optional(),
-  publishedTime: z.string().optional(),
-  published_at: z.string().optional(),
-  usage: z
-    .object({
-      tokens: z.number().optional(),
-    })
-    .optional(),
-});
-
-/** Zod schema for Jina AI Reader API response. */
-export const webFetchResponseSchema = z.object({
-  data: jinaDataSchema.optional(),
-});
-
-export type WebFetchResponse = z.infer<typeof webFetchResponseSchema>;
-
 /**
- * Resolves effective mapper concurrency capped by the configured rate limit.
+ * Resolves effective mapper concurrency capped by each provider rate limit.
  *
- * @param config - Web fetch provider configuration.
+ * @param providers - Ordered provider configs for the fetch chain.
  */
-const resolveFetchConcurrency = (
-  config: NonNullable<ConfigSchemaType["webFetch"]>,
-): number => Math.min(config.concurrency ?? 4, config.rateLimit.requests);
+const resolveFetchConcurrency = (providers: FetchProviderConfig[]): number =>
+  Math.max(
+    ...providers.map((provider) =>
+      Math.min(provider.concurrency ?? 4, provider.rateLimit.requests),
+    ),
+  );
 
 /**
- * Fetches one search hit and returns the attempt result.
+ * Builds fetch metadata from normalized provider fields.
+ *
+ * @param data - Normalized provider response fields.
+ */
+const buildFetchMetadata = (data: {
+  publishedTime?: string;
+  published_at?: string;
+  usage?: { tokens?: number };
+}): FetchMetadata | undefined => {
+  const metadata: FetchMetadata = {
+    ...(data.publishedTime ? { publishedTime: data.publishedTime } : {}),
+    ...(data.published_at ? { published_at: data.published_at } : {}),
+    ...(data.usage ? { usage: data.usage } : {}),
+  };
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+};
+
+/**
+ * Narrows a provider type string to a persisted web-fetch provider name.
+ *
+ * @param type - Provider adapter type string.
+ */
+const toWebFetchProviderName = (type: string): WebFetchProviderName => {
+  if (!WEB_FETCH_PROVIDER_NAMES.has(type as WebFetchProviderName)) {
+    throw new Error(`Unsupported web fetch provider: ${type}`);
+  }
+  return type as WebFetchProviderName;
+};
+
+/**
+ * Fetches one search hit through the ordered provider chain.
  *
  * @param result - Search hit to fetch.
+ * @param chain - Ordered provider adapters with per-provider rate limiters.
  * @param deps - Shared dependencies for the fetch stage.
  */
 const fetchOneResult = async (
   result: WebSearchResult,
+  chain: ProviderChainEntry[],
   deps: {
-    config: NonNullable<ConfigSchemaType["webFetch"]>;
     gotClient: typeof got;
     log: WebFetchLogger;
-    rateLimiter: RateLimiter;
-    authHeaders: Record<string, string>;
-    endpoint: string;
     hostErrorTracker?: HostErrorTracker;
   },
-): Promise<WebFetchAttemptResult> => {
-  const {
-    config,
-    gotClient,
-    log,
-    rateLimiter,
-    authHeaders,
-    endpoint,
-    hostErrorTracker,
-  } = deps;
+): Promise<WebFetchOutcome> => {
+  const { gotClient, log, hostErrorTracker } = deps;
+  const failures: WebFetchFailure[] = [];
 
-  try {
-    await rateLimiter.acquire();
+  for (const entry of chain) {
+    const providerName = toWebFetchProviderName(entry.provider.type);
 
-    const fetchTask = async () => {
-      const response = await gotClient.post(endpoint, {
-        json: { url: result.url },
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          ...authHeaders,
-        },
-        timeout: config.timeoutMs ? { request: config.timeoutMs } : undefined,
+    try {
+      const data = await entry.provider.fetchOne(result.url, {
+        gotClient,
+        rateLimiter: entry.rateLimiter,
+        logger: log,
       });
-      rateLimiter.recordResponse(response.statusCode);
-      const raw = JSON.parse(response.body) as unknown;
 
-      const parsed = webFetchResponseSchema.safeParse(raw);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      hostErrorTracker?.record(hostFromUrl(result.url), true);
 
-      const data = parsed.data.data;
-      if (!data || !data.content || data.content.trim() === "") {
-        throw new Error("Semantic validation failed");
-      }
+      const fetchMetadata = buildFetchMetadata(data);
 
-      return data;
-    };
-
-    const data = config.retry
-      ? await withRetry(fetchTask, config.retry, isRetryableError)
-      : await fetchTask();
-
-    hostErrorTracker?.record(hostFromUrl(result.url), true);
-
-    const jinaMetadata = {
-      ...(data.publishedTime ? { publishedTime: data.publishedTime } : {}),
-      ...(data.published_at ? { published_at: data.published_at } : {}),
-      ...(data.usage ? { usage: data.usage } : {}),
-    };
-
-    return {
-      success: true,
-      data: {
-        url: data.url ?? result.url,
-        title: data.title ?? result.title,
-        content: data.content ?? "",
+      return {
+        success: {
+          url: data.url ?? result.url,
+          title: data.title ?? result.title,
+          content: data.content,
+          tickerId: result.tickerId,
+          searchQueryId: result.searchQueryId,
+          searchQueryText: result.searchQueryText,
+          serpIndex: result.serpIndex,
+          provider: providerName,
+          ...(fetchMetadata ? { fetchMetadata } : {}),
+        },
+        failures,
+      };
+    } catch (error) {
+      const classified = classifyError(error);
+      entry.rateLimiter.recordResponse(classified.httpStatus);
+      log.warn(
+        {
+          searchQueryId: result.searchQueryId,
+          url: truncateUrlForLog(result.url),
+          provider: providerName,
+          errorCategory: classified.category,
+          retryable: isRetryableError(error),
+          ...(classified.httpStatus !== undefined
+            ? { httpStatus: classified.httpStatus }
+            : {}),
+        },
+        "web fetch: provider failed",
+      );
+      failures.push({
+        url: result.url,
+        queryId: result.searchQueryId,
         tickerId: result.tickerId,
-        searchQueryId: result.searchQueryId,
-        searchQueryText: result.searchQueryText,
-        serpIndex: result.serpIndex,
-        ...(Object.keys(jinaMetadata).length > 0 ? { jinaMetadata } : {}),
-      },
-    };
-  } catch (error) {
-    const classified = classifyError(error);
-    rateLimiter.recordResponse(classified.httpStatus);
-    hostErrorTracker?.record(hostFromUrl(result.url), false);
-    log.warn(
-      {
-        searchQueryId: result.searchQueryId,
-        url: truncateUrlForLog(result.url),
+        provider: providerName,
         errorCategory: classified.category,
+        message: classified.message,
         retryable: isRetryableError(error),
-        ...(classified.httpStatus !== undefined
-          ? { httpStatus: classified.httpStatus }
-          : {}),
-      },
-      "web fetch: URL failed",
-    );
-    return {
-      success: false,
-      url: result.url,
-      queryId: result.searchQueryId,
-      tickerId: result.tickerId,
-      errorCategory: classified.category,
-      message: classified.message,
-      retryable: isRetryableError(error),
-      httpStatus: classified.httpStatus,
-    };
+        httpStatus: classified.httpStatus,
+      });
+    }
   }
+
+  hostErrorTracker?.record(hostFromUrl(result.url), false);
+
+  return {
+    success: null,
+    failures,
+  };
 };
 
 /**
- * Fetches and enriches web page contents for each search result using the Jina AI API.
- * Uses config-driven limits, retries, and yields partial success items.
+ * Builds the ordered provider chain with one rate limiter per provider.
+ *
+ * @param configs - Ordered provider configs from runtime settings.
+ */
+const buildProviderChain = (
+  configs: FetchProviderConfig[],
+): ProviderChainEntry[] => {
+  const providers = createFetchProviderChain(configs);
+
+  return providers.map((provider, index) => ({
+    provider,
+    config: configs[index]!,
+    rateLimiter: new RateLimiter(
+      configs[index]!.rateLimit.requests,
+      configs[index]!.rateLimit.perSeconds,
+    ),
+  }));
+};
+
+/**
+ * Fetches and enriches web page contents for each search result using an
+ * ordered provider chain with per-provider fallback.
  *
  * @param searchResults - Search results without full content.
  * @param deps - Dependencies including runtime configuration and optional correlated `logger`.
- * @returns A list of web fetch attempt results.
+ * @returns One outcome per URL with optional success and per-provider failures.
  */
 export async function performWebFetch(
   searchResults: WebSearchResult[],
   deps: WebFetchDeps,
-): Promise<WebFetchAttemptResult[]> {
+): Promise<WebFetchOutcome[]> {
   const { config, gotClient = got, logger: logOpt, throttleStats } = deps;
   const log = logOpt ?? defaultLogger;
+  const providerConfigs = config.providers;
 
-  log.info({ urlCount: searchResults.length }, "web fetch: starting");
-
-  const rateLimiter = new RateLimiter(
-    config.rateLimit.requests,
-    config.rateLimit.perSeconds,
+  log.info(
+    {
+      urlCount: searchResults.length,
+      providerChain: providerConfigs.map((provider) => provider.type),
+    },
+    "web fetch: starting",
   );
 
-  const authHeaders: Record<string, string> = {};
-  if (config.authentication.apiKey && config.authentication.headerName) {
-    const prefix = config.authentication.type === "bearer" ? "Bearer " : "";
-    authHeaders[config.authentication.headerName] =
-      `${prefix}${config.authentication.apiKey}`;
-  }
-
-  const endpoint = config.baseUrl;
-  const concurrency = resolveFetchConcurrency(config);
+  const chain = buildProviderChain(providerConfigs);
+  const concurrency = resolveFetchConcurrency(providerConfigs);
   const sharedDeps = {
-    config,
     gotClient,
     log,
-    rateLimiter,
-    authHeaders,
-    endpoint,
     hostErrorTracker: deps.hostErrorTracker,
   };
 
   const results = await pMap(
     searchResults,
-    (result) => fetchOneResult(result, sharedDeps),
+    (result) => fetchOneResult(result, chain, sharedDeps),
     { concurrency },
   );
 
   if (throttleStats) {
-    throttleStats.throttleEvents += rateLimiter.getThrottleEvents();
+    throttleStats.throttleEvents += chain.reduce(
+      (total, entry) => total + entry.rateLimiter.getThrottleEvents(),
+      0,
+    );
   }
 
   return results;
 }
+
+/** @deprecated Use `jinaResponseSchema` from `./fetch-providers/jina` instead. */
+export { jinaResponseSchema as webFetchResponseSchema } from "./fetch-providers/jina";

@@ -5,6 +5,11 @@ import type { AgentRunContext } from "@workspace/agent-runtime";
 
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
+import type {
+  FetchedWebSearchResult,
+  WebFetchFailure,
+  WebFetchOutcome,
+} from "./utilities/web-fetch";
 
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 
@@ -40,10 +45,15 @@ const baseConfig = {
     concurrency: 4,
   },
   webFetch: {
-    baseUrl: "https://fetch.example",
-    authentication: { type: "bearer" as const },
-    rateLimit: { requests: 1, perSeconds: 1 },
-    concurrency: 4,
+    providers: [
+      {
+        type: "jina",
+        baseUrl: "https://fetch.example",
+        authentication: { type: "bearer" as const },
+        rateLimit: { requests: 1, perSeconds: 1 },
+        concurrency: 4,
+      },
+    ],
   },
   targetDailySuccessfulSources: 1,
   maxRefillRounds: 3,
@@ -60,6 +70,32 @@ const searchSuccessPage = {
   searchQueryText: "test query",
   serpIndex: 0,
 };
+
+/**
+ * Builds a successful web-fetch outcome for run-level mocks.
+ *
+ * @param data - Fetched page fields returned by the mock provider chain.
+ */
+const mockFetchSuccess = (
+  data: Omit<FetchedWebSearchResult, "provider"> &
+    Partial<Pick<FetchedWebSearchResult, "provider">>,
+): WebFetchOutcome => ({
+  success: { provider: "jina", ...data },
+  failures: [],
+});
+
+/**
+ * Builds a failed web-fetch outcome for run-level mocks.
+ *
+ * @param failure - Failure fields for the mocked provider attempt.
+ */
+const mockFetchFailure = (
+  failure: Omit<WebFetchFailure, "provider"> &
+    Partial<Pick<WebFetchFailure, "provider">>,
+): WebFetchOutcome => ({
+  success: null,
+  failures: [{ provider: "jina", ...failure }],
+});
 
 vi.mock("@mediapulse/env/agents-data-collection", () => ({
   env: {
@@ -172,13 +208,10 @@ describe("runDataCollection", () => {
       },
     ]);
     vi.mocked(performWebFetch).mockResolvedValue([
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          content: validArticleContent,
-        },
-      },
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        content: validArticleContent,
+      }),
     ]);
     getMock.mockResolvedValue({
       data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
@@ -354,8 +387,7 @@ describe("runDataCollection", () => {
 
   it("records 404 fetch failures to the dead-url cache", async () => {
     vi.mocked(performWebFetch).mockResolvedValueOnce([
-      {
-        success: false,
+      mockFetchFailure({
         url: "http://failed.com",
         queryId: "sq-1",
         tickerId: TICKER_ID,
@@ -363,7 +395,7 @@ describe("runDataCollection", () => {
         message: "404 Not Found",
         retryable: false,
         httpStatus: 404,
-      },
+      }),
     ]);
 
     await runDataCollection(
@@ -419,41 +451,29 @@ describe("runDataCollection", () => {
       ]);
 
       vi.mocked(performWebFetch).mockResolvedValueOnce([
-        {
-          success: true,
-          data: {
-            ...searchSuccessPage,
-            url: "http://example.com/fresh",
-            content: validArticleContent,
-            jinaMetadata: { publishedTime: isoDaysAgo(2) },
-          },
-        },
-        {
-          success: true,
-          data: {
-            ...searchSuccessPage,
-            url: "http://example.com/stale",
-            content: validArticleContent,
-            jinaMetadata: { publishedTime: isoDaysAgo(30) },
-          },
-        },
-        {
-          success: true,
-          data: {
-            ...searchSuccessPage,
-            url: "http://example.com/unknown",
-            content: validArticleContent,
-          },
-        },
-        {
-          success: true,
-          data: {
-            ...searchSuccessPage,
-            url: "http://example.com/future",
-            content: validArticleContent,
-            jinaMetadata: { publishedTime: isoDaysAhead(5) },
-          },
-        },
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "http://example.com/fresh",
+          content: validArticleContent,
+          fetchMetadata: { publishedTime: isoDaysAgo(2) },
+        }),
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "http://example.com/stale",
+          content: validArticleContent,
+          fetchMetadata: { publishedTime: isoDaysAgo(30) },
+        }),
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "http://example.com/unknown",
+          content: validArticleContent,
+        }),
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "http://example.com/future",
+          content: validArticleContent,
+          fetchMetadata: { publishedTime: isoDaysAhead(5) },
+        }),
       ]);
 
       const result = await runDataCollection(
@@ -597,24 +617,18 @@ describe("runDataCollection", () => {
       },
     ]);
     vi.mocked(performWebFetch).mockResolvedValueOnce([
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "http://example.com/earnings",
-          title: "Apple Q2 earnings beat estimates",
-          content: earningsContent,
-        },
-      },
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "http://example.com/vision",
-          title: "Apple unveils new Vision Pro",
-          content: visionContent,
-        },
-      },
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        url: "http://example.com/earnings",
+        title: "Apple Q2 earnings beat estimates",
+        content: earningsContent,
+      }),
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        url: "http://example.com/vision",
+        title: "Apple unveils new Vision Pro",
+        content: visionContent,
+      }),
     ]);
 
     const result = await runDataCollection(
@@ -680,8 +694,7 @@ describe("runDataCollection", () => {
   it("records partial_success and persists fetch failures", async () => {
     // Setup
     vi.mocked(performWebFetch).mockResolvedValueOnce([
-      {
-        success: false,
+      mockFetchFailure({
         url: "http://failed.com",
         queryId: "sq-1",
         tickerId: TICKER_ID,
@@ -689,7 +702,7 @@ describe("runDataCollection", () => {
         message: "404 Not Found",
         retryable: false,
         httpStatus: 404,
-      },
+      }),
     ]);
 
     // Act
@@ -772,13 +785,10 @@ describe("runDataCollection", () => {
       },
     ]);
     vi.mocked(performWebFetch).mockResolvedValueOnce([
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          content: validArticleContent,
-        },
-      },
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        content: validArticleContent,
+      }),
     ]);
 
     // Act
@@ -870,33 +880,24 @@ describe("runDataCollection", () => {
       },
     ]);
     vi.mocked(performWebFetch).mockResolvedValueOnce([
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "https://example.com/clean",
-          title: validArticleTitle,
-          content: validArticleContent,
-        },
-      },
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "https://example.com/off-topic",
-          title: "Microsoft earnings headline here",
-          content: offTopicContent,
-        },
-      },
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "https://example.com/paywall",
-          title: "Premium article headline here",
-          content: paywallContent,
-        },
-      },
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        url: "https://example.com/clean",
+        title: validArticleTitle,
+        content: validArticleContent,
+      }),
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        url: "https://example.com/off-topic",
+        title: "Microsoft earnings headline here",
+        content: offTopicContent,
+      }),
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        url: "https://example.com/paywall",
+        title: "Premium article headline here",
+        content: paywallContent,
+      }),
     ]);
 
     // Act
@@ -975,42 +976,30 @@ describe("runDataCollection", () => {
       },
     ]);
     vi.mocked(performWebFetch).mockResolvedValueOnce([
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "https://example.com/clean",
-          title: validArticleTitle,
-          content: validArticleContent,
-        },
-      },
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "https://example.com/paywall",
-          title: "Premium article headline here",
-          content: paywallContent,
-        },
-      },
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "https://example.com/soft-404",
-          title: "Missing article headline here",
-          content: soft404Content,
-        },
-      },
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "https://example.com/short",
-          title: "Valid headline for short body",
-          content: shortContent,
-        },
-      },
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        url: "https://example.com/clean",
+        title: validArticleTitle,
+        content: validArticleContent,
+      }),
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        url: "https://example.com/paywall",
+        title: "Premium article headline here",
+        content: paywallContent,
+      }),
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        url: "https://example.com/soft-404",
+        title: "Missing article headline here",
+        content: soft404Content,
+      }),
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        url: "https://example.com/short",
+        title: "Valid headline for short body",
+        content: shortContent,
+      }),
     ]);
 
     // Act
@@ -1061,15 +1050,12 @@ describe("runDataCollection", () => {
       },
     ]);
     vi.mocked(performWebFetch).mockResolvedValueOnce([
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          title: "Company profile and key statistics",
-          url: "https://example.com/stocks",
-          content: `Financial summary and key statistics with market cap details. ${Array.from({ length: 120 }, (_, index) => `Detail paragraph ${index} covers regional lending trends.`).join(" ")}`,
-        },
-      },
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        title: "Company profile and key statistics",
+        url: "https://example.com/stocks",
+        content: `Financial summary and key statistics with market cap details. ${Array.from({ length: 120 }, (_, index) => `Detail paragraph ${index} covers regional lending trends.`).join(" ")}`,
+      }),
     ]);
 
     // Act
@@ -1131,22 +1117,16 @@ describe("runDataCollection", () => {
       ]);
     vi.mocked(performWebFetch)
       .mockResolvedValueOnce([
-        {
-          success: true,
-          data: {
-            ...searchSuccessPage,
-            content: validArticleContent,
-          },
-        },
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          content: validArticleContent,
+        }),
       ])
       .mockResolvedValueOnce([
-        {
-          success: true,
-          data: {
-            ...searchSuccessPage,
-            content: validArticleContent,
-          },
-        },
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          content: validArticleContent,
+        }),
       ]);
 
     // Act
@@ -1204,13 +1184,10 @@ describe("runDataCollection", () => {
       },
     ]);
     vi.mocked(performWebFetch).mockResolvedValue([
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          content: validArticleContent,
-        },
-      },
+      mockFetchSuccess({
+        ...searchSuccessPage,
+        content: validArticleContent,
+      }),
     ]);
 
     // Act
@@ -1253,13 +1230,12 @@ describe("runDataCollection", () => {
 
     vi.mocked(performWebSearch).mockResolvedValueOnce(searchHits);
     vi.mocked(performWebFetch).mockImplementation(async (results) =>
-      results.map((page) => ({
-        success: true as const,
-        data: {
+      results.map((page) =>
+        mockFetchSuccess({
           ...page,
           content: validArticleContent,
-        },
-      })),
+        }),
+      ),
     );
 
     // Act
@@ -1309,7 +1285,7 @@ describe("parallel fetch wall-clock", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
       return {
         statusCode: 200,
-        json: async () => ({
+        body: JSON.stringify({
           data: {
             url: "http://example.com/page",
             title: validArticleTitle,
@@ -1324,10 +1300,15 @@ describe("parallel fetch wall-clock", () => {
     const startedAt = Date.now();
     await performWebFetchActual(searchResults, {
       config: {
-        baseUrl: "https://fetch.example",
-        authentication: { type: "bearer" as const },
-        rateLimit: { requests: 12, perSeconds: 1 },
-        concurrency: 4,
+        providers: [
+          {
+            type: "jina",
+            baseUrl: "https://fetch.example",
+            authentication: { type: "bearer" as const },
+            rateLimit: { requests: 12, perSeconds: 1 },
+            concurrency: 4,
+          },
+        ],
       },
       gotClient: fakeGot as never,
       logger: { info: vi.fn(), warn: vi.fn() },
