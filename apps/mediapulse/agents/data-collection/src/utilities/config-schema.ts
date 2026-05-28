@@ -70,12 +70,12 @@ const searchProviderSchema = z.object({
     .describe("Serper search endpoint that accepts POST { q }."),
   authentication: z
     .object({
-      type: z.enum(["bearer", "none"]).default("bearer"),
+      type: z.enum(["bearer", "none"]).default("none"),
       apiKey: z.string().default("{{SERPER_API_KEY}}"),
       headerName: z.string().default("X-API-KEY"),
     })
     .default({
-      type: "bearer",
+      type: "none",
       apiKey: "{{SERPER_API_KEY}}",
       headerName: "X-API-KEY",
     })
@@ -128,8 +128,8 @@ export const defaultDiffbotFetchProvider = {
     type: "none" as const,
     apiKey: "{{DIFFBOT_API_KEY}}",
   },
-  rateLimit: { requests: 50, perSeconds: 60 },
-  concurrency: 4,
+  rateLimit: { requests: 2, perSeconds: 1 },
+  concurrency: 2,
   timeoutMs: 30_000,
   retry: defaultRetry,
 };
@@ -143,8 +143,8 @@ export const defaultFirecrawlFetchProvider = {
     apiKey: "{{FIRECRAWL_API_KEY}}",
     headerName: "Authorization",
   },
-  rateLimit: { requests: 50, perSeconds: 60 },
-  concurrency: 4,
+  rateLimit: { requests: 2, perSeconds: 1 },
+  concurrency: 2,
   timeoutMs: 30_000,
   retry: defaultRetry,
 };
@@ -158,8 +158,8 @@ export const defaultJinaFetchProvider = {
     apiKey: "{{JINA_API_KEY}}",
     headerName: "Authorization",
   },
-  rateLimit: { requests: 50, perSeconds: 60 },
-  concurrency: 4,
+  rateLimit: { requests: 2, perSeconds: 1 },
+  concurrency: 2,
   timeoutMs: 30_000,
   retry: defaultRetry,
 };
