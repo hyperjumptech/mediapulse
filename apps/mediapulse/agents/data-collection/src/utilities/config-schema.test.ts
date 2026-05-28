@@ -95,7 +95,7 @@ describe("dataCollectionAgentConfigSchema", () => {
       errorRateThreshold: 0.5,
     });
     expect(parsed.deduplication.semantic).toEqual({
-      enabled: false,
+      enabled: true,
       threshold: 0.88,
       windowDays: 7,
       embeddingModel: "{{EMBEDDING_MODEL}}",
