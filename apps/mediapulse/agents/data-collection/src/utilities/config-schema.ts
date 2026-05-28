@@ -328,7 +328,7 @@ const resilienceSchema = z
 const semanticDedupeSchema = z.object({
   enabled: z
     .boolean()
-    .default(false)
+    .default(true)
     .describe(
       "When enabled, drop near-duplicate pages using embedding similarity against recent corpus fingerprints.",
     ),

@@ -593,7 +593,6 @@ describe("runDataCollection", () => {
           deduplication: {
             openaiApiKey: "sk-test",
             semantic: {
-              enabled: true,
               threshold: 0.88,
               windowDays: 7,
               embeddingModel: "text-embedding-3-small",
@@ -706,7 +705,6 @@ describe("runDataCollection", () => {
           deduplication: {
             openaiApiKey: "sk-test",
             semantic: {
-              enabled: true,
               threshold: 0.88,
               windowDays: 7,
               embeddingModel: "text-embedding-3-small",
@@ -731,6 +729,48 @@ describe("runDataCollection", () => {
     expect(createMock).toHaveBeenCalledWith([
       expect.objectContaining({ url: "http://example.com/vision" }),
     ]);
+    expect(recentSourceFingerprintsGetMock).toHaveBeenCalledWith({
+      tickerId: TICKER_ID,
+      windowDays: 7,
+    });
+  });
+
+  it("defaults semantic dedupe to enabled and calls embedTexts when openaiApiKey is resolved", async () => {
+    recentSourceFingerprintsGetMock.mockResolvedValueOnce({
+      fingerprints: [
+        {
+          id: "11111111-1111-4111-a111-111111111111",
+          title: "Bank Central Asia prior coverage",
+          headSnippet: "Earlier reporting on regional lending trends.",
+        },
+      ],
+    });
+    embedTextsMock.mockResolvedValueOnce([
+      [1, 0, 0],
+      [0, 1, 0],
+    ]);
+
+    await runDataCollection(
+      createContext({
+        config: withTestConfig({
+          deduplication: {
+            openaiApiKey: "sk-test",
+            semantic: {
+              embeddingModel: "text-embedding-3-small",
+            },
+          },
+          gates: {
+            relevance: { enabled: false, headChars: 1500, minMatches: 1 },
+          },
+          runPolicy: {
+            minSuccessfulSources: 0,
+            failOnZeroSuccess: false,
+          },
+        }),
+      }),
+    );
+
+    expect(embedTextsMock).toHaveBeenCalled();
     expect(recentSourceFingerprintsGetMock).toHaveBeenCalledWith({
       tickerId: TICKER_ID,
       windowDays: 7,
