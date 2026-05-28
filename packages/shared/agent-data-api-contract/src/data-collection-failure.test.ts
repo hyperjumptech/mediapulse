@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { dataCollectionFailureInputSchema } from "./data-collection-failure";
+import { dataCollectionFailureInputSchema } from "./data-collection-failure.js";
 
 describe("dataCollectionFailureInputSchema", () => {
   it("accepts firecrawl and diffbot web-fetch providers", () => {
