@@ -134,6 +134,8 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   critiqueSummary?: NewsletterCritiqueSummary;
   /** True when critique was skipped because the run exceeded 70% of timeout budget. */
   critiqueSkippedDueToBudget?: boolean;
+  /** True when the critique pass threw (e.g. truncated JSON) and was skipped. */
+  critiqueFailed?: boolean;
   /** Style polish rule-firing summary when enabled. */
   polishSummary?: Pick<
     PolishNewsletterResult,
@@ -252,6 +254,11 @@ const defaultGenerateTextForNewsletterBrainstorm: GenerateTextForNewsletterBrain
         : null;
     return { text: result.text, usage };
   };
+
+/** Fixed JSON overhead (wrapper object, schema scaffolding) for the critique pass. */
+const CRITIQUE_TOKENS_BASE_OVERHEAD = 256;
+/** Output-token allowance per critique rating row (scores + rationale + optional rewrite). */
+const CRITIQUE_TOKENS_PER_CANDIDATE = 180;
 
 const BRAINSTORM_SYSTEM_PROMPT = [
   "You are an editorial planner for a daily industry briefing.",
@@ -580,7 +587,7 @@ export function buildUserPrompt(
  * plain-text wire format for email parsing.
  *
  * Retries on transient errors (rate limits, server errors, timeouts) up to
- * `config.llmRetry.maxAttempts` times with exponential backoff and optional jitter.
+ * `config.reliability.llmRetry.maxAttempts` times with exponential backoff and optional jitter.
  * Non-retryable errors (auth failure, bad request, schema validation) are thrown immediately.
  *
  * Returns the generated content together with token usage and the exact prompt
@@ -589,7 +596,7 @@ export function buildUserPrompt(
  * needing to reconstruct the prompts.
  *
  * @param sources - Fetched data sources to summarise into a newsletter.
- * @param config - Resolved agent config including `llmRetry` and `openai.timeoutMs`.
+ * @param config - Resolved agent config including `reliability.llmRetry` and `credentials.timeoutMs`.
  * @param context - Dynamic values for prompt placeholder substitution (`tickerId`, `date`, `tickerName`, `tickerSymbol`).
  * @param deps - Injectable dependencies: `generateObjectFn` and `sleepFn` for testing.
  * @returns Generated newsletter content plus provenance metadata.
@@ -624,20 +631,20 @@ export async function generateNewsletterWithLlm(
   const nowFn = deps.nowFn ?? Date.now;
   const generationStartedAt = nowFn();
 
-  const topNewsCount = config.output?.topNewsCount ?? 10;
+  const topNewsCount = config.output.topNewsCount;
 
   // Truncate sources per configurable character limits before building prompts
   // (MP-CGA-004 / FR8). Sources are tail-truncated per-source, then overall
   // total is capped by dropping the least-relevant sources from the end.
-  const maxCharsPerSource = config.context?.maxCharsPerSource ?? 8000;
-  const maxTotalContextChars = config.context?.maxTotalContextChars ?? 100000;
+  const maxCharsPerSource = config.inputs.context.maxCharsPerSource;
+  const maxTotalContextChars = config.inputs.context.maxTotalContextChars;
   const truncatedSources = truncateSources(
     sources,
     maxCharsPerSource,
     maxTotalContextChars,
   );
 
-  const sourceRanking = config.sourceRanking;
+  const sourceRanking = config.inputs.sourceRanking;
   let selectedSources: SourceForGeneration[];
 
   if (sourceRanking.enabled) {
@@ -663,13 +670,15 @@ export async function generateNewsletterWithLlm(
   }
 
   const openai = createOpenAI({
-    apiKey: config.openai.apiKey,
-    ...(config.openai.baseUrl ? { baseURL: config.openai.baseUrl } : {}),
+    apiKey: config.credentials.openaiApiKey,
+    ...(config.credentials.baseUrl
+      ? { baseURL: config.credentials.baseUrl }
+      : {}),
   });
-  const model = openai(config.openai.model);
+  const model = openai(config.credentials.chatModel);
 
   // Wire prompts from config with fallback to defaults (MP-CGA-003 / MP-CGA-008).
-  const fewShot = config.fewShot;
+  const fewShot = config.inputs.fewShot;
   let exemplarSection = "";
   let exemplarsUsed: string[] = [];
   let activeExemplars: ReturnType<typeof pickExemplarsForTicker> = [];
@@ -714,15 +723,15 @@ export async function generateNewsletterWithLlm(
 
   const effectiveTopNewsCount = promptSources.length;
 
-  const timeout = config.openai?.timeoutMs;
-  const maxTokens = config.openai?.maxTokens;
+  const timeout = config.credentials.timeoutMs;
+  const maxTokens = config.credentials.maxTokens;
 
   let brainstormText: string | undefined;
   let brainstormUsed = false;
   let brainstormPromptTokens: number | null = null;
   let brainstormCompletionTokens: number | null = null;
 
-  if (config.useBrainstormPass) {
+  if (config.creativity.brainstorm.enabled) {
     const brainstormSystemPrompt = buildBrainstormSystemPrompt({
       tickerName: context.tickerName,
       tickerSymbol: context.tickerSymbol,
@@ -737,12 +746,12 @@ export async function generateNewsletterWithLlm(
       const brainstormStartedAt = nowFn();
       const brainstormResult = await fetchNewsletterBrainstorm(
         {
-          apiKey: config.openai.apiKey,
-          ...(config.openai.baseUrl !== undefined
-            ? { baseUrl: config.openai.baseUrl }
+          apiKey: config.credentials.openaiApiKey,
+          ...(config.credentials.baseUrl !== undefined
+            ? { baseUrl: config.credentials.baseUrl }
             : {}),
           model: config.brainstormModel,
-          maxOutputTokens: config.brainstormMaxOutputTokens,
+          maxOutputTokens: config.creativity.brainstorm.maxOutputTokens,
           system: brainstormSystemPrompt,
           prompt: brainstormUserPrompt,
           ...(timeout !== undefined ? { timeout } : {}),
@@ -800,7 +809,7 @@ export async function generateNewsletterWithLlm(
     .replaceAll("{{tickerName}}", context.tickerName ?? context.tickerId)
     .replaceAll("{{tickerSymbol}}", context.tickerSymbol ?? context.tickerId);
 
-  const numericAnchors = config.numericAnchors;
+  const numericAnchors = config.inputs.numericAnchors;
   let numericAnchorSection = "";
   let topNumericAnchors: ReturnType<typeof selectTopAnchors> = [];
   let anchorsExtracted = 0;
@@ -816,7 +825,7 @@ export async function generateNewsletterWithLlm(
     numericAnchorSection = formatAnchorsForPrompt(topNumericAnchors);
   }
 
-  const crossRunDedup = config.crossRunDedup;
+  const crossRunDedup = config.quality.crossRunDedup;
   const recentBullets = context.recentBullets ?? [];
   const crossRunDedupAvoidanceSection = crossRunDedup.enabled
     ? formatRecentBulletsAvoidanceBlock(recentBullets, crossRunDedup.windowDays)
@@ -861,7 +870,7 @@ export async function generateNewsletterWithLlm(
         ...(maxTokens !== undefined ? { maxTokens } : {}),
       });
     },
-    config.llmRetry,
+    config.reliability.llmRetry,
     isRetryableLlmError,
     { sleepFn: deps.sleepFn },
   );
@@ -929,8 +938,9 @@ export async function generateNewsletterWithLlm(
   let critiquedStructure = workingStructure;
   let critiqueSummary: NewsletterCritiqueSummary | undefined;
   let critiqueSkippedDueToBudget = false;
+  let critiqueFailed = false;
 
-  const selfCritique = config.selfCritique;
+  const selfCritique = config.quality.selfCritique;
   const runElapsedMs = nowFn() - (context.runStartedAt ?? generationStartedAt);
   const critiqueBudgetExceeded =
     timeout !== undefined && runElapsedMs > timeout * 0.7;
@@ -975,60 +985,86 @@ export async function generateNewsletterWithLlm(
             ? Math.max(1, timeout - (nowFn() - generationStartedAt))
             : undefined;
 
-        const critiqueResult = await critiqueNewsletter(
-          {
-            apiKey: config.openai.apiKey,
-            ...(config.openai.baseUrl !== undefined
-              ? { baseUrl: config.openai.baseUrl }
-              : {}),
-            model: config.critiqueModel,
-            maxOutputTokens: selfCritique.critiqueMaxOutputTokens,
-            system: critiqueSystem,
-            prompt: critiquePrompt,
-            ...(critiqueTimeout !== undefined
-              ? { timeout: critiqueTimeout }
-              : {}),
-          },
-          { generateObjectFn: deps.critiqueGenerateObjectFn },
+        // The critic emits one JSON row per candidate, so a fixed token cap
+        // truncates (and fails to parse) on larger briefings. Scale the budget
+        // with candidate count while honoring the configured value as a floor.
+        const critiqueMaxOutputTokens = Math.max(
+          selfCritique.critiqueMaxOutputTokens,
+          CRITIQUE_TOKENS_BASE_OVERHEAD +
+            candidates.length * CRITIQUE_TOKENS_PER_CANDIDATE,
         );
 
-        const applied = applyNewsletterCritiqueResults(
-          workingStructure,
-          critiqueResult.object.ratings,
-          {
-            dropFraction: selfCritique.dropFraction,
-            preferRewriteOverDrop: selfCritique.preferRewriteOverDrop,
-          },
-        );
+        try {
+          const critiqueResult = await critiqueNewsletter(
+            {
+              apiKey: config.credentials.openaiApiKey,
+              ...(config.credentials.baseUrl !== undefined
+                ? { baseUrl: config.credentials.baseUrl }
+                : {}),
+              model: config.critiqueModel,
+              maxOutputTokens: critiqueMaxOutputTokens,
+              system: critiqueSystem,
+              prompt: critiquePrompt,
+              ...(critiqueTimeout !== undefined
+                ? { timeout: critiqueTimeout }
+                : {}),
+            },
+            { generateObjectFn: deps.critiqueGenerateObjectFn },
+          );
 
-        critiquedStructure = applied.structure;
+          const applied = applyNewsletterCritiqueResults(
+            workingStructure,
+            critiqueResult.object.ratings,
+            {
+              dropFraction: selfCritique.dropFraction,
+              preferRewriteOverDrop: selfCritique.preferRewriteOverDrop,
+            },
+          );
 
-        if (applied.summary.floorPreserved > 0) {
+          critiquedStructure = applied.structure;
+
+          if (applied.summary.floorPreserved > 0) {
+            logger.info(
+              {
+                tickerId: context.tickerId,
+                floorPreserved: applied.summary.floorPreserved,
+                event: "critiqueFloorPreserved",
+              },
+              "Self-critique preserved schema row minimums",
+            );
+          }
+
+          critiqueSummary = {
+            ...applied.summary,
+            promptTokens: critiqueResult.usage.promptTokens,
+            completionTokens: critiqueResult.usage.completionTokens,
+            p50Specificity: applied.p50Specificity,
+            p50ReaderValue: applied.p50ReaderValue,
+          };
+
           logger.info(
             {
               tickerId: context.tickerId,
-              floorPreserved: applied.summary.floorPreserved,
-              event: "critiqueFloorPreserved",
+              critique: critiqueSummary,
             },
-            "Self-critique preserved schema row minimums",
+            "Newsletter self-critique summary",
+          );
+        } catch (critiqueErr) {
+          // The critique pass only drops/rewrites a bounded fraction of an
+          // already-complete newsletter, so a failed critique (e.g. truncated
+          // JSON) must never sink the run. Fall back to the un-critiqued
+          // structure, matching the brainstorm and subject-line passes.
+          critiqueFailed = true;
+          critiquedStructure = workingStructure;
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              event: "self_critique_failed_fallback",
+              err: critiqueErr,
+            },
+            "Newsletter self-critique pass failed; shipping un-critiqued bullets",
           );
         }
-
-        critiqueSummary = {
-          ...applied.summary,
-          promptTokens: critiqueResult.usage.promptTokens,
-          completionTokens: critiqueResult.usage.completionTokens,
-          p50Specificity: applied.p50Specificity,
-          p50ReaderValue: applied.p50ReaderValue,
-        };
-
-        logger.info(
-          {
-            tickerId: context.tickerId,
-            critique: critiqueSummary,
-          },
-          "Newsletter self-critique summary",
-        );
       }
     }
   }
@@ -1041,7 +1077,7 @@ export async function generateNewsletterWithLlm(
       >
     | undefined;
 
-  const polish = config.polish;
+  const polish = config.quality.polish;
   if (polish.enabled) {
     const polished = polishNewsletter(critiquedStructure, {
       tier: polish.tier,
@@ -1066,7 +1102,7 @@ export async function generateNewsletterWithLlm(
   }
 
   let groundedStructure = polishedStructure;
-  const citationGrounding = config.citationGrounding;
+  const citationGrounding = config.quality.citationGrounding;
   if (citationGrounding.enabled) {
     const grounded = groundNewsletterCitations(
       polishedStructure,
@@ -1122,7 +1158,7 @@ export async function generateNewsletterWithLlm(
   let preheader: string | undefined;
   let subjectLineSummary: SubjectLineSummary | undefined;
 
-  const subjectLine = config.subjectLine;
+  const subjectLine = config.delivery.subjectLine;
   const recentSubjects = context.recentSubjects ?? [];
 
   if (subjectLine.enabled) {
@@ -1150,9 +1186,9 @@ export async function generateNewsletterWithLlm(
 
       const subjectResult = await fetchSubjectCandidates(
         {
-          apiKey: config.openai.apiKey,
-          ...(config.openai.baseUrl !== undefined
-            ? { baseUrl: config.openai.baseUrl }
+          apiKey: config.credentials.openaiApiKey,
+          ...(config.credentials.baseUrl !== undefined
+            ? { baseUrl: config.credentials.baseUrl }
             : {}),
           model: config.subjectLineModel,
           candidateCount: subjectLine.candidateCount,
@@ -1295,6 +1331,7 @@ export async function generateNewsletterWithLlm(
     ...(lowInformationDay !== undefined ? { lowInformationDay } : {}),
     ...(critiqueSummary !== undefined ? { critiqueSummary } : {}),
     ...(critiqueSkippedDueToBudget ? { critiqueSkippedDueToBudget: true } : {}),
+    ...(critiqueFailed ? { critiqueFailed: true } : {}),
     ...(polishSummary !== undefined ? { polishSummary } : {}),
   };
 }

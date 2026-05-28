@@ -248,8 +248,9 @@ export async function run({
     tickerId: input.tickerId,
   });
 
-  const { apiKey: _apiKey, ...safeOpenai } = resolvedConfig.openai;
-  const safeConfig = { ...resolvedConfig, openai: safeOpenai };
+  const { openaiApiKey: _apiKey, ...safeCredentials } =
+    resolvedConfig.credentials;
+  const safeConfig = { ...resolvedConfig, credentials: safeCredentials };
   logger.info({ sources }, "Data sources for ticker");
   logger.info({ config: safeConfig }, "Config");
 
@@ -293,11 +294,11 @@ export async function run({
     bulletText: string;
     createdAt: string;
   }> = [];
-  if (resolvedConfig.crossRunDedup.enabled) {
+  if (resolvedConfig.quality.crossRunDedup.enabled) {
     try {
       const recent = await dataApiClient.contentGenerationBulletsRecent.get({
         tickerId: input.tickerId,
-        days: resolvedConfig.crossRunDedup.windowDays,
+        days: resolvedConfig.quality.crossRunDedup.windowDays,
       });
       recentBullets = recent.items;
     } catch (recentErr) {
@@ -314,7 +315,7 @@ export async function run({
   }
 
   let recentSubjects: string[] = [];
-  if (resolvedConfig.subjectLine.enabled) {
+  if (resolvedConfig.delivery.subjectLine.enabled) {
     try {
       const recent = await dataApiClient.contentGenerationNewslettersRecent.get(
         {
@@ -399,7 +400,7 @@ export async function run({
   // response model may be an alias or resolved variant (e.g. "gpt-4o-2024-08-06"
   // for an "gpt-4o" alias). Using the config value keeps provenance aligned with
   // the operator-visible setting in Hermes.
-  const provenanceModel = resolvedConfig.openai.model;
+  const provenanceModel = resolvedConfig.credentials.chatModel;
 
   // `configVersion`: deterministic hash of non-secret config fields.
   const configVersion = computeConfigVersion(resolvedConfig);

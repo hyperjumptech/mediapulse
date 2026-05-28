@@ -1,82 +1,102 @@
 ---
 title: Content Generation Agent — Config Reference
-description: Full config schema reference for the content-generation agent, covering all groups, fields, types, defaults, and validation constraints.
+description: Full grouped config schema reference for the content-generation agent, covering all sections, fields, types, defaults, and validation constraints.
 icon: FileText
 ---
 
 ## Overview
 
-The content-generation agent loads its runtime configuration from Hermes on each invocation (Dashboard → Agent configs, select the config for the pipeline step). No configuration is sourced from environment variables — API credentials, model settings, prompts, and retry policies all come from the Hermes config payload. See [Local Dev Credentials](/mediapulse/apps/agents/content-generation-local-dev-credentials) for the local-development env-fallback workflow.
+The content-generation agent loads its runtime configuration from Hermes on each invocation (Dashboard → Agent configs, select the config for the pipeline step). No configuration is sourced from environment variables — API credentials, model settings, prompts, and retry policies all come from the Hermes config payload. The root schema is **strict**: legacy flat keys (`openai`, `sourceRanking`, `useBrainstormPass`, …) are rejected; re-save configs in the grouped form after upgrading.
 
-## Config groups
+Create Hermes Variables: `OPENAI_API_KEY`, `OPENAI_MODEL`.
 
-### OpenAI
+## Config groups (form order)
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `openai.apiKey` | `string` | — | OpenAI API key. Required if `openaiApiKey` (deprecated) is omitted. Must be at least 1 character. |
-| `openai.baseUrl` | `string (url)` | — | OpenAI-compatible API base URL (e.g. Azure OpenAI or proxy). Must be a valid URL. |
-| `openai.model` | `string` | `gpt-4o-mini` | Chat completions model id. Must be at least 1 character. |
-| `openai.maxTokens` | `number` | — | Maximum tokens to generate. Must be a positive integer. |
-| `openai.timeoutMs` | `number` | `120000` | Per-request timeout in milliseconds passed to the AI SDK `generateObject` call. Must be a positive integer. |
-
-**Deprecated top-level fields** (migrate to `openai.*`):
+### Credentials
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `openaiApiKey` | `string` | — | **Deprecated** — use `openai.apiKey`. Must be at least 1 character. |
-| `openaiBaseUrl` | `string (url)` | — | **Deprecated** — use `openai.baseUrl`. Must be a valid URL. |
-| `openaiModel` | `string` | — | **Deprecated** — use `openai.model`. Must be at least 1 character. |
+| `credentials.openaiApiKey` | `string` | `{{OPENAI_API_KEY}}` | OpenAI API key or Hermes variable placeholder. |
+| `credentials.baseUrl` | `string (url)` | — | OpenAI-compatible API base URL. |
+| `credentials.chatModel` | `string` | `{{OPENAI_MODEL}}` | Chat model id or Hermes variable placeholder. |
+| `credentials.maxTokens` | `number` | — | Maximum tokens to generate per LLM call. |
+| `credentials.timeoutMs` | `number` | `120000` | Per-request timeout in milliseconds. |
 
-### Prompts
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `prompts.systemPrompt` | `string` | — | Custom system instructions sent to the LLM. |
-| `prompts.userPromptTemplate` | `string` | — | Template with supported placeholders: `{{sourceSummaries}}`, `{{tickerId}}`, `{{date}}`, `{{topNewsCount}}`. |
+There is no `sampling` group. Reasoning models on the OpenAI Responses API (for example `gpt-5.4-mini`) do not accept `temperature`, `topP`, `presencePenalty`, or `frequencyPenalty`; the agent never forwards those fields to the AI SDK.
 
 ### Output
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `output.topNewsCount` | `number` | `10` | Number of highest-relevance articles passed into the LLM prompt (`Article 1` … `Article N`). Must be a positive integer. |
+| `output.topNewsCount` | `number` | `10` | Articles in the LLM prompt (`Article 1` … `Article N`). |
 
-### Context Limits
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `context.maxCharsPerSource` | `number` | `8000` | Maximum characters to keep per source. Must be a positive integer. |
-| `context.maxTotalContextChars` | `number` | `100000` | Maximum total characters across all sources. Must be a positive integer. |
-
-### LLM Retry
+### Prompts
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `llmRetry.maxAttempts` | `number` | `3` | Maximum total attempts (including the first). Must be a non-negative integer. |
-| `llmRetry.baseDelayMs` | `number` | `500` | Base delay in milliseconds before the first retry. Must be a non-negative integer. |
-| `llmRetry.maxDelayMs` | `number` | `8000` | Maximum delay cap in milliseconds. Must be a non-negative integer. |
-| `llmRetry.jitter` | `boolean` | `true` | Applies ±50% random jitter to each computed backoff delay. |
+| `prompts.systemPrompt` | `string` | built-in | Placeholders: `{{topNewsCount}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`. |
+| `prompts.userPromptTemplate` | `string` | built-in | Placeholders: `{{sourceSummaries}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`, `{{date}}`, `{{topNewsCount}}`. |
 
-Retries only for retryable errors: rate limits (429), 5xx server errors, and network timeouts. Non-retryable errors (401, 400, schema validation) short-circuit immediately.
+### Inputs
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `inputs.sourceRanking.enabled` | `boolean` | `true` | Pre-LLM re-rank and host diversification. |
+| `inputs.sourceRanking.maxPerHost` | `number` | `2` | Max articles per host in the prompt. |
+| `inputs.fewShot.enabled` | `boolean` | `true` | Inject curated newsletter exemplars. |
+| `inputs.fewShot.maxExemplars` | `number` | `1` | Exemplar blocks to prepend (1–2). |
+| `inputs.numericAnchors.enabled` | `boolean` | `true` | Verbatim figure sidecar and post-generation audit. |
+| `inputs.context.maxCharsPerSource` | `number` | `8000` | Per-source truncation budget. |
+| `inputs.context.maxTotalContextChars` | `number` | `100000` | Total context budget across sources. |
+
+### Creativity
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `creativity.brainstorm.enabled` | `boolean` | `true` | Free-form editor's memo before structured JSON. |
+| `creativity.brainstorm.model` | `string` | `credentials.chatModel` | Optional brainstorm model override. |
+| `creativity.brainstorm.maxOutputTokens` | `number` | `700` | Memo pass output token cap. |
+
+### Quality
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `quality.selfCritique.enabled` | `boolean` | `true` | Bounded bullet self-critique pass. |
+| `quality.citationGrounding.enabled` | `boolean` | `true` | Citation overlap verification. |
+| `quality.citationGrounding.policy` | enum | `unlink` | `warn`, `unlink`, or `drop`. |
+| `quality.polish.enabled` | `boolean` | `true` | Deterministic filler/hedge/register cleanup. |
+| `quality.polish.tier` | enum | `safe` | `safe` or `aggressive`. |
+| `quality.crossRunDedup.enabled` | `boolean` | `true` | Recent-bullet avoidance and post-walk dedup. |
+| `quality.crossRunDedup.policy` | enum | `warn` | `warn`, `mark`, or `drop`. |
+
+### Delivery
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `delivery.subjectLine.enabled` | `boolean` | `true` | Subject-line candidate generation and scoring. |
+| `delivery.subjectLine.candidateCount` | `number` | `5` | Alternative subjects to request (3–8). |
+| `delivery.subjectLine.model` | `string` | `credentials.chatModel` | Optional subject-line model override. |
 
 ### Freshness
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `freshness.strategy` | `"calendar_day"` | `calendar_day` | Freshness window strategy. Only `calendar_day` is supported in v1. |
-| `freshness.timezone` | `string (IANA)` | `Asia/Jakarta` | IANA timezone for the calendar-day window (e.g. `America/New_York`, `Asia/Jakarta`). Must be a valid IANA timezone identifier. |
+| `freshness.strategy` | `"calendar_day"` | `calendar_day` | Freshness window strategy. |
+| `freshness.timezone` | `string (IANA)` | `Asia/Jakarta` | Calendar-day timezone for skip-if-fresh. |
 
-The freshness window determines whether a newsletter already exists for today's calendar day (midnight-to-midnight in the configured timezone). When a fresh newsletter exists, the agent skips generation. See [Freshness Behavior](/mediapulse/apps/agents/content-generation-freshness) for full semantics.
-
-### Persist Retry
+### Reliability
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `persistRetry.maxAttempts` | `number` | `2` | Maximum total attempts for persisting to agent-data-api. Must be a non-negative integer. |
-| `persistRetry.baseDelayMs` | `number` | `200` | Base delay in milliseconds. Must be a non-negative integer. |
-| `persistRetry.maxDelayMs` | `number` | `2000` | Maximum delay cap in milliseconds. Must be a non-negative integer. |
+| `reliability.llmRetry.maxAttempts` | `number` | `3` | Max LLM attempts (including first). |
+| `reliability.llmRetry.baseDelayMs` | `number` | `500` | Base backoff delay in ms. |
+| `reliability.llmRetry.maxDelayMs` | `number` | `8000` | Max backoff cap in ms. |
+| `reliability.llmRetry.jitter` | `boolean` | `true` | ±50% jitter on backoff delays. |
+| `reliability.persistRetry.maxAttempts` | `number` | `2` | Max persist attempts. |
+| `reliability.persistRetry.baseDelayMs` | `number` | `200` | Base persist backoff in ms. |
+| `reliability.persistRetry.maxDelayMs` | `number` | `2000` | Max persist backoff cap in ms. |
 
-Persist retries use fixed exponential backoff without jitter (unlike LLM retries). Retryable errors: 5xx, 429, and network timeouts. Non-retryable 4xx client errors fail fast.
+Retry validation rejects `maxDelayMs < baseDelayMs` and `maxAttempts` above 10 for either group.
 
 ## Related docs
 

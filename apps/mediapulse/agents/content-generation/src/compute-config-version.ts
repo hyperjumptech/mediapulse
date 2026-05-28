@@ -29,8 +29,7 @@ function deterministicStringify(value: unknown): string {
  * Algorithm: SHA-256(deterministicJSON(configWithoutSecrets)) → first 16 hex chars.
  *
  * Secret exclusions:
- * - `openaiApiKey` (legacy top-level field)
- * - `openai.apiKey` (nested field)
+ * - `credentials.openaiApiKey`
  *
  * This means two configs that differ only in their API key will produce the
  * same `configVersion`, which is the desired behaviour: the version tracks
@@ -40,19 +39,12 @@ function deterministicStringify(value: unknown): string {
  * @returns 16-character hex string uniquely identifying the non-secret config.
  */
 export function computeConfigVersion(config: ContentGenerationConfig): string {
-  // Clone to avoid mutating the original.
   const clone: Record<string, unknown> = { ...config };
 
-  // Remove the legacy top-level API key.
-  delete clone.openaiApiKey;
-
-  // Remove the nested API key, keeping the rest of the `openai` block.
-  if (clone.openai && typeof clone.openai === "object") {
-    const { apiKey: _apiKey, ...openaiRest } = clone.openai as Record<
-      string,
-      unknown
-    >;
-    clone.openai = openaiRest;
+  if (clone.credentials && typeof clone.credentials === "object") {
+    const { openaiApiKey: _apiKey, ...credentialsRest } =
+      clone.credentials as Record<string, unknown>;
+    clone.credentials = credentialsRest;
   }
 
   const serialized = deterministicStringify(clone);
