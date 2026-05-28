@@ -72,7 +72,7 @@ const outputSchema = z
             .min(1)
             .optional()
             .describe(
-              "Optional deterministic pack override for this language; falls back to the global templates.templatePack.",
+              "Optional deterministic pack override for this language. Falls back to the global templates.templatePack.",
             ),
         }),
       )
@@ -84,7 +84,7 @@ const outputSchema = z
       .record(queryAnalysisIntentSchema, z.number().nonnegative())
       .optional()
       .describe(
-        "Relative weights keyed by intent for merge ordering and LLM target counts; omitted keys use contract defaults.",
+        "Relative weights keyed by intent for merge ordering and LLM target counts. Omitted keys use contract defaults.",
       ),
   })
   .default({})
@@ -137,7 +137,7 @@ const templatesSchema = z
       .enum(DETERMINISTIC_PACK_NAMES)
       .default(DEFAULT_DETERMINISTIC_PACK)
       .describe(
-        "Named deterministic template pack for the query floor; switch via Hermes without redeploying.",
+        "Named deterministic template pack for the query floor. Switch via Hermes without redeploying.",
       ),
     kgTemplateCap: z
       .number()
@@ -145,7 +145,7 @@ const templatesSchema = z
       .nonnegative()
       .default(6)
       .describe(
-        "Maximum KG relation rows expanded into deterministic templates per run; 0 disables KG expansion.",
+        "Maximum KG relation rows expanded into deterministic templates per run. Set 0 to disable KG expansion.",
       ),
   })
   .default({})
@@ -155,7 +155,7 @@ const promptingSchema = z
   .object({
     personas: z
       .array(z.string().min(1))
-      .default(["analyst", "retail", "regulator"])
+      .default(["analyst", "retail", "regulator", "esg", "short_seller"])
       .describe(
         "Persona ids from the in-process library to fan out parallel LLM calls.",
       ),
@@ -174,7 +174,7 @@ const promptingSchema = z
       .max(6)
       .default(3)
       .describe(
-        "Number of curated few-shot exemplars to inject; 0 disables exemplars.",
+        "Number of curated few-shot exemplars to inject. Set 0 to disable exemplars.",
       ),
   })
   .default({})
@@ -200,7 +200,7 @@ const creativitySchema = z
       ),
     useBrainstormPass: z
       .boolean()
-      .default(false)
+      .default(true)
       .describe(
         "When true, runs a free-form brainstorm pass before structured query generation.",
       ),
@@ -209,7 +209,7 @@ const creativitySchema = z
       .min(1)
       .optional()
       .describe(
-        "Model id for the brainstorm pass; omitted uses credentials.chatModel.",
+        "Model id for the brainstorm pass. If omitted, uses credentials.chatModel.",
       ),
   })
   .default({})
@@ -219,7 +219,7 @@ const semanticDedupeSchema = z
   .object({
     enabled: z
       .boolean()
-      .default(false)
+      .default(true)
       .describe(
         "When true, deduplicate LLM candidates via embedding cosine similarity before merge.",
       ),
@@ -245,7 +245,7 @@ const diversityGateSchema = z
   .object({
     enabled: z
       .boolean()
-      .default(false)
+      .default(true)
       .describe(
         "When true, run one broaden regenerate pass when the diversity composite is below threshold.",
       ),
@@ -285,7 +285,7 @@ const qualitySchema = z
   .object({
     useSelfCritique: z
       .boolean()
-      .default(false)
+      .default(true)
       .describe(
         "When true, runs a self-critique pass after LLM generation to replace the weakest rows.",
       ),
@@ -302,7 +302,7 @@ const qualitySchema = z
       .min(1)
       .optional()
       .describe(
-        "Model id for the critique pass; omitted uses credentials.chatModel.",
+        "Model id for the critique pass. If omitted, uses credentials.chatModel.",
       ),
     semanticDedupe: semanticDedupeSchema,
     diversityGate: diversityGateSchema,
@@ -326,7 +326,7 @@ const yieldFeedbackSchema = z
   .object({
     enabled: z
       .boolean()
-      .default(false)
+      .default(true)
       .describe(
         "When true, use rolling query-yield feedback in merge ranking, prompts, and template rotation.",
       ),

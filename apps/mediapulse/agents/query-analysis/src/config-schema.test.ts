@@ -49,30 +49,30 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
       kgTemplateCap: 6,
     });
     expect(parsed.prompting).toEqual({
-      personas: ["analyst", "retail", "regulator"],
+      personas: ["analyst", "retail", "regulator", "esg", "short_seller"],
       perPersonaQuotaCount: 3,
       fewShotExemplarCount: 3,
     });
     expect(parsed.creativity).toEqual({
       wildcardFraction: 0.1,
       wildcardTemperature: 1.2,
-      useBrainstormPass: false,
+      useBrainstormPass: true,
     });
     expect(parsed.quality.semanticDedupe).toEqual({
-      enabled: false,
+      enabled: true,
       threshold: 0.85,
       embeddingModel: "{{EMBEDDING_MODEL}}",
     });
     expect(parsed.quality.diversityGate).toEqual({
-      enabled: false,
+      enabled: true,
       threshold: 0.6,
       weights: { lexical: 0.4, intent: 0.3, semantic: 0.3 },
     });
-    expect(parsed.quality.useSelfCritique).toBe(false);
+    expect(parsed.quality.useSelfCritique).toBe(true);
     expect(parsed.quality.critiqueDropFraction).toBe(0.25);
     expect(parsed.dynamics.temporalBias).toEqual({ enabled: true });
     expect(parsed.dynamics.yieldFeedback).toEqual({
-      enabled: false,
+      enabled: true,
       windowDays: 30,
       minTemplateYield: 0.05,
     });
@@ -291,9 +291,9 @@ describe("queryAnalysisConfigSchema sampling", () => {
 });
 
 describe("queryAnalysisConfigSchema brainstorm and few-shot", () => {
-  it("defaults useBrainstormPass to false and fewShotExemplarCount to 3", () => {
+  it("defaults useBrainstormPass to true and fewShotExemplarCount to 3", () => {
     const parsed = parseWithApiKey();
-    expect(parsed.creativity.useBrainstormPass).toBe(false);
+    expect(parsed.creativity.useBrainstormPass).toBe(true);
     expect(parsed.prompting.fewShotExemplarCount).toBe(3);
     expect(parsed.creativity.brainstormModel).toBeUndefined();
   });
@@ -318,12 +318,14 @@ describe("queryAnalysisConfigSchema brainstorm and few-shot", () => {
 });
 
 describe("queryAnalysisConfigSchema personas", () => {
-  it("defaults personas and perPersonaQuotaCount", () => {
+  it("defaults personas to all five library voices and perPersonaQuotaCount", () => {
     const parsed = parseWithApiKey();
     expect(parsed.prompting.personas).toEqual([
       "analyst",
       "retail",
       "regulator",
+      "esg",
+      "short_seller",
     ]);
     expect(parsed.prompting.perPersonaQuotaCount).toBe(3);
   });
@@ -338,9 +340,9 @@ describe("queryAnalysisConfigSchema personas", () => {
 });
 
 describe("queryAnalysisConfigSchema self-critique", () => {
-  it("defaults useSelfCritique to false and critiqueDropFraction to 0.25", () => {
+  it("defaults useSelfCritique to true and critiqueDropFraction to 0.25", () => {
     const parsed = parseWithApiKey();
-    expect(parsed.quality.useSelfCritique).toBe(false);
+    expect(parsed.quality.useSelfCritique).toBe(true);
     expect(parsed.quality.critiqueDropFraction).toBe(0.25);
     expect(parsed.quality.critiqueModel).toBeUndefined();
   });
@@ -368,10 +370,10 @@ describe("queryAnalysisConfigSchema self-critique", () => {
 });
 
 describe("queryAnalysisConfigSchema semanticDedupe", () => {
-  it("defaults semantic dedupe to disabled with placeholder embedding model", () => {
+  it("defaults semantic dedupe to enabled with placeholder embedding model", () => {
     const parsed = parseWithApiKey();
     expect(parsed.quality.semanticDedupe).toEqual({
-      enabled: false,
+      enabled: true,
       threshold: 0.85,
       embeddingModel: "{{EMBEDDING_MODEL}}",
     });
@@ -404,10 +406,10 @@ describe("queryAnalysisConfigSchema semanticDedupe", () => {
 });
 
 describe("queryAnalysisConfigSchema diversityGate", () => {
-  it("defaults diversity gate to disabled with recommended weights", () => {
+  it("defaults diversity gate to enabled with recommended weights", () => {
     const parsed = parseWithApiKey();
     expect(parsed.quality.diversityGate).toEqual({
-      enabled: false,
+      enabled: true,
       threshold: 0.6,
       weights: { lexical: 0.4, intent: 0.3, semantic: 0.3 },
     });
@@ -452,10 +454,10 @@ describe("queryAnalysisConfigSchema temporalBias", () => {
 });
 
 describe("queryAnalysisConfigSchema yieldFeedback", () => {
-  it("defaults yield feedback to disabled with a 30-day window", () => {
+  it("defaults yield feedback to enabled with a 30-day window", () => {
     const parsed = parseWithApiKey();
     expect(parsed.dynamics.yieldFeedback).toEqual({
-      enabled: false,
+      enabled: true,
       windowDays: 30,
       minTemplateYield: 0.05,
     });
