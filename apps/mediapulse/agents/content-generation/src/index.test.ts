@@ -258,12 +258,17 @@ describe("GET /schemas", () => {
     const schemaStr = JSON.stringify(body.configSchema);
 
     // Verify all config groups are present
-    expect(schemaStr).toContain("openai");
-    expect(schemaStr).toContain("apiKey");
+    expect(schemaStr).toContain('"credentials"');
+    expect(schemaStr).toContain("openaiApiKey");
+    expect(schemaStr).toContain("chatModel");
     expect(schemaStr).toContain("baseUrl");
-    expect(schemaStr).toContain("model");
     expect(schemaStr).toContain("maxTokens");
     expect(schemaStr).toContain("timeoutMs");
+    expect(schemaStr).toContain("inputs");
+    expect(schemaStr).toContain("creativity");
+    expect(schemaStr).toContain("quality");
+    expect(schemaStr).toContain("delivery");
+    expect(schemaStr).toContain("reliability");
     expect(schemaStr).toContain("systemPrompt");
     expect(schemaStr).toContain("userPromptTemplate");
     expect(schemaStr).toContain("topNewsCount");

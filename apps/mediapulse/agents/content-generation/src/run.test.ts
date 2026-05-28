@@ -68,7 +68,7 @@ const TEST_TICKER_ID = "00000000-0000-4000-8000-000000000001" as const;
 
 const baseConfig: ContentGenerationConfig = ContentGenerationConfigSchema.parse(
   {
-    openai: { apiKey: "sk-test" },
+    credentials: { openaiApiKey: "sk-test" },
   },
 );
 
@@ -552,9 +552,18 @@ describe("run", () => {
     expect(result.success).toBe(true);
     expect(generateSpy).toHaveBeenCalledTimes(1);
     const secondArg = generateSpy.mock.calls[0]![1];
-    expect(secondArg.llmRetry.maxAttempts).toBe(3);
-    expect(secondArg.llmRetry.baseDelayMs).toBe(500);
-    expect(secondArg.llmRetry.jitter).toBe(true);
+    expect(secondArg.reliability.llmRetry.maxAttempts).toBe(3);
+    expect(secondArg.reliability.llmRetry.baseDelayMs).toBe(500);
+    expect(secondArg.reliability.llmRetry.jitter).toBe(true);
+    expect(secondArg.creativity.brainstorm.enabled).toBe(true);
+    expect(secondArg.inputs.fewShot.enabled).toBe(true);
+    expect(secondArg.quality.citationGrounding.enabled).toBe(true);
+    expect(secondArg.inputs.numericAnchors.enabled).toBe(true);
+    expect(secondArg.quality.selfCritique.enabled).toBe(true);
+    expect(secondArg.delivery.subjectLine.enabled).toBe(true);
+    expect(secondArg.quality.polish.enabled).toBe(true);
+    expect(secondArg.quality.crossRunDedup.enabled).toBe(true);
+    expect(secondArg.inputs.sourceRanking.enabled).toBe(true);
   });
 
   it("passes tickerId and current date to generateNewsletterWithLlm", async () => {
@@ -987,6 +996,8 @@ describe("provenance fields in contentGeneration.create", () => {
     contentGenerationGet.mockReset();
     contentGenerationCreate.mockReset();
     contentGenerationNewslettersLatestGet.mockReset();
+    contentGenerationNewslettersRecentGet.mockReset();
+    contentGenerationBulletsRecentGet.mockReset();
     contentGenerationRunsCreate.mockReset();
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockReset();
   });
@@ -1092,8 +1103,8 @@ describe("provenance fields in contentGeneration.create", () => {
     const result = (await run(
       makeContext({
         config: ContentGenerationConfigSchema.parse({
-          openai: { apiKey: "sk-test" },
-          useBrainstormPass: true,
+          credentials: { openaiApiKey: "sk-test" },
+          creativity: { brainstorm: { enabled: true } },
         }),
       }),
     )) as AgentRunResult & {
@@ -1130,8 +1141,8 @@ describe("provenance fields in contentGeneration.create", () => {
     const result = (await run(
       makeContext({
         config: ContentGenerationConfigSchema.parse({
-          openai: { apiKey: "sk-test" },
-          citationGrounding: { enabled: true },
+          credentials: { openaiApiKey: "sk-test" },
+          quality: { citationGrounding: { enabled: true } },
         }),
       }),
     )) as AgentRunResult & {
@@ -1172,7 +1183,7 @@ describe("provenance fields in contentGeneration.create", () => {
   // model comes from config (AC)
   // -------------------------------------------------------------------------
 
-  it("uses the model from config.openai.model as the provenance model field", async () => {
+  it("uses the model from config.credentials.chatModel as the provenance model field", async () => {
     // Setup
     setupHappyPath();
 
@@ -1180,10 +1191,10 @@ describe("provenance fields in contentGeneration.create", () => {
     await run(
       makeContext({
         config: {
-          openai: {
-            apiKey: "sk-test",
-            model: "gpt-4o",
-            timeoutMs: 120000,
+          credentials: {
+            openaiApiKey: "sk-test",
+            chatModel: "gpt-4o",
+            timeoutMs: 120_000,
           },
         },
       }),
@@ -1214,11 +1225,15 @@ describe("provenance fields in contentGeneration.create", () => {
   // configVersion excludes apiKey (AC)
   // -------------------------------------------------------------------------
 
-  it("produces the same configVersion for two runs differing only in openai.apiKey", async () => {
+  it("produces the same configVersion for two runs differing only in credentials.openaiApiKey", async () => {
     // Setup — run A with key-alpha
     setupHappyPath();
     await run(
-      makeContext({ config: { openai: { apiKey: "sk-key-alpha" } } as any }),
+      makeContext({
+        config: {
+          credentials: { openaiApiKey: "sk-key-alpha" },
+        } as ContentGenerationConfig,
+      }),
     );
     const createArgA = contentGenerationCreate.mock.calls[0]![0];
 
@@ -1232,7 +1247,11 @@ describe("provenance fields in contentGeneration.create", () => {
 
     // Run B with key-beta (everything else is the same)
     await run(
-      makeContext({ config: { openai: { apiKey: "sk-key-beta" } } as any }),
+      makeContext({
+        config: {
+          credentials: { openaiApiKey: "sk-key-beta" },
+        } as ContentGenerationConfig,
+      }),
     );
     const createArgB = contentGenerationCreate.mock.calls[0]![0];
 
@@ -1340,8 +1359,8 @@ describe("provenance fields in contentGeneration.create", () => {
     const result = await run(
       makeContext({
         config: ContentGenerationConfigSchema.parse({
-          openai: { apiKey: "sk-test" },
-          subjectLine: { enabled: true },
+          credentials: { openaiApiKey: "sk-test" },
+          delivery: { subjectLine: { enabled: true } },
         }),
       }),
     );
@@ -1352,7 +1371,9 @@ describe("provenance fields in contentGeneration.create", () => {
     expect(generateSpy).toHaveBeenCalledWith(
       expect.any(Array),
       expect.objectContaining({
-        subjectLine: expect.objectContaining({ enabled: true }),
+        delivery: expect.objectContaining({
+          subjectLine: expect.objectContaining({ enabled: true }),
+        }),
       }),
       expect.objectContaining({
         tickerId: TEST_TICKER_ID,

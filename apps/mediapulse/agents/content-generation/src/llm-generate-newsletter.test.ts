@@ -5,7 +5,6 @@ import { logger } from "@workspace/logger";
 
 import {
   ContentGenerationConfigSchema,
-  contentGenerationConfigDefaults,
   resolveContentGenerationConfig,
 } from "./config-schema.js";
 import {
@@ -31,12 +30,31 @@ afterEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Disables quality passes so unit tests isolate one pipeline stage. */
+const conservativeTestConfigInput = {
+  credentials: { openaiApiKey: "sk-test" },
+  inputs: {
+    sourceRanking: { enabled: false },
+    fewShot: { enabled: false },
+    numericAnchors: { enabled: false },
+  },
+  creativity: {
+    brainstorm: { enabled: false },
+  },
+  quality: {
+    citationGrounding: { enabled: false },
+    polish: { enabled: false },
+    crossRunDedup: { enabled: false },
+    selfCritique: { enabled: false },
+  },
+  delivery: {
+    subjectLine: { enabled: false },
+  },
+} as const;
+
 /** Minimal resolved config used across tests (ranking off — legacy prompt order). */
 const baseConfig = resolveContentGenerationConfig(
-  ContentGenerationConfigSchema.parse({
-    openai: { apiKey: "sk-test" },
-    sourceRanking: { enabled: false },
-  }),
+  ContentGenerationConfigSchema.parse(conservativeTestConfigInput),
 );
 
 /** A fake sleep that records call count without real delays. */
@@ -158,7 +176,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     // Setup — only two articles should appear in {{sourceSummaries}}.
     const config = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
+        ...conservativeTestConfigInput,
         output: { topNewsCount: 2 },
       }),
     );
@@ -300,11 +318,31 @@ describe("generateNewsletterWithLlm — happy path", () => {
     expect(result.content).not.toMatch(/\[[^\]]+]\(https?:\/\/[^\s)]+\)/);
   });
 
+  it("omits unsupported sampling fields from generateObjectFn", async () => {
+    // Setup
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    // Act
+    await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
+      generateObjectFn,
+      sleepFn: noopSleepFn,
+    });
+
+    // Assert
+    const callArgs = (generateObjectFn as ReturnType<typeof vi.fn>).mock
+      .calls[0]![0] as Record<string, unknown>;
+    expect(callArgs).not.toHaveProperty("temperature");
+    expect(callArgs).not.toHaveProperty("topP");
+    expect(callArgs).not.toHaveProperty("presencePenalty");
+    expect(callArgs).not.toHaveProperty("frequencyPenalty");
+  });
+
   it("passes timeout to generateObjectFn when openai.timeoutMs is set", async () => {
     // Setup
     const configWithTimeout = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test", timeoutMs: 5000 },
+        ...conservativeTestConfigInput,
+        credentials: { openaiApiKey: "sk-test", timeoutMs: 5000 },
       }),
     );
     const generateObjectFn = makeSuccessfulGenerateFn();
@@ -442,12 +480,14 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
     });
     const config = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        llmRetry: {
-          maxAttempts: 3,
-          baseDelayMs: 10,
-          maxDelayMs: 100,
-          jitter: false,
+        ...conservativeTestConfigInput,
+        reliability: {
+          llmRetry: {
+            maxAttempts: 3,
+            baseDelayMs: 10,
+            maxDelayMs: 100,
+            jitter: false,
+          },
         },
       }),
     );
@@ -477,12 +517,14 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
     });
     const config = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        llmRetry: {
-          maxAttempts: 3,
-          baseDelayMs: 10,
-          maxDelayMs: 100,
-          jitter: false,
+        ...conservativeTestConfigInput,
+        reliability: {
+          llmRetry: {
+            maxAttempts: 3,
+            baseDelayMs: 10,
+            maxDelayMs: 100,
+            jitter: false,
+          },
         },
       }),
     );
@@ -536,9 +578,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
       }),
     ).rejects.toThrow();
 
-    expect(generateObjectFn).toHaveBeenCalledTimes(
-      contentGenerationConfigDefaults.llmRetry.maxAttempts,
-    );
+    expect(generateObjectFn).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -734,10 +774,12 @@ describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
   it("uses systemPrompt from config when provided", async () => {
     // Setup
     const customSystem = "You are a specialized financial analyst.";
-    const config = resolveContentGenerationConfig({
-      openai: { apiKey: "sk-test" },
-      prompts: { systemPrompt: customSystem },
-    });
+    const config = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        ...conservativeTestConfigInput,
+        prompts: { systemPrompt: customSystem },
+      }),
+    );
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     // Act
@@ -762,10 +804,12 @@ describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
     // Setup
     const customTemplate =
       "Analysis for {{tickerId}} on {{date}}.\n\n{{sourceSummaries}}";
-    const config = resolveContentGenerationConfig({
-      openai: { apiKey: "sk-test" },
-      prompts: { userPromptTemplate: customTemplate },
-    });
+    const config = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        ...conservativeTestConfigInput,
+        prompts: { userPromptTemplate: customTemplate },
+      }),
+    );
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     // Act
@@ -793,10 +837,12 @@ describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
   it("handles multiple occurrences of the same placeholder", async () => {
     // Setup
     const customTemplate = "{{tickerId}} report: {{tickerId}}.";
-    const config = resolveContentGenerationConfig({
-      openai: { apiKey: "sk-test" },
-      prompts: { userPromptTemplate: customTemplate },
-    });
+    const config = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        ...conservativeTestConfigInput,
+        prompts: { userPromptTemplate: customTemplate },
+      }),
+    );
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     // Act
@@ -857,8 +903,7 @@ describe("generateNewsletterWithLlm — source ranking", () => {
     // Setup
     const legacyConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
+        ...conservativeTestConfigInput,
         output: { topNewsCount: 6 },
       }),
     );
@@ -890,8 +935,11 @@ describe("generateNewsletterWithLlm — source ranking", () => {
     // Setup
     const rankedConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: true, maxPerHost: 2 },
+        ...conservativeTestConfigInput,
+        inputs: {
+          ...conservativeTestConfigInput.inputs,
+          sourceRanking: { enabled: true, maxPerHost: 2 },
+        },
         output: { topNewsCount: 6 },
       }),
     );
@@ -925,9 +973,11 @@ describe("generateNewsletterWithLlm — few-shot exemplars", () => {
     // Setup
     const disabledConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        fewShot: { enabled: false },
+        ...conservativeTestConfigInput,
+        inputs: {
+          ...conservativeTestConfigInput.inputs,
+          fewShot: { enabled: false },
+        },
       }),
     );
     const generateObjectFn = makeSuccessfulGenerateFn();
@@ -949,9 +999,11 @@ describe("generateNewsletterWithLlm — few-shot exemplars", () => {
     // Setup
     const enabledConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        fewShot: { enabled: true, maxExemplars: 1 },
+        ...conservativeTestConfigInput,
+        inputs: {
+          ...conservativeTestConfigInput.inputs,
+          fewShot: { enabled: true, maxExemplars: 1 },
+        },
       }),
     );
     const generateObjectFn = makeSuccessfulGenerateFn();
@@ -974,9 +1026,11 @@ describe("generateNewsletterWithLlm — few-shot exemplars", () => {
     // Setup
     const enabledConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        fewShot: { enabled: true, maxExemplars: 1, sectorTag: "industrial" },
+        ...conservativeTestConfigInput,
+        inputs: {
+          ...conservativeTestConfigInput.inputs,
+          fewShot: { enabled: true, maxExemplars: 1, sectorTag: "industrial" },
+        },
       }),
     );
     const warnSpy = vi
@@ -1005,16 +1059,20 @@ describe("generateNewsletterWithLlm — few-shot exemplars", () => {
     // Setup
     const disabledConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        fewShot: { enabled: false },
+        ...conservativeTestConfigInput,
+        inputs: {
+          ...conservativeTestConfigInput.inputs,
+          fewShot: { enabled: false },
+        },
       }),
     );
     const enabledConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        fewShot: { enabled: true },
+        ...conservativeTestConfigInput,
+        inputs: {
+          ...conservativeTestConfigInput.inputs,
+          fewShot: { enabled: true },
+        },
       }),
     );
     const generateObjectFn = makeSuccessfulGenerateFn();
@@ -1056,9 +1114,10 @@ describe("generateNewsletterWithLlm — two-pass brainstorm", () => {
 
   const brainstormEnabledConfig = resolveContentGenerationConfig(
     ContentGenerationConfigSchema.parse({
-      openai: { apiKey: "sk-test" },
-      sourceRanking: { enabled: false },
-      useBrainstormPass: true,
+      ...conservativeTestConfigInput,
+      creativity: {
+        brainstorm: { enabled: true },
+      },
     }),
   );
 
@@ -1093,9 +1152,10 @@ describe("generateNewsletterWithLlm — two-pass brainstorm", () => {
     // Setup
     const singlePassConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        useBrainstormPass: false,
+        ...conservativeTestConfigInput,
+        creativity: {
+          brainstorm: { enabled: false },
+        },
       }),
     );
     const generateObjectFn = makeSuccessfulGenerateFn();
@@ -1146,9 +1206,11 @@ describe("generateNewsletterWithLlm — two-pass brainstorm", () => {
     // Setup
     const slowConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test", timeoutMs: 1000 },
-        sourceRanking: { enabled: false },
-        useBrainstormPass: true,
+        ...conservativeTestConfigInput,
+        credentials: { openaiApiKey: "sk-test", timeoutMs: 1000 },
+        creativity: {
+          brainstorm: { enabled: true },
+        },
       }),
     );
     let now = 0;
@@ -1262,12 +1324,14 @@ describe("generateNewsletterWithLlm — citation grounding", () => {
     });
     const groundingConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        citationGrounding: {
-          enabled: true,
-          policy: "drop",
-          minOverlapScore: 0.18,
+        ...conservativeTestConfigInput,
+        quality: {
+          ...conservativeTestConfigInput.quality,
+          citationGrounding: {
+            enabled: true,
+            policy: "drop",
+            minOverlapScore: 0.18,
+          },
         },
       }),
     );
@@ -1302,13 +1366,16 @@ describe("generateNewsletterWithLlm — citation grounding", () => {
 describe("generateNewsletterWithLlm — self-critique", () => {
   const critiqueEnabledConfig = resolveContentGenerationConfig(
     ContentGenerationConfigSchema.parse({
-      openai: { apiKey: "sk-test", timeoutMs: 1000 },
-      sourceRanking: { enabled: false },
-      selfCritique: {
-        enabled: true,
-        dropFraction: 0.2,
-        minBulletCount: 8,
-        preferRewriteOverDrop: true,
+      ...conservativeTestConfigInput,
+      credentials: { openaiApiKey: "sk-test", timeoutMs: 1000 },
+      quality: {
+        ...conservativeTestConfigInput.quality,
+        selfCritique: {
+          enabled: true,
+          dropFraction: 0.2,
+          minBulletCount: 8,
+          preferRewriteOverDrop: true,
+        },
       },
     }),
   );
@@ -1448,11 +1515,13 @@ describe("generateNewsletterWithLlm — self-critique", () => {
     // Setup
     const sparseConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        selfCritique: {
-          enabled: true,
-          minBulletCount: 10,
+        ...conservativeTestConfigInput,
+        quality: {
+          ...conservativeTestConfigInput.quality,
+          selfCritique: {
+            enabled: true,
+            minBulletCount: 10,
+          },
         },
       }),
     );
@@ -1501,6 +1570,76 @@ describe("generateNewsletterWithLlm — self-critique", () => {
     // Assert
     expect(critiqueGenerateObjectFn).not.toHaveBeenCalled();
     expect(result.critiqueSkippedDueToBudget).toBe(true);
+  });
+
+  it("ships un-critiqued bullets and logs self_critique_failed_fallback when the critique throws", async () => {
+    // Setup — mirror the real failure where truncated JSON yields NoObjectGeneratedError
+    const generateObjectFn = makeSuccessfulGenerateFn();
+    const critiqueGenerateObjectFn = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(
+          Object.create(
+            NoObjectGeneratedError.prototype,
+          ) as NoObjectGeneratedError,
+          { message: "No object generated", name: "AI_NoObjectGeneratedError" },
+        ),
+      );
+    const warnSpy = vi
+      .spyOn(logger, "warn")
+      .mockImplementation(() => undefined);
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      critiqueEnabledConfig,
+      { ...testContext, runStartedAt: 0 },
+      {
+        generateObjectFn,
+        critiqueGenerateObjectFn,
+        sleepFn: noopSleepFn,
+        nowFn: () => 100,
+      },
+    );
+
+    // Assert — the run still produces a newsletter, critique is marked failed
+    expect(critiqueGenerateObjectFn).toHaveBeenCalledOnce();
+    expect(result.critiqueFailed).toBe(true);
+    expect(result.critiqueSummary).toBeUndefined();
+    expect(result.content.length).toBeGreaterThan(0);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "self_critique_failed_fallback" }),
+      expect.any(String),
+    );
+  });
+
+  it("scales critique maxOutputTokens above the configured floor with candidate count", async () => {
+    // Setup
+    const generateObjectFn = makeSuccessfulGenerateFn();
+    const critiqueGenerateObjectFn = vi.fn().mockResolvedValue({
+      object: { ratings: [] },
+      usage: { promptTokens: 50, completionTokens: 25 },
+    });
+
+    // Act
+    await generateNewsletterWithLlm(
+      testSources,
+      critiqueEnabledConfig,
+      { ...testContext, runStartedAt: 0 },
+      {
+        generateObjectFn,
+        critiqueGenerateObjectFn,
+        sleepFn: noopSleepFn,
+        nowFn: () => 100,
+      },
+    );
+
+    // Assert — nine eligible bullets must push the budget past the 1500 default
+    expect(critiqueGenerateObjectFn).toHaveBeenCalledOnce();
+    const callArgs = critiqueGenerateObjectFn.mock.calls[0]?.[0] as {
+      maxOutputTokens: number;
+    };
+    expect(callArgs.maxOutputTokens).toBeGreaterThan(1500);
   });
 });
 
@@ -1556,9 +1695,11 @@ describe("generateNewsletterWithLlm — numeric anchors", () => {
 
     const anchorsEnabledConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        numericAnchors: { enabled: true, perArticleCap: 5, totalCap: 25 },
+        ...conservativeTestConfigInput,
+        inputs: {
+          ...conservativeTestConfigInput.inputs,
+          numericAnchors: { enabled: true, perArticleCap: 5, totalCap: 25 },
+        },
       }),
     );
 
@@ -1625,9 +1766,11 @@ describe("generateNewsletterWithLlm — cross-run dedup", () => {
     const generateObjectFn = makeSuccessfulGenerateFn();
     const dedupEnabledConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        crossRunDedup: { enabled: true, windowDays: 14 },
+        ...conservativeTestConfigInput,
+        quality: {
+          ...conservativeTestConfigInput.quality,
+          crossRunDedup: { enabled: true, windowDays: 14 },
+        },
       }),
     );
 
@@ -1704,9 +1847,11 @@ describe("generateNewsletterWithLlm — style polish", () => {
     });
     const polishConfig = resolveContentGenerationConfig(
       ContentGenerationConfigSchema.parse({
-        openai: { apiKey: "sk-test" },
-        sourceRanking: { enabled: false },
-        polish: { enabled: true, tier: "safe" },
+        ...conservativeTestConfigInput,
+        quality: {
+          ...conservativeTestConfigInput.quality,
+          polish: { enabled: true, tier: "safe" },
+        },
       }),
     );
 
@@ -1732,5 +1877,89 @@ describe("generateNewsletterWithLlm — style polish", () => {
     expect(polished.structure.competitiveLandscape.bullets[0]?.text).toBe(
       "BCA grew profit by 12%",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Best-quality default profile (plan 62)
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — best-quality default profile", () => {
+  it("runs brainstorm, structured, critique, and subject-line LLM calls with default config", async () => {
+    // Setup
+    const bestQualityConfig = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        credentials: { openaiApiKey: "sk-test" },
+      }),
+    );
+    const generateTextFn = vi.fn().mockResolvedValue({
+      text: [
+        "HEADLINE THESIS: Markets in focus",
+        "WHAT CHANGED: Rates held steady",
+      ].join("\n"),
+      usage: { inputTokens: 10, outputTokens: 10 },
+    });
+    const generateObjectFn = makeSuccessfulGenerateFn();
+    const critiqueGenerateObjectFn = vi.fn().mockResolvedValue({
+      object: { ratings: [] },
+      usage: { promptTokens: 5, completionTokens: 5 },
+    });
+    const subjectGenerateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        candidates: [
+          { subject: "Alt headline A", style: "curiosity", preheader: "p1" },
+          { subject: "Alt headline B", style: "straight", preheader: "p2" },
+          { subject: "Alt headline C", style: "ticker", preheader: "p3" },
+        ],
+      },
+      usage: { promptTokens: 8, completionTokens: 8 },
+    });
+    const recentBullets = [
+      {
+        newsletterId: "nl-1",
+        sectionKey: "quickHits",
+        bulletText: "Prior sector note from last week",
+        createdAt: "2026-04-20T00:00:00.000Z",
+      },
+    ];
+
+    // Act
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      bestQualityConfig,
+      { ...testContext, recentBullets, runStartedAt: 0 },
+      {
+        generateObjectFn,
+        generateTextFn,
+        critiqueGenerateObjectFn,
+        subjectGenerateObjectFn,
+        sleepFn: noopSleepFn,
+        nowFn: () => 100,
+      },
+    );
+
+    // Assert — all quality passes enabled and exercised
+    expect(bestQualityConfig.creativity.brainstorm.enabled).toBe(true);
+    expect(bestQualityConfig.inputs.fewShot.enabled).toBe(true);
+    expect(bestQualityConfig.quality.citationGrounding.enabled).toBe(true);
+    expect(bestQualityConfig.inputs.numericAnchors.enabled).toBe(true);
+    expect(bestQualityConfig.quality.selfCritique.enabled).toBe(true);
+    expect(bestQualityConfig.delivery.subjectLine.enabled).toBe(true);
+    expect(bestQualityConfig.quality.polish.enabled).toBe(true);
+    expect(bestQualityConfig.quality.crossRunDedup.enabled).toBe(true);
+    expect(generateTextFn).toHaveBeenCalledOnce();
+    expect(generateObjectFn).toHaveBeenCalled();
+    expect(critiqueGenerateObjectFn).toHaveBeenCalledOnce();
+    expect(subjectGenerateObjectFn).toHaveBeenCalledOnce();
+    expect(result.brainstormUsed).toBe(true);
+    expect(result.resolvedUserPrompt).toContain("EXEMPLAR");
+    expect(result.resolvedUserPrompt).toContain(
+      "AVOID REPEATING THESE RECENT BULLETS",
+    );
+    expect(result.polishSummary).toBeDefined();
+    expect(result.citationGroundingSummary).toBeDefined();
+    expect(result.numericAnchorSummary).toBeDefined();
+    expect(result.critiqueSummary).toBeDefined();
+    expect(result.subjectLineSummary).toBeDefined();
   });
 });

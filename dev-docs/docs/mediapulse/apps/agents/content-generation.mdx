@@ -14,9 +14,9 @@ The content-generation agent takes **selected data sources** (scored by the anal
 - **Fetches** selected high-relevance sources for the ticker from `GET /api/v1/content-generation` (rows where `article_relevance.selected = true` and scored today).
 - **Calls OpenAI** via the Vercel AI SDK (`generateObject` from `ai` with `@ai-sdk/openai` provider) to generate structured **industry intelligence** newsletter JSON (subject, multi-section briefing, quick hits with `articleIndex` grounding). The API key, optional API base URL, and model id are **not** read from environment variables; they come from the **agent config** selected for the pipeline step in Hermes (Dashboard → Agent configs), so admins can manage credentials centrally (optionally using [variable expansion](/hermes/agent-hermes-contract#variables-in-config-and-params) for secrets).
 - **Serializes** the validated object to plain text with the first-line marker `MP_NEWSLETTER` and deterministic `BEGIN … END` blocks. URLs are **never** taken from model text; they are injected from Hermes-selected sources using each `articleIndex`. Inline `(Article N)` markers that the model sometimes writes into bullet, quick-hit, or prose text are **stripped deterministically** at wire serialization — subscribers see citations only via the rendered `Read the full article: <url>` line. Prompt-side blocks (the brainstorm memo and numeric-anchor sidecar) intentionally keep `(Article N)` tags as LLM input and are not part of the email body. Legacy bodies without the marker (`EXECUTIVE SUMMARY` / `TOP N NEWS`) are unchanged for historical rows. The shared email package parses both shapes (see `@workspace/email-templates` `parseNewsletterBody`).
-- **Retries** transient LLM failures (rate limits, 5xx errors, timeouts) using exponential backoff with optional jitter, up to `llmRetry.maxAttempts` (default 3). Non-retryable errors (auth, bad request, schema validation) short-circuit immediately.
+- **Retries** transient LLM failures (rate limits, 5xx errors, timeouts) using exponential backoff with optional jitter, up to `reliability.llmRetry.maxAttempts` (default 3). Non-retryable errors (auth, bad request, schema validation) short-circuit immediately.
 - **Classifies errors** into structured outcome codes for diagnostics (see [Error taxonomy](#error-taxonomy) below).
-- **Retries persist** errors (agent-data-api 5xx, 429, network timeouts) using exponential backoff up to `persistRetry.maxAttempts` (default 2, no jitter). Non-retryable 4xx client errors fail fast without retrying.
+- **Retries persist** errors (agent-data-api 5xx, 429, network timeouts) using exponential backoff up to `reliability.persistRetry.maxAttempts` (default 2, no jitter). Non-retryable 4xx client errors fail fast without retrying.
 - **Stores** generated content via agent-data-api for the delivery agent.
 - **Skips** with a clear message and outcome code `no_sources` if no data sources are found.
 - **Skip-if-fresh** — Before calling OpenAI, checks whether a newsletter already exists for the ticker within today's freshness window (`freshness.timezone` calendar day). If fresh, the run is skipped with outcome code `skipped_fresh_newsletter_exists`. See [Freshness Behavior](/mediapulse/apps/agents/content-generation-freshness) for full semantics.
@@ -35,43 +35,27 @@ Successful runs include `details.promptHash` (16-character hex, same algorithm a
 
 ## Config schema
 
-| Field                            | Type           | Required | Default          | Description                                                                                                                                                                                                                                                                                               |
-| -------------------------------- | -------------- | -------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `openai.apiKey`                  | `string`       | ✅       | —                | OpenAI API key. Required if `openaiApiKey` is omitted.                                                                                                                                                                                                                                                    |
-| `openai.model`                   | `string`       | ❌       | `gpt-4o-mini`    | Chat model id.                                                                                                                                                                                                                                                                                            |
-| `openai.baseUrl`                 | `string (url)` | ❌       | official         | OpenAI-compatible API base URL.                                                                                                                                                                                                                                                                           |
-| `openai.timeoutMs`               | `number`       | ❌       | `120000`         | Per-request timeout in milliseconds.                                                                                                                                                                                                                                                                      |
-| `openaiApiKey`                   | `string`       | ❌       | —                | **Deprecated**: Use `openai.apiKey`.                                                                                                                                                                                                                                                                      |
-| `openaiModel`                    | `string`       | ❌       | —                | **Deprecated**: Use `openai.model`.                                                                                                                                                                                                                                                                       |
-| `prompts.systemPrompt`           | `string`       | ❌       | built-in default | Full system template. Allowed placeholders: `{{topNewsCount}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`. Hermes JSON schema lists them for SchemaForm. Max length enforced at parse time (`CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH`). **Not for secrets** — use `openai.apiKey` only. |
-| `prompts.userPromptTemplate`     | `string`       | ❌       | built-in default | User template. Allowed placeholders: `{{sourceSummaries}}`, `{{tickerId}}`, `{{tickerName}}`, `{{tickerSymbol}}`, `{{date}}`, `{{topNewsCount}}`. Same max length and validation as system. **Not for secrets.**                                                                                          |
-| `output.topNewsCount`            | `number`       | ❌       | `10`             | Number of highest-relevance articles included in the LLM prompt (`Article 1` … `Article N`). Also caps how many distinct URLs can be injected from `articleIndex`.                                                                                                                                        |
-| `llmRetry.maxAttempts`           | `number`       | ❌       | `3`              | Max retry attempts (including first).                                                                                                                                                                                                                                                                     |
-| `llmRetry.baseDelayMs`           | `number`       | ❌       | `500`            | Base backoff delay in ms.                                                                                                                                                                                                                                                                                 |
-| `llmRetry.maxDelayMs`            | `number`       | ❌       | `8000`           | Max backoff delay cap in ms.                                                                                                                                                                                                                                                                              |
-| `llmRetry.jitter`                | `boolean`      | ❌       | `true`           | Apply ±50% jitter to delays.                                                                                                                                                                                                                                                                              |
-| `persistRetry.maxAttempts`       | `number`       | ❌       | `2`              | Max persist retry attempts (including first).                                                                                                                                                                                                                                                             |
-| `persistRetry.baseDelayMs`       | `number`       | ❌       | `200`            | Base backoff delay in ms.                                                                                                                                                                                                                                                                                 |
-| `persistRetry.maxDelayMs`        | `number`       | ❌       | `2000`           | Max backoff delay cap in ms. No jitter (unlike llmRetry).                                                                                                                                                                                                                                                 |
-| `sourceRanking.enabled`          | `boolean`      | ❌       | `true`           | Pre-LLM re-rank and host diversification; set `false` for legacy relevance-only order. See [Source ranking](#source-ranking).                                                                                                                                                                             |
-| `fewShot.enabled`                | `boolean`      | ❌       | `false`          | Inject curated newsletter exemplars before source summaries for voice calibration. See [Few-shot exemplars](#few-shot-exemplars).                                                                                                                                                                         |
-| `fewShot.maxExemplars`           | `number` (1–2) | ❌       | `1`              | How many exemplar blocks to prepend when `fewShot.enabled` is true.                                                                                                                                                                                                                                       |
-| `fewShot.sectorTag`              | enum           | ❌       | _(keyword pick)_ | Pin a sector exemplar (`industrial`, `consumer`, `financial`, `tech`, `commodities`); when omitted, keyword heuristics choose.                                                                                                                                                                            |
-| `useBrainstormPass`              | `boolean`      | ❌       | `false`          | Run a free-form editor's memo before structured JSON generation. See [Two-pass generation](#two-pass-generation).                                                                                                                                                                                         |
-| `brainstormModel`                | `string`       | ❌       | `openai.model`   | Model for the brainstorm leg (can be cheaper than the structured pass).                                                                                                                                                                                                                                   |
-| `brainstormMaxOutputTokens`      | `number`       | ❌       | `700`            | Output token cap for the memo pass.                                                                                                                                                                                                                                                                       |
-| `citationGrounding.enabled`      | `boolean`      | ❌       | `false`          | Post-generation citation overlap verification. See [Citation grounding](#citation-grounding).                                                                                                                                                                                                             |
-| `citationGrounding.policy`       | enum           | ❌       | `unlink`         | `warn`, `unlink`, or `drop` for low-overlap citations.                                                                                                                                                                                                                                                    |
-| `numericAnchors.enabled`         | `boolean`      | ❌       | `false`          | Pre-LLM verbatim figure sidecar and post-generation figure audit. See [Numeric anchors](#numeric-anchors).                                                                                                                                                                                                |
-| `numericAnchors.unmatchedPolicy` | enum           | ❌       | `warn`           | `warn` (log only) or `strip` (replace figures missing from sources).                                                                                                                                                                                                                                      |
-| `subjectLine.enabled`            | `boolean`      | ❌       | `false`          | Generate and score subject-line candidates. See [Subject line scoring](#subject-line-scoring).                                                                                                                                                                                                            |
-| `subjectLine.candidateCount`     | `number` (3–8) | ❌       | `5`              | How many alternative subjects the sidecar LLM pass requests.                                                                                                                                                                                                                                              |
-| `crossRunDedup.enabled`          | `boolean`      | ❌       | `false`          | Preventive prompt block + post-generation similarity walker. See [Cross-run dedup](#cross-run-dedup).                                                                                                                                                                                                     |
-| `crossRunDedup.policy`           | enum           | ❌       | `warn`           | `warn`, `mark` (`[follow-up]` prefix), or `drop` for near-duplicates.                                                                                                                                                                                                                                     |
-| `polish.enabled`                 | `boolean`      | ❌       | `false`          | Deterministic filler/hedge/register cleanup before grounding. See [Style polish](#style-polish).                                                                                                                                                                                                          |
-| `polish.tier`                    | enum           | ❌       | `safe`           | `safe` (filler, hedge, register) or `aggressive` (adds overused-word replacement).                                                                                                                                                                                                                        |
-| `selfCritique.enabled`           | `boolean`      | ❌       | `false`          | Bounded bullet self-critique before polish and grounding. See [Self-critique](#self-critique).                                                                                                                                                                                                            |
-| `sourceRanking.maxPerHost`       | `number`       | ❌       | `2`              | Max articles per host in the LLM prompt.                                                                                                                                                                                                                                                                  |
+The Hermes form renders nine top-level sections in this order: **Credentials**, **Output**, **Prompts**, **Inputs**, **Creativity**, **Quality**, **Delivery**, **Freshness**, **Reliability**. An empty `{}` applies the best-quality defaults from plan 62 (all quality passes on). Legacy flat keys are rejected — see [Config Reference](/mediapulse/apps/agents/content-generation-config-reference).
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `credentials.openaiApiKey` | `string` | `{{OPENAI_API_KEY}}` | OpenAI API key or Hermes variable placeholder. |
+| `credentials.chatModel` | `string` | `{{OPENAI_MODEL}}` | Chat model id or Hermes variable placeholder. |
+| `credentials.baseUrl` | `string (url)` | official | OpenAI-compatible API base URL. |
+| `credentials.timeoutMs` | `number` | `120000` | Per-request timeout in milliseconds. |
+| `output.topNewsCount` | `number` | `10` | Articles in the LLM prompt. |
+| `creativity.brainstorm.enabled` | `boolean` | `true` | Two-pass editor's memo before structured JSON. |
+| `inputs.fewShot.enabled` | `boolean` | `true` | Few-shot exemplar injection. |
+| `inputs.sourceRanking.enabled` | `boolean` | `true` | Pre-LLM source ranking. |
+| `quality.selfCritique.enabled` | `boolean` | `true` | Self-critique pass. |
+| `quality.citationGrounding.enabled` | `boolean` | `true` | Citation grounding. |
+| `quality.polish.enabled` | `boolean` | `true` | Style polish. |
+| `quality.crossRunDedup.enabled` | `boolean` | `true` | Cross-run dedup. |
+| `delivery.subjectLine.enabled` | `boolean` | `true` | Subject-line scoring. |
+| `reliability.llmRetry.maxAttempts` | `number` | `3` | LLM retry attempts. |
+| `reliability.persistRetry.maxAttempts` | `number` | `2` | Persist retry attempts. |
+
+Full field list: [Config Reference](/mediapulse/apps/agents/content-generation-config-reference).
 
 ## Error taxonomy
 
@@ -97,7 +81,7 @@ The `AgentRunResult` envelope returned to Hermes is unchanged: `{ success: false
 - `@workspace/agent-data-api-client` — Typed API client for content-generation endpoints.
 - `@workspace/agent-types` — `DataSourceRecord` and related types.
 - `@workspace/utils` — `withRetryCustomDelay` used by the retry utility.
-- `@workspace/env` — Via `@mediapulse/env/agents-content-generation` (agent-data-api URL, auth URL, port, optional registry). OpenAI settings use **`config.openai`** from Hermes: required **`apiKey`**, optional **`baseUrl`**, optional **`model`** (defaults to `gpt-4o-mini`), plus **`maxTokens`** and **`timeoutMs`** as defined in the agent config schema.
+- `@workspace/env` — Via `@mediapulse/env/agents-content-generation` (agent-data-api URL, auth URL, port, optional registry). OpenAI settings use **`config.credentials`** from Hermes: **`openaiApiKey`** (defaults to `{{OPENAI_API_KEY}}`), optional **`baseUrl`**, **`chatModel`** (defaults to `{{OPENAI_MODEL}}`), plus **`maxTokens`** and **`timeoutMs`** as defined in the agent config schema.
 - `@workspace/logger` — Logging.
 - `ai` + `@ai-sdk/openai` — Vercel AI SDK for structured LLM calls (`generateObject`).
 
@@ -182,12 +166,12 @@ Fictional tickers and article titles — the live run must ground only in real s
 
 ### Selection heuristic
 
-When `fewShot.sectorTag` is unset, the agent concatenates `tickerName`, `tickerSymbol`, and source titles and keyword-matches:
+When `inputs.fewShot.sectorTag` is unset, the agent concatenates `tickerName`, `tickerSymbol`, and source titles and keyword-matches:
 
 - **Consumer/financial exemplar** when text mentions `bank`, `finance`, `consumer`, `lending`, `deposits`, etc.
 - **Industrial exemplar** otherwise
 
-Set `fewShot.sectorTag` to pin a sector regardless of keywords. Set `fewShot.maxExemplars` to `2` to show both voices (~1500 prompt tokens each).
+Set `inputs.fewShot.sectorTag` to pin a sector regardless of keywords. Set `inputs.fewShot.maxExemplars` to `2` to show both voices (~1500 prompt tokens each).
 
 ### Token budget
 
@@ -205,11 +189,11 @@ After generation, local **Jaccard similarity** compares bullet text to the activ
 4. Document expected token cost in the PR (~1500 tokens per exemplar).
 5. Extend selection tests if the new sector needs distinct keyword routing.
 
-Default rollout: ship with `fewShot.enabled: false`, pilot on one or two tickers, then flip the default once lift is confirmed.
+Default rollout: all quality passes ship **on** in an empty `{}` config; dial individual knobs back in Hermes to trade cost for latency.
 
 ## Two-pass generation
 
-When `useBrainstormPass` is true, the agent runs **two LLM calls** per newsletter:
+When `creativity.brainstorm.enabled` is true, the agent runs **two LLM calls** per newsletter:
 
 1. **Brainstorm pass** (`generateText`) — a free-form editor's memo with six labeled sections: `HEADLINE THESIS`, `THREADS TO WEAVE`, `STANDOUT NUMBERS`, `WHAT CHANGED`, `WHAT TO WATCH`, and `TONE NOTE`. No JSON, no schema — the model commits to thesis, threads, numbers, and tone before formatting.
 2. **Structured pass** (`generateObject`) — the existing industry briefing JSON, conditioned on the memo plus numbered articles (and optional few-shot exemplars on the structured pass only).
@@ -228,13 +212,13 @@ Each label forces a different cognitive mode (synthesis, expansion, concrete fig
 
 | Field                       | Default        | Description                            |
 | --------------------------- | -------------- | -------------------------------------- |
-| `useBrainstormPass`         | `false`        | Enable two-pass generation             |
-| `brainstormModel`           | `openai.model` | Cheaper model for the memo leg is fine |
+| `creativity.brainstorm.enabled` | `true` | Enable two-pass generation |
+| `creativity.brainstorm.model` | `credentials.chatModel` | Cheaper model for the memo leg is fine |
 | `brainstormMaxOutputTokens` | `700`          | Memos are short by design              |
 
 ### Cost and timeout
 
-Expect roughly **2× prompt tokens** and **~1.3× completion tokens** versus single-pass. On brainstorm failure (transport, timeout, empty memo) the run **falls back to single-pass** — consumers still get a newsletter. If the brainstorm consumes more than **half** of `openai.timeoutMs`, the memo is dropped for that run so the structured pass keeps enough budget.
+Expect roughly **2× prompt tokens** and **~1.3× completion tokens** versus single-pass. On brainstorm failure (transport, timeout, empty memo) the run **falls back to single-pass** — consumers still get a newsletter. If the brainstorm consumes more than **half** of `credentials.timeoutMs`, the memo is dropped for that run so the structured pass keeps enough budget.
 
 ### Observability
 
@@ -384,7 +368,7 @@ The subject from the main structured pass competes as **candidate 0** with a pre
 | ---------------------------- | -------------- | ---------------------------------------- |
 | `subjectLine.enabled`        | `false`        | Enable candidate generation and scoring  |
 | `subjectLine.candidateCount` | `5`            | Target number of LLM candidates (3–8)    |
-| `subjectLine.model`          | `openai.model` | Sidecar model (cheaper tier is fine)     |
+| `delivery.subjectLine.model` | `credentials.chatModel` | Sidecar model (cheaper tier is fine) |
 | `subjectLine.weights.*`      | see axes above | Per-axis weights for the composite score |
 
 ### Observability
@@ -505,13 +489,13 @@ Critique **never** emits output that fails `industryNewsletterStructureSchema`. 
 | `selfCritique.enabled`                 | `false`        | Enable the critic pass                       |
 | `selfCritique.dropFraction`            | `0.2`          | Max fraction of bullets rewritten or dropped |
 | `selfCritique.minBulletCount`          | `8`            | Skip critique below this bullet count        |
-| `selfCritique.critiqueModel`           | `openai.model` | Critic model (cheaper tier is fine)          |
+| `quality.selfCritique.critiqueModel` | `credentials.chatModel` | Critic model (cheaper tier is fine) |
 | `selfCritique.critiqueMaxOutputTokens` | `1500`         | Output cap for the critic call               |
 | `selfCritique.preferRewriteOverDrop`   | `true`         | Use `suggestedRewrite` before dropping       |
 
 ### Deadline guard
 
-When wall-clock since run start exceeds **70%** of `openai.timeoutMs` after structured generation, critique is skipped — the briefing continues through polish and grounding without critic scores. Run details include `critiqueSkippedDueToBudget: true`.
+When wall-clock since run start exceeds **70%** of `credentials.timeoutMs` after structured generation, critique is skipped — the briefing continues through polish and grounding without critic scores. Run details include `critiqueSkippedDueToBudget: true`.
 
 ### Pipeline order
 
