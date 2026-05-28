@@ -343,7 +343,10 @@ describe("query-analysis run", () => {
       await import("./llm-queries");
     const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
     const applySelfCritiquePassMock = vi.mocked(applySelfCritiquePass);
-    fetchBrainstormBulletsMock.mockResolvedValue(["macro angle", "supply risk"]);
+    fetchBrainstormBulletsMock.mockResolvedValue([
+      "macro angle",
+      "supply risk",
+    ]);
 
     const lowDiversityBatch = Array.from({ length: 10 }, () => ({
       text: "ABC latest news",
