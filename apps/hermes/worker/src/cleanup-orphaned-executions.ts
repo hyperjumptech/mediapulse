@@ -8,7 +8,7 @@ import {
 } from "@hermes/scheduler";
 
 /** Minimum orphan age in minutes before a record is eligible for cleanup. */
-export const DEFAULT_ORPHAN_THRESHOLD_MINUTES = 60;
+export const DEFAULT_ORPHAN_THRESHOLD_MINUTES = 35;
 
 /**
  * Dependencies for {@link cleanupOrphanedExecutions}.

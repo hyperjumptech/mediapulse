@@ -11,7 +11,12 @@ import {
 } from "@hermes/scheduler";
 import { logger } from "@workspace/logger";
 import { cleanupOrphanedExecutions } from "./cleanup-orphaned-executions";
-import { jobHandlers } from "./job-handlers";
+import {
+  DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS,
+  jobHandlers,
+  resolveDataQueueJob,
+  resolveInvokeAgentJobTimeoutMs,
+} from "./job-handlers";
 
 const mockPrisma = vi.hoisted(() => ({
   agentJobExecution: {
@@ -63,6 +68,7 @@ vi.mock("@hermes/env/hermes-worker", () => ({
     HERMES_INVOKE_AGENT_RETRY_DELAY: undefined as string | undefined,
     HERMES_INVOKE_AGENT_RETRY_BACKOFF: undefined as string | undefined,
     HERMES_INVOKE_AGENT_RETRY_DELAY_MAX: undefined as string | undefined,
+    HERMES_INVOKE_AGENT_JOB_TIMEOUT_MS: undefined as string | undefined,
   },
 }));
 
@@ -93,8 +99,7 @@ vi.mock("@hermes/scheduler", async (importOriginal) => {
 });
 
 const mockAddJobs = vi.fn().mockResolvedValue([1]);
-const mockEditJob = vi.fn().mockResolvedValue(undefined);
-const mockGetJob = vi.fn();
+const mockPoolQuery = vi.fn();
 
 vi.mock("./cleanup-orphaned-executions", () => ({
   cleanupOrphanedExecutions: vi.fn().mockResolvedValue(0),
@@ -103,8 +108,9 @@ vi.mock("./cleanup-orphaned-executions", () => ({
 vi.mock("./queue", () => ({
   getJobQueue: () => ({
     addJobs: mockAddJobs,
-    editJob: mockEditJob,
-    getJob: mockGetJob,
+    getPool: () => ({
+      query: mockPoolQuery,
+    }),
   }),
 }));
 
@@ -114,9 +120,9 @@ describe("jobHandlers", () => {
     vi.mocked(executeSchedule).mockClear();
     vi.mocked(logger.error).mockClear();
     mockAddJobs.mockClear();
-    mockEditJob.mockClear();
-    mockGetJob.mockClear();
+    mockPoolQuery.mockClear();
     mockAddJobs.mockResolvedValue([1]);
+    mockPoolQuery.mockResolvedValue({ rows: [] });
   });
 
   afterEach(() => {
@@ -224,13 +230,74 @@ describe("jobHandlers", () => {
         idempotencyKey: "j1",
         timeoutMs: 60_000,
       });
-      expect(mockEditJob).toHaveBeenCalledTimes(1);
-      expect(mockEditJob).toHaveBeenCalledWith(1, {
-        payload: expect.objectContaining({
-          jobId: "j1",
-          hermesDataQueueJobId: 1,
-        }),
+    });
+
+    it("caps DataQueue job timeoutMs at DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS when agent timeout is larger", async () => {
+      const { prisma } = await import("@hermes/orchestration-database");
+      const fakeSchedule = {
+        id: "schedule-cap",
+        enabled: true,
+        nextRunAt: new Date(),
+        pipelineId: "pipeline-cap",
+        cronExpression: "0 * * * *",
+        timezone: "UTC",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        pipeline: {
+          id: "pipeline-cap",
+          name: "Test",
+          domainIntegrationId: "di-1",
+          executionConfig: null,
+          steps: [],
+        },
+      } as unknown as Awaited<ReturnType<typeof getDueSchedules>>[number];
+      vi.mocked(getDueSchedules).mockResolvedValue([fakeSchedule]);
+      vi.mocked(executeSchedule).mockImplementation(async (_schedule, deps) => {
+        await deps.enqueueAgentInvocations([
+          {
+            payload: {
+              jobId: "j-cap",
+              executionId: "e-cap",
+              scheduleExecutionId: "se-cap",
+              scheduleId: "s-cap",
+              pipelineId: "p-cap",
+              pipelineStepId: "st-cap",
+              domainIntegrationId: "di-1",
+              agentId: "a1",
+              agentVersion: "1.0.0",
+              endpointUrl: "https://a.example/",
+              body: { input: {}, config: {} },
+              timeoutMs: 7_200_000,
+              priority: 0,
+            },
+          },
+        ]);
       });
+
+      await jobHandlers.check_schedules(
+        {},
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.check_schedules>[2],
+      );
+
+      expect(executeSchedule).toHaveBeenCalledWith(fakeSchedule, {
+        db: prisma,
+        logger,
+        enqueueAgentInvocations: expect.any(Function),
+        expandStepInputs: expect.any(Function),
+        defaultTimeoutMs: 300_000,
+        variableSecretMasterKey: "test-internal-hermes-key",
+        variableSecretFallbackMasterKey: undefined,
+        requireHttpsAgentEndpoints: false,
+      });
+      const jobOptions = mockAddJobs.mock.calls[0]![0] as Array<{
+        timeoutMs: number;
+        payload: { timeoutMs: number };
+      }>;
+      expect(jobOptions[0]!.timeoutMs).toBe(
+        DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS,
+      );
+      expect(jobOptions[0]!.payload.timeoutMs).toBe(7_200_000);
     });
 
     it("logs error and continues when executeSchedule throws for a schedule", async () => {
@@ -557,10 +624,9 @@ describe("jobHandlers", () => {
       );
     });
 
-    it("syncs DataQueue attempts after claim when hermesDataQueueJobId is set", async () => {
-      mockGetJob.mockResolvedValueOnce({
-        attempts: 2,
-        maxAttempts: 5,
+    it("syncs DataQueue attempts after claim via idempotency key lookup", async () => {
+      mockPoolQuery.mockResolvedValueOnce({
+        rows: [{ id: 42, attempts: 2, max_attempts: 5 }],
       });
       vi.mocked(invokeAgentPost).mockResolvedValue({
         kind: "http",
@@ -579,13 +645,12 @@ describe("jobHandlers", () => {
         },
       });
 
-      await jobHandlers.invoke_agent(
-        { ...payload, hermesDataQueueJobId: 42 },
-        signal,
-        jobCtx,
-      );
+      await jobHandlers.invoke_agent(payload, signal, jobCtx);
 
-      expect(mockGetJob).toHaveBeenCalledWith(42);
+      expect(mockPoolQuery).toHaveBeenCalledWith(
+        expect.stringContaining("idempotency_key"),
+        [payload.jobId],
+      );
       expect(mockPrisma.agentJobExecution.update).toHaveBeenCalledWith({
         where: { jobId: payload.jobId },
         data: {
@@ -595,7 +660,7 @@ describe("jobHandlers", () => {
       });
     });
 
-    it("updates to failed and rethrows on transport error when hermesDataQueueJobId is absent (legacy)", async () => {
+    it("updates to failed and rethrows on transport error when DataQueue row is missing", async () => {
       vi.mocked(invokeAgentPost).mockResolvedValue({
         kind: "transport_error",
         error: new Error("Network error"),
@@ -606,7 +671,7 @@ describe("jobHandlers", () => {
       ).rejects.toThrow("Network error");
 
       expect(invokeAgentPost).toHaveBeenCalledTimes(1);
-      expect(mockGetJob).not.toHaveBeenCalled();
+      expect(mockPoolQuery).toHaveBeenCalled();
       expect(mockPrisma.agentJobExecution.update).toHaveBeenCalledWith({
         where: { jobId: payload.jobId },
         data: {
@@ -622,20 +687,18 @@ describe("jobHandlers", () => {
         kind: "transport_error",
         error: new Error("Network error"),
       });
-      mockGetJob.mockResolvedValue({
-        attempts: 1,
-        maxAttempts: 3,
+      mockPoolQuery.mockResolvedValue({
+        rows: [{ id: 42, attempts: 1, max_attempts: 3 }],
       });
 
       await expect(
-        jobHandlers.invoke_agent(
-          { ...payload, hermesDataQueueJobId: 42 },
-          signal,
-          jobCtx,
-        ),
+        jobHandlers.invoke_agent(payload, signal, jobCtx),
       ).rejects.toThrow("Network error");
 
-      expect(mockGetJob).toHaveBeenCalledWith(42);
+      expect(mockPoolQuery).toHaveBeenCalledWith(
+        expect.stringContaining("idempotency_key"),
+        [payload.jobId],
+      );
       expect(mockPrisma.agentJobExecution.updateMany).toHaveBeenCalledWith({
         where: {
           jobId: payload.jobId,
@@ -659,17 +722,12 @@ describe("jobHandlers", () => {
         kind: "transport_error",
         error: new Error("Network error"),
       });
-      mockGetJob.mockResolvedValue({
-        attempts: 3,
-        maxAttempts: 3,
+      mockPoolQuery.mockResolvedValue({
+        rows: [{ id: 99, attempts: 3, max_attempts: 3 }],
       });
 
       await expect(
-        jobHandlers.invoke_agent(
-          { ...payload, hermesDataQueueJobId: 99 },
-          signal,
-          jobCtx,
-        ),
+        jobHandlers.invoke_agent(payload, signal, jobCtx),
       ).rejects.toThrow("Network error");
 
       expect(applyInvocationCompletion).toHaveBeenCalledWith(
@@ -694,17 +752,12 @@ describe("jobHandlers", () => {
           isEmptyBody: true,
         },
       });
-      mockGetJob.mockResolvedValue({
-        attempts: 2,
-        maxAttempts: 2,
+      mockPoolQuery.mockResolvedValue({
+        rows: [{ id: 7, attempts: 2, max_attempts: 2 }],
       });
 
       await expect(
-        jobHandlers.invoke_agent(
-          { ...payload, hermesDataQueueJobId: 7 },
-          signal,
-          jobCtx,
-        ),
+        jobHandlers.invoke_agent(payload, signal, jobCtx),
       ).rejects.toThrow("Agent returned HTTP 503");
 
       expect(applyInvocationCompletion).toHaveBeenCalledWith(
@@ -793,6 +846,42 @@ describe("jobHandlers", () => {
           },
         }),
         expect.any(Object),
+      );
+    });
+  });
+
+  describe("resolveDataQueueJob", () => {
+    it("returns null when pool is unavailable", async () => {
+      const result = await resolveDataQueueJob("missing-job", {
+        getPool: () => undefined,
+      } as unknown as ReturnType<typeof import("./queue").getJobQueue>);
+
+      expect(result).toBeNull();
+    });
+
+    it("returns the first row from idempotency key lookup", async () => {
+      mockPoolQuery.mockResolvedValueOnce({
+        rows: [{ id: 5, attempts: 1, max_attempts: 3 }],
+      });
+
+      const result = await resolveDataQueueJob("job-key");
+
+      expect(result).toEqual({ id: 5, attempts: 1, max_attempts: 3 });
+      expect(mockPoolQuery).toHaveBeenCalledWith(
+        expect.stringContaining("idempotency_key"),
+        ["job-key"],
+      );
+    });
+  });
+
+  describe("resolveInvokeAgentJobTimeoutMs", () => {
+    it("returns agent timeout when below default cap", () => {
+      expect(resolveInvokeAgentJobTimeoutMs(60_000)).toBe(60_000);
+    });
+
+    it("returns cap when agent timeout exceeds it", () => {
+      expect(resolveInvokeAgentJobTimeoutMs(7_200_000, 1_800_000)).toBe(
+        1_800_000,
       );
     });
   });
