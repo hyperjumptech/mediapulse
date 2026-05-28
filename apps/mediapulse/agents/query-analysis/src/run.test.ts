@@ -35,6 +35,7 @@ vi.mock("./llm-queries", async (importOriginal) => {
     fetchLlmQueryCandidatesByPersona: mockFetchQueryLlm,
     fetchWildcardCandidates: mockFetchWildcard,
     fetchBrainstormBullets: vi.fn(),
+    applySelfCritiquePass: vi.fn(),
   };
 });
 
@@ -73,6 +74,18 @@ const baseConfig = queryAnalysisConfigSchema.parse({
   credentials: { openaiApiKey: "sk" },
 });
 
+/** Disables quality passes so unrelated run tests stay focused and fast. */
+const conservativeConfig = queryAnalysisConfigSchema.parse({
+  credentials: { openaiApiKey: "sk" },
+  creativity: { useBrainstormPass: false },
+  quality: {
+    useSelfCritique: false,
+    semanticDedupe: { enabled: false },
+    diversityGate: { enabled: false },
+  },
+  dynamics: { yieldFeedback: { enabled: false } },
+});
+
 describe("query-analysis run", () => {
   beforeEach(async () => {
     mockGet.mockReset();
@@ -82,8 +95,16 @@ describe("query-analysis run", () => {
 
     mockFetchWildcard.mockResolvedValue([]);
 
-    const { fetchBrainstormBullets } = await import("./llm-queries");
+    const { fetchBrainstormBullets, applySelfCritiquePass } =
+      await import("./llm-queries");
     vi.mocked(fetchBrainstormBullets).mockReset();
+    vi.mocked(fetchBrainstormBullets).mockResolvedValue([]);
+    vi.mocked(applySelfCritiquePass).mockReset();
+    vi.mocked(applySelfCritiquePass).mockImplementation(async (params) => ({
+      candidates: params.candidates,
+      replacedCount: 0,
+      skippedDueToDeadline: false,
+    }));
 
     mockGet.mockResolvedValue(ctxResponse);
     mockCreate.mockResolvedValue({
@@ -120,7 +141,7 @@ describe("query-analysis run", () => {
     // Act
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: baseConfig,
+      config: conservativeConfig,
       token: "Bearer t",
       hermesCorrelation: { jobId: "job-abc" },
     });
@@ -134,7 +155,7 @@ describe("query-analysis run", () => {
   it("returns llmPromptFingerprint on success details", async () => {
     const result = await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: baseConfig,
+      config: conservativeConfig,
       token: "Bearer t",
     });
 
@@ -155,7 +176,7 @@ describe("query-analysis run", () => {
     // Act
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: baseConfig,
+      config: conservativeConfig,
       token: "Bearer t",
     });
 
@@ -177,7 +198,7 @@ describe("query-analysis run", () => {
     // Act
     const result = await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: baseConfig,
+      config: conservativeConfig,
       token: "Bearer t",
     });
 
@@ -204,6 +225,12 @@ describe("query-analysis run", () => {
       config: queryAnalysisConfigSchema.parse({
         credentials: { openaiApiKey: "sk" },
         creativity: { useBrainstormPass: true },
+        quality: {
+          useSelfCritique: false,
+          semanticDedupe: { enabled: false },
+          diversityGate: { enabled: false },
+        },
+        dynamics: { yieldFeedback: { enabled: false } },
       }),
       token: "Bearer t",
     });
@@ -224,14 +251,34 @@ describe("query-analysis run", () => {
     );
   });
 
-  it("defaults useBrainstormPass to false in the LLM orchestrator", async () => {
+  it("defaults useBrainstormPass to true in the LLM orchestrator", async () => {
+    const { fetchBrainstormBullets } = await import("./llm-queries");
+    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
+    fetchBrainstormBulletsMock.mockResolvedValue(["macro angle"]);
+
+    // Act
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: baseConfig,
+      token: "Bearer t",
+    });
+
+    // Assert
+    expect(fetchBrainstormBulletsMock).toHaveBeenCalledTimes(1);
+    expect(mockFetchQueryLlm).toHaveBeenCalledWith(
+      expect.objectContaining({ brainstormBullets: ["macro angle"] }),
+      expect.anything(),
+    );
+  });
+
+  it("honors useBrainstormPass=false override in the LLM orchestrator", async () => {
     const { fetchBrainstormBullets } = await import("./llm-queries");
     const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
 
     // Act
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: baseConfig,
+      config: conservativeConfig,
       token: "Bearer t",
     });
 
@@ -263,7 +310,11 @@ describe("query-analysis run", () => {
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: queryAnalysisConfigSchema.parse({
         credentials: { openaiApiKey: "sk" },
-        quality: { diversityGate: { enabled: true, threshold: 0.6 } },
+        creativity: { useBrainstormPass: false },
+        quality: {
+          useSelfCritique: false,
+          semanticDedupe: { enabled: false },
+        },
       }),
       token: "Bearer t",
     });
@@ -285,6 +336,64 @@ describe("query-analysis run", () => {
     expect(
       createPayload.strategySnapshot.diversityGate?.diversityRegenerateFired,
     ).toBe(true);
+  });
+
+  it("runs best-quality default profile with brainstorm, critique, and diversity regenerate", async () => {
+    const { fetchBrainstormBullets, applySelfCritiquePass } =
+      await import("./llm-queries");
+    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
+    const applySelfCritiquePassMock = vi.mocked(applySelfCritiquePass);
+    fetchBrainstormBulletsMock.mockResolvedValue([
+      "macro angle",
+      "supply risk",
+    ]);
+
+    const lowDiversityBatch = Array.from({ length: 10 }, () => ({
+      text: "ABC latest news",
+      intent: "breaking" as const,
+      persona: "analyst",
+    }));
+    mockFetchQueryLlm
+      .mockResolvedValueOnce(lowDiversityBatch)
+      .mockResolvedValueOnce([
+        {
+          text: "ABC supply chain risk Q2",
+          intent: "supply_chain" as const,
+          persona: "retail",
+        },
+      ]);
+
+    applySelfCritiquePassMock.mockImplementation(async (params) => ({
+      candidates: params.candidates,
+      replacedCount: 1,
+      skippedDueToDeadline: false,
+    }));
+
+    const result = await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: baseConfig,
+      token: "Bearer t",
+    });
+
+    expect(result.success).toBe(true);
+    expect(fetchBrainstormBulletsMock).toHaveBeenCalledTimes(1);
+    expect(applySelfCritiquePassMock).toHaveBeenCalledTimes(1);
+    expect(mockFetchQueryLlm).toHaveBeenCalledTimes(2);
+
+    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+      strategySnapshot: {
+        useBrainstormPass?: boolean;
+        useSelfCritique?: boolean;
+        diversityGate?: { diversityRegenerateFired: boolean };
+        yieldFeedback?: { enabled: boolean };
+      };
+    };
+    expect(createPayload.strategySnapshot.useBrainstormPass).toBe(true);
+    expect(createPayload.strategySnapshot.useSelfCritique).toBe(true);
+    expect(
+      createPayload.strategySnapshot.diversityGate?.diversityRegenerateFired,
+    ).toBe(true);
+    expect(createPayload.strategySnapshot.yieldFeedback?.enabled).toBe(true);
   });
 
   it("persists wildcardFraction budget as wildcard intent rows", async () => {
