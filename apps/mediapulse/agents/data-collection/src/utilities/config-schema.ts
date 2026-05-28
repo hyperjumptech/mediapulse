@@ -143,8 +143,8 @@ export const defaultFirecrawlFetchProvider = {
     apiKey: "{{FIRECRAWL_API_KEY}}",
     headerName: "Authorization",
   },
-  rateLimit: { requests: 50, perSeconds: 60 },
-  concurrency: 4,
+  rateLimit: { requests: 2, perSeconds: 1 },
+  concurrency: 2,
   timeoutMs: 30_000,
   retry: defaultRetry,
 };
@@ -158,8 +158,8 @@ export const defaultJinaFetchProvider = {
     apiKey: "{{JINA_API_KEY}}",
     headerName: "Authorization",
   },
-  rateLimit: { requests: 50, perSeconds: 60 },
-  concurrency: 4,
+  rateLimit: { requests: 2, perSeconds: 1 },
+  concurrency: 2,
   timeoutMs: 30_000,
   retry: defaultRetry,
 };
