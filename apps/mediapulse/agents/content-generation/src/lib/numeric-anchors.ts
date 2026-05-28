@@ -249,17 +249,6 @@ export const collectBriefingTextSegments = (
     );
   }
 
-  if (structure.readWatchListen !== undefined) {
-    segments.push(structure.readWatchListen.summary);
-  }
-
-  if (structure.quoteOfTheWeek !== undefined) {
-    segments.push(
-      structure.quoteOfTheWeek.quote,
-      structure.quoteOfTheWeek.attribution,
-    );
-  }
-
   return segments;
 };
 
@@ -437,21 +426,6 @@ export const stripUnmatchedFiguresFromStructure = (
         text: strip(bullet.text),
       }),
     );
-  }
-
-  if (next.readWatchListen !== undefined) {
-    next.readWatchListen = {
-      ...next.readWatchListen,
-      summary: strip(next.readWatchListen.summary),
-    };
-  }
-
-  if (next.quoteOfTheWeek !== undefined) {
-    next.quoteOfTheWeek = {
-      ...next.quoteOfTheWeek,
-      quote: strip(next.quoteOfTheWeek.quote),
-      attribution: strip(next.quoteOfTheWeek.attribution),
-    };
   }
 
   return next;

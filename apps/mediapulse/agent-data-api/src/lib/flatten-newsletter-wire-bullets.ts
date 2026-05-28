@@ -1,4 +1,4 @@
-import { parseIndustryNewsletterWireV2 } from "@workspace/email-templates/parse-industry-newsletter-wire-v2";
+import { parseIndustryNewsletterWire } from "@workspace/email-templates/parse-industry-newsletter-wire";
 
 /** Maps wire machine keys to structured JSON `sectionKey` names. */
 const MACHINE_KEY_TO_SECTION_KEY: Record<string, string> = {
@@ -7,8 +7,6 @@ const MACHINE_KEY_TO_SECTION_KEY: Record<string, string> = {
   "regulatory-policy-watch": "regulatoryPolicyWatch",
   "disruptors-or-tech": "disruptorsOrTech",
   "quick-hits": "quickHits",
-  "read-watch-listen": "readWatchListen",
-  "quote-of-the-week": "quoteOfTheWeek",
 };
 
 export type FlattenedNewsletterBullet = {
@@ -22,7 +20,7 @@ export type FlattenedNewsletterBullet = {
  * Flattens a persisted newsletter wire body into comparable bullet rows.
  *
  * @param newsletterId - Persisted newsletter id.
- * @param content - Wire body text (`MP_NEWSLETTER_V2`).
+ * @param content - Wire body text (`MP_NEWSLETTER`).
  * @param createdAt - ISO timestamp for the newsletter row.
  */
 export const flattenBulletsFromNewsletterWire = (
@@ -30,7 +28,7 @@ export const flattenBulletsFromNewsletterWire = (
   content: string,
   createdAt: string,
 ): FlattenedNewsletterBullet[] => {
-  const parsed = parseIndustryNewsletterWireV2(content);
+  const parsed = parseIndustryNewsletterWire(content);
   if (parsed === undefined) {
     return [];
   }
@@ -86,30 +84,6 @@ export const flattenBulletsFromNewsletterWire = (
           newsletterId,
           sectionKey,
           bulletText: item.text.trim(),
-          createdAt,
-        });
-      }
-      continue;
-    }
-
-    if (section.machineKey === "read-watch-listen") {
-      if (section.summary.trim().length > 0) {
-        bullets.push({
-          newsletterId,
-          sectionKey,
-          bulletText: section.summary.trim(),
-          createdAt,
-        });
-      }
-      continue;
-    }
-
-    if (section.machineKey === "quote-of-the-week") {
-      if (section.quote.trim().length > 0) {
-        bullets.push({
-          newsletterId,
-          sectionKey,
-          bulletText: section.quote.trim(),
           createdAt,
         });
       }

@@ -95,21 +95,13 @@ export const parseNewsletterCitations = (
         titleByUrl.set(item.url, item.title);
       }
     }
-  } else if (parsed?.format === "industry-v2") {
+  } else if (parsed?.format === "industry") {
     for (const section of parsed.sections) {
       if (section.machineKey === "quick-hits") {
         for (const hit of section.items) {
           if (hit.url && !titleByUrl.has(hit.url)) {
             titleByUrl.set(hit.url, citationTitleFromPlainText(hit.text));
           }
-        }
-      } else if (section.machineKey === "read-watch-listen") {
-        if (section.url && !titleByUrl.has(section.url)) {
-          titleByUrl.set(section.url, section.displayHeading);
-        }
-      } else if (section.machineKey === "quote-of-the-week") {
-        if (section.url && !titleByUrl.has(section.url)) {
-          titleByUrl.set(section.url, section.displayHeading);
         }
       } else if ("bullets" in section) {
         for (const bullet of section.bullets) {

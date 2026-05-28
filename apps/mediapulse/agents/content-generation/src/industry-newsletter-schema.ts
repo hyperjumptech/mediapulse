@@ -32,19 +32,6 @@ export const disruptorsOrTechSchema = z.discriminatedUnion("format", [
   disruptorsOrTechBulletsSchema,
 ]);
 
-export const readWatchListenSchema = z.object({
-  displayHeading: z.string().min(1),
-  summary: z.string().min(1),
-  articleIndex: articleIndexSchema,
-});
-
-export const quoteOfTheWeekSchema = z.object({
-  displayHeading: z.string().min(1),
-  quote: z.string().min(1),
-  attribution: z.string().min(1),
-  articleIndex: articleIndexSchema.optional(),
-});
-
 /**
  * Zod schema for the industry-intelligence newsletter JSON returned by the LLM.
  *
@@ -74,8 +61,6 @@ export const industryNewsletterStructureSchema = z.object({
     displayHeading: z.string().min(1),
     items: z.array(industryQuickHitSchema).min(5).max(7),
   }),
-  readWatchListen: readWatchListenSchema.optional(),
-  quoteOfTheWeek: quoteOfTheWeekSchema.optional(),
 });
 
 export type IndustryNewsletterStructure = z.infer<
@@ -113,27 +98,6 @@ const disruptorsOrTechLlmSchema = z.discriminatedUnion("format", [
   disruptorsOrTechBulletsLlmSchema,
 ]);
 
-const quoteOfTheWeekLlmSchema = z
-  .object({
-    displayHeading: z.string().min(1),
-    quote: z.string().min(1),
-    attribution: z.string().min(1),
-    articleIndex: z.union([articleIndexSchema, z.null()]),
-  })
-  .transform(
-    ({
-      displayHeading,
-      quote,
-      attribution,
-      articleIndex,
-    }): z.infer<typeof quoteOfTheWeekSchema> => {
-      const normalizedIndex = normalizeOptionalArticleIndex(articleIndex);
-      return normalizedIndex === undefined
-        ? { displayHeading, quote, attribution }
-        : { displayHeading, quote, attribution, articleIndex: normalizedIndex };
-    },
-  );
-
 /**
  * OpenAI-compatible schema for structured newsletter generation.
  *
@@ -164,17 +128,5 @@ export const industryNewsletterStructureLlmSchema = z
       displayHeading: z.string().min(1),
       items: z.array(industryQuickHitSchema).min(5).max(7),
     }),
-    readWatchListen: z
-      .union([readWatchListenSchema, z.null()])
-      .transform(
-        (value): z.infer<typeof readWatchListenSchema> | undefined =>
-          value ?? undefined,
-      ),
-    quoteOfTheWeek: z
-      .union([quoteOfTheWeekLlmSchema, z.null()])
-      .transform(
-        (value): z.infer<typeof quoteOfTheWeekSchema> | undefined =>
-          value ?? undefined,
-      ),
   })
   .transform((value): IndustryNewsletterStructure => value);

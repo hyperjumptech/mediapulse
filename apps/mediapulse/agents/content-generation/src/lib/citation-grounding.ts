@@ -279,61 +279,6 @@ export const groundNewsletterCitations = (
     }
   });
 
-  if (next.readWatchListen !== undefined) {
-    const article = sources[next.readWatchListen.articleIndex - 1];
-    let overlapScore = 0;
-    let reason: "low_overlap" | "no_source" | null = null;
-    if (article === undefined) {
-      reason = "no_source";
-    } else {
-      overlapScore = scoreBulletAgainstArticle(
-        next.readWatchListen.summary,
-        article,
-        { numericBonus: opts.numericBonus },
-      );
-      if (overlapScore < opts.minOverlapScore) {
-        reason = "low_overlap";
-      }
-    }
-    pending.push({
-      sectionKey: "readWatchListen",
-      bulletIndex: 0,
-      text: next.readWatchListen.summary,
-      articleIndex: next.readWatchListen.articleIndex,
-      overlapScore,
-      reason,
-    });
-  }
-
-  if (
-    next.quoteOfTheWeek !== undefined &&
-    next.quoteOfTheWeek.articleIndex !== undefined
-  ) {
-    const article = sources[next.quoteOfTheWeek.articleIndex - 1];
-    let overlapScore = 0;
-    let reason: "low_overlap" | "no_source" | null = null;
-    if (article === undefined) {
-      reason = "no_source";
-    } else {
-      overlapScore = scoreBulletAgainstArticle(
-        `${next.quoteOfTheWeek.quote} ${next.quoteOfTheWeek.attribution}`,
-        article,
-        { numericBonus: opts.numericBonus },
-      );
-      if (overlapScore < opts.minOverlapScore) {
-        reason = "low_overlap";
-      }
-    }
-    pending.push({
-      sectionKey: "quoteOfTheWeek",
-      bulletIndex: 0,
-      text: next.quoteOfTheWeek.quote,
-      articleIndex: next.quoteOfTheWeek.articleIndex,
-      overlapScore,
-      reason,
-    });
-  }
-
   const decide = (row: PendingCitationRow): GroundingDecision => {
     if (row.reason === null) {
       return { kind: "pass" };
@@ -341,10 +286,7 @@ export const groundNewsletterCitations = (
     if (opts.policy === "warn") {
       return { kind: "pass" };
     }
-    if (
-      row.sectionKey === "quickHits" ||
-      row.sectionKey === "readWatchListen"
-    ) {
+    if (row.sectionKey === "quickHits") {
       return { kind: "drop", reason: row.reason };
     }
     if (opts.policy === "unlink") {
@@ -478,49 +420,6 @@ export const groundNewsletterCitations = (
     }
     return [item];
   }) as IndustryNewsletterStructure["quickHits"]["items"];
-
-  if (next.readWatchListen !== undefined) {
-    const decision = decisions.get("readWatchListen:0") ?? { kind: "pass" };
-    const row = pending.find(
-      (candidate) => candidate.sectionKey === "readWatchListen",
-    );
-    reports.push({
-      sectionKey: "readWatchListen",
-      bulletIndex: 0,
-      articleIndex: next.readWatchListen.articleIndex,
-      overlapScore: row?.overlapScore ?? 0,
-      decision,
-    });
-    if (decision.kind === "drop") {
-      delete next.readWatchListen;
-    }
-  }
-
-  if (
-    next.quoteOfTheWeek !== undefined &&
-    next.quoteOfTheWeek.articleIndex !== undefined
-  ) {
-    const decision = decisions.get("quoteOfTheWeek:0") ?? { kind: "pass" };
-    const row = pending.find(
-      (candidate) => candidate.sectionKey === "quoteOfTheWeek",
-    );
-    reports.push({
-      sectionKey: "quoteOfTheWeek",
-      bulletIndex: 0,
-      articleIndex: next.quoteOfTheWeek.articleIndex,
-      overlapScore: row?.overlapScore ?? 0,
-      decision,
-    });
-    if (decision.kind === "drop") {
-      delete next.quoteOfTheWeek;
-    } else if (decision.kind === "unlink") {
-      next.quoteOfTheWeek = {
-        displayHeading: next.quoteOfTheWeek.displayHeading,
-        quote: next.quoteOfTheWeek.quote,
-        attribution: next.quoteOfTheWeek.attribution,
-      };
-    }
-  }
 
   industryNewsletterStructureSchema.parse(next);
 

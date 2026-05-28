@@ -16,9 +16,9 @@
       "types": "./src/newsletter/parse-newsletter-citations.ts",
       "default": "./src/newsletter/parse-newsletter-citations.ts"
     },
-    "./parse-industry-newsletter-wire-v2": {
-      "types": "./src/newsletter/parse-industry-newsletter-wire-v2.ts",
-      "default": "./src/newsletter/parse-industry-newsletter-wire-v2.ts"
+    "./parse-industry-newsletter-wire": {
+      "types": "./src/newsletter/parse-industry-newsletter-wire.ts",
+      "default": "./src/newsletter/parse-industry-newsletter-wire.ts"
     }
   },
   "scripts": {

@@ -339,26 +339,6 @@ const collectPolishTextRefs = (
     });
   }
 
-  const readWatchListen = structure.readWatchListen;
-  if (readWatchListen !== undefined) {
-    refs.push({
-      get: () => readWatchListen.summary,
-      set: (value) => {
-        readWatchListen.summary = value;
-      },
-    });
-  }
-
-  const quoteOfTheWeek = structure.quoteOfTheWeek;
-  if (quoteOfTheWeek !== undefined) {
-    refs.push({
-      get: () => quoteOfTheWeek.quote,
-      set: (value) => {
-        quoteOfTheWeek.quote = value;
-      },
-    });
-  }
-
   return refs;
 };
 

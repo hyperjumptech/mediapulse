@@ -178,48 +178,41 @@ describe("renderNewsletterEmail", () => {
     expect(html).not.toContain("Top News");
   });
 
-  it("renders a ticker line under the heading when tickerSymbol is set", async () => {
-    // Act
+  it("does not render a ticker digest line under the heading", async () => {
     const { html, text } = await renderNewsletterEmail({
       title: "Morning Briefing",
       bodyText: "Body content",
       tickerSymbol: "AAPL",
     });
 
-    // Assert
-    const stripped = html.replace(/<!-- -->/g, "");
-    expect(stripped).toContain("This digest covers");
-    expect(stripped).toMatch(/<strong[^>]*>\s*AAPL\s*<\/strong>/i);
-    const tickerLineIndex = stripped.indexOf("This digest covers");
-    const firstHrIndex = stripped.search(/<hr[^>]*>/i);
-    expect(tickerLineIndex).toBeGreaterThan(-1);
-    expect(firstHrIndex).toBeGreaterThan(-1);
-    expect(tickerLineIndex).toBeLessThan(firstHrIndex);
-    expect(text).toMatch(/this digest covers/i);
-    expect(text).toContain("AAPL");
+    expect(html).not.toMatch(/this digest covers/i);
+    expect(text).not.toMatch(/this digest covers/i);
   });
 
-  it("hides the ticker line when tickerSymbol is omitted", async () => {
-    // Act
+  it("uses a ticker-aware default footer when footerNote is omitted", async () => {
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+      tickerSymbol: "TLKM",
+    });
+
+    expect(html).toContain(
+      "You are receiving this because you subscribed to TLKM updates.",
+    );
+    expect(text).toContain(
+      "You are receiving this because you subscribed to TLKM updates.",
+    );
+  });
+
+  it("uses the generic default footer when tickerSymbol is omitted", async () => {
     const { html } = await renderNewsletterEmail({
       title: "Morning Briefing",
       bodyText: "Body content",
     });
 
-    // Assert
-    expect(html).not.toMatch(/this digest covers/i);
-  });
-
-  it("hides the ticker line when tickerSymbol is blank", async () => {
-    // Act
-    const { html } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: "Body content",
-      tickerSymbol: "   ",
-    });
-
-    // Assert
-    expect(html).not.toMatch(/this digest covers/i);
+    expect(html).toContain(
+      "You are receiving this because you subscribed to updates.",
+    );
   });
 
   it("renders default Mediapulse and Hyperjump branding links in the footer", async () => {
@@ -280,13 +273,11 @@ describe("renderNewsletterEmail", () => {
     expect(text).toContain(hyperjumpSiteUrl);
   });
 
-  it("renders ticker copy and branding link targets together when all props are supplied", async () => {
-    // Setup
+  it("renders branding link targets together when all props are supplied", async () => {
     const mediapulseSiteUrl = "https://staging.mediapulse.example/";
     const hyperjumpSiteUrl = "https://staging.hyperjump.example/";
     const tickerSymbol = "BBCA";
 
-    // Act
     const { html, text } = await renderNewsletterEmail({
       title: "Morning Briefing",
       bodyText: "Body content",
@@ -295,12 +286,7 @@ describe("renderNewsletterEmail", () => {
       hyperjumpSiteUrl,
     });
 
-    // Assert
-    const stripped = html.replace(/<!-- -->/g, "");
-    expect(stripped).toContain("This digest covers");
-    expect(stripped).toMatch(
-      new RegExp(`<strong[^>]*>\\s*${tickerSymbol}\\s*</strong>`, "i"),
-    );
+    expect(html).not.toMatch(/this digest covers/i);
     expect(html).toMatch(
       new RegExp(
         `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*Mediapulse\\s*</a>`,
@@ -313,10 +299,11 @@ describe("renderNewsletterEmail", () => {
         "i",
       ),
     );
-    expect(text).toContain(tickerSymbol);
-    expect(text).toMatch(/this digest covers/i);
     expect(text).toContain(mediapulseSiteUrl);
     expect(text).toContain(hyperjumpSiteUrl);
+    expect(text).toContain(
+      "You are receiving this because you subscribed to BBCA updates.",
+    );
   });
 
   it("places the branding block above the subscription footer note", async () => {
@@ -464,5 +451,105 @@ describe("renderNewsletterEmail", () => {
     expect(html).not.toContain("[Bank Central Asia](");
     expect(text).toContain("Bank Central Asia");
     expect(text).toContain(articleUrl);
+  });
+
+  it("renders industry wire bodies with a lead standfirst and eyebrow section headers", async () => {
+    const industryBody = [
+      "MP_NEWSLETTER",
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "Industry Pulse / Repairing rather than roaring",
+      "PROSE",
+      "The telecom market that is repairing rather than roaring sets the tone for this week.",
+      "END",
+      "",
+      "BEGIN competitive-landscape",
+      "DISPLAY_HEADING",
+      "Competitive Landscape / Battle lines redrawn",
+      "BULLET",
+      "First mover extended its lead.",
+      "BULLET",
+      "Second player responded with pricing.",
+      "END",
+      "",
+      "BEGIN deals-and-movements",
+      "DISPLAY_HEADING",
+      "Deals & Movements",
+      "BULLET",
+      "A regional acquisition closed.",
+      "END",
+      "",
+      "BEGIN regulatory-policy-watch",
+      "DISPLAY_HEADING",
+      "Regulatory & Policy Watch / Spectrum watch",
+      "BULLET",
+      "Agencies hinted at tighter oversight.",
+      "END",
+      "",
+      "BEGIN disruptors-or-tech",
+      "DISPLAY_HEADING",
+      "Disruptors & Tech / AI at the edge",
+      "FORMAT",
+      "prose",
+      "PROSE",
+      "Founders keep shipping faster release cycles.",
+      "END",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Quick Hits / Five things worth a skim",
+      "ITEM",
+      "Hit one",
+      "ITEM",
+      "Hit two",
+      "ITEM",
+      "Hit three",
+      "ITEM",
+      "Hit four",
+      "ITEM",
+      "Hit five",
+      "END",
+    ].join("\n");
+
+    const { html, text } = await renderNewsletterEmail({
+      title: "TLKM industry briefing",
+      bodyText: industryBody,
+      tickerSymbol: "TLKM",
+    });
+
+    const stripped = html.replace(/<!-- -->/g, "");
+
+    expect(stripped).toContain(
+      "The telecom market that is repairing rather than roaring sets the tone for this week.",
+    );
+    expect(stripped).not.toMatch(/Industry Pulse\s*\/\s*Repairing/i);
+    expect(stripped).not.toContain(
+      "Industry Pulse / Repairing rather than roaring",
+    );
+    expect(stripped).toContain("Competitive Landscape");
+    expect(stripped).toContain("Battle lines redrawn");
+    expect(stripped).not.toContain(
+      "Competitive Landscape / Battle lines redrawn",
+    );
+    expect(stripped).toContain("A regional acquisition closed.");
+    expect(stripped).not.toMatch(/Deals\s*(?:\/|&amp;|&)\s*Movements\s*\//);
+    expect(html).not.toMatch(/Quote of the Week/i);
+    expect(html).not.toMatch(/Read, Watch, Listen/i);
+    expect(html).not.toMatch(/this digest covers/i);
+    expect(html).toContain(
+      "You are receiving this because you subscribed to TLKM updates.",
+    );
+
+    expect(text).toContain(
+      "The telecom market that is repairing rather than roaring sets the tone for this week.",
+    );
+    expect(text).not.toMatch(/Industry Pulse\s*\/\s*Repairing/i);
+    expect(text).not.toContain("Competitive Landscape / Battle lines redrawn");
+    expect(text).not.toMatch(/Quote of the Week/i);
+    expect(text).not.toMatch(/Read, Watch, Listen/i);
+    expect(text).toContain(
+      "You are receiving this because you subscribed to TLKM updates.",
+    );
   });
 });

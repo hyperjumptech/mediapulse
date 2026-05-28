@@ -13,7 +13,7 @@ import {
 import { Fragment, type CSSProperties, type ReactElement } from "react";
 
 import { parseNewsletterBody } from "./parse-newsletter-body.js";
-import type { ParsedIndustryV2Section } from "./parse-industry-newsletter-wire-v2.js";
+import type { ParsedIndustrySection } from "./parse-industry-newsletter-wire.js";
 import { renderInlineMarkdownLinks } from "./render-inline-markdown-links.js";
 
 export interface DefaultNewsletterEmailProps {
@@ -33,9 +33,8 @@ export interface DefaultNewsletterEmailProps {
    */
   unsubscribeUrl?: string;
   /**
-   * Ticker symbol shown directly under the heading (e.g. "AAPL") and reused in
-   * the unsubscribe link text. Falls back to "these" in the unsubscribe link
-   * when omitted, and the ticker line above the body is hidden entirely.
+   * Ticker symbol reused in the subscription footer and unsubscribe link text.
+   * Falls back to "these" in the unsubscribe link when omitted.
    */
   tickerSymbol?: string;
   /**
@@ -60,23 +59,114 @@ export const DEFAULT_MEDIAPULSE_SITE_URL = "https://mediapulse.hyperjump.tech";
 /** Default Hyperjump marketing site link used for previews and when Hermes config omits the URL. */
 export const DEFAULT_HYPERJUMP_SITE_URL = "https://hyperjump.tech";
 
+/** Canonical section labels keyed by wire `machineKey`. */
+const SECTION_LABELS: Partial<
+  Record<ParsedIndustrySection["machineKey"], string>
+> = {
+  "industry-pulse": "Industry Pulse",
+  "competitive-landscape": "Competitive Landscape",
+  "deals-and-movements": "Deals & Movements",
+  "regulatory-policy-watch": "Regulatory & Policy Watch",
+  "disruptors-or-tech": "Disruptors & Tech",
+  "quick-hits": "Quick Hits",
+};
+
+/**
+ * Splits a section display heading into an eyebrow label and subtitle.
+ *
+ * @param machineKey - Wire section key.
+ * @param displayHeading - Model-provided heading text.
+ * @returns Eyebrow and subtitle parts for rendering.
+ */
+export const decomposeSectionHeading = (
+  machineKey: ParsedIndustrySection["machineKey"],
+  displayHeading: string,
+): { eyebrow: string | null; subtitle: string | null } => {
+  const label = SECTION_LABELS[machineKey];
+  if (label === undefined) {
+    return { eyebrow: null, subtitle: displayHeading };
+  }
+
+  const prefix = `${label} / `;
+  if (displayHeading === label) {
+    return { eyebrow: null, subtitle: null };
+  }
+  if (displayHeading.startsWith(prefix)) {
+    const subtitle = displayHeading.slice(prefix.length).trim();
+    return subtitle.length > 0
+      ? { eyebrow: label, subtitle }
+      : { eyebrow: null, subtitle: null };
+  }
+
+  return { eyebrow: label, subtitle: displayHeading };
+};
+
+/**
+ * Renders a section header as an eyebrow kicker plus subtitle, or a plain label.
+ *
+ * @param machineKey - Wire section key.
+ * @param displayHeading - Model-provided heading text.
+ * @returns React Email heading elements for the section.
+ */
+export const renderSectionHeader = (
+  machineKey: ParsedIndustrySection["machineKey"],
+  displayHeading: string,
+): ReactElement => {
+  const { eyebrow, subtitle } = decomposeSectionHeading(
+    machineKey,
+    displayHeading,
+  );
+  const label = SECTION_LABELS[machineKey] ?? displayHeading;
+
+  if (subtitle === null) {
+    return (
+      <Heading as="h2" style={sectionLabel}>
+        {label}
+      </Heading>
+    );
+  }
+
+  return (
+    <>
+      <Text style={sectionEyebrow}>{eyebrow ?? label}</Text>
+      <Heading as="h2" style={sectionLabel}>
+        {subtitle}
+      </Heading>
+    </>
+  );
+};
+
+/**
+ * Builds the default subscription footer when no explicit `footerNote` is passed.
+ *
+ * @param tickerSymbol - Optional ticker symbol for personalized copy.
+ * @returns Footer disclaimer text.
+ */
+export const buildDefaultFooterNote = (tickerSymbol?: string): string => {
+  const trimmed = tickerSymbol?.trim() ?? "";
+  if (trimmed.length > 0) {
+    return `You are receiving this because you subscribed to ${trimmed} updates.`;
+  }
+  return "You are receiving this because you subscribed to updates.";
+};
+
 /**
  * Default HTML newsletter layout for Mediapulse delivery.
  *
  * When `bodyText` follows a structured format (legacy executive summary + top news,
- * or `MP_NEWSLETTER_V2` industry briefing wire), the content is rendered as labelled
+ * or `MP_NEWSLETTER` industry briefing wire), the content is rendered as labelled
  * sections with separated items.
  * Otherwise it falls back to pre-wrapped plain-text rendering.
  *
- * The header includes a short ticker line under the title when `tickerSymbol`
- * is set, and the footer carries a Mediapulse / Hyperjump branding block
- * directly above the subscription disclaimer.
+ * Industry briefings render the Industry Pulse prose as a lead standfirst under the
+ * title. The footer carries a Mediapulse / Hyperjump branding block directly above
+ * the subscription disclaimer.
  *
  * @param props.title - Heading text in the body.
  * @param props.bodyText - Main content; structured plain text or free-form.
  * @param props.footerNote - Optional footer copy.
  * @param props.unsubscribeUrl - Optional URL for the one-click unsubscribe link.
- * @param props.tickerSymbol - Ticker symbol shown under the title and in the unsubscribe link.
+ * @param props.tickerSymbol - Ticker symbol used in the footer and unsubscribe link.
  * @param props.mediapulseSiteUrl - HTTPS URL for the Mediapulse footer link.
  * @param props.hyperjumpSiteUrl - HTTPS URL for the Hyperjump footer link.
  * @returns React Email document tree.
@@ -84,33 +174,19 @@ export const DEFAULT_HYPERJUMP_SITE_URL = "https://hyperjump.tech";
 export const DefaultNewsletterEmail = ({
   title,
   bodyText,
-  footerNote = "You are receiving this because you subscribed to updates.",
+  footerNote,
   unsubscribeUrl,
   tickerSymbol,
   mediapulseSiteUrl = DEFAULT_MEDIAPULSE_SITE_URL,
   hyperjumpSiteUrl = DEFAULT_HYPERJUMP_SITE_URL,
 }: DefaultNewsletterEmailProps): ReactElement => {
   const parsed = parseNewsletterBody(bodyText);
-  const showTickerLine =
-    tickerSymbol !== undefined && tickerSymbol.trim().length > 0;
+  const resolvedFooterNote = footerNote ?? buildDefaultFooterNote(tickerSymbol);
 
   const renderIndustrySection = (
-    section: ParsedIndustryV2Section,
+    section: ParsedIndustrySection,
     index: number,
   ): ReactElement => {
-    if (section.machineKey === "industry-pulse") {
-      return (
-        <Section key={`${section.machineKey}-${String(index)}`}>
-          <Heading as="h2" style={sectionLabel}>
-            {section.displayHeading}
-          </Heading>
-          <Text style={bodyParagraph}>
-            {renderInlineMarkdownLinks(section.prose, link)}
-          </Text>
-        </Section>
-      );
-    }
-
     if (
       section.machineKey === "disruptors-or-tech" &&
       "format" in section &&
@@ -118,9 +194,7 @@ export const DefaultNewsletterEmail = ({
     ) {
       return (
         <Section key={`${section.machineKey}-${String(index)}`}>
-          <Heading as="h2" style={sectionLabel}>
-            {section.displayHeading}
-          </Heading>
+          {renderSectionHeader(section.machineKey, section.displayHeading)}
           <Text style={bodyParagraph}>
             {renderInlineMarkdownLinks(section.prose, link)}
           </Text>
@@ -131,9 +205,7 @@ export const DefaultNewsletterEmail = ({
     if ("bullets" in section) {
       return (
         <Section key={`${section.machineKey}-${String(index)}`}>
-          <Heading as="h2" style={sectionLabel}>
-            {section.displayHeading}
-          </Heading>
+          {renderSectionHeader(section.machineKey, section.displayHeading)}
           {section.bullets.map((bullet, bulletIndex) => (
             <Section
               key={`${String(section.machineKey)}-b-${String(bulletIndex)}`}
@@ -160,9 +232,7 @@ export const DefaultNewsletterEmail = ({
     if (section.machineKey === "quick-hits") {
       return (
         <Section key={`${section.machineKey}-${String(index)}`}>
-          <Heading as="h2" style={sectionLabel}>
-            {section.displayHeading}
-          </Heading>
+          {renderSectionHeader(section.machineKey, section.displayHeading)}
           {section.items.map((item, itemIndex) => (
             <Section key={`qh-${String(itemIndex)}`}>
               <Text style={newsItemTitle}>
@@ -184,49 +254,21 @@ export const DefaultNewsletterEmail = ({
       );
     }
 
-    if (section.machineKey === "read-watch-listen") {
-      return (
-        <Section key={`${section.machineKey}-${String(index)}`}>
-          <Heading as="h2" style={sectionLabel}>
-            {section.displayHeading}
-          </Heading>
-          <Text style={bodyParagraph}>
-            {renderInlineMarkdownLinks(section.summary, link)}
-          </Text>
-          {section.url !== undefined && section.url !== "" ? (
-            <Text style={newsItemSourceLink}>
-              <Link href={section.url} style={link}>
-                Read the full article
-              </Link>
-            </Text>
-          ) : null}
-        </Section>
-      );
-    }
-
-    if (section.machineKey === "quote-of-the-week") {
-      return (
-        <Section key={`${section.machineKey}-${String(index)}`}>
-          <Heading as="h2" style={sectionLabel}>
-            {section.displayHeading}
-          </Heading>
-          <Text style={newsItemSummary}>
-            {renderInlineMarkdownLinks(section.quote, link)}
-          </Text>
-          <Text style={newsItemTitle}>— {section.attribution}</Text>
-          {section.url !== undefined && section.url !== "" ? (
-            <Text style={newsItemSourceLink}>
-              <Link href={section.url} style={link}>
-                Read the full article
-              </Link>
-            </Text>
-          ) : null}
-        </Section>
-      );
-    }
-
     return <Fragment key={`unknown-${String(index)}`} />;
   };
+
+  const industryPulseSection =
+    parsed?.format === "industry"
+      ? parsed.sections.find(
+          (section) => section.machineKey === "industry-pulse",
+        )
+      : undefined;
+  const industryBodySections =
+    parsed?.format === "industry"
+      ? parsed.sections.filter(
+          (section) => section.machineKey !== "industry-pulse",
+        )
+      : [];
 
   return (
     <Html>
@@ -236,17 +278,17 @@ export const DefaultNewsletterEmail = ({
         <Container style={container}>
           <Section style={header}>
             <Heading style={heading}>{title}</Heading>
-            {showTickerLine ? (
-              <Text style={tickerLine}>
-                This digest covers <strong>{tickerSymbol}</strong>.
+            {industryPulseSection !== undefined ? (
+              <Text style={standfirst}>
+                {renderInlineMarkdownLinks(industryPulseSection.prose, link)}
               </Text>
             ) : null}
           </Section>
           <Hr style={hr} />
           {parsed !== undefined ? (
-            parsed.format === "industry-v2" ? (
+            parsed.format === "industry" ? (
               <>
-                {parsed.sections.map((section, index) => (
+                {industryBodySections.map((section, index) => (
                   <Fragment key={`sec-${String(index)}`}>
                     {index > 0 ? <Hr style={hr} /> : null}
                     {renderIndustrySection(section, index)}
@@ -309,7 +351,7 @@ export const DefaultNewsletterEmail = ({
             </Link>
             .
           </Text>
-          <Text style={footer}>{footerNote}</Text>
+          <Text style={footer}>{resolvedFooterNote}</Text>
           {unsubscribeUrl !== undefined && unsubscribeUrl !== "" ? (
             <Text style={footerMuted}>
               <Link href={unsubscribeUrl} style={link}>
@@ -382,6 +424,14 @@ const heading: CSSProperties = {
   margin: "0",
 };
 
+const standfirst: CSSProperties = {
+  color: "#374151",
+  fontSize: "17px",
+  lineHeight: "1.6",
+  margin: "12px 0 0",
+  whiteSpace: "pre-wrap",
+};
+
 const hr: CSSProperties = {
   borderColor: "#e6ebf1",
   margin: "20px 0",
@@ -393,6 +443,16 @@ const bodyParagraph: CSSProperties = {
   lineHeight: "1.6",
   margin: "0",
   whiteSpace: "pre-wrap",
+};
+
+const sectionEyebrow: CSSProperties = {
+  color: "#6b7280",
+  fontSize: "12px",
+  fontWeight: "600",
+  letterSpacing: "0.06em",
+  lineHeight: "1.4",
+  margin: "0 0 4px",
+  textTransform: "uppercase",
 };
 
 const sectionLabel: CSSProperties = {
@@ -428,13 +488,6 @@ const newsItemSourceLink: CSSProperties = {
 const itemSeparator: CSSProperties = {
   borderColor: "#e6ebf1",
   margin: "16px 0",
-};
-
-const tickerLine: CSSProperties = {
-  color: "#4b5563",
-  fontSize: "14px",
-  lineHeight: "1.5",
-  margin: "8px 0 0",
 };
 
 const brandingLine: CSSProperties = {

@@ -1,7 +1,7 @@
 import {
-  parseIndustryNewsletterWireV2,
-  type IndustryV2ParsedNewsletterBody,
-} from "./parse-industry-newsletter-wire-v2.js";
+  parseIndustryNewsletterWire,
+  type IndustryParsedNewsletterBody,
+} from "./parse-industry-newsletter-wire.js";
 
 /** Visible label used for the per-item source link emitted by the content generator. */
 const READ_FULL_ARTICLE_LABEL = "Read the full article";
@@ -45,7 +45,7 @@ export type LegacyParsedNewsletterBody = {
 /** Union of supported structured newsletter bodies. */
 export type ParsedNewsletterBody =
   | LegacyParsedNewsletterBody
-  | IndustryV2ParsedNewsletterBody;
+  | IndustryParsedNewsletterBody;
 
 const EXECUTIVE_SUMMARY_MARKER = /^\s*EXECUTIVE\s+SUMMARY\s*$/im;
 const TOP_NEWS_MARKER = /^\s*TOP\s+\d+\s+NEWS\s*$/im;
@@ -182,15 +182,15 @@ function parseLegacyNewsletterBodyInner(
  * Returns `undefined` when the body does not follow a supported format,
  * allowing the caller to fall back to plain-text rendering.
  *
- * @param bodyText - Raw newsletter body (legacy or `MP_NEWSLETTER_V2` wire).
+ * @param bodyText - Raw newsletter body (legacy or `MP_NEWSLETTER` wire).
  * @returns Structured sections, or `undefined` when parsing fails.
  */
 export function parseNewsletterBody(
   bodyText: string,
 ): ParsedNewsletterBody | undefined {
   const trimmedStart = bodyText.trimStart();
-  if (trimmedStart.startsWith("MP_NEWSLETTER_V2")) {
-    return parseIndustryNewsletterWireV2(bodyText);
+  if (trimmedStart.startsWith("MP_NEWSLETTER")) {
+    return parseIndustryNewsletterWire(bodyText);
   }
 
   const legacy = parseLegacyNewsletterBodyInner(bodyText);

@@ -154,9 +154,9 @@ describe("parseNewsletterCitations", () => {
     ]);
   });
 
-  it("pairs read-the-full-article URLs in v2 wire bodies with quick-hit text titles", () => {
+  it("pairs read-the-full-article URLs in wire bodies with quick-hit text titles", () => {
     const body = [
-      "MP_NEWSLETTER_V2",
+      "MP_NEWSLETTER",
       "",
       "BEGIN industry-pulse",
       "DISPLAY_HEADING",
