@@ -60,7 +60,9 @@ export const DEFAULT_MEDIAPULSE_SITE_URL = "https://mediapulse.hyperjump.tech";
 export const DEFAULT_HYPERJUMP_SITE_URL = "https://hyperjump.tech";
 
 /** Canonical section labels keyed by wire `machineKey`. */
-const SECTION_LABELS: Partial<Record<ParsedIndustrySection["machineKey"], string>> = {
+const SECTION_LABELS: Partial<
+  Record<ParsedIndustrySection["machineKey"], string>
+> = {
   "industry-pulse": "Industry Pulse",
   "competitive-landscape": "Competitive Landscape",
   "deals-and-movements": "Deals & Movements",
@@ -257,7 +259,9 @@ export const DefaultNewsletterEmail = ({
 
   const industryPulseSection =
     parsed?.format === "industry"
-      ? parsed.sections.find((section) => section.machineKey === "industry-pulse")
+      ? parsed.sections.find(
+          (section) => section.machineKey === "industry-pulse",
+        )
       : undefined;
   const industryBodySections =
     parsed?.format === "industry"

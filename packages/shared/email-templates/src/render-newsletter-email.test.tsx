@@ -524,10 +524,14 @@ describe("renderNewsletterEmail", () => {
       "The telecom market that is repairing rather than roaring sets the tone for this week.",
     );
     expect(stripped).not.toMatch(/Industry Pulse\s*\/\s*Repairing/i);
-    expect(stripped).not.toContain("Industry Pulse / Repairing rather than roaring");
+    expect(stripped).not.toContain(
+      "Industry Pulse / Repairing rather than roaring",
+    );
     expect(stripped).toContain("Competitive Landscape");
     expect(stripped).toContain("Battle lines redrawn");
-    expect(stripped).not.toContain("Competitive Landscape / Battle lines redrawn");
+    expect(stripped).not.toContain(
+      "Competitive Landscape / Battle lines redrawn",
+    );
     expect(stripped).toContain("A regional acquisition closed.");
     expect(stripped).not.toMatch(/Deals\s*(?:\/|&amp;|&)\s*Movements\s*\//);
     expect(html).not.toMatch(/Quote of the Week/i);
