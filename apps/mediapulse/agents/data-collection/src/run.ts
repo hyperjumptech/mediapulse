@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
+import { isUnresolvedVariablePlaceholder } from "./utilities/config-schema";
 import { performWebFetch } from "./utilities/web-fetch";
 import { performWebSearch } from "./utilities/web-search";
 import {
@@ -28,11 +29,7 @@ import {
   buildIndustryAliases,
   isRelevant,
 } from "./utilities/ticker-relevance-gate";
-import {
-  deriveRunStatus,
-  type RunCounters,
-  type RunPolicy,
-} from "./utilities/run-status";
+import { deriveRunStatus, type RunCounters } from "./utilities/run-status";
 import { extractPublishedDate } from "./utilities/date-extractor";
 import { isFresh } from "./utilities/freshness-gate";
 import { embedTexts } from "./utilities/embeddings";
@@ -75,12 +72,10 @@ export async function runDataCollection(
     "data collection run started",
   );
 
-  const runPolicy: RunPolicy = config.runPolicy ?? {
-    minSuccessfulSources: 1,
-    failOnZeroSuccess: true,
-  };
-  const targetDailySuccessfulSources = config.targetDailySuccessfulSources ?? 5;
-  const maxRefillRounds = config.maxRefillRounds ?? 3;
+  const runPolicy = config.runPolicy;
+  const targetDailySuccessfulSources =
+    config.collection.targetDailySuccessfulSources;
+  const maxRefillRounds = config.collection.maxRefillRounds;
   const maxTotalRounds = 1 + maxRefillRounds;
 
   const dataApiClient = createAgentDataApiClient({
@@ -89,40 +84,21 @@ export async function runDataCollection(
     token,
   });
 
-  const webSearchConfig = config.webSearch;
-  const webFetchConfig = config.webFetch;
-  const relevanceGateConfig = config.relevanceGate ?? {
-    enabled: true,
-    headChars: 1500,
-    minMatches: 1,
-  };
-  const perQueryFetchBudget = config.perQueryFetchBudget ?? 3;
-  const perRunFetchBudget = config.perRunFetchBudget ?? 40;
-  const deadUrlCacheConfig = config.deadUrlCache ?? {
-    enabled: true,
-    skipLookupBatchSize: 50,
-  };
-  const hostErrorBreakerConfig = config.hostErrorBreaker ?? {
-    enabled: true,
-    minAttempts: 5,
-    errorRateThreshold: 0.5,
-  };
-  const freshnessGateConfig = config.freshnessGate ?? {
-    enabled: true,
-    maxAgeDays: 14,
-    allowUnknown: true,
-  };
-  const semanticDedupeConfig = config.semanticDedupe ?? {
-    enabled: false,
-    threshold: 0.88,
-    windowDays: 7,
-    embeddingModel: "text-embedding-3-small",
-  };
+  const webSearchConfig = config.providers.search;
+  const webFetchConfig = config.providers.fetch;
+  const relevanceGateConfig = config.gates.relevance;
+  const perQueryFetchBudget = config.collection.perQueryFetchBudget;
+  const perRunFetchBudget = config.collection.perRunFetchBudget;
+  const deadUrlCacheConfig = config.resilience.deadUrlCache;
+  const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
+  const freshnessGateConfig = config.gates.freshness;
+  const semanticDedupeConfig = config.deduplication.semantic;
+  const openaiApiKey = config.deduplication.openaiApiKey;
   let semanticDedupeActive = semanticDedupeConfig.enabled;
-  if (semanticDedupeActive && !config.openaiApiKey) {
+  if (semanticDedupeActive && isUnresolvedVariablePlaceholder(openaiApiKey)) {
     log.warn(
       {},
-      "semantic dedupe enabled in config but openaiApiKey is missing; falling back to URL-only dedupe",
+      "semantic dedupe enabled in config but openaiApiKey is an unresolved Hermes variable placeholder; falling back to URL-only dedupe",
     );
     semanticDedupeActive = false;
   }
@@ -552,7 +528,7 @@ export async function runDataCollection(
                 threshold: semanticDedupeConfig.threshold,
                 embedder: (texts) =>
                   embedTexts(texts, {
-                    apiKey: config.openaiApiKey!,
+                    apiKey: openaiApiKey,
                     model: semanticDedupeConfig.embeddingModel,
                   }),
               },

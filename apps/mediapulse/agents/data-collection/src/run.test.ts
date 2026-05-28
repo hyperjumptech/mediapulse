@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentRunContext } from "@workspace/agent-runtime";
 
 import type { BodySchemaType } from "./utilities/body-schema";
-import type { ConfigSchemaType } from "./utilities/config-schema";
+import {
+  dataCollectionAgentConfigSchema,
+  type ConfigSchemaType,
+} from "./utilities/config-schema";
 import type {
   FetchedWebSearchResult,
   WebFetchFailure,
@@ -37,29 +40,90 @@ const longOffTopicArticle = (lead: string): string =>
     ),
   ].join(" ");
 
-const baseConfig = {
-  webSearch: {
-    baseUrl: "https://search.example",
-    authentication: { type: "bearer" as const },
-    rateLimit: { requests: 1, perSeconds: 1 },
-    concurrency: 4,
+const baseConfig = dataCollectionAgentConfigSchema.parse({
+  providers: {
+    search: {
+      baseUrl: "https://search.example",
+      authentication: { type: "bearer" },
+      rateLimit: { requests: 1, perSeconds: 1 },
+      concurrency: 4,
+    },
+    fetch: {
+      providers: [
+        {
+          type: "jina",
+          baseUrl: "https://fetch.example",
+          authentication: { type: "bearer" },
+          rateLimit: { requests: 1, perSeconds: 1 },
+          concurrency: 4,
+        },
+      ],
+    },
   },
-  webFetch: {
-    providers: [
-      {
-        type: "jina",
-        baseUrl: "https://fetch.example",
-        authentication: { type: "bearer" as const },
-        rateLimit: { requests: 1, perSeconds: 1 },
-        concurrency: 4,
+  collection: {
+    targetDailySuccessfulSources: 1,
+    maxRefillRounds: 3,
+    perQueryFetchBudget: 3,
+    perRunFetchBudget: 40,
+  },
+});
+
+/**
+ * Merges grouped config overrides onto the shared run test baseline.
+ *
+ * @param overrides - Partial grouped config fields to override.
+ */
+const withTestConfig = (
+  overrides: {
+    collection?: Partial<ConfigSchemaType["collection"]>;
+    runPolicy?: Partial<ConfigSchemaType["runPolicy"]>;
+    gates?: {
+      relevance?: Partial<ConfigSchemaType["gates"]["relevance"]>;
+      freshness?: Partial<ConfigSchemaType["gates"]["freshness"]>;
+    };
+    deduplication?: {
+      openaiApiKey?: string;
+      semantic?: Partial<ConfigSchemaType["deduplication"]["semantic"]>;
+    };
+    providers?: Partial<ConfigSchemaType["providers"]>;
+  } = {},
+): ConfigSchemaType =>
+  dataCollectionAgentConfigSchema.parse({
+    providers: {
+      ...baseConfig.providers,
+      ...overrides.providers,
+      search: {
+        ...baseConfig.providers.search,
+        ...overrides.providers?.search,
       },
-    ],
-  },
-  targetDailySuccessfulSources: 1,
-  maxRefillRounds: 3,
-  perQueryFetchBudget: 3,
-  perRunFetchBudget: 40,
-} satisfies ConfigSchemaType;
+      fetch: {
+        ...baseConfig.providers.fetch,
+        ...overrides.providers?.fetch,
+      },
+    },
+    collection: { ...baseConfig.collection, ...overrides.collection },
+    gates: {
+      ...baseConfig.gates,
+      relevance: {
+        ...baseConfig.gates.relevance,
+        ...overrides.gates?.relevance,
+      },
+      freshness: {
+        ...baseConfig.gates.freshness,
+        ...overrides.gates?.freshness,
+      },
+    },
+    deduplication: {
+      ...baseConfig.deduplication,
+      ...overrides.deduplication,
+      semantic: {
+        ...baseConfig.deduplication.semantic,
+        ...overrides.deduplication?.semantic,
+      },
+    },
+    runPolicy: { ...baseConfig.runPolicy, ...overrides.runPolicy },
+    resilience: baseConfig.resilience,
+  });
 
 const searchSuccessPage = {
   url: "http://example.com",
@@ -317,13 +381,12 @@ describe("runDataCollection", () => {
 
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
+        config: withTestConfig({
           runPolicy: {
             minSuccessfulSources: 0,
             failOnZeroSuccess: false,
           },
-        },
+        }),
       }),
     );
 
@@ -352,15 +415,16 @@ describe("runDataCollection", () => {
 
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
-          perQueryFetchBudget: 20,
-          perRunFetchBudget: 100,
+        config: withTestConfig({
+          collection: {
+            perQueryFetchBudget: 20,
+            perRunFetchBudget: 100,
+          },
           runPolicy: {
             minSuccessfulSources: 0,
             failOnZeroSuccess: false,
           },
-        },
+        }),
       }),
     );
 
@@ -400,13 +464,12 @@ describe("runDataCollection", () => {
 
     await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
+        config: withTestConfig({
           runPolicy: {
             minSuccessfulSources: 0,
             failOnZeroSuccess: false,
           },
-        },
+        }),
       }),
     );
 
@@ -478,13 +541,12 @@ describe("runDataCollection", () => {
 
       const result = await runDataCollection(
         createContext({
-          config: {
-            ...baseConfig,
+          config: withTestConfig({
             runPolicy: {
               minSuccessfulSources: 0,
               failOnZeroSuccess: false,
             },
-          },
+          }),
         }),
       );
 
@@ -527,21 +589,24 @@ describe("runDataCollection", () => {
 
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
-          openaiApiKey: "sk-test",
-          relevanceGate: { enabled: false, headChars: 1500, minMatches: 1 },
-          semanticDedupe: {
-            enabled: true,
-            threshold: 0.88,
-            windowDays: 7,
-            embeddingModel: "text-embedding-3-small",
+        config: withTestConfig({
+          deduplication: {
+            openaiApiKey: "sk-test",
+            semantic: {
+              enabled: true,
+              threshold: 0.88,
+              windowDays: 7,
+              embeddingModel: "text-embedding-3-small",
+            },
+          },
+          gates: {
+            relevance: { enabled: false, headChars: 1500, minMatches: 1 },
           },
           runPolicy: {
             minSuccessfulSources: 0,
             failOnZeroSuccess: false,
           },
-        },
+        }),
       }),
     );
 
@@ -633,23 +698,28 @@ describe("runDataCollection", () => {
 
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
-          perQueryFetchBudget: 20,
-          perRunFetchBudget: 100,
-          openaiApiKey: "sk-test",
-          relevanceGate: { enabled: false, headChars: 1500, minMatches: 1 },
-          semanticDedupe: {
-            enabled: true,
-            threshold: 0.88,
-            windowDays: 7,
-            embeddingModel: "text-embedding-3-small",
+        config: withTestConfig({
+          collection: {
+            perQueryFetchBudget: 20,
+            perRunFetchBudget: 100,
+          },
+          deduplication: {
+            openaiApiKey: "sk-test",
+            semantic: {
+              enabled: true,
+              threshold: 0.88,
+              windowDays: 7,
+              embeddingModel: "text-embedding-3-small",
+            },
+          },
+          gates: {
+            relevance: { enabled: false, headChars: 1500, minMatches: 1 },
           },
           runPolicy: {
             minSuccessfulSources: 0,
             failOnZeroSuccess: false,
           },
-        },
+        }),
       }),
     );
 
@@ -674,13 +744,12 @@ describe("runDataCollection", () => {
     // Act
     await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
+        config: withTestConfig({
           runPolicy: {
             minSuccessfulSources: 0,
             failOnZeroSuccess: false,
           },
-        },
+        }),
       }),
     );
 
@@ -708,13 +777,12 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
+        config: withTestConfig({
           runPolicy: {
             minSuccessfulSources: 0,
             failOnZeroSuccess: false,
           },
-        },
+        }),
       }),
     );
 
@@ -794,13 +862,12 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
+        config: withTestConfig({
           runPolicy: {
             minSuccessfulSources: 2,
             failOnZeroSuccess: true,
           },
-        },
+        }),
       }),
     );
 
@@ -903,10 +970,9 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
+        config: withTestConfig({
           runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-        },
+        }),
       }),
     );
 
@@ -1005,10 +1071,9 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
+        config: withTestConfig({
           runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-        },
+        }),
       }),
     );
 
@@ -1084,10 +1149,9 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
+        config: withTestConfig({
           runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-        },
+        }),
       }),
     );
 
@@ -1132,11 +1196,12 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
-          targetDailySuccessfulSources: 2,
-          maxRefillRounds: 3,
-        },
+        config: withTestConfig({
+          collection: {
+            targetDailySuccessfulSources: 2,
+            maxRefillRounds: 3,
+          },
+        }),
       }),
     );
 
@@ -1158,11 +1223,10 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
-          targetDailySuccessfulSources: 5,
+        config: withTestConfig({
+          collection: { targetDailySuccessfulSources: 5 },
           runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-        },
+        }),
       }),
     );
 
@@ -1193,12 +1257,13 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
+        config: withTestConfig({
+          collection: {
+            targetDailySuccessfulSources: 10,
+            maxRefillRounds: 3,
+          },
           runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-          targetDailySuccessfulSources: 10,
-          maxRefillRounds: 3,
-        },
+        }),
       }),
     );
 
@@ -1241,12 +1306,13 @@ describe("runDataCollection", () => {
     // Act
     await runDataCollection(
       createContext({
-        config: {
-          ...baseConfig,
-          perQueryFetchBudget: 2,
-          perRunFetchBudget: 6,
+        config: withTestConfig({
+          collection: {
+            perQueryFetchBudget: 2,
+            perRunFetchBudget: 6,
+          },
           runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-        },
+        }),
       }),
     );
 

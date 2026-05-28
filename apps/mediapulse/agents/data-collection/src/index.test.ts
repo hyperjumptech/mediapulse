@@ -169,23 +169,7 @@ describe("data-collection agent (HTTP)", () => {
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
-          config: {
-            webSearch: {
-              baseUrl: "https://search.example",
-              authentication: { type: "bearer" },
-              rateLimit: { requests: 1, perSeconds: 1 },
-            },
-            webFetch: {
-              providers: [
-                {
-                  type: "jina",
-                  baseUrl: "https://fetch.example",
-                  authentication: { type: "bearer" },
-                  rateLimit: { requests: 1, perSeconds: 1 },
-                },
-              ],
-            },
-          },
+          config: {},
         }),
       }),
     );
@@ -201,7 +185,7 @@ describe("data-collection agent (HTTP)", () => {
     expect(body.status).toBe("success");
   }, 15000);
 
-  it("returns 400 when required provider config is missing", async () => {
+  it("returns 400 when config validation fails", async () => {
     // Setup
     getMock.mockResolvedValue({
       data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
@@ -216,9 +200,8 @@ describe("data-collection agent (HTTP)", () => {
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
           config: {
-            runPolicy: {
-              minSuccessfulSources: 1,
-              failOnZeroSuccess: true,
+            collection: {
+              targetDailySuccessfulSources: 0,
             },
           },
         }),
@@ -248,23 +231,7 @@ describe("data-collection agent (HTTP)", () => {
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
-          config: {
-            webSearch: {
-              baseUrl: "https://search.example",
-              authentication: { type: "bearer" },
-              rateLimit: { requests: 1, perSeconds: 1 },
-            },
-            webFetch: {
-              providers: [
-                {
-                  type: "jina",
-                  baseUrl: "https://fetch.example",
-                  authentication: { type: "bearer" },
-                  rateLimit: { requests: 1, perSeconds: 1 },
-                },
-              ],
-            },
-          },
+          config: {},
         }),
       }),
     );
