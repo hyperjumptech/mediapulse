@@ -36,16 +36,16 @@ export const languageQuotaSharesAreValid = (
 };
 
 /**
- * Resolves effective language quotas from Hermes config.
+ * Resolves effective language quotas from the parsed `output` config group.
  *
- * @param config - Parsed invoke config language fields.
+ * @param output - Parsed invoke config `output` group.
  * @returns Normalized quota list defaulting to English-only when omitted.
  */
-export const resolveLanguageQuotas = (config: {
+export const resolveLanguageQuotas = (output: {
   languageQuotas?: LanguageQuota[];
 }): LanguageQuota[] => {
-  if (config.languageQuotas !== undefined && config.languageQuotas.length > 0) {
-    return config.languageQuotas;
+  if (output.languageQuotas !== undefined && output.languageQuotas.length > 0) {
+    return output.languageQuotas;
   }
   return [{ language: "en", share: 1 }];
 };

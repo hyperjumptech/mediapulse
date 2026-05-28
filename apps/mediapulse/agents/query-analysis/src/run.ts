@@ -4,12 +4,9 @@ import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 import { logger } from "@workspace/logger";
 import { env } from "@mediapulse/env/agents-query-analysis";
-import type { QueryAnalysisConfig } from "./config-schema";
 import {
-  resolveDiversityGateConfig,
   resolveIntentWeights,
-  resolveTemporalBiasConfig,
-  resolveYieldFeedbackConfig,
+  type QueryAnalysisConfig,
 } from "./config-schema";
 import {
   buildQueryAnalysisSystemContent,
@@ -126,7 +123,7 @@ export const buildLlmSamplingFromConfig = (config: {
 export const resolveIntentWeightsWithEventBias = (
   baseIntentWeights: ReturnType<typeof resolveIntentWeights>,
   queryContext: GetQueryAnalysisResponse,
-  temporalBias: ReturnType<typeof resolveTemporalBiasConfig>,
+  temporalBias: QueryAnalysisConfig["dynamics"]["temporalBias"],
   deps: {
     clock?: () => Date;
     rules?: typeof DEFAULT_EVENT_BIAS_RULES;
@@ -229,7 +226,7 @@ export const buildLlmEmbeddingsForDiversity = async (
  */
 export const applyDiversityGatePass = async (params: {
   llmCandidates: LlmCandidate[];
-  diversityGate: ReturnType<typeof resolveDiversityGateConfig>;
+  diversityGate: QueryAnalysisConfig["quality"]["diversityGate"];
   embeddingsByText?: ReadonlyMap<string, number[]>;
   allowRegenerate?: boolean;
   fetchBroadenBatch: (broadenSystemNudge: string) => Promise<LlmCandidate[]>;
@@ -385,12 +382,12 @@ type LanguageSliceSharedConfig = {
   critiqueDropFraction: number;
   critiqueModel: string;
   perPersonaQuotaCount: number;
-  diversityGate: ReturnType<typeof resolveDiversityGateConfig>;
+  diversityGate: QueryAnalysisConfig["quality"]["diversityGate"];
   semanticDedupeEnabled: boolean;
   embeddingModel: string;
   runStartMs: number;
   tickerId: string;
-  yieldFeedback: ReturnType<typeof resolveYieldFeedbackConfig>;
+  yieldFeedback: QueryAnalysisConfig["dynamics"]["yieldFeedback"];
   priorYield?: GetQueryAnalysisResponse["priorYield"];
 };
 
@@ -659,19 +656,28 @@ export const runQueryAnalysis = async (
   const queryContext = await client.queryAnalysis.get({
     tickerId: input.tickerId,
   });
-  const templatePack = config.templatePack!;
-  const kgTemplateCap = config.kgTemplateCap!;
+  const {
+    credentials,
+    output,
+    sampling,
+    templates,
+    prompting,
+    creativity,
+    quality,
+    dynamics,
+  } = config;
 
-  // Zod applies defaults in `createAgentApp` before calling `run`.
-  const queryCount = config.queryCount!;
-  const wildcardFraction = config.wildcardFraction!;
-  const wildcardTemperature = config.wildcardTemperature!;
+  const templatePack = templates.templatePack;
+  const kgTemplateCap = templates.kgTemplateCap;
+  const queryCount = output.queryCount;
+  const wildcardFraction = creativity.wildcardFraction;
+  const wildcardTemperature = creativity.wildcardTemperature;
   const wildcardCount = computeWildcardCount(queryCount, wildcardFraction);
   const standardQueryCount = queryCount - wildcardCount;
-  const languageQuotas = resolveLanguageQuotas(config);
+  const languageQuotas = resolveLanguageQuotas(output);
   const minDeterministicCount = deriveMinDeterministicCount(queryCount);
-  const baseIntentWeights = resolveIntentWeights(config);
-  const temporalBias = resolveTemporalBiasConfig(config);
+  const baseIntentWeights = resolveIntentWeights(output);
+  const temporalBias = dynamics.temporalBias;
   const { intentWeights, appliedEventBias } = resolveIntentWeightsWithEventBias(
     baseIntentWeights,
     queryContext,
@@ -687,20 +693,17 @@ export const runQueryAnalysis = async (
       "query-analysis temporal event bias applied",
     );
   }
-  const openaiModel = config.openaiModel!;
-  const temperature = config.temperature!;
-  const topP = config.topP!;
-  const presencePenalty = config.presencePenalty!;
-  const frequencyPenalty = config.frequencyPenalty!;
-  const seed = config.seed;
-  const useBrainstormPass = config.useBrainstormPass!;
-  const fewShotExemplarCount = config.fewShotExemplarCount!;
-  const brainstormModel = config.brainstormModel ?? openaiModel;
-  const useSelfCritique = config.useSelfCritique!;
-  const critiqueDropFraction = config.critiqueDropFraction!;
-  const critiqueModel = config.critiqueModel ?? openaiModel;
-  const personaIds = config.personas!;
-  let perPersonaQuotaCount = config.perPersonaQuotaCount!;
+  const openaiModel = credentials.chatModel;
+  const { temperature, topP, presencePenalty, frequencyPenalty, seed } =
+    sampling;
+  const useBrainstormPass = creativity.useBrainstormPass;
+  const fewShotExemplarCount = prompting.fewShotExemplarCount;
+  const brainstormModel = creativity.brainstormModel ?? openaiModel;
+  const useSelfCritique = quality.useSelfCritique;
+  const critiqueDropFraction = quality.critiqueDropFraction;
+  const critiqueModel = quality.critiqueModel ?? openaiModel;
+  const personaIds = prompting.personas;
+  let perPersonaQuotaCount = prompting.perPersonaQuotaCount;
   const resolvedPersonas = resolveQueryPersonas(personaIds, {
     warn: (_message, meta) => {
       logger.warn(
@@ -744,19 +747,12 @@ export const runQueryAnalysis = async (
     languageQuotas,
   );
 
-  const llmSampling = buildLlmSamplingFromConfig({
-    temperature,
-    topP,
-    presencePenalty,
-    frequencyPenalty,
-    ...(seed !== undefined ? { seed } : {}),
-  });
+  const llmSampling = buildLlmSamplingFromConfig(sampling);
 
-  const diversityGate = resolveDiversityGateConfig(config);
-  const yieldFeedback = resolveYieldFeedbackConfig(config);
-  const semanticDedupeConfig = config.semanticDedupe;
-  const embeddingModel =
-    semanticDedupeConfig?.embeddingModel ?? "text-embedding-3-small";
+  const diversityGate = quality.diversityGate;
+  const yieldFeedback = dynamics.yieldFeedback;
+  const semanticDedupeConfig = quality.semanticDedupe;
+  const embeddingModel = semanticDedupeConfig.embeddingModel;
 
   const primaryLanguage = languageQuotas[0]?.language ?? "en";
   const llmPromptFingerprint = computeLlmPromptFingerprint(
@@ -770,7 +766,7 @@ export const runQueryAnalysis = async (
   );
 
   const sharedSliceConfig: LanguageSliceSharedConfig = {
-    openaiApiKey: config.openaiApiKey,
+    openaiApiKey: credentials.openaiApiKey,
     openaiModel,
     globalTemplatePack: templatePack,
     kgTemplateCap,
@@ -784,7 +780,7 @@ export const runQueryAnalysis = async (
     critiqueModel,
     perPersonaQuotaCount,
     diversityGate,
-    semanticDedupeEnabled: semanticDedupeConfig?.enabled ?? false,
+    semanticDedupeEnabled: semanticDedupeConfig.enabled,
     embeddingModel,
     runStartMs,
     tickerId: input.tickerId,
@@ -850,7 +846,7 @@ export const runQueryAnalysis = async (
     let wildcardBatch: LlmCandidate[] = [];
     try {
       wildcardBatch = await fetchWildcardCandidates({
-        apiKey: config.openaiApiKey,
+        apiKey: credentials.openaiApiKey,
         model: openaiModel,
         count: wildcardCount,
         context: queryContext,
@@ -874,7 +870,7 @@ export const runQueryAnalysis = async (
           ? async (avoidTexts) => {
               try {
                 return await fetchWildcardCandidates({
-                  apiKey: config.openaiApiKey,
+                  apiKey: credentials.openaiApiKey,
                   model: openaiModel,
                   count: wildcardCount,
                   context: queryContext,
@@ -937,11 +933,11 @@ export const runQueryAnalysis = async (
       : {}),
     ...(useBrainstormPass ? { brainstormModel } : {}),
     ...(seed !== undefined ? { seed } : {}),
-    ...(semanticDedupeConfig?.enabled
+    ...(semanticDedupeConfig.enabled
       ? {
           semanticDedupe: {
             enabled: true,
-            threshold: semanticDedupeConfig.threshold ?? 0.85,
+            threshold: semanticDedupeConfig.threshold,
             embeddingModel,
           },
         }
