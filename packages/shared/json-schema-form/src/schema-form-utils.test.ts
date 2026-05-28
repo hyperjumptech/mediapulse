@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  applyRequiredDefaults,
+  applySchemaDefaults,
+  collectSchemaDefaults,
   defaultForSchema,
   getSchemaFormType,
 } from "./schema-form-utils";
@@ -47,7 +48,61 @@ describe("defaultForSchema", () => {
   });
 });
 
-describe("applyRequiredDefaults", () => {
+describe("collectSchemaDefaults", () => {
+  it("returns undefined when no default is declared", () => {
+    expect(collectSchemaDefaults({ type: "string" })).toBeUndefined();
+  });
+
+  it("returns a primitive default when declared", () => {
+    expect(collectSchemaDefaults({ type: "string", default: "x" })).toBe("x");
+  });
+
+  it("collects optional property defaults on an object", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean", default: true },
+        label: { type: "string", default: "hello" },
+      },
+    };
+
+    expect(collectSchemaDefaults(schema)).toEqual({
+      enabled: true,
+      label: "hello",
+    });
+  });
+
+  it("expands a default {} group with nested field defaults", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        grp: {
+          type: "object",
+          default: {},
+          properties: {
+            b: { type: "string", default: "x" },
+          },
+        },
+      },
+    };
+
+    expect(collectSchemaDefaults(schema)).toEqual({ grp: { b: "x" } });
+  });
+
+  it("does not fabricate defaults for optional defaultless fields", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        withDefault: { type: "string", default: "x" },
+        withoutDefault: { type: "string" },
+      },
+    };
+
+    expect(collectSchemaDefaults(schema)).toEqual({ withDefault: "x" });
+  });
+});
+
+describe("applySchemaDefaults", () => {
   it("returns the same reference when nothing changes", () => {
     const schema: JsonSchema = {
       type: "object",
@@ -58,10 +113,10 @@ describe("applyRequiredDefaults", () => {
     };
     const value = { name: "ok" };
 
-    expect(applyRequiredDefaults(schema, value)).toBe(value);
+    expect(applySchemaDefaults(schema, value)).toBe(value);
   });
 
-  it("fills missing required keys", () => {
+  it("fills missing required keys with type-zero defaults", () => {
     const schema: JsonSchema = {
       type: "object",
       required: ["name"],
@@ -70,7 +125,7 @@ describe("applyRequiredDefaults", () => {
       },
     };
 
-    expect(applyRequiredDefaults(schema, {})).toEqual({ name: "" });
+    expect(applySchemaDefaults(schema, {})).toEqual({ name: "" });
   });
 
   it("fills nested required object keys", () => {
@@ -88,8 +143,78 @@ describe("applyRequiredDefaults", () => {
       },
     };
 
-    expect(applyRequiredDefaults(schema, { prompts: {} })).toEqual({
+    expect(applySchemaDefaults(schema, { prompts: {} })).toEqual({
       prompts: { systemPrompt: "" },
     });
+  });
+
+  it("seeds optional fields with declared defaults from an empty object", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean", default: true },
+        label: { type: "string", default: "{{NAME}}" },
+      },
+    };
+
+    expect(applySchemaDefaults(schema, {})).toEqual({
+      enabled: true,
+      label: "{{NAME}}",
+    });
+  });
+
+  it("seeds a default {} group with nested field defaults from an empty object", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        grp: {
+          type: "object",
+          default: {},
+          properties: {
+            b: { type: "string", default: "x" },
+            enabled: { type: "boolean", default: true },
+          },
+        },
+      },
+    };
+
+    expect(applySchemaDefaults(schema, {})).toEqual({
+      grp: { b: "x", enabled: true },
+    });
+  });
+
+  it("does not fabricate optional defaultless fields", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        withDefault: { type: "string", default: "x" },
+        withoutDefault: { type: "string" },
+      },
+    };
+
+    expect(applySchemaDefaults(schema, {})).toEqual({ withDefault: "x" });
+  });
+
+  it("seeds when top-level required is empty", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        flag: { type: "boolean", default: false },
+      },
+    };
+
+    expect(applySchemaDefaults(schema, {})).toEqual({ flag: false });
+  });
+
+  it("is idempotent once defaults are applied", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean", default: true },
+      },
+    };
+    const seeded = applySchemaDefaults(schema, {});
+
+    expect(applySchemaDefaults(schema, seeded)).toBe(seeded);
   });
 });
