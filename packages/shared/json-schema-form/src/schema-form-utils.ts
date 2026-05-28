@@ -36,34 +36,84 @@ export const defaultForSchema = (schema: JsonSchema): unknown => {
 };
 
 /**
- * Recursively merges value with empty defaults for any required keys that are missing.
+ * Recursively collects only explicitly declared schema defaults.
+ * Returns undefined when no default is declared anywhere in the subtree.
  */
-export const applyRequiredDefaults = (
+export const collectSchemaDefaults = (
+  schema: JsonSchema,
+): unknown | undefined => {
+  const type = getSchemaFormType(schema);
+
+  if (type === "object" && schema.properties) {
+    let obj: Record<string, unknown> | undefined;
+
+    if (schema.default !== undefined) {
+      if (
+        typeof schema.default === "object" &&
+        schema.default !== null &&
+        !Array.isArray(schema.default)
+      ) {
+        obj = { ...(schema.default as Record<string, unknown>) };
+      } else {
+        return schema.default;
+      }
+    }
+
+    for (const [key, propSchema] of Object.entries(schema.properties)) {
+      const propDefault = collectSchemaDefaults(propSchema);
+      if (propDefault !== undefined) {
+        if (!obj) obj = {};
+        obj[key] = propDefault;
+      }
+    }
+
+    return obj;
+  }
+
+  if (schema.default !== undefined) {
+    return schema.default;
+  }
+
+  return undefined;
+};
+
+/**
+ * Recursively merges value with declared schema defaults and required type-zero seeds.
+ */
+export const applySchemaDefaults = (
   schema: JsonSchema,
   value: Record<string, unknown>,
 ): Record<string, unknown> => {
-  if (!schema.properties || !schema.required?.length) return value;
+  if (!schema.properties) return value;
+
+  const requiredSet = new Set(schema.required ?? []);
   let changed = false;
   const result = { ...value };
-  for (const key of schema.required) {
-    const propSchema = schema.properties[key];
-    if (!propSchema) continue;
+
+  for (const [key, propSchema] of Object.entries(schema.properties)) {
     const existing = result[key];
+    const declaredDefault = collectSchemaDefaults(propSchema);
+
     if (existing === undefined) {
-      result[key] = defaultForSchema(propSchema);
-      changed = true;
+      if (declaredDefault !== undefined) {
+        result[key] = declaredDefault;
+        changed = true;
+      } else if (requiredSet.has(key)) {
+        result[key] = defaultForSchema(propSchema);
+        changed = true;
+      }
       continue;
     }
+
     const propType = getSchemaFormType(propSchema);
     if (
       propType === "object" &&
       propSchema.properties != null &&
-      propSchema.required?.length != null &&
       typeof existing === "object" &&
       existing !== null &&
       !Array.isArray(existing)
     ) {
-      const nested = applyRequiredDefaults(
+      const nested = applySchemaDefaults(
         propSchema,
         existing as Record<string, unknown>,
       );
@@ -73,5 +123,6 @@ export const applyRequiredDefaults = (
       }
     }
   }
+
   return changed ? result : value;
 };

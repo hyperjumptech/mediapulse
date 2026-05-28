@@ -142,7 +142,7 @@ export const AddConfigModal = ({
       {trigger != null && !initialData ? (
         <DialogTrigger asChild>{trigger}</DialogTrigger>
       ) : null}
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {initialData ? "Duplicate config" : "Add config"}

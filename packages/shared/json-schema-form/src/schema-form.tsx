@@ -9,7 +9,7 @@ import { cn } from "@workspace/ui/lib/utils";
 
 import { SCHEMA_FORM_NEW_ENTRY_KEY } from "./schema-form-constants";
 import {
-  applyRequiredDefaults,
+  applySchemaDefaults,
   defaultForSchema,
   getSchemaFormType,
 } from "./schema-form-utils";
@@ -556,7 +556,7 @@ export const SchemaForm = ({
   const type = getType(schema);
   const noopOnChange = React.useCallback(() => undefined, []);
   const effectiveValue = React.useMemo(
-    () => (seedRequiredDefaults ? applyRequiredDefaults(schema, value) : value),
+    () => (seedRequiredDefaults ? applySchemaDefaults(schema, value) : value),
     [schema, value, seedRequiredDefaults],
   );
   useSchemaFormSeed(
