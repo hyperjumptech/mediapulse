@@ -105,9 +105,7 @@ describe("stripArticleMarkers", () => {
 
     // Assert
     expect(result).toBe("Broadening commodity exposure alone.");
-    expect(stripArticleMarkers("Tail risk  (article  12).")).toBe(
-      "Tail risk.",
-    );
+    expect(stripArticleMarkers("Tail risk  (article  12).")).toBe("Tail risk.");
   });
 });
 
@@ -211,18 +209,30 @@ describe("formatIndustryNewsletterWire", () => {
         quickHits: {
           displayHeading: "Quick hits",
           items: [
-            { text: "Consortium signed the dredging package (Article 1).", articleIndex: 1 },
-            { text: "JV pushed startup as tariff talks dragged (Article 2).", articleIndex: 2 },
-            { text: "Export levy split plantation peers (Article 3).", articleIndex: 1 },
-            { text: "Equipment spreads narrowed (Article 4).", articleIndex: 2 },
-            { text: "Industrial permits on a fast track (Article 5).", articleIndex: 1 },
+            {
+              text: "Consortium signed the dredging package (Article 1).",
+              articleIndex: 1,
+            },
+            {
+              text: "JV pushed startup as tariff talks dragged (Article 2).",
+              articleIndex: 2,
+            },
+            {
+              text: "Export levy split plantation peers (Article 3).",
+              articleIndex: 1,
+            },
+            {
+              text: "Equipment spreads narrowed (Article 4).",
+              articleIndex: 2,
+            },
+            {
+              text: "Industrial permits on a fast track (Article 5).",
+              articleIndex: 1,
+            },
           ],
         },
       }),
-      [
-        { url: "https://one.example" },
-        { url: "https://two.example" },
-      ],
+      [{ url: "https://one.example" }, { url: "https://two.example" }],
     );
 
     // Act
@@ -233,9 +243,7 @@ describe("formatIndustryNewsletterWire", () => {
     expect(wire).toContain(
       "Sector tone stayed flat while miners broadened commodity exposure alone.",
     );
-    expect(wire).toContain(
-      "The award locks in multi-year revenue.",
-    );
+    expect(wire).toContain("The award locks in multi-year revenue.");
     expect(wire).toContain("Read the full article: https://one.example");
     expect(wire).toContain("Read the full article: https://two.example");
   });
@@ -245,7 +253,10 @@ describe("formatIndustryNewsletterWire", () => {
     const resolved = attachIndustryNewsletterSourceUrls(
       industryNewsletterStructureSchema.parse({
         subject: "S",
-        industryPulse: { displayHeading: "L", prose: "Clean prose without markers." },
+        industryPulse: {
+          displayHeading: "L",
+          prose: "Clean prose without markers.",
+        },
         competitiveLandscape: {
           displayHeading: "C",
           bullets: [
