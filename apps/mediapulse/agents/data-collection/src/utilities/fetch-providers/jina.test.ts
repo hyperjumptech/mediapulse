@@ -5,6 +5,7 @@ import type got from "got";
 
 import { createJinaFetchProvider } from "./jina";
 import type { FetchProviderConfig } from "./types";
+import { mockRateLimiter } from "./test-fixtures";
 
 const defaultConfig: FetchProviderConfig = {
   type: "jina",
@@ -48,10 +49,7 @@ describe("createJinaFetchProvider", () => {
     // Act
     const result = await provider.fetchOne("http://example.com", {
       gotClient: { post: postMock } as unknown as typeof got,
-      rateLimiter: {
-        acquire: vi.fn().mockResolvedValue(undefined),
-        recordResponse: vi.fn(),
-      },
+      rateLimiter: mockRateLimiter(),
       logger: { info: vi.fn(), warn: vi.fn() },
     });
 
@@ -88,10 +86,7 @@ describe("createJinaFetchProvider", () => {
     await expect(
       provider.fetchOne("http://example.com", {
         gotClient: { post: postMock } as unknown as typeof got,
-        rateLimiter: {
-          acquire: vi.fn().mockResolvedValue(undefined),
-          recordResponse: vi.fn(),
-        },
+        rateLimiter: mockRateLimiter(),
         logger: { info: vi.fn(), warn: vi.fn() },
       }),
     ).rejects.toThrow();
@@ -114,10 +109,7 @@ describe("createJinaFetchProvider", () => {
     await expect(
       provider.fetchOne("http://example.com", {
         gotClient: { post: postMock } as unknown as typeof got,
-        rateLimiter: {
-          acquire: vi.fn().mockResolvedValue(undefined),
-          recordResponse: vi.fn(),
-        },
+        rateLimiter: mockRateLimiter(),
         logger: { info: vi.fn(), warn: vi.fn() },
       }),
     ).rejects.toThrow("Semantic validation failed");

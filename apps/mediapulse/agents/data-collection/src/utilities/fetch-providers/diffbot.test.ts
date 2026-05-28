@@ -5,6 +5,7 @@ import type got from "got";
 
 import { createDiffbotFetchProvider } from "./diffbot";
 import type { FetchProviderConfig } from "./types";
+import { mockRateLimiter } from "./test-fixtures";
 
 const defaultConfig: FetchProviderConfig = {
   type: "diffbot",
@@ -46,10 +47,7 @@ describe("createDiffbotFetchProvider", () => {
     // Act
     const result = await provider.fetchOne("http://example.com/page", {
       gotClient: { get: getMock } as unknown as typeof got,
-      rateLimiter: {
-        acquire: vi.fn().mockResolvedValue(undefined),
-        recordResponse: vi.fn(),
-      },
+      rateLimiter: mockRateLimiter(),
       logger: { info: vi.fn(), warn: vi.fn() },
     });
 
@@ -82,10 +80,7 @@ describe("createDiffbotFetchProvider", () => {
     await expect(
       provider.fetchOne("http://example.com", {
         gotClient: { get: getMock } as unknown as typeof got,
-        rateLimiter: {
-          acquire: vi.fn().mockResolvedValue(undefined),
-          recordResponse: vi.fn(),
-        },
+        rateLimiter: mockRateLimiter(),
         logger: { info: vi.fn(), warn: vi.fn() },
       }),
     ).rejects.toThrow("Semantic validation failed");
@@ -104,10 +99,7 @@ describe("createDiffbotFetchProvider", () => {
     await expect(
       provider.fetchOne("http://example.com", {
         gotClient: { get: getMock } as unknown as typeof got,
-        rateLimiter: {
-          acquire: vi.fn().mockResolvedValue(undefined),
-          recordResponse: vi.fn(),
-        },
+        rateLimiter: mockRateLimiter(),
         logger: { info: vi.fn(), warn: vi.fn() },
       }),
     ).rejects.toThrow();
@@ -126,10 +118,7 @@ describe("createDiffbotFetchProvider", () => {
     await expect(
       provider.fetchOne("http://example.com", {
         gotClient: { get: getMock } as unknown as typeof got,
-        rateLimiter: {
-          acquire: vi.fn().mockResolvedValue(undefined),
-          recordResponse: vi.fn(),
-        },
+        rateLimiter: mockRateLimiter(),
         logger: { info: vi.fn(), warn: vi.fn() },
       }),
     ).rejects.toThrow("Semantic validation failed");

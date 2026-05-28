@@ -10,7 +10,8 @@ import {
 } from "./fetch-providers/registry";
 import type { FetchProvider } from "./fetch-providers/types";
 
-import type { FetchMetadata, WebSearchResult } from "./web-search";
+import type { FetchMetadata } from "./date-extractor";
+import type { WebSearchResult } from "./web-search";
 import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
 import type { HostErrorTracker } from "./host-error-tracker";
