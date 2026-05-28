@@ -100,12 +100,7 @@ describe("QUERY_ANALYSIS_MAX_OUTPUT_TOKENS", () => {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: "hi" }],
-        sampling: {
-          temperature: 0.9,
-          topP: 0.95,
-          presencePenalty: 0.4,
-          frequencyPenalty: 0.5,
-        },
+        sampling: {},
       },
       { generateObjectForQueries },
     );
@@ -420,12 +415,7 @@ describe("fetchBrainstormBullets", () => {
           recentThemes: [],
           ...emptyEnrichedContext,
         },
-        sampling: {
-          temperature: 0.9,
-          topP: 0.95,
-          presencePenalty: 0.4,
-          frequencyPenalty: 0.5,
-        },
+        sampling: {},
       },
       { generateTextForBrainstorm },
     );
@@ -463,12 +453,7 @@ describe("fetchQueryAnalysisLlmCandidates", () => {
         fundamental: 0.6,
       },
     },
-    sampling: {
-      temperature: 0.9,
-      topP: 0.95,
-      presencePenalty: 0.4,
-      frequencyPenalty: 0.5,
-    },
+    sampling: {},
     fewShotExemplarCount: 0,
   };
 
@@ -575,12 +560,7 @@ describe("applySelfCritiqueToCandidateBatch", () => {
     },
     dropFraction: 0.3,
     fewShotExemplarCount: 0,
-    sampling: {
-      temperature: 0.9,
-      topP: 0.95,
-      presencePenalty: 0.4,
-      frequencyPenalty: 0.5,
-    },
+    sampling: {},
   };
 
   const tenCandidates = Array.from({ length: 10 }, (_, index) => ({
@@ -691,12 +671,7 @@ describe("regenerateDroppedQueries", () => {
         keptCandidates: [],
         dropCount: 0,
         fewShotExemplarCount: 0,
-        sampling: {
-          temperature: 0.9,
-          topP: 0.95,
-          presencePenalty: 0.4,
-          frequencyPenalty: 0.5,
-        },
+        sampling: {},
       },
       { fetchLlmQueryCandidates: fetchLlmQueryCandidatesSpy },
     );
@@ -715,12 +690,7 @@ describe("fetchLlmQueryCandidatesByPersona", () => {
     personas,
     perPersonaQuota: 3,
     fewShotExemplarCount: 0,
-    sampling: {
-      temperature: 0.9,
-      topP: 0.95,
-      presencePenalty: 0.4,
-      frequencyPenalty: 0.5,
-    },
+    sampling: {},
   };
 
   it("calls generateObject once per persona and tags results", async () => {
@@ -803,12 +773,7 @@ describe("fetchLlmQueryCandidatesByPersona", () => {
 });
 
 describe("fetchLlmQueryCandidates", () => {
-  const defaultSampling = {
-    temperature: 0.9,
-    topP: 0.95,
-    presencePenalty: 0.4,
-    frequencyPenalty: 0.5,
-  };
+  const defaultSampling = {};
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -841,7 +806,7 @@ describe("fetchLlmQueryCandidates", () => {
     expect(generateObjectForQueries).toHaveBeenCalledTimes(1);
   });
 
-  it("forwards default sampling fields to generateObject", async () => {
+  it("omits unsupported sampling fields from generateObject", async () => {
     // Setup
     const generateObjectForQueries = vi.fn().mockResolvedValue({
       object: { queries: [] },
@@ -859,17 +824,15 @@ describe("fetchLlmQueryCandidates", () => {
     );
 
     // Assert
-    expect(generateObjectForQueries).toHaveBeenCalledWith(
-      expect.objectContaining({
-        temperature: 0.9,
-        topP: 0.95,
-        presencePenalty: 0.4,
-        frequencyPenalty: 0.5,
-      }),
-    );
-    expect(generateObjectForQueries.mock.calls[0]?.[0]).not.toHaveProperty(
-      "seed",
-    );
+    const callArgs = generateObjectForQueries.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(callArgs).not.toHaveProperty("temperature");
+    expect(callArgs).not.toHaveProperty("topP");
+    expect(callArgs).not.toHaveProperty("presencePenalty");
+    expect(callArgs).not.toHaveProperty("frequencyPenalty");
+    expect(callArgs).not.toHaveProperty("seed");
   });
 
   it("forwards custom seed to generateObject when set", async () => {
@@ -884,7 +847,7 @@ describe("fetchLlmQueryCandidates", () => {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: "hi" }],
-        sampling: { ...defaultSampling, seed: 42 },
+        sampling: { seed: 42 },
       },
       { generateObjectForQueries },
     );
@@ -915,12 +878,7 @@ describe("fetchLlmQueryCandidates", () => {
 });
 
 describe("fetchWildcardCandidates", () => {
-  const defaultSampling = {
-    temperature: 0.9,
-    topP: 0.95,
-    presencePenalty: 0.4,
-    frequencyPenalty: 0.5,
-  };
+  const defaultSampling = {};
 
   const baseContext = {
     ticker: {
@@ -939,7 +897,7 @@ describe("fetchWildcardCandidates", () => {
     vi.restoreAllMocks();
   });
 
-  it("passes wildcardTemperature instead of global temperature to generateObject", async () => {
+  it("omits unsupported sampling fields from wildcard generateObject", async () => {
     const generateObjectForWildcards = vi.fn().mockResolvedValue({
       object: {
         queries: [{ text: "Oblique supply rumor" }],
@@ -954,20 +912,18 @@ describe("fetchWildcardCandidates", () => {
         context: baseContext,
         allowedLanguages: ["en"],
         sampling: defaultSampling,
-        wildcardTemperature: 1.2,
       },
       { generateObjectForWildcards },
     );
 
-    expect(generateObjectForWildcards).toHaveBeenCalledWith(
-      expect.objectContaining({
-        temperature: 1.2,
-        topP: 0.95,
-      }),
-    );
-    expect(generateObjectForWildcards.mock.calls[0]?.[0].temperature).not.toBe(
-      defaultSampling.temperature,
-    );
+    const callArgs = generateObjectForWildcards.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(callArgs).not.toHaveProperty("temperature");
+    expect(callArgs).not.toHaveProperty("topP");
+    expect(callArgs).not.toHaveProperty("presencePenalty");
+    expect(callArgs).not.toHaveProperty("frequencyPenalty");
   });
 
   it("tags rows with wildcard intent and respects count cap", async () => {
@@ -989,7 +945,6 @@ describe("fetchWildcardCandidates", () => {
         context: baseContext,
         allowedLanguages: ["en"],
         sampling: defaultSampling,
-        wildcardTemperature: 1.2,
       },
       { generateObjectForWildcards },
     );

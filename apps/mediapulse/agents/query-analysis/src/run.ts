@@ -86,28 +86,14 @@ export const deriveMinDeterministicCount = (queryCount: number): number =>
   Math.max(2, Math.floor(queryCount * 0.4));
 
 /**
- * Builds the sampling object shared by standard and wildcard LLM calls.
+ * Builds optional LLM reproducibility options from parsed invoke config.
  *
- * @param config - Parsed invoke config with sampling fields.
- * @returns Sampling knobs for LLM calls.
+ * @param config - Parsed `sampling` group (seed only; temperature/top-p/penalties omitted for reasoning models).
+ * @returns Sampling options forwarded to AI SDK calls when supported.
  */
 export const buildLlmSamplingFromConfig = (config: {
-  temperature: number;
-  topP: number;
-  presencePenalty: number;
-  frequencyPenalty: number;
   seed?: number;
-}): {
-  temperature: number;
-  topP: number;
-  presencePenalty: number;
-  frequencyPenalty: number;
-  seed?: number;
-} => ({
-  temperature: config.temperature,
-  topP: config.topP,
-  presencePenalty: config.presencePenalty,
-  frequencyPenalty: config.frequencyPenalty,
+}): { seed?: number } => ({
   ...(config.seed !== undefined ? { seed: config.seed } : {}),
 });
 
@@ -671,7 +657,6 @@ export const runQueryAnalysis = async (
   const kgTemplateCap = templates.kgTemplateCap;
   const queryCount = output.queryCount;
   const wildcardFraction = creativity.wildcardFraction;
-  const wildcardTemperature = creativity.wildcardTemperature;
   const wildcardCount = computeWildcardCount(queryCount, wildcardFraction);
   const standardQueryCount = queryCount - wildcardCount;
   const languageQuotas = resolveLanguageQuotas(output);
@@ -694,8 +679,7 @@ export const runQueryAnalysis = async (
     );
   }
   const openaiModel = credentials.chatModel;
-  const { temperature, topP, presencePenalty, frequencyPenalty, seed } =
-    sampling;
+  const { seed } = sampling;
   const useBrainstormPass = creativity.useBrainstormPass;
   const fewShotExemplarCount = prompting.fewShotExemplarCount;
   const brainstormModel = creativity.brainstormModel ?? openaiModel;
@@ -852,7 +836,6 @@ export const runQueryAnalysis = async (
         context: queryContext,
         allowedLanguages: wildcardLanguages,
         sampling: llmSampling,
-        wildcardTemperature,
       });
     } catch (error) {
       logger.warn(
@@ -876,7 +859,6 @@ export const runQueryAnalysis = async (
                   context: queryContext,
                   allowedLanguages: wildcardLanguages,
                   sampling: llmSampling,
-                  wildcardTemperature,
                   avoidTexts,
                 });
               } catch (error) {
@@ -899,7 +881,6 @@ export const runQueryAnalysis = async (
   const strategySnapshot = {
     queryCount,
     wildcardFraction,
-    wildcardTemperature,
     wildcardCount,
     kgTemplateCap,
     languageQuotas,
@@ -914,10 +895,6 @@ export const runQueryAnalysis = async (
         }
       : {}),
     model: openaiModel,
-    temperature,
-    topP,
-    presencePenalty,
-    frequencyPenalty,
     useBrainstormPass,
     fewShotExemplarCount,
     personas: personaIds,

@@ -34,16 +34,11 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
     ]);
     expect(parsed.credentials).toEqual({
       openaiApiKey: "{{OPENAI_API_KEY}}",
-      chatModel: "{{QUERY_ANALYSIS_MODEL}}",
+      chatModel: "{{OPENAI_MODEL}}",
     });
     expect(parsed.output.queryCount).toBe(10);
     expect(parsed.output.languageQuotas).toBeUndefined();
-    expect(parsed.sampling).toEqual({
-      temperature: 0.9,
-      topP: 0.95,
-      presencePenalty: 0.4,
-      frequencyPenalty: 0.5,
-    });
+    expect(parsed.sampling).toEqual({});
     expect(parsed.templates).toEqual({
       templatePack: "default-v1",
       kgTemplateCap: 6,
@@ -55,7 +50,6 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
     });
     expect(parsed.creativity).toEqual({
       wildcardFraction: 0.1,
-      wildcardTemperature: 1.2,
       useBrainstormPass: true,
     });
     expect(parsed.quality.semanticDedupe).toEqual({
@@ -82,7 +76,7 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
     const parsed = queryAnalysisConfigSchema.parse({});
 
     expect(parsed.credentials.openaiApiKey).toBe("{{OPENAI_API_KEY}}");
-    expect(parsed.credentials.chatModel).toBe("{{QUERY_ANALYSIS_MODEL}}");
+    expect(parsed.credentials.chatModel).toBe("{{OPENAI_MODEL}}");
     expect(parsed.quality.semanticDedupe.embeddingModel).toBe(
       "{{EMBEDDING_MODEL}}",
     );
@@ -93,7 +87,6 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
       "openaiApiKey",
       "openaiModel",
       "queryCount",
-      "temperature",
       "templatePack",
       "semanticDedupe",
       "diversityGate",
@@ -239,41 +232,10 @@ describe("queryAnalysisConfigSchema strict mode", () => {
 });
 
 describe("queryAnalysisConfigSchema sampling", () => {
-  it("defaults creativity sampling fields", () => {
+  it("defaults to no sampling overrides", () => {
     const parsed = parseWithApiKey();
-    expect(parsed.sampling.temperature).toBe(0.9);
-    expect(parsed.sampling.topP).toBe(0.95);
-    expect(parsed.sampling.presencePenalty).toBe(0.4);
-    expect(parsed.sampling.frequencyPenalty).toBe(0.5);
+    expect(parsed.sampling).toEqual({});
     expect(parsed.sampling.seed).toBeUndefined();
-  });
-
-  it("rejects temperature above 2", () => {
-    const result = queryAnalysisConfigSchema.safeParse({
-      credentials: { openaiApiKey: "sk-test" },
-      sampling: { temperature: 2.1 },
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(
-        result.error.issues.some((issue) => issue.path.includes("temperature")),
-      ).toBe(true);
-    }
-  });
-
-  it("rejects presencePenalty above 2", () => {
-    const result = queryAnalysisConfigSchema.safeParse({
-      credentials: { openaiApiKey: "sk-test" },
-      sampling: { presencePenalty: 3 },
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(
-        result.error.issues.some((issue) =>
-          issue.path.includes("presencePenalty"),
-        ),
-      ).toBe(true);
-    }
   });
 
   it("rejects non-integer seed values", () => {
