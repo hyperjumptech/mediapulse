@@ -379,22 +379,19 @@ export const buildStructuredQueryMessages = (options: {
 };
 
 export type LlmQuerySampling = {
-  temperature: number;
-  topP: number;
-  presencePenalty: number;
-  frequencyPenalty: number;
   seed?: number;
 };
+
+/** Returns optional seed fields for AI SDK calls when configured. */
+const llmSamplingOptions = (sampling: LlmQuerySampling): { seed?: number } => ({
+  ...(sampling.seed !== undefined ? { seed: sampling.seed } : {}),
+});
 
 export type GenerateObjectForWildcards = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmWildcardOutputSchema;
   maxOutputTokens: number;
   messages: ModelMessage[];
-  temperature: number;
-  topP: number;
-  presencePenalty: number;
-  frequencyPenalty: number;
   seed?: number;
 }) => Promise<{ object: z.infer<typeof llmWildcardOutputSchema> }>;
 
@@ -403,10 +400,6 @@ export type GenerateObjectForQueries = (args: {
   schema: typeof llmQueriesOutputSchema;
   maxOutputTokens: number;
   messages: ModelMessage[];
-  temperature: number;
-  topP: number;
-  presencePenalty: number;
-  frequencyPenalty: number;
   seed?: number;
 }) => Promise<{ object: z.infer<typeof llmQueriesOutputSchema> }>;
 
@@ -415,10 +408,6 @@ export type GenerateObjectForCritique = (args: {
   schema: typeof llmCritiqueOutputSchema;
   maxOutputTokens: number;
   messages: ModelMessage[];
-  temperature: number;
-  topP: number;
-  presencePenalty: number;
-  frequencyPenalty: number;
   seed?: number;
 }) => Promise<{ object: z.infer<typeof llmCritiqueOutputSchema> }>;
 
@@ -426,10 +415,6 @@ export type GenerateTextForBrainstorm = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   messages: ModelMessage[];
   maxOutputTokens: number;
-  temperature: number;
-  topP: number;
-  presencePenalty: number;
-  frequencyPenalty: number;
   seed?: number;
 }) => Promise<{ text: string }>;
 
@@ -457,7 +442,6 @@ export const fetchBrainstormBullets = async (
     params.strategy,
     params.context,
   );
-  const { sampling } = params;
   const { text } = await deps.generateTextForBrainstorm({
     model: openai(params.model),
     messages: [
@@ -465,11 +449,7 @@ export const fetchBrainstormBullets = async (
       { role: "user", content: user },
     ],
     maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
-    temperature: sampling.temperature,
-    topP: sampling.topP,
-    presencePenalty: sampling.presencePenalty,
-    frequencyPenalty: sampling.frequencyPenalty,
-    ...(sampling.seed !== undefined ? { seed: sampling.seed } : {}),
+    ...llmSamplingOptions(params.sampling),
   });
   return parseBrainstormBullets(text);
 };
@@ -494,17 +474,12 @@ export const fetchLlmQueryCandidates = async (
   },
 ): Promise<Array<{ text: string; intent: QueryAnalysisIntent }>> => {
   const openai = createOpenAI({ apiKey: params.apiKey });
-  const { sampling } = params;
   const { object } = await deps.generateObjectForQueries({
     model: openai(params.model),
     schema: llmQueriesOutputSchema,
     maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
     messages: params.messages,
-    temperature: sampling.temperature,
-    topP: sampling.topP,
-    presencePenalty: sampling.presencePenalty,
-    frequencyPenalty: sampling.frequencyPenalty,
-    ...(sampling.seed !== undefined ? { seed: sampling.seed } : {}),
+    ...llmSamplingOptions(params.sampling),
   });
   return (object.queries ?? [])
     .map((q) => ({ text: q.text.trim(), intent: q.intent }))
@@ -569,7 +544,7 @@ export const buildWildcardUserContentWithAvoidNudge = (
 /**
  * Calls the chat model with minimal structured output for wildcard query slots.
  *
- * @param params - API key, model, token budget, count, context, sampling, and wildcard temperature.
+ * @param params - API key, model, token budget, count, context, and optional seed.
  * @param deps - Injectable `generateObject` (default: production `generateObject` from `ai`).
  * @returns Trimmed wildcard candidate rows tagged with `intent: "wildcard"`.
  */
@@ -581,7 +556,6 @@ export const fetchWildcardCandidates = async (
     context: GetQueryAnalysisResponse;
     allowedLanguages: string[];
     sampling: LlmQuerySampling;
-    wildcardTemperature: number;
     avoidTexts?: string[];
   },
   deps: { generateObjectForWildcards: GenerateObjectForWildcards } = {
@@ -589,7 +563,6 @@ export const fetchWildcardCandidates = async (
   },
 ): Promise<Array<{ text: string; intent: "wildcard" }>> => {
   const openai = createOpenAI({ apiKey: params.apiKey });
-  const { sampling } = params;
   const systemContent = resolveWildcardSystemContent(
     params.count,
     params.allowedLanguages,
@@ -606,11 +579,7 @@ export const fetchWildcardCandidates = async (
       { role: "system", content: systemContent },
       { role: "user", content: userContent },
     ],
-    temperature: params.wildcardTemperature,
-    topP: sampling.topP,
-    presencePenalty: sampling.presencePenalty,
-    frequencyPenalty: sampling.frequencyPenalty,
-    ...(sampling.seed !== undefined ? { seed: sampling.seed } : {}),
+    ...llmSamplingOptions(params.sampling),
   });
   return (object.queries ?? [])
     .map((q) => ({ text: q.text.trim(), intent: "wildcard" as const }))
@@ -879,7 +848,6 @@ export const critiqueQueryCandidates = async (
     "Queries to critique:",
     formatCandidatesForCritique(params.candidates),
   ].join("\n");
-  const { sampling } = params;
   const { object } = await deps.generateObjectForCritique({
     model: openai(params.model),
     schema: llmCritiqueOutputSchema,
@@ -891,11 +859,7 @@ export const critiqueQueryCandidates = async (
       },
       { role: "user", content: userContent },
     ],
-    temperature: sampling.temperature,
-    topP: sampling.topP,
-    presencePenalty: sampling.presencePenalty,
-    frequencyPenalty: sampling.frequencyPenalty,
-    ...(sampling.seed !== undefined ? { seed: sampling.seed } : {}),
+    ...llmSamplingOptions(params.sampling),
   });
   return object.ratings ?? [];
 };

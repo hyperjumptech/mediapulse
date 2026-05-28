@@ -35,9 +35,9 @@ const credentialsSchema = z
     chatModel: z
       .string()
       .min(1)
-      .default("{{QUERY_ANALYSIS_MODEL}}")
+      .default("{{OPENAI_MODEL}}")
       .describe(
-        "Chat model id for query generation (e.g. gpt-4o-mini) or a Hermes variable placeholder such as {{QUERY_ANALYSIS_MODEL}}.",
+        "Chat model id for query generation (e.g. gpt-4o-mini) or a Hermes variable placeholder such as {{OPENAI_MODEL}}.",
       ),
   })
   .default({})
@@ -92,44 +92,16 @@ const outputSchema = z
 
 const samplingSchema = z
   .object({
-    temperature: z
-      .number()
-      .min(0)
-      .max(2)
-      .default(0.9)
-      .describe("LLM sampling temperature (higher = more varied phrasing)."),
-    topP: z
-      .number()
-      .min(0)
-      .max(1)
-      .default(0.95)
-      .describe("Nucleus sampling top-p cutoff."),
-    presencePenalty: z
-      .number()
-      .min(-2)
-      .max(2)
-      .default(0.4)
-      .describe(
-        "Penalizes tokens already present in the output (encourages new topics).",
-      ),
-    frequencyPenalty: z
-      .number()
-      .min(-2)
-      .max(2)
-      .default(0.5)
-      .describe(
-        "Penalizes tokens by prior frequency in the output (reduces repetition).",
-      ),
     seed: z
       .number()
       .int()
       .optional()
       .describe(
-        "Optional fixed seed for reproducible LLM output during regression hunts.",
+        "Optional fixed seed for reproducible LLM output when the model supports it.",
       ),
   })
   .default({})
-  .describe("OpenAI sampling knobs shared by standard and wildcard LLM calls.");
+  .describe("Optional LLM reproducibility settings.");
 
 const templatesSchema = z
   .object({
@@ -190,14 +162,6 @@ const creativitySchema = z
       .describe(
         "Fraction of each query set reserved for stochastic wildcard (lateral) queries.",
       ),
-    wildcardTemperature: z
-      .number()
-      .min(0)
-      .max(2)
-      .default(1.2)
-      .describe(
-        "Sampling temperature for wildcard generation (defaults higher than sampling.temperature).",
-      ),
     useBrainstormPass: z
       .boolean()
       .default(true)
@@ -209,7 +173,7 @@ const creativitySchema = z
       .min(1)
       .optional()
       .describe(
-        "Model id for the brainstorm pass. If omitted, uses credentials.chatModel.",
+        "Model id for the brainstorm pass. If omitted, uses credentials.chatModel (default {{OPENAI_MODEL}}).",
       ),
   })
   .default({})
@@ -302,7 +266,7 @@ const qualitySchema = z
       .min(1)
       .optional()
       .describe(
-        "Model id for the critique pass. If omitted, uses credentials.chatModel.",
+        "Model id for the critique pass. If omitted, uses credentials.chatModel (default {{OPENAI_MODEL}}).",
       ),
     semanticDedupe: semanticDedupeSchema,
     diversityGate: diversityGateSchema,
