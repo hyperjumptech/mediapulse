@@ -90,7 +90,7 @@ describe("cleanupOrphanedExecutions", () => {
     expect(cutoff.getTime()).toBeLessThanOrEqual(after - 30 * 60 * 1_000 + 100);
   });
 
-  it("uses DEFAULT_ORPHAN_THRESHOLD_MINUTES (60) when thresholdMinutes is omitted", async () => {
+  it("uses DEFAULT_ORPHAN_THRESHOLD_MINUTES (35) when thresholdMinutes is omitted", async () => {
     // Setup
     const before = Date.now();
     mockFindMany.mockResolvedValue([]);
@@ -281,7 +281,7 @@ describe("cleanupOrphanedExecutions", () => {
 
     // Assert
     expect(deps.logger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ count: 1, thresholdMinutes: 60 }),
+      expect.objectContaining({ count: 1, thresholdMinutes: 35 }),
       "cleanup_orphaned_executions: found stuck running rows",
     );
   });

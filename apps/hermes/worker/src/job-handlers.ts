@@ -30,6 +30,55 @@ import { getJobQueue } from "./queue";
 import { executeHttpTrigger } from "./execute-http-trigger";
 import { cleanupOrphanedExecutions } from "./cleanup-orphaned-executions";
 
+/** Default cap for DataQueue `invoke_agent` job timeout (abort + supervisor reclaim). */
+export const DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS = 1_800_000;
+
+type ResolvedDataQueueJob = {
+  id: number;
+  attempts: number;
+  max_attempts: number;
+};
+
+/**
+ * Looks up a DataQueue row by `idempotency_key` (same value as `InvokeAgentJobPayload.jobId`).
+ * Avoids post-enqueue `editJob` payload patches that briefly lock rows and cause batch claim races.
+ *
+ * @param logicalJobId - Hermes agent job id used as DataQueue idempotency key.
+ * @param jobQueue - Optional queue instance for tests.
+ * @returns Row metadata when found; otherwise null.
+ */
+export const resolveDataQueueJob = async (
+  logicalJobId: string,
+  jobQueue = getJobQueue(),
+): Promise<ResolvedDataQueueJob | null> => {
+  const pool = jobQueue.getPool?.();
+  if (pool == null) {
+    return null;
+  }
+  const result = await pool.query<ResolvedDataQueueJob>(
+    `SELECT id, attempts, max_attempts
+     FROM job_queue
+     WHERE idempotency_key = $1
+     LIMIT 1`,
+    [logicalJobId],
+  );
+  return result.rows[0] ?? null;
+};
+
+/**
+ * Caps DataQueue job-level timeout so a hung agent invoke cannot block the processor batch
+ * for the full agent HTTP deadline (which may be hours).
+ *
+ * @param agentTimeoutMs - Agent HTTP timeout from pipeline/schedule config.
+ * @param capMs - Optional override cap in milliseconds.
+ * @returns Min of agent timeout and cap.
+ */
+export const resolveInvokeAgentJobTimeoutMs = (
+  agentTimeoutMs: number,
+  capMs?: number,
+): number =>
+  Math.min(agentTimeoutMs, capMs ?? DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS);
+
 /**
  * Parses optional positive integer env strings (DataQueue retry delay fields are in seconds).
  *
@@ -150,9 +199,9 @@ const handleTransientInvokeFailure = async (params: {
   errorToThrow: Error;
 }): Promise<never> => {
   const { payload, message, errorToThrow } = params;
-  const jobQueue = getJobQueue();
 
-  if (payload.hermesDataQueueJobId == null) {
+  const dqJob = await resolveDataQueueJob(payload.jobId);
+  if (dqJob == null) {
     await orchestrationPrisma.agentJobExecution.update({
       where: { jobId: payload.jobId },
       data: {
@@ -164,11 +213,7 @@ const handleTransientInvokeFailure = async (params: {
     throw errorToThrow;
   }
 
-  const dqJob = await jobQueue.getJob(payload.hermesDataQueueJobId);
-  if (
-    dqJob == null ||
-    !willRetryAfterTransientFailure(dqJob.attempts, dqJob.maxAttempts)
-  ) {
+  if (!willRetryAfterTransientFailure(dqJob.attempts, dqJob.max_attempts)) {
     await applyInvocationCompletion(
       {
         jobId: payload.jobId,
@@ -241,15 +286,20 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
                 : backoffRaw === "false"
                   ? false
                   : undefined;
+            const invokeAgentJobTimeoutCapMs =
+              parsePositiveIntEnv(env.HERMES_INVOKE_AGENT_JOB_TIMEOUT_MS) ??
+              DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS;
             const jobDefs = items.map((item) => ({
               jobType: "invoke_agent" as const,
               payload: item.payload,
               priority: item.payload.priority,
               idempotencyKey: item.payload.jobId,
-              // Mirror the HTTP-request timeout as a DataQueue-level job deadline so
-              // DataQueue's supervisor can force-kill the job if the got timeout fails
-              // to fire (e.g. TCP-level hang where the OS never delivers a close event).
-              timeoutMs: item.payload.timeoutMs,
+              // Cap DataQueue job timeout below agent HTTP deadline so a hung invoke
+              // frees a processor slot and supervisor reclaim runs within minutes, not hours.
+              timeoutMs: resolveInvokeAgentJobTimeoutMs(
+                item.payload.timeoutMs,
+                invokeAgentJobTimeoutCapMs,
+              ),
               maxAttempts,
               deadLetterJobType,
               ...(retryDelaySec !== undefined
@@ -275,20 +325,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
                 `pipelineStep:${item.payload.pipelineStepId}`,
               ],
             }));
-            const insertedIds = await jobQueue.addJobs(jobDefs);
-            for (let i = 0; i < insertedIds.length; i++) {
-              const queueJobId = insertedIds[i];
-              const item = items[i];
-              if (item === undefined || queueJobId === undefined) {
-                continue;
-              }
-              await jobQueue.editJob(queueJobId, {
-                payload: {
-                  ...item.payload,
-                  hermesDataQueueJobId: queueJobId,
-                },
-              });
-            }
+            await jobQueue.addJobs(jobDefs);
           },
           expandStepInputs,
           defaultTimeoutMs: 300_000,
@@ -311,12 +348,18 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
     await executeHttpTrigger(payload.httpTriggerExecutionId, {
       db: orchestrationPrisma,
       enqueueAgentInvocations: async (items) => {
+        const invokeAgentJobTimeoutCapMs =
+          parsePositiveIntEnv(env.HERMES_INVOKE_AGENT_JOB_TIMEOUT_MS) ??
+          DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS;
         const jobDefs = items.map((item) => ({
           jobType: "invoke_agent" as const,
           payload: item.payload,
           priority: item.payload.priority,
           idempotencyKey: item.payload.jobId,
-          timeoutMs: item.payload.timeoutMs,
+          timeoutMs: resolveInvokeAgentJobTimeoutMs(
+            item.payload.timeoutMs,
+            invokeAgentJobTimeoutCapMs,
+          ),
           dependsOn:
             item.dependsOnBatchIndices && item.dependsOnBatchIndices.length > 0
               ? {
@@ -332,15 +375,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             `pipelineStep:${item.payload.pipelineStepId}`,
           ],
         }));
-        const insertedIds = await jobQueue.addJobs(jobDefs);
-        for (let idx = 0; idx < insertedIds.length; idx++) {
-          const queueJobId = insertedIds[idx];
-          const item = items[idx];
-          if (item === undefined || queueJobId === undefined) continue;
-          await jobQueue.editJob(queueJobId, {
-            payload: { ...item.payload, hermesDataQueueJobId: queueJobId },
-          });
-        }
+        await jobQueue.addJobs(jobDefs);
       },
       expandStepInputs,
       defaultTimeoutMs: 300_000,
@@ -385,24 +420,22 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       return;
     }
 
-    if (payload.hermesDataQueueJobId != null) {
-      try {
-        const dqJob = await getJobQueue().getJob(payload.hermesDataQueueJobId);
-        if (dqJob != null) {
-          await orchestrationPrisma.agentJobExecution.update({
-            where: { jobId: payload.jobId },
-            data: {
-              dataQueueAttempts: dqJob.attempts,
-              dataQueueMaxAttempts: dqJob.maxAttempts,
-            },
-          });
-        }
-      } catch (err) {
-        logger.warn(
-          { err, jobId: payload.jobId },
-          "invoke_agent: failed to sync DataQueue attempts to agent_job_execution",
-        );
+    try {
+      const dqJob = await resolveDataQueueJob(payload.jobId);
+      if (dqJob != null) {
+        await orchestrationPrisma.agentJobExecution.update({
+          where: { jobId: payload.jobId },
+          data: {
+            dataQueueAttempts: dqJob.attempts,
+            dataQueueMaxAttempts: dqJob.max_attempts,
+          },
+        });
       }
+    } catch (err) {
+      logger.warn(
+        { err, jobId: payload.jobId },
+        "invoke_agent: failed to sync DataQueue attempts to agent_job_execution",
+      );
     }
 
     const hasParentExecution =
