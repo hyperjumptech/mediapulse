@@ -70,12 +70,12 @@ const searchProviderSchema = z.object({
     .describe("Serper search endpoint that accepts POST { q }."),
   authentication: z
     .object({
-      type: z.enum(["bearer", "none"]).default("bearer"),
+      type: z.enum(["bearer", "none"]).default("none"),
       apiKey: z.string().default("{{SERPER_API_KEY}}"),
       headerName: z.string().default("X-API-KEY"),
     })
     .default({
-      type: "bearer",
+      type: "none",
       apiKey: "{{SERPER_API_KEY}}",
       headerName: "X-API-KEY",
     })

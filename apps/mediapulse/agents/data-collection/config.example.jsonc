@@ -6,13 +6,13 @@
     "search": {
       "baseUrl": "https://google.serper.dev/search",
       "authentication": {
-        "type": "bearer",
+        "type": "none",
         "apiKey": "{{SERPER_API_KEY}}",
-        "headerName": "X-API-KEY"
+        "headerName": "X-API-KEY",
       },
       "rateLimit": { "requests": 100, "perSeconds": 60 },
       "concurrency": 4,
-      "timeoutMs": 30000
+      "timeoutMs": 30000,
     },
     "fetch": {
       "providers": [
@@ -21,11 +21,11 @@
           "baseUrl": "https://api.diffbot.com",
           "authentication": {
             "type": "none",
-            "apiKey": "{{DIFFBOT_API_KEY}}"
+            "apiKey": "{{DIFFBOT_API_KEY}}",
           },
           "rateLimit": { "requests": 50, "perSeconds": 60 },
           "concurrency": 4,
-          "timeoutMs": 30000
+          "timeoutMs": 30000,
         },
         {
           "type": "firecrawl",
@@ -33,11 +33,11 @@
           "authentication": {
             "type": "bearer",
             "apiKey": "{{FIRECRAWL_API_KEY}}",
-            "headerName": "Authorization"
+            "headerName": "Authorization",
           },
           "rateLimit": { "requests": 50, "perSeconds": 60 },
           "concurrency": 4,
-          "timeoutMs": 30000
+          "timeoutMs": 30000,
         },
         {
           "type": "jina",
@@ -45,55 +45,55 @@
           "authentication": {
             "type": "bearer",
             "apiKey": "{{JINA_API_KEY}}",
-            "headerName": "Authorization"
+            "headerName": "Authorization",
           },
           "rateLimit": { "requests": 50, "perSeconds": 60 },
           "concurrency": 4,
-          "timeoutMs": 30000
-        }
-      ]
-    }
+          "timeoutMs": 30000,
+        },
+      ],
+    },
   },
   "collection": {
     "targetDailySuccessfulSources": 5,
     "maxRefillRounds": 3,
     "perQueryFetchBudget": 3,
-    "perRunFetchBudget": 40
+    "perRunFetchBudget": 40,
   },
   "gates": {
     "relevance": {
       "enabled": true,
       "headChars": 1500,
-      "minMatches": 1
+      "minMatches": 1,
     },
     "freshness": {
       "enabled": true,
       "maxAgeDays": 14,
-      "allowUnknown": true
-    }
+      "allowUnknown": true,
+    },
   },
   "resilience": {
     "deadUrlCache": {
       "enabled": true,
-      "skipLookupBatchSize": 50
+      "skipLookupBatchSize": 50,
     },
     "hostErrorBreaker": {
       "enabled": true,
       "minAttempts": 5,
-      "errorRateThreshold": 0.5
-    }
+      "errorRateThreshold": 0.5,
+    },
   },
   "deduplication": {
     "semantic": {
       "enabled": false,
       "threshold": 0.88,
       "windowDays": 7,
-      "embeddingModel": "{{EMBEDDING_MODEL}}"
+      "embeddingModel": "{{EMBEDDING_MODEL}}",
     },
-    "openaiApiKey": "{{OPENAI_API_KEY}}"
+    "openaiApiKey": "{{OPENAI_API_KEY}}",
   },
   "runPolicy": {
     "minSuccessfulSources": 1,
-    "failOnZeroSuccess": true
-  }
+    "failOnZeroSuccess": true,
+  },
 }

@@ -57,6 +57,7 @@ describe("dataCollectionAgentConfigSchema", () => {
     expect(parsed.providers.search.authentication.apiKey).toBe(
       "{{SERPER_API_KEY}}",
     );
+    expect(parsed.providers.search.authentication.type).toBe("none");
     expect(
       parsed.providers.fetch.providers.map((provider) => provider.type),
     ).toEqual(["diffbot", "firecrawl", "jina"]);

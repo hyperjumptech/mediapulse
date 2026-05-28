@@ -15,7 +15,7 @@ import { type SearchQuery, performWebSearch } from "./web-search";
 const defaultConfig = {
   baseUrl: "https://google.serper.dev/search",
   authentication: {
-    type: "bearer" as const,
+    type: "none" as const,
     apiKey: "serper-key",
     headerName: "X-API-KEY",
   },
@@ -109,7 +109,7 @@ describe("performWebSearch", () => {
       expect.objectContaining({
         json: { q: "search" },
         headers: expect.objectContaining({
-          "X-API-KEY": "Bearer serper-key",
+          "X-API-KEY": "serper-key",
         }),
       }),
     );
