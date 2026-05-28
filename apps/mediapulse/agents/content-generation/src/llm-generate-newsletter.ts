@@ -5,7 +5,7 @@ import type { z } from "zod";
 import { logger } from "@workspace/logger";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
-import { formatIndustryNewsletterV2Wire } from "./format-industry-newsletter-v2.js";
+import { formatIndustryNewsletterWire } from "./format-industry-newsletter.js";
 import {
   industryNewsletterStructureLlmSchema,
   industryNewsletterStructureSchema,
@@ -77,7 +77,7 @@ export { newsletterCritiqueSchema };
 export interface GeneratedContent {
   /** Compelling email subject line (under ~60 chars). */
   subject: string;
-  /** Formatted plain-text newsletter body (`MP_NEWSLETTER_V2` industry wire). */
+  /** Formatted plain-text newsletter body (`MP_NEWSLETTER` industry wire). */
   content: string;
   /** Optional executive summary for newsletter preview or listing. */
   description?: string;
@@ -476,8 +476,6 @@ Return JSON matching this shape (camelCase keys):
 - "regulatoryPolicyWatch": { "displayHeading", "bullets" } — 1–3 bullets; same articleIndex rule.
 - "disruptorsOrTech": either { "format": "prose", "displayHeading", "prose" } OR { "format": "bullets", "displayHeading", "bullets" } with 1–3 bullets (same articleIndex rule).
 - "quickHits": { "displayHeading", "items" } — 5–7 items; each item { "text", "articleIndex" } (index required for every quick hit).
-- "readWatchListen": { "displayHeading", "summary", "articleIndex" } or null when unsupported by the articles.
-- "quoteOfTheWeek": { "displayHeading", "quote", "attribution", "articleIndex" } or null when unsupported; articleIndex may be null when uncited.
 
 Headings ("displayHeading") can be personality titles. Keep JSON valid; use null for optional blocks and uncited articleIndex values.`;
 
@@ -492,7 +490,6 @@ Rules reminder:
 - Industry and competitive lens; no trading advice.
 - Use "articleIndex" to point at Article 1 … Article {{topNewsCount}} from this prompt. Set articleIndex to null on a bullet when there is no clear single-article grounding.
 - Quick hits must all include articleIndex.
-- Set readWatchListen and quoteOfTheWeek to null when you cannot ground them.
 
 {{sourceSummaries}}`;
 
@@ -579,7 +576,7 @@ export function buildUserPrompt(
  *
  * Selects the top `topNewsCount` sources (by relevance order from the caller) and asks
  * the LLM for an industry briefing JSON object. Source URLs are attached after the call
- * from each optional or required `articleIndex`, then serialized to the `MP_NEWSLETTER_V2`
+ * from each optional or required `articleIndex`, then serialized to the `MP_NEWSLETTER`
  * plain-text wire format for email parsing.
  *
  * Retries on transient errors (rate limits, server errors, timeouts) up to
@@ -1267,7 +1264,7 @@ export async function generateNewsletterWithLlm(
     finalStructure,
     promptSources,
   );
-  const content = formatIndustryNewsletterV2Wire(resolved);
+  const content = formatIndustryNewsletterWire(resolved);
 
   return {
     subject:

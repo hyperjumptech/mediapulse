@@ -2,12 +2,12 @@ import { READ_FULL_ARTICLE_LABEL } from "./format-newsletter-content.js";
 import type { IndustryNewsletterResolved } from "./industry-newsletter-urls.js";
 
 /**
- * First line marker for Mediapulse industry newsletter wire format v2.
+ * First line marker for Mediapulse industry newsletter wire format.
  *
- * Keep in sync with `INDUSTRY_NEWSLETTER_WIRE_V2_MARKER` in
- * `packages/shared/email-templates/src/newsletter/parse-newsletter-body.ts`.
+ * Keep in sync with `INDUSTRY_NEWSLETTER_WIRE_MARKER` in
+ * `packages/shared/email-templates/src/newsletter/parse-industry-newsletter-wire.ts`.
  */
-export const INDUSTRY_NEWSLETTER_WIRE_V2_MARKER = "MP_NEWSLETTER_V2";
+export const INDUSTRY_NEWSLETTER_WIRE_MARKER = "MP_NEWSLETTER";
 
 const BEGIN = "BEGIN";
 const END = "END";
@@ -16,9 +16,6 @@ const PROSE = "PROSE";
 const FORMAT = "FORMAT";
 const BULLET = "BULLET";
 const ITEM = "ITEM";
-const SUMMARY = "SUMMARY";
-const QUOTE = "QUOTE";
-const ATTRIBUTION = "ATTRIBUTION";
 
 /**
  * Collapses internal whitespace so display headings stay a single wire line.
@@ -45,15 +42,15 @@ const withOptionalReadLine = (text: string, url?: string): string => {
 };
 
 /**
- * Serializes a resolved industry briefing into the v2 plain-text wire format.
+ * Serializes a resolved industry briefing into the plain-text wire format.
  *
  * @param briefing - Ground-truth briefing with URLs attached from sources.
- * @returns Wire body whose first line is {@link INDUSTRY_NEWSLETTER_WIRE_V2_MARKER}.
+ * @returns Wire body whose first line is {@link INDUSTRY_NEWSLETTER_WIRE_MARKER}.
  */
-export const formatIndustryNewsletterV2Wire = (
+export const formatIndustryNewsletterWire = (
   briefing: IndustryNewsletterResolved,
 ): string => {
-  const parts: string[] = [INDUSTRY_NEWSLETTER_WIRE_V2_MARKER, ""];
+  const parts: string[] = [INDUSTRY_NEWSLETTER_WIRE_MARKER, ""];
 
   const pushBlock = (block: string): void => {
     parts.push(block.trimEnd(), "");
@@ -142,39 +139,6 @@ export const formatIndustryNewsletterV2Wire = (
   }
   qhLines.push(END);
   pushBlock(qhLines.join("\n"));
-
-  if (briefing.readWatchListen) {
-    const rw = briefing.readWatchListen;
-    pushBlock(
-      [
-        `${BEGIN} read-watch-listen`,
-        DISPLAY_HEADING,
-        collapseHeadingLine(rw.displayHeading),
-        SUMMARY,
-        withOptionalReadLine(rw.summary, rw.url),
-        END,
-      ].join("\n"),
-    );
-  }
-
-  if (briefing.quoteOfTheWeek) {
-    const q = briefing.quoteOfTheWeek;
-    const quoteLines = [
-      `${BEGIN} quote-of-the-week`,
-      DISPLAY_HEADING,
-      collapseHeadingLine(q.displayHeading),
-      QUOTE,
-      q.quote.trim(),
-      ATTRIBUTION,
-      q.attribution.trim(),
-    ];
-    const trimmedUrl = q.url?.trim() ?? "";
-    if (trimmedUrl.length > 0) {
-      quoteLines.push(`${READ_FULL_ARTICLE_LABEL}: ${trimmedUrl}`);
-    }
-    quoteLines.push(END);
-    pushBlock(quoteLines.join("\n"));
-  }
 
   return parts.join("\n").trimEnd() + "\n";
 };

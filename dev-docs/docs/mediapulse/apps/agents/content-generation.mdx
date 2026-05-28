@@ -13,7 +13,7 @@ The content-generation agent takes **selected data sources** (scored by the anal
 - **Input:** `tickerId` as a non-empty string (UUID or opaque Hermes ticker id). Receives bearer token from Hermes.
 - **Fetches** selected high-relevance sources for the ticker from `GET /api/v1/content-generation` (rows where `article_relevance.selected = true` and scored today).
 - **Calls OpenAI** via the Vercel AI SDK (`generateObject` from `ai` with `@ai-sdk/openai` provider) to generate structured **industry intelligence** newsletter JSON (subject, multi-section briefing, quick hits with `articleIndex` grounding). The API key, optional API base URL, and model id are **not** read from environment variables; they come from the **agent config** selected for the pipeline step in Hermes (Dashboard → Agent configs), so admins can manage credentials centrally (optionally using [variable expansion](/hermes/agent-hermes-contract#variables-in-config-and-params) for secrets).
-- **Serializes** the validated object to plain text with the first-line marker `MP_NEWSLETTER_V2` and deterministic `BEGIN … END` blocks. URLs are **never** taken from model text; they are injected from Hermes-selected sources using each `articleIndex`. Legacy bodies without the marker (`EXECUTIVE SUMMARY` / `TOP N NEWS`) are unchanged for historical rows. The shared email package parses both shapes (see `@workspace/email-templates` `parseNewsletterBody`).
+- **Serializes** the validated object to plain text with the first-line marker `MP_NEWSLETTER` and deterministic `BEGIN … END` blocks. URLs are **never** taken from model text; they are injected from Hermes-selected sources using each `articleIndex`. Legacy bodies without the marker (`EXECUTIVE SUMMARY` / `TOP N NEWS`) are unchanged for historical rows. The shared email package parses both shapes (see `@workspace/email-templates` `parseNewsletterBody`).
 - **Retries** transient LLM failures (rate limits, 5xx errors, timeouts) using exponential backoff with optional jitter, up to `llmRetry.maxAttempts` (default 3). Non-retryable errors (auth, bad request, schema validation) short-circuit immediately.
 - **Classifies errors** into structured outcome codes for diagnostics (see [Error taxonomy](#error-taxonomy) below).
 - **Retries persist** errors (agent-data-api 5xx, 429, network timeouts) using exponential backoff up to `persistRetry.maxAttempts` (default 2, no jitter). Non-retryable 4xx client errors fail fast without retrying.
@@ -175,8 +175,8 @@ Newsletter generation can prepend one or two hand-curated **voice exemplars** be
 
 | Exemplar bank id  | Sector tag   | Teaches                                                                                                     |
 | ----------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
-| `industrial-INDX` | `industrial` | Grounded industrial prose, cited bullets, personality headings; omits `quoteOfTheWeek` when unsupported     |
-| `consumer-CONSM`  | `consumer`   | Consumer/financial voice, quick-hit density, optional quote block; omits `readWatchListen` when unsupported |
+| `industrial-INDX` | `industrial` | Grounded industrial prose, cited bullets, personality headings |
+| `consumer-CONSM`  | `consumer`   | Consumer/financial voice, quick-hit density                    |
 
 Fictional tickers and article titles — the live run must ground only in real sources.
 
@@ -201,7 +201,7 @@ After generation, local **Jaccard similarity** compares bullet text to the activ
 
 1. Open a PR adding a full `IndustryNewsletterStructure` entry to `NEWSLETTER_EXEMPLAR_BANK` in `src/lib/newsletter-exemplars.ts`.
 2. Assign a unique `id`, `sectorTag`, fictional `tickerSymbol`, and `sourceTitles`.
-3. Omit at least one optional block (`readWatchListen` or `quoteOfTheWeek`) so the model learns omission is valid.
+3. Keep every required section grounded in fictional `Article N` references so the model sees complete structure.
 4. Document expected token cost in the PR (~1500 tokens per exemplar).
 5. Extend selection tests if the new sector needs distinct keyword routing.
 

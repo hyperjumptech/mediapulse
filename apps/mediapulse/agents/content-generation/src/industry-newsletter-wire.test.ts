@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatIndustryNewsletterV2Wire,
-  INDUSTRY_NEWSLETTER_WIRE_V2_MARKER,
-} from "./format-industry-newsletter-v2.js";
+  formatIndustryNewsletterWire,
+  INDUSTRY_NEWSLETTER_WIRE_MARKER,
+} from "./format-industry-newsletter.js";
 import { industryNewsletterStructureSchema } from "./industry-newsletter-schema.js";
 import {
   attachIndustryNewsletterSourceUrls,
@@ -84,8 +84,8 @@ describe("attachIndustryNewsletterSourceUrls", () => {
   });
 });
 
-describe("formatIndustryNewsletterV2Wire", () => {
-  it("starts with the v2 marker and emits read lines", () => {
+describe("formatIndustryNewsletterWire", () => {
+  it("starts with the wire marker and emits read lines", () => {
     const resolved = attachIndustryNewsletterSourceUrls(
       industryNewsletterStructureSchema.parse({
         subject: "S",
@@ -124,11 +124,9 @@ describe("formatIndustryNewsletterV2Wire", () => {
       [{ url: "https://src.example" }],
     );
 
-    const wire = formatIndustryNewsletterV2Wire(resolved);
+    const wire = formatIndustryNewsletterWire(resolved);
 
-    expect(wire.startsWith(`${INDUSTRY_NEWSLETTER_WIRE_V2_MARKER}\n`)).toBe(
-      true,
-    );
+    expect(wire.startsWith(`${INDUSTRY_NEWSLETTER_WIRE_MARKER}\n`)).toBe(true);
     expect(wire).toContain("Read the full article: https://src.example");
   });
 });

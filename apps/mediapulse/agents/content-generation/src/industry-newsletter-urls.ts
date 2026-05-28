@@ -29,7 +29,7 @@ export type IndustryDisruptorsOrTechResolved =
       bullets: IndustryBulletResolved[];
     };
 
-/** Industry briefing ready for V2 wire formatting (all URLs from config, not the LLM). */
+/** Industry briefing ready for wire formatting (all URLs from config, not the LLM). */
 export type IndustryNewsletterResolved = {
   subject: string;
   industryPulse: { displayHeading: string; prose: string };
@@ -49,17 +49,6 @@ export type IndustryNewsletterResolved = {
   quickHits: {
     displayHeading: string;
     items: IndustryQuickHitResolved[];
-  };
-  readWatchListen?: {
-    displayHeading: string;
-    summary: string;
-    url?: string;
-  };
-  quoteOfTheWeek?: {
-    displayHeading: string;
-    quote: string;
-    attribution: string;
-    url?: string;
   };
 };
 
@@ -85,7 +74,7 @@ export const resolveArticleUrlForIndustryNewsletter = (
  *
  * @param briefing - Validated LLM object (no URLs from the model).
  * @param sources - Same ordered slice passed into the prompt (`Article 1` first).
- * @returns A copy safe to pass into the V2 wire serializer.
+ * @returns A copy safe to pass into the wire serializer.
  */
 export const attachIndustryNewsletterSourceUrls = (
   briefing: IndustryNewsletterStructure,
@@ -140,30 +129,5 @@ export const attachIndustryNewsletterSourceUrls = (
       displayHeading: briefing.quickHits.displayHeading,
       items: briefing.quickHits.items.map(mapHit),
     },
-    ...(briefing.readWatchListen
-      ? {
-          readWatchListen: {
-            displayHeading: briefing.readWatchListen.displayHeading,
-            summary: briefing.readWatchListen.summary,
-            url: resolveArticleUrlForIndustryNewsletter(
-              briefing.readWatchListen.articleIndex,
-              sources,
-            ),
-          },
-        }
-      : {}),
-    ...(briefing.quoteOfTheWeek
-      ? {
-          quoteOfTheWeek: {
-            displayHeading: briefing.quoteOfTheWeek.displayHeading,
-            quote: briefing.quoteOfTheWeek.quote,
-            attribution: briefing.quoteOfTheWeek.attribution,
-            url: resolveArticleUrlForIndustryNewsletter(
-              briefing.quoteOfTheWeek.articleIndex,
-              sources,
-            ),
-          },
-        }
-      : {}),
   };
 };

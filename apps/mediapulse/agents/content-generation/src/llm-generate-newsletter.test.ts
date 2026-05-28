@@ -127,7 +127,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
 
     // Assert
     expect(result.subject).toBe("Market Rally Continues");
-    expect(result.content).toContain("MP_NEWSLETTER_V2");
+    expect(result.content).toContain("MP_NEWSLETTER");
     expect(result.content).toContain("Stocks rose for the third day.");
     expect(result.content).toContain("BEGIN quick-hits");
     expect(result.description).toBe("Stocks rose for the third day.");

@@ -41,7 +41,6 @@ const CONSUMER_FINANCIAL_KEYWORDS = [
 
 /**
  * Fictional industrial conglomerate exemplar — mining, infrastructure, and palm oil lens.
- * Omits `quoteOfTheWeek` to show optional blocks can be absent.
  */
 const industrialExemplar: NewsletterExemplar = {
   id: "industrial-INDX",
@@ -149,18 +148,11 @@ const industrialExemplar: NewsletterExemplar = {
         },
       ],
     },
-    readWatchListen: {
-      displayHeading: "Worth a deeper read",
-      summary:
-        "The Batam permit piece is the best map of where civil-work demand may land next — skim it for named estates and contractor shortlists before the next bidding season.",
-      articleIndex: 5,
-    },
   },
 };
 
 /**
  * Fictional consumer and financial mix exemplar — banking, retail, and payments lens.
- * Omits `readWatchListen` to show optional blocks can be absent.
  */
 const consumerFinancialExemplar: NewsletterExemplar = {
   id: "consumer-CONSM",
@@ -259,14 +251,6 @@ const consumerFinancialExemplar: NewsletterExemplar = {
           articleIndex: 6,
         },
       ],
-    },
-    quoteOfTheWeek: {
-      displayHeading: "Quote of the week",
-      quote:
-        "We are not chasing volume for its own sake — we want profitable transactions and cleaner KYC files.",
-      attribution:
-        "Regional wallet CEO quoted in the tier-2 growth slowdown piece",
-      articleIndex: 3,
     },
   },
 };
@@ -402,20 +386,6 @@ export const formatExemplarBlock = (exemplar: NewsletterExemplar): string => {
       formatBulletLine(item.text, item.articleIndex),
     ),
   );
-
-  if (output.readWatchListen !== undefined) {
-    lines.push(
-      `Read, Watch, Listen / ${output.readWatchListen.displayHeading}:`,
-      `${output.readWatchListen.summary} (Article ${String(output.readWatchListen.articleIndex)})`,
-    );
-  }
-
-  if (output.quoteOfTheWeek !== undefined) {
-    lines.push(
-      `Quote of the Week / ${output.quoteOfTheWeek.displayHeading}:`,
-      `"${output.quoteOfTheWeek.quote}" — ${output.quoteOfTheWeek.attribution}`,
-    );
-  }
 
   lines.push("END EXEMPLAR");
   return lines.join("\n");

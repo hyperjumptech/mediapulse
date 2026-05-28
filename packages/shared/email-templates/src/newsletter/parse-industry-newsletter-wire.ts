@@ -1,5 +1,5 @@
-/** Keep in sync with `INDUSTRY_NEWSLETTER_WIRE_V2_MARKER` in content-generation `format-industry-newsletter-v2.ts`. */
-export const INDUSTRY_NEWSLETTER_WIRE_V2_MARKER = "MP_NEWSLETTER_V2";
+/** Keep in sync with `INDUSTRY_NEWSLETTER_WIRE_MARKER` in content-generation `format-industry-newsletter.ts`. */
+export const INDUSTRY_NEWSLETTER_WIRE_MARKER = "MP_NEWSLETTER";
 
 const READ_FULL_ARTICLE_LABEL = "Read the full article";
 
@@ -40,32 +40,15 @@ export type ParsedIndustryQuickHitsSection = {
   items: Array<{ text: string; url?: string }>;
 };
 
-export type ParsedIndustryReadWatchListenSection = {
-  machineKey: "read-watch-listen";
-  displayHeading: string;
-  summary: string;
-  url?: string;
-};
-
-export type ParsedIndustryQuoteSection = {
-  machineKey: "quote-of-the-week";
-  displayHeading: string;
-  quote: string;
-  attribution: string;
-  url?: string;
-};
-
-export type ParsedIndustryV2Section =
+export type ParsedIndustrySection =
   | ParsedIndustryPulseSection
   | ParsedIndustryBulletSection
   | ParsedIndustryDisruptorsProseSection
-  | ParsedIndustryQuickHitsSection
-  | ParsedIndustryReadWatchListenSection
-  | ParsedIndustryQuoteSection;
+  | ParsedIndustryQuickHitsSection;
 
-export type IndustryV2ParsedNewsletterBody = {
-  format: "industry-v2";
-  sections: ParsedIndustryV2Section[];
+export type IndustryParsedNewsletterBody = {
+  format: "industry";
+  sections: ParsedIndustrySection[];
 };
 
 /**
@@ -93,24 +76,24 @@ const splitTrailingReadLine = (
 const isBlank = (line: string): boolean => line.trim().length === 0;
 
 /**
- * Parses the industry newsletter v2 wire body (marker + BEGIN/END blocks).
+ * Parses the industry newsletter wire body (marker + BEGIN/END blocks).
  *
  * @param bodyText - Full newsletter body string.
  * @returns Parsed sections, or `undefined` when the marker is present but the body is invalid.
  */
-export const parseIndustryNewsletterWireV2 = (
+export const parseIndustryNewsletterWire = (
   bodyText: string,
-): IndustryV2ParsedNewsletterBody | undefined => {
+): IndustryParsedNewsletterBody | undefined => {
   const trimmed = bodyText.trim();
   const lines = trimmed.split("\n");
   if (
     lines.length === 0 ||
-    lines[0]?.trim() !== INDUSTRY_NEWSLETTER_WIRE_V2_MARKER
+    lines[0]?.trim() !== INDUSTRY_NEWSLETTER_WIRE_MARKER
   ) {
     return undefined;
   }
 
-  const sections: ParsedIndustryV2Section[] = [];
+  const sections: ParsedIndustrySection[] = [];
   let i = 1;
 
   const skipBlanks = (): void => {
@@ -262,55 +245,8 @@ export const parseIndustryNewsletterWireV2 = (
       continue;
     }
 
-    if (machineKey === "read-watch-listen") {
-      if ((lines[i] ?? "").trim() !== "SUMMARY") {
-        return undefined;
-      }
-      i += 1;
-      const summaryBlock = readUntilToken(new Set(["END"]));
-      if ((lines[i] ?? "").trim() !== "END") {
-        return undefined;
-      }
-      i += 1;
-      const { text, url } = splitTrailingReadLine(summaryBlock);
-      sections.push({
-        machineKey: "read-watch-listen",
-        displayHeading,
-        summary: text,
-        ...(url !== undefined ? { url } : {}),
-      });
-      continue;
-    }
-
-    if (machineKey === "quote-of-the-week") {
-      if ((lines[i] ?? "").trim() !== "QUOTE") {
-        return undefined;
-      }
-      i += 1;
-      const quote = readUntilToken(new Set(["ATTRIBUTION"]));
-      if ((lines[i] ?? "").trim() !== "ATTRIBUTION") {
-        return undefined;
-      }
-      i += 1;
-      const attributionBlock = readUntilToken(new Set(["END"]));
-      if ((lines[i] ?? "").trim() !== "END") {
-        return undefined;
-      }
-      i += 1;
-      const { text: attribution, url } =
-        splitTrailingReadLine(attributionBlock);
-      sections.push({
-        machineKey: "quote-of-the-week",
-        displayHeading,
-        quote,
-        attribution,
-        ...(url !== undefined ? { url } : {}),
-      });
-      continue;
-    }
-
     return undefined;
   }
 
-  return { format: "industry-v2", sections };
+  return { format: "industry", sections };
 };

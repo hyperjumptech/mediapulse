@@ -160,13 +160,9 @@ describe("industryNewsletterStructureLlmSchema", () => {
           { text: "h5", articleIndex: 1 },
         ],
       },
-      readWatchListen: null,
-      quoteOfTheWeek: null,
     });
 
     expect(industryNewsletterStructureSchema.parse(parsed)).toEqual(parsed);
     expect(parsed.competitiveLandscape.bullets[1]).toEqual({ text: "b2" });
-    expect(parsed.readWatchListen).toBeUndefined();
-    expect(parsed.quoteOfTheWeek).toBeUndefined();
   });
 });

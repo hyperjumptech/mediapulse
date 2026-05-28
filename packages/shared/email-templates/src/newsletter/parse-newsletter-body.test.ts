@@ -427,10 +427,10 @@ describe("parseNewsletterBody", () => {
   });
 });
 
-describe("parseNewsletterBody — industry wire v2", () => {
-  it("parses a minimal v2 wire body with prose disruptors", () => {
+describe("parseNewsletterBody — industry wire", () => {
+  it("parses a minimal wire body with prose disruptors", () => {
     const bodyText = [
-      "MP_NEWSLETTER_V2",
+      "MP_NEWSLETTER",
       "",
       "BEGIN industry-pulse",
       "DISPLAY_HEADING",
@@ -495,9 +495,9 @@ describe("parseNewsletterBody — industry wire v2", () => {
 
     const result = parseNewsletterBody(bodyText);
 
-    expect(result?.format).toBe("industry-v2");
-    if (result?.format !== "industry-v2") {
-      throw new Error("expected v2");
+    expect(result?.format).toBe("industry");
+    if (result?.format !== "industry") {
+      throw new Error("expected industry wire");
     }
     expect(result.sections).toHaveLength(6);
     expect(result.sections[0]?.machineKey).toBe("industry-pulse");
