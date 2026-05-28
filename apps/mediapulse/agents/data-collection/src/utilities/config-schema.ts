@@ -128,7 +128,7 @@ export const defaultDiffbotFetchProvider = {
     type: "none" as const,
     apiKey: "{{DIFFBOT_API_KEY}}",
   },
-  rateLimit: { requests: 20, perSeconds: 60 },
+  rateLimit: { requests: 2, perSeconds: 1 },
   concurrency: 2,
   timeoutMs: 30_000,
   retry: defaultRetry,
