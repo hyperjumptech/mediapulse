@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api-contract";
 
@@ -10,7 +11,7 @@ import {
 
 /** Parses config with a resolved API key while keeping other schema defaults. */
 const parseWithApiKey = (
-  overrides: Parameters<typeof queryAnalysisConfigSchema.parse>[0] = {},
+  overrides: z.input<typeof queryAnalysisConfigSchema> = {},
 ) =>
   queryAnalysisConfigSchema.parse({
     credentials: { openaiApiKey: "sk-test" },
