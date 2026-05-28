@@ -27,6 +27,15 @@ const collapseHeadingLine = (value: string): string =>
   value.trim().replace(/\s+/g, " ");
 
 /**
+ * Removes inline "(Article N)" citation markers from reader-facing text.
+ *
+ * @param text - Raw bullet, quick-hit, or prose string from the LLM.
+ * @returns Text with article markers stripped; unchanged when none are present.
+ */
+export const stripArticleMarkers = (text: string): string =>
+  text.replace(/\s*\(Article\s+\d+\)/gi, "");
+
+/**
  * Appends the deterministic `Read the full article: <url>` line when a URL exists.
  *
  * @param text - Body text without a trailing source line.
@@ -62,7 +71,7 @@ export const formatIndustryNewsletterWire = (
       DISPLAY_HEADING,
       collapseHeadingLine(briefing.industryPulse.displayHeading),
       PROSE,
-      briefing.industryPulse.prose.trim(),
+      stripArticleMarkers(briefing.industryPulse.prose.trim()),
       END,
     ].join("\n"),
   );
@@ -78,7 +87,10 @@ export const formatIndustryNewsletterWire = (
       collapseHeadingLine(displayHeading),
     ];
     for (const b of bullets) {
-      lines.push(BULLET, withOptionalReadLine(b.text, b.url));
+      lines.push(
+        BULLET,
+        withOptionalReadLine(stripArticleMarkers(b.text), b.url),
+      );
     }
     lines.push(END);
     pushBlock(lines.join("\n"));
@@ -110,7 +122,7 @@ export const formatIndustryNewsletterWire = (
         FORMAT,
         "prose",
         PROSE,
-        d.prose.trim(),
+        stripArticleMarkers(d.prose.trim()),
         END,
       ].join("\n"),
     );
@@ -123,7 +135,10 @@ export const formatIndustryNewsletterWire = (
       "bullets",
     ];
     for (const b of d.bullets) {
-      lines.push(BULLET, withOptionalReadLine(b.text, b.url));
+      lines.push(
+        BULLET,
+        withOptionalReadLine(stripArticleMarkers(b.text), b.url),
+      );
     }
     lines.push(END);
     pushBlock(lines.join("\n"));
@@ -135,7 +150,10 @@ export const formatIndustryNewsletterWire = (
     collapseHeadingLine(briefing.quickHits.displayHeading),
   ];
   for (const item of briefing.quickHits.items) {
-    qhLines.push(ITEM, withOptionalReadLine(item.text, item.url));
+    qhLines.push(
+      ITEM,
+      withOptionalReadLine(stripArticleMarkers(item.text), item.url),
+    );
   }
   qhLines.push(END);
   pushBlock(qhLines.join("\n"));

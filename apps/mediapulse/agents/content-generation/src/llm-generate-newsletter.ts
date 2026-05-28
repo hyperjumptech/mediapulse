@@ -466,7 +466,7 @@ Use {{tickerName}} ({{tickerSymbol}}) to orient the industry intelligence lens. 
 
 Focus on what is happening outside the company — macro forces, regulatory shifts, competitive moves, technology disruption. Do not include earnings guidance, internal financial projections, or company-specific forecast commentary.
 
-You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{topNewsCount}}). Ground claims in those articles. When a bullet or quick hit should link to a source in the final email, set "articleIndex" to the 1-based article number from that list. Never output URLs in JSON; the system injects them.
+You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{topNewsCount}}). Ground claims in those articles. When a bullet or quick hit should link to a source in the final email, set "articleIndex" to the 1-based article number from that list. Never output URLs in JSON; the system injects them. Never write "(Article N)" or bare article numbers inside any "text" or "prose" field; citations are expressed only via "articleIndex", and the system renders the visible link.
 
 Return JSON matching this shape (camelCase keys):
 - "subject": short email subject (under ~60 chars), sector-relevant, may mention {{tickerName}} or {{tickerSymbol}} once if natural.
