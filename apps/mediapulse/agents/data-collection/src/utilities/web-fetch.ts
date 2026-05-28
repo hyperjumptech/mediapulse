@@ -49,7 +49,7 @@ export type WebFetchLogger = {
 };
 
 export interface WebFetchDeps {
-  config: NonNullable<ConfigSchemaType["webFetch"]>;
+  config: ConfigSchemaType["providers"]["fetch"];
   gotClient?: typeof got;
   /** Logger with run correlation; defaults to workspace logger. */
   logger?: WebFetchLogger;

@@ -72,7 +72,7 @@ describe("performWebSearch", () => {
     expect(warnMock).toHaveBeenCalledWith(
       expect.objectContaining({
         baseUrl: "https://r.jina.ai/",
-        hint: expect.stringContaining("webFetch"),
+        hint: expect.stringContaining("providers.fetch"),
       }),
       expect.stringContaining("misconfiguration"),
     );

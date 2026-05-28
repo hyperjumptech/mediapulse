@@ -54,7 +54,7 @@ export type WebSearchLogger = {
 };
 
 export interface WebSearchDeps {
-  config: NonNullable<ConfigSchemaType["webSearch"]>;
+  config: ConfigSchemaType["providers"]["search"];
   gotClient?: typeof got;
   /** Logger with run correlation; defaults to workspace logger. */
   logger?: WebSearchLogger;
@@ -82,7 +82,7 @@ export type SerperResponse = z.infer<typeof serperResponseSchema>;
  * @param config - Web search provider configuration.
  */
 const resolveSearchConcurrency = (
-  config: NonNullable<ConfigSchemaType["webSearch"]>,
+  config: ConfigSchemaType["providers"]["search"],
 ): number => Math.min(config.concurrency ?? 4, config.rateLimit.requests);
 
 /**
@@ -94,7 +94,7 @@ const resolveSearchConcurrency = (
 const searchOneQuery = async (
   query: SearchQuery,
   deps: {
-    config: NonNullable<ConfigSchemaType["webSearch"]>;
+    config: ConfigSchemaType["providers"]["search"];
     gotClient: typeof got;
     log: WebSearchLogger;
     rateLimiter: RateLimiter;
@@ -205,9 +205,9 @@ export async function performWebSearch(
       log.warn(
         {
           baseUrl: config.baseUrl,
-          hint: "webSearch uses Serper-shaped POST { q }; Jina Reader belongs on webFetch.baseUrl",
+          hint: "providers.search uses Serper-shaped POST { q }; Jina Reader belongs in providers.fetch.providers",
         },
-        "data-collection webSearch misconfiguration: Jina URL in webSearch.baseUrl",
+        "data-collection search misconfiguration: Jina URL in providers.search.baseUrl",
       );
     }
   } catch {

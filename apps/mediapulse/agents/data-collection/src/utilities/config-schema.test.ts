@@ -4,26 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   dataCollectionAgentConfigSchema,
+  defaultDiffbotFetchProvider,
+  defaultFetchProviders,
+  defaultFirecrawlFetchProvider,
+  defaultJinaFetchProvider,
   getConfigSchema,
+  isUnresolvedVariablePlaceholder,
 } from "./config-schema";
-
-const jinaWebFetchProvider = {
-  type: "jina" as const,
-  baseUrl: "https://r.jina.ai",
-  authentication: {
-    type: "bearer" as const,
-    apiKey: "key",
-    headerName: "Authorization",
-  },
-  rateLimit: {
-    requests: 100,
-    perSeconds: 60,
-  },
-};
-
-const webFetchWithJinaProvider = {
-  providers: [jinaWebFetchProvider],
-};
 
 describe("getConfigSchema", () => {
   it("returns wrapped JSON schema with agentId", () => {
@@ -34,246 +21,224 @@ describe("getConfigSchema", () => {
     expect(result.agentId).toBe("data-collection");
     expect(result.schema).toHaveProperty("type", "object");
     expect(result.schema).toHaveProperty("properties");
+    const properties = (
+      result.schema as { properties?: Record<string, unknown> }
+    ).properties;
+    expect(Object.keys(properties ?? {})).toEqual([
+      "providers",
+      "collection",
+      "gates",
+      "resilience",
+      "deduplication",
+      "runPolicy",
+    ]);
+  });
+});
+
+describe("isUnresolvedVariablePlaceholder", () => {
+  it("returns true for Hermes placeholder strings", () => {
+    expect(isUnresolvedVariablePlaceholder("{{SERPER_API_KEY}}")).toBe(true);
+  });
+
+  it("returns false for resolved API keys", () => {
+    expect(isUnresolvedVariablePlaceholder("sk-live-key")).toBe(false);
   });
 });
 
 describe("dataCollectionAgentConfigSchema", () => {
-  it("accepts a minimal valid config object", () => {
-    // Setup
-    const config = {
-      webSearch: {
-        baseUrl: "https://google.serper.dev",
-        authentication: {
-          type: "bearer" as const,
-          apiKey: "key",
-          headerName: "X-API-KEY",
-        },
-        rateLimit: {
-          requests: 100,
-          perSeconds: 60,
-        },
-      },
-      webFetch: webFetchWithJinaProvider,
+  it("parses an empty object into the full recommended config", () => {
+    // Act
+    const parsed = dataCollectionAgentConfigSchema.parse({});
+
+    // Assert
+    expect(parsed.providers.search.baseUrl).toBe(
+      "https://google.serper.dev/search",
+    );
+    expect(parsed.providers.search.authentication.apiKey).toBe(
+      "{{SERPER_API_KEY}}",
+    );
+    expect(
+      parsed.providers.fetch.providers.map((provider) => provider.type),
+    ).toEqual(["diffbot", "firecrawl", "jina"]);
+    expect(parsed.providers.fetch.providers[0]).toMatchObject(
+      defaultDiffbotFetchProvider,
+    );
+    expect(parsed.providers.fetch.providers[1]).toMatchObject(
+      defaultFirecrawlFetchProvider,
+    );
+    expect(parsed.providers.fetch.providers[2]).toMatchObject(
+      defaultJinaFetchProvider,
+    );
+    expect(parsed.collection).toEqual({
       targetDailySuccessfulSources: 5,
       maxRefillRounds: 3,
-    };
-
-    // Act
-    const parsed = dataCollectionAgentConfigSchema.parse(config);
-
-    // Assert
-    expect(parsed.webSearch.baseUrl).toBe("https://google.serper.dev");
-    expect(parsed.webFetch.providers).toEqual([
-      expect.objectContaining({
-        type: "jina",
-        baseUrl: "https://r.jina.ai",
-      }),
-    ]);
-    expect(parsed.targetDailySuccessfulSources).toBe(5);
-    expect(parsed.maxRefillRounds).toBe(3);
-  });
-
-  it("applies relevance gate defaults when omitted", () => {
-    // Setup
-    const config = {
-      webSearch: {
-        baseUrl: "https://google.serper.dev",
-        authentication: {
-          type: "bearer" as const,
-          apiKey: "key",
-          headerName: "X-API-KEY",
-        },
-        rateLimit: {
-          requests: 100,
-          perSeconds: 60,
-        },
-      },
-      webFetch: webFetchWithJinaProvider,
-      relevanceGate: {
-        enabled: true,
-        headChars: 1500,
-        minMatches: 1,
-      },
-    };
-
-    // Act
-    const parsed = dataCollectionAgentConfigSchema.parse(config);
-
-    // Assert
-    expect(parsed.relevanceGate).toEqual({
+      perQueryFetchBudget: 3,
+      perRunFetchBudget: 40,
+    });
+    expect(parsed.gates.relevance).toEqual({
       enabled: true,
       headChars: 1500,
       minMatches: 1,
     });
+    expect(parsed.gates.freshness).toEqual({
+      enabled: true,
+      maxAgeDays: 14,
+      allowUnknown: true,
+    });
+    expect(parsed.resilience.deadUrlCache).toEqual({
+      enabled: true,
+      skipLookupBatchSize: 50,
+    });
+    expect(parsed.resilience.hostErrorBreaker).toEqual({
+      enabled: true,
+      minAttempts: 5,
+      errorRateThreshold: 0.5,
+    });
+    expect(parsed.deduplication.semantic).toEqual({
+      enabled: false,
+      threshold: 0.88,
+      windowDays: 7,
+      embeddingModel: "{{EMBEDDING_MODEL}}",
+    });
+    expect(parsed.deduplication.openaiApiKey).toBe("{{OPENAI_API_KEY}}");
+    expect(parsed.runPolicy).toEqual({
+      minSuccessfulSources: 1,
+      failOnZeroSuccess: true,
+    });
   });
 
-  it("rejects non-positive webSearch rate limits", () => {
-    const base = {
-      webSearch: {
-        baseUrl: "https://google.serper.dev",
-        authentication: {
-          type: "bearer" as const,
-          apiKey: "key",
-          headerName: "X-API-KEY",
-        },
-        rateLimit: { requests: 0, perSeconds: 60 },
-      },
-      webFetch: webFetchWithJinaProvider,
-    };
+  it("preserves Hermes variable placeholders verbatim", () => {
+    const parsed = dataCollectionAgentConfigSchema.parse({});
 
-    expect(() => dataCollectionAgentConfigSchema.parse(base)).toThrow();
+    expect(parsed.providers.search.authentication.apiKey).toBe(
+      "{{SERPER_API_KEY}}",
+    );
+    expect(parsed.providers.fetch.providers[0]?.authentication.apiKey).toBe(
+      "{{DIFFBOT_API_KEY}}",
+    );
+    expect(parsed.providers.fetch.providers[1]?.authentication.apiKey).toBe(
+      "{{FIRECRAWL_API_KEY}}",
+    );
+    expect(parsed.providers.fetch.providers[2]?.authentication.apiKey).toBe(
+      "{{JINA_API_KEY}}",
+    );
+    expect(parsed.deduplication.openaiApiKey).toBe("{{OPENAI_API_KEY}}");
+    expect(parsed.deduplication.semantic.embeddingModel).toBe(
+      "{{EMBEDDING_MODEL}}",
+    );
+  });
+
+  it("keeps other defaults when only one collection field is overridden", () => {
+    const parsed = dataCollectionAgentConfigSchema.parse({
+      collection: {
+        perRunFetchBudget: 12,
+      },
+    });
+
+    expect(parsed.collection.perRunFetchBudget).toBe(12);
+    expect(parsed.collection.perQueryFetchBudget).toBe(3);
+    expect(parsed.collection.targetDailySuccessfulSources).toBe(5);
+    expect(parsed.providers.fetch.providers).toHaveLength(3);
+    expect(parsed.runPolicy.failOnZeroSuccess).toBe(true);
+  });
+
+  it("accepts ordered fetch providers under providers.fetch.providers", () => {
+    const parsed = dataCollectionAgentConfigSchema.parse({
+      providers: {
+        fetch: {
+          providers: [
+            {
+              type: "jina",
+              baseUrl: "https://r.jina.ai",
+              authentication: {
+                type: "bearer",
+                apiKey: "jina-key",
+                headerName: "Authorization",
+              },
+              rateLimit: {
+                requests: 100,
+                perSeconds: 60,
+              },
+            },
+            {
+              type: "firecrawl",
+              baseUrl: "https://api.firecrawl.dev",
+              authentication: {
+                type: "bearer",
+                apiKey: "fc-key",
+                headerName: "Authorization",
+              },
+              rateLimit: {
+                requests: 50,
+                perSeconds: 60,
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      parsed.providers.fetch.providers.map((provider) => provider.type),
+    ).toEqual(["jina", "firecrawl"]);
+  });
+
+  it("rejects non-positive search rate limits", () => {
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        providers: {
+          search: {
+            rateLimit: { requests: 0, perSeconds: 60 },
+          },
+        },
+      }),
+    ).toThrow();
 
     expect(() =>
       dataCollectionAgentConfigSchema.parse({
-        ...base,
-        webSearch: {
-          ...base.webSearch,
-          rateLimit: { requests: 10, perSeconds: 0 },
+        providers: {
+          search: {
+            rateLimit: { requests: 10, perSeconds: 0 },
+          },
         },
       }),
     ).toThrow();
   });
 
-  it("accepts ordered webFetch.providers array", () => {
-    // Setup
-    const config = {
-      webSearch: {
-        baseUrl: "https://google.serper.dev",
-        authentication: {
-          type: "bearer" as const,
-          apiKey: "key",
-          headerName: "X-API-KEY",
-        },
-        rateLimit: {
-          requests: 100,
-          perSeconds: 60,
-        },
-      },
-      webFetch: {
-        providers: [
-          {
-            type: "jina",
-            baseUrl: "https://r.jina.ai",
-            authentication: {
-              type: "bearer" as const,
-              apiKey: "jina-key",
-              headerName: "Authorization",
-            },
-            rateLimit: {
-              requests: 100,
-              perSeconds: 60,
-            },
+  it("rejects empty fetch provider arrays", () => {
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        providers: {
+          fetch: {
+            providers: [],
           },
-          {
-            type: "firecrawl",
-            baseUrl: "https://api.firecrawl.dev",
-            authentication: {
-              type: "bearer" as const,
-              apiKey: "fc-key",
-              headerName: "Authorization",
-            },
-            rateLimit: {
-              requests: 50,
-              perSeconds: 60,
-            },
-          },
-        ],
-      },
-    };
+        },
+      }),
+    ).toThrow();
+  });
 
-    // Act
-    const parsed = dataCollectionAgentConfigSchema.parse(config);
+  it("rejects invalid collection refill values", () => {
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        collection: {
+          targetDailySuccessfulSources: 0,
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        collection: {
+          maxRefillRounds: -1,
+        },
+      }),
+    ).toThrow();
+  });
 
-    // Assert
-    expect(parsed.webFetch.providers.map((provider) => provider.type)).toEqual([
-      "jina",
+  it("exports the default fetch chain in recommended order", () => {
+    expect(defaultFetchProviders.map((provider) => provider.type)).toEqual([
+      "diffbot",
       "firecrawl",
+      "jina",
     ]);
-  });
-
-  it("rejects legacy single-object webFetch shape", () => {
-    const config = {
-      webSearch: {
-        baseUrl: "https://google.serper.dev",
-        authentication: {
-          type: "bearer" as const,
-          apiKey: "key",
-          headerName: "X-API-KEY",
-        },
-        rateLimit: {
-          requests: 100,
-          perSeconds: 60,
-        },
-      },
-      webFetch: {
-        baseUrl: "https://r.jina.ai",
-        authentication: {
-          type: "bearer" as const,
-          apiKey: "legacy-key",
-          headerName: "Authorization",
-        },
-        rateLimit: {
-          requests: 100,
-          perSeconds: 60,
-        },
-      },
-    };
-
-    expect(() => dataCollectionAgentConfigSchema.parse(config)).toThrow();
-  });
-
-  it("rejects empty webFetch.providers arrays", () => {
-    const config = {
-      webSearch: {
-        baseUrl: "https://google.serper.dev",
-        authentication: {
-          type: "bearer" as const,
-          apiKey: "key",
-          headerName: "X-API-KEY",
-        },
-        rateLimit: {
-          requests: 100,
-          perSeconds: 60,
-        },
-      },
-      webFetch: {
-        providers: [],
-      },
-    };
-
-    expect(() => dataCollectionAgentConfigSchema.parse(config)).toThrow();
-  });
-
-  it("rejects invalid refill configuration values", () => {
-    // Setup
-    const base = {
-      webSearch: {
-        baseUrl: "https://google.serper.dev",
-        authentication: {
-          type: "bearer" as const,
-          apiKey: "key",
-          headerName: "X-API-KEY",
-        },
-        rateLimit: {
-          requests: 100,
-          perSeconds: 60,
-        },
-      },
-      webFetch: webFetchWithJinaProvider,
-    };
-
-    // Act + Assert
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({
-        ...base,
-        targetDailySuccessfulSources: 0,
-      }),
-    ).toThrow();
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({
-        ...base,
-        maxRefillRounds: -1,
-      }),
-    ).toThrow();
   });
 });
