@@ -87,11 +87,14 @@ export const applySchemaDefaults = (
   if (!schema.properties) return value;
 
   const requiredSet = new Set(schema.required ?? []);
-  let changed = false;
-  const result = { ...value };
+  const hasUnknownKeys = Object.keys(value).some(
+    (key) => !Object.hasOwn(schema.properties!, key),
+  );
+  let changed = hasUnknownKeys;
+  const result: Record<string, unknown> = {};
 
   for (const [key, propSchema] of Object.entries(schema.properties)) {
-    const existing = result[key];
+    const existing = value[key];
     const declaredDefault = collectSchemaDefaults(propSchema);
 
     if (existing === undefined) {
@@ -117,12 +120,19 @@ export const applySchemaDefaults = (
         propSchema,
         existing as Record<string, unknown>,
       );
+      result[key] = nested;
       if (nested !== existing) {
-        result[key] = nested;
         changed = true;
       }
+      continue;
     }
+
+    result[key] = existing;
   }
 
-  return changed ? result : value;
+  if (!changed) {
+    return value;
+  }
+
+  return result;
 };

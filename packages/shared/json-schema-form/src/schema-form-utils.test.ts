@@ -206,6 +206,19 @@ describe("applySchemaDefaults", () => {
     expect(applySchemaDefaults(schema, {})).toEqual({ flag: false });
   });
 
+  it("drops top-level keys not declared in schema.properties", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+      },
+    };
+
+    expect(
+      applySchemaDefaults(schema, { name: "ok", legacyFlatKey: 10 }),
+    ).toEqual({ name: "ok" });
+  });
+
   it("is idempotent once defaults are applied", () => {
     const schema: JsonSchema = {
       type: "object",

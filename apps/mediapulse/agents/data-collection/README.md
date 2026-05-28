@@ -46,4 +46,4 @@ See `config.example.jsonc` for the full default shape with placeholders.
 
 ### Breaking change
 
-The previous flat config keys (`webSearch`, `webFetch`, top-level gate fields, and so on) are no longer accepted. Stale stored configs with unknown keys are stripped by Zod and fall back to defaults; re-enter any custom tuning in the grouped form.
+The previous flat config keys (`webSearch`, `webFetch`, top-level gate fields, and so on) are no longer accepted. At invoke time, Zod strips unknown keys and applies defaults. When you save in Hermes, unknown keys are dropped to match the grouped JSON Schema (same as the form); re-enter any custom tuning in the grouped form or create a new saved config.

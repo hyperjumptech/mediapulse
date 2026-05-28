@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
+import { stripConfigToJsonSchema } from "@/lib/strip-config-to-json-schema";
 import { validateWithJsonSchema } from "@/lib/validate-json-schema";
 
 const configBody = z
@@ -91,8 +92,12 @@ export const createUpdateAgentConfigHandler = ({
       agent.configSchema != null && typeof agent.configSchema === "object"
         ? (agent.configSchema as Record<string, unknown>)
         : null;
+    const configToStore =
+      configSchema != null
+        ? stripConfigToJsonSchema(configSchema, config)
+        : config;
     if (configSchema) {
-      const result = validateWithJsonSchema(configSchema, config);
+      const result = validateWithJsonSchema(configSchema, configToStore);
       if (!result.valid) {
         return errorResponse(
           `Config validation failed: ${result.errors.join("; ")}`,
@@ -109,7 +114,7 @@ export const createUpdateAgentConfigHandler = ({
         description: description ?? null,
         agentId,
         agentVersion,
-        config: config as object,
+        config: configToStore as object,
         configSchemaFingerprint: fingerprint || null,
       },
     });
