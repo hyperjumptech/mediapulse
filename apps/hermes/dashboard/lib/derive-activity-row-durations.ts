@@ -11,6 +11,23 @@ export type ActivityRow = {
 type ActivityRowFromServer = Omit<ActivityRow, "durationMs">;
 
 /**
+ * Whether the row should show an in-progress spinner in the activity dialog.
+ *
+ * New checkpoints complete prior `processing` rows on the server; older runs may
+ * still have stale status until the UI infers completion from row order.
+ *
+ * @param row - Activity row from the server.
+ * @param index - Zero-based index in the ordered list.
+ * @param rowCount - Total rows for the job.
+ * @returns True only for the last row while the run is still open.
+ */
+export const isActivityRowInProgress = (
+  row: Pick<ActivityRow, "status">,
+  index: number,
+  rowCount: number,
+): boolean => index === rowCount - 1 && row.status === "processing";
+
+/**
  * Derives per-step durations from consecutive `createdAt` timestamps.
  *
  * @param rows - Activity rows ordered oldest first from the data-api.

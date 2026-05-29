@@ -1,6 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import { attachActivityRowDurations } from "./derive-activity-row-durations";
+import {
+  attachActivityRowDurations,
+  isActivityRowInProgress,
+} from "./derive-activity-row-durations";
+
+describe("isActivityRowInProgress", () => {
+  it("treats superseded processing rows as completed in the UI", () => {
+    const row = {
+      status: "processing" as const,
+    };
+
+    expect(isActivityRowInProgress(row, 0, 3)).toBe(false);
+    expect(isActivityRowInProgress(row, 1, 3)).toBe(false);
+    expect(isActivityRowInProgress(row, 2, 3)).toBe(true);
+  });
+
+  it("returns false for the last row when the run is completed", () => {
+    expect(isActivityRowInProgress({ status: "completed" }, 2, 3)).toBe(false);
+  });
+});
 
 describe("attachActivityRowDurations", () => {
   it("diffs consecutive rows and uses total fallback for last completed row", () => {
