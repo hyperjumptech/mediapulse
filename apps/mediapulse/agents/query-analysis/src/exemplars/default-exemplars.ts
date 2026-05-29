@@ -30,17 +30,14 @@ const largeCapConsumerExemplar: QueryExemplar = {
     "- CL (Colgate-Palmolive) relevance=0.9",
   ].join("\n"),
   queries: [
-    { text: "P&G pricing vs Unilever consumer staples", intent: "fundamental" },
-    { text: "Gillette market share erosion latest", intent: "breaking" },
-    { text: "Pampers diaper category volume trends", intent: "fundamental" },
-    { text: "Procter Gamble organic sales guidance", intent: "fundamental" },
-    { text: "PG relation changes brand portfolio", intent: "kg_change" },
-    { text: "why is PG stock moving today", intent: "breaking" },
-    { text: "P&G China demand slowdown impact", intent: "breaking" },
-    {
-      text: "Colgate-Palmolive vs PG margin comparison",
-      intent: "fundamental",
-    },
+    { text: "Procter Gamble", intent: "breaking" },
+    { text: "Gillette market share", intent: "breaking" },
+    { text: "Pampers diaper market", intent: "industry_trend" },
+    { text: "consumer staples pricing", intent: "macro" },
+    { text: "household products China demand", intent: "macro" },
+    { text: "Unilever consumer goods", intent: "competitor" },
+    { text: "personal care regulation", intent: "regulatory" },
+    { text: "consumer staples ESG", intent: "esg" },
   ],
 };
 
@@ -60,16 +57,13 @@ const midCapIndustrialExemplar: QueryExemplar = {
     "- HON (Honeywell) relevance=0.85",
   ].join("\n"),
   queries: [
-    { text: "Rockwell Automation order backlog trend", intent: "fundamental" },
-    { text: "ROK vs Emerson automation revenue mix", intent: "fundamental" },
-    { text: "Allen-Bradley supply chain lead times", intent: "breaking" },
-    {
-      text: "Rockwell FactoryTalk software attach rate",
-      intent: "fundamental",
-    },
-    { text: "ROK entity relation changes acquisitions", intent: "kg_change" },
-    { text: "industrial automation capex cycle 2026", intent: "breaking" },
-    { text: "Honeywell vs Rockwell margin outlook", intent: "fundamental" },
+    { text: "Rockwell Automation", intent: "breaking" },
+    { text: "Allen-Bradley supply chain", intent: "supply_chain" },
+    { text: "industrial automation backlog", intent: "industry_trend" },
+    { text: "factory automation capex", intent: "macro" },
+    { text: "Emerson automation market", intent: "competitor" },
+    { text: "industrial software regulation", intent: "regulatory" },
+    { text: "automation semiconductor supply", intent: "supply_chain" },
   ],
 };
 
@@ -88,20 +82,14 @@ const regulatedFinancialExemplar: QueryExemplar = {
     "- Recent events: stress_test, dividend_increase",
   ].join("\n"),
   queries: [
-    { text: "JPMorgan net interest margin Q2 outlook", intent: "fundamental" },
-    {
-      text: "Basel III endgame impact JPM capital ratios",
-      intent: "fundamental",
-    },
-    { text: "JPM stress test results Fed response", intent: "breaking" },
-    {
-      text: "Chase consumer credit card delinquency trend",
-      intent: "fundamental",
-    },
-    { text: "JPMorgan relation changes subsidiary map", intent: "kg_change" },
-    { text: "why is JPM stock falling today", intent: "breaking" },
-    { text: "JPM dividend increase vs peers yield", intent: "fundamental" },
-    { text: "First Republic integration cost overrun", intent: "breaking" },
+    { text: "JPMorgan Chase", intent: "breaking" },
+    { text: "Basel III bank capital", intent: "regulatory" },
+    { text: "bank stress test Fed", intent: "regulatory" },
+    { text: "credit card delinquency US", intent: "macro" },
+    { text: "bank net interest margin", intent: "industry_trend" },
+    { text: "First Republic acquisition integration", intent: "kg_change" },
+    { text: "banking sector ESG", intent: "esg" },
+    { text: "consumer banking regulation", intent: "regulatory" },
   ],
 };
 
@@ -120,16 +108,13 @@ const techPlatformExemplar: QueryExemplar = {
     '- 2026-05-10 (reuters.com) — "Salesforce unveils Agentforce roadmap"',
   ].join("\n"),
   queries: [
-    {
-      text: "Salesforce Agentforce adoption enterprise pilots",
-      intent: "breaking",
-    },
-    { text: "CRM AI agents monetization model", intent: "fundamental" },
-    { text: "Slack integration Salesforce bundle attach", intent: "kg_change" },
-    { text: "Salesforce seat compression ARR impact", intent: "fundamental" },
-    { text: "CRM vs Microsoft Dynamics AI comparison", intent: "fundamental" },
-    { text: "Salesforce Data Cloud growth rate", intent: "fundamental" },
-    { text: "why is CRM moving after earnings", intent: "breaking" },
+    { text: "Salesforce", intent: "breaking" },
+    { text: "enterprise AI agents", intent: "technology_trend" },
+    { text: "CRM software seat compression", intent: "industry_trend" },
+    { text: "Slack enterprise adoption", intent: "kg_change" },
+    { text: "Microsoft Dynamics AI", intent: "competitor" },
+    { text: "SaaS data cloud market", intent: "industry_trend" },
+    { text: "enterprise software regulation", intent: "regulatory" },
   ],
 };
 

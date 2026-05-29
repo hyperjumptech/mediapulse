@@ -49,7 +49,7 @@ describe("getDeterministicPack", () => {
 });
 
 describe("default-v1 pack", () => {
-  it("reproduces the original five baseline queries", () => {
+  it("produces five bare keyword baseline queries", () => {
     // Act
     const queries = buildDeterministicQueries(fullContext, {
       pack: "default-v1",
@@ -59,29 +59,29 @@ describe("default-v1 pack", () => {
     // Assert
     expect(queries).toEqual([
       {
-        text: "ACME latest news",
+        text: "ACME",
         intent: "breaking",
-        templateId: "{symbol} latest news",
+        templateId: "{symbol}",
       },
       {
-        text: "Acme Co breaking news",
+        text: "Acme Co",
         intent: "breaking",
-        templateId: "{name} breaking news",
+        templateId: "{name}",
       },
       {
-        text: "Acme Co relation changes",
-        intent: "kg_change",
-        templateId: "{name} relation changes",
-      },
-      {
-        text: "Technology industry trends",
+        text: "Software",
         intent: "industry_trend",
-        templateId: "{sector} industry trends",
+        templateId: "{industry}",
       },
       {
-        text: "Software regulatory policy",
+        text: "Technology",
+        intent: "industry_trend",
+        templateId: "{sector}",
+      },
+      {
+        text: "Software regulation",
         intent: "regulatory",
-        templateId: "{industry} regulatory policy",
+        templateId: "{industry} regulation",
       },
     ]);
   });
@@ -286,12 +286,12 @@ describe("filterPackTemplatesByYield", () => {
       {
         perTemplate: [
           {
-            templateId: "{symbol} latest news",
+            templateId: "{symbol}",
             avgArticles: 0,
             avgNovel: 0.01,
           },
           {
-            templateId: "{name} breaking news",
+            templateId: "{name}",
             avgArticles: 2,
             avgNovel: 0.2,
           },
@@ -303,10 +303,10 @@ describe("filterPackTemplatesByYield", () => {
     );
 
     expect(filtered.templates.map((row) => row.template)).toEqual([
-      "{name} breaking news",
-      "{name} relation changes",
-      "{sector} industry trends",
-      "{industry} regulatory policy",
+      "{name}",
+      "{industry}",
+      "{sector}",
+      "{industry} regulation",
     ]);
   });
 

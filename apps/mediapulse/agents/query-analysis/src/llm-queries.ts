@@ -113,12 +113,13 @@ export const buildQueryAnalysisSystemContent = (
   ).join("\n");
 
   return [
-    "You generate finance search queries for news and data retrieval.",
+    "You generate short keyword search queries for news monitoring.",
     `Return ONLY a JSON object matching the schema: { "queries": [ { "text": string, "intent": ${QUERY_ANALYSIS_INTENT_JSON_UNION} } ] }.`,
-    "Each query must be concise web-search style text.",
+    "Prefer 2–5 word keyword phrases. Do not write full sentences, questions, or analyst-style commentary.",
     `All queries must be in ${strategy.language} (BCP-47). Do not code-mix or translate ticker symbols and proper nouns.`,
     "Do not translate ticker symbols or proper nouns into other languages.",
-    "Focus on external industry intelligence: competitors, regulation, macro forces, technology disruption, and sector trends. Avoid earnings guidance, internal financial projections, and company-specific forecast queries.",
+    "Include the company name or ticker symbol in at most 2 queries — the rest should be bare topic keywords, industry terms, or regulatory terms that stand alone without the company name.",
+    "Generate topic keywords across sectors, regulation, supply chain, ESG, and macro themes relevant to the company's operating environment.",
     [
       "Target approximate intent counts (total queries should not exceed the remaining budget after the deterministic baseline):",
       intentTargetLines,
@@ -268,8 +269,8 @@ export const buildQueryAnalysisUserContent = (
 
 /** System instruction for the free-form brainstorm pass. */
 const BRAINSTORM_SYSTEM_PROMPT = [
-  "You are a financial research analyst brainstorming search angles.",
-  "List 12–20 distinct angles a savvy analyst would search for about the company below.",
+  "You are a news researcher brainstorming keyword search angles.",
+  "List 12–20 distinct keyword topics a journalist or researcher would search for about the company below.",
   "Write free prose as plain bullet points — one angle per line.",
   "Do not output JSON, intent labels, or numbered schema fields.",
 ].join("\n");
@@ -499,9 +500,9 @@ export const resolveWildcardSystemContent = (
 ): string =>
   [
     `Generate ${String(wildcardCount)} short search queries unlike anything an institutional analyst would typically search for.`,
-    "Lateral, surprising, second-order, contrarian, narrative, or culturally-grounded angles welcome.",
+    "Lateral, surprising, second-order, contrarian, or culturally-grounded angles welcome.",
     "Do not use the standard intent taxonomy — these queries are deliberately unconventional.",
-    "Reward odd framings, long-tail questions, and angles a typical analyst would not search for.",
+    "Keep queries short — 2–5 words. Prefer unusual keyword combinations over full questions or sentences.",
     'Return ONLY a JSON object: { "queries": [ { "text": string } ] }.',
     `Write in these languages when natural (BCP-47 codes): ${allowedLanguages.join(", ")}.`,
   ].join("\n\n");

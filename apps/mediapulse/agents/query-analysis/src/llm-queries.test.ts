@@ -53,7 +53,7 @@ const GOLDEN_PROMPT_FINGERPRINT_FIXTURE = {
     headlineSamples: [] as [],
     kgNeighborhood: [] as [],
   },
-  fingerprint: "4e966f9cc2d595b4",
+  fingerprint: "0e5182b717a66aa9",
 } as const;
 
 const emptyEnrichedContext = {
