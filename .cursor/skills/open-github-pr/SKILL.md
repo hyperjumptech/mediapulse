@@ -154,11 +154,13 @@ Authoring agent: this session (the agent that opened the PR).
 Linked GitHub issue(s): #<issue numbers from Related issues>.
 Notify: handoff-only
 Timeout: 45 minutes
-When checks fail, return the full handoff block from pr-check-monitor.md.
+Monitor until ALL checks are green (do not stop after the first failed run).
+When checks fail, keep watching for new commits and re-runs until green or timeout.
+Return the full handoff block from pr-check-monitor.md only on pass or timeout.
 Do not fix CI unless I ask — only report.
 ```
 
-**Foreground instead of background** when the user asks to wait for green checks before continuing, or when the next step depends on CI (for example “open PR and fix anything CI finds”). Omit `run_in_background` and apply the monitor’s handoff before you declare the workflow done.
+**Foreground instead of background** when the user asks to wait for green checks before continuing, or when the next step depends on CI (for example “open PR and fix anything CI finds”). Omit `run_in_background` and apply the monitor’s handoff before you declare the workflow done. The monitor should run until **all checks pass** unless the user sets a shorter timeout.
 
 ### When the monitor reports failure
 
