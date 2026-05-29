@@ -9,11 +9,8 @@ import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates
 import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
 import { parsePagination } from "../../lib/list-pagination";
 import { entitiesTableV1CustomActionRegistrations } from "./custom-actions";
-import {
-  listInclude,
-  mapRowToDetailItem,
-  mapRowToListItem,
-} from "./list-mapper";
+import { detailInclude, mapRowToDetailItem } from "./detail-mapper";
+import { listInclude, mapRowToListItem } from "./list-mapper";
 import { entitiesHermesPathSegment } from "./dashboard-page";
 
 /**
@@ -110,7 +107,7 @@ entitiesRoutes.get("/meta", (c) => {
 entitiesRoutes.get("/:id", async (c) => {
   const row = await prisma.entity.findUnique({
     where: { id: c.req.param("id") },
-    include: listInclude,
+    include: detailInclude,
   } satisfies Prisma.EntityFindUniqueArgs);
 
   if (!row) {
