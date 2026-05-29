@@ -573,6 +573,8 @@ describe("agent-data-api", () => {
         relationsCreated: 0,
         articlesScored: 1,
         articlesSelected: 0,
+        entityEvidenceUpserted: 0,
+        relationEvidenceUpserted: 0,
       });
 
       const { app } = await import("./index.js");

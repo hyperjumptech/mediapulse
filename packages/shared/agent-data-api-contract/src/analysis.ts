@@ -107,6 +107,29 @@ export const postAnalysisBodySchema = z.object({
       }),
     )
     .default([]),
+  /** Provenance: entity observed in a data source for this ticker. */
+  entityEvidence: z
+    .array(
+      z.object({
+        dataSourceId: z.string().uuid(),
+        entityName: z.string().trim().min(1),
+        confidence: z.number().min(0).max(1).nullish(),
+      }),
+    )
+    .default([]),
+  /** Provenance: relation observed in a data source for this ticker. */
+  relationEvidence: z
+    .array(
+      z.object({
+        dataSourceId: z.string().uuid(),
+        fromEntityName: z.string().trim().min(1),
+        toEntityName: z.string().trim().min(1),
+        relationTypeId: z.string().uuid(),
+        confidence: z.number().min(0).max(1).nullish(),
+        evidenceSpan: z.string().max(280).nullish(),
+      }),
+    )
+    .default([]),
 });
 
 export const analysisDataSourceSchema = z.object({
@@ -166,6 +189,8 @@ export const postAnalysisResponseSchema = z.object({
   relationsCreated: z.number().int().nonnegative(),
   articlesScored: z.number().int().nonnegative(),
   articlesSelected: z.number().int().nonnegative(),
+  entityEvidenceUpserted: z.number().int().nonnegative(),
+  relationEvidenceUpserted: z.number().int().nonnegative(),
 });
 
 export type GetAnalysisQuery = z.infer<typeof getAnalysisQuerySchema>;

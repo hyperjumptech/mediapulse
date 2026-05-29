@@ -33,6 +33,8 @@ type AnalysisDb = {
   entityAlias: Pick<typeof prisma.entityAlias, "createMany">;
   tickerEntity: Pick<typeof prisma.tickerEntity, "create" | "findFirst">;
   entityRelation: Pick<typeof prisma.entityRelation, "create" | "findUnique">;
+  entityEvidence: Pick<typeof prisma.entityEvidence, "upsert">;
+  entityRelationEvidence: Pick<typeof prisma.entityRelationEvidence, "upsert">;
   articleEntity: Pick<typeof prisma.articleEntity, "upsert">;
   articleRelevance: Pick<
     typeof prisma.articleRelevance,
@@ -223,12 +225,20 @@ export const applyAnalysisPost = async (
   deps: { db?: AnalysisWriteDb } = {},
 ): Promise<PostAnalysisResponse> => {
   const db = deps.db ?? defaultDb;
+  const entityEvidence = body.entityEvidence ?? [];
+  const relationEvidence = body.relationEvidence ?? [];
 
   const dataSourceIds = new Set<string>();
   for (const row of body.articleEntities) {
     dataSourceIds.add(row.dataSourceId);
   }
   for (const row of body.articleRelevances) {
+    dataSourceIds.add(row.dataSourceId);
+  }
+  for (const row of entityEvidence) {
+    dataSourceIds.add(row.dataSourceId);
+  }
+  for (const row of relationEvidence) {
     dataSourceIds.add(row.dataSourceId);
   }
 
@@ -327,6 +337,7 @@ export const applyAnalysisPost = async (
   }
 
   let relationsCreated = 0;
+  const relationNameKeyToId = new Map<string, string>();
   for (const rel of body.relations) {
     const fromId = nameToEntityId.get(
       normalizeAnalysisName(rel.fromEntityName),
@@ -348,16 +359,125 @@ export const applyAnalysisPost = async (
       },
       select: { id: true },
     });
+    const relationId =
+      existingRel?.id ??
+      (
+        await db.entityRelation.create({
+          data: {
+            fromEntityId: fromId,
+            toEntityId: toId,
+            relationTypeId: rel.relationTypeId,
+          },
+          select: { id: true },
+        })
+      ).id;
     if (!existingRel) {
-      await db.entityRelation.create({
-        data: {
-          fromEntityId: fromId,
-          toEntityId: toId,
-          relationTypeId: rel.relationTypeId,
-        },
-      });
       relationsCreated += 1;
     }
+    relationNameKeyToId.set(buildRelationNameKey(rel), relationId);
+  }
+
+  let entityEvidenceUpserted = 0;
+  for (const evidence of entityEvidence) {
+    let entityId: string | undefined = nameToEntityId.get(
+      normalizeAnalysisName(evidence.entityName),
+    );
+    if (entityId === undefined) {
+      entityId =
+        (await resolveEntityIdByNameForTicker(
+          db,
+          body.tickerId,
+          evidence.entityName,
+        )) ?? undefined;
+    }
+    if (entityId === undefined) {
+      logger.warn(
+        {
+          tickerId: body.tickerId,
+          entityName: evidence.entityName,
+          dataSourceId: evidence.dataSourceId,
+        },
+        "entity evidence skipped: entityName not in ticker vocabulary",
+      );
+      continue;
+    }
+
+    await db.entityEvidence.upsert({
+      where: {
+        entityId_dataSourceId_tickerId: {
+          entityId,
+          dataSourceId: evidence.dataSourceId,
+          tickerId: body.tickerId,
+        },
+      },
+      create: {
+        entityId,
+        dataSourceId: evidence.dataSourceId,
+        tickerId: body.tickerId,
+        confidence: evidence.confidence ?? null,
+        lastSeenAt: new Date(),
+      },
+      update: {
+        ...(evidence.confidence !== undefined && evidence.confidence !== null
+          ? { confidence: evidence.confidence }
+          : {}),
+        lastSeenAt: new Date(),
+      },
+    });
+    entityEvidenceUpserted += 1;
+  }
+
+  let relationEvidenceUpserted = 0;
+  for (const evidence of relationEvidence) {
+    let entityRelationId = relationNameKeyToId.get(
+      buildRelationNameKey(evidence),
+    );
+    if (entityRelationId === undefined) {
+      entityRelationId =
+        (await resolveEntityRelationIdByNames(db, body.tickerId, evidence)) ??
+        undefined;
+    }
+    if (entityRelationId === undefined) {
+      logger.warn(
+        {
+          tickerId: body.tickerId,
+          fromEntityName: evidence.fromEntityName,
+          toEntityName: evidence.toEntityName,
+          relationTypeId: evidence.relationTypeId,
+          dataSourceId: evidence.dataSourceId,
+        },
+        "relation evidence skipped: relation not found for ticker vocabulary",
+      );
+      continue;
+    }
+
+    await db.entityRelationEvidence.upsert({
+      where: {
+        entityRelationId_dataSourceId_tickerId: {
+          entityRelationId,
+          dataSourceId: evidence.dataSourceId,
+          tickerId: body.tickerId,
+        },
+      },
+      create: {
+        entityRelationId,
+        dataSourceId: evidence.dataSourceId,
+        tickerId: body.tickerId,
+        confidence: evidence.confidence ?? null,
+        evidenceSpan: evidence.evidenceSpan?.trim() ?? null,
+        lastSeenAt: new Date(),
+      },
+      update: {
+        ...(evidence.confidence !== undefined && evidence.confidence !== null
+          ? { confidence: evidence.confidence }
+          : {}),
+        ...(evidence.evidenceSpan !== undefined
+          ? { evidenceSpan: evidence.evidenceSpan?.trim() ?? null }
+          : {}),
+        lastSeenAt: new Date(),
+      },
+    });
+    relationEvidenceUpserted += 1;
   }
 
   for (const mention of body.articleEntities) {
@@ -444,6 +564,8 @@ export const applyAnalysisPost = async (
     relationsCreated,
     articlesScored,
     articlesSelected,
+    entityEvidenceUpserted,
+    relationEvidenceUpserted,
   };
 };
 
@@ -547,4 +669,90 @@ async function resolveEntityIdByNameForTicker(
     select: { id: true },
   });
   return entity?.id ?? null;
+}
+
+type RelationNameEvidence = Pick<
+  PostAnalysisBody["relationEvidence"][number],
+  "fromEntityName" | "toEntityName" | "relationTypeId"
+>;
+
+/**
+ * Builds a normalized lookup key for relation endpoints and type id.
+ *
+ * @param relation - Relation or evidence row with endpoint names and type id.
+ * @returns Stable map key for relation id resolution.
+ */
+const buildRelationNameKey = (relation: RelationNameEvidence): string =>
+  `${normalizeAnalysisName(relation.fromEntityName)}\0${normalizeAnalysisName(relation.toEntityName)}\0${relation.relationTypeId}`;
+
+/**
+ * Resolves a canonical relation id by endpoint names for a ticker when not in the run-local map.
+ *
+ * @param db - Injectable database delegates for relation lookup.
+ * @param tickerId - Ticker scope.
+ * @param evidence - Relation evidence row with endpoint names.
+ * @returns Entity relation id or null.
+ */
+async function resolveEntityRelationIdByNames(
+  db: Pick<AnalysisWriteDb, "entity" | "entityRelation">,
+  tickerId: string,
+  evidence: RelationNameEvidence,
+): Promise<string | null> {
+  const fromEntity = await db.entity.findFirst({
+    where: {
+      tickerEntities: { some: { tickerId } },
+      OR: [
+        {
+          canonicalName: {
+            equals: evidence.fromEntityName.trim(),
+            mode: "insensitive",
+          },
+        },
+        {
+          aliases: {
+            some: {
+              normalizedAlias: normalizeAnalysisName(evidence.fromEntityName),
+            },
+          },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  const toEntity = await db.entity.findFirst({
+    where: {
+      tickerEntities: { some: { tickerId } },
+      OR: [
+        {
+          canonicalName: {
+            equals: evidence.toEntityName.trim(),
+            mode: "insensitive",
+          },
+        },
+        {
+          aliases: {
+            some: {
+              normalizedAlias: normalizeAnalysisName(evidence.toEntityName),
+            },
+          },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!fromEntity || !toEntity) {
+    return null;
+  }
+
+  const relation = await db.entityRelation.findUnique({
+    where: {
+      fromEntityId_toEntityId_relationTypeId: {
+        fromEntityId: fromEntity.id,
+        toEntityId: toEntity.id,
+        relationTypeId: evidence.relationTypeId,
+      },
+    },
+    select: { id: true },
+  });
+  return relation?.id ?? null;
 }

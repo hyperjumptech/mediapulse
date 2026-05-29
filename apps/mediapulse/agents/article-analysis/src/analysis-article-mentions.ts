@@ -251,6 +251,8 @@ export const buildArticleEntityPostChunks = (
       relations: [],
       articleEntities: [...window],
       articleRelevances: [],
+      entityEvidence: [],
+      relationEvidence: [],
     };
     const parsed = postAnalysisBodySchema.safeParse(body);
     if (!parsed.success) {

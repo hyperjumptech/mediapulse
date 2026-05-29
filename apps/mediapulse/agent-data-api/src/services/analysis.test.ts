@@ -107,6 +107,8 @@ describe("loadAnalysisContext", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: {
         upsert: vi.fn(),
@@ -157,6 +159,8 @@ describe("loadAnalysisContext", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: {
         upsert: vi.fn(),
@@ -199,6 +203,8 @@ describe("loadAnalysisContext", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: {
         upsert: vi.fn(),
@@ -239,6 +245,8 @@ describe("loadAnalysisContext", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: {
         upsert: vi.fn(),
@@ -282,6 +290,8 @@ describe("loadAnalysisContext", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: {
         upsert: vi.fn(),
@@ -323,6 +333,8 @@ describe("loadAnalysisContext", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: {
         upsert: vi.fn(),
@@ -364,6 +376,8 @@ describe("loadAnalysisContext", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: {
         upsert: vi.fn(),
@@ -419,6 +433,8 @@ describe("loadAnalysisContext", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: {
         upsert: vi.fn(),
@@ -465,6 +481,8 @@ describe("applyAnalysisPost", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: { upsert: vi.fn() },
     };
@@ -484,6 +502,8 @@ describe("applyAnalysisPost", () => {
             },
           ],
           articleRelevances: [],
+          entityEvidence: [],
+          relationEvidence: [],
         },
         { db: db as never },
       ),
@@ -504,6 +524,8 @@ describe("applyAnalysisPost", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: { upsert: vi.fn(), count: vi.fn() },
     };
@@ -528,6 +550,8 @@ describe("applyAnalysisPost", () => {
           selected: false,
         },
       ],
+      entityEvidence: [],
+      relationEvidence: [],
     };
 
     await applyAnalysisPost(body, { db: db as never });
@@ -585,6 +609,8 @@ describe("applyAnalysisPost", () => {
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
       articleEntity: { upsert: vi.fn() },
       articleRelevance: { upsert: vi.fn(), count: vi.fn() },
     };
@@ -604,6 +630,8 @@ describe("applyAnalysisPost", () => {
           },
         ],
         articleRelevances: [],
+        entityEvidence: [],
+        relationEvidence: [],
       },
       { db: db as never },
     );
@@ -618,6 +646,110 @@ describe("applyAnalysisPost", () => {
         dataSourceId: DS,
       }),
       expect.stringContaining("entityName not in ticker vocabulary"),
+    );
+  });
+
+  it("upserts entity and relation evidence for known vocabulary", async () => {
+    // Setup
+    const DS = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const ENT_ID = "11111111-1111-4111-a111-111111111111";
+    const REL_ID = "33333333-3333-4333-a333-333333333333";
+    const TYPE_ID = "44444444-4444-4444-a444-444444444444";
+    const db = {
+      dataSource: {
+        findMany: vi.fn(),
+        findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
+        findFirst: vi.fn(),
+      },
+      entityType: { findMany: vi.fn() },
+      relationType: { findMany: vi.fn() },
+      entity: {
+        findMany: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: ENT_ID }),
+      },
+      entityAlias: { createMany: vi.fn() },
+      tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
+      entityRelation: {
+        create: vi.fn().mockResolvedValue({ id: REL_ID }),
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+      entityEvidence: { upsert: vi.fn() },
+      entityRelationEvidence: { upsert: vi.fn() },
+      articleEntity: { upsert: vi.fn() },
+      articleRelevance: { upsert: vi.fn(), count: vi.fn() },
+    };
+
+    // Act
+    const result = await applyAnalysisPost(
+      {
+        tickerId: "ticker-1",
+        entities: [
+          {
+            canonicalName: "Acme Corp",
+            typeId: TYPE_ID,
+            aliases: [],
+          },
+        ],
+        relations: [
+          {
+            fromEntityName: "Acme Corp",
+            toEntityName: "Acme Corp",
+            relationTypeId: "22222222-2222-4222-a222-222222222222",
+          },
+        ],
+        articleEntities: [],
+        articleRelevances: [],
+        entityEvidence: [
+          {
+            dataSourceId: DS,
+            entityName: "Acme Corp",
+            confidence: 0.85,
+          },
+        ],
+        relationEvidence: [
+          {
+            dataSourceId: DS,
+            fromEntityName: "Acme Corp",
+            toEntityName: "Acme Corp",
+            relationTypeId: "22222222-2222-4222-a222-222222222222",
+            evidenceSpan: "Acme announced",
+          },
+        ],
+      },
+      { db: db as never },
+    );
+
+    // Assert
+    expect(result.entityEvidenceUpserted).toBe(1);
+    expect(result.relationEvidenceUpserted).toBe(1);
+    expect(db.entityEvidence.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          entityId_dataSourceId_tickerId: {
+            entityId: ENT_ID,
+            dataSourceId: DS,
+            tickerId: "ticker-1",
+          },
+        },
+        create: expect.objectContaining({
+          confidence: 0.85,
+        }),
+      }),
+    );
+    expect(db.entityRelationEvidence.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          entityRelationId_dataSourceId_tickerId: {
+            entityRelationId: REL_ID,
+            dataSourceId: DS,
+            tickerId: "ticker-1",
+          },
+        },
+        create: expect.objectContaining({
+          evidenceSpan: "Acme announced",
+        }),
+      }),
     );
   });
 });

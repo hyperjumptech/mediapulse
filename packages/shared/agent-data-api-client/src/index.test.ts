@@ -314,6 +314,8 @@ describe("createAgentDataApiClient", () => {
         relationsCreated: 0,
         articlesScored: 0,
         articlesSelected: 0,
+        entityEvidenceUpserted: 0,
+        relationEvidenceUpserted: 0,
       }),
       statusCode: 200,
     });
@@ -329,6 +331,8 @@ describe("createAgentDataApiClient", () => {
       relations: [],
       articleEntities: [],
       articleRelevances: [],
+      entityEvidence: [],
+      relationEvidence: [],
     });
 
     expect(postFn).toHaveBeenCalledWith(
@@ -340,6 +344,8 @@ describe("createAgentDataApiClient", () => {
           relations: [],
           articleEntities: [],
           articleRelevances: [],
+          entityEvidence: [],
+          relationEvidence: [],
         },
       }),
     );

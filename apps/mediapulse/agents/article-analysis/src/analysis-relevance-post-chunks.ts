@@ -41,6 +41,8 @@ export const buildArticleRelevancePostChunks = (
       relations: [],
       articleEntities: [],
       articleRelevances: [...window],
+      entityEvidence: [],
+      relationEvidence: [],
     };
     const parsed = postAnalysisBodySchema.safeParse(body);
     if (!parsed.success) {
