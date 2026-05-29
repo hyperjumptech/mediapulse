@@ -534,3 +534,16 @@ model ContentGenerationRun {
   @@index([outcome, createdAt])
   @@map("content_generation_run")
 }
+
+/// Agent-reported activity heartbeat for a Hermes job (processing/completed steps).
+model AgentActivity {
+  id          String   @id @default(uuid())
+  jobId       String   @map("job_id")
+  title       String
+  description String?
+  status      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([jobId])
+  @@map("agent_activity")
+}

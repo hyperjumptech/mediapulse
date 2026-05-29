@@ -117,6 +117,21 @@ const app = createAgentApp<
         token,
       });
 
+      const report = (
+        title: string,
+        description?: string,
+        status: "processing" | "completed" = "processing",
+      ) => {
+        const jobId = hermesCorrelation?.jobId;
+        if (jobId) {
+          void dataApiClient.agentActivity
+            .create({ jobId, title, description, status })
+            .catch(() => {});
+        }
+      };
+
+      report("Fetching newsletter and subscribers", `ticker ${input.tickerId}`);
+
       let stage: DeliveryRunStage = "fetch";
       let newsletterId: string | null = null;
       let recipientRows: RecipientSendResult[] = [];
@@ -151,6 +166,11 @@ const app = createAgentApp<
           "delivery data-api fetch summary",
         );
 
+        report(
+          "Ready to deliver",
+          `${pendingRecipients} of ${subscriberCount} pending`,
+        );
+
         if (!deliveryData.newsletter) {
           runOutcome = "skipped";
           logger.info(
@@ -179,6 +199,7 @@ const app = createAgentApp<
             runSkipReason: "skipped_no_newsletter",
             recipients: [],
           });
+          report("Delivery skipped", "no newsletter available", "completed");
           return {
             success: true,
             message: "Skipped: no newsletter to deliver",
@@ -217,6 +238,7 @@ const app = createAgentApp<
             runSkipReason: "skipped_no_subscribers",
             recipients: [],
           });
+          report("Delivery skipped", "no subscribers with email", "completed");
           return {
             success: true,
             message: "Skipped: no subscribers with email",
@@ -228,6 +250,7 @@ const app = createAgentApp<
         const resend = new Resend(config.resendApiKey);
 
         stage = "send";
+        report("Sending emails", `${pendingRecipients} recipients via Resend`);
         const sendResult = await deliverNewsletterToSubscribers(
           deliveryData.newsletter,
           deliveryData.subscribers,
@@ -302,6 +325,12 @@ const app = createAgentApp<
             skippedCount,
           },
           "delivery run outcome",
+        );
+
+        report(
+          "Delivery complete",
+          `${successCount} sent, ${failureCount} failed, ${skippedCount} skipped`,
+          "completed",
         );
 
         if (runOutcome === "failed") {

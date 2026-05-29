@@ -452,6 +452,21 @@ export const run = async ({
     token,
   });
 
+  const report = (
+    title: string,
+    description?: string,
+    status: "processing" | "completed" = "processing",
+  ) => {
+    const jobId = hermesCorrelation?.jobId;
+    if (jobId) {
+      void dataApiClient.agentActivity
+        .create({ jobId, title, description, status })
+        .catch(() => {});
+    }
+  };
+
+  report("Fetching articles to analyse", `ticker ${input.tickerId}`);
+
   let articlesProcessedForSummary = 0;
   const chunkParseCounts = emptyChunkParseCounts();
   let relevanceRowValidationFailures = 0;
@@ -584,6 +599,11 @@ export const run = async ({
         runStatusLabel: "success",
         semanticFailureReason: "debounce_min_unanalyzed_count",
       });
+      report(
+        "Run debounced",
+        `${unanalyzedBacklogTotal} articles below min ${cfg.debounceMinUnanalyzedCount}`,
+        "completed",
+      );
       return {
         success: true,
         message: `debounce: ${unanalyzedBacklogTotal} unanalyzed source(s) below min ${cfg.debounceMinUnanalyzedCount}; skipping run`,
@@ -635,6 +655,11 @@ export const run = async ({
         runStatusLabel: "success",
         semanticFailureReason: "debounce_min_minutes_since_last_score",
       });
+      report(
+        "Run debounced",
+        `last scored within ${cfg.debounceMinMinutesSinceLastScore}min`,
+        "completed",
+      );
       return {
         success: true,
         message: `debounce: last relevance scored at ${ctx.lastRelevanceScoredAtIso} is within ${cfg.debounceMinMinutesSinceLastScore} minute(s); skipping run`,
@@ -663,6 +688,8 @@ export const run = async ({
     const batch = applyMaxBatchSizeCap(sorted, effectiveMaxBatchSize);
     articlesProcessedForSummary = batch.length;
 
+    report("Loaded article batch", `${batch.length} sources`);
+
     if (batch.length === 0) {
       const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "success",
@@ -683,6 +710,11 @@ export const run = async ({
         extractionCalls: 0,
         runStatusLabel: "success",
       });
+      report(
+        "No articles to process",
+        "analysis context returned 0 sources",
+        "completed",
+      );
       return {
         success: true,
         message: "analysis context loaded (0 source(s)); nothing to process",
@@ -728,6 +760,11 @@ export const run = async ({
         extractionCalls: 0,
         semanticFailureReason: "empty_kg_vocabulary",
       });
+      report(
+        "KG vocabulary not configured",
+        `${ctx.entityTypes.length} entity types, ${ctx.relationTypes.length} relation types`,
+        "completed",
+      );
       return {
         success: false,
         message:
@@ -871,6 +908,11 @@ export const run = async ({
         ? runStart + cfg.runDeadlineMs
         : undefined;
 
+    report(
+      "Extracting entities and relations",
+      `${batch.length} articles via LLM`,
+    );
+
     const walkResult = await runExtractionsInParallel(batch, processOneSource, {
       concurrency: cfg.extractionConcurrency,
       deadlineAtMs: extractionDeadlineAtMs,
@@ -943,6 +985,14 @@ export const run = async ({
         extractionCalls,
         semanticFailureReason: "extraction_run_policy",
       });
+      report(
+        "Article analysis complete",
+        deriveArticleAnalysisRunStatusLabel(
+          extractionFailures.length,
+          postFailures.length,
+        ),
+        "completed",
+      );
       return {
         success: false,
         message: `Article analysis run failed: only ${extractionSuccessCount} source(s) extracted successfully, but run policy requires at least ${cfg.runPolicy.minSuccessfulSources}.`,
@@ -1075,6 +1125,11 @@ export const run = async ({
       cfg.maxArticleEntitiesPerRun,
     );
 
+    report(
+      "Persisting knowledge graph",
+      `${entities.length} entities, ${relations.length} relations`,
+    );
+
     const { chunks, parseErrors, droppedRelations } = buildAnalysisPostChunks(
       input.tickerId,
       entities,
@@ -1188,6 +1243,11 @@ export const run = async ({
       }
     }
 
+    report(
+      "Posting article entity mentions",
+      `${articleEntitiesForPost.length} mention rows`,
+    );
+
     let articleEntityRowsPosted = 0;
     let mentionPostChunksCompleted = 0;
     let articleEntityParseErrors: string[] = [];
@@ -1255,6 +1315,10 @@ export const run = async ({
     let relevancePostChunksCompleted = 0;
 
     if (!erPhaseFailed && perSourceSignals.length > 0) {
+      report(
+        "Scoring and posting article relevance",
+        `${perSourceSignals.length} sources`,
+      );
       const weightMap = toRelevanceWeightMapV1(cfg);
       const relevanceDrafts = perSourceSignals.map((sig) =>
         buildDraftRelevanceRow(sig, cfg.scoreBreakdownVersion, weightMap),
@@ -1469,6 +1533,13 @@ export const run = async ({
         ? { llmPromptFingerprint: lastLlmPromptFingerprint }
         : {}),
     });
+
+    const failedCount = extractionFailures.length;
+    report(
+      "Article analysis complete",
+      `${extractionSuccessCount} extracted, ${failedCount} failed`,
+      "completed",
+    );
 
     return {
       success: true,

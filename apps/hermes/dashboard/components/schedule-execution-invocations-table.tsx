@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 import { format } from "date-fns";
 
 import {
@@ -9,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog";
+import { Separator } from "@workspace/ui/components/separator";
 import {
   Table,
   TableBody,
@@ -26,6 +33,8 @@ import {
 import { formatQueueAttemptsDisplay } from "@/lib/format-queue-attempts-display";
 import { resolveInvocationOutcomeLabel } from "@/lib/invocation-display-status";
 
+import { formatActivityDuration } from "@/lib/format-activity-duration";
+
 import {
   useScheduleExecutionInvocationsSort,
   type ScheduleExecutionInvocationSortField,
@@ -35,6 +44,8 @@ import {
   useScheduleExecutionInvocationsModal,
   type ScheduleExecutionInvocationRow,
 } from "./use-schedule-execution-invocations-modal";
+import { useAgentActivityModal } from "./use-agent-activity-modal";
+import { LiveElapsed } from "./live-elapsed";
 
 /**
  * Pretty-prints JSON for read-only display in the modal.
@@ -120,6 +131,14 @@ export const ScheduleExecutionInvocationsTable = ({
     useScheduleExecutionInvocationsSort(invocations);
   const { open, selected, openModal, onOpenChange } =
     useScheduleExecutionInvocationsModal();
+  const {
+    open: activityOpen,
+    jobId: activityJobId,
+    rows: activityRows,
+    loading: activityLoading,
+    openModal: openActivityModal,
+    onOpenChange: onActivityOpenChange,
+  } = useAgentActivityModal();
 
   return (
     <>
@@ -151,12 +170,13 @@ export const ScheduleExecutionInvocationsTable = ({
               </TableHead>
               <TableHead>Duration</TableHead>
               <TableHead>Reason</TableHead>
+              <TableHead>Activity</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {invocations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-muted-foreground">
+                <TableCell colSpan={9} className="text-muted-foreground">
                   No invocations.
                 </TableCell>
               </TableRow>
@@ -223,6 +243,18 @@ export const ScheduleExecutionInvocationsTable = ({
                     <TableCell className="max-w-md whitespace-normal wrap-break-word text-sm text-muted-foreground">
                       {j.errorSummary ?? "—"}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          void openActivityModal(j.jobId);
+                        }}
+                      >
+                        Show activity
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -271,6 +303,68 @@ export const ScheduleExecutionInvocationsTable = ({
               </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={activityOpen} onOpenChange={onActivityOpenChange}>
+        <DialogContent className="flex max-h-[85vh] max-w-lg flex-col gap-4 overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {activityJobId
+                ? `Activity for ${activityJobId.slice(0, 8)}…`
+                : "Activity"}
+            </DialogTitle>
+          </DialogHeader>
+          {activityLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : activityRows == null || activityRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No activity recorded.
+            </p>
+          ) : (
+            <div className="flex flex-col">
+              {activityRows.map((row, index) => {
+                const isLastRow = index === activityRows.length - 1;
+                const showLiveElapsed =
+                  isLastRow && row.status === "processing";
+                const durationLabel =
+                  !showLiveElapsed && row.durationMs != null
+                    ? formatActivityDuration(row.durationMs)
+                    : null;
+
+                return (
+                  <div key={row.id}>
+                    {index > 0 ? <Separator className="my-3" /> : null}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{row.title}</span>
+                        <span className="flex-1" />
+                        {showLiveElapsed ? (
+                          <LiveElapsed startIso={row.createdAt} />
+                        ) : durationLabel ? (
+                          <span className="text-xs tabular-nums text-muted-foreground mr-2">
+                            {durationLabel}
+                          </span>
+                        ) : null}
+                        {row.status === "processing" ? (
+                          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                        ) : (
+                          <CheckCircle2 className="size-4 text-green-500" />
+                        )}
+                      </div>
+                      {row.description ? (
+                        <p className="text-sm text-muted-foreground">
+                          {row.description}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

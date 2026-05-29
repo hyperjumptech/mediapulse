@@ -375,6 +375,11 @@ type LanguageSliceSharedConfig = {
   tickerId: string;
   yieldFeedback: QueryAnalysisConfig["dynamics"]["yieldFeedback"];
   priorYield?: GetQueryAnalysisResponse["priorYield"];
+  reportActivity?: (
+    title: string,
+    description?: string,
+    status?: "processing" | "completed",
+  ) => void;
 };
 
 /**
@@ -485,6 +490,10 @@ export const runLanguageQuerySlice = async (params: {
     if (Date.now() - shared.runStartMs > DEFAULT_CRITIC_PASS_DEADLINE_MS) {
       selfCritiqueSkippedDueToDeadline = true;
     } else {
+      shared.reportActivity?.(
+        "Running self-critique pass",
+        `${llmCandidates.length} candidates`,
+      );
       try {
         const critiqueResult = await applySelfCritiquePass({
           apiKey: shared.openaiApiKey,
@@ -639,9 +648,28 @@ export const runQueryAnalysis = async (
     token,
   });
 
+  const report = (
+    title: string,
+    description?: string,
+    status: "processing" | "completed" = "processing",
+  ) => {
+    const jobId = hermesCorrelation?.jobId;
+    if (jobId) {
+      void client.agentActivity
+        .create({ jobId, title, description, status })
+        .catch(() => {});
+    }
+  };
+
+  report("Fetching ticker context", `ticker ${input.tickerId}`);
+
   const queryContext = await client.queryAnalysis.get({
     tickerId: input.tickerId,
   });
+  report(
+    "Loaded ticker context",
+    `${queryContext.topEntities.length} entities, ${queryContext.kgNeighborhood.length} relations`,
+  );
   const {
     credentials,
     output,
@@ -770,7 +798,43 @@ export const runQueryAnalysis = async (
     tickerId: input.tickerId,
     yieldFeedback,
     priorYield: yieldFeedback.enabled ? queryContext.priorYield : undefined,
+    reportActivity: report,
   };
+
+  const deterministicCount = distributedStandard.reduce(
+    (count, languageQuota) => {
+      const sliceTemplatePack = resolveLanguageTemplatePack(
+        languageQuota.language,
+        languageQuota.templatePack,
+        templatePack,
+      );
+      return (
+        count +
+        buildDeterministicQueries(queryContext, {
+          pack: sliceTemplatePack,
+          kgTemplateCap,
+          language: languageQuota.language,
+          ...(yieldFeedback.enabled
+            ? {
+                priorYield: queryContext.priorYield,
+                minTemplateYield: yieldFeedback.minTemplateYield,
+              }
+            : {}),
+        }).length
+      );
+    },
+    0,
+  );
+
+  report(
+    "Building deterministic queries",
+    `${deterministicCount} template queries`,
+  );
+
+  report(
+    "Generating LLM query candidates",
+    `${resolvedPersonas.length} personas`,
+  );
 
   const sliceResults = await Promise.all(
     distributedStandard.map((languageQuota) => {
@@ -820,10 +884,16 @@ export const runQueryAnalysis = async (
     sliceResults.map((slice) => slice.merged),
   );
 
+  report(
+    "Generated LLM query candidates",
+    `${mergedStandard.length} standard queries across ${languageQuotas.length} language(s)`,
+  );
+
   const wildcardLanguages = languageQuotas.map((quota) => quota.language);
 
   let merged = mergedStandard;
   if (wildcardCount > 0) {
+    report("Generating wildcard queries", `${wildcardCount} wildcard slots`);
     const seenKeys = new Set(
       mergedStandard.map((row) => normalizeQueryKey(row.text)),
     );
@@ -877,6 +947,8 @@ export const runQueryAnalysis = async (
       queryCount,
     );
   }
+
+  report("Merged and deduped query set", `${merged.length} total queries`);
 
   const strategySnapshot = {
     queryCount,
@@ -953,6 +1025,8 @@ export const runQueryAnalysis = async (
       }),
     ),
   };
+
+  report("Saving query set", `${merged.length} queries`, "completed");
 
   const response = await client.queryAnalysis.create({
     tickerId: input.tickerId,

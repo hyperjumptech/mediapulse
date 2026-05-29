@@ -240,6 +240,7 @@ export const createRunHandler =
     input,
     token,
     config,
+    hermesCorrelation,
   }: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
     const rateLimitConfig: RateLimitConfig = {
       windowMs:
@@ -278,6 +279,24 @@ export const createRunHandler =
       token,
     });
 
+    const report = (
+      title: string,
+      description?: string,
+      status: "processing" | "completed" = "processing",
+    ) => {
+      const jobId = hermesCorrelation?.jobId;
+      if (jobId) {
+        void dataApiClient.agentActivity
+          .create({ jobId, title, description, status })
+          .catch(() => {});
+      }
+    };
+
+    report(
+      "Reading subscription inbox",
+      `up to ${input.maxMessagesPerRun} messages`,
+    );
+
     // Step 0: List messages
     const messages = await withRetry(
       () =>
@@ -297,9 +316,18 @@ export const createRunHandler =
 
     logger.info(`Found ${messages.length} messages to process.`);
 
+    report("Scanning subscription requests", `${messages.length} emails found`);
+
     if (messages.length === 0) {
+      report(
+        "Registration run complete",
+        "0 registered, 0 skipped",
+        "completed",
+      );
       return { success: true, details: { processed: 0, results: [] } };
     }
+
+    report("Processing registrations", `${messages.length} eligible requests`);
 
     // Process messages in parallel with a concurrency limit of 5.
     const CONCURRENCY = 5;
@@ -347,6 +375,19 @@ export const createRunHandler =
       );
       results.push(...batchResults);
     }
+
+    const registeredCount = results.filter(
+      (result) =>
+        result.status === "confirmed_archived" ||
+        result.status === "acknowledged_archived",
+    ).length;
+    const skippedCount = results.length - registeredCount;
+
+    report(
+      "Registration run complete",
+      `${registeredCount} registered, ${skippedCount} skipped`,
+      "completed",
+    );
 
     return {
       success: true,
