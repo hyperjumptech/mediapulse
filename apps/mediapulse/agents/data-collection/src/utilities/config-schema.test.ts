@@ -58,6 +58,12 @@ describe("dataCollectionAgentConfigSchema", () => {
       "{{SERPER_API_KEY}}",
     );
     expect(parsed.providers.search.authentication.type).toBe("none");
+    expect(parsed.providers.search.query).toEqual({
+      country: "id",
+      language: "auto",
+      dateRange: "past_week",
+      type: "news",
+    });
     expect(
       parsed.providers.fetch.providers.map((provider) => provider.type),
     ).toEqual(["diffbot", "firecrawl", "jina"]);
