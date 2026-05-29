@@ -14,6 +14,8 @@ import type { CSSProperties, ReactElement } from "react";
 export interface RegistrationConfirmationEmailProps {
   /** The ticker symbol the user subscribed to. */
   tickerSymbol: string;
+  /** Human-readable label for when the first newsletter will arrive, e.g. "today at 9:00 AM WIB". */
+  nextDeliveryLabel?: string;
 }
 
 /**
@@ -24,6 +26,7 @@ export interface RegistrationConfirmationEmailProps {
  */
 export const RegistrationConfirmationEmail = ({
   tickerSymbol,
+  nextDeliveryLabel,
 }: RegistrationConfirmationEmailProps): ReactElement => {
   return (
     <Html>
@@ -40,6 +43,9 @@ export const RegistrationConfirmationEmail = ({
             {"\n\n"}
             Your subscription to the '{tickerSymbol}' newsletter has been
             confirmed.
+            {nextDeliveryLabel !== undefined
+              ? `\n\nYou will receive your first ${tickerSymbol} newsletter ${nextDeliveryLabel}.`
+              : ""}
             {"\n\n"}
             Thank you,
             {"\n"}
@@ -58,6 +64,7 @@ export const RegistrationConfirmationEmail = ({
 
 RegistrationConfirmationEmail.PreviewProps = {
   tickerSymbol: "AAPL",
+  nextDeliveryLabel: "today at 9:00 AM WIB",
 } satisfies RegistrationConfirmationEmailProps;
 
 export default RegistrationConfirmationEmail;

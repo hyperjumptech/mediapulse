@@ -109,6 +109,24 @@ function assertResendSendSucceeded(result: ResendEmailsSendResult): void {
   }
 }
 
+function buildNextDeliveryLabel(
+  hour: number,
+  timezone: string,
+  timeLabel: string,
+): string {
+  const currentHour = parseInt(
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: timezone,
+    }).format(new Date()),
+    10,
+  );
+  const day = currentHour < hour ? "today" : "tomorrow";
+
+  return `${day} at ${timeLabel}`;
+}
+
 type ResendTransactionalPayload = {
   from: string;
   to: string;
@@ -527,9 +545,21 @@ async function processMessage({
         "Sending confirmation email for new or unconfirmed subscription.",
       );
 
+      const nextDeliveryLabel =
+        config.newsletterDeliveryHour !== undefined &&
+        config.newsletterDeliveryTimezone !== undefined &&
+        config.newsletterDeliveryTimeLabel !== undefined
+          ? buildNextDeliveryLabel(
+              config.newsletterDeliveryHour,
+              config.newsletterDeliveryTimezone,
+              config.newsletterDeliveryTimeLabel,
+            )
+          : undefined;
+
       const { html, text } = await renderNewsletterEmail({
         variant: "registration-confirmation",
         tickerSymbol,
+        nextDeliveryLabel,
       });
 
       await sendResendTransactionalEmail({
