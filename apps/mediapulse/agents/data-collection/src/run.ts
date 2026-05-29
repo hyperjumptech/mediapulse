@@ -7,7 +7,6 @@ import crypto from "node:crypto";
 
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
-import { isUnresolvedVariablePlaceholder } from "./utilities/config-schema";
 import { performWebFetch } from "./utilities/web-fetch";
 import { performWebSearch } from "./utilities/web-search";
 import {
@@ -32,8 +31,6 @@ import {
 import { deriveRunStatus, type RunCounters } from "./utilities/run-status";
 import { extractPublishedDate } from "./utilities/date-extractor";
 import { isFresh } from "./utilities/freshness-gate";
-import { embedTexts } from "./utilities/embeddings";
-import { dedupeAgainstCorpus } from "./utilities/semantic-dedupe";
 
 /**
  * Executes the data-collection pipeline: load search queries, run web search and fetch,
@@ -92,16 +89,6 @@ export async function runDataCollection(
   const deadUrlCacheConfig = config.resilience.deadUrlCache;
   const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
   const freshnessGateConfig = config.gates.freshness;
-  const semanticDedupeConfig = config.deduplication.semantic;
-  const openaiApiKey = config.deduplication.openaiApiKey;
-  let semanticDedupeActive = semanticDedupeConfig.enabled;
-  if (semanticDedupeActive && isUnresolvedVariablePlaceholder(openaiApiKey)) {
-    log.warn(
-      {},
-      "semantic dedupe enabled in config but openaiApiKey is an unresolved Hermes variable placeholder; falling back to URL-only dedupe",
-    );
-    semanticDedupeActive = false;
-  }
   const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
 
   const tickerRecord = await dataApiClient.ticker.get({
@@ -197,7 +184,6 @@ export async function runDataCollection(
   let droppedByDeadUrlCache = 0;
   let droppedByHostErrorRate = 0;
   let droppedByFreshness = 0;
-  let droppedBySemanticDedupe = 0;
   let throttleEvents = 0;
 
   if (queries.length === 0) {
@@ -378,7 +364,7 @@ export async function runDataCollection(
       fetchFailedCount += roundFailedUrlCount;
       fetchFailures.push(...roundFetchFailures);
 
-      const finalFetchSuccesses: typeof roundFetchSuccesses = [];
+      let persistedThisRoundCount = 0;
       const roundQualityDrops: QualityDropForDeadUrl[] = [];
       for (const page of roundFetchSuccesses) {
         const urlDecision = classifyNoisyUrl(page.url);
@@ -428,11 +414,12 @@ export async function runDataCollection(
           }
         }
 
+        const publishedAt = extractPublishedDate({
+          fetchMetadata: page.fetchMetadata ?? page.jinaMetadata,
+          content: page.content,
+        });
+
         if (freshnessGateConfig.enabled) {
-          const publishedAt = extractPublishedDate({
-            fetchMetadata: page.fetchMetadata ?? page.jinaMetadata,
-            content: page.content,
-          });
           const freshnessDecision = isFresh(publishedAt, {
             maxAgeDays: freshnessGateConfig.maxAgeDays,
             allowUnknown: freshnessGateConfig.allowUnknown,
@@ -452,17 +439,28 @@ export async function runDataCollection(
           }
         }
 
-        finalFetchSuccesses.push({
-          ...page,
+        const source: DataCollectionInput = {
           url: urlDecision.canonicalUrl,
-        });
+          title: page.title,
+          content: page.content,
+          tickerId: input.tickerId,
+          searchQueryId: page.searchQueryId,
+          ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
+        };
+        log.info(
+          { round, url: urlDecision.canonicalUrl.slice(0, 120) },
+          "persisting collected source to Agent Data API",
+        );
+        await dataApiClient.dataCollection.create([source]);
+        persistedThisRunCount += 1;
+        persistedThisRoundCount += 1;
+        fetchSuccessCount += 1;
       }
-      fetchSuccessCount += finalFetchSuccesses.length;
 
       log.info(
         {
           round,
-          fetchSuccess: finalFetchSuccesses.length,
+          fetchSuccess: persistedThisRoundCount,
           fetchFailed: roundFailedUrlCount,
           droppedByUrlReason,
           droppedByDuplicateCanonicalUrl,
@@ -474,7 +472,6 @@ export async function runDataCollection(
           droppedByDeadUrlCache,
           droppedByHostErrorRate,
           droppedByFreshness,
-          droppedBySemanticDedupe,
           throttleEvents,
         },
         "web fetch stage finished",
@@ -511,86 +508,13 @@ export async function runDataCollection(
         }
       }
 
-      if (finalFetchSuccesses.length > 0) {
-        let pagesToPersist = finalFetchSuccesses;
-
-        if (semanticDedupeActive) {
-          try {
-            const { fingerprints } =
-              await dataApiClient.dataCollectionRecentSourceFingerprints.get({
-                tickerId: input.tickerId,
-                windowDays: semanticDedupeConfig.windowDays,
-              });
-            const dedupeResult = await dedupeAgainstCorpus(
-              pagesToPersist,
-              fingerprints,
-              {
-                threshold: semanticDedupeConfig.threshold,
-                embedder: (texts) =>
-                  embedTexts(texts, {
-                    apiKey: openaiApiKey,
-                    model: semanticDedupeConfig.embeddingModel,
-                  }),
-              },
-            );
-            droppedBySemanticDedupe += dedupeResult.dropped.length;
-            for (const drop of dedupeResult.dropped) {
-              log.info(
-                {
-                  round,
-                  url: drop.candidate.url.slice(0, 120),
-                  matchedExistingId: drop.matchedExistingId,
-                  similarity: Number(drop.similarity.toFixed(3)),
-                },
-                "dropped semantically duplicate page against existing corpus",
-              );
-            }
-            pagesToPersist = dedupeResult.kept;
-          } catch (dedupeError) {
-            log.warn(
-              { round, err: dedupeError },
-              "semantic dedupe failed; continuing with URL-only dedupe",
-            );
-          }
-        }
-
-        if (pagesToPersist.length > 0) {
-          const sources: DataCollectionInput[] = pagesToPersist.map((page) => {
-            const publishedAt = extractPublishedDate({
-              fetchMetadata: page.fetchMetadata ?? page.jinaMetadata,
-              content: page.content,
-            });
-            return {
-              url: page.url,
-              title: page.title,
-              content: page.content,
-              tickerId: input.tickerId,
-              searchQueryId: page.searchQueryId,
-              ...(publishedAt
-                ? { publishedAt: publishedAt.toISOString() }
-                : {}),
-            };
-          });
-          log.info(
-            { round, sourcesToPersist: sources.length },
-            "persisting collected sources to Agent Data API",
-          );
-          await dataApiClient.dataCollection.create(sources);
-          persistedThisRunCount += sources.length;
-        } else {
-          log.info({ round }, "no sources to persist after semantic dedupe");
-        }
-      } else {
-        log.info({ round }, "no sources to persist after fetch stage");
-      }
-
       const effectiveTodayCount =
         existingTodaySourceCount + persistedThisRunCount;
       if (effectiveTodayCount >= targetDailySuccessfulSources) {
         refillStopReason = "daily_target_met";
         break;
       }
-      if (finalFetchSuccesses.length === 0) {
+      if (persistedThisRoundCount === 0) {
         refillStopReason = "no_progress";
         break;
       }
@@ -683,7 +607,6 @@ export async function runDataCollection(
     droppedByDeadUrlCache,
     droppedByHostErrorRate,
     droppedByFreshness,
-    droppedBySemanticDedupe,
     throttleEvents,
     refill: {
       roundsExecuted,

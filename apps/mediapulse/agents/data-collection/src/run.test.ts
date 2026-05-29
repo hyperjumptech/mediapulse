@@ -191,18 +191,6 @@ const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
 const analysisGetMock = vi.fn();
 const tickerGetMock = vi.fn();
-const recentSourceFingerprintsGetMock = vi.fn();
-
-const embedTextsMock = vi.hoisted(() => vi.fn());
-
-vi.mock("./utilities/embeddings", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("./utilities/embeddings")>();
-  return {
-    ...actual,
-    embedTexts: (...args: unknown[]) => embedTextsMock(...args),
-  };
-});
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -218,9 +206,6 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     dataCollectionDeadUrlsRecord: {
       create: deadUrlsRecordMock,
-    },
-    dataCollectionRecentSourceFingerprints: {
-      get: recentSourceFingerprintsGetMock,
     },
     dataCollectionRun: {
       create: runCreateMock,
@@ -294,7 +279,6 @@ describe("runDataCollection", () => {
       message: "Dead URLs recorded",
       recordedCount: 0,
     });
-    recentSourceFingerprintsGetMock.mockResolvedValue({ fingerprints: [] });
     analysisGetMock.mockResolvedValue({
       dataSources: [],
       dataSourceTotalCount: 0,
@@ -560,220 +544,19 @@ describe("runDataCollection", () => {
         fetchSuccess: 2,
       });
 
-      const persisted = createMock.mock.calls[0]?.[0] as Array<{
-        url: string;
-        publishedAt?: string;
-      }>;
-      expect(persisted).toHaveLength(2);
-      expect(persisted).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            url: "http://example.com/fresh",
-            publishedAt: isoDaysAgo(2),
-          }),
-          expect.objectContaining({ url: "http://example.com/unknown" }),
-        ]),
-      );
+      expect(createMock).toHaveBeenCalledTimes(2);
+      expect(createMock).toHaveBeenCalledWith([
+        expect.objectContaining({
+          url: "http://example.com/fresh",
+          publishedAt: isoDaysAgo(2),
+        }),
+      ]);
+      expect(createMock).toHaveBeenCalledWith([
+        expect.objectContaining({ url: "http://example.com/unknown" }),
+      ]);
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it("falls back to URL-only dedupe when embedding fails", async () => {
-    embedTextsMock.mockRejectedValueOnce(new Error("quota exceeded"));
-    recentSourceFingerprintsGetMock.mockResolvedValueOnce({
-      fingerprints: [
-        {
-          id: "11111111-1111-4111-a111-111111111111",
-          title: "Apple Q2 earnings beat",
-          headSnippet: "Apple reported record Q2 earnings.",
-        },
-      ],
-    });
-
-    const result = await runDataCollection(
-      createContext({
-        config: withTestConfig({
-          deduplication: {
-            openaiApiKey: "sk-test",
-            semantic: {
-              enabled: true,
-              threshold: 0.88,
-              windowDays: 7,
-              embeddingModel: "text-embedding-3-small",
-            },
-          },
-          gates: {
-            relevance: { enabled: false, headChars: 1500, minMatches: 1 },
-          },
-          runPolicy: {
-            minSuccessfulSources: 0,
-            failOnZeroSuccess: false,
-          },
-        }),
-      }),
-    );
-
-    expect(result.success).toBe(true);
-    expect(result.details?.summary).toMatchObject({
-      droppedBySemanticDedupe: 0,
-      totalSources: 1,
-    });
-    expect(createMock).toHaveBeenCalledWith([
-      expect.objectContaining({ url: "http://example.com" }),
-    ]);
-    expect(mockRunLog.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ round: 1 }),
-      "semantic dedupe failed; continuing with URL-only dedupe",
-    );
-  });
-
-  it("drops semantically duplicate candidates against the existing corpus", async () => {
-    const earningsContent = [
-      "Apple Q2 earnings beat analyst expectations across every segment.",
-      ...Array.from(
-        { length: 90 },
-        (_, index) =>
-          `Earnings detail ${index} covers revenue and margin trends.`,
-      ),
-    ].join(" ");
-    const visionContent = [
-      "Apple unveils new Vision Pro features for enterprise customers worldwide.",
-      ...Array.from(
-        { length: 90 },
-        (_, index) =>
-          `Vision Pro detail ${index} covers hardware and software.`,
-      ),
-    ].join(" ");
-
-    recentSourceFingerprintsGetMock.mockResolvedValueOnce({
-      fingerprints: [
-        {
-          id: "11111111-1111-4111-a111-111111111111",
-          title: "Apple Q2 earnings beat",
-          headSnippet: "Apple reported record Q2 earnings.",
-        },
-      ],
-    });
-    embedTextsMock.mockImplementation((texts: string[]) =>
-      Promise.resolve(
-        texts.map((text) => {
-          if (text.includes("Vision Pro")) {
-            return [0, 1, 0];
-          }
-          if (text.includes("estimates")) {
-            return [0.89, 0.45, 0];
-          }
-          return [1, 0, 0];
-        }),
-      ),
-    );
-
-    vi.mocked(performWebSearch).mockResolvedValueOnce([
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "http://example.com/earnings",
-        },
-      },
-      {
-        success: true,
-        data: {
-          ...searchSuccessPage,
-          url: "http://example.com/vision",
-        },
-      },
-    ]);
-    vi.mocked(performWebFetch).mockResolvedValueOnce([
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        url: "http://example.com/earnings",
-        title: "Apple Q2 earnings beat estimates",
-        content: earningsContent,
-      }),
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        url: "http://example.com/vision",
-        title: "Apple unveils new Vision Pro",
-        content: visionContent,
-      }),
-    ]);
-
-    const result = await runDataCollection(
-      createContext({
-        config: withTestConfig({
-          collection: {
-            perQueryFetchBudget: 20,
-            perRunFetchBudget: 100,
-          },
-          deduplication: {
-            openaiApiKey: "sk-test",
-            semantic: {
-              enabled: true,
-              threshold: 0.88,
-              windowDays: 7,
-              embeddingModel: "text-embedding-3-small",
-            },
-          },
-          gates: {
-            relevance: { enabled: false, headChars: 1500, minMatches: 1 },
-          },
-          runPolicy: {
-            minSuccessfulSources: 0,
-            failOnZeroSuccess: false,
-          },
-        }),
-      }),
-    );
-
-    expect(result.success).toBe(true);
-    expect(result.details?.summary).toMatchObject({
-      droppedBySemanticDedupe: 1,
-      totalSources: 1,
-    });
-    expect(createMock).toHaveBeenCalledWith([
-      expect.objectContaining({ url: "http://example.com/vision" }),
-    ]);
-    expect(recentSourceFingerprintsGetMock).toHaveBeenCalledWith({
-      tickerId: TICKER_ID,
-      windowDays: 7,
-    });
-  });
-
-  it("skips semantic dedupe by default when semantic.enabled is false", async () => {
-    recentSourceFingerprintsGetMock.mockResolvedValueOnce({
-      fingerprints: [
-        {
-          id: "11111111-1111-4111-a111-111111111111",
-          title: "Bank Central Asia prior coverage",
-          headSnippet: "Earlier reporting on regional lending trends.",
-        },
-      ],
-    });
-
-    await runDataCollection(
-      createContext({
-        config: withTestConfig({
-          deduplication: {
-            openaiApiKey: "sk-test",
-            semantic: {
-              embeddingModel: "text-embedding-3-small",
-            },
-          },
-          gates: {
-            relevance: { enabled: false, headChars: 1500, minMatches: 1 },
-          },
-          runPolicy: {
-            minSuccessfulSources: 0,
-            failOnZeroSuccess: false,
-          },
-        }),
-      }),
-    );
-
-    expect(embedTextsMock).not.toHaveBeenCalled();
-    expect(recentSourceFingerprintsGetMock).not.toHaveBeenCalled();
   });
 
   it("does not call dataCollection.create when there are no fetch successes", async () => {
