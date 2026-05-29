@@ -331,6 +331,8 @@ describe("createAgentDataApiClient", () => {
       relations: [],
       articleEntities: [],
       articleRelevances: [],
+      entityEvidence: [],
+      relationEvidence: [],
     });
 
     expect(postFn).toHaveBeenCalledWith(
@@ -342,6 +344,8 @@ describe("createAgentDataApiClient", () => {
           relations: [],
           articleEntities: [],
           articleRelevances: [],
+          entityEvidence: [],
+          relationEvidence: [],
         },
       }),
     );
