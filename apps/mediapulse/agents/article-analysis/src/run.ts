@@ -18,6 +18,16 @@ import {
   filterArticleEntityRowsToRunCatalog,
   type ArticleEntityRow,
 } from "./analysis-article-mentions.js";
+import {
+  canonicalizeEntityEvidenceRowsToRunEntities,
+  canonicalizeRelationEvidenceRowsToRunEntities,
+  dedupeEntityEvidence,
+  dedupeRelationEvidence,
+  filterEntityEvidenceRowsToRunCatalog,
+  filterRelationEvidenceRowsToRunCatalog,
+  type EntityEvidenceRow,
+  type RelationEvidenceRow,
+} from "./analysis-provenance.js";
 import { buildArticleRelevancePostChunks } from "./analysis-relevance-post-chunks.js";
 import {
   buildDraftRelevanceRow,
@@ -801,6 +811,8 @@ export const run = async ({
     const mergedEntities: EntityProposal[] = [];
     const mergedRelations: RelationProposal[] = [];
     const mergedArticleEntityRows: ArticleEntityRow[] = [];
+    const mergedEntityEvidence: EntityEvidenceRow[] = [];
+    const mergedRelationEvidence: RelationEvidenceRow[] = [];
     const perSourceSignals: PerSourceRelevanceSignals[] = [];
     let vocabularyFailures = 0;
 
@@ -818,6 +830,8 @@ export const run = async ({
       mergedEntities.push(...outcome.mergedEntities);
       mergedRelations.push(...outcome.mergedRelations);
       mergedArticleEntityRows.push(...outcome.mergedArticleEntityRows);
+      mergedEntityEvidence.push(...outcome.mergedEntityEvidence);
+      mergedRelationEvidence.push(...outcome.mergedRelationEvidence);
       if (outcome.perSourceSignal !== undefined) {
         perSourceSignals.push(outcome.perSourceSignal);
       }
@@ -1127,6 +1141,69 @@ export const run = async ({
       cfg.maxArticleEntitiesPerRun,
     );
 
+    const {
+      rows: entityEvidenceForRun,
+      droppedCount: droppedEntityEvidenceNotInRunCatalog,
+    } = filterEntityEvidenceRowsToRunCatalog(
+      dedupeEntityEvidence(mergedEntityEvidence),
+      entityCatalog,
+    );
+    if (droppedEntityEvidenceNotInRunCatalog > 0) {
+      log.warn(
+        { droppedEntityEvidenceNotInRunCatalog },
+        "article-analysis dropped entity evidence not in run entity catalog",
+      );
+    }
+
+    const {
+      rows: relationEvidenceForRun,
+      droppedCount: droppedRelationEvidenceNotInRunCatalog,
+    } = filterRelationEvidenceRowsToRunCatalog(
+      dedupeRelationEvidence(mergedRelationEvidence),
+      entityCatalog,
+    );
+    if (droppedRelationEvidenceNotInRunCatalog > 0) {
+      log.warn(
+        { droppedRelationEvidenceNotInRunCatalog },
+        "article-analysis dropped relation evidence not in run entity catalog",
+      );
+    }
+
+    const {
+      rows: canonicalEntityEvidenceForRun,
+      droppedCount: droppedEntityEvidenceUnmappable,
+    } = canonicalizeEntityEvidenceRowsToRunEntities(
+      entityEvidenceForRun,
+      entities,
+    );
+    if (droppedEntityEvidenceUnmappable > 0) {
+      log.warn(
+        { droppedEntityEvidenceUnmappable },
+        "article-analysis dropped entity evidence not mappable to run canonical entity names",
+      );
+    }
+
+    const {
+      rows: canonicalRelationEvidenceForRun,
+      droppedCount: droppedRelationEvidenceUnmappable,
+    } = canonicalizeRelationEvidenceRowsToRunEntities(
+      relationEvidenceForRun,
+      entities,
+    );
+    if (droppedRelationEvidenceUnmappable > 0) {
+      log.warn(
+        { droppedRelationEvidenceUnmappable },
+        "article-analysis dropped relation evidence not mappable to run canonical entity names",
+      );
+    }
+
+    const entityEvidenceForPost = dedupeEntityEvidence(
+      canonicalEntityEvidenceForRun,
+    );
+    const relationEvidenceForPost = dedupeRelationEvidence(
+      canonicalRelationEvidenceForRun,
+    );
+
     report(
       "Persisting knowledge graph",
       `${entities.length} entities, ${relations.length} relations`,
@@ -1137,6 +1214,8 @@ export const run = async ({
       entities,
       relations,
       cfg.postChunkRelationBatchSize,
+      entityEvidenceForPost,
+      relationEvidenceForPost,
     );
     chunkParseCounts.entityRelationChunkParseErrors = parseErrors.length;
 

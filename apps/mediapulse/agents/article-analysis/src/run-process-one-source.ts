@@ -10,6 +10,12 @@ import {
   toArticleEntityRowsForSource,
   type ArticleEntityRow,
 } from "./analysis-article-mentions.js";
+import {
+  toEntityEvidenceRowsForSource,
+  toRelationEvidenceRowsForSource,
+  type EntityEvidenceRow,
+  type RelationEvidenceRow,
+} from "./analysis-provenance.js";
 import type { PerSourceRelevanceSignals } from "./analysis-relevance-scoring.js";
 import {
   partitionExtractionByVocabulary,
@@ -84,6 +90,8 @@ export type SourceProcessingOutcome = {
   mergedEntities: EntityProposal[];
   mergedRelations: RelationProposal[];
   mergedArticleEntityRows: ArticleEntityRow[];
+  mergedEntityEvidence: EntityEvidenceRow[];
+  mergedRelationEvidence: RelationEvidenceRow[];
   perSourceSignal?: PerSourceRelevanceSignals;
   extractionFailures: ArticleAnalysisExtractionFailureRecord[];
   droppedByContentQualityDelta: Partial<Record<QualityDropReason, number>>;
@@ -122,6 +130,8 @@ export const createEmptySourceProcessingOutcome =
     mergedEntities: [],
     mergedRelations: [],
     mergedArticleEntityRows: [],
+    mergedEntityEvidence: [],
+    mergedRelationEvidence: [],
     extractionFailures: [],
     droppedByContentQualityDelta: {},
     extractionLatencyMs: 0,
@@ -500,6 +510,7 @@ export const createProcessOneSource =
       );
 
       let relationsAfterCritique = resolved.relations;
+      let relationEvidenceByKey: ReadonlyMap<string, string> | undefined;
       const critiqueEligible =
         cfg.useRelationSelfCritique &&
         resolved.relations.length >= cfg.relationCritiqueMinRelationCount;
@@ -539,6 +550,7 @@ export const createProcessOneSource =
           );
           outcome.relationsDroppedByCritique = critiqueApplied.droppedCount;
           relationsAfterCritique = critiqueApplied.relations;
+          relationEvidenceByKey = critiqueApplied.evidenceByKey;
           for (const relation of resolved.relations) {
             const evidenceSpan = critiqueApplied.evidenceByKey.get(
               relationCritiqueRowKey(relation),
@@ -591,6 +603,16 @@ export const createProcessOneSource =
       outcome.mergedArticleEntityRows = toArticleEntityRowsForSource(
         source.id,
         mentionCapped,
+      );
+      outcome.mergedEntityEvidence = toEntityEvidenceRowsForSource(
+        source.id,
+        capped.entities,
+        mentionCapped,
+      );
+      outcome.mergedRelationEvidence = toRelationEvidenceRowsForSource(
+        source.id,
+        capped.relations,
+        relationEvidenceByKey,
       );
 
       const avgMentionConfidence =

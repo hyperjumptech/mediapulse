@@ -28,6 +28,50 @@ describe("buildEntityNameLookup", () => {
 });
 
 describe("buildAnalysisPostChunks", () => {
+  it("partitions entity and relation evidence per chunk", () => {
+    // Setup
+    const tickerId = "t1";
+    const entities = [
+      { canonicalName: "A", typeId: TID, aliases: [] as string[] },
+      { canonicalName: "B", typeId: TID, aliases: [] as string[] },
+      { canonicalName: "C", typeId: TID, aliases: [] as string[] },
+    ];
+    const relations = [
+      { fromEntityName: "A", toEntityName: "B", relationTypeId: RID },
+      { fromEntityName: "B", toEntityName: "C", relationTypeId: RID },
+    ];
+    const entityEvidence = [
+      { dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", entityName: "A" },
+      { dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", entityName: "C" },
+    ];
+    const relationEvidence = [
+      {
+        dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        fromEntityName: "A",
+        toEntityName: "B",
+        relationTypeId: RID,
+      },
+    ];
+
+    // Act
+    const { chunks } = buildAnalysisPostChunks(
+      tickerId,
+      entities,
+      relations,
+      1,
+      entityEvidence,
+      relationEvidence,
+    );
+
+    // Assert
+    expect(chunks[0]?.entityEvidence).toHaveLength(1);
+    expect(chunks[0]?.entityEvidence[0]?.entityName).toBe("A");
+    expect(chunks[0]?.relationEvidence).toHaveLength(1);
+    expect(chunks[1]?.entityEvidence).toHaveLength(1);
+    expect(chunks[1]?.entityEvidence[0]?.entityName).toBe("C");
+    expect(chunks[1]?.relationEvidence).toHaveLength(0);
+  });
+
   it("includes entity closure per chunk for cross-chunk endpoint reuse", () => {
     // Setup
     const tickerId = "t1";

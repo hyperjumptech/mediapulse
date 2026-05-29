@@ -51,11 +51,47 @@ export const buildAnalysisPostChunks = (
   entities: PostAnalysisBody["entities"],
   relations: PostAnalysisBody["relations"],
   postChunkRelationBatchSize: number,
+  entityEvidence: PostAnalysisBody["entityEvidence"] = [],
+  relationEvidence: PostAnalysisBody["relationEvidence"] = [],
 ): BuildAnalysisPostChunksResult => {
   const chunks: PostAnalysisBody[] = [];
   const parseErrors: string[] = [];
   let droppedRelations = 0;
   const nameLookup = buildEntityNameLookup(entities);
+
+  const relationEvidenceKey = (
+    row: PostAnalysisBody["relationEvidence"][number],
+  ): string =>
+    `${normalizeEntityName(row.fromEntityName)}\0${normalizeEntityName(row.toEntityName)}\0${row.relationTypeId}`;
+
+  const entityEvidenceForChunk = (
+    chunkEntities: PostAnalysisBody["entities"],
+  ): PostAnalysisBody["entityEvidence"] => {
+    const allowedNames = new Set<string>();
+    for (const entity of chunkEntities) {
+      allowedNames.add(normalizeEntityName(entity.canonicalName));
+      for (const alias of entity.aliases) {
+        allowedNames.add(normalizeEntityName(alias));
+      }
+    }
+    return entityEvidence.filter((row) =>
+      allowedNames.has(normalizeEntityName(row.entityName)),
+    );
+  };
+
+  const relationEvidenceForChunk = (
+    chunkRelations: PostAnalysisBody["relations"],
+  ): PostAnalysisBody["relationEvidence"] => {
+    const allowedKeys = new Set(
+      chunkRelations.map(
+        (relation) =>
+          `${normalizeEntityName(relation.fromEntityName)}\0${normalizeEntityName(relation.toEntityName)}\0${relation.relationTypeId}`,
+      ),
+    );
+    return relationEvidence.filter((row) =>
+      allowedKeys.has(relationEvidenceKey(row)),
+    );
+  };
 
   if (relations.length === 0) {
     if (entities.length > 0) {
@@ -65,6 +101,8 @@ export const buildAnalysisPostChunks = (
         relations: [],
         articleEntities: [],
         articleRelevances: [],
+        entityEvidence: entityEvidenceForChunk(entities),
+        relationEvidence: [],
       };
       const parsed = postAnalysisBodySchema.safeParse(body);
       if (!parsed.success) {
@@ -121,6 +159,8 @@ export const buildAnalysisPostChunks = (
       relations: filtered,
       articleEntities: [],
       articleRelevances: [],
+      entityEvidence: entityEvidenceForChunk(chunkEntities),
+      relationEvidence: relationEvidenceForChunk(filtered),
     };
 
     const parsed = postAnalysisBodySchema.safeParse(body);

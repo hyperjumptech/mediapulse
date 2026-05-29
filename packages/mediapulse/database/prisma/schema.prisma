@@ -53,10 +53,12 @@ model DataSource {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  ticker            Ticker             @relation(fields: [tickerId], references: [id])
-  searchQuery       SearchQuery        @relation(fields: [searchQueryId], references: [id])
-  articleEntities   ArticleEntity[]
-  articleRelevances ArticleRelevance[]
+  ticker                 Ticker                   @relation(fields: [tickerId], references: [id])
+  searchQuery            SearchQuery              @relation(fields: [searchQueryId], references: [id])
+  articleEntities        ArticleEntity[]
+  articleRelevances      ArticleRelevance[]
+  entityEvidence         EntityEvidence[]
+  entityRelationEvidence EntityRelationEvidence[]
 
   @@map("data_source")
 }
@@ -75,26 +77,26 @@ model DeadUrl {
 }
 
 model Newsletter {
-  id               String   @id @default(uuid())
-  subject          String
-  description      String?
-  content          String
-  tickerId         String   @map("ticker_id")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  subject     String
+  description String?
+  content     String
+  tickerId    String   @map("ticker_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  model            String?  @map("model")
-  agentVersion     String?  @map("agent_version")
-  configVersion    String?  @map("config_version")
-  promptHash       String?  @map("prompt_hash")
-  configSnapshotId String?  @map("config_snapshot_id")
-  promptTokens     Int?     @map("prompt_tokens")
-  completionTokens Int?     @map("completion_tokens")
-  totalTokens      Int?     @map("total_tokens")
+  model            String? @map("model")
+  agentVersion     String? @map("agent_version")
+  configVersion    String? @map("config_version")
+  promptHash       String? @map("prompt_hash")
+  configSnapshotId String? @map("config_snapshot_id")
+  promptTokens     Int?    @map("prompt_tokens")
+  completionTokens Int?    @map("completion_tokens")
+  totalTokens      Int?    @map("total_tokens")
 
-  ticker               Ticker                         @relation(fields: [tickerId], references: [id])
-  deliveryCheckpoints  NewsletterDeliveryCheckpoint[]
-  deliveryRuns         DeliveryRun[]
+  ticker              Ticker                         @relation(fields: [tickerId], references: [id])
+  deliveryCheckpoints NewsletterDeliveryCheckpoint[]
+  deliveryRuns        DeliveryRun[]
 
   @@map("newsletter")
 }
@@ -139,6 +141,7 @@ model Entity {
   aliases         EntityAlias[]
   tickerEntities  TickerEntity[]
   articleEntities ArticleEntity[]
+  entityEvidence  EntityEvidence[]
   relationsFrom   EntityRelation[] @relation("RelationFrom")
   relationsTo     EntityRelation[] @relation("RelationTo")
 
@@ -187,12 +190,54 @@ model EntityRelation {
   lastSeenAt     DateTime @default(now()) @map("last_seen_at")
   createdAt      DateTime @default(now()) @map("created_at")
 
-  fromEntity   Entity       @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
-  toEntity     Entity       @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
-  relationType RelationType @relation(fields: [relationTypeId], references: [id])
+  fromEntity   Entity                   @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
+  toEntity     Entity                   @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+  relationType RelationType             @relation(fields: [relationTypeId], references: [id])
+  evidence     EntityRelationEvidence[]
 
   @@unique([fromEntityId, toEntityId, relationTypeId])
   @@map("entity_relation")
+}
+
+/// Provenance link: a canonical entity was observed in a ticker-scoped data source.
+model EntityEvidence {
+  id           String   @id @default(uuid())
+  entityId     String   @map("entity_id")
+  dataSourceId String   @map("data_source_id")
+  tickerId     String   @map("ticker_id")
+  confidence   Float?
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastSeenAt   DateTime @default(now()) @map("last_seen_at")
+
+  entity     Entity     @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  ticker     Ticker     @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, dataSourceId, tickerId])
+  @@index([tickerId, dataSourceId])
+  @@index([dataSourceId])
+  @@map("entity_evidence")
+}
+
+/// Provenance link: a canonical entity relation was observed in a ticker-scoped data source.
+model EntityRelationEvidence {
+  id               String   @id @default(uuid())
+  entityRelationId String   @map("entity_relation_id")
+  dataSourceId     String   @map("data_source_id")
+  tickerId         String   @map("ticker_id")
+  confidence       Float?
+  evidenceSpan     String?  @map("evidence_span")
+  createdAt        DateTime @default(now()) @map("created_at")
+  lastSeenAt       DateTime @default(now()) @map("last_seen_at")
+
+  entityRelation EntityRelation @relation(fields: [entityRelationId], references: [id], onDelete: Cascade)
+  dataSource     DataSource     @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  ticker         Ticker         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@unique([entityRelationId, dataSourceId, tickerId])
+  @@index([tickerId, dataSourceId])
+  @@index([dataSourceId])
+  @@map("entity_relation_evidence")
 }
 
 /// Join table connecting an article to entities it mentions with extraction metadata.
@@ -230,21 +275,21 @@ model ArticleRelevance {
 }
 
 model SearchQuery {
-  id        String   @id @default(uuid())
+  id        String            @id @default(uuid())
   text      String
-  tickerId  String   @map("ticker_id")
-  setId     String?  @map("set_id")
+  tickerId  String            @map("ticker_id")
+  setId     String?           @map("set_id")
   source    SearchQuerySource @default(deterministic)
   intent    SearchQueryIntent @default(breaking)
-  rank      Int      @default(1)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  rank      Int               @default(1)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
 
-  ticker      Ticker       @relation(fields: [tickerId], references: [id])
-  set         SearchQuerySet? @relation(fields: [setId], references: [id], onDelete: SetNull)
-  dataSources DataSource[]
-  dataCollectionFailures  DataCollectionFailure[]
-  searchQueryYields       SearchQueryYield[]
+  ticker                 Ticker                  @relation(fields: [tickerId], references: [id])
+  set                    SearchQuerySet?         @relation(fields: [setId], references: [id], onDelete: SetNull)
+  dataSources            DataSource[]
+  dataCollectionFailures DataCollectionFailure[]
+  searchQueryYields      SearchQueryYield[]
 
   @@unique([setId, text])
   @@index([tickerId, setId])
@@ -255,7 +300,7 @@ model SearchQuery {
 model SearchQueryYield {
   id                String   @id @default(uuid())
   searchQueryId     String   @map("search_query_id")
-  runDate           DateTime @db.Date @map("run_date")
+  runDate           DateTime @map("run_date") @db.Date
   articleCount      Int      @map("article_count")
   novelArticleCount Int      @map("novel_article_count")
   computedAt        DateTime @default(now()) @map("computed_at")
@@ -278,7 +323,7 @@ model SearchQuerySet {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  ticker       Ticker        @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  ticker        Ticker        @relation(fields: [tickerId], references: [id], onDelete: Cascade)
   searchQueries SearchQuery[]
 
   @@index([tickerId, isActive])
@@ -293,17 +338,19 @@ model Ticker {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  searchQueries     SearchQuery[]
-  searchQuerySets   SearchQuerySet[]
-  dataSources       DataSource[]
-  newsletters       Newsletter[]
-  userTickers       UserTicker[]
-  tickerEntities    TickerEntity[]
-  articleRelevances ArticleRelevance[]
-  dataCollectionRuns        DataCollectionRun[]
-  dataCollectionFailures    DataCollectionFailure[]
-  deliveryRuns              DeliveryRun[]
-  contentGenerationRuns     ContentGenerationRun[]
+  searchQueries          SearchQuery[]
+  searchQuerySets        SearchQuerySet[]
+  dataSources            DataSource[]
+  newsletters            Newsletter[]
+  userTickers            UserTicker[]
+  tickerEntities         TickerEntity[]
+  articleRelevances      ArticleRelevance[]
+  entityEvidence         EntityEvidence[]
+  entityRelationEvidence EntityRelationEvidence[]
+  dataCollectionRuns     DataCollectionRun[]
+  dataCollectionFailures DataCollectionFailure[]
+  deliveryRuns           DeliveryRun[]
+  contentGenerationRuns  ContentGenerationRun[]
 
   @@map("ticker")
 }
@@ -322,17 +369,17 @@ model MediapulseUser {
 }
 
 model UserTicker {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  tickerId  String   @map("ticker_id")
-  enabled   Boolean  @default(true)
+  id                      String    @id @default(uuid())
+  userId                  String    @map("user_id")
+  tickerId                String    @map("ticker_id")
+  enabled                 Boolean   @default(true)
   registrationConfirmedAt DateTime? @map("registration_confirmed_at")
   /// When the user voluntarily unsubscribed (null for admin/manual disables).
-  unsubscribedAt    DateTime? @map("unsubscribed_at")
+  unsubscribedAt          DateTime? @map("unsubscribed_at")
   /// How the user unsubscribed: "link" (GET) or "one_click" (POST). Null for admin/manual.
-  unsubscribeMethod String?   @map("unsubscribe_method")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  unsubscribeMethod       String?   @map("unsubscribe_method")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
 
   user                MediapulseUser                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   ticker              Ticker                         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
@@ -379,27 +426,27 @@ enum DeliveryRecipientOutcomeStatus {
 }
 
 model DeliveryRun {
-  id                    String              @id @default(uuid())
-  agentId               String              @map("agent_id")
-  agentVersion          String              @map("agent_version")
-  tickerId              String              @map("ticker_id")
-  newsletterId          String?             @map("newsletter_id")
+  id                    String             @id @default(uuid())
+  agentId               String             @map("agent_id")
+  agentVersion          String             @map("agent_version")
+  tickerId              String             @map("ticker_id")
+  newsletterId          String?            @map("newsletter_id")
   outcome               DeliveryRunOutcome
   stage                 DeliveryRunStage?
-  successCount          Int                 @default(0) @map("success_count")
-  failureCount          Int                 @default(0) @map("failure_count")
-  skippedCount          Int                 @default(0) @map("skipped_count")
-  durationMs            Int                 @map("duration_ms")
-  scheduleExecutionId   String?             @map("schedule_execution_id")
+  successCount          Int                @default(0) @map("success_count")
+  failureCount          Int                @default(0) @map("failure_count")
+  skippedCount          Int                @default(0) @map("skipped_count")
+  durationMs            Int                @map("duration_ms")
+  scheduleExecutionId   String?            @map("schedule_execution_id")
   /// Hermes `Schedule.id` from `X-Schedule-Id` (distinct from schedule execution row).
-  hermesScheduleId      String?             @map("hermes_schedule_id")
-  pipelineStepId        String?             @map("pipeline_step_id")
-  jobId                 String?             @map("job_id")
-  hermesExecutionId     String?             @map("hermes_execution_id")
-  runSkipReason         String?             @map("run_skip_reason")
-  resendMessageIds      Json?               @map("resend_message_ids")
-  recipientErrorSummary String?             @map("recipient_error_summary")
-  createdAt             DateTime            @default(now()) @map("created_at")
+  hermesScheduleId      String?            @map("hermes_schedule_id")
+  pipelineStepId        String?            @map("pipeline_step_id")
+  jobId                 String?            @map("job_id")
+  hermesExecutionId     String?            @map("hermes_execution_id")
+  runSkipReason         String?            @map("run_skip_reason")
+  resendMessageIds      Json?              @map("resend_message_ids")
+  recipientErrorSummary String?            @map("recipient_error_summary")
+  createdAt             DateTime           @default(now()) @map("created_at")
 
   ticker     Ticker                     @relation(fields: [tickerId], references: [id])
   newsletter Newsletter?                @relation(fields: [newsletterId], references: [id], onDelete: SetNull)
@@ -415,11 +462,11 @@ model DeliveryRecipientOutcome {
   runId            String                         @map("run_id")
   userTickerId     String                         @map("user_ticker_id")
   status           DeliveryRecipientOutcomeStatus
-  attempts         Int     @default(0)
-  lastErrorCode    String? @map("last_error_code")
-  lastErrorMessage String? @map("last_error_message")
-  errorCategory    String? @map("error_category")
-  resendEmailId    String? @map("resend_email_id")
+  attempts         Int                            @default(0)
+  lastErrorCode    String?                        @map("last_error_code")
+  lastErrorMessage String?                        @map("last_error_message")
+  errorCategory    String?                        @map("error_category")
+  resendEmailId    String?                        @map("resend_email_id")
 
   run DeliveryRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
@@ -455,45 +502,45 @@ enum DataCollectionErrorCategory {
 }
 
 model DataCollectionRun {
-  id            String   @id @default(uuid())
-  tickerId      String   @map("ticker_id")
-  startedAt     DateTime @map("started_at")
-  completedAt   DateTime? @map("completed_at")
-  status        DataCollectionRunStatus
-  
-  queriesTotal  Int      @default(0) @map("queries_total")
-  urlsTotal     Int      @default(0) @map("urls_total")
-  searchSuccess Int      @default(0) @map("search_success")
-  searchFailed  Int      @default(0) @map("search_failed")
-  fetchSuccess  Int      @default(0) @map("fetch_success")
-  fetchFailed   Int      @default(0) @map("fetch_failed")
-  retryCount    Int      @default(0) @map("retry_count")
+  id          String                  @id @default(uuid())
+  tickerId    String                  @map("ticker_id")
+  startedAt   DateTime                @map("started_at")
+  completedAt DateTime?               @map("completed_at")
+  status      DataCollectionRunStatus
 
-  ticker        Ticker   @relation(fields: [tickerId], references: [id])
-  failures      DataCollectionFailure[]
+  queriesTotal  Int @default(0) @map("queries_total")
+  urlsTotal     Int @default(0) @map("urls_total")
+  searchSuccess Int @default(0) @map("search_success")
+  searchFailed  Int @default(0) @map("search_failed")
+  fetchSuccess  Int @default(0) @map("fetch_success")
+  fetchFailed   Int @default(0) @map("fetch_failed")
+  retryCount    Int @default(0) @map("retry_count")
+
+  ticker   Ticker                  @relation(fields: [tickerId], references: [id])
+  failures DataCollectionFailure[]
 
   @@map("data_collection_run")
 }
 
 model DataCollectionFailure {
-  id            String   @id @default(uuid())
-  runId         String   @map("run_id")
-  tickerId      String   @map("ticker_id")
-  stage         DataCollectionProviderStage
-  provider      DataCollectionProvider
-  
-  searchQueryId String?  @map("search_query_id")
+  id       String                      @id @default(uuid())
+  runId    String                      @map("run_id")
+  tickerId String                      @map("ticker_id")
+  stage    DataCollectionProviderStage
+  provider DataCollectionProvider
+
+  searchQueryId String? @map("search_query_id")
   url           String?
-  
+
   errorCategory DataCollectionErrorCategory @map("error_category")
   retryable     Boolean
-  httpStatus    Int?     @map("http_status")
+  httpStatus    Int?                        @map("http_status")
   message       String
-  createdAt     DateTime @default(now()) @map("created_at")
+  createdAt     DateTime                    @default(now()) @map("created_at")
 
-  run           DataCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  ticker        Ticker            @relation(fields: [tickerId], references: [id])
-  searchQuery   SearchQuery?      @relation(fields: [searchQueryId], references: [id])
+  run         DataCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ticker      Ticker            @relation(fields: [tickerId], references: [id])
+  searchQuery SearchQuery?      @relation(fields: [searchQueryId], references: [id])
 
   @@map("data_collection_failure")
 }
@@ -513,20 +560,20 @@ enum ContentGenerationRunStage {
 
 /// Diagnostic record for a single content-generation agent invocation.
 model ContentGenerationRun {
-  id              String                       @id @default(uuid())
-  agentId         String                       @map("agent_id")
-  agentVersion    String                       @map("agent_version")
-  tickerId        String                       @map("ticker_id")
-  outcome         ContentGenerationRunOutcome
-  stage           ContentGenerationRunStage?   @map("stage")
-  errorCode       String?                      @map("error_code")
-  errorCategory   String?                      @map("error_category")
-  message         String?
-  durationMs      Int?                         @map("duration_ms")
-  pipelineRunId   String?                      @map("pipeline_run_id")
-  executionId     String?                      @map("execution_id")
-  newsletterId    String?                      @map("newsletter_id")
-  createdAt       DateTime                     @default(now()) @map("created_at")
+  id            String                      @id @default(uuid())
+  agentId       String                      @map("agent_id")
+  agentVersion  String                      @map("agent_version")
+  tickerId      String                      @map("ticker_id")
+  outcome       ContentGenerationRunOutcome
+  stage         ContentGenerationRunStage?  @map("stage")
+  errorCode     String?                     @map("error_code")
+  errorCategory String?                     @map("error_category")
+  message       String?
+  durationMs    Int?                        @map("duration_ms")
+  pipelineRunId String?                     @map("pipeline_run_id")
+  executionId   String?                     @map("execution_id")
+  newsletterId  String?                     @map("newsletter_id")
+  createdAt     DateTime                    @default(now()) @map("created_at")
 
   ticker Ticker @relation(fields: [tickerId], references: [id])
 
