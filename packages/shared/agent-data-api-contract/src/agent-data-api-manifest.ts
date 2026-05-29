@@ -1,11 +1,5 @@
 import { z } from "zod";
 import {
-  getAgentActivityQuerySchema,
-  getAgentActivityResponseSchema,
-  postAgentActivityBodySchema,
-  postAgentActivityResponseSchema,
-} from "./agent-activity.js";
-import {
   getAnalysisQuerySchema,
   getAnalysisResponseSchema,
   postAnalysisBodySchema,
@@ -467,28 +461,6 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postContentGenerationRunBodySchema,
         response: postContentGenerationRunResponseSchema,
-      },
-    },
-  },
-  agentActivity: {
-    v1: {
-      get: {
-        query: getAgentActivityQuerySchema,
-        response: getAgentActivityResponseSchema,
-      },
-      post: {
-        body: postAgentActivityBodySchema,
-        response: postAgentActivityResponseSchema,
-      },
-    },
-    v2: {
-      get: {
-        query: getAgentActivityQuerySchema,
-        response: getAgentActivityResponseSchema,
-      },
-      post: {
-        body: postAgentActivityBodySchema,
-        response: postAgentActivityResponseSchema,
       },
     },
   },

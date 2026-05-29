@@ -39,10 +39,6 @@ import {
   postDataCollectionFailure,
 } from "./routes/data-collection-failure.js";
 import { getDeliveryRun, postDeliveryRun } from "./routes/delivery-run.js";
-import {
-  getAgentActivity,
-  postAgentActivity,
-} from "./routes/agent-activity.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 import {
   postUserRegistrationRegisterHandler,
@@ -162,10 +158,6 @@ const routeHandlers = {
   contentGenerationRuns: {
     get: getContentGenerationRuns,
     post: postContentGenerationRun,
-  },
-  agentActivity: {
-    get: getAgentActivity,
-    post: postAgentActivity,
   },
 } satisfies AgentDataApiHandlers;
 

@@ -4,24 +4,22 @@ import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api
 
 import { queryAnalysisConfigSchema } from "./config-schema";
 
-const {
-  mockGet,
-  mockCreate,
-  mockAgentActivityCreate,
-  mockFetchQueryLlm,
-  mockFetchWildcard,
-} = vi.hoisted(() => ({
-  mockGet: vi.fn(),
-  mockCreate: vi.fn(),
-  mockAgentActivityCreate: vi.fn(),
-  mockFetchQueryLlm: vi.fn(),
-  mockFetchWildcard: vi.fn(),
-}));
+const { mockGet, mockCreate, mockFetch, mockFetchQueryLlm, mockFetchWildcard } =
+  vi.hoisted(() => ({
+    mockGet: vi.fn(),
+    mockCreate: vi.fn(),
+    mockFetch: vi.fn(),
+    mockFetchQueryLlm: vi.fn(),
+    mockFetchWildcard: vi.fn(),
+  }));
+
+vi.stubGlobal("fetch", mockFetch);
 
 vi.mock("@mediapulse/env/agents-query-analysis", () => ({
   env: {
     AGENT_DATA_API_URL: "http://agent-data-api",
     AGENT_AUTH_API_URL: "http://agent-auth-api",
+    AGENT_REGISTRY_URL: "http://agent-registry-api",
   },
 }));
 
@@ -30,9 +28,6 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     queryAnalysis: {
       get: mockGet,
       create: mockCreate,
-    },
-    agentActivity: {
-      create: mockAgentActivityCreate,
     },
   })),
 }));
@@ -99,8 +94,8 @@ describe("query-analysis run", () => {
   beforeEach(async () => {
     mockGet.mockReset();
     mockCreate.mockReset();
-    mockAgentActivityCreate.mockReset();
-    mockAgentActivityCreate.mockResolvedValue(undefined);
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue({ ok: true });
     mockFetchQueryLlm.mockReset();
     mockFetchWildcard.mockReset();
 

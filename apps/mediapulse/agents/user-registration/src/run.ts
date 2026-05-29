@@ -285,10 +285,12 @@ export const createRunHandler =
       status: "processing" | "completed" = "processing",
     ) => {
       const jobId = hermesCorrelation?.jobId;
-      if (jobId) {
-        void dataApiClient.agentActivity
-          .create({ jobId, title, description, status })
-          .catch(() => {});
+      if (jobId && token) {
+        void fetch(`${env.AGENT_REGISTRY_URL}/api/agent-activity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: token },
+          body: JSON.stringify({ jobId, title, description, status }),
+        }).catch(() => {});
       }
     };
 

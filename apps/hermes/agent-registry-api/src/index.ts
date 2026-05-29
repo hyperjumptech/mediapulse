@@ -5,6 +5,7 @@ import { logger, slimPinoLogger } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { registerAgent } from "./routes/register-agent";
+import { postAgentActivity } from "./routes/agent-activity";
 
 if (!env.AGENT_AUTH_API_URL) {
   throw new Error("AGENT_AUTH_API_URL is required for agent-registry-api");
@@ -38,6 +39,7 @@ api.use(
 );
 
 api.post("/agents/register", registerAgent);
+api.post("/agent-activity", postAgentActivity);
 
 rootApp.route("/api", api);
 
