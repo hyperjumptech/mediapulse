@@ -48,6 +48,32 @@ describe("toEntityEvidenceRowsForSource", () => {
       },
     ]);
   });
+
+  it("omits out-of-range mention confidence from entity evidence", () => {
+    // Setup
+    const entities = [
+      { canonicalName: "Apple Inc", typeId: "t1", aliases: [] as string[] },
+    ];
+    const mentions = [
+      {
+        entityName: "Apple Inc",
+        mentionCount: 1,
+        confidence: 1.5,
+        sentiment: null,
+      },
+    ];
+
+    // Act
+    const rows = toEntityEvidenceRowsForSource(DS, entities, mentions);
+
+    // Assert
+    expect(rows).toEqual([
+      {
+        dataSourceId: DS,
+        entityName: "Apple Inc",
+      },
+    ]);
+  });
 });
 
 describe("toRelationEvidenceRowsForSource", () => {

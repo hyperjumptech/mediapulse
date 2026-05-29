@@ -43,9 +43,13 @@ export const toEntityEvidenceRowsForSource = (
     const aliasConfidence = entity.aliases
       .map((alias) => mentionConfidenceByName.get(normalizeEntityName(alias)))
       .find((value) => value !== undefined);
-    const confidence =
+    const rawConfidence =
       mentionConfidenceByName.get(normalizeEntityName(entity.canonicalName)) ??
       aliasConfidence;
+    const confidence =
+      rawConfidence !== undefined && rawConfidence >= 0 && rawConfidence <= 1
+        ? rawConfidence
+        : undefined;
     return {
       dataSourceId,
       entityName: entity.canonicalName.trim(),
@@ -99,7 +103,10 @@ export const dedupeEntityEvidence = (
     }
     map.set(key, {
       ...existing,
-      ...(row.confidence !== undefined && row.confidence !== null
+      ...(row.confidence !== undefined &&
+      row.confidence !== null &&
+      row.confidence >= 0 &&
+      row.confidence <= 1
         ? {
             confidence: Math.max(existing.confidence ?? 0, row.confidence),
           }
