@@ -14,6 +14,12 @@ import { type SearchQuery, performWebSearch } from "./web-search";
 
 const defaultConfig = {
   baseUrl: "https://google.serper.dev/search",
+  query: {
+    country: "id",
+    language: "auto" as const,
+    dateRange: "past_week" as const,
+    type: "news" as const,
+  },
   authentication: {
     type: "none" as const,
     apiKey: "serper-key",
@@ -78,11 +84,11 @@ describe("performWebSearch", () => {
     );
   });
 
-  it("calls Serper and maps the first organic result", async () => {
+  it("calls Serper news with Indonesia defaults and maps the first result", async () => {
     // Setup
     const postMock = vi.fn().mockReturnValue(
       mockGotPostResponse({
-        organic: [
+        news: [
           {
             link: "http://example.com",
             title: "Title",
@@ -105,9 +111,14 @@ describe("performWebSearch", () => {
 
     // Assert
     expect(postMock).toHaveBeenCalledWith(
-      "https://google.serper.dev/search",
+      "https://google.serper.dev/news",
       expect.objectContaining({
-        json: { q: "search" },
+        json: {
+          q: "search",
+          gl: "id",
+          type: "news",
+          tbs: "qdr:w",
+        },
         headers: expect.objectContaining({
           "X-API-KEY": "serper-key",
         }),

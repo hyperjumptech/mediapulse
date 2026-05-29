@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
+import { serperQueryConfigSchema } from "./serper-query";
+
 const concurrencySchema = z
   .number()
   .int()
@@ -35,11 +37,11 @@ const defaultRetry = {
   maxDelayMs: 10_000,
 } as const;
 
-/** Extended retry policy for Diffbot when many tickers share one rate-limit budget. */
-const diffbotDefaultRetry = {
-  maxAttempts: 4,
-  baseDelayMs: 2000,
-  maxDelayMs: 20_000,
+/** Fetch providers fail fast and rely on the ordered provider chain for fallback. */
+const fetchDefaultRetry = {
+  maxAttempts: 1,
+  baseDelayMs: 1000,
+  maxDelayMs: 10_000,
 } as const;
 
 const authenticationSchema = z.object({
@@ -74,7 +76,14 @@ const searchProviderSchema = z.object({
   baseUrl: z
     .string()
     .default("https://google.serper.dev/search")
-    .describe("Serper search endpoint that accepts POST { q }."),
+    .describe(
+      "Serper API host and path. The search type overrides the path to /search or /news.",
+    ),
+  query: serperQueryConfigSchema
+    .default({})
+    .describe(
+      "Serper query parameters: country (gl), language (hl), date range (tbs), and type.",
+    ),
   authentication: z
     .object({
       type: z.enum(["bearer", "none"]).default("none"),
@@ -124,7 +133,7 @@ export const fetchProviderConfigSchema = z.object({
     .default(30_000)
     .optional()
     .describe("HTTP request timeout in milliseconds."),
-  retry: retrySchema.default(defaultRetry).optional(),
+  retry: retrySchema.default(fetchDefaultRetry).optional(),
 });
 
 /** Recommended Diffbot provider defaults for the fetch chain. */
@@ -138,7 +147,7 @@ export const defaultDiffbotFetchProvider = {
   rateLimit: { requests: 1, perSeconds: 1 },
   concurrency: 1,
   timeoutMs: 45_000,
-  retry: diffbotDefaultRetry,
+  retry: fetchDefaultRetry,
 };
 
 /** Recommended Firecrawl provider defaults for the fetch chain. */
@@ -153,7 +162,7 @@ export const defaultFirecrawlFetchProvider = {
   rateLimit: { requests: 1, perSeconds: 1 },
   concurrency: 1,
   timeoutMs: 45_000,
-  retry: defaultRetry,
+  retry: fetchDefaultRetry,
 };
 
 /** Recommended Jina provider defaults for the fetch chain. */
@@ -168,7 +177,7 @@ export const defaultJinaFetchProvider = {
   rateLimit: { requests: 2, perSeconds: 1 },
   concurrency: 1,
   timeoutMs: 45_000,
-  retry: defaultRetry,
+  retry: fetchDefaultRetry,
 };
 
 /** Default ordered fetch-provider chain: Diffbot, then Firecrawl, then Jina. */

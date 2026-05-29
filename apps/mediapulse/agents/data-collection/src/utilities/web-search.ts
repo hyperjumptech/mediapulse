@@ -4,6 +4,7 @@ import { logger as defaultLogger } from "@workspace/logger";
 import { RateLimiter, type StageThrottleStats, withRetry } from "./resilience";
 import { classifyError, isRetryableError } from "./error-classification";
 import { pMap } from "./p-map";
+import { buildSerperRequestBody, resolveSerperEndpoint } from "./serper-query";
 import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
 
@@ -69,9 +70,19 @@ const serperOrganicItemSchema = z.object({
   snippet: z.string().optional(),
 });
 
+/** Zod schema for Serper.dev API news result item. */
+const serperNewsItemSchema = z.object({
+  link: z.string().url().optional(),
+  title: z.string().optional(),
+  snippet: z.string().optional(),
+  date: z.string().optional(),
+  source: z.string().optional(),
+});
+
 /** Zod schema for Serper.dev API search response. */
 export const serperResponseSchema = z.object({
   organic: z.array(serperOrganicItemSchema).optional(),
+  news: z.array(serperNewsItemSchema).optional(),
 });
 
 export type SerperResponse = z.infer<typeof serperResponseSchema>;
@@ -107,8 +118,10 @@ const searchOneQuery = async (
     await rateLimiter.acquire();
 
     const fetchTask = async () => {
-      const response = await gotClient.post(config.baseUrl, {
-        json: { q: query.text },
+      const endpoint = resolveSerperEndpoint(config.baseUrl, config.query.type);
+      const requestBody = buildSerperRequestBody(query.text, config.query);
+      const response = await gotClient.post(endpoint, {
+        json: requestBody,
         headers: {
           "Content-Type": "application/json",
           ...authHeaders,
@@ -123,19 +136,22 @@ const searchOneQuery = async (
         throw parsed.error;
       }
 
-      const organic = parsed.data.organic ?? [];
-      if (organic.length === 0) {
+      const items =
+        config.query.type === "news"
+          ? (parsed.data.news ?? [])
+          : (parsed.data.organic ?? []);
+      if (items.length === 0) {
         throw new Error("Semantic validation failed");
       }
-      return organic;
+      return items;
     };
 
-    const organic = config.retry
+    const serpItems = config.retry
       ? await withRetry(fetchTask, config.retry, isRetryableError)
       : await fetchTask();
 
     const queryResults: WebSearchAttemptResult[] = [];
-    for (const [serpIndex, item] of organic.entries()) {
+    for (const [serpIndex, item] of serpItems.entries()) {
       if (!item.link) {
         continue;
       }
