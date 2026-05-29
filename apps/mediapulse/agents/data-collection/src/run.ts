@@ -81,6 +81,21 @@ export async function runDataCollection(
     token,
   });
 
+  const report = (
+    title: string,
+    description?: string,
+    status: "processing" | "completed" = "processing",
+  ) => {
+    const jobId = hermesCorrelation?.jobId;
+    if (jobId) {
+      void dataApiClient.agentActivity
+        .create({ jobId, title, description, status })
+        .catch(() => {});
+    }
+  };
+
+  report("Fetching search queries", `ticker ${input.tickerId}`);
+
   const webSearchConfig = config.providers.search;
   const webFetchConfig = config.providers.fetch;
   const relevanceGateConfig = config.gates.relevance;
@@ -103,6 +118,10 @@ export async function runDataCollection(
     tickerRecord.sector,
     tickerRecord.industry,
   );
+  report(
+    "Loaded ticker context",
+    `${tickerAliases.length} ticker aliases, ${industryAliases.length} industry terms`,
+  );
   if (tickerAliases.length === 0 && industryAliases.length === 0) {
     log.warn(
       { tickerId: input.tickerId },
@@ -121,6 +140,8 @@ export async function runDataCollection(
   const { data: queries = [] } = await dataApiClient.dataCollection.get({
     tickerId: input.tickerId,
   });
+
+  report("Loaded search queries", `${queries.length} queries`);
 
   log.info(
     { queryCount: queries.length },
@@ -146,6 +167,11 @@ export async function runDataCollection(
     limit: 1,
   });
   const existingTodaySourceCount = baselineToday.dataSourceTotalCount;
+
+  report(
+    "Checking daily quota",
+    `${existingTodaySourceCount} sources today, target ${targetDailySuccessfulSources}`,
+  );
 
   let roundsExecuted = 0;
   let refillStopReason:
@@ -187,11 +213,29 @@ export async function runDataCollection(
   let throttleEvents = 0;
 
   if (queries.length === 0) {
+    report(
+      "No search queries available",
+      `ticker ${input.tickerId} has no active queries`,
+      "completed",
+    );
     refillStopReason = "no_queries";
   } else if (existingTodaySourceCount >= targetDailySuccessfulSources) {
+    report(
+      "Daily target already met",
+      `${existingTodaySourceCount} sources already today`,
+      "completed",
+    );
     refillStopReason = "daily_target_met_before_start";
   } else {
+    report(
+      "Running web searches",
+      `${queries.length} queries for ${input.tickerId}`,
+    );
+
     for (let round = 1; round <= maxTotalRounds; round += 1) {
+      if (round > 1) {
+        report("Search refill round", `round ${round} of ${maxTotalRounds}`);
+      }
       roundsExecuted += 1;
       const searchThrottleStats = { throttleEvents: 0 };
       const searchAttemptResults = await performWebSearch(queries, {
@@ -317,6 +361,11 @@ export async function runDataCollection(
         );
       }
 
+      report(
+        "Filtered search results",
+        `${searchSuccessesAfterHostBreaker.length} URLs after dedup, existing-URL and dead-cache checks`,
+      );
+
       const budgetSelection = applyFetchBudget(
         searchSuccessesAfterHostBreaker,
         {
@@ -344,6 +393,11 @@ export async function runDataCollection(
         );
       }
 
+      report(
+        "Fetching article content",
+        `${budgetSelection.hits.length} candidate URLs`,
+      );
+
       const fetchThrottleStats = { throttleEvents: 0 };
       const fetchAttemptResults = await performWebFetch(budgetSelection.hits, {
         config: webFetchConfig,
@@ -366,6 +420,10 @@ export async function runDataCollection(
 
       let persistedThisRoundCount = 0;
       const roundQualityDrops: QualityDropForDeadUrl[] = [];
+      report(
+        "Saving sources to database",
+        `${roundFetchSuccesses.length} deduplicated sources`,
+      );
       for (const page of roundFetchSuccesses) {
         const urlDecision = classifyNoisyUrl(page.url);
         if (urlDecision.blocked) {
@@ -638,6 +696,12 @@ export async function runDataCollection(
       "data collection run completed with policy failure (semantic failure response)",
     );
 
+    report(
+      "Data collection complete",
+      `${totalSources} saved, ${failuresPayload.length} failed`,
+      "completed",
+    );
+
     return {
       success: false,
       message,
@@ -667,6 +731,12 @@ export async function runDataCollection(
       throttleEvents,
     },
     completionMessage,
+  );
+
+  report(
+    "Data collection complete",
+    `${totalSources} saved, ${failuresPayload.length} failed`,
+    "completed",
   );
 
   return {

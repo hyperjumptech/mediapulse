@@ -145,6 +145,21 @@ export async function run({
     token,
   });
 
+  const report = (
+    title: string,
+    description?: string,
+    status: "processing" | "completed" = "processing",
+  ) => {
+    const jobId = hermesCorrelation?.jobId;
+    if (jobId) {
+      void dataApiClient.agentActivity
+        .create({ jobId, title, description, status })
+        .catch(() => {});
+    }
+  };
+
+  report("Loading source articles", `ticker ${input.tickerId}`);
+
   const pipelineRunId = hermesCorrelation?.pipelineStepId ?? null;
   const executionId = hermesCorrelation?.executionId ?? null;
 
@@ -180,6 +195,10 @@ export async function run({
   );
 
   const precheckStart = Date.now();
+  report(
+    "Checking freshness",
+    `newsletter window ${windowStart} – ${windowEnd}`,
+  );
   const freshnessResult =
     await dataApiClient.contentGenerationNewslettersLatest.get({
       tickerId: input.tickerId,
@@ -221,6 +240,11 @@ export async function run({
       { tickerId: input.tickerId, outcome },
       "Skipping run: fresh newsletter already exists",
     );
+    report(
+      "Newsletter already generated today",
+      `skipping for ${input.tickerId}`,
+      "completed",
+    );
     await writeDiagnostic({
       dataApiClient,
       tickerId: input.tickerId,
@@ -248,6 +272,11 @@ export async function run({
     tickerId: input.tickerId,
   });
 
+  report(
+    "Fetched source articles",
+    `${sources?.length ?? 0} articles for ${input.tickerId}`,
+  );
+
   const { openaiApiKey: _apiKey, ...safeCredentials } =
     resolvedConfig.credentials;
   const safeConfig = { ...resolvedConfig, credentials: safeCredentials };
@@ -264,6 +293,11 @@ export async function run({
       { tickerId: input.tickerId, outcome },
       "Skipping run: no data sources",
     );
+    report(
+      "No source articles found",
+      `${input.tickerId} has no collected sources yet`,
+      "completed",
+    );
     await writeDiagnostic({
       dataApiClient,
       tickerId: input.tickerId,
@@ -277,6 +311,8 @@ export async function run({
       message: outcome.message ?? "No data sources found for this ticker",
     };
   }
+
+  report("Preparing article context", `${sources.length} articles`);
 
   // Map API sources to the minimal shape needed by the LLM generator.
   const sourcesForLlm: SourceForGeneration[] = sources.map((s) => ({
@@ -295,6 +331,10 @@ export async function run({
     createdAt: string;
   }> = [];
   if (resolvedConfig.quality.crossRunDedup.enabled) {
+    report(
+      "Loading recent newsletter bullets",
+      `last ${resolvedConfig.quality.crossRunDedup.windowDays} days`,
+    );
     try {
       const recent = await dataApiClient.contentGenerationBulletsRecent.get({
         tickerId: input.tickerId,
@@ -316,6 +356,7 @@ export async function run({
 
   let recentSubjects: string[] = [];
   if (resolvedConfig.delivery.subjectLine.enabled) {
+    report("Loading recent subject lines", "last 7 days");
     try {
       const recent = await dataApiClient.contentGenerationNewslettersRecent.get(
         {
@@ -339,6 +380,10 @@ export async function run({
 
   // Generate newsletter with retry-wrapped generateObject.
   let generated: Awaited<ReturnType<typeof generateNewsletterWithLlm>>;
+  report(
+    "Generating newsletter with LLM",
+    `${sourcesForLlm.length} articles · ${resolvedConfig.credentials.chatModel}`,
+  );
   logger.info({ tickerId: input.tickerId }, "LLM generation: start");
   try {
     generated = await generateNewsletterWithLlm(sourcesForLlm, resolvedConfig, {
@@ -371,6 +416,11 @@ export async function run({
       pipelineRunId,
       executionId,
     });
+    report(
+      "Newsletter generation failed",
+      `Newsletter generation failed: ${code}`,
+      "completed",
+    );
     return {
       success: false,
       message: `Newsletter generation failed: ${code}`,
@@ -428,6 +478,10 @@ export async function run({
 
   // Persist generated newsletter via agent-data-api.
   let persistedNewsletterId: string | null = null;
+  report(
+    "Saving newsletter to database",
+    `${resolvedConfig.output.topNewsCount} topics`,
+  );
   logger.info({ tickerId: input.tickerId }, "Persisting newsletter: start");
   try {
     const persistResult = await dataApiClient.contentGeneration.create({
@@ -467,6 +521,11 @@ export async function run({
       pipelineRunId,
       executionId,
     });
+    report(
+      "Newsletter generation failed",
+      `Failed to store generated newsletter: ${code}`,
+      "completed",
+    );
     return {
       success: false,
       message: `Failed to store generated newsletter: ${code}`,
@@ -477,6 +536,11 @@ export async function run({
   // Success path
   // -------------------------------------------------------------------------
   logger.info({ tickerId: input.tickerId }, "Stored newsletter for ticker");
+  report(
+    "Newsletter generated",
+    `${resolvedConfig.output.topNewsCount} topics`,
+    "completed",
+  );
   await writeDiagnostic({
     dataApiClient,
     tickerId: input.tickerId,

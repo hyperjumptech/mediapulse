@@ -2,6 +2,10 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/app/dashboard/executions/agent-activity-actions", () => ({
+  fetchAgentActivitiesAction: vi.fn().mockResolvedValue([]),
+}));
+
 import { ScheduleExecutionInvocationsTable } from "./schedule-execution-invocations-table";
 
 vi.mock("@workspace/ui/components/dialog", () => ({
@@ -50,8 +54,11 @@ describe("ScheduleExecutionInvocationsTable", () => {
     render(<ScheduleExecutionInvocationsTable invocations={invocations} />);
     fireEvent.click(screen.getByRole("button", { name: "j1" }));
 
-    // Assert
-    expect(screen.getByTestId("dialog")).toHaveAttribute("data-open", "true");
+    // Assert — invocation details dialog (first of two Dialog instances)
+    const openDialogs = screen
+      .getAllByTestId("dialog")
+      .filter((node) => node.getAttribute("data-open") === "true");
+    expect(openDialogs).toHaveLength(1);
     expect(screen.getByText(/"ticker": "ABC"/)).toBeInTheDocument();
     expect(screen.getByText(/"foo": 1/)).toBeInTheDocument();
     expect(screen.getByText("my-agent")).toBeInTheDocument();
