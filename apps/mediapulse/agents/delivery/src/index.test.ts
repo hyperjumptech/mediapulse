@@ -1,10 +1,26 @@
 /** @vitest-environment node */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const hoistedLogger = vi.hoisted(() => ({
-  info: vi.fn(),
-  error: vi.fn(),
+const {
+  hoistedLogger,
+  mockDeliverNewsletter,
+  mockFetch,
+  deliveryGetMock,
+  deliveryCreateMock,
+  deliveryRunCreateMock,
+} = vi.hoisted(() => ({
+  hoistedLogger: {
+    info: vi.fn(),
+    error: vi.fn(),
+  },
+  mockDeliverNewsletter: vi.fn(),
+  mockFetch: vi.fn().mockResolvedValue(new Response(null, { status: 204 })),
+  deliveryGetMock: vi.fn(),
+  deliveryCreateMock: vi.fn().mockResolvedValue({ message: "ok" }),
+  deliveryRunCreateMock: vi.fn().mockResolvedValue({ message: "ok" }),
 }));
+
+vi.stubGlobal("fetch", mockFetch);
 
 vi.mock("@workspace/logger", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@workspace/logger")>();
@@ -46,27 +62,28 @@ vi.mock("@mediapulse/env/agents-delivery", () => ({
     AGENT_DATA_API_URL: "http://agent-data-api",
     AGENT_AUTH_API_URL: "http://agent-auth-api",
     PORT: undefined,
-    AGENT_REGISTRY_URL: undefined,
+    AGENT_REGISTRY_URL: "http://agent-registry-api",
     AGENT_PUBLIC_URL: undefined,
     DOMAIN_INTEGRATION_API_KEY: undefined,
     DOMAIN_INTEGRATION_ID: undefined,
   },
 }));
 
-vi.mock("got", () => ({
-  default: {
-    get: vi.fn(),
-    post: vi.fn(),
-  },
+vi.mock("@workspace/agent-data-api-client", () => ({
+  createAgentDataApiClient: vi.fn(() => ({
+    delivery: {
+      get: deliveryGetMock,
+      create: deliveryCreateMock,
+    },
+    deliveryRun: {
+      create: deliveryRunCreateMock,
+    },
+  })),
 }));
 
 vi.mock("./deliver-newsletter.js", () => ({
-  deliverNewsletterToSubscribers: vi.fn(),
+  deliverNewsletterToSubscribers: mockDeliverNewsletter,
 }));
-
-const getGot = async () => (await import("got")).default;
-const getDeliver = async () =>
-  (await import("./deliver-newsletter.js")).deliverNewsletterToSubscribers;
 
 type DeliveryAgentModule = typeof import("./index.js");
 
@@ -79,33 +96,34 @@ const fetchAgent = async (init: RequestInit) => {
 };
 
 describe("delivery-agent", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    deliveryGetMock.mockReset();
+    deliveryCreateMock.mockReset();
+    deliveryCreateMock.mockResolvedValue({ message: "ok" });
+    deliveryRunCreateMock.mockReset();
+    deliveryRunCreateMock.mockResolvedValue({ message: "ok" });
+    mockDeliverNewsletter.mockReset();
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue(new Response(null, { status: 204 }));
   });
 
   it("returns 200 and success when delivery is successful", async () => {
-    const got = await getGot();
-    (got.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      statusCode: 200,
-      body: JSON.stringify({
-        newsletter: {
-          id: NL_ID,
-          subject: "News",
-          content: "Body",
-          symbol: "AAPL",
-        },
-        subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
-        deliveredUserTickerIds: [],
-      }),
+    // Setup
+    deliveryGetMock.mockResolvedValue({
+      newsletter: {
+        id: NL_ID,
+        subject: "News",
+        content: "Body",
+        symbol: "AAPL",
+      },
+      subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
+      deliveredUserTickerIds: [],
     });
-    (got.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      statusCode: 200,
-      body: JSON.stringify({ message: "ok" }),
-    });
-
-    const deliver = await getDeliver();
-    vi.mocked(deliver).mockResolvedValue({
+    mockDeliverNewsletter.mockResolvedValue({
       results: [
         {
           userTickerId: UT_ID,
@@ -117,15 +135,21 @@ describe("delivery-agent", () => {
       resendMessageIds: ["re_1"],
     });
 
+    // Act
     const res = await fetchAgent({
       method: "POST",
-      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      headers: {
+        ...AUTH_HEADERS,
+        "Content-Type": "application/json",
+        "X-Job-Id": "job-delivery-test",
+      },
       body: JSON.stringify({
         input: { tickerId: TICKER_ID },
         config: DELIVERY_CONFIG,
       }),
     });
 
+    // Assert
     const body = (await res.json()) as {
       schemaVersion: number;
       status: string;
@@ -135,8 +159,9 @@ describe("delivery-agent", () => {
     expect(body.schemaVersion).toBe(1);
     expect(body.status).toBe("success");
     expect(body.details?.outcome).toBe("success");
-    expect(got.get).toHaveBeenCalled();
-    expect(deliver).toHaveBeenCalled();
+    expect(deliveryGetMock).toHaveBeenCalled();
+    expect(mockDeliverNewsletter).toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalled();
     expect(hoistedLogger.info).toHaveBeenCalledWith(
       expect.objectContaining({
         tickerId: TICKER_ID,
@@ -159,24 +184,17 @@ describe("delivery-agent", () => {
       }),
       "delivery run outcome",
     );
-  }, 20_000);
+  });
 
   it("returns 200 skip when no newsletter with non-UUID tickerId", async () => {
-    const got = await getGot();
-    (got.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      statusCode: 200,
-      body: JSON.stringify({
-        newsletter: null,
-        subscribers: [],
-        deliveredUserTickerIds: [],
-      }),
-    });
-    (got.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      statusCode: 200,
-      body: JSON.stringify({ message: "ok" }),
+    // Setup
+    deliveryGetMock.mockResolvedValue({
+      newsletter: null,
+      subscribers: [],
+      deliveredUserTickerIds: [],
     });
 
+    // Act
     const res = await fetchAgent({
       method: "POST",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
@@ -186,6 +204,7 @@ describe("delivery-agent", () => {
       }),
     });
 
+    // Assert
     expect(res.status).toBe(200);
     const body = (await res.json()) as { status: string; message?: string };
     expect(body.status).toBe("success");
@@ -207,24 +226,17 @@ describe("delivery-agent", () => {
       }),
       "delivery run skipped",
     );
-  }, 20_000);
+  });
 
   it("returns 200 skip when no newsletter with db: expansion tickerId", async () => {
-    const got = await getGot();
-    (got.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      statusCode: 200,
-      body: JSON.stringify({
-        newsletter: null,
-        subscribers: [],
-        deliveredUserTickerIds: [],
-      }),
-    });
-    (got.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      statusCode: 200,
-      body: JSON.stringify({ message: "ok" }),
+    // Setup
+    deliveryGetMock.mockResolvedValue({
+      newsletter: null,
+      subscribers: [],
+      deliveredUserTickerIds: [],
     });
 
+    // Act
     const res = await fetchAgent({
       method: "POST",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
@@ -234,35 +246,26 @@ describe("delivery-agent", () => {
       }),
     });
 
+    // Assert
     expect(res.status).toBe(200);
     const body = (await res.json()) as { status: string; message?: string };
     expect(body.status).toBe("success");
     expect(body.message).toContain("Skipped");
-  }, 20_000);
+  });
 
   it("returns 200 with skipped_all_already_delivered when every recipient was skipped", async () => {
-    const got = await getGot();
-    (got.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      statusCode: 200,
-      body: JSON.stringify({
-        newsletter: {
-          id: NL_ID,
-          subject: "News",
-          content: "Body",
-          symbol: "AAPL",
-        },
-        subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
-        deliveredUserTickerIds: [UT_ID],
-      }),
+    // Setup
+    deliveryGetMock.mockResolvedValue({
+      newsletter: {
+        id: NL_ID,
+        subject: "News",
+        content: "Body",
+        symbol: "AAPL",
+      },
+      subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
+      deliveredUserTickerIds: [UT_ID],
     });
-    (got.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      statusCode: 200,
-      body: JSON.stringify({ message: "ok" }),
-    });
-
-    const deliver = await getDeliver();
-    vi.mocked(deliver).mockResolvedValue({
+    mockDeliverNewsletter.mockResolvedValue({
       results: [
         {
           userTickerId: UT_ID,
@@ -273,6 +276,7 @@ describe("delivery-agent", () => {
       resendMessageIds: [],
     });
 
+    // Act
     const res = await fetchAgent({
       method: "POST",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
@@ -282,6 +286,7 @@ describe("delivery-agent", () => {
       }),
     });
 
+    // Assert
     const body = (await res.json()) as {
       status: string;
       message?: string;
@@ -314,6 +319,7 @@ describe("delivery-agent", () => {
   });
 
   it("returns 400 when tickerId is only whitespace", async () => {
+    // Act
     const res = await fetchAgent({
       method: "POST",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
@@ -322,10 +328,13 @@ describe("delivery-agent", () => {
         config: DELIVERY_CONFIG,
       }),
     });
+
+    // Assert
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when config validation fails", async () => {
+    // Act
     const res = await fetchAgent({
       method: "POST",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
@@ -337,6 +346,8 @@ describe("delivery-agent", () => {
         },
       }),
     });
+
+    // Assert
     expect(res.status).toBe(400);
   });
 });

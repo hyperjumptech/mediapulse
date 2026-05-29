@@ -123,7 +123,7 @@ const app = createAgentApp<
         status: "processing" | "completed" = "processing",
       ) => {
         const jobId = hermesCorrelation?.jobId;
-        if (jobId && token) {
+        if (jobId && token && env.AGENT_REGISTRY_URL) {
           void fetch(`${env.AGENT_REGISTRY_URL}/api/agent-activity`, {
             method: "POST",
             headers: {
