@@ -87,15 +87,11 @@ export const decomposeSectionHeading = (
     return { eyebrow: null, subtitle: displayHeading };
   }
 
+  // Strip "Label / " prefix if the model included it (backward compat with old wire data)
   const prefix = `${label} / `;
-  if (displayHeading.toLowerCase() === label.toLowerCase()) {
-    return { eyebrow: null, subtitle: null };
-  }
   if (displayHeading.toLowerCase().startsWith(prefix.toLowerCase())) {
     const subtitle = displayHeading.slice(prefix.length).trim();
-    return subtitle.length > 0
-      ? { eyebrow: label, subtitle }
-      : { eyebrow: null, subtitle: null };
+    return { eyebrow: label, subtitle: subtitle.length > 0 ? subtitle : null };
   }
 
   return { eyebrow: label, subtitle: displayHeading };
