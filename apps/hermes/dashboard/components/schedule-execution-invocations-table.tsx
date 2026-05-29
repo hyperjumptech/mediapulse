@@ -44,6 +44,8 @@ import {
   useScheduleExecutionInvocationsModal,
   type ScheduleExecutionInvocationRow,
 } from "./use-schedule-execution-invocations-modal";
+import { isActivityRowInProgress } from "@/lib/derive-activity-row-durations";
+
 import { useAgentActivityModal } from "./use-agent-activity-modal";
 import { LiveElapsed } from "./live-elapsed";
 
@@ -326,9 +328,12 @@ export const ScheduleExecutionInvocationsTable = ({
           ) : (
             <div className="flex flex-col">
               {activityRows.map((row, index) => {
-                const isLastRow = index === activityRows.length - 1;
-                const showLiveElapsed =
-                  isLastRow && row.status === "processing";
+                const inProgress = isActivityRowInProgress(
+                  row,
+                  index,
+                  activityRows.length,
+                );
+                const showLiveElapsed = inProgress;
                 const durationLabel =
                   !showLiveElapsed && row.durationMs != null
                     ? formatActivityDuration(row.durationMs)
@@ -348,7 +353,7 @@ export const ScheduleExecutionInvocationsTable = ({
                             {durationLabel}
                           </span>
                         ) : null}
-                        {row.status === "processing" ? (
+                        {inProgress ? (
                           <Loader2 className="size-4 animate-spin text-muted-foreground" />
                         ) : (
                           <CheckCircle2 className="size-4 text-green-500" />
