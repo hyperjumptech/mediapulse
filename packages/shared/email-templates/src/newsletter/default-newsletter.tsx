@@ -88,10 +88,10 @@ export const decomposeSectionHeading = (
   }
 
   const prefix = `${label} / `;
-  if (displayHeading === label) {
+  if (displayHeading.toLowerCase() === label.toLowerCase()) {
     return { eyebrow: null, subtitle: null };
   }
-  if (displayHeading.startsWith(prefix)) {
+  if (displayHeading.toLowerCase().startsWith(prefix.toLowerCase())) {
     const subtitle = displayHeading.slice(prefix.length).trim();
     return subtitle.length > 0
       ? { eyebrow: label, subtitle }
