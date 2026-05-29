@@ -1,18 +1,4 @@
 export {
-  agentActivityListItemSchema,
-  agentActivityStatusSchema,
-  getAgentActivityQuerySchema,
-  getAgentActivityResponseSchema,
-  postAgentActivityBodySchema,
-  postAgentActivityResponseSchema,
-  type AgentActivityListItem,
-  type AgentActivityStatus,
-  type GetAgentActivityQuery,
-  type GetAgentActivityResponse,
-  type PostAgentActivityBody,
-  type PostAgentActivityResponse,
-} from "./agent-activity.js";
-export {
   AGENT_DATA_API_DEFAULT_VERSION,
   AGENT_DATA_API_LIVE_VERSIONS,
   AGENT_DATA_API_PREFIX,

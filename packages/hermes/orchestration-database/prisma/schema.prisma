@@ -510,3 +510,16 @@ model ScheduleStepExecution {
   @@unique([scheduleExecutionId, pipelineStepId])
   @@map("schedule_step_execution")
 }
+
+/// Agent-reported activity heartbeat for a Hermes job (processing/completed steps).
+model AgentActivity {
+  id          String   @id @default(uuid())
+  jobId       String   @map("job_id")
+  title       String
+  description String?
+  status      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([jobId])
+  @@map("agent_activity")
+}
