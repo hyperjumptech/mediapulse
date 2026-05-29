@@ -231,7 +231,12 @@ describe("data-collection agent (HTTP)", () => {
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
-          config: {},
+          config: {
+            runPolicy: {
+              minSuccessfulSources: 1,
+              failOnZeroSuccess: true,
+            },
+          },
         }),
       }),
     );

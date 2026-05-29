@@ -66,6 +66,10 @@ const baseConfig = dataCollectionAgentConfigSchema.parse({
     perQueryFetchBudget: 3,
     perRunFetchBudget: 40,
   },
+  runPolicy: {
+    minSuccessfulSources: 1,
+    failOnZeroSuccess: true,
+  },
 });
 
 /**
@@ -593,6 +597,7 @@ describe("runDataCollection", () => {
           deduplication: {
             openaiApiKey: "sk-test",
             semantic: {
+              enabled: true,
               threshold: 0.88,
               windowDays: 7,
               embeddingModel: "text-embedding-3-small",
@@ -705,6 +710,7 @@ describe("runDataCollection", () => {
           deduplication: {
             openaiApiKey: "sk-test",
             semantic: {
+              enabled: true,
               threshold: 0.88,
               windowDays: 7,
               embeddingModel: "text-embedding-3-small",
@@ -735,7 +741,7 @@ describe("runDataCollection", () => {
     });
   });
 
-  it("defaults semantic dedupe to enabled and calls embedTexts when openaiApiKey is resolved", async () => {
+  it("skips semantic dedupe by default when semantic.enabled is false", async () => {
     recentSourceFingerprintsGetMock.mockResolvedValueOnce({
       fingerprints: [
         {
@@ -745,10 +751,6 @@ describe("runDataCollection", () => {
         },
       ],
     });
-    embedTextsMock.mockResolvedValueOnce([
-      [1, 0, 0],
-      [0, 1, 0],
-    ]);
 
     await runDataCollection(
       createContext({
@@ -770,11 +772,8 @@ describe("runDataCollection", () => {
       }),
     );
 
-    expect(embedTextsMock).toHaveBeenCalled();
-    expect(recentSourceFingerprintsGetMock).toHaveBeenCalledWith({
-      tickerId: TICKER_ID,
-      windowDays: 7,
-    });
+    expect(embedTextsMock).not.toHaveBeenCalled();
+    expect(recentSourceFingerprintsGetMock).not.toHaveBeenCalled();
   });
 
   it("does not call dataCollection.create when there are no fetch successes", async () => {

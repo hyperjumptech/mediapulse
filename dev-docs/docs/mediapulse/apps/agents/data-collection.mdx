@@ -63,7 +63,7 @@ After the content quality gate, each page is checked for mentions of the target 
 | Setting | Default | Purpose |
 | --- | --- | --- |
 | `relevanceGate.enabled` | `true` | Toggle the gate per pipeline config |
-| `relevanceGate.headChars` | `1500` | Scan window in the page body (title always included) |
+| `relevanceGate.headChars` | `3000` | Scan window in the page body (title always included) |
 | `relevanceGate.minMatches` | `1` | Minimum distinct alias hits required across company or industry aliases |
 
 Pages with no company or industry alias match in the scan window are dropped with reason `no_alias_match`. This lets competitor and sector-wide articles through when they mention the subscribed ticker's industry (e.g. TLKM subscribers can collect XL Axiata news that mentions `Telekomunikasi`). The run summary and persisted run counters include `droppedByRelevance` so operators can spot overly aggressive gates.
@@ -72,7 +72,7 @@ Word-boundary matching prevents short symbols from matching inside unrelated wor
 
 ## Bounded parallelism and adaptive backoff
 
-Web search and web fetch run through `pMap` with configurable concurrency (default `4`, capped at `min(concurrency, rateLimit.requests)`). Each HTTP call still acquires a slot from the sliding-window rate limiter before running.
+Web search and web fetch run through `pMap` with configurable concurrency (default `2`, capped at `min(concurrency, rateLimit.requests)`). Each HTTP call still acquires a slot from the sliding-window rate limiter before running.
 
 When the provider returns `429` or `5xx`, the limiter enlarges its window by 1.5× (up to 4× baseline) for the rest of the run. After ten consecutive successful responses, the window decays back toward baseline. Run counters include `throttleEvents` so operators can see how often adaptive backoff fired.
 
@@ -82,7 +82,7 @@ Before Jina fetch, surviving search hits are ranked by domain reputation, snippe
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `perQueryFetchBudget` | `3` | Maximum fetches contributed by each search query per round |
+| `perQueryFetchBudget` | `5` | Maximum fetches contributed by each search query per round |
 | `perRunFetchBudget` | `40` | Maximum fetches for the entire round after per-query selection |
 
 Skipped hits increment `droppedByPerQueryBudget` and `droppedByPerRunBudget` in the run summary. These are intentional skips, not fetch failures.

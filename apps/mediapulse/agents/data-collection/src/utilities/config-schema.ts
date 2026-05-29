@@ -6,7 +6,7 @@ const concurrencySchema = z
   .int()
   .min(1)
   .max(16)
-  .default(4)
+  .default(2)
   .describe("Maximum parallel requests for this stage.");
 
 const retrySchema = z
@@ -33,6 +33,13 @@ const defaultRetry = {
   maxAttempts: 3,
   baseDelayMs: 1000,
   maxDelayMs: 10_000,
+} as const;
+
+/** Extended retry policy for Diffbot when many tickers share one rate-limit budget. */
+const diffbotDefaultRetry = {
+  maxAttempts: 4,
+  baseDelayMs: 2000,
+  maxDelayMs: 20_000,
 } as const;
 
 const authenticationSchema = z.object({
@@ -128,10 +135,10 @@ export const defaultDiffbotFetchProvider = {
     type: "none" as const,
     apiKey: "{{DIFFBOT_API_KEY}}",
   },
-  rateLimit: { requests: 2, perSeconds: 1 },
-  concurrency: 2,
-  timeoutMs: 30_000,
-  retry: defaultRetry,
+  rateLimit: { requests: 1, perSeconds: 1 },
+  concurrency: 1,
+  timeoutMs: 45_000,
+  retry: diffbotDefaultRetry,
 };
 
 /** Recommended Firecrawl provider defaults for the fetch chain. */
@@ -143,9 +150,9 @@ export const defaultFirecrawlFetchProvider = {
     apiKey: "{{FIRECRAWL_API_KEY}}",
     headerName: "Authorization",
   },
-  rateLimit: { requests: 2, perSeconds: 1 },
-  concurrency: 2,
-  timeoutMs: 30_000,
+  rateLimit: { requests: 1, perSeconds: 1 },
+  concurrency: 1,
+  timeoutMs: 45_000,
   retry: defaultRetry,
 };
 
@@ -159,8 +166,8 @@ export const defaultJinaFetchProvider = {
     headerName: "Authorization",
   },
   rateLimit: { requests: 2, perSeconds: 1 },
-  concurrency: 2,
-  timeoutMs: 30_000,
+  concurrency: 1,
+  timeoutMs: 45_000,
   retry: defaultRetry,
 };
 
@@ -215,7 +222,7 @@ const collectionSchema = z
       .number()
       .int()
       .positive()
-      .default(3)
+      .default(5)
       .describe("Maximum URLs fetched per search query after ranking."),
     perRunFetchBudget: z
       .number()
@@ -238,7 +245,7 @@ const relevanceGateSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(1500)
+    .default(3000)
     .describe(
       "Number of leading content characters scanned for alias matches.",
     ),
@@ -328,7 +335,7 @@ const resilienceSchema = z
 const semanticDedupeSchema = z.object({
   enabled: z
     .boolean()
-    .default(true)
+    .default(false)
     .describe(
       "When enabled, drop near-duplicate pages using embedding similarity against recent corpus fingerprints.",
     ),
@@ -379,7 +386,7 @@ const runPolicySchema = z
       .describe("Minimum persisted sources required for a successful run."),
     failOnZeroSuccess: z
       .boolean()
-      .default(true)
+      .default(false)
       .describe(
         "When true, a run with zero persisted sources is marked failed even if no HTTP errors occurred.",
       ),
