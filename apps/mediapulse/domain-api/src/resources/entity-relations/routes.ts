@@ -10,11 +10,8 @@ import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templa
 import { parsePagination } from "../../lib/list-pagination";
 import { entityRelationsTableV1CustomActionRegistrations } from "./custom-actions";
 import { entityRelationsHermesPathSegment } from "./dashboard-page";
-import {
-  listInclude,
-  mapRowToDetailItem,
-  mapRowToListItem,
-} from "./list-mapper";
+import { detailInclude, mapRowToDetailItem } from "./detail-mapper";
+import { listInclude, mapRowToListItem } from "./list-mapper";
 import { resolveEntityRelationEndpointIds } from "./lib/resolve-entity-relation-endpoints";
 import {
   entityRelationCreateBodySchema,
@@ -234,7 +231,7 @@ entityRelationsRoutes.delete("/:id", async (c) => {
 entityRelationsRoutes.get("/:id", async (c) => {
   const row = await prisma.entityRelation.findUnique({
     where: { id: c.req.param("id") },
-    include: listInclude,
+    include: detailInclude,
   } satisfies Prisma.EntityRelationFindUniqueArgs);
 
   if (!row) {

@@ -52,25 +52,3 @@ export const mapRowToListItem = (row: ListRow) => ({
 
 /** JSON list item type; derived from {@link mapRowToListItem}. */
 export type ListItem = ReturnType<typeof mapRowToListItem>;
-
-/**
- * Maps an entity-relation row to the JSON detail payload (GET by id).
- *
- * @param row - Row from `prisma.entityRelation.findUnique` using {@link listInclude}.
- * @returns Serializable detail record for the Hermes read-only detail page.
- */
-export const mapRowToDetailItem = (row: ListRow) => ({
-  id: row.id,
-  fromEntityId: row.fromEntityId,
-  toEntityId: row.toEntityId,
-  relationTypeId: row.relationTypeId,
-  fromEntityName: row.fromEntity.canonicalName,
-  toEntityName: row.toEntity.canonicalName,
-  relationTypeName: row.relationType.name,
-  weight: row.weight,
-  lastSeenAt: row.lastSeenAt.toISOString(),
-  createdAt: row.createdAt.toISOString(),
-});
-
-/** JSON detail item type; derived from {@link mapRowToDetailItem}. */
-export type DetailItem = ReturnType<typeof mapRowToDetailItem>;

@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 import type { ListRow } from "./list-mapper";
 import {
   ENTITY_DESCRIPTION_PREVIEW_MAX,
-  mapRowToDetailItem,
   mapRowToListItem,
   truncateDescriptionPreview,
 } from "./list-mapper";
@@ -49,29 +48,5 @@ describe("mapRowToListItem", () => {
     expect(item.entityTypeName).toBe("ORG");
     expect(item.descriptionPreview).toBe("Short");
     expect(item.createdAt).toBe("2024-04-01T12:00:00.000Z");
-  });
-});
-
-describe("mapRowToDetailItem", () => {
-  it("includes metadata and type id", () => {
-    const createdAt = new Date("2024-04-01T00:00:00.000Z");
-    const updatedAt = new Date("2024-04-02T00:00:00.000Z");
-    const row = {
-      id: "ent-2",
-      typeId: "type-9",
-      canonicalName: "Other",
-      description: null,
-      metadata: { tier: 1 },
-      createdAt,
-      updatedAt,
-      type: { name: "PERSON" },
-    } as ListRow;
-
-    const detail = mapRowToDetailItem(row);
-
-    expect(detail.typeId).toBe("type-9");
-    expect(detail.metadata).toEqual({ tier: 1 });
-    expect(detail.entityTypeName).toBe("PERSON");
-    expect(detail.description).toBeNull();
   });
 });
