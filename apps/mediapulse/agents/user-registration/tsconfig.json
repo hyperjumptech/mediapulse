@@ -2,7 +2,6 @@
   "extends": "@workspace/typescript-config/node16.json",
   "compilerOptions": {
     "module": "ES2022",
-    "lib": ["ES2022"],
     "jsx": "react-jsx"
   },
   "include": ["src"],
