@@ -27,7 +27,7 @@ Each provider (search and fetch) supports:
 Determines how the agent handles success/failure aggregation:
 
 - **`minSuccessfulSources`**: Minimum number of successful items required to mark the run as successful.
-- **`failOnZeroSuccess`**: If true, throws an error (marking the run as failed) if no items were successfully processed.
+- **`failOnZeroSuccess`**: When true (default is false), marks the run as failed if no items were successfully processed in that invocation — useful for strict pipelines; leave false when the schedule runs multiple times per day and the daily source target may already be met.
 
 ## Partial Failure Isolation
 

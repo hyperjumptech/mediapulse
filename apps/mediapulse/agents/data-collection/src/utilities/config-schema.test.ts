@@ -73,12 +73,12 @@ describe("dataCollectionAgentConfigSchema", () => {
     expect(parsed.collection).toEqual({
       targetDailySuccessfulSources: 5,
       maxRefillRounds: 3,
-      perQueryFetchBudget: 3,
+      perQueryFetchBudget: 5,
       perRunFetchBudget: 40,
     });
     expect(parsed.gates.relevance).toEqual({
       enabled: true,
-      headChars: 1500,
+      headChars: 3000,
       minMatches: 1,
     });
     expect(parsed.gates.freshness).toEqual({
@@ -96,7 +96,7 @@ describe("dataCollectionAgentConfigSchema", () => {
       errorRateThreshold: 0.5,
     });
     expect(parsed.deduplication.semantic).toEqual({
-      enabled: true,
+      enabled: false,
       threshold: 0.88,
       windowDays: 7,
       embeddingModel: "{{EMBEDDING_MODEL}}",
@@ -104,7 +104,7 @@ describe("dataCollectionAgentConfigSchema", () => {
     expect(parsed.deduplication.openaiApiKey).toBe("{{OPENAI_API_KEY}}");
     expect(parsed.runPolicy).toEqual({
       minSuccessfulSources: 1,
-      failOnZeroSuccess: true,
+      failOnZeroSuccess: false,
     });
   });
 
@@ -137,10 +137,10 @@ describe("dataCollectionAgentConfigSchema", () => {
     });
 
     expect(parsed.collection.perRunFetchBudget).toBe(12);
-    expect(parsed.collection.perQueryFetchBudget).toBe(3);
+    expect(parsed.collection.perQueryFetchBudget).toBe(5);
     expect(parsed.collection.targetDailySuccessfulSources).toBe(5);
     expect(parsed.providers.fetch.providers).toHaveLength(3);
-    expect(parsed.runPolicy.failOnZeroSuccess).toBe(true);
+    expect(parsed.runPolicy.failOnZeroSuccess).toBe(false);
   });
 
   it("accepts ordered fetch providers under providers.fetch.providers", () => {

@@ -11,7 +11,7 @@
         "headerName": "X-API-KEY",
       },
       "rateLimit": { "requests": 100, "perSeconds": 60 },
-      "concurrency": 4,
+      "concurrency": 2,
       "timeoutMs": 30000,
     },
     "fetch": {
@@ -23,9 +23,14 @@
             "type": "none",
             "apiKey": "{{DIFFBOT_API_KEY}}",
           },
-          "rateLimit": { "requests": 2, "perSeconds": 1 },
-          "concurrency": 2,
-          "timeoutMs": 30000,
+          "rateLimit": { "requests": 1, "perSeconds": 1 },
+          "concurrency": 1,
+          "timeoutMs": 45000,
+          "retry": {
+            "maxAttempts": 4,
+            "baseDelayMs": 2000,
+            "maxDelayMs": 20000,
+          },
         },
         {
           "type": "firecrawl",
@@ -35,9 +40,9 @@
             "apiKey": "{{FIRECRAWL_API_KEY}}",
             "headerName": "Authorization",
           },
-          "rateLimit": { "requests": 2, "perSeconds": 1 },
-          "concurrency": 2,
-          "timeoutMs": 30000,
+          "rateLimit": { "requests": 1, "perSeconds": 1 },
+          "concurrency": 1,
+          "timeoutMs": 45000,
         },
         {
           "type": "jina",
@@ -48,8 +53,8 @@
             "headerName": "Authorization",
           },
           "rateLimit": { "requests": 2, "perSeconds": 1 },
-          "concurrency": 2,
-          "timeoutMs": 30000,
+          "concurrency": 1,
+          "timeoutMs": 45000,
         },
       ],
     },
@@ -57,13 +62,13 @@
   "collection": {
     "targetDailySuccessfulSources": 5,
     "maxRefillRounds": 3,
-    "perQueryFetchBudget": 3,
+    "perQueryFetchBudget": 5,
     "perRunFetchBudget": 40,
   },
   "gates": {
     "relevance": {
       "enabled": true,
-      "headChars": 1500,
+      "headChars": 3000,
       "minMatches": 1,
     },
     "freshness": {
@@ -94,6 +99,6 @@
   },
   "runPolicy": {
     "minSuccessfulSources": 1,
-    "failOnZeroSuccess": true,
+    "failOnZeroSuccess": false,
   },
 }
