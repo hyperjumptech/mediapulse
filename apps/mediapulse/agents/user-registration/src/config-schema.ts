@@ -27,6 +27,9 @@ export const ConfigSchema = z.object({
     })
     .optional()
     .default({}),
+  newsletterDeliveryHour: z.number().int().min(0).max(23).optional(),
+  newsletterDeliveryTimezone: z.string().optional(),
+  newsletterDeliveryTimeLabel: z.string().optional(),
 });
 
 export type UserRegistrationConfig = z.input<typeof ConfigSchema>;

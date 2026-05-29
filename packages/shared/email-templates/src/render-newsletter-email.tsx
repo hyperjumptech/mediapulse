@@ -24,6 +24,7 @@ export type RenderNewsletterEmailInput =
       })
   | ({
       variant: "registration-confirmation";
+      nextDeliveryLabel?: string;
     } & RegistrationConfirmationEmailProps)
   | ({ variant: "invalid-ticker" } & InvalidTickerEmailProps);
 
@@ -91,7 +92,10 @@ function newsletterElementForVariant(
       );
     case "registration-confirmation":
       return (
-        <RegistrationConfirmationEmail tickerSymbol={input.tickerSymbol} />
+        <RegistrationConfirmationEmail
+          tickerSymbol={input.tickerSymbol}
+          nextDeliveryLabel={input.nextDeliveryLabel}
+        />
       );
     case "invalid-ticker":
       return <InvalidTickerEmail tickerSymbol={input.tickerSymbol} />;
