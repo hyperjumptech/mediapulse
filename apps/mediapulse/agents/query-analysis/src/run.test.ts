@@ -4,13 +4,19 @@ import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api
 
 import { queryAnalysisConfigSchema } from "./config-schema";
 
-const { mockGet, mockCreate, mockFetchQueryLlm, mockFetchWildcard } =
-  vi.hoisted(() => ({
-    mockGet: vi.fn(),
-    mockCreate: vi.fn(),
-    mockFetchQueryLlm: vi.fn(),
-    mockFetchWildcard: vi.fn(),
-  }));
+const {
+  mockGet,
+  mockCreate,
+  mockAgentActivityCreate,
+  mockFetchQueryLlm,
+  mockFetchWildcard,
+} = vi.hoisted(() => ({
+  mockGet: vi.fn(),
+  mockCreate: vi.fn(),
+  mockAgentActivityCreate: vi.fn(),
+  mockFetchQueryLlm: vi.fn(),
+  mockFetchWildcard: vi.fn(),
+}));
 
 vi.mock("@mediapulse/env/agents-query-analysis", () => ({
   env: {
@@ -24,6 +30,9 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     queryAnalysis: {
       get: mockGet,
       create: mockCreate,
+    },
+    agentActivity: {
+      create: mockAgentActivityCreate,
     },
   })),
 }));
@@ -90,6 +99,8 @@ describe("query-analysis run", () => {
   beforeEach(async () => {
     mockGet.mockReset();
     mockCreate.mockReset();
+    mockAgentActivityCreate.mockReset();
+    mockAgentActivityCreate.mockResolvedValue(undefined);
     mockFetchQueryLlm.mockReset();
     mockFetchWildcard.mockReset();
 
