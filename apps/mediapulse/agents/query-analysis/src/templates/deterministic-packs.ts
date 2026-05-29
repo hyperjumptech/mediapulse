@@ -50,40 +50,37 @@ export const DEFAULT_TEMPLATE_PACK_BY_LANGUAGE: Partial<
 const defaultV1Pack: DeterministicPack = {
   name: "default-v1",
   templates: [
-    { template: "{symbol} latest news", intent: "breaking" },
-    { template: "{name} breaking news", intent: "breaking" },
-    { template: "{name} relation changes", intent: "kg_change" },
-    { template: "{sector} industry trends", intent: "industry_trend" },
-    { template: "{industry} regulatory policy", intent: "regulatory" },
+    { template: "{symbol}", intent: "breaking" },
+    { template: "{name}", intent: "breaking" },
+    { template: "{industry}", intent: "industry_trend" },
+    { template: "{sector}", intent: "industry_trend" },
+    { template: "{industry} regulation", intent: "regulatory" },
   ],
 };
 
-/** English locale pack mirroring `default-v1` with natural search phrasing. */
+/** English locale pack — bare keyword templates to avoid phrase/metadata language mismatch. */
 const defaultEnV1Pack: DeterministicPack = {
   name: "default-en-v1",
   templates: [
-    { template: "{symbol} latest news", intent: "breaking" },
-    { template: "{name} breaking news", intent: "breaking" },
-    { template: "{name} relation changes", intent: "kg_change" },
-    {
-      template: "{sector} industry outlook {currentYear}",
-      intent: "industry_trend",
-    },
-    { template: "{industry} regulatory changes", intent: "regulatory" },
-    { template: "{industry} competitive landscape", intent: "competitor" },
+    { template: "{symbol}", intent: "breaking" },
+    { template: "{name}", intent: "breaking" },
+    { template: "{industry}", intent: "industry_trend" },
+    { template: "{sector}", intent: "industry_trend" },
+    { template: "{industry} regulation", intent: "regulatory" },
+    { template: "{sector} {industry}", intent: "industry_trend" },
   ],
 };
 
-/** Bahasa Indonesia locale pack with natural IDX search phrasing. */
+/** Bahasa Indonesia locale pack — bare keyword templates. */
 const defaultIdV1Pack: DeterministicPack = {
   name: "default-id-v1",
   templates: [
-    { template: "berita terbaru {symbol}", intent: "breaking" },
-    { template: "berita terbaru {name}", intent: "breaking" },
-    { template: "perubahan relasi {name}", intent: "kg_change" },
-    { template: "tren industri {sector}", intent: "industry_trend" },
+    { template: "{symbol}", intent: "breaking" },
+    { template: "{name}", intent: "breaking" },
+    { template: "{industry}", intent: "industry_trend" },
+    { template: "{industry} Indonesia", intent: "industry_trend" },
     { template: "regulasi {industry}", intent: "regulatory" },
-    { template: "kompetitor {industry}", intent: "competitor" },
+    { template: "{sector} Indonesia", intent: "macro" },
   ],
 };
 
