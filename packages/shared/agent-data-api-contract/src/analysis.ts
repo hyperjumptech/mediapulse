@@ -160,6 +160,12 @@ export const analysisExistingEntitySchema = z.object({
   aliases: z.array(z.string()),
 });
 
+export const analysisTickerSchema = z.object({
+  id: z.string().uuid(),
+  symbol: z.string(),
+  name: z.string(),
+});
+
 /** UTC-day selection budget for article relevance (see article-analysis agent). */
 export const analysisRelevanceSelectionStateSchema = z.object({
   /** ISO 8601 instant for UTC midnight at the start of the scoring "today". */
@@ -169,6 +175,7 @@ export const analysisRelevanceSelectionStateSchema = z.object({
 });
 
 export const getAnalysisResponseSchema = z.object({
+  ticker: analysisTickerSchema,
   dataSources: z.array(analysisDataSourceSchema),
   /** Count of data sources matching the GET filters (ignores `limit` on the request). */
   dataSourceTotalCount: z.number().int().nonnegative(),

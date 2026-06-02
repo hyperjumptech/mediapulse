@@ -46,6 +46,11 @@ const DEFAULT_RELATION_TYPES = [
     description: "Person is the CEO or top executive of a company",
   },
   {
+    name: "EMPLOYEE_OF",
+    description:
+      "Person is employed by a company (any role). Direction: PERSON -> COMPANY.",
+  },
+  {
     name: "SUBSIDIARY_OF",
     description: "Company is a subsidiary or child entity of another company",
   },

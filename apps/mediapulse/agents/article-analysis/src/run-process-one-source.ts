@@ -73,7 +73,7 @@ type ExistingEntity = {
 
 type AnalysisContext = Pick<
   GetAnalysisResponse,
-  "entityTypes" | "relationTypes"
+  "ticker" | "entityTypes" | "relationTypes"
 >;
 
 type BatchSource = {
@@ -277,6 +277,8 @@ export const createProcessOneSource =
       const t0 = Date.now();
       const extractionUserContent = buildArticleAnalysisExtractionUserContent({
         tickerId,
+        tickerSymbol: ctx.ticker.symbol,
+        tickerName: ctx.ticker.name,
         title: source.title,
         contentTruncated: truncated,
       });
@@ -305,6 +307,8 @@ export const createProcessOneSource =
                 role: "user",
                 content: buildBrainstormUserContent({
                   tickerId,
+                  tickerSymbol: ctx.ticker.symbol,
+                  tickerName: ctx.ticker.name,
                   title: source.title,
                   contentTruncated: truncated,
                 }),

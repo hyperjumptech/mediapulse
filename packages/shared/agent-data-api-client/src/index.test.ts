@@ -237,6 +237,11 @@ describe("createAgentDataApiClient", () => {
   it("builds analysis GET with typed query and auth header", async () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
+        ticker: {
+          id: "11111111-1111-4111-a111-111111111111",
+          symbol: "T1",
+          name: "Ticker One",
+        },
         dataSources: [],
         dataSourceTotalCount: 0,
         entityTypes: [],
@@ -272,6 +277,11 @@ describe("createAgentDataApiClient", () => {
   it("serializes optional start and end on analysis GET", async () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
+        ticker: {
+          id: "11111111-1111-4111-a111-111111111111",
+          symbol: "T1",
+          name: "Ticker One",
+        },
         dataSources: [],
         dataSourceTotalCount: 0,
         entityTypes: [],

@@ -154,6 +154,7 @@ const relevanceSelectionState = {
 /** Fills `dataSourceTotalCount` when omitted (matches agent-data-api without `limit`). */
 const analysisGetOk = <
   T extends {
+    ticker?: { id: string; symbol: string; name: string };
     dataSources: readonly unknown[];
     entityTypes: unknown[];
     relationTypes: unknown[];
@@ -166,10 +167,18 @@ const analysisGetOk = <
     lastRelevanceScoredAtIso?: string | null;
   },
 ): T & {
+  ticker: { id: string; symbol: string; name: string };
   dataSourceTotalCount: number;
   lastRelevanceScoredAtIso: string | null;
 } => ({
   ...partial,
+  ticker:
+    partial.ticker ??
+    ({
+      id: "ticker-1",
+      symbol: "T1",
+      name: "Ticker One",
+    } as const),
   dataSourceTotalCount:
     partial.dataSourceTotalCount ?? partial.dataSources.length,
   lastRelevanceScoredAtIso:

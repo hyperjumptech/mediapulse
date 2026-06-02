@@ -464,6 +464,7 @@ describe("agent-data-api", () => {
     it("returns 200 with analysis context when service returns data", async () => {
       const mod = await getAnalysisService();
       vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
+        ticker: { id: TICKER_ID, symbol: "T1", name: "Ticker One" },
         dataSources: [
           {
             id: "33333333-3333-4333-a333-333333333333",
@@ -503,6 +504,7 @@ describe("agent-data-api", () => {
     it("forwards start and end query params to loadAnalysisContext", async () => {
       const mod = await getAnalysisService();
       vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
+        ticker: { id: TICKER_ID, symbol: "T1", name: "Ticker One" },
         dataSources: [],
         dataSourceTotalCount: 0,
         entityTypes: [],

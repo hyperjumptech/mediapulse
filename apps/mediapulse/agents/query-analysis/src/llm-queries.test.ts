@@ -367,7 +367,10 @@ describe("buildStructuredQueryMessages", () => {
     });
     expect(messages[0]?.role).toBe("system");
     expect(messages.filter((m) => m.role === "user")).toHaveLength(3);
-    expect(messages.at(-1)).toEqual({ role: "user", content: "live context" });
+    expect(messages[messages.length - 1]).toEqual({
+      role: "user",
+      content: "live context",
+    });
   });
 
   it("appends brainstorm bullets to the final user message", () => {
@@ -377,7 +380,7 @@ describe("buildStructuredQueryMessages", () => {
       fewShotExemplarCount: 0,
       brainstormBullets: ["angle one", "angle two"],
     });
-    const finalUser = messages.at(-1);
+    const finalUser = messages[messages.length - 1];
     expect(finalUser?.content).toContain("previously brainstormed");
     expect(finalUser?.content).toContain("angle one");
   });
@@ -478,7 +481,8 @@ describe("fetchQueryAnalysisLlmCandidates", () => {
     const messages = fetchLlmQueryCandidatesSpy.mock.calls[0]?.[0]?.messages as
       | { role: string; content: string }[]
       | undefined;
-    expect(messages?.at(-1)?.content).toContain("angle a");
+    const lastMessage = messages ? messages[messages.length - 1] : undefined;
+    expect(lastMessage?.content).toContain("angle a");
   });
 
   it("skips brainstorm when useBrainstormPass is false", async () => {
