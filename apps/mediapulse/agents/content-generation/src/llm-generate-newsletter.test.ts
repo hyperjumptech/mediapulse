@@ -2009,7 +2009,7 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
           { text: "Hit with source", articleIndex: 1 },
           { text: "Hit with source 2", articleIndex: 2 },
           { text: "Hit with source 3", articleIndex: 3 },
-          { text: "Hit uncited" },
+          { text: "Hit uncited", articleIndex: 99 },
           { text: "Hit duplicate", articleIndex: 1 },
         ],
       },
