@@ -42,6 +42,7 @@ describe("buildDomainTableListParams", () => {
       buildDomainTableListParams(
         {
           tickerId: "11111111-1111-4111-a111-111111111111",
+          typeId: "22222222-2222-4222-a222-222222222222",
           from: "2026-05-01",
           to: "2026-05-31",
         },
@@ -49,6 +50,7 @@ describe("buildDomainTableListParams", () => {
       ),
     ).toMatchObject({
       tickerId: "11111111-1111-4111-a111-111111111111",
+      typeId: "22222222-2222-4222-a222-222222222222",
       from: "2026-05-01",
       to: "2026-05-31",
       sortBy: "createdAt",
@@ -66,10 +68,12 @@ describe("buildDomainTablePreserveParams", () => {
         sortBy: "createdAt",
         sortDir: "desc",
         tickerId: "t1",
+        typeId: "type-1",
         from: "2026-05-01",
       }),
     ).toEqual({
       tickerId: "t1",
+      typeId: "type-1",
       from: "2026-05-01",
       sort: "createdAt",
       dir: "desc",
