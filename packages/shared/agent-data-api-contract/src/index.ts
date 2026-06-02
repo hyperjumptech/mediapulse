@@ -33,6 +33,7 @@ export {
   type PostAnalysisDataSourceDeleteResponse,
 } from "./analysis-data-source-delete.js";
 export {
+  contentGenerationCompetitorSchema,
   contentGenerationDataSourceSchema,
   getContentGenerationQuerySchema,
   getContentGenerationResponseSchema,
@@ -44,6 +45,7 @@ export {
   getContentGenerationBulletsRecentResponseSchema,
   postContentGenerationBodySchema,
   postContentGenerationResponseSchema,
+  type ContentGenerationCompetitor,
   type GetContentGenerationQuery,
   type GetContentGenerationResponse,
   type GetContentGenerationNewslettersLatestQuery,

@@ -30,10 +30,17 @@ export const contentGenerationDataSourceSchema = z
   })
   .passthrough();
 
+export const contentGenerationCompetitorSchema = z.object({
+  name: z.string(),
+  relation: z.string(),
+});
+
 export const getContentGenerationResponseSchema = z.object({
   dataSources: z.array(contentGenerationDataSourceSchema),
   tickerSymbol: z.string(),
   tickerName: z.string(),
+  competitors: z.array(contentGenerationCompetitorSchema).default([]),
+  issuerAliases: z.array(z.string()).default([]),
 });
 
 export const postContentGenerationResponseSchema = z.object({
@@ -91,6 +98,9 @@ export type PostContentGenerationBody = z.infer<
 >;
 export type GetContentGenerationResponse = z.infer<
   typeof getContentGenerationResponseSchema
+>;
+export type ContentGenerationCompetitor = z.infer<
+  typeof contentGenerationCompetitorSchema
 >;
 export type PostContentGenerationResponse = z.infer<
   typeof postContentGenerationResponseSchema
