@@ -46,6 +46,9 @@ export type DomainTableListParams = {
   query?: string;
   sortBy?: string;
   sortDir?: "asc" | "desc";
+  tickerId?: string;
+  from?: string;
+  to?: string;
 };
 
 /**
@@ -390,6 +393,9 @@ export const getDomainTableList = async (
   if (params.query) search.set("q", params.query);
   if (params.sortBy) search.set("sortBy", params.sortBy);
   if (params.sortDir) search.set("sortDir", params.sortDir);
+  if (params.tickerId) search.set("tickerId", params.tickerId);
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
 
   return callDomain(
     `${baseUrl}${page.apiPrefix}?${search.toString()}`,

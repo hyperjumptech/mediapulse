@@ -299,6 +299,8 @@ export const newslettersDashboardPage = {
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["subject"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["createdAt", "subject"]),
+  defaultSort: { sortBy: "createdAt", sortDir: "desc" },
+  listFilters: ["tickerId", "createdAt"],
   actions: { create: false, update: false, delete: false, view: true },
   detailBlocks: [
     newslettersMetadataBlock,

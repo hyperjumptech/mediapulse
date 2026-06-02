@@ -16,6 +16,9 @@ const IntegrationDomainTablePage = async ({
         q?: string;
         sort?: string;
         dir?: string;
+        tickerId?: string;
+        from?: string;
+        to?: string;
       }>
     | {
         page?: string;
@@ -23,6 +26,9 @@ const IntegrationDomainTablePage = async ({
         q?: string;
         sort?: string;
         dir?: string;
+        tickerId?: string;
+        from?: string;
+        to?: string;
       };
 }) => {
   const { integrationId, resource } = await params;
