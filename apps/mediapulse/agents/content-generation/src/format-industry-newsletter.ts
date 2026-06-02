@@ -182,7 +182,10 @@ export const formatIndustryNewsletterWire = (
       }
     },
     () => {
-      if (briefing.quickHits === undefined || briefing.quickHits.items.length === 0) {
+      if (
+        briefing.quickHits === undefined ||
+        briefing.quickHits.items.length === 0
+      ) {
         return;
       }
       const qhLines: string[] = [

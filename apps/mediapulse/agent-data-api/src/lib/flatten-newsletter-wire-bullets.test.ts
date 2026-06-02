@@ -9,7 +9,11 @@ const buildWire = (sections: string[]): string =>
 
 describe("flattenBulletsFromNewsletterWire", () => {
   it("returns empty array for non-wire content", () => {
-    const result = flattenBulletsFromNewsletterWire("id1", "not a wire", "2024-01-01T00:00:00Z");
+    const result = flattenBulletsFromNewsletterWire(
+      "id1",
+      "not a wire",
+      "2024-01-01T00:00:00Z",
+    );
     expect(result).toEqual([]);
   });
 
@@ -49,13 +53,19 @@ describe("flattenBulletsFromNewsletterWire", () => {
       "",
     ]);
 
-    const result = flattenBulletsFromNewsletterWire("id1", wire, "2024-01-01T00:00:00Z");
+    const result = flattenBulletsFromNewsletterWire(
+      "id1",
+      wire,
+      "2024-01-01T00:00:00Z",
+    );
 
     const sectionKeys = result.map((r) => r.sectionKey);
     expect(sectionKeys).toContain("competitiveLandscape");
     expect(sectionKeys).toContain("dealsAndMovements");
     expect(sectionKeys).toContain("quickHits");
-    expect(result.filter((r) => r.sectionKey === "competitiveLandscape")).toHaveLength(2);
+    expect(
+      result.filter((r) => r.sectionKey === "competitiveLandscape"),
+    ).toHaveLength(2);
   });
 
   it("flattens without throwing when competitive-landscape is absent", () => {
@@ -87,10 +97,18 @@ describe("flattenBulletsFromNewsletterWire", () => {
       "",
     ]);
 
-    const result = flattenBulletsFromNewsletterWire("id2", wire, "2024-01-01T00:00:00Z");
+    const result = flattenBulletsFromNewsletterWire(
+      "id2",
+      wire,
+      "2024-01-01T00:00:00Z",
+    );
 
-    expect(result.some((r) => r.sectionKey === "competitiveLandscape")).toBe(false);
-    expect(result.filter((r) => r.sectionKey === "dealsAndMovements")).toHaveLength(2);
+    expect(result.some((r) => r.sectionKey === "competitiveLandscape")).toBe(
+      false,
+    );
+    expect(
+      result.filter((r) => r.sectionKey === "dealsAndMovements"),
+    ).toHaveLength(2);
     expect(result.filter((r) => r.sectionKey === "quickHits")).toHaveLength(2);
     expect(result.every((r) => r.newsletterId === "id2")).toBe(true);
   });

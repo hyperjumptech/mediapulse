@@ -65,7 +65,11 @@ describe("parseIndustryNewsletterWire", () => {
 
     expect(parsed?.format).toBe("industry");
     const keys = parsed?.sections.map((s) => s.machineKey);
-    expect(keys).toEqual(["industry-pulse", "deals-and-movements", "quick-hits"]);
+    expect(keys).toEqual([
+      "industry-pulse",
+      "deals-and-movements",
+      "quick-hits",
+    ]);
   });
 
   it("skipped middle section does not shift the survivors out of order", () => {

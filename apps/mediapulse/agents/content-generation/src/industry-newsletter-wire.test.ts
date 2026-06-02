@@ -73,16 +73,16 @@ describe("attachIndustryNewsletterSourceUrls", () => {
       { url: "  https://two.example  " },
     ];
     const resolved = attachIndustryNewsletterSourceUrls(briefing, sources);
+    expect(resolved.competitiveLandscape).toBeDefined();
+    expect(resolved.disruptorsOrTech).toBeDefined();
+    const competitiveLandscape = resolved.competitiveLandscape!;
+    const disruptorsOrTech = resolved.disruptorsOrTech!;
 
-    expect(resolved.competitiveLandscape.bullets[0]?.url).toBe(
-      "https://one.example",
-    );
-    expect(resolved.competitiveLandscape.bullets[1]?.url).toBeUndefined();
-    expect(resolved.disruptorsOrTech.format).toBe("bullets");
-    if (resolved.disruptorsOrTech.format === "bullets") {
-      expect(resolved.disruptorsOrTech.bullets[0]?.url).toBe(
-        "https://two.example",
-      );
+    expect(competitiveLandscape.bullets[0]?.url).toBe("https://one.example");
+    expect(competitiveLandscape.bullets[1]?.url).toBeUndefined();
+    expect(disruptorsOrTech.format).toBe("bullets");
+    if (disruptorsOrTech.format === "bullets") {
+      expect(disruptorsOrTech.bullets[0]?.url).toBe("https://two.example");
     }
   });
 });
@@ -298,10 +298,7 @@ describe("formatIndustryNewsletterWire", () => {
         industryPulse: { displayHeading: "Lead", prose: "Pulse prose." },
         competitiveLandscape: {
           displayHeading: "C",
-          bullets: [
-            { text: "c1", articleIndex: 1 },
-            { text: "c2" },
-          ],
+          bullets: [{ text: "c1", articleIndex: 1 }, { text: "c2" }],
         },
         dealsAndMovements: {
           displayHeading: "Deals",
@@ -343,7 +340,11 @@ describe("formatIndustryNewsletterWire", () => {
     expect(parsed).not.toBeUndefined();
     expect(parsed?.format).toBe("industry");
     const keys = parsed?.sections.map((s) => s.machineKey);
-    expect(keys).toEqual(["industry-pulse", "deals-and-movements", "quick-hits"]);
+    expect(keys).toEqual([
+      "industry-pulse",
+      "deals-and-movements",
+      "quick-hits",
+    ]);
   });
 
   it("handles the degenerate case of industry-pulse plus a single quick-hit", () => {
