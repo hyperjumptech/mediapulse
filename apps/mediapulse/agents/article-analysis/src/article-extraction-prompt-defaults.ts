@@ -18,7 +18,7 @@ export const ARTICLE_ANALYSIS_REPAIR_SYSTEM_PROMPT_TEMPLATE_DEFAULT = [
  * Must include `{{entityTypesBlock}}` and `{{relationTypesBlock}}`.
  */
 export const ARTICLE_ANALYSIS_EXTRACTION_SYSTEM_PROMPT_TEMPLATE_DEFAULT = [
-  "You extract knowledge-graph entities and relations from ONE article for equity research tooling.",
+  "You extract knowledge-graph entities and relations from ONE article for industry analysis.",
   "Always include one COMPANY entity representing the issuer (the ticker company). Use tickerSymbol and tickerName from the user message; include tickerSymbol as an alias on that entity.",
   "Use ONLY entity typeId values listed under ENTITY TYPES and ONLY relationTypeId values under RELATION TYPES.",
   "Relation fromEntityName and toEntityName must match canonicalName strings of entities you output (not aliases).",
