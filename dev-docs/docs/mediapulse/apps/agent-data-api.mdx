@@ -53,7 +53,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 
 Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`. Schemas live in `@workspace/agent-data-api-contract` (`content-generation.ts`).
 
-- **GET** — Query: `tickerId` (required). Returns today's selected data sources for the ticker ordered by relevance score.
+- **GET** — Query: `tickerId` (required). Returns today's selected data sources for the ticker ordered by relevance score, plus `competitors` (ranked peer COMPANY names from `COMPETITOR` / `SECTOR_PEER` KG edges) and `issuerAliases` (ticker symbol, legal name, and KG aliases). Both list fields default to `[]` when the issuer anchor or peer graph is missing.
 - **POST** — Body validated by `postContentGenerationBodySchema`. Required fields: `subject`, `content`, `tickerId`. Optional field: `description`. The following optional provenance and token-usage fields are also accepted; all are stored as `null` when omitted (backward-compatible — existing callers that omit these fields continue to work):
 
 | Field              | Type               | Description                                |

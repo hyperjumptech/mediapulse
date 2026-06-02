@@ -11,7 +11,7 @@ The content-generation agent takes **selected data sources** (scored by the anal
 ## Features
 
 - **Input:** `tickerId` as a non-empty string (UUID or opaque Hermes ticker id). Receives bearer token from Hermes.
-- **Fetches** selected high-relevance sources for the ticker from `GET /api/v1/content-generation` (rows where `article_relevance.selected = true` and scored today).
+- **Fetches** selected high-relevance sources, resolved competitor names, and issuer aliases for the ticker from `GET /api/v1/content-generation` (rows where `article_relevance.selected = true` and scored today; competitors come from `COMPETITOR`/`SECTOR_PEER` edges off the ticker's KG anchor, see [KG competitor resolution](#kg-competitor-resolution)).
 - **Calls OpenAI** via the Vercel AI SDK (`generateObject` from `ai` with `@ai-sdk/openai` provider) to generate structured **industry intelligence** newsletter JSON (subject, multi-section briefing, quick hits with `articleIndex` grounding). The API key, optional API base URL, and model id are **not** read from environment variables; they come from the **agent config** selected for the pipeline step in Hermes (Dashboard → Agent configs), so admins can manage credentials centrally (optionally using [variable expansion](/hermes/agent-hermes-contract#variables-in-config-and-params) for secrets).
 - **Serializes** the validated object to plain text with the first-line marker `MP_NEWSLETTER` and deterministic `BEGIN … END` blocks. URLs are **never** taken from model text; they are injected from Hermes-selected sources using each `articleIndex`. Inline `(Article N)` markers that the model sometimes writes into bullet, quick-hit, or prose text are **stripped deterministically** at wire serialization — subscribers see citations only via the rendered `Read the full article: <url>` line. Prompt-side blocks (the brainstorm memo and numeric-anchor sidecar) intentionally keep `(Article N)` tags as LLM input and are not part of the email body. Legacy bodies without the marker (`EXECUTIVE SUMMARY` / `TOP N NEWS`) are unchanged for historical rows. The shared email package parses both shapes (see `@workspace/email-templates` `parseNewsletterBody`).
 - **Retries** transient LLM failures (rate limits, 5xx errors, timeouts) using exponential backoff with optional jitter, up to `reliability.llmRetry.maxAttempts` (default 3). Non-retryable errors (auth, bad request, schema validation) short-circuit immediately.
@@ -605,3 +605,32 @@ One info log per run: `{ sectionsRemoved, bulletsRemovedUncited, bulletsRemovedD
 ### Rollout
 
 The pass is **on by default**. To opt out a ticker while assessing output quality, set `requireCitation.enabled: false` in its Hermes config. The `dedupeScope: 'newsletter'` option is available but not the shipped default — use it when per-section dedup still allows duplicate articles across the briefing.
+
+## KG competitor resolution
+
+`GET /api/v1/content-generation` resolves the ticker's KG issuer anchor and returns two additional fields alongside `dataSources`:
+
+| Field           | Type                                    | Description                                                                                           |
+| --------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `competitors`   | `{ name: string; relation: string }[]`  | Peer COMPANY entities off the issuer's `COMPETITOR` / `SECTOR_PEER` edges, ranked by weight.         |
+| `issuerAliases` | `string[]`                              | All known names for the issuer (ticker symbol, legal name, KG aliases). Always at least symbol + name. |
+
+### How competitors are resolved
+
+1. The service looks up the ticker's KG anchor: the COMPANY entity linked to the ticker via `ticker_entity` with `source = SEED` (written by `ensureTickerIssuerCompanyAnchor` in the analysis agent).
+2. From the anchor, it reads `entity_relation` rows where the issuer is either endpoint and the relation type is `COMPETITOR` or `SECTOR_PEER`.
+3. The other endpoint entity is kept only if its type is COMPANY and its entity id or normalized names do not match any issuer alias (self-loop guard).
+4. Duplicate peer entities (same entity id appearing in multiple edges) are deduped; the first occurrence wins.
+5. Results are ordered by `weight` desc then `lastSeenAt` desc, capped at 8.
+
+### Ranking and relation tags
+
+`COMPETITOR` edges are the strong signal (explicit competitor data). `SECTOR_PEER` edges are the fallback when explicit edges are sparse. The `relation` field is passed through so consuming code (see [[72-competitor-anchored-competitive-landscape]]) can weight direct competitors differently from sector peers.
+
+### Graceful degradation
+
+A ticker with no KG anchor (not yet analyzed, or analysis found no issuer entity) returns `competitors: []` and `issuerAliases: [symbol, name]` without error. A ticker with an anchor but no peer edges returns `competitors: []`. Both cases are safe for consumers that have not yet been updated to use these fields, since both default to `[]` in the contract schema.
+
+### Observability
+
+No extra log line for the empty-graph path; the resolution is a few indexed reads well within the existing request latency budget. If you see unexpectedly empty `competitors` arrays for tickers that should have peer data, confirm the analysis agent has run `ensureTickerIssuerCompanyAnchor` for the ticker and seeded `COMPETITOR`/`SECTOR_PEER` relation types via `seed-kg-vocabulary`.
