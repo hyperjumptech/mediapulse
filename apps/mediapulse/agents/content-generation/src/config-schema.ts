@@ -395,6 +395,34 @@ const requireCitationSchema = z
     "Final pruning pass: drops uncited rows, enforces one article per bullet, removes empty sections.",
   );
 
+const competitiveFocusSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "When true, run the competitive-focus gate after polish to drop or flag issuer-only bullets.",
+      ),
+    policy: z
+      .enum(["warn", "flag", "drop"])
+      .default("drop")
+      .describe(
+        "warn = log only; flag = prepend [ISSUER-ONLY] marker; drop = remove the bullet (product intent).",
+      ),
+    maxCompetitorsInPrompt: z
+      .number()
+      .int()
+      .positive()
+      .default(6)
+      .describe(
+        "Maximum named competitors to include in the user prompt directive.",
+      ),
+  })
+  .default({})
+  .describe(
+    "Competitor-anchored Competitive Landscape gate: drops bullets that describe the issuer with no rival in sight.",
+  );
+
 const qualitySchema = z
   .object({
     selfCritique: selfCritiqueSchema,
@@ -402,6 +430,7 @@ const qualitySchema = z
     polish: polishSchema,
     crossRunDedup: crossRunDedupSchema,
     requireCitation: requireCitationSchema,
+    competitiveFocus: competitiveFocusSchema,
   })
   .default({})
   .describe("Post-generation repair, verification, polish, and dedup passes.");

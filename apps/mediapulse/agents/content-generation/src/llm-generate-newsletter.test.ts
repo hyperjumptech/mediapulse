@@ -10,6 +10,7 @@ import {
   resolveContentGenerationConfig,
 } from "./config-schema.js";
 import {
+  buildCompetitorPromptBlock,
   generateNewsletterWithLlm,
   type GenerateNewsletterObjectArgs,
   type GenerateNewsletterObjectFn,
@@ -2070,5 +2071,99 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
     expect(keys).toContain("competitive-landscape");
     expect(keys).toContain("deals-and-movements");
     expect(keys).toContain("regulatory-policy-watch");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Competitor-anchored prompt injection
+// ---------------------------------------------------------------------------
+
+describe("buildCompetitorPromptBlock", () => {
+  it("returns empty string when competitors list is empty", () => {
+    expect(buildCompetitorPromptBlock([], "Bank Central Asia")).toBe("");
+  });
+
+  it("names competitors and issuer in the directive text", () => {
+    const block = buildCompetitorPromptBlock(
+      [
+        { name: "Bank Mandiri", relation: "COMPETITOR" },
+        { name: "Bank BRI", relation: "SECTOR_PEER" },
+      ],
+      "Bank Central Asia",
+    );
+    expect(block).toContain("Bank Mandiri");
+    expect(block).toContain("Bank BRI");
+    expect(block).toContain("Bank Central Asia");
+    expect(block).toContain(
+      "Do NOT make these bullets about Bank Central Asia",
+    );
+  });
+});
+
+describe("generateNewsletterWithLlm — competitor prompt injection", () => {
+  it("injects competitor directive into the resolved user prompt when competitors are provided", async () => {
+    let capturedPrompt = "";
+    const generateObjectFn: GenerateNewsletterObjectFn = vi
+      .fn()
+      .mockImplementation(async (args: GenerateNewsletterObjectArgs) => {
+        capturedPrompt = args.prompt;
+        return { object: minimalIndustryBrief() };
+      });
+
+    const competitorConfig = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        ...conservativeTestConfigInput,
+        quality: {
+          ...conservativeTestConfigInput.quality,
+          competitiveFocus: { enabled: true, policy: "drop" },
+        },
+      }),
+    );
+
+    await generateNewsletterWithLlm(
+      testSources,
+      competitorConfig,
+      {
+        ...testContext,
+        tickerName: "Bank Central Asia",
+        competitors: [
+          { name: "Bank Mandiri", relation: "COMPETITOR" },
+          { name: "Bank BRI", relation: "SECTOR_PEER" },
+        ],
+        issuerAliases: ["Bank Central Asia", "BCA", "BBCA"],
+      },
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(capturedPrompt).toContain("Bank Mandiri");
+    expect(capturedPrompt).toContain("Bank BRI");
+    expect(capturedPrompt).toContain(
+      "Do NOT make these bullets about Bank Central Asia",
+    );
+  });
+
+  it("does not inject any directive or broken placeholder when no competitors are provided", async () => {
+    let capturedPrompt = "";
+    const generateObjectFn: GenerateNewsletterObjectFn = vi
+      .fn()
+      .mockImplementation(async (args: GenerateNewsletterObjectArgs) => {
+        capturedPrompt = args.prompt;
+        return { object: minimalIndustryBrief() };
+      });
+
+    await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      {
+        ...testContext,
+        tickerName: "Bank Central Asia",
+        competitors: [],
+        issuerAliases: ["Bank Central Asia", "BCA"],
+      },
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(capturedPrompt).not.toContain("Do NOT make these bullets about");
+    expect(capturedPrompt).not.toContain("{{");
   });
 });
