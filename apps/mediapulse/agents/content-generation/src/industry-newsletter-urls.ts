@@ -29,24 +29,31 @@ export type IndustryDisruptorsOrTechResolved =
       bullets: IndustryBulletResolved[];
     };
 
-/** Industry briefing ready for wire formatting (all URLs from config, not the LLM). */
+/**
+ * Industry briefing ready for wire formatting (all URLs from config, not the LLM).
+ *
+ * `subject` and `industryPulse` are required. The five body sections are optional:
+ * absence is represented by the field being `undefined`, never by an empty bullets/items array.
+ * A zero-row section is a contradiction the serializer refuses to emit.
+ * See `formatIndustryNewsletterWire` for the wire contract.
+ */
 export type IndustryNewsletterResolved = {
   subject: string;
   industryPulse: { displayHeading: string; prose: string };
-  competitiveLandscape: {
+  competitiveLandscape?: {
     displayHeading: string;
     bullets: IndustryBulletResolved[];
   };
-  dealsAndMovements: {
+  dealsAndMovements?: {
     displayHeading: string;
     bullets: IndustryBulletResolved[];
   };
-  regulatoryPolicyWatch: {
+  regulatoryPolicyWatch?: {
     displayHeading: string;
     bullets: IndustryBulletResolved[];
   };
-  disruptorsOrTech: IndustryDisruptorsOrTechResolved;
-  quickHits: {
+  disruptorsOrTech?: IndustryDisruptorsOrTechResolved;
+  quickHits?: {
     displayHeading: string;
     items: IndustryQuickHitResolved[];
   };

@@ -383,6 +383,33 @@ This is **not** per-recipient A/B testing. The agent picks one winner per newsle
 
 Enable on one pilot ticker, aggregate a week of ranked logs into a “subject style winners by ticker” view, then tune `subjectLine.weights` for tickers where declarative lines underperform.
 
+## Wire format: optional sections
+
+The `MP_NEWSLETTER` wire format supports a variable set of body sections. Only sections present on the resolved briefing with at least one row are emitted by the serializer.
+
+### Mandatory vs omittable
+
+| Section | Status |
+|---|---|
+| `industry-pulse` | Always emitted. It is the newsletter spine and carries no citation. |
+| `competitive-landscape` | Omittable. Absent when the field is `undefined` on the resolved briefing. |
+| `deals-and-movements` | Omittable. |
+| `regulatory-policy-watch` | Omittable. |
+| `disruptors-or-tech` | Omittable. The bullets variant is also suppressed when it has zero rows. |
+| `quick-hits` | Omittable. |
+
+### Representation of absence
+
+Absence is always represented by the section field being `undefined` on `IndustryNewsletterResolved`, never by an empty `bullets` or `items` array. A zero-row section is a contradiction the serializer refuses to emit.
+
+### Parser and renderer behavior
+
+The wire parser (`parseIndustryNewsletterWire`) accepts any in-order subset of sections. Omitting a middle section never shifts the survivors. A wire containing only `industry-pulse` parses to `{ format: 'industry', sections: [industry-pulse] }`. The renderer maps over whatever sections the parser returns and has a defensive guard that renders nothing for any zero-bullet section that arrives.
+
+### LLM schema is unchanged
+
+The LLM output schema (`industryNewsletterStructureSchema`) is not relaxed. The model is still asked to produce all sections with their current minimums. Optionality lives only in the post-LLM resolved and wire layers. The pruning pass in plan 70 (`require-citation-and-prune-sections`) is what will produce partial newsletters in practice by dropping sections that have no grounded content.
+
 ## Cross-run dedup
 
 Subscribers should not see the same bullet on Monday, Wednesday, and Friday when nothing new happened. Cross-run dedup adds **longitudinal memory** across the last N days of persisted newsletters.

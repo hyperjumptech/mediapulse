@@ -9,7 +9,9 @@ import { industryNewsletterStructureSchema } from "./industry-newsletter-schema.
 import {
   attachIndustryNewsletterSourceUrls,
   resolveArticleUrlForIndustryNewsletter,
+  type IndustryNewsletterResolved,
 } from "./industry-newsletter-urls.js";
+import { parseIndustryNewsletterWire } from "@workspace/email-templates/parse-industry-newsletter-wire";
 
 describe("resolveArticleUrlForIndustryNewsletter", () => {
   const sources = [{ url: "https://a.example" }, { url: "https://b.example" }];
@@ -71,16 +73,16 @@ describe("attachIndustryNewsletterSourceUrls", () => {
       { url: "  https://two.example  " },
     ];
     const resolved = attachIndustryNewsletterSourceUrls(briefing, sources);
+    expect(resolved.competitiveLandscape).toBeDefined();
+    expect(resolved.disruptorsOrTech).toBeDefined();
+    const competitiveLandscape = resolved.competitiveLandscape!;
+    const disruptorsOrTech = resolved.disruptorsOrTech!;
 
-    expect(resolved.competitiveLandscape.bullets[0]?.url).toBe(
-      "https://one.example",
-    );
-    expect(resolved.competitiveLandscape.bullets[1]?.url).toBeUndefined();
-    expect(resolved.disruptorsOrTech.format).toBe("bullets");
-    if (resolved.disruptorsOrTech.format === "bullets") {
-      expect(resolved.disruptorsOrTech.bullets[0]?.url).toBe(
-        "https://two.example",
-      );
+    expect(competitiveLandscape.bullets[0]?.url).toBe("https://one.example");
+    expect(competitiveLandscape.bullets[1]?.url).toBeUndefined();
+    expect(disruptorsOrTech.format).toBe("bullets");
+    if (disruptorsOrTech.format === "bullets") {
+      expect(disruptorsOrTech.bullets[0]?.url).toBe("https://two.example");
     }
   });
 });
@@ -246,6 +248,122 @@ describe("formatIndustryNewsletterWire", () => {
     expect(wire).toContain("The award locks in multi-year revenue.");
     expect(wire).toContain("Read the full article: https://one.example");
     expect(wire).toContain("Read the full article: https://two.example");
+  });
+
+  it("omits absent sections and preserves order of survivors", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      industryPulse: { displayHeading: "L", prose: "p" },
+      competitiveLandscape: undefined,
+      dealsAndMovements: {
+        displayHeading: "D",
+        bullets: [{ text: "d1" }],
+      },
+      regulatoryPolicyWatch: undefined,
+      disruptorsOrTech: {
+        format: "bullets",
+        displayHeading: "X",
+        bullets: [{ text: "x1" }],
+      },
+      quickHits: {
+        displayHeading: "Q",
+        items: [
+          { text: "h1" },
+          { text: "h2" },
+          { text: "h3" },
+          { text: "h4" },
+          { text: "h5" },
+        ],
+      },
+    };
+
+    const wire = formatIndustryNewsletterWire(resolved);
+
+    expect(wire).not.toContain("BEGIN competitive-landscape");
+    expect(wire).not.toContain("BEGIN regulatory-policy-watch");
+    expect(wire).toContain("BEGIN deals-and-movements");
+    expect(wire).toContain("BEGIN disruptors-or-tech");
+    expect(wire).toContain("BEGIN quick-hits");
+    const dealsIndex = wire.indexOf("BEGIN deals-and-movements");
+    const disruptorsIndex = wire.indexOf("BEGIN disruptors-or-tech");
+    const quickHitsIndex = wire.indexOf("BEGIN quick-hits");
+    expect(dealsIndex).toBeLessThan(disruptorsIndex);
+    expect(disruptorsIndex).toBeLessThan(quickHitsIndex);
+  });
+
+  it("round-trips a partial briefing through the parser with sections in order", () => {
+    const resolved = attachIndustryNewsletterSourceUrls(
+      industryNewsletterStructureSchema.parse({
+        subject: "S",
+        industryPulse: { displayHeading: "Lead", prose: "Pulse prose." },
+        competitiveLandscape: {
+          displayHeading: "C",
+          bullets: [{ text: "c1", articleIndex: 1 }, { text: "c2" }],
+        },
+        dealsAndMovements: {
+          displayHeading: "Deals",
+          bullets: [{ text: "d1" }],
+        },
+        regulatoryPolicyWatch: {
+          displayHeading: "R",
+          bullets: [{ text: "r1" }],
+        },
+        disruptorsOrTech: {
+          format: "prose",
+          displayHeading: "X",
+          prose: "disruptor prose",
+        },
+        quickHits: {
+          displayHeading: "Q",
+          items: [
+            { text: "h1", articleIndex: 1 },
+            { text: "h2", articleIndex: 1 },
+            { text: "h3", articleIndex: 1 },
+            { text: "h4", articleIndex: 1 },
+            { text: "h5", articleIndex: 1 },
+          ],
+        },
+      }),
+      [{ url: "https://src.example" }],
+    );
+
+    const partial: IndustryNewsletterResolved = {
+      subject: resolved.subject,
+      industryPulse: resolved.industryPulse,
+      dealsAndMovements: resolved.dealsAndMovements,
+      quickHits: resolved.quickHits,
+    };
+
+    const wire = formatIndustryNewsletterWire(partial);
+    const parsed = parseIndustryNewsletterWire(wire);
+
+    expect(parsed).not.toBeUndefined();
+    expect(parsed?.format).toBe("industry");
+    const keys = parsed?.sections.map((s) => s.machineKey);
+    expect(keys).toEqual([
+      "industry-pulse",
+      "deals-and-movements",
+      "quick-hits",
+    ]);
+  });
+
+  it("handles the degenerate case of industry-pulse plus a single quick-hit", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      industryPulse: { displayHeading: "L", prose: "Pulse prose." },
+      quickHits: {
+        displayHeading: "Q",
+        items: [{ text: "Only hit" }],
+      },
+    };
+
+    const wire = formatIndustryNewsletterWire(resolved);
+    const parsed = parseIndustryNewsletterWire(wire);
+
+    expect(wire.startsWith(`${INDUSTRY_NEWSLETTER_WIRE_MARKER}\n`)).toBe(true);
+    expect(parsed).not.toBeUndefined();
+    const keys = parsed?.sections.map((s) => s.machineKey);
+    expect(keys).toEqual(["industry-pulse", "quick-hits"]);
   });
 
   it("is idempotent and leaves marker-free input unchanged on re-format", () => {

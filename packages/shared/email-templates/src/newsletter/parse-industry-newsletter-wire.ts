@@ -1,4 +1,8 @@
-/** Keep in sync with `INDUSTRY_NEWSLETTER_WIRE_MARKER` in content-generation `format-industry-newsletter.ts`. */
+/**
+ * Keep in sync with `INDUSTRY_NEWSLETTER_WIRE_MARKER` in content-generation `format-industry-newsletter.ts`.
+ * Section presence is variable — only sections with at least one row are emitted by the serializer.
+ * Do not assume all six sections always appear; the parser accepts any in-order subset.
+ */
 export const INDUSTRY_NEWSLETTER_WIRE_MARKER = "MP_NEWSLETTER";
 
 const READ_FULL_ARTICLE_LABEL = "Read the full article";
