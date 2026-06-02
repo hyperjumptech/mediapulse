@@ -8,8 +8,6 @@ import type {
 import { Button } from "@workspace/ui/components/button";
 import { Label } from "@workspace/ui/components/label";
 
-import { CreatedDateRangeFilter } from "@/components/created-date-range-filter";
-
 type DomainTableListFiltersProps = {
   basePath: string;
   listFilters: TableV1ListFilterKey[];
