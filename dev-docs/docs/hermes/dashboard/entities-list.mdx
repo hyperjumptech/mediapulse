@@ -1,0 +1,49 @@
+---
+title: Entities list and detail
+description: Knowledge-graph entity visibility for Hermes admins — filter canonical entities by ticker, type, or created date, then inspect provenance on the detail page.
+icon: Shapes
+---
+
+The Mediapulse domain integration registers a read-only `entities` resource that appears in the Hermes admin sidebar. Admins can filter the list by ticker membership, entity type, or created date, then open a row to review metadata, description, and provenance evidence.
+
+The list and detail pages use Hermes' generic `table-v1` template (`DomainTablePage`) against the manifest and `detailBlocks` from domain-api.
+
+## List page
+
+URL: `/dashboard/{integrationId}/entities` (e.g. `/dashboard/mediapulse/entities`).
+
+| Column      | Notes                                                                                         |
+| ----------- | --------------------------------------------------------------------------------------------- |
+| Name        | Searchable substring filter (`?q=`). Matches canonical name, description, and type name.   |
+| Type        | Filter via type dropdown (`?typeId=`). Options from `GET .../meta` (`entityTypeOptions`).    |
+| Description | Included in `?q=` search only.                                                                |
+| Created     | Sortable (`?sort=createdAt&dir=`); defaults to **newest first**. Filter with **From date** / **To date** (`?from=` / `?to=`, `YYYY-MM-DD`). Same-day bounds filter to that calendar day (UTC inclusive). |
+
+Ticker filter (`?tickerId=`) restricts results to entities linked via `TickerEntity`. Ticker dropdown options come from `GET .../meta` (`tickerOptions`).
+
+### Query parameters
+
+| Param      | Purpose                                      |
+| ---------- | -------------------------------------------- |
+| `tickerId` | UUID of a ticker                             |
+| `typeId`   | UUID of an entity type                       |
+| `from`     | Lower bound on `createdAt` (inclusive)       |
+| `to`       | Upper bound on `createdAt` (inclusive)       |
+| `q`        | Case-insensitive search                      |
+| `sort`     | Sort field (`canonicalName`, `entityTypeName`, `createdAt`) |
+| `dir`      | `asc` or `desc`                              |
+| `page`     | 1-based page number                          |
+| `size`     | Page size (max 100)                          |
+
+Manifest: `apps/mediapulse/domain-api/src/resources/entities/dashboard-page.ts` declares `listFilters: ["tickerId", "typeId", "createdAt"]`.
+
+## Detail page
+
+URL: `/dashboard/{integrationId}/entities/{entityId}`.
+
+Detail blocks render metadata (name, type, timestamps), markdown description, and a provenance evidence sub-table linking back to data sources.
+
+## Related docs
+
+- [Newsletters list and detail](./newsletters-list-and-detail.mdx) — same generic filter UI pattern (ticker + created date)
+- [Domain integration dashboard](../integration/domain-integration-dashboard.mdx) — how Hermes loads table-v1 pages

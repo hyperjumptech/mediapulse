@@ -7,6 +7,7 @@ export type DomainTableSearchParams = {
   sort?: string;
   dir?: string;
   tickerId?: string;
+  typeId?: string;
   from?: string;
   to?: string;
 };
@@ -18,6 +19,7 @@ export type DomainTableListParamsParsed = {
   sortBy?: string;
   sortDir: "asc" | "desc";
   tickerId?: string;
+  typeId?: string;
   from?: string;
   to?: string;
 };
@@ -29,10 +31,14 @@ export type DomainTableListParamsParsed = {
  * @returns Record of non-empty filter entries.
  */
 export const buildDomainTableFilterExtraParams = (
-  params: Pick<DomainTableListParamsParsed, "tickerId" | "from" | "to">,
+  params: Pick<
+    DomainTableListParamsParsed,
+    "tickerId" | "typeId" | "from" | "to"
+  >,
 ): Record<string, string> => {
   const extra: Record<string, string> = {};
   if (params.tickerId) extra.tickerId = params.tickerId;
+  if (params.typeId) extra.typeId = params.typeId;
   if (params.from) extra.from = params.from;
   if (params.to) extra.to = params.to;
   return extra;
@@ -54,9 +60,10 @@ export const parseDomainTableSearchParams = (
   );
   const query = searchParams.q?.trim() || undefined;
   const tickerId = searchParams.tickerId?.trim() || undefined;
+  const typeId = searchParams.typeId?.trim() || undefined;
   const from = searchParams.from?.trim() || undefined;
   const to = searchParams.to?.trim() || undefined;
-  return { page, pageSize, query, tickerId, from, to };
+  return { page, pageSize, query, tickerId, typeId, from, to };
 };
 
 /**

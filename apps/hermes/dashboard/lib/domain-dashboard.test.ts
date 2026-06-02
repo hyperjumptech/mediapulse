@@ -137,6 +137,7 @@ describe("getDomainTableMeta", () => {
       sortBy: "createdAt",
       sortDir: "desc",
       tickerId: "11111111-1111-4111-a111-111111111111",
+      typeId: "22222222-2222-4222-a222-222222222222",
       from: "2026-05-01",
       to: "2026-05-31",
     });
@@ -147,6 +148,7 @@ describe("getDomainTableMeta", () => {
     expect(calledUrl).toContain(
       "tickerId=11111111-1111-4111-a111-111111111111",
     );
+    expect(calledUrl).toContain("typeId=22222222-2222-4222-a222-222222222222");
     expect(calledUrl).toContain("from=2026-05-01");
     expect(calledUrl).toContain("to=2026-05-31");
   });

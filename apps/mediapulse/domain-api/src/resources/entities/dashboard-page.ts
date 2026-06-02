@@ -78,6 +78,8 @@ export const entitiesDashboardPage = {
     "entityTypeName",
     "createdAt",
   ]),
+  defaultSort: { sortBy: "createdAt", sortDir: "desc" },
+  listFilters: ["tickerId", "typeId", "createdAt"],
   actions: { create: false, update: false, delete: false, view: true },
   customActions: entitiesCustomActionsForManifest,
   detailBlocks: [

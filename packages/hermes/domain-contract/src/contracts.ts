@@ -64,10 +64,20 @@ export const tableV1DefaultSortSchema = z.object({
 });
 
 /** List filter keys a table-v1 page may expose in the Hermes UI. */
-export const tableV1ListFilterKeySchema = z.enum(["tickerId", "createdAt"]);
+export const tableV1ListFilterKeySchema = z.enum([
+  "tickerId",
+  "typeId",
+  "createdAt",
+]);
 
 /** Ticker dropdown option for list `tickerId` filters (usually from GET meta). */
 export const tableV1TickerOptionSchema = z.object({
+  value: z.string().min(1),
+  label: z.string().min(1),
+});
+
+/** Entity type dropdown option for list `typeId` filters (usually from GET meta). */
+export const tableV1EntityTypeOptionSchema = z.object({
   value: z.string().min(1),
   label: z.string().min(1),
 });
@@ -253,6 +263,10 @@ export const tableV1MetaResponseSchema = z.object({
    * Ticker dropdown options for `tickerId` list filters (dynamic; newsletters meta merges these).
    */
   tickerOptions: z.array(tableV1TickerOptionSchema).optional(),
+  /**
+   * Entity type dropdown options for `typeId` list filters (dynamic; entities meta merges these).
+   */
+  entityTypeOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
 });
 
 /**
@@ -362,6 +376,9 @@ export type TableV1MetaResponse = z.infer<typeof tableV1MetaResponseSchema>;
 export type TableV1DefaultSort = z.infer<typeof tableV1DefaultSortSchema>;
 export type TableV1ListFilterKey = z.infer<typeof tableV1ListFilterKeySchema>;
 export type TableV1TickerOption = z.infer<typeof tableV1TickerOptionSchema>;
+export type TableV1EntityTypeOption = z.infer<
+  typeof tableV1EntityTypeOptionSchema
+>;
 export type DashboardPageCustomAction = z.infer<
   typeof dashboardPageCustomActionSchema
 >;

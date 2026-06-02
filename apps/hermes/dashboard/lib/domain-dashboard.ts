@@ -47,6 +47,7 @@ export type DomainTableListParams = {
   sortBy?: string;
   sortDir?: "asc" | "desc";
   tickerId?: string;
+  typeId?: string;
   from?: string;
   to?: string;
 };
@@ -394,6 +395,7 @@ export const getDomainTableList = async (
   if (params.sortBy) search.set("sortBy", params.sortBy);
   if (params.sortDir) search.set("sortDir", params.sortDir);
   if (params.tickerId) search.set("tickerId", params.tickerId);
+  if (params.typeId) search.set("typeId", params.typeId);
   if (params.from) search.set("from", params.from);
   if (params.to) search.set("to", params.to);
 

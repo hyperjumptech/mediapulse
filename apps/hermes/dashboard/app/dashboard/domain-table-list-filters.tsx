@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type {
+  TableV1EntityTypeOption,
   TableV1ListFilterKey,
   TableV1TickerOption,
 } from "@hermes/domain-contract";
@@ -12,27 +13,33 @@ type DomainTableListFiltersProps = {
   basePath: string;
   listFilters: TableV1ListFilterKey[];
   tickerOptions?: TableV1TickerOption[];
+  entityTypeOptions?: TableV1EntityTypeOption[];
   tickerId?: string;
+  typeId?: string;
   from?: string;
   to?: string;
   preserveParams: Record<string, string>;
 };
 
 /**
- * Manifest-driven list filters for domain table-v1 pages (ticker + created date).
+ * Manifest-driven list filters for domain table-v1 pages (ticker, type, created date).
  */
 export const DomainTableListFilters = ({
   basePath,
   listFilters,
   tickerOptions = [],
+  entityTypeOptions = [],
   tickerId,
+  typeId,
   from,
   to,
   preserveParams,
 }: DomainTableListFiltersProps) => {
   const showTicker = listFilters.includes("tickerId");
+  const showType = listFilters.includes("typeId");
   const showCreated = listFilters.includes("createdAt");
-  const hasActiveFilters = Boolean(tickerId) || Boolean(from) || Boolean(to);
+  const hasActiveFilters =
+    Boolean(tickerId) || Boolean(typeId) || Boolean(from) || Boolean(to);
 
   const clearParams = new URLSearchParams();
   for (const [key, value] of Object.entries(preserveParams)) {
@@ -43,7 +50,7 @@ export const DomainTableListFilters = ({
       ? `${basePath}?${clearParams.toString()}`
       : basePath;
 
-  if (!showTicker && !showCreated) {
+  if (!showTicker && !showType && !showCreated) {
     return null;
   }
 
@@ -72,6 +79,26 @@ export const DomainTableListFilters = ({
             >
               <option value="">All tickers</option>
               {tickerOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        {showType ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="filter-type-id" className="text-xs">
+              Type
+            </Label>
+            <select
+              id="filter-type-id"
+              name="typeId"
+              defaultValue={typeId ?? ""}
+              className="h-9 min-w-[12rem] rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">All types</option>
+              {entityTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

@@ -24,6 +24,7 @@ export {
   tableV1ListRequestQuerySchema,
   tableV1ListResponseSchema,
   tableV1MetaResponseSchema,
+  tableV1EntityTypeOptionSchema,
   tableV1TickerOptionSchema,
   type DashboardFormPropertiesMustMatchListRowKeys,
   type DashboardManifest,
@@ -45,6 +46,7 @@ export {
   type TableV1ListRequestQuery,
   type TableV1ListResponse,
   type TableV1MetaResponse,
+  type TableV1EntityTypeOption,
   type TableV1TickerOption,
 } from "./contracts";
 export {
