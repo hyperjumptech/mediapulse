@@ -199,6 +199,9 @@ export const DefaultNewsletterEmail = ({
     }
 
     if ("bullets" in section) {
+      if (section.bullets.length === 0) {
+        return <Fragment key={`${section.machineKey}-${String(index)}`} />;
+      }
       return (
         <Section key={`${section.machineKey}-${String(index)}`}>
           {renderSectionHeader(section.machineKey, section.displayHeading)}

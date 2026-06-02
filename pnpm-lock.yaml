@@ -606,6 +606,9 @@ importers:
       '@types/bun':
         specifier: latest
         version: 1.3.11
+      '@workspace/email-templates':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/email-templates
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
