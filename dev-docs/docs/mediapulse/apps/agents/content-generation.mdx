@@ -610,10 +610,10 @@ The pass is **on by default**. To opt out a ticker while assessing output qualit
 
 `GET /api/v1/content-generation` resolves the ticker's KG issuer anchor and returns two additional fields alongside `dataSources`:
 
-| Field           | Type                                    | Description                                                                                           |
-| --------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `competitors`   | `{ name: string; relation: string }[]`  | Peer COMPANY entities off the issuer's `COMPETITOR` / `SECTOR_PEER` edges, ranked by weight.         |
-| `issuerAliases` | `string[]`                              | All known names for the issuer (ticker symbol, legal name, KG aliases). Always at least symbol + name. |
+| Field           | Type                                   | Description                                                                                            |
+| --------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `competitors`   | `{ name: string; relation: string }[]` | Peer COMPANY entities off the issuer's `COMPETITOR` / `SECTOR_PEER` edges, ranked by weight.           |
+| `issuerAliases` | `string[]`                             | All known names for the issuer (ticker symbol, legal name, KG aliases). Always at least symbol + name. |
 
 ### How competitors are resolved
 
@@ -634,3 +634,70 @@ A ticker with no KG anchor (not yet analyzed, or analysis found no issuer entity
 ### Observability
 
 No extra log line for the empty-graph path; the resolution is a few indexed reads well within the existing request latency budget. If you see unexpectedly empty `competitors` arrays for tickers that should have peer data, confirm the analysis agent has run `ensureTickerIssuerCompanyAnchor` for the ticker and seeded `COMPETITOR`/`SECTOR_PEER` relation types via `seed-kg-vocabulary`.
+
+## Competitor-anchored Competitive Landscape
+
+Builds on KG competitor resolution (above) to make the Competitive Landscape section actually competitive: bullets about the chosen company's rivals rather than the company itself.
+
+### Where competitors come from
+
+The `competitors` and `issuerAliases` fields returned by `GET /api/v1/content-generation` (see KG competitor resolution above) are threaded through `run.ts` into `generateNewsletterWithLlm`. No extra API call or database read is made at generation time.
+
+### Prompt reframing
+
+When the competitor list is non-empty, a directive block is injected into the user prompt directly above the article summaries:
+
+```
+Competitive Landscape must focus on these competitors of {issuer}: {Name1}, {Name2}, ....
+Frame each bullet around a competitor's move, market share shift, product launch, or competitive threat.
+Do NOT make these bullets about {issuer} itself.
+```
+
+Up to `quality.competitiveFocus.maxCompetitorsInPrompt` (default 6) named competitors are included. The system prompt's `competitiveLandscape` line is also updated to reinforce the competitor-centric framing.
+
+When no competitors are available the prompt uses generic wording ("about {ticker}'s COMPETITORS") and no broken placeholder appears.
+
+### Self-exclusion gate (`enforceCompetitiveFocus`)
+
+After the polish pass, a deterministic gate walks each `competitiveLandscape` bullet and classifies it:
+
+| Classification          | Condition                                        | Action under `drop` policy          |
+| ----------------------- | ------------------------------------------------ | ----------------------------------- |
+| **Competitor-grounded** | mentions a competitor (or both issuer and rival) | kept                                |
+| **Generic**             | mentions neither issuer nor competitor           | kept                                |
+| **Issuer-only**         | mentions issuer and no competitor                | dropped / flagged / logged (policy) |
+
+`mentionsAny` does case-insensitive, word-boundary substring matching across all competitor names and aliases, and all issuer aliases.
+
+**Policy options** (`quality.competitiveFocus.policy`):
+
+- `drop` — remove the issuer-only bullet (product default)
+- `flag` — prepend `[ISSUER-ONLY]` for operator review; bullet is kept
+- `warn` — log only, structure unchanged
+
+### Empty-KG fallback
+
+When `competitors` is empty the gate is a complete no-op: all bullets are kept, `summary.evaluated === 0`. The section is never stripped just because a ticker's graph is sparse. As the analysis agent enriches the graph over time, the named-competitor path activates automatically.
+
+### Floor and prune handoff
+
+The gate defers empty-section cleanup to the require-citation pruning pass (plan 70):
+
+- `requireCitation.enabled: true` — the gate may drop all bullets, leaving the section empty. The prune pass removes the now-empty section.
+- `requireCitation.enabled: false` — the gate preserves at least the schema minimum (2 bullets) by downgrading the last excess drops to `flag`. This prevents the Competitive Landscape from silently disappearing when pruning is off.
+
+### Observability
+
+The gate emits one `info` log line per run when it fires, with `{ competitorCount, evaluated, dropped, flagged, policy }`. The `details` block on the success path includes:
+
+```json
+{
+  "competitiveFocus": {
+    "dropped": 1,
+    "flagged": 0,
+    "competitorCount": 5
+  }
+}
+```
+
+To soft-launch, ship with `policy: 'flag'` and monitor the `flagged` rate in run-details for a week before switching to `drop`.

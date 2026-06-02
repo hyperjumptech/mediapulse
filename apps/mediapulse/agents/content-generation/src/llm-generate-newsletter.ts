@@ -70,6 +70,10 @@ import {
 } from "./lib/source-ranking.js";
 import { retryWithBackoff } from "./lib/retry.js";
 import { truncateSources } from "./lib/truncate-sources.js";
+import {
+  enforceCompetitiveFocus,
+  type FocusSummary,
+} from "./lib/competitive-landscape-focus.js";
 import type { SourceForGeneration } from "./types.js";
 
 export type { SourceForGeneration };
@@ -147,6 +151,8 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   >;
   /** Require-citation pruning counters when the pass is enabled. */
   requireCitationSummary?: PruneSummary;
+  /** Competitive-focus gate counters when the pass ran and had competitors. */
+  competitiveFocusSummary?: FocusSummary;
 }
 
 /**
@@ -484,7 +490,7 @@ You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{
 Return JSON matching this shape (camelCase keys):
 - "subject": short email subject (under ~60 chars), sector-relevant, may mention {{tickerName}} or {{tickerSymbol}} once if natural.
 - "industryPulse": { "displayHeading", "prose" } — short lead framing the industry story (no bullet characters in prose).
-- "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets; each bullet { "text", "articleIndex" } where articleIndex is a 1-based article number or null when uncited.
+- "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets about {{tickerName}}'s COMPETITORS, not {{tickerName}} itself — peer positioning, rival launches, share shifts, competitive threats. Each bullet should name a competitor. Each bullet { "text", "articleIndex" } where articleIndex is a 1-based article number or null when uncited.
 - "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets; same articleIndex rule.
 - "regulatoryPolicyWatch": { "displayHeading", "bullets" } — 1–3 bullets; same articleIndex rule.
 - "disruptorsOrTech": either { "format": "prose", "displayHeading", "prose" } OR { "format": "bullets", "displayHeading", "bullets" } with 1–3 bullets (same articleIndex rule).
@@ -507,6 +513,29 @@ Rules reminder:
 - Quick hits must all include articleIndex.
 
 {{sourceSummaries}}`;
+
+/**
+ * Builds the competitor directive block injected into the user prompt when
+ * the KG has resolved named competitors for the issuer.
+ *
+ * Returns an empty string when `competitors` is empty, so the caller can
+ * safely include it without an extra length guard.
+ *
+ * @param competitors - Named competitors from the KG resolution pass.
+ * @param issuerName - Human-readable issuer name for the directive text.
+ */
+export const buildCompetitorPromptBlock = (
+  competitors: ReadonlyArray<{ name: string; relation: string }>,
+  issuerName: string,
+): string => {
+  if (competitors.length === 0) return "";
+  const nameList = competitors.map((competitor) => competitor.name).join(", ");
+  return [
+    `Competitive Landscape must focus on these competitors of ${issuerName}: ${nameList}.`,
+    `Frame each bullet around a competitor's move, market share shift, product launch, or competitive threat.`,
+    `Do NOT make these bullets about ${issuerName} itself.`,
+  ].join(" ");
+};
 
 /**
  * Builds the LLM user prompt from the list of data sources, substituting
@@ -543,6 +572,8 @@ export function buildUserPrompt(
     exemplarSection?: string;
     /** Editor's memo from the brainstorm pass, injected before article summaries. */
     brainstormText?: string;
+    /** Competitor directive injected above article summaries when the KG has named peers. */
+    competitorSection?: string;
     /** Verbatim figures sidecar injected immediately above article summaries. */
     numericAnchorSection?: string;
     /** Recent bullets to avoid repeating (cross-run dedup preventive arm). */
@@ -574,10 +605,16 @@ export function buildUserPrompt(
       ? `${options.crossRunDedupAvoidanceSection}\n\n`
       : "";
 
+  const competitorPrefix =
+    options.competitorSection !== undefined &&
+    options.competitorSection.length > 0
+      ? `${options.competitorSection}\n\n`
+      : "";
+
   return template
     .replaceAll(
       "{{sourceSummaries}}",
-      `${exemplarPrefix}${brainstormPrefix}${crossRunDedupPrefix}${numericAnchorPrefix}${sourceSummaries}`,
+      `${exemplarPrefix}${brainstormPrefix}${crossRunDedupPrefix}${competitorPrefix}${numericAnchorPrefix}${sourceSummaries}`,
     )
     .replaceAll("{{tickerId}}", context.tickerId)
     .replaceAll("{{tickerName}}", context.tickerName ?? context.tickerId)
@@ -624,6 +661,10 @@ export async function generateNewsletterWithLlm(
     recentSubjects?: string[];
     /** Recent flattened bullets for cross-run dedup. */
     recentBullets?: RecentBullet[];
+    /** KG-resolved competitor list from the content-generation API (plan 71). */
+    competitors?: Array<{ name: string; relation: string }>;
+    /** Issuer aliases from the content-generation API (plan 71). */
+    issuerAliases?: string[];
   },
   deps: {
     generateObjectFn?: GenerateNewsletterObjectFn;
@@ -839,6 +880,16 @@ export async function generateNewsletterWithLlm(
     ? formatRecentBulletsAvoidanceBlock(recentBullets, crossRunDedup.windowDays)
     : "";
 
+  const competitiveFocusConfig = config.quality.competitiveFocus;
+  const promptCompetitors = (context.competitors ?? []).slice(
+    0,
+    competitiveFocusConfig.maxCompetitorsInPrompt,
+  );
+  const competitorSection = buildCompetitorPromptBlock(
+    promptCompetitors,
+    context.tickerName ?? context.tickerId,
+  );
+
   const userTemplate =
     config.prompts?.userPromptTemplate || DEFAULT_USER_PROMPT_TEMPLATE;
   const prompt = buildUserPrompt(
@@ -855,6 +906,7 @@ export async function generateNewsletterWithLlm(
       exemplarSection,
       brainstormText,
       crossRunDedupAvoidanceSection,
+      competitorSection,
       numericAnchorSection,
     },
   );
@@ -1109,7 +1161,38 @@ export async function generateNewsletterWithLlm(
     );
   }
 
-  let groundedStructure = polishedStructure;
+  let focusGateStructure = polishedStructure;
+  let competitiveFocusSummary: FocusSummary | undefined;
+
+  if (
+    competitiveFocusConfig.enabled &&
+    (context.competitors?.length ?? 0) > 0
+  ) {
+    const focusResult = enforceCompetitiveFocus(polishedStructure, {
+      competitors: context.competitors!.map((competitor) => ({
+        name: competitor.name,
+      })),
+      issuerAliases: context.issuerAliases ?? [],
+      policy: competitiveFocusConfig.policy,
+      requireCitationEnabled: config.quality.requireCitation.enabled,
+    });
+    focusGateStructure = focusResult.structure;
+    competitiveFocusSummary = focusResult.summary;
+
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        competitorCount: focusResult.summary.competitorCount,
+        evaluated: focusResult.summary.evaluated,
+        dropped: focusResult.summary.dropped,
+        flagged: focusResult.summary.flagged,
+        policy: competitiveFocusConfig.policy,
+      },
+      "Competitive-focus gate summary",
+    );
+  }
+
+  let groundedStructure = focusGateStructure;
   const citationGrounding = config.quality.citationGrounding;
   if (citationGrounding.enabled) {
     const grounded = groundNewsletterCitations(
@@ -1376,5 +1459,8 @@ export async function generateNewsletterWithLlm(
     ...(critiqueFailed ? { critiqueFailed: true } : {}),
     ...(polishSummary !== undefined ? { polishSummary } : {}),
     ...(requireCitationSummary !== undefined ? { requireCitationSummary } : {}),
+    ...(competitiveFocusSummary !== undefined
+      ? { competitiveFocusSummary }
+      : {}),
   };
 }

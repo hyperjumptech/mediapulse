@@ -270,6 +270,8 @@ export async function run({
     dataSources: sources,
     tickerName,
     tickerSymbol,
+    competitors,
+    issuerAliases,
   } = await dataApiClient.contentGeneration.get({
     tickerId: input.tickerId,
   });
@@ -396,6 +398,8 @@ export async function run({
       runStartedAt: runStart,
       recentSubjects,
       recentBullets,
+      competitors,
+      issuerAliases,
     });
   } catch (err) {
     const code = classifyLlmError(err);
@@ -440,6 +444,20 @@ export async function run({
         brainstormCompletionTokens: generated.brainstormCompletionTokens,
       },
       "Newsletter two-pass generation: brainstorm leg complete",
+    );
+  }
+
+  if (generated.competitiveFocusSummary !== undefined) {
+    logger.info(
+      {
+        tickerId: input.tickerId,
+        competitorCount: generated.competitiveFocusSummary.competitorCount,
+        evaluated: generated.competitiveFocusSummary.evaluated,
+        dropped: generated.competitiveFocusSummary.dropped,
+        flagged: generated.competitiveFocusSummary.flagged,
+        policy: resolvedConfig.quality.competitiveFocus.policy,
+      },
+      "Competitive-focus gate run summary",
     );
   }
 
@@ -647,6 +665,16 @@ export async function run({
               bulletsRemovedDuplicate:
                 generated.requireCitationSummary.bulletsRemovedDuplicate,
               sectionsKept: generated.requireCitationSummary.sectionsKept,
+            },
+          }
+        : {}),
+      ...(generated.competitiveFocusSummary !== undefined
+        ? {
+            competitiveFocus: {
+              dropped: generated.competitiveFocusSummary.dropped,
+              flagged: generated.competitiveFocusSummary.flagged,
+              competitorCount:
+                generated.competitiveFocusSummary.competitorCount,
             },
           }
         : {}),
