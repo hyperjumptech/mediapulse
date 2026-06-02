@@ -11,6 +11,10 @@ import {
   industryNewsletterStructureSchema,
 } from "./industry-newsletter-schema.js";
 import { attachIndustryNewsletterSourceUrls } from "./industry-newsletter-urls.js";
+import {
+  pruneNewsletterToCitedRows,
+  type PruneSummary,
+} from "./lib/prune-uncited-rows.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import {
   buildExemplarPromptSection,
@@ -141,6 +145,8 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
     PolishNewsletterResult,
     "reports" | "totalReplacements" | "rulesFired"
   >;
+  /** Require-citation pruning counters when the pass is enabled. */
+  requireCitationSummary?: PruneSummary;
 }
 
 /**
@@ -484,7 +490,9 @@ Return JSON matching this shape (camelCase keys):
 - "disruptorsOrTech": either { "format": "prose", "displayHeading", "prose" } OR { "format": "bullets", "displayHeading", "bullets" } with 1–3 bullets (same articleIndex rule).
 - "quickHits": { "displayHeading", "items" } — 5–7 items; each item { "text", "articleIndex" } (index required for every quick hit).
 
-Headings ("displayHeading") are short subtitle phrases only — never repeat the section label or use "Label / Subtitle" format. Keep JSON valid; use null for optional blocks and uncited articleIndex values.`;
+Headings ("displayHeading") are short subtitle phrases only — never repeat the section label or use "Label / Subtitle" format. Keep JSON valid; use null for optional blocks and uncited articleIndex values.
+
+Every bullet and quick hit must summarize exactly one article and set articleIndex to that one article. Do not blend multiple articles into one bullet, and do not reuse the same article for two bullets in a section.`;
 
 /**
  * Default user prompt template used when no template is provided in config.
@@ -1296,10 +1304,44 @@ export async function generateNewsletterWithLlm(
     );
   }
 
-  const resolved = attachIndustryNewsletterSourceUrls(
+  let resolved = attachIndustryNewsletterSourceUrls(
     finalStructure,
     promptSources,
   );
+
+  let requireCitationSummary: PruneSummary | undefined;
+  const requireCitation = config.quality.requireCitation;
+  if (requireCitation.enabled) {
+    if (citationGrounding.enabled) {
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          groundingPolicy: citationGrounding.policy,
+        },
+        "Citation grounding and require-citation pruning are both enabled; unlinked bullets will be pruned",
+      );
+    }
+
+    const pruned = pruneNewsletterToCitedRows(resolved, {
+      sections: requireCitation.sections,
+      dedupeArticlesWithinSection: requireCitation.dedupeArticlesWithinSection,
+      dedupeScope: requireCitation.dedupeScope,
+    });
+    resolved = pruned.resolved;
+    requireCitationSummary = pruned.summary;
+
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        sectionsRemoved: pruned.summary.sectionsRemoved,
+        bulletsRemovedUncited: pruned.summary.bulletsRemovedUncited,
+        bulletsRemovedDuplicate: pruned.summary.bulletsRemovedDuplicate,
+        sectionsKept: pruned.summary.sectionsKept,
+      },
+      "Require-citation pruning summary",
+    );
+  }
+
   const content = formatIndustryNewsletterWire(resolved);
 
   return {
@@ -1333,5 +1375,6 @@ export async function generateNewsletterWithLlm(
     ...(critiqueSkippedDueToBudget ? { critiqueSkippedDueToBudget: true } : {}),
     ...(critiqueFailed ? { critiqueFailed: true } : {}),
     ...(polishSummary !== undefined ? { polishSummary } : {}),
+    ...(requireCitationSummary !== undefined ? { requireCitationSummary } : {}),
   };
 }

@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { logger } from "@workspace/logger";
 
+import { parseIndustryNewsletterWire } from "@workspace/email-templates/parse-industry-newsletter-wire";
+
 import {
   ContentGenerationConfigSchema,
   resolveContentGenerationConfig,
@@ -46,6 +48,7 @@ const conservativeTestConfigInput = {
     polish: { enabled: false },
     crossRunDedup: { enabled: false },
     selfCritique: { enabled: false },
+    requireCitation: { enabled: false },
   },
   delivery: {
     subjectLine: { enabled: false },
@@ -1961,5 +1964,111 @@ describe("generateNewsletterWithLlm — best-quality default profile", () => {
     expect(result.numericAnchorSummary).toBeDefined();
     expect(result.critiqueSummary).toBeDefined();
     expect(result.subjectLineSummary).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration: require-citation pruning pass
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — require-citation pruning", () => {
+  const requireCitationConfig = resolveContentGenerationConfig(
+    ContentGenerationConfigSchema.parse({
+      ...conservativeTestConfigInput,
+      quality: {
+        ...conservativeTestConfigInput.quality,
+        requireCitation: { enabled: true },
+      },
+    }),
+  );
+
+  it("removes a section whose bullets are all uncited and keeps cited sections", async () => {
+    // competitive-landscape has only uncited bullets (no articleIndex),
+    // deals has one bullet with articleIndex 1 which resolves to testSources[0].url.
+    const generateObjectFn = makeSuccessfulGenerateFn({
+      competitiveLandscape: {
+        displayHeading: "Competition",
+        bullets: [{ text: "Uncited A" }, { text: "Uncited B" }],
+      },
+      dealsAndMovements: {
+        displayHeading: "Deals",
+        bullets: [{ text: "Cited deal", articleIndex: 1 }],
+      },
+      regulatoryPolicyWatch: {
+        displayHeading: "Regulatory",
+        bullets: [{ text: "Uncited regulatory" }],
+      },
+      disruptorsOrTech: {
+        format: "prose",
+        displayHeading: "Disruptors",
+        prose: "Innovation forward.",
+      },
+      quickHits: {
+        displayHeading: "Quick Hits",
+        items: [
+          { text: "Hit with source", articleIndex: 1 },
+          { text: "Hit with source 2", articleIndex: 2 },
+          { text: "Hit with source 3", articleIndex: 3 },
+          { text: "Hit uncited" },
+          { text: "Hit duplicate", articleIndex: 1 },
+        ],
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      requireCitationConfig,
+      { tickerId: "TEST", date: "2024-01-01" },
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    const parsed = parseIndustryNewsletterWire(result.content);
+
+    const keys = parsed?.sections.map((s) => s.machineKey) ?? [];
+    expect(keys).toContain("industry-pulse");
+    expect(keys).not.toContain("competitive-landscape");
+    expect(keys).toContain("deals-and-movements");
+    expect(keys).not.toContain("regulatory-policy-watch");
+    expect(keys).toContain("disruptors-or-tech");
+    expect(keys).toContain("quick-hits");
+
+    expect(result.requireCitationSummary).toBeDefined();
+    expect(result.requireCitationSummary?.sectionsRemoved).toBe(2);
+    expect(
+      result.requireCitationSummary?.bulletsRemovedUncited,
+    ).toBeGreaterThan(0);
+    expect(result.requireCitationSummary?.bulletsRemovedDuplicate).toBe(1);
+  });
+
+  it("passes content through unchanged when requireCitation is disabled", async () => {
+    const generateObjectFn = makeSuccessfulGenerateFn({
+      competitiveLandscape: {
+        displayHeading: "Competition",
+        bullets: [{ text: "Uncited" }],
+      },
+      dealsAndMovements: {
+        displayHeading: "Deals",
+        bullets: [{ text: "Uncited" }],
+      },
+      regulatoryPolicyWatch: {
+        displayHeading: "Regulatory",
+        bullets: [{ text: "Uncited" }],
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      { tickerId: "TEST", date: "2024-01-01" },
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.requireCitationSummary).toBeUndefined();
+    // All sections remain since pruning is off
+    const parsed = parseIndustryNewsletterWire(result.content);
+    const keys = parsed?.sections.map((s) => s.machineKey) ?? [];
+    expect(keys).toContain("competitive-landscape");
+    expect(keys).toContain("deals-and-movements");
+    expect(keys).toContain("regulatory-policy-watch");
   });
 });

@@ -37,23 +37,24 @@ Successful runs include `details.promptHash` (16-character hex, same algorithm a
 
 The Hermes form renders nine top-level sections in this order: **Credentials**, **Output**, **Prompts**, **Inputs**, **Creativity**, **Quality**, **Delivery**, **Freshness**, **Reliability**. An empty `{}` applies the best-quality defaults from plan 62 (all quality passes on). Legacy flat keys are rejected — see [Config Reference](/mediapulse/apps/agents/content-generation-config-reference).
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `credentials.openaiApiKey` | `string` | `{{OPENAI_API_KEY}}` | OpenAI API key or Hermes variable placeholder. |
-| `credentials.chatModel` | `string` | `{{OPENAI_MODEL}}` | Chat model id or Hermes variable placeholder. |
-| `credentials.baseUrl` | `string (url)` | official | OpenAI-compatible API base URL. |
-| `credentials.timeoutMs` | `number` | `120000` | Per-request timeout in milliseconds. |
-| `output.topNewsCount` | `number` | `10` | Articles in the LLM prompt. |
-| `creativity.brainstorm.enabled` | `boolean` | `true` | Two-pass editor's memo before structured JSON. |
-| `inputs.fewShot.enabled` | `boolean` | `true` | Few-shot exemplar injection. |
-| `inputs.sourceRanking.enabled` | `boolean` | `true` | Pre-LLM source ranking. |
-| `quality.selfCritique.enabled` | `boolean` | `true` | Self-critique pass. |
-| `quality.citationGrounding.enabled` | `boolean` | `true` | Citation grounding. |
-| `quality.polish.enabled` | `boolean` | `true` | Style polish. |
-| `quality.crossRunDedup.enabled` | `boolean` | `true` | Cross-run dedup. |
-| `delivery.subjectLine.enabled` | `boolean` | `true` | Subject-line scoring. |
-| `reliability.llmRetry.maxAttempts` | `number` | `3` | LLM retry attempts. |
-| `reliability.persistRetry.maxAttempts` | `number` | `2` | Persist retry attempts. |
+| Field                                  | Type           | Default              | Description                                                                                |
+| -------------------------------------- | -------------- | -------------------- | ------------------------------------------------------------------------------------------ |
+| `credentials.openaiApiKey`             | `string`       | `{{OPENAI_API_KEY}}` | OpenAI API key or Hermes variable placeholder.                                             |
+| `credentials.chatModel`                | `string`       | `{{OPENAI_MODEL}}`   | Chat model id or Hermes variable placeholder.                                              |
+| `credentials.baseUrl`                  | `string (url)` | official             | OpenAI-compatible API base URL.                                                            |
+| `credentials.timeoutMs`                | `number`       | `120000`             | Per-request timeout in milliseconds.                                                       |
+| `output.topNewsCount`                  | `number`       | `10`                 | Articles in the LLM prompt.                                                                |
+| `creativity.brainstorm.enabled`        | `boolean`      | `true`               | Two-pass editor's memo before structured JSON.                                             |
+| `inputs.fewShot.enabled`               | `boolean`      | `true`               | Few-shot exemplar injection.                                                               |
+| `inputs.sourceRanking.enabled`         | `boolean`      | `true`               | Pre-LLM source ranking.                                                                    |
+| `quality.selfCritique.enabled`         | `boolean`      | `true`               | Self-critique pass.                                                                        |
+| `quality.citationGrounding.enabled`    | `boolean`      | `true`               | Citation grounding.                                                                        |
+| `quality.polish.enabled`               | `boolean`      | `true`               | Style polish.                                                                              |
+| `quality.crossRunDedup.enabled`        | `boolean`      | `true`               | Cross-run dedup.                                                                           |
+| `quality.requireCitation.enabled`      | `boolean`      | `true`               | Require-citation pruning (drops uncited rows, dedupes by article, removes empty sections). |
+| `delivery.subjectLine.enabled`         | `boolean`      | `true`               | Subject-line scoring.                                                                      |
+| `reliability.llmRetry.maxAttempts`     | `number`       | `3`                  | LLM retry attempts.                                                                        |
+| `reliability.persistRetry.maxAttempts` | `number`       | `2`                  | Persist retry attempts.                                                                    |
 
 Full field list: [Config Reference](/mediapulse/apps/agents/content-generation-config-reference).
 
@@ -157,8 +158,8 @@ Newsletter generation can prepend one or two hand-curated **voice exemplars** be
 
 ### What each exemplar teaches
 
-| Exemplar bank id  | Sector tag   | Teaches                                                                                                     |
-| ----------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
+| Exemplar bank id  | Sector tag   | Teaches                                                        |
+| ----------------- | ------------ | -------------------------------------------------------------- |
 | `industrial-INDX` | `industrial` | Grounded industrial prose, cited bullets, personality headings |
 | `consumer-CONSM`  | `consumer`   | Consumer/financial voice, quick-hit density                    |
 
@@ -210,11 +211,11 @@ Each label forces a different cognitive mode (synthesis, expansion, concrete fig
 
 ### Config
 
-| Field                       | Default        | Description                            |
-| --------------------------- | -------------- | -------------------------------------- |
-| `creativity.brainstorm.enabled` | `true` | Enable two-pass generation |
-| `creativity.brainstorm.model` | `credentials.chatModel` | Cheaper model for the memo leg is fine |
-| `brainstormMaxOutputTokens` | `700`          | Memos are short by design              |
+| Field                           | Default                 | Description                            |
+| ------------------------------- | ----------------------- | -------------------------------------- |
+| `creativity.brainstorm.enabled` | `true`                  | Enable two-pass generation             |
+| `creativity.brainstorm.model`   | `credentials.chatModel` | Cheaper model for the memo leg is fine |
+| `brainstormMaxOutputTokens`     | `700`                   | Memos are short by design              |
 
 ### Cost and timeout
 
@@ -364,12 +365,12 @@ The subject from the main structured pass competes as **candidate 0** with a pre
 
 ### Config
 
-| Field                        | Default        | Description                              |
-| ---------------------------- | -------------- | ---------------------------------------- |
-| `subjectLine.enabled`        | `false`        | Enable candidate generation and scoring  |
-| `subjectLine.candidateCount` | `5`            | Target number of LLM candidates (3–8)    |
-| `delivery.subjectLine.model` | `credentials.chatModel` | Sidecar model (cheaper tier is fine) |
-| `subjectLine.weights.*`      | see axes above | Per-axis weights for the composite score |
+| Field                        | Default                 | Description                              |
+| ---------------------------- | ----------------------- | ---------------------------------------- |
+| `subjectLine.enabled`        | `false`                 | Enable candidate generation and scoring  |
+| `subjectLine.candidateCount` | `5`                     | Target number of LLM candidates (3–8)    |
+| `delivery.subjectLine.model` | `credentials.chatModel` | Sidecar model (cheaper tier is fine)     |
+| `subjectLine.weights.*`      | see axes above          | Per-axis weights for the composite score |
 
 ### Observability
 
@@ -389,14 +390,14 @@ The `MP_NEWSLETTER` wire format supports a variable set of body sections. Only s
 
 ### Mandatory vs omittable
 
-| Section | Status |
-|---|---|
-| `industry-pulse` | Always emitted. It is the newsletter spine and carries no citation. |
-| `competitive-landscape` | Omittable. Absent when the field is `undefined` on the resolved briefing. |
-| `deals-and-movements` | Omittable. |
-| `regulatory-policy-watch` | Omittable. |
-| `disruptors-or-tech` | Omittable. The bullets variant is also suppressed when it has zero rows. |
-| `quick-hits` | Omittable. |
+| Section                   | Status                                                                    |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `industry-pulse`          | Always emitted. It is the newsletter spine and carries no citation.       |
+| `competitive-landscape`   | Omittable. Absent when the field is `undefined` on the resolved briefing. |
+| `deals-and-movements`     | Omittable.                                                                |
+| `regulatory-policy-watch` | Omittable.                                                                |
+| `disruptors-or-tech`      | Omittable. The bullets variant is also suppressed when it has zero rows.  |
+| `quick-hits`              | Omittable.                                                                |
 
 ### Representation of absence
 
@@ -511,14 +512,14 @@ Critique **never** emits output that fails `industryNewsletterStructureSchema`. 
 
 ### Config
 
-| Field                                  | Default        | Description                                  |
-| -------------------------------------- | -------------- | -------------------------------------------- |
-| `selfCritique.enabled`                 | `false`        | Enable the critic pass                       |
-| `selfCritique.dropFraction`            | `0.2`          | Max fraction of bullets rewritten or dropped |
-| `selfCritique.minBulletCount`          | `8`            | Skip critique below this bullet count        |
-| `quality.selfCritique.critiqueModel` | `credentials.chatModel` | Critic model (cheaper tier is fine) |
-| `selfCritique.critiqueMaxOutputTokens` | `1500`         | Output cap for the critic call               |
-| `selfCritique.preferRewriteOverDrop`   | `true`         | Use `suggestedRewrite` before dropping       |
+| Field                                  | Default                 | Description                                  |
+| -------------------------------------- | ----------------------- | -------------------------------------------- |
+| `selfCritique.enabled`                 | `false`                 | Enable the critic pass                       |
+| `selfCritique.dropFraction`            | `0.2`                   | Max fraction of bullets rewritten or dropped |
+| `selfCritique.minBulletCount`          | `8`                     | Skip critique below this bullet count        |
+| `quality.selfCritique.critiqueModel`   | `credentials.chatModel` | Critic model (cheaper tier is fine)          |
+| `selfCritique.critiqueMaxOutputTokens` | `1500`                  | Output cap for the critic call               |
+| `selfCritique.preferRewriteOverDrop`   | `true`                  | Use `suggestedRewrite` before dropping       |
 
 ### Deadline guard
 
@@ -526,7 +527,7 @@ When wall-clock since run start exceeds **70%** of `credentials.timeoutMs` after
 
 ### Pipeline order
 
-`structured JSON` → numeric anchor audit (optional) → self-critique (optional) → style polish (optional) → citation grounding (optional) → subject line (optional) → cross-run dedup (optional) → wire format.
+`structured JSON` → numeric anchor audit (optional) → self-critique (optional) → style polish (optional) → citation grounding (optional) → subject line (optional) → cross-run dedup (optional) → URL attachment → require-citation pruning (optional) → wire format.
 
 ### Observability
 
@@ -535,3 +536,72 @@ Logs include `critique: { bulletsRated, bulletsRewritten, bulletsDropped, floorP
 ### Rollout
 
 Opt in per ticker with `selfCritique.enabled: true`. A cheaper `critiqueModel` paired with a premium structured pass is a sensible default.
+
+## Require-citation pruning
+
+The final transform in the pipeline guarantees that every bullet and quick hit a subscriber sees is backed by exactly one distinct, linkable article. It enforces three rules:
+
+1. **Drop uncited rows** — a bullet or quick-hit whose `articleIndex` is null, out of range, or resolves to an empty URL is removed.
+2. **One article per row** — within the dedup scope, only the first row for a given resolved article URL is kept; later rows citing the same article are dropped.
+3. **Remove empty sections** — a section that reaches zero cited rows is set to `undefined` and omitted from the wire. A section with at least one cited row survives.
+
+The pass runs **last**, after URL attachment, so `url !== undefined` is the only check needed.
+
+### What is pruned
+
+| Section                        | Prunable? | Notes                                        |
+| ------------------------------ | --------- | -------------------------------------------- |
+| `industry-pulse`               | Never     | Framing prose with no single source.         |
+| `competitive-landscape`        | Yes       | Bullets variant.                             |
+| `deals-and-movements`          | Yes       | Bullets variant.                             |
+| `regulatory-policy-watch`      | Yes       | Bullets variant.                             |
+| `disruptors-or-tech` (bullets) | Yes       | Only the bullets variant.                    |
+| `disruptors-or-tech` (prose)   | Never     | Framing prose; exempt like `industry-pulse`. |
+| `quick-hits`                   | Yes       | Items (same URL check).                      |
+
+### Interaction with citation grounding
+
+Citation grounding (`quality.citationGrounding`) runs earlier and can **unlink** a bullet (strip its article URL but keep the text) or **drop** it (remove the row). When both passes are on:
+
+- `policy: drop` — grounding removes the row; the prune pass does not see it. Same outcome, single step.
+- `policy: unlink` — grounding strips the URL; the prune pass then removes the row (no URL). Two steps, same result.
+- `policy: warn` — grounding logs only; the prune pass performs the actual removal.
+
+Pairing `policy: drop` with `requireCitation.enabled: true` keeps all removal logic in grounding. Pairing `policy: unlink` with pruning enabled gives the same reader-facing output through two passes. When both are enabled a log note is emitted at info level.
+
+### Before / after example
+
+**Before pruning** (resolved structure):
+
+```
+competitive-landscape: [{ text: "Rival bid", url: "https://a.com" }, { text: "No source" }]
+regulatory-policy-watch: [{ text: "Permit delay" }]          ← no url
+quick-hits: [{ text: "Hit 1", url: "https://b.com" }, { text: "Hit 2", url: "https://a.com" }, ...]
+```
+
+**After pruning** (dedupeScope: 'section'):
+
+```
+competitive-landscape: [{ text: "Rival bid", url: "https://a.com" }]   ← "No source" dropped
+regulatory-policy-watch: undefined                                       ← section removed
+quick-hits: [{ text: "Hit 1", url: "https://b.com" }, { text: "Hit 2", url: "https://a.com" }, ...]
+```
+
+Note: with `dedupeScope: 'newsletter'`, `Hit 2` would also be dropped because `https://a.com` was already seen in `competitive-landscape`.
+
+### Config
+
+| Field                                         | Default   | Description                                                                |
+| --------------------------------------------- | --------- | -------------------------------------------------------------------------- |
+| `requireCitation.enabled`                     | `true`    | Enable the pruning pass. Set to `false` for byte-for-byte current output.  |
+| `requireCitation.sections`                    | all five  | Which body sections to prune. `industry-pulse` is always exempt.           |
+| `requireCitation.dedupeArticlesWithinSection` | `true`    | When false, dedup is skipped (uncited rows are still removed).             |
+| `requireCitation.dedupeScope`                 | `section` | `section` = per-section dedup; `newsletter` = one URL across all sections. |
+
+### Observability
+
+One info log per run: `{ sectionsRemoved, bulletsRemovedUncited, bulletsRemovedDuplicate, sectionsKept }`. Run details include a `requireCitation` block with the same four counters. A consistently high `sectionsRemoved` count for a ticker signals thin days — check the `lowInformationDay` signal from cross-run dedup and the yield snapshot for root cause.
+
+### Rollout
+
+The pass is **on by default**. To opt out a ticker while assessing output quality, set `requireCitation.enabled: false` in its Hermes config. The `dedupeScope: 'newsletter'` option is available but not the shipped default — use it when per-section dedup still allows duplicate articles across the briefing.

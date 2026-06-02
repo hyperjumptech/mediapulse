@@ -638,6 +638,18 @@ export async function run({
             },
           }
         : {}),
+      ...(generated.requireCitationSummary !== undefined
+        ? {
+            requireCitation: {
+              sectionsRemoved: generated.requireCitationSummary.sectionsRemoved,
+              bulletsRemovedUncited:
+                generated.requireCitationSummary.bulletsRemovedUncited,
+              bulletsRemovedDuplicate:
+                generated.requireCitationSummary.bulletsRemovedDuplicate,
+              sectionsKept: generated.requireCitationSummary.sectionsKept,
+            },
+          }
+        : {}),
     },
   };
 }
