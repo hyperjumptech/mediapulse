@@ -328,6 +328,8 @@ export const buildArticleAnalysisExtractionSystemContent = (
  */
 export const buildArticleAnalysisExtractionUserContent = (args: {
   tickerId: string;
+  tickerSymbol: string;
+  tickerName: string;
   title: string;
   contentTruncated: string;
 }): string =>
@@ -335,6 +337,8 @@ export const buildArticleAnalysisExtractionUserContent = (args: {
     ARTICLE_ANALYSIS_EXTRACTION_USER_PROMPT_TEMPLATE_DEFAULT,
     {
       tickerId: args.tickerId,
+      tickerSymbol: args.tickerSymbol,
+      tickerName: args.tickerName,
       title: args.title,
       articleContent: args.contentTruncated,
     },
@@ -364,6 +368,8 @@ export const buildBrainstormSystemContent = (
  */
 export const buildBrainstormUserContent = (args: {
   tickerId: string;
+  tickerSymbol: string;
+  tickerName: string;
   title: string;
   contentTruncated: string;
 }): string => buildExtractionUserContent(args);
@@ -528,7 +534,9 @@ export const extractEntitiesAndRelationsForSource = async (
 ): Promise<LlmExtractionCallResult> => {
   const openai = createOpenAI({ apiKey: params.apiKey });
   const systemContent = String(params.messages[0]?.content ?? "");
-  const userContent = String(params.messages.at(-1)?.content ?? "");
+  const userContent = String(
+    params.messages[params.messages.length - 1]?.content ?? "",
+  );
   const shouldBuildMessages =
     (params.exemplars !== undefined && params.exemplars.length > 0) ||
     (params.brainstormText !== undefined &&

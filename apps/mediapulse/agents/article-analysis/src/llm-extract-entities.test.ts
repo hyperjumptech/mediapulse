@@ -51,10 +51,14 @@ describe("buildExtractionUserContent", () => {
   it("includes ticker title and body", () => {
     const u = buildExtractionUserContent({
       tickerId: "T",
+      tickerSymbol: "TSYM",
+      tickerName: "Ticker Name",
       title: "Hello",
       contentTruncated: "Body text",
     });
     expect(u).toContain("T");
+    expect(u).toContain("TSYM");
+    expect(u).toContain("Ticker Name");
     expect(u).toContain("Hello");
     expect(u).toContain("Body text");
   });
@@ -277,10 +281,13 @@ describe("extractEntitiesAndRelationsForSource", () => {
     // Assert
     const capturedMessages =
       generateObjectForExtraction.mock.calls[0]?.[0]?.messages;
-    expect(capturedMessages?.at(-1)?.content).toBe(
+    const lastCaptured = capturedMessages
+      ? capturedMessages[capturedMessages.length - 1]
+      : undefined;
+    expect(lastCaptured?.content).toBe(
       buildBrainstormFollowUpUserContent(brainstormText),
     );
-    expect(String(capturedMessages?.at(-1)?.content)).toContain("Apple");
+    expect(String(lastCaptured?.content)).toContain("Apple");
   });
 });
 
@@ -301,6 +308,8 @@ describe("buildBrainstormUserContent", () => {
   it("matches extraction user content for the same article fields", () => {
     const args = {
       tickerId: "T",
+      tickerSymbol: "TSYM",
+      tickerName: "Ticker Name",
       title: "Hello",
       contentTruncated: "Body text",
     };

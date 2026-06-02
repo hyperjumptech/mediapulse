@@ -332,7 +332,9 @@ describe("query-analysis run", () => {
     expect(secondCall.broadenSystemNudge).toContain("diversity");
     expect(secondCall.broadenSystemNudge).toContain("Vary phrasing");
 
-    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
       strategySnapshot: {
         diversityScore?: { composite: number };
         diversityGate?: { diversityRegenerateFired: boolean };
@@ -386,7 +388,9 @@ describe("query-analysis run", () => {
     expect(applySelfCritiquePassMock).toHaveBeenCalledTimes(1);
     expect(mockFetchQueryLlm).toHaveBeenCalledTimes(2);
 
-    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
       strategySnapshot: {
         useBrainstormPass?: boolean;
         useSelfCritique?: boolean;
@@ -426,7 +430,9 @@ describe("query-analysis run", () => {
     });
 
     expect(mockFetchWildcard).toHaveBeenCalledTimes(1);
-    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
       queries: Array<{ intent: string }>;
     };
     const wildcardRows = createPayload.queries.filter(
@@ -456,7 +462,9 @@ describe("query-analysis run", () => {
       token: "Bearer t",
     });
 
-    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
       queries: Array<{ text: string }>;
       strategySnapshot: {
         languageQuotas: Array<{ language: string; share: number }>;
@@ -501,7 +509,9 @@ describe("query-analysis run", () => {
       token: "Bearer t",
     });
 
-    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
       strategySnapshot: {
         intentWeights: { regulatory: number };
         appliedEventBias?: {
@@ -562,7 +572,9 @@ describe("runQueryAnalysis derived minDeterministicCount", () => {
       token: "Bearer t",
     });
 
-    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
       strategySnapshot: { minDeterministicCount: number; maxTokens?: number };
     };
     expect(createPayload.strategySnapshot.minDeterministicCount).toBe(4);
@@ -584,7 +596,9 @@ describe("runQueryAnalysis derived minDeterministicCount", () => {
       token: "Bearer t",
     });
 
-    const createPayload = mockCreate.mock.calls.at(-1)?.[0] as {
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
       strategySnapshot: { minDeterministicCount: number };
     };
     expect(createPayload.strategySnapshot.minDeterministicCount).toBe(2);

@@ -36,10 +36,10 @@ describe("seedKgVocabulary", () => {
 
     expect(result).toEqual({
       entityTypesSeeded: 6,
-      relationTypesSeeded: 7,
+      relationTypesSeeded: 8,
     });
     expect(db.entityType.upsert).toHaveBeenCalledTimes(6);
-    expect(db.relationType.upsert).toHaveBeenCalledTimes(7);
+    expect(db.relationType.upsert).toHaveBeenCalledTimes(8);
   });
 
   it("upserts by unique name with description updates", async () => {

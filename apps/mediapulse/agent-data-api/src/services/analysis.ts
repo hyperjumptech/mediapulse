@@ -27,7 +27,8 @@ type AnalysisDb = {
     typeof prisma.dataSource,
     "findMany" | "findUnique" | "findFirst" | "count" | "deleteMany"
   >;
-  entityType: Pick<typeof prisma.entityType, "findMany">;
+  ticker: Pick<typeof prisma.ticker, "findUnique">;
+  entityType: Pick<typeof prisma.entityType, "findMany" | "findFirst">;
   relationType: Pick<typeof prisma.relationType, "findMany">;
   entity: Pick<typeof prisma.entity, "findFirst" | "findMany" | "create">;
   entityAlias: Pick<typeof prisma.entityAlias, "createMany">;
@@ -44,12 +45,111 @@ type AnalysisDb = {
 };
 
 /** Database delegates used by analysis POST persistence (no interactive transaction). */
-type AnalysisWriteDb = Omit<
-  AnalysisDb,
-  "$transaction" | "entityType" | "relationType"
->;
+type AnalysisWriteDb = Omit<AnalysisDb, "$transaction" | "relationType">;
 
 const defaultDb: AnalysisDb = prisma;
+
+type TickerIssuerAnchor = {
+  entityId: string;
+  canonicalName: string;
+  aliases: string[];
+};
+
+/**
+ * Ensures the issuer/company node exists for a ticker's KG and is linked via `ticker_entity`.
+ *
+ * This is an anchor node used to make ticker graphs interpretable (issuer-centric edges).
+ * It is created or reused based on alias matching rules and is linked with `source: SEED`.
+ *
+ * @param db - Injectable database delegates for write path.
+ * @param tickerId - Ticker scope.
+ * @returns Anchor metadata (id + names) or null when the ticker/type cannot be resolved.
+ */
+async function ensureTickerIssuerCompanyAnchor(
+  db: Pick<
+    AnalysisDb,
+    "ticker" | "entityType" | "entity" | "entityAlias" | "tickerEntity"
+  >,
+  tickerId: string,
+): Promise<TickerIssuerAnchor | null> {
+  const ticker = await db.ticker.findUnique({
+    where: { id: tickerId },
+    select: { symbol: true, name: true, metadata: true },
+  } satisfies Prisma.TickerFindUniqueArgs);
+  if (!ticker) return null;
+
+  const companyType = await db.entityType.findFirst({
+    where: { name: "COMPANY" },
+    select: { id: true },
+  } satisfies Prisma.EntityTypeFindFirstArgs);
+  if (!companyType) return null;
+
+  const aliases = [ticker.symbol, ticker.name]
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+
+  const canonicalName = ticker.name.trim();
+  const existing = await findReusableEntity(
+    { entity: db.entity },
+    companyType.id,
+    canonicalName,
+    aliases,
+  );
+
+  const entityId =
+    existing?.id ??
+    (
+      await db.entity.create({
+        data: {
+          typeId: companyType.id,
+          canonicalName,
+          description: null,
+          ...(ticker.metadata !== undefined && ticker.metadata !== null
+            ? { metadata: ticker.metadata as Prisma.InputJsonValue }
+            : {}),
+        },
+        select: { id: true },
+      } satisfies Prisma.EntityCreateArgs)
+    ).id;
+
+  if (!existing) {
+    const aliasRows: Prisma.EntityAliasCreateManyInput[] = [];
+    const seenNorm = new Set<string>();
+    for (const raw of aliases) {
+      const n = normalizeAnalysisName(raw);
+      if (seenNorm.has(n)) continue;
+      seenNorm.add(n);
+      aliasRows.push({
+        entityId,
+        alias: raw.trim(),
+        normalizedAlias: n,
+      });
+    }
+    if (aliasRows.length > 0) {
+      await db.entityAlias.createMany({
+        data: aliasRows,
+        skipDuplicates: true,
+      } satisfies Prisma.EntityAliasCreateManyArgs);
+    }
+  }
+
+  const linked = await db.tickerEntity.findFirst({
+    where: { tickerId, entityId },
+    select: { id: true },
+  } satisfies Prisma.TickerEntityFindFirstArgs);
+  if (!linked) {
+    await db.tickerEntity.create({
+      data: { tickerId, entityId, source: "SEED" },
+      select: { id: true },
+    } satisfies Prisma.TickerEntityCreateArgs);
+  }
+
+  return {
+    entityId,
+    canonicalName,
+    aliases: [...new Set(aliases)],
+  };
+}
 
 /**
  * Loads data sources for analysis GET: optional `limit` page plus total row count for the same filters.
@@ -96,6 +196,14 @@ export const loadAnalysisContext = async (
   deps: { db?: AnalysisDb } = {},
 ): Promise<GetAnalysisResponse> => {
   const db = deps.db ?? defaultDb;
+
+  const ticker = await db.ticker.findUnique({
+    where: { id: query.tickerId },
+    select: { id: true, symbol: true, name: true },
+  } satisfies Prisma.TickerFindUniqueArgs);
+  if (!ticker) {
+    throw new Error(`Unknown tickerId ${query.tickerId}`);
+  }
 
   const createdAtWhere =
     query.start !== undefined || query.end !== undefined
@@ -192,6 +300,7 @@ export const loadAnalysisContext = async (
   ]);
 
   return {
+    ticker,
     dataSources,
     dataSourceTotalCount,
     entityTypes,
@@ -332,6 +441,20 @@ export const applyAnalysisPost = async (
     };
     registerName(ent.canonicalName);
     for (const a of ent.aliases) {
+      registerName(a);
+    }
+  }
+
+  const issuerAnchor = await ensureTickerIssuerCompanyAnchor(db, body.tickerId);
+  if (issuerAnchor) {
+    const registerName = (raw: string) => {
+      const k = normalizeAnalysisName(raw);
+      if (!nameToEntityId.has(k)) {
+        nameToEntityId.set(k, issuerAnchor.entityId);
+      }
+    };
+    registerName(issuerAnchor.canonicalName);
+    for (const a of issuerAnchor.aliases) {
       registerName(a);
     }
   }

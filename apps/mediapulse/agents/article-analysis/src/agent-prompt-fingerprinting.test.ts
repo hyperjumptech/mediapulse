@@ -19,6 +19,8 @@ describe("agent prompt fingerprinting (REQ-011)", () => {
     };
     const userArgs = {
       tickerId: "t-1",
+      tickerSymbol: "T1",
+      tickerName: "Ticker One",
       title: "Title",
       contentTruncated: "Body",
     };
@@ -37,6 +39,8 @@ describe("agent prompt fingerprinting (REQ-011)", () => {
   it("differs when analysis GET vocabulary differs but user args match", () => {
     const userArgs = {
       tickerId: "t-1",
+      tickerSymbol: "T1",
+      tickerName: "Ticker One",
       title: "Title",
       contentTruncated: "Body",
     };

@@ -97,6 +97,13 @@ describe("loadAnalysisContext", () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const db = {
       dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ticker-1",
+          symbol: "T1",
+          name: "Ticker One",
+        }),
+      },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
       entity: {
@@ -149,6 +156,13 @@ describe("loadAnalysisContext", () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const db = {
       dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ticker-2",
+          symbol: "T2",
+          name: "Ticker Two",
+        }),
+      },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
       entity: {
@@ -193,6 +207,13 @@ describe("loadAnalysisContext", () => {
         findUnique: vi.fn(),
         findFirst: vi.fn(),
       },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ticker-debounce",
+          symbol: "TD",
+          name: "Ticker Debounce",
+        }),
+      },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
       entity: {
@@ -235,6 +256,13 @@ describe("loadAnalysisContext", () => {
     const count = vi.fn().mockResolvedValue(42);
     const db = {
       dataSource: { findMany, count, findUnique: vi.fn(), findFirst: vi.fn() },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ticker-limit",
+          symbol: "TL",
+          name: "Ticker Limit",
+        }),
+      },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
       entity: {
@@ -280,6 +308,13 @@ describe("loadAnalysisContext", () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const db = {
       dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ticker-w",
+          symbol: "TW",
+          name: "Ticker Window",
+        }),
+      },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
       entity: {
@@ -323,6 +358,13 @@ describe("loadAnalysisContext", () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const db = {
       dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ticker-w",
+          symbol: "TW",
+          name: "Ticker Window",
+        }),
+      },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
       entity: {
@@ -366,6 +408,13 @@ describe("loadAnalysisContext", () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const db = {
       dataSource: { findMany, findUnique: vi.fn(), findFirst: vi.fn() },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ticker-w",
+          symbol: "TW",
+          name: "Ticker Window",
+        }),
+      },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
       entity: {
@@ -415,6 +464,13 @@ describe("loadAnalysisContext", () => {
         findMany: vi.fn().mockResolvedValue([]),
         findUnique: vi.fn(),
         findFirst: vi.fn(),
+      },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ticker-3",
+          symbol: "T3",
+          name: "Ticker Three",
+        }),
       },
       entityType: { findMany: vi.fn().mockResolvedValue([]) },
       relationType: { findMany: vi.fn().mockResolvedValue([]) },
@@ -475,6 +531,7 @@ describe("applyAnalysisPost", () => {
           ),
         findFirst: vi.fn(),
       },
+      ticker: { findUnique: vi.fn() },
       entityType: { findMany: vi.fn() },
       relationType: { findMany: vi.fn() },
       entity: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
@@ -518,9 +575,23 @@ describe("applyAnalysisPost", () => {
         findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
         findFirst: vi.fn(),
       },
-      entityType: { findMany: vi.fn() },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          symbol: "T1",
+          name: "Ticker One",
+          metadata: null,
+        }),
+      },
+      entityType: {
+        findMany: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue({ id: "company-type" }),
+      },
       relationType: { findMany: vi.fn() },
-      entity: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+      entity: {
+        findMany: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue({ id: "issuer-entity" }),
+        create: vi.fn(),
+      },
       entityAlias: { createMany: vi.fn() },
       tickerEntity: { create: vi.fn(), findFirst: vi.fn() },
       entityRelation: { create: vi.fn(), findUnique: vi.fn() },
@@ -599,11 +670,26 @@ describe("applyAnalysisPost", () => {
         findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
         findFirst: vi.fn(),
       },
-      entityType: { findMany: vi.fn() },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          symbol: "T1",
+          name: "Ticker One",
+          metadata: null,
+        }),
+      },
+      entityType: {
+        findMany: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue({ id: "company-type" }),
+      },
       relationType: { findMany: vi.fn() },
       entity: {
         findMany: vi.fn(),
-        findFirst: vi.fn().mockResolvedValue(null),
+        findFirst: vi
+          .fn()
+          // First call is for issuer anchor reuse.
+          .mockResolvedValueOnce({ id: "issuer-entity" })
+          // Subsequent lookups (e.g. Unknown Corp) should not match.
+          .mockResolvedValue(null),
         create: vi.fn(),
       },
       entityAlias: { createMany: vi.fn() },
@@ -661,11 +747,34 @@ describe("applyAnalysisPost", () => {
         findUnique: vi.fn().mockResolvedValue({ tickerId: "ticker-1" }),
         findFirst: vi.fn(),
       },
-      entityType: { findMany: vi.fn() },
+      ticker: {
+        findUnique: vi.fn().mockResolvedValue({
+          symbol: "T1",
+          name: "Ticker One",
+          metadata: null,
+        }),
+      },
+      entityType: {
+        findMany: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue({ id: "company-type" }),
+      },
       relationType: { findMany: vi.fn() },
       entity: {
         findMany: vi.fn(),
-        findFirst: vi.fn().mockResolvedValue(null),
+        findFirst: vi
+          .fn()
+          .mockImplementation(
+            ({
+              where,
+            }: {
+              where: { typeId: string; OR: Array<Record<string, unknown>> };
+            }) =>
+              Promise.resolve(
+                where.typeId === "company-type"
+                  ? { id: "issuer-entity" }
+                  : null,
+              ),
+          ),
         create: vi.fn().mockResolvedValue({ id: ENT_ID }),
       },
       entityAlias: { createMany: vi.fn() },
