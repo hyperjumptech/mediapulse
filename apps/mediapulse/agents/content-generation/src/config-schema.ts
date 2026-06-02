@@ -343,12 +343,65 @@ const crossRunDedupSchema = z
   .default({})
   .describe("Cross-run semantic dedup against recent newsletter bullets.");
 
+const requireCitationSectionEnum = z.enum([
+  "competitiveLandscape",
+  "dealsAndMovements",
+  "regulatoryPolicyWatch",
+  "disruptorsOrTech",
+  "quickHits",
+]);
+
+const requireCitationSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "When true, run the require-citation pruning pass as the final transform.",
+      ),
+    sections: z
+      .array(requireCitationSectionEnum)
+      .default([
+        "competitiveLandscape",
+        "dealsAndMovements",
+        "regulatoryPolicyWatch",
+        "disruptorsOrTech",
+        "quickHits",
+      ])
+      .describe(
+        "Which body sections to apply pruning to. industry-pulse is always exempt.",
+      ),
+    dedupeArticlesWithinSection: z
+      .boolean()
+      .default(true)
+      .describe(
+        "When true, keep only the first row for a given article URL within the dedup scope.",
+      ),
+    dedupeScope: z
+      .enum(["section", "newsletter"])
+      .default("section")
+      .describe(
+        "section = dedup URLs per section only; newsletter = dedup URLs across all sections.",
+      ),
+    keepIndustryPulse: z
+      .literal(true)
+      .default(true)
+      .describe(
+        "industry-pulse is always kept; this field exists to document that invariant.",
+      ),
+  })
+  .default({})
+  .describe(
+    "Final pruning pass: drops uncited rows, enforces one article per bullet, removes empty sections.",
+  );
+
 const qualitySchema = z
   .object({
     selfCritique: selfCritiqueSchema,
     citationGrounding: citationGroundingSchema,
     polish: polishSchema,
     crossRunDedup: crossRunDedupSchema,
+    requireCitation: requireCitationSchema,
   })
   .default({})
   .describe("Post-generation repair, verification, polish, and dedup passes.");
