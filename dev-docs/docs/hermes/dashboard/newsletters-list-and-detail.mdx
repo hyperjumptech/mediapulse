@@ -8,7 +8,7 @@ The Mediapulse domain integration registers a read-only `newsletters` resource t
 
 > What went out, to whom, with which sources, on which Hermes execution?
 
-The list and detail pages are rendered by Hermes' generic `table-v1` template against the `detailBlocks` declared in the domain manifest. No Hermes-side code lives in this feature.
+The list and detail pages use Hermes' generic `table-v1` template (`DomainTablePage`) against the manifest and `detailBlocks` from domain-api. The newsletters manifest opts into list filters and default sort; filter UI is shared with other table-v1 pages via manifest `listFilters` / `defaultSort`.
 
 ## List page
 
@@ -16,12 +16,12 @@ URL: `/dashboard/{integrationId}/newsletters` (e.g. `/dashboard/mediapulse/newsl
 
 | Column      | Notes                                                                                                                  |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Ticker      | Symbol from the joined `Ticker`.                                                                                       |
+| Ticker      | Symbol from the joined `Ticker`. Filter via ticker dropdown (`?tickerId=`).                                          |
 | Subject     | Searchable substring filter (`?q=`).                                                                                   |
-| Created     | Sortable (`?sortBy=createdAt`); filter by `?from=` / `?to=`.                                                           |
+| Created     | Sortable column header (`?sort=createdAt&dir=`); defaults to **newest first** (`createdAt` desc). Filter with **From date** / **To date** (`?from=` / `?to=`, `YYYY-MM-DD`; single day, range, or open-ended). |
 | Delivery    | Checkpoint count over enabled-at-send-time count from the latest `DeliveryRun`. Falls back to the current enabled set. |
 
-The ticker filter is populated by the `/meta` endpoint (`tickerOptions: { value, label }[]`).
+The ticker dropdown is populated from `GET .../meta` (`tickerOptions: { value, label }[]`). Date inputs use the reusable `CreatedDateRangeFilter` component (`apps/hermes/dashboard/components/created-date-range-filter.tsx`) for other table-v1 pages that declare `listFilters: ["createdAt"]`.
 
 ## Detail page
 

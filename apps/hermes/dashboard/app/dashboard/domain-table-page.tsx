@@ -7,17 +7,17 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
 import { ListPagination } from "@/components/list-pagination";
 import { PageHeader } from "@/components/page-header";
 import { DomainCreateModal } from "@/app/dashboard/domain-create-modal";
+import { DomainTableListFilters } from "@/app/dashboard/domain-table-list-filters";
 import { DomainTableRowActions } from "@/app/dashboard/domain-table-row-actions";
 import { DomainTableDangerConfirmButton } from "@/app/dashboard/domain-table-danger-confirm-button";
 import { DomainTableJsonUploadCard } from "@/app/dashboard/domain-table-json-upload-card";
 import { DomainTableSearch } from "@/app/dashboard/domain-table-search";
+import { DomainTableSortableHeader } from "@/app/dashboard/domain-table-sortable-header";
 import {
   createDomainTableItem,
   deleteDomainTableItem,
@@ -33,27 +33,19 @@ import {
   formDataToDomainPayload,
   parseDomainTableFormFieldsFromJsonSchema,
 } from "@/lib/domain-table-form-schema";
+import {
+  buildDomainTableFilterExtraParams,
+  buildDomainTableListParams,
+  buildDomainTablePreserveParams,
+  type DomainTableSearchParams,
+} from "@/lib/domain-table-list-params";
 
 type DomainTablePageProps = {
   /** Registered domain integration id (e.g. "mediapulse", URL segment). */
   integrationId: string;
   /** Manifest path segment for this table (e.g. "tickers"). */
   resource: string;
-  searchParams:
-    | Promise<{
-        page?: string;
-        size?: string;
-        q?: string;
-        sort?: string;
-        dir?: string;
-      }>
-    | {
-        page?: string;
-        size?: string;
-        q?: string;
-        sort?: string;
-        dir?: string;
-      };
+  searchParams: Promise<DomainTableSearchParams> | DomainTableSearchParams;
 };
 
 /** Column shape from table-v1 meta (`text` or `date-time`). */
@@ -98,30 +90,6 @@ export const formatDomainTableCellValue = (
 };
 
 /**
- * Parses stringly-typed search params into pagination/sort values.
- *
- * @param searchParams - Route search params object.
- * @returns Parsed values used by list calls.
- */
-const parseListParams = (searchParams: {
-  page?: string;
-  size?: string;
-  q?: string;
-  sort?: string;
-  dir?: string;
-}) => {
-  const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
-  const pageSize = Math.min(
-    100,
-    Math.max(1, Number.parseInt(searchParams.size ?? "15", 10) || 15),
-  );
-  const query = searchParams.q?.trim() || undefined;
-  const sortBy = searchParams.sort?.trim() || undefined;
-  const sortDir = searchParams.dir === "desc" ? "desc" : "asc";
-  return { page, pageSize, query, sortBy, sortDir } as const;
-};
-
-/**
  * Shared server-rendered table-v1 page for domain-registered resources.
  *
  * @param props - Integration id, resource path segment, and request search params.
@@ -133,12 +101,14 @@ export const DomainTablePage = async ({
   searchParams,
 }: DomainTablePageProps) => {
   const resolved = await Promise.resolve(searchParams);
-  const params = parseListParams(resolved);
   const basePath = `/dashboard/${integrationId}/${resource}`;
-  const [meta, list] = await Promise.all([
-    getDomainTableMeta(integrationId, resource),
-    getDomainTableList(integrationId, resource, params),
-  ]);
+  const meta = await getDomainTableMeta(integrationId, resource);
+  const params = buildDomainTableListParams(resolved, meta);
+  const list = await getDomainTableList(integrationId, resource, params);
+  const preserveParams = buildDomainTablePreserveParams(params);
+  const filterExtraParams = buildDomainTableFilterExtraParams(params);
+  const listFilters = meta.listFilters ?? [];
+  const showListFilters = listFilters.length > 0;
   const createFields = parseDomainTableFormFieldsFromJsonSchema(
     meta.createSchema,
   );
@@ -249,6 +219,18 @@ export const DomainTablePage = async ({
     <div className="flex flex-col gap-4">
       <PageHeader title={meta.title} description={meta.description ?? ""} />
 
+      {showListFilters ? (
+        <DomainTableListFilters
+          basePath={basePath}
+          listFilters={listFilters}
+          tickerOptions={meta.tickerOptions}
+          tickerId={params.tickerId}
+          from={params.from}
+          to={params.to}
+          preserveParams={preserveParams}
+        />
+      ) : null}
+
       <div className="flex flex-col items-end gap-2">
         <div className="flex flex-wrap items-center justify-end gap-3">
           <DomainTableSearch
@@ -257,6 +239,7 @@ export const DomainTablePage = async ({
             pageSize={params.pageSize}
             sortBy={params.sortBy}
             sortDir={params.sortDir}
+            preserveParams={filterExtraParams}
             ariaLabel={`Search ${meta.title}`}
           />
           {dangerConfirmActions.map((action) => (
@@ -294,14 +277,17 @@ export const DomainTablePage = async ({
 
       <div className="rounded-md border">
         <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow className="border-muted hover:bg-transparent">
-              {meta.columns.map((column) => (
-                <TableHead key={column.key}>{column.label}</TableHead>
-              ))}
-              {hasRowActions ? <TableHead className="w-12" /> : null}
-            </TableRow>
-          </TableHeader>
+          <DomainTableSortableHeader
+            columns={meta.columns}
+            sortableFields={meta.sortableFields}
+            sortBy={params.sortBy}
+            sortDir={params.sortDir}
+            basePath={basePath}
+            pageSize={params.pageSize}
+            searchQuery={params.query}
+            preserveParams={filterExtraParams}
+            hasRowActions={hasRowActions}
+          />
           <TableBody>
             {list.items.length === 0 ? (
               <TableRow>
@@ -370,6 +356,7 @@ export const DomainTablePage = async ({
         searchQuery={params.query}
         sortBy={params.sortBy}
         sortDir={params.sortDir}
+        extraParams={filterExtraParams}
       />
     </div>
   );

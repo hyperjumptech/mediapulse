@@ -57,6 +57,21 @@ export const dashboardPagePreviewSchema = z.object({
   fieldKey: z.string().min(1),
 });
 
+/** Default list sort echoed to Hermes when the URL omits `sort` / `dir`. */
+export const tableV1DefaultSortSchema = z.object({
+  sortBy: z.string().min(1),
+  sortDir: z.enum(["asc", "desc"]),
+});
+
+/** List filter keys a table-v1 page may expose in the Hermes UI. */
+export const tableV1ListFilterKeySchema = z.enum(["tickerId", "createdAt"]);
+
+/** Ticker dropdown option for list `tickerId` filters (usually from GET meta). */
+export const tableV1TickerOptionSchema = z.object({
+  value: z.string().min(1),
+  label: z.string().min(1),
+});
+
 /**
  * Schema for a custom action registered on a dashboard page. For example, a bulk import action.
  */
@@ -163,6 +178,10 @@ export const dashboardPageSchema = z.object({
    * When omitted, the detail page falls back to its built-in key/value rendering.
    */
   detailBlocks: z.array(detailBlockSchema).optional(),
+  /** Default list sort when the client omits sort query params. */
+  defaultSort: tableV1DefaultSortSchema.optional(),
+  /** Optional list filters rendered above the table (static per manifest). */
+  listFilters: z.array(tableV1ListFilterKeySchema).optional(),
 });
 
 /**
@@ -226,6 +245,14 @@ export const tableV1MetaResponseSchema = z.object({
    * from {@link dashboardPageSchema} so Hermes can render the detail view from meta).
    */
   detailBlocks: z.array(detailBlockSchema).optional(),
+  /** Default list sort when the client omits sort query params. */
+  defaultSort: tableV1DefaultSortSchema.optional(),
+  /** Optional list filters rendered above the table (static per manifest). */
+  listFilters: z.array(tableV1ListFilterKeySchema).optional(),
+  /**
+   * Ticker dropdown options for `tickerId` list filters (dynamic; newsletters meta merges these).
+   */
+  tickerOptions: z.array(tableV1TickerOptionSchema).optional(),
 });
 
 /**
@@ -332,6 +359,9 @@ export type TableV1ListRequestQuery = z.infer<
 >;
 export type TableV1ListResponse = z.infer<typeof tableV1ListResponseSchema>;
 export type TableV1MetaResponse = z.infer<typeof tableV1MetaResponseSchema>;
+export type TableV1DefaultSort = z.infer<typeof tableV1DefaultSortSchema>;
+export type TableV1ListFilterKey = z.infer<typeof tableV1ListFilterKeySchema>;
+export type TableV1TickerOption = z.infer<typeof tableV1TickerOptionSchema>;
 export type DashboardPageCustomAction = z.infer<
   typeof dashboardPageCustomActionSchema
 >;

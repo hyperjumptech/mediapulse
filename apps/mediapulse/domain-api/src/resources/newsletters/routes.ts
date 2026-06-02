@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
 import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
+import { parseCreatedDateBound } from "../../lib/parse-created-date-bound";
 import { parsePagination } from "../../lib/list-pagination";
 import { newslettersTableV1CustomActionRegistrations } from "./custom-actions";
 import { findActiveQuerySetForNewsletter } from "./active-query-set";
@@ -45,12 +46,6 @@ const parseSortBy = (
   return undefined;
 };
 
-const parseDate = (raw: string | undefined): Date | undefined => {
-  if (raw === undefined || raw.trim() === "") return undefined;
-  const date = new Date(raw);
-  return Number.isNaN(date.getTime()) ? undefined : date;
-};
-
 newslettersRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
@@ -66,8 +61,8 @@ newslettersRoutes.get("/", async (c) => {
   const where = buildNewsletterListWhere({
     q: c.req.query("q"),
     tickerId: tickerFilter.success ? tickerFilter.data : undefined,
-    from: parseDate(c.req.query("from")),
-    to: parseDate(c.req.query("to")),
+    from: parseCreatedDateBound(c.req.query("from"), "start"),
+    to: parseCreatedDateBound(c.req.query("to"), "end"),
   });
 
   const orderBy = buildNewsletterListOrderBy(

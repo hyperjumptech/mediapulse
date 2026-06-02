@@ -4,6 +4,7 @@ import {
   callDomainCustomPost,
   fetchAllTickersForPipelineRun,
   getDomainTableItemById,
+  getDomainTableList,
   getDomainTableMeta,
   invokeDomainTableCustomAction,
   previewDomainExpansion,
@@ -85,6 +86,69 @@ describe("getDomainTableMeta", () => {
     await expect(getDomainTableMeta("missing", "tickers")).rejects.toThrow(
       'Domain integration "missing"',
     );
+  });
+
+  it("appends list filter query params when loading a table list", async () => {
+    getDomainIntegrationByIntegrationId.mockResolvedValue({
+      id: "i1",
+      integrationId: "mediapulse",
+      name: "Mediapulse",
+      baseUrl: "http://localhost:3001",
+      version: "1",
+      capabilities: [],
+      dashboard: {
+        templateVersion: 1,
+        pages: [
+          {
+            id: "newsletters",
+            label: "Newsletters",
+            pathSegment: "newsletters",
+            template: "table-v1",
+            apiPrefix: "/v1/hermes-dashboard/newsletters",
+            columns: [],
+            searchableFields: [],
+            sortableFields: ["createdAt"],
+            actions: {
+              create: false,
+              update: false,
+              delete: false,
+              view: true,
+            },
+            order: 0,
+          },
+        ],
+      },
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 15,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getDomainTableList("mediapulse", "newsletters", {
+      page: 1,
+      pageSize: 15,
+      sortBy: "createdAt",
+      sortDir: "desc",
+      tickerId: "11111111-1111-4111-a111-111111111111",
+      from: "2026-05-01",
+      to: "2026-05-31",
+    });
+
+    const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(calledUrl).toContain("sortBy=createdAt");
+    expect(calledUrl).toContain("sortDir=desc");
+    expect(calledUrl).toContain(
+      "tickerId=11111111-1111-4111-a111-111111111111",
+    );
+    expect(calledUrl).toContain("from=2026-05-01");
+    expect(calledUrl).toContain("to=2026-05-31");
   });
 
   it("loads meta from Hermes for data-source-expansions when integration supports expand-step-inputs", async () => {

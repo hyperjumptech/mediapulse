@@ -15,6 +15,8 @@ type DomainTableSearchProps = {
   sortBy?: string;
   /** Sort direction to preserve when searching. */
   sortDir: "asc" | "desc";
+  /** Additional query params (filters) to preserve when searching. */
+  preserveParams?: Record<string, string>;
   /** Accessible name for the search region (e.g. "Search tickers"). */
   ariaLabel: string;
   /** Input placeholder text. */
@@ -30,6 +32,7 @@ export const DomainTableSearch = ({
   pageSize,
   sortBy,
   sortDir,
+  preserveParams = {},
   ariaLabel,
   placeholder = "Search…",
 }: DomainTableSearchProps) => {
@@ -38,6 +41,9 @@ export const DomainTableSearch = ({
   clearParams.set("size", String(pageSize));
   clearParams.set("dir", sortDir);
   if (sortBy) clearParams.set("sort", sortBy);
+  for (const [key, value] of Object.entries(preserveParams)) {
+    clearParams.set(key, value);
+  }
   const clearHref = `${basePath}?${clearParams.toString()}`;
 
   return (
@@ -52,6 +58,9 @@ export const DomainTableSearch = ({
         <input type="hidden" name="size" value={pageSize} />
         <input type="hidden" name="dir" value={sortDir} />
         {sortBy ? <input type="hidden" name="sort" value={sortBy} /> : null}
+        {Object.entries(preserveParams).map(([key, value]) => (
+          <input key={key} type="hidden" name={key} value={value} />
+        ))}
         <Label htmlFor="domain-table-search" className="sr-only">
           {ariaLabel}
         </Label>
