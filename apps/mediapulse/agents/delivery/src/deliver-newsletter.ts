@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { renderNewsletterEmail } from "@workspace/email-templates";
 import type { LoggerLike } from "@workspace/agent-runtime";
-import { createUnsubscribeToken } from "@workspace/utils";
+import { createUnsubscribeToken, formatResendSender } from "@workspace/utils";
 import { Resend } from "resend";
 
 import {
@@ -100,7 +100,7 @@ export async function deliverNewsletterToSubscribers(
     });
 
   const deliveredSet = new Set(deliveredUserTickerIds);
-  const from = config.resend.from;
+  const from = formatResendSender(config.resend.from);
 
   const results: RecipientSendResult[] = [];
   const resendMessageIds: string[] = [];
