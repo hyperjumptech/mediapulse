@@ -453,6 +453,109 @@ describe("renderNewsletterEmail", () => {
     expect(text).toContain(articleUrl);
   });
 
+  it("renders a 'Read the full article' link below the industry-pulse standfirst when the lead has a url", async () => {
+    const industryBody = [
+      "MP_NEWSLETTER",
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "The Pulse",
+      "PROSE",
+      "The sector is shifting rapidly.",
+      "Read the full article: https://lead.example/article",
+      "END",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Quick Hits",
+      "ITEM",
+      "Hit one",
+      "ITEM",
+      "Hit two",
+      "ITEM",
+      "Hit three",
+      "ITEM",
+      "Hit four",
+      "ITEM",
+      "Hit five",
+      "END",
+    ].join("\n");
+
+    const { html, text } = await renderNewsletterEmail({
+      title: "Industry Briefing",
+      bodyText: industryBody,
+    });
+
+    expect(html).toContain("The sector is shifting rapidly.");
+    expect(html).toContain('href="https://lead.example/article"');
+    expect(text).toContain("https://lead.example/article");
+  });
+
+  it("renders the industry-pulse standfirst with no source link when the lead has no url", async () => {
+    const industryBody = [
+      "MP_NEWSLETTER",
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "The Pulse",
+      "PROSE",
+      "The sector is quiet this week.",
+      "END",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Quick Hits",
+      "ITEM",
+      "Hit one",
+      "ITEM",
+      "Hit two",
+      "ITEM",
+      "Hit three",
+      "ITEM",
+      "Hit four",
+      "ITEM",
+      "Hit five",
+      "END",
+    ].join("\n");
+
+    const { html } = await renderNewsletterEmail({
+      title: "Industry Briefing",
+      bodyText: industryBody,
+    });
+
+    expect(html).toContain("The sector is quiet this week.");
+    expect(html).not.toContain("Read the full article");
+  });
+
+  it("renders a body starting at the first body section when industry-pulse is absent from the wire", async () => {
+    const industryBody = [
+      "MP_NEWSLETTER",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Quick Hits",
+      "ITEM",
+      "Hit one",
+      "ITEM",
+      "Hit two",
+      "ITEM",
+      "Hit three",
+      "ITEM",
+      "Hit four",
+      "ITEM",
+      "Hit five",
+      "END",
+    ].join("\n");
+
+    const { html } = await renderNewsletterEmail({
+      title: "Industry Briefing",
+      bodyText: industryBody,
+    });
+
+    expect(html).not.toContain("BEGIN industry-pulse");
+    expect(html).toContain("Hit one");
+  });
+
   it("renders industry wire bodies with a lead standfirst and eyebrow section headers", async () => {
     const industryBody = [
       "MP_NEWSLETTER",

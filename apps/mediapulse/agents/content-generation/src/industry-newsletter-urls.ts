@@ -32,14 +32,15 @@ export type IndustryDisruptorsOrTechResolved =
 /**
  * Industry briefing ready for wire formatting (all URLs from config, not the LLM).
  *
- * `subject` and `industryPulse` are required. The five body sections are optional:
- * absence is represented by the field being `undefined`, never by an empty bullets/items array.
- * A zero-row section is a contradiction the serializer refuses to emit.
+ * `subject` is required. `industryPulse` is optional — it is omitted when the prune
+ * pass removes the lead for lacking a resolvable citation. All five body sections are
+ * optional: absence is represented by the field being `undefined`, never by an empty
+ * bullets/items array. A zero-row section is a contradiction the serializer refuses to emit.
  * See `formatIndustryNewsletterWire` for the wire contract.
  */
 export type IndustryNewsletterResolved = {
   subject: string;
-  industryPulse: { displayHeading: string; prose: string };
+  industryPulse?: { displayHeading: string; prose: string; url?: string };
   competitiveLandscape?: {
     displayHeading: string;
     bullets: IndustryBulletResolved[];
@@ -116,9 +117,18 @@ export const attachIndustryNewsletterSourceUrls = (
           bullets: briefing.disruptorsOrTech.bullets.map(mapBullet),
         };
 
+  const leadUrl = resolveArticleUrlForIndustryNewsletter(
+    briefing.industryPulse.articleIndex,
+    sources,
+  );
+
   return {
     subject: briefing.subject,
-    industryPulse: briefing.industryPulse,
+    industryPulse: {
+      displayHeading: briefing.industryPulse.displayHeading,
+      prose: briefing.industryPulse.prose,
+      ...(leadUrl !== undefined ? { url: leadUrl } : {}),
+    },
     competitiveLandscape: {
       displayHeading: briefing.competitiveLandscape.displayHeading,
       bullets: briefing.competitiveLandscape.bullets.map(mapBullet),

@@ -17,6 +17,7 @@ export type ParsedIndustryPulseSection = {
   machineKey: "industry-pulse";
   displayHeading: string;
   prose: string;
+  url?: string;
 };
 
 /** Parsed bullet list section (competitive, deals, regulatory, disruptors bullets). */
@@ -148,15 +149,17 @@ export const parseIndustryNewsletterWire = (
         return undefined;
       }
       i += 1;
-      const prose = readUntilToken(new Set(["END"]));
+      const rawProse = readUntilToken(new Set(["END"]));
       if ((lines[i] ?? "").trim() !== "END") {
         return undefined;
       }
       i += 1;
+      const { text: prose, url } = splitTrailingReadLine(rawProse);
       sections.push({
         machineKey: "industry-pulse",
         displayHeading,
         prose,
+        ...(url !== undefined ? { url } : {}),
       });
       continue;
     }

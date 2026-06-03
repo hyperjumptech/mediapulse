@@ -355,6 +355,7 @@ const crossRunDedupSchema = z
   .describe("Cross-run semantic dedup against recent newsletter bullets.");
 
 const requireCitationSectionEnum = z.enum([
+  "industryPulse",
   "competitiveLandscape",
   "dealsAndMovements",
   "regulatoryPolicyWatch",
@@ -373,6 +374,7 @@ const requireCitationSchema = z
     sections: z
       .array(requireCitationSectionEnum)
       .default([
+        "industryPulse",
         "competitiveLandscape",
         "dealsAndMovements",
         "regulatoryPolicyWatch",
@@ -380,7 +382,7 @@ const requireCitationSchema = z
         "quickHits",
       ])
       .describe(
-        "Which body sections to apply pruning to. industry-pulse is always exempt.",
+        "Which sections to apply pruning to. industry-pulse is kept only when it resolves a citation.",
       ),
     dedupeArticlesWithinSection: z
       .boolean()
@@ -393,12 +395,6 @@ const requireCitationSchema = z
       .default("section")
       .describe(
         "section = dedup URLs per section only; newsletter = dedup URLs across all sections.",
-      ),
-    keepIndustryPulse: z
-      .literal(true)
-      .default(true)
-      .describe(
-        "industry-pulse is always kept; this field exists to document that invariant.",
       ),
   })
   .default({})
