@@ -47,15 +47,15 @@ export const RegistrationConfirmationEmail = ({
               ? `\n\nYou will receive your first ${tickerSymbol} newsletter ${nextDeliveryLabel}.`
               : ""}
             {"\n\n"}
+            We've attached a contact card to this email. Open it to add
+            MediaPulse to your contacts and ensure future newsletters land in
+            your inbox, not spam or junk.
+            {"\n\n"}
             Thank you,
             {"\n"}
             MediaPulse Team
           </Text>
           <Hr style={hr} />
-          <Text style={footer}>
-            Add MediaPulse to your contacts so future newsletters land in your
-            inbox, not spam or junk.
-          </Text>
           <Text style={footer}>
             You are receiving this because you subscribed to updates on
             MediaPulse.

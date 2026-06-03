@@ -68,27 +68,25 @@ const RegistrationForm = ({
         <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Mail className="size-8" aria-hidden />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1">
           <h1 className="text-xl font-bold">Almost done</h1>
           <p className="text-sm text-muted-foreground">
-            Open your email app if it did not open automatically. You should see
-            a draft addressed to MediaPulse. Tap <strong>Send</strong> from your
-            own mailbox so we can register you for{" "}
-            <strong>{selectedTicker?.KodeEmiten}</strong>.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            A confirmation email is on the way. If it does not appear, check
-            your spam or junk folder.
+            Tap <strong>Send</strong> on the draft in your email app to
+            subscribe for <strong>{selectedTicker?.KodeEmiten}</strong>.
           </p>
         </div>
-        <div className="flex flex-col items-center gap-3">
-          <Button variant="outline" onClick={downloadVCard}>
-            Add MediaPulse to your contacts
-          </Button>
-          <Button variant="ghost" onClick={resetForm}>
-            Subscribe to another ticker
+        <div className="w-full rounded-lg border bg-muted/30 px-4 py-3 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Save MediaPulse to your contacts so newsletters land in your inbox,
+            not spam or junk.
+          </p>
+          <Button variant="outline" className="w-full" onClick={downloadVCard}>
+            Download contact card
           </Button>
         </div>
+        <Button variant="ghost" size="sm" onClick={resetForm}>
+          Subscribe to another ticker
+        </Button>
       </div>
     );
   }

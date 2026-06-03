@@ -104,7 +104,7 @@ describe("RegistrationForm", () => {
     expect(screen.getByText(/Send/i)).toBeInTheDocument();
   });
 
-  it("shows spam/junk reassurance text and 'Add to contacts' button after submit", async () => {
+  it("shows spam/junk reassurance text and download contact card button after submit", async () => {
     // Setup
     const user = userEvent.setup();
     render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
@@ -119,11 +119,11 @@ describe("RegistrationForm", () => {
     // Assert
     expect(screen.getByText(/spam|junk/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Add MediaPulse to your contacts/i }),
+      screen.getByRole("button", { name: /Download contact card/i }),
     ).toBeInTheDocument();
   });
 
-  it("triggers a vCard download when 'Add to contacts' is clicked", async () => {
+  it("triggers a vCard download when download contact card is clicked", async () => {
     // Setup
     const user = userEvent.setup();
     render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
@@ -145,7 +145,7 @@ describe("RegistrationForm", () => {
 
     // Act
     await user.click(
-      screen.getByRole("button", { name: /Add MediaPulse to your contacts/i }),
+      screen.getByRole("button", { name: /Download contact card/i }),
     );
 
     // Assert
