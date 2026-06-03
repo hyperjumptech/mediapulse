@@ -9,7 +9,13 @@ import {
   type AgentDataApiClient,
 } from "@workspace/agent-data-api-client";
 import { renderNewsletterEmail } from "@workspace/email-templates";
-import { withRetry, type RetryConfig } from "@workspace/utils";
+import {
+  withRetry,
+  type RetryConfig,
+  MEDIAPULSE_SENDER_NAME,
+  formatResendSender,
+  buildVCard,
+} from "@workspace/utils";
 import { Resend } from "resend";
 import { logger } from "@workspace/logger";
 import type { UserRegistrationConfig } from "./config-schema.js";
@@ -19,7 +25,6 @@ import {
   extractTickerSymbol,
   resolveSubscriberDisplayName,
 } from "./lib/parser.js";
-import { buildVCard } from "@workspace/utils";
 
 export type Input = { maxMessagesPerRun: number; watermark?: string };
 export type Config = UserRegistrationConfig;
@@ -127,8 +132,6 @@ function buildNextDeliveryLabel(
 
   return `${day} at ${timeLabel}`;
 }
-
-const MEDIAPULSE_SENDER_NAME = "CEO (Chief Email Officer) - MediaPulse";
 
 type ResendTransactionalPayload = {
   from: string;
@@ -525,7 +528,7 @@ async function processMessage({
           template: "invalid-ticker",
         },
         payload: {
-          from: config.resendSender,
+          from: formatResendSender(config.resendSender),
           to: senderEmail,
           subject: "Invalid Ticker Selection - MediaPulse",
           html,
@@ -583,7 +586,7 @@ async function processMessage({
           template: "registration-confirmation",
         },
         payload: {
-          from: config.resendSender,
+          from: formatResendSender(config.resendSender),
           to: senderEmail,
           subject: "Subscription Confirmed - MediaPulse",
           html,

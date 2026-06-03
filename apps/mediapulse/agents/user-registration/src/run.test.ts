@@ -22,6 +22,11 @@ vi.mock("@workspace/utils", () => ({
   withRetry: async (fn: () => unknown) => fn(),
   buildVCard: ({ name, email }: { name: string; email: string }) =>
     `BEGIN:VCARD\r\nFN:${name}\r\nEMAIL:${email}\r\nEND:VCARD`,
+  MEDIAPULSE_SENDER_NAME: "CEO (Chief Email Officer) - MediaPulse",
+  formatResendSender: (address: string) =>
+    address.includes("<")
+      ? address
+      : `"CEO (Chief Email Officer) - MediaPulse" <${address}>`,
 }));
 
 vi.mock("@workspace/logger", () => ({
@@ -161,6 +166,7 @@ describe("createRunHandler", () => {
     expect(result.details.results[0].status).toBe("confirmed_archived");
     expect(emailSend).toHaveBeenCalledWith(
       expect.objectContaining({
+        from: '"CEO (Chief Email Officer) - MediaPulse" <from@test.example>',
         subject: "Subscription Confirmed - MediaPulse",
       }),
     );
@@ -461,10 +467,56 @@ describe("createRunHandler", () => {
     expect(result.details.results[0].status).toBe("invalid_ticker_archived");
     expect(emailSend).toHaveBeenCalledWith(
       expect.objectContaining({
+        from: '"CEO (Chief Email Officer) - MediaPulse" <from@test.example>',
         subject: "Invalid Ticker Selection - MediaPulse",
       }),
     );
     expect(archiveMessage).toHaveBeenCalledWith("msg-1");
+  });
+
+  it("does not double-wrap the from when resendSender already contains a display name", async () => {
+    const emailSend = vi.fn().mockResolvedValue({ data: { id: "email-id" } });
+
+    const run = createRunHandler({
+      createInbox: () => ({
+        listMessages: async () => [
+          makeMessage({
+            from: {
+              emailAddress: { address: "nowrap@run-test.example" },
+            },
+          }),
+        ],
+        archiveMessage: vi.fn().mockResolvedValue(undefined),
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
+      ResendClient: class {
+        emails = { send: emailSend };
+        constructor() {}
+      } as any,
+      createDataApi: () =>
+        ({
+          userRegistrationRegister: {
+            create: async () => ({
+              tickerKnown: true,
+              isNewSubscription: true,
+              userTickerId: "ut-nowrap",
+            }),
+          },
+          userRegistrationConfirm: { create: vi.fn() },
+        }) as any,
+    });
+
+    const alreadyFormatted = '"Acme Newsletter" <already@example.com>';
+    await run(
+      makeCtx({
+        config: { ...makeCtx().config, resendSender: alreadyFormatted },
+      }) as any,
+    );
+
+    expect(emailSend).toHaveBeenCalledWith(
+      expect.objectContaining({ from: alreadyFormatted }),
+    );
   });
 
   it("archives as unparseable when the subject and body contain no ticker", async () => {

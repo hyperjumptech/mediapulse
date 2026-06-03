@@ -97,7 +97,7 @@ describe("deliverNewsletterToSubscribers", () => {
     expect(payload).toMatchObject({
       html: "<p>h</p>",
       text: "plain",
-      from: "from@example.com",
+      from: '"CEO (Chief Email Officer) - MediaPulse" <from@example.com>',
       to: "u@example.com",
       subject: newsletter.subject,
       headers: {

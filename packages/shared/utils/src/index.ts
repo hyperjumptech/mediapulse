@@ -23,3 +23,7 @@ export type {
   UrlNoiseReason,
 } from "./article-source-url-filter.js";
 export { buildVCard } from "./build-vcard.js";
+export {
+  MEDIAPULSE_SENDER_NAME,
+  formatResendSender,
+} from "./format-resend-sender.js";
