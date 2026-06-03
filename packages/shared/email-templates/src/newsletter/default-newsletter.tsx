@@ -278,9 +278,18 @@ export const DefaultNewsletterEmail = ({
           <Section style={header}>
             <Heading style={heading}>{title}</Heading>
             {industryPulseSection !== undefined ? (
-              <Text style={standfirst}>
-                {renderInlineMarkdownLinks(industryPulseSection.prose, link)}
-              </Text>
+              <>
+                <Text style={standfirst}>
+                  {renderInlineMarkdownLinks(industryPulseSection.prose, link)}
+                </Text>
+                {industryPulseSection.url !== undefined ? (
+                  <Text style={newsItemSourceLink}>
+                    <Link href={industryPulseSection.url} style={link}>
+                      Read the full article
+                    </Link>
+                  </Text>
+                ) : null}
+              </>
             ) : null}
           </Section>
           <Hr style={hr} />

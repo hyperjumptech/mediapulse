@@ -521,7 +521,7 @@ You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{
 
 Return JSON matching this shape (camelCase keys):
 - "subject": short email subject (under ~60 chars), sector-relevant, may mention {{tickerName}} or {{tickerSymbol}} once if natural.
-- "industryPulse": { "displayHeading", "prose" } — short lead framing the industry story (no bullet characters in prose).
+- "industryPulse": { "displayHeading", "prose", "articleIndex" } — short lead framing the industry story (no bullet characters in prose). Set "articleIndex" to the single most representative article the lead summarizes; use null when the lead does not lean on a specific article.
 - "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets about {{tickerName}}'s COMPETITORS, not {{tickerName}} itself — peer positioning, rival launches, share shifts, competitive threats. Each bullet should name a competitor. Each bullet { "text", "articleIndex" } where articleIndex is a 1-based article number or null when uncited.
 - "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets; same articleIndex rule.
 - "regulatoryPolicyWatch": { "displayHeading", "bullets" } — 1–3 bullets; same articleIndex rule.
@@ -1508,6 +1508,8 @@ export async function generateNewsletterWithLlm(
         ? finalStructure.subject.trim()
         : "Your daily briefing",
     content,
+    // Reads the pre-prune finalStructure, so this is safe even when the resolved
+    // lead was later removed by the require-citation pass.
     description: finalStructure.industryPulse.prose.trim() || undefined,
     promptTokens: usage?.promptTokens ?? null,
     completionTokens: usage?.completionTokens ?? null,

@@ -129,7 +129,7 @@ describe("industryNewsletterStructureLlmSchema", () => {
   it("normalizes nullable articleIndex and optional blocks to the parsed shape", () => {
     const parsed = industryNewsletterStructureLlmSchema.parse({
       subject: "S",
-      industryPulse: { displayHeading: "L", prose: "p" },
+      industryPulse: { displayHeading: "L", prose: "p", articleIndex: null },
       competitiveLandscape: {
         displayHeading: "C",
         bullets: [
@@ -164,5 +164,6 @@ describe("industryNewsletterStructureLlmSchema", () => {
 
     expect(industryNewsletterStructureSchema.parse(parsed)).toEqual(parsed);
     expect(parsed.competitiveLandscape.bullets[1]).toEqual({ text: "b2" });
+    expect(parsed.industryPulse.articleIndex).toBeUndefined();
   });
 });

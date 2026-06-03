@@ -392,7 +392,7 @@ The `MP_NEWSLETTER` wire format supports a variable set of body sections. Only s
 
 | Section                   | Status                                                                    |
 | ------------------------- | ------------------------------------------------------------------------- |
-| `industry-pulse`          | Always emitted. It is the newsletter spine and carries no citation.       |
+| `industry-pulse`          | Omittable when require-citation removes an uncited lead. Optional `articleIndex` adds a Read link when cited. |
 | `competitive-landscape`   | Omittable. Absent when the field is `undefined` on the resolved briefing. |
 | `deals-and-movements`     | Omittable.                                                                |
 | `regulatory-policy-watch` | Omittable.                                                                |
@@ -551,7 +551,7 @@ The pass runs **last**, after URL attachment, so `url !== undefined` is the only
 
 | Section                        | Prunable? | Notes                                        |
 | ------------------------------ | --------- | -------------------------------------------- |
-| `industry-pulse`               | Never     | Framing prose with no single source.         |
+| `industry-pulse`               | Yes       | Removed when no resolved URL; kept when cited via `articleIndex`. |
 | `competitive-landscape`        | Yes       | Bullets variant.                             |
 | `deals-and-movements`          | Yes       | Bullets variant.                             |
 | `regulatory-policy-watch`      | Yes       | Bullets variant.                             |
@@ -594,7 +594,7 @@ Note: with `dedupeScope: 'newsletter'`, `Hit 2` would also be dropped because `h
 | Field                                         | Default   | Description                                                                |
 | --------------------------------------------- | --------- | -------------------------------------------------------------------------- |
 | `requireCitation.enabled`                     | `true`    | Enable the pruning pass. Set to `false` for byte-for-byte current output.  |
-| `requireCitation.sections`                    | all five  | Which body sections to prune. `industry-pulse` is always exempt.           |
+| `requireCitation.sections`                    | all six   | Which sections to prune, including `industryPulse` when listed.            |
 | `requireCitation.dedupeArticlesWithinSection` | `true`    | When false, dedup is skipped (uncited rows are still removed).             |
 | `requireCitation.dedupeScope`                 | `section` | `section` = per-section dedup; `newsletter` = one URL across all sections. |
 

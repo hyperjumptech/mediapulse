@@ -75,16 +75,21 @@ export const formatIndustryNewsletterWire = (
     parts.push(block.trimEnd(), "");
   };
 
-  pushBlock(
-    [
-      `${BEGIN} industry-pulse`,
-      DISPLAY_HEADING,
-      collapseHeadingLine(briefing.industryPulse.displayHeading),
-      PROSE,
-      stripArticleMarkers(briefing.industryPulse.prose.trim()),
-      END,
-    ].join("\n"),
-  );
+  if (briefing.industryPulse !== undefined) {
+    pushBlock(
+      [
+        `${BEGIN} industry-pulse`,
+        DISPLAY_HEADING,
+        collapseHeadingLine(briefing.industryPulse.displayHeading),
+        PROSE,
+        withOptionalReadLine(
+          stripArticleMarkers(briefing.industryPulse.prose.trim()),
+          briefing.industryPulse.url,
+        ),
+        END,
+      ].join("\n"),
+    );
+  }
 
   const pushBulletSection = (
     machineKey: string,

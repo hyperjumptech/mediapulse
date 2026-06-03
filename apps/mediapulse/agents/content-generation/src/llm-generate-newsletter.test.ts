@@ -1985,9 +1985,18 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
   );
 
   it("removes a section whose bullets are all uncited and keeps cited sections", async () => {
-    // competitive-landscape has only uncited bullets (no articleIndex),
-    // deals has one bullet with articleIndex 1 which resolves to testSources[0].url.
+    // industry-pulse cites article 1 (resolves URL) — survives.
+    // competitive-landscape has only uncited bullets (no articleIndex) — removed.
+    // deals has one bullet with articleIndex 1 — survives.
+    // regulatory-policy-watch has no citations — removed.
+    // disruptors-or-tech uses bullets format with articleIndex 2 — survives.
+    // quick-hits: one uncited (articleIndex 99), one duplicate (articleIndex 1 repeated).
     const generateObjectFn = makeSuccessfulGenerateFn({
+      industryPulse: {
+        displayHeading: "Pulse",
+        prose: "Stocks rose for the third day.",
+        articleIndex: 1,
+      },
       competitiveLandscape: {
         displayHeading: "Competition",
         bullets: [{ text: "Uncited A" }, { text: "Uncited B" }],
@@ -2001,9 +2010,9 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
         bullets: [{ text: "Uncited regulatory" }],
       },
       disruptorsOrTech: {
-        format: "prose",
+        format: "bullets",
         displayHeading: "Disruptors",
-        prose: "Innovation forward.",
+        bullets: [{ text: "Innovation forward.", articleIndex: 2 }],
       },
       quickHits: {
         displayHeading: "Quick Hits",

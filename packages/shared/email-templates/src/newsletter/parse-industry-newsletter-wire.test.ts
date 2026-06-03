@@ -72,6 +72,56 @@ describe("parseIndustryNewsletterWire", () => {
     ]);
   });
 
+  it("peels a trailing Read the full article line from the industry-pulse prose into url", () => {
+    const wire = [
+      INDUSTRY_NEWSLETTER_WIRE_MARKER,
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "The Pulse",
+      "PROSE",
+      "Grounded summary of the week.",
+      "Read the full article: https://grounded.example/article",
+      "END",
+      "",
+    ].join("\n");
+
+    const parsed = parseIndustryNewsletterWire(wire);
+
+    expect(parsed).not.toBeUndefined();
+    const pulseSection = parsed?.sections.find(
+      (s) => s.machineKey === "industry-pulse",
+    );
+    expect(pulseSection).toBeDefined();
+    if (pulseSection?.machineKey === "industry-pulse") {
+      expect(pulseSection.prose).toBe("Grounded summary of the week.");
+      expect(pulseSection.url).toBe("https://grounded.example/article");
+    }
+  });
+
+  it("leaves url undefined when industry-pulse prose has no trailing source line", () => {
+    const wire = [
+      INDUSTRY_NEWSLETTER_WIRE_MARKER,
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "The Pulse",
+      "PROSE",
+      "Sector tone stayed stable this week.",
+      "END",
+      "",
+    ].join("\n");
+
+    const parsed = parseIndustryNewsletterWire(wire);
+
+    const pulseSection = parsed?.sections.find(
+      (s) => s.machineKey === "industry-pulse",
+    );
+    if (pulseSection?.machineKey === "industry-pulse") {
+      expect(pulseSection.url).toBeUndefined();
+    }
+  });
+
   it("skipped middle section does not shift the survivors out of order", () => {
     const wire = [
       INDUSTRY_NEWSLETTER_WIRE_MARKER,

@@ -31,6 +31,64 @@ describe("resolveArticleUrlForIndustryNewsletter", () => {
   });
 });
 
+describe("industryNewsletterStructureSchema — industryPulse articleIndex", () => {
+  it("accepts industryPulse without articleIndex", () => {
+    const parsed = industryNewsletterStructureSchema.safeParse({
+      subject: "S",
+      industryPulse: { displayHeading: "L", prose: "p" },
+      competitiveLandscape: {
+        displayHeading: "C",
+        bullets: [{ text: "b1" }, { text: "b2" }],
+      },
+      dealsAndMovements: { displayHeading: "D", bullets: [{ text: "d1" }] },
+      regulatoryPolicyWatch: { displayHeading: "R", bullets: [{ text: "r1" }] },
+      disruptorsOrTech: { format: "prose", displayHeading: "X", prose: "pr" },
+      quickHits: {
+        displayHeading: "Q",
+        items: [
+          { text: "h1", articleIndex: 1 },
+          { text: "h2", articleIndex: 1 },
+          { text: "h3", articleIndex: 1 },
+          { text: "h4", articleIndex: 1 },
+          { text: "h5", articleIndex: 1 },
+        ],
+      },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.industryPulse.articleIndex).toBeUndefined();
+    }
+  });
+
+  it("accepts industryPulse with a valid articleIndex", () => {
+    const parsed = industryNewsletterStructureSchema.safeParse({
+      subject: "S",
+      industryPulse: { displayHeading: "L", prose: "p", articleIndex: 2 },
+      competitiveLandscape: {
+        displayHeading: "C",
+        bullets: [{ text: "b1" }, { text: "b2" }],
+      },
+      dealsAndMovements: { displayHeading: "D", bullets: [{ text: "d1" }] },
+      regulatoryPolicyWatch: { displayHeading: "R", bullets: [{ text: "r1" }] },
+      disruptorsOrTech: { format: "prose", displayHeading: "X", prose: "pr" },
+      quickHits: {
+        displayHeading: "Q",
+        items: [
+          { text: "h1", articleIndex: 1 },
+          { text: "h2", articleIndex: 1 },
+          { text: "h3", articleIndex: 1 },
+          { text: "h4", articleIndex: 1 },
+          { text: "h5", articleIndex: 1 },
+        ],
+      },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.industryPulse.articleIndex).toBe(2);
+    }
+  });
+});
+
 describe("attachIndustryNewsletterSourceUrls", () => {
   const briefing = industryNewsletterStructureSchema.parse({
     subject: "S",
@@ -345,6 +403,77 @@ describe("formatIndustryNewsletterWire", () => {
       "deals-and-movements",
       "quick-hits",
     ]);
+  });
+
+  it("emits a Read the full article line for a grounded lead and the parser peels it into url", () => {
+    const resolved = attachIndustryNewsletterSourceUrls(
+      industryNewsletterStructureSchema.parse({
+        subject: "S",
+        industryPulse: {
+          displayHeading: "Lead",
+          prose: "Grounded prose.",
+          articleIndex: 1,
+        },
+        competitiveLandscape: {
+          displayHeading: "C",
+          bullets: [
+            { text: "c1", articleIndex: 1 },
+            { text: "c2", articleIndex: 1 },
+          ],
+        },
+        dealsAndMovements: { displayHeading: "D", bullets: [{ text: "d1" }] },
+        regulatoryPolicyWatch: {
+          displayHeading: "R",
+          bullets: [{ text: "r1" }],
+        },
+        disruptorsOrTech: { format: "prose", displayHeading: "X", prose: "pr" },
+        quickHits: {
+          displayHeading: "Q",
+          items: [
+            { text: "h1", articleIndex: 1 },
+            { text: "h2", articleIndex: 1 },
+            { text: "h3", articleIndex: 1 },
+            { text: "h4", articleIndex: 1 },
+            { text: "h5", articleIndex: 1 },
+          ],
+        },
+      }),
+      [{ url: "https://lead.example" }],
+    );
+
+    expect(resolved.industryPulse?.url).toBe("https://lead.example");
+
+    const wire = formatIndustryNewsletterWire(resolved);
+    expect(wire).toContain("Grounded prose.");
+    expect(wire).toContain("Read the full article: https://lead.example");
+
+    const parsed = parseIndustryNewsletterWire(wire);
+    const pulseSection = parsed?.sections.find(
+      (s) => s.machineKey === "industry-pulse",
+    );
+    expect(pulseSection).toBeDefined();
+    if (pulseSection?.machineKey === "industry-pulse") {
+      expect(pulseSection.prose).toBe("Grounded prose.");
+      expect(pulseSection.url).toBe("https://lead.example");
+    }
+  });
+
+  it("omits industry-pulse when the resolved lead is undefined", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      quickHits: {
+        displayHeading: "Q",
+        items: [{ text: "Hit one", url: "https://a.example" }],
+      },
+    };
+
+    const wire = formatIndustryNewsletterWire(resolved);
+    expect(wire).not.toContain("BEGIN industry-pulse");
+
+    const parsed = parseIndustryNewsletterWire(wire);
+    expect(
+      parsed?.sections.every((s) => s.machineKey !== "industry-pulse"),
+    ).toBe(true);
   });
 
   it("handles the degenerate case of industry-pulse plus a single quick-hit", () => {

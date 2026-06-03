@@ -7,10 +7,7 @@ const CITED_URL_A = "https://source.example/a";
 const CITED_URL_B = "https://source.example/b";
 const CITED_URL_C = "https://source.example/c";
 
-const basePulse: IndustryNewsletterResolved["industryPulse"] = {
-  displayHeading: "Pulse",
-  prose: "Lead prose.",
-};
+const basePulse = { displayHeading: "Pulse", prose: "Lead prose." };
 
 describe("pruneNewsletterToCitedRows — uncited rows dropped", () => {
   it("keeps cited bullets and drops uncited ones; counts removedBullets correctly", () => {
@@ -255,7 +252,7 @@ describe("pruneNewsletterToCitedRows — section removal", () => {
     expect(summary.sectionsRemoved).toBe(1);
   });
 
-  it("never prunes disruptorsOrTech prose variant", () => {
+  it("removes disruptorsOrTech prose variant as uncited", () => {
     const resolved: IndustryNewsletterResolved = {
       subject: "S",
       industryPulse: basePulse,
@@ -266,25 +263,57 @@ describe("pruneNewsletterToCitedRows — section removal", () => {
       },
     };
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved);
+    const {
+      resolved: pruned,
+      reports,
+      summary,
+    } = pruneNewsletterToCitedRows(resolved);
 
-    expect(pruned.disruptorsOrTech).toBeDefined();
-    expect((pruned.disruptorsOrTech as { format: string }).format).toBe(
-      "prose",
-    );
-    expect(summary.sectionsKept).toBe(1);
-    expect(summary.sectionsRemoved).toBe(0);
+    expect(pruned.disruptorsOrTech).toBeUndefined();
+    const report = reports.find((r) => r.sectionKey === "disruptorsOrTech");
+    expect(report?.sectionRemoved).toBe(true);
+    expect(report?.removedBullets).toBe(0);
+    expect(summary.sectionsRemoved).toBe(1);
+    expect(summary.sectionsKept).toBe(0);
   });
 
-  it("never prunes industry-pulse regardless of configuration", () => {
+  it("removes industryPulse when uncited and industryPulse is in sections", () => {
     const resolved: IndustryNewsletterResolved = {
       subject: "S",
       industryPulse: { displayHeading: "Lead", prose: "Sector summary." },
     };
 
-    const { resolved: pruned } = pruneNewsletterToCitedRows(resolved);
+    const {
+      resolved: pruned,
+      reports,
+      summary,
+    } = pruneNewsletterToCitedRows(resolved, { sections: ["industryPulse"] });
 
-    expect(pruned.industryPulse.prose).toBe("Sector summary.");
+    expect(pruned.industryPulse).toBeUndefined();
+    const report = reports.find((r) => r.sectionKey === "industryPulse");
+    expect(report?.sectionRemoved).toBe(true);
+    expect(summary.sectionsRemoved).toBe(1);
+    expect(summary.sectionsKept).toBe(0);
+  });
+
+  it("keeps industryPulse when cited and industryPulse is in sections", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      industryPulse: {
+        displayHeading: "Lead",
+        prose: "Sector summary.",
+        url: CITED_URL_A,
+      },
+    };
+
+    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved, {
+      sections: ["industryPulse"],
+    });
+
+    expect(pruned.industryPulse).toBeDefined();
+    expect(pruned.industryPulse?.url).toBe(CITED_URL_A);
+    expect(summary.sectionsKept).toBe(1);
+    expect(summary.sectionsRemoved).toBe(0);
   });
 
   it("skips sections not in the configured sections list", () => {

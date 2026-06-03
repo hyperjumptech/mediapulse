@@ -43,6 +43,7 @@ export const industryNewsletterStructureSchema = z.object({
   industryPulse: z.object({
     displayHeading: z.string().min(1),
     prose: z.string().min(1),
+    articleIndex: articleIndexSchema.optional(),
   }),
   competitiveLandscape: z.object({
     displayHeading: z.string().min(1),
@@ -87,6 +88,25 @@ const industryBriefBulletLlmSchema = z
     },
   );
 
+const industryPulseLlmSchema = z
+  .object({
+    displayHeading: z.string().min(1),
+    prose: z.string().min(1),
+    articleIndex: z.union([articleIndexSchema, z.null()]),
+  })
+  .transform(
+    ({
+      displayHeading,
+      prose,
+      articleIndex,
+    }): z.infer<typeof industryNewsletterStructureSchema>["industryPulse"] => {
+      const normalizedIndex = normalizeOptionalArticleIndex(articleIndex);
+      return normalizedIndex === undefined
+        ? { displayHeading, prose }
+        : { displayHeading, prose, articleIndex: normalizedIndex };
+    },
+  );
+
 const disruptorsOrTechBulletsLlmSchema = z.object({
   format: z.literal("bullets"),
   displayHeading: z.string().min(1),
@@ -107,10 +127,7 @@ const disruptorsOrTechLlmSchema = z.discriminatedUnion("format", [
 export const industryNewsletterStructureLlmSchema = z
   .object({
     subject: z.string().min(1),
-    industryPulse: z.object({
-      displayHeading: z.string().min(1),
-      prose: z.string().min(1),
-    }),
+    industryPulse: industryPulseLlmSchema,
     competitiveLandscape: z.object({
       displayHeading: z.string().min(1),
       bullets: z.array(industryBriefBulletLlmSchema).min(2).max(3),

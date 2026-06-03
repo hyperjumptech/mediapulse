@@ -25,6 +25,7 @@ export type PruneSummary = {
 };
 
 export type PruneSectionKey =
+  | "industryPulse"
   | "competitiveLandscape"
   | "dealsAndMovements"
   | "regulatoryPolicyWatch"
@@ -92,8 +93,8 @@ function pruneRows<T extends { url?: string }>(
  * Removes uncited and duplicate-article rows from a resolved newsletter.
  *
  * Operates on the resolved structure (URLs already attached) so "cited" is
- * a direct `url !== undefined` check. `industry-pulse` is never touched.
- * A section that drops to zero cited rows is set to `undefined`.
+ * a direct `url !== undefined` check. A section that drops to zero cited rows
+ * is set to `undefined`.
  *
  * @param resolved - Resolved newsletter (post URL attachment).
  * @param opts - Which sections to prune and dedup settings.
@@ -121,6 +122,23 @@ export function pruneNewsletterToCitedRows(
 
   const shouldPrune = (key: PruneSectionKey): boolean =>
     (configuredSections as ReadonlyArray<string>).includes(key);
+
+  // --- industryPulse ---
+  let industryPulse = resolved.industryPulse;
+  if (shouldPrune("industryPulse") && industryPulse !== undefined) {
+    if (industryPulse.url === undefined) {
+      industryPulse = undefined;
+      sectionsRemoved++;
+      reports.push({
+        sectionKey: "industryPulse",
+        removedBullets: 0,
+        removedForDuplicate: 0,
+        sectionRemoved: true,
+      });
+    } else {
+      sectionsKept++;
+    }
+  }
 
   // --- competitiveLandscape ---
   let competitiveLandscape = resolved.competitiveLandscape;
@@ -211,8 +229,15 @@ export function pruneNewsletterToCitedRows(
     resolved.disruptorsOrTech;
   if (shouldPrune("disruptorsOrTech") && disruptorsOrTech !== undefined) {
     if (disruptorsOrTech.format === "prose") {
-      // Prose variant has no individually-sourced rows; exempt from pruning.
-      sectionsKept++;
+      // Prose variant has no citation mechanism — always removed as uncited.
+      disruptorsOrTech = undefined;
+      sectionsRemoved++;
+      reports.push({
+        sectionKey: "disruptorsOrTech",
+        removedBullets: 0,
+        removedForDuplicate: 0,
+        sectionRemoved: true,
+      });
     } else {
       const { kept, removedUncited, removedDuplicate } = pruneRows(
         disruptorsOrTech.bullets,
@@ -267,7 +292,7 @@ export function pruneNewsletterToCitedRows(
   return {
     resolved: {
       subject: resolved.subject,
-      industryPulse: resolved.industryPulse,
+      ...(industryPulse !== undefined ? { industryPulse } : {}),
       ...(competitiveLandscape !== undefined ? { competitiveLandscape } : {}),
       ...(dealsAndMovements !== undefined ? { dealsAndMovements } : {}),
       ...(regulatoryPolicyWatch !== undefined ? { regulatoryPolicyWatch } : {}),
