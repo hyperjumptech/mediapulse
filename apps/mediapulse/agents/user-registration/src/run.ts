@@ -19,6 +19,7 @@ import {
   extractTickerSymbol,
   resolveSubscriberDisplayName,
 } from "./lib/parser.js";
+import { buildVCard } from "@workspace/utils";
 
 export type Input = { maxMessagesPerRun: number; watermark?: string };
 export type Config = UserRegistrationConfig;
@@ -127,12 +128,15 @@ function buildNextDeliveryLabel(
   return `${day} at ${timeLabel}`;
 }
 
+const MEDIAPULSE_SENDER_NAME = "CEO (Chief Email Officer) - MediaPulse";
+
 type ResendTransactionalPayload = {
   from: string;
   to: string;
   subject: string;
   html: string;
   text: string;
+  attachments?: { filename: string; content: string }[];
 };
 
 /**
@@ -562,6 +566,12 @@ async function processMessage({
         nextDeliveryLabel,
       });
 
+      const vcf = buildVCard({
+        name: MEDIAPULSE_SENDER_NAME,
+        email: config.resendSender,
+      });
+      const vcfBase64 = Buffer.from(vcf).toString("base64");
+
       await sendResendTransactionalEmail({
         resend,
         retryConfig,
@@ -578,6 +588,7 @@ async function processMessage({
           subject: "Subscription Confirmed - MediaPulse",
           html,
           text,
+          attachments: [{ filename: "MediaPulse.vcf", content: vcfBase64 }],
         },
       });
 

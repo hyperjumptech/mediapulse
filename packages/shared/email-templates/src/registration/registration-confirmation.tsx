@@ -53,6 +53,10 @@ export const RegistrationConfirmationEmail = ({
           </Text>
           <Hr style={hr} />
           <Text style={footer}>
+            Add MediaPulse to your contacts so future newsletters land in your
+            inbox, not spam or junk.
+          </Text>
+          <Text style={footer}>
             You are receiving this because you subscribed to updates on
             MediaPulse.
           </Text>

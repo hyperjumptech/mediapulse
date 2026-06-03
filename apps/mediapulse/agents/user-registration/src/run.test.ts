@@ -20,6 +20,8 @@ vi.mock("@workspace/email-templates", () => ({
 // Simplify withRetry to call through immediately – no delays, no retries.
 vi.mock("@workspace/utils", () => ({
   withRetry: async (fn: () => unknown) => fn(),
+  buildVCard: ({ name, email }: { name: string; email: string }) =>
+    `BEGIN:VCARD\r\nFN:${name}\r\nEMAIL:${email}\r\nEND:VCARD`,
 }));
 
 vi.mock("@workspace/logger", () => ({
@@ -166,6 +168,51 @@ describe("createRunHandler", () => {
       expect.objectContaining({ userTickerId: "ut-1" }),
     );
     expect(archiveMessage).toHaveBeenCalledWith("msg-1");
+  });
+
+  it("attaches a MediaPulse.vcf to the confirmation email for a new subscription", async () => {
+    const emailSend = vi.fn().mockResolvedValue({ data: { id: "email-id" } });
+
+    const run = createRunHandler({
+      createInbox: () => ({
+        listMessages: async () => [
+          makeMessage({
+            from: { emailAddress: { address: "vcf@run-test.example" } },
+          }),
+        ],
+        archiveMessage: vi.fn().mockResolvedValue(undefined),
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
+      ResendClient: class {
+        emails = { send: emailSend };
+        constructor() {}
+      } as any,
+      createDataApi: () =>
+        ({
+          userRegistrationRegister: {
+            create: async () => ({
+              tickerKnown: true,
+              isNewSubscription: true,
+              userTickerId: "ut-vcf",
+            }),
+          },
+          userRegistrationConfirm: { create: vi.fn() },
+        }) as any,
+    });
+
+    await run(makeCtx() as any);
+
+    const payload = emailSend.mock.calls[0]![0] as any;
+    expect(payload.attachments).toHaveLength(1);
+    expect(payload.attachments[0].filename).toBe("MediaPulse.vcf");
+
+    const decoded = Buffer.from(
+      payload.attachments[0].content,
+      "base64",
+    ).toString("utf-8");
+    expect(decoded).toContain("from@test.example");
+    expect(decoded).toContain("CEO (Chief Email Officer) - MediaPulse");
   });
 
   it("does not confirm or archive when Resend returns an error envelope for a new subscription", async () => {

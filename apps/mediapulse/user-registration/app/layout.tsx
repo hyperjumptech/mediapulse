@@ -4,10 +4,24 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 
+const PAGE_TITLE = "MediaPulse - Business newsletter";
+const PAGE_DESCRIPTION =
+  "Subscribe to MediaPulse and get the latest business and industry news for your chosen ticker delivered straight to your inbox.";
+
 export const metadata: Metadata = {
-  title: "MediaPulse — Stock Newsletter",
-  description:
-    "Subscribe to MediaPulse and get the latest stock news for your chosen ticker delivered straight to your inbox.",
+  title: PAGE_TITLE,
+  description: PAGE_DESCRIPTION,
+  openGraph: {
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+    type: "website",
+    siteName: "MediaPulse",
+  },
+  twitter: {
+    card: "summary",
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+  },
 };
 
 import { Providers } from "@/components/providers";

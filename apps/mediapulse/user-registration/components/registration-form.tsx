@@ -8,6 +8,24 @@ import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 import { type Ticker } from "@/lib/tickers";
 import { useRegistrationForm } from "@/hooks/use-registration-form";
+import { env } from "@mediapulse/env/app-user-registration";
+import { buildVCard } from "@workspace/utils";
+
+const MEDIAPULSE_SENDER_NAME = "CEO (Chief Email Officer) - MediaPulse";
+
+function downloadVCard(): void {
+  const vcf = buildVCard({
+    name: MEDIAPULSE_SENDER_NAME,
+    email: env.NEXT_PUBLIC_REGISTRATION_EMAIL,
+  });
+  const blob = new Blob([vcf], { type: "text/vcard;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "MediaPulse.vcf";
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 type Props = {
   tickers: Ticker[];
@@ -58,10 +76,19 @@ const RegistrationForm = ({
             own mailbox so we can register you for{" "}
             <strong>{selectedTicker?.KodeEmiten}</strong>.
           </p>
+          <p className="text-xs text-muted-foreground">
+            A confirmation email is on the way. If it does not appear, check
+            your spam or junk folder.
+          </p>
         </div>
-        <Button variant="outline" onClick={resetForm}>
-          Subscribe to another ticker
-        </Button>
+        <div className="flex flex-col items-center gap-3">
+          <Button variant="outline" onClick={downloadVCard}>
+            Add MediaPulse to your contacts
+          </Button>
+          <Button variant="ghost" onClick={resetForm}>
+            Subscribe to another ticker
+          </Button>
+        </div>
       </div>
     );
   }
