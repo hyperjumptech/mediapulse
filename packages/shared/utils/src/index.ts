@@ -22,3 +22,4 @@ export type {
   UrlNoiseDecision,
   UrlNoiseReason,
 } from "./article-source-url-filter.js";
+export { buildVCard } from "./build-vcard.js";

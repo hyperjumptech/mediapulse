@@ -25,7 +25,36 @@ vi.mock("@workspace/ui/lib/utils", () => ({
   cn: (...classes: (string | undefined)[]) => classes.filter(Boolean).join(" "),
 }));
 
-import RootLayout from "./layout";
+import RootLayout, { metadata } from "./layout";
+
+describe("metadata", () => {
+  const expectedTitle = "MediaPulse - Business newsletter";
+  const expectedDescription =
+    "Subscribe to MediaPulse and get the latest business and industry news for your chosen ticker delivered straight to your inbox.";
+
+  it("has the business-framed title", () => {
+    expect(metadata.title).toBe(expectedTitle);
+  });
+
+  it("has the business-framed description", () => {
+    expect(metadata.description).toBe(expectedDescription);
+  });
+
+  it("has matching openGraph title and description", () => {
+    expect(metadata.openGraph?.title).toBe(expectedTitle);
+    expect(metadata.openGraph?.description).toBe(expectedDescription);
+  });
+
+  it("has matching twitter title and description", () => {
+    expect(
+      (metadata.twitter as { title?: string; description?: string })?.title,
+    ).toBe(expectedTitle);
+    expect(
+      (metadata.twitter as { title?: string; description?: string })
+        ?.description,
+    ).toBe(expectedDescription);
+  });
+});
 
 describe("RootLayout", () => {
   it("renders children content", () => {

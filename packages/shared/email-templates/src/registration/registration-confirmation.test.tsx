@@ -12,4 +12,13 @@ describe("RegistrationConfirmationEmail", () => {
     expect(text).toContain("AAPL");
     expect(text).toMatch(/Subscription Confirmed/i);
   });
+
+  it("contains the add-to-contacts tip in HTML and text", async () => {
+    const { html, text } = await renderNewsletterEmail({
+      variant: "registration-confirmation",
+      tickerSymbol: "AAPL",
+    });
+    expect(html).toMatch(/contacts/i);
+    expect(text).toMatch(/contacts/i);
+  });
 });
