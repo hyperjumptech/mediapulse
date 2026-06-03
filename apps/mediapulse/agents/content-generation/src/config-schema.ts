@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
+import { reasoningEffortSchema } from "@workspace/agent-runtime";
 
 /** Maximum length for each optional `prompts.*` string (Hermes JSON config). */
 export const CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH = 50_000;
@@ -187,6 +188,11 @@ const brainstormSchema = z
       .describe(
         "Chat model for the brainstorm pass. If omitted, uses credentials.chatModel.",
       ),
+    reasoningEffort: reasoningEffortSchema
+      .optional()
+      .describe(
+        "Overrides credentials.reasoningEffort for the brainstorm pass.",
+      ),
     maxOutputTokens: z
       .number()
       .int()
@@ -234,6 +240,11 @@ const selfCritiqueSchema = z
       .optional()
       .describe(
         "Chat model for the critique pass. If omitted, uses credentials.chatModel.",
+      ),
+    reasoningEffort: reasoningEffortSchema
+      .optional()
+      .describe(
+        "Overrides credentials.reasoningEffort for the self-critique pass.",
       ),
     critiqueMaxOutputTokens: z
       .number()
@@ -459,6 +470,11 @@ const subjectLineSchema = z
       .describe(
         "Chat model for subject candidates. If omitted, uses credentials.chatModel.",
       ),
+    reasoningEffort: reasoningEffortSchema
+      .optional()
+      .describe(
+        "Overrides credentials.reasoningEffort for the subject-line pass.",
+      ),
     weights: z
       .object({
         lengthFit: z
@@ -537,6 +553,11 @@ const credentialsSchema = z
       .positive()
       .optional()
       .describe("Maximum tokens to generate per LLM call."),
+    reasoningEffort: reasoningEffortSchema
+      .optional()
+      .describe(
+        "Reasoning effort for LLM passes when the model supports it (gpt-5/o-series). Leave unset for non-reasoning models like gpt-4o-mini.",
+      ),
     timeoutMs: z
       .number()
       .int()
@@ -744,13 +765,21 @@ export type ResolvedPersistRetryConfig =
   ContentGenerationConfig["reliability"]["persistRetry"];
 
 /**
- * Content-generation config with per-pass model ids resolved to credentials.chatModel
- * when omitted. Use {@link resolveContentGenerationConfig} to obtain this from a parsed config.
+ * Content-generation config with per-pass model ids and reasoning effort levels
+ * resolved. Use {@link resolveContentGenerationConfig} to obtain this from a parsed config.
+ *
+ * Per-pass reasoning effort falls back to `credentials.reasoningEffort` when the
+ * pass-level override is unset. All values may be `undefined` when the operator has
+ * not set reasoning effort — this is safe for non-reasoning models.
  */
 export type ResolvedContentGenerationConfig = ContentGenerationConfig & {
   brainstormModel: string;
   critiqueModel: string;
   subjectLineModel: string;
+  structuredReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
+  brainstormReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
+  critiqueReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
+  subjectLineReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
 };
 
 type RetryFields = {
@@ -800,11 +829,36 @@ export function resolveContentGenerationConfig(
 ): ResolvedContentGenerationConfig {
   const parsed = ContentGenerationConfigSchema.parse(config);
   const chatModel = parsed.credentials.chatModel;
+  const defaultEffort = parsed.credentials.reasoningEffort;
 
   return {
     ...parsed,
     brainstormModel: parsed.creativity.brainstorm.model ?? chatModel,
     critiqueModel: parsed.quality.selfCritique.critiqueModel ?? chatModel,
     subjectLineModel: parsed.delivery.subjectLine.model ?? chatModel,
+    ...(defaultEffort !== undefined
+      ? { structuredReasoningEffort: defaultEffort }
+      : {}),
+    ...(parsed.creativity.brainstorm.reasoningEffort !== undefined
+      ? {
+          brainstormReasoningEffort:
+            parsed.creativity.brainstorm.reasoningEffort,
+        }
+      : defaultEffort !== undefined
+        ? { brainstormReasoningEffort: defaultEffort }
+        : {}),
+    ...(parsed.quality.selfCritique.reasoningEffort !== undefined
+      ? { critiqueReasoningEffort: parsed.quality.selfCritique.reasoningEffort }
+      : defaultEffort !== undefined
+        ? { critiqueReasoningEffort: defaultEffort }
+        : {}),
+    ...(parsed.delivery.subjectLine.reasoningEffort !== undefined
+      ? {
+          subjectLineReasoningEffort:
+            parsed.delivery.subjectLine.reasoningEffort,
+        }
+      : defaultEffort !== undefined
+        ? { subjectLineReasoningEffort: defaultEffort }
+        : {}),
   };
 }

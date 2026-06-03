@@ -1,6 +1,7 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { GetAnalysisResponse } from "@workspace/agent-data-api-contract";
 import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
+import { buildOpenAiReasoningProviderOptions } from "@workspace/agent-runtime";
 
 import { applyPerArticleExtractionCaps } from "./analysis-caps-dedupe.js";
 import {
@@ -294,6 +295,9 @@ export const createProcessOneSource =
       if (shouldRunBrainstorm) {
         try {
           const brainstormStartedAt = Date.now();
+          const brainstormProviderOptions = buildOpenAiReasoningProviderOptions(
+            cfg.brainstormReasoningEffort,
+          );
           const brainstormResult = await fetchArticleBrainstorm({
             apiKey: cfg.openaiApiKey,
             model: cfg.brainstormModel,
@@ -314,6 +318,9 @@ export const createProcessOneSource =
                 }),
               },
             ],
+            ...(brainstormProviderOptions !== undefined
+              ? { providerOptions: brainstormProviderOptions }
+              : {}),
           });
           outcome.brainstormCalls = 1;
           outcome.brainstormLatencyMs = Date.now() - brainstormStartedAt;
@@ -342,6 +349,9 @@ export const createProcessOneSource =
         );
       }
 
+      const extractionProviderOptions = buildOpenAiReasoningProviderOptions(
+        cfg.extractionReasoningEffort,
+      );
       const extractedResult = await extractEntitiesAndRelationsForSource({
         apiKey: cfg.openaiApiKey,
         model: cfg.openaiModel,
@@ -357,6 +367,9 @@ export const createProcessOneSource =
           ? { exemplars: resolvedExemplars }
           : {}),
         ...(brainstormText !== undefined ? { brainstormText } : {}),
+        ...(extractionProviderOptions !== undefined
+          ? { providerOptions: extractionProviderOptions }
+          : {}),
       });
       outcome.extractionLatencyMs = Date.now() - t0;
       outcome.extractionCalls = 1;
@@ -409,6 +422,9 @@ export const createProcessOneSource =
         ) {
           outcome.vocabularyRepairCallsAttempted = 1;
           try {
+            const repairProviderOptions = buildOpenAiReasoningProviderOptions(
+              cfg.vocabularyRepairReasoningEffort,
+            );
             const repairResult = await repairExtractionVocabulary({
               apiKey: cfg.openaiApiKey,
               model: cfg.vocabularyRepairModel,
@@ -416,6 +432,9 @@ export const createProcessOneSource =
               ctx,
               badEntities: partitioned.badEntities,
               badRelations: partitioned.badRelations,
+              ...(repairProviderOptions !== undefined
+                ? { providerOptions: repairProviderOptions }
+                : {}),
             });
             outcome.repairUsage = repairResult.usage;
 
@@ -533,6 +552,9 @@ export const createProcessOneSource =
       } else if (critiqueEligible) {
         try {
           const critiqueStartedAt = Date.now();
+          const critiqueProviderOptions = buildOpenAiReasoningProviderOptions(
+            cfg.relationCritiqueReasoningEffort,
+          );
           const critiqueResult = await critiqueExtractedRelations({
             apiKey: cfg.openaiApiKey,
             model: cfg.relationCritiqueModel,
@@ -542,6 +564,9 @@ export const createProcessOneSource =
               articleBody: source.content,
               candidates: resolved.relations,
             }),
+            ...(critiqueProviderOptions !== undefined
+              ? { providerOptions: critiqueProviderOptions }
+              : {}),
           });
           outcome.relationCritiqueCalls = 1;
           outcome.critiqueLatencyMs = Date.now() - critiqueStartedAt;

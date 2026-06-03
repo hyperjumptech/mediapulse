@@ -9,6 +9,12 @@ export {
   type HermesTickerId,
 } from "./schemas/hermes-ticker-id.js";
 export {
+  reasoningEffortSchema,
+  type OpenAiReasoningEffort,
+  type OpenAiReasoningProviderOptions,
+  buildOpenAiReasoningProviderOptions,
+} from "./schemas/reasoning-effort.js";
+export {
   hermesInvokeCorrelationFromGetHeader,
   HERMES_HEADER_EXECUTION_ID,
   HERMES_HEADER_JOB_ID,

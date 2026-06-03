@@ -28,6 +28,7 @@ import {
   resolveWildcardSystemContent,
   resolveWildcardUserContent,
   selectCandidatesToDropFromCritique,
+  type LlmQuerySampling,
 } from "./llm-queries";
 import { DEFAULT_QUERY_PERSONAS } from "./personas/default-personas";
 
@@ -957,5 +958,111 @@ describe("fetchWildcardCandidates", () => {
       { text: "First odd angle", intent: "wildcard" },
       { text: "Second odd angle", intent: "wildcard" },
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// llmSamplingOptions + reasoning effort
+// ---------------------------------------------------------------------------
+
+describe("llmSamplingOptions — reasoning effort", () => {
+  const reasoningEffortContext = {
+    ticker: {
+      id: "11111111-1111-4111-a111-111111111111",
+      symbol: "ACME",
+      name: "Acme Co",
+      metadata: null,
+    },
+    topEntities: [] as [],
+    recentThemes: [] as [],
+    recentRelationDeltas: [] as [],
+    peers: [] as [],
+    calendar: { recentEventTypes: [] as string[] },
+    headlineSamples: [] as [],
+    kgNeighborhood: [] as [],
+  };
+
+  const reasoningEffortStrategy = {
+    queryCount: 5,
+    language: "en",
+    minDeterministicCount: 2,
+    intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+  };
+
+  it("does not include providerOptions when sampling.reasoningEffort is unset", async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const generateTextForBrainstorm = vi
+      .fn()
+      .mockImplementation(async (args: Record<string, unknown>) => {
+        capturedArgs = args;
+        return { text: "" };
+      });
+
+    const sampling: LlmQuerySampling = {};
+    await fetchBrainstormBullets(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        strategy: reasoningEffortStrategy,
+        context: reasoningEffortContext,
+        sampling,
+      },
+      { generateTextForBrainstorm },
+    );
+
+    expect(capturedArgs?.providerOptions).toBeUndefined();
+  });
+
+  it("includes providerOptions when sampling.reasoningEffort is set", async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const generateTextForBrainstorm = vi
+      .fn()
+      .mockImplementation(async (args: Record<string, unknown>) => {
+        capturedArgs = args;
+        return { text: "" };
+      });
+
+    const sampling: LlmQuerySampling = { reasoningEffort: "high" };
+    await fetchBrainstormBullets(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        strategy: reasoningEffortStrategy,
+        context: reasoningEffortContext,
+        sampling,
+      },
+      { generateTextForBrainstorm },
+    );
+
+    expect(capturedArgs?.providerOptions).toEqual({
+      openai: { reasoningEffort: "high" },
+    });
+  });
+
+  it("brainstormReasoningEffort override takes precedence over sampling.reasoningEffort", async () => {
+    let capturedArgs: Record<string, unknown> | undefined;
+    const generateTextForBrainstorm = vi
+      .fn()
+      .mockImplementation(async (args: Record<string, unknown>) => {
+        capturedArgs = args;
+        return { text: "" };
+      });
+
+    const sampling: LlmQuerySampling = { reasoningEffort: "high" };
+    await fetchBrainstormBullets(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        strategy: reasoningEffortStrategy,
+        context: reasoningEffortContext,
+        sampling,
+        brainstormReasoningEffort: "low",
+      },
+      { generateTextForBrainstorm },
+    );
+
+    expect(capturedArgs?.providerOptions).toEqual({
+      openai: { reasoningEffort: "low" },
+    });
   });
 });

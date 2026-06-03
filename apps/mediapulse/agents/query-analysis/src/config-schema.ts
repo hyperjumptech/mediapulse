@@ -5,6 +5,7 @@ import {
   queryAnalysisIntentSchema,
   type QueryAnalysisIntentWeights,
 } from "@workspace/agent-data-api-contract";
+import { reasoningEffortSchema } from "@workspace/agent-runtime";
 import {
   DEFAULT_DETERMINISTIC_PACK,
   DETERMINISTIC_PACK_NAMES,
@@ -99,9 +100,14 @@ const samplingSchema = z
       .describe(
         "Optional fixed seed for reproducible LLM output when the model supports it.",
       ),
+    reasoningEffort: reasoningEffortSchema
+      .optional()
+      .describe(
+        "Reasoning effort for query-generation LLM calls when the model supports it (gpt-5/o-series). Leave unset for non-reasoning models like gpt-4o-mini.",
+      ),
   })
   .default({})
-  .describe("Optional LLM reproducibility settings.");
+  .describe("Optional LLM reproducibility and reasoning settings.");
 
 const templatesSchema = z
   .object({
@@ -174,6 +180,11 @@ const creativitySchema = z
       .optional()
       .describe(
         "Model id for the brainstorm pass. If omitted, uses credentials.chatModel (default {{OPENAI_MODEL}}).",
+      ),
+    brainstormReasoningEffort: reasoningEffortSchema
+      .optional()
+      .describe(
+        "Overrides sampling.reasoningEffort for the brainstorm pass only.",
       ),
   })
   .default({})

@@ -1,4 +1,5 @@
 import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
+import { reasoningEffortSchema } from "@workspace/agent-runtime";
 import type { RelevanceWeightMapV1 } from "./analysis-relevance-scoring.js";
 import type { ArticleAnalysisRunPolicy } from "./article-analysis-run-policy.js";
 import type { ExtractionExemplarArchetype } from "./exemplars/default-extraction-exemplars.js";
@@ -27,6 +28,11 @@ export const articleAnalysisConfigSchema = z
     openaiApiKey: z.string().min(1),
     /** Chat model id (e.g. `gpt-4o-mini`). */
     openaiModel: z.string().min(1).optional(),
+    /**
+     * Reasoning effort applied to all LLM passes when the model supports it (gpt-5/o-series).
+     * Leave unset for non-reasoning models like gpt-4o-mini.
+     */
+    reasoningEffort: reasoningEffortSchema.optional(),
     /** Max output tokens for `generateObject`. */
     maxOutputTokens: z.number().int().positive().optional(),
     /** Truncate article text in the LLM user message (full text remains in DB). */
@@ -52,6 +58,8 @@ export const articleAnalysisConfigSchema = z
     useBrainstormPass: z.boolean().optional(),
     /** Chat model for the brainstorm pass (defaults to `openaiModel`). */
     brainstormModel: z.string().min(1).optional(),
+    /** Overrides `reasoningEffort` for the brainstorm pass. */
+    brainstormReasoningEffort: reasoningEffortSchema.optional(),
     /** Max output tokens for the brainstorm `generateText` call. */
     brainstormMaxOutputTokens: z.number().int().positive().optional(),
     /** Max concurrent per-source extractions (1 = sequential; opt-in parallelism). */
@@ -66,6 +74,8 @@ export const articleAnalysisConfigSchema = z
     relationCritiqueMinRelationCount: z.number().int().nonnegative().optional(),
     /** Chat model for relation critique (defaults to `openaiModel`). */
     relationCritiqueModel: z.string().min(1).optional(),
+    /** Overrides `reasoningEffort` for the relation-critique pass. */
+    relationCritiqueReasoningEffort: reasoningEffortSchema.optional(),
     /**
      * How to handle vocabulary-invalid extraction rows.
      * `strict` skips the whole source (legacy). `partition` drops bad rows. `repair` partitions then re-labels bad rows once.
@@ -73,6 +83,8 @@ export const articleAnalysisConfigSchema = z
     vocabularyPolicy: z.enum(["strict", "partition", "repair"]).optional(),
     /** Chat model for vocabulary repair (defaults to `openaiModel`). */
     vocabularyRepairModel: z.string().min(1).optional(),
+    /** Overrides `reasoningEffort` for the vocabulary-repair pass. */
+    vocabularyRepairReasoningEffort: reasoningEffortSchema.optional(),
     /** Skip repair when rejected row count exceeds this cap (likely systemic vocabulary drift). */
     vocabularyRepairMaxItems: z.number().int().positive().optional(),
     /** Post-extraction grounding policy for hallucinated entities. */
@@ -187,6 +199,14 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   useBrainstormPass: boolean;
   brainstormModel: string;
   brainstormMaxOutputTokens: number;
+  /** Resolved reasoning effort for the extraction pass (falls back to `reasoningEffort`). */
+  extractionReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
+  /** Resolved reasoning effort for the brainstorm pass. */
+  brainstormReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
+  /** Resolved reasoning effort for the relation-critique pass. */
+  relationCritiqueReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
+  /** Resolved reasoning effort for the vocabulary-repair pass. */
+  vocabularyRepairReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
   extractionConcurrency: number;
   runDeadlineMs?: number;
   useRelationSelfCritique: boolean;
@@ -300,6 +320,7 @@ export const resolveArticleAnalysisConfig = (
 ): ResolvedArticleAnalysisConfig => {
   const openaiModel =
     config.openaiModel ?? articleAnalysisConfigDefaults.openaiModel;
+  const defaultEffort = config.reasoningEffort;
 
   return {
     ...config,
@@ -459,6 +480,33 @@ export const resolveArticleAnalysisConfig = (
     analysisGetDataSourceLimitMax:
       config.analysisGetDataSourceLimitMax ??
       articleAnalysisConfigDefaults.analysisGetDataSourceLimitMax,
+    // Reasoning effort: per-pass overrides fall back to the agent-wide default.
+    // All values remain undefined when the operator has not set reasoning effort
+    // (safe for non-reasoning models such as gpt-4o-mini).
+    ...(defaultEffort !== undefined
+      ? { extractionReasoningEffort: defaultEffort }
+      : {}),
+    ...(config.brainstormReasoningEffort !== undefined
+      ? { brainstormReasoningEffort: config.brainstormReasoningEffort }
+      : defaultEffort !== undefined
+        ? { brainstormReasoningEffort: defaultEffort }
+        : {}),
+    ...(config.relationCritiqueReasoningEffort !== undefined
+      ? {
+          relationCritiqueReasoningEffort:
+            config.relationCritiqueReasoningEffort,
+        }
+      : defaultEffort !== undefined
+        ? { relationCritiqueReasoningEffort: defaultEffort }
+        : {}),
+    ...(config.vocabularyRepairReasoningEffort !== undefined
+      ? {
+          vocabularyRepairReasoningEffort:
+            config.vocabularyRepairReasoningEffort,
+        }
+      : defaultEffort !== undefined
+        ? { vocabularyRepairReasoningEffort: defaultEffort }
+        : {}),
   };
 };
 

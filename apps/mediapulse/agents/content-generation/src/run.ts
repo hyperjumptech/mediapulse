@@ -574,6 +574,30 @@ export async function run({
     success: true,
     details: {
       promptHash,
+      ...(resolvedConfig.structuredReasoningEffort !== undefined ||
+      resolvedConfig.brainstormReasoningEffort !== undefined ||
+      resolvedConfig.critiqueReasoningEffort !== undefined ||
+      resolvedConfig.subjectLineReasoningEffort !== undefined
+        ? {
+            reasoningEffort: {
+              ...(resolvedConfig.structuredReasoningEffort !== undefined
+                ? { structured: resolvedConfig.structuredReasoningEffort }
+                : {}),
+              ...(resolvedConfig.brainstormReasoningEffort !== undefined
+                ? { brainstorm: resolvedConfig.brainstormReasoningEffort }
+                : {}),
+              ...(resolvedConfig.critiqueReasoningEffort !== undefined
+                ? { critique: resolvedConfig.critiqueReasoningEffort }
+                : {}),
+              ...(resolvedConfig.subjectLineReasoningEffort !== undefined
+                ? { subjectLine: resolvedConfig.subjectLineReasoningEffort }
+                : {}),
+            },
+          }
+        : {}),
+      ...(generated.structuredReasoningTokens !== undefined
+        ? { reasoningTokens: generated.structuredReasoningTokens }
+        : {}),
       brainstormUsed: generated.brainstormUsed,
       ...(generated.brainstormPromptTokens !== null
         ? { brainstormPromptTokens: generated.brainstormPromptTokens }
