@@ -300,6 +300,18 @@ describe("ContentGenerationConfigSchema", () => {
     expect(schemaStr).not.toContain('"openai"');
   });
 
+  it("JSON schema exposes credentials.reasoningEffort as a four-value enum for Hermes dropdown", () => {
+    const jsonSchema = zodToJsonSchema(ContentGenerationConfigSchema, {
+      $refStrategy: "none",
+    });
+    const schemaStr = JSON.stringify(jsonSchema);
+    expect(schemaStr).toContain("reasoningEffort");
+    expect(schemaStr).toContain('"minimal"');
+    expect(schemaStr).toContain('"low"');
+    expect(schemaStr).toContain('"medium"');
+    expect(schemaStr).toContain('"high"');
+  });
+
   it("parses reliability.llmRetry with all fields provided", () => {
     const parsed = ContentGenerationConfigSchema.parse({
       ...testCredentials,
@@ -508,5 +520,45 @@ describe("resolveContentGenerationConfig", () => {
 
     expect(resolved.critiqueModel).toBe("gpt-4o");
     expect(resolved.subjectLineModel).toBe("gpt-4o");
+  });
+
+  it("resolves all per-pass reasoningEffort to undefined when unset", () => {
+    const resolved = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({ ...testCredentials }),
+    );
+
+    expect(resolved.structuredReasoningEffort).toBeUndefined();
+    expect(resolved.brainstormReasoningEffort).toBeUndefined();
+    expect(resolved.critiqueReasoningEffort).toBeUndefined();
+    expect(resolved.subjectLineReasoningEffort).toBeUndefined();
+  });
+
+  it("resolves per-pass reasoningEffort to credentials default when no overrides", () => {
+    const resolved = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        credentials: { openaiApiKey: "sk-test", reasoningEffort: "high" },
+      }),
+    );
+
+    expect(resolved.structuredReasoningEffort).toBe("high");
+    expect(resolved.brainstormReasoningEffort).toBe("high");
+    expect(resolved.critiqueReasoningEffort).toBe("high");
+    expect(resolved.subjectLineReasoningEffort).toBe("high");
+  });
+
+  it("per-pass override wins over credentials default", () => {
+    const resolved = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        credentials: { openaiApiKey: "sk-test", reasoningEffort: "high" },
+        creativity: { brainstorm: { reasoningEffort: "low" } },
+        quality: { selfCritique: { reasoningEffort: "medium" } },
+        delivery: { subjectLine: { reasoningEffort: "low" } },
+      }),
+    );
+
+    expect(resolved.structuredReasoningEffort).toBe("high");
+    expect(resolved.brainstormReasoningEffort).toBe("low");
+    expect(resolved.critiqueReasoningEffort).toBe("medium");
+    expect(resolved.subjectLineReasoningEffort).toBe("low");
   });
 });

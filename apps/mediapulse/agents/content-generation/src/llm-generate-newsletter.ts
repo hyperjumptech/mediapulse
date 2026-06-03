@@ -2,6 +2,10 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject, generateText } from "ai";
 import type { z } from "zod";
 
+import {
+  buildOpenAiReasoningProviderOptions,
+  type OpenAiReasoningProviderOptions,
+} from "@workspace/agent-runtime";
 import { logger } from "@workspace/logger";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
@@ -124,6 +128,13 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   brainstormPromptTokens: number | null;
   /** Brainstorm-pass completion tokens. */
   brainstormCompletionTokens: number | null;
+  /**
+   * Reasoning tokens consumed by the structured pass.
+   * Present only when the model reports them (gpt-5/o-series with reasoning effort set).
+   * Reasoning tokens come out of the output budget, so a tight `credentials.maxTokens`
+   * can truncate the structured JSON when reasoning effort is enabled.
+   */
+  structuredReasoningTokens?: number;
   /** Per-bullet grounding reports (present when citation grounding is enabled). */
   citationGroundingReports?: BulletGroundingReport[];
   /** Rolled-up citation grounding counters for run details. */
@@ -180,6 +191,8 @@ export type GenerateNewsletterObjectArgs = {
   timeout?: number;
   /** Maximum tokens to generate (passed to `generateObject`). */
   maxTokens?: number;
+  /** Provider-specific options (e.g. `{ openai: { reasoningEffort } }`). Omit for non-reasoning models. */
+  providerOptions?: OpenAiReasoningProviderOptions;
 };
 
 /** Token usage extracted from a single `generateObject` response. */
@@ -187,6 +200,7 @@ export type GenerateNewsletterObjectUsage = {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  reasoningTokens?: number;
 };
 
 /** Result of a single `generateObject` call for newsletter generation. */
@@ -207,7 +221,11 @@ export type GenerateNewsletterObjectFn = (
 const defaultGenerateNewsletterObject: GenerateNewsletterObjectFn = async (
   args,
 ) => {
-  const result = await generateObject(args);
+  const { providerOptions, ...rest } = args;
+  const result = await generateObject({
+    ...rest,
+    ...(providerOptions !== undefined ? { providerOptions } : {}),
+  });
   // AI SDK v6 uses inputTokens/outputTokens (not promptTokens/completionTokens).
   // We map to the contract names (promptTokens/completionTokens/totalTokens) here
   // so the rest of the codebase speaks the contract vocabulary.
@@ -220,6 +238,10 @@ const defaultGenerateNewsletterObject: GenerateNewsletterObjectFn = async (
           result.usage.outputTokens !== undefined
             ? result.usage.inputTokens + result.usage.outputTokens
             : undefined,
+        // reasoningTokens is present on reasoning models (gpt-5/o-series).
+        ...(result.usage.reasoningTokens !== undefined
+          ? { reasoningTokens: result.usage.reasoningTokens }
+          : {}),
       }
     : undefined;
   return { object: result.object, usage };
@@ -235,6 +257,8 @@ export type GenerateTextForNewsletterBrainstormArgs = {
   maxRetries: number;
   /** Per-request timeout in milliseconds (passed to the AI SDK). */
   timeout?: number;
+  /** Provider-specific options (e.g. `{ openai: { reasoningEffort } }`). Omit for non-reasoning models. */
+  providerOptions?: OpenAiReasoningProviderOptions;
 };
 
 /** Token usage from a brainstorm `generateText` response. */
@@ -256,7 +280,11 @@ export type GenerateTextForNewsletterBrainstorm = (
 
 const defaultGenerateTextForNewsletterBrainstorm: GenerateTextForNewsletterBrainstorm =
   async (args) => {
-    const result = await generateText(args);
+    const { providerOptions, ...rest } = args;
+    const result = await generateText({
+      ...rest,
+      ...(providerOptions !== undefined ? { providerOptions } : {}),
+    });
     const usage =
       result.usage !== undefined
         ? {
@@ -447,6 +475,7 @@ export const fetchNewsletterBrainstorm = async (
     system: string;
     prompt: string;
     timeout?: number;
+    providerOptions?: OpenAiReasoningProviderOptions;
   },
   deps: {
     generateTextFn?: GenerateTextForNewsletterBrainstorm;
@@ -466,6 +495,9 @@ export const fetchNewsletterBrainstorm = async (
     maxOutputTokens: params.maxOutputTokens,
     maxRetries: 0,
     ...(params.timeout !== undefined ? { timeout: params.timeout } : {}),
+    ...(params.providerOptions !== undefined
+      ? { providerOptions: params.providerOptions }
+      : {}),
   });
 };
 
@@ -793,6 +825,9 @@ export async function generateNewsletterWithLlm(
 
     try {
       const brainstormStartedAt = nowFn();
+      const brainstormProviderOptions = buildOpenAiReasoningProviderOptions(
+        config.brainstormReasoningEffort,
+      );
       const brainstormResult = await fetchNewsletterBrainstorm(
         {
           apiKey: config.credentials.openaiApiKey,
@@ -804,6 +839,9 @@ export async function generateNewsletterWithLlm(
           system: brainstormSystemPrompt,
           prompt: brainstormUserPrompt,
           ...(timeout !== undefined ? { timeout } : {}),
+          ...(brainstormProviderOptions !== undefined
+            ? { providerOptions: brainstormProviderOptions }
+            : {}),
         },
         { generateTextFn: deps.generateTextFn },
       );
@@ -916,6 +954,25 @@ export async function generateNewsletterWithLlm(
       ? Math.max(1, timeout - (nowFn() - generationStartedAt))
       : timeout;
 
+  // Reasoning tokens are consumed from the output budget. When using a
+  // reasoning model, ensure credentials.maxTokens is large enough to
+  // accommodate both reasoning tokens and the structured JSON output.
+  // See the config reference for recommended pairings.
+  const structuredProviderOptions = buildOpenAiReasoningProviderOptions(
+    config.structuredReasoningEffort,
+  );
+
+  logger.info(
+    {
+      tickerId: context.tickerId,
+      structuredReasoningEffort: config.structuredReasoningEffort,
+      brainstormReasoningEffort: config.brainstormReasoningEffort,
+      critiqueReasoningEffort: config.critiqueReasoningEffort,
+      subjectLineReasoningEffort: config.subjectLineReasoningEffort,
+    },
+    "LLM passes: effective reasoning effort per pass",
+  );
+
   const result = await retryWithBackoff(
     async () => {
       return generateFn({
@@ -928,6 +985,9 @@ export async function generateNewsletterWithLlm(
           ? { timeout: structuredTimeout }
           : {}),
         ...(maxTokens !== undefined ? { maxTokens } : {}),
+        ...(structuredProviderOptions !== undefined
+          ? { providerOptions: structuredProviderOptions }
+          : {}),
       });
     },
     config.reliability.llmRetry,
@@ -1054,6 +1114,10 @@ export async function generateNewsletterWithLlm(
             candidates.length * CRITIQUE_TOKENS_PER_CANDIDATE,
         );
 
+        const critiqueProviderOptions = buildOpenAiReasoningProviderOptions(
+          config.critiqueReasoningEffort,
+        );
+
         try {
           const critiqueResult = await critiqueNewsletter(
             {
@@ -1067,6 +1131,9 @@ export async function generateNewsletterWithLlm(
               prompt: critiquePrompt,
               ...(critiqueTimeout !== undefined
                 ? { timeout: critiqueTimeout }
+                : {}),
+              ...(critiqueProviderOptions !== undefined
+                ? { providerOptions: critiqueProviderOptions }
                 : {}),
             },
             { generateObjectFn: deps.critiqueGenerateObjectFn },
@@ -1275,6 +1342,10 @@ export async function generateNewsletterWithLlm(
           ? Math.max(1, timeout - (nowFn() - generationStartedAt))
           : undefined;
 
+      const subjectProviderOptions = buildOpenAiReasoningProviderOptions(
+        config.subjectLineReasoningEffort,
+      );
+
       const subjectResult = await fetchSubjectCandidates(
         {
           apiKey: config.credentials.openaiApiKey,
@@ -1286,6 +1357,9 @@ export async function generateNewsletterWithLlm(
           system: subjectSystem,
           prompt: subjectPrompt,
           ...(subjectTimeout !== undefined ? { timeout: subjectTimeout } : {}),
+          ...(subjectProviderOptions !== undefined
+            ? { providerOptions: subjectProviderOptions }
+            : {}),
         },
         { generateObjectFn: deps.subjectGenerateObjectFn },
       );
@@ -1443,6 +1517,9 @@ export async function generateNewsletterWithLlm(
     brainstormUsed,
     brainstormPromptTokens,
     brainstormCompletionTokens,
+    ...(usage?.reasoningTokens !== undefined
+      ? { structuredReasoningTokens: usage.reasoningTokens }
+      : {}),
     ...(citationGroundingReports !== undefined
       ? { citationGroundingReports }
       : {}),

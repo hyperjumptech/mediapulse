@@ -1,5 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
+import type { OpenAiReasoningProviderOptions } from "@workspace/agent-runtime";
 import { z } from "zod";
 
 import type { IndustryNewsletterStructure } from "../industry-newsletter-schema.js";
@@ -243,6 +244,8 @@ export type GenerateObjectForNewsletterCritiqueArgs = {
   maxOutputTokens: number;
   maxRetries: number;
   timeout?: number;
+  /** Provider-specific options (e.g. `{ openai: { reasoningEffort } }`). Omit for non-reasoning models. */
+  providerOptions?: OpenAiReasoningProviderOptions;
 };
 
 /** Injectable wrapper around critique `generateObject` for tests. */
@@ -263,6 +266,9 @@ const defaultGenerateObjectForNewsletterCritique: GenerateObjectForNewsletterCri
       maxRetries: args.maxRetries,
       maxOutputTokens: args.maxOutputTokens,
       ...(args.timeout !== undefined ? { timeout: args.timeout } : {}),
+      ...(args.providerOptions !== undefined
+        ? { providerOptions: args.providerOptions }
+        : {}),
     });
     const usage = result.usage
       ? {
@@ -288,6 +294,7 @@ export const critiqueNewsletter = async (
     system: string;
     prompt: string;
     timeout?: number;
+    providerOptions?: OpenAiReasoningProviderOptions;
   },
   deps: {
     generateObjectFn?: GenerateObjectForNewsletterCritique;
@@ -311,6 +318,9 @@ export const critiqueNewsletter = async (
     maxOutputTokens: params.maxOutputTokens,
     maxRetries: 0,
     ...(params.timeout !== undefined ? { timeout: params.timeout } : {}),
+    ...(params.providerOptions !== undefined
+      ? { providerOptions: params.providerOptions }
+      : {}),
   });
 
   return {

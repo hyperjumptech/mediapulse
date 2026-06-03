@@ -1,6 +1,11 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject, generateText } from "ai";
 import type { ModelMessage } from "ai";
+import { buildOpenAiReasoningProviderOptions } from "@workspace/agent-runtime";
+import type {
+  OpenAiReasoningEffort,
+  OpenAiReasoningProviderOptions,
+} from "@workspace/agent-runtime";
 import {
   QUERY_ANALYSIS_STANDARD_INTENTS,
   queryAnalysisIntentSchema,
@@ -381,12 +386,21 @@ export const buildStructuredQueryMessages = (options: {
 
 export type LlmQuerySampling = {
   seed?: number;
+  reasoningEffort?: OpenAiReasoningEffort;
 };
 
-/** Returns optional seed fields for AI SDK calls when configured. */
-const llmSamplingOptions = (sampling: LlmQuerySampling): { seed?: number } => ({
-  ...(sampling.seed !== undefined ? { seed: sampling.seed } : {}),
-});
+/** Returns seed and providerOptions fields for AI SDK calls when configured. */
+const llmSamplingOptions = (
+  sampling: LlmQuerySampling,
+): { seed?: number; providerOptions?: OpenAiReasoningProviderOptions } => {
+  const providerOptions = buildOpenAiReasoningProviderOptions(
+    sampling.reasoningEffort,
+  );
+  return {
+    ...(sampling.seed !== undefined ? { seed: sampling.seed } : {}),
+    ...(providerOptions !== undefined ? { providerOptions } : {}),
+  };
+};
 
 export type GenerateObjectForWildcards = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
@@ -394,6 +408,7 @@ export type GenerateObjectForWildcards = (args: {
   maxOutputTokens: number;
   messages: ModelMessage[];
   seed?: number;
+  providerOptions?: OpenAiReasoningProviderOptions;
 }) => Promise<{ object: z.infer<typeof llmWildcardOutputSchema> }>;
 
 export type GenerateObjectForQueries = (args: {
@@ -402,6 +417,7 @@ export type GenerateObjectForQueries = (args: {
   maxOutputTokens: number;
   messages: ModelMessage[];
   seed?: number;
+  providerOptions?: OpenAiReasoningProviderOptions;
 }) => Promise<{ object: z.infer<typeof llmQueriesOutputSchema> }>;
 
 export type GenerateObjectForCritique = (args: {
@@ -410,6 +426,7 @@ export type GenerateObjectForCritique = (args: {
   maxOutputTokens: number;
   messages: ModelMessage[];
   seed?: number;
+  providerOptions?: OpenAiReasoningProviderOptions;
 }) => Promise<{ object: z.infer<typeof llmCritiqueOutputSchema> }>;
 
 export type GenerateTextForBrainstorm = (args: {
@@ -417,6 +434,7 @@ export type GenerateTextForBrainstorm = (args: {
   messages: ModelMessage[];
   maxOutputTokens: number;
   seed?: number;
+  providerOptions?: OpenAiReasoningProviderOptions;
 }) => Promise<{ text: string }>;
 
 /**
@@ -433,6 +451,8 @@ export const fetchBrainstormBullets = async (
     strategy: LlmQueryStrategyPrompt;
     context: GetQueryAnalysisResponse;
     sampling: LlmQuerySampling;
+    /** Overrides `sampling.reasoningEffort` for the brainstorm pass only. */
+    brainstormReasoningEffort?: OpenAiReasoningEffort;
   },
   deps: { generateTextForBrainstorm: GenerateTextForBrainstorm } = {
     generateTextForBrainstorm: generateText,
@@ -443,6 +463,13 @@ export const fetchBrainstormBullets = async (
     params.strategy,
     params.context,
   );
+  const effectiveBrainstormSampling: LlmQuerySampling =
+    params.brainstormReasoningEffort !== undefined
+      ? {
+          ...params.sampling,
+          reasoningEffort: params.brainstormReasoningEffort,
+        }
+      : params.sampling;
   const { text } = await deps.generateTextForBrainstorm({
     model: openai(params.model),
     messages: [
@@ -450,7 +477,7 @@ export const fetchBrainstormBullets = async (
       { role: "user", content: user },
     ],
     maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
-    ...llmSamplingOptions(params.sampling),
+    ...llmSamplingOptions(effectiveBrainstormSampling),
   });
   return parseBrainstormBullets(text);
 };
@@ -600,6 +627,8 @@ export type FetchQueryAnalysisLlmCandidatesParams = {
   sampling: LlmQuerySampling;
   useBrainstormPass: boolean;
   fewShotExemplarCount: number;
+  /** Overrides `sampling.reasoningEffort` for the brainstorm pass only. */
+  brainstormReasoningEffort?: OpenAiReasoningEffort;
 };
 
 /**
@@ -627,6 +656,9 @@ export const fetchQueryAnalysisLlmCandidates = async (
       strategy: params.strategy,
       context: params.context,
       sampling: params.sampling,
+      ...(params.brainstormReasoningEffort !== undefined
+        ? { brainstormReasoningEffort: params.brainstormReasoningEffort }
+        : {}),
     });
   }
 

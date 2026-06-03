@@ -1,5 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
+import type { OpenAiReasoningProviderOptions } from "@workspace/agent-runtime";
 import { z } from "zod";
 
 import {
@@ -409,6 +410,8 @@ export type GenerateObjectForSubjectCandidatesArgs = {
   prompt: string;
   maxRetries: number;
   timeout?: number;
+  /** Provider-specific options (e.g. `{ openai: { reasoningEffort } }`). Omit for non-reasoning models. */
+  providerOptions?: OpenAiReasoningProviderOptions;
 };
 
 /** Injectable wrapper around subject-candidate `generateObject` for tests. */
@@ -428,6 +431,9 @@ const defaultGenerateObjectForSubjectCandidates: GenerateObjectForSubjectCandida
       prompt: args.prompt,
       maxRetries: args.maxRetries,
       ...(args.timeout !== undefined ? { timeout: args.timeout } : {}),
+      ...(args.providerOptions !== undefined
+        ? { providerOptions: args.providerOptions }
+        : {}),
     });
     const usage = result.usage
       ? {
@@ -453,6 +459,7 @@ export const fetchSubjectCandidates = async (
     system: string;
     prompt: string;
     timeout?: number;
+    providerOptions?: OpenAiReasoningProviderOptions;
   },
   deps: {
     generateObjectFn?: GenerateObjectForSubjectCandidates;
@@ -475,6 +482,9 @@ export const fetchSubjectCandidates = async (
     prompt: params.prompt,
     maxRetries: 0,
     ...(params.timeout !== undefined ? { timeout: params.timeout } : {}),
+    ...(params.providerOptions !== undefined
+      ? { providerOptions: params.providerOptions }
+      : {}),
   });
 
   return {
