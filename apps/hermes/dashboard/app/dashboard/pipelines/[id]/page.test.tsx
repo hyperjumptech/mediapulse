@@ -37,7 +37,8 @@ vi.mock("@/lib/agent-configs", () => ({
     getAgentConfigsByAgentKeysMock(...args),
 }));
 vi.mock("@/lib/agent-contracts", () => ({
-  getAllAgentContracts: (...args: unknown[]) => getAllAgentContractsMock(...args),
+  getAllAgentContracts: (...args: unknown[]) =>
+    getAllAgentContractsMock(...args),
 }));
 vi.mock("@/lib/pipeline-executions", () => ({
   getPipelineExecutionsPage: (...args: unknown[]) =>
