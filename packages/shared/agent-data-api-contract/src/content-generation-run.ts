@@ -34,6 +34,8 @@ export const postContentGenerationRunBodySchema = z.object({
   pipelineRunId: z.string().nullable().optional(),
   executionId: z.string().nullable().optional(),
   newsletterId: z.string().uuid().nullable().optional(),
+  /** Arbitrary JSON snapshot attached on the success path (e.g. `sectionFill`). */
+  details: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export const postContentGenerationRunResponseSchema = z.object({
@@ -50,6 +52,7 @@ export const postContentGenerationRunResponseSchema = z.object({
   pipelineRunId: z.string().nullable().optional(),
   executionId: z.string().nullable().optional(),
   newsletterId: z.string().uuid().nullable().optional(),
+  details: z.record(z.string(), z.unknown()).nullable().optional(),
   createdAt: z.string().datetime(),
 });
 
@@ -94,6 +97,7 @@ export const contentGenerationRunListItemSchema = z.object({
   pipelineRunId: z.string().nullable().optional(),
   executionId: z.string().nullable().optional(),
   newsletterId: z.string().uuid().nullable().optional(),
+  details: z.record(z.string(), z.unknown()).nullable().optional(),
   createdAt: z.string().datetime(),
 });
 

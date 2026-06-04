@@ -48,6 +48,8 @@ type WriteDiagnosticParams = {
    * as `executionId` for per-request correlation. `null` when not available.
    */
   executionId?: string | null;
+  /** Observability snapshot to persist on the success path (e.g. sectionFill). */
+  details?: Record<string, unknown> | null;
 };
 
 /**
@@ -72,6 +74,7 @@ async function writeDiagnostic(params: WriteDiagnosticParams): Promise<void> {
     newsletterId = null,
     pipelineRunId = null,
     executionId = null,
+    details = null,
   } = params;
 
   const mapped = mapOutcomeToDiagnostic(agentOutcome);
@@ -94,6 +97,7 @@ async function writeDiagnostic(params: WriteDiagnosticParams): Promise<void> {
       pipelineRunId,
       executionId,
       newsletterId,
+      ...(details !== null ? { details } : {}),
     });
   } catch (diagErr) {
     logger.error(
@@ -563,6 +567,18 @@ export async function run({
     `${resolvedConfig.output.topNewsCount} topics`,
     "completed",
   );
+  const successDetails =
+    generated.sectionFillSnapshot !== undefined
+      ? {
+          sectionFill: {
+            bySection: generated.sectionFillSnapshot.bySection,
+            sectionsRemoved: generated.sectionFillSnapshot.sectionsRemoved,
+            ...(contract !== undefined
+              ? { contractVersion: contract.version }
+              : {}),
+          },
+        }
+      : null;
   await writeDiagnostic({
     dataApiClient,
     tickerId: input.tickerId,
@@ -571,6 +587,7 @@ export async function run({
     newsletterId: persistedNewsletterId,
     pipelineRunId,
     executionId,
+    details: successDetails,
   });
   return {
     success: true,
@@ -691,6 +708,17 @@ export async function run({
               bulletsRemovedDuplicate:
                 generated.requireCitationSummary.bulletsRemovedDuplicate,
               sectionsKept: generated.requireCitationSummary.sectionsKept,
+            },
+          }
+        : {}),
+      ...(generated.sectionFillSnapshot !== undefined
+        ? {
+            sectionFill: {
+              bySection: generated.sectionFillSnapshot.bySection,
+              sectionsRemoved: generated.sectionFillSnapshot.sectionsRemoved,
+              ...(contract !== undefined
+                ? { contractVersion: contract.version }
+                : {}),
             },
           }
         : {}),

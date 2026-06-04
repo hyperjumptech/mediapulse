@@ -87,6 +87,10 @@ import {
   postQueryAnalysisResponseSchema,
 } from "./query-analysis.js";
 import { getTickerQuerySchema, getTickerResponseSchema } from "./ticker.js";
+import {
+  getSectionCoverageRollupQuerySchema,
+  getSectionCoverageRollupResponseSchema,
+} from "./section-coverage-rollup.js";
 
 type AgentDataApiMethodSchema =
   | {
@@ -525,6 +529,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       get: {
         query: getUserRegistrationTickersQuerySchema,
         response: getUserRegistrationTickersResponseSchema,
+      },
+    },
+  },
+  sectionCoverageRollup: {
+    v1: {
+      get: {
+        query: getSectionCoverageRollupQuerySchema,
+        response: getSectionCoverageRollupResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getSectionCoverageRollupQuerySchema,
+        response: getSectionCoverageRollupResponseSchema,
       },
     },
   },

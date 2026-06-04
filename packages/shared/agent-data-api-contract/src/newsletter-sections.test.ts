@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { QUERY_ANALYSIS_INTENTS } from "./query-analysis.js";
 import {
+  classifyQueryToSection,
   NEWSLETTER_SECTION_IDS,
   SECTION_BY_INTENT,
   sectionsWithoutDedicatedIntent,
+  summarizeSectionCoverage,
 } from "./newsletter-sections.js";
 
 describe("SECTION_BY_INTENT", () => {
@@ -71,6 +73,102 @@ describe("SECTION_BY_INTENT", () => {
     ] as const;
     for (const intent of homelessIntents) {
       expect(SECTION_BY_INTENT[intent]).toBeNull();
+    }
+  });
+});
+
+describe("classifyQueryToSection", () => {
+  it("returns null for homeless intents", () => {
+    const homelessIntents = [
+      "breaking",
+      "kg_change",
+      "fundamental",
+      "sentiment",
+      "supply_chain",
+      "esg",
+      "macro",
+      "geopolitical",
+      "wildcard",
+    ] as const;
+    for (const intent of homelessIntents) {
+      expect(classifyQueryToSection(intent)).toBeNull();
+    }
+  });
+
+  it("returns the correct section id for mapped intents", () => {
+    expect(classifyQueryToSection("competitor")).toBe("competitiveLandscape");
+    expect(classifyQueryToSection("regulatory")).toBe("regulatoryPolicyWatch");
+    expect(classifyQueryToSection("technology_trend")).toBe("disruptorsOrTech");
+    expect(classifyQueryToSection("technical")).toBe("disruptorsOrTech");
+    expect(classifyQueryToSection("industry_trend")).toBe("industryPulse");
+  });
+
+  it("is consistent with SECTION_BY_INTENT", () => {
+    for (const [intent, expected] of Object.entries(SECTION_BY_INTENT)) {
+      expect(
+        classifyQueryToSection(intent as keyof typeof SECTION_BY_INTENT),
+      ).toBe(expected);
+    }
+  });
+});
+
+describe("summarizeSectionCoverage", () => {
+  it("returns an entry for every section id, including zero-coverage ones", () => {
+    const result = summarizeSectionCoverage(["breaking", "sentiment", "macro"]);
+    for (const sectionId of NEWSLETTER_SECTION_IDS) {
+      expect(result).toHaveProperty(sectionId);
+    }
+  });
+
+  it("zero-coverage sections have count 0 and share 0", () => {
+    const result = summarizeSectionCoverage(["competitor"]);
+
+    expect(result.dealsAndMovements.count).toBe(0);
+    expect(result.dealsAndMovements.share).toBe(0);
+    expect(result.quickHits.count).toBe(0);
+    expect(result.quickHits.share).toBe(0);
+  });
+
+  it("counts queries per mapped section correctly", () => {
+    const result = summarizeSectionCoverage([
+      "competitor",
+      "competitor",
+      "regulatory",
+      "industry_trend",
+    ]);
+
+    expect(result.competitiveLandscape.count).toBe(2);
+    expect(result.regulatoryPolicyWatch.count).toBe(1);
+    expect(result.industryPulse.count).toBe(1);
+    expect(result.dealsAndMovements.count).toBe(0);
+  });
+
+  it("shares sum to 1.0 over sections with positive count when all intents are classified", () => {
+    const result = summarizeSectionCoverage([
+      "competitor",
+      "regulatory",
+      "industry_trend",
+      "technology_trend",
+    ]);
+    const totalShare = NEWSLETTER_SECTION_IDS.filter(
+      (id) => result[id].count > 0,
+    ).reduce((sum, id) => sum + result[id].share, 0);
+
+    expect(totalShare).toBeCloseTo(1.0);
+  });
+
+  it("homeless intents do not count toward any section's share denominator", () => {
+    const result = summarizeSectionCoverage(["competitor", "breaking"]);
+
+    expect(result.competitiveLandscape.count).toBe(1);
+    expect(result.competitiveLandscape.share).toBeCloseTo(1.0);
+  });
+
+  it("returns all zeros on empty input", () => {
+    const result = summarizeSectionCoverage([]);
+    for (const sectionId of NEWSLETTER_SECTION_IDS) {
+      expect(result[sectionId].count).toBe(0);
+      expect(result[sectionId].share).toBe(0);
     }
   });
 });

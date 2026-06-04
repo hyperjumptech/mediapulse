@@ -85,3 +85,56 @@ export const sectionsWithoutDedicatedIntent = (): NewsletterSectionId[] => {
   );
   return NEWSLETTER_SECTION_IDS.filter((sectionId) => !covered.has(sectionId));
 };
+
+/**
+ * Returns the newsletter section id that the given intent primarily feeds, or `null` when the
+ * intent has no dedicated section (homeless intents flow to `industryPulse` or `quickHits`
+ * at generation time).
+ *
+ * @param intent - A `QueryAnalysisIntent` value.
+ * @returns The mapped `NewsletterSectionId`, or `null`.
+ */
+export const classifyQueryToSection = (
+  intent: QueryAnalysisIntent,
+): NewsletterSectionId | null => SECTION_BY_INTENT[intent];
+
+/**
+ * Summarises how many of the given intents map to each newsletter section.
+ *
+ * Always returns an entry for every `NewsletterSectionId` — sections with no matching queries
+ * are present with `count: 0, share: 0`. `share` is the fraction of *classified* queries
+ * (intents that map to a non-null section) claimed by each section, so shares sum to 1.0 over
+ * sections with a positive count.
+ *
+ * @param intents - Array of `QueryAnalysisIntent` values (e.g. from a merged query set).
+ * @returns Per-section `{ count, share }` record.
+ */
+export const summarizeSectionCoverage = (
+  intents: QueryAnalysisIntent[],
+): Record<NewsletterSectionId, { count: number; share: number }> => {
+  const counts = Object.fromEntries(
+    NEWSLETTER_SECTION_IDS.map((id) => [id, 0]),
+  ) as Record<NewsletterSectionId, number>;
+
+  for (const intent of intents) {
+    const sectionId = SECTION_BY_INTENT[intent];
+    if (sectionId !== null) {
+      counts[sectionId] += 1;
+    }
+  }
+
+  const classifiedCount = (Object.values(counts) as number[]).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+
+  return Object.fromEntries(
+    NEWSLETTER_SECTION_IDS.map((id) => [
+      id,
+      {
+        count: counts[id],
+        share: classifiedCount > 0 ? counts[id] / classifiedCount : 0,
+      },
+    ]),
+  ) as Record<NewsletterSectionId, { count: number; share: number }>;
+};

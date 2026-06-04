@@ -3,6 +3,10 @@ import { generateObject, generateText } from "ai";
 import type { z } from "zod";
 
 import {
+  NEWSLETTER_SECTION_IDS,
+  type NewsletterSectionId,
+} from "@workspace/agent-data-api-contract";
+import {
   applyContractBrief,
   buildOpenAiReasoningProviderOptions,
   type OpenAiReasoningProviderOptions,
@@ -86,6 +90,52 @@ export type { SourceForGeneration };
 /** Self-critique JSON schema for the critic `generateObject` pass. */
 export { newsletterCritiqueSchema };
 
+/** Per-section bullet and removal counts from the final resolved newsletter. */
+export type SectionFillSnapshot = {
+  bySection: Record<NewsletterSectionId, { citedBullets: number }>;
+  sectionsRemoved: NewsletterSectionId[];
+};
+
+/**
+ * Counts cited bullets shipped per newsletter section from the final resolved structure.
+ * Prose sections (`industryPulse`, `disruptorsOrTech` when format=prose) count as 1 item each.
+ * Sections absent in the resolved structure contribute 0.
+ *
+ * @param resolved - Final resolved newsletter after all pruning passes.
+ * @returns Per-section bullet counts.
+ */
+export const computeNewsletterSectionFill = (
+  resolved: import("./industry-newsletter-urls.js").IndustryNewsletterResolved,
+): Record<NewsletterSectionId, { citedBullets: number }> => {
+  const disruptorsOrTechCount =
+    resolved.disruptorsOrTech === undefined
+      ? 0
+      : resolved.disruptorsOrTech.format === "bullets"
+        ? resolved.disruptorsOrTech.bullets.length
+        : 1;
+
+  return Object.fromEntries(
+    NEWSLETTER_SECTION_IDS.map((id) => {
+      let citedBullets: number;
+      if (id === "industryPulse") {
+        citedBullets = resolved.industryPulse !== undefined ? 1 : 0;
+      } else if (id === "competitiveLandscape") {
+        citedBullets = resolved.competitiveLandscape?.bullets.length ?? 0;
+      } else if (id === "dealsAndMovements") {
+        citedBullets = resolved.dealsAndMovements?.bullets.length ?? 0;
+      } else if (id === "regulatoryPolicyWatch") {
+        citedBullets = resolved.regulatoryPolicyWatch?.bullets.length ?? 0;
+      } else if (id === "disruptorsOrTech") {
+        citedBullets = disruptorsOrTechCount;
+      } else {
+        citedBullets = resolved.quickHits?.items.length ?? 0;
+      }
+
+      return [id, { citedBullets }];
+    }),
+  ) as Record<NewsletterSectionId, { citedBullets: number }>;
+};
+
 /** Structured newsletter content returned after a successful LLM call. */
 export interface GeneratedContent {
   /** Compelling email subject line (under ~60 chars). */
@@ -165,6 +215,8 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   requireCitationSummary?: PruneSummary;
   /** Competitive-focus gate counters when the pass ran and had competitors. */
   competitiveFocusSummary?: FocusSummary;
+  /** Per-section bullet counts and removed-section list from the final resolved newsletter. */
+  sectionFillSnapshot?: SectionFillSnapshot;
 }
 
 /**
@@ -1474,6 +1526,7 @@ export async function generateNewsletterWithLlm(
   );
 
   let requireCitationSummary: PruneSummary | undefined;
+  let prunedSectionsRemoved: NewsletterSectionId[] = [];
   const requireCitation = config.quality.requireCitation;
   if (requireCitation.enabled) {
     if (citationGrounding.enabled) {
@@ -1493,6 +1546,9 @@ export async function generateNewsletterWithLlm(
     });
     resolved = pruned.resolved;
     requireCitationSummary = pruned.summary;
+    prunedSectionsRemoved = pruned.reports
+      .filter((report) => report.sectionRemoved)
+      .map((report) => report.sectionKey as NewsletterSectionId);
 
     logger.info(
       {
@@ -1548,5 +1604,9 @@ export async function generateNewsletterWithLlm(
     ...(competitiveFocusSummary !== undefined
       ? { competitiveFocusSummary }
       : {}),
+    sectionFillSnapshot: {
+      bySection: computeNewsletterSectionFill(resolved),
+      sectionsRemoved: prunedSectionsRemoved,
+    },
   };
 }

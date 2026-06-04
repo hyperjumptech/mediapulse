@@ -2085,6 +2085,128 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Section fill snapshot
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — sectionFillSnapshot", () => {
+  it("sectionFillSnapshot.bySection has an entry for every section", async () => {
+    const generateObjectFn = makeSuccessfulGenerateFn();
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.sectionFillSnapshot).toBeDefined();
+    for (const sectionId of [
+      "industryPulse",
+      "competitiveLandscape",
+      "dealsAndMovements",
+      "regulatoryPolicyWatch",
+      "disruptorsOrTech",
+      "quickHits",
+    ]) {
+      expect(result.sectionFillSnapshot!.bySection).toHaveProperty(sectionId);
+    }
+  });
+
+  it("sectionFillSnapshot.sectionsRemoved is empty when requireCitation is disabled", async () => {
+    const generateObjectFn = makeSuccessfulGenerateFn();
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.sectionFillSnapshot!.sectionsRemoved).toEqual([]);
+  });
+
+  it("sectionFillSnapshot.sectionsRemoved lists sections pruned by require-citation", async () => {
+    const requireCitationConfig = resolveContentGenerationConfig(
+      ContentGenerationConfigSchema.parse({
+        ...conservativeTestConfigInput,
+        quality: {
+          ...conservativeTestConfigInput.quality,
+          requireCitation: { enabled: true },
+        },
+      }),
+    );
+
+    const generateObjectFn = makeSuccessfulGenerateFn({
+      industryPulse: {
+        displayHeading: "Pulse",
+        prose: "Market update.",
+        articleIndex: 1,
+      },
+      competitiveLandscape: {
+        displayHeading: "Competition",
+        bullets: [{ text: "Uncited A" }, { text: "Uncited B" }],
+      },
+      regulatoryPolicyWatch: {
+        displayHeading: "Regulatory",
+        bullets: [{ text: "Uncited regulatory" }],
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      requireCitationConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    const { sectionsRemoved, bySection } = result.sectionFillSnapshot!;
+    expect(sectionsRemoved).toContain("competitiveLandscape");
+    expect(sectionsRemoved).toContain("regulatoryPolicyWatch");
+    expect(bySection.competitiveLandscape.citedBullets).toBe(0);
+    expect(bySection.regulatoryPolicyWatch.citedBullets).toBe(0);
+  });
+
+  it("citedBullets counts bullets in each section of the final newsletter", async () => {
+    const generateObjectFn = makeSuccessfulGenerateFn({
+      competitiveLandscape: {
+        displayHeading: "Comp",
+        bullets: [
+          { text: "B1", articleIndex: 1 },
+          { text: "B2", articleIndex: 2 },
+          { text: "B3", articleIndex: 3 },
+        ],
+      },
+      quickHits: {
+        displayHeading: "Quick",
+        items: [
+          { text: "h1", articleIndex: 1 },
+          { text: "h2", articleIndex: 2 },
+          { text: "h3", articleIndex: 3 },
+          { text: "h4", articleIndex: 1 },
+          { text: "h5", articleIndex: 2 },
+          { text: "h6", articleIndex: 3 },
+        ],
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(
+      result.sectionFillSnapshot!.bySection.competitiveLandscape.citedBullets,
+    ).toBe(3);
+    expect(result.sectionFillSnapshot!.bySection.quickHits.citedBullets).toBe(
+      6,
+    );
+    expect(
+      result.sectionFillSnapshot!.bySection.industryPulse.citedBullets,
+    ).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Competitor-anchored prompt injection
 // ---------------------------------------------------------------------------
 
