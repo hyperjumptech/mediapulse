@@ -25,7 +25,10 @@ describe("getDueSchedules", () => {
           include: {
             steps: {
               orderBy: { order: "asc" },
-              include: { agentConfig: true },
+              include: {
+                agentConfig: true,
+                agentContract: { select: { brief: true, version: true } },
+              },
             },
           },
         },

@@ -121,6 +121,7 @@ export const createAddStepHandler = ({
         agentVersion,
         order: nextOrder,
         agentConfigId: agentConfigId ?? null,
+        agentContractId: null,
         input: inputObj as object,
         config: agentConfigId != null ? {} : ((config ?? {}) as object),
         createdById: userId,

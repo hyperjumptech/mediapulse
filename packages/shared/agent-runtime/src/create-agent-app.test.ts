@@ -395,6 +395,90 @@ describe("createAgentApp", () => {
     });
   });
 
+  it("populates context.contract when request body contains a valid contract", async () => {
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        input: validInput,
+        contract: { brief: "Daily industry newsletter.", version: "1.0" },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contract: { brief: "Daily industry newsletter.", version: "1.0" },
+      }),
+    );
+  });
+
+  it("leaves context.contract undefined when request body has no contract", async () => {
+    let capturedContext: unknown;
+    const run = vi.fn().mockImplementation((ctx) => {
+      capturedContext = ctx;
+      return Promise.resolve({ success: true } as AgentRunResult);
+    });
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify(validBody),
+    });
+
+    expect(
+      (capturedContext as { contract?: unknown }).contract,
+    ).toBeUndefined();
+  });
+
+  it("leaves context.contract undefined when contract in body is malformed", async () => {
+    let capturedContext: unknown;
+    const run = vi.fn().mockImplementation((ctx) => {
+      capturedContext = ctx;
+      return Promise.resolve({ success: true } as AgentRunResult);
+    });
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ input: validInput, contract: { notBrief: 42 } }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(
+      (capturedContext as { contract?: unknown }).contract,
+    ).toBeUndefined();
+  });
+
   it("returns 400 when config is omitted and configSchema has required fields", async () => {
     const requiredConfigSchema = z.object({ limit: z.number() });
     type RequiredConfig = z.infer<typeof requiredConfigSchema>;

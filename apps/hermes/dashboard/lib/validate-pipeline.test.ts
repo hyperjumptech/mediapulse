@@ -50,6 +50,7 @@ const createStep = (
   agentId: "agent-a",
   agentVersion: "1.0.0",
   agentConfigId: null,
+  agentContractId: null,
   input: {},
   config: {},
   ...overrides,

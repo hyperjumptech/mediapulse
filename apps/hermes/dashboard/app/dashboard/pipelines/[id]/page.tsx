@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getAgentConfigsByAgentKeys } from "@/lib/agent-configs";
+import { getAllAgentContracts } from "@/lib/agent-contracts";
 import { getPipelineExecutionsPage } from "@/lib/pipeline-executions";
 import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
 import {
@@ -54,16 +55,18 @@ const PipelineDetailPage = async ({
     }),
   ]);
 
-  const [configsByAgentKey, validation, executions] = await Promise.all([
-    getAgentConfigsByAgentKeys(
-      agents.map((a) => ({
-        agentId: a.agentId,
-        agentVersion: a.agentVersion,
-      })),
-    ),
-    validatePipeline(pipeline, orchestrationPrisma),
-    getPipelineExecutionsPage(id, page, pageSize),
-  ]);
+  const [configsByAgentKey, allContracts, validation, executions] =
+    await Promise.all([
+      getAgentConfigsByAgentKeys(
+        agents.map((a) => ({
+          agentId: a.agentId,
+          agentVersion: a.agentVersion,
+        })),
+      ),
+      getAllAgentContracts(),
+      validatePipeline(pipeline, orchestrationPrisma),
+      getPipelineExecutionsPage(id, page, pageSize),
+    ]);
 
   return (
     <PipelineDetailContent
@@ -71,6 +74,7 @@ const PipelineDetailPage = async ({
       agents={agents}
       domainIntegrations={domainIntegrations}
       configsByAgentKey={configsByAgentKey}
+      allContracts={allContracts}
       pipelineValidation={validation}
       executions={executions.executions}
       totalExecutions={executions.total}

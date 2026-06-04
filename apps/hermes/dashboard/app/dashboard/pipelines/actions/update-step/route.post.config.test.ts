@@ -115,6 +115,7 @@ describe("createUpdateStepHandler", () => {
         agentId: "ag1",
         agentVersion: "1",
         agentConfigId: null,
+        agentContractId: null,
         input: {},
         config: {},
       },

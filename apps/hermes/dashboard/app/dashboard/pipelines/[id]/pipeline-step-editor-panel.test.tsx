@@ -1,6 +1,8 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { AgentContractSummary } from "@/lib/agent-contracts";
+
 import { PipelineStepEditorPanel } from "./pipeline-step-editor-panel";
 
 const mockSetActiveTab = vi.fn();
@@ -83,6 +85,12 @@ const noopLoaders = {
   loadExpansionPickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 };
 
+const noopContractProps = {
+  allContracts: [] as AgentContractSummary[],
+  stepAgentContractId: "",
+  onStepAgentContractIdChange: () => {},
+};
+
 const selectedStep = {
   id: "step-1",
   order: 0,
@@ -103,6 +111,7 @@ describe("PipelineStepEditorPanel", () => {
         configsForAgent={[]}
         stepAgentConfigId=""
         onStepAgentConfigIdChange={() => {}}
+        {...noopContractProps}
         {...noopLoaders}
       />,
     );
@@ -123,6 +132,7 @@ describe("PipelineStepEditorPanel", () => {
         configsForAgent={[]}
         stepAgentConfigId=""
         onStepAgentConfigIdChange={() => {}}
+        {...noopContractProps}
         {...noopLoaders}
       />,
     );
@@ -160,6 +170,7 @@ describe("PipelineStepEditorPanel", () => {
         configsForAgent={configs}
         stepAgentConfigId=""
         onStepAgentConfigIdChange={onStepAgentConfigIdChange}
+        {...noopContractProps}
         {...noopLoaders}
       />,
     );

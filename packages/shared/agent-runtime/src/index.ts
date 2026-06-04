@@ -1,3 +1,4 @@
+export { applyContractBrief } from "./apply-contract-brief.js";
 export { createAgentApp } from "./create-agent-app.js";
 export { enrichConfigSchemaForHermesUi } from "./enrich-config-schema-for-hermes-ui.js";
 export {

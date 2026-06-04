@@ -17,6 +17,7 @@ export type PlannedInvocation = {
   endpointUrl: string;
   input: Record<string, unknown>;
   config: Record<string, unknown>;
+  contract?: { brief: string; version: string };
 };
 
 export type PlanPipelineInvocationsResult = {
@@ -32,6 +33,8 @@ type PipelineStepForPlanning = {
   config?: unknown;
   agentConfigId?: string | null;
   agentConfig?: { config: unknown } | null;
+  agentContractId?: string | null;
+  agentContract?: { brief: string; version: string } | null;
 };
 
 type PipelineForPlanning = {
@@ -243,6 +246,10 @@ export const planPipelineInvocations = async ({
       domainIntegrationId: pipeline.domainIntegrationId,
       orchDb: db,
     });
+    const stepContract =
+      step.agentContractId != null && step.agentContract != null
+        ? step.agentContract
+        : undefined;
     for (const inputSet of inputSets) {
       stepJobs.push({
         pipelineStepId: step.id,
@@ -251,6 +258,7 @@ export const planPipelineInvocations = async ({
         endpointUrl: endpointResult.data.url,
         input: inputSet as Record<string, unknown>,
         config: stepConfig,
+        ...(stepContract !== undefined ? { contract: stepContract } : {}),
       });
     }
     if (stepJobs.length > 0) {

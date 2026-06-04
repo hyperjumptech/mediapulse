@@ -21,7 +21,10 @@ export const getDueSchedules = async (db: GetDueSchedulesDb) => {
         include: {
           steps: {
             orderBy: { order: "asc" },
-            include: { agentConfig: true },
+            include: {
+              agentConfig: true,
+              agentContract: { select: { brief: true, version: true } },
+            },
           },
         },
       },

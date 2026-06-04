@@ -42,8 +42,8 @@ export type StepEditorPanelState = {
     configSchema: Record<string, unknown> | null;
   };
   schemaLoading: boolean;
-  activeTab: "input" | "config";
-  setActiveTab: (tab: "input" | "config") => void;
+  activeTab: "input" | "config" | "contract";
+  setActiveTab: (tab: "input" | "config" | "contract") => void;
 };
 
 /**
@@ -67,7 +67,9 @@ export const useStepEditorPanelState = (
     configSchema: Record<string, unknown> | null;
   }>({ inputSchema: null, configSchema: null });
   const [schemaLoading, setSchemaLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"input" | "config">("input");
+  const [activeTab, setActiveTab] = useState<"input" | "config" | "contract">(
+    "input",
+  );
   const [lastStepId, setLastStepId] = useState<string | null>(null);
 
   useEffect(() => {
