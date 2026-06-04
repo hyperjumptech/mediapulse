@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
 import { reasoningEffortSchema } from "@workspace/agent-runtime";
+import { NEWSLETTER_SECTION_IDS } from "@workspace/agent-data-api-contract";
+import type { NewsletterSectionId } from "@workspace/agent-data-api-contract";
 
 /** Maximum length for each optional `prompts.*` string (Hermes JSON config). */
 export const CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH = 50_000;
@@ -354,14 +356,9 @@ const crossRunDedupSchema = z
   .default({})
   .describe("Cross-run semantic dedup against recent newsletter bullets.");
 
-const requireCitationSectionEnum = z.enum([
-  "industryPulse",
-  "competitiveLandscape",
-  "dealsAndMovements",
-  "regulatoryPolicyWatch",
-  "disruptorsOrTech",
-  "quickHits",
-]);
+const requireCitationSectionEnum = z.enum(
+  NEWSLETTER_SECTION_IDS as [NewsletterSectionId, ...NewsletterSectionId[]],
+);
 
 const requireCitationSchema = z
   .object({

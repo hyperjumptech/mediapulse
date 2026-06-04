@@ -154,9 +154,18 @@ const promptingSchema = z
       .describe(
         "Number of curated few-shot exemplars to inject. Set 0 to disable exemplars.",
       ),
+    queryMaxWords: z
+      .number()
+      .int()
+      .min(1)
+      .max(10)
+      .default(2)
+      .describe(
+        "Target maximum words per generated keyword phrase. Default 2 produces short, punchy queries. Set to 5 for the classic '2–5 word' range.",
+      ),
   })
   .default({})
-  .describe("Persona fan-out and few-shot prompting.");
+  .describe("Persona fan-out, few-shot prompting, and phrase length.");
 
 const creativitySchema = z
   .object({

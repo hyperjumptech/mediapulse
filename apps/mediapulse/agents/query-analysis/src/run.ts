@@ -364,6 +364,7 @@ type LanguageSliceSharedConfig = {
   useBrainstormPass: boolean;
   brainstormModel: string;
   fewShotExemplarCount: number;
+  queryMaxWords: number;
   useSelfCritique: boolean;
   critiqueDropFraction: number;
   critiqueModel: string;
@@ -427,6 +428,7 @@ export const runLanguageQuerySlice = async (params: {
     language,
     minDeterministicCount: params.minDeterministicCount,
     intentWeights: shared.intentWeights,
+    queryMaxWords: shared.queryMaxWords,
   };
 
   const systemContent = buildQueryAnalysisSystemContent(strategyPrompt);
@@ -712,6 +714,7 @@ export const runQueryAnalysis = async (
   const { seed } = sampling;
   const useBrainstormPass = creativity.useBrainstormPass;
   const fewShotExemplarCount = prompting.fewShotExemplarCount;
+  const queryMaxWords = prompting.queryMaxWords;
   const brainstormModel = creativity.brainstormModel ?? openaiModel;
   const useSelfCritique = quality.useSelfCritique;
   const critiqueDropFraction = quality.critiqueDropFraction;
@@ -775,6 +778,7 @@ export const runQueryAnalysis = async (
       language: primaryLanguage,
       minDeterministicCount,
       intentWeights,
+      queryMaxWords,
     }),
     buildQueryAnalysisUserContent(queryContext, primaryLanguage),
   );
@@ -789,6 +793,7 @@ export const runQueryAnalysis = async (
     useBrainstormPass,
     brainstormModel,
     fewShotExemplarCount,
+    queryMaxWords,
     useSelfCritique,
     critiqueDropFraction,
     critiqueModel,
@@ -908,6 +913,7 @@ export const runQueryAnalysis = async (
         context: queryContext,
         allowedLanguages: wildcardLanguages,
         sampling: llmSampling,
+        queryMaxWords,
       });
     } catch (error) {
       logger.warn(
@@ -932,6 +938,7 @@ export const runQueryAnalysis = async (
                   allowedLanguages: wildcardLanguages,
                   sampling: llmSampling,
                   avoidTexts,
+                  queryMaxWords,
                 });
               } catch (error) {
                 logger.warn(

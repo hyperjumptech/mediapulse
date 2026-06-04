@@ -202,3 +202,10 @@ export {
   type GetTickerResponse,
 } from "./ticker.js";
 export * from "./user-registration.js";
+export {
+  MEDIAPULSE_NEWSLETTER_SECTIONS,
+  NEWSLETTER_SECTION_IDS,
+  SECTION_BY_INTENT,
+  sectionsWithoutDedicatedIntent,
+  type NewsletterSectionId,
+} from "./newsletter-sections.js";
