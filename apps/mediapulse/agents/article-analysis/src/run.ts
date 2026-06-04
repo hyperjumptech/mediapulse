@@ -700,7 +700,10 @@ export const run = async ({
     const batch = applyMaxBatchSizeCap(sorted, effectiveMaxBatchSize);
     articlesProcessedForSummary = batch.length;
 
-    report("Loaded article batch", `${batch.length} sources`);
+    report(
+      `Loaded article batch for ${input.tickerId}`,
+      `${batch.length} sources\n${batch.map((s) => s.url).join("\n")}`,
+    );
 
     if (batch.length === 0) {
       const yieldSnapshot = emitRunSummaryAndYield({
@@ -1396,9 +1399,10 @@ export const run = async ({
     let relevancePostChunksCompleted = 0;
 
     if (!erPhaseFailed && perSourceSignals.length > 0) {
+      const urlByDataSourceId = new Map(batch.map((s) => [s.id, s.url]));
       report(
-        "Scoring and posting article relevance",
-        `${perSourceSignals.length} sources`,
+        `Scoring and posting article relevance for ${input.tickerId}`,
+        `${perSourceSignals.length} sources\n${perSourceSignals.map((s) => urlByDataSourceId.get(s.dataSourceId) ?? s.dataSourceId).join("\n")}`,
       );
       const weightMap = toRelevanceWeightMapV1(cfg);
       const relevanceDrafts = perSourceSignals.map((sig) =>
