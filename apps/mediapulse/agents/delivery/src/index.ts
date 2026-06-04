@@ -20,9 +20,12 @@ import {
   deliverNewsletterToSubscribers,
   type RecipientSendResult,
 } from "./deliver-newsletter.js";
+import { resolveDeliveryRecipients } from "./resolve-delivery-recipients.js";
 
 const BodySchema = z.object({
   tickerId: hermesTickerIdSchema,
+  /** When set, send only to these addresses (manual/test); skips delivery checkpoints. */
+  emails: z.array(z.string().email()).optional(),
 });
 
 type Input = z.infer<typeof BodySchema>;
@@ -149,12 +152,20 @@ const app = createAgentApp<
         const deliveryData = await dataApiClient.delivery.get({
           tickerId: input.tickerId,
         });
+        const { subscribers, isTestEmailOverride } = resolveDeliveryRecipients(
+          input,
+          deliveryData,
+        );
+        const deliveredUserTickerIds = isTestEmailOverride
+          ? []
+          : deliveryData.deliveredUserTickerIds;
         const fetchMs = Date.now() - fetchStarted;
         const subscriberCount = deliveryData.subscribers.length;
         const checkpointCount = deliveryData.deliveredUserTickerIds.length;
+        const recipientCount = subscribers.length;
         const pendingRecipients = pendingRecipientCount(
-          deliveryData.subscribers,
-          deliveryData.deliveredUserTickerIds,
+          subscribers,
+          deliveredUserTickerIds,
         );
         logger.info(
           {
@@ -167,13 +178,21 @@ const app = createAgentApp<
             subscriberCount,
             checkpointCount,
             pendingRecipientCount: pendingRecipients,
+            ...(isTestEmailOverride
+              ? {
+                  testEmailOverride: true,
+                  testRecipientCount: recipientCount,
+                }
+              : {}),
           },
           "delivery data-api fetch summary",
         );
 
         report(
           "Ready to deliver",
-          `${pendingRecipients} of ${subscriberCount} pending`,
+          isTestEmailOverride
+            ? `${pendingRecipients} test recipient(s)`
+            : `${pendingRecipients} of ${subscriberCount} pending`,
         );
 
         if (!deliveryData.newsletter) {
@@ -214,14 +233,21 @@ const app = createAgentApp<
 
         newsletterId = deliveryData.newsletter.id;
 
-        if (deliveryData.subscribers.length === 0) {
+        if (subscribers.length === 0) {
+          const runSkipReason = isTestEmailOverride
+            ? "skipped_no_test_recipients"
+            : "skipped_no_subscribers";
+          const skipMessage = isTestEmailOverride
+            ? "Skipped: no test recipient emails"
+            : "Skipped: no subscribers with email";
           runOutcome = "skipped";
           logger.info(
             {
               tickerId: input.tickerId,
               runId,
               newsletterId,
-              runSkipReason: "skipped_no_subscribers",
+              runSkipReason,
+              ...(isTestEmailOverride ? { testEmailOverride: true } : {}),
             },
             "delivery run skipped",
           );
@@ -239,14 +265,16 @@ const app = createAgentApp<
             durationMs: Date.now() - startedAt,
             ...hx,
             resendMessageIds: [],
-            recipientErrorSummary: "no_subscribers",
-            runSkipReason: "skipped_no_subscribers",
+            recipientErrorSummary: isTestEmailOverride
+              ? "no_test_recipients"
+              : "no_subscribers",
+            runSkipReason,
             recipients: [],
           });
-          report("Delivery skipped", "no subscribers with email", "completed");
+          report("Delivery skipped", skipMessage, "completed");
           return {
             success: true,
-            message: "Skipped: no subscribers with email",
+            message: skipMessage,
             details: { outcome: "skipped", runId },
           };
         }
@@ -258,8 +286,8 @@ const app = createAgentApp<
         report("Sending emails", `${pendingRecipients} recipients via Resend`);
         const sendResult = await deliverNewsletterToSubscribers(
           deliveryData.newsletter,
-          deliveryData.subscribers,
-          deliveryData.deliveredUserTickerIds,
+          subscribers,
+          deliveredUserTickerIds,
           config,
           { resend, logger },
         );
@@ -271,15 +299,17 @@ const app = createAgentApp<
         errorSummary = firstFail?.lastErrorMessage ?? null;
 
         stage = "persist_delivery_record";
-        for (const row of recipientRows) {
-          if (row.status === "success") {
-            await dataApiClient.delivery.create({
-              userTickerId: row.userTickerId,
-              newsletterId: deliveryData.newsletter.id,
-              ...(row.resendEmailId !== undefined
-                ? { resendEmailId: row.resendEmailId }
-                : {}),
-            });
+        if (!isTestEmailOverride) {
+          for (const row of recipientRows) {
+            if (row.status === "success") {
+              await dataApiClient.delivery.create({
+                userTickerId: row.userTickerId,
+                newsletterId: deliveryData.newsletter.id,
+                ...(row.resendEmailId !== undefined
+                  ? { resendEmailId: row.resendEmailId }
+                  : {}),
+              });
+            }
           }
         }
 
@@ -328,6 +358,7 @@ const app = createAgentApp<
             successCount,
             failureCount,
             skippedCount,
+            ...(isTestEmailOverride ? { testEmailOverride: true } : {}),
           },
           "delivery run outcome",
         );

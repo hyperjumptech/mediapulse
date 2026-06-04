@@ -1,6 +1,8 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { syntheticTestRecipientUserTickerId } from "./resolve-delivery-recipients.js";
+
 const {
   hoistedLogger,
   mockDeliverNewsletter,
@@ -44,6 +46,7 @@ const NON_UUID_TICKER_ID = "tid-non-uuid-1";
 const EXPANSION_TICKER_ID = "db:ticker:id?take=100";
 const NL_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const UT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const UT_ID_B = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 
 /** Minimal valid Hermes step config (Resend is config-only, not env). */
@@ -316,6 +319,144 @@ describe("delivery-agent", () => {
       }),
       "delivery run outcome",
     );
+  });
+
+  it("sends to test emails when override is set and DB has no subscribers", async () => {
+    deliveryGetMock.mockResolvedValue({
+      newsletter: {
+        id: NL_ID,
+        subject: "News",
+        content: "Body",
+        symbol: "AAPL",
+      },
+      subscribers: [],
+      deliveredUserTickerIds: [],
+    });
+    mockDeliverNewsletter.mockResolvedValue({
+      results: [
+        {
+          userTickerId: syntheticTestRecipientUserTickerId("test@example.com"),
+          status: "success",
+          attempts: 1,
+          resendEmailId: "re_test",
+        },
+      ],
+      resendMessageIds: ["re_test"],
+    });
+
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: TICKER_ID, emails: ["test@example.com"] },
+        config: DELIVERY_CONFIG,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockDeliverNewsletter).toHaveBeenCalledWith(
+      expect.objectContaining({ id: NL_ID }),
+      [
+        {
+          userTickerId: syntheticTestRecipientUserTickerId("test@example.com"),
+          email: "test@example.com",
+        },
+      ],
+      [],
+      expect.anything(),
+      expect.objectContaining({ resend: expect.anything() }),
+    );
+    expect(deliveryCreateMock).not.toHaveBeenCalled();
+    expect(deliveryRunCreateMock).toHaveBeenCalled();
+    expect(hoistedLogger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        testEmailOverride: true,
+        testRecipientCount: 1,
+      }),
+      "delivery data-api fetch summary",
+    );
+  });
+
+  it("sends only to listed emails when override filters DB subscribers", async () => {
+    deliveryGetMock.mockResolvedValue({
+      newsletter: {
+        id: NL_ID,
+        subject: "News",
+        content: "Body",
+        symbol: "AAPL",
+      },
+      subscribers: [
+        { userTickerId: UT_ID, email: "u@example.com" },
+        { userTickerId: UT_ID_B, email: "other@example.com" },
+      ],
+      deliveredUserTickerIds: [],
+    });
+    mockDeliverNewsletter.mockResolvedValue({
+      results: [{ userTickerId: UT_ID, status: "success", attempts: 1 }],
+      resendMessageIds: [],
+    });
+
+    await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: TICKER_ID, emails: ["u@example.com"] },
+        config: DELIVERY_CONFIG,
+      }),
+    });
+
+    expect(mockDeliverNewsletter).toHaveBeenCalledWith(
+      expect.anything(),
+      [{ userTickerId: UT_ID, email: "u@example.com" }],
+      [],
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(deliveryCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("skips when test email override array is empty", async () => {
+    deliveryGetMock.mockResolvedValue({
+      newsletter: {
+        id: NL_ID,
+        subject: "News",
+        content: "Body",
+        symbol: "AAPL",
+      },
+      subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
+      deliveredUserTickerIds: [],
+    });
+
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: TICKER_ID, emails: [] },
+        config: DELIVERY_CONFIG,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockDeliverNewsletter).not.toHaveBeenCalled();
+    expect(deliveryRunCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runSkipReason: "skipped_no_test_recipients",
+      }),
+    );
+  });
+
+  it("returns 400 when test emails contain an invalid address", async () => {
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: TICKER_ID, emails: ["not-an-email"] },
+        config: DELIVERY_CONFIG,
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(deliveryGetMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when tickerId is only whitespace", async () => {
