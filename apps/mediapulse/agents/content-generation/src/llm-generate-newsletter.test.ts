@@ -2281,3 +2281,58 @@ describe("generateNewsletterWithLlm — reasoning effort", () => {
     });
   });
 });
+
+describe("generateNewsletterWithLlm — contract brief", () => {
+  it("system prompt does not contain product_contract block when brief is absent (reversibility guarantee)", async () => {
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+
+    expect(result.systemPrompt).not.toContain("<product_contract>");
+  });
+
+  it("system prompt contains product_contract block when brief is present", async () => {
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      { ...testContext, brief: "Daily newsletter for executives." },
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.systemPrompt).toContain("<product_contract>");
+    expect(result.systemPrompt).toContain("Daily newsletter for executives.");
+  });
+
+  it("returned systemPrompt differs when brief is present so computePromptHash sees the full prompt", async () => {
+    const generateObjectFn = makeSuccessfulGenerateFn();
+
+    const withoutBrief = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
+    const withBrief = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      { ...testContext, brief: "Some brief." },
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(withBrief.systemPrompt).toContain("<product_contract>");
+    expect(withBrief.systemPrompt).not.toBe(withoutBrief.systemPrompt);
+  });
+});

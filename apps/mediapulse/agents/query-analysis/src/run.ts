@@ -381,6 +381,10 @@ type LanguageSliceSharedConfig = {
     description?: string,
     status?: "processing" | "completed",
   ) => void;
+  /** Opaque product brief from the Agent Contract; threaded into every system prompt. */
+  contractBrief?: string;
+  /** When true, enables the section-coverage path in query generation. */
+  sectionCoverageEnabled: boolean;
 };
 
 /**
@@ -429,6 +433,10 @@ export const runLanguageQuerySlice = async (params: {
     minDeterministicCount: params.minDeterministicCount,
     intentWeights: shared.intentWeights,
     queryMaxWords: shared.queryMaxWords,
+    sectionCoverageEnabled: shared.sectionCoverageEnabled,
+    ...(shared.contractBrief !== undefined
+      ? { brief: shared.contractBrief }
+      : {}),
   };
 
   const systemContent = buildQueryAnalysisSystemContent(strategyPrompt);
@@ -642,7 +650,7 @@ export const concatenateLanguageMergedRows = (
 export const runQueryAnalysis = async (
   context: AgentRunContext<QueryAnalysisInput, QueryAnalysisConfig>,
 ): Promise<AgentRunResult> => {
-  const { input, config, token, hermesCorrelation } = context;
+  const { input, config, token, hermesCorrelation, contract } = context;
   const runStartMs = Date.now();
   const client = createAgentDataApiClient({
     baseUrl: env.AGENT_DATA_API_URL,
@@ -687,6 +695,7 @@ export const runQueryAnalysis = async (
 
   const templatePack = templates.templatePack;
   const kgTemplateCap = templates.kgTemplateCap;
+  const sectionCoverageEnabled = output.sectionCoverage.enabled;
   const queryCount = output.queryCount;
   const wildcardFraction = creativity.wildcardFraction;
   const wildcardCount = computeWildcardCount(queryCount, wildcardFraction);
@@ -779,6 +788,8 @@ export const runQueryAnalysis = async (
       minDeterministicCount,
       intentWeights,
       queryMaxWords,
+      sectionCoverageEnabled,
+      ...(contract !== undefined ? { brief: contract.brief } : {}),
     }),
     buildQueryAnalysisUserContent(queryContext, primaryLanguage),
   );
@@ -806,6 +817,8 @@ export const runQueryAnalysis = async (
     yieldFeedback,
     priorYield: yieldFeedback.enabled ? queryContext.priorYield : undefined,
     reportActivity: report,
+    sectionCoverageEnabled,
+    ...(contract !== undefined ? { contractBrief: contract.brief } : {}),
   };
 
   const deterministicCount = distributedStandard.reduce(
@@ -967,6 +980,8 @@ export const runQueryAnalysis = async (
     languageQuotas,
     minDeterministicCount,
     intentWeights,
+    ...(contract !== undefined ? { contractVersion: contract.version } : {}),
+    ...(sectionCoverageEnabled ? { sectionCoverageEnabled: true } : {}),
     ...(appliedEventBias !== undefined
       ? {
           appliedEventBias: {

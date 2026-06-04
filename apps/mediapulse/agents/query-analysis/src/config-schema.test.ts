@@ -507,3 +507,17 @@ describe("queryAnalysisConfigSchema languageQuotas", () => {
     }
   });
 });
+
+describe("queryAnalysisConfigSchema — sectionCoverage", () => {
+  it("defaults sectionCoverage.enabled to false", () => {
+    const parsed = queryAnalysisConfigSchema.parse({});
+    expect(parsed.output.sectionCoverage.enabled).toBe(false);
+  });
+
+  it("accepts sectionCoverage.enabled: true", () => {
+    const parsed = queryAnalysisConfigSchema.parse({
+      output: { sectionCoverage: { enabled: true } },
+    });
+    expect(parsed.output.sectionCoverage.enabled).toBe(true);
+  });
+});
