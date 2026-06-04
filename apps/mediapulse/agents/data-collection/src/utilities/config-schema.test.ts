@@ -8,6 +8,7 @@ import {
   defaultFetchProviders,
   defaultFirecrawlFetchProvider,
   defaultJinaFetchProvider,
+  defaultSerperFetchProvider,
   getConfigSchema,
   isUnresolvedVariablePlaceholder,
 } from "./config-schema";
@@ -66,14 +67,17 @@ describe("dataCollectionAgentConfigSchema", () => {
     });
     expect(
       parsed.providers.fetch.providers.map((provider) => provider.type),
-    ).toEqual(["diffbot", "firecrawl", "jina"]);
+    ).toEqual(["serper", "diffbot", "firecrawl", "jina"]);
     expect(parsed.providers.fetch.providers[0]).toMatchObject(
-      defaultDiffbotFetchProvider,
+      defaultSerperFetchProvider,
     );
     expect(parsed.providers.fetch.providers[1]).toMatchObject(
-      defaultFirecrawlFetchProvider,
+      defaultDiffbotFetchProvider,
     );
     expect(parsed.providers.fetch.providers[2]).toMatchObject(
+      defaultFirecrawlFetchProvider,
+    );
+    expect(parsed.providers.fetch.providers[3]).toMatchObject(
       defaultJinaFetchProvider,
     );
     expect(parsed.collection).toEqual({
@@ -121,12 +125,15 @@ describe("dataCollectionAgentConfigSchema", () => {
       "{{SERPER_API_KEY}}",
     );
     expect(parsed.providers.fetch.providers[0]?.authentication.apiKey).toBe(
-      "{{DIFFBOT_API_KEY}}",
+      "{{SERPER_API_KEY}}",
     );
     expect(parsed.providers.fetch.providers[1]?.authentication.apiKey).toBe(
-      "{{FIRECRAWL_API_KEY}}",
+      "{{DIFFBOT_API_KEY}}",
     );
     expect(parsed.providers.fetch.providers[2]?.authentication.apiKey).toBe(
+      "{{FIRECRAWL_API_KEY}}",
+    );
+    expect(parsed.providers.fetch.providers[3]?.authentication.apiKey).toBe(
       "{{JINA_API_KEY}}",
     );
     expect(parsed.deduplication.openaiApiKey).toBe("{{OPENAI_API_KEY}}");
@@ -145,7 +152,7 @@ describe("dataCollectionAgentConfigSchema", () => {
     expect(parsed.collection.perRunFetchBudget).toBe(12);
     expect(parsed.collection.perQueryFetchBudget).toBe(5);
     expect(parsed.collection.targetDailySuccessfulSources).toBe(5);
-    expect(parsed.providers.fetch.providers).toHaveLength(3);
+    expect(parsed.providers.fetch.providers).toHaveLength(4);
     expect(parsed.runPolicy.failOnZeroSuccess).toBe(false);
   });
 
@@ -243,6 +250,7 @@ describe("dataCollectionAgentConfigSchema", () => {
 
   it("exports the default fetch chain in recommended order", () => {
     expect(defaultFetchProviders.map((provider) => provider.type)).toEqual([
+      "serper",
       "diffbot",
       "firecrawl",
       "jina",

@@ -117,7 +117,9 @@ const searchProviderSchema = z.object({
 export const fetchProviderConfigSchema = z.object({
   type: z
     .string()
-    .describe("Fetch adapter identifier such as diffbot, firecrawl, or jina."),
+    .describe(
+      "Fetch adapter identifier such as serper, diffbot, firecrawl, or jina.",
+    ),
   baseUrl: z.string().describe("Provider base URL for this adapter."),
   authentication: authenticationSchema.describe(
     "Provider credentials or Hermes variable placeholders.",
@@ -135,6 +137,21 @@ export const fetchProviderConfigSchema = z.object({
     .describe("HTTP request timeout in milliseconds."),
   retry: retrySchema.default(fetchDefaultRetry).optional(),
 });
+
+/** Recommended Serper scrape provider defaults for the fetch chain. */
+export const defaultSerperFetchProvider = {
+  type: "serper",
+  baseUrl: "https://scrape.serper.dev",
+  authentication: {
+    type: "none" as const,
+    apiKey: "{{SERPER_API_KEY}}",
+    headerName: "X-API-KEY",
+  },
+  rateLimit: { requests: 1, perSeconds: 1 },
+  concurrency: 1,
+  timeoutMs: 45_000,
+  retry: fetchDefaultRetry,
+};
 
 /** Recommended Diffbot provider defaults for the fetch chain. */
 export const defaultDiffbotFetchProvider = {
@@ -180,8 +197,9 @@ export const defaultJinaFetchProvider = {
   retry: fetchDefaultRetry,
 };
 
-/** Default ordered fetch-provider chain: Diffbot, then Firecrawl, then Jina. */
+/** Default ordered fetch-provider chain: Serper, then Diffbot, then Firecrawl, then Jina. */
 export const defaultFetchProviders = [
+  defaultSerperFetchProvider,
   defaultDiffbotFetchProvider,
   defaultFirecrawlFetchProvider,
   defaultJinaFetchProvider,
