@@ -30,10 +30,14 @@ vi.mock("@/lib/pipelines", () => ({
 }));
 
 const getAgentConfigsByAgentKeysMock = vi.fn();
+const getAllAgentContractsMock = vi.fn();
 const getPipelineExecutionsPageMock = vi.fn();
 vi.mock("@/lib/agent-configs", () => ({
   getAgentConfigsByAgentKeys: (...args: unknown[]) =>
     getAgentConfigsByAgentKeysMock(...args),
+}));
+vi.mock("@/lib/agent-contracts", () => ({
+  getAllAgentContracts: (...args: unknown[]) => getAllAgentContractsMock(...args),
 }));
 vi.mock("@/lib/pipeline-executions", () => ({
   getPipelineExecutionsPage: (...args: unknown[]) =>
@@ -89,6 +93,8 @@ describe("PipelineDetailPage", () => {
     getPipelineWithStepsMock.mockReset();
     getAgentRegistryListMock.mockReset();
     getAgentConfigsByAgentKeysMock.mockReset();
+    getAllAgentContractsMock.mockReset();
+    getAllAgentContractsMock.mockResolvedValue([]);
     getPipelineExecutionsPageMock.mockReset();
     notFoundMock.mockReset();
     prismaDomainIntegrationFindManyMock.mockReset();
@@ -99,6 +105,7 @@ describe("PipelineDetailPage", () => {
 
   it("renders pipeline detail content when authenticated", async () => {
     getAgentConfigsByAgentKeysMock.mockResolvedValue({});
+    getAllAgentContractsMock.mockResolvedValue([]);
     // Setup
     getPipelineWithStepsMock.mockResolvedValue({
       id: "pipeline-123",
@@ -142,6 +149,7 @@ describe("PipelineDetailPage", () => {
   it("passes agents to detail content", async () => {
     // Setup
     getAgentConfigsByAgentKeysMock.mockResolvedValue({});
+    getAllAgentContractsMock.mockResolvedValue([]);
     getPipelineWithStepsMock.mockResolvedValue({
       id: "pipeline-123",
       domainIntegrationId: "di-1",
@@ -176,6 +184,7 @@ describe("PipelineDetailPage", () => {
   it("calls notFound when pipeline does not exist", async () => {
     // Setup
     getAgentConfigsByAgentKeysMock.mockResolvedValue({});
+    getAllAgentContractsMock.mockResolvedValue([]);
     getPipelineWithStepsMock.mockResolvedValue(null);
     getAgentRegistryListMock.mockResolvedValue([]);
     getPipelineExecutionsPageMock.mockResolvedValue({
