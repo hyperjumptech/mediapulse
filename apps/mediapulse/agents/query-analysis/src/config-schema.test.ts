@@ -47,6 +47,7 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
       personas: ["analyst", "retail", "regulator", "esg", "short_seller"],
       perPersonaQuotaCount: 3,
       fewShotExemplarCount: 3,
+      queryMaxWords: 2,
     });
     expect(parsed.creativity).toEqual({
       wildcardFraction: 0.1,

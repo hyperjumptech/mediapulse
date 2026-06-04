@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { NEWSLETTER_SECTION_IDS } from "@workspace/agent-data-api-contract";
 
 import {
   industryNewsletterStructureLlmSchema,
@@ -114,6 +115,16 @@ describe("industryNewsletterStructureSchema", () => {
         },
       }),
     ).toThrow();
+  });
+});
+
+describe("industryNewsletterStructureSchema section drift guard", () => {
+  it("has exactly the same section keys as NEWSLETTER_SECTION_IDS", () => {
+    const schemaKeys = Object.keys(
+      industryNewsletterStructureSchema.shape,
+    ).filter((key) => key !== "subject");
+
+    expect(new Set(schemaKeys)).toEqual(new Set(NEWSLETTER_SECTION_IDS));
   });
 });
 

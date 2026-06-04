@@ -70,6 +70,8 @@ export type LlmQueryStrategyPrompt = {
   allowedLanguages?: string[];
   minDeterministicCount: number;
   intentWeights: QueryAnalysisIntentWeights;
+  /** Maximum words per generated keyword phrase. Defaults to 5 when omitted. */
+  queryMaxWords?: number;
 };
 
 const QUERY_ANALYSIS_INTENT_JSON_UNION = QUERY_ANALYSIS_STANDARD_INTENTS.map(
@@ -116,11 +118,16 @@ export const buildQueryAnalysisSystemContent = (
   const intentTargetLines = QUERY_ANALYSIS_STANDARD_INTENTS.map(
     (intent) => `- ${intent}: ${String(targets[intent])}`,
   ).join("\n");
+  const maxWords = strategy.queryMaxWords ?? 5;
+  const phraseLengthHint =
+    maxWords === 5
+      ? "Prefer 2–5 word keyword phrases."
+      : `Prefer ${String(maxWords)}-word keyword phrases.`;
 
   return [
     "You generate short keyword search queries for news monitoring.",
     `Return ONLY a JSON object matching the schema: { "queries": [ { "text": string, "intent": ${QUERY_ANALYSIS_INTENT_JSON_UNION} } ] }.`,
-    "Prefer 2–5 word keyword phrases. Do not write full sentences, questions, or analyst-style commentary.",
+    `${phraseLengthHint} Do not write full sentences, questions, or analyst-style commentary.`,
     `All queries must be in ${strategy.language} (BCP-47). Do not code-mix or translate ticker symbols and proper nouns.`,
     "Do not translate ticker symbols or proper nouns into other languages.",
     "Include the company name or ticker symbol in at most 2 queries — the rest should be bare topic keywords, industry terms, or regulatory terms that stand alone without the company name.",
@@ -524,15 +531,19 @@ export const fetchLlmQueryCandidates = async (
 export const resolveWildcardSystemContent = (
   wildcardCount: number,
   allowedLanguages: string[],
-): string =>
-  [
+  queryMaxWords?: number,
+): string => {
+  const maxWords = queryMaxWords ?? 5;
+  const wordsHint = maxWords === 5 ? "2–5 words" : `${String(maxWords)} words`;
+  return [
     `Generate ${String(wildcardCount)} short search queries unlike anything an institutional analyst would typically search for.`,
     "Lateral, surprising, second-order, contrarian, or culturally-grounded angles welcome.",
     "Do not use the standard intent taxonomy — these queries are deliberately unconventional.",
-    "Keep queries short — 2–5 words. Prefer unusual keyword combinations over full questions or sentences.",
+    `Keep queries short — ${wordsHint}. Prefer unusual keyword combinations over full questions or sentences.`,
     'Return ONLY a JSON object: { "queries": [ { "text": string } ] }.',
     `Write in these languages when natural (BCP-47 codes): ${allowedLanguages.join(", ")}.`,
   ].join("\n\n");
+};
 
 /**
  * Builds the wildcard user prompt from serialized GET context.
@@ -585,6 +596,7 @@ export const fetchWildcardCandidates = async (
     allowedLanguages: string[];
     sampling: LlmQuerySampling;
     avoidTexts?: string[];
+    queryMaxWords?: number;
   },
   deps: { generateObjectForWildcards: GenerateObjectForWildcards } = {
     generateObjectForWildcards: generateObject,
@@ -594,6 +606,7 @@ export const fetchWildcardCandidates = async (
   const systemContent = resolveWildcardSystemContent(
     params.count,
     params.allowedLanguages,
+    params.queryMaxWords,
   );
   const userContent = buildWildcardUserContentWithAvoidNudge(
     resolveWildcardUserContent(params.context),
