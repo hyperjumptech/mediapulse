@@ -38,7 +38,11 @@ export type InvokeAgentJobPayload = {
   agentId: string;
   agentVersion: string;
   endpointUrl: string;
-  body: { input: Record<string, unknown>; config: Record<string, unknown> };
+  body: {
+    input: Record<string, unknown>;
+    config: Record<string, unknown>;
+    contract?: { brief: string; version: string };
+  };
   timeoutMs: number;
   priority: number;
   /** Set by hermes-worker after `addJobs` (DataQueue numeric id) for transient retry orchestration. */
@@ -228,7 +232,11 @@ export const executeSchedule = async (
           agentId: job.agentId,
           agentVersion: job.agentVersion,
           endpointUrl: job.endpointUrl,
-          body: { input: job.input, config: job.config },
+          body: {
+            input: job.input,
+            config: job.config,
+            ...(job.contract !== undefined ? { contract: job.contract } : {}),
+          },
           timeoutMs: schedule.pipeline.timeout ?? defaultTimeoutMs,
           priority: schedule.priority,
         },

@@ -49,6 +49,11 @@ export type AgentRunContext<TInput, TConfig = Record<string, never>> = {
    * Omitted when no such headers are present (e.g. "Run now" in the dashboard).
    */
   hermesCorrelation?: HermesInvokeCorrelation;
+  /**
+   * Opaque product brief supplied by Hermes when the pipeline step references an AgentContract.
+   * Absent when no contract is attached to the step (the step runs as today).
+   */
+  contract?: { brief: string; version: string };
 };
 
 /** Options for auto-registering with the agent-registry-api on startup. */

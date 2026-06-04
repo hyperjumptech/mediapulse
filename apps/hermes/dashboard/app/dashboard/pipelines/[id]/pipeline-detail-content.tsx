@@ -12,6 +12,7 @@ import { Button } from "@workspace/ui/components/button";
 
 import { formAction as defaultUpdateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/form.action";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
+import type { AgentContractSummary } from "@/lib/agent-contracts";
 import type { PipelineExecutionRow } from "@/lib/pipeline-executions";
 import type {
   getAgentRegistryList,
@@ -43,6 +44,7 @@ export type PipelineDetailContentProps = {
   agents: AgentRegistryEntry[];
   domainIntegrations: PipelineDomainIntegrationOption[];
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
+  allContracts: AgentContractSummary[];
   pipelineValidation: PipelineValidationResult;
   executions: PipelineExecutionRow[];
   totalExecutions: number;
@@ -71,6 +73,7 @@ const usePipelineDetailState = (
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [stepInput, setStepInput] = useState<Record<string, unknown>>({});
   const [stepAgentConfigId, setStepAgentConfigId] = useState<string>("");
+  const [stepAgentContractId, setStepAgentContractId] = useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -99,6 +102,7 @@ const usePipelineDetailState = (
         : {};
     setStepInput(rawInput);
     setStepAgentConfigId(selectedStep.agentConfigId ?? "");
+    setStepAgentContractId(selectedStep.agentContractId ?? "");
   }, [selectedStep]);
 
   const handleSave = useCallback(async () => {
@@ -114,6 +118,7 @@ const usePipelineDetailState = (
       stepFormData.set("body.agentId", selectedStep.agentId);
       stepFormData.set("body.agentVersion", selectedStep.agentVersion);
       stepFormData.set("body.agentConfigId", stepAgentConfigId);
+      stepFormData.set("body.agentContractId", stepAgentContractId);
       stepFormData.set("body.input", JSON.stringify(stepInput));
       stepFormData.set("body.config", "{}");
       const stepResult = await updateStepFormAction(null, stepFormData);
@@ -157,6 +162,7 @@ const usePipelineDetailState = (
     selectedStep,
     stepInput,
     stepAgentConfigId,
+    stepAgentContractId,
     router,
     updateStepFormAction,
   ]);
@@ -168,6 +174,8 @@ const usePipelineDetailState = (
     setStepInput,
     stepAgentConfigId,
     setStepAgentConfigId,
+    stepAgentContractId,
+    setStepAgentContractId,
     saveError,
     saveWarnings,
     saving,
@@ -193,6 +201,7 @@ export const PipelineDetailContent = ({
   agents,
   domainIntegrations,
   configsByAgentKey,
+  allContracts,
   pipelineValidation,
   executions,
   totalExecutions,
@@ -209,6 +218,8 @@ export const PipelineDetailContent = ({
     setStepInput,
     stepAgentConfigId,
     setStepAgentConfigId,
+    stepAgentContractId,
+    setStepAgentContractId,
     saveError,
     saveWarnings,
     saving,
@@ -348,6 +359,9 @@ export const PipelineDetailContent = ({
             }
             stepAgentConfigId={stepAgentConfigId}
             onStepAgentConfigIdChange={setStepAgentConfigId}
+            allContracts={allContracts}
+            stepAgentContractId={stepAgentContractId}
+            onStepAgentContractIdChange={setStepAgentContractId}
             disabled={saving}
             loadVariablePickerPage={loadVariablePickerPage}
             loadExpansionPickerPage={loadExpansionPickerPage}

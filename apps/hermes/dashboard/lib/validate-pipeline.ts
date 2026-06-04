@@ -20,6 +20,7 @@ type PipelineWithSteps = {
     agentId: string;
     agentVersion: string;
     agentConfigId: string | null;
+    agentContractId: string | null;
     input: unknown;
     config: unknown;
   }>;

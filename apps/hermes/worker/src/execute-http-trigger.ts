@@ -54,7 +54,10 @@ export const executeHttpTrigger = async (
           pipeline: {
             include: {
               steps: {
-                include: { agentConfig: true },
+                include: {
+                  agentConfig: true,
+                  agentContract: { select: { brief: true, version: true } },
+                },
                 orderBy: { order: "asc" },
               },
             },
@@ -160,7 +163,11 @@ export const executeHttpTrigger = async (
           agentId: job.agentId,
           agentVersion: job.agentVersion,
           endpointUrl: job.endpointUrl,
-          body: { input: job.input, config: job.config },
+          body: {
+            input: job.input,
+            config: job.config,
+            ...(job.contract !== undefined ? { contract: job.contract } : {}),
+          },
           timeoutMs: pipeline.timeout ?? defaultTimeoutMs,
           priority: 0,
         },

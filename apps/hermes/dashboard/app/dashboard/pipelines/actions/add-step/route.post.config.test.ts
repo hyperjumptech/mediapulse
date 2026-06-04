@@ -61,6 +61,7 @@ describe("createAddStepHandler", () => {
         agentVersion: "1",
         order: 3,
         agentConfigId: null,
+        agentContractId: null,
         input: {},
         config: {},
         createdById: mockDashboardUser.id,

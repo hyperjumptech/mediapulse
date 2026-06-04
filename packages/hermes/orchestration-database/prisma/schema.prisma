@@ -22,6 +22,7 @@ model User {
   variables                           Variable[]
   domainIntegrationsCreated           DomainIntegration[]           @relation("DomainIntegrationCreatedBy")
   agentConfigsCreated                 AgentConfig[]                 @relation("AgentConfigCreatedBy")
+  agentContractsCreated               AgentContract[]               @relation("AgentContractCreatedBy")
   pipelinesCreated                    Pipeline[]                    @relation("PipelineCreatedBy")
   schedulesCreated                    Schedule[]                    @relation("ScheduleCreatedBy")
   httpTriggersCreated                 HttpTrigger[]                 @relation("HttpTriggerCreatedBy")
@@ -113,6 +114,22 @@ model AgentConfig {
 
   @@unique([agentId, agentVersion, name])
   @@map("agent_config")
+}
+
+model AgentContract {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  brief       String   @db.Text
+  version     String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+
+  createdBy     User?          @relation("AgentContractCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  pipelineSteps PipelineStep[]
+
+  @@map("agent_contract")
 }
 
 model Variable {
@@ -474,16 +491,18 @@ model PipelineStep {
   agentId       String   @map("agent_id")
   agentVersion  String   @map("agent_version")
   pipelineId    String   @map("pipeline_id")
-  agentConfigId String?  @map("agent_config_id")
-  input         Json?    @default("{}")
-  config        Json?    @default("{}")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  createdById   String?  @map("created_by_id")
+  agentConfigId    String?  @map("agent_config_id")
+  agentContractId  String?  @map("agent_contract_id")
+  input            Json?    @default("{}")
+  config           Json?    @default("{}")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  createdById      String?  @map("created_by_id")
 
   createdBy                    User?                         @relation("PipelineStepCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   pipeline                     Pipeline                      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   agentConfig                  AgentConfig?                  @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
+  agentContract                AgentContract?                @relation(fields: [agentContractId], references: [id], onDelete: SetNull)
   scheduleStepExecutions       ScheduleStepExecution[]
   httpTriggerStepExecutions    HttpTriggerStepExecution[]
   manualPipelineStepExecutions ManualPipelineStepExecution[]

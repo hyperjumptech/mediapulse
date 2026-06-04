@@ -255,7 +255,10 @@ export const createRunPipelineHandler = ({
         where: { id: data.body.pipelineId },
         include: {
           steps: {
-            include: { agentConfig: true },
+            include: {
+              agentConfig: true,
+              agentContract: { select: { brief: true, version: true } },
+            },
             orderBy: { order: "asc" },
           },
         },
@@ -281,6 +284,7 @@ export const createRunPipelineHandler = ({
             agentId: step.agentId,
             agentVersion: step.agentVersion,
             agentConfigId: step.agentConfigId,
+            agentContractId: step.agentContractId,
             input: step.input,
             config: step.config,
           })),
@@ -473,7 +477,13 @@ export const createRunPipelineHandler = ({
               agentId: job.agentId,
               agentVersion: job.agentVersion,
               endpointUrl: job.endpointUrl,
-              body: { input: job.input, config: job.config },
+              body: {
+                input: job.input,
+                config: job.config,
+                ...(job.contract !== undefined
+                  ? { contract: job.contract }
+                  : {}),
+              },
               timeoutMs: invokeRequestTimeoutMs,
               priority: 0,
             },

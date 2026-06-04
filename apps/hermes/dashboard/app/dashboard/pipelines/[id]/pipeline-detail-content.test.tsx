@@ -122,6 +122,7 @@ const createMockPipeline = () => ({
       input: {},
       config: {},
       agentConfigId: null,
+      agentContractId: null,
       createdById: null,
       createdAt: new Date("2024-01-15"),
       updatedAt: new Date("2024-01-15"),
@@ -152,6 +153,7 @@ const createMockAgents = () => [
 const mockPickerLoaders = {
   loadVariablePickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   loadExpansionPickerPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  allContracts: [],
 };
 
 const defaultDetailDomainIntegrations = [

@@ -43,6 +43,11 @@ const bodyValidator = z.object({
     .nullable()
     .optional()
     .transform((s) => (s === "" ? null : (s ?? null))),
+  agentContractId: z
+    .union([z.string().uuid(), z.literal("")])
+    .nullable()
+    .optional()
+    .transform((s) => (s === "" ? null : (s ?? null))),
   input: jsonObjectSchema,
   config: jsonObjectSchema,
 });
@@ -83,6 +88,7 @@ export const createUpdateStepHandler = ({
       agentId,
       agentVersion,
       agentConfigId,
+      agentContractId,
       input,
       config,
     } = data.body;
@@ -172,6 +178,7 @@ export const createUpdateStepHandler = ({
         agentId,
         agentVersion,
         agentConfigId: agentConfigId ?? null,
+        agentContractId: agentContractId ?? null,
         input: inputObj as object,
         config:
           agentConfigId != null && agentConfigId !== ""

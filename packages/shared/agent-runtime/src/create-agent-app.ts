@@ -181,17 +181,25 @@ export function createAgentApp<
     );
   }
 
+  const contractSchema = z.object({
+    brief: z.string(),
+    version: z.string(),
+  });
+
   app.post("/", async (context) => {
     try {
       const requestBody = (await context.req.json()) as {
         input?: unknown;
         config?: unknown;
+        contract?: unknown;
       };
       const rawInput = requestBody?.input;
       const input = (await config.inputSchema.parseAsync(rawInput)) as TInput;
       const configParsed = (await configSchema.parseAsync(
         requestBody?.config ?? {},
       )) as TConfig;
+      const contractResult = contractSchema.safeParse(requestBody?.contract);
+      const contract = contractResult.success ? contractResult.data : undefined;
       const token = context.req.header("Authorization");
       const hermesCorrelation = hermesInvokeCorrelationFromGetHeader((name) =>
         context.req.header(name),
@@ -202,6 +210,7 @@ export function createAgentApp<
         config: configParsed,
         token,
         ...(hermesCorrelation !== undefined ? { hermesCorrelation } : {}),
+        ...(contract !== undefined ? { contract } : {}),
       });
 
       if (result.success) {

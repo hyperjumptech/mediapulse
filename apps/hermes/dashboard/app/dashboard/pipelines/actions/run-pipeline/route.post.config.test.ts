@@ -76,6 +76,7 @@ const createPipelineWithSteps = () => ({
       agentId: "ag1",
       agentVersion: "1.0.0",
       agentConfigId: null,
+      agentContractId: null,
       input: { id: "single-id" },
       config: {},
       agentConfig: null,
