@@ -148,6 +148,15 @@ export const articleAnalysisConfigSchema = z
     /** Initial backoff in ms; delay doubles each retry (`base * 2^attempt`). */
     postTransientRetryBaseDelayMs: z.number().int().positive().optional(),
     /**
+     * Retries after the first LLM extraction attempt when a transient error is classified
+     * (rate limit, empty completion, timeout, 5xx). 0 disables retries.
+     */
+    extractionTransientRetries: z.number().int().min(0).max(5).optional(),
+    /** Initial backoff in ms for extraction retries (full-jitter exponential). */
+    extractionTransientRetryBaseDelayMs: z.number().int().positive().optional(),
+    /** Cap on jittered backoff in ms for extraction retries. */
+    extractionTransientRetryMaxDelayMs: z.number().int().positive().optional(),
+    /**
      * Cap on data sources loaded and processed per run
      * (also bounds `analysis.get` `limit` together with `analysisGetDataSourceLimitMax`).
      * Override in Hermes agent config; package default applies when omitted.
@@ -246,6 +255,9 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   runPolicy: ArticleAnalysisRunPolicy;
   postTransientRetries: number;
   postTransientRetryBaseDelayMs: number;
+  extractionTransientRetries: number;
+  extractionTransientRetryBaseDelayMs: number;
+  extractionTransientRetryMaxDelayMs: number;
   debounceMinUnanalyzedCount: number;
   debounceMinMinutesSinceLastScore: number;
   /** Cap on sources per run (Hermes agent config). */
@@ -301,6 +313,9 @@ export const articleAnalysisConfigDefaults = {
   },
   postTransientRetries: 0,
   postTransientRetryBaseDelayMs: 500,
+  extractionTransientRetries: 2,
+  extractionTransientRetryBaseDelayMs: 500,
+  extractionTransientRetryMaxDelayMs: 8000,
   debounceMinUnanalyzedCount: 0,
   debounceMinMinutesSinceLastScore: 0,
   maxBatchSize: 10,
@@ -469,6 +484,15 @@ export const resolveArticleAnalysisConfig = (
     postTransientRetryBaseDelayMs:
       config.postTransientRetryBaseDelayMs ??
       articleAnalysisConfigDefaults.postTransientRetryBaseDelayMs,
+    extractionTransientRetries:
+      config.extractionTransientRetries ??
+      articleAnalysisConfigDefaults.extractionTransientRetries,
+    extractionTransientRetryBaseDelayMs:
+      config.extractionTransientRetryBaseDelayMs ??
+      articleAnalysisConfigDefaults.extractionTransientRetryBaseDelayMs,
+    extractionTransientRetryMaxDelayMs:
+      config.extractionTransientRetryMaxDelayMs ??
+      articleAnalysisConfigDefaults.extractionTransientRetryMaxDelayMs,
     debounceMinUnanalyzedCount:
       config.debounceMinUnanalyzedCount ??
       articleAnalysisConfigDefaults.debounceMinUnanalyzedCount,

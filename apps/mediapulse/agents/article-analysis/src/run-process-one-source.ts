@@ -33,7 +33,9 @@ import {
   buildBrainstormUserContent,
   applyRelationCritiqueDrops,
   buildRelationCritiqueModelMessages,
+  classifyLlmExtractionError,
   critiqueExtractedRelations,
+  executeLlmCallWithTransientRetries,
   relationCritiqueRowKey,
   extractEntitiesAndRelationsForSource,
   fetchArticleBrainstorm,
@@ -123,6 +125,8 @@ export type SourceProcessingOutcome = {
   sourceQualityTier?: HostTier;
   sourceQualityRecencyHours?: number | null;
   sourceQualityScore?: number;
+  extractionRetryAttempts: number;
+  extractionRetrySucceeded: boolean;
 };
 
 /** Returns an empty per-source outcome for early-return paths. */
@@ -152,6 +156,8 @@ export const createEmptySourceProcessingOutcome =
     relationsCritiqueSkippedDueToDeadline: 0,
     relationsDroppedByCritique: 0,
     relationCritiqueCalls: 0,
+    extractionRetryAttempts: 0,
+    extractionRetrySucceeded: false,
   });
 
 export type ProcessOneSourceDeps = {
@@ -165,6 +171,7 @@ export type ProcessOneSourceDeps = {
   sourceQualityHostTiers: SourceQualityComputeCtx["hostTiers"];
   runStart: number;
   isRunDeadlineElapsed: () => boolean;
+  sleep: (ms: number) => Promise<void>;
   resolveAgainstExistingEntities: (
     entities: readonly EntityProposal[],
     relations: readonly RelationProposal[],
@@ -204,6 +211,7 @@ export const createProcessOneSource =
       dataApiClient,
       log,
       hardDeleteDataSource,
+      sleep,
     } = deps;
 
     const outcome = createEmptySourceProcessingOutcome();
@@ -298,30 +306,41 @@ export const createProcessOneSource =
           const brainstormProviderOptions = buildOpenAiReasoningProviderOptions(
             cfg.brainstormReasoningEffort,
           );
-          const brainstormResult = await fetchArticleBrainstorm({
-            apiKey: cfg.openaiApiKey,
-            model: cfg.brainstormModel,
-            maxOutputTokens: cfg.brainstormMaxOutputTokens,
-            messages: [
-              {
-                role: "system",
-                content: buildBrainstormSystemContent(ctx),
-              },
-              {
-                role: "user",
-                content: buildBrainstormUserContent({
-                  tickerId,
-                  tickerSymbol: ctx.ticker.symbol,
-                  tickerName: ctx.ticker.name,
-                  title: source.title,
-                  contentTruncated: truncated,
-                }),
-              },
-            ],
-            ...(brainstormProviderOptions !== undefined
-              ? { providerOptions: brainstormProviderOptions }
-              : {}),
-          });
+          const brainstormResult = await executeLlmCallWithTransientRetries(
+            () =>
+              fetchArticleBrainstorm({
+                apiKey: cfg.openaiApiKey,
+                model: cfg.brainstormModel,
+                maxOutputTokens: cfg.brainstormMaxOutputTokens,
+                messages: [
+                  {
+                    role: "system",
+                    content: buildBrainstormSystemContent(ctx),
+                  },
+                  {
+                    role: "user",
+                    content: buildBrainstormUserContent({
+                      tickerId,
+                      tickerSymbol: ctx.ticker.symbol,
+                      tickerName: ctx.ticker.name,
+                      title: source.title,
+                      contentTruncated: truncated,
+                    }),
+                  },
+                ],
+                ...(brainstormProviderOptions !== undefined
+                  ? { providerOptions: brainstormProviderOptions }
+                  : {}),
+              }),
+            {
+              maxRetries: cfg.extractionTransientRetries,
+              baseDelayMs: cfg.extractionTransientRetryBaseDelayMs,
+              maxDelayMs: cfg.extractionTransientRetryMaxDelayMs,
+              sleep,
+              classify: classifyLlmExtractionError,
+              shouldAbort: isRunDeadlineElapsed,
+            },
+          );
           outcome.brainstormCalls = 1;
           outcome.brainstormLatencyMs = Date.now() - brainstormStartedAt;
           outcome.brainstormUsage = brainstormResult.usage;
@@ -352,28 +371,54 @@ export const createProcessOneSource =
       const extractionProviderOptions = buildOpenAiReasoningProviderOptions(
         cfg.extractionReasoningEffort,
       );
-      const extractedResult = await extractEntitiesAndRelationsForSource({
-        apiKey: cfg.openaiApiKey,
-        model: cfg.openaiModel,
-        maxOutputTokens: cfg.maxOutputTokens,
-        messages: [
-          { role: "system", content: systemContent },
-          {
-            role: "user",
-            content: extractionUserContent,
+      let extractionRetryAttempts = 0;
+      const extractedResult = await executeLlmCallWithTransientRetries(
+        () =>
+          extractEntitiesAndRelationsForSource({
+            apiKey: cfg.openaiApiKey,
+            model: cfg.openaiModel,
+            maxOutputTokens: cfg.maxOutputTokens,
+            messages: [
+              { role: "system", content: systemContent },
+              {
+                role: "user",
+                content: extractionUserContent,
+              },
+            ],
+            ...(resolvedExemplars.length > 0
+              ? { exemplars: resolvedExemplars }
+              : {}),
+            ...(brainstormText !== undefined ? { brainstormText } : {}),
+            ...(extractionProviderOptions !== undefined
+              ? { providerOptions: extractionProviderOptions }
+              : {}),
+          }),
+        {
+          maxRetries: cfg.extractionTransientRetries,
+          baseDelayMs: cfg.extractionTransientRetryBaseDelayMs,
+          maxDelayMs: cfg.extractionTransientRetryMaxDelayMs,
+          sleep,
+          classify: classifyLlmExtractionError,
+          shouldAbort: isRunDeadlineElapsed,
+          onRetry: (attempt, error) => {
+            extractionRetryAttempts++;
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "extraction",
+                retryAttempt: attempt,
+                err: toSafeLogError(error),
+              },
+              "article-analysis LLM extraction transient failure; retrying",
+            );
           },
-        ],
-        ...(resolvedExemplars.length > 0
-          ? { exemplars: resolvedExemplars }
-          : {}),
-        ...(brainstormText !== undefined ? { brainstormText } : {}),
-        ...(extractionProviderOptions !== undefined
-          ? { providerOptions: extractionProviderOptions }
-          : {}),
-      });
+        },
+      );
       outcome.extractionLatencyMs = Date.now() - t0;
       outcome.extractionCalls = 1;
       outcome.extractionUsage = extractedResult.usage;
+      outcome.extractionRetryAttempts = extractionRetryAttempts;
+      outcome.extractionRetrySucceeded = extractionRetryAttempts > 0;
       const extracted = extractedResult.object;
 
       let entitiesForPipeline: EntityProposal[] = [...extracted.entities];
@@ -555,19 +600,30 @@ export const createProcessOneSource =
           const critiqueProviderOptions = buildOpenAiReasoningProviderOptions(
             cfg.relationCritiqueReasoningEffort,
           );
-          const critiqueResult = await critiqueExtractedRelations({
-            apiKey: cfg.openaiApiKey,
-            model: cfg.relationCritiqueModel,
-            maxOutputTokens: cfg.maxOutputTokens,
-            messages: buildRelationCritiqueModelMessages(ctx, {
-              articleTitle: source.title,
-              articleBody: source.content,
-              candidates: resolved.relations,
-            }),
-            ...(critiqueProviderOptions !== undefined
-              ? { providerOptions: critiqueProviderOptions }
-              : {}),
-          });
+          const critiqueResult = await executeLlmCallWithTransientRetries(
+            () =>
+              critiqueExtractedRelations({
+                apiKey: cfg.openaiApiKey,
+                model: cfg.relationCritiqueModel,
+                maxOutputTokens: cfg.maxOutputTokens,
+                messages: buildRelationCritiqueModelMessages(ctx, {
+                  articleTitle: source.title,
+                  articleBody: source.content,
+                  candidates: resolved.relations,
+                }),
+                ...(critiqueProviderOptions !== undefined
+                  ? { providerOptions: critiqueProviderOptions }
+                  : {}),
+              }),
+            {
+              maxRetries: cfg.extractionTransientRetries,
+              baseDelayMs: cfg.extractionTransientRetryBaseDelayMs,
+              maxDelayMs: cfg.extractionTransientRetryMaxDelayMs,
+              sleep,
+              classify: classifyLlmExtractionError,
+              shouldAbort: isRunDeadlineElapsed,
+            },
+          );
           outcome.relationCritiqueCalls = 1;
           outcome.critiqueLatencyMs = Date.now() - critiqueStartedAt;
           outcome.relationsCritiquedSources = 1;

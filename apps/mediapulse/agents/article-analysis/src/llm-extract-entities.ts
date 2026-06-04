@@ -1,5 +1,11 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateObject, generateText, type ModelMessage } from "ai";
+import {
+  generateObject,
+  generateText,
+  APICallError,
+  NoObjectGeneratedError,
+  type ModelMessage,
+} from "ai";
 import {
   buildOpenAiReasoningProviderOptions,
   type OpenAiReasoningProviderOptions,
@@ -103,6 +109,93 @@ export type GenerateTextForBrainstorm = (args: {
   messages: ModelMessage[];
   providerOptions?: OpenAiReasoningProviderOptions;
 }) => Promise<ArticleBrainstormCallResult>;
+
+/**
+ * Classifies an LLM extraction error as transient or permanent.
+ *
+ * Transient errors are safe to retry (rate limits, empty completions, timeouts, 5xx).
+ * Permanent errors should not be retried (parse failures, unknown categories).
+ *
+ * @param error - Thrown value from an LLM extraction call.
+ * @returns Classification driving retry vs. immediate failure.
+ */
+export const classifyLlmExtractionError = (
+  error: unknown,
+): "transient" | "permanent" => {
+  if (APICallError.isInstance(error)) {
+    const statusCode = error.statusCode;
+    if (
+      error.isRetryable ||
+      statusCode === 429 ||
+      (statusCode !== undefined && statusCode >= 500 && statusCode <= 599)
+    ) {
+      return "transient";
+    }
+  }
+  if (NoObjectGeneratedError.isInstance(error)) {
+    if (error.message.includes("the model did not return a response")) {
+      return "transient";
+    }
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  if (
+    message.includes("timed out") ||
+    message.includes("ETIMEDOUT") ||
+    message.includes("ECONNRESET")
+  ) {
+    return "transient";
+  }
+  return "permanent";
+};
+
+/**
+ * Runs an async LLM operation with transient-error retry and jittered exponential backoff.
+ *
+ * Delay formula: `random() * min(maxDelayMs, baseDelayMs * 2^attempt)` (full jitter).
+ * Full jitter prevents concurrent extractions (plan 36) from retrying in lockstep.
+ *
+ * @param operation - Async LLM call to attempt.
+ * @param deps - Retry limits, injectable sleep, classifier, and optional abort predicate.
+ * @returns The fulfilled result from `operation`.
+ * @throws The last error when retries are exhausted, classification is permanent, or shouldAbort fires.
+ */
+export const executeLlmCallWithTransientRetries = async <T>(
+  operation: () => Promise<T>,
+  deps: {
+    maxRetries: number;
+    baseDelayMs: number;
+    maxDelayMs: number;
+    sleep: (ms: number) => Promise<void>;
+    classify: (error: unknown) => "transient" | "permanent";
+    onRetry?: (attempt: number, error: unknown) => void;
+    shouldAbort?: () => boolean;
+  },
+): Promise<T> => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= deps.maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const mayRetry =
+        attempt < deps.maxRetries && deps.classify(error) === "transient";
+      if (!mayRetry) {
+        throw error;
+      }
+      deps.onRetry?.(attempt + 1, error);
+      const exponentialCap = Math.min(
+        deps.maxDelayMs,
+        deps.baseDelayMs * 2 ** attempt,
+      );
+      const jitteredDelay = Math.random() * exponentialCap;
+      if (deps.shouldAbort?.()) {
+        throw error;
+      }
+      await deps.sleep(jitteredDelay);
+    }
+  }
+  throw lastError;
+};
 
 /**
  * Maps OpenAI wire payload to the normalized extraction shape (null = none).
