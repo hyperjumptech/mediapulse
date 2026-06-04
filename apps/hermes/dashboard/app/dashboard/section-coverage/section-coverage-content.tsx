@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
 import type { SectionCoverageVersionRow } from "@/lib/section-coverage-rollup";
+import { useSectionCoverageFilters } from "./use-section-coverage-filters";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
@@ -47,27 +46,13 @@ export const SectionCoverageContent = ({
   windowDays,
   rows,
 }: SectionCoverageContentProps) => {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [inputTickerId, setInputTickerId] = useState(tickerId);
-  const [inputWindowDays, setInputWindowDays] = useState(String(windowDays));
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const params = new URLSearchParams(searchParams.toString());
-    if (inputTickerId.trim()) {
-      params.set("ticker", inputTickerId.trim());
-    } else {
-      params.delete("ticker");
-    }
-    const days = parseInt(inputWindowDays, 10);
-    if (!isNaN(days) && days > 0) {
-      params.set("window", String(days));
-    } else {
-      params.delete("window");
-    }
-    router.push(`/dashboard/section-coverage?${params.toString()}`);
-  };
+  const {
+    inputTickerId,
+    setInputTickerId,
+    inputWindowDays,
+    setInputWindowDays,
+    handleSubmit,
+  } = useSectionCoverageFilters({ tickerId, windowDays });
 
   return (
     <div className="flex flex-col gap-6">
