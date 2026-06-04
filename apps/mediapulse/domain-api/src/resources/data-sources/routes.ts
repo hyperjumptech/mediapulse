@@ -5,10 +5,13 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
+import { z } from "zod";
 import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
 import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templates/table-v1/register-table-v1-custom-actions";
+import { parseCreatedDateBound } from "../../lib/parse-created-date-bound";
 import { parsePagination } from "../../lib/list-pagination";
 import { dataSourcesTableV1CustomActionRegistrations } from "./custom-actions";
+import { buildDataSourceListWhere } from "./list-filters";
 import {
   listInclude,
   mapRowToDetailItem,
@@ -49,40 +52,28 @@ const resolveDataSourceListOrderBy = (
  */
 export const dataSourcesRoutes = new Hono();
 
-/** Paginated list of data sources for the Hermes dashboard (search `q`; sort `sortBy` / `sortDir`). */
+/** Paginated list of data sources for the Hermes dashboard (search `q`; filters; sort `sortBy` / `sortDir`). */
 dataSourcesRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
     c.req.query("pageSize"),
   );
-  const query = c.req.query("q")?.trim();
   const sortBy = c.req.query("sortBy");
   const sortDir: Prisma.SortOrder =
     c.req.query("sortDir") === "desc" ? "desc" : "asc";
   const skip = (page - 1) * pageSize;
 
-  const where = query
-    ? ({
-        OR: [
-          { title: { contains: query, mode: "insensitive" as const } },
-          { url: { contains: query, mode: "insensitive" as const } },
-          { content: { contains: query, mode: "insensitive" as const } },
-          {
-            ticker: {
-              symbol: { contains: query, mode: "insensitive" as const },
-            },
-          },
-          {
-            ticker: { name: { contains: query, mode: "insensitive" as const } },
-          },
-          {
-            searchQuery: {
-              text: { contains: query, mode: "insensitive" as const },
-            },
-          },
-        ],
-      } satisfies Prisma.DataSourceWhereInput)
-    : undefined;
+  const tickerFilter = z
+    .string()
+    .uuid()
+    .safeParse(c.req.query("tickerId")?.trim() ?? "");
+
+  const where = buildDataSourceListWhere({
+    q: c.req.query("q"),
+    tickerId: tickerFilter.success ? tickerFilter.data : undefined,
+    from: parseCreatedDateBound(c.req.query("from"), "start"),
+    to: parseCreatedDateBound(c.req.query("to"), "end"),
+  });
 
   const orderBy = resolveDataSourceListOrderBy(sortBy, sortDir);
 
@@ -113,12 +104,24 @@ dataSourcesRoutes.get("/", async (c) => {
  * Table-v1 metadata for Hermes. Registered **before** `GET /:id` so `/meta` is not captured as an id
  * (see {@link buildMetaPayloadForPathSegment}).
  */
-dataSourcesRoutes.get("/meta", (c) => {
-  const meta = buildMetaPayloadForPathSegment(DATA_SOURCES_PATH_SEGMENT);
-  if (!meta) {
+dataSourcesRoutes.get("/meta", async (c) => {
+  const base = buildMetaPayloadForPathSegment(DATA_SOURCES_PATH_SEGMENT);
+  if (!base) {
     return c.json({ message: "Unknown dashboard resource" }, 404);
   }
-  return c.json(meta);
+
+  const tickerOptions = await prisma.ticker.findMany({
+    select: { id: true, symbol: true, name: true },
+    orderBy: { symbol: "asc" },
+  } satisfies Prisma.TickerFindManyArgs);
+
+  return c.json({
+    ...base,
+    tickerOptions: tickerOptions.map((ticker) => ({
+      value: ticker.id,
+      label: `${ticker.symbol} — ${ticker.name}`,
+    })),
+  });
 });
 
 /** Returns one data source by id (full `content`) for the Hermes read-only detail page. */

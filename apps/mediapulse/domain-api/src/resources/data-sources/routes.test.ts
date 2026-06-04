@@ -13,7 +13,12 @@ vi.mock("@mediapulse/database", async (importOriginal) => {
       ...actual.prisma,
       dataSource: {
         ...actual.prisma.dataSource,
+        findMany: vi.fn(),
+        count: vi.fn(),
         deleteMany: vi.fn(),
+      },
+      ticker: {
+        findMany: vi.fn(),
       },
     },
   };
@@ -29,14 +34,60 @@ describe("dataSourcesRoutes", () => {
     vi.clearAllMocks();
   });
 
-  it("serves GET /meta with table-v1 meta JSON (not 404 from id lookup)", async () => {
+  it("serves GET /meta with table-v1 meta JSON and filter options", async () => {
+    vi.mocked(prisma.ticker.findMany).mockResolvedValue([
+      {
+        id: "11111111-1111-4111-a111-111111111111",
+        symbol: "AAPL",
+        name: "Apple",
+      },
+    ] as never);
+
     const res = await dataSourcesRoutes.request("http://localhost/meta", {
       method: "GET",
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { title?: string };
+    const body = (await res.json()) as {
+      title?: string;
+      listFilters?: string[];
+      tickerOptions?: Array<{ value: string; label: string }>;
+    };
     expect(body.title).toBe("Data Sources");
+    expect(body.listFilters).toEqual(["tickerId", "createdAt"]);
+    expect(body.tickerOptions).toEqual([
+      {
+        value: "11111111-1111-4111-a111-111111111111",
+        label: "AAPL — Apple",
+      },
+    ]);
+  });
+
+  it("passes list filter query params to Prisma findMany", async () => {
+    vi.mocked(prisma.dataSource.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.dataSource.count).mockResolvedValue(0);
+
+    const res = await dataSourcesRoutes.request(
+      "http://localhost/?tickerId=11111111-1111-4111-a111-111111111111&from=2026-05-01&to=2026-05-31",
+      { method: "GET" },
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.dataSource.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { tickerId: "11111111-1111-4111-a111-111111111111" },
+            {
+              createdAt: {
+                gte: new Date("2026-05-01T00:00:00.000Z"),
+                lte: new Date("2026-05-31T23:59:59.999Z"),
+              },
+            },
+          ],
+        },
+      }),
+    );
   });
 
   it("reset-all deletes every data source when confirm token matches", async () => {
