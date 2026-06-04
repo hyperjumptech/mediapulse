@@ -55,6 +55,7 @@ export const searchQueriesDashboardPage = {
     "rank",
     "activeSet",
   ]),
+  listFilters: ["tickerId", "isActive", "intent", "source", "createdAt"],
   actions: { create: false, update: false, delete: true, view: false },
   customActions: searchQueriesCustomActionsForManifest,
 } satisfies DashboardPageInput;

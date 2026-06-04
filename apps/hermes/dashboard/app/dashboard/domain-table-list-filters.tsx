@@ -14,32 +14,51 @@ type DomainTableListFiltersProps = {
   listFilters: TableV1ListFilterKey[];
   tickerOptions?: TableV1TickerOption[];
   entityTypeOptions?: TableV1EntityTypeOption[];
+  intentOptions?: TableV1EntityTypeOption[];
+  sourceOptions?: TableV1EntityTypeOption[];
   tickerId?: string;
   typeId?: string;
+  intent?: string;
+  source?: string;
+  isActive?: string;
   from?: string;
   to?: string;
   preserveParams: Record<string, string>;
 };
 
 /**
- * Manifest-driven list filters for domain table-v1 pages (ticker, type, created date).
+ * Manifest-driven list filters for domain table-v1 pages (ticker, type, intent, source, active set, created date).
  */
 export const DomainTableListFilters = ({
   basePath,
   listFilters,
   tickerOptions = [],
   entityTypeOptions = [],
+  intentOptions = [],
+  sourceOptions = [],
   tickerId,
   typeId,
+  intent,
+  source,
+  isActive,
   from,
   to,
   preserveParams,
 }: DomainTableListFiltersProps) => {
   const showTicker = listFilters.includes("tickerId");
   const showType = listFilters.includes("typeId");
+  const showIntent = listFilters.includes("intent");
+  const showSource = listFilters.includes("source");
+  const showActiveSet = listFilters.includes("isActive");
   const showCreated = listFilters.includes("createdAt");
   const hasActiveFilters =
-    Boolean(tickerId) || Boolean(typeId) || Boolean(from) || Boolean(to);
+    Boolean(tickerId) ||
+    Boolean(typeId) ||
+    Boolean(intent) ||
+    Boolean(source) ||
+    Boolean(isActive) ||
+    Boolean(from) ||
+    Boolean(to);
 
   const clearParams = new URLSearchParams();
   for (const [key, value] of Object.entries(preserveParams)) {
@@ -50,7 +69,14 @@ export const DomainTableListFilters = ({
       ? `${basePath}?${clearParams.toString()}`
       : basePath;
 
-  if (!showTicker && !showType && !showCreated) {
+  if (
+    !showTicker &&
+    !showType &&
+    !showIntent &&
+    !showSource &&
+    !showActiveSet &&
+    !showCreated
+  ) {
     return null;
   }
 
@@ -99,6 +125,63 @@ export const DomainTableListFilters = ({
             >
               <option value="">All types</option>
               {entityTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        {showActiveSet ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="filter-is-active" className="text-xs">
+              Active set
+            </Label>
+            <select
+              id="filter-is-active"
+              name="isActive"
+              defaultValue={isActive ?? ""}
+              className="h-9 min-w-[12rem] rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">All</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        ) : null}
+        {showIntent ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="filter-intent" className="text-xs">
+              Intent
+            </Label>
+            <select
+              id="filter-intent"
+              name="intent"
+              defaultValue={intent ?? ""}
+              className="h-9 min-w-[12rem] rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">All intents</option>
+              {intentOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        {showSource ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="filter-source" className="text-xs">
+              Source
+            </Label>
+            <select
+              id="filter-source"
+              name="source"
+              defaultValue={source ?? ""}
+              className="h-9 min-w-[12rem] rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">All sources</option>
+              {sourceOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

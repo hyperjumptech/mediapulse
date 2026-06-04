@@ -58,4 +58,27 @@ describe("DomainTableListFilters", () => {
     // Assert
     expect(container.firstChild).toBeNull();
   });
+
+  it("renders intent, source, and active set filters when declared", () => {
+    // Act
+    render(
+      <DomainTableListFilters
+        basePath="/dashboard/mediapulse/search-queries"
+        listFilters={["isActive", "intent", "source"]}
+        intentOptions={[{ value: "breaking", label: "breaking" }]}
+        sourceOptions={[{ value: "llm", label: "llm" }]}
+        intent="breaking"
+        source="llm"
+        isActive="true"
+        preserveParams={{}}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByLabelText("Active set")).toBeTruthy();
+    expect(screen.getByLabelText("Intent")).toBeTruthy();
+    expect(screen.getByLabelText("Source")).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Yes" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Clear filters/i })).toBeTruthy();
+  });
 });
