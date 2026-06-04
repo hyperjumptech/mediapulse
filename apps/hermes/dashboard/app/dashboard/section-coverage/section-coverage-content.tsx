@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import type { SectionCoverageVersionRow } from "@/lib/section-coverage-rollup";
 import { useSectionCoverageFilters } from "./use-section-coverage-filters";
 import { Button } from "@workspace/ui/components/button";
@@ -112,20 +113,14 @@ export const SectionCoverageContent = ({
               <TableRow>
                 <TableHead />
                 {rows.map((row) => (
-                  <>
-                    <TableHead
-                      key={`${row.contractVersion ?? "none"}-cov`}
-                      className="text-center text-xs"
-                    >
+                  <Fragment key={row.contractVersion ?? "none"}>
+                    <TableHead className="text-center text-xs">
                       Avg queries
                     </TableHead>
-                    <TableHead
-                      key={`${row.contractVersion ?? "none"}-fill`}
-                      className="text-center text-xs"
-                    >
+                    <TableHead className="text-center text-xs">
                       Avg bullets
                     </TableHead>
-                  </>
+                  </Fragment>
                 ))}
               </TableRow>
             </TableHeader>
@@ -140,20 +135,20 @@ export const SectionCoverageContent = ({
                     const avgCoverage = entry?.avgCoverage ?? 0;
                     const avgFill = entry?.avgFill ?? null;
                     return (
-                      <>
+                      <Fragment
+                        key={`${row.contractVersion ?? "none"}-${sectionId}`}
+                      >
                         <TableCell
-                          key={`${row.contractVersion ?? "none"}-${sectionId}-cov`}
                           className={`text-center tabular-nums ${avgCoverage === 0 ? "text-muted-foreground" : ""}`}
                         >
                           {avgCoverage.toFixed(1)}
                         </TableCell>
                         <TableCell
-                          key={`${row.contractVersion ?? "none"}-${sectionId}-fill`}
                           className={`text-center tabular-nums ${avgFill === null || avgFill === 0 ? "text-muted-foreground" : ""}`}
                         >
                           {avgFill !== null ? avgFill.toFixed(1) : "—"}
                         </TableCell>
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableRow>
