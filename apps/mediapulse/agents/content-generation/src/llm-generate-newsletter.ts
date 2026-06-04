@@ -3,6 +3,7 @@ import { generateObject, generateText } from "ai";
 import type { z } from "zod";
 
 import {
+  applyContractBrief,
   buildOpenAiReasoningProviderOptions,
   type OpenAiReasoningProviderOptions,
 } from "@workspace/agent-runtime";
@@ -697,6 +698,8 @@ export async function generateNewsletterWithLlm(
     competitors?: Array<{ name: string; relation: string }>;
     /** Issuer aliases from the content-generation API (plan 71). */
     issuerAliases?: string[];
+    /** Opaque product brief from the Agent Contract; appended to the system prompt when present. */
+    brief?: string;
   },
   deps: {
     generateObjectFn?: GenerateNewsletterObjectFn;
@@ -890,11 +893,15 @@ export async function generateNewsletterWithLlm(
   // Apply placeholder substitution to the system prompt so {{topNewsCount}},
   // {{tickerName}}, and {{tickerSymbol}} are resolved before the LLM call.
   const rawSystemPrompt = config.prompts?.systemPrompt || SYSTEM_PROMPT;
-  const systemPrompt = rawSystemPrompt
+  const substitutedSystemPrompt = rawSystemPrompt
     .replaceAll("{{topNewsCount}}", String(effectiveTopNewsCount))
     .replaceAll("{{tickerId}}", context.tickerId)
     .replaceAll("{{tickerName}}", context.tickerName ?? context.tickerId)
     .replaceAll("{{tickerSymbol}}", context.tickerSymbol ?? context.tickerId);
+  const systemPrompt = applyContractBrief(
+    substitutedSystemPrompt,
+    context.brief !== undefined ? { brief: context.brief } : undefined,
+  );
 
   const numericAnchors = config.inputs.numericAnchors;
   let numericAnchorSection = "";

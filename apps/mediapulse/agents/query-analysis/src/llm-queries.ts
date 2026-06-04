@@ -8,11 +8,14 @@ import type {
 } from "@workspace/agent-runtime";
 import {
   QUERY_ANALYSIS_STANDARD_INTENTS,
+  SECTION_BY_INTENT,
   queryAnalysisIntentSchema,
+  sectionsWithoutDedicatedIntent,
   type GetQueryAnalysisResponse,
   type QueryAnalysisIntent,
   type QueryAnalysisIntentWeights,
 } from "@workspace/agent-data-api-contract";
+import { applyContractBrief } from "@workspace/agent-runtime";
 import { z } from "zod";
 
 import {
@@ -72,6 +75,10 @@ export type LlmQueryStrategyPrompt = {
   intentWeights: QueryAnalysisIntentWeights;
   /** Maximum words per generated keyword phrase. Defaults to 5 when omitted. */
   queryMaxWords?: number;
+  /** When true, reserves intent budget per newsletter section and injects keyword guidance for starved sections. */
+  sectionCoverageEnabled?: boolean;
+  /** Opaque product brief from the Agent Contract; appended to the system prompt when present. */
+  brief?: string;
 };
 
 const QUERY_ANALYSIS_INTENT_JSON_UNION = QUERY_ANALYSIS_STANDARD_INTENTS.map(
@@ -81,11 +88,15 @@ const QUERY_ANALYSIS_INTENT_JSON_UNION = QUERY_ANALYSIS_STANDARD_INTENTS.map(
 /**
  * Computes approximate LLM target counts per standard intent from strategy weights.
  *
+ * When `sectionCoverageEnabled` is true, intents that map to a newsletter section via
+ * {@link SECTION_BY_INTENT} are guaranteed at least 1 query, so every section with a
+ * dedicated intent has upstream search budget.
+ *
  * @param strategy - Query budget and relative intent weights for the language slice.
  * @returns Rounded target count per standard intent label.
  */
 export const computeQueryAnalysisIntentTargetCounts = (
-  strategy: Pick<LlmQueryStrategyPrompt, "queryCount" | "intentWeights">,
+  strategy: Pick<LlmQueryStrategyPrompt, "queryCount" | "intentWeights" | "sectionCoverageEnabled">,
 ): Record<(typeof QUERY_ANALYSIS_STANDARD_INTENTS)[number], number> => {
   const sum = QUERY_ANALYSIS_STANDARD_INTENTS.reduce(
     (total, intent) => total + strategy.intentWeights[intent],
@@ -102,13 +113,26 @@ export const computeQueryAnalysisIntentTargetCounts = (
         : 1 / QUERY_ANALYSIS_STANDARD_INTENTS.length;
     counts[intent] = Math.round(ratio * strategy.queryCount);
   }
+  if (strategy.sectionCoverageEnabled) {
+    for (const intent of QUERY_ANALYSIS_STANDARD_INTENTS) {
+      if (SECTION_BY_INTENT[intent] !== null && counts[intent] < 1) {
+        counts[intent] = 1;
+      }
+    }
+  }
   return counts;
 };
 
 /**
  * Builds the query-analysis system prompt with inline strategy interpolation.
  *
- * @param strategy - Strategy knobs for language lock, intent targets, and deterministic floor.
+ * When `strategy.sectionCoverageEnabled` is true, appends explicit keyword guidance
+ * for newsletter sections that have no dedicated intent (e.g. Deals & Movements).
+ *
+ * When `strategy.brief` is set, the opaque product contract brief is appended via
+ * {@link applyContractBrief} so the LLM knows the end artifact it is feeding.
+ *
+ * @param strategy - Strategy knobs for language lock, intent targets, deterministic floor, and optional contract brief.
  * @returns System message content for the chat model.
  */
 export const buildQueryAnalysisSystemContent = (
@@ -124,7 +148,7 @@ export const buildQueryAnalysisSystemContent = (
       ? "Prefer 2–5 word keyword phrases."
       : `Prefer ${String(maxWords)}-word keyword phrases.`;
 
-  return [
+  const sections: string[] = [
     "You generate short keyword search queries for news monitoring.",
     `Return ONLY a JSON object matching the schema: { "queries": [ { "text": string, "intent": ${QUERY_ANALYSIS_INTENT_JSON_UNION} } ] }.`,
     `${phraseLengthHint} Do not write full sentences, questions, or analyst-style commentary.`,
@@ -152,7 +176,19 @@ export const buildQueryAnalysisSystemContent = (
       "- geopolitical: trade, sanctions, cross-border dynamics affecting the sector",
       "- industry_trend: sector outlook, analyst views on the industry overall",
     ].join("\n"),
-  ].join("\n\n");
+  ];
+
+  if (strategy.sectionCoverageEnabled) {
+    const homelessSections = sectionsWithoutDedicatedIntent();
+    if (homelessSections.includes("dealsAndMovements")) {
+      sections.push(
+        "Section coverage: Reserve 1–2 queries specifically for M&A deals, funding rounds, leadership appointments, and notable corporate actions — these feed the Deals & Movements section of the end product. Tag such queries with intent: \"breaking\" when time-sensitive or \"kg_change\" when structural.",
+      );
+    }
+  }
+
+  const base = sections.join("\n\n");
+  return applyContractBrief(base, strategy.brief !== undefined ? { brief: strategy.brief } : undefined);
 };
 
 /**
@@ -290,6 +326,9 @@ const BRAINSTORM_SYSTEM_PROMPT = [
 /**
  * Builds the system and user messages for the brainstorm pass.
  *
+ * When `strategy.brief` is set, appends the product contract brief to the brainstorm
+ * system prompt so the brainstorm angles are oriented toward the end artifact.
+ *
  * @param strategy - Strategy knobs (languages inform phrasing expectations).
  * @param context - Live GET /query-analysis payload.
  * @returns System and user content for `generateText`.
@@ -297,13 +336,16 @@ const BRAINSTORM_SYSTEM_PROMPT = [
 export const buildBrainstormPrompt = (
   strategy: LlmQueryStrategyPrompt,
   context: GetQueryAnalysisResponse,
-): { system: string; user: string } => ({
-  system: [
+): { system: string; user: string } => {
+  const baseSystem = [
     BRAINSTORM_SYSTEM_PROMPT,
     `Write angles in ${strategy.language}. Do not translate ticker symbols or proper nouns.`,
-  ].join("\n\n"),
-  user: serializeQueryAnalysisContextBlock(context, strategy.language),
-});
+  ].join("\n\n");
+  return {
+    system: applyContractBrief(baseSystem, strategy.brief !== undefined ? { brief: strategy.brief } : undefined),
+    user: serializeQueryAnalysisContextBlock(context, strategy.language),
+  };
+};
 
 /**
  * Parses brainstorm model output into trimmed bullet strings.

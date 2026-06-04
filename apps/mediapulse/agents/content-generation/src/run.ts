@@ -134,6 +134,7 @@ export async function run({
   config,
   token,
   hermesCorrelation,
+  contract,
 }: AgentRunContext<Input, ContentGenerationConfig>): Promise<AgentRunResult> {
   const runStart = Date.now();
 
@@ -400,6 +401,7 @@ export async function run({
       recentBullets,
       competitors,
       issuerAliases,
+      ...(contract !== undefined ? { brief: contract.brief } : {}),
     });
   } catch (err) {
     const code = classifyLlmError(err);

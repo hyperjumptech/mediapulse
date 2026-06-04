@@ -87,6 +87,19 @@ const outputSchema = z
       .describe(
         "Relative weights keyed by intent for merge ordering and LLM target counts. Omitted keys use contract defaults.",
       ),
+    sectionCoverage: z
+      .object({
+        enabled: z
+          .boolean()
+          .default(false)
+          .describe(
+            "When true, reserve at least one query per newsletter section that has a dedicated intent, and inject keyword guidance for sections with no dedicated intent (e.g. Deals & Movements).",
+          ),
+      })
+      .default({})
+      .describe(
+        "Optional section-coverage path: ensures every newsletter section has upstream search budget. Off by default.",
+      ),
   })
   .default({})
   .describe("Query set size, language mix, and intent weighting.");

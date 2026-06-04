@@ -1066,3 +1066,135 @@ describe("llmSamplingOptions — reasoning effort", () => {
     });
   });
 });
+
+describe("buildQueryAnalysisSystemContent — contract brief", () => {
+  const baseStrategy = {
+    queryCount: 10,
+    language: "en",
+    minDeterministicCount: 3,
+    intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+  };
+
+  it("returns identical output with no brief (reversibility guarantee)", () => {
+    const withoutBrief = buildQueryAnalysisSystemContent(baseStrategy);
+    const withUndefinedBrief = buildQueryAnalysisSystemContent({ ...baseStrategy, brief: undefined });
+    expect(withoutBrief).toBe(withUndefinedBrief);
+  });
+
+  it("appends product_contract block when brief is present", () => {
+    const result = buildQueryAnalysisSystemContent({
+      ...baseStrategy,
+      brief: "Daily industry newsletter for executives.",
+    });
+
+    expect(result).toContain("<product_contract>");
+    expect(result).toContain("Daily industry newsletter for executives.");
+    expect(result).toContain("</product_contract>");
+  });
+
+  it("prompt fingerprint differs when brief is present vs absent", () => {
+    const fingerprintWithout = computeLlmPromptFingerprint(
+      buildQueryAnalysisSystemContent(baseStrategy),
+      "user content",
+    );
+    const fingerprintWith = computeLlmPromptFingerprint(
+      buildQueryAnalysisSystemContent({ ...baseStrategy, brief: "A brief." }),
+      "user content",
+    );
+
+    expect(fingerprintWith).not.toBe(fingerprintWithout);
+  });
+});
+
+describe("buildQueryAnalysisSystemContent — section coverage", () => {
+  const baseStrategy = {
+    queryCount: 10,
+    language: "en",
+    minDeterministicCount: 3,
+    intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+  };
+
+  it("does not include deals/M&A guidance when sectionCoverageEnabled is false", () => {
+    const result = buildQueryAnalysisSystemContent({ ...baseStrategy, sectionCoverageEnabled: false });
+
+    expect(result).not.toContain("Deals & Movements");
+    expect(result).not.toContain("M&A");
+  });
+
+  it("injects deals/M&A keyword guidance when sectionCoverageEnabled is true", () => {
+    const result = buildQueryAnalysisSystemContent({ ...baseStrategy, sectionCoverageEnabled: true });
+
+    expect(result).toContain("M&A");
+    expect(result).toContain("Deals & Movements");
+  });
+});
+
+describe("computeQueryAnalysisIntentTargetCounts — section coverage floor", () => {
+  it("does not change counts when sectionCoverageEnabled is false", () => {
+    const zeroWeights = Object.fromEntries(
+      QUERY_ANALYSIS_STANDARD_INTENTS.map((intent) => [intent, 0]),
+    ) as Record<(typeof QUERY_ANALYSIS_STANDARD_INTENTS)[number], number>;
+
+    const counts = computeQueryAnalysisIntentTargetCounts({
+      queryCount: 10,
+      intentWeights: { ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS, competitor: 0 },
+      sectionCoverageEnabled: false,
+    });
+
+    expect(counts.competitor).toBe(0);
+  });
+
+  it("bumps intents that map to a section to at least 1 when sectionCoverageEnabled", () => {
+    const withZeroCompetitor = {
+      ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+      competitor: 0,
+      industry_trend: 0,
+    };
+
+    const counts = computeQueryAnalysisIntentTargetCounts({
+      queryCount: 10,
+      intentWeights: withZeroCompetitor,
+      sectionCoverageEnabled: true,
+    });
+
+    expect(counts.competitor).toBeGreaterThanOrEqual(1);
+    expect(counts.industry_trend).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("buildBrainstormPrompt — contract brief", () => {
+  const baseStrategy = {
+    queryCount: 10,
+    language: "en",
+    minDeterministicCount: 3,
+    intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+  };
+  const emptyContext = {
+    ticker: { id: "t1", symbol: "ACME", name: "Acme Co", metadata: null },
+    topEntities: [] as never[],
+    recentThemes: [] as never[],
+    headlineSamples: [] as never[],
+    kgNeighborhood: [] as never[],
+    peers: [] as never[],
+    calendar: { recentEventTypes: [] as never[] },
+    recentRelationDeltas: [] as never[],
+    sources: [] as never[],
+    priorYield: undefined,
+    competitors: [] as never[],
+    issuerAliases: [] as never[],
+  };
+
+  it("does not include product_contract block when no brief", () => {
+    const { system } = buildBrainstormPrompt(baseStrategy, emptyContext as never);
+    expect(system).not.toContain("<product_contract>");
+  });
+
+  it("appends product_contract block when brief is present", () => {
+    const { system } = buildBrainstormPrompt(
+      { ...baseStrategy, brief: "Newsletter for executives." },
+      emptyContext as never,
+    );
+    expect(system).toContain("<product_contract>");
+    expect(system).toContain("Newsletter for executives.");
+  });
+});
