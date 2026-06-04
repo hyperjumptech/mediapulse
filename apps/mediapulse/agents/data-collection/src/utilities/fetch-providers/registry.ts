@@ -1,6 +1,7 @@
 import { createDiffbotFetchProvider } from "./diffbot";
 import { createFirecrawlFetchProvider } from "./firecrawl";
 import { createJinaFetchProvider } from "./jina";
+import { createSerperFetchProvider } from "./serper";
 
 import type { FetchProvider, FetchProviderConfig } from "./types";
 
@@ -15,6 +16,8 @@ export const createFetchProvider = (
   config: FetchProviderConfig,
 ): FetchProvider => {
   switch (config.type) {
+    case "serper":
+      return createSerperFetchProvider(config);
     case "jina":
       return createJinaFetchProvider(config);
     case "firecrawl":

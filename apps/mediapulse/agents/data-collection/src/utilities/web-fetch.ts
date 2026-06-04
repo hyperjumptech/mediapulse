@@ -19,7 +19,7 @@ import { hostFromUrl } from "./host-error-tracker";
 
 export type WebFetchProviderName = Extract<
   DataCollectionFailure["provider"],
-  "jina" | "firecrawl" | "diffbot"
+  "serper" | "jina" | "firecrawl" | "diffbot"
 >;
 
 export type FetchedWebSearchResult = WebSearchResult & {
@@ -66,6 +66,7 @@ type ProviderChainEntry = {
 };
 
 const WEB_FETCH_PROVIDER_NAMES = new Set<WebFetchProviderName>([
+  "serper",
   "jina",
   "firecrawl",
   "diffbot",
