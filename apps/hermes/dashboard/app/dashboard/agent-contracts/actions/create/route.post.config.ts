@@ -1,7 +1,6 @@
 import { prisma } from "@hermes/orchestration-database";
 import {
   createRequestValidator,
-  errorResponse,
   HandlerFunc,
   successResponse,
 } from "route-action-gen/lib";
