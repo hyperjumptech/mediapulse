@@ -203,9 +203,18 @@ export {
 } from "./ticker.js";
 export * from "./user-registration.js";
 export {
+  getSectionCoverageRollupQuerySchema,
+  getSectionCoverageRollupResponseSchema,
+  type GetSectionCoverageRollupQuery,
+  type GetSectionCoverageRollupResponse,
+  type SectionCoverageVersionRow,
+} from "./section-coverage-rollup.js";
+export {
+  classifyQueryToSection,
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
   SECTION_BY_INTENT,
   sectionsWithoutDedicatedIntent,
+  summarizeSectionCoverage,
   type NewsletterSectionId,
 } from "./newsletter-sections.js";

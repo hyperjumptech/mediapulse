@@ -573,6 +573,8 @@ model ContentGenerationRun {
   pipelineRunId String?                     @map("pipeline_run_id")
   executionId   String?                     @map("execution_id")
   newsletterId  String?                     @map("newsletter_id")
+  /// Observability snapshot attached on the success path (e.g. sectionFill).
+  details       Json?
   createdAt     DateTime                    @default(now()) @map("created_at")
 
   ticker Ticker @relation(fields: [tickerId], references: [id])

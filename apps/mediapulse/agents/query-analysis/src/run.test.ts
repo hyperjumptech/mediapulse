@@ -560,6 +560,121 @@ describe("deriveMinDeterministicCount", () => {
   });
 });
 
+describe("sectionCoverage snapshot", () => {
+  it("strategySnapshot.sectionCoverage.bySection contains every newsletter section", async () => {
+    mockFetchQueryLlm.mockResolvedValue([
+      { text: "competitor moves", intent: "competitor" as const },
+      { text: "regulatory update", intent: "regulatory" as const },
+    ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: conservativeConfig,
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
+      strategySnapshot: {
+        sectionCoverage: {
+          bySection: Record<string, { count: number; share: number }>;
+          zeroCoverageSections: string[];
+        };
+      };
+    };
+
+    const { sectionCoverage } = createPayload.strategySnapshot;
+    expect(sectionCoverage).toBeDefined();
+    for (const sectionId of [
+      "industryPulse",
+      "competitiveLandscape",
+      "dealsAndMovements",
+      "regulatoryPolicyWatch",
+      "disruptorsOrTech",
+      "quickHits",
+    ]) {
+      expect(sectionCoverage.bySection).toHaveProperty(sectionId);
+    }
+  });
+
+  it("zeroCoverageSections always includes dealsAndMovements (no dedicated intent)", async () => {
+    mockFetchQueryLlm.mockResolvedValue([
+      { text: "only breaking", intent: "breaking" as const },
+    ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: conservativeConfig,
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
+      strategySnapshot: {
+        sectionCoverage: {
+          zeroCoverageSections: string[];
+        };
+      };
+    };
+
+    const { zeroCoverageSections } =
+      createPayload.strategySnapshot.sectionCoverage;
+    expect(zeroCoverageSections).toContain("dealsAndMovements");
+    expect(zeroCoverageSections).toContain("quickHits");
+  });
+
+  it("sectionCoverage includes contractVersion when a contract is attached", async () => {
+    mockFetchQueryLlm.mockResolvedValue([
+      { text: "competitor news", intent: "competitor" as const },
+    ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: conservativeConfig,
+      token: "Bearer t",
+      contract: { brief: "brief text", version: "v2" },
+    });
+
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
+      strategySnapshot: {
+        sectionCoverage: { contractVersion?: string };
+      };
+    };
+
+    expect(createPayload.strategySnapshot.sectionCoverage.contractVersion).toBe(
+      "v2",
+    );
+  });
+
+  it("sectionCoverage omits contractVersion when no contract is attached", async () => {
+    mockFetchQueryLlm.mockResolvedValue([
+      { text: "industry outlook", intent: "industry_trend" as const },
+    ]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: conservativeConfig,
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
+      strategySnapshot: {
+        sectionCoverage: { contractVersion?: string };
+      };
+    };
+
+    expect(
+      createPayload.strategySnapshot.sectionCoverage.contractVersion,
+    ).toBeUndefined();
+  });
+});
+
 describe("runQueryAnalysis derived minDeterministicCount", () => {
   it("persists derived minDeterministicCount 4 when queryCount is 10", async () => {
     await runQueryAnalysis({

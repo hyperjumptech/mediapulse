@@ -56,6 +56,7 @@ import {
   getContentGenerationRuns,
   postContentGenerationRun,
 } from "./routes/content-generation-run.js";
+import { getSectionCoverageRollupHandler } from "./routes/section-coverage-rollup.js";
 import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
@@ -158,6 +159,9 @@ const routeHandlers = {
   contentGenerationRuns: {
     get: getContentGenerationRuns,
     post: postContentGenerationRun,
+  },
+  sectionCoverageRollup: {
+    get: getSectionCoverageRollupHandler,
   },
 } satisfies AgentDataApiHandlers;
 

@@ -1,5 +1,9 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { GetQueryAnalysisResponse } from "@workspace/agent-data-api-contract";
+import {
+  NEWSLETTER_SECTION_IDS,
+  summarizeSectionCoverage,
+} from "@workspace/agent-data-api-contract";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 import { logger } from "@workspace/logger";
@@ -972,6 +976,18 @@ export const runQueryAnalysis = async (
 
   report("Merged and deduped query set", `${merged.length} total queries`);
 
+  const mergedIntents = merged.map((row) => row.intent);
+  const coverageBySection = summarizeSectionCoverage(mergedIntents);
+  const zeroCoverageSections = NEWSLETTER_SECTION_IDS.filter(
+    (sectionId) => coverageBySection[sectionId].count === 0,
+  );
+  if (zeroCoverageSections.length > 0) {
+    logger.warn(
+      { tickerId: input.tickerId, zeroCoverageSections },
+      "query-analysis section coverage: zero-coverage sections detected",
+    );
+  }
+
   const strategySnapshot = {
     queryCount,
     wildcardFraction,
@@ -982,6 +998,11 @@ export const runQueryAnalysis = async (
     intentWeights,
     ...(contract !== undefined ? { contractVersion: contract.version } : {}),
     ...(sectionCoverageEnabled ? { sectionCoverageEnabled: true } : {}),
+    sectionCoverage: {
+      bySection: coverageBySection,
+      zeroCoverageSections,
+      ...(contract !== undefined ? { contractVersion: contract.version } : {}),
+    },
     ...(appliedEventBias !== undefined
       ? {
           appliedEventBias: {

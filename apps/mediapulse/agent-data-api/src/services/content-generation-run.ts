@@ -43,6 +43,7 @@ export async function createContentGenerationRun(
     pipelineRunId?: string | null;
     executionId?: string | null;
     newsletterId?: string | null;
+    details?: Record<string, unknown> | null;
   },
   deps?: { db?: ContentGenerationRunDb },
 ) {
@@ -62,6 +63,9 @@ export async function createContentGenerationRun(
       pipelineRunId: data.pipelineRunId ?? null,
       executionId: data.executionId ?? null,
       newsletterId: data.newsletterId ?? null,
+      ...(data.details !== undefined && data.details !== null
+        ? { details: data.details as Prisma.InputJsonValue }
+        : {}),
     },
   } satisfies Prisma.ContentGenerationRunCreateArgs;
 

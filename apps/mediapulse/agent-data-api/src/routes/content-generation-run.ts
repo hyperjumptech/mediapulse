@@ -57,6 +57,7 @@ export async function getContentGenerationRuns(
       durationMs: row.durationMs,
       pipelineRunId: row.pipelineRunId,
       newsletterId: row.newsletterId,
+      details: row.details,
       createdAt: row.createdAt.toISOString(),
     }));
 
@@ -95,6 +96,7 @@ export async function postContentGenerationRun(
       durationMs: data.durationMs ?? null,
       pipelineRunId: data.pipelineRunId ?? null,
       newsletterId: data.newsletterId ?? null,
+      details: data.details ?? null,
     });
 
     const response = postContentGenerationRunResponseSchema.parse({
@@ -110,6 +112,7 @@ export async function postContentGenerationRun(
       durationMs: created.durationMs,
       pipelineRunId: created.pipelineRunId,
       newsletterId: created.newsletterId,
+      details: created.details,
       createdAt: created.createdAt.toISOString(),
     });
 
