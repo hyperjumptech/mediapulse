@@ -434,7 +434,9 @@ export const runLanguageQuerySlice = async (params: {
     intentWeights: shared.intentWeights,
     queryMaxWords: shared.queryMaxWords,
     sectionCoverageEnabled: shared.sectionCoverageEnabled,
-    ...(shared.contractBrief !== undefined ? { brief: shared.contractBrief } : {}),
+    ...(shared.contractBrief !== undefined
+      ? { brief: shared.contractBrief }
+      : {}),
   };
 
   const systemContent = buildQueryAnalysisSystemContent(strategyPrompt);

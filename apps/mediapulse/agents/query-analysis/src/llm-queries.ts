@@ -96,7 +96,10 @@ const QUERY_ANALYSIS_INTENT_JSON_UNION = QUERY_ANALYSIS_STANDARD_INTENTS.map(
  * @returns Rounded target count per standard intent label.
  */
 export const computeQueryAnalysisIntentTargetCounts = (
-  strategy: Pick<LlmQueryStrategyPrompt, "queryCount" | "intentWeights" | "sectionCoverageEnabled">,
+  strategy: Pick<
+    LlmQueryStrategyPrompt,
+    "queryCount" | "intentWeights" | "sectionCoverageEnabled"
+  >,
 ): Record<(typeof QUERY_ANALYSIS_STANDARD_INTENTS)[number], number> => {
   const sum = QUERY_ANALYSIS_STANDARD_INTENTS.reduce(
     (total, intent) => total + strategy.intentWeights[intent],
@@ -182,13 +185,16 @@ export const buildQueryAnalysisSystemContent = (
     const homelessSections = sectionsWithoutDedicatedIntent();
     if (homelessSections.includes("dealsAndMovements")) {
       sections.push(
-        "Section coverage: Reserve 1–2 queries specifically for M&A deals, funding rounds, leadership appointments, and notable corporate actions — these feed the Deals & Movements section of the end product. Tag such queries with intent: \"breaking\" when time-sensitive or \"kg_change\" when structural.",
+        'Section coverage: Reserve 1–2 queries specifically for M&A deals, funding rounds, leadership appointments, and notable corporate actions — these feed the Deals & Movements section of the end product. Tag such queries with intent: "breaking" when time-sensitive or "kg_change" when structural.',
       );
     }
   }
 
   const base = sections.join("\n\n");
-  return applyContractBrief(base, strategy.brief !== undefined ? { brief: strategy.brief } : undefined);
+  return applyContractBrief(
+    base,
+    strategy.brief !== undefined ? { brief: strategy.brief } : undefined,
+  );
 };
 
 /**
@@ -342,7 +348,10 @@ export const buildBrainstormPrompt = (
     `Write angles in ${strategy.language}. Do not translate ticker symbols or proper nouns.`,
   ].join("\n\n");
   return {
-    system: applyContractBrief(baseSystem, strategy.brief !== undefined ? { brief: strategy.brief } : undefined),
+    system: applyContractBrief(
+      baseSystem,
+      strategy.brief !== undefined ? { brief: strategy.brief } : undefined,
+    ),
     user: serializeQueryAnalysisContextBlock(context, strategy.language),
   };
 };

@@ -2286,10 +2286,15 @@ describe("generateNewsletterWithLlm — contract brief", () => {
   it("system prompt does not contain product_contract block when brief is absent (reversibility guarantee)", async () => {
     const generateObjectFn = makeSuccessfulGenerateFn();
 
-    const result = await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
-      generateObjectFn,
-      sleepFn: noopSleepFn,
-    });
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
 
     expect(result.systemPrompt).not.toContain("<product_contract>");
   });
@@ -2311,10 +2316,15 @@ describe("generateNewsletterWithLlm — contract brief", () => {
   it("returned systemPrompt differs when brief is present so computePromptHash sees the full prompt", async () => {
     const generateObjectFn = makeSuccessfulGenerateFn();
 
-    const withoutBrief = await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
-      generateObjectFn,
-      sleepFn: noopSleepFn,
-    });
+    const withoutBrief = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      },
+    );
     const withBrief = await generateNewsletterWithLlm(
       testSources,
       baseConfig,

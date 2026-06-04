@@ -1077,7 +1077,10 @@ describe("buildQueryAnalysisSystemContent — contract brief", () => {
 
   it("returns identical output with no brief (reversibility guarantee)", () => {
     const withoutBrief = buildQueryAnalysisSystemContent(baseStrategy);
-    const withUndefinedBrief = buildQueryAnalysisSystemContent({ ...baseStrategy, brief: undefined });
+    const withUndefinedBrief = buildQueryAnalysisSystemContent({
+      ...baseStrategy,
+      brief: undefined,
+    });
     expect(withoutBrief).toBe(withUndefinedBrief);
   });
 
@@ -1115,14 +1118,20 @@ describe("buildQueryAnalysisSystemContent — section coverage", () => {
   };
 
   it("does not include deals/M&A guidance when sectionCoverageEnabled is false", () => {
-    const result = buildQueryAnalysisSystemContent({ ...baseStrategy, sectionCoverageEnabled: false });
+    const result = buildQueryAnalysisSystemContent({
+      ...baseStrategy,
+      sectionCoverageEnabled: false,
+    });
 
     expect(result).not.toContain("Deals & Movements");
     expect(result).not.toContain("M&A");
   });
 
   it("injects deals/M&A keyword guidance when sectionCoverageEnabled is true", () => {
-    const result = buildQueryAnalysisSystemContent({ ...baseStrategy, sectionCoverageEnabled: true });
+    const result = buildQueryAnalysisSystemContent({
+      ...baseStrategy,
+      sectionCoverageEnabled: true,
+    });
 
     expect(result).toContain("M&A");
     expect(result).toContain("Deals & Movements");
@@ -1137,7 +1146,10 @@ describe("computeQueryAnalysisIntentTargetCounts — section coverage floor", ()
 
     const counts = computeQueryAnalysisIntentTargetCounts({
       queryCount: 10,
-      intentWeights: { ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS, competitor: 0 },
+      intentWeights: {
+        ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+        competitor: 0,
+      },
       sectionCoverageEnabled: false,
     });
 
@@ -1185,7 +1197,10 @@ describe("buildBrainstormPrompt — contract brief", () => {
   };
 
   it("does not include product_contract block when no brief", () => {
-    const { system } = buildBrainstormPrompt(baseStrategy, emptyContext as never);
+    const { system } = buildBrainstormPrompt(
+      baseStrategy,
+      emptyContext as never,
+    );
     expect(system).not.toContain("<product_contract>");
   });
 
