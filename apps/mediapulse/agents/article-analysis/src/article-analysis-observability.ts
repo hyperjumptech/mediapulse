@@ -287,6 +287,13 @@ export type ParallelismObservabilityAggregate = {
   deadlineFiredAtMs?: number;
 };
 
+export type ExtractionRetryObservabilityAggregate = {
+  sourcesRetried: number;
+  totalRetryAttempts: number;
+  recoveredByRetry: number;
+  exhausted: number;
+};
+
 /** Per-source latency samples collected during parallel extraction. */
 export type PerSourceLatencyObservability = {
   extractionMs: number[];
@@ -382,6 +389,7 @@ export type ArticleAnalysisRunSummaryInput = {
   llmPromptFingerprint?: string;
   parallelism?: ParallelismObservabilityAggregate;
   perSourceLatency?: PerSourceLatencyObservability;
+  extractionRetries?: ExtractionRetryObservabilityAggregate;
 };
 
 /**
@@ -738,6 +746,10 @@ export const buildArticleAnalysisRunSummaryPayload = (
 
   if (input.parallelism !== undefined) {
     base.parallelism = input.parallelism;
+  }
+
+  if (input.extractionRetries !== undefined) {
+    base.extractionRetries = input.extractionRetries;
   }
 
   return base;

@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { APICallError, NoObjectGeneratedError } from "ai";
 
 import type { ResolvedExemplar } from "./exemplars/default-extraction-exemplars.js";
 import {
@@ -18,6 +19,8 @@ import {
   buildRelationCritiqueSystemContent,
   buildRelationCritiqueUserContent,
   buildVocabularyRepairSystemContent,
+  classifyLlmExtractionError,
+  executeLlmCallWithTransientRetries,
   extractEntitiesAndRelationsForSource,
   repairExtractionVocabulary,
   vocabularyRepairPreservesIdentity,
@@ -733,5 +736,228 @@ describe("normalizeLlmUsageFromSdk", () => {
       outputTokens: 1,
       totalTokens: 99,
     });
+  });
+});
+
+describe("classifyLlmExtractionError", () => {
+  it("classifies APICallError with status 429 as transient", () => {
+    const error = new APICallError({
+      message: "rate limited",
+      url: "https://api.openai.com",
+      requestBodyValues: {},
+      statusCode: 429,
+      isRetryable: false,
+    });
+
+    expect(classifyLlmExtractionError(error)).toBe("transient");
+  });
+
+  it("classifies APICallError with status 503 as transient", () => {
+    const error = new APICallError({
+      message: "service unavailable",
+      url: "https://api.openai.com",
+      requestBodyValues: {},
+      statusCode: 503,
+      isRetryable: false,
+    });
+
+    expect(classifyLlmExtractionError(error)).toBe("transient");
+  });
+
+  it("classifies APICallError with isRetryable=true as transient regardless of status", () => {
+    const error = new APICallError({
+      message: "retryable error",
+      url: "https://api.openai.com",
+      requestBodyValues: {},
+      isRetryable: true,
+    });
+
+    expect(classifyLlmExtractionError(error)).toBe("transient");
+  });
+
+  it("classifies NoObjectGeneratedError with no-response message as transient", () => {
+    const error = new NoObjectGeneratedError({
+      message: "No object generated: the model did not return a response.",
+      response: {
+        id: "test-id",
+        modelId: "gpt-4o-mini",
+        timestamp: new Date(),
+      },
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+      },
+      finishReason: "stop",
+    });
+
+    expect(classifyLlmExtractionError(error)).toBe("transient");
+  });
+
+  it("classifies timeout message strings as transient", () => {
+    expect(classifyLlmExtractionError(new Error("request timed out"))).toBe(
+      "transient",
+    );
+    expect(classifyLlmExtractionError(new Error("ETIMEDOUT"))).toBe(
+      "transient",
+    );
+    expect(classifyLlmExtractionError(new Error("ECONNRESET"))).toBe(
+      "transient",
+    );
+  });
+
+  it("classifies parse failure message as permanent", () => {
+    expect(
+      classifyLlmExtractionError(
+        new Error("could not parse the response from OpenAI"),
+      ),
+    ).toBe("permanent");
+  });
+
+  it("classifies generic Error as permanent", () => {
+    expect(classifyLlmExtractionError(new Error("unexpected error"))).toBe(
+      "permanent",
+    );
+  });
+});
+
+describe("executeLlmCallWithTransientRetries", () => {
+  it("resolves immediately when operation succeeds on first attempt", async () => {
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
+    const operation = vi.fn().mockResolvedValue("ok");
+
+    const result = await executeLlmCallWithTransientRetries(operation, {
+      maxRetries: 2,
+      baseDelayMs: 100,
+      maxDelayMs: 1000,
+      sleep: fakeSleep,
+      classify: () => "transient",
+    });
+
+    expect(result).toBe("ok");
+    expect(operation).toHaveBeenCalledOnce();
+    expect(fakeSleep).not.toHaveBeenCalled();
+  });
+
+  it("retries transient failures and resolves when the operation eventually succeeds", async () => {
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
+    const transientError = new Error("rate limited");
+    const operation = vi
+      .fn()
+      .mockRejectedValueOnce(transientError)
+      .mockRejectedValueOnce(transientError)
+      .mockResolvedValue("recovered");
+    let retryCallCount = 0;
+
+    const result = await executeLlmCallWithTransientRetries(operation, {
+      maxRetries: 2,
+      baseDelayMs: 100,
+      maxDelayMs: 1000,
+      sleep: fakeSleep,
+      classify: () => "transient",
+      onRetry: () => {
+        retryCallCount++;
+      },
+    });
+
+    expect(result).toBe("recovered");
+    expect(fakeSleep).toHaveBeenCalledTimes(2);
+    expect(retryCallCount).toBe(2);
+    const firstDelay = fakeSleep.mock.calls[0]?.[0] as number;
+    const secondDelay = fakeSleep.mock.calls[1]?.[0] as number;
+    expect(firstDelay).toBeGreaterThanOrEqual(0);
+    expect(firstDelay).toBeLessThanOrEqual(100);
+    expect(secondDelay).toBeGreaterThanOrEqual(0);
+    expect(secondDelay).toBeLessThanOrEqual(200);
+  });
+
+  it("rethrows after exhausting maxRetries", async () => {
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
+    const transientError = new Error("still failing");
+    const operation = vi.fn().mockRejectedValue(transientError);
+
+    await expect(
+      executeLlmCallWithTransientRetries(operation, {
+        maxRetries: 1,
+        baseDelayMs: 100,
+        maxDelayMs: 1000,
+        sleep: fakeSleep,
+        classify: () => "transient",
+      }),
+    ).rejects.toThrow("still failing");
+
+    expect(operation).toHaveBeenCalledTimes(2);
+    expect(fakeSleep).toHaveBeenCalledTimes(1);
+  });
+
+  it("rethrows immediately without sleeping when classification is permanent", async () => {
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
+    const permanentError = new Error("could not parse");
+    const operation = vi.fn().mockRejectedValue(permanentError);
+
+    await expect(
+      executeLlmCallWithTransientRetries(operation, {
+        maxRetries: 2,
+        baseDelayMs: 100,
+        maxDelayMs: 1000,
+        sleep: fakeSleep,
+        classify: () => "permanent",
+      }),
+    ).rejects.toThrow("could not parse");
+
+    expect(operation).toHaveBeenCalledOnce();
+    expect(fakeSleep).not.toHaveBeenCalled();
+  });
+
+  it("stops retrying when shouldAbort returns true before sleep", async () => {
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
+    const transientError = new Error("transient");
+    const operation = vi.fn().mockRejectedValue(transientError);
+    const shouldAbort = vi.fn().mockReturnValue(true);
+
+    await expect(
+      executeLlmCallWithTransientRetries(operation, {
+        maxRetries: 3,
+        baseDelayMs: 100,
+        maxDelayMs: 1000,
+        sleep: fakeSleep,
+        classify: () => "transient",
+        shouldAbort,
+      }),
+    ).rejects.toThrow("transient");
+
+    expect(fakeSleep).not.toHaveBeenCalled();
+  });
+
+  it("delays are bounded by maxDelayMs", async () => {
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
+    const transientError = new Error("rate limited");
+    const operation = vi
+      .fn()
+      .mockRejectedValueOnce(transientError)
+      .mockRejectedValueOnce(transientError)
+      .mockRejectedValueOnce(transientError)
+      .mockResolvedValue("ok");
+
+    await executeLlmCallWithTransientRetries(operation, {
+      maxRetries: 3,
+      baseDelayMs: 10000,
+      maxDelayMs: 50,
+      sleep: fakeSleep,
+      classify: () => "transient",
+    });
+
+    for (const call of fakeSleep.mock.calls) {
+      expect(call[0] as number).toBeLessThanOrEqual(50);
+    }
   });
 });

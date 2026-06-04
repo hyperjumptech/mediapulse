@@ -61,8 +61,7 @@ import {
   type ChunkBuildParseCounts,
   type ExemplarsObservabilityAggregate,
   type LlmUsageTotals,
-  type RelationCritiqueObservabilityAggregate,
-  type VocabularyPartitioningObservabilityAggregate,
+  type ExtractionRetryObservabilityAggregate,
   type YieldSnapshot,
 } from "./article-analysis-observability.js";
 import {
@@ -385,6 +384,16 @@ export const run = async ({
               : {}),
           }
         : undefined),
+    extractionRetries:
+      summary.extractionRetries ??
+      (extractionRetriesSourcesRetried > 0
+        ? ({
+            sourcesRetried: extractionRetriesSourcesRetried,
+            totalRetryAttempts: extractionRetriesTotalAttempts,
+            recoveredByRetry: extractionRetriesRecoveredByRetry,
+            exhausted: extractionRetriesExhausted,
+          } satisfies ExtractionRetryObservabilityAggregate)
+        : undefined),
   });
 
   /**
@@ -536,6 +545,10 @@ export const run = async ({
   let articlesScoredTotal = 0;
   let articlesSelectedTotal = 0;
   let extractionSkippedDueToDeadline = 0;
+  let extractionRetriesSourcesRetried = 0;
+  let extractionRetriesTotalAttempts = 0;
+  let extractionRetriesRecoveredByRetry = 0;
+  let extractionRetriesExhausted = 0;
   let parallelPeakInFlight = 0;
   let parallelDeadlineFiredAtMs: number | undefined;
   const perSourceExtractionLatencyMs: number[] = [];
@@ -903,6 +916,15 @@ export const run = async ({
         sourceQualityRecencyHoursSum += outcome.sourceQualityRecencyHours;
         sourceQualityRecencyHoursCount += 1;
       }
+      if (outcome.extractionRetryAttempts > 0) {
+        extractionRetriesSourcesRetried += 1;
+        extractionRetriesTotalAttempts += outcome.extractionRetryAttempts;
+        if (outcome.extractionRetrySucceeded) {
+          extractionRetriesRecoveredByRetry += 1;
+        } else {
+          extractionRetriesExhausted += 1;
+        }
+      }
     };
 
     const processOneSource = createProcessOneSource({
@@ -920,6 +942,7 @@ export const run = async ({
       dataApiClient,
       log,
       hardDeleteDataSource: hardDeleteDataSourceById,
+      sleep: sleepMs,
     });
 
     const extractionDeadlineAtMs =
