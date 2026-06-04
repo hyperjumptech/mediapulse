@@ -701,7 +701,7 @@ export const run = async ({
     articlesProcessedForSummary = batch.length;
 
     report(
-      `Loaded article batch for ${input.tickerId}`,
+      "Loaded article batch",
       `${batch.length} sources\n${batch.map((s) => s.url).join("\n")}`,
     );
 
@@ -1401,7 +1401,7 @@ export const run = async ({
     if (!erPhaseFailed && perSourceSignals.length > 0) {
       const urlByDataSourceId = new Map(batch.map((s) => [s.id, s.url]));
       report(
-        `Scoring and posting article relevance for ${input.tickerId}`,
+        "Scoring and posting article relevance",
         `${perSourceSignals.length} sources\n${perSourceSignals.map((s) => urlByDataSourceId.get(s.dataSourceId) ?? s.dataSourceId).join("\n")}`,
       );
       const weightMap = toRelevanceWeightMapV1(cfg);
