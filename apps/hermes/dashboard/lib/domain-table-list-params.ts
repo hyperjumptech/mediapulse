@@ -10,6 +10,9 @@ export type DomainTableSearchParams = {
   typeId?: string;
   from?: string;
   to?: string;
+  intent?: string;
+  source?: string;
+  isActive?: string;
 };
 
 export type DomainTableListParamsParsed = {
@@ -22,6 +25,9 @@ export type DomainTableListParamsParsed = {
   typeId?: string;
   from?: string;
   to?: string;
+  intent?: string;
+  source?: string;
+  isActive?: string;
 };
 
 /**
@@ -33,7 +39,7 @@ export type DomainTableListParamsParsed = {
 export const buildDomainTableFilterExtraParams = (
   params: Pick<
     DomainTableListParamsParsed,
-    "tickerId" | "typeId" | "from" | "to"
+    "tickerId" | "typeId" | "from" | "to" | "intent" | "source" | "isActive"
   >,
 ): Record<string, string> => {
   const extra: Record<string, string> = {};
@@ -41,6 +47,9 @@ export const buildDomainTableFilterExtraParams = (
   if (params.typeId) extra.typeId = params.typeId;
   if (params.from) extra.from = params.from;
   if (params.to) extra.to = params.to;
+  if (params.intent) extra.intent = params.intent;
+  if (params.source) extra.source = params.source;
+  if (params.isActive) extra.isActive = params.isActive;
   return extra;
 };
 
@@ -63,7 +72,21 @@ export const parseDomainTableSearchParams = (
   const typeId = searchParams.typeId?.trim() || undefined;
   const from = searchParams.from?.trim() || undefined;
   const to = searchParams.to?.trim() || undefined;
-  return { page, pageSize, query, tickerId, typeId, from, to };
+  const intent = searchParams.intent?.trim() || undefined;
+  const source = searchParams.source?.trim() || undefined;
+  const isActive = searchParams.isActive?.trim() || undefined;
+  return {
+    page,
+    pageSize,
+    query,
+    tickerId,
+    typeId,
+    from,
+    to,
+    intent,
+    source,
+    isActive,
+  };
 };
 
 /**

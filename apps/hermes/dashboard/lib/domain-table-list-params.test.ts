@@ -45,6 +45,9 @@ describe("buildDomainTableListParams", () => {
           typeId: "22222222-2222-4222-a222-222222222222",
           from: "2026-05-01",
           to: "2026-05-31",
+          intent: "breaking",
+          source: "llm",
+          isActive: "true",
         },
         newslettersMeta,
       ),
@@ -53,6 +56,9 @@ describe("buildDomainTableListParams", () => {
       typeId: "22222222-2222-4222-a222-222222222222",
       from: "2026-05-01",
       to: "2026-05-31",
+      intent: "breaking",
+      source: "llm",
+      isActive: "true",
       sortBy: "createdAt",
       sortDir: "desc",
     });
@@ -84,5 +90,19 @@ describe("buildDomainTablePreserveParams", () => {
 describe("buildDomainTableFilterExtraParams", () => {
   it("omits empty filter values", () => {
     expect(buildDomainTableFilterExtraParams({})).toEqual({});
+  });
+
+  it("includes search-query filter keys when set", () => {
+    expect(
+      buildDomainTableFilterExtraParams({
+        intent: "breaking",
+        source: "llm",
+        isActive: "false",
+      }),
+    ).toEqual({
+      intent: "breaking",
+      source: "llm",
+      isActive: "false",
+    });
   });
 });

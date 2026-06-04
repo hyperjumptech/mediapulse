@@ -68,6 +68,9 @@ export const tableV1ListFilterKeySchema = z.enum([
   "tickerId",
   "typeId",
   "createdAt",
+  "intent",
+  "source",
+  "isActive",
 ]);
 
 /** Ticker dropdown option for list `tickerId` filters (usually from GET meta). */
@@ -267,6 +270,14 @@ export const tableV1MetaResponseSchema = z.object({
    * Entity type dropdown options for `typeId` list filters (dynamic; entities meta merges these).
    */
   entityTypeOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
+  /**
+   * Intent dropdown options for `intent` list filters (dynamic; search-queries meta merges these).
+   */
+  intentOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
+  /**
+   * Source dropdown options for `source` list filters (dynamic; search-queries meta merges these).
+   */
+  sourceOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
 });
 
 /**

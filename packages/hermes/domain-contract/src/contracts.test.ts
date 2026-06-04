@@ -136,6 +136,29 @@ describe("tableV1MetaResponseSchema", () => {
 
     expect(parsed.actions.view).toBe(true);
   });
+
+  it("parses meta with search-query filter options", () => {
+    const parsed = tableV1MetaResponseSchema.parse({
+      title: "Search Queries",
+      columns: [{ key: "text", label: "Search Query" }],
+      actions: { create: false, update: false, delete: true },
+      listFilters: ["tickerId", "isActive", "intent", "source", "createdAt"],
+      intentOptions: [{ value: "breaking", label: "breaking" }],
+      sourceOptions: [{ value: "llm", label: "llm" }],
+    });
+
+    expect(parsed.listFilters).toEqual([
+      "tickerId",
+      "isActive",
+      "intent",
+      "source",
+      "createdAt",
+    ]);
+    expect(parsed.intentOptions).toEqual([
+      { value: "breaking", label: "breaking" },
+    ]);
+    expect(parsed.sourceOptions).toEqual([{ value: "llm", label: "llm" }]);
+  });
 });
 
 describe("dashboardObjectFormJsonSchemaForListRow", () => {

@@ -50,6 +50,9 @@ export type DomainTableListParams = {
   typeId?: string;
   from?: string;
   to?: string;
+  intent?: string;
+  source?: string;
+  isActive?: string;
 };
 
 /**
@@ -398,6 +401,9 @@ export const getDomainTableList = async (
   if (params.typeId) search.set("typeId", params.typeId);
   if (params.from) search.set("from", params.from);
   if (params.to) search.set("to", params.to);
+  if (params.intent) search.set("intent", params.intent);
+  if (params.source) search.set("source", params.source);
+  if (params.isActive) search.set("isActive", params.isActive);
 
   return callDomain(
     `${baseUrl}${page.apiPrefix}?${search.toString()}`,
