@@ -10,12 +10,37 @@ The delivery agent reads **newsletter content and subscribers** from agent-data-
 
 ## Features
 
-- **Input:** `tickerId` (UUID). Receives bearer token from Hermes.
+- **Input:** `tickerId` (Hermes ticker id). Optional **`emails`** (string array) for manual/test runs. Receives bearer token from Hermes.
 - **Fetches** delivery data from agent-data-api: newsletter (subject, content) and list of subscribers (email).
 - **Sends email** to each subscriber using the configured provider (e.g. Resend).
-- **Skips** cleanly if no newsletter or no subscribers.
-- **Marks completion** — POSTs to agent-data-api (e.g. `userTickerId`) so the pipeline can track delivery.
-- **Diagnostics** — Persists **delivery runs** with Hermes correlation when present (`X-Job-Id`, `X-Execution-Id`, `X-Schedule-Id`, execution/step ids), skip reasons (`skipped_no_newsletter`, `skipped_no_subscribers`), and per-recipient **`errorCategory`** (e.g. `resend_rate_limited`, `skipped_already_delivered`). Invalid **agent config** is rejected with **HTTP 400** before a run starts, so no delivery-run row is written for that case.
+- **Skips** cleanly if no newsletter or no recipients (subscribers, or test `emails` when override is set).
+- **Marks completion** — POSTs delivery checkpoints to agent-data-api per successful subscriber send (production runs only; see test override below).
+- **Diagnostics** — Persists **delivery runs** with Hermes correlation when present (`X-Job-Id`, `X-Execution-Id`, `X-Schedule-Id`, execution/step ids), skip reasons (`skipped_no_newsletter`, `skipped_no_subscribers`, `skipped_no_test_recipients`), and per-recipient **`errorCategory`** (e.g. `resend_rate_limited`, `skipped_already_delivered`). Invalid **agent config** is rejected with **HTTP 400** before a run starts, so no delivery-run row is written for that case.
+
+### Test recipient override (`input.emails`)
+
+For **manual or test invokes only**, you may pass `emails` on the invoke body. When present, the agent sends the latest newsletter **only** to those addresses (they need not be subscribed). Production pipeline steps should keep passing `tickerId` only.
+
+- Does **not** write **delivery checkpoints** (`POST /delivery`); production idempotency for real subscribers is unchanged.
+- Ignores existing delivery checkpoints for the send pass (always attempts each listed address).
+- If an address matches an enabled subscriber from agent-data-api, that subscriber’s `userTickerId` is reused in diagnostics; otherwise a deterministic synthetic id is used.
+- Empty `emails: []` skips with `skipped_no_test_recipients`.
+
+Example invoke body:
+
+```json
+{
+  "input": {
+    "tickerId": "11111111-1111-4111-a111-111111111111",
+    "emails": ["you@example.com"]
+  },
+  "config": {
+    "resendApiKey": "...",
+    "resend": { "from": "Newsletter <news@example.com>" },
+    "unsubscribe": { "secret": "...", "baseUrl": "https://example.com" }
+  }
+}
+```
 
 ### Newsletter `content` (plain text in storage)
 
