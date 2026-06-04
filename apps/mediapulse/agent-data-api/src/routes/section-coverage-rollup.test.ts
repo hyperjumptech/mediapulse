@@ -25,9 +25,7 @@ describe("getSectionCoverageRollupHandler", () => {
     const app = new Hono();
     app.get("/", getSectionCoverageRollupHandler);
 
-    const response = await app.request(
-      "/?tickerId=ticker-1&windowDays=14",
-    );
+    const response = await app.request("/?tickerId=ticker-1&windowDays=14");
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as { byVersion: unknown[] };

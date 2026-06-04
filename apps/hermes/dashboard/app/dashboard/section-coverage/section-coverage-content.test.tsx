@@ -82,9 +82,7 @@ describe("SectionCoverageContent", () => {
   });
 
   it("submits the filter form and updates the route", () => {
-    render(
-      <SectionCoverageContent tickerId="" windowDays={30} rows={[]} />,
-    );
+    render(<SectionCoverageContent tickerId="" windowDays={30} rows={[]} />);
 
     fireEvent.change(screen.getByLabelText(/Ticker ID/i), {
       target: { value: "new-ticker" },
