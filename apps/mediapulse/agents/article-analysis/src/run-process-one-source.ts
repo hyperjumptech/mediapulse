@@ -2,6 +2,7 @@ import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { GetAnalysisResponse } from "@workspace/agent-data-api-contract";
 import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 import { buildOpenAiReasoningProviderOptions } from "@workspace/agent-runtime";
+import { NoObjectGeneratedError } from "ai";
 
 import { applyPerArticleExtractionCaps } from "./analysis-caps-dedupe.js";
 import {
@@ -25,7 +26,10 @@ import {
   type RelationProposal,
 } from "./analysis-vocabulary.js";
 import { toSafeLogError } from "./article-analysis-observability.js";
-import type { ArticleAnalysisExtractionFailureRecord } from "./article-analysis-run-policy.js";
+import type {
+  ArticleAnalysisExtractionFailureRecord,
+  ExtractionLlmFailureReason,
+} from "./article-analysis-run-policy.js";
 import type { ResolvedArticleAnalysisConfig } from "./config-schema.js";
 import {
   buildArticleAnalysisExtractionUserContent,
@@ -34,6 +38,7 @@ import {
   applyRelationCritiqueDrops,
   buildRelationCritiqueModelMessages,
   classifyLlmExtractionError,
+  classifyNoResponseSubtype,
   critiqueExtractedRelations,
   executeLlmCallWithTransientRetries,
   relationCritiqueRowKey,
@@ -282,6 +287,8 @@ export const createProcessOneSource =
         ? source.content.slice(0, cfg.maxContentChars)
         : source.content;
 
+    let currentExtractionMaxOutputTokens = cfg.extractionMaxOutputTokens;
+
     try {
       const t0 = Date.now();
       const extractionUserContent = buildArticleAnalysisExtractionUserContent({
@@ -372,12 +379,13 @@ export const createProcessOneSource =
         cfg.extractionReasoningEffort,
       );
       let extractionRetryAttempts = 0;
+      const extractionBudgetCap = cfg.extractionMaxOutputTokens * 4;
       const extractedResult = await executeLlmCallWithTransientRetries(
         () =>
           extractEntitiesAndRelationsForSource({
             apiKey: cfg.openaiApiKey,
             model: cfg.openaiModel,
-            maxOutputTokens: cfg.maxOutputTokens,
+            maxOutputTokens: currentExtractionMaxOutputTokens,
             messages: [
               { role: "system", content: systemContent },
               {
@@ -402,11 +410,20 @@ export const createProcessOneSource =
           shouldAbort: isRunDeadlineElapsed,
           onRetry: (attempt, error) => {
             extractionRetryAttempts++;
+            const noResponseSubtype = classifyNoResponseSubtype(error);
+            if (noResponseSubtype === "length_truncation") {
+              currentExtractionMaxOutputTokens = Math.min(
+                extractionBudgetCap,
+                Math.ceil(currentExtractionMaxOutputTokens * 1.5),
+              );
+            }
             log.warn(
               {
                 dataSourceId: source.id,
                 stage: "extraction",
                 retryAttempt: attempt,
+                noResponseSubtype,
+                currentExtractionMaxOutputTokens,
                 err: toSafeLogError(error),
               },
               "article-analysis LLM extraction transient failure; retrying",
@@ -759,15 +776,44 @@ export const createProcessOneSource =
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      outcome.extractionFailures.push({
+      const noResponseSubtype = classifyNoResponseSubtype(err);
+      const isTimeout =
+        message.includes("timed out") ||
+        message.includes("ETIMEDOUT") ||
+        message.includes("ECONNRESET");
+      const llmFailureReason: ExtractionLlmFailureReason =
+        NoObjectGeneratedError.isInstance(err)
+          ? noResponseSubtype
+          : isTimeout
+            ? "timeout"
+            : "other";
+      const failureRecord: ArticleAnalysisExtractionFailureRecord = {
         dataSourceId: source.id,
         stage: "llm",
         message,
-      });
+        reason: llmFailureReason,
+      };
+      if (NoObjectGeneratedError.isInstance(err)) {
+        const outputTokens = err.usage?.outputTokens;
+        if (outputTokens !== undefined) {
+          failureRecord.outputTokens = outputTokens;
+        }
+        failureRecord.maxOutputTokens = currentExtractionMaxOutputTokens;
+      }
+      outcome.extractionFailures.push(failureRecord);
       log.warn(
         {
           dataSourceId: source.id,
           stage: "llm",
+          llmFailureReason,
+          ...(NoObjectGeneratedError.isInstance(err)
+            ? {
+                finishReason: err.finishReason,
+                outputTokens: err.usage?.outputTokens,
+                maxOutputTokens: currentExtractionMaxOutputTokens,
+                responseTextLength: err.text?.length,
+              }
+            : {}),
           err: toSafeLogError(err),
         },
         "article-analysis LLM extraction failed for source; skipping",

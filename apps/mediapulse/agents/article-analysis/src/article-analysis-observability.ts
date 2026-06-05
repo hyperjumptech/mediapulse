@@ -3,6 +3,7 @@ import { RELEVANCE_BREAKDOWN_CANONICAL_KEYS_V1 } from "./analysis-relevance-scor
 import type {
   ArticleAnalysisExtractionFailureRecord,
   ArticleAnalysisPostFailureRecord,
+  ExtractionLlmFailureReason,
 } from "./article-analysis-run-policy.js";
 import type { QualityDropReason } from "./utilities/content-quality-gate.js";
 import { createEmptyQualityCounters } from "./utilities/content-quality-gate.js";
@@ -294,6 +295,12 @@ export type ExtractionRetryObservabilityAggregate = {
   exhausted: number;
 };
 
+/** Per-reason counts for `stage: "llm"` non-response failures. */
+export type ExtractionNonResponseBreakdown = Record<
+  ExtractionLlmFailureReason,
+  number
+>;
+
 /** Per-source latency samples collected during parallel extraction. */
 export type PerSourceLatencyObservability = {
   extractionMs: number[];
@@ -390,6 +397,7 @@ export type ArticleAnalysisRunSummaryInput = {
   parallelism?: ParallelismObservabilityAggregate;
   perSourceLatency?: PerSourceLatencyObservability;
   extractionRetries?: ExtractionRetryObservabilityAggregate;
+  extractionNonResponse?: ExtractionNonResponseBreakdown;
 };
 
 /**
@@ -412,6 +420,33 @@ export const percentileOf = (
     Math.max(0, Math.ceil(p * sorted.length) - 1),
   );
   return sorted[index] ?? null;
+};
+
+/**
+ * Aggregates `stage: "llm"` failure records by their `reason` field.
+ *
+ * @param failures - All per-source extraction failure records for the run.
+ * @returns Per-reason counts for the non-response breakdown dashboard bucket.
+ */
+export const aggregateExtractionNonResponseBreakdown = (
+  failures: readonly ArticleAnalysisExtractionFailureRecord[],
+): ExtractionNonResponseBreakdown => {
+  const breakdown: ExtractionNonResponseBreakdown = {
+    length_truncation: 0,
+    empty_stop: 0,
+    content_filter: 0,
+    timeout: 0,
+    other: 0,
+  };
+  for (const failure of failures) {
+    if (failure.stage === "llm" && failure.reason !== undefined) {
+      breakdown[failure.reason] += 1;
+    } else if (failure.stage === "llm") {
+      breakdown.other += 1;
+    }
+  }
+
+  return breakdown;
 };
 
 /**
@@ -750,6 +785,14 @@ export const buildArticleAnalysisRunSummaryPayload = (
 
   if (input.extractionRetries !== undefined) {
     base.extractionRetries = input.extractionRetries;
+  }
+
+  if (input.extractionNonResponse !== undefined) {
+    base.extractionNonResponse = input.extractionNonResponse;
+  } else if (llmFails > 0) {
+    base.extractionNonResponse = aggregateExtractionNonResponseBreakdown(
+      input.extractionFailures,
+    );
   }
 
   return base;

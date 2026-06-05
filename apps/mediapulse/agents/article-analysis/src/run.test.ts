@@ -1490,9 +1490,10 @@ describe("run", () => {
       {
         dataSourceId: DS_ID,
         stage: "llm",
+        llmFailureReason: "other",
         err: { type: "Error", message: "provider timeout" },
       },
-      expect.any(String),
+      "article-analysis LLM extraction failed for source; skipping",
     );
   });
 
@@ -3034,5 +3035,105 @@ describe("run", () => {
       (summaryCall?.[0] as { extractionFailuresLlm: number })
         .extractionFailuresLlm,
     ).toBe(0);
+  });
+
+  it("recovers from length-truncation via budget escalation and reports recoveredByRetry", async () => {
+    // Setup
+    const { NoObjectGeneratedError } = await import("ai");
+    const lengthTruncationError = new NoObjectGeneratedError({
+      message: "No object generated: the model did not return a response.",
+      response: { id: "r", modelId: "gpt-4o-mini", timestamp: new Date() },
+      usage: {
+        inputTokens: 1000,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokens: 8192,
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+        totalTokens: 9192,
+      },
+      finishReason: "length",
+    });
+    const goodResult = llmResult({
+      entities: [{ canonicalName: "A", typeId: TYPE_ID, aliases: [] }],
+      relations: [],
+      articleMentions: [],
+    });
+    analysisGet.mockResolvedValue(
+      analysisGetOk({
+        dataSources: [
+          {
+            id: DS_ID,
+            url: VALID_SOURCE_URL,
+            title: VALID_SOURCE_TITLE,
+            content: validSourceContent(),
+            tickerId: "ticker-1",
+            createdAt: new Date(),
+          },
+        ],
+        entityTypes: [{ id: TYPE_ID, name: "Co", description: null }],
+        relationTypes: [{ id: REL_ID, name: "r", description: null }],
+        existingEntities: [],
+        relevanceSelectionState,
+        lastRelevanceScoredAtIso: null,
+      }),
+    );
+    const capturedMaxOutputTokens: number[] = [];
+    vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockImplementation(
+      async (params) => {
+        capturedMaxOutputTokens.push(params.maxOutputTokens);
+        if (capturedMaxOutputTokens.length === 1) {
+          throw lengthTruncationError;
+        }
+
+        return goodResult;
+      },
+    );
+    analysisCreate.mockResolvedValue({
+      entitiesCreated: 1,
+      entitiesReused: 0,
+      relationsCreated: 0,
+      articlesScored: 1,
+      articlesSelected: 1,
+    });
+
+    // Act
+    const result = await run(
+      runContext({
+        input: { tickerId: "ticker-1" },
+        config: {
+          extractionMaxOutputTokens: 8192,
+          extractionTransientRetries: 2,
+          extractionTransientRetryBaseDelayMs: 1,
+          extractionTransientRetryMaxDelayMs: 1,
+        },
+      }),
+    );
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(result.details?.extractionFailures).toHaveLength(0);
+    expect(capturedMaxOutputTokens).toHaveLength(2);
+    expect(capturedMaxOutputTokens[1]).toBeGreaterThan(
+      capturedMaxOutputTokens[0]!,
+    );
+
+    const summaryCall = mockLog.info.mock.calls.find(
+      (call) =>
+        typeof call[0] === "object" &&
+        call[0] !== null &&
+        (call[0] as { event?: string }).event ===
+          ARTICLE_ANALYSIS_RUN_SUMMARY_MESSAGE,
+    );
+    expect(summaryCall).toBeDefined();
+    expect(
+      (summaryCall?.[0] as { extractionRetries?: { recoveredByRetry: number } })
+        .extractionRetries?.recoveredByRetry,
+    ).toBe(1);
   });
 });

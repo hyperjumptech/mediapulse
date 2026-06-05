@@ -20,6 +20,7 @@ import {
   buildRelationCritiqueUserContent,
   buildVocabularyRepairSystemContent,
   classifyLlmExtractionError,
+  classifyNoResponseSubtype,
   executeLlmCallWithTransientRetries,
   extractEntitiesAndRelationsForSource,
   repairExtractionVocabulary,
@@ -827,6 +828,77 @@ describe("classifyLlmExtractionError", () => {
     expect(classifyLlmExtractionError(new Error("unexpected error"))).toBe(
       "permanent",
     );
+  });
+});
+
+type FinishReason =
+  | "stop"
+  | "length"
+  | "content-filter"
+  | "tool-calls"
+  | "error"
+  | "other";
+
+const noObjectGeneratedErrorFixture = (
+  finishReason: FinishReason,
+  text?: string,
+): NoObjectGeneratedError =>
+  new NoObjectGeneratedError({
+    message: "No object generated: the model did not return a response.",
+    response: {
+      id: "test-id",
+      modelId: "gpt-4o-mini",
+      timestamp: new Date(),
+    },
+    usage: {
+      inputTokens: 100,
+      outputTokens: 8192,
+      totalTokens: 8292,
+      inputTokenDetails: {
+        noCacheTokens: undefined,
+        cacheReadTokens: undefined,
+        cacheWriteTokens: undefined,
+      },
+      outputTokenDetails: {
+        textTokens: undefined,
+        reasoningTokens: undefined,
+      },
+    },
+    finishReason,
+    ...(text !== undefined ? { text } : {}),
+  });
+
+describe("classifyNoResponseSubtype", () => {
+  it("returns length_truncation for finishReason: length", () => {
+    const error = noObjectGeneratedErrorFixture("length");
+
+    expect(classifyNoResponseSubtype(error)).toBe("length_truncation");
+  });
+
+  it("returns content_filter for finishReason: content-filter", () => {
+    const error = noObjectGeneratedErrorFixture("content-filter");
+
+    expect(classifyNoResponseSubtype(error)).toBe("content_filter");
+  });
+
+  it("returns empty_stop for finishReason: stop", () => {
+    const error = noObjectGeneratedErrorFixture("stop");
+
+    expect(classifyNoResponseSubtype(error)).toBe("empty_stop");
+  });
+
+  it("returns empty_stop for unrecognized finishReason with empty text", () => {
+    const error = noObjectGeneratedErrorFixture("other", "");
+
+    expect(classifyNoResponseSubtype(error)).toBe("empty_stop");
+  });
+
+  it("returns other for a non-NoObjectGeneratedError", () => {
+    expect(classifyNoResponseSubtype(new Error("parse failure"))).toBe("other");
+  });
+
+  it("returns other for a plain object", () => {
+    expect(classifyNoResponseSubtype({ code: 500 })).toBe("other");
   });
 });
 

@@ -110,6 +110,45 @@ export type GenerateTextForBrainstorm = (args: {
   providerOptions?: OpenAiReasoningProviderOptions;
 }) => Promise<ArticleBrainstormCallResult>;
 
+/** Fine-grained sub-type for a `NoObjectGeneratedError` non-response. */
+export type NoResponseSubtype =
+  | "length_truncation"
+  | "empty_stop"
+  | "content_filter"
+  | "other";
+
+/**
+ * Returns the fine-grained sub-type of a `NoObjectGeneratedError` non-response.
+ *
+ * Used by instrumentation and by budget-escalation retry to distinguish starvation
+ * from genuinely empty completions.
+ *
+ * @param error - Thrown value from an LLM call.
+ * @returns Sub-type label; `"other"` for non-`NoObjectGeneratedError` errors.
+ */
+export const classifyNoResponseSubtype = (
+  error: unknown,
+): NoResponseSubtype => {
+  if (!NoObjectGeneratedError.isInstance(error)) {
+    return "other";
+  }
+  const finishReason = error.finishReason;
+  if (finishReason === "length") {
+    return "length_truncation";
+  }
+  if (finishReason === "content-filter") {
+    return "content_filter";
+  }
+  if (finishReason === "stop") {
+    return "empty_stop";
+  }
+  const text = error.text;
+  if (text === undefined || text.trim().length === 0) {
+    return "empty_stop";
+  }
+  return "other";
+};
+
 /**
  * Classifies an LLM extraction error as transient or permanent.
  *

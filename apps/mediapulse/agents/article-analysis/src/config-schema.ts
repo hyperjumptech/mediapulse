@@ -35,6 +35,17 @@ export const articleAnalysisConfigSchema = z
     reasoningEffort: reasoningEffortSchema.optional(),
     /** Max output tokens for `generateObject`. */
     maxOutputTokens: z.number().int().positive().optional(),
+    /**
+     * Max output tokens for the extraction pass only. Covers reasoning tokens + JSON for reasoning
+     * models. Falls back to `maxOutputTokens` when unset.
+     */
+    extractionMaxOutputTokens: z.number().int().positive().optional(),
+    /**
+     * Reasoning effort for the extraction pass only. Falls back to `reasoningEffort` when unset.
+     * Tune together with `extractionMaxOutputTokens` — lowering effort saves budget but reduces
+     * extraction quality when brainstorm is disabled.
+     */
+    extractionReasoningEffort: reasoningEffortSchema.optional(),
     /** Truncate article text in the LLM user message (full text remains in DB). */
     maxContentChars: z.number().int().positive().optional(),
     /** When true, use structure-aware paragraph truncation instead of naive slice. */
@@ -208,6 +219,8 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   useBrainstormPass: boolean;
   brainstormModel: string;
   brainstormMaxOutputTokens: number;
+  /** Max output tokens for the extraction pass (falls back to `maxOutputTokens`). */
+  extractionMaxOutputTokens: number;
   /** Resolved reasoning effort for the extraction pass (falls back to `reasoningEffort`). */
   extractionReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
   /** Resolved reasoning effort for the brainstorm pass. */
@@ -269,7 +282,7 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
 /** Production-oriented defaults merged onto parsed Hermes config. */
 export const articleAnalysisConfigDefaults = {
   openaiModel: "gpt-4o-mini",
-  maxOutputTokens: 8192,
+  maxOutputTokens: 24576,
   maxContentChars: 12_000,
   useStructureAwareTruncation: false,
   truncationLeadParagraphsAlwaysKept: 2,
@@ -342,6 +355,10 @@ export const resolveArticleAnalysisConfig = (
     openaiModel,
     maxOutputTokens:
       config.maxOutputTokens ?? articleAnalysisConfigDefaults.maxOutputTokens,
+    extractionMaxOutputTokens:
+      config.extractionMaxOutputTokens ??
+      config.maxOutputTokens ??
+      articleAnalysisConfigDefaults.maxOutputTokens,
     maxContentChars:
       config.maxContentChars ?? articleAnalysisConfigDefaults.maxContentChars,
     useStructureAwareTruncation:
@@ -507,9 +524,11 @@ export const resolveArticleAnalysisConfig = (
     // Reasoning effort: per-pass overrides fall back to the agent-wide default.
     // All values remain undefined when the operator has not set reasoning effort
     // (safe for non-reasoning models such as gpt-4o-mini).
-    ...(defaultEffort !== undefined
-      ? { extractionReasoningEffort: defaultEffort }
-      : {}),
+    ...(config.extractionReasoningEffort !== undefined
+      ? { extractionReasoningEffort: config.extractionReasoningEffort }
+      : defaultEffort !== undefined
+        ? { extractionReasoningEffort: defaultEffort }
+        : {}),
     ...(config.brainstormReasoningEffort !== undefined
       ? { brainstormReasoningEffort: config.brainstormReasoningEffort }
       : defaultEffort !== undefined

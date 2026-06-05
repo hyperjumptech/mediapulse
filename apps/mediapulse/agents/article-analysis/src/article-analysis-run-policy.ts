@@ -8,11 +8,25 @@ export type ArticleAnalysisExtractionFailureStage =
   | "vocabulary"
   | "prefilter";
 
+/** Fine-grained cause of a `stage: "llm"` non-response. */
+export type ExtractionLlmFailureReason =
+  | "length_truncation"
+  | "empty_stop"
+  | "content_filter"
+  | "timeout"
+  | "other";
+
 /** One source that did not contribute to the merged extraction payload. */
 export type ArticleAnalysisExtractionFailureRecord = {
   dataSourceId: string;
   stage: ArticleAnalysisExtractionFailureStage;
   message: string;
+  /** Fine-grained cause for `stage: "llm"` failures — distinguishes starvation from model degradation. */
+  reason?: ExtractionLlmFailureReason;
+  /** Actual output tokens reported by the provider when truncation occurred. */
+  outputTokens?: number;
+  /** The `maxOutputTokens` cap that was active on the truncated attempt. */
+  maxOutputTokens?: number;
 };
 
 /** POST phase labels aligned with `run.ts` logging. */
