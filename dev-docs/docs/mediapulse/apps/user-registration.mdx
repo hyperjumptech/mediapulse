@@ -44,3 +44,13 @@ Because MediaPulse supports login-less registration over email, the flow works l
 - **Archive on completion**: When a message is fully handled (including unparseable/invalid cases), the agent archives it to keep the inbox clear.
 - **Confirm is best-effort**: If the confirm API fails after registration, the agent still archives the message (confirmation is retried implicitly on subsequent runs via idempotent register/confirm behavior).
 - **Bounded retry for register**: The agent retries the register API once on transient failures (429/5xx or network errors). If it still fails, the message is left in the inbox so the next scheduled run can retry.
+
+### Message lifecycle (how a message leaves the queue)
+
+The agent reads **unread** messages and a message must actually leave that unread set once handled, or oldest-first ordering will keep re-fetching it and never reach newer signups.
+
+- **Folder-scoped fetch**: The list query is scoped to a single folder (`mailFolder`, default `inbox`) via `/mailFolders/{folder}/messages`, not the whole mailbox. Moving a handled message to Archive therefore removes it from the result set. Set `mailFolder: ""` to query the whole mailbox.
+- **Mark read, then move**: Archiving marks the message read (`PATCH isRead: true`) and then moves it to Archive. Read is set first so that even if the move fails, the message no longer matches the `isRead eq false` filter and is not reprocessed. A re-listed same-id message is harmless anyway because register is idempotent.
+- **Oldest-first, batched**: Messages are processed oldest-first so the backlog drains in arrival order. `maxMessagesPerRun` caps how many subscription emails are processed per run and is floored (minimum 10) because a value like 1 lets a single slow or failing message block all progress.
+- **Dead-letter guard**: A message that throws on every run is archived (marked read and moved) after `maxMessageAttempts` consecutive failures (default 5) so a poison message cannot hold the oldest slot forever. Rate-limited messages are not counted toward this and are simply retried on a later run.
+- **Coverage signal**: `details.inboxScan` reports `{ pagesScanned, messagesScanned, matchedMessages, limit, drained, mailFolder, refetchedTerminal }`. `drained: false` means signups remain beyond this run's `limit` (expected when volume exceeds `maxMessagesPerRun`, converging over runs). `refetchedTerminal > 0` is a regression alarm: it means already-read mail is leaking back into the unread queue.

@@ -4,7 +4,7 @@ import { createGraphClient } from "./graph-client.js";
 import type { MessageFilter } from "./types.js";
 
 vi.mock("got", () => ({
-  default: { get: vi.fn(), post: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
 }));
 
 describe("createGraphClient", () => {
@@ -58,6 +58,51 @@ describe("createGraphClient", () => {
       expect(result.messages[0]!.subject).toBe("Test");
       expect(result.drained).toBe(true);
       expect(result.pagesScanned).toBe(1);
+    });
+
+    it("scopes the query to a mail folder when paging.mailFolder is set", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ value: [] }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      await client.listMessages(
+        "me",
+        { isUnread: true },
+        { mailFolder: "inbox" },
+      );
+
+      // Assert
+      const [url] = getFn.mock.calls[0] as [string];
+      expect(url).toContain("/users/me/mailFolders/inbox/messages");
+    });
+
+    it("queries the whole mailbox when mailFolder is omitted", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ value: [] }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      await client.listMessages("me", { isUnread: true });
+
+      // Assert
+      const [url] = getFn.mock.calls[0] as [string];
+      expect(url).toContain("/users/me/messages");
+      expect(url).not.toContain("mailFolders");
     });
 
     it("encodes userId in URL", async () => {
@@ -575,6 +620,85 @@ describe("createGraphClient", () => {
       await expect(
         client.moveMessage("me", "msg-1", "archive"),
       ).rejects.toThrow();
+    });
+  });
+
+  describe("markMessageRead", () => {
+    it("PATCHes isRead: true to the message URL", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("token");
+      const patchFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({
+          id: "msg-1",
+          subject: "Read",
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: true,
+        }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn: vi.fn(),
+        postFn: vi.fn(),
+        patchFn,
+      });
+
+      // Act
+      await client.markMessageRead("me", "msg-1");
+
+      // Assert
+      expect(patchFn).toHaveBeenCalledTimes(1);
+      const [url, opts] = patchFn.mock.calls[0] as [
+        string,
+        { json: unknown; headers: Record<string, string> },
+      ];
+      expect(url).toContain("/users/me/messages/msg-1");
+      expect(url).not.toContain("/move");
+      expect(opts.json).toEqual({ isRead: true });
+      expect(opts.headers.Authorization).toBe("Bearer token");
+    });
+
+    it("throws when PATCH returns non-2xx", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const patchFn = vi.fn().mockResolvedValue({
+        statusCode: 404,
+        body: "Not found",
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn: vi.fn(),
+        postFn: vi.fn(),
+        patchFn,
+      });
+
+      // Act & Assert
+      await expect(client.markMessageRead("me", "bad-id")).rejects.toThrow(
+        "Graph mark message read failed: 404",
+      );
+    });
+
+    it("uses default patch when patchFn not provided", async () => {
+      // Setup
+      const got = await import("got");
+      vi.mocked(got.default.patch).mockResolvedValue({
+        body: JSON.stringify({
+          id: "m1",
+          subject: "Read",
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: true,
+        }),
+        statusCode: 200,
+      } as never);
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const client = createGraphClient(getAccessToken, {
+        getFn: vi.fn(),
+        postFn: vi.fn(),
+      });
+
+      // Act
+      await client.markMessageRead("me", "m1");
+
+      // Assert
+      expect(got.default.patch).toHaveBeenCalled();
     });
   });
 

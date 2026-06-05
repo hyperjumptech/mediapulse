@@ -14,6 +14,7 @@ export type {
   GraphClientOptions,
   GraphGetFn,
   GraphPostFn,
+  GraphPatchFn,
   ListMessagesPaging,
   ListMessagesResult,
 } from "./graph-client.js";

@@ -13,6 +13,12 @@ export type OutlookInboxConfig = {
   tenantId?: string;
   /** User ID or "me" for delegated auth; for app-only, the mailbox to access. Default "me". */
   userId?: string;
+  /**
+   * Well-known folder name or folder id to list from (default "inbox"). Scoping
+   * to a folder ensures archived messages leave the result set. Set to "" to
+   * query the whole mailbox.
+   */
+  mailFolder?: string;
 };
 
 /**

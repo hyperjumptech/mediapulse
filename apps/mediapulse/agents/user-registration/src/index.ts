@@ -58,8 +58,18 @@ async function callWithRetry<TResult>(params: {
   throw lastError;
 }
 
+/**
+ * Lower bound for messages processed per run. Oldest-first ordering means a
+ * single slow or failing message blocks all progress, so a value like 1 is
+ * pathological. The floor guarantees each run drains a real batch.
+ */
+const MIN_MAX_MESSAGES_PER_RUN = 10;
+
 const BodySchemaInner = z.object({
-  maxMessagesPerRun: z.number().default(20),
+  maxMessagesPerRun: z
+    .number()
+    .default(20)
+    .transform((value) => Math.max(value, MIN_MAX_MESSAGES_PER_RUN)),
   watermark: z.string().datetime().optional(),
 });
 const BodySchema = BodySchemaInner as unknown as z.ZodType<

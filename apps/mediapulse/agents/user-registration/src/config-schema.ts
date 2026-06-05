@@ -32,6 +32,8 @@ export const ConfigSchema = z.object({
   newsletterDeliveryTimeLabel: z.string().optional(),
   inboxPageSize: z.number().int().min(1).max(1000).optional().default(50),
   inboxMaxPagesPerRun: z.number().int().positive().optional().default(20),
+  mailFolder: z.string().min(1).optional().default("inbox"),
+  maxMessageAttempts: z.number().int().positive().optional().default(5),
 });
 
 export type UserRegistrationConfig = z.input<typeof ConfigSchema>;
