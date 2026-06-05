@@ -31,6 +31,33 @@ export type GraphClientOptions = {
   postFn?: GraphPostFn;
 };
 
+/** Pagination options for listMessages. */
+export type ListMessagesPaging = {
+  /** Per-page Graph $top (default 50, clamped 1–1000). */
+  pageSize?: number;
+  /** Max subject-matching messages to collect. Default: no limit. */
+  limit?: number;
+  /** OData $orderby; skipped when $search is active (client-side sort used instead). */
+  orderBy?: string;
+  /** Runaway-pagination backstop (default 20). */
+  maxPages?: number;
+};
+
+/** Result returned by listMessages including pagination metadata. */
+export type ListMessagesResult = {
+  messages: GraphMessage[];
+  /** Number of Graph pages fetched. */
+  pagesScanned: number;
+  /** Total messages seen across all pages (before subject filtering). */
+  messagesScanned: number;
+  /**
+   * True when all pages were consumed and the limit was not hit —
+   * the full matching set was collected. False when stopped early
+   * at limit or maxPages (more matching mail may remain).
+   */
+  drained: boolean;
+};
+
 /**
  * Creates a Graph API client for mailbox operations.
  * Uses the provided getAccessToken for Bearer auth on each request.
@@ -49,42 +76,106 @@ export function createGraphClient(
 
   return {
     /**
-     * Lists messages in the user's inbox matching the filter.
+     * Lists messages in the user's inbox matching the filter, following
+     * @odata.nextLink pagination until the limit, maxPages, or inbox end is reached.
+     * When filter.subjectContains is set, adds $search subject scoping so fewer
+     * pages are scanned; $orderby is then applied client-side after collection.
      *
      * @param userId - User ID or "me".
      * @param filter - Filter criteria (subject, received, isUnread).
-     * @param paging - Optional top (max 1000) and orderBy.
-     * @returns Array of messages.
+     * @param paging - Optional pageSize, limit, orderBy, maxPages.
+     * @returns Matched messages plus scan metadata.
      */
     async listMessages(
       userId: string,
       filter: MessageFilter,
-      paging?: { top?: number; orderBy?: string },
-    ): Promise<GraphMessage[]> {
+      paging?: ListMessagesPaging,
+    ): Promise<ListMessagesResult> {
       const token = await getAccessToken();
       const filterStr = buildFilterForGraph(filter);
-      const url = new URL(
+      const pageSize = Math.min(Math.max(paging?.pageSize ?? 50, 1), 1000);
+      const limit = paging?.limit;
+      const maxPages = paging?.maxPages ?? 20;
+      const useSearch =
+        filter.subjectContains !== undefined && filter.subjectContains !== "";
+
+      const initialUrl = new URL(
         `${baseUrl}/users/${encodeURIComponent(userId)}/messages`,
       );
-      if (filterStr) url.searchParams.set("$filter", filterStr);
-      if (paging?.top !== undefined)
-        url.searchParams.set("$top", String(paging.top));
-      if (paging?.orderBy) url.searchParams.set("$orderby", paging.orderBy);
-
-      const res = await getFn(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        throw new Error(
-          `Graph list messages failed: ${res.statusCode} - ${res.body}`,
+      if (filterStr) initialUrl.searchParams.set("$filter", filterStr);
+      initialUrl.searchParams.set("$top", String(pageSize));
+      if (useSearch) {
+        // Graph rejects $search + $orderby on messages; sort client-side instead.
+        initialUrl.searchParams.set(
+          "$search",
+          `"subject:${filter.subjectContains}"`,
         );
+      } else if (paging?.orderBy) {
+        initialUrl.searchParams.set("$orderby", paging.orderBy);
       }
 
-      const parsed = JSON.parse(res.body) as unknown;
-      const data = listMessagesResponseSchema.parse(parsed);
-      const messages = data.value ?? [];
-      return applySubjectFilter(messages, filter);
+      const accumulatedMessages: GraphMessage[] = [];
+      let pagesScanned = 0;
+      let messagesScanned = 0;
+      let limitReached = false;
+      let nextUrl: string | undefined = initialUrl.toString();
+
+      while (
+        nextUrl !== undefined &&
+        !limitReached &&
+        pagesScanned < maxPages
+      ) {
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${token}`,
+        };
+        if (useSearch) headers["ConsistencyLevel"] = "eventual";
+
+        const res = await getFn(nextUrl, { headers });
+
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          throw new Error(
+            `Graph list messages failed: ${res.statusCode} - ${res.body}`,
+          );
+        }
+
+        const parsed = JSON.parse(res.body) as unknown;
+        const data = listMessagesResponseSchema.parse(parsed);
+        const pageMessages = data.value ?? [];
+
+        pagesScanned++;
+        messagesScanned += pageMessages.length;
+
+        const matching = applySubjectFilter(pageMessages, filter);
+        for (const msg of matching) {
+          if (limit !== undefined && accumulatedMessages.length >= limit) {
+            limitReached = true;
+            break;
+          }
+          accumulatedMessages.push(msg);
+        }
+
+        nextUrl = data["@odata.nextLink"];
+      }
+
+      // When $search is active, $orderby cannot be used server-side; sort here instead.
+      if (useSearch && paging?.orderBy) {
+        const descending = paging.orderBy.toLowerCase().includes("desc");
+        accumulatedMessages.sort((a, b) => {
+          const timeA = new Date(a.receivedDateTime).getTime();
+          const timeB = new Date(b.receivedDateTime).getTime();
+
+          return descending ? timeB - timeA : timeA - timeB;
+        });
+      }
+
+      const drained = nextUrl === undefined && !limitReached;
+
+      return {
+        messages: accumulatedMessages,
+        pagesScanned,
+        messagesScanned,
+        drained,
+      };
     },
 
     /**

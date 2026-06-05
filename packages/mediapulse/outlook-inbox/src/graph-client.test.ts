@@ -36,9 +36,9 @@ describe("createGraphClient", () => {
       const filter: MessageFilter = { subjectContains: "Test", isUnread: true };
 
       // Act
-      const result = await client.listMessages("me", filter, { top: 50 });
+      const result = await client.listMessages("me", filter, { pageSize: 50 });
 
-      // Assert: URL has only Graph-safe filter (receivedDateTime, isRead), no subject
+      // Assert: URL has only Graph-safe OData filter (no subject), plus $search for subject
       expect(getAccessToken).toHaveBeenCalledTimes(1);
       expect(getFn).toHaveBeenCalledTimes(1);
       expect(getFn.mock.calls[0]).toBeDefined();
@@ -52,11 +52,11 @@ describe("createGraphClient", () => {
       expect(url).not.toContain("contains(subject"); // subject filter applied client-side
       expect(url).toContain("top=50");
       expect(opts.headers.Authorization).toBe("Bearer bearer-token");
-      expect(result).toHaveLength(1);
-      expect((result[0] as { id: string; subject: string }).id).toBe("msg-1");
-      expect((result[0] as { id: string; subject: string }).subject).toBe(
-        "Test",
-      );
+      expect(result.messages).toHaveLength(1);
+      expect(result.messages[0]!.id).toBe("msg-1");
+      expect(result.messages[0]!.subject).toBe("Test");
+      expect(result.drained).toBe(true);
+      expect(result.pagesScanned).toBe(1);
     });
 
     it("encodes userId in URL", async () => {
@@ -99,7 +99,7 @@ describe("createGraphClient", () => {
       );
     });
 
-    it("returns empty array when value is missing in response", async () => {
+    it("returns empty messages and drained: true when value is missing in response", async () => {
       // Setup
       const getAccessToken = vi.fn().mockResolvedValue("t");
       const getFn = vi.fn().mockResolvedValue({
@@ -115,7 +115,8 @@ describe("createGraphClient", () => {
       const result = await client.listMessages("me", {});
 
       // Assert
-      expect(result).toEqual([]);
+      expect(result.messages).toEqual([]);
+      expect(result.drained).toBe(true);
     });
 
     it("throws when list response has invalid value shape", async () => {
@@ -132,6 +133,341 @@ describe("createGraphClient", () => {
 
       // Act & Assert
       await expect(client.listMessages("me", {})).rejects.toThrow();
+    });
+
+    it("follows @odata.nextLink across multiple pages and collects all matching messages", async () => {
+      // Setup: 3 pages, subscription messages interleaved with non-matching subjects.
+      // Page 1 alone has fewer matches than limit — the scenario the production bug dropped.
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const PAGE1_NEXT =
+        "https://graph.microsoft.com/v1.0/users/me/messages?$skiptoken=page2";
+      const PAGE2_NEXT =
+        "https://graph.microsoft.com/v1.0/users/me/messages?$skiptoken=page3";
+
+      const makeMsg = (id: string, subject: string, day: string) => ({
+        id,
+        subject,
+        receivedDateTime: `2024-01-${day}T00:00:00Z`,
+        isRead: false,
+      });
+
+      const getFn = vi
+        .fn()
+        .mockResolvedValueOnce({
+          statusCode: 200,
+          body: JSON.stringify({
+            value: [
+              makeMsg(
+                "01",
+                "[MediaPulse] Newsletter Subscription - AAPL",
+                "01",
+              ),
+              makeMsg("02", "Unrelated email", "02"),
+              makeMsg(
+                "03",
+                "[MediaPulse] Newsletter Subscription - BBCA",
+                "03",
+              ),
+            ],
+            "@odata.nextLink": PAGE1_NEXT,
+          }),
+        })
+        .mockResolvedValueOnce({
+          statusCode: 200,
+          body: JSON.stringify({
+            value: [
+              makeMsg("04", "Another unrelated", "04"),
+              makeMsg(
+                "05",
+                "[MediaPulse] Newsletter Subscription - TSLA",
+                "05",
+              ),
+              makeMsg(
+                "06",
+                "[MediaPulse] Newsletter Subscription - MSFT",
+                "06",
+              ),
+            ],
+            "@odata.nextLink": PAGE2_NEXT,
+          }),
+        })
+        .mockResolvedValueOnce({
+          statusCode: 200,
+          body: JSON.stringify({
+            value: [
+              makeMsg(
+                "07",
+                "[MediaPulse] Newsletter Subscription - GOOG",
+                "07",
+              ),
+              makeMsg("08", "Spam", "08"),
+            ],
+          }),
+        });
+
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+      const filter: MessageFilter = {
+        subjectContains: "[MediaPulse] Newsletter Subscription",
+        isUnread: true,
+      };
+
+      // Act
+      const result = await client.listMessages("me", filter, {
+        pageSize: 3,
+        limit: 10,
+        maxPages: 5,
+      });
+
+      // Assert: all 5 matching messages collected across 3 pages
+      expect(result.messages).toHaveLength(5);
+      expect(result.messages.map((m) => m.id)).toEqual([
+        "01",
+        "03",
+        "05",
+        "06",
+        "07",
+      ]);
+      expect(result.pagesScanned).toBe(3);
+      expect(result.messagesScanned).toBe(8);
+      expect(result.drained).toBe(true);
+
+      // Each subsequent page used the nextLink URL verbatim
+      expect(getFn).toHaveBeenCalledTimes(3);
+      expect((getFn.mock.calls[1] as [string])[0]).toBe(PAGE1_NEXT);
+      expect((getFn.mock.calls[2] as [string])[0]).toBe(PAGE2_NEXT);
+    });
+
+    it("stops at maxPages and returns drained: false", async () => {
+      // Setup: infinite pages (every response has a nextLink)
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const NEXT =
+        "https://graph.microsoft.com/v1.0/users/me/messages?$skiptoken=next";
+
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({
+          value: [
+            {
+              id: "m1",
+              subject: "Test",
+              receivedDateTime: "2024-01-01T00:00:00Z",
+              isRead: false,
+            },
+          ],
+          "@odata.nextLink": NEXT,
+        }),
+      });
+
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      const result = await client.listMessages(
+        "me",
+        { subjectContains: "Test", isUnread: true },
+        { pageSize: 10, limit: 100, maxPages: 2 },
+      );
+
+      // Assert: stopped at maxPages
+      expect(result.pagesScanned).toBe(2);
+      expect(result.drained).toBe(false);
+      expect(getFn).toHaveBeenCalledTimes(2);
+    });
+
+    it("returns drained: true when all pages are exhausted before limit", async () => {
+      // Setup: only 2 matches, limit is 10
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+
+      const getFn = vi.fn().mockResolvedValueOnce({
+        statusCode: 200,
+        body: JSON.stringify({
+          value: [
+            {
+              id: "m1",
+              subject: "Test",
+              receivedDateTime: "2024-01-01T00:00:00Z",
+              isRead: false,
+            },
+            {
+              id: "m2",
+              subject: "Test",
+              receivedDateTime: "2024-01-02T00:00:00Z",
+              isRead: false,
+            },
+          ],
+        }),
+      });
+
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      const result = await client.listMessages(
+        "me",
+        { subjectContains: "Test", isUnread: true },
+        { limit: 10 },
+      );
+
+      // Assert: all matches collected, no nextLink — fully drained
+      expect(result.messages).toHaveLength(2);
+      expect(result.drained).toBe(true);
+      expect(getFn).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns drained: false when limit is hit before pages run out", async () => {
+      // Setup: 3 messages on one page, limit 2 — last message on page is skipped
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+
+      const getFn = vi.fn().mockResolvedValueOnce({
+        statusCode: 200,
+        body: JSON.stringify({
+          value: [
+            {
+              id: "m1",
+              subject: "Test",
+              receivedDateTime: "2024-01-01T00:00:00Z",
+              isRead: false,
+            },
+            {
+              id: "m2",
+              subject: "Test",
+              receivedDateTime: "2024-01-02T00:00:00Z",
+              isRead: false,
+            },
+            {
+              id: "m3",
+              subject: "Test",
+              receivedDateTime: "2024-01-03T00:00:00Z",
+              isRead: false,
+            },
+          ],
+        }),
+      });
+
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      const result = await client.listMessages(
+        "me",
+        { subjectContains: "Test", isUnread: true },
+        { limit: 2 },
+      );
+
+      // Assert: limit hit; m3 was on the same page but not collected
+      expect(result.messages).toHaveLength(2);
+      expect(result.drained).toBe(false);
+    });
+
+    it("adds $search and ConsistencyLevel header when subjectContains is set, omits $orderby", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ value: [] }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      await client.listMessages(
+        "me",
+        {
+          subjectContains: "Newsletter",
+          isUnread: true,
+          receivedAfter: new Date("2024-01-01T00:00:00Z"),
+        },
+        { orderBy: "receivedDateTime asc" },
+      );
+
+      // Assert
+      expect(getFn).toHaveBeenCalledTimes(1);
+      const [url, opts] = getFn.mock.calls[0] as [
+        string,
+        { headers: Record<string, string> },
+      ];
+      expect(url).toContain("search="); // $search present
+      expect(url).toContain("Newsletter"); // scoped to subject
+      expect(url).not.toContain("orderby"); // $orderby absent with $search
+      expect(url).toContain("isRead"); // $filter still has isRead
+      expect(url).toContain("receivedDateTime"); // $filter still has receivedDateTime bound
+      expect(opts.headers["ConsistencyLevel"]).toBe("eventual");
+      expect(opts.headers.Authorization).toBe("Bearer t");
+    });
+
+    it("uses $orderby and no $search when subjectContains is not set", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ value: [] }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      await client.listMessages(
+        "me",
+        { isUnread: true },
+        { orderBy: "receivedDateTime desc" },
+      );
+
+      // Assert
+      const [url] = getFn.mock.calls[0] as [string];
+      expect(url).toContain("orderby");
+      expect(url).not.toContain("search=");
+    });
+
+    it("sorts client-side by orderBy when $search is active", async () => {
+      // Setup: two messages returned in reverse order; expect sorted oldest-first
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({
+          value: [
+            {
+              id: "newer",
+              subject: "Test",
+              receivedDateTime: "2024-01-02T00:00:00Z",
+              isRead: false,
+            },
+            {
+              id: "older",
+              subject: "Test",
+              receivedDateTime: "2024-01-01T00:00:00Z",
+              isRead: false,
+            },
+          ],
+        }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      const result = await client.listMessages(
+        "me",
+        { subjectContains: "Test" },
+        { orderBy: "receivedDateTime asc" },
+      );
+
+      // Assert: sorted ascending — older first
+      expect(result.messages[0]!.id).toBe("older");
+      expect(result.messages[1]!.id).toBe("newer");
     });
   });
 
@@ -254,9 +590,8 @@ describe("createGraphClient", () => {
 
     // Assert
     expect(got.default.get).toHaveBeenCalled();
-    expect(result).toHaveLength(1);
-    expect(result[0]).toBeDefined();
-    expect((result[0] as { id: string }).id).toBe("m1");
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]!.id).toBe("m1");
   });
 
   it("uses default post when postFn not provided", async () => {

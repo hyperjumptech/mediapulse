@@ -36,7 +36,12 @@ vi.mock("@workspace/logger", () => ({
 // Fallback mocks for default DI values that are never called in these tests.
 vi.mock("@mediapulse/outlook-inbox", () => ({
   createOutlookInboxClient: () => ({
-    listMessages: async () => [],
+    listMessages: async () => ({
+      messages: [],
+      pagesScanned: 0,
+      messagesScanned: 0,
+      drained: true,
+    }),
     archiveMessage: async () => {},
     processMessages: vi.fn(),
     deleteMessage: vi.fn(),
@@ -68,6 +73,21 @@ const makeMessage = (overrides: Record<string, unknown> = {}) => ({
   body: { content: "Ticker: AAPL", contentType: "text" },
   from: { emailAddress: { address: "user@run-test.example", name: "User" } },
   ...overrides,
+});
+
+/** Wraps messages in the ListMessagesResult shape returned by the inbox client. */
+const makeListResult = (
+  messages: ReturnType<typeof makeMessage>[],
+  extra: {
+    pagesScanned?: number;
+    messagesScanned?: number;
+    drained?: boolean;
+  } = {},
+) => ({
+  messages,
+  pagesScanned: extra.pagesScanned ?? 1,
+  messagesScanned: extra.messagesScanned ?? messages.length,
+  drained: extra.drained ?? true,
 });
 
 /**
@@ -102,7 +122,7 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [],
+        listMessages: async () => makeListResult([]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -134,11 +154,12 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            from: { emailAddress: { address: "new@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              from: { emailAddress: { address: "new@run-test.example" } },
+            }),
+          ]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -181,11 +202,12 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            from: { emailAddress: { address: "vcf@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              from: { emailAddress: { address: "vcf@run-test.example" } },
+            }),
+          ]),
         archiveMessage: vi.fn().mockResolvedValue(undefined),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -230,11 +252,14 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            from: { emailAddress: { address: "resend-fail@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              from: {
+                emailAddress: { address: "resend-fail@run-test.example" },
+              },
+            }),
+          ]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -272,16 +297,17 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            subject: "[MediaPulse] Newsletter Subscription - BBCA",
-            body: {
-              content: "Name: Kevin Hermawan\nTicker: BBCA",
-              contentType: "text",
-            },
-            from: { emailAddress: { address: "k@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              subject: "[MediaPulse] Newsletter Subscription - BBCA",
+              body: {
+                content: "Name: Kevin Hermawan\nTicker: BBCA",
+                contentType: "text",
+              },
+              from: { emailAddress: { address: "k@run-test.example" } },
+            }),
+          ]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -318,13 +344,14 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            subject: "Newsletter Subscription - AAPL",
-            body: { content: oneLineBody, contentType: "text" },
-            from: { emailAddress: { address: "blob@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              subject: "Newsletter Subscription - AAPL",
+              body: { content: oneLineBody, contentType: "text" },
+              from: { emailAddress: { address: "blob@run-test.example" } },
+            }),
+          ]),
         archiveMessage: vi.fn().mockResolvedValue(undefined),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -358,11 +385,14 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            from: { emailAddress: { address: "existing@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              from: {
+                emailAddress: { address: "existing@run-test.example" },
+              },
+            }),
+          ]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -399,11 +429,14 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            from: { emailAddress: { address: "reenable@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              from: {
+                emailAddress: { address: "reenable@run-test.example" },
+              },
+            }),
+          ]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -440,11 +473,14 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            from: { emailAddress: { address: "badticker@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              from: {
+                emailAddress: { address: "badticker@run-test.example" },
+              },
+            }),
+          ]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -479,13 +515,14 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            from: {
-              emailAddress: { address: "nowrap@run-test.example" },
-            },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              from: {
+                emailAddress: { address: "nowrap@run-test.example" },
+              },
+            }),
+          ]),
         archiveMessage: vi.fn().mockResolvedValue(undefined),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -525,13 +562,14 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            subject: "Hello there",
-            body: { content: "Nothing useful", contentType: "text" },
-            from: { emailAddress: { address: "noticker@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              subject: "Hello there",
+              body: { content: "Nothing useful", contentType: "text" },
+              from: { emailAddress: { address: "noticker@run-test.example" } },
+            }),
+          ]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -568,7 +606,7 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => messages,
+        listMessages: async () => makeListResult(messages),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -603,11 +641,12 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            from: { emailAddress: { address: "error@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              from: { emailAddress: { address: "error@run-test.example" } },
+            }),
+          ]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -638,23 +677,24 @@ describe("createRunHandler", () => {
 
     const run = createRunHandler({
       createInbox: () => ({
-        listMessages: async () => [
-          makeMessage({
-            id: "wm-1",
-            receivedDateTime: "2024-01-01T10:00:00Z",
-            from: { emailAddress: { address: "wm1@run-test.example" } },
-          }),
-          makeMessage({
-            id: "wm-2",
-            receivedDateTime: "2024-01-01T12:00:00Z",
-            from: { emailAddress: { address: "wm2@run-test.example" } },
-          }),
-          makeMessage({
-            id: "wm-3",
-            receivedDateTime: "2024-01-01T11:00:00Z",
-            from: { emailAddress: { address: "wm3@run-test.example" } },
-          }),
-        ],
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              id: "wm-1",
+              receivedDateTime: "2024-01-01T10:00:00Z",
+              from: { emailAddress: { address: "wm1@run-test.example" } },
+            }),
+            makeMessage({
+              id: "wm-2",
+              receivedDateTime: "2024-01-01T12:00:00Z",
+              from: { emailAddress: { address: "wm2@run-test.example" } },
+            }),
+            makeMessage({
+              id: "wm-3",
+              receivedDateTime: "2024-01-01T11:00:00Z",
+              from: { emailAddress: { address: "wm3@run-test.example" } },
+            }),
+          ]),
         archiveMessage,
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
@@ -678,5 +718,180 @@ describe("createRunHandler", () => {
     const result = (await run(makeCtx() as any)) as any;
 
     expect(result.details.newWatermark).toBe("2024-01-01T12:00:00.000Z");
+  });
+
+  it("drains all 12 subscription emails across two runs using the safe watermark", async () => {
+    const archivedIds = new Set<string>();
+
+    const allMessages = Array.from({ length: 12 }, (_, index) =>
+      makeMessage({
+        id: `drain-${index + 1}`,
+        receivedDateTime: `2024-01-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
+        from: {
+          emailAddress: { address: `drain${index + 1}@run-test.example` },
+        },
+      }),
+    );
+
+    const archiveMessage = vi.fn(async (id: string) => {
+      archivedIds.add(id);
+    });
+
+    const run = createRunHandler({
+      createInbox: () => ({
+        listMessages: async (filter: any, options: any) => {
+          const limit = options?.limit ?? allMessages.length;
+          const watermarkTime =
+            filter?.receivedAfter instanceof Date
+              ? filter.receivedAfter.getTime()
+              : 0;
+
+          const available = allMessages.filter((msg) => {
+            if (archivedIds.has(msg.id as string)) return false;
+            const msgTime = new Date(msg.receivedDateTime as string).getTime();
+            return msgTime >= watermarkTime;
+          });
+
+          const sorted = [...available].sort((a, b) => {
+            const timeA = new Date(a.receivedDateTime as string).getTime();
+            const timeB = new Date(b.receivedDateTime as string).getTime();
+            return timeA - timeB;
+          });
+
+          const messages = sorted.slice(0, limit);
+          return {
+            messages,
+            pagesScanned: 1,
+            messagesScanned: available.length,
+            drained: messages.length >= available.length,
+          };
+        },
+        archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
+      ResendClient: class {
+        emails = { send: vi.fn().mockResolvedValue({ data: { id: "e" } }) };
+        constructor() {}
+      } as any,
+      createDataApi: () =>
+        ({
+          userRegistrationRegister: {
+            create: async () => ({
+              tickerKnown: true,
+              isNewSubscription: false,
+            }),
+          },
+          userRegistrationConfirm: { create: vi.fn() },
+        }) as any,
+    });
+
+    // Run 1: no watermark — processes the 10 oldest messages
+    const result1 = (await run(
+      makeCtx({ input: { maxMessagesPerRun: 10 } }) as any,
+    )) as any;
+
+    expect(result1.details.processed).toBe(10);
+    expect(result1.details.inboxScan.drained).toBe(false);
+    expect(result1.details.newWatermark).toBe("2024-01-10T00:00:00.000Z");
+
+    // Run 2: feed the watermark from run 1 — picks up exactly the remaining 2
+    const result2 = (await run(
+      makeCtx({
+        input: {
+          maxMessagesPerRun: 10,
+          watermark: result1.details.newWatermark,
+        },
+      }) as any,
+    )) as any;
+
+    expect(result2.details.processed).toBe(2);
+    expect(result2.details.inboxScan.drained).toBe(true);
+
+    // All 12 archived — no gaps and no duplicates
+    expect(archivedIds.size).toBe(12);
+    for (let index = 1; index <= 12; index++) {
+      expect(archivedIds).toContain(`drain-${index}`);
+    }
+  });
+
+  it("processes the 10 oldest subscription emails when inbox has 12 and reports drained: false", async () => {
+    // Setup: fake inbox with 12 messages ordered oldest to newest
+    const archiveMessage = vi.fn().mockResolvedValue(undefined);
+
+    const allMessages = Array.from({ length: 12 }, (_, index) =>
+      makeMessage({
+        id: `collect-${index + 1}`,
+        receivedDateTime: `2024-01-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
+        from: {
+          emailAddress: { address: `user${index + 1}@run-test.example` },
+        },
+      }),
+    );
+
+    const run = createRunHandler({
+      createInbox: () => ({
+        // Fake listMessages that honours limit and orderBy to simulate real pagination behaviour.
+        listMessages: async (_filter: any, options: any) => {
+          const limit = options?.limit ?? options?.top ?? allMessages.length;
+          const orderBy = options?.orderBy ?? "";
+          const sorted = [...allMessages].sort((a, b) => {
+            const timeA = new Date(a.receivedDateTime as string).getTime();
+            const timeB = new Date(b.receivedDateTime as string).getTime();
+
+            return orderBy.includes("asc") ? timeA - timeB : timeB - timeA;
+          });
+          const messages = sorted.slice(0, limit);
+          return {
+            messages,
+            pagesScanned: 1,
+            messagesScanned: allMessages.length,
+            drained: messages.length < allMessages.length ? false : true,
+          };
+        },
+        archiveMessage,
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
+      ResendClient: class {
+        emails = {
+          send: vi.fn().mockResolvedValue({ data: { id: "e" } }),
+        };
+        constructor() {}
+      } as any,
+      createDataApi: () =>
+        ({
+          userRegistrationRegister: {
+            create: async () => ({
+              tickerKnown: true,
+              isNewSubscription: false,
+            }),
+          },
+          userRegistrationConfirm: { create: vi.fn() },
+        }) as any,
+    });
+
+    const result = (await run(
+      makeCtx({ input: { maxMessagesPerRun: 10 } }) as any,
+    )) as any;
+
+    // Exactly 10 processed (oldest 10 since orderBy asc)
+    expect(result.details.processed).toBe(10);
+    expect(archiveMessage).toHaveBeenCalledTimes(10);
+
+    // Messages 11 and 12 were not processed
+    const archivedIds: string[] = archiveMessage.mock.calls.map(
+      (call: any) => call[0] as string,
+    );
+    expect(archivedIds).not.toContain("collect-11");
+    expect(archivedIds).not.toContain("collect-12");
+    for (let index = 1; index <= 10; index++) {
+      expect(archivedIds).toContain(`collect-${index}`);
+    }
+
+    // Backlog surfaced explicitly
+    expect(result.details.inboxScan.drained).toBe(false);
+    expect(result.details.inboxScan.matchedMessages).toBe(10);
+    expect(result.details.inboxScan.limit).toBe(10);
   });
 });

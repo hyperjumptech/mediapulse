@@ -1,5 +1,8 @@
 export { createOutlookInboxClient } from "./create-outlook-inbox-client.js";
-export type { CreateOutlookInboxClientOptions } from "./create-outlook-inbox-client.js";
+export type {
+  CreateOutlookInboxClientOptions,
+  ListMessagesOptions,
+} from "./create-outlook-inbox-client.js";
 export { getAccessTokenFromClientCredentials } from "./get-access-token.js";
 export type {
   ClientCredentialsConfig,
@@ -11,6 +14,8 @@ export type {
   GraphClientOptions,
   GraphGetFn,
   GraphPostFn,
+  ListMessagesPaging,
+  ListMessagesResult,
 } from "./graph-client.js";
 export type {
   GraphMessage,

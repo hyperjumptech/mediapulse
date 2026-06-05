@@ -112,7 +112,12 @@ describe("user-registration agent – improved run loop", () => {
 
   it("returns success and new watermark for new subscription", async () => {
     const msg = makeMessage({ receivedDateTime: "2024-01-01T12:00:00Z" });
-    listMessagesMock.mockResolvedValue([msg]);
+    listMessagesMock.mockResolvedValue({
+      messages: [msg],
+      pagesScanned: 1,
+      messagesScanned: 1,
+      drained: true,
+    });
     registerCreateMock.mockResolvedValue({
       tickerKnown: true,
       isNewSubscription: true,
@@ -135,10 +140,15 @@ describe("user-registration agent – improved run loop", () => {
   });
 
   it("updates watermark to the latest processed message", async () => {
-    listMessagesMock.mockResolvedValue([
-      makeMessage({ id: "msg-1", receivedDateTime: "2024-01-01T10:00:00Z" }),
-      makeMessage({ id: "msg-2", receivedDateTime: "2024-01-01T11:00:00Z" }),
-    ]);
+    listMessagesMock.mockResolvedValue({
+      messages: [
+        makeMessage({ id: "msg-1", receivedDateTime: "2024-01-01T10:00:00Z" }),
+        makeMessage({ id: "msg-2", receivedDateTime: "2024-01-01T11:00:00Z" }),
+      ],
+      pagesScanned: 1,
+      messagesScanned: 2,
+      drained: true,
+    });
     registerCreateMock.mockResolvedValue({
       tickerKnown: true,
       isNewSubscription: false,
@@ -152,32 +162,37 @@ describe("user-registration agent – improved run loop", () => {
   });
 
   it("handles rate limiting by leaving message unarchived", async () => {
-    listMessagesMock.mockResolvedValue([
-      makeMessage({
-        id: "msg-1",
-        from: { emailAddress: { address: "spammer@example.com" } },
-      }),
-      makeMessage({
-        id: "msg-2",
-        from: { emailAddress: { address: "spammer@example.com" } },
-      }),
-      makeMessage({
-        id: "msg-3",
-        from: { emailAddress: { address: "spammer@example.com" } },
-      }),
-      makeMessage({
-        id: "msg-4",
-        from: { emailAddress: { address: "spammer@example.com" } },
-      }),
-      makeMessage({
-        id: "msg-5",
-        from: { emailAddress: { address: "spammer@example.com" } },
-      }),
-      makeMessage({
-        id: "msg-6",
-        from: { emailAddress: { address: "spammer@example.com" } },
-      }),
-    ]);
+    listMessagesMock.mockResolvedValue({
+      messages: [
+        makeMessage({
+          id: "msg-1",
+          from: { emailAddress: { address: "spammer@example.com" } },
+        }),
+        makeMessage({
+          id: "msg-2",
+          from: { emailAddress: { address: "spammer@example.com" } },
+        }),
+        makeMessage({
+          id: "msg-3",
+          from: { emailAddress: { address: "spammer@example.com" } },
+        }),
+        makeMessage({
+          id: "msg-4",
+          from: { emailAddress: { address: "spammer@example.com" } },
+        }),
+        makeMessage({
+          id: "msg-5",
+          from: { emailAddress: { address: "spammer@example.com" } },
+        }),
+        makeMessage({
+          id: "msg-6",
+          from: { emailAddress: { address: "spammer@example.com" } },
+        }),
+      ],
+      pagesScanned: 1,
+      messagesScanned: 6,
+      drained: true,
+    });
 
     registerCreateMock.mockResolvedValue({
       tickerKnown: true,
@@ -201,7 +216,12 @@ describe("user-registration agent – improved run loop", () => {
       subject: "No ticker here",
       body: { content: "Nothing useful" },
     });
-    listMessagesMock.mockResolvedValue([msg]);
+    listMessagesMock.mockResolvedValue({
+      messages: [msg],
+      pagesScanned: 1,
+      messagesScanned: 1,
+      drained: true,
+    });
 
     const res = await post({ input: {}, config: VALID_CONFIG });
     const body = (await res.json()) as any;
@@ -213,7 +233,12 @@ describe("user-registration agent – improved run loop", () => {
 
   it("handles unknown ticker selection by sending invalid-ticker email", async () => {
     const msg = makeMessage({ receivedDateTime: "2024-01-01T12:00:00Z" });
-    listMessagesMock.mockResolvedValue([msg]);
+    listMessagesMock.mockResolvedValue({
+      messages: [msg],
+      pagesScanned: 1,
+      messagesScanned: 1,
+      drained: true,
+    });
     registerCreateMock.mockResolvedValue({
       tickerKnown: false,
     });
@@ -235,7 +260,12 @@ describe("user-registration agent – improved run loop", () => {
 
   it("does not confirm when Resend returns an error envelope for a new subscription", async () => {
     const msg = makeMessage({ receivedDateTime: "2024-01-01T12:00:00Z" });
-    listMessagesMock.mockResolvedValue([msg]);
+    listMessagesMock.mockResolvedValue({
+      messages: [msg],
+      pagesScanned: 1,
+      messagesScanned: 1,
+      drained: true,
+    });
     registerCreateMock.mockResolvedValue({
       tickerKnown: true,
       isNewSubscription: true,
@@ -256,7 +286,12 @@ describe("user-registration agent – improved run loop", () => {
 
   it("returns failed_retry on unexpected error during processing", async () => {
     const msg = makeMessage();
-    listMessagesMock.mockResolvedValue([msg]);
+    listMessagesMock.mockResolvedValue({
+      messages: [msg],
+      pagesScanned: 1,
+      messagesScanned: 1,
+      drained: true,
+    });
     registerCreateMock.mockRejectedValue(new Error("Network Error"));
 
     const res = await post({ input: {}, config: VALID_CONFIG });

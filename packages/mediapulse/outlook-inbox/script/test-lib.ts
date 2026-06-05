@@ -21,7 +21,7 @@ async function main(): Promise<void> {
     userId,
   });
 
-  const messages = await client.listMessages(
+  const { messages } = await client.listMessages(
     {
       subjectContains: "New Registration",
     },

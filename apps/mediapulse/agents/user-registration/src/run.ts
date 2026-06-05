@@ -26,6 +26,8 @@ import {
   resolveSubscriberDisplayName,
 } from "./lib/parser.js";
 
+import { computeSafeWatermark } from "./lib/watermark.js";
+
 export type Input = { maxMessagesPerRun: number; watermark?: string };
 export type Config = UserRegistrationConfig;
 
@@ -319,29 +321,44 @@ export const createRunHandler =
       }
     };
 
+    const inboxPageSize = config.inboxPageSize ?? 50;
+    const inboxMaxPagesPerRun = config.inboxMaxPagesPerRun ?? 20;
+
     report(
       "Reading subscription inbox",
       `up to ${input.maxMessagesPerRun} messages`,
     );
 
-    // Step 0: List messages
-    const messages = await withRetry(
-      () =>
-        inboxClient.listMessages(
-          {
-            subjectContains: "[MediaPulse] Newsletter Subscription",
-            isUnread: true,
-            ...(input.watermark
-              ? { receivedAfter: new Date(input.watermark) }
-              : {}),
-          },
-          { top: input.maxMessagesPerRun },
-        ),
-      retryConfig,
-      isRetryable,
-    );
+    // Step 0: List messages — paginate oldest-first, capped at maxMessagesPerRun matches.
+    // receivedAfter is an inclusive `ge` filter. The boundary message was already archived
+    // last run, so it is no longer unread and won't be re-listed. Same-timestamp siblings
+    // are safe because userRegistrationRegister.create is idempotent (returns
+    // isNewSubscription: false, triggering only an acknowledge-and-archive path).
+    const { messages, pagesScanned, messagesScanned, drained } =
+      await withRetry(
+        () =>
+          inboxClient.listMessages(
+            {
+              subjectContains: "[MediaPulse] Newsletter Subscription",
+              isUnread: true,
+              ...(input.watermark
+                ? { receivedAfter: new Date(input.watermark) }
+                : {}),
+            },
+            {
+              limit: input.maxMessagesPerRun,
+              pageSize: inboxPageSize,
+              orderBy: "receivedDateTime asc",
+              maxPages: inboxMaxPagesPerRun,
+            },
+          ),
+        retryConfig,
+        isRetryable,
+      );
 
-    logger.info(`Found ${messages.length} messages to process.`);
+    logger.info(
+      `Found ${messages.length} subscription messages (scanned ${messagesScanned} across ${pagesScanned} pages, drained: ${drained}).`,
+    );
 
     report("Scanning subscription requests", `${messages.length} emails found`);
 
@@ -351,7 +368,20 @@ export const createRunHandler =
         "0 registered, 0 skipped",
         "completed",
       );
-      return { success: true, details: { processed: 0, results: [] } };
+      return {
+        success: true,
+        details: {
+          processed: 0,
+          results: [],
+          inboxScan: {
+            pagesScanned,
+            messagesScanned,
+            matchedMessages: 0,
+            limit: input.maxMessagesPerRun,
+            drained,
+          },
+        },
+      };
     }
 
     report("Processing registrations", `${messages.length} eligible requests`);
@@ -359,7 +389,6 @@ export const createRunHandler =
     // Process messages in parallel with a concurrency limit of 5.
     const CONCURRENCY = 5;
     const results: any[] = [];
-    let latestProcessedDate: string | undefined = input.watermark;
 
     for (let i = 0; i < messages.length; i += CONCURRENCY) {
       const batch = messages.slice(i, i + CONCURRENCY);
@@ -375,33 +404,24 @@ export const createRunHandler =
               rateLimitConfig,
               retryConfig,
             });
-
-            if (result.status !== "failed_retry") {
-              // Track the latest receivedDateTime for watermark management.
-              if (msg.receivedDateTime) {
-                const msgTime = new Date(msg.receivedDateTime).getTime();
-                const latestTime = latestProcessedDate
-                  ? new Date(latestProcessedDate).getTime()
-                  : 0;
-
-                if (!latestProcessedDate || msgTime > latestTime) {
-                  latestProcessedDate = new Date(msgTime).toISOString();
-                }
-              }
-            }
-
-            return result;
+            return { ...result, receivedDateTime: msg.receivedDateTime };
           } catch (error) {
             logger.error(
               { error, messageId: msg.id },
               "Unexpected error processing message.",
             );
-            return { id: msg.id, status: "failed_retry" };
+            return {
+              id: msg.id,
+              status: "failed_retry",
+              receivedDateTime: msg.receivedDateTime,
+            };
           }
         }),
       );
       results.push(...batchResults);
     }
+
+    const newWatermark = computeSafeWatermark(results, input.watermark);
 
     const registeredCount = results.filter(
       (result) =>
@@ -412,7 +432,7 @@ export const createRunHandler =
 
     report(
       "Registration run complete",
-      `${registeredCount} registered, ${skippedCount} skipped`,
+      `${registeredCount} registered, ${skippedCount} skipped (drained: ${drained})`,
       "completed",
     );
 
@@ -421,7 +441,14 @@ export const createRunHandler =
       details: {
         processed: results.length,
         results,
-        newWatermark: latestProcessedDate,
+        newWatermark,
+        inboxScan: {
+          pagesScanned,
+          messagesScanned,
+          matchedMessages: messages.length,
+          limit: input.maxMessagesPerRun,
+          drained,
+        },
       },
     };
   };

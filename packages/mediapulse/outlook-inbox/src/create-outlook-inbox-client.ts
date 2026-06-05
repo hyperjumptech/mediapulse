@@ -1,4 +1,5 @@
 import { createGraphClient } from "./graph-client.js";
+import type { ListMessagesResult } from "./graph-client.js";
 import { getAccessTokenFromClientCredentials } from "./get-access-token.js";
 import type {
   GraphMessage,
@@ -18,6 +19,20 @@ export type CreateOutlookInboxClientOptions = {
   getAccessTokenOptions?: Parameters<
     typeof getAccessTokenFromClientCredentials
   >[1];
+};
+
+/** Options for listMessages on the inbox client. */
+export type ListMessagesOptions = {
+  /** Backward-compat alias for limit. */
+  top?: number;
+  /** Max subject-matching messages to return (defaults to top). */
+  limit?: number;
+  /** Per-page Graph $top (default 50). */
+  pageSize?: number;
+  /** OData $orderby; omitted when $search is active. */
+  orderBy?: string;
+  /** Runaway-pagination backstop (default 20). */
+  maxPages?: number;
 };
 
 /**
@@ -41,19 +56,23 @@ export function createOutlookInboxClient(
 
   return {
     /**
-     * Lists messages in the inbox matching the filter.
+     * Lists messages in the inbox matching the filter, paging until the limit
+     * or inbox end is reached. Returns messages plus scan metadata.
      *
      * @param filter - Subject, received date, unread criteria.
-     * @param listOptions - Optional top (page size).
-     * @returns Array of messages.
+     * @param listOptions - Optional limit, pageSize, orderBy, maxPages.
+     * @returns Messages and pagination metadata.
      */
     async listMessages(
       filter: MessageFilter,
-      listOptions?: { top?: number },
-    ): Promise<GraphMessage[]> {
+      listOptions?: ListMessagesOptions,
+    ): Promise<ListMessagesResult> {
+      const limit = listOptions?.limit ?? listOptions?.top;
       return graph.listMessages(userId, filter, {
-        top: listOptions?.top,
-        orderBy: "receivedDateTime desc",
+        limit,
+        pageSize: listOptions?.pageSize,
+        orderBy: listOptions?.orderBy,
+        maxPages: listOptions?.maxPages,
       });
     },
 
@@ -70,17 +89,15 @@ export function createOutlookInboxClient(
     ): Promise<GraphMessage[]> {
       const action = processOptions.action ?? "archive";
       const maxMessages = processOptions.maxMessages;
-      const messages = await graph.listMessages(userId, filter, {
+      const { messages } = await graph.listMessages(userId, filter, {
         orderBy: "receivedDateTime desc",
-        ...(maxMessages !== undefined && { top: maxMessages }),
+        ...(maxMessages !== undefined && { limit: maxMessages }),
       });
-      const toProcess =
-        maxMessages !== undefined ? messages.slice(0, maxMessages) : messages;
       const destinationId =
         action === "archive" ? ARCHIVE_FOLDER : DELETED_ITEMS_FOLDER;
 
       const processed: GraphMessage[] = [];
-      for (const msg of toProcess) {
+      for (const msg of messages) {
         await graph.moveMessage(userId, msg.id, destinationId);
         processed.push(msg);
       }
