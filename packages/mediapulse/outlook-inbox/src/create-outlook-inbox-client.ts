@@ -49,6 +49,9 @@ export function createOutlookInboxClient(
 ) {
   const getAccessToken = resolveTokenGetter(config, options);
   const userId = config.userId ?? "me";
+  // Scope listing to a single folder (default Inbox) so a message moved to
+  // Archive leaves the result set. "" opts into a whole-mailbox query.
+  const mailFolder = config.mailFolder ?? "inbox";
   const graph = createGraphClient(
     getAccessToken,
     options.graphClientOptions ?? {},
@@ -73,6 +76,7 @@ export function createOutlookInboxClient(
         pageSize: listOptions?.pageSize,
         orderBy: listOptions?.orderBy,
         maxPages: listOptions?.maxPages,
+        mailFolder,
       });
     },
 
@@ -91,6 +95,7 @@ export function createOutlookInboxClient(
       const maxMessages = processOptions.maxMessages;
       const { messages } = await graph.listMessages(userId, filter, {
         orderBy: "receivedDateTime desc",
+        mailFolder,
         ...(maxMessages !== undefined && { limit: maxMessages }),
       });
       const destinationId =
@@ -105,7 +110,25 @@ export function createOutlookInboxClient(
     },
 
     /**
-     * Archives one or more messages (moves to Archive folder).
+     * Marks a message read so it stops matching an `isRead eq false` filter.
+     *
+     * @param messageIdOrIds - Single message ID or array of message IDs.
+     */
+    async markMessageRead(messageIdOrIds: string | string[]): Promise<void> {
+      const ids = Array.isArray(messageIdOrIds)
+        ? messageIdOrIds
+        : [messageIdOrIds];
+      for (const id of ids) {
+        await graph.markMessageRead(userId, id);
+      }
+    },
+
+    /**
+     * Archives one or more messages: marks each read, then moves it to the
+     * Archive folder.
+     *
+     * - Important: Read is set before the move so that even if the move fails,
+     *   the message no longer matches an unread filter and is not reprocessed.
      *
      * @param messageIdOrIds - Single message ID or array of message IDs.
      * @returns Array of moved messages (one per ID).
@@ -118,6 +141,7 @@ export function createOutlookInboxClient(
         : [messageIdOrIds];
       const results: GraphMessage[] = [];
       for (const id of ids) {
+        await graph.markMessageRead(userId, id);
         const moved = await graph.moveMessage(userId, id, ARCHIVE_FOLDER);
         results.push(moved);
       }

@@ -124,6 +124,7 @@ describe("createRunHandler", () => {
       createInbox: () => ({
         listMessages: async () => makeListResult([]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -161,6 +162,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -209,6 +211,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage: vi.fn().mockResolvedValue(undefined),
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -261,6 +264,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -309,6 +313,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -353,6 +358,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage: vi.fn().mockResolvedValue(undefined),
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -394,6 +400,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -438,6 +445,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -482,6 +490,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -524,6 +533,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage: vi.fn().mockResolvedValue(undefined),
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -571,6 +581,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -608,6 +619,7 @@ describe("createRunHandler", () => {
       createInbox: () => ({
         listMessages: async () => makeListResult(messages),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -648,6 +660,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -696,6 +709,7 @@ describe("createRunHandler", () => {
             }),
           ]),
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -768,6 +782,7 @@ describe("createRunHandler", () => {
           };
         },
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -851,6 +866,7 @@ describe("createRunHandler", () => {
           };
         },
         archiveMessage,
+        markMessageRead: vi.fn(),
         processMessages: vi.fn(),
         deleteMessage: vi.fn(),
       }),
@@ -894,5 +910,117 @@ describe("createRunHandler", () => {
     expect(result.details.inboxScan.drained).toBe(false);
     expect(result.details.inboxScan.matchedMessages).toBe(10);
     expect(result.details.inboxScan.limit).toBe(10);
+  });
+
+  it("registers all new signups in one run despite an already-confirmed message at the head", async () => {
+    const archiveMessage = vi.fn().mockResolvedValue(undefined);
+    const registerCreate = vi.fn(async (payload: any) => {
+      if (payload.email === "stuck@run-test.example") {
+        return { tickerKnown: true, isNewSubscription: false };
+      }
+
+      return {
+        tickerKnown: true,
+        isNewSubscription: true,
+        userTickerId: `ut-${payload.email}`,
+      };
+    });
+
+    const messages = [
+      makeMessage({
+        id: "stuck",
+        receivedDateTime: "2024-01-01T00:00:00Z",
+        from: { emailAddress: { address: "stuck@run-test.example" } },
+      }),
+      ...Array.from({ length: 4 }, (_, index) =>
+        makeMessage({
+          id: `new-${index + 1}`,
+          receivedDateTime: `2024-01-0${index + 2}T00:00:00Z`,
+          from: {
+            emailAddress: { address: `new${index + 1}@run-test.example` },
+          },
+        }),
+      ),
+    ];
+
+    const run = createRunHandler({
+      createInbox: () => ({
+        listMessages: async () => makeListResult(messages),
+        archiveMessage,
+        markMessageRead: vi.fn(),
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
+      ResendClient: class {
+        emails = { send: vi.fn().mockResolvedValue({ data: { id: "e" } }) };
+        constructor() {}
+      } as any,
+      createDataApi: () =>
+        ({
+          userRegistrationRegister: { create: registerCreate },
+          userRegistrationConfirm: { create: vi.fn() },
+        }) as any,
+    });
+
+    const result = (await run(
+      makeCtx({ input: { maxMessagesPerRun: 5 } }) as any,
+    )) as any;
+
+    const confirmed = result.details.results.filter(
+      (r: any) => r.status === "confirmed_archived",
+    );
+    const acknowledged = result.details.results.filter(
+      (r: any) => r.status === "acknowledged_archived",
+    );
+
+    expect(confirmed).toHaveLength(4);
+    expect(acknowledged).toHaveLength(1);
+    expect(archiveMessage).toHaveBeenCalledTimes(5);
+  });
+
+  it("dead-letters a message that fails every run after maxMessageAttempts", async () => {
+    const archiveMessage = vi.fn().mockResolvedValue(undefined);
+
+    const run = createRunHandler({
+      createInbox: () => ({
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              id: "poison",
+              from: { emailAddress: { address: "poison@run-test.example" } },
+            }),
+          ]),
+        archiveMessage,
+        markMessageRead: vi.fn(),
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
+      ResendClient: class {
+        emails = { send: vi.fn() };
+        constructor() {}
+      } as any,
+      createDataApi: () =>
+        ({
+          userRegistrationRegister: {
+            create: async () => {
+              throw new Error("permanent failure");
+            },
+          },
+          userRegistrationConfirm: { create: vi.fn() },
+        }) as any,
+    });
+
+    // Runs 1–4: failed_retry, message left unarchived for retry
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      const result = (await run(makeCtx() as any)) as any;
+      expect(result.details.results[0].status).toBe("failed_retry");
+    }
+    expect(archiveMessage).not.toHaveBeenCalled();
+
+    // Run 5: attempts reach the limit — dead-lettered and archived
+    const final = (await run(makeCtx() as any)) as any;
+
+    expect(final.details.results[0].status).toBe("dead_lettered");
+    expect(archiveMessage).toHaveBeenCalledWith("poison");
   });
 });

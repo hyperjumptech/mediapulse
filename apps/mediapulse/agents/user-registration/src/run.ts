@@ -45,10 +45,21 @@ type RateLimitConfig = {
 const registrationAttempts = new Map<string, number[]>();
 
 /**
- * Clears in-memory per-sender rate-limit counters (for unit tests only).
+ * Per-message consecutive failure counts, keyed by Graph message id. Used to
+ * dead-letter a poison message after `maxMessageAttempts` failed runs so it
+ * cannot block the oldest slot forever under oldest-first ordering.
+ */
+const messageProcessingAttempts = new Map<string, number>();
+
+const DEFAULT_MAX_MESSAGE_ATTEMPTS = 5;
+
+/**
+ * Clears in-memory per-sender rate-limit and per-message attempt counters
+ * (for unit tests only).
  */
 export const resetRegistrationRateLimitsForTest = (): void => {
   registrationAttempts.clear();
+  messageProcessingAttempts.clear();
 };
 const DEFAULT_RATE_LIMIT_CONFIG: RateLimitConfig = {
   windowMs: 60 * 60 * 1000,
@@ -296,7 +307,11 @@ export const createRunHandler =
       clientSecret: config.outlookClientSecret,
       tenantId: config.outlookTenantId,
       userId: config.outlookUserId,
+      mailFolder: config.mailFolder,
     });
+
+    const maxMessageAttempts =
+      config.maxMessageAttempts ?? DEFAULT_MAX_MESSAGE_ATTEMPTS;
 
     const resend = new ResendClient(config.resendApiKey);
 
@@ -323,6 +338,7 @@ export const createRunHandler =
 
     const inboxPageSize = config.inboxPageSize ?? 50;
     const inboxMaxPagesPerRun = config.inboxMaxPagesPerRun ?? 20;
+    const mailFolder = config.mailFolder ?? "inbox";
 
     report(
       "Reading subscription inbox",
@@ -360,6 +376,18 @@ export const createRunHandler =
       `Found ${messages.length} subscription messages (scanned ${messagesScanned} across ${pagesScanned} pages, drained: ${drained}).`,
     );
 
+    // Regression alarm: with isUnread:true and Inbox scoping, processed mail
+    // should never reappear. A nonzero count means it is leaking back in.
+    const refetchedTerminal = messages.filter(
+      (msg) => msg.isRead === true,
+    ).length;
+    if (refetchedTerminal > 0) {
+      logger.warn(
+        { refetchedTerminal, mailFolder },
+        "Fetched already-read messages; processed mail may be leaking back into the unread queue.",
+      );
+    }
+
     report("Scanning subscription requests", `${messages.length} emails found`);
 
     if (messages.length === 0) {
@@ -379,6 +407,8 @@ export const createRunHandler =
             matchedMessages: 0,
             limit: input.maxMessagesPerRun,
             drained,
+            mailFolder,
+            refetchedTerminal,
           },
         },
       };
@@ -403,6 +433,7 @@ export const createRunHandler =
               config,
               rateLimitConfig,
               retryConfig,
+              maxMessageAttempts,
             });
             return { ...result, receivedDateTime: msg.receivedDateTime };
           } catch (error) {
@@ -448,6 +479,8 @@ export const createRunHandler =
           matchedMessages: messages.length,
           limit: input.maxMessagesPerRun,
           drained,
+          mailFolder,
+          refetchedTerminal,
         },
       },
     };
@@ -478,6 +511,7 @@ async function processMessage({
   config,
   rateLimitConfig,
   retryConfig,
+  maxMessageAttempts,
 }: {
   msg: GraphMessage;
   inboxClient: any;
@@ -486,6 +520,7 @@ async function processMessage({
   config: Config;
   rateLimitConfig: RateLimitConfig;
   retryConfig: RetryConfig;
+  maxMessageAttempts: number;
 }) {
   const senderEmail = extractSenderEmail(msg);
   const tickerSymbol = extractTickerSymbol(msg.subject, msg.body?.content);
@@ -503,6 +538,7 @@ async function processMessage({
       retryConfig,
       isRetryable,
     );
+    if (msg.id) messageProcessingAttempts.delete(msg.id);
     return { id: msg.id, status: "archived_unparseable" };
   }
 
@@ -568,6 +604,7 @@ async function processMessage({
         retryConfig,
         isRetryable,
       );
+      if (msg.id) messageProcessingAttempts.delete(msg.id);
       return { id: msg.id, status: "invalid_ticker_archived" };
     }
 
@@ -645,6 +682,7 @@ async function processMessage({
       retryConfig,
       isRetryable,
     );
+    if (msg.id) messageProcessingAttempts.delete(msg.id);
     return {
       id: msg.id,
       status: isNewSubscription
@@ -652,15 +690,49 @@ async function processMessage({
         : "acknowledged_archived",
     };
   } catch (error) {
+    const errorDetails =
+      error instanceof Error
+        ? { message: error.message, name: error.name, stack: error.stack }
+        : error;
+
+    // Head-of-line guard: a message that fails every run must not block the
+    // oldest slot forever under oldest-first ordering. After maxMessageAttempts
+    // consecutive failures, dead-letter it (archive + mark read) so the queue
+    // can advance. Counters reset on any terminal success above.
+    const attempts = msg.id
+      ? (messageProcessingAttempts.get(msg.id) ?? 0) + 1
+      : 1;
+
+    if (msg.id && attempts >= maxMessageAttempts) {
+      try {
+        await withRetry(
+          () => inboxClient.archiveMessage(msg.id!),
+          retryConfig,
+          isRetryable,
+        );
+        messageProcessingAttempts.delete(msg.id);
+        logger.warn(
+          { messageId: msg.id, senderEmail, tickerSymbol, attempts },
+          "Dead-lettering message after repeated failures.",
+        );
+        return { id: msg.id, status: "dead_lettered" };
+      } catch (deadLetterError) {
+        logger.error(
+          { messageId: msg.id, err: deadLetterError },
+          "Failed to dead-letter message after repeated failures.",
+        );
+      }
+    }
+
+    if (msg.id) messageProcessingAttempts.set(msg.id, attempts);
+
     logger.error(
       {
         messageId: msg.id,
         senderEmail,
         tickerSymbol,
-        err:
-          error instanceof Error
-            ? { message: error.message, name: error.name, stack: error.stack }
-            : error,
+        attempts,
+        err: errorDetails,
       },
       "Failed processing message during agent run. Leaving unarchived for retry.",
     );

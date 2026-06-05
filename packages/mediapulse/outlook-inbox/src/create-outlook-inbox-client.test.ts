@@ -86,7 +86,7 @@ describe("createOutlookInboxClient", () => {
       // Assert
       expect(getFn.mock.calls[0]).toBeDefined();
       expect((getFn.mock.calls[0] as [string])[0]).toContain(
-        "/users/me/messages",
+        "/users/me/mailFolders/inbox/messages",
       );
       expect(result.messages).toHaveLength(1);
       expect(result.messages[0]).toBeDefined();
@@ -111,8 +111,29 @@ describe("createOutlookInboxClient", () => {
       // Assert
       expect(getFn.mock.calls[0]).toBeDefined();
       expect((getFn.mock.calls[0] as [string])[0]).toContain(
-        "/users/user-123/messages",
+        "/users/user-123/mailFolders/inbox/messages",
       );
+    });
+
+    it("listMessages queries the whole mailbox when mailFolder is empty", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ value: [] }),
+      });
+      const client = createOutlookInboxClient(
+        { getAccessToken, mailFolder: "" },
+        { graphClientOptions: { getFn, postFn: vi.fn() } },
+      );
+
+      // Act
+      await client.listMessages({});
+
+      // Assert
+      const [url] = getFn.mock.calls[0] as [string];
+      expect(url).toContain("/users/me/messages");
+      expect(url).not.toContain("mailFolders");
     });
 
     it("processMessages defaults to archive and moves to archive folder", async () => {
@@ -267,9 +288,18 @@ describe("createOutlookInboxClient", () => {
       expect(postFn).toHaveBeenCalledTimes(2);
     });
 
-    it("archiveMessage moves single message to archive", async () => {
+    it("archiveMessage marks the message read then moves it to archive", async () => {
       // Setup
       const getAccessToken = vi.fn().mockResolvedValue("t");
+      const patchFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({
+          id: "single",
+          subject: "Read",
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: true,
+        }),
+      });
       const postFn = vi.fn().mockResolvedValue({
         statusCode: 200,
         body: JSON.stringify({
@@ -281,25 +311,71 @@ describe("createOutlookInboxClient", () => {
       });
       const client = createOutlookInboxClient(
         { getAccessToken },
-        { graphClientOptions: { getFn: vi.fn(), postFn } },
+        { graphClientOptions: { getFn: vi.fn(), postFn, patchFn } },
       );
 
       // Act
       const result = await client.archiveMessage("single");
 
-      // Assert
+      // Assert: mark read happened, and it moved to archive
       expect(result).toHaveLength(1);
-      expect(result[0]).toBeDefined();
       expect((result[0] as { id: string }).id).toBe("single");
+      expect(patchFn).toHaveBeenCalledWith(
+        expect.stringContaining("/messages/single"),
+        expect.objectContaining({ json: { isRead: true } }),
+      );
       expect(postFn).toHaveBeenCalledWith(
         expect.stringContaining("/messages/single/move"),
         expect.objectContaining({ json: { destinationId: "archive" } }),
       );
     });
 
+    it("markMessageRead PATCHes each id as read", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const patchFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({
+          id: "r1",
+          subject: "Read",
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: true,
+        }),
+      });
+      const client = createOutlookInboxClient(
+        { getAccessToken },
+        { graphClientOptions: { getFn: vi.fn(), postFn: vi.fn(), patchFn } },
+      );
+
+      // Act
+      await client.markMessageRead(["r1", "r2"]);
+
+      // Assert
+      expect(patchFn).toHaveBeenCalledTimes(2);
+      expect(patchFn).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining("/messages/r1"),
+        expect.objectContaining({ json: { isRead: true } }),
+      );
+      expect(patchFn).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining("/messages/r2"),
+        expect.objectContaining({ json: { isRead: true } }),
+      );
+    });
+
     it("archiveMessage accepts array of ids and moves each to archive", async () => {
       // Setup
       const getAccessToken = vi.fn().mockResolvedValue("t");
+      const patchFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({
+          id: "r",
+          subject: "Read",
+          receivedDateTime: "2024-01-01T00:00:00Z",
+          isRead: true,
+        }),
+      });
       const postFn = vi
         .fn()
         .mockResolvedValueOnce({
@@ -322,13 +398,14 @@ describe("createOutlookInboxClient", () => {
         });
       const client = createOutlookInboxClient(
         { getAccessToken },
-        { graphClientOptions: { getFn: vi.fn(), postFn } },
+        { graphClientOptions: { getFn: vi.fn(), postFn, patchFn } },
       );
 
       // Act
       const result = await client.archiveMessage(["a1", "a2"]);
 
       // Assert
+      expect(patchFn).toHaveBeenCalledTimes(2);
       expect(result).toHaveLength(2);
       expect((result[0] as { id: string }).id).toBe("a1");
       expect((result[1] as { id: string }).id).toBe("a2");

@@ -21,6 +21,12 @@ export type GraphPostFn = (
   options?: { json?: unknown; headers?: Record<string, string> },
 ) => Promise<{ body: string; statusCode: number }>;
 
+/** HTTP PATCH function for DI. */
+export type GraphPatchFn = (
+  url: string,
+  options?: { json?: unknown; headers?: Record<string, string> },
+) => Promise<{ body: string; statusCode: number }>;
+
 /** Options for the Graph client (DI). */
 export type GraphClientOptions = {
   /** Base URL for Graph API (default https://graph.microsoft.com/v1.0). */
@@ -29,6 +35,8 @@ export type GraphClientOptions = {
   getFn?: GraphGetFn;
   /** POST implementation; defaults to got.post. */
   postFn?: GraphPostFn;
+  /** PATCH implementation; defaults to got.patch. */
+  patchFn?: GraphPatchFn;
 };
 
 /** Pagination options for listMessages. */
@@ -41,6 +49,13 @@ export type ListMessagesPaging = {
   orderBy?: string;
   /** Runaway-pagination backstop (default 20). */
   maxPages?: number;
+  /**
+   * Well-known folder name or folder id to scope the query to (e.g. "inbox").
+   * When set, lists from `/mailFolders/{folder}/messages` so that moving a
+   * message out of the folder removes it from the result set. When omitted,
+   * lists from the whole mailbox `/messages`.
+   */
+  mailFolder?: string;
 };
 
 /** Result returned by listMessages including pagination metadata. */
@@ -73,11 +88,14 @@ export function createGraphClient(
   const baseUrl = options.baseUrl ?? DEFAULT_GRAPH_BASE;
   const getFn = options.getFn ?? defaultGet;
   const postFn = options.postFn ?? defaultPost;
+  const patchFn = options.patchFn ?? defaultPatch;
 
   return {
     /**
-     * Lists messages in the user's inbox matching the filter, following
-     * @odata.nextLink pagination until the limit, maxPages, or inbox end is reached.
+     * Lists messages matching the filter, following @odata.nextLink pagination
+     * until the limit, maxPages, or end of results is reached. When paging.mailFolder
+     * is set, scopes to `/mailFolders/{folder}/messages` so messages moved out of
+     * the folder (e.g. archived) drop out of the result set.
      * When filter.subjectContains is set and no other ($filter) criteria apply,
      * adds $search subject scoping so fewer pages are scanned; $orderby is then
      * applied client-side after collection. Graph rejects $search together with
@@ -108,9 +126,12 @@ export function createGraphClient(
         filter.subjectContains !== "" &&
         filterStr === "";
 
-      const initialUrl = new URL(
-        `${baseUrl}/users/${encodeURIComponent(userId)}/messages`,
-      );
+      const mailFolder = paging?.mailFolder;
+      const messagesPath =
+        mailFolder !== undefined && mailFolder !== ""
+          ? `/users/${encodeURIComponent(userId)}/mailFolders/${encodeURIComponent(mailFolder)}/messages`
+          : `/users/${encodeURIComponent(userId)}/messages`;
+      const initialUrl = new URL(`${baseUrl}${messagesPath}`);
       if (filterStr) initialUrl.searchParams.set("$filter", filterStr);
       initialUrl.searchParams.set("$top", String(pageSize));
       if (useSearch) {
@@ -220,6 +241,34 @@ export function createGraphClient(
       const parsed = JSON.parse(res.body) as unknown;
       return graphMessageSchema.parse(parsed);
     },
+
+    /**
+     * Marks a message as read (PATCH isRead: true).
+     *
+     * A read message no longer matches an `isRead eq false` filter, so this is
+     * how a processed message leaves the unread work queue regardless of folder.
+     *
+     * @param userId - User ID or "me".
+     * @param messageId - Message ID.
+     */
+    async markMessageRead(userId: string, messageId: string): Promise<void> {
+      const token = await getAccessToken();
+      const url = `${baseUrl}/users/${encodeURIComponent(userId)}/messages/${encodeURIComponent(messageId)}`;
+
+      const res = await patchFn(url, {
+        json: { isRead: true },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw new Error(
+          `Graph mark message read failed: ${res.statusCode} - ${res.body}`,
+        );
+      }
+    },
   };
 }
 
@@ -241,6 +290,20 @@ async function defaultPost(
   opts?: { json?: unknown; headers?: Record<string, string> },
 ): Promise<{ body: string; statusCode: number }> {
   const res = await got.post(url, {
+    json: opts?.json,
+    headers: opts?.headers,
+    throwHttpErrors: false,
+  });
+  const bodyStr =
+    typeof res.body === "string" ? res.body : JSON.stringify(res.body);
+  return { body: bodyStr, statusCode: res.statusCode ?? 0 };
+}
+
+async function defaultPatch(
+  url: string,
+  opts?: { json?: unknown; headers?: Record<string, string> },
+): Promise<{ body: string; statusCode: number }> {
+  const res = await got.patch(url, {
     json: opts?.json,
     headers: opts?.headers,
     throwHttpErrors: false,

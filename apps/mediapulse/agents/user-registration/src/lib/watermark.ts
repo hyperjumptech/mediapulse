@@ -3,6 +3,7 @@ const TERMINAL_SUCCESS_STATUSES = new Set([
   "acknowledged_archived",
   "invalid_ticker_archived",
   "archived_unparseable",
+  "dead_lettered",
 ]);
 
 export type ProcessResult = {
