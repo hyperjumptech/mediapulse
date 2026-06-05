@@ -88,9 +88,9 @@ describe("createOutlookInboxClient", () => {
       expect((getFn.mock.calls[0] as [string])[0]).toContain(
         "/users/me/messages",
       );
-      expect(result).toHaveLength(1);
-      expect(result[0]).toBeDefined();
-      expect((result[0] as { id: string }).id).toBe("m1");
+      expect(result.messages).toHaveLength(1);
+      expect(result.messages[0]).toBeDefined();
+      expect(result.messages[0]!.id).toBe("m1");
     });
 
     it("listMessages uses custom userId when provided", async () => {
