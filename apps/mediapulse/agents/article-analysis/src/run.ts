@@ -394,6 +394,11 @@ export const run = async ({
             exhausted: extractionRetriesExhausted,
           } satisfies ExtractionRetryObservabilityAggregate)
         : undefined),
+    extractionCallTimeouts:
+      summary.extractionCallTimeouts ??
+      (extractionCallTimeoutsTotal > 0
+        ? extractionCallTimeoutsTotal
+        : undefined),
   });
 
   /**
@@ -549,6 +554,7 @@ export const run = async ({
   let extractionRetriesTotalAttempts = 0;
   let extractionRetriesRecoveredByRetry = 0;
   let extractionRetriesExhausted = 0;
+  let extractionCallTimeoutsTotal = 0;
   let parallelPeakInFlight = 0;
   let parallelDeadlineFiredAtMs: number | undefined;
   const perSourceExtractionLatencyMs: number[] = [];
@@ -924,6 +930,9 @@ export const run = async ({
         } else {
           extractionRetriesExhausted += 1;
         }
+      }
+      if (outcome.extractionCallTimeouts > 0) {
+        extractionCallTimeoutsTotal += outcome.extractionCallTimeouts;
       }
     };
 

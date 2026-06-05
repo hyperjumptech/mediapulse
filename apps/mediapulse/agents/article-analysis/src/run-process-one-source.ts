@@ -39,6 +39,7 @@ import {
   buildRelationCritiqueModelMessages,
   classifyLlmExtractionError,
   classifyNoResponseSubtype,
+  isCallTimeoutError,
   critiqueExtractedRelations,
   executeLlmCallWithTransientRetries,
   relationCritiqueRowKey,
@@ -132,6 +133,7 @@ export type SourceProcessingOutcome = {
   sourceQualityScore?: number;
   extractionRetryAttempts: number;
   extractionRetrySucceeded: boolean;
+  extractionCallTimeouts: number;
 };
 
 /** Returns an empty per-source outcome for early-return paths. */
@@ -163,6 +165,7 @@ export const createEmptySourceProcessingOutcome =
     relationCritiqueCalls: 0,
     extractionRetryAttempts: 0,
     extractionRetrySucceeded: false,
+    extractionCallTimeouts: 0,
   });
 
 export type ProcessOneSourceDeps = {
@@ -319,6 +322,7 @@ export const createProcessOneSource =
                 apiKey: cfg.openaiApiKey,
                 model: cfg.brainstormModel,
                 maxOutputTokens: cfg.brainstormMaxOutputTokens,
+                timeoutMs: cfg.extractionCallTimeoutMs,
                 messages: [
                   {
                     role: "system",
@@ -346,6 +350,11 @@ export const createProcessOneSource =
               sleep,
               classify: classifyLlmExtractionError,
               shouldAbort: isRunDeadlineElapsed,
+              onRetry: (_attempt, error) => {
+                if (isCallTimeoutError(error)) {
+                  outcome.extractionCallTimeouts += 1;
+                }
+              },
             },
           );
           outcome.brainstormCalls = 1;
@@ -386,6 +395,7 @@ export const createProcessOneSource =
             apiKey: cfg.openaiApiKey,
             model: cfg.openaiModel,
             maxOutputTokens: currentExtractionMaxOutputTokens,
+            timeoutMs: cfg.extractionCallTimeoutMs,
             messages: [
               { role: "system", content: systemContent },
               {
@@ -410,6 +420,9 @@ export const createProcessOneSource =
           shouldAbort: isRunDeadlineElapsed,
           onRetry: (attempt, error) => {
             extractionRetryAttempts++;
+            if (isCallTimeoutError(error)) {
+              outcome.extractionCallTimeouts += 1;
+            }
             const noResponseSubtype = classifyNoResponseSubtype(error);
             if (noResponseSubtype === "length_truncation") {
               currentExtractionMaxOutputTokens = Math.min(
@@ -491,6 +504,7 @@ export const createProcessOneSource =
               apiKey: cfg.openaiApiKey,
               model: cfg.vocabularyRepairModel,
               maxOutputTokens: cfg.maxOutputTokens,
+              timeoutMs: cfg.extractionCallTimeoutMs,
               ctx,
               badEntities: partitioned.badEntities,
               badRelations: partitioned.badRelations,
@@ -623,6 +637,7 @@ export const createProcessOneSource =
                 apiKey: cfg.openaiApiKey,
                 model: cfg.relationCritiqueModel,
                 maxOutputTokens: cfg.maxOutputTokens,
+                timeoutMs: cfg.extractionCallTimeoutMs,
                 messages: buildRelationCritiqueModelMessages(ctx, {
                   articleTitle: source.title,
                   articleBody: source.content,
@@ -639,6 +654,11 @@ export const createProcessOneSource =
               sleep,
               classify: classifyLlmExtractionError,
               shouldAbort: isRunDeadlineElapsed,
+              onRetry: (_attempt, error) => {
+                if (isCallTimeoutError(error)) {
+                  outcome.extractionCallTimeouts += 1;
+                }
+              },
             },
           );
           outcome.relationCritiqueCalls = 1;
