@@ -21,6 +21,7 @@ import {
   buildVocabularyRepairSystemContent,
   classifyLlmExtractionError,
   classifyNoResponseSubtype,
+  isCallTimeoutError,
   executeLlmCallWithTransientRetries,
   extractEntitiesAndRelationsForSource,
   repairExtractionVocabulary,
@@ -828,6 +829,58 @@ describe("classifyLlmExtractionError", () => {
     expect(classifyLlmExtractionError(new Error("unexpected error"))).toBe(
       "permanent",
     );
+  });
+
+  it("classifies a DOMException TimeoutError as transient", () => {
+    const timeoutError = Object.assign(new Error("The operation timed out"), {
+      name: "TimeoutError",
+    });
+
+    expect(classifyLlmExtractionError(timeoutError)).toBe("transient");
+  });
+
+  it("classifies an AbortError whose cause is a TimeoutError as transient", () => {
+    const cause = Object.assign(new Error("timeout"), { name: "TimeoutError" });
+    const abortError = Object.assign(new Error("The operation was aborted"), {
+      name: "AbortError",
+      cause,
+    });
+
+    expect(classifyLlmExtractionError(abortError)).toBe("transient");
+  });
+});
+
+describe("isCallTimeoutError", () => {
+  it("returns true for an error named TimeoutError", () => {
+    const error = Object.assign(new Error("timed out"), {
+      name: "TimeoutError",
+    });
+
+    expect(isCallTimeoutError(error)).toBe(true);
+  });
+
+  it("returns true for an error whose cause is named TimeoutError", () => {
+    const cause = Object.assign(new Error("timeout"), { name: "TimeoutError" });
+    const error = Object.assign(new Error("aborted"), {
+      name: "AbortError",
+      cause,
+    });
+
+    expect(isCallTimeoutError(error)).toBe(true);
+  });
+
+  it("returns false for a generic Error", () => {
+    expect(isCallTimeoutError(new Error("network error"))).toBe(false);
+  });
+
+  it("returns false for an AbortError with no cause", () => {
+    const error = Object.assign(new Error("aborted"), { name: "AbortError" });
+
+    expect(isCallTimeoutError(error)).toBe(false);
+  });
+
+  it("returns false for a plain object", () => {
+    expect(isCallTimeoutError({ message: "timeout" })).toBe(false);
   });
 });
 

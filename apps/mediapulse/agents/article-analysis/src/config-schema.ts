@@ -168,6 +168,13 @@ export const articleAnalysisConfigSchema = z
     /** Cap on jittered backoff in ms for extraction retries. */
     extractionTransientRetryMaxDelayMs: z.number().int().positive().optional(),
     /**
+     * Per-call wall-clock timeout in ms applied to each `generateObject`/`generateText` attempt
+     * (extraction, brainstorm, critique, repair). A stuck call aborts after this interval and is
+     * retried by `executeLlmCallWithTransientRetries`. Default is generous — this is a hung-call
+     * backstop, not a latency SLA.
+     */
+    extractionCallTimeoutMs: z.number().int().positive().optional(),
+    /**
      * Cap on data sources loaded and processed per run
      * (also bounds `analysis.get` `limit` together with `analysisGetDataSourceLimitMax`).
      * Override in Hermes agent config; package default applies when omitted.
@@ -271,6 +278,7 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   extractionTransientRetries: number;
   extractionTransientRetryBaseDelayMs: number;
   extractionTransientRetryMaxDelayMs: number;
+  extractionCallTimeoutMs: number;
   debounceMinUnanalyzedCount: number;
   debounceMinMinutesSinceLastScore: number;
   /** Cap on sources per run (Hermes agent config). */
@@ -329,6 +337,7 @@ export const articleAnalysisConfigDefaults = {
   extractionTransientRetries: 2,
   extractionTransientRetryBaseDelayMs: 500,
   extractionTransientRetryMaxDelayMs: 8000,
+  extractionCallTimeoutMs: 60_000,
   debounceMinUnanalyzedCount: 0,
   debounceMinMinutesSinceLastScore: 0,
   maxBatchSize: 10,
@@ -510,6 +519,9 @@ export const resolveArticleAnalysisConfig = (
     extractionTransientRetryMaxDelayMs:
       config.extractionTransientRetryMaxDelayMs ??
       articleAnalysisConfigDefaults.extractionTransientRetryMaxDelayMs,
+    extractionCallTimeoutMs:
+      config.extractionCallTimeoutMs ??
+      articleAnalysisConfigDefaults.extractionCallTimeoutMs,
     debounceMinUnanalyzedCount:
       config.debounceMinUnanalyzedCount ??
       articleAnalysisConfigDefaults.debounceMinUnanalyzedCount,

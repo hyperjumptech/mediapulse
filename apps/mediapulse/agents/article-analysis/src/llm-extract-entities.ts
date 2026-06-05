@@ -108,6 +108,7 @@ export type GenerateTextForBrainstorm = (args: {
   maxOutputTokens: number;
   messages: ModelMessage[];
   providerOptions?: OpenAiReasoningProviderOptions;
+  timeoutMs?: number;
 }) => Promise<ArticleBrainstormCallResult>;
 
 /** Fine-grained sub-type for a `NoObjectGeneratedError` non-response. */
@@ -150,6 +151,32 @@ export const classifyNoResponseSubtype = (
 };
 
 /**
+ * Returns true when the error originates from an `AbortSignal.timeout` per-call ceiling.
+ *
+ * `AbortSignal.timeout(ms)` aborts with a `DOMException` whose `name` is `"TimeoutError"`.
+ * The HTTP client may surface this as the thrown error itself or wrap it in an `AbortError`
+ * with the `TimeoutError` DOMException as `cause`.
+ *
+ * Distinguishes a *per-call* timeout (retryable) from a *run-deadline* abort (governed by
+ * `shouldAbort: isRunDeadlineElapsed`) which is NOT a `TimeoutError`.
+ *
+ * @param error - Thrown value from an LLM call.
+ */
+export const isCallTimeoutError = (error: unknown): boolean => {
+  if ((error as { name?: unknown }).name === "TimeoutError") {
+    return true;
+  }
+  const cause = (error as { cause?: unknown }).cause;
+  if (cause !== null && cause !== undefined) {
+    if ((cause as { name?: unknown }).name === "TimeoutError") {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
  * Classifies an LLM extraction error as transient or permanent.
  *
  * Transient errors are safe to retry (rate limits, empty completions, timeouts, 5xx).
@@ -161,6 +188,9 @@ export const classifyNoResponseSubtype = (
 export const classifyLlmExtractionError = (
   error: unknown,
 ): "transient" | "permanent" => {
+  if (isCallTimeoutError(error)) {
+    return "transient";
+  }
   if (APICallError.isInstance(error)) {
     const statusCode = error.statusCode;
     if (
@@ -306,6 +336,7 @@ export type GenerateObjectForRelationCritique = (args: {
   maxOutputTokens: number;
   messages: ModelMessage[];
   providerOptions?: OpenAiReasoningProviderOptions;
+  timeoutMs?: number;
 }) => Promise<{
   object: LlmRelationCritiqueWireOutput;
   usage: LlmExtractionUsage | null;
@@ -317,6 +348,7 @@ export type GenerateObjectForExtraction = (args: {
   maxOutputTokens: number;
   messages: ModelMessage[];
   providerOptions?: OpenAiReasoningProviderOptions;
+  timeoutMs?: number;
 }) => Promise<{
   object: LlmExtractionWireOutput;
   usage: LlmExtractionUsage | null;
@@ -357,6 +389,7 @@ export type GenerateObjectForVocabularyRepair = (args: {
   maxOutputTokens: number;
   messages: ModelMessage[];
   providerOptions?: OpenAiReasoningProviderOptions;
+  timeoutMs?: number;
 }) => Promise<{
   object: LlmVocabularyRepairWireOutput;
   usage: LlmExtractionUsage | null;
@@ -391,9 +424,13 @@ export const normalizeLlmUsageFromSdk = (usage: {
 const defaultGenerateObjectForExtraction: GenerateObjectForExtraction = async (
   args,
 ) => {
-  const { providerOptions, ...rest } = args;
+  const { providerOptions, timeoutMs, ...rest } = args;
   const result = await generateObject({
     ...rest,
+    maxRetries: 0,
+    ...(timeoutMs !== undefined
+      ? { abortSignal: AbortSignal.timeout(timeoutMs) }
+      : {}),
     ...(providerOptions !== undefined ? { providerOptions } : {}),
   });
   return {
@@ -405,9 +442,13 @@ const defaultGenerateObjectForExtraction: GenerateObjectForExtraction = async (
 const defaultGenerateTextForBrainstorm: GenerateTextForBrainstorm = async (
   args,
 ) => {
-  const { providerOptions, ...rest } = args;
+  const { providerOptions, timeoutMs, ...rest } = args;
   const result = await generateText({
     ...rest,
+    maxRetries: 0,
+    ...(timeoutMs !== undefined
+      ? { abortSignal: AbortSignal.timeout(timeoutMs) }
+      : {}),
     ...(providerOptions !== undefined ? { providerOptions } : {}),
   });
   return {
@@ -418,9 +459,13 @@ const defaultGenerateTextForBrainstorm: GenerateTextForBrainstorm = async (
 
 const defaultGenerateObjectForRelationCritique: GenerateObjectForRelationCritique =
   async (args) => {
-    const { providerOptions, ...rest } = args;
+    const { providerOptions, timeoutMs, ...rest } = args;
     const result = await generateObject({
       ...rest,
+      maxRetries: 0,
+      ...(timeoutMs !== undefined
+        ? { abortSignal: AbortSignal.timeout(timeoutMs) }
+        : {}),
       ...(providerOptions !== undefined ? { providerOptions } : {}),
     });
     return {
@@ -431,9 +476,13 @@ const defaultGenerateObjectForRelationCritique: GenerateObjectForRelationCritiqu
 
 const defaultGenerateObjectForVocabularyRepair: GenerateObjectForVocabularyRepair =
   async (args) => {
-    const { providerOptions, ...rest } = args;
+    const { providerOptions, timeoutMs, ...rest } = args;
     const result = await generateObject({
       ...rest,
+      maxRetries: 0,
+      ...(timeoutMs !== undefined
+        ? { abortSignal: AbortSignal.timeout(timeoutMs) }
+        : {}),
       ...(providerOptions !== undefined ? { providerOptions } : {}),
     });
     return {
@@ -609,6 +658,7 @@ export const fetchArticleBrainstorm = async (
     maxOutputTokens: number;
     messages: ModelMessage[];
     providerOptions?: OpenAiReasoningProviderOptions;
+    timeoutMs?: number;
   },
   deps: { generateTextForBrainstorm: GenerateTextForBrainstorm } = {
     generateTextForBrainstorm: defaultGenerateTextForBrainstorm,
@@ -622,6 +672,7 @@ export const fetchArticleBrainstorm = async (
     ...(params.providerOptions !== undefined
       ? { providerOptions: params.providerOptions }
       : {}),
+    ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
   });
 };
 
@@ -688,6 +739,7 @@ export const extractEntitiesAndRelationsForSource = async (
     exemplars?: readonly ResolvedExemplar[];
     brainstormText?: string;
     providerOptions?: OpenAiReasoningProviderOptions;
+    timeoutMs?: number;
   },
   deps: { generateObjectForExtraction: GenerateObjectForExtraction } = {
     generateObjectForExtraction: defaultGenerateObjectForExtraction,
@@ -718,6 +770,7 @@ export const extractEntitiesAndRelationsForSource = async (
     ...(params.providerOptions !== undefined
       ? { providerOptions: params.providerOptions }
       : {}),
+    ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
   });
   return {
     object: normalizeLlmExtractionWire(raw.object),
@@ -888,6 +941,7 @@ export const critiqueExtractedRelations = async (
     maxOutputTokens: number;
     messages: ModelMessage[];
     providerOptions?: OpenAiReasoningProviderOptions;
+    timeoutMs?: number;
   },
   deps: {
     generateObjectForRelationCritique: GenerateObjectForRelationCritique;
@@ -904,6 +958,7 @@ export const critiqueExtractedRelations = async (
     ...(params.providerOptions !== undefined
       ? { providerOptions: params.providerOptions }
       : {}),
+    ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
   });
   return {
     ratings: raw.object.ratings,
@@ -1053,6 +1108,7 @@ export const repairExtractionVocabulary = async (
     badEntities: readonly BadEntityRecord[];
     badRelations: readonly BadRelationRecord[];
     providerOptions?: OpenAiReasoningProviderOptions;
+    timeoutMs?: number;
   },
   deps: {
     generateObjectForVocabularyRepair: GenerateObjectForVocabularyRepair;
@@ -1073,6 +1129,7 @@ export const repairExtractionVocabulary = async (
     ...(params.providerOptions !== undefined
       ? { providerOptions: params.providerOptions }
       : {}),
+    ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
   });
 
   if (

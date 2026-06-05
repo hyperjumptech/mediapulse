@@ -398,6 +398,7 @@ export type ArticleAnalysisRunSummaryInput = {
   perSourceLatency?: PerSourceLatencyObservability;
   extractionRetries?: ExtractionRetryObservabilityAggregate;
   extractionNonResponse?: ExtractionNonResponseBreakdown;
+  extractionCallTimeouts?: number;
 };
 
 /**
@@ -785,6 +786,13 @@ export const buildArticleAnalysisRunSummaryPayload = (
 
   if (input.extractionRetries !== undefined) {
     base.extractionRetries = input.extractionRetries;
+  }
+
+  if (
+    input.extractionCallTimeouts !== undefined &&
+    input.extractionCallTimeouts > 0
+  ) {
+    base.extractionCallTimeouts = input.extractionCallTimeouts;
   }
 
   if (input.extractionNonResponse !== undefined) {
