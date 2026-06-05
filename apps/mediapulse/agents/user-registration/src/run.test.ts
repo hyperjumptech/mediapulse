@@ -735,6 +735,7 @@ describe("createRunHandler", () => {
 
     const archiveMessage = vi.fn(async (id: string) => {
       archivedIds.add(id);
+      return [];
     });
 
     const run = createRunHandler({
