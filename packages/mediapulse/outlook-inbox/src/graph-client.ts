@@ -78,8 +78,11 @@ export function createGraphClient(
     /**
      * Lists messages in the user's inbox matching the filter, following
      * @odata.nextLink pagination until the limit, maxPages, or inbox end is reached.
-     * When filter.subjectContains is set, adds $search subject scoping so fewer
-     * pages are scanned; $orderby is then applied client-side after collection.
+     * When filter.subjectContains is set and no other ($filter) criteria apply,
+     * adds $search subject scoping so fewer pages are scanned; $orderby is then
+     * applied client-side after collection. Graph rejects $search together with
+     * $filter, so when both would apply the $filter (received watermark, isRead)
+     * wins and the subject match is applied client-side.
      *
      * @param userId - User ID or "me".
      * @param filter - Filter criteria (subject, received, isUnread).
@@ -96,8 +99,14 @@ export function createGraphClient(
       const pageSize = Math.min(Math.max(paging?.pageSize ?? 50, 1), 1000);
       const limit = paging?.limit;
       const maxPages = paging?.maxPages ?? 20;
+      // Graph rejects $search combined with $filter (SearchWithFilter) or
+      // $orderby. Only use $search when there is no $filter to conflict with;
+      // otherwise rely on the server-side $filter (received watermark, isRead)
+      // and apply the subject match client-side via applySubjectFilter.
       const useSearch =
-        filter.subjectContains !== undefined && filter.subjectContains !== "";
+        filter.subjectContains !== undefined &&
+        filter.subjectContains !== "" &&
+        filterStr === "";
 
       const initialUrl = new URL(
         `${baseUrl}/users/${encodeURIComponent(userId)}/messages`,
