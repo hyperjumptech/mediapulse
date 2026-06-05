@@ -38,7 +38,7 @@ describe("createGraphClient", () => {
       // Act
       const result = await client.listMessages("me", filter, { pageSize: 50 });
 
-      // Assert: URL has only Graph-safe OData filter (no subject), plus $search for subject
+      // Assert: URL has only Graph-safe OData filter (no subject); subject applied client-side
       expect(getAccessToken).toHaveBeenCalledTimes(1);
       expect(getFn).toHaveBeenCalledTimes(1);
       expect(getFn.mock.calls[0]).toBeDefined();
@@ -50,6 +50,7 @@ describe("createGraphClient", () => {
       expect(url).toContain("isRead");
       expect(url).toContain("false");
       expect(url).not.toContain("contains(subject"); // subject filter applied client-side
+      expect(url).not.toContain("search="); // $search omitted when $filter applies
       expect(url).toContain("top=50");
       expect(opts.headers.Authorization).toBe("Bearer bearer-token");
       expect(result.messages).toHaveLength(1);
@@ -368,8 +369,10 @@ describe("createGraphClient", () => {
       expect(result.drained).toBe(false);
     });
 
-    it("adds $search and ConsistencyLevel header when subjectContains is set, omits $orderby", async () => {
-      // Setup
+    it("omits $search when a $filter applies, avoiding the SearchWithFilter 400", async () => {
+      // Setup: subjectContains combined with isUnread/receivedAfter. Graph rejects
+      // $search + $filter (SearchWithFilter), so $filter wins and subject is applied
+      // client-side; $orderby is then allowed server-side alongside $filter.
       const getAccessToken = vi.fn().mockResolvedValue("t");
       const getFn = vi.fn().mockResolvedValue({
         statusCode: 200,
@@ -397,11 +400,43 @@ describe("createGraphClient", () => {
         string,
         { headers: Record<string, string> },
       ];
+      expect(url).not.toContain("search="); // $search dropped to avoid SearchWithFilter
+      expect(url).not.toContain("contains(subject"); // subject applied client-side
+      expect(url).toContain("isRead"); // $filter has isRead
+      expect(url).toContain("receivedDateTime"); // $filter has receivedDateTime bound
+      expect(url).toContain("orderby"); // $orderby allowed alongside $filter
+      expect(opts.headers["ConsistencyLevel"]).toBeUndefined();
+      expect(opts.headers.Authorization).toBe("Bearer t");
+    });
+
+    it("uses $search and ConsistencyLevel header when subjectContains is the only criterion", async () => {
+      // Setup: no $filter criteria, so $search subject scoping is safe to use
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ value: [] }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      await client.listMessages(
+        "me",
+        { subjectContains: "Newsletter" },
+        { orderBy: "receivedDateTime asc" },
+      );
+
+      // Assert
+      expect(getFn).toHaveBeenCalledTimes(1);
+      const [url, opts] = getFn.mock.calls[0] as [
+        string,
+        { headers: Record<string, string> },
+      ];
       expect(url).toContain("search="); // $search present
       expect(url).toContain("Newsletter"); // scoped to subject
-      expect(url).not.toContain("orderby"); // $orderby absent with $search
-      expect(url).toContain("isRead"); // $filter still has isRead
-      expect(url).toContain("receivedDateTime"); // $filter still has receivedDateTime bound
+      expect(url).not.toContain("orderby"); // $orderby absent with $search (sorted client-side)
       expect(opts.headers["ConsistencyLevel"]).toBe("eventual");
       expect(opts.headers.Authorization).toBe("Bearer t");
     });
