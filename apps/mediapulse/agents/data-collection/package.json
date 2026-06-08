@@ -15,6 +15,7 @@
     "@ai-sdk/openai": "^3.0.49",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
+    "@workspace/agent-ingestion": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",

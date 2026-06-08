@@ -1,0 +1,28 @@
+{
+  "name": "@workspace/agent-ingestion",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "type:check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@workspace/agent-data-api-contract": "workspace:*",
+    "@workspace/logger": "workspace:*",
+    "@workspace/utils": "workspace:*",
+    "got": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

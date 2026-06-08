@@ -7,7 +7,7 @@ import crypto from "node:crypto";
 
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
-import { performWebFetch } from "./utilities/web-fetch";
+import { performWebFetch } from "@workspace/agent-ingestion";
 import { performWebSearch } from "./utilities/web-search";
 import {
   createEmptyQualityCounters,

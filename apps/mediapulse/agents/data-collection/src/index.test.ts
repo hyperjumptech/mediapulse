@@ -86,7 +86,7 @@ vi.mock("./utilities/web-search", () => ({
   performWebSearch: (...args: unknown[]) => performWebSearchMock(...args),
 }));
 
-vi.mock("./utilities/web-fetch", () => ({
+vi.mock("@workspace/agent-ingestion", () => ({
   performWebFetch: (...args: unknown[]) => performWebFetchMock(...args),
 }));
 
