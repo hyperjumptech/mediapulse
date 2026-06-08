@@ -32,6 +32,10 @@ import {
   postListingDiscoveryCacheRecord,
 } from "./routes/listing-discovery-cache.js";
 import {
+  postDiscoverySourceHealthRecord,
+  postDiscoverySourceHealthGet,
+} from "./routes/discovery-source-health.js";
+import {
   getDataCollection,
   postDataCollection,
 } from "./routes/data-collection.js";
@@ -176,6 +180,12 @@ const routeHandlers = {
   },
   listingDiscoveryCacheRecord: {
     post: postListingDiscoveryCacheRecord,
+  },
+  discoverySourceHealthRecord: {
+    post: postDiscoverySourceHealthRecord,
+  },
+  discoverySourceHealthGet: {
+    post: postDiscoverySourceHealthGet,
   },
 } satisfies AgentDataApiHandlers;
 

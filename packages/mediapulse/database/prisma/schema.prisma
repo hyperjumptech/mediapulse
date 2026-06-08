@@ -90,6 +90,22 @@ model ListingDiscoveryCache {
   @@map("listing_discovery_cache")
 }
 
+model DiscoverySourceHealth {
+  id              String   @id @default(uuid())
+  listingUrl      String   @map("listing_url")
+  runDate         DateTime @map("run_date") @db.Date
+  discovered      Boolean
+  itemCount       Int      @map("item_count")
+  winningStrategy String?  @map("winning_strategy")
+  failureCount    Int      @map("failure_count")
+  lastError       String?  @map("last_error")
+  computedAt      DateTime @default(now()) @map("computed_at")
+
+  @@unique([listingUrl, runDate])
+  @@index([listingUrl, runDate(sort: Desc)])
+  @@map("discovery_source_health")
+}
+
 model Newsletter {
   id          String   @id @default(uuid())
   subject     String
