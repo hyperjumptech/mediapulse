@@ -12,14 +12,14 @@ This is a `@workspace/*` package, not `@mediapulse/*`, because its entire depend
 
 ## What is inside
 
-| Area | Modules | Purpose |
-| ---- | ------- | ------- |
-| Discovery | `discovery/` (`rss`, `sitemap`, `generic-links`, `registry`, `run-discovery`) | Turn a listing source into article items, with a per-source strategy fallback chain |
-| Fetch | `web-fetch`, `fetch-providers/` (`serper`, `diffbot`, `firecrawl`, `jina`) | Fetch article content through a per-URL provider fallback chain |
-| Gates | `content-quality-gate`, `ticker-relevance-gate`, `freshness-gate`, `date-extractor` | Keep or drop a fetched page by quality, alias and industry relevance, and recency |
-| Resilience | `resilience` (`RateLimiter`), `host-error-tracker`, `error-classification`, `p-map` | Rate limiting, adaptive backoff, host circuit breaking, and bounded concurrency |
-| Dedup and cache | `resolve-existing-data-source-urls`, `resolve-dead-urls` | Skip URLs already stored or in the dead-url negative cache |
-| Persist and accounting | `data-sources`, `run-status` | Map survivors to `DataCollectionInput` and derive run status from counters |
+| Area                   | Modules                                                                             | Purpose                                                                             |
+| ---------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Discovery              | `discovery/` (`rss`, `sitemap`, `generic-links`, `registry`, `run-discovery`)       | Turn a listing source into article items, with a per-source strategy fallback chain |
+| Fetch                  | `web-fetch`, `fetch-providers/` (`serper`, `diffbot`, `firecrawl`, `jina`)          | Fetch article content through a per-URL provider fallback chain                     |
+| Gates                  | `content-quality-gate`, `ticker-relevance-gate`, `freshness-gate`, `date-extractor` | Keep or drop a fetched page by quality, alias and industry relevance, and recency   |
+| Resilience             | `resilience` (`RateLimiter`), `host-error-tracker`, `error-classification`, `p-map` | Rate limiting, adaptive backoff, host circuit breaking, and bounded concurrency     |
+| Dedup and cache        | `resolve-existing-data-source-urls`, `resolve-dead-urls`                            | Skip URLs already stored or in the dead-url negative cache                          |
+| Persist and accounting | `data-sources`, `run-status`                                                        | Map survivors to `DataCollectionInput` and derive run status from counters          |
 
 `classifyNoisyUrl` is reused from `@workspace/utils` for URL canonicalization and noise filtering.
 
