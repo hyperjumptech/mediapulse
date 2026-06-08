@@ -25,6 +25,8 @@ import {
   dataCollectionBodySchema,
   dataCollectionQuerySchema,
   getDataCollectionResponseSchema,
+  postCuratedListingQueryBodySchema,
+  postCuratedListingQueryResponseSchema,
   postDataCollectionExistingUrlsBodySchema,
   postDataCollectionExistingUrlsResponseSchema,
   postDataCollectionResponseSchema,
@@ -318,6 +320,22 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       get: {
         query: getDataCollectionRecentSourceFingerprintsQuerySchema,
         response: getDataCollectionRecentSourceFingerprintsResponseSchema,
+      },
+    },
+  },
+  dataCollectionCuratedListingQuery: {
+    v1: {
+      pathSegment: "/data-collection/curated-listing-query",
+      post: {
+        body: postCuratedListingQueryBodySchema,
+        response: postCuratedListingQueryResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/data-collection/curated-listing-query",
+      post: {
+        body: postCuratedListingQueryBodySchema,
+        response: postCuratedListingQueryResponseSchema,
       },
     },
   },

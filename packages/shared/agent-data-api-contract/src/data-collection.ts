@@ -103,3 +103,24 @@ export type GetDataCollectionRecentSourceFingerprintsResponse = z.infer<
   typeof getDataCollectionRecentSourceFingerprintsResponseSchema
 >;
 export type SourceFingerprint = z.infer<typeof sourceFingerprintSchema>;
+
+/**
+ * Body for POST `/data-collection/curated-listing-query`: ensures a per-ticker synthetic query.
+ */
+export const postCuratedListingQueryBodySchema = z.object({
+  tickerId: z.string().uuid(),
+});
+
+/**
+ * Response: the stable id of the curated SearchQuery row for the ticker.
+ */
+export const postCuratedListingQueryResponseSchema = z.object({
+  searchQueryId: z.string().uuid(),
+});
+
+export type PostCuratedListingQueryBody = z.infer<
+  typeof postCuratedListingQueryBodySchema
+>;
+export type PostCuratedListingQueryResponse = z.infer<
+  typeof postCuratedListingQueryResponseSchema
+>;

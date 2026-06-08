@@ -59,7 +59,11 @@ export const DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS: Record<
   wildcard: 0,
 };
 
-export const queryAnalysisSourceSchema = z.enum(["deterministic", "llm"]);
+export const queryAnalysisSourceSchema = z.enum([
+  "deterministic",
+  "llm",
+  "curated",
+]);
 
 export const getQueryAnalysisQuerySchema = z.object({
   tickerId: z.string().trim().min(1),
