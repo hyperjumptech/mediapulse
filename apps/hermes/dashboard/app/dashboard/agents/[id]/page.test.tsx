@@ -3,7 +3,19 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getAgentByIdMock = vi.fn();
+const getAgentInsightsMock = vi.fn();
 const notFoundMock = vi.fn();
+
+vi.mock("@hermes/env", () => ({
+  env: {
+    ORCHESTRATION_DATABASE_URL:
+      "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse",
+    TEMP_ADMIN_USERNAME: "test",
+    TEMP_ADMIN_PASSWORD: "testtest",
+    HERMES_INTERNAL_API_KEY: "test-key",
+    AGENT_DATA_API_URL: "http://test-agent-data-api",
+  },
+}));
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
@@ -11,11 +23,18 @@ vi.mock("next/headers", () => ({
 
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
-  notFound: () => notFoundMock(),
+  notFound: () => {
+    notFoundMock();
+    throw new Error("NEXT_NOT_FOUND");
+  },
 }));
 
 vi.mock("@/lib/agents", () => ({
   getAgentById: (...args: unknown[]) => getAgentByIdMock(...args),
+}));
+
+vi.mock("@/lib/agent-insights-api", () => ({
+  getAgentInsights: (...args: unknown[]) => getAgentInsightsMock(...args),
 }));
 
 vi.mock("./agent-details-content", () => ({
@@ -59,6 +78,7 @@ describe("AgentDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     getAgentByIdMock.mockReset();
+    getAgentInsightsMock.mockReset();
     notFoundMock.mockReset();
   });
 
@@ -66,6 +86,7 @@ describe("AgentDetailPage", () => {
     // Setup
     const agent = createMockAgent();
     getAgentByIdMock.mockResolvedValue(agent);
+    getAgentInsightsMock.mockResolvedValue({ hasInsights: false });
 
     // Act
     const component = await AgentDetailPage({
@@ -88,6 +109,7 @@ describe("AgentDetailPage", () => {
   it("calls getAgentById with id from params", async () => {
     // Setup
     getAgentByIdMock.mockResolvedValue(createMockAgent());
+    getAgentInsightsMock.mockResolvedValue({ hasInsights: false });
 
     // Act
     await AgentDetailPage({
@@ -103,9 +125,9 @@ describe("AgentDetailPage", () => {
     getAgentByIdMock.mockResolvedValue(null);
 
     // Act
-    await AgentDetailPage({
-      params: Promise.resolve({ id: "non-existent" }),
-    });
+    await expect(
+      AgentDetailPage({ params: Promise.resolve({ id: "non-existent" }) }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
 
     // Assert
     expect(notFoundMock).toHaveBeenCalled();

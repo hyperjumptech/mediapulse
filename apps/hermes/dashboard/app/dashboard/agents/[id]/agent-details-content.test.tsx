@@ -45,6 +45,24 @@ vi.mock("../json-pretty", () => ({
   ),
 }));
 
+vi.mock("./insights/insights-tab", () => ({
+  InsightsTab: ({
+    agentId,
+    window: insightsWindow,
+  }: {
+    agentId: string;
+    window: string;
+  }) => (
+    <div
+      data-testid="insights-tab"
+      data-agent-id={agentId}
+      data-window={insightsWindow}
+    >
+      Insights
+    </div>
+  ),
+}));
+
 const createMockAgent = () => ({
   id: "agent-123",
   domainIntegrationId: "di-1",
@@ -169,5 +187,53 @@ describe("AgentDetailsContent", () => {
 
     // Assert
     expect(screen.getByText("No")).toBeInTheDocument();
+  });
+
+  it("Insights tab is hidden when insightsPayload is null", () => {
+    // Setup
+    const agent = createMockAgent();
+
+    // Act
+    render(
+      <AgentDetailsContent
+        agent={agent}
+        insightsPayload={null}
+        insightsWindow="7d"
+      />,
+    );
+
+    // Assert
+    expect(
+      screen.queryByTestId("tab-trigger-insights"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("insights-tab")).not.toBeInTheDocument();
+  });
+
+  it("Insights tab appears when insightsPayload is provided", () => {
+    // Setup
+    const agent = createMockAgent();
+    const payload = {
+      agentId: "test-agent",
+      window: "7d" as const,
+      generatedAt: "2024-06-01T00:00:00.000Z",
+      kpis: [],
+      alerts: [],
+      sections: [],
+    };
+
+    // Act
+    render(
+      <AgentDetailsContent
+        agent={agent}
+        insightsPayload={payload}
+        insightsWindow="7d"
+      />,
+    );
+
+    // Assert
+    expect(screen.getByTestId("tab-trigger-insights")).toHaveTextContent(
+      "Insights",
+    );
+    expect(screen.getByTestId("insights-tab")).toBeInTheDocument();
   });
 });

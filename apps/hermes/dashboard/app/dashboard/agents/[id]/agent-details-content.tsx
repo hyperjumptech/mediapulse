@@ -10,9 +10,12 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 
+import type { InsightsPayload } from "@workspace/agent-data-api-contract";
+
 import { EndpointDisplay } from "../endpoint-display";
 import { JsonPretty } from "../json-pretty";
 import type { AgentDetail } from "@/lib/agents";
+import { InsightsTab } from "./insights/insights-tab";
 
 const ROW_CLASS =
   "flex items-center justify-between gap-8 py-4 px-6 sm:px-7 border-b border-border/60 last:border-b-0 first:pt-6 last:pb-6";
@@ -24,22 +27,32 @@ const VALUE_CLASS =
 type AgentDetailsContentProps = {
   /** Agent from getAgentById (registry row with domain integration id). */
   agent: AgentDetail;
+  insightsPayload?: InsightsPayload | null;
+  insightsWindow?: "24h" | "7d" | "30d";
 };
 
 /**
- * Renders agent details in a tabbed layout: General (details including domain integration id, endpoint), Input schema (pretty JSON), Config schema (pretty JSON).
+ * Renders agent details in a tabbed layout: General (details including domain integration id, endpoint), Input schema (pretty JSON), Config schema (pretty JSON), and Insights.
  */
-export const AgentDetailsContent = ({ agent }: AgentDetailsContentProps) => {
+export const AgentDetailsContent = ({
+  agent,
+  insightsPayload,
+  insightsWindow,
+}: AgentDetailsContentProps) => {
+  const showInsights = insightsPayload != null;
+  const tabColsClass = showInsights ? "grid-cols-4" : "grid-cols-3";
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-foreground">
         Agent details: {agent.agentId}@{agent.agentVersion}
       </h1>
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${tabColsClass}`}>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="input-schema">Input schema</TabsTrigger>
           <TabsTrigger value="config-schema">Config schema</TabsTrigger>
+          {showInsights && <TabsTrigger value="insights">Insights</TabsTrigger>}
         </TabsList>
         <TabsContent value="general" className="space-y-8 pt-6">
           <section className="min-h-0">
@@ -109,6 +122,14 @@ export const AgentDetailsContent = ({ agent }: AgentDetailsContentProps) => {
         <TabsContent value="config-schema" className="pt-6">
           <JsonPretty value={agent.configSchema} title="Config schema" />
         </TabsContent>
+        {showInsights && (
+          <TabsContent value="insights" className="pt-6">
+            <InsightsTab
+              payload={insightsPayload}
+              window={insightsWindow ?? "7d"}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
