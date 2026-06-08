@@ -7,30 +7,27 @@ import crypto from "node:crypto";
 
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
-import { performWebFetch } from "@workspace/agent-ingestion";
-import { performWebSearch } from "./utilities/web-search";
 import {
+  performWebFetch,
   createEmptyQualityCounters,
   runQualityGate,
-} from "./utilities/content-quality-gate";
-import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
-import { resolveExistingDataSourceUrls } from "./utilities/resolve-existing-data-source-urls";
-import { resolveDeadUrls } from "./utilities/resolve-dead-urls";
-import { applyFetchBudget } from "./utilities/hit-ranker";
-import {
+  resolveExistingDataSourceUrls,
+  resolveDeadUrls,
   buildDeadUrlRecords,
   HostErrorTracker,
   hostFromUrl,
   type QualityDropForDeadUrl,
-} from "./utilities/host-error-tracker";
-import {
   buildTickerAliases,
   buildIndustryAliases,
   isRelevant,
-} from "./utilities/ticker-relevance-gate";
-import { deriveRunStatus, type RunCounters } from "./utilities/run-status";
-import { extractPublishedDate } from "./utilities/date-extractor";
-import { isFresh } from "./utilities/freshness-gate";
+  deriveRunStatus,
+  type RunCounters,
+  extractPublishedDate,
+  isFresh,
+} from "@workspace/agent-ingestion";
+import { performWebSearch } from "./utilities/web-search";
+import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
+import { applyFetchBudget } from "./utilities/hit-ranker";
 
 /**
  * Executes the data-collection pipeline: load search queries, run web search and fetch,

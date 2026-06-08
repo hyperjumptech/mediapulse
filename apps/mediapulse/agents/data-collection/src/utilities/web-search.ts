@@ -19,7 +19,7 @@ export interface SearchQuery {
   tickerId: string;
 }
 
-import type { FetchMetadata } from "./date-extractor";
+import type { FetchMetadata } from "@workspace/agent-ingestion";
 
 export interface WebSearchResult {
   url: string;

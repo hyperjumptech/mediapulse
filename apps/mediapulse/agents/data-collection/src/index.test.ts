@@ -86,9 +86,14 @@ vi.mock("./utilities/web-search", () => ({
   performWebSearch: (...args: unknown[]) => performWebSearchMock(...args),
 }));
 
-vi.mock("@workspace/agent-ingestion", () => ({
-  performWebFetch: (...args: unknown[]) => performWebFetchMock(...args),
-}));
+vi.mock("@workspace/agent-ingestion", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@workspace/agent-ingestion")>();
+  return {
+    ...actual,
+    performWebFetch: (...args: unknown[]) => performWebFetchMock(...args),
+  };
+});
 
 const defaultSearchSuccess = [
   {
