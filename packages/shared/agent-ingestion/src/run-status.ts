@@ -18,6 +18,24 @@ export type RunCounters = {
   retryCount: number;
   droppedByRelevance: number;
   throttleEvents: number;
+  // Extended counters — optional so existing callers are unaffected
+  discovered?: number;
+  afterPrefilter?: number;
+  discoveryFailed?: number;
+  cacheHits?: number;
+  cacheMisses?: number;
+  droppedByContentQuality?: Record<string, number>;
+  droppedByFreshness?: number;
+  droppedByDeadUrl?: number;
+  droppedByHostErrorRate?: number;
+  droppedByFetchBudget?: number;
+  droppedByRunItemCap?: number;
+  droppedByExistingCanonicalUrl?: number;
+  droppedByDuplicateCanonicalUrl?: number;
+  droppedByUrlNoise?: number;
+  persisted?: number;
+  deadlineHit?: boolean;
+  durationMs?: number;
 };
 
 /**

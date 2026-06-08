@@ -546,6 +546,8 @@ model DataCollectionRun {
   fetchFailed   Int @default(0) @map("fetch_failed")
   retryCount    Int @default(0) @map("retry_count")
 
+  extendedCounters Json? @map("extended_counters")
+
   ticker   Ticker                  @relation(fields: [tickerId], references: [id])
   failures DataCollectionFailure[]
 

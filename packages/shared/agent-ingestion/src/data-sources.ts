@@ -11,6 +11,7 @@ export interface CollectedPageForSource {
 
 export interface DataCollectionSource extends DataCollectionInput {
   metadata: {
+    provider?: string;
     searchQueryText?: string;
     fetchedAt: string;
     sourceType: "web";

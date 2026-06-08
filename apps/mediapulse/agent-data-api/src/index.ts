@@ -6,6 +6,7 @@ import {
   agentDataApiManifestForVersion,
   camelCaseResourceKeyToPathSegment,
 } from "@workspace/agent-data-api-contract";
+import { prisma } from "@mediapulse/database";
 import { env } from "@mediapulse/env";
 import { logger, slimPinoLogger } from "@workspace/logger";
 import { Hono } from "hono";
@@ -67,6 +68,8 @@ import {
 } from "./routes/content-generation-run.js";
 import { getSectionCoverageRollupHandler } from "./routes/section-coverage-rollup.js";
 import { getAgentInsights } from "./routes/agent-insights.js";
+import { createPageCollectionInsightsProvider } from "./services/insights/page-collection-insights-provider.js";
+import { registerInsightsProvider } from "./services/agent-insights-registry.js";
 import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
@@ -216,6 +219,14 @@ for (const version of AGENT_DATA_API_LIVE_VERSIONS) {
   );
   app.route(`${AGENT_DATA_API_PREFIX}/${version}`, versionApi);
 }
+
+registerInsightsProvider(
+  createPageCollectionInsightsProvider({
+    dataCollectionRun: prisma.dataCollectionRun,
+    discoverySourceHealth: prisma.discoverySourceHealth,
+    dataSource: prisma.dataSource,
+  }),
+);
 
 export { app };
 export default {
