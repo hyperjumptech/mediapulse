@@ -27,6 +27,7 @@ import {
   isFresh,
   runDiscovery,
   RateLimiter,
+  type DiscoveryCache,
   type DiscoverySource,
   type WebSearchResult,
 } from "@workspace/agent-ingestion";
@@ -151,8 +152,26 @@ export async function runPageCollection(
     logger: log,
   };
 
+  const discoveryCacheConfig = config.discoveryCache;
+  const discoveryCache: DiscoveryCache | undefined =
+    discoveryCacheConfig.enabled
+      ? {
+          ttlSeconds: discoveryCacheConfig.ttlSeconds,
+          lookup: async (listingUrls) => {
+            const response =
+              await dataApiClient.listingDiscoveryCacheLookup.create({
+                listingUrls,
+              });
+            return response.entries;
+          },
+          record: async (entries) => {
+            await dataApiClient.listingDiscoveryCacheRecord.create(entries);
+          },
+        }
+      : undefined;
+
   const { items: discoveredItems, failures: discoveryFailures } =
-    await runDiscovery(discoverySources, discoveryDeps);
+    await runDiscovery(discoverySources, discoveryDeps, discoveryCache);
 
   log.info(
     {

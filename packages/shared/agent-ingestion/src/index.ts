@@ -104,6 +104,7 @@ export {
 export {
   discoverOneSource,
   runDiscovery,
+  type DiscoveryCache,
   type DiscoverySource,
   type DiscoveryFailure,
   type SourceDiscoveryOutcome,

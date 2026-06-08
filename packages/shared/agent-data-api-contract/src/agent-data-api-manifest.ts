@@ -38,6 +38,12 @@ import {
   postDataCollectionDeadUrlsRecordResponseSchema,
 } from "./data-collection-dead-url.js";
 import {
+  postListingDiscoveryCacheLookupBodySchema,
+  postListingDiscoveryCacheLookupResponseSchema,
+  postListingDiscoveryCacheRecordBodySchema,
+  postListingDiscoveryCacheRecordResponseSchema,
+} from "./listing-discovery-cache.js";
+import {
   getDataCollectionRecentSourceFingerprintsQuerySchema,
   getDataCollectionRecentSourceFingerprintsResponseSchema,
 } from "./data-collection.js";
@@ -561,6 +567,38 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       get: {
         query: getSectionCoverageRollupQuerySchema,
         response: getSectionCoverageRollupResponseSchema,
+      },
+    },
+  },
+  listingDiscoveryCacheLookup: {
+    v1: {
+      pathSegment: "/listing-discovery-cache/lookup",
+      post: {
+        body: postListingDiscoveryCacheLookupBodySchema,
+        response: postListingDiscoveryCacheLookupResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/listing-discovery-cache/lookup",
+      post: {
+        body: postListingDiscoveryCacheLookupBodySchema,
+        response: postListingDiscoveryCacheLookupResponseSchema,
+      },
+    },
+  },
+  listingDiscoveryCacheRecord: {
+    v1: {
+      pathSegment: "/listing-discovery-cache/record",
+      post: {
+        body: postListingDiscoveryCacheRecordBodySchema,
+        response: postListingDiscoveryCacheRecordResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/listing-discovery-cache/record",
+      post: {
+        body: postListingDiscoveryCacheRecordBodySchema,
+        response: postListingDiscoveryCacheRecordResponseSchema,
       },
     },
   },

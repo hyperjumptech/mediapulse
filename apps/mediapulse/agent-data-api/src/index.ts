@@ -28,6 +28,10 @@ import {
 import { getDataCollectionRecentSourceFingerprints } from "./routes/data-collection-recent-source-fingerprints.js";
 import { postDataCollectionCuratedListingQuery } from "./routes/data-collection-curated-listing-query.js";
 import {
+  postListingDiscoveryCacheLookup,
+  postListingDiscoveryCacheRecord,
+} from "./routes/listing-discovery-cache.js";
+import {
   getDataCollection,
   postDataCollection,
 } from "./routes/data-collection.js";
@@ -166,6 +170,12 @@ const routeHandlers = {
   },
   sectionCoverageRollup: {
     get: getSectionCoverageRollupHandler,
+  },
+  listingDiscoveryCacheLookup: {
+    post: postListingDiscoveryCacheLookup,
+  },
+  listingDiscoveryCacheRecord: {
+    post: postListingDiscoveryCacheRecord,
   },
 } satisfies AgentDataApiHandlers;
 

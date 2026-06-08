@@ -313,6 +313,26 @@ const runPolicySchema = z
   .default({})
   .describe("Run success criteria applied after the pipeline completes.");
 
+const discoveryCacheSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(false)
+      .describe(
+        "When enabled, discovery results are cached by listing URL to avoid re-scraping the same feed across tickers in the same cycle.",
+      ),
+    ttlSeconds: z
+      .number()
+      .int()
+      .positive()
+      .default(3600)
+      .describe(
+        "Cache TTL in seconds. Should be set near the schedule interval so breaking news is not stale across cycles.",
+      ),
+  })
+  .default({})
+  .describe("Cross-ticker listing discovery cache settings.");
+
 /** Zod schema for agent config grouped for Hermes form sections. */
 export const ConfigSchema = z.object({
   curatedSources: z
@@ -331,6 +351,7 @@ export const ConfigSchema = z.object({
   providers: providersSchema,
   gates: gatesSchema,
   resilience: resilienceSchema,
+  discoveryCache: discoveryCacheSchema,
   runPolicy: runPolicySchema,
 });
 

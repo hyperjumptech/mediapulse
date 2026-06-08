@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type got from "got";
 
-import { discoverOneSource, runDiscovery } from "./run-discovery";
+import {
+  discoverOneSource,
+  runDiscovery,
+  type DiscoveryCache,
+} from "./run-discovery";
 import { rssStrategy } from "./rss";
 import { sitemapStrategy } from "./sitemap";
 import { genericLinksStrategy } from "./generic-links";
@@ -156,5 +160,132 @@ describe("runDiscovery", () => {
 
     expect(result.items).toHaveLength(0);
     expect(result.failures).toHaveLength(1);
+  });
+});
+
+describe("runDiscovery with cache", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  const buildCache = (
+    overrides: Partial<DiscoveryCache> = {},
+  ): DiscoveryCache => ({
+    ttlSeconds: 3600,
+    lookup: vi.fn().mockResolvedValue([]),
+    record: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  });
+
+  it("returns cached items and skips live scrape on a cache hit", async () => {
+    const cachedItems = [{ url: "https://example.com/cached-article" }];
+    const cache = buildCache({
+      lookup: vi
+        .fn()
+        .mockResolvedValue([
+          { listingUrl: "https://example.com/feed", items: cachedItems },
+        ]),
+    });
+
+    const result = await runDiscovery(
+      [{ url: "https://example.com/feed", strategies: ["rss"] }],
+      buildDeps(),
+      cache,
+    );
+
+    expect(result.items).toEqual(cachedItems);
+    expect(vi.mocked(rssStrategy.discover)).not.toHaveBeenCalled();
+    expect(cache.record).not.toHaveBeenCalled();
+  });
+
+  it("scrapes once on a miss and records the result", async () => {
+    const liveItems = [{ url: "https://example.com/live-article" }];
+    vi.mocked(rssStrategy.discover).mockResolvedValue(liveItems);
+    const cache = buildCache();
+
+    const result = await runDiscovery(
+      [{ url: "https://example.com/feed", strategies: ["rss"] }],
+      buildDeps(),
+      cache,
+    );
+
+    expect(result.items).toEqual(liveItems);
+    expect(vi.mocked(rssStrategy.discover)).toHaveBeenCalledOnce();
+    expect(cache.record).toHaveBeenCalledOnce();
+    expect(vi.mocked(cache.record)).toHaveBeenCalledWith([
+      expect.objectContaining({
+        listingUrl: "https://example.com/feed",
+        strategy: "rss",
+        items: liveItems,
+        ttlSeconds: 3600,
+      }),
+    ]);
+  });
+
+  it("does not record an empty discovery result", async () => {
+    vi.mocked(rssStrategy.discover).mockResolvedValue([]);
+    vi.mocked(sitemapStrategy.discover).mockResolvedValue([]);
+    vi.mocked(genericLinksStrategy.discover).mockResolvedValue([]);
+    const cache = buildCache();
+
+    await runDiscovery(
+      [
+        {
+          url: "https://example.com/feed",
+          strategies: ["rss", "sitemap", "generic-links"],
+        },
+      ],
+      buildDeps(),
+      cache,
+    );
+
+    expect(cache.record).not.toHaveBeenCalled();
+  });
+
+  it("a second call for the same source performs zero live scrapes", async () => {
+    let scrapeCount = 0;
+    vi.mocked(rssStrategy.discover).mockImplementation(async () => {
+      scrapeCount += 1;
+      return [{ url: "https://example.com/article" }];
+    });
+
+    const cacheStore = new Map<string, Array<{ url: string }>>();
+    const cache: DiscoveryCache = {
+      ttlSeconds: 3600,
+      lookup: async (listingUrls) =>
+        listingUrls
+          .filter((url) => cacheStore.has(url))
+          .map((url) => ({ listingUrl: url, items: cacheStore.get(url)! })),
+      record: async (entries) => {
+        for (const entry of entries) {
+          cacheStore.set(
+            entry.listingUrl,
+            entry.items as Array<{ url: string }>,
+          );
+        }
+      },
+    };
+
+    const source = [
+      { url: "https://example.com/feed", strategies: ["rss"] as const },
+    ];
+    const deps = buildDeps();
+
+    await runDiscovery(source, deps, cache);
+    await runDiscovery(source, deps, cache);
+
+    expect(scrapeCount).toBe(1);
+  });
+
+  it("falls back to live scrape when no cache is provided (Plan 95 behavior unchanged)", async () => {
+    const liveItems = [{ url: "https://example.com/live-article" }];
+    vi.mocked(rssStrategy.discover).mockResolvedValue(liveItems);
+
+    const result = await runDiscovery(
+      [{ url: "https://example.com/feed", strategies: ["rss"] }],
+      buildDeps(),
+    );
+
+    expect(result.items).toEqual(liveItems);
   });
 });
