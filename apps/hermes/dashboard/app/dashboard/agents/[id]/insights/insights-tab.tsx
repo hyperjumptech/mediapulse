@@ -1,4 +1,7 @@
-import type { InsightsPayload, InsightSection } from "@workspace/agent-data-api-contract";
+import type {
+  InsightsPayload,
+  InsightSection,
+} from "@workspace/agent-data-api-contract";
 
 import { WidgetRenderer } from "@/components/insights/widget-renderer";
 import { WindowSwitcher } from "./window-switcher";
@@ -27,16 +30,15 @@ export const InsightsTab = ({ payload, window }: InsightsTabProps) => {
     new Set(payload.sections.map((section) => section.category)),
   );
 
-  const sectionsByCategory = categories.reduce<Record<string, InsightSection[]>>(
-    (accumulator, category) => {
-      accumulator[category] = payload.sections.filter(
-        (section) => section.category === category,
-      );
+  const sectionsByCategory = categories.reduce<
+    Record<string, InsightSection[]>
+  >((accumulator, category) => {
+    accumulator[category] = payload.sections.filter(
+      (section) => section.category === category,
+    );
 
-      return accumulator;
-    },
-    {},
-  );
+    return accumulator;
+  }, {});
 
   return (
     <div className="space-y-6 pt-6">
@@ -92,7 +94,9 @@ export const InsightsTab = ({ payload, window }: InsightsTabProps) => {
                   key={kpi.id}
                   className="rounded-lg border border-border/50 bg-muted/25 px-4 py-3"
                 >
-                  <div className="text-xs text-muted-foreground">{kpi.label}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {kpi.label}
+                  </div>
                   <div className="mt-1 text-xl font-bold text-foreground">
                     {kpi.value}
                     {kpi.unit && (

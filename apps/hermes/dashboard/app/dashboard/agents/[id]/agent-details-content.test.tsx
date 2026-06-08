@@ -203,7 +203,9 @@ describe("AgentDetailsContent", () => {
     );
 
     // Assert
-    expect(screen.queryByTestId("tab-trigger-insights")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("tab-trigger-insights"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByTestId("insights-tab")).not.toBeInTheDocument();
   });
 

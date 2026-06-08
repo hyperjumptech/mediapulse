@@ -52,9 +52,7 @@ export const AgentDetailsContent = ({
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="input-schema">Input schema</TabsTrigger>
           <TabsTrigger value="config-schema">Config schema</TabsTrigger>
-          {showInsights && (
-            <TabsTrigger value="insights">Insights</TabsTrigger>
-          )}
+          {showInsights && <TabsTrigger value="insights">Insights</TabsTrigger>}
         </TabsList>
         <TabsContent value="general" className="space-y-8 pt-6">
           <section className="min-h-0">
