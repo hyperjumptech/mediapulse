@@ -105,6 +105,10 @@ import {
   getSectionCoverageRollupQuerySchema,
   getSectionCoverageRollupResponseSchema,
 } from "./section-coverage-rollup.js";
+import {
+  getAgentInsightsQuerySchema,
+  getAgentInsightsResponseSchema,
+} from "./agent-insights.js";
 
 type AgentDataApiMethodSchema =
   | {
@@ -637,6 +641,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDiscoverySourceHealthGetBodySchema,
         response: postDiscoverySourceHealthGetResponseSchema,
+      },
+    },
+  },
+  agentInsights: {
+    v1: {
+      get: {
+        query: getAgentInsightsQuerySchema,
+        response: getAgentInsightsResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getAgentInsightsQuerySchema,
+        response: getAgentInsightsResponseSchema,
       },
     },
   },

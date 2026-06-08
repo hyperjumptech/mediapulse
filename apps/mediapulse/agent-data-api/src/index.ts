@@ -66,6 +66,7 @@ import {
   postContentGenerationRun,
 } from "./routes/content-generation-run.js";
 import { getSectionCoverageRollupHandler } from "./routes/section-coverage-rollup.js";
+import { getAgentInsights } from "./routes/agent-insights.js";
 import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
@@ -186,6 +187,9 @@ const routeHandlers = {
   },
   discoverySourceHealthGet: {
     post: postDiscoverySourceHealthGet,
+  },
+  agentInsights: {
+    get: getAgentInsights,
   },
 } satisfies AgentDataApiHandlers;
 
