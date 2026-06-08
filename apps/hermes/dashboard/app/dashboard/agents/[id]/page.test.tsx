@@ -3,7 +3,20 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getAgentByIdMock = vi.fn();
+const getAgentInsightsMock = vi.fn();
 const notFoundMock = vi.fn();
+
+vi.mock("@hermes/env", () => ({
+  env: {
+    ORCHESTRATION_DATABASE_URL:
+      "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse",
+    TEMP_ADMIN_USERNAME: "test",
+    TEMP_ADMIN_PASSWORD: "testtest",
+    HERMES_INTERNAL_API_KEY: "test-key",
+    AGENT_DATA_API_URL: "http://test-agent-data-api",
+    HERMES_AGENT_INSIGHTS_ENABLED: undefined,
+  },
+}));
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
@@ -16,6 +29,10 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/agents", () => ({
   getAgentById: (...args: unknown[]) => getAgentByIdMock(...args),
+}));
+
+vi.mock("@/lib/agent-insights-api", () => ({
+  getAgentInsights: (...args: unknown[]) => getAgentInsightsMock(...args),
 }));
 
 vi.mock("./agent-details-content", () => ({
@@ -59,6 +76,7 @@ describe("AgentDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     getAgentByIdMock.mockReset();
+    getAgentInsightsMock.mockReset();
     notFoundMock.mockReset();
   });
 
