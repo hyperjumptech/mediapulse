@@ -145,11 +145,20 @@ export async function runPageCollection(
 
   report("Running discovery", `${discoverySources.length} curated sources`);
 
+  const discoveryConfig = config.discovery;
+  const collectionConfig = config.collection;
+  const runConfig = config.run;
+  const deadline = startedAt.getTime() + runConfig.maxDurationMs;
+  let deadlineHit = false;
+
   const discoveryRateLimiter = new RateLimiter(2, 1);
   const discoveryDeps = {
     gotClient: got,
     rateLimiter: discoveryRateLimiter,
     logger: log,
+    hostErrorTracker,
+    timeoutMs: discoveryConfig.timeoutMs,
+    concurrency: discoveryConfig.concurrency,
   };
 
   const discoveryCacheConfig = config.discoveryCache;
@@ -181,13 +190,26 @@ export async function runPageCollection(
     "discovery stage finished",
   );
 
+  const maxDiscoveredItems = collectionConfig.maxDiscoveredItemsPerRun;
+  const droppedByRunItemCap = Math.max(
+    0,
+    discoveredItems.length - maxDiscoveredItems,
+  );
+  const cappedDiscoveredItems = discoveredItems.slice(0, maxDiscoveredItems);
+  if (droppedByRunItemCap > 0) {
+    log.warn(
+      { droppedByRunItemCap, maxDiscoveredItemsPerRun: maxDiscoveredItems },
+      "discovered items truncated by per-run cap",
+    );
+  }
+
   const prefilterDropCount =
-    discoveredItems.length -
-    prefilterByAliases(discoveredItems, {
+    cappedDiscoveredItems.length -
+    prefilterByAliases(cappedDiscoveredItems, {
       tickerAliases,
       industryAliases,
     }).length;
-  const filteredItems = prefilterByAliases(discoveredItems, {
+  const filteredItems = prefilterByAliases(cappedDiscoveredItems, {
     tickerAliases,
     industryAliases,
   });
@@ -308,14 +330,40 @@ export async function runPageCollection(
     );
   }
 
+  const perRunFetchBudget = collectionConfig.perRunFetchBudget;
+  const droppedByFetchBudget = Math.max(
+    0,
+    candidatesAfterHostBreaker.length - perRunFetchBudget,
+  );
+  const candidatesAfterBudget = candidatesAfterHostBreaker.slice(
+    0,
+    perRunFetchBudget,
+  );
+  if (droppedByFetchBudget > 0) {
+    log.warn(
+      { droppedByFetchBudget, perRunFetchBudget },
+      "fetch candidates truncated by per-run fetch budget",
+    );
+  }
+
   report(
     "Fetching article content",
-    `${candidatesAfterHostBreaker.length} candidate URLs`,
+    `${candidatesAfterBudget.length} candidate URLs`,
   );
 
-  const fetchInputs = candidatesAfterHostBreaker
-    .map((url) => canonicalItemMap.get(url)?.searchResult)
-    .filter((r): r is WebSearchResult => r !== undefined);
+  if (Date.now() > deadline) {
+    deadlineHit = true;
+    log.warn(
+      { maxDurationMs: runConfig.maxDurationMs },
+      "run deadline exceeded before fetch; finalizing with partial_success",
+    );
+  }
+
+  const fetchInputs = !deadlineHit
+    ? candidatesAfterBudget
+        .map((url) => canonicalItemMap.get(url)?.searchResult)
+        .filter((r): r is WebSearchResult => r !== undefined)
+    : [];
 
   const fetchAttemptResults =
     fetchInputs.length > 0
@@ -339,6 +387,7 @@ export async function runPageCollection(
   fetchFailures.push(...roundFetchFailures);
 
   const roundQualityDrops: QualityDropForDeadUrl[] = [];
+  const sourcesToPersist: DataCollectionInput[] = [];
 
   report(
     "Saving sources to database",
@@ -417,21 +466,24 @@ export async function runPageCollection(
       }
     }
 
-    const source: DataCollectionInput = {
+    sourcesToPersist.push({
       url: urlDecision.canonicalUrl,
       title: page.title,
       content: page.content,
       tickerId: input.tickerId,
       searchQueryId,
       ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
-    };
-    log.info(
-      { url: urlDecision.canonicalUrl.slice(0, 120) },
-      "persisting collected source to Agent Data API",
-    );
-    await dataApiClient.dataCollection.create([source]);
-    persistedCount += 1;
+    });
     fetchSuccessCount += 1;
+  }
+
+  if (sourcesToPersist.length > 0) {
+    log.info(
+      { persistCount: sourcesToPersist.length },
+      "persisting collected sources to Agent Data API",
+    );
+    await dataApiClient.dataCollection.create(sourcesToPersist);
+    persistedCount += sourcesToPersist.length;
   }
 
   log.info(
@@ -446,6 +498,8 @@ export async function runPageCollection(
       droppedByDeadUrlCache,
       droppedByHostErrorRate,
       droppedByFreshness,
+      droppedByRunItemCap,
+      droppedByFetchBudget,
       prefilterDropCount,
     },
     "fetch stage finished",
@@ -492,15 +546,19 @@ export async function runPageCollection(
   }));
 
   const totalSources = persistedCount;
-  const status = deriveRunStatus({
+  const derivedStatus = deriveRunStatus({
     totalSources,
     failureCount: failuresPayload.length + discoveryFailures.length,
     runPolicy,
   });
+  const status =
+    deadlineHit && derivedStatus === "success"
+      ? "partial_success"
+      : derivedStatus;
 
   const counters: RunCounters = {
     queriesTotal: discoverySources.filter((s) => s.enabled !== false).length,
-    urlsTotal: discoveredItems.length,
+    urlsTotal: cappedDiscoveredItems.length,
     searchSuccess: discoveredItems.length,
     searchFailed: discoveryFailures.length,
     fetchSuccess: fetchSuccessCount,
@@ -540,6 +598,9 @@ export async function runPageCollection(
     droppedByDeadUrlCache,
     droppedByHostErrorRate,
     droppedByFreshness,
+    droppedByRunItemCap,
+    droppedByFetchBudget,
+    deadlineHit,
   };
 
   const durationMs = Date.now() - startedAt.getTime();

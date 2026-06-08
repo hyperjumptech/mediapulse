@@ -68,7 +68,7 @@ const discoverGenericLinks = async (
   listingUrl: string,
   deps: DiscoveryDeps,
 ): Promise<DiscoveredItem[]> => {
-  const { gotClient, rateLimiter } = deps;
+  const { gotClient, rateLimiter, timeoutMs } = deps;
 
   await rateLimiter.acquire();
 
@@ -85,6 +85,7 @@ const discoverGenericLinks = async (
   try {
     const response = await gotClient.get(listingUrl, {
       headers: { Accept: "text/html" },
+      ...(timeoutMs ? { timeout: { request: timeoutMs } } : {}),
     });
     rateLimiter.recordResponse(response.statusCode);
     html = response.body;

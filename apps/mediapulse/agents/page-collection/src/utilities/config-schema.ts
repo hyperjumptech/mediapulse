@@ -333,6 +333,63 @@ const discoveryCacheSchema = z
   .default({})
   .describe("Cross-ticker listing discovery cache settings.");
 
+const discoverySchema = z
+  .object({
+    concurrency: z
+      .number()
+      .int()
+      .min(1)
+      .max(16)
+      .default(4)
+      .describe("Maximum number of listing sources scraped concurrently."),
+    timeoutMs: z
+      .number()
+      .int()
+      .positive()
+      .default(30_000)
+      .describe(
+        "Per-strategy HTTP timeout in milliseconds. A hung request is aborted and falls through the strategy chain.",
+      ),
+  })
+  .default({})
+  .describe("Discovery stage concurrency and timeout settings.");
+
+const collectionSchema = z
+  .object({
+    maxDiscoveredItemsPerRun: z
+      .number()
+      .int()
+      .positive()
+      .default(500)
+      .describe(
+        "Maximum candidate URLs taken from discovery before fetch. Excess items are dropped and logged.",
+      ),
+    perRunFetchBudget: z
+      .number()
+      .int()
+      .positive()
+      .default(50)
+      .describe(
+        "Maximum URLs sent to the fetch stage in a single run. Applied after dead-URL and host-breaker filtering.",
+      ),
+  })
+  .default({})
+  .describe("Per-run collection caps.");
+
+const runTimingSchema = z
+  .object({
+    maxDurationMs: z
+      .number()
+      .int()
+      .positive()
+      .default(300_000)
+      .describe(
+        "Overall run deadline in milliseconds. When exceeded the run stops starting new fetches and finalizes with partial_success.",
+      ),
+  })
+  .default({})
+  .describe("Run-level timing and deadline settings.");
+
 /** Zod schema for agent config grouped for Hermes form sections. */
 export const ConfigSchema = z.object({
   curatedSources: z
@@ -352,6 +409,9 @@ export const ConfigSchema = z.object({
   gates: gatesSchema,
   resilience: resilienceSchema,
   discoveryCache: discoveryCacheSchema,
+  discovery: discoverySchema,
+  collection: collectionSchema,
+  run: runTimingSchema,
   runPolicy: runPolicySchema,
 });
 

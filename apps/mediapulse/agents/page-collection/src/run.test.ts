@@ -94,6 +94,8 @@ const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
 const tickerGetMock = vi.fn();
 const curatedListingQueryCreateMock = vi.fn();
+const listingDiscoveryCacheLookupMock = vi.fn();
+const listingDiscoveryCacheRecordMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -120,6 +122,12 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     dataCollectionCuratedListingQuery: {
       create: curatedListingQueryCreateMock,
+    },
+    listingDiscoveryCacheLookup: {
+      create: listingDiscoveryCacheLookupMock,
+    },
+    listingDiscoveryCacheRecord: {
+      create: listingDiscoveryCacheRecordMock,
     },
   })),
 }));
@@ -200,6 +208,8 @@ describe("runPageCollection", () => {
     });
     runCreateMock.mockResolvedValue({});
     failureCreateMock.mockResolvedValue({});
+    listingDiscoveryCacheLookupMock.mockResolvedValue({ entries: [] });
+    listingDiscoveryCacheRecordMock.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -360,5 +370,134 @@ describe("runPageCollection", () => {
     expect((result.details as { failureReason: string }).failureReason).toBe(
       "insufficient_successful_sources",
     );
+  });
+
+  it("truncates discovered items at maxDiscoveredItemsPerRun and logs the dropped count", async () => {
+    const manyItems = Array.from({ length: 10 }, (_, index) => ({
+      url: `https://example.com/article-${index}`,
+      title: validArticleTitle,
+    }));
+    vi.mocked(runDiscovery).mockResolvedValue({
+      items: manyItems,
+      failures: [],
+    });
+    vi.mocked(performWebFetch).mockResolvedValue([
+      mockFetchSuccess({
+        url: "https://example.com/article-0",
+        title: validArticleTitle,
+        content: validArticleContent,
+        tickerId: TICKER_ID,
+        searchQueryId: CURATED_QUERY_ID,
+        searchQueryText: "",
+        serpIndex: 0,
+      }),
+    ]);
+
+    const ctx = createContext({
+      config: ConfigSchema.parse({
+        ...baseConfig,
+        collection: { maxDiscoveredItemsPerRun: 1, perRunFetchBudget: 50 },
+        runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+      }),
+    });
+
+    await runPageCollection(ctx);
+
+    const warnCalls = (mockRunLog.warn as ReturnType<typeof vi.fn>).mock.calls;
+    const capWarn = warnCalls.find(
+      (args: unknown[]) =>
+        typeof args[1] === "string" && args[1].includes("per-run cap"),
+    );
+
+    expect(capWarn).toBeDefined();
+    expect(
+      (capWarn![0] as { droppedByRunItemCap: number }).droppedByRunItemCap,
+    ).toBe(9);
+  });
+
+  it("stops fetching and returns partial_success when the run deadline is exceeded", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+
+    vi.mocked(runDiscovery).mockImplementation(async () => {
+      vi.setSystemTime(1_100_000);
+
+      return {
+        items: [
+          {
+            url: "https://example.com/article-1",
+            title: validArticleTitle,
+          },
+        ],
+        failures: [],
+      };
+    });
+
+    const ctx = createContext({
+      config: ConfigSchema.parse({
+        ...baseConfig,
+        run: { maxDurationMs: 1 },
+        runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+      }),
+    });
+
+    let result;
+    try {
+      result = await runPageCollection(ctx);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(vi.mocked(performWebFetch)).not.toHaveBeenCalled();
+    expect(result!.success).toBe(true);
+    expect(
+      (result!.details?.summary as { deadlineHit: boolean }).deadlineHit,
+    ).toBe(true);
+
+    const runRecord = runCreateMock.mock.calls[0]![0];
+
+    expect(runRecord.status).toBe("partial_success");
+  });
+
+  it("strips tracking params from discovered URLs before dedup via classifyNoisyUrl", async () => {
+    vi.mocked(runDiscovery).mockResolvedValue({
+      items: [
+        {
+          url: "https://example.com/article-1?utm_source=feed&utm_medium=rss",
+          title: validArticleTitle,
+        },
+        {
+          url: "https://example.com/article-1?utm_source=newsletter",
+          title: validArticleTitle,
+        },
+      ],
+      failures: [],
+    });
+
+    vi.mocked(performWebFetch).mockResolvedValue([
+      mockFetchSuccess({
+        url: "https://example.com/article-1",
+        title: validArticleTitle,
+        content: validArticleContent,
+        tickerId: TICKER_ID,
+        searchQueryId: CURATED_QUERY_ID,
+        searchQueryText: "",
+        serpIndex: 0,
+      }),
+    ]);
+
+    const ctx = createContext({
+      config: ConfigSchema.parse({
+        ...baseConfig,
+        runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+      }),
+    });
+
+    await runPageCollection(ctx);
+
+    const fetchInputs = vi.mocked(performWebFetch).mock.calls[0]![0];
+
+    expect(fetchInputs).toHaveLength(1);
+    expect(fetchInputs[0]!.url).toBe("https://example.com/article-1");
   });
 });

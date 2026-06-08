@@ -1,9 +1,13 @@
 import { classifyError, isRetryableError } from "../error-classification";
+import { hostFromUrl } from "../host-error-tracker";
+import { pMap } from "../p-map";
 import {
   createListingDiscoveryStrategy,
   DEFAULT_DISCOVERY_CHAIN,
 } from "./registry";
 import type { DiscoveredItem, DiscoveryDeps } from "./types";
+
+const DEFAULT_DISCOVERY_CONCURRENCY = 4;
 
 /** A single listing source for discovery. */
 export type DiscoverySource = {
@@ -125,10 +129,44 @@ export const runDiscovery = async (
   cache?: DiscoveryCache,
 ): Promise<RunDiscoveryResult> => {
   const enabledSources = sources.filter((source) => source.enabled !== false);
+  const concurrency = deps.concurrency ?? DEFAULT_DISCOVERY_CONCURRENCY;
 
   const allItems: DiscoveredItem[] = [];
   const allFailures: DiscoveryFailure[] = [];
   const seen = new Set<string>();
+
+  const tryDiscover = async (
+    source: DiscoverySource,
+  ): Promise<SourceDiscoveryOutcome> => {
+    const host = hostFromUrl(source.url);
+    if (deps.hostErrorTracker?.isSkipped(host)) {
+      return {
+        items: [],
+        failures: [
+          {
+            sourceUrl: source.url,
+            strategyType: "host-breaker",
+            errorCategory: "provider_http_error",
+            message: `Host ${host} is over the error-rate threshold; skipped in discovery`,
+            retryable: false,
+          },
+        ],
+      };
+    }
+    const outcome = await discoverOneSource(source, deps);
+    deps.hostErrorTracker?.record(host, outcome.items.length > 0);
+
+    return outcome;
+  };
+
+  const addItems = (items: DiscoveredItem[]) => {
+    for (const item of items) {
+      if (!seen.has(item.url)) {
+        seen.add(item.url);
+        allItems.push(item);
+      }
+    }
+  };
 
   if (cache && enabledSources.length > 0) {
     const sourceUrls = enabledSources.map((source) => source.url);
@@ -137,64 +175,55 @@ export const runDiscovery = async (
       cacheHits.map((entry) => [entry.listingUrl, entry.items]),
     );
 
-    const freshEntries: Array<{
-      listingUrl: string;
-      strategy: string;
-      items: DiscoveredItem[];
-      ttlSeconds: number;
-    }> = [];
+    const missedSources = enabledSources.filter(
+      (source) => !hitMap.has(source.url),
+    );
 
-    for (const source of enabledSources) {
-      const cached = hitMap.get(source.url);
-      if (cached !== undefined) {
-        for (const item of cached) {
-          if (!seen.has(item.url)) {
-            seen.add(item.url);
-            allItems.push(item);
-          }
-        }
-        continue;
-      }
-
-      const { items, failures } = await discoverOneSource(source, deps);
-      allFailures.push(...failures);
-
-      for (const item of items) {
-        if (!seen.has(item.url)) {
-          seen.add(item.url);
-          allItems.push(item);
-        }
-      }
-
-      if (items.length > 0) {
-        const winningStrategy =
-          source.strategies?.[0] ?? DEFAULT_DISCOVERY_CHAIN[0] ?? "rss";
-        freshEntries.push({
-          listingUrl: source.url,
-          strategy: winningStrategy,
-          items,
-          ttlSeconds: cache.ttlSeconds,
-        });
-      }
+    for (const [, cachedItems] of hitMap) {
+      addItems(cachedItems);
     }
 
-    if (freshEntries.length > 0) {
-      await cache.record(freshEntries);
+    if (missedSources.length > 0) {
+      const missOutcomes = await pMap(missedSources, tryDiscover, {
+        concurrency,
+      });
+
+      const freshEntries: Array<{
+        listingUrl: string;
+        strategy: string;
+        items: DiscoveredItem[];
+        ttlSeconds: number;
+      }> = [];
+
+      for (let index = 0; index < missedSources.length; index += 1) {
+        const source = missedSources[index]!;
+        const outcome = missOutcomes[index]!;
+        allFailures.push(...outcome.failures);
+        addItems(outcome.items);
+        if (outcome.items.length > 0) {
+          const winningStrategy =
+            source.strategies?.[0] ?? DEFAULT_DISCOVERY_CHAIN[0] ?? "rss";
+          freshEntries.push({
+            listingUrl: source.url,
+            strategy: winningStrategy,
+            items: outcome.items,
+            ttlSeconds: cache.ttlSeconds,
+          });
+        }
+      }
+
+      if (freshEntries.length > 0) {
+        await cache.record(freshEntries);
+      }
     }
 
     return { items: allItems, failures: allFailures };
   }
 
-  for (const source of enabledSources) {
-    const { items, failures } = await discoverOneSource(source, deps);
-
-    for (const item of items) {
-      if (!seen.has(item.url)) {
-        seen.add(item.url);
-        allItems.push(item);
-      }
-    }
-    allFailures.push(...failures);
+  const outcomes = await pMap(enabledSources, tryDiscover, { concurrency });
+  for (const outcome of outcomes) {
+    allFailures.push(...outcome.failures);
+    addItems(outcome.items);
   }
 
   return { items: allItems, failures: allFailures };
