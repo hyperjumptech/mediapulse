@@ -33,12 +33,24 @@ export type DiscoveryFailure = {
 export type SourceDiscoveryOutcome = {
   items: DiscoveredItem[];
   failures: DiscoveryFailure[];
+  winningStrategy: string | null;
+};
+
+/** Per-source health snapshot produced by runDiscovery for observability. */
+export type SourceDiscoveryReport = {
+  listingUrl: string;
+  discovered: boolean;
+  itemCount: number;
+  winningStrategy: string | null;
+  failureCount: number;
+  lastError: string | null;
 };
 
 /** Aggregate result of running discovery over all sources. */
 export type RunDiscoveryResult = {
   items: DiscoveredItem[];
   failures: DiscoveryFailure[];
+  sourceReports: SourceDiscoveryReport[];
 };
 
 /** Optional cache port for cross-ticker listing discovery deduplication. */
@@ -95,7 +107,7 @@ export const discoverOneSource = async (
       const limited =
         source.maxItems !== undefined ? items.slice(0, source.maxItems) : items;
 
-      return { items: limited, failures };
+      return { items: limited, failures, winningStrategy: strategyType };
     } catch (error) {
       const classified = classifyError(error);
       failures.push({
@@ -108,7 +120,7 @@ export const discoverOneSource = async (
     }
   }
 
-  return { items: [], failures };
+  return { items: [], failures, winningStrategy: null };
 };
 
 /**
@@ -133,6 +145,7 @@ export const runDiscovery = async (
 
   const allItems: DiscoveredItem[] = [];
   const allFailures: DiscoveryFailure[] = [];
+  const allSourceReports: SourceDiscoveryReport[] = [];
   const seen = new Set<string>();
 
   const tryDiscover = async (
@@ -151,6 +164,7 @@ export const runDiscovery = async (
             retryable: false,
           },
         ],
+        winningStrategy: null,
       };
     }
     const outcome = await discoverOneSource(source, deps);
@@ -168,6 +182,22 @@ export const runDiscovery = async (
     }
   };
 
+  const buildReport = (
+    listingUrl: string,
+    outcome: SourceDiscoveryOutcome,
+  ): SourceDiscoveryReport => {
+    const lastFailure = outcome.failures[outcome.failures.length - 1];
+
+    return {
+      listingUrl,
+      discovered: outcome.items.length > 0,
+      itemCount: outcome.items.length,
+      winningStrategy: outcome.winningStrategy,
+      failureCount: outcome.failures.length,
+      lastError: lastFailure?.message ?? null,
+    };
+  };
+
   if (cache && enabledSources.length > 0) {
     const sourceUrls = enabledSources.map((source) => source.url);
     const cacheHits = await cache.lookup(sourceUrls);
@@ -179,8 +209,16 @@ export const runDiscovery = async (
       (source) => !hitMap.has(source.url),
     );
 
-    for (const [, cachedItems] of hitMap) {
+    for (const [listingUrl, cachedItems] of hitMap) {
       addItems(cachedItems);
+      allSourceReports.push({
+        listingUrl,
+        discovered: cachedItems.length > 0,
+        itemCount: cachedItems.length,
+        winningStrategy: "cache",
+        failureCount: 0,
+        lastError: null,
+      });
     }
 
     if (missedSources.length > 0) {
@@ -200,12 +238,12 @@ export const runDiscovery = async (
         const outcome = missOutcomes[index]!;
         allFailures.push(...outcome.failures);
         addItems(outcome.items);
+        allSourceReports.push(buildReport(source.url, outcome));
+
         if (outcome.items.length > 0) {
-          const winningStrategy =
-            source.strategies?.[0] ?? DEFAULT_DISCOVERY_CHAIN[0] ?? "rss";
           freshEntries.push({
             listingUrl: source.url,
-            strategy: winningStrategy,
+            strategy: outcome.winningStrategy ?? "rss",
             items: outcome.items,
             ttlSeconds: cache.ttlSeconds,
           });
@@ -217,14 +255,25 @@ export const runDiscovery = async (
       }
     }
 
-    return { items: allItems, failures: allFailures };
+    return {
+      items: allItems,
+      failures: allFailures,
+      sourceReports: allSourceReports,
+    };
   }
 
   const outcomes = await pMap(enabledSources, tryDiscover, { concurrency });
-  for (const outcome of outcomes) {
+  for (let index = 0; index < enabledSources.length; index += 1) {
+    const source = enabledSources[index]!;
+    const outcome = outcomes[index]!;
     allFailures.push(...outcome.failures);
     addItems(outcome.items);
+    allSourceReports.push(buildReport(source.url, outcome));
   }
 
-  return { items: allItems, failures: allFailures };
+  return {
+    items: allItems,
+    failures: allFailures,
+    sourceReports: allSourceReports,
+  };
 };

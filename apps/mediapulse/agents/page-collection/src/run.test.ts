@@ -96,6 +96,7 @@ const tickerGetMock = vi.fn();
 const curatedListingQueryCreateMock = vi.fn();
 const listingDiscoveryCacheLookupMock = vi.fn();
 const listingDiscoveryCacheRecordMock = vi.fn();
+const discoverySourceHealthRecordMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -128,6 +129,9 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     listingDiscoveryCacheRecord: {
       create: listingDiscoveryCacheRecordMock,
+    },
+    discoverySourceHealthRecord: {
+      create: discoverySourceHealthRecordMock,
     },
   })),
 }));
@@ -182,6 +186,16 @@ describe("runPageCollection", () => {
         },
       ],
       failures: [],
+      sourceReports: [
+        {
+          listingUrl: "https://example.com/feed",
+          discovered: true,
+          itemCount: 1,
+          winningStrategy: "rss",
+          failureCount: 0,
+          lastError: null,
+        },
+      ],
     });
 
     vi.mocked(performWebFetch).mockResolvedValue([
@@ -210,6 +224,7 @@ describe("runPageCollection", () => {
     failureCreateMock.mockResolvedValue({});
     listingDiscoveryCacheLookupMock.mockResolvedValue({ entries: [] });
     listingDiscoveryCacheRecordMock.mockResolvedValue({});
+    discoverySourceHealthRecordMock.mockResolvedValue({ recorded: 1 });
   });
 
   afterEach(() => {
@@ -269,6 +284,7 @@ describe("runPageCollection", () => {
           retryable: true,
         },
       ],
+      sourceReports: [],
     });
 
     const result = await runPageCollection(createContext());
@@ -287,6 +303,7 @@ describe("runPageCollection", () => {
         { url: "https://example.com/off-topic", title: "Sports news today" },
       ],
       failures: [],
+      sourceReports: [],
     });
 
     const result = await runPageCollection(createContext());
@@ -301,6 +318,7 @@ describe("runPageCollection", () => {
     vi.mocked(runDiscovery).mockResolvedValue({
       items: [{ url: "https://example.com/no-title" }],
       failures: [],
+      sourceReports: [],
     });
 
     vi.mocked(performWebFetch).mockResolvedValue([
@@ -361,6 +379,7 @@ describe("runPageCollection", () => {
     vi.mocked(runDiscovery).mockResolvedValue({
       items: [],
       failures: [],
+      sourceReports: [],
     });
 
     const result = await runPageCollection(createContext());
@@ -380,6 +399,7 @@ describe("runPageCollection", () => {
     vi.mocked(runDiscovery).mockResolvedValue({
       items: manyItems,
       failures: [],
+      sourceReports: [],
     });
     vi.mocked(performWebFetch).mockResolvedValue([
       mockFetchSuccess({
@@ -430,6 +450,7 @@ describe("runPageCollection", () => {
           },
         ],
         failures: [],
+        sourceReports: [],
       };
     });
 
@@ -472,6 +493,7 @@ describe("runPageCollection", () => {
         },
       ],
       failures: [],
+      sourceReports: [],
     });
 
     vi.mocked(performWebFetch).mockResolvedValue([
@@ -499,5 +521,56 @@ describe("runPageCollection", () => {
 
     expect(fetchInputs).toHaveLength(1);
     expect(fetchInputs[0]!.url).toBe("https://example.com/article-1");
+  });
+
+  it("posts per-source discovery health records to the health endpoint after the run", async () => {
+    vi.mocked(runDiscovery).mockResolvedValue({
+      items: [
+        {
+          url: "https://example.com/article-1",
+          title: validArticleTitle,
+          publishedAt: "2026-06-08T00:00:00.000Z",
+        },
+      ],
+      failures: [],
+      sourceReports: [
+        {
+          listingUrl: "https://example.com/feed",
+          discovered: true,
+          itemCount: 1,
+          winningStrategy: "rss",
+          failureCount: 0,
+          lastError: null,
+        },
+      ],
+    });
+
+    await runPageCollection(createContext());
+
+    expect(discoverySourceHealthRecordMock).toHaveBeenCalledOnce();
+    const healthRecords = discoverySourceHealthRecordMock.mock.calls[0]![0];
+
+    expect(healthRecords).toHaveLength(1);
+    expect(healthRecords[0]).toMatchObject({
+      listingUrl: "https://example.com/feed",
+      discovered: true,
+      itemCount: 1,
+      winningStrategy: "rss",
+      failureCount: 0,
+      lastError: null,
+    });
+    expect(typeof healthRecords[0].runDate).toBe("string");
+  });
+
+  it("does not post health records when sourceReports is empty", async () => {
+    vi.mocked(runDiscovery).mockResolvedValue({
+      items: [],
+      failures: [],
+      sourceReports: [],
+    });
+
+    await runPageCollection(createContext());
+
+    expect(discoverySourceHealthRecordMock).not.toHaveBeenCalled();
   });
 });

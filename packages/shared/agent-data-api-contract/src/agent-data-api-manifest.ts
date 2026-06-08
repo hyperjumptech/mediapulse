@@ -44,6 +44,12 @@ import {
   postListingDiscoveryCacheRecordResponseSchema,
 } from "./listing-discovery-cache.js";
 import {
+  postDiscoverySourceHealthRecordBodySchema,
+  postDiscoverySourceHealthRecordResponseSchema,
+  postDiscoverySourceHealthGetBodySchema,
+  postDiscoverySourceHealthGetResponseSchema,
+} from "./discovery-source-health.js";
+import {
   getDataCollectionRecentSourceFingerprintsQuerySchema,
   getDataCollectionRecentSourceFingerprintsResponseSchema,
 } from "./data-collection.js";
@@ -599,6 +605,38 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postListingDiscoveryCacheRecordBodySchema,
         response: postListingDiscoveryCacheRecordResponseSchema,
+      },
+    },
+  },
+  discoverySourceHealthRecord: {
+    v1: {
+      pathSegment: "/discovery-source-health/record",
+      post: {
+        body: postDiscoverySourceHealthRecordBodySchema,
+        response: postDiscoverySourceHealthRecordResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/discovery-source-health/record",
+      post: {
+        body: postDiscoverySourceHealthRecordBodySchema,
+        response: postDiscoverySourceHealthRecordResponseSchema,
+      },
+    },
+  },
+  discoverySourceHealthGet: {
+    v1: {
+      pathSegment: "/discovery-source-health/get",
+      post: {
+        body: postDiscoverySourceHealthGetBodySchema,
+        response: postDiscoverySourceHealthGetResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/discovery-source-health/get",
+      post: {
+        body: postDiscoverySourceHealthGetBodySchema,
+        response: postDiscoverySourceHealthGetResponseSchema,
       },
     },
   },

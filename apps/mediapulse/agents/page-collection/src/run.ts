@@ -179,13 +179,23 @@ export async function runPageCollection(
         }
       : undefined;
 
-  const { items: discoveredItems, failures: discoveryFailures } =
-    await runDiscovery(discoverySources, discoveryDeps, discoveryCache);
+  const {
+    items: discoveredItems,
+    failures: discoveryFailures,
+    sourceReports,
+  } = await runDiscovery(discoverySources, discoveryDeps, discoveryCache);
 
   log.info(
     {
       discoveredCount: discoveredItems.length,
       discoveryFailureCount: discoveryFailures.length,
+      perSource: sourceReports.map((report) => ({
+        listingUrl: report.listingUrl.slice(0, 80),
+        discovered: report.discovered,
+        itemCount: report.itemCount,
+        winningStrategy: report.winningStrategy,
+        failureCount: report.failureCount,
+      })),
     },
     "discovery stage finished",
   );
@@ -527,6 +537,30 @@ export async function runPageCollection(
           "failed to record dead URLs; continuing without negative cache write",
         );
       }
+    }
+  }
+
+  if (sourceReports.length > 0) {
+    const healthRecords = sourceReports.map((report) => ({
+      listingUrl: report.listingUrl,
+      runDate: startedAt.toISOString(),
+      discovered: report.discovered,
+      itemCount: report.itemCount,
+      winningStrategy: report.winningStrategy,
+      failureCount: report.failureCount,
+      lastError: report.lastError,
+    }));
+    try {
+      await dataApiClient.discoverySourceHealthRecord.create(healthRecords);
+      log.info(
+        { healthRecordCount: healthRecords.length },
+        "posted per-source discovery health records",
+      );
+    } catch (healthError) {
+      log.warn(
+        { healthRecordCount: healthRecords.length, err: healthError },
+        "failed to post discovery source health records; continuing",
+      );
     }
   }
 

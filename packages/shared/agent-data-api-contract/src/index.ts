@@ -114,6 +114,18 @@ export {
   type PostListingDiscoveryCacheRecordResponse,
 } from "./listing-discovery-cache.js";
 export {
+  postDiscoverySourceHealthRecordBodySchema,
+  postDiscoverySourceHealthRecordResponseSchema,
+  postDiscoverySourceHealthGetBodySchema,
+  postDiscoverySourceHealthGetResponseSchema,
+  type PostDiscoverySourceHealthRecordBody,
+  type PostDiscoverySourceHealthRecordResponse,
+  type PostDiscoverySourceHealthGetBody,
+  type PostDiscoverySourceHealthGetResponse,
+  type DiscoverySourceHealthRecordInput,
+  type DiscoverySourceHealthEntry,
+} from "./discovery-source-health.js";
+export {
   deliveryNewsletterSchema,
   deliverySubscriberSchema,
   getDeliveryQuerySchema,

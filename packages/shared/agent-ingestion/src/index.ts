@@ -108,6 +108,7 @@ export {
   type DiscoverySource,
   type DiscoveryFailure,
   type SourceDiscoveryOutcome,
+  type SourceDiscoveryReport,
   type RunDiscoveryResult,
 } from "./discovery/run-discovery";
 
