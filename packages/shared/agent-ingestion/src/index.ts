@@ -95,3 +95,24 @@ export {
   type RunPolicy,
   type RunCounters,
 } from "./run-status";
+
+export {
+  DEFAULT_DISCOVERY_CHAIN,
+  createListingDiscoveryStrategy,
+} from "./discovery/registry";
+
+export {
+  discoverOneSource,
+  runDiscovery,
+  type DiscoverySource,
+  type DiscoveryFailure,
+  type SourceDiscoveryOutcome,
+  type RunDiscoveryResult,
+} from "./discovery/run-discovery";
+
+export {
+  type DiscoveredItem,
+  type ListingDiscoveryStrategy,
+  type DiscoveryDeps,
+  type DiscoveryLogger,
+} from "./discovery/types";

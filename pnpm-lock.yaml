@@ -42,6 +42,9 @@ catalogs:
     eslint:
       specifier: ^9.32.0
       version: 9.39.2
+    fast-xml-parser:
+      specifier: ^4.5.4
+      version: 4.5.4
     got:
       specifier: ^14.0.0
       version: 14.6.6
@@ -1561,6 +1564,9 @@ importers:
       '@workspace/utils':
         specifier: workspace:*
         version: link:../utils
+      fast-xml-parser:
+        specifier: 'catalog:'
+        version: 4.5.4
       got:
         specifier: 'catalog:'
         version: 14.6.6
