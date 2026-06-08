@@ -1552,6 +1552,9 @@ importers:
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../agent-data-api-contract
+      '@workspace/agent-types':
+        specifier: workspace:*
+        version: link:../agent-types
       '@workspace/logger':
         specifier: workspace:*
         version: link:../logger

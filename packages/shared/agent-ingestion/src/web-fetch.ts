@@ -11,32 +11,8 @@ import {
 import type { FetchProvider } from "./fetch-providers/types";
 
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
-
-/** Metadata fields from a fetch provider response used for publication-date extraction. */
-export type FetchMetadata = {
-  publishedTime?: string;
-  published_at?: string;
-  usage?: { tokens?: number };
-};
-
-/** Structural surface of the host error tracker consumed by the fetch stage. */
-export type HostErrorTracker = {
-  record(host: string, success: boolean): void;
-  isSkipped(host: string): boolean;
-};
-
-/**
- * Extracts the hostname from a URL for host-level tracking.
- *
- * @param url - Full URL string.
- */
-export const hostFromUrl = (url: string): string => {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return url;
-  }
-};
+import type { FetchMetadata } from "./date-extractor";
+import { HostErrorTracker, hostFromUrl } from "./host-error-tracker";
 
 /** Search result produced by the search stage and consumed by the fetch stage. */
 export interface WebSearchResult {

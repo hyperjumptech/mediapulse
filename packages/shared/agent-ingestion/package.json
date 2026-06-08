@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@workspace/agent-data-api-contract": "workspace:*",
+    "@workspace/agent-types": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/utils": "workspace:*",
     "got": "catalog:",

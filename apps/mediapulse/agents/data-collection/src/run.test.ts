@@ -226,9 +226,14 @@ vi.mock("./utilities/web-search", () => ({
   performWebSearch: vi.fn(),
 }));
 
-vi.mock("@workspace/agent-ingestion", () => ({
-  performWebFetch: vi.fn(),
-}));
+vi.mock("@workspace/agent-ingestion", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@workspace/agent-ingestion")>();
+  return {
+    ...actual,
+    performWebFetch: vi.fn(),
+  };
+});
 
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import { performWebFetch } from "@workspace/agent-ingestion";

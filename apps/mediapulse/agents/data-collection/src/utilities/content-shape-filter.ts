@@ -6,4 +6,4 @@ export {
   type ContentShapeDecision,
   type QualityDecision,
   type QualityDropReason,
-} from "./content-quality-gate";
+} from "@workspace/agent-ingestion";

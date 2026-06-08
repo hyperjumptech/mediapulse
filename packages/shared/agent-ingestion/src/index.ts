@@ -36,3 +36,62 @@ export {
   type WebFetchLogger,
   type WebSearchResult,
 } from "./web-fetch";
+
+export {
+  runQualityGate,
+  classifyNonArticleContent,
+  createEmptyQualityCounters,
+  maxShingleFraction,
+  type QualityDropReason,
+  type QualityDecision,
+  type ContentShapeDecision,
+} from "./content-quality-gate";
+
+export {
+  buildTickerAliases,
+  buildIndustryAliases,
+  isRelevant,
+  type RelevanceDecision,
+  type RelevanceGateInput,
+  type RelevanceGateOptions,
+} from "./ticker-relevance-gate";
+
+export {
+  isFresh,
+  type FreshnessDecision,
+  type FreshnessGateConfig,
+} from "./freshness-gate";
+
+export {
+  extractPublishedDate,
+  type FetchMetadata,
+  type ExtractPublishedDateInput,
+} from "./date-extractor";
+
+export {
+  HostErrorTracker,
+  hostFromUrl,
+  buildDeadUrlRecords,
+  type QualityDropForDeadUrl,
+} from "./host-error-tracker";
+
+export { resolveDeadUrls, type LookupDeadUrls } from "./resolve-dead-urls";
+
+export {
+  resolveExistingDataSourceUrls,
+  type LookupExistingDataSourceUrls,
+  type ExistingDataSourceLookupResult,
+} from "./resolve-existing-data-source-urls";
+
+export {
+  toDataSources,
+  type CollectedPageForSource,
+  type DataCollectionSource,
+} from "./data-sources";
+
+export {
+  deriveRunStatus,
+  type RunStatus,
+  type RunPolicy,
+  type RunCounters,
+} from "./run-status";

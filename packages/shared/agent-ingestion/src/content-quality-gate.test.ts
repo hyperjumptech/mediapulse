@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  classifyNonArticleContent,
   createEmptyQualityCounters,
   maxShingleFraction,
   runQualityGate,
@@ -230,11 +231,7 @@ describe("runQualityGate", () => {
 });
 
 describe("classifyNonArticleContent alias", () => {
-  it("re-exports runQualityGate behavior", async () => {
-    // Setup
-    const { classifyNonArticleContent } =
-      await import("./content-shape-filter");
-
+  it("re-exports runQualityGate behavior", () => {
     // Act
     const decision = classifyNonArticleContent(
       "Bank Central Asia expands regional operations",
