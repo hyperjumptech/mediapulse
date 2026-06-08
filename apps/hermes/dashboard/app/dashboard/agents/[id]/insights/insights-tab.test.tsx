@@ -37,7 +37,7 @@ describe("InsightsTab", () => {
   it("shows All healthy banner when no alerts", () => {
     const payload = createMockPayload({ alerts: [] });
 
-    render(<InsightsTab payload={payload} agentId="test-agent" window="7d" />);
+    render(<InsightsTab payload={payload} window="7d" />);
 
     expect(screen.getByText("All healthy")).toBeInTheDocument();
   });
@@ -58,7 +58,7 @@ describe("InsightsTab", () => {
       ],
     });
 
-    render(<InsightsTab payload={payload} agentId="test-agent" window="7d" />);
+    render(<InsightsTab payload={payload} window="7d" />);
 
     expect(screen.getByText("High error rate detected")).toBeInTheDocument();
     expect(screen.getByText("Service is down")).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe("InsightsTab", () => {
       ],
     });
 
-    render(<InsightsTab payload={payload} agentId="test-agent" window="7d" />);
+    render(<InsightsTab payload={payload} window="7d" />);
 
     expect(screen.getByText("Requests")).toBeInTheDocument();
     expect(screen.getByText("1234")).toBeInTheDocument();
@@ -109,7 +109,7 @@ describe("InsightsTab", () => {
       ],
     });
 
-    render(<InsightsTab payload={payload} agentId="test-agent" window="7d" />);
+    render(<InsightsTab payload={payload} window="7d" />);
 
     expect(screen.getByText("Top events")).toBeInTheDocument();
     expect(screen.getByText("Events are up")).toBeInTheDocument();
@@ -124,7 +124,7 @@ describe("InsightsTab", () => {
   it("renders window switcher with current window", () => {
     const payload = createMockPayload();
 
-    render(<InsightsTab payload={payload} agentId="test-agent" window="30d" />);
+    render(<InsightsTab payload={payload} window="30d" />);
 
     const switcher = screen.getByTestId("window-switcher");
 

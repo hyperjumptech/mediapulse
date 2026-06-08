@@ -7,7 +7,6 @@ type InsightsWindow = "24h" | "7d" | "30d";
 
 type InsightsTabProps = {
   payload: InsightsPayload;
-  agentId: string;
   window: InsightsWindow;
 };
 
@@ -21,10 +20,9 @@ const SEVERITY_STYLES: Record<string, string> = {
  * Renders the Insights tab for an agent detail page.
  *
  * @param payload - Insights payload from the agent-data-api.
- * @param agentId - The agent identifier (for reference).
  * @param window - The active time window.
  */
-export const InsightsTab = ({ payload, agentId: _agentId, window }: InsightsTabProps) => {
+export const InsightsTab = ({ payload, window }: InsightsTabProps) => {
   const categories = Array.from(
     new Set(payload.sections.map((section) => section.category)),
   );

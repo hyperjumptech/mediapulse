@@ -128,7 +128,6 @@ export const AgentDetailsContent = ({
           <TabsContent value="insights" className="pt-6">
             <InsightsTab
               payload={insightsPayload}
-              agentId={agent.agentId}
               window={insightsWindow ?? "7d"}
             />
           </TabsContent>
