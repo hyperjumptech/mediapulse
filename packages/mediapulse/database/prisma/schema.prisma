@@ -77,6 +77,19 @@ model DeadUrl {
   @@map("dead_url")
 }
 
+/// Shared cache for listing discovery results, keyed by listing URL and shared across tickers.
+model ListingDiscoveryCache {
+  id         String   @id @default(uuid())
+  listingUrl String   @unique @map("listing_url")
+  strategy   String
+  items      Json
+  fetchedAt  DateTime @default(now()) @map("fetched_at")
+  expiresAt  DateTime @map("expires_at")
+
+  @@index([expiresAt])
+  @@map("listing_discovery_cache")
+}
+
 model Newsletter {
   id          String   @id @default(uuid())
   subject     String

@@ -37,6 +37,22 @@ export type RunDiscoveryResult = {
   failures: DiscoveryFailure[];
 };
 
+/** Optional cache port for cross-ticker listing discovery deduplication. */
+export type DiscoveryCache = {
+  lookup: (
+    listingUrls: string[],
+  ) => Promise<Array<{ listingUrl: string; items: DiscoveredItem[] }>>;
+  record: (
+    entries: Array<{
+      listingUrl: string;
+      strategy: string;
+      items: DiscoveredItem[];
+      ttlSeconds: number;
+    }>,
+  ) => Promise<void>;
+  ttlSeconds: number;
+};
+
 /**
  * Runs a source through its ordered strategy chain with fallback.
  *
@@ -95,18 +111,79 @@ export const discoverOneSource = async (
  * Runs discovery over all enabled sources, deduplicates by canonical URL, and returns
  * the merged item list with all per-strategy failures captured (never thrown).
  *
+ * When a cache port is provided, each source is checked for a fresh cache hit before
+ * live scraping. On a miss, the source is scraped and fresh results are written back.
+ * Empty results are never cached. Without a cache port, behavior is identical to Plan 95.
+ *
  * @param sources - Listing sources to discover from.
  * @param deps - Shared discovery dependencies.
+ * @param cache - Optional cross-ticker discovery cache port.
  */
 export const runDiscovery = async (
   sources: DiscoverySource[],
   deps: DiscoveryDeps,
+  cache?: DiscoveryCache,
 ): Promise<RunDiscoveryResult> => {
   const enabledSources = sources.filter((source) => source.enabled !== false);
 
   const allItems: DiscoveredItem[] = [];
   const allFailures: DiscoveryFailure[] = [];
   const seen = new Set<string>();
+
+  if (cache && enabledSources.length > 0) {
+    const sourceUrls = enabledSources.map((source) => source.url);
+    const cacheHits = await cache.lookup(sourceUrls);
+    const hitMap = new Map(
+      cacheHits.map((entry) => [entry.listingUrl, entry.items]),
+    );
+
+    const freshEntries: Array<{
+      listingUrl: string;
+      strategy: string;
+      items: DiscoveredItem[];
+      ttlSeconds: number;
+    }> = [];
+
+    for (const source of enabledSources) {
+      const cached = hitMap.get(source.url);
+      if (cached !== undefined) {
+        for (const item of cached) {
+          if (!seen.has(item.url)) {
+            seen.add(item.url);
+            allItems.push(item);
+          }
+        }
+        continue;
+      }
+
+      const { items, failures } = await discoverOneSource(source, deps);
+      allFailures.push(...failures);
+
+      for (const item of items) {
+        if (!seen.has(item.url)) {
+          seen.add(item.url);
+          allItems.push(item);
+        }
+      }
+
+      if (items.length > 0) {
+        const winningStrategy =
+          source.strategies?.[0] ?? DEFAULT_DISCOVERY_CHAIN[0] ?? "rss";
+        freshEntries.push({
+          listingUrl: source.url,
+          strategy: winningStrategy,
+          items,
+          ttlSeconds: cache.ttlSeconds,
+        });
+      }
+    }
+
+    if (freshEntries.length > 0) {
+      await cache.record(freshEntries);
+    }
+
+    return { items: allItems, failures: allFailures };
+  }
 
   for (const source of enabledSources) {
     const { items, failures } = await discoverOneSource(source, deps);

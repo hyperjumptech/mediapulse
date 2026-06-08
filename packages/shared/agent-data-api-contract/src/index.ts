@@ -102,6 +102,18 @@ export {
   type PostDataCollectionDeadUrlsRecordResponse,
 } from "./data-collection-dead-url.js";
 export {
+  postListingDiscoveryCacheLookupBodySchema,
+  postListingDiscoveryCacheLookupResponseSchema,
+  postListingDiscoveryCacheRecordBodySchema,
+  postListingDiscoveryCacheRecordResponseSchema,
+  type ListingDiscoveryCacheEntry,
+  type ListingDiscoveryCacheRecordInput,
+  type PostListingDiscoveryCacheLookupBody,
+  type PostListingDiscoveryCacheLookupResponse,
+  type PostListingDiscoveryCacheRecordBody,
+  type PostListingDiscoveryCacheRecordResponse,
+} from "./listing-discovery-cache.js";
+export {
   deliveryNewsletterSchema,
   deliverySubscriberSchema,
   getDeliveryQuerySchema,
