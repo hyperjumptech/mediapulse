@@ -50,7 +50,10 @@ const asText = (value: unknown): string | undefined => {
  *
  * @param doc - Parsed XML document.
  */
-const parseRssItems = (doc: Record<string, unknown>): DiscoveredItem[] => {
+const parseRssItems = (
+  doc: Record<string, unknown>,
+  listingUrl: string,
+): DiscoveredItem[] => {
   const channel = (doc["rss"] as Record<string, unknown>)?.["channel"] as
     | Record<string, unknown>
     | undefined;
@@ -62,8 +65,14 @@ const parseRssItems = (doc: Record<string, unknown>): DiscoveredItem[] => {
 
   return items.flatMap((item) => {
     const entry = item as Record<string, unknown>;
-    const url = asText(entry["link"]);
-    if (!url) {
+    const rawUrl = asText(entry["link"]);
+    if (!rawUrl) {
+      return [];
+    }
+    let url: string;
+    try {
+      url = new URL(rawUrl, listingUrl).toString();
+    } catch {
       return [];
     }
 
@@ -87,7 +96,10 @@ const parseRssItems = (doc: Record<string, unknown>): DiscoveredItem[] => {
  *
  * @param doc - Parsed XML document.
  */
-const parseAtomEntries = (doc: Record<string, unknown>): DiscoveredItem[] => {
+const parseAtomEntries = (
+  doc: Record<string, unknown>,
+  listingUrl: string,
+): DiscoveredItem[] => {
   const feed = doc["feed"] as Record<string, unknown> | undefined;
   if (!feed) {
     return [];
@@ -99,23 +111,30 @@ const parseAtomEntries = (doc: Record<string, unknown>): DiscoveredItem[] => {
     const node = entry as Record<string, unknown>;
 
     const linkNode = node["link"];
-    let url: string | undefined;
+    let rawUrl: string | undefined;
     if (
       typeof linkNode === "object" &&
       linkNode !== null &&
       "@_href" in linkNode
     ) {
-      url = (linkNode as Record<string, string>)["@_href"];
+      rawUrl = (linkNode as Record<string, string>)["@_href"];
     } else if (Array.isArray(linkNode)) {
       const alternate = (linkNode as Record<string, string>[]).find(
         (link) => !link["@_rel"] || link["@_rel"] === "alternate",
       );
-      url = alternate?.["@_href"];
+      rawUrl = alternate?.["@_href"];
     } else {
-      url = asText(linkNode);
+      rawUrl = asText(linkNode);
     }
 
-    if (!url) {
+    if (!rawUrl) {
+      return [];
+    }
+
+    let url: string;
+    try {
+      url = new URL(rawUrl, listingUrl).toString();
+    } catch {
       return [];
     }
 
@@ -144,7 +163,7 @@ const discoverRss = async (
   listingUrl: string,
   deps: DiscoveryDeps,
 ): Promise<DiscoveredItem[]> => {
-  const { gotClient, rateLimiter } = deps;
+  const { gotClient, rateLimiter, timeoutMs } = deps;
 
   await rateLimiter.acquire();
 
@@ -155,6 +174,7 @@ const discoverRss = async (
         Accept:
           "application/rss+xml, application/atom+xml, application/xml, text/xml",
       },
+      ...(timeoutMs ? { timeout: { request: timeoutMs } } : {}),
     });
     rateLimiter.recordResponse(response.statusCode);
     body = response.body;
@@ -178,10 +198,10 @@ const discoverRss = async (
   }
 
   if (doc["rss"]) {
-    return parseRssItems(doc);
+    return parseRssItems(doc, listingUrl);
   }
   if (doc["feed"]) {
-    return parseAtomEntries(doc);
+    return parseAtomEntries(doc, listingUrl);
   }
 
   throw Object.assign(new Error("Not a recognized RSS or Atom feed"), {

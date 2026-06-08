@@ -50,7 +50,10 @@ const asText = (value: unknown): string | undefined => {
  *
  * @param doc - Parsed XML document.
  */
-const parseSitemapUrls = (doc: Record<string, unknown>): DiscoveredItem[] => {
+const parseSitemapUrls = (
+  doc: Record<string, unknown>,
+  listingUrl: string,
+): DiscoveredItem[] => {
   const urlset = doc["urlset"] as Record<string, unknown> | undefined;
   if (!urlset) {
     return [];
@@ -60,8 +63,14 @@ const parseSitemapUrls = (doc: Record<string, unknown>): DiscoveredItem[] => {
 
   return urls.flatMap((urlNode) => {
     const node = urlNode as Record<string, unknown>;
-    const loc = asText(node["loc"]);
-    if (!loc) {
+    const rawLoc = asText(node["loc"]);
+    if (!rawLoc) {
+      return [];
+    }
+    let loc: string;
+    try {
+      loc = new URL(rawLoc, listingUrl).toString();
+    } catch {
       return [];
     }
 
@@ -96,7 +105,7 @@ const discoverSitemap = async (
   listingUrl: string,
   deps: DiscoveryDeps,
 ): Promise<DiscoveredItem[]> => {
-  const { gotClient, rateLimiter } = deps;
+  const { gotClient, rateLimiter, timeoutMs } = deps;
 
   await rateLimiter.acquire();
 
@@ -104,6 +113,7 @@ const discoverSitemap = async (
   try {
     const response = await gotClient.get(listingUrl, {
       headers: { Accept: "application/xml, text/xml" },
+      ...(timeoutMs ? { timeout: { request: timeoutMs } } : {}),
     });
     rateLimiter.recordResponse(response.statusCode);
     body = response.body;
@@ -133,7 +143,7 @@ const discoverSitemap = async (
     );
   }
 
-  return parseSitemapUrls(doc);
+  return parseSitemapUrls(doc, listingUrl);
 };
 
 /** Sitemap listing discovery strategy. */

@@ -1,4 +1,5 @@
 import type got from "got";
+import type { HostErrorTracker } from "../host-error-tracker";
 import type { RateLimiter } from "../resilience";
 
 /** One article item yielded by a listing discovery strategy. */
@@ -20,6 +21,12 @@ export type DiscoveryDeps = {
   gotClient: typeof got;
   rateLimiter: RateLimiter;
   logger: DiscoveryLogger;
+  /** When provided, hosts over the error threshold are skipped in discovery. */
+  hostErrorTracker?: HostErrorTracker;
+  /** Per-strategy HTTP timeout in milliseconds. Passed to the underlying got request. */
+  timeoutMs?: number;
+  /** Maximum concurrent discovery sources processed by runDiscovery. Defaults to 4. */
+  concurrency?: number;
 };
 
 /** Contract implemented by every listing discovery strategy. */
