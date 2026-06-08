@@ -1,0 +1,364 @@
+/** @vitest-environment node */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AgentRunContext } from "@workspace/agent-runtime";
+
+import type { BodySchemaType } from "./utilities/body-schema";
+import { ConfigSchema, type ConfigSchemaType } from "./utilities/config-schema";
+import type {
+  FetchedWebSearchResult,
+  WebFetchFailure,
+  WebFetchOutcome,
+} from "@workspace/agent-ingestion";
+
+const TICKER_ID = "11111111-1111-4111-a111-111111111111";
+const CURATED_QUERY_ID = "22222222-2222-4222-a222-222222222222";
+
+const validArticleContent = [
+  "Bank Central Asia announced strategic expansion plans across regional markets.",
+  "The company reported improved margins, higher loan growth, and stronger risk controls.",
+  ...Array.from(
+    { length: 90 },
+    (_, index) =>
+      `Analyst note ${index} discusses lending trends and deposit growth in Indonesia.`,
+  ),
+].join(" ");
+
+const validArticleTitle = "Bank Central Asia expands regional operations";
+
+const baseConfig = ConfigSchema.parse({
+  curatedSources: [
+    {
+      listingUrl: "https://example.com/feed",
+      strategies: ["rss"],
+    },
+  ],
+  providers: {
+    fetch: {
+      providers: [
+        {
+          type: "jina",
+          baseUrl: "https://fetch.example",
+          authentication: { type: "bearer" },
+          rateLimit: { requests: 1, perSeconds: 1 },
+          concurrency: 4,
+        },
+      ],
+    },
+  },
+  runPolicy: {
+    minSuccessfulSources: 1,
+    failOnZeroSuccess: true,
+  },
+});
+
+const mockFetchSuccess = (
+  data: Omit<FetchedWebSearchResult, "provider"> &
+    Partial<Pick<FetchedWebSearchResult, "provider">>,
+): WebFetchOutcome => ({
+  success: { provider: "jina", ...data },
+  failures: [],
+});
+
+const mockFetchFailure = (
+  failure: Omit<WebFetchFailure, "provider"> &
+    Partial<Pick<WebFetchFailure, "provider">>,
+): WebFetchOutcome => ({
+  success: null,
+  failures: [{ provider: "jina", ...failure }],
+});
+
+vi.mock("@mediapulse/env/agents-page-collection", () => ({
+  env: {
+    AGENT_DATA_API_URL: "http://agent-data-api",
+    AGENT_AUTH_API_URL: "http://agent-auth-api",
+    AGENT_REGISTRY_URL: "http://agent-registry",
+  },
+}));
+
+const { mockRunLog } = vi.hoisted(() => ({
+  mockRunLog: { info: vi.fn(), warn: vi.fn() },
+}));
+
+vi.mock("@workspace/logger", () => ({
+  logger: {
+    child: vi.fn(() => mockRunLog),
+  },
+}));
+
+const dataCollectionCreateMock = vi.fn();
+const existingUrlsCreateMock = vi.fn();
+const deadUrlsLookupMock = vi.fn();
+const deadUrlsRecordMock = vi.fn();
+const runCreateMock = vi.fn();
+const failureCreateMock = vi.fn();
+const tickerGetMock = vi.fn();
+const curatedListingQueryCreateMock = vi.fn();
+
+vi.mock("@workspace/agent-data-api-client", () => ({
+  createAgentDataApiClient: vi.fn(() => ({
+    dataCollection: {
+      create: dataCollectionCreateMock,
+    },
+    dataCollectionExistingUrls: {
+      create: existingUrlsCreateMock,
+    },
+    dataCollectionDeadUrlsLookup: {
+      create: deadUrlsLookupMock,
+    },
+    dataCollectionDeadUrlsRecord: {
+      create: deadUrlsRecordMock,
+    },
+    dataCollectionRun: {
+      create: runCreateMock,
+    },
+    dataCollectionFailure: {
+      create: failureCreateMock,
+    },
+    ticker: {
+      get: tickerGetMock,
+    },
+    dataCollectionCuratedListingQuery: {
+      create: curatedListingQueryCreateMock,
+    },
+  })),
+}));
+
+vi.mock("@workspace/agent-ingestion", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@workspace/agent-ingestion")>();
+  return {
+    ...actual,
+    runDiscovery: vi.fn(),
+    performWebFetch: vi.fn(),
+  };
+});
+
+import { runDiscovery, performWebFetch } from "@workspace/agent-ingestion";
+import { runPageCollection } from "./run";
+
+function createContext(
+  overrides?: Partial<AgentRunContext<BodySchemaType, ConfigSchemaType>>,
+): AgentRunContext<BodySchemaType, ConfigSchemaType> {
+  return {
+    input: { tickerId: TICKER_ID },
+    config: baseConfig,
+    token: "Bearer test-token",
+    ...overrides,
+  };
+}
+
+describe("runPageCollection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    tickerGetMock.mockResolvedValue({
+      id: TICKER_ID,
+      symbol: "BBCA",
+      name: "Bank Central Asia",
+      aliases: ["BCA"],
+      sector: "Keuangan",
+      industry: "Perbankan",
+    });
+
+    curatedListingQueryCreateMock.mockResolvedValue({
+      searchQueryId: CURATED_QUERY_ID,
+    });
+
+    vi.mocked(runDiscovery).mockResolvedValue({
+      items: [
+        {
+          url: "https://example.com/article-1",
+          title: validArticleTitle,
+          publishedAt: "2026-06-08T00:00:00.000Z",
+        },
+      ],
+      failures: [],
+    });
+
+    vi.mocked(performWebFetch).mockResolvedValue([
+      mockFetchSuccess({
+        url: "https://example.com/article-1",
+        title: validArticleTitle,
+        content: validArticleContent,
+        tickerId: TICKER_ID,
+        searchQueryId: CURATED_QUERY_ID,
+        searchQueryText: "",
+        serpIndex: 0,
+      }),
+    ]);
+
+    dataCollectionCreateMock.mockResolvedValue("{}");
+    existingUrlsCreateMock.mockResolvedValue({
+      existingUrls: [],
+      hostCounts: {},
+    });
+    deadUrlsLookupMock.mockResolvedValue({ deadUrls: [] });
+    deadUrlsRecordMock.mockResolvedValue({
+      message: "Dead URLs recorded",
+      recordedCount: 0,
+    });
+    runCreateMock.mockResolvedValue({});
+    failureCreateMock.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("persists gate-surviving sources attributed to the curated searchQueryId", async () => {
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(true);
+    expect(dataCollectionCreateMock).toHaveBeenCalledOnce();
+
+    const persistedSource = dataCollectionCreateMock.mock.calls[0]![0][0];
+
+    expect(persistedSource.tickerId).toBe(TICKER_ID);
+    expect(persistedSource.searchQueryId).toBe(CURATED_QUERY_ID);
+    expect(persistedSource.url).toBe("https://example.com/article-1");
+    expect(persistedSource.title).toBe(validArticleTitle);
+  });
+
+  it("records a DataCollectionRun with the correct tickerId and runId", async () => {
+    await runPageCollection(createContext());
+
+    expect(runCreateMock).toHaveBeenCalledOnce();
+
+    const runPayload = runCreateMock.mock.calls[0]![0];
+
+    expect(runPayload.tickerId).toBe(TICKER_ID);
+    expect(typeof runPayload.id).toBe("string");
+    expect(runPayload.status).toBe("success");
+  });
+
+  it("returns a summary with totalSources count", async () => {
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(true);
+    expect(
+      (result.details?.summary as { totalSources: number }).totalSources,
+    ).toBe(1);
+  });
+
+  it("records discovery failure in counters but does not abort the run", async () => {
+    vi.mocked(runDiscovery).mockResolvedValue({
+      items: [
+        {
+          url: "https://example.com/article-1",
+          title: validArticleTitle,
+          publishedAt: "2026-06-08T00:00:00.000Z",
+        },
+      ],
+      failures: [
+        {
+          sourceUrl: "https://example.com/bad-feed",
+          strategyType: "rss",
+          errorCategory: "network_error",
+          message: "Connection refused",
+          retryable: true,
+        },
+      ],
+    });
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(true);
+    expect(dataCollectionCreateMock).toHaveBeenCalledOnce();
+
+    const runPayload = runCreateMock.mock.calls[0]![0];
+
+    expect(runPayload.counters.searchFailed).toBe(1);
+  });
+
+  it("drops items that fail the pre-filter alias check before fetching", async () => {
+    vi.mocked(runDiscovery).mockResolvedValue({
+      items: [
+        { url: "https://example.com/off-topic", title: "Sports news today" },
+      ],
+      failures: [],
+    });
+
+    const result = await runPageCollection(createContext());
+
+    expect(vi.mocked(performWebFetch)).not.toHaveBeenCalled();
+    expect(dataCollectionCreateMock).not.toHaveBeenCalled();
+
+    expect(result.success).toBe(false);
+  });
+
+  it("passes through title-less items without pre-filtering them", async () => {
+    vi.mocked(runDiscovery).mockResolvedValue({
+      items: [{ url: "https://example.com/no-title" }],
+      failures: [],
+    });
+
+    vi.mocked(performWebFetch).mockResolvedValue([
+      mockFetchSuccess({
+        url: "https://example.com/no-title",
+        title: validArticleTitle,
+        content: validArticleContent,
+        tickerId: TICKER_ID,
+        searchQueryId: CURATED_QUERY_ID,
+        searchQueryText: "",
+        serpIndex: 0,
+      }),
+    ]);
+
+    const result = await runPageCollection(createContext());
+
+    expect(vi.mocked(performWebFetch)).toHaveBeenCalledOnce();
+    expect(result.success).toBe(true);
+  });
+
+  it("skips already-existing URLs and does not fetch them", async () => {
+    existingUrlsCreateMock.mockResolvedValue({
+      existingUrls: ["https://example.com/article-1"],
+      hostCounts: {},
+    });
+
+    const result = await runPageCollection(createContext());
+
+    expect(vi.mocked(performWebFetch)).not.toHaveBeenCalled();
+    expect(dataCollectionCreateMock).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+  });
+
+  it("records fetch failures in the failures payload and persists them", async () => {
+    vi.mocked(performWebFetch).mockResolvedValue([
+      mockFetchFailure({
+        url: "https://example.com/article-1",
+        queryId: CURATED_QUERY_ID,
+        tickerId: TICKER_ID,
+        errorCategory: "network_error",
+        message: "ECONNREFUSED",
+        retryable: true,
+      }),
+    ]);
+
+    const result = await runPageCollection(createContext());
+
+    expect(failureCreateMock).toHaveBeenCalledOnce();
+
+    const failurePayload = failureCreateMock.mock.calls[0]![0][0];
+
+    expect(failurePayload.stage).toBe("web-fetch");
+    expect(failurePayload.tickerId).toBe(TICKER_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("returns semantic failure when run policy is not met", async () => {
+    vi.mocked(runDiscovery).mockResolvedValue({
+      items: [],
+      failures: [],
+    });
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(false);
+    expect(typeof result.message).toBe("string");
+    expect((result.details as { failureReason: string }).failureReason).toBe(
+      "insufficient_successful_sources",
+    );
+  });
+});
