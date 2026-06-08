@@ -238,6 +238,22 @@ export {
   type SectionCoverageVersionRow,
 } from "./section-coverage-rollup.js";
 export {
+  getAgentInsightsQuerySchema,
+  getAgentInsightsResponseSchema,
+  insightAlertSchema,
+  insightSectionSchema,
+  insightsPayloadSchema,
+  kpiCardSchema,
+  widgetSchema,
+  type GetAgentInsightsQuery,
+  type GetAgentInsightsResponse,
+  type InsightAlert,
+  type InsightSection,
+  type InsightsPayload,
+  type KpiCard,
+  type Widget,
+} from "./agent-insights.js";
+export {
   classifyQueryToSection,
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
