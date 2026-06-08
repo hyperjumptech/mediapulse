@@ -6,7 +6,7 @@ import {
 } from "@workspace/agent-data-api-contract";
 
 import type { QualityDropReason } from "./content-quality-gate";
-import type { WebFetchFailure } from "./web-fetch";
+import type { WebFetchFailure } from "@workspace/agent-ingestion";
 
 export type QualityDropForDeadUrl = {
   url: string;

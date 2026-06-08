@@ -10,7 +10,7 @@ vi.mock("@workspace/logger", () => ({
   },
 }));
 
-import type { WebSearchResult } from "./web-search";
+import type { WebSearchResult } from "./web-fetch";
 import { performWebFetch } from "./web-fetch";
 
 const jinaProviderConfig = {

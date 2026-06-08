@@ -10,12 +10,48 @@ import {
 } from "./fetch-providers/registry";
 import type { FetchProvider } from "./fetch-providers/types";
 
-import type { FetchMetadata } from "./date-extractor";
-import type { WebSearchResult } from "./web-search";
-import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
-import type { HostErrorTracker } from "./host-error-tracker";
-import { hostFromUrl } from "./host-error-tracker";
+
+/** Metadata fields from a fetch provider response used for publication-date extraction. */
+export type FetchMetadata = {
+  publishedTime?: string;
+  published_at?: string;
+  usage?: { tokens?: number };
+};
+
+/** Structural surface of the host error tracker consumed by the fetch stage. */
+export type HostErrorTracker = {
+  record(host: string, success: boolean): void;
+  isSkipped(host: string): boolean;
+};
+
+/**
+ * Extracts the hostname from a URL for host-level tracking.
+ *
+ * @param url - Full URL string.
+ */
+export const hostFromUrl = (url: string): string => {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+};
+
+/** Search result produced by the search stage and consumed by the fetch stage. */
+export interface WebSearchResult {
+  url: string;
+  title: string;
+  content: string;
+  tickerId: string;
+  searchQueryId: string;
+  searchQueryText: string;
+  serpIndex: number;
+  /** Optional fetch provider metadata captured during web fetch. */
+  fetchMetadata?: FetchMetadata;
+  /** @deprecated Use {@link WebSearchResult.fetchMetadata} instead. */
+  jinaMetadata?: FetchMetadata;
+}
 
 export type WebFetchProviderName = Extract<
   DataCollectionFailure["provider"],
@@ -49,7 +85,7 @@ export type WebFetchLogger = {
 };
 
 export interface WebFetchDeps {
-  config: ConfigSchemaType["providers"]["fetch"];
+  config: { providers: FetchProviderConfig[] };
   gotClient?: typeof got;
   /** Logger with run correlation; defaults to workspace logger. */
   logger?: WebFetchLogger;

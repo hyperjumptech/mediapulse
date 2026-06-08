@@ -4,7 +4,7 @@ import {
 } from "@workspace/agent-data-api-contract";
 
 import { cosineSimilarity } from "./embeddings";
-import type { FetchedWebSearchResult } from "./web-fetch";
+import type { FetchedWebSearchResult } from "@workspace/agent-ingestion";
 
 /** Candidate page that survived pre-persistence gates. */
 export type SemanticDedupeCandidate = FetchedWebSearchResult;

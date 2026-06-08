@@ -12,7 +12,7 @@ import type {
   FetchedWebSearchResult,
   WebFetchFailure,
   WebFetchOutcome,
-} from "./utilities/web-fetch";
+} from "@workspace/agent-ingestion";
 
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 
@@ -226,12 +226,12 @@ vi.mock("./utilities/web-search", () => ({
   performWebSearch: vi.fn(),
 }));
 
-vi.mock("./utilities/web-fetch", () => ({
+vi.mock("@workspace/agent-ingestion", () => ({
   performWebFetch: vi.fn(),
 }));
 
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
-import { performWebFetch } from "./utilities/web-fetch";
+import { performWebFetch } from "@workspace/agent-ingestion";
 import { performWebSearch } from "./utilities/web-search";
 import { runDataCollection } from "./run";
 
@@ -1156,8 +1156,8 @@ describe("parallel fetch wall-clock", () => {
   it("fetches 12 URLs with concurrency 4 faster than sequential execution", async () => {
     // Setup
     const { performWebFetch: performWebFetchActual } = await vi.importActual<
-      typeof import("./utilities/web-fetch")
-    >("./utilities/web-fetch");
+      typeof import("@workspace/agent-ingestion")
+    >("@workspace/agent-ingestion");
 
     const searchResults = Array.from({ length: 12 }, (_, index) => ({
       url: `http://example.com/${index}`,

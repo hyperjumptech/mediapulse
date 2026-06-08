@@ -1,9 +1,14 @@
 import got from "got";
 import { z } from "zod";
 import { logger as defaultLogger } from "@workspace/logger";
-import { RateLimiter, type StageThrottleStats, withRetry } from "./resilience";
-import { classifyError, isRetryableError } from "./error-classification";
-import { pMap } from "./p-map";
+import {
+  RateLimiter,
+  type StageThrottleStats,
+  withRetry,
+  classifyError,
+  isRetryableError,
+  pMap,
+} from "@workspace/agent-ingestion";
 import { buildSerperRequestBody, resolveSerperEndpoint } from "./serper-query";
 import type { ConfigSchemaType } from "./config-schema";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
