@@ -40,9 +40,7 @@ describe("WidgetRenderer", () => {
   });
 
   it("renders stat widget with negative delta", () => {
-    render(
-      <WidgetRenderer widget={{ kind: "stat", value: 10, delta: -3 }} />,
-    );
+    render(<WidgetRenderer widget={{ kind: "stat", value: 10, delta: -3 }} />);
 
     expect(screen.getByText("-3")).toBeInTheDocument();
   });

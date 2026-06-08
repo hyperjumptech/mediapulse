@@ -1,6 +1,4 @@
-import type {
-  InsightsPayload,
-} from "@workspace/agent-data-api-contract";
+import type { InsightsPayload } from "@workspace/agent-data-api-contract";
 
 import {
   createDashboardAgentDataApiClient,

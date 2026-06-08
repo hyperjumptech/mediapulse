@@ -23,7 +23,8 @@ type WidgetRendererProps = {
  */
 export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
   if (widget.kind === "stat") {
-    const deltaSign = widget.delta !== undefined && widget.delta >= 0 ? "+" : "";
+    const deltaSign =
+      widget.delta !== undefined && widget.delta >= 0 ? "+" : "";
     const deltaColor =
       widget.delta === undefined
         ? ""
@@ -63,12 +64,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
           <XAxis dataKey="ts" tick={{ fontSize: 11 }} />
           <YAxis tick={{ fontSize: 11 }} unit={widget.unit} />
           <Tooltip />
-          <Line
-            type="monotone"
-            dataKey="value"
-            stroke="#6366f1"
-            dot={false}
-          />
+          <Line type="monotone" dataKey="value" stroke="#6366f1" dot={false} />
         </LineChart>
       </ResponsiveContainer>
     );
@@ -112,9 +108,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
       <ul className="space-y-2 py-2">
         {widget.stages.map((stage) => {
           const percentage =
-            firstValue > 0
-              ? Math.round((stage.value / firstValue) * 100)
-              : 100;
+            firstValue > 0 ? Math.round((stage.value / firstValue) * 100) : 100;
 
           return (
             <li key={stage.label} className="flex items-center gap-3 text-sm">
@@ -170,10 +164,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
             {widget.rows.map((row, rowIndex) => (
               <tr key={rowIndex} className="border-b border-border/30">
                 {row.map((cell, cellIndex) => (
-                  <td
-                    key={cellIndex}
-                    className="py-2 pr-4 text-foreground"
-                  >
+                  <td key={cellIndex} className="py-2 pr-4 text-foreground">
                     {cell ?? "—"}
                   </td>
                 ))}
@@ -185,5 +176,9 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
     );
   }
 
-  return <div className="py-2 text-sm text-muted-foreground">Unsupported widget kind</div>;
+  return (
+    <div className="py-2 text-sm text-muted-foreground">
+      Unsupported widget kind
+    </div>
+  );
 };
