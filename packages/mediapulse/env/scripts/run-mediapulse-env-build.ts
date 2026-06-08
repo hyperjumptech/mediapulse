@@ -52,6 +52,10 @@ const TARGET_SPECS: Readonly<
     input: "env.app.user-registration.example",
     output: "src/app-user-registration.ts",
   },
+  "agents.page-collection": {
+    input: "env.agents.page-collection.example",
+    output: "src/agents-page-collection.ts",
+  },
 };
 
 /**

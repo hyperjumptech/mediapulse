@@ -103,6 +103,19 @@ services:
       - agent-data-api
     restart: unless-stopped
 
+  agent-page-collection:
+    build:
+      context: .
+      dockerfile: apps/mediapulse/agents/page-collection/Dockerfile
+    ports:
+      - 4006:4006
+    env_file:
+      - packages/mediapulse/env/.env
+    depends_on:
+      - agent-auth-api
+      - agent-data-api
+    restart: unless-stopped
+
   agent-content-generation:
     build:
       context: .
