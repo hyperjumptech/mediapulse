@@ -312,12 +312,13 @@ describe("ScheduleFormFields", () => {
     );
 
     // Assert
-    expect(screen.getByLabelText("Pipeline")).toBeInTheDocument();
+    const pipelineSelect = screen.getByLabelText("Pipeline");
+    expect(pipelineSelect).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "Pipeline A" }),
+      within(pipelineSelect).getByRole("option", { name: "Pipeline A" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "Pipeline B" }),
+      within(pipelineSelect).getByRole("option", { name: "Pipeline B" }),
     ).toBeInTheDocument();
   });
 
