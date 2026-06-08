@@ -22,7 +22,7 @@ if [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
       echo 'matrix=[{"service":"agent-auth-api","dockerfile":"apps/hermes/agent-auth-api/Dockerfile","image":"app-agent-auth-api","webhook_secret":"COOLIFY_WEBHOOK_APP_AGENT_AUTH_API"},{"service":"agent-data-api","dockerfile":"apps/mediapulse/agent-data-api/Dockerfile","image":"app-agent-data-api","webhook_secret":"COOLIFY_WEBHOOK_APP_AGENT_DATA_API"},{"service":"domain-api","dockerfile":"apps/mediapulse/domain-api/Dockerfile","image":"app-domain-api","webhook_secret":"COOLIFY_WEBHOOK_APP_DOMAIN_API"},{"service":"agent-registry-api","dockerfile":"apps/hermes/agent-registry-api/Dockerfile","image":"app-agent-registry-api","webhook_secret":"COOLIFY_WEBHOOK_APP_AGENT_REGISTRY_API"},{"service":"user-registration","dockerfile":"apps/mediapulse/user-registration/Dockerfile","image":"app-user-registration","webhook_secret":"COOLIFY_WEBHOOK_APP_USER_REGISTRATION"},{"service":"hermes","dockerfile":"apps/hermes/dashboard/Dockerfile","image":"app-hermes","webhook_secret":"COOLIFY_WEBHOOK_APP_HERMES"},{"service":"hermes-worker","dockerfile":"apps/hermes/worker/Dockerfile","image":"app-hermes-worker","webhook_secret":"COOLIFY_WEBHOOK_APP_HERMES_WORKER"}]' >>"$GITHUB_OUTPUT"
       ;;
     agent)
-      echo 'matrix=[{"service":"data-collection","dockerfile":"apps/mediapulse/agents/data-collection/Dockerfile","image":"agent-data-collection","webhook_secret":"COOLIFY_WEBHOOK_AGENT_DATA_COLLECTION"},{"service":"content-generation","dockerfile":"apps/mediapulse/agents/content-generation/Dockerfile","image":"agent-content-generation","webhook_secret":"COOLIFY_WEBHOOK_AGENT_CONTENT_GENERATION"},{"service":"article-analysis","dockerfile":"apps/mediapulse/agents/article-analysis/Dockerfile","image":"agent-article-analysis","webhook_secret":"COOLIFY_WEBHOOK_AGENT_ARTICLE_ANALYSIS"},{"service":"query-analysis","dockerfile":"apps/mediapulse/agents/query-analysis/Dockerfile","image":"agent-query-analysis","webhook_secret":"COOLIFY_WEBHOOK_AGENT_QUERY_ANALYSIS"},{"service":"delivery","dockerfile":"apps/mediapulse/agents/delivery/Dockerfile","image":"agent-delivery","webhook_secret":"COOLIFY_WEBHOOK_AGENT_DELIVERY"},{"service":"ticker-echo","dockerfile":"apps/mediapulse/agents/ticker-echo/Dockerfile","image":"agent-ticker-echo","webhook_secret":"COOLIFY_WEBHOOK_AGENT_TICKER_ECHO"},{"service":"agent-user-registration","dockerfile":"apps/mediapulse/agents/user-registration/Dockerfile","image":"agent-user-registration","webhook_secret":"COOLIFY_WEBHOOK_AGENT_USER_REGISTRATION"}]' >>"$GITHUB_OUTPUT"
+      echo 'matrix=[{"service":"data-collection","dockerfile":"apps/mediapulse/agents/data-collection/Dockerfile","image":"agent-data-collection","webhook_secret":"COOLIFY_WEBHOOK_AGENT_DATA_COLLECTION"},{"service":"content-generation","dockerfile":"apps/mediapulse/agents/content-generation/Dockerfile","image":"agent-content-generation","webhook_secret":"COOLIFY_WEBHOOK_AGENT_CONTENT_GENERATION"},{"service":"article-analysis","dockerfile":"apps/mediapulse/agents/article-analysis/Dockerfile","image":"agent-article-analysis","webhook_secret":"COOLIFY_WEBHOOK_AGENT_ARTICLE_ANALYSIS"},{"service":"query-analysis","dockerfile":"apps/mediapulse/agents/query-analysis/Dockerfile","image":"agent-query-analysis","webhook_secret":"COOLIFY_WEBHOOK_AGENT_QUERY_ANALYSIS"},{"service":"delivery","dockerfile":"apps/mediapulse/agents/delivery/Dockerfile","image":"agent-delivery","webhook_secret":"COOLIFY_WEBHOOK_AGENT_DELIVERY"},{"service":"ticker-echo","dockerfile":"apps/mediapulse/agents/ticker-echo/Dockerfile","image":"agent-ticker-echo","webhook_secret":"COOLIFY_WEBHOOK_AGENT_TICKER_ECHO"},{"service":"agent-user-registration","dockerfile":"apps/mediapulse/agents/user-registration/Dockerfile","image":"agent-user-registration","webhook_secret":"COOLIFY_WEBHOOK_AGENT_USER_REGISTRATION"},{"service":"page-collection","dockerfile":"apps/mediapulse/agents/page-collection/Dockerfile","image":"agent-page-collection","webhook_secret":"COOLIFY_WEBHOOK_AGENT_PAGE_COLLECTION"}]' >>"$GITHUB_OUTPUT"
       ;;
     *)
       echo "Unsupported WORKFLOW: $workflow" >&2
@@ -66,7 +66,7 @@ if [ "$shared_changed" = "true" ]; then
       services_list=$'agent-auth-api\nagent-data-api\ndomain-api\nagent-registry-api\nuser-registration\nhermes\nhermes-worker\n'
       ;;
     agent)
-      services_list=$'data-collection\ncontent-generation\narticle-analysis\nquery-analysis\ndelivery\nticker-echo\nagent-user-registration\n'
+      services_list=$'data-collection\ncontent-generation\narticle-analysis\nquery-analysis\ndelivery\nticker-echo\nagent-user-registration\npage-collection\n'
       ;;
   esac
 else
@@ -114,6 +114,9 @@ else
         ;;
       apps/mediapulse/agents/user-registration/*)
         [ "$workflow" = "agent" ] && append_service "agent-user-registration"
+        ;;
+      apps/mediapulse/agents/page-collection/*)
+        [ "$workflow" = "agent" ] && append_service "page-collection"
         ;;
     esac
   done <<<"$changed_files"
@@ -171,6 +174,9 @@ lookup_service_config() {
       ;;
     agent-user-registration)
       echo '{"service":"agent-user-registration","dockerfile":"apps/mediapulse/agents/user-registration/Dockerfile","image":"agent-user-registration","webhook_secret":"COOLIFY_WEBHOOK_AGENT_USER_REGISTRATION"}'
+      ;;
+    page-collection)
+      echo '{"service":"page-collection","dockerfile":"apps/mediapulse/agents/page-collection/Dockerfile","image":"agent-page-collection","webhook_secret":"COOLIFY_WEBHOOK_AGENT_PAGE_COLLECTION"}'
       ;;
     *)
       return 1
