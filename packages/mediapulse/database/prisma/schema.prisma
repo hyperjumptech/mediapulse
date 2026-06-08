@@ -22,6 +22,7 @@ enum Sentiment {
 enum SearchQuerySource {
   deterministic
   llm
+  curated
 }
 
 enum SearchQueryIntent {

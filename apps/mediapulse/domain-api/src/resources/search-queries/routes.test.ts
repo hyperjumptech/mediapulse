@@ -72,6 +72,7 @@ describe("searchQueriesRoutes", () => {
     expect(body.sourceOptions).toEqual([
       { value: "deterministic", label: "deterministic" },
       { value: "llm", label: "llm" },
+      { value: "curated", label: "curated" },
     ]);
   });
 

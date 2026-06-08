@@ -79,6 +79,10 @@ export {
   type PostDataCollectionExistingUrlsResponse,
   type PostDataCollectionResponse,
   type SourceFingerprint,
+  postCuratedListingQueryBodySchema,
+  postCuratedListingQueryResponseSchema,
+  type PostCuratedListingQueryBody,
+  type PostCuratedListingQueryResponse,
 } from "./data-collection.js";
 export {
   computeDeadUrlExpiresAt,

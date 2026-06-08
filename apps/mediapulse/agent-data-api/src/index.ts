@@ -26,6 +26,7 @@ import {
   postDataCollectionDeadUrlsRecord,
 } from "./routes/data-collection-dead-url.js";
 import { getDataCollectionRecentSourceFingerprints } from "./routes/data-collection-recent-source-fingerprints.js";
+import { postDataCollectionCuratedListingQuery } from "./routes/data-collection-curated-listing-query.js";
 import {
   getDataCollection,
   postDataCollection,
@@ -119,6 +120,9 @@ const routeHandlers = {
   },
   dataCollectionRecentSourceFingerprints: {
     get: getDataCollectionRecentSourceFingerprints,
+  },
+  dataCollectionCuratedListingQuery: {
+    post: postDataCollectionCuratedListingQuery,
   },
   dataCollectionRun: {
     get: getDataCollectionRun,
