@@ -22,6 +22,26 @@ export const dataCollectionRunInputSchema = z.object({
     retryCount: z.number().int().nonnegative(),
     droppedByRelevance: z.number().int().nonnegative(),
     throttleEvents: z.number().int().nonnegative(),
+    // Extended optional counters for detailed insights
+    discovered: z.number().int().nonnegative().optional(),
+    afterPrefilter: z.number().int().nonnegative().optional(),
+    discoveryFailed: z.number().int().nonnegative().optional(),
+    cacheHits: z.number().int().nonnegative().optional(),
+    cacheMisses: z.number().int().nonnegative().optional(),
+    droppedByContentQuality: z
+      .record(z.string(), z.number().int().nonnegative())
+      .optional(),
+    droppedByFreshness: z.number().int().nonnegative().optional(),
+    droppedByDeadUrl: z.number().int().nonnegative().optional(),
+    droppedByHostErrorRate: z.number().int().nonnegative().optional(),
+    droppedByFetchBudget: z.number().int().nonnegative().optional(),
+    droppedByRunItemCap: z.number().int().nonnegative().optional(),
+    droppedByExistingCanonicalUrl: z.number().int().nonnegative().optional(),
+    droppedByDuplicateCanonicalUrl: z.number().int().nonnegative().optional(),
+    droppedByUrlNoise: z.number().int().nonnegative().optional(),
+    persisted: z.number().int().nonnegative().optional(),
+    deadlineHit: z.boolean().optional(),
+    durationMs: z.number().int().nonnegative().optional(),
   }),
 });
 

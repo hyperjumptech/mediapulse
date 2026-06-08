@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   ScheduleFormFields,
@@ -253,10 +253,13 @@ describe("ScheduleFormFields", () => {
     );
 
     // Assert
-    expect(screen.getByLabelText("Repeat")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Once" })).toBeInTheDocument();
+    const repeatSelect = screen.getByLabelText("Repeat");
+    expect(repeatSelect).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "Repeating" }),
+      within(repeatSelect).getByRole("option", { name: "Once" }),
+    ).toBeInTheDocument();
+    expect(
+      within(repeatSelect).getByRole("option", { name: "Repeating" }),
     ).toBeInTheDocument();
   });
 
@@ -309,12 +312,13 @@ describe("ScheduleFormFields", () => {
     );
 
     // Assert
-    expect(screen.getByLabelText("Pipeline")).toBeInTheDocument();
+    const pipelineSelect = screen.getByLabelText("Pipeline");
+    expect(pipelineSelect).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "Pipeline A" }),
+      within(pipelineSelect).getByRole("option", { name: "Pipeline A" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "Pipeline B" }),
+      within(pipelineSelect).getByRole("option", { name: "Pipeline B" }),
     ).toBeInTheDocument();
   });
 

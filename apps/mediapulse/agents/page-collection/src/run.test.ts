@@ -573,4 +573,28 @@ describe("runPageCollection", () => {
 
     expect(discoverySourceHealthRecordMock).not.toHaveBeenCalled();
   });
+
+  it("includes metadata.provider on each persisted source", async () => {
+    await runPageCollection(createContext());
+
+    expect(dataCollectionCreateMock).toHaveBeenCalledOnce();
+
+    const persistedSource = dataCollectionCreateMock.mock.calls[0]![0][0];
+
+    expect(persistedSource.metadata).toBeDefined();
+    expect(persistedSource.metadata.provider).toBe("jina");
+  });
+
+  it("includes widened extended counters in the DataCollectionRun payload", async () => {
+    await runPageCollection(createContext());
+
+    expect(runCreateMock).toHaveBeenCalledOnce();
+
+    const runPayload = runCreateMock.mock.calls[0]![0];
+
+    expect(typeof runPayload.counters.discovered).toBe("number");
+    expect(typeof runPayload.counters.afterPrefilter).toBe("number");
+    expect(typeof runPayload.counters.persisted).toBe("number");
+    expect(runPayload.counters.persisted).toBe(1);
+  });
 });

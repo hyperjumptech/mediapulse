@@ -483,6 +483,7 @@ export async function runPageCollection(
       tickerId: input.tickerId,
       searchQueryId,
       ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
+      metadata: { provider: page.provider },
     });
     fetchSuccessCount += 1;
   }
@@ -590,6 +591,17 @@ export async function runPageCollection(
       ? "partial_success"
       : derivedStatus;
 
+  const cacheHits = sourceReports.filter(
+    (r) => r.winningStrategy === "cache",
+  ).length;
+  const cacheMisses = sourceReports.filter(
+    (r) => r.discovered && r.winningStrategy !== "cache",
+  ).length;
+  const droppedByUrlNoiseTotal = Object.values(droppedByUrlReason).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+
   const counters: RunCounters = {
     queriesTotal: discoverySources.filter((s) => s.enabled !== false).length,
     urlsTotal: cappedDiscoveredItems.length,
@@ -600,6 +612,24 @@ export async function runPageCollection(
     retryCount: 0,
     droppedByRelevance,
     throttleEvents: 0,
+    // Extended counters for insights
+    discovered: discoveredItems.length,
+    afterPrefilter: filteredItems.length,
+    discoveryFailed: discoveryFailures.length,
+    cacheHits,
+    cacheMisses,
+    droppedByContentQuality: { ...droppedByContentQuality },
+    droppedByFreshness,
+    droppedByDeadUrl: droppedByDeadUrlCache,
+    droppedByHostErrorRate,
+    droppedByFetchBudget,
+    droppedByRunItemCap,
+    droppedByExistingCanonicalUrl,
+    droppedByDuplicateCanonicalUrl,
+    droppedByUrlNoise: droppedByUrlNoiseTotal,
+    persisted: persistedCount,
+    deadlineHit,
+    durationMs: Date.now() - startedAt.getTime(),
   };
 
   const runPayload = {

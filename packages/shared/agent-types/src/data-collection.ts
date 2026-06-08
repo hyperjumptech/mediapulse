@@ -22,6 +22,7 @@ export const dataCollectionInputSchema = z.object({
   tickerId: z.string().uuid(),
   searchQueryId: z.string().uuid(),
   publishedAt: z.string().datetime().optional(),
+  metadata: z.object({ provider: z.string().optional() }).optional(),
 });
 
 export type DataCollectionInput = z.infer<typeof dataCollectionInputSchema>;
