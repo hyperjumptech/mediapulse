@@ -189,24 +189,15 @@ describe("AgentDetailsContent", () => {
     expect(screen.getByText("No")).toBeInTheDocument();
   });
 
-  it("Insights tab is hidden when insightsEnabled is false", () => {
+  it("Insights tab is hidden when insightsPayload is null", () => {
     // Setup
     const agent = createMockAgent();
-    const payload = {
-      agentId: "test-agent",
-      window: "7d" as const,
-      generatedAt: "2024-06-01T00:00:00.000Z",
-      kpis: [],
-      alerts: [],
-      sections: [],
-    };
 
     // Act
     render(
       <AgentDetailsContent
         agent={agent}
-        insightsEnabled={false}
-        insightsPayload={payload}
+        insightsPayload={null}
         insightsWindow="7d"
       />,
     );
@@ -216,7 +207,7 @@ describe("AgentDetailsContent", () => {
     expect(screen.queryByTestId("insights-tab")).not.toBeInTheDocument();
   });
 
-  it("Insights tab appears when insightsEnabled is true and insightsPayload is provided", () => {
+  it("Insights tab appears when insightsPayload is provided", () => {
     // Setup
     const agent = createMockAgent();
     const payload = {
@@ -232,7 +223,6 @@ describe("AgentDetailsContent", () => {
     render(
       <AgentDetailsContent
         agent={agent}
-        insightsEnabled={true}
         insightsPayload={payload}
         insightsWindow="7d"
       />,

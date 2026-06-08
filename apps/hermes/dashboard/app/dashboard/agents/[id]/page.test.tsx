@@ -14,7 +14,6 @@ vi.mock("@hermes/env", () => ({
     TEMP_ADMIN_PASSWORD: "testtest",
     HERMES_INTERNAL_API_KEY: "test-key",
     AGENT_DATA_API_URL: "http://test-agent-data-api",
-    HERMES_AGENT_INSIGHTS_ENABLED: undefined,
   },
 }));
 
@@ -24,7 +23,10 @@ vi.mock("next/headers", () => ({
 
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
-  notFound: () => notFoundMock(),
+  notFound: () => {
+    notFoundMock();
+    throw new Error("NEXT_NOT_FOUND");
+  },
 }));
 
 vi.mock("@/lib/agents", () => ({
@@ -84,6 +86,7 @@ describe("AgentDetailPage", () => {
     // Setup
     const agent = createMockAgent();
     getAgentByIdMock.mockResolvedValue(agent);
+    getAgentInsightsMock.mockResolvedValue({ hasInsights: false });
 
     // Act
     const component = await AgentDetailPage({
@@ -106,6 +109,7 @@ describe("AgentDetailPage", () => {
   it("calls getAgentById with id from params", async () => {
     // Setup
     getAgentByIdMock.mockResolvedValue(createMockAgent());
+    getAgentInsightsMock.mockResolvedValue({ hasInsights: false });
 
     // Act
     await AgentDetailPage({
@@ -121,9 +125,9 @@ describe("AgentDetailPage", () => {
     getAgentByIdMock.mockResolvedValue(null);
 
     // Act
-    await AgentDetailPage({
-      params: Promise.resolve({ id: "non-existent" }),
-    });
+    await expect(
+      AgentDetailPage({ params: Promise.resolve({ id: "non-existent" }) }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
 
     // Assert
     expect(notFoundMock).toHaveBeenCalled();

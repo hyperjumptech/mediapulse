@@ -27,21 +27,19 @@ const VALUE_CLASS =
 type AgentDetailsContentProps = {
   /** Agent from getAgentById (registry row with domain integration id). */
   agent: AgentDetail;
-  insightsEnabled?: boolean;
   insightsPayload?: InsightsPayload | null;
   insightsWindow?: "24h" | "7d" | "30d";
 };
 
 /**
- * Renders agent details in a tabbed layout: General (details including domain integration id, endpoint), Input schema (pretty JSON), Config schema (pretty JSON), and optionally Insights.
+ * Renders agent details in a tabbed layout: General (details including domain integration id, endpoint), Input schema (pretty JSON), Config schema (pretty JSON), and Insights.
  */
 export const AgentDetailsContent = ({
   agent,
-  insightsEnabled,
   insightsPayload,
   insightsWindow,
 }: AgentDetailsContentProps) => {
-  const showInsights = insightsEnabled && insightsPayload != null;
+  const showInsights = insightsPayload != null;
   const tabColsClass = showInsights ? "grid-cols-4" : "grid-cols-3";
 
   return (
