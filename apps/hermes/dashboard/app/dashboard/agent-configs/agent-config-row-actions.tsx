@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -31,8 +32,6 @@ export type AgentConfigRow = {
 type AgentConfigRowActionsProps = {
   config: AgentConfigRow;
   configLabel: string;
-  onEdit: (config: AgentConfigRow) => void;
-  onDuplicate: (config: AgentConfigRow) => void;
 };
 
 /**
@@ -92,8 +91,6 @@ const useAgentConfigRowActions = (configLabel: string) => {
 export const AgentConfigRowActions = ({
   config,
   configLabel,
-  onEdit,
-  onDuplicate,
 }: AgentConfigRowActionsProps) => {
   const {
     FormWithAction,
@@ -117,13 +114,17 @@ export const AgentConfigRowActions = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem onSelect={() => onEdit(config)}>
-            <Pencil className="mr-2 size-4" />
-            Edit
+          <DropdownMenuItem asChild>
+            <Link href={`/dashboard/agent-configs/${config.id}/edit`}>
+              <Pencil className="mr-2 size-4" />
+              Edit
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onDuplicate(config)}>
-            <Copy className="mr-2 size-4" />
-            Duplicate
+          <DropdownMenuItem asChild>
+            <Link href={`/dashboard/agent-configs/new?duplicate=${config.id}`}>
+              <Copy className="mr-2 size-4" />
+              Duplicate
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" disabled={pending} asChild>

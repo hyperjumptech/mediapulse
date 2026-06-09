@@ -44,8 +44,6 @@ type AgentConfigsTableProps = {
   sortBy: AgentConfigSortField;
   sortDir: AgentConfigSortDir;
   pageSize: number;
-  onEdit: (config: AgentConfigRow) => void;
-  onDuplicate: (config: AgentConfigRow) => void;
 };
 
 /**
@@ -56,8 +54,6 @@ export const AgentConfigsTable = ({
   sortBy,
   sortDir,
   pageSize,
-  onEdit,
-  onDuplicate,
 }: AgentConfigsTableProps) => {
   const sortLink = (field: AgentConfigSortField, label: string) => {
     const isActive = sortBy === field;
@@ -108,14 +104,12 @@ export const AgentConfigsTable = ({
             configs.map((config) => (
               <TableRow key={config.id}>
                 <TableCell className="font-medium">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(config)}
-                    className="text-left underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
-                    aria-label={`Edit config ${config.name}`}
+                  <Link
+                    href={`/dashboard/agent-configs/${config.id}/edit`}
+                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
                   >
                     {config.name}
-                  </button>
+                  </Link>
                 </TableCell>
                 <TableCell className="max-w-[200px] truncate text-muted-foreground">
                   {config.description ?? "—"}
@@ -140,8 +134,6 @@ export const AgentConfigsTable = ({
                   <AgentConfigRowActions
                     config={config}
                     configLabel={config.name}
-                    onEdit={onEdit}
-                    onDuplicate={onDuplicate}
                   />
                 </TableCell>
               </TableRow>

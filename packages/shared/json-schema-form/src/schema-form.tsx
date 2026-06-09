@@ -12,6 +12,7 @@ import {
   applySchemaDefaults,
   defaultForSchema,
   getSchemaFormType,
+  seedNewArrayItem,
 } from "./schema-form-utils";
 import { useRecordEntryDraftKey } from "./use-record-entry-draft-key";
 import { useSchemaFormSeed } from "./use-schema-form-seed";
@@ -464,19 +465,7 @@ const SchemaField = ({
       onChange(next);
     };
     const handleAdd = () => {
-      const def = itemSchema.default;
-      const empty =
-        getType(itemSchema) === "object"
-          ? {}
-          : getType(itemSchema) === "string"
-            ? ""
-            : getType(itemSchema) === "number" ||
-                getType(itemSchema) === "integer"
-              ? 0
-              : getType(itemSchema) === "boolean"
-                ? false
-                : null;
-      onChange([...arr, def !== undefined ? def : empty]);
+      onChange([...arr, seedNewArrayItem(itemSchema)]);
     };
     const handleRemove = (index: number) => {
       const next = arr.filter((_, i) => i !== index);
