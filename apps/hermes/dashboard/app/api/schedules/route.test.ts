@@ -79,6 +79,8 @@ describe("GET /api/schedules", () => {
           executionConfig: null,
           priority: 0,
           enabled: true,
+          lastRecoveredAt: null,
+          lastMissedRunCount: null,
           createdAt: new Date("2026-01-01T00:00:00.000Z"),
           updatedAt: new Date("2026-01-01T00:00:00.000Z"),
           createdById: null,

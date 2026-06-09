@@ -74,6 +74,16 @@ export {
   type GetDueSchedulesDb,
 } from "./get-due-schedules";
 export { computeNextRunAt, type ScheduleForNextRun } from "./next-run-at";
+export {
+  planScheduleRecovery,
+  reconcileOverdueSchedules,
+  type PlanScheduleRecoveryResult,
+  type ReconcileLogger,
+  type ReconcileOverdueSchedulesDeps,
+  type ReconcileOverdueSchedulesResult,
+  type ReconcileSchedulesDb,
+  type ScheduleForRecovery,
+} from "./reconcile-overdue-schedules";
 export { willRetryAfterTransientFailure } from "./will-retry-after-transient-failure";
 export {
   applyHermesInvokeCorrelationHeaders,

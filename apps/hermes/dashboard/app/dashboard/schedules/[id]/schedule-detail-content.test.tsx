@@ -118,6 +118,8 @@ const createMockSchedule = (
     executionConfig: null,
     priority: 0,
     enabled: true,
+    lastRecoveredAt: null,
+    lastMissedRunCount: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     createdById: null,
