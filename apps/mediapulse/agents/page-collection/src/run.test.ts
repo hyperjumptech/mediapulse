@@ -30,7 +30,7 @@ const baseConfig = ConfigSchema.parse({
   curatedSources: [
     {
       listingUrl: "https://example.com/feed",
-      strategies: ["rss"],
+      strategy: "rss",
     },
   ],
   providers: {

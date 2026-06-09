@@ -137,7 +137,7 @@ export async function runPageCollection(
   const discoverySources: DiscoverySource[] = config.curatedSources.map(
     (source) => ({
       url: source.listingUrl,
-      strategies: source.strategies ?? config.defaultDiscoveryChain,
+      strategy: source.strategy,
       enabled: source.enabled,
       maxItems: source.maxItems,
     }),

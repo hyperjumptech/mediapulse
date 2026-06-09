@@ -38,76 +38,103 @@ describe("discoverOneSource", () => {
     vi.resetAllMocks();
   });
 
-  it("returns items from the first strategy that succeeds with non-empty results", async () => {
+  it("returns items when the chosen strategy succeeds with non-empty results", async () => {
     const rssItems = [{ url: "https://example.com/a" }];
     vi.mocked(rssStrategy.discover).mockResolvedValue(rssItems);
 
     const result = await discoverOneSource(
-      {
-        url: "https://example.com/feed",
-        strategies: ["rss", "sitemap", "generic-links"],
-      },
+      { url: "https://example.com/feed", strategy: "rss" },
       buildDeps(),
     );
 
     expect(result.items).toEqual(rssItems);
     expect(result.failures).toHaveLength(0);
+    expect(result.winningStrategy).toBe("rss");
     expect(vi.mocked(sitemapStrategy.discover)).not.toHaveBeenCalled();
+    expect(vi.mocked(genericLinksStrategy.discover)).not.toHaveBeenCalled();
   });
 
-  it("falls through rss error → sitemap empty → generic-links succeeds", async () => {
-    const genericItems = [{ url: "https://example.com/article/one" }];
-    vi.mocked(rssStrategy.discover).mockRejectedValue(RSS_ERROR);
-    vi.mocked(sitemapStrategy.discover).mockResolvedValue([]);
-    vi.mocked(genericLinksStrategy.discover).mockResolvedValue(genericItems);
+  it("returns empty items and a failure when the strategy returns no items", async () => {
+    vi.mocked(rssStrategy.discover).mockResolvedValue([]);
 
     const result = await discoverOneSource(
-      {
-        url: "https://example.com/news",
-        strategies: ["rss", "sitemap", "generic-links"],
-      },
-      buildDeps(),
-    );
-
-    expect(result.items).toEqual(genericItems);
-    expect(result.failures).toHaveLength(2);
-    expect(result.failures[0]?.strategyType).toBe("rss");
-    expect(result.failures[1]?.strategyType).toBe("sitemap");
-  });
-
-  it("returns empty items and all failures when the whole chain is exhausted", async () => {
-    vi.mocked(rssStrategy.discover).mockRejectedValue(RSS_ERROR);
-    vi.mocked(sitemapStrategy.discover).mockRejectedValue(
-      new Error("sitemap gone"),
-    );
-    vi.mocked(genericLinksStrategy.discover).mockRejectedValue(
-      new Error("403"),
-    );
-
-    const result = await discoverOneSource(
-      {
-        url: "https://example.com/news",
-        strategies: ["rss", "sitemap", "generic-links"],
-      },
+      { url: "https://example.com/feed", strategy: "rss" },
       buildDeps(),
     );
 
     expect(result.items).toHaveLength(0);
-    expect(result.failures).toHaveLength(3);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.strategyType).toBe("rss");
+    expect(result.failures[0]?.errorCategory).toBe("provider_data_invalid");
+    expect(result.winningStrategy).toBeNull();
   });
 
-  it("respects maxItems when the winning strategy returns too many", async () => {
+  it("returns empty items and a failure when the strategy throws", async () => {
+    vi.mocked(rssStrategy.discover).mockRejectedValue(RSS_ERROR);
+
+    const result = await discoverOneSource(
+      { url: "https://example.com/feed", strategy: "rss" },
+      buildDeps(),
+    );
+
+    expect(result.items).toHaveLength(0);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.strategyType).toBe("rss");
+    expect(result.winningStrategy).toBeNull();
+  });
+
+  it("runs the sitemap strategy when strategy is sitemap", async () => {
+    const sitemapItems = [{ url: "https://example.com/sitemap-article" }];
+    vi.mocked(sitemapStrategy.discover).mockResolvedValue(sitemapItems);
+
+    const result = await discoverOneSource(
+      { url: "https://example.com/sitemap.xml", strategy: "sitemap" },
+      buildDeps(),
+    );
+
+    expect(result.items).toEqual(sitemapItems);
+    expect(result.winningStrategy).toBe("sitemap");
+    expect(vi.mocked(rssStrategy.discover)).not.toHaveBeenCalled();
+  });
+
+  it("runs the generic-links strategy when strategy is generic-links", async () => {
+    const genericItems = [{ url: "https://example.com/article/one" }];
+    vi.mocked(genericLinksStrategy.discover).mockResolvedValue(genericItems);
+
+    const result = await discoverOneSource(
+      { url: "https://example.com/news", strategy: "generic-links" },
+      buildDeps(),
+    );
+
+    expect(result.items).toEqual(genericItems);
+    expect(result.winningStrategy).toBe("generic-links");
+    expect(vi.mocked(rssStrategy.discover)).not.toHaveBeenCalled();
+  });
+
+  it("respects maxItems when the strategy returns too many", async () => {
     const manyItems = Array.from({ length: 20 }, (_, index) => ({
       url: `https://example.com/articles/${index}`,
     }));
     vi.mocked(rssStrategy.discover).mockResolvedValue(manyItems);
 
     const result = await discoverOneSource(
-      { url: "https://example.com/feed", strategies: ["rss"], maxItems: 5 },
+      { url: "https://example.com/feed", strategy: "rss", maxItems: 5 },
       buildDeps(),
     );
 
     expect(result.items).toHaveLength(5);
+  });
+
+  it("does not fall through to other strategies when the chosen one fails", async () => {
+    vi.mocked(rssStrategy.discover).mockRejectedValue(RSS_ERROR);
+
+    await discoverOneSource(
+      { url: "https://example.com/feed", strategy: "rss" },
+      buildDeps(),
+    );
+
+    expect(vi.mocked(sitemapStrategy.discover)).not.toHaveBeenCalled();
+    expect(vi.mocked(genericLinksStrategy.discover)).not.toHaveBeenCalled();
   });
 });
 
@@ -123,8 +150,8 @@ describe("runDiscovery", () => {
 
     const result = await runDiscovery(
       [
-        { url: "https://a.com/feed", strategies: ["rss"] },
-        { url: "https://b.com/feed", strategies: ["rss"], enabled: false },
+        { url: "https://a.com/feed", strategy: "rss" },
+        { url: "https://b.com/feed", strategy: "rss", enabled: false },
       ],
       buildDeps(),
     );
@@ -140,8 +167,8 @@ describe("runDiscovery", () => {
 
     const result = await runDiscovery(
       [
-        { url: "https://example.com/feed.rss", strategies: ["rss"] },
-        { url: "https://example.com/sitemap.xml", strategies: ["sitemap"] },
+        { url: "https://example.com/feed.rss", strategy: "rss" },
+        { url: "https://example.com/sitemap.xml", strategy: "sitemap" },
       ],
       buildDeps(),
     );
@@ -154,7 +181,7 @@ describe("runDiscovery", () => {
     vi.mocked(rssStrategy.discover).mockRejectedValue(RSS_ERROR);
 
     const result = await runDiscovery(
-      [{ url: "https://example.com/feed", strategies: ["rss"] }],
+      [{ url: "https://example.com/feed", strategy: "rss" }],
       buildDeps(),
     );
 
@@ -188,7 +215,7 @@ describe("runDiscovery with cache", () => {
     });
 
     const result = await runDiscovery(
-      [{ url: "https://example.com/feed", strategies: ["rss"] }],
+      [{ url: "https://example.com/feed", strategy: "rss" }],
       buildDeps(),
       cache,
     );
@@ -204,7 +231,7 @@ describe("runDiscovery with cache", () => {
     const cache = buildCache();
 
     const result = await runDiscovery(
-      [{ url: "https://example.com/feed", strategies: ["rss"] }],
+      [{ url: "https://example.com/feed", strategy: "rss" }],
       buildDeps(),
       cache,
     );
@@ -224,17 +251,10 @@ describe("runDiscovery with cache", () => {
 
   it("does not record an empty discovery result", async () => {
     vi.mocked(rssStrategy.discover).mockResolvedValue([]);
-    vi.mocked(sitemapStrategy.discover).mockResolvedValue([]);
-    vi.mocked(genericLinksStrategy.discover).mockResolvedValue([]);
     const cache = buildCache();
 
     await runDiscovery(
-      [
-        {
-          url: "https://example.com/feed",
-          strategies: ["rss", "sitemap", "generic-links"],
-        },
-      ],
+      [{ url: "https://example.com/feed", strategy: "rss" }],
       buildDeps(),
       cache,
     );
@@ -267,7 +287,7 @@ describe("runDiscovery with cache", () => {
     };
 
     const source = [
-      { url: "https://example.com/feed", strategies: ["rss"] as const },
+      { url: "https://example.com/feed", strategy: "rss" as const },
     ];
     const deps = buildDeps();
 
@@ -277,12 +297,12 @@ describe("runDiscovery with cache", () => {
     expect(scrapeCount).toBe(1);
   });
 
-  it("falls back to live scrape when no cache is provided (Plan 95 behavior unchanged)", async () => {
+  it("falls back to live scrape when no cache is provided", async () => {
     const liveItems = [{ url: "https://example.com/live-article" }];
     vi.mocked(rssStrategy.discover).mockResolvedValue(liveItems);
 
     const result = await runDiscovery(
-      [{ url: "https://example.com/feed", strategies: ["rss"] }],
+      [{ url: "https://example.com/feed", strategy: "rss" }],
       buildDeps(),
     );
 

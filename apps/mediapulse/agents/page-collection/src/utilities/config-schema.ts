@@ -174,16 +174,18 @@ const providersSchema = z
   .default({})
   .describe("External fetch providers used by the pipeline.");
 
-const discoveryStrategyEnum = z.enum(["rss", "sitemap", "generic-links"]);
+export const discoveryStrategyEnum = z.enum([
+  "rss",
+  "sitemap",
+  "generic-links",
+]);
 
 const curatedSourceSchema = z.object({
   listingUrl: z.string().url().describe("URL of the listing page or feed."),
-  strategies: z
-    .array(discoveryStrategyEnum)
-    .nonempty()
-    .optional()
+  strategy: discoveryStrategyEnum
+    .default("rss")
     .describe(
-      "Ordered strategy chain override for this source. Omit to inherit defaultDiscoveryChain.",
+      "What kind of URL this source is: rss feed, sitemap, or a generic listing page scraped for same-host links.",
     ),
   enabled: z
     .boolean()
@@ -397,13 +399,6 @@ export const ConfigSchema = z.object({
     .default([])
     .describe(
       "Operator-managed listing sources. Each entry is a feed or listing page the agent discovers articles from.",
-    ),
-  defaultDiscoveryChain: z
-    .array(discoveryStrategyEnum)
-    .nonempty()
-    .default(["rss", "sitemap", "generic-links"])
-    .describe(
-      "Ordered discovery strategy chain applied to sources that do not override their own chain.",
     ),
   providers: providersSchema,
   gates: gatesSchema,

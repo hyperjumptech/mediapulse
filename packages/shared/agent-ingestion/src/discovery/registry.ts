@@ -3,11 +3,6 @@ import { rssStrategy } from "./rss";
 import { sitemapStrategy } from "./sitemap";
 import type { ListingDiscoveryStrategy } from "./types";
 
-/** Ordered default discovery chain tried for every source unless overridden. */
-export const DEFAULT_DISCOVERY_CHAIN: ReadonlyArray<
-  "rss" | "sitemap" | "generic-links"
-> = ["rss", "sitemap", "generic-links"];
-
 /**
  * Returns the listing discovery strategy for the given type.
  *
