@@ -25,7 +25,11 @@ export const createDashboardAgentDataApiClient = (options?: {
 }) =>
   createAgentDataApiClient({
     baseUrl: options?.baseUrl ?? env.AGENT_DATA_API_URL ?? "",
-    token: options?.token ?? env.HERMES_INTERNAL_API_KEY,
+    token:
+      options?.token ??
+      (env.HERMES_INTERNAL_API_KEY
+        ? `Bearer ${env.HERMES_INTERNAL_API_KEY}`
+        : undefined),
     getFn: options?.getFn,
     postFn: options?.postFn,
   });
