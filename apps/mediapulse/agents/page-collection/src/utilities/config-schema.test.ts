@@ -9,11 +9,6 @@ describe("ConfigSchema", () => {
     const result = await ConfigSchema.parseAsync({});
 
     expect(result.curatedSources).toEqual([]);
-    expect(result.defaultDiscoveryChain).toEqual([
-      "rss",
-      "sitemap",
-      "generic-links",
-    ]);
     expect(result.gates.relevance.enabled).toBe(true);
     expect(result.gates.freshness.enabled).toBe(true);
     expect(result.resilience.deadUrlCache.enabled).toBe(true);
@@ -21,29 +16,39 @@ describe("ConfigSchema", () => {
     expect(result.runPolicy.minSuccessfulSources).toBe(1);
   });
 
-  it("accepts a curatedSource with listingUrl only (inherits default chain)", async () => {
+  it("accepts a curatedSource with listingUrl only (defaults strategy to rss)", async () => {
     const result = await ConfigSchema.parseAsync({
       curatedSources: [{ listingUrl: "https://example.com/feed" }],
     });
 
     expect(result.curatedSources[0]).toMatchObject({
       listingUrl: "https://example.com/feed",
+      strategy: "rss",
       enabled: true,
     });
-    expect(result.curatedSources[0]?.strategies).toBeUndefined();
   });
 
-  it("accepts a curatedSource with a strategies override", async () => {
+  it("accepts a curatedSource with an explicit strategy override", async () => {
     const result = await ConfigSchema.parseAsync({
       curatedSources: [
         {
           listingUrl: "https://example.com/news",
-          strategies: ["generic-links"],
+          strategy: "generic-links",
         },
       ],
     });
 
-    expect(result.curatedSources[0]?.strategies).toEqual(["generic-links"]);
+    expect(result.curatedSources[0]?.strategy).toBe("generic-links");
+  });
+
+  it("accepts all valid strategy enum values", async () => {
+    for (const strategy of ["rss", "sitemap", "generic-links"] as const) {
+      const result = await ConfigSchema.parseAsync({
+        curatedSources: [{ listingUrl: "https://example.com/feed", strategy }],
+      });
+
+      expect(result.curatedSources[0]?.strategy).toBe(strategy);
+    }
   });
 
   it("rejects an unknown strategy value in curatedSources", async () => {
@@ -52,18 +57,8 @@ describe("ConfigSchema", () => {
         curatedSources: [
           {
             listingUrl: "https://example.com/feed",
-            strategies: ["unknown-strategy"],
+            strategy: "unknown-strategy",
           },
-        ],
-      }),
-    ).rejects.toBeInstanceOf(Error);
-  });
-
-  it("rejects an empty strategies array in curatedSources", async () => {
-    await expect(
-      ConfigSchema.parseAsync({
-        curatedSources: [
-          { listingUrl: "https://example.com/feed", strategies: [] },
         ],
       }),
     ).rejects.toBeInstanceOf(Error);
@@ -84,22 +79,6 @@ describe("ConfigSchema", () => {
 
     expect(result.curatedSources[0]?.enabled).toBe(true);
   });
-
-  it("defaultDiscoveryChain defaults to [rss, sitemap, generic-links]", async () => {
-    const result = await ConfigSchema.parseAsync({});
-
-    expect(result.defaultDiscoveryChain).toEqual([
-      "rss",
-      "sitemap",
-      "generic-links",
-    ]);
-  });
-
-  it("rejects an empty defaultDiscoveryChain", async () => {
-    await expect(
-      ConfigSchema.parseAsync({ defaultDiscoveryChain: [] }),
-    ).rejects.toBeInstanceOf(Error);
-  });
 });
 
 describe("getConfigSchema", () => {
@@ -113,7 +92,7 @@ describe("getConfigSchema", () => {
       result.schema as { properties?: Record<string, unknown> }
     ).properties;
     expect(properties).toHaveProperty("curatedSources");
-    expect(properties).toHaveProperty("defaultDiscoveryChain");
+    expect(properties).not.toHaveProperty("defaultDiscoveryChain");
     expect(properties).toHaveProperty("gates");
     expect(properties).toHaveProperty("resilience");
   });

@@ -96,10 +96,7 @@ export {
   type RunCounters,
 } from "./run-status";
 
-export {
-  DEFAULT_DISCOVERY_CHAIN,
-  createListingDiscoveryStrategy,
-} from "./discovery/registry";
+export { createListingDiscoveryStrategy } from "./discovery/registry";
 
 export {
   discoverOneSource,

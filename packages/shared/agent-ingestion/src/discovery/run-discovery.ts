@@ -1,10 +1,7 @@
 import { classifyError, isRetryableError } from "../error-classification";
 import { hostFromUrl } from "../host-error-tracker";
 import { pMap } from "../p-map";
-import {
-  createListingDiscoveryStrategy,
-  DEFAULT_DISCOVERY_CHAIN,
-} from "./registry";
+import { createListingDiscoveryStrategy } from "./registry";
 import type { DiscoveredItem, DiscoveryDeps } from "./types";
 
 const DEFAULT_DISCOVERY_CONCURRENCY = 4;
@@ -14,8 +11,8 @@ export type DiscoverySource = {
   url: string;
   /** Whether to include this source. Defaults to true when omitted. */
   enabled?: boolean;
-  /** Ordered strategy chain override; falls back to DEFAULT_DISCOVERY_CHAIN. */
-  strategies?: ReadonlyArray<"rss" | "sitemap" | "generic-links">;
+  /** The single strategy the operator chose for this source. */
+  strategy: "rss" | "sitemap" | "generic-links";
   /** Maximum items to return from this source. */
   maxItems?: number;
 };
@@ -70,12 +67,10 @@ export type DiscoveryCache = {
 };
 
 /**
- * Runs a source through its ordered strategy chain with fallback.
+ * Runs a source through the single operator-chosen strategy.
  *
- * The first strategy that returns a non-empty list wins. An error or empty
- * result falls through to the next strategy. Every per-strategy failure is
- * collected; the source yields `{ items: [], failures }` only when the whole
- * chain is exhausted — mirroring fetchOneResult's loop over the provider chain.
+ * An error or empty result yields `{ items: [], failures }`. Failure shape is
+ * unchanged so observability and SourceDiscoveryReport are untouched.
  *
  * @param source - Listing source configuration.
  * @param deps - Shared discovery dependencies.
@@ -84,43 +79,48 @@ export const discoverOneSource = async (
   source: DiscoverySource,
   deps: DiscoveryDeps,
 ): Promise<SourceDiscoveryOutcome> => {
-  const chain = source.strategies ?? DEFAULT_DISCOVERY_CHAIN;
-  const failures: DiscoveryFailure[] = [];
+  const strategyType = source.strategy;
+  const strategy = createListingDiscoveryStrategy(strategyType);
 
-  for (const strategyType of chain) {
-    const strategy = createListingDiscoveryStrategy(strategyType);
+  try {
+    const items = await strategy.discover(source.url, deps);
 
-    try {
-      const items = await strategy.discover(source.url, deps);
+    if (items.length === 0) {
+      return {
+        items: [],
+        failures: [
+          {
+            sourceUrl: source.url,
+            strategyType,
+            errorCategory: "provider_data_invalid",
+            message: "Strategy returned no items",
+            retryable: false,
+          },
+        ],
+        winningStrategy: null,
+      };
+    }
 
-      if (items.length === 0) {
-        failures.push({
+    const limited =
+      source.maxItems !== undefined ? items.slice(0, source.maxItems) : items;
+
+    return { items: limited, failures: [], winningStrategy: strategyType };
+  } catch (error) {
+    const classified = classifyError(error);
+    return {
+      items: [],
+      failures: [
+        {
           sourceUrl: source.url,
           strategyType,
-          errorCategory: "provider_data_invalid",
-          message: "Strategy returned no items",
-          retryable: false,
-        });
-        continue;
-      }
-
-      const limited =
-        source.maxItems !== undefined ? items.slice(0, source.maxItems) : items;
-
-      return { items: limited, failures, winningStrategy: strategyType };
-    } catch (error) {
-      const classified = classifyError(error);
-      failures.push({
-        sourceUrl: source.url,
-        strategyType,
-        errorCategory: classified.category,
-        message: classified.message,
-        retryable: isRetryableError(error),
-      });
-    }
+          errorCategory: classified.category,
+          message: classified.message,
+          retryable: isRetryableError(error),
+        },
+      ],
+      winningStrategy: null,
+    };
   }
-
-  return { items: [], failures, winningStrategy: null };
 };
 
 /**
