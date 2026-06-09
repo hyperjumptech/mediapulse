@@ -39,7 +39,9 @@ type SourceHealthRow = {
 type DataSourceRow = {
   tickerId: string;
   url: string;
+  createdAt: Date;
   metadata: Prisma.JsonValue | null;
+  ticker: { symbol: string };
 };
 
 type PageCollectionInsightsDeps = {
@@ -75,7 +77,13 @@ type PageCollectionInsightsDeps = {
   dataSource: {
     findMany: (args: {
       where: { createdAt: { gte: Date }; tickerId?: string };
-      select: { tickerId: boolean; url: boolean; metadata: boolean };
+      select: {
+        tickerId: boolean;
+        url: boolean;
+        createdAt: boolean;
+        metadata: boolean;
+        ticker: { select: { symbol: boolean } };
+      };
       take: number;
     }) => Promise<DataSourceRow[]>;
   };
@@ -200,7 +208,13 @@ export function createPageCollectionInsightsProvider(
             createdAt: { gte: windowStart },
             ...(ctx.tickerId ? { tickerId: ctx.tickerId } : {}),
           },
-          select: { tickerId: true, url: true, metadata: true },
+          select: {
+            tickerId: true,
+            url: true,
+            createdAt: true,
+            metadata: true,
+            ticker: { select: { symbol: true } },
+          },
           take: 2000,
         }),
       ]);
@@ -425,7 +439,8 @@ export function createPageCollectionInsightsProvider(
         [">30 days", 0],
       ]);
       for (const source of dataSources) {
-        const ageDays = (now.getTime() - now.getTime()) / (24 * 60 * 60 * 1000);
+        const ageDays =
+          (now.getTime() - source.createdAt.getTime()) / (24 * 60 * 60 * 1000);
         if (ageDays < 1)
           freshnessHistogram.set(
             "same day",
@@ -494,27 +509,26 @@ export function createPageCollectionInsightsProvider(
         });
       }
 
-      // Where — source health table
-      const sourceHealthByUrl = new Map<
+      // Where — source health table (aggregated by domain)
+      const sourceHealthByDomain = new Map<
         string,
-        { discovered: number; failed: number; total: number }
+        { discovered: number; failed: number }
       >();
       for (const record of sourceHealth) {
-        const existing = sourceHealthByUrl.get(record.listingUrl) ?? {
+        const domain = domainFromUrl(record.listingUrl);
+        const existing = sourceHealthByDomain.get(domain) ?? {
           discovered: 0,
           failed: 0,
-          total: 0,
         };
-        sourceHealthByUrl.set(record.listingUrl, {
+        sourceHealthByDomain.set(domain, {
           discovered: existing.discovered + (record.discovered ? 1 : 0),
           failed: existing.failed + (record.discovered ? 0 : 1),
-          total: existing.total + 1,
         });
       }
-      if (sourceHealthByUrl.size > 0) {
+      if (sourceHealthByDomain.size > 0) {
         const healthRows = bucketTopN(
-          Array.from(sourceHealthByUrl.entries()).map(([url, stats]) => ({
-            label: domainFromUrl(url),
+          Array.from(sourceHealthByDomain.entries()).map(([domain, stats]) => ({
+            label: domain,
             value: stats.discovered,
           })),
           TOP_N,
@@ -527,9 +541,7 @@ export function createPageCollectionInsightsProvider(
             kind: "table",
             columns: ["Source", "Discovered days", "Failed days"],
             rows: healthRows.map((row) => {
-              const stats = Array.from(sourceHealthByUrl.entries()).find(
-                ([url]) => domainFromUrl(url) === row.label,
-              )?.[1];
+              const stats = sourceHealthByDomain.get(row.label);
               return [row.label, stats?.discovered ?? 0, stats?.failed ?? 0];
             }),
           },
@@ -539,9 +551,10 @@ export function createPageCollectionInsightsProvider(
       // Who — per-ticker bar
       const tickerArticleCounts = new Map<string, number>();
       for (const source of dataSources) {
+        const symbol = source.ticker.symbol;
         tickerArticleCounts.set(
-          source.tickerId,
-          (tickerArticleCounts.get(source.tickerId) ?? 0) + 1,
+          symbol,
+          (tickerArticleCounts.get(symbol) ?? 0) + 1,
         );
       }
       if (tickerArticleCounts.size > 0) {

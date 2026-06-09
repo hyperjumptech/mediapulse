@@ -2,19 +2,40 @@
 
 import type { Widget } from "@workspace/agent-data-api-contract";
 import {
+  AreaChart,
+  Area,
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
+  CartesianGrid,
+  Cell,
 } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@workspace/ui/components/chart";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 type WidgetRendererProps = {
   widget: Widget;
 };
+
+const CHART_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
+
+function formatTs(ts: string): string {
+  const date = new Date(ts);
+  if (isNaN(date.getTime())) return ts;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 /**
  * Renders a single insight widget by kind.
@@ -23,29 +44,40 @@ type WidgetRendererProps = {
  */
 export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
   if (widget.kind === "stat") {
-    const deltaSign =
-      widget.delta !== undefined && widget.delta >= 0 ? "+" : "";
-    const deltaColor =
-      widget.delta === undefined
-        ? ""
-        : widget.delta >= 0
-          ? "text-green-600"
-          : "text-red-600";
+    const isPositive = widget.delta !== undefined && widget.delta > 0;
+    const isNegative = widget.delta !== undefined && widget.delta < 0;
+    const deltaColor = isPositive
+      ? "text-emerald-600"
+      : isNegative
+        ? "text-red-500"
+        : "text-muted-foreground";
+    const DeltaIcon = isPositive
+      ? TrendingUp
+      : isNegative
+        ? TrendingDown
+        : Minus;
 
     return (
-      <div className="py-4">
-        <span className="text-4xl font-bold text-foreground">
-          {widget.value}
-        </span>
-        {widget.unit && (
-          <span className="ml-1 text-lg text-muted-foreground">
-            {widget.unit}
+      <div className="py-2">
+        <div className="flex items-end gap-2">
+          <span className="text-4xl font-bold tracking-tight text-foreground">
+            {widget.value}
           </span>
-        )}
+          {widget.unit && (
+            <span className="mb-1 text-base text-muted-foreground">
+              {widget.unit}
+            </span>
+          )}
+        </div>
         {widget.delta !== undefined && (
-          <div className={`mt-1 text-sm font-medium ${deltaColor}`}>
-            {deltaSign}
-            {widget.delta}
+          <div
+            className={`mt-1.5 flex items-center gap-1 text-sm font-medium ${deltaColor}`}
+          >
+            <DeltaIcon className="h-3.5 w-3.5" />
+            <span>
+              {widget.delta > 0 ? "+" : ""}
+              {widget.delta} vs prior period
+            </span>
           </div>
         )}
       </div>
@@ -53,51 +85,131 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
   }
 
   if (widget.kind === "timeSeries") {
-    const data = widget.points.map((point) => ({
-      ts: point.ts,
-      value: point.value,
-    }));
+    const config: ChartConfig = {
+      value: { label: widget.unit ?? "Value", color: "var(--chart-1)" },
+    };
 
     return (
-      <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={data}>
-          <XAxis dataKey="ts" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} unit={widget.unit} />
-          <Tooltip />
-          <Line type="monotone" dataKey="value" stroke="#6366f1" dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
+      <ChartContainer config={config} className="h-48 w-full">
+        <AreaChart
+          data={widget.points}
+          margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+        >
+          <defs>
+            <linearGradient id="gradValue" x1="0" y1="0" x2="0" y2="1">
+              <stop
+                offset="5%"
+                stopColor="var(--color-value)"
+                stopOpacity={0.3}
+              />
+              <stop
+                offset="95%"
+                stopColor="var(--color-value)"
+                stopOpacity={0}
+              />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} className="stroke-border/40" />
+          <XAxis
+            dataKey="ts"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tick={{ fontSize: 11 }}
+            tickFormatter={formatTs}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 11 }}
+            tickMargin={4}
+          />
+          <ChartTooltip
+            content={<ChartTooltipContent labelFormatter={formatTs} />}
+          />
+          <Area
+            type="natural"
+            dataKey="value"
+            stroke="var(--color-value)"
+            strokeWidth={2}
+            fill="url(#gradValue)"
+            dot={false}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+          />
+        </AreaChart>
+      </ChartContainer>
     );
   }
 
   if (widget.kind === "categoryBar") {
+    const config: ChartConfig = {
+      value: { label: widget.unit ?? "Value", color: "var(--chart-1)" },
+    };
+
     return (
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={widget.bars}>
-          <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} unit={widget.unit} />
-          <Tooltip />
-          <Bar dataKey="value" fill="#6366f1" />
+      <ChartContainer config={config} className="h-48 w-full">
+        <BarChart
+          data={widget.bars}
+          margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+        >
+          <CartesianGrid vertical={false} className="stroke-border/40" />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tick={{ fontSize: 11 }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 11 }}
+            tickMargin={4}
+          />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Bar
+            dataKey="value"
+            fill="var(--color-value)"
+            radius={[4, 4, 0, 0]}
+          />
         </BarChart>
-      </ResponsiveContainer>
+      </ChartContainer>
     );
   }
 
   if (widget.kind === "histogram") {
-    const data = widget.buckets.map((bucket) => ({
-      label: bucket.label,
-      count: bucket.count,
-    }));
+    const config: ChartConfig = {
+      count: { label: "Count", color: "var(--chart-1)" },
+    };
 
     return (
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={data}>
-          <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip />
-          <Bar dataKey="count" fill="#6366f1" />
+      <ChartContainer config={config} className="h-48 w-full">
+        <BarChart
+          data={widget.buckets}
+          margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+        >
+          <CartesianGrid vertical={false} className="stroke-border/40" />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tick={{ fontSize: 11 }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 11 }}
+            tickMargin={4}
+          />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Bar
+            dataKey="count"
+            fill="var(--color-count)"
+            radius={[4, 4, 0, 0]}
+          />
         </BarChart>
-      </ResponsiveContainer>
+      </ChartContainer>
     );
   }
 
@@ -105,18 +217,29 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
     const firstValue = widget.stages[0]?.value ?? 0;
 
     return (
-      <ul className="space-y-2 py-2">
-        {widget.stages.map((stage) => {
+      <ul className="space-y-2.5 py-2">
+        {widget.stages.map((stage, index) => {
           const percentage =
             firstValue > 0 ? Math.round((stage.value / firstValue) * 100) : 100;
+          const color = CHART_COLORS[index % CHART_COLORS.length];
 
           return (
-            <li key={stage.label} className="flex items-center gap-3 text-sm">
-              <span className="w-32 shrink-0 text-muted-foreground">
-                {stage.label}
-              </span>
-              <span className="font-medium text-foreground">{stage.value}</span>
-              <span className="text-muted-foreground">({percentage}%)</span>
+            <li key={stage.label} className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">{stage.label}</span>
+                <span className="tabular-nums font-medium text-foreground">
+                  {stage.value.toLocaleString()}
+                  <span className="ml-1.5 text-muted-foreground">
+                    {percentage}%
+                  </span>
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${percentage}%`, backgroundColor: color }}
+                />
+              </div>
             </li>
           );
         })}
@@ -125,22 +248,77 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
   }
 
   if (widget.kind === "breakdown") {
-    return (
-      <ul className="space-y-2 py-2">
-        {widget.slices.map((slice) => {
-          const percentage = Math.round(slice.fraction * 100);
+    const config: ChartConfig = Object.fromEntries(
+      widget.slices.map((slice, index) => [
+        slice.label,
+        {
+          label: slice.label,
+          color: CHART_COLORS[index % CHART_COLORS.length],
+        },
+      ]),
+    );
+    const data = widget.slices.map((slice) => ({
+      label: slice.label,
+      value: slice.value,
+    }));
 
-          return (
-            <li key={slice.label} className="flex items-center gap-3 text-sm">
-              <span className="w-32 shrink-0 text-muted-foreground">
-                {slice.label}
-              </span>
-              <span className="font-medium text-foreground">{slice.value}</span>
-              <span className="text-muted-foreground">({percentage}%)</span>
-            </li>
-          );
-        })}
-      </ul>
+    return (
+      <div className="space-y-4">
+        <ChartContainer config={config} className="h-40 w-full">
+          <BarChart
+            data={data}
+            margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+          >
+            <CartesianGrid vertical={false} className="stroke-border/40" />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tick={{ fontSize: 11 }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tick={{ fontSize: 11 }}
+              tickMargin={4}
+            />
+            <ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              {data.map((_, index) => (
+                <Cell
+                  key={index}
+                  fill={CHART_COLORS[index % CHART_COLORS.length]}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+        <ul className="space-y-1.5">
+          {widget.slices.map((slice, index) => {
+            const percentage = Math.round(slice.fraction * 100);
+            const color = CHART_COLORS[index % CHART_COLORS.length];
+
+            return (
+              <li key={slice.label} className="flex items-center gap-2 text-xs">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-sm"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="flex-1 text-muted-foreground">
+                  {slice.label}
+                </span>
+                <span className="tabular-nums font-medium text-foreground">
+                  {slice.value.toLocaleString()}
+                </span>
+                <span className="w-9 text-right tabular-nums text-muted-foreground">
+                  {percentage}%
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     );
   }
 
@@ -162,9 +340,15 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
           </thead>
           <tbody>
             {widget.rows.map((row, rowIndex) => (
-              <tr key={rowIndex} className="border-b border-border/30">
+              <tr
+                key={rowIndex}
+                className="border-b border-border/30 transition-colors hover:bg-muted/30"
+              >
                 {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="py-2 pr-4 text-foreground">
+                  <td
+                    key={cellIndex}
+                    className="py-2 pr-4 tabular-nums text-foreground"
+                  >
                     {cell ?? "—"}
                   </td>
                 ))}

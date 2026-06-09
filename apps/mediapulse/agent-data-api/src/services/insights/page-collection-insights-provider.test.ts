@@ -45,12 +45,16 @@ function makeSourceHealth(overrides?: {
 function makeDataSource(overrides?: {
   tickerId?: string;
   url?: string;
+  createdAt?: Date;
   metadata?: object | null;
+  ticker?: { symbol: string };
 }) {
   return {
     tickerId: overrides?.tickerId ?? "ticker-1",
     url: overrides?.url ?? "https://publisher.com/article-1",
+    createdAt: overrides?.createdAt ?? new Date(),
     metadata: overrides?.metadata ?? { provider: "jina" },
+    ticker: overrides?.ticker ?? { symbol: "AAPL" },
   };
 }
 
@@ -157,7 +161,11 @@ describe("createPageCollectionInsightsProvider", () => {
 
   it("caps per-ticker bars at TOP_N + Other bucket", async () => {
     const manyTickers = Array.from({ length: 15 }, (_, i) =>
-      makeDataSource({ tickerId: `ticker-${i}`, url: `https://pub${i}.com/a` }),
+      makeDataSource({
+        tickerId: `ticker-${i}`,
+        url: `https://pub${i}.com/a`,
+        ticker: { symbol: `TICK${i}` },
+      }),
     );
 
     const provider = createPageCollectionInsightsProvider(
