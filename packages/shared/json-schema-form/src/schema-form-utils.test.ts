@@ -6,6 +6,7 @@ import {
   collectSchemaDefaults,
   defaultForSchema,
   getSchemaFormType,
+  seedNewArrayItem,
 } from "./schema-form-utils";
 import type { JsonSchema } from "./types";
 
@@ -99,6 +100,58 @@ describe("collectSchemaDefaults", () => {
     };
 
     expect(collectSchemaDefaults(schema)).toEqual({ withDefault: "x" });
+  });
+});
+
+describe("seedNewArrayItem", () => {
+  it("returns enum[0] for a string with enum", () => {
+    expect(seedNewArrayItem({ type: "string", enum: ["rss", "sitemap"] })).toBe(
+      "rss",
+    );
+  });
+
+  it("returns empty string for a plain string", () => {
+    expect(seedNewArrayItem({ type: "string" })).toBe("");
+  });
+
+  it("returns type-zero for number and boolean", () => {
+    expect(seedNewArrayItem({ type: "number" })).toBe(0);
+    expect(seedNewArrayItem({ type: "boolean" })).toBe(false);
+  });
+
+  it("uses schema.default when present on a primitive", () => {
+    expect(
+      seedNewArrayItem({
+        type: "string",
+        default: "sitemap",
+        enum: ["rss", "sitemap"],
+      }),
+    ).toBe("sitemap");
+  });
+
+  it("seeds an object with required type-zero values merged with declared defaults", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: { type: "string" },
+        enabled: { type: "boolean", default: true },
+      },
+    };
+
+    expect(seedNewArrayItem(schema)).toEqual({ name: "", enabled: true });
+  });
+
+  it("declared defaults override required type-zero seeds for the same key", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      required: ["strategy"],
+      properties: {
+        strategy: { type: "string", enum: ["rss", "sitemap"], default: "rss" },
+      },
+    };
+
+    expect(seedNewArrayItem(schema)).toEqual({ strategy: "rss" });
   });
 });
 

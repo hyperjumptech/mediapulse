@@ -78,6 +78,22 @@ export const collectSchemaDefaults = (
 };
 
 /**
+ * Returns a properly seeded value for a new array item.
+ *
+ * For objects, merges required-key seeds with declared property defaults so the
+ * new entry has valid enum selections and declared defaults rather than raw empty strings.
+ * For all other types, delegates to `defaultForSchema`.
+ */
+export const seedNewArrayItem = (schema: JsonSchema): unknown => {
+  if (getSchemaFormType(schema) === "object") {
+    const required = defaultForSchema(schema) as object;
+    const declared = (collectSchemaDefaults(schema) ?? {}) as object;
+    return { ...required, ...declared };
+  }
+  return defaultForSchema(schema);
+};
+
+/**
  * Recursively merges value with declared schema defaults and required type-zero seeds.
  */
 export const applySchemaDefaults = (

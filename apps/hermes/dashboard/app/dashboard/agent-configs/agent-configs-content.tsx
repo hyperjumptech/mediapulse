@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import Link from "next/link";
 
 import { Button } from "@workspace/ui/components/button";
 
 import { ListPagination } from "@/components/list-pagination";
-import { AddConfigModal } from "./add-config-modal";
 import { AgentConfigsTable } from "./agent-configs-table";
-import { EditConfigModal } from "./edit-config-modal";
 import type { AgentConfigRow } from "./agent-config-row-actions";
 import type {
   AgentConfigSortDir,
@@ -33,106 +31,38 @@ type AgentConfigsContentProps = {
 };
 
 /**
- * Modal open state and edit/duplicate selection for the agent configs page.
- */
-const useAgentConfigsModals = () => {
-  const [addModalOpen, setAddModalOpen] = useState(false);
-  const [duplicateConfig, setDuplicateConfig] = useState<AgentConfigRow | null>(
-    null,
-  );
-  const [editingConfig, setEditingConfig] = useState<AgentConfigRow | null>(
-    null,
-  );
-
-  const openAddModal = useCallback(() => setAddModalOpen(true), []);
-  const openDuplicateModal = useCallback((config: AgentConfigRow) => {
-    setDuplicateConfig(config);
-    setAddModalOpen(true);
-  }, []);
-  const handleAddModalOpenChange = useCallback((open: boolean) => {
-    setAddModalOpen(open);
-    if (!open) setDuplicateConfig(null);
-  }, []);
-  const setEditingConfigOrClose = useCallback(
-    (config: AgentConfigRow | null) => {
-      setEditingConfig(config);
-    },
-    [],
-  );
-
-  return {
-    addModalOpen,
-    duplicateConfig,
-    editingConfig,
-    openAddModal,
-    openDuplicateModal,
-    handleAddModalOpenChange,
-    setEditingConfig: setEditingConfigOrClose,
-  };
-};
-
-/**
- * Client wrapper for agent configs list: table, add/edit/duplicate modals, pagination.
+ * Client wrapper for agent configs list: table and pagination.
  */
 export const AgentConfigsContent = ({
   configs,
-  agents,
   total,
   page,
   pageSize,
   sortBy,
   sortDir,
-  pickerLoaders,
 }: AgentConfigsContentProps) => {
-  const {
-    addModalOpen,
-    duplicateConfig,
-    editingConfig,
-    openAddModal,
-    openDuplicateModal,
-    handleAddModalOpenChange,
-    setEditingConfig,
-  } = useAgentConfigsModals();
-
   return (
-    <>
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-end">
-          <Button onClick={openAddModal}>Add config</Button>
-        </div>
-        <AgentConfigsTable
-          configs={configs}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          pageSize={pageSize}
-          onEdit={setEditingConfig}
-          onDuplicate={openDuplicateModal}
-        />
-        <ListPagination
-          basePath="/dashboard/agent-configs"
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          ariaLabel="Agent configs list pagination"
-          sortBy={sortBy}
-          sortDir={sortDir}
-        />
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <Button asChild>
+          <Link href="/dashboard/agent-configs/new">Add config</Link>
+        </Button>
       </div>
-      <AddConfigModal
-        agents={agents}
-        open={addModalOpen}
-        onOpenChange={handleAddModalOpenChange}
-        initialData={duplicateConfig}
-        trigger={null}
-        pickerLoaders={pickerLoaders}
+      <AgentConfigsTable
+        configs={configs}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        pageSize={pageSize}
       />
-      <EditConfigModal
-        config={editingConfig}
-        agents={agents}
-        open={editingConfig !== null}
-        onOpenChange={(open) => !open && setEditingConfig(null)}
-        pickerLoaders={pickerLoaders}
+      <ListPagination
+        basePath="/dashboard/agent-configs"
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        ariaLabel="Agent configs list pagination"
+        sortBy={sortBy}
+        sortDir={sortDir}
       />
-    </>
+    </div>
   );
 };
