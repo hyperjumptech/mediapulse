@@ -193,35 +193,31 @@ export const executeHttpTrigger = async (
         jobsCreated,
       },
     });
-    for (const [
-      pipelineStepId,
-      expectedInvocationCount,
-    ] of stepExpected.entries()) {
-      await tx.httpTriggerStepExecution.create({
-        data: {
+    await tx.httpTriggerStepExecution.createMany({
+      data: Array.from(
+        stepExpected.entries(),
+        ([pipelineStepId, expectedInvocationCount]) => ({
           httpTriggerExecutionId,
           pipelineStepId,
           expectedInvocationCount,
           rollupStatus: ScheduleStepRollupStatus.pending,
-        },
-      });
-    }
-    for (const item of enqueueItems) {
-      await tx.agentJobExecution.create({
-        data: {
-          jobId: item.payload.jobId,
-          agentId: item.payload.agentId,
-          httpTriggerId: trigger.id,
-          httpTriggerExecutionId,
-          pipelineId: pipeline.id,
-          pipelineStepId: item.payload.pipelineStepId,
-          status: AgentJobExecutionStatus.pending,
-          enqueuedAt: new Date(),
-          params: item.payload.body.input as Prisma.InputJsonValue,
-          invocationConfig: item.payload.body.config as Prisma.InputJsonValue,
-        },
-      });
-    }
+        }),
+      ),
+    });
+    await tx.agentJobExecution.createMany({
+      data: enqueueItems.map((item) => ({
+        jobId: item.payload.jobId,
+        agentId: item.payload.agentId,
+        httpTriggerId: trigger.id,
+        httpTriggerExecutionId,
+        pipelineId: pipeline.id,
+        pipelineStepId: item.payload.pipelineStepId,
+        status: AgentJobExecutionStatus.pending,
+        enqueuedAt: new Date(),
+        params: item.payload.body.input as Prisma.InputJsonValue,
+        invocationConfig: item.payload.body.config as Prisma.InputJsonValue,
+      })),
+    });
   });
 
   let jobsEnqueued = 0;

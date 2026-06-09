@@ -408,10 +408,10 @@ export const createRunPipelineHandler = ({
         );
       }
 
-      for (const step of pipeline.steps) {
-        const expectedInvocationCount = stepExpected.get(step.id) ?? 0;
-        await db.manualPipelineStepExecution.create({
-          data: {
+      await db.manualPipelineStepExecution.createMany({
+        data: pipeline.steps.map((step) => {
+          const expectedInvocationCount = stepExpected.get(step.id) ?? 0;
+          return {
             manualExecutionId: execution.id,
             pipelineStepId: step.id,
             expectedInvocationCount,
@@ -419,9 +419,9 @@ export const createRunPipelineHandler = ({
               expectedInvocationCount > 0
                 ? ScheduleStepRollupStatus.running
                 : ScheduleStepRollupStatus.pending,
-          },
-        });
-      }
+          };
+        }),
+      });
 
       if (jobsCreated === 0) {
         return successResponse({
@@ -520,23 +520,18 @@ export const createRunPipelineHandler = ({
         });
       }
 
-      await db.$transaction(async (tx) => {
-        for (const item of enqueueItems) {
-          await tx.agentJobExecution.create({
-            data: {
-              jobId: item.payload.jobId,
-              agentId: item.payload.agentId,
-              manualExecutionId: execution.id,
-              pipelineId: pipeline.id,
-              pipelineStepId: item.payload.pipelineStepId,
-              status: AgentJobExecutionStatus.pending,
-              enqueuedAt: executionTime,
-              params: item.payload.body.input as Prisma.InputJsonValue,
-              invocationConfig: item.payload.body
-                .config as Prisma.InputJsonValue,
-            },
-          });
-        }
+      await db.agentJobExecution.createMany({
+        data: enqueueItems.map((item) => ({
+          jobId: item.payload.jobId,
+          agentId: item.payload.agentId,
+          manualExecutionId: execution.id,
+          pipelineId: pipeline.id,
+          pipelineStepId: item.payload.pipelineStepId,
+          status: AgentJobExecutionStatus.pending,
+          enqueuedAt: executionTime,
+          params: item.payload.body.input as Prisma.InputJsonValue,
+          invocationConfig: item.payload.body.config as Prisma.InputJsonValue,
+        })),
       });
 
       let jobsEnqueued = 0;

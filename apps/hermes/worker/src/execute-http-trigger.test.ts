@@ -81,10 +81,10 @@ describe("executeHttpTrigger", () => {
           update: vi.fn().mockResolvedValue(undefined),
         },
         httpTriggerStepExecution: {
-          create: vi.fn().mockResolvedValue(undefined),
+          createMany: vi.fn().mockResolvedValue({ count: 0 }),
         },
         agentJobExecution: {
-          create: vi.fn().mockResolvedValue(undefined),
+          createMany: vi.fn().mockResolvedValue({ count: 0 }),
         },
       };
       await fn(tx);
@@ -160,10 +160,10 @@ describe("executeHttpTrigger", () => {
           update: vi.fn().mockResolvedValue(undefined),
         },
         httpTriggerStepExecution: {
-          create: vi.fn().mockResolvedValue(undefined),
+          createMany: vi.fn().mockResolvedValue({ count: 0 }),
         },
         agentJobExecution: {
-          create: vi.fn().mockResolvedValue(undefined),
+          createMany: vi.fn().mockResolvedValue({ count: 0 }),
         },
       };
       await fn(tx);
