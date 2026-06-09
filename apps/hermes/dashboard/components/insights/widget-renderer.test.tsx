@@ -4,26 +4,28 @@ import { describe, expect, it, vi } from "vitest";
 import { WidgetRenderer } from "./widget-renderer";
 
 vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="responsive-container">{children}</div>
+  AreaChart: ({ children }: React.PropsWithChildren) => (
+    <div data-testid="area-chart">{children}</div>
   ),
-  LineChart: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="line-chart">{children}</div>
-  ),
+  Area: () => <div data-testid="area" />,
   BarChart: ({ children }: React.PropsWithChildren) => (
     <div data-testid="bar-chart">{children}</div>
   ),
-  Line: () => <div data-testid="line" />,
-  Bar: () => <div data-testid="bar" />,
+  Bar: ({ children }: React.PropsWithChildren) => (
+    <div data-testid="bar">{children}</div>
+  ),
   XAxis: () => <div data-testid="x-axis" />,
   YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  FunnelChart: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="funnel-chart">{children}</div>
-  ),
-  Funnel: () => <div data-testid="funnel" />,
-  LabelList: () => <div data-testid="label-list" />,
+  CartesianGrid: () => <div data-testid="cartesian-grid" />,
   Cell: () => <div data-testid="cell" />,
+}));
+
+vi.mock("@workspace/ui/components/chart", () => ({
+  ChartContainer: ({ children }: React.PropsWithChildren) => (
+    <div data-testid="chart-container">{children}</div>
+  ),
+  ChartTooltip: () => null,
+  ChartTooltipContent: () => null,
 }));
 
 describe("WidgetRenderer", () => {
@@ -36,13 +38,13 @@ describe("WidgetRenderer", () => {
 
     expect(screen.getByText("42")).toBeInTheDocument();
     expect(screen.getByText("ms")).toBeInTheDocument();
-    expect(screen.getByText("+5")).toBeInTheDocument();
+    expect(screen.getByText("+5 vs prior period")).toBeInTheDocument();
   });
 
   it("renders stat widget with negative delta", () => {
     render(<WidgetRenderer widget={{ kind: "stat", value: 10, delta: -3 }} />);
 
-    expect(screen.getByText("-3")).toBeInTheDocument();
+    expect(screen.getByText("-3 vs prior period")).toBeInTheDocument();
   });
 
   it("renders stat widget without delta", () => {
@@ -51,7 +53,7 @@ describe("WidgetRenderer", () => {
     expect(screen.getByText("7")).toBeInTheDocument();
   });
 
-  it("renders timeSeries widget with a line chart", () => {
+  it("renders timeSeries widget with an area chart", () => {
     render(
       <WidgetRenderer
         widget={{
@@ -64,7 +66,7 @@ describe("WidgetRenderer", () => {
       />,
     );
 
-    expect(screen.getByTestId("line-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("area-chart")).toBeInTheDocument();
   });
 
   it("renders categoryBar widget with a bar chart", () => {
@@ -114,14 +116,11 @@ describe("WidgetRenderer", () => {
     );
 
     expect(screen.getByText("Top")).toBeInTheDocument();
-    expect(screen.getByText("100")).toBeInTheDocument();
-    expect(screen.getByText("(100%)")).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
     expect(screen.getByText("Middle")).toBeInTheDocument();
-    expect(screen.getByText("50")).toBeInTheDocument();
-    expect(screen.getByText("(50%)")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.getByText("Bottom")).toBeInTheDocument();
-    expect(screen.getByText("25")).toBeInTheDocument();
-    expect(screen.getByText("(25%)")).toBeInTheDocument();
+    expect(screen.getByText("25%")).toBeInTheDocument();
   });
 
   it("renders breakdown widget with labels and percentages", () => {
@@ -139,10 +138,10 @@ describe("WidgetRenderer", () => {
 
     expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.getByText("60")).toBeInTheDocument();
-    expect(screen.getByText("(60%)")).toBeInTheDocument();
+    expect(screen.getByText("60%")).toBeInTheDocument();
     expect(screen.getByText("Beta")).toBeInTheDocument();
     expect(screen.getByText("40")).toBeInTheDocument();
-    expect(screen.getByText("(40%)")).toBeInTheDocument();
+    expect(screen.getByText("40%")).toBeInTheDocument();
   });
 
   it("renders table widget with columns and rows", () => {
