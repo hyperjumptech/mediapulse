@@ -125,6 +125,15 @@ async function main(): Promise<void> {
     });
   }
 
+  const { prisma: orchestrationPrisma } =
+    await import("@hermes/orchestration-database");
+  const { runStartupReconciliation } = await import("./startup-reconciliation");
+  await runStartupReconciliation({
+    db: orchestrationPrisma,
+    logger,
+    graceMs: env.HERMES_SCHEDULE_RECOVERY_GRACE_MS ?? 900_000,
+  });
+
   processor = jobQueue.createProcessor(jobHandlers, {
     verbose: env.NODE_ENV === "development",
     workerId: `hermes-${process.pid}`,
