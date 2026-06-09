@@ -1,8 +1,9 @@
 import type { InsightsPayload } from "@workspace/agent-data-api-contract";
+import { createAgentTokenClient } from "@workspace/agent-auth-client";
+import { env } from "@hermes/env";
 
 import {
   createDashboardAgentDataApiClient,
-  getDashboardAgentDataApiClient,
 } from "@/lib/agent-data-api-client";
 
 type AgentInsightsClient = Pick<
@@ -19,6 +20,27 @@ type GetAgentInsightsResult =
   | { payload: InsightsPayload; hasInsights: true }
   | { payload: null; hasInsights: false };
 
+let hermesTokenClient: ReturnType<typeof createAgentTokenClient> | null = null;
+
+function getHermesTokenClient() {
+  if (!hermesTokenClient && env.AGENT_AUTH_API_URL && env.HERMES_INTERNAL_API_KEY) {
+    hermesTokenClient = createAgentTokenClient({
+      authApiUrl: env.AGENT_AUTH_API_URL,
+      credential: env.HERMES_INTERNAL_API_KEY,
+    });
+  }
+  return hermesTokenClient;
+}
+
+async function buildInsightsClient(): Promise<AgentInsightsClient> {
+  const tokenClient = getHermesTokenClient();
+  if (tokenClient) {
+    const jwt = await tokenClient.getToken();
+    return createDashboardAgentDataApiClient({ token: `Bearer ${jwt}` });
+  }
+  return createDashboardAgentDataApiClient();
+}
+
 /**
  * Fetches agent insights for a given agent and time window.
  *
@@ -28,10 +50,11 @@ type GetAgentInsightsResult =
  */
 export const getAgentInsights = async (
   params: GetAgentInsightsParams,
-  client: AgentInsightsClient = getDashboardAgentDataApiClient(),
+  client?: AgentInsightsClient,
 ): Promise<GetAgentInsightsResult> => {
   try {
-    const payload = await client.agentInsights.get({
+    const resolvedClient = client ?? await buildInsightsClient();
+    const payload = await resolvedClient.agentInsights.get({
       agentId: params.agentId,
       window: params.window,
     });
