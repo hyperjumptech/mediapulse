@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-
 import type { VariableExpansionStringFieldLoaders } from "@workspace/variable-expansion-picker";
 
-import { useFormAction } from "@/app/dashboard/agent-configs/actions/create/.generated/use-form-action";
 import { AgentConfigForm } from "../agent-config-form";
+import { useAddConfigPageForm } from "./use-add-config-page-form";
 
 type AgentForDropdown = {
   id: string;
@@ -27,42 +24,16 @@ type AddConfigPageClientProps = {
   initialData?: InitialData | null;
 };
 
-const emptyForm = {
-  name: "",
-  description: "",
-  agentKey: "",
-  config: {} as Record<string, unknown>,
-};
-
 /**
- * Client wrapper for the add config page. Manages form state and redirects on success.
+ * Client wrapper for the add config page. Delegates state and redirect logic to useAddConfigPageForm.
  */
 export const AddConfigPageClient = ({
   agents,
   pickerLoaders,
   initialData,
 }: AddConfigPageClientProps) => {
-  const router = useRouter();
-  const [formState, setFormState] = useState(initialData ?? emptyForm);
-  const { FormWithAction, state, pending } = useFormAction();
-  const wasPendingRef = useRef(false);
-
-  const errorMessage = useMemo(() => {
-    if (state && state.status === false) return state.message as string;
-    return null;
-  }, [state]);
-
-  useEffect(() => {
-    if (
-      wasPendingRef.current &&
-      !pending &&
-      state?.status === true &&
-      (state as { data?: { id?: unknown } }).data?.id != null
-    ) {
-      router.push("/dashboard/agent-configs");
-    }
-    wasPendingRef.current = pending;
-  }, [pending, state, router]);
+  const { formState, setFormState, FormWithAction, pending, errorMessage } =
+    useAddConfigPageForm(initialData);
 
   return (
     <AgentConfigForm
