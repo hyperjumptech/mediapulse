@@ -96,8 +96,12 @@ const createMockDb = (opts?: {
   const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
     const tx = {
       scheduleExecution: { create: scheduleExecutionCreate },
-      scheduleStepExecution: { create: vi.fn().mockResolvedValue(undefined) },
-      agentJobExecution: { create: vi.fn().mockResolvedValue(undefined) },
+      scheduleStepExecution: {
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      agentJobExecution: {
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
     };
     return fn(tx);
   });
@@ -118,7 +122,7 @@ const createMockDb = (opts?: {
       ]),
     },
     agentJobExecution: {
-      create: vi.fn().mockResolvedValue(undefined),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn().mockResolvedValue(undefined),
     },
     schedule: { update: vi.fn().mockResolvedValue(undefined) },
@@ -550,5 +554,89 @@ describe("executeSchedule", () => {
     expect(payload).toBeDefined();
     expect(payload!.body.input).toEqual({ apiKey: "resolved-secret" });
     expect(payload!.body.config).toEqual({ token: "resolved-secret" });
+  });
+
+  it("persists a large fan-out in a single createMany call with no per-row creates", async () => {
+    const FAN_OUT = 1000;
+    const schedule = createMockSchedule();
+
+    let capturedTx: {
+      agentJobExecution: {
+        createMany: ReturnType<typeof vi.fn>;
+        create?: ReturnType<typeof vi.fn>;
+      };
+      scheduleStepExecution: {
+        createMany: ReturnType<typeof vi.fn>;
+        create?: ReturnType<typeof vi.fn>;
+      };
+    } | null = null;
+
+    const agentJobExecutionCreateMany = vi
+      .fn()
+      .mockResolvedValue({ count: FAN_OUT });
+    const scheduleStepExecutionCreateMany = vi
+      .fn()
+      .mockResolvedValue({ count: 1 });
+
+    const db = {
+      ...createMockDb(),
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          scheduleExecution: {
+            create: vi.fn().mockResolvedValue({ id: "se-regression" }),
+          },
+          scheduleStepExecution: {
+            createMany: scheduleStepExecutionCreateMany,
+          },
+          agentJobExecution: { createMany: agentJobExecutionCreateMany },
+        };
+        capturedTx = tx;
+
+        return fn(tx);
+      }),
+      agentRegistry: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            agentId: "agent-a",
+            agentVersion: "1.0.0",
+            endpoint: { url: "https://agent.example/run", method: "POST" },
+            isActive: true,
+          },
+        ]),
+      },
+    };
+
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+    const deps: ExecuteScheduleDeps = {
+      db: db as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations,
+      expandStepInputs: async () =>
+        Array.from({ length: FAN_OUT }, (_, index) => ({
+          id: `item-${index}`,
+        })),
+    };
+
+    await executeSchedule(schedule, deps);
+
+    expect(capturedTx).not.toBeNull();
+    expect(capturedTx!.agentJobExecution.createMany).toHaveBeenCalledTimes(1);
+    const createManyArg = capturedTx!.agentJobExecution.createMany.mock
+      .calls[0]?.[0] as {
+      data: unknown[];
+    };
+    expect(createManyArg.data).toHaveLength(FAN_OUT);
+    expect(capturedTx!.agentJobExecution.create).toBeUndefined();
+
+    expect(enqueueAgentInvocations).toHaveBeenCalledTimes(1);
+    const [items] = enqueueAgentInvocations.mock.calls[0] as [
+      EnqueueInvokeAgentItem[],
+    ];
+    expect(items).toHaveLength(FAN_OUT);
+    expect(
+      items.every(
+        (item) => item.payload.scheduleExecutionId === "se-regression",
+      ),
+    ).toBe(true);
   });
 });

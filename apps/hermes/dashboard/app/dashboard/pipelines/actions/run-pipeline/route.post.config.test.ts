@@ -47,20 +47,16 @@ const createExecutionPersistenceStubs = () => {
       update: vi.fn().mockResolvedValue(undefined),
     },
     manualPipelineStepExecution: {
-      create: vi.fn().mockResolvedValue(undefined),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn().mockResolvedValue(undefined),
     },
     agentJobExecution: {
-      create: vi.fn().mockResolvedValue(undefined),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn().mockResolvedValue(undefined),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       count: vi.fn().mockResolvedValue(0),
     },
-    $transaction: vi.fn(),
   };
-  stubs.$transaction.mockImplementation(
-    async (fn: (tx: typeof stubs) => Promise<unknown>) => fn(stubs),
-  );
   return stubs;
 };
 
@@ -404,5 +400,67 @@ describe("createRunPipelineHandler", () => {
     });
     expect(stubs.agentJobExecution.update).toHaveBeenCalled();
     expect(stubs.manualPipelineExecution.update).toHaveBeenCalled();
+  });
+
+  it("persists a large fan-out in a single createMany call with no per-row creates", async () => {
+    const FAN_OUT = 1000;
+    const stubs = createExecutionPersistenceStubs();
+    const enqueueMock = vi.fn().mockResolvedValue(undefined);
+    const handler = createRunPipelineHandler({
+      expandStepInputs: async (ctx) =>
+        Array.from({ length: FAN_OUT }, (_, index) => ({
+          ...ctx.input,
+          _index: index,
+        })),
+      enqueueManualAgentInvocations: enqueueMock,
+      db: {
+        ...stubs,
+        pipeline: {
+          findUnique: vi.fn().mockResolvedValue(createPipelineWithSteps()),
+        },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
+        agentRegistry: {
+          findFirst: vi.fn().mockResolvedValue({
+            agentId: "ag1",
+            agentVersion: "1.0.0",
+            endpoint: { url: "https://agent.example/run", method: "POST" },
+            inputSchema: null,
+            configSchema: null,
+            isActive: true,
+          }),
+          findMany: vi.fn().mockResolvedValue([
+            {
+              agentId: "ag1",
+              agentVersion: "1.0.0",
+              endpoint: { url: "https://agent.example/run", method: "POST" },
+              inputSchema: null,
+              configSchema: null,
+              isActive: true,
+            },
+          ]),
+        },
+        agentConfig: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+    });
+
+    const result = await handler(request({ pipelineId: "p-1" }));
+    expect(result.status).toBe(true);
+    expect(result).toMatchObject({ data: { ok: true, runStatus: "running" } });
+
+    expect(stubs.agentJobExecution.createMany).toHaveBeenCalledTimes(1);
+    const createManyArg = stubs.agentJobExecution.createMany.mock
+      .calls[0]?.[0] as {
+      data: unknown[];
+    };
+    expect(createManyArg.data).toHaveLength(FAN_OUT);
+
+    expect(stubs.manualPipelineStepExecution.createMany).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(enqueueMock).toHaveBeenCalledTimes(1);
+    const batch = enqueueMock.mock.calls[0]?.[0] as Array<{
+      payload: { manualExecutionId: string };
+    }>;
+    expect(batch).toHaveLength(FAN_OUT);
   });
 });

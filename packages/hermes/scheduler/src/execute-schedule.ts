@@ -268,38 +268,36 @@ export const executeSchedule = async (
       },
     });
 
-    for (const [pipelineStepId, count] of stepExpected) {
-      await tx.scheduleStepExecution.create({
-        data: {
-          scheduleExecutionId: se.id,
-          pipelineStepId,
-          expectedInvocationCount: count,
-          succeededCount: 0,
-          failedCount: 0,
-          rollupStatus: ScheduleStepRollupStatus.pending,
-        },
-      });
-    }
+    await tx.scheduleStepExecution.createMany({
+      data: Array.from(stepExpected, ([pipelineStepId, count]) => ({
+        scheduleExecutionId: se.id,
+        pipelineStepId,
+        expectedInvocationCount: count,
+        succeededCount: 0,
+        failedCount: 0,
+        rollupStatus: ScheduleStepRollupStatus.pending,
+      })),
+    });
 
     for (const item of enqueueItems) {
-      const p = item.payload;
-      await tx.agentJobExecution.create({
-        data: {
-          jobId: p.jobId,
-          agentId: p.agentId,
-          scheduleId: schedule.id,
-          scheduleExecutionId: se.id,
-          pipelineId: schedule.pipelineId,
-          pipelineStepId: p.pipelineStepId,
-          status: AgentJobExecutionStatus.pending,
-          priority: schedule.priority,
-          enqueuedAt: executionTime,
-          params: p.body.input as Prisma.InputJsonValue,
-          invocationConfig: p.body.config as Prisma.InputJsonValue,
-        },
-      });
-      p.scheduleExecutionId = se.id;
+      item.payload.scheduleExecutionId = se.id;
     }
+
+    await tx.agentJobExecution.createMany({
+      data: enqueueItems.map(({ payload: p }) => ({
+        jobId: p.jobId,
+        agentId: p.agentId,
+        scheduleId: schedule.id,
+        scheduleExecutionId: se.id,
+        pipelineId: schedule.pipelineId,
+        pipelineStepId: p.pipelineStepId,
+        status: AgentJobExecutionStatus.pending,
+        priority: schedule.priority,
+        enqueuedAt: executionTime,
+        params: p.body.input as Prisma.InputJsonValue,
+        invocationConfig: p.body.config as Prisma.InputJsonValue,
+      })),
+    });
 
     return se;
   });
