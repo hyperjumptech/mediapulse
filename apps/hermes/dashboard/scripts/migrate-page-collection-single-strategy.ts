@@ -85,42 +85,36 @@ function migrateConfig(config: RawConfig): {
 }
 
 async function main() {
-  const { createPrismaClient } =
-    await import("@hermes/orchestration-database/client");
-  const prisma = createPrismaClient();
+  const { prisma } = await import("@hermes/orchestration-database");
 
-  try {
-    const configs = await prisma.agentConfig.findMany({
-      where: { agentId: "page-collection" },
-    });
+  const configs = await prisma.agentConfig.findMany({
+    where: { agentId: "page-collection" },
+  });
 
-    console.log(`Found ${configs.length} page-collection AgentConfig rows.`);
+  console.log(`Found ${configs.length} page-collection AgentConfig rows.`);
 
-    let updatedCount = 0;
+  let updatedCount = 0;
 
-    for (const row of configs) {
-      const rawConfig = row.config as RawConfig;
-      const { migrated, changed } = migrateConfig(rawConfig);
+  for (const row of configs) {
+    const rawConfig = row.config as RawConfig;
+    const { migrated, changed } = migrateConfig(rawConfig);
 
-      if (!changed) {
-        continue;
-      }
-
-      await prisma.agentConfig.update({
-        where: { id: row.id },
-        data: { config: migrated },
-      });
-
-      updatedCount += 1;
-      console.log(`  Updated config "${row.name}" (${row.id})`);
+    if (!changed) {
+      continue;
     }
 
-    console.log(
-      `Migration complete. ${updatedCount}/${configs.length} rows updated.`,
-    );
-  } finally {
-    await prisma.$disconnect();
+    await prisma.agentConfig.update({
+      where: { id: row.id },
+      data: { config: migrated as object },
+    });
+
+    updatedCount += 1;
+    console.log(`  Updated config "${row.name}" (${row.id})`);
   }
+
+  console.log(
+    `Migration complete. ${updatedCount}/${configs.length} rows updated.`,
+  );
 }
 
 main().catch((error) => {
