@@ -318,6 +318,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
                       ),
                     }
                   : undefined,
+              group: { id: `pipeline:${item.payload.pipelineId}` },
               tags: [
                 `scheduleExecution:${item.payload.scheduleExecutionId}`,
                 `schedule:${item.payload.scheduleId}`,
@@ -368,6 +369,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
                   ),
                 }
               : undefined,
+          group: { id: `pipeline:${item.payload.pipelineId}` },
           tags: [
             `httpTriggerExecution:${item.payload.httpTriggerExecutionId}`,
             `httpTrigger:${item.payload.httpTriggerId}`,

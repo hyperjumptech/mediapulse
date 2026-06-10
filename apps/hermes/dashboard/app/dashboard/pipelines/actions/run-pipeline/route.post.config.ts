@@ -190,6 +190,7 @@ const defaultEnqueueManualAgentInvocations = async (
             jobIds: item.dependsOnBatchIndices.map((idx) => batchDepRef(idx)),
           }
         : undefined,
+    group: { id: `pipeline:${item.payload.pipelineId}` },
     tags: [
       `manualPipelineExecution:${item.payload.manualExecutionId}`,
       `pipeline:${item.payload.pipelineId}`,
