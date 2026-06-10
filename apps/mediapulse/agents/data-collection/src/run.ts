@@ -618,6 +618,11 @@ export async function runDataCollection(
     runPolicy,
   });
 
+  const droppedByUrlNoiseTotal = Object.values(droppedByUrlReason).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+
   const counters: RunCounters = {
     queriesTotal: queries.length,
     urlsTotal: searchSuccessCount,
@@ -628,6 +633,20 @@ export async function runDataCollection(
     retryCount: 0,
     droppedByRelevance,
     throttleEvents,
+    agentId: "data-collection",
+    persisted: persistedThisRunCount,
+    droppedByPerQueryBudget,
+    droppedByPerRunBudget,
+    droppedByDeadUrl: droppedByDeadUrlCache,
+    droppedByHostErrorRate,
+    droppedByFreshness,
+    droppedByDuplicateCanonicalUrl,
+    droppedByExistingCanonicalUrl,
+    droppedByUrlNoise: droppedByUrlNoiseTotal,
+    droppedByContentQuality: { ...droppedByContentQuality },
+    roundsExecuted,
+    stopReason: refillStopReason ?? undefined,
+    durationMs: Date.now() - startedAt.getTime(),
   };
 
   const runPayload = {

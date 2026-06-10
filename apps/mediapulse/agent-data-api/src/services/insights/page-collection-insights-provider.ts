@@ -104,6 +104,7 @@ type ExtendedCounters = {
   droppedByUrlNoise?: number;
   persisted?: number;
   durationMs?: number;
+  agentId?: string;
 };
 
 function parseExtendedCounters(raw: Prisma.JsonValue | null): ExtendedCounters {
@@ -163,64 +164,76 @@ export function createPageCollectionInsightsProvider(
       const windowStart = new Date(now.getTime() - windowMs);
       const priorStart = new Date(windowStart.getTime() - windowMs);
 
-      const [runs, priorRuns, sourceHealth, dataSources] = await Promise.all([
-        deps.dataCollectionRun.findMany({
-          where: {
-            startedAt: { gte: windowStart },
-            ...(ctx.tickerId ? { tickerId: ctx.tickerId } : {}),
-          },
-          orderBy: { startedAt: "asc" },
-          select: {
-            tickerId: true,
-            startedAt: true,
-            status: true,
-            fetchSuccess: true,
-            extendedCounters: true,
-          },
-        }),
-        deps.dataCollectionRun.findMany({
-          where: {
-            startedAt: { gte: priorStart },
-            ...(ctx.tickerId ? { tickerId: ctx.tickerId } : {}),
-          },
-          orderBy: { startedAt: "asc" },
-          select: {
-            tickerId: true,
-            startedAt: true,
-            status: true,
-            fetchSuccess: true,
-            extendedCounters: true,
-          },
-        }),
-        deps.discoverySourceHealth.findMany({
-          where: { runDate: { gte: windowStart } },
-          select: {
-            listingUrl: true,
-            runDate: true,
-            discovered: true,
-            itemCount: true,
-            winningStrategy: true,
-            failureCount: true,
-          },
-        }),
-        deps.dataSource.findMany({
-          where: {
-            createdAt: { gte: windowStart },
-            ...(ctx.tickerId ? { tickerId: ctx.tickerId } : {}),
-          },
-          select: {
-            tickerId: true,
-            url: true,
-            createdAt: true,
-            metadata: true,
-            ticker: { select: { symbol: true } },
-          },
-          take: 2000,
-        }),
-      ]);
+      const [allRuns, priorRuns, sourceHealth, dataSources] = await Promise.all(
+        [
+          deps.dataCollectionRun.findMany({
+            where: {
+              startedAt: { gte: windowStart },
+              ...(ctx.tickerId ? { tickerId: ctx.tickerId } : {}),
+            },
+            orderBy: { startedAt: "asc" },
+            select: {
+              tickerId: true,
+              startedAt: true,
+              status: true,
+              fetchSuccess: true,
+              extendedCounters: true,
+            },
+          }),
+          deps.dataCollectionRun.findMany({
+            where: {
+              startedAt: { gte: priorStart },
+              ...(ctx.tickerId ? { tickerId: ctx.tickerId } : {}),
+            },
+            orderBy: { startedAt: "asc" },
+            select: {
+              tickerId: true,
+              startedAt: true,
+              status: true,
+              fetchSuccess: true,
+              extendedCounters: true,
+            },
+          }),
+          deps.discoverySourceHealth.findMany({
+            where: { runDate: { gte: windowStart } },
+            select: {
+              listingUrl: true,
+              runDate: true,
+              discovered: true,
+              itemCount: true,
+              winningStrategy: true,
+              failureCount: true,
+            },
+          }),
+          deps.dataSource.findMany({
+            where: {
+              createdAt: { gte: windowStart },
+              ...(ctx.tickerId ? { tickerId: ctx.tickerId } : {}),
+            },
+            select: {
+              tickerId: true,
+              url: true,
+              createdAt: true,
+              metadata: true,
+              ticker: { select: { symbol: true } },
+            },
+            take: 2000,
+          }),
+        ],
+      );
 
+      // Scope to page-collection runs only; old runs without agentId are attributed to page-collection.
+      const isPageCollectionRun = (r: RunRow) => {
+        const ext = parseExtendedCounters(r.extendedCounters);
+        return ext.agentId === undefined || ext.agentId === "page-collection";
+      };
+
+      const runs = allRuns.filter(isPageCollectionRun);
       const priorWindowRuns = priorRuns.filter(
-        (r) => r.startedAt >= priorStart && r.startedAt < windowStart,
+        (r) =>
+          r.startedAt >= priorStart &&
+          r.startedAt < windowStart &&
+          isPageCollectionRun(r),
       );
 
       // ─── Aggregated run counters ─────────────────────────────────────────
