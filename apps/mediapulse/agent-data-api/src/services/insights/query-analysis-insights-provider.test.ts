@@ -63,7 +63,11 @@ function makeQueries(setIds: string[]) {
   const sources = ["llm", "deterministic", "curated"] as const;
   const intents = ["breaking", "fundamental", "sentiment"] as const;
   return setIds.flatMap((setId, i) => [
-    { setId, source: sources[i % 3], intent: intents[i % 3] },
+    {
+      setId,
+      source: sources[i % 3] ?? "llm",
+      intent: intents[i % 3] ?? "breaking",
+    },
     { setId, source: "llm", intent: "competitor" },
     { setId, source: "deterministic", intent: "breaking" },
   ]);
@@ -79,8 +83,15 @@ function makeYieldRows(queryTexts: string[], setId = "set-0") {
   }));
 }
 
+type AnySetRow = {
+  id: string;
+  tickerId: string;
+  generatedAt: Date;
+  strategySnapshot: unknown;
+};
+
 function makeDeps(
-  sets: ReturnType<typeof makeSets>,
+  sets: AnySetRow[],
   queries: ReturnType<typeof makeQueries>,
   yields: ReturnType<typeof makeYieldRows>,
 ) {

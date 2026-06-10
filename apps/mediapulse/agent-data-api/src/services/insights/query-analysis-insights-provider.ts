@@ -1,4 +1,3 @@
-import type { Prisma } from "@mediapulse/database";
 import type {
   InsightsPayload,
   KpiCard,
@@ -23,7 +22,7 @@ type QuerySetRow = {
   id: string;
   tickerId: string;
   generatedAt: Date;
-  strategySnapshot: Prisma.JsonValue;
+  strategySnapshot: unknown;
 };
 
 type QueryRow = {
@@ -121,7 +120,7 @@ type StrategySnapshot = {
   }>;
 };
 
-function parseStrategySnapshot(raw: Prisma.JsonValue): StrategySnapshot {
+function parseStrategySnapshot(raw: unknown): StrategySnapshot {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return {};
   }
@@ -238,10 +237,10 @@ export function createQueryAnalysisInsightsProvider(
       const sortedSets = [...currentSets].sort(
         (a, b) => b.generatedAt.getTime() - a.generatedAt.getTime(),
       );
-      const latestSnapshot =
-        sortedSets.length > 0
-          ? parseStrategySnapshot(sortedSets[0].strategySnapshot)
-          : null;
+      const latestSet = sortedSets[0] ?? null;
+      const latestSnapshot = latestSet
+        ? parseStrategySnapshot(latestSet.strategySnapshot)
+        : null;
       const latestDiversityScore =
         latestSnapshot?.diversityScore?.composite ?? null;
 
