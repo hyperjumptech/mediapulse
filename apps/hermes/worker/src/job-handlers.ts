@@ -29,6 +29,7 @@ import {
 import { getJobQueue } from "./queue";
 import { executeHttpTrigger } from "./execute-http-trigger";
 import { cleanupOrphanedExecutions } from "./cleanup-orphaned-executions";
+import { reconcileOrphanedPendingExecutions } from "./reconcile-orphaned-pending";
 
 /** Default cap for DataQueue `invoke_agent` job timeout (abort + supervisor reclaim). */
 export const DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS = 1_800_000;
@@ -754,10 +755,25 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
   },
 
   cleanup_orphaned_executions: async () => {
-    const resolved = await cleanupOrphanedExecutions({
-      db: orchestrationPrisma,
-      logger,
-    });
-    logger.info({ resolved }, "cleanup_orphaned_executions: sweep complete");
+    const jobQueue = getJobQueue();
+    const pool = jobQueue.getPool?.();
+    const [resolved, reconciled] = await Promise.all([
+      cleanupOrphanedExecutions({ db: orchestrationPrisma, logger }),
+      pool
+        ? reconcileOrphanedPendingExecutions({
+            db: orchestrationPrisma,
+            dataQueuePool: pool,
+            logger,
+          })
+        : Promise.resolve({ reEnqueued: 0, settled: 0 }),
+    ]);
+    logger.info(
+      {
+        resolved,
+        reEnqueued: reconciled.reEnqueued,
+        reconciledSettled: reconciled.settled,
+      },
+      "cleanup_orphaned_executions: sweep complete",
+    );
   },
 };
