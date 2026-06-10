@@ -70,6 +70,7 @@ import { getSectionCoverageRollupHandler } from "./routes/section-coverage-rollu
 import { getAgentInsights } from "./routes/agent-insights.js";
 import { createPageCollectionInsightsProvider } from "./services/insights/page-collection-insights-provider.js";
 import { createContentGenerationInsightsProvider } from "./services/insights/content-generation-insights-provider.js";
+import { createUserRegistrationInsightsProvider } from "./services/insights/user-registration-insights-provider.js";
 import { registerInsightsProvider } from "./services/agent-insights-registry.js";
 import {
   registerAgentDataApiRoutes,
@@ -232,6 +233,12 @@ registerInsightsProvider(
   createContentGenerationInsightsProvider({
     contentGenerationRun: prisma.contentGenerationRun,
     newsletter: prisma.newsletter,
+  }),
+);
+registerInsightsProvider(
+  createUserRegistrationInsightsProvider({
+    mediapulseUser: prisma.mediapulseUser,
+    userTicker: prisma.userTicker,
   }),
 );
 
