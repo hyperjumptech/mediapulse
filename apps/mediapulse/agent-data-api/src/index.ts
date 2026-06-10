@@ -72,6 +72,7 @@ import { createPageCollectionInsightsProvider } from "./services/insights/page-c
 import { createContentGenerationInsightsProvider } from "./services/insights/content-generation-insights-provider.js";
 import { createUserRegistrationInsightsProvider } from "./services/insights/user-registration-insights-provider.js";
 import { createDataCollectionInsightsProvider } from "./services/insights/data-collection-insights-provider.js";
+import { createDeliveryInsightsProvider } from "./services/insights/delivery-insights-provider.js";
 import { registerInsightsProvider } from "./services/agent-insights-registry.js";
 import {
   registerAgentDataApiRoutes,
@@ -247,6 +248,11 @@ registerInsightsProvider(
     dataCollectionRun: prisma.dataCollectionRun,
     dataCollectionFailure: prisma.dataCollectionFailure,
     dataSource: prisma.dataSource,
+  }),
+);
+registerInsightsProvider(
+  createDeliveryInsightsProvider({
+    deliveryRun: prisma.deliveryRun,
   }),
 );
 
