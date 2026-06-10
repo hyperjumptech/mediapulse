@@ -344,13 +344,16 @@ export function createDeliveryInsightsProvider(
 
       // What — delivery outcome breakdown
       if (totalRuns > 0) {
-        const outcomeEntries: Array<[string, number]> = [
+        const allOutcomeEntries: Array<[string, number]> = [
           ["Success", successRuns.length],
           ["Partial success", partialSuccessRuns.length],
           ["Failed", failedRuns.length],
           ["Skipped", skippedRuns.length],
           ["Skipped (already delivered)", skippedAllDeliveredRuns.length],
-        ].filter(([, count]) => count > 0) as Array<[string, number]>;
+        ];
+        const outcomeEntries = allOutcomeEntries.filter(
+          (entry): entry is [string, number] => entry[1] > 0,
+        );
 
         sections.push({
           id: "what-outcome",
