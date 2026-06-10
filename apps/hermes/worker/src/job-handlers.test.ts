@@ -12,6 +12,7 @@ import {
 import { logger } from "@workspace/logger";
 import { executeHttpTrigger } from "./execute-http-trigger";
 import { cleanupOrphanedExecutions } from "./cleanup-orphaned-executions";
+import { reconcileOrphanedPendingExecutions } from "./reconcile-orphaned-pending";
 import {
   DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS,
   jobHandlers,
@@ -105,6 +106,12 @@ const mockPoolQuery = vi.fn();
 
 vi.mock("./cleanup-orphaned-executions", () => ({
   cleanupOrphanedExecutions: vi.fn().mockResolvedValue(0),
+}));
+
+vi.mock("./reconcile-orphaned-pending", () => ({
+  reconcileOrphanedPendingExecutions: vi
+    .fn()
+    .mockResolvedValue({ reEnqueued: 0, settled: 0 }),
 }));
 
 vi.mock("./execute-http-trigger", () => ({
@@ -1050,9 +1057,13 @@ describe("jobHandlers", () => {
   });
 
   describe("cleanup_orphaned_executions", () => {
-    it("calls cleanupOrphanedExecutions with orchestration prisma and logs resolved count", async () => {
+    it("calls cleanupOrphanedExecutions and reconcileOrphanedPendingExecutions and logs combined counts", async () => {
       // Setup
       vi.mocked(cleanupOrphanedExecutions).mockResolvedValue(3);
+      vi.mocked(reconcileOrphanedPendingExecutions).mockResolvedValue({
+        reEnqueued: 2,
+        settled: 1,
+      });
 
       // Act
       await jobHandlers.cleanup_orphaned_executions(
@@ -1066,8 +1077,15 @@ describe("jobHandlers", () => {
       expect(cleanupOrphanedExecutions).toHaveBeenCalledWith(
         expect.objectContaining({ db: expect.any(Object) }),
       );
+      expect(reconcileOrphanedPendingExecutions).toHaveBeenCalledTimes(1);
+      expect(reconcileOrphanedPendingExecutions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          db: expect.any(Object),
+          dataQueuePool: expect.any(Object),
+        }),
+      );
       expect(logger.info).toHaveBeenCalledWith(
-        { resolved: 3 },
+        { resolved: 3, reEnqueued: 2, reconciledSettled: 1 },
         "cleanup_orphaned_executions: sweep complete",
       );
     });
