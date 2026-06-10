@@ -14,14 +14,28 @@ const HEARTBEAT_INTERVAL_MS = 60_000;
 /** Logged every 5 minutes to surface memory growth early. */
 const MEMORY_LOG_INTERVAL_MS = 5 * 60 * 1_000;
 
-const processorBatchSize = Math.max(
-  1,
-  Number.parseInt(env.PROCESSOR_BATCH_SIZE ?? "10", 10) || 10,
-);
-const processorConcurrency = Math.max(
+const dataPlaneConc = Math.max(
   1,
   Number.parseInt(env.PROCESSOR_CONCURRENCY ?? "3", 10) || 3,
 );
+const dataPlaneBatch = Math.max(
+  dataPlaneConc,
+  Number.parseInt(env.PROCESSOR_BATCH_SIZE ?? "10", 10) || 10,
+);
+const controlPlaneConc = Math.max(
+  1,
+  Number.parseInt(env.HERMES_CONTROL_PLANE_CONCURRENCY ?? "2", 10) || 2,
+);
+const controlPlaneBatch = Math.max(
+  controlPlaneConc,
+  Number.parseInt(env.HERMES_CONTROL_PLANE_BATCH_SIZE ?? "5", 10) || 5,
+);
+const groupConcurrency = (() => {
+  const raw = env.HERMES_GROUP_CONCURRENCY?.trim();
+  if (!raw) return undefined;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 1 ? n : undefined;
+})();
 
 // ─── Module-level shutdown hook ───────────────────────────────────────────────
 // Set inside main() once the processor/supervisor are running.
@@ -80,7 +94,11 @@ async function main(): Promise<void> {
   const { logger } = await import("@workspace/logger");
 
   let jobQueue: Awaited<ReturnType<typeof getJobQueue>> | null = null;
-  let processor: {
+  let controlPlaneProcessor: {
+    startInBackground: () => void;
+    stopAndDrain: (ms?: number) => Promise<void>;
+  } | null = null;
+  let dataPlaneProcessor: {
     startInBackground: () => void;
     stopAndDrain: (ms?: number) => Promise<void>;
   } | null = null;
@@ -134,17 +152,36 @@ async function main(): Promise<void> {
     graceMs: env.HERMES_SCHEDULE_RECOVERY_GRACE_MS ?? 900_000,
   });
 
-  processor = jobQueue.createProcessor(jobHandlers, {
+  controlPlaneProcessor = jobQueue.createProcessor(jobHandlers, {
     verbose: env.NODE_ENV === "development",
-    workerId: `hermes-${process.pid}`,
-    batchSize: processorBatchSize,
-    concurrency: processorConcurrency,
+    workerId: `hermes-ctrl-${process.pid}`,
+    jobType: [
+      "check_schedules",
+      "execute_http_trigger",
+      "cleanup_orphaned_executions",
+    ],
+    batchSize: controlPlaneBatch,
+    concurrency: controlPlaneConc,
     pollInterval: 5000,
     onError: (err) => {
-      logger.error({ err }, "DataQueue processor error");
+      logger.error({ err }, "DataQueue control-plane processor error");
     },
   });
-  processor.startInBackground();
+  controlPlaneProcessor.startInBackground();
+
+  dataPlaneProcessor = jobQueue.createProcessor(jobHandlers, {
+    verbose: env.NODE_ENV === "development",
+    workerId: `hermes-data-${process.pid}`,
+    jobType: "invoke_agent",
+    batchSize: dataPlaneBatch,
+    concurrency: dataPlaneConc,
+    ...(groupConcurrency !== undefined ? { groupConcurrency } : {}),
+    pollInterval: 5000,
+    onError: (err) => {
+      logger.error({ err }, "DataQueue data-plane processor error");
+    },
+  });
+  dataPlaneProcessor.startInBackground();
 
   supervisor = jobQueue.createSupervisor({
     verbose: env.NODE_ENV === "development",
@@ -159,12 +196,14 @@ async function main(): Promise<void> {
   supervisor.startInBackground();
 
   const shutdown = async (): Promise<void> => {
-    if (processor || supervisor) {
+    if (controlPlaneProcessor || dataPlaneProcessor || supervisor) {
       await Promise.all([
-        processor?.stopAndDrain(DRAIN_TIMEOUT_MS),
+        controlPlaneProcessor?.stopAndDrain(DRAIN_TIMEOUT_MS),
+        dataPlaneProcessor?.stopAndDrain(DRAIN_TIMEOUT_MS),
         supervisor?.stopAndDrain(DRAIN_TIMEOUT_MS),
       ]);
-      processor = null;
+      controlPlaneProcessor = null;
+      dataPlaneProcessor = null;
       supervisor = null;
     }
     if (jobQueue?.getPool?.()) {
@@ -229,10 +268,17 @@ async function main(): Promise<void> {
   logger.info(
     {
       pid: process.pid,
-      concurrency: processorConcurrency,
-      batchSize: processorBatchSize,
+      dataPlane: {
+        concurrency: dataPlaneConc,
+        batchSize: dataPlaneBatch,
+        groupConcurrency,
+      },
+      controlPlane: {
+        concurrency: controlPlaneConc,
+        batchSize: controlPlaneBatch,
+      },
     },
-    "Hermes worker started (processor + supervisor)",
+    "Hermes worker started (control-plane + data-plane processors + supervisor)",
   );
 }
 

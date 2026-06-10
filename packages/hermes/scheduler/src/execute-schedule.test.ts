@@ -110,6 +110,7 @@ const createMockDb = (opts?: {
     scheduleExecution: {
       create: scheduleExecutionCreate,
       update: scheduleExecutionUpdate,
+      findFirst: vi.fn().mockResolvedValue(null),
     },
     agentRegistry: {
       findMany: vi.fn().mockResolvedValue([
@@ -362,7 +363,11 @@ describe("executeSchedule", () => {
           },
         ]),
       },
-      scheduleExecution: { create: scheduleExecutionCreate, update: vi.fn() },
+      scheduleExecution: {
+        create: scheduleExecutionCreate,
+        update: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
     };
     const deps: ExecuteScheduleDeps = {
       db: db as unknown as ExecuteScheduleDeps["db"],
@@ -638,5 +643,40 @@ describe("executeSchedule", () => {
         (item) => item.payload.scheduleExecutionId === "se-regression",
       ),
     ).toBe(true);
+  });
+
+  it("skips execution and advances nextRunAt when a non-terminal execution already exists", async () => {
+    const schedule = createMockSchedule();
+    const scheduleUpdate = vi.fn().mockResolvedValue(undefined);
+    const db = createMockDb();
+    db.schedule.update = scheduleUpdate;
+    db.scheduleExecution.findFirst = vi
+      .fn()
+      .mockResolvedValue({ id: "se-running", runStatus: "running" });
+
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const deps: ExecuteScheduleDeps = {
+      db: db as unknown as ExecuteScheduleDeps["db"],
+      logger,
+      enqueueAgentInvocations,
+    };
+
+    await executeSchedule(schedule, deps);
+
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(enqueueAgentInvocations).not.toHaveBeenCalled();
+    expect(scheduleUpdate).toHaveBeenCalledTimes(1);
+    expect(scheduleUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: schedule.id } }),
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scheduleId: schedule.id,
+        existingExecutionId: "se-running",
+        existingRunStatus: "running",
+      }),
+      "executeSchedule: skipping tick — prior execution is still non-terminal",
+    );
   });
 });

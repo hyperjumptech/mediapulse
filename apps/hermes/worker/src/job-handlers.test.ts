@@ -10,6 +10,7 @@ import {
   parseAgentResponseEnvelope,
 } from "@hermes/scheduler";
 import { logger } from "@workspace/logger";
+import { executeHttpTrigger } from "./execute-http-trigger";
 import { cleanupOrphanedExecutions } from "./cleanup-orphaned-executions";
 import {
   DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS,
@@ -104,6 +105,10 @@ const mockPoolQuery = vi.fn();
 
 vi.mock("./cleanup-orphaned-executions", () => ({
   cleanupOrphanedExecutions: vi.fn().mockResolvedValue(0),
+}));
+
+vi.mock("./execute-http-trigger", () => ({
+  executeHttpTrigger: vi.fn(),
 }));
 
 vi.mock("./queue", () => ({
@@ -230,6 +235,7 @@ describe("jobHandlers", () => {
         priority: 0,
         idempotencyKey: "j1",
         timeoutMs: 60_000,
+        group: { id: "pipeline:p1" },
       });
     });
 
@@ -451,6 +457,49 @@ describe("jobHandlers", () => {
       );
 
       expect(executeSchedule).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("execute_http_trigger", () => {
+    it("includes group: { id: pipeline:<pipelineId> } in addJobs for invoke_agent jobs", async () => {
+      vi.mocked(executeHttpTrigger).mockImplementation(async (_id, deps) => {
+        await deps.enqueueAgentInvocations([
+          {
+            payload: {
+              jobId: "j-ht-1",
+              executionId: "e-ht-1",
+              httpTriggerExecutionId: "ht-1",
+              httpTriggerId: "trigger-1",
+              pipelineId: "p-ht",
+              pipelineStepId: "st-ht",
+              domainIntegrationId: "di-1",
+              agentId: "a1",
+              agentVersion: "1.0.0",
+              endpointUrl: "https://a.example/",
+              body: { input: {}, config: {} },
+              timeoutMs: 60_000,
+              priority: 0,
+            },
+          },
+        ]);
+      });
+
+      await jobHandlers.execute_http_trigger(
+        { httpTriggerExecutionId: "ht-1" },
+        new AbortController().signal,
+        {} as Parameters<typeof jobHandlers.execute_http_trigger>[2],
+      );
+
+      expect(mockAddJobs).toHaveBeenCalledTimes(1);
+      const jobDefs = mockAddJobs.mock.calls[0]![0] as Array<{
+        jobType: string;
+        group: { id: string };
+      }>;
+      expect(jobDefs).toHaveLength(1);
+      expect(jobDefs[0]).toMatchObject({
+        jobType: "invoke_agent",
+        group: { id: "pipeline:p-ht" },
+      });
     });
   });
 

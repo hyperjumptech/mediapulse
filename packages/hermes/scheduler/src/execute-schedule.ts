@@ -150,6 +150,27 @@ export const executeSchedule = async (
     return;
   }
 
+  const nonTerminalExecution = await db.scheduleExecution.findFirst({
+    where: {
+      scheduleId: schedule.id,
+      runStatus: { in: [ScheduleRunStatus.pending, ScheduleRunStatus.running] },
+    },
+    select: { id: true, runStatus: true },
+  });
+  if (nonTerminalExecution) {
+    logger.info(
+      {
+        scheduleId: schedule.id,
+        existingExecutionId: nonTerminalExecution.id,
+        existingRunStatus: nonTerminalExecution.runStatus,
+      },
+      "executeSchedule: skipping tick — prior execution is still non-terminal",
+    );
+    await updateScheduleAfterExecution(db, schedule, executionTime);
+
+    return;
+  }
+
   const planningResult = await planPipelineInvocations({
     db,
     pipeline: {
