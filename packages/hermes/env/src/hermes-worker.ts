@@ -22,6 +22,7 @@ export const env = createEnv({
     HERMES_INVOKE_AGENT_RETRY_BACKOFF: z.string().optional(),
     HERMES_INVOKE_AGENT_RETRY_DELAY_MAX: z.string().optional(),
     HERMES_INVOKE_AGENT_JOB_TIMEOUT_MS: z.string().optional(),
+    HERMES_INVOKE_AGENT_CANCEL_POLL_MS: z.string().optional(),
     HERMES_SCHEDULE_RECOVERY_GRACE_MS: z.number({ coerce: true }).optional(),
   },
   client: {

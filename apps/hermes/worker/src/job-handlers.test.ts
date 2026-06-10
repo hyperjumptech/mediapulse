@@ -69,6 +69,7 @@ vi.mock("@hermes/env/hermes-worker", () => ({
     HERMES_INVOKE_AGENT_RETRY_BACKOFF: undefined as string | undefined,
     HERMES_INVOKE_AGENT_RETRY_DELAY_MAX: undefined as string | undefined,
     HERMES_INVOKE_AGENT_JOB_TIMEOUT_MS: undefined as string | undefined,
+    HERMES_INVOKE_AGENT_CANCEL_POLL_MS: undefined as string | undefined,
   },
 }));
 
@@ -847,6 +848,119 @@ describe("jobHandlers", () => {
         }),
         expect.any(Object),
       );
+    });
+
+    it("aborts in-flight invoke and records cancelled when cancelledAt is set mid-flight, clearing the timer", async () => {
+      vi.useFakeTimers();
+      try {
+        // invokeAgentPost resolves with an AbortError when the signal fires
+        vi.mocked(invokeAgentPost).mockImplementationOnce(
+          (_endpoint, _body, options) => {
+            return new Promise((resolve) => {
+              options.signal!.addEventListener(
+                "abort",
+                () => {
+                  const err = Object.assign(new Error("AbortError"), {
+                    name: "AbortError",
+                  });
+                  resolve({ kind: "transport_error", error: err });
+                },
+                { once: true },
+              );
+            });
+          },
+        );
+
+        // First call (pre-invoke check): not cancelled yet
+        // Second call (poller): cancelled
+        mockPrisma.scheduleExecution.findUnique
+          .mockResolvedValueOnce({ cancelledAt: null })
+          .mockResolvedValueOnce({ cancelledAt: new Date() });
+
+        const handlerPromise = jobHandlers.invoke_agent(
+          payload,
+          signal,
+          jobCtx,
+        );
+
+        // Advance past the 3000 ms default poll interval; this fires the poller,
+        // which aborts the local controller, which resolves invokeAgentPost.
+        await vi.advanceTimersByTimeAsync(3001);
+
+        await handlerPromise;
+
+        expect(vi.getTimerCount()).toBe(0);
+
+        expect(applyInvocationCompletion).toHaveBeenCalledWith(
+          expect.objectContaining({
+            jobId: payload.jobId,
+            scheduleExecutionId: payload.scheduleExecutionId,
+            terminal: expect.objectContaining({
+              status: AgentJobExecutionStatus.cancelled,
+            }),
+          }),
+          expect.any(Object),
+        );
+
+        expect(invokeAgentPost).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("swallows DB errors inside the cancel poller and does not crash the handler", async () => {
+      vi.useFakeTimers();
+      try {
+        // invokeAgentPost resolves normally after the poller fires (but DB error is swallowed)
+        let resolveInvoke!: (
+          value: Awaited<ReturnType<typeof invokeAgentPost>>,
+        ) => void;
+        const invokePromise = new Promise<
+          Awaited<ReturnType<typeof invokeAgentPost>>
+        >((resolve) => {
+          resolveInvoke = resolve;
+        });
+        vi.mocked(invokeAgentPost).mockReturnValueOnce(invokePromise);
+
+        // Poller DB call throws
+        mockPrisma.scheduleExecution.findUnique
+          .mockResolvedValueOnce({ cancelledAt: null })
+          .mockRejectedValueOnce(new Error("DB connection lost"));
+
+        const handlerPromise = jobHandlers.invoke_agent(
+          payload,
+          signal,
+          jobCtx,
+        );
+
+        // Fire the poller — DB error should be swallowed, handler keeps running
+        await vi.advanceTimersByTimeAsync(3001);
+
+        expect(logger.warn).toHaveBeenCalledWith(
+          expect.objectContaining({ jobId: payload.jobId }),
+          "invoke_agent: cancel poller DB error swallowed",
+        );
+
+        // Now let the invoke complete normally
+        vi.mocked(parseAgentResponseEnvelope).mockReturnValue({
+          ok: true,
+          envelope: { schemaVersion: 1, status: "success", truncated: {} },
+        });
+        resolveInvoke({
+          kind: "http",
+          response: {
+            statusCode: 200,
+            rawBody: '{"schemaVersion":1,"status":"success"}',
+            isEmptyBody: false,
+          },
+        });
+
+        await handlerPromise;
+
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

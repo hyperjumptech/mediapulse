@@ -499,107 +499,235 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
       return;
     }
 
-    const httpClient = createHttpClient(signal);
-    const authToken = await getJwtForDomainIntegration(
-      payload.domainIntegrationId,
-    );
-    const endpoint = { url: payload.endpointUrl, method: "POST" as const };
-    const postResult = await invokeAgentPost(
-      endpoint,
-      payload.body as Record<string, unknown>,
-      {
-        jobId: payload.jobId,
-        executionId: payload.executionId,
-        scheduleId: payload.scheduleId ?? payload.httpTriggerId,
-        scheduleExecutionId:
-          payload.scheduleExecutionId ?? payload.httpTriggerExecutionId,
-        manualExecutionId: payload.manualExecutionId,
-        pipelineStepId: payload.pipelineStepId,
-        authToken,
-        timeoutMs: payload.timeoutMs,
-        signal,
-      },
-      httpClient,
-    );
-
-    if (postResult.kind === "transport_error") {
-      const aborted =
-        signal.aborted ||
-        postResult.error.name === "AbortError" ||
-        /abort/i.test(postResult.error.message);
-      if (aborted) {
-        await applyInvocationCompletion(
-          {
-            jobId: payload.jobId,
-            scheduleExecutionId: payload.scheduleExecutionId,
-            httpTriggerExecutionId: payload.httpTriggerExecutionId,
-            manualExecutionId: payload.manualExecutionId,
-            pipelineStepId: payload.pipelineStepId,
-            terminal: {
-              status: AgentJobExecutionStatus.cancelled,
-              error: {
-                cancelled: true,
-                message: "Agent invoke aborted (cancelled or signal)",
-                retryable: false,
-              },
-            },
-          },
-          completionDeps,
-        );
-        return;
-      }
-      logger.error(
-        {
-          err: postResult.error,
-          jobId: payload.jobId,
-          agentId: payload.agentId,
-          scheduleId: payload.scheduleId,
-        },
-        "invoke_agent transport failure",
-      );
-      await handleTransientInvokeFailure({
-        payload,
-        message: postResult.error.message,
-        errorToThrow: postResult.error,
-      });
+    const cancelPollMs =
+      parsePositiveIntEnv(env.HERMES_INVOKE_AGENT_CANCEL_POLL_MS) ?? 3_000;
+    const localController = new AbortController();
+    const localSignal = localController.signal;
+    if (signal.aborted) {
+      localController.abort(signal.reason);
     } else {
-      if (signal.aborted) {
-        await applyInvocationCompletion(
-          {
-            jobId: payload.jobId,
-            scheduleExecutionId: payload.scheduleExecutionId,
-            httpTriggerExecutionId: payload.httpTriggerExecutionId,
-            manualExecutionId: payload.manualExecutionId,
-            pipelineStepId: payload.pipelineStepId,
-            terminal: {
-              status: AgentJobExecutionStatus.cancelled,
-              error: {
-                cancelled: true,
-                message: "Agent invoke aborted after response (cancelled)",
-                retryable: false,
+      signal.addEventListener(
+        "abort",
+        () => localController.abort(signal.reason),
+        { once: true },
+      );
+    }
+    const cancelPoller = setInterval(() => {
+      void (async () => {
+        try {
+          const executionCheck = payload.scheduleExecutionId
+            ? await orchestrationPrisma.scheduleExecution.findUnique({
+                where: { id: payload.scheduleExecutionId },
+                select: { cancelledAt: true },
+              })
+            : payload.httpTriggerExecutionId
+              ? await orchestrationPrisma.httpTriggerExecution.findUnique({
+                  where: { id: payload.httpTriggerExecutionId },
+                  select: { cancelledAt: true },
+                })
+              : await orchestrationPrisma.manualPipelineExecution.findUnique({
+                  where: { id: payload.manualExecutionId! },
+                  select: { cancelledAt: true },
+                });
+          if (executionCheck?.cancelledAt && !localController.signal.aborted) {
+            localController.abort();
+          }
+        } catch (err) {
+          logger.warn(
+            { err, jobId: payload.jobId },
+            "invoke_agent: cancel poller DB error swallowed",
+          );
+        }
+      })();
+    }, cancelPollMs);
+    try {
+      const httpClient = createHttpClient(localSignal);
+      const authToken = await getJwtForDomainIntegration(
+        payload.domainIntegrationId,
+      );
+      const endpoint = { url: payload.endpointUrl, method: "POST" as const };
+      const postResult = await invokeAgentPost(
+        endpoint,
+        payload.body as Record<string, unknown>,
+        {
+          jobId: payload.jobId,
+          executionId: payload.executionId,
+          scheduleId: payload.scheduleId ?? payload.httpTriggerId,
+          scheduleExecutionId:
+            payload.scheduleExecutionId ?? payload.httpTriggerExecutionId,
+          manualExecutionId: payload.manualExecutionId,
+          pipelineStepId: payload.pipelineStepId,
+          authToken,
+          timeoutMs: payload.timeoutMs,
+          signal: localSignal,
+        },
+        httpClient,
+      );
+
+      if (postResult.kind === "transport_error") {
+        const aborted =
+          localSignal.aborted ||
+          postResult.error.name === "AbortError" ||
+          /abort/i.test(postResult.error.message);
+        if (aborted) {
+          await applyInvocationCompletion(
+            {
+              jobId: payload.jobId,
+              scheduleExecutionId: payload.scheduleExecutionId,
+              httpTriggerExecutionId: payload.httpTriggerExecutionId,
+              manualExecutionId: payload.manualExecutionId,
+              pipelineStepId: payload.pipelineStepId,
+              terminal: {
+                status: AgentJobExecutionStatus.cancelled,
+                error: {
+                  cancelled: true,
+                  message: "Agent invoke aborted (cancelled or signal)",
+                  retryable: false,
+                },
               },
             },
+            completionDeps,
+          );
+          return;
+        }
+        logger.error(
+          {
+            err: postResult.error,
+            jobId: payload.jobId,
+            agentId: payload.agentId,
+            scheduleId: payload.scheduleId,
           },
-          completionDeps,
+          "invoke_agent transport failure",
         );
-        return;
-      }
-
-      const { statusCode, rawBody, isEmptyBody } = postResult.response;
-
-      if (statusCode >= 500) {
-        const bodyMessage = parseHttpErrorBodyMessage(rawBody);
-        const message = bodyMessage ?? `Agent HTTP ${statusCode}`;
-        const err = new Error(`Agent returned HTTP ${statusCode}`);
         await handleTransientInvokeFailure({
           payload,
-          message,
-          errorToThrow: err,
+          message: postResult.error.message,
+          errorToThrow: postResult.error,
         });
-      }
+      } else {
+        if (localSignal.aborted) {
+          await applyInvocationCompletion(
+            {
+              jobId: payload.jobId,
+              scheduleExecutionId: payload.scheduleExecutionId,
+              httpTriggerExecutionId: payload.httpTriggerExecutionId,
+              manualExecutionId: payload.manualExecutionId,
+              pipelineStepId: payload.pipelineStepId,
+              terminal: {
+                status: AgentJobExecutionStatus.cancelled,
+                error: {
+                  cancelled: true,
+                  message: "Agent invoke aborted after response (cancelled)",
+                  retryable: false,
+                },
+              },
+            },
+            completionDeps,
+          );
+          return;
+        }
 
-      if (statusCode >= 400) {
-        const bodyMessage = parseHttpErrorBodyMessage(rawBody);
+        const { statusCode, rawBody, isEmptyBody } = postResult.response;
+
+        if (statusCode >= 500) {
+          const bodyMessage = parseHttpErrorBodyMessage(rawBody);
+          const message = bodyMessage ?? `Agent HTTP ${statusCode}`;
+          const err = new Error(`Agent returned HTTP ${statusCode}`);
+          await handleTransientInvokeFailure({
+            payload,
+            message,
+            errorToThrow: err,
+          });
+        }
+
+        if (statusCode >= 400) {
+          const bodyMessage = parseHttpErrorBodyMessage(rawBody);
+          await applyInvocationCompletion(
+            {
+              jobId: payload.jobId,
+              scheduleExecutionId: payload.scheduleExecutionId,
+              httpTriggerExecutionId: payload.httpTriggerExecutionId,
+              manualExecutionId: payload.manualExecutionId,
+              pipelineStepId: payload.pipelineStepId,
+              terminal: {
+                status: AgentJobExecutionStatus.failed,
+                error: {
+                  message: bodyMessage ?? `HTTP ${statusCode}`,
+                  retryable: false,
+                },
+              },
+            },
+            completionDeps,
+          );
+          return;
+        }
+
+        if (statusCode >= 200 && statusCode < 300) {
+          const parsed = parseAgentResponseEnvelope(rawBody, isEmptyBody);
+          if (!parsed.ok) {
+            await applyInvocationCompletion(
+              {
+                jobId: payload.jobId,
+                scheduleExecutionId: payload.scheduleExecutionId,
+                httpTriggerExecutionId: payload.httpTriggerExecutionId,
+                manualExecutionId: payload.manualExecutionId,
+                pipelineStepId: payload.pipelineStepId,
+                terminal: {
+                  status: AgentJobExecutionStatus.failed,
+                  error: {
+                    message: parsed.error.message,
+                    code: parsed.error.code,
+                    retryable: false,
+                  },
+                },
+              },
+              completionDeps,
+            );
+            return;
+          }
+          if (parsed.envelope.status === "failure") {
+            await applyInvocationCompletion(
+              {
+                jobId: payload.jobId,
+                scheduleExecutionId: payload.scheduleExecutionId,
+                httpTriggerExecutionId: payload.httpTriggerExecutionId,
+                manualExecutionId: payload.manualExecutionId,
+                pipelineStepId: payload.pipelineStepId,
+                terminal: {
+                  status: AgentJobExecutionStatus.failed,
+                  error: {
+                    message:
+                      parsed.envelope.message ??
+                      "Agent reported semantic failure",
+                    retryable: false,
+                    semantic: true,
+                  },
+                  agentResponse:
+                    parsed.envelope as unknown as Prisma.InputJsonValue,
+                  semanticStatus: "failure",
+                },
+              },
+              completionDeps,
+            );
+            return;
+          }
+          await applyInvocationCompletion(
+            {
+              jobId: payload.jobId,
+              scheduleExecutionId: payload.scheduleExecutionId,
+              httpTriggerExecutionId: payload.httpTriggerExecutionId,
+              manualExecutionId: payload.manualExecutionId,
+              pipelineStepId: payload.pipelineStepId,
+              terminal: {
+                status: AgentJobExecutionStatus.completed,
+                envelope: parsed.envelope,
+              },
+            },
+            completionDeps,
+          );
+          return;
+        }
+
         await applyInvocationCompletion(
           {
             jobId: payload.jobId,
@@ -610,99 +738,16 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             terminal: {
               status: AgentJobExecutionStatus.failed,
               error: {
-                message: bodyMessage ?? `HTTP ${statusCode}`,
+                message: `Unexpected HTTP status ${statusCode}`,
                 retryable: false,
               },
             },
           },
           completionDeps,
         );
-        return;
       }
-
-      if (statusCode >= 200 && statusCode < 300) {
-        const parsed = parseAgentResponseEnvelope(rawBody, isEmptyBody);
-        if (!parsed.ok) {
-          await applyInvocationCompletion(
-            {
-              jobId: payload.jobId,
-              scheduleExecutionId: payload.scheduleExecutionId,
-              httpTriggerExecutionId: payload.httpTriggerExecutionId,
-              manualExecutionId: payload.manualExecutionId,
-              pipelineStepId: payload.pipelineStepId,
-              terminal: {
-                status: AgentJobExecutionStatus.failed,
-                error: {
-                  message: parsed.error.message,
-                  code: parsed.error.code,
-                  retryable: false,
-                },
-              },
-            },
-            completionDeps,
-          );
-          return;
-        }
-        if (parsed.envelope.status === "failure") {
-          await applyInvocationCompletion(
-            {
-              jobId: payload.jobId,
-              scheduleExecutionId: payload.scheduleExecutionId,
-              httpTriggerExecutionId: payload.httpTriggerExecutionId,
-              manualExecutionId: payload.manualExecutionId,
-              pipelineStepId: payload.pipelineStepId,
-              terminal: {
-                status: AgentJobExecutionStatus.failed,
-                error: {
-                  message:
-                    parsed.envelope.message ??
-                    "Agent reported semantic failure",
-                  retryable: false,
-                  semantic: true,
-                },
-                agentResponse:
-                  parsed.envelope as unknown as Prisma.InputJsonValue,
-                semanticStatus: "failure",
-              },
-            },
-            completionDeps,
-          );
-          return;
-        }
-        await applyInvocationCompletion(
-          {
-            jobId: payload.jobId,
-            scheduleExecutionId: payload.scheduleExecutionId,
-            httpTriggerExecutionId: payload.httpTriggerExecutionId,
-            manualExecutionId: payload.manualExecutionId,
-            pipelineStepId: payload.pipelineStepId,
-            terminal: {
-              status: AgentJobExecutionStatus.completed,
-              envelope: parsed.envelope,
-            },
-          },
-          completionDeps,
-        );
-        return;
-      }
-
-      await applyInvocationCompletion(
-        {
-          jobId: payload.jobId,
-          scheduleExecutionId: payload.scheduleExecutionId,
-          httpTriggerExecutionId: payload.httpTriggerExecutionId,
-          manualExecutionId: payload.manualExecutionId,
-          pipelineStepId: payload.pipelineStepId,
-          terminal: {
-            status: AgentJobExecutionStatus.failed,
-            error: {
-              message: `Unexpected HTTP status ${statusCode}`,
-              retryable: false,
-            },
-          },
-        },
-        completionDeps,
-      );
+    } finally {
+      clearInterval(cancelPoller);
     }
   },
 
