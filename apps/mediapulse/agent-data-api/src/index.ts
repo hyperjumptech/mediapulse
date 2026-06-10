@@ -74,6 +74,7 @@ import { createUserRegistrationInsightsProvider } from "./services/insights/user
 import { createDataCollectionInsightsProvider } from "./services/insights/data-collection-insights-provider.js";
 import { createDeliveryInsightsProvider } from "./services/insights/delivery-insights-provider.js";
 import { createQueryAnalysisInsightsProvider } from "./services/insights/query-analysis-insights-provider.js";
+import { createArticleAnalysisInsightsProvider } from "./services/insights/article-analysis-insights-provider.js";
 import { registerInsightsProvider } from "./services/agent-insights-registry.js";
 import {
   registerAgentDataApiRoutes,
@@ -254,6 +255,12 @@ registerInsightsProvider(
 registerInsightsProvider(
   createDeliveryInsightsProvider({
     deliveryRun: prisma.deliveryRun,
+  }),
+);
+registerInsightsProvider(
+  createArticleAnalysisInsightsProvider({
+    articleRelevance: prisma.articleRelevance,
+    articleEntity: prisma.articleEntity,
   }),
 );
 
