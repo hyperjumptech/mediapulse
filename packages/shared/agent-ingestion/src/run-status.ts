@@ -36,6 +36,11 @@ export type RunCounters = {
   persisted?: number;
   deadlineHit?: boolean;
   durationMs?: number;
+  agentId?: string;
+  roundsExecuted?: number;
+  stopReason?: string;
+  droppedByPerQueryBudget?: number;
+  droppedByPerRunBudget?: number;
 };
 
 /**

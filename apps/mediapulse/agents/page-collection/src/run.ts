@@ -630,6 +630,7 @@ export async function runPageCollection(
     persisted: persistedCount,
     deadlineHit,
     durationMs: Date.now() - startedAt.getTime(),
+    agentId: "page-collection",
   };
 
   const runPayload = {
