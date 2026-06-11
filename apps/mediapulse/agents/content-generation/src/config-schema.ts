@@ -389,9 +389,17 @@ const requireCitationSchema = z
       ),
     dedupeScope: z
       .enum(["section", "newsletter"])
-      .default("section")
+      .default("newsletter")
       .describe(
         "section = dedup URLs per section only; newsletter = dedup URLs across all sections.",
+      ),
+    withinRunDedupSimilarity: z
+      .number()
+      .min(0)
+      .max(1)
+      .default(0.55)
+      .describe(
+        "Jaccard similarity threshold for within-run semantic dedup of resolved newsletter items.",
       ),
   })
   .default({})

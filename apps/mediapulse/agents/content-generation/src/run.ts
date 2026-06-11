@@ -15,6 +15,7 @@ import {
   generateNewsletterWithLlm,
   type SourceForGeneration,
 } from "./llm-generate-newsletter.js";
+import { dedupLlmInputSources } from "./lib/dedup-llm-input-sources.js";
 import { mapOutcomeToDiagnostic } from "./outcome-to-diagnostic.js";
 import { sanitizeDiagnosticMessage } from "./sanitize-diagnostic-message.js";
 import type { AgentOutcome } from "./types/outcome.js";
@@ -324,7 +325,7 @@ export async function run({
   report("Preparing article context", `${sources.length} articles`);
 
   // Map API sources to the minimal shape needed by the LLM generator.
-  const sourcesForLlm: SourceForGeneration[] = sources.map((s) => ({
+  const mappedSources: SourceForGeneration[] = sources.map((s) => ({
     url: s.url,
     title: s.title,
     content: s.content,
@@ -332,6 +333,20 @@ export async function run({
       ? { publishedAt: s.publishedAt }
       : {}),
   }));
+
+  const { sources: sourcesForLlm, removedCount: dedupRemovedCount } =
+    dedupLlmInputSources(mappedSources);
+
+  if (dedupRemovedCount > 0) {
+    logger.info(
+      {
+        tickerId: input.tickerId,
+        removedCount: dedupRemovedCount,
+        event: "dedup_llm_input_sources",
+      },
+      `Deduped LLM input sources: removed ${String(dedupRemovedCount)} near-duplicate(s)`,
+    );
+  }
 
   let recentBullets: Array<{
     newsletterId: string;

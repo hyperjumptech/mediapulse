@@ -21,8 +21,10 @@ import {
 } from "./industry-newsletter-schema.js";
 import { attachIndustryNewsletterSourceUrls } from "./industry-newsletter-urls.js";
 import {
+  dedupeWithinRun,
   pruneNewsletterToCitedRows,
   type PruneSummary,
+  type WithinRunDedupResult,
 } from "./lib/prune-uncited-rows.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import {
@@ -585,7 +587,9 @@ Headings ("displayHeading") are short subtitle phrases only — never repeat the
 
 Every bullet and quick hit must summarize exactly one article and set articleIndex to that one article. Do not blend multiple articles into one bullet, and do not reuse the same article for two bullets in a section.
 
-Item titles must be unique across the entire newsletter (all bullets in all sections and all quick-hit items). Every title must name a distinct story. Do not reuse the same headline or a near-identical paraphrase for two different items.`;
+Item titles must be unique across the entire newsletter (all bullets in all sections and all quick-hit items). Every title must name a distinct story. Do not reuse the same headline or a near-identical paraphrase for two different items.
+
+Cross-section duplication is forbidden. Do not cover the same story in two different sections, even from different angles. Do not write two items about the same event in different sections. Each article (by articleIndex) may be cited at most once across the entire newsletter — if an article is used in one section, it must not appear in any other section or in quickHits.`;
 
 /**
  * Default user prompt template used when no template is provided in config.
@@ -1561,6 +1565,26 @@ export async function generateNewsletterWithLlm(
         sectionsKept: pruned.summary.sectionsKept,
       },
       "Require-citation pruning summary",
+    );
+  }
+
+  const withinRunDedupMinSimilarity =
+    config.quality.requireCitation.withinRunDedupSimilarity;
+  const withinRunDeduped: WithinRunDedupResult = dedupeWithinRun(
+    resolved,
+    withinRunDedupMinSimilarity,
+  );
+  resolved = withinRunDeduped.resolved;
+
+  if (withinRunDeduped.removedCount > 0) {
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        removedCount: withinRunDeduped.removedCount,
+        minSimilarity: withinRunDedupMinSimilarity,
+        event: "within_run_semantic_dedup",
+      },
+      `Within-run semantic dedup: removed ${String(withinRunDeduped.removedCount)} near-duplicate item(s)`,
     );
   }
 

@@ -4,6 +4,11 @@ import type {
   IndustryNewsletterResolved,
   IndustryQuickHitResolved,
 } from "../industry-newsletter-urls.js";
+import {
+  buildWordShingles,
+  shingleJaccardSimilarity,
+} from "./citation-grounding.js";
+import { tokenize } from "./phrase-link-injector.js";
 
 /** Why a row was removed by the prune pass. */
 export type PrunedRowReason = "uncited" | "duplicate_article";
@@ -352,3 +357,149 @@ export function pruneNewsletterToCitedRows(
     },
   };
 }
+
+/** Outcome of the within-run semantic dedup pass. */
+export type WithinRunDedupResult = {
+  resolved: IndustryNewsletterResolved;
+  removedCount: number;
+};
+
+type ResolvedItem = IndustryBulletResolved | IndustryQuickHitResolved;
+
+const scoreItemSimilarity = (
+  left: ResolvedItem,
+  right: ResolvedItem,
+): number => {
+  const leftText = `${left.title ?? ""} ${left.text}`;
+  const rightText = `${right.title ?? ""} ${right.text}`;
+  const leftShingles = buildWordShingles(tokenize(leftText));
+  const rightShingles = buildWordShingles(tokenize(rightText));
+
+  return shingleJaccardSimilarity(leftShingles, rightShingles);
+};
+
+const dedupeItems = <T extends ResolvedItem>(
+  items: T[],
+  seenTitles: Set<string>,
+  corpus: ResolvedItem[],
+  minSimilarity: number,
+): { kept: T[]; removedCount: number } => {
+  const kept: T[] = [];
+  let removedCount = 0;
+
+  for (const item of items) {
+    if (item.url === undefined) {
+      kept.push(item);
+      continue;
+    }
+
+    if (item.title !== undefined) {
+      const normalizedTitle = normalizeTitle(item.title);
+      if (seenTitles.has(normalizedTitle)) {
+        removedCount++;
+        continue;
+      }
+    }
+
+    let isDuplicate = false;
+    for (const seenItem of corpus) {
+      const similarity = scoreItemSimilarity(item, seenItem);
+      if (similarity >= minSimilarity) {
+        isDuplicate = true;
+        break;
+      }
+    }
+
+    if (isDuplicate) {
+      removedCount++;
+      continue;
+    }
+
+    if (item.title !== undefined) {
+      seenTitles.add(normalizeTitle(item.title));
+    }
+    corpus.push(item);
+    kept.push(item);
+  }
+
+  return { kept, removedCount };
+};
+
+/**
+ * Removes semantically near-duplicate items from a resolved newsletter using
+ * n-gram Jaccard similarity over item text and normalized title matching.
+ *
+ * Operates newsletter-wide: an item kept in an earlier section can suppress a
+ * duplicate in a later section.
+ *
+ * @param resolved - Resolved newsletter after URL attachment and citation pruning.
+ * @param minSimilarity - Jaccard threshold above which two items are considered
+ *   the same story (default 0.55).
+ */
+export const dedupeWithinRun = (
+  resolved: IndustryNewsletterResolved,
+  minSimilarity: number = 0.55,
+): WithinRunDedupResult => {
+  const seenTitles = new Set<string>();
+  const corpus: ResolvedItem[] = [];
+  let totalRemoved = 0;
+
+  const dedupeSection = <T extends ResolvedItem>(
+    items: T[],
+  ): { kept: T[]; removedCount: number } =>
+    dedupeItems(items, seenTitles, corpus, minSimilarity);
+
+  let competitiveLandscape = resolved.competitiveLandscape;
+  if (competitiveLandscape !== undefined) {
+    const { kept, removedCount } = dedupeSection(competitiveLandscape.bullets);
+    totalRemoved += removedCount;
+    competitiveLandscape =
+      kept.length > 0 ? { ...competitiveLandscape, bullets: kept } : undefined;
+  }
+
+  let dealsAndMovements = resolved.dealsAndMovements;
+  if (dealsAndMovements !== undefined) {
+    const { kept, removedCount } = dedupeSection(dealsAndMovements.bullets);
+    totalRemoved += removedCount;
+    dealsAndMovements =
+      kept.length > 0 ? { ...dealsAndMovements, bullets: kept } : undefined;
+  }
+
+  let regulatoryPolicyWatch = resolved.regulatoryPolicyWatch;
+  if (regulatoryPolicyWatch !== undefined) {
+    const { kept, removedCount } = dedupeSection(regulatoryPolicyWatch.bullets);
+    totalRemoved += removedCount;
+    regulatoryPolicyWatch =
+      kept.length > 0 ? { ...regulatoryPolicyWatch, bullets: kept } : undefined;
+  }
+
+  let disruptorsOrTech = resolved.disruptorsOrTech;
+  if (disruptorsOrTech !== undefined && disruptorsOrTech.format === "bullets") {
+    const { kept, removedCount } = dedupeSection(disruptorsOrTech.bullets);
+    totalRemoved += removedCount;
+    disruptorsOrTech =
+      kept.length > 0 ? { ...disruptorsOrTech, bullets: kept } : undefined;
+  }
+
+  let quickHits = resolved.quickHits;
+  if (quickHits !== undefined) {
+    const { kept, removedCount } = dedupeSection(quickHits.items);
+    totalRemoved += removedCount;
+    quickHits = kept.length > 0 ? { ...quickHits, items: kept } : undefined;
+  }
+
+  return {
+    resolved: {
+      subject: resolved.subject,
+      ...(resolved.industryPulse !== undefined
+        ? { industryPulse: resolved.industryPulse }
+        : {}),
+      ...(competitiveLandscape !== undefined ? { competitiveLandscape } : {}),
+      ...(dealsAndMovements !== undefined ? { dealsAndMovements } : {}),
+      ...(regulatoryPolicyWatch !== undefined ? { regulatoryPolicyWatch } : {}),
+      ...(disruptorsOrTech !== undefined ? { disruptorsOrTech } : {}),
+      ...(quickHits !== undefined ? { quickHits } : {}),
+    },
+    removedCount: totalRemoved,
+  };
+};
