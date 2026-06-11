@@ -85,10 +85,6 @@ const withTestConfig = (
       relevance?: Partial<ConfigSchemaType["gates"]["relevance"]>;
       freshness?: Partial<ConfigSchemaType["gates"]["freshness"]>;
     };
-    deduplication?: {
-      openaiApiKey?: string;
-      semantic?: Partial<ConfigSchemaType["deduplication"]["semantic"]>;
-    };
     providers?: Partial<ConfigSchemaType["providers"]>;
   } = {},
 ): ConfigSchemaType =>
@@ -115,14 +111,6 @@ const withTestConfig = (
       freshness: {
         ...baseConfig.gates.freshness,
         ...overrides.gates?.freshness,
-      },
-    },
-    deduplication: {
-      ...baseConfig.deduplication,
-      ...overrides.deduplication,
-      semantic: {
-        ...baseConfig.deduplication.semantic,
-        ...overrides.deduplication?.semantic,
       },
     },
     runPolicy: { ...baseConfig.runPolicy, ...overrides.runPolicy },

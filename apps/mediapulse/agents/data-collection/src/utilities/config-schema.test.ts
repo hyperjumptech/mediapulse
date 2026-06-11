@@ -30,7 +30,6 @@ describe("getConfigSchema", () => {
       "collection",
       "gates",
       "resilience",
-      "deduplication",
       "runPolicy",
     ]);
   });
@@ -105,13 +104,6 @@ describe("dataCollectionAgentConfigSchema", () => {
       minAttempts: 5,
       errorRateThreshold: 0.5,
     });
-    expect(parsed.deduplication.semantic).toEqual({
-      enabled: false,
-      threshold: 0.88,
-      windowDays: 7,
-      embeddingModel: "{{EMBEDDING_MODEL}}",
-    });
-    expect(parsed.deduplication.openaiApiKey).toBe("{{OPENAI_API_KEY}}");
     expect(parsed.runPolicy).toEqual({
       minSuccessfulSources: 1,
       failOnZeroSuccess: false,
@@ -135,10 +127,6 @@ describe("dataCollectionAgentConfigSchema", () => {
     );
     expect(parsed.providers.fetch.providers[3]?.authentication.apiKey).toBe(
       "{{JINA_API_KEY}}",
-    );
-    expect(parsed.deduplication.openaiApiKey).toBe("{{OPENAI_API_KEY}}");
-    expect(parsed.deduplication.semantic.embeddingModel).toBe(
-      "{{EMBEDDING_MODEL}}",
     );
   });
 
