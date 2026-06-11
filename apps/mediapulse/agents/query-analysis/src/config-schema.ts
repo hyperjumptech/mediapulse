@@ -5,11 +5,6 @@ import {
   queryAnalysisIntentSchema,
   type QueryAnalysisIntentWeights,
 } from "@workspace/agent-data-api-contract";
-import { reasoningEffortSchema } from "@workspace/agent-runtime";
-import {
-  DEFAULT_DETERMINISTIC_PACK,
-  DETERMINISTIC_PACK_NAMES,
-} from "./templates/deterministic-packs";
 
 /**
  * Resolves intent weights from parsed Hermes config with contract defaults applied.
@@ -68,13 +63,6 @@ const outputSchema = z
             .describe(
               "Fraction of queryCount assigned to this language (shares must sum to 1).",
             ),
-          templatePack: z
-            .string()
-            .min(1)
-            .optional()
-            .describe(
-              "Optional deterministic pack override for this language. Falls back to the global templates.templatePack.",
-            ),
         }),
       )
       .optional()
@@ -103,44 +91,6 @@ const outputSchema = z
   })
   .default({})
   .describe("Query set size, language mix, and intent weighting.");
-
-const samplingSchema = z
-  .object({
-    seed: z
-      .number()
-      .int()
-      .optional()
-      .describe(
-        "Optional fixed seed for reproducible LLM output when the model supports it.",
-      ),
-    reasoningEffort: reasoningEffortSchema
-      .optional()
-      .describe(
-        "Reasoning effort for query-generation LLM calls when the model supports it (gpt-5/o-series). Leave unset for non-reasoning models like gpt-4o-mini.",
-      ),
-  })
-  .default({})
-  .describe("Optional LLM reproducibility and reasoning settings.");
-
-const templatesSchema = z
-  .object({
-    templatePack: z
-      .enum(DETERMINISTIC_PACK_NAMES)
-      .default(DEFAULT_DETERMINISTIC_PACK)
-      .describe(
-        "Named deterministic template pack for the query floor. Switch via Hermes without redeploying.",
-      ),
-    kgTemplateCap: z
-      .number()
-      .int()
-      .nonnegative()
-      .default(6)
-      .describe(
-        "Maximum KG relation rows expanded into deterministic templates per run. Set 0 to disable KG expansion.",
-      ),
-  })
-  .default({})
-  .describe("Deterministic template pack selection and KG expansion cap.");
 
 const promptingSchema = z
   .object({
@@ -190,27 +140,9 @@ const creativitySchema = z
       .describe(
         "Fraction of each query set reserved for stochastic wildcard (lateral) queries.",
       ),
-    useBrainstormPass: z
-      .boolean()
-      .default(true)
-      .describe(
-        "When true, runs a free-form brainstorm pass before structured query generation.",
-      ),
-    brainstormModel: z
-      .string()
-      .min(1)
-      .optional()
-      .describe(
-        "Model id for the brainstorm pass. If omitted, uses credentials.chatModel (default {{OPENAI_MODEL}}).",
-      ),
-    brainstormReasoningEffort: reasoningEffortSchema
-      .optional()
-      .describe(
-        "Overrides sampling.reasoningEffort for the brainstorm pass only.",
-      ),
   })
   .default({})
-  .describe("Wildcard budget and optional brainstorm pass.");
+  .describe("Wildcard budget.");
 
 const semanticDedupeSchema = z
   .object({
@@ -333,13 +265,6 @@ const yieldFeedbackSchema = z
       .positive()
       .default(30)
       .describe("Lookback window in days for yield statistics."),
-    minTemplateYield: z
-      .number()
-      .nonnegative()
-      .default(0.05)
-      .describe(
-        "Minimum template yield before rotation deprioritizes a template.",
-      ),
   })
   .default({})
   .describe("Rolling query-yield feedback loop.");
@@ -363,8 +288,6 @@ export const queryAnalysisConfigSchema = z
   .object({
     credentials: credentialsSchema,
     output: outputSchema,
-    sampling: samplingSchema,
-    templates: templatesSchema,
     prompting: promptingSchema,
     creativity: creativitySchema,
     quality: qualitySchema,

@@ -176,7 +176,6 @@ export {
   type QueryAnalysisIntentWeights,
   type QueryAnalysisPriorYield,
   type QueryAnalysisSource,
-  type QueryAnalysisTemplateYieldBucket,
   type QueryAnalysisIntentYieldBucket,
   type QueryAnalysisPersonaYieldBucket,
   queryAnalysisPriorYieldSchema,

@@ -1,15 +1,7 @@
-import {
-  DEFAULT_DETERMINISTIC_PACK,
-  DEFAULT_TEMPLATE_PACK_BY_LANGUAGE,
-  type DeterministicPackName,
-} from "./templates/deterministic-packs";
-import { primaryLanguageSubtag } from "./i18n/entity-aliases";
-
-/** One language slice of the query budget with optional pack override. */
+/** One language slice of the query budget. */
 export type LanguageQuota = {
   language: string;
   share: number;
-  templatePack?: string;
 };
 
 /** Language quota with an assigned integer row count. */
@@ -87,28 +79,4 @@ export const distributeQueryCountAcrossLanguages = (
   }
 
   return entries.map(({ exact: _exact, ...quota }) => quota);
-};
-
-/**
- * Resolves the deterministic template pack for a language slice.
- *
- * @param language - BCP-47 language tag for the slice.
- * @param quotaTemplatePack - Optional per-quota pack override.
- * @param globalTemplatePack - Hermes `templatePack` default for the run.
- * @returns Pack name to pass to {@link buildDeterministicQueries}.
- */
-export const resolveLanguageTemplatePack = (
-  language: string,
-  quotaTemplatePack: string | undefined,
-  globalTemplatePack: DeterministicPackName | string,
-): string => {
-  if (quotaTemplatePack !== undefined && quotaTemplatePack.length > 0) {
-    return quotaTemplatePack;
-  }
-  const primary = primaryLanguageSubtag(language);
-  const localized = DEFAULT_TEMPLATE_PACK_BY_LANGUAGE[primary];
-  if (localized !== undefined) {
-    return localized;
-  }
-  return globalTemplatePack || DEFAULT_DETERMINISTIC_PACK;
 };

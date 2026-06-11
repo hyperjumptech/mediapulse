@@ -199,7 +199,6 @@ type QueryAttributionEntry = {
   source?: string;
   intent?: string;
   persona?: string;
-  templateId?: string;
 };
 
 /**
@@ -336,7 +335,6 @@ export const getQueryYieldSummary = async (
     orderBy: { runDate: "desc" },
   } satisfies Prisma.SearchQueryYieldFindManyArgs);
 
-  const perTemplate = new Map<string, YieldAccumulator>();
   const perIntent = new Map<string, YieldAccumulator>();
   const perPersona = new Map<string, YieldAccumulator>();
 
@@ -354,18 +352,6 @@ export const getQueryYieldSummary = async (
       row.novelArticleCount,
     );
 
-    const templateId =
-      attribution?.templateId ??
-      (query.source === "deterministic" ? query.text : undefined);
-    if (templateId !== undefined) {
-      accumulateYieldSample(
-        perTemplate,
-        templateId,
-        row.articleCount,
-        row.novelArticleCount,
-      );
-    }
-
     const persona = attribution?.persona;
     if (persona !== undefined) {
       accumulateYieldSample(
@@ -378,7 +364,6 @@ export const getQueryYieldSummary = async (
   }
 
   return {
-    perTemplate: finalizeYieldBuckets(perTemplate, "templateId"),
     perIntent: finalizeYieldBuckets(perIntent, "intent").map((row) => ({
       ...row,
       intent: row.intent as QueryAnalysisIntent,

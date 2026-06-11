@@ -140,7 +140,7 @@ describe("aggregateSearchQueryYieldForTicker", () => {
 });
 
 describe("getQueryYieldSummary", () => {
-  it("rolls up template, intent, and persona averages from yield rows", async () => {
+  it("rolls up intent and persona averages from yield rows", async () => {
     const findMany = vi.fn().mockResolvedValue([
       {
         articleCount: 2,
@@ -154,7 +154,6 @@ describe("getQueryYieldSummary", () => {
               queryAttribution: [
                 {
                   text: "ACME latest news",
-                  templateId: "{symbol} latest news",
                   source: "deterministic",
                   intent: "breaking",
                 },
@@ -195,13 +194,6 @@ describe("getQueryYieldSummary", () => {
       },
     );
 
-    expect(summary.perTemplate).toEqual([
-      {
-        templateId: "{symbol} latest news",
-        avgArticles: 2,
-        avgNovel: 1,
-      },
-    ]);
     expect(summary.perIntent).toEqual([
       {
         intent: "breaking",

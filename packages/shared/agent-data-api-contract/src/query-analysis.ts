@@ -161,11 +161,6 @@ export const queryAnalysisYieldBucketSchema = z.object({
   avgNovel: z.number().nonnegative(),
 });
 
-export const queryAnalysisTemplateYieldBucketSchema =
-  queryAnalysisYieldBucketSchema.extend({
-    templateId: z.string(),
-  });
-
 export const queryAnalysisIntentYieldBucketSchema =
   queryAnalysisYieldBucketSchema.extend({
     intent: queryAnalysisIntentSchema,
@@ -177,7 +172,6 @@ export const queryAnalysisPersonaYieldBucketSchema =
   });
 
 export const queryAnalysisPriorYieldSchema = z.object({
-  perTemplate: z.array(queryAnalysisTemplateYieldBucketSchema),
   perIntent: z.array(queryAnalysisIntentYieldBucketSchema),
   perPersona: z.array(queryAnalysisPersonaYieldBucketSchema),
 });
@@ -213,9 +207,6 @@ export type QueryAnalysisSource = z.infer<typeof queryAnalysisSourceSchema>;
 export type QueryAnalysisIntentWeights = Record<QueryAnalysisIntent, number>;
 export type QueryAnalysisPriorYield = z.infer<
   typeof queryAnalysisPriorYieldSchema
->;
-export type QueryAnalysisTemplateYieldBucket = z.infer<
-  typeof queryAnalysisTemplateYieldBucketSchema
 >;
 export type QueryAnalysisIntentYieldBucket = z.infer<
   typeof queryAnalysisIntentYieldBucketSchema

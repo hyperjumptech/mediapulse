@@ -25,8 +25,6 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
     expect(Object.keys(parsed)).toEqual([
       "credentials",
       "output",
-      "sampling",
-      "templates",
       "prompting",
       "creativity",
       "quality",
@@ -38,11 +36,6 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
     });
     expect(parsed.output.queryCount).toBe(10);
     expect(parsed.output.languageQuotas).toBeUndefined();
-    expect(parsed.sampling).toEqual({});
-    expect(parsed.templates).toEqual({
-      templatePack: "default-v1",
-      kgTemplateCap: 6,
-    });
     expect(parsed.prompting).toEqual({
       personas: ["analyst", "retail", "regulator", "esg", "short_seller"],
       perPersonaQuotaCount: 3,
@@ -51,7 +44,6 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
     });
     expect(parsed.creativity).toEqual({
       wildcardFraction: 0.1,
-      useBrainstormPass: true,
     });
     expect(parsed.quality.semanticDedupe).toEqual({
       enabled: true,
@@ -69,7 +61,6 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
     expect(parsed.dynamics.yieldFeedback).toEqual({
       enabled: true,
       windowDays: 30,
-      minTemplateYield: 0.05,
     });
   });
 
@@ -88,7 +79,6 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
       "openaiApiKey",
       "openaiModel",
       "queryCount",
-      "templatePack",
       "semanticDedupe",
       "diversityGate",
       "temporalBias",
@@ -102,47 +92,6 @@ describe("queryAnalysisConfigSchema grouped layout", () => {
       });
       expect(result.success).toBe(false);
     }
-  });
-});
-
-describe("queryAnalysisConfigSchema templates", () => {
-  it("defaults templatePack to default-v1", () => {
-    const parsed = parseWithApiKey();
-    expect(parsed.templates.templatePack).toBe("default-v1");
-  });
-
-  it("accepts rich-v2 template pack", () => {
-    const parsed = parseWithApiKey({
-      templates: { templatePack: "rich-v2" },
-    });
-    expect(parsed.templates.templatePack).toBe("rich-v2");
-  });
-
-  it("accepts rich-v2-extended template pack", () => {
-    const parsed = parseWithApiKey({
-      templates: { templatePack: "rich-v2-extended" },
-    });
-    expect(parsed.templates.templatePack).toBe("rich-v2-extended");
-  });
-
-  it("accepts kg-aware-v1 template pack", () => {
-    const parsed = parseWithApiKey({
-      templates: { templatePack: "kg-aware-v1" },
-    });
-    expect(parsed.templates.templatePack).toBe("kg-aware-v1");
-  });
-
-  it("rejects unknown template pack names", () => {
-    const result = queryAnalysisConfigSchema.safeParse({
-      credentials: { openaiApiKey: "sk-test" },
-      templates: { templatePack: "unknown" },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("defaults kgTemplateCap to 6", () => {
-    const parsed = parseWithApiKey();
-    expect(parsed.templates.kgTemplateCap).toBe(6);
   });
 });
 
@@ -232,42 +181,16 @@ describe("queryAnalysisConfigSchema strict mode", () => {
   });
 });
 
-describe("queryAnalysisConfigSchema sampling", () => {
-  it("defaults to no sampling overrides", () => {
+describe("queryAnalysisConfigSchema few-shot", () => {
+  it("defaults fewShotExemplarCount to 3", () => {
     const parsed = parseWithApiKey();
-    expect(parsed.sampling).toEqual({});
-    expect(parsed.sampling.seed).toBeUndefined();
-  });
-
-  it("rejects non-integer seed values", () => {
-    const result = queryAnalysisConfigSchema.safeParse({
-      credentials: { openaiApiKey: "sk-test" },
-      sampling: { seed: 1.5 },
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(
-        result.error.issues.some((issue) => issue.path.includes("seed")),
-      ).toBe(true);
-    }
-  });
-});
-
-describe("queryAnalysisConfigSchema brainstorm and few-shot", () => {
-  it("defaults useBrainstormPass to true and fewShotExemplarCount to 3", () => {
-    const parsed = parseWithApiKey();
-    expect(parsed.creativity.useBrainstormPass).toBe(true);
     expect(parsed.prompting.fewShotExemplarCount).toBe(3);
-    expect(parsed.creativity.brainstormModel).toBeUndefined();
   });
 
-  it("accepts brainstorm and few-shot overrides", () => {
+  it("accepts few-shot overrides", () => {
     const parsed = parseWithApiKey({
-      creativity: { useBrainstormPass: true, brainstormModel: "gpt-4o" },
       prompting: { fewShotExemplarCount: 0 },
     });
-    expect(parsed.creativity.useBrainstormPass).toBe(true);
-    expect(parsed.creativity.brainstormModel).toBe("gpt-4o");
     expect(parsed.prompting.fewShotExemplarCount).toBe(0);
   });
 
@@ -422,7 +345,6 @@ describe("queryAnalysisConfigSchema yieldFeedback", () => {
     expect(parsed.dynamics.yieldFeedback).toEqual({
       enabled: true,
       windowDays: 30,
-      minTemplateYield: 0.05,
     });
   });
 
@@ -432,14 +354,12 @@ describe("queryAnalysisConfigSchema yieldFeedback", () => {
         yieldFeedback: {
           enabled: true,
           windowDays: 14,
-          minTemplateYield: 0.1,
         },
       },
     });
     expect(parsed.dynamics.yieldFeedback).toEqual({
       enabled: true,
       windowDays: 14,
-      minTemplateYield: 0.1,
     });
   });
 });

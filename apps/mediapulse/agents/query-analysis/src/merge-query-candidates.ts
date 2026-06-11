@@ -11,12 +11,10 @@ import {
 import type { QuerySemanticEmbedder } from "./embeddings";
 import { maxCosineSimilarity } from "./embeddings";
 
-/** One deterministic template row before merge. */
+/** One deterministic seed row before merge. */
 export type DeterministicCandidate = {
   text: string;
   intent: QueryAnalysisIntent;
-  /** Template pattern id for yield feedback (e.g. `{symbol} latest news`). */
-  templateId?: string;
   /** BCP-47 language tag when produced by a language slice (observability). */
   language?: string;
 };
@@ -37,8 +35,6 @@ export type MergedQueryRow = {
   source: "deterministic" | "llm";
   intent: QueryAnalysisIntent;
   rank: number;
-  /** Template pattern id for deterministic rows (yield attribution). */
-  templateId?: string;
   /** Persona id for LLM rows from multi-persona fan-out (observability only). */
   persona?: string;
   /** BCP-47 language tag for multilingual quota observability. */
@@ -74,25 +70,16 @@ export const intentMergeWeight = (
 /**
  * Computes a log-scaled novel-yield bonus multiplier for merge ordering.
  *
- * @param params - Intent, optional template id, and prior yield rollups.
+ * @param params - Intent and prior yield rollups.
  * @returns Multiplier ≥ 1 when yield data exists; 1 when absent.
  */
 export const yieldMergeMultiplier = (params: {
   intent: QueryAnalysisIntent;
-  templateId?: string;
   priorYield?: QueryAnalysisPriorYield;
 }): number => {
-  const { priorYield, intent, templateId } = params;
+  const { priorYield, intent } = params;
   if (priorYield === undefined) {
     return 1;
-  }
-  if (templateId !== undefined) {
-    const templateBucket = priorYield.perTemplate.find(
-      (row) => row.templateId === templateId,
-    );
-    if (templateBucket !== undefined) {
-      return 1 + Math.log(1 + templateBucket.avgNovel);
-    }
   }
   const intentBucket = priorYield.perIntent.find(
     (row) => row.intent === intent,
@@ -106,19 +93,17 @@ export const yieldMergeMultiplier = (params: {
 /**
  * Returns intent merge weight multiplied by optional prior-yield bonus.
  *
- * @param params - Intent, weights, optional template id, and prior yield rollups.
+ * @param params - Intent, weights, and prior yield rollups.
  * @returns Effective merge weight for sorting.
  */
 export const effectiveMergeWeight = (params: {
   intent: QueryAnalysisIntent;
   weights: QueryMergeWeights;
-  templateId?: string;
   priorYield?: QueryAnalysisPriorYield;
 }): number =>
   intentMergeWeight(params.intent, params.weights) *
   yieldMergeMultiplier({
     intent: params.intent,
-    templateId: params.templateId,
     priorYield: params.priorYield,
   });
 
@@ -146,7 +131,6 @@ export const dedupeDeterministic = (
     out.push({
       text,
       intent: row.intent,
-      ...(row.templateId !== undefined ? { templateId: row.templateId } : {}),
       ...(row.language !== undefined ? { language: row.language } : {}),
     });
   }
@@ -374,7 +358,6 @@ type PoolRow = {
   source: "deterministic" | "llm";
   persona?: string;
   language?: string;
-  templateId?: string;
 };
 
 /**
@@ -395,7 +378,6 @@ export const sortPoolByIntentWeight = (
     weight: effectiveMergeWeight({
       intent: entry.row.intent,
       weights,
-      templateId: entry.row.templateId,
       priorYield,
     }),
   }));
@@ -598,9 +580,6 @@ export const applySectionCoverageReserve = (
       source: "deterministic",
       intent: candidate.intent,
       rank: adjusted[victimIndex]!.rank,
-      ...(candidate.templateId !== undefined
-        ? { templateId: candidate.templateId }
-        : {}),
       ...(candidate.language !== undefined
         ? { language: candidate.language }
         : {}),
@@ -643,14 +622,12 @@ export const mergeQueryCandidates = (params: {
     text: row.text,
     intent: row.intent,
     source: "deterministic" as const,
-    ...(row.templateId !== undefined ? { templateId: row.templateId } : {}),
     ...(row.language !== undefined ? { language: row.language } : {}),
   }));
   const detExtra: PoolRow[] = dedupedDet.slice(effectiveMin).map((row) => ({
     text: row.text,
     intent: row.intent,
     source: "deterministic" as const,
-    ...(row.templateId !== undefined ? { templateId: row.templateId } : {}),
     ...(row.language !== undefined ? { language: row.language } : {}),
   }));
   const seenKeys = new Set(
@@ -685,8 +662,6 @@ export const mergeQueryCandidates = (params: {
       weight: effectiveMergeWeight({
         intent: entry.row.intent,
         weights,
-        templateId:
-          "templateId" in entry.row ? entry.row.templateId : undefined,
         priorYield,
       }),
     }));
@@ -706,7 +681,6 @@ export const mergeQueryCandidates = (params: {
     source: row.source,
     intent: row.intent,
     rank: i + 1,
-    ...(row.templateId !== undefined ? { templateId: row.templateId } : {}),
     ...(row.persona !== undefined ? { persona: row.persona } : {}),
     ...(row.language !== undefined ? { language: row.language } : {}),
   }));

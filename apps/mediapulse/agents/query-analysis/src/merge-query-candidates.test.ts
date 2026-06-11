@@ -324,29 +324,20 @@ describe("yieldMergeMultiplier", () => {
     expect(
       yieldMergeMultiplier({
         intent: "fundamental",
-        templateId: "{name} earnings guidance",
       }),
     ).toBe(1);
   });
 
-  it("prefers template-level novel yield over intent fallback", () => {
+  it("applies a log-scaled bonus from intent-level novel yield", () => {
     const priorYield = {
-      perTemplate: [
-        {
-          templateId: "{name} earnings guidance",
-          avgArticles: 2,
-          avgNovel: 3,
-        },
-      ],
       perIntent: [
-        { intent: "fundamental" as const, avgArticles: 0.2, avgNovel: 0.1 },
+        { intent: "fundamental" as const, avgArticles: 2, avgNovel: 3 },
       ],
       perPersona: [],
     };
     expect(
       yieldMergeMultiplier({
         intent: "fundamental",
-        templateId: "{name} earnings guidance",
         priorYield,
       }),
     ).toBeCloseTo(1 + Math.log(1 + 3));
@@ -354,39 +345,23 @@ describe("yieldMergeMultiplier", () => {
 });
 
 describe("mergeQueryCandidates with priorYield", () => {
-  it("ranks high-novel-yield templates above same-intent peers", () => {
+  it("ranks high-novel-yield intents above lower-yield peers", () => {
     const weights = {
       ...baseWeights,
       fundamental: 0.6,
+      sentiment: 0.6,
     };
     const priorYield = {
-      perTemplate: [
-        {
-          templateId: "low-yield-template",
-          avgArticles: 0.1,
-          avgNovel: 0.01,
-        },
-        {
-          templateId: "high-yield-template",
-          avgArticles: 3,
-          avgNovel: 2.5,
-        },
+      perIntent: [
+        { intent: "fundamental" as const, avgArticles: 0.1, avgNovel: 0.01 },
+        { intent: "sentiment" as const, avgArticles: 3, avgNovel: 2.5 },
       ],
-      perIntent: [],
       perPersona: [],
     };
     const withoutYield = mergeQueryCandidates({
       deterministic: [
-        {
-          text: "d-low",
-          intent: "fundamental",
-          templateId: "low-yield-template",
-        },
-        {
-          text: "d-high",
-          intent: "fundamental",
-          templateId: "high-yield-template",
-        },
+        { text: "d-low", intent: "fundamental" },
+        { text: "d-high", intent: "sentiment" },
       ],
       llm: [],
       queryCount: 2,
@@ -395,16 +370,8 @@ describe("mergeQueryCandidates with priorYield", () => {
     });
     const withYield = mergeQueryCandidates({
       deterministic: [
-        {
-          text: "d-low",
-          intent: "fundamental",
-          templateId: "low-yield-template",
-        },
-        {
-          text: "d-high",
-          intent: "fundamental",
-          templateId: "high-yield-template",
-        },
+        { text: "d-low", intent: "fundamental" },
+        { text: "d-high", intent: "sentiment" },
       ],
       llm: [],
       queryCount: 2,
@@ -417,16 +384,14 @@ describe("mergeQueryCandidates with priorYield", () => {
     expect(withYield.map((row) => row.text)).toEqual(["d-high", "d-low"]);
     expect(
       effectiveMergeWeight({
-        intent: "fundamental",
+        intent: "sentiment",
         weights,
-        templateId: "high-yield-template",
         priorYield,
       }),
     ).toBeGreaterThan(
       effectiveMergeWeight({
         intent: "fundamental",
         weights,
-        templateId: "low-yield-template",
         priorYield,
       }),
     );
