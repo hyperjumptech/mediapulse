@@ -29,17 +29,17 @@ const minimalStructure = (
   competitiveLandscape: {
     displayHeading: "Competitive",
     bullets: [
-      { text: "Peer A expanded share.", articleIndex: 1 },
-      { text: "Peer B held steady.", articleIndex: 1 },
+      { title: "T1", text: "Peer A expanded share.", articleIndex: 1 },
+      { title: "T2", text: "Peer B held steady.", articleIndex: 1 },
     ],
   },
   dealsAndMovements: {
     displayHeading: "Deals",
-    bullets: [{ text: "No major deals.", articleIndex: 1 }],
+    bullets: [{ title: "T3", text: "No major deals.", articleIndex: 1 }],
   },
   regulatoryPolicyWatch: {
     displayHeading: "Policy",
-    bullets: [{ text: "Rules unchanged.", articleIndex: 1 }],
+    bullets: [{ title: "T4", text: "Rules unchanged.", articleIndex: 1 }],
   },
   disruptorsOrTech: {
     format: "prose",
@@ -49,11 +49,11 @@ const minimalStructure = (
   quickHits: {
     displayHeading: "Hits",
     items: [
-      { text: "Hit 1", articleIndex: 1 },
-      { text: "Hit 2", articleIndex: 1 },
-      { text: "Hit 3", articleIndex: 1 },
-      { text: "Hit 4", articleIndex: 1 },
-      { text: "Hit 5", articleIndex: 1 },
+      { title: "Q1", text: "Hit 1", articleIndex: 1 },
+      { title: "Q2", text: "Hit 2", articleIndex: 1 },
+      { title: "Q3", text: "Hit 3", articleIndex: 1 },
+      { title: "Q4", text: "Hit 4", articleIndex: 1 },
+      { title: "Q5", text: "Hit 5", articleIndex: 1 },
     ],
   },
   ...patch,
@@ -91,10 +91,15 @@ describe("groundNewsletterCitations", () => {
         displayHeading: "Competitive",
         bullets: [
           {
+            title: "T1",
             text: "BCA reported Q1 net profit of Rp 12.4 trillion",
             articleIndex: 1,
           },
-          { text: "Unrelated mining shipment volumes rose.", articleIndex: 2 },
+          {
+            title: "T2",
+            text: "Unrelated mining shipment volumes rose.",
+            articleIndex: 2,
+          },
         ],
       },
     });
@@ -127,8 +132,13 @@ describe("groundNewsletterCitations", () => {
       competitiveLandscape: {
         displayHeading: "Competitive",
         bullets: [
-          { text: "Unrelated mining shipment volumes rose.", articleIndex: 1 },
           {
+            title: "T1",
+            text: "Unrelated mining shipment volumes rose.",
+            articleIndex: 1,
+          },
+          {
+            title: "T2",
             text: "Another unrelated nickel export headline.",
             articleIndex: 1,
           },
@@ -136,20 +146,36 @@ describe("groundNewsletterCitations", () => {
       },
       dealsAndMovements: {
         displayHeading: "Deals",
-        bullets: [{ text: "No major deals this week." }],
+        bullets: [{ title: "T3", text: "No major deals this week." }],
       },
       regulatoryPolicyWatch: {
         displayHeading: "Policy",
-        bullets: [{ text: "Rules unchanged this week." }],
+        bullets: [{ title: "T4", text: "Rules unchanged this week." }],
       },
       quickHits: {
         displayHeading: "Hits",
         items: [
-          { text: "Nickel ore volumes increased.", articleIndex: 1 },
-          { text: "Smelter demand picked up.", articleIndex: 1 },
-          { text: "Mining contractors shipped more ore.", articleIndex: 1 },
-          { text: "Eastern Indonesia output rose.", articleIndex: 1 },
-          { text: "Higher nickel ore volumes noted.", articleIndex: 1 },
+          {
+            title: "Q1",
+            text: "Nickel ore volumes increased.",
+            articleIndex: 1,
+          },
+          { title: "Q2", text: "Smelter demand picked up.", articleIndex: 1 },
+          {
+            title: "Q3",
+            text: "Mining contractors shipped more ore.",
+            articleIndex: 1,
+          },
+          {
+            title: "Q4",
+            text: "Eastern Indonesia output rose.",
+            articleIndex: 1,
+          },
+          {
+            title: "Q5",
+            text: "Higher nickel ore volumes noted.",
+            articleIndex: 1,
+          },
         ],
       },
     });

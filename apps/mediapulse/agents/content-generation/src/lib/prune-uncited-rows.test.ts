@@ -386,4 +386,66 @@ describe("pruneNewsletterToCitedRows — section removal", () => {
     expect(summary.sectionsRemoved).toBe(1);
     expect(summary.sectionsKept).toBe(2);
   });
+
+  it("drops bullets with duplicate normalized titles across sections", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      industryPulse: basePulse,
+      competitiveLandscape: {
+        displayHeading: "Competition",
+        bullets: [
+          {
+            title: "Rival A Launches",
+            text: "Rival A launched.",
+            url: CITED_URL_A,
+          },
+          {
+            title: "Market Share Grows",
+            text: "Market share grew.",
+            url: CITED_URL_B,
+          },
+        ],
+      },
+      dealsAndMovements: {
+        displayHeading: "Deals",
+        bullets: [
+          {
+            title: "Rival A launches.",
+            text: "Rival A deal.",
+            url: CITED_URL_B,
+          },
+        ],
+      },
+    };
+
+    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved);
+
+    const competitiveBullets = pruned.competitiveLandscape?.bullets ?? [];
+    const dealsBullets = pruned.dealsAndMovements?.bullets ?? [];
+
+    expect(competitiveBullets).toHaveLength(2);
+    expect(dealsBullets).toHaveLength(0);
+    expect(summary.bulletsRemovedDuplicateTitle).toBe(1);
+  });
+
+  it("dedupeTitlesWithinNewsletter false skips title dedup", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      industryPulse: basePulse,
+      competitiveLandscape: {
+        displayHeading: "Competition",
+        bullets: [
+          { title: "Same Title", text: "First.", url: CITED_URL_A },
+          { title: "Same Title", text: "Second.", url: CITED_URL_B },
+        ],
+      },
+    };
+
+    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved, {
+      dedupeTitlesWithinNewsletter: false,
+    });
+
+    expect(pruned.competitiveLandscape?.bullets).toHaveLength(2);
+    expect(summary.bulletsRemovedDuplicateTitle).toBe(0);
+  });
 });

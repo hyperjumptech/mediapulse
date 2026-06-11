@@ -158,4 +158,53 @@ describe("parseIndustryNewsletterWire", () => {
       "quick-hits",
     ]);
   });
+
+  it("parses TITLE lines on bullets and items into the title field", () => {
+    const wire = [
+      INDUSTRY_NEWSLETTER_WIRE_MARKER,
+      "",
+      "BEGIN competitive-landscape",
+      "DISPLAY_HEADING",
+      "Competition",
+      "BULLET",
+      "TITLE Rival A Launches",
+      "Rival A launched a competing product.",
+      "BULLET",
+      "No title bullet.",
+      "END",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Quick Hits",
+      "ITEM",
+      "TITLE Hit One",
+      "First quick hit.",
+      "ITEM",
+      "Second hit with no title.",
+      "END",
+      "",
+    ].join("\n");
+
+    const parsed = parseIndustryNewsletterWire(wire);
+
+    expect(parsed).not.toBeUndefined();
+    const landscape = parsed?.sections.find(
+      (s) => s.machineKey === "competitive-landscape",
+    );
+    const quickHits = parsed?.sections.find(
+      (s) => s.machineKey === "quick-hits",
+    );
+
+    expect(landscape?.machineKey).toBe("competitive-landscape");
+    if (landscape?.machineKey === "competitive-landscape") {
+      expect(landscape.bullets[0]?.title).toBe("Rival A Launches");
+      expect(landscape.bullets[1]?.title).toBeUndefined();
+    }
+
+    expect(quickHits?.machineKey).toBe("quick-hits");
+    if (quickHits?.machineKey === "quick-hits") {
+      expect(quickHits.items[0]?.title).toBe("Hit One");
+      expect(quickHits.items[1]?.title).toBeUndefined();
+    }
+  });
 });

@@ -575,15 +575,17 @@ You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{
 Return JSON matching this shape (camelCase keys):
 - "subject": short email subject (under ~60 chars), sector-relevant, may mention {{tickerName}} or {{tickerSymbol}} once if natural.
 - "industryPulse": { "displayHeading", "prose", "articleIndex" } — short lead framing the industry story (no bullet characters in prose). Set "articleIndex" to the single most representative article the lead summarizes; use null when the lead does not lean on a specific article.
-- "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets about {{tickerName}}'s COMPETITORS, not {{tickerName}} itself — peer positioning, rival launches, share shifts, competitive threats. Each bullet should name a competitor. Each bullet { "text", "articleIndex" } where articleIndex is a 1-based article number or null when uncited.
-- "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets; same articleIndex rule.
-- "regulatoryPolicyWatch": { "displayHeading", "bullets" } — 1–3 bullets; same articleIndex rule.
-- "disruptorsOrTech": either { "format": "prose", "displayHeading", "prose" } OR { "format": "bullets", "displayHeading", "bullets" } with 1–3 bullets (same articleIndex rule).
-- "quickHits": { "displayHeading", "items" } — 5–7 items; each item { "text", "articleIndex" } (index required for every quick hit).
+- "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets about {{tickerName}}'s COMPETITORS, not {{tickerName}} itself — peer positioning, rival launches, share shifts, competitive threats. Each bullet should name a competitor. Each bullet { "title", "text", "articleIndex" } where "title" is a short headline (under 60 chars) naming the story, "text" is the full bullet sentence, and articleIndex is a 1-based article number or null when uncited.
+- "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets; each bullet { "title", "text", "articleIndex" } with the same title and articleIndex rules.
+- "regulatoryPolicyWatch": { "displayHeading", "bullets" } — 1–3 bullets; same title and articleIndex rules.
+- "disruptorsOrTech": either { "format": "prose", "displayHeading", "prose" } OR { "format": "bullets", "displayHeading", "bullets" } with 1–3 bullets (each bullet has "title", "text", "articleIndex" with the same rules).
+- "quickHits": { "displayHeading", "items" } — 5–7 items; each item { "title", "text", "articleIndex" } where "title" is a short headline (under 60 chars), "text" is the sentence, and articleIndex is required.
 
 Headings ("displayHeading") are short subtitle phrases only — never repeat the section label or use "Label / Subtitle" format. Keep JSON valid; use null for optional blocks and uncited articleIndex values.
 
-Every bullet and quick hit must summarize exactly one article and set articleIndex to that one article. Do not blend multiple articles into one bullet, and do not reuse the same article for two bullets in a section.`;
+Every bullet and quick hit must summarize exactly one article and set articleIndex to that one article. Do not blend multiple articles into one bullet, and do not reuse the same article for two bullets in a section.
+
+Item titles must be unique across the entire newsletter (all bullets in all sections and all quick-hit items). Every title must name a distinct story. Do not reuse the same headline or a near-identical paraphrase for two different items.`;
 
 /**
  * Default user prompt template used when no template is provided in config.

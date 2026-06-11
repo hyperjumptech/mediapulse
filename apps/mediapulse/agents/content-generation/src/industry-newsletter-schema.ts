@@ -5,12 +5,14 @@ const articleIndexSchema = z.number().int().positive();
 
 /** A bullet that may optionally cite a source article by index. */
 export const industryBriefBulletSchema = z.object({
+  title: z.string().min(1),
   text: z.string().min(1),
   articleIndex: articleIndexSchema.optional(),
 });
 
 /** Quick hit line; every hit must cite an article for grounded links. */
 export const industryQuickHitSchema = z.object({
+  title: z.string().min(1),
   text: z.string().min(1),
   articleIndex: articleIndexSchema,
 });
@@ -76,15 +78,20 @@ const normalizeOptionalArticleIndex = (
 /** OpenAI strict JSON schema requires every property key in `required`; bullets use null when uncited. */
 const industryBriefBulletLlmSchema = z
   .object({
+    title: z.string().min(1),
     text: z.string().min(1),
     articleIndex: z.union([articleIndexSchema, z.null()]),
   })
   .transform(
-    ({ text, articleIndex }): z.infer<typeof industryBriefBulletSchema> => {
+    ({
+      title,
+      text,
+      articleIndex,
+    }): z.infer<typeof industryBriefBulletSchema> => {
       const normalizedIndex = normalizeOptionalArticleIndex(articleIndex);
       return normalizedIndex === undefined
-        ? { text }
-        : { text, articleIndex: normalizedIndex };
+        ? { title, text }
+        : { title, text, articleIndex: normalizedIndex };
     },
   );
 

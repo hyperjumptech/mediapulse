@@ -308,8 +308,8 @@ export const dedupBullets = (
 
   const applyBulletArray = (
     sectionKey: string,
-    bullets: Array<{ text: string; articleIndex?: number }>,
-  ): Array<{ text: string; articleIndex?: number }> => {
+    bullets: Array<{ title: string; text: string; articleIndex?: number }>,
+  ): Array<{ title: string; text: string; articleIndex?: number }> => {
     return bullets.flatMap((bullet, bulletIndex) => {
       const key = `${sectionKey}:${String(bulletIndex)}`;
       const decision = initialDecisions.get(key) ?? { kind: "unique" as const };

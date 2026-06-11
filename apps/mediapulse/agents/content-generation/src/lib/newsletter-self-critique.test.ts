@@ -13,18 +13,18 @@ const tenBulletStructure = (): IndustryNewsletterStructure => ({
   competitiveLandscape: {
     displayHeading: "Competitive",
     bullets: [
-      { text: "Weak bullet one.", articleIndex: 1 },
-      { text: "Weak bullet two.", articleIndex: 1 },
-      { text: "Weak bullet three.", articleIndex: 1 },
+      { title: "T1", text: "Weak bullet one.", articleIndex: 1 },
+      { title: "T2", text: "Weak bullet two.", articleIndex: 1 },
+      { title: "T3", text: "Weak bullet three.", articleIndex: 1 },
     ],
   },
   dealsAndMovements: {
     displayHeading: "Deals",
-    bullets: [{ text: "Deal bullet.", articleIndex: 1 }],
+    bullets: [{ title: "T4", text: "Deal bullet.", articleIndex: 1 }],
   },
   regulatoryPolicyWatch: {
     displayHeading: "Policy",
-    bullets: [{ text: "Policy bullet.", articleIndex: 1 }],
+    bullets: [{ title: "T5", text: "Policy bullet.", articleIndex: 1 }],
   },
   disruptorsOrTech: {
     format: "prose",
@@ -34,11 +34,11 @@ const tenBulletStructure = (): IndustryNewsletterStructure => ({
   quickHits: {
     displayHeading: "Hits",
     items: [
-      { text: "Hit 1", articleIndex: 1 },
-      { text: "Hit 2", articleIndex: 1 },
-      { text: "Hit 3", articleIndex: 1 },
-      { text: "Hit 4", articleIndex: 1 },
-      { text: "Hit 5", articleIndex: 1 },
+      { title: "Q1", text: "Hit 1", articleIndex: 1 },
+      { title: "Q2", text: "Hit 2", articleIndex: 1 },
+      { title: "Q3", text: "Hit 3", articleIndex: 1 },
+      { title: "Q4", text: "Hit 4", articleIndex: 1 },
+      { title: "Q5", text: "Hit 5", articleIndex: 1 },
     ],
   },
 });
@@ -97,8 +97,8 @@ describe("applyNewsletterCritiqueResults", () => {
       competitiveLandscape: {
         displayHeading: "Competitive",
         bullets: [
-          { text: "Weak one.", articleIndex: 1 },
-          { text: "Weak two.", articleIndex: 1 },
+          { title: "T1", text: "Weak one.", articleIndex: 1 },
+          { title: "T2", text: "Weak two.", articleIndex: 1 },
         ],
       },
     };

@@ -25,11 +25,11 @@ const makeStructure = (
   },
   dealsAndMovements: {
     displayHeading: "Deals",
-    bullets: [{ text: "Deal A", articleIndex: 1 }],
+    bullets: [{ title: "Deal A", text: "Deal A", articleIndex: 1 }],
   },
   regulatoryPolicyWatch: {
     displayHeading: "Regulatory",
-    bullets: [{ text: "Rule B" }],
+    bullets: [{ title: "Rule B", text: "Rule B" }],
   },
   disruptorsOrTech: {
     format: "prose",
@@ -39,11 +39,11 @@ const makeStructure = (
   quickHits: {
     displayHeading: "Quick Hits",
     items: [
-      { text: "h1", articleIndex: 1 },
-      { text: "h2", articleIndex: 2 },
-      { text: "h3", articleIndex: 3 },
-      { text: "h4", articleIndex: 4 },
-      { text: "h5", articleIndex: 5 },
+      { title: "h1", text: "h1", articleIndex: 1 },
+      { title: "h2", text: "h2", articleIndex: 2 },
+      { title: "h3", text: "h3", articleIndex: 3 },
+      { title: "h4", text: "h4", articleIndex: 4 },
+      { title: "h5", text: "h5", articleIndex: 5 },
     ],
   },
 });
@@ -96,8 +96,13 @@ describe("mentionsAny — mention detection", () => {
 describe("enforceCompetitiveFocus — issuer-only drop", () => {
   it("drops an issuer-only bullet under drop policy", () => {
     const structure = makeStructure([
-      { text: "BBCA expanded its digital channels", articleIndex: 1 },
       {
+        title: "BBCA digital expansion",
+        text: "BBCA expanded its digital channels",
+        articleIndex: 1,
+      },
+      {
+        title: "Mandiri SME rate cut pressures BBCA",
         text: "Bank Mandiri cut SME lending rates, pressuring BBCA",
         articleIndex: 2,
       },
@@ -122,10 +127,12 @@ describe("enforceCompetitiveFocus — issuer-only drop", () => {
   it("keeps a bullet that mentions both issuer and competitor", () => {
     const structure = makeStructure([
       {
+        title: "Mandiri undercuts BBCA on SME rates",
         text: "Bank Mandiri undercut BBCA on SME rates",
         articleIndex: 1,
       },
       {
+        title: "BRI gains share at BCA's expense",
         text: "BRI gained digital market share at BCA's expense",
         articleIndex: 2,
       },
@@ -145,8 +152,16 @@ describe("enforceCompetitiveFocus — issuer-only drop", () => {
 
   it("keeps a generic bullet that mentions neither issuer nor competitor", () => {
     const structure = makeStructure([
-      { text: "Sector-wide credit tightening continues", articleIndex: 1 },
-      { text: "Regulatory reform may reshape lending", articleIndex: 2 },
+      {
+        title: "Sector-wide credit tightening",
+        text: "Sector-wide credit tightening continues",
+        articleIndex: 1,
+      },
+      {
+        title: "Regulatory reform ahead",
+        text: "Regulatory reform may reshape lending",
+        articleIndex: 2,
+      },
     ]);
 
     const result = enforceCompetitiveFocus(structure, {
@@ -163,8 +178,16 @@ describe("enforceCompetitiveFocus — issuer-only drop", () => {
 
   it("flags an issuer-only bullet under flag policy (prepends marker)", () => {
     const structure = makeStructure([
-      { text: "BBCA expanded its digital channels", articleIndex: 1 },
-      { text: "Bank Mandiri launched a new SME product", articleIndex: 2 },
+      {
+        title: "BBCA digital expansion",
+        text: "BBCA expanded its digital channels",
+        articleIndex: 1,
+      },
+      {
+        title: "Mandiri new SME product",
+        text: "Bank Mandiri launched a new SME product",
+        articleIndex: 2,
+      },
     ]);
 
     const result = enforceCompetitiveFocus(structure, {
@@ -183,8 +206,16 @@ describe("enforceCompetitiveFocus — issuer-only drop", () => {
 
   it("does not drop bullets under warn policy", () => {
     const structure = makeStructure([
-      { text: "BBCA expanded its digital channels", articleIndex: 1 },
-      { text: "BCA internal strategy unchanged", articleIndex: 2 },
+      {
+        title: "BBCA digital expansion",
+        text: "BBCA expanded its digital channels",
+        articleIndex: 1,
+      },
+      {
+        title: "BCA internal strategy unchanged",
+        text: "BCA internal strategy unchanged",
+        articleIndex: 2,
+      },
     ]);
 
     const result = enforceCompetitiveFocus(structure, {
@@ -206,8 +237,16 @@ describe("enforceCompetitiveFocus — issuer-only drop", () => {
 describe("enforceCompetitiveFocus — empty competitors is a no-op", () => {
   it("returns unchanged structure with evaluated=0 when competitors is empty", () => {
     const structure = makeStructure([
-      { text: "BBCA expanded its digital channels", articleIndex: 1 },
-      { text: "BCA raised its dividend yield", articleIndex: 2 },
+      {
+        title: "BBCA digital expansion",
+        text: "BBCA expanded its digital channels",
+        articleIndex: 1,
+      },
+      {
+        title: "BCA raised dividend yield",
+        text: "BCA raised its dividend yield",
+        articleIndex: 2,
+      },
     ]);
 
     const result = enforceCompetitiveFocus(structure, {
@@ -231,8 +270,16 @@ describe("enforceCompetitiveFocus — empty competitors is a no-op", () => {
 describe("enforceCompetitiveFocus — floor vs prune handoff", () => {
   it("downgrades drops to flags when require-citation is OFF and all bullets are issuer-only", () => {
     const structure = makeStructure([
-      { text: "BBCA launched a new savings product", articleIndex: 1 },
-      { text: "Bank Central Asia expanded branch network", articleIndex: 2 },
+      {
+        title: "BBCA new savings product",
+        text: "BBCA launched a new savings product",
+        articleIndex: 1,
+      },
+      {
+        title: "BCA branch network expanded",
+        text: "Bank Central Asia expanded branch network",
+        articleIndex: 2,
+      },
     ]);
 
     const result = enforceCompetitiveFocus(structure, {
@@ -254,9 +301,21 @@ describe("enforceCompetitiveFocus — floor vs prune handoff", () => {
 
   it("drops one bullet and flags the rest when require-citation is OFF and 3 of 3 are issuer-only", () => {
     const structure = makeStructure([
-      { text: "BBCA opened new branches", articleIndex: 1 },
-      { text: "BCA upgraded its mobile app", articleIndex: 2 },
-      { text: "Bank Central Asia raised its dividend", articleIndex: 3 },
+      {
+        title: "BBCA new branch openings",
+        text: "BBCA opened new branches",
+        articleIndex: 1,
+      },
+      {
+        title: "BCA mobile app upgrade",
+        text: "BCA upgraded its mobile app",
+        articleIndex: 2,
+      },
+      {
+        title: "BCA raised dividend",
+        text: "Bank Central Asia raised its dividend",
+        articleIndex: 3,
+      },
     ]);
 
     const result = enforceCompetitiveFocus(structure, {
@@ -274,8 +333,16 @@ describe("enforceCompetitiveFocus — floor vs prune handoff", () => {
 
   it("drops all issuer-only bullets when require-citation is ON, allowing the section to empty", () => {
     const structure = makeStructure([
-      { text: "BBCA launched a new savings product", articleIndex: 1 },
-      { text: "Bank Central Asia expanded branch network", articleIndex: 2 },
+      {
+        title: "BBCA new savings product",
+        text: "BBCA launched a new savings product",
+        articleIndex: 1,
+      },
+      {
+        title: "BCA branch network expanded",
+        text: "Bank Central Asia expanded branch network",
+        articleIndex: 2,
+      },
     ]);
 
     const result = enforceCompetitiveFocus(structure, {

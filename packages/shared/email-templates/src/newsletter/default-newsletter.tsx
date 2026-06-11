@@ -205,25 +205,28 @@ export const DefaultNewsletterEmail = ({
       return (
         <Section key={`${section.machineKey}-${String(index)}`}>
           {renderSectionHeader(section.machineKey, section.displayHeading)}
-          {section.bullets.map((bullet, bulletIndex) => (
-            <Section
-              key={`${String(section.machineKey)}-b-${String(bulletIndex)}`}
-            >
-              <Text style={newsItemSummary}>
-                {renderInlineMarkdownLinks(bullet.text, link)}
-              </Text>
-              {bullet.url !== undefined && bullet.url !== "" ? (
-                <Text style={newsItemSourceLink}>
-                  <Link href={bullet.url} style={link}>
-                    Read the full article
-                  </Link>
+          {section.bullets.map((bullet, bulletIndex) => {
+            const bulletCtaLabel = bullet.title ?? bullet.text;
+            return (
+              <Section
+                key={`${String(section.machineKey)}-b-${String(bulletIndex)}`}
+              >
+                <Text style={newsItemSummary}>
+                  {renderInlineMarkdownLinks(bullet.text, link)}
                 </Text>
-              ) : null}
-              {bulletIndex < section.bullets.length - 1 ? (
-                <Hr style={itemSeparator} />
-              ) : null}
-            </Section>
-          ))}
+                {bullet.url !== undefined && bullet.url !== "" ? (
+                  <Text style={newsItemSourceLink}>
+                    <Link href={bullet.url} style={link}>
+                      Read {bulletCtaLabel}
+                    </Link>
+                  </Text>
+                ) : null}
+                {bulletIndex < section.bullets.length - 1 ? (
+                  <Hr style={itemSeparator} />
+                ) : null}
+              </Section>
+            );
+          })}
         </Section>
       );
     }
@@ -232,23 +235,26 @@ export const DefaultNewsletterEmail = ({
       return (
         <Section key={`${section.machineKey}-${String(index)}`}>
           {renderSectionHeader(section.machineKey, section.displayHeading)}
-          {section.items.map((item, itemIndex) => (
-            <Section key={`qh-${String(itemIndex)}`}>
-              <Text style={newsItemTitle}>
-                {itemIndex + 1}. {item.text}
-              </Text>
-              {item.url !== undefined && item.url !== "" ? (
-                <Text style={newsItemSourceLink}>
-                  <Link href={item.url} style={link}>
-                    Read the full article
-                  </Link>
+          {section.items.map((item, itemIndex) => {
+            const itemCtaLabel = item.title ?? item.text;
+            return (
+              <Section key={`qh-${String(itemIndex)}`}>
+                <Text style={newsItemTitle}>
+                  {itemIndex + 1}. {item.text}
                 </Text>
-              ) : null}
-              {itemIndex < section.items.length - 1 ? (
-                <Hr style={itemSeparator} />
-              ) : null}
-            </Section>
-          ))}
+                {item.url !== undefined && item.url !== "" ? (
+                  <Text style={newsItemSourceLink}>
+                    <Link href={item.url} style={link}>
+                      Read {itemCtaLabel}
+                    </Link>
+                  </Text>
+                ) : null}
+                {itemIndex < section.items.length - 1 ? (
+                  <Hr style={itemSeparator} />
+                ) : null}
+              </Section>
+            );
+          })}
         </Section>
       );
     }
@@ -285,7 +291,7 @@ export const DefaultNewsletterEmail = ({
                 {industryPulseSection.url !== undefined ? (
                   <Text style={newsItemSourceLink}>
                     <Link href={industryPulseSection.url} style={link}>
-                      Read the full article
+                      Read {industryPulseSection.displayHeading}
                     </Link>
                   </Text>
                 ) : null}
@@ -330,7 +336,7 @@ export const DefaultNewsletterEmail = ({
                       {item.url !== undefined && item.url !== "" ? (
                         <Text style={newsItemSourceLink}>
                           <Link href={item.url} style={link}>
-                            Read the full article
+                            Read {item.title}
                           </Link>
                         </Text>
                       ) : null}

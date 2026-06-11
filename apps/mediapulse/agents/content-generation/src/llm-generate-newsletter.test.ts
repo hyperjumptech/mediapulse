@@ -77,17 +77,17 @@ const minimalIndustryBrief = (
   competitiveLandscape: {
     displayHeading: "Competitive",
     bullets: [
-      { text: "B1", articleIndex: 1 },
-      { text: "B2", articleIndex: 2 },
+      { title: "T1", text: "B1", articleIndex: 1 },
+      { title: "T2", text: "B2", articleIndex: 2 },
     ],
   },
   dealsAndMovements: {
     displayHeading: "Deals",
-    bullets: [{ text: "D1", articleIndex: 3 }],
+    bullets: [{ title: "T3", text: "D1", articleIndex: 3 }],
   },
   regulatoryPolicyWatch: {
     displayHeading: "Regulatory",
-    bullets: [{ text: "R1" }],
+    bullets: [{ title: "T4", text: "R1" }],
   },
   disruptorsOrTech: {
     format: "prose",
@@ -97,11 +97,11 @@ const minimalIndustryBrief = (
   quickHits: {
     displayHeading: "Quick",
     items: [
-      { text: "h1", articleIndex: 1 },
-      { text: "h2", articleIndex: 2 },
-      { text: "h3", articleIndex: 3 },
-      { text: "h4", articleIndex: 1 },
-      { text: "h5", articleIndex: 2 },
+      { title: "Q1", text: "h1", articleIndex: 1 },
+      { title: "Q2", text: "h2", articleIndex: 2 },
+      { title: "Q3", text: "h3", articleIndex: 3 },
+      { title: "Q4", text: "h4", articleIndex: 1 },
+      { title: "Q5", text: "h5", articleIndex: 2 },
     ],
   },
   ...patch,
@@ -189,26 +189,26 @@ describe("generateNewsletterWithLlm — happy path", () => {
       competitiveLandscape: {
         displayHeading: "C",
         bullets: [
-          { text: "b1", articleIndex: 1 },
-          { text: "b2", articleIndex: 2 },
+          { title: "T1", text: "b1", articleIndex: 1 },
+          { title: "T2", text: "b2", articleIndex: 2 },
         ],
       },
       dealsAndMovements: {
         displayHeading: "D",
-        bullets: [{ text: "d1", articleIndex: 1 }],
+        bullets: [{ title: "T3", text: "d1", articleIndex: 1 }],
       },
       regulatoryPolicyWatch: {
         displayHeading: "R",
-        bullets: [{ text: "r1", articleIndex: 2 }],
+        bullets: [{ title: "T4", text: "r1", articleIndex: 2 }],
       },
       quickHits: {
         displayHeading: "Q",
         items: [
-          { text: "h1", articleIndex: 1 },
-          { text: "h2", articleIndex: 2 },
-          { text: "h3", articleIndex: 1 },
-          { text: "h4", articleIndex: 2 },
-          { text: "h5", articleIndex: 1 },
+          { title: "Q1", text: "h1", articleIndex: 1 },
+          { title: "Q2", text: "h2", articleIndex: 2 },
+          { title: "Q3", text: "h3", articleIndex: 1 },
+          { title: "Q4", text: "h4", articleIndex: 2 },
+          { title: "Q5", text: "h5", articleIndex: 1 },
         ],
       },
     });
@@ -288,10 +288,12 @@ describe("generateNewsletterWithLlm — happy path", () => {
         displayHeading: "Competitive",
         bullets: [
           {
+            title: "T1",
             text: "Big tech posted strong gains for the third consecutive day.",
             articleIndex: 1,
           },
           {
+            title: "T2",
             text: "Federal Reserve held interest rates steady at its latest meeting.",
             articleIndex: 2,
           },
@@ -301,6 +303,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
         displayHeading: "Deals",
         bullets: [
           {
+            title: "T3",
             text: "Crude oil prices fell amid weakening demand concerns.",
             articleIndex: 3,
           },
@@ -668,11 +671,11 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
         quickHits: {
           displayHeading: "Q",
           items: [
-            { text: "a", articleIndex: 1 },
-            { text: "b", articleIndex: 2 },
-            { text: "c", articleIndex: 3 },
-            { text: "d", articleIndex: 1 },
-            { text: "e", articleIndex: 2 },
+            { title: "Q1", text: "a", articleIndex: 1 },
+            { title: "Q2", text: "b", articleIndex: 2 },
+            { title: "Q3", text: "c", articleIndex: 3 },
+            { title: "Q4", text: "d", articleIndex: 1 },
+            { title: "Q5", text: "e", articleIndex: 2 },
           ],
         },
       }),
@@ -1268,10 +1271,15 @@ describe("generateNewsletterWithLlm — two-pass brainstorm", () => {
         displayHeading: "Margins",
         bullets: [
           {
+            title: "T1",
             text: "Net interest margin reached 6.1% as deposit competition intensified (Article 1).",
             articleIndex: 1,
           },
-          { text: "Peer spreads widened on retail funding.", articleIndex: 2 },
+          {
+            title: "T2",
+            text: "Peer spreads widened on retail funding.",
+            articleIndex: 2,
+          },
         ],
       },
     };
@@ -1318,6 +1326,7 @@ describe("generateNewsletterWithLlm — citation grounding", () => {
       content: "Mining contractors shipped higher nickel ore volumes.",
     };
     const badQuickHits = Array.from({ length: 5 }, (_, index) => ({
+      title: `Q${String(index + 1)}`,
       text: `Unrelated widget headline ${String(index)}`,
       articleIndex: 1,
     }));
@@ -1391,9 +1400,9 @@ describe("generateNewsletterWithLlm — self-critique", () => {
       competitiveLandscape: {
         displayHeading: "Competitive",
         bullets: [
-          { text: "Weak one.", articleIndex: 1 },
-          { text: "Weak two.", articleIndex: 1 },
-          { text: "Weak three.", articleIndex: 1 },
+          { title: "T1", text: "Weak one.", articleIndex: 1 },
+          { title: "T2", text: "Weak two.", articleIndex: 1 },
+          { title: "T3", text: "Weak three.", articleIndex: 1 },
         ],
       },
     });
@@ -1464,8 +1473,8 @@ describe("generateNewsletterWithLlm — self-critique", () => {
       competitiveLandscape: {
         displayHeading: "Competitive",
         bullets: [
-          { text: "Weak one.", articleIndex: 1 },
-          { text: "Weak two.", articleIndex: 1 },
+          { title: "T1", text: "Weak one.", articleIndex: 1 },
+          { title: "T2", text: "Weak two.", articleIndex: 1 },
         ],
       },
     });
@@ -1677,20 +1686,30 @@ describe("generateNewsletterWithLlm — numeric anchors", () => {
       competitiveLandscape: {
         displayHeading: "Competitive",
         bullets: [
-          { text: `Revenue ${quotedFigures[0] ?? ""}`, articleIndex: 1 },
-          { text: `Growth ${quotedFigures[1] ?? ""}`, articleIndex: 1 },
+          {
+            title: "T1",
+            text: `Revenue ${quotedFigures[0] ?? ""}`,
+            articleIndex: 1,
+          },
+          {
+            title: "T2",
+            text: `Growth ${quotedFigures[1] ?? ""}`,
+            articleIndex: 1,
+          },
         ],
       },
       dealsAndMovements: {
         displayHeading: "Deals",
         bullets: [
-          { text: quotedFigures[2] ?? "Deal", articleIndex: 2 },
-          { text: quotedFigures[3] ?? "Move", articleIndex: 3 },
+          { title: "T3", text: quotedFigures[2] ?? "Deal", articleIndex: 2 },
+          { title: "T4", text: quotedFigures[3] ?? "Move", articleIndex: 3 },
         ],
       },
       regulatoryPolicyWatch: {
         displayHeading: "Regulatory",
-        bullets: [{ text: quotedFigures[4] ?? "Policy", articleIndex: 4 }],
+        bullets: [
+          { title: "T5", text: quotedFigures[4] ?? "Policy", articleIndex: 4 },
+        ],
       },
       industryPulse: {
         displayHeading: "Pulse",
@@ -1840,10 +1859,15 @@ describe("generateNewsletterWithLlm — style polish", () => {
         displayHeading: "Competitive",
         bullets: [
           {
+            title: "T1",
             text: "It's worth noting that BCA grew profit by 12%",
             articleIndex: 1,
           },
-          { text: "Peer spreads widened on retail funding.", articleIndex: 2 },
+          {
+            title: "T2",
+            text: "Peer spreads widened on retail funding.",
+            articleIndex: 2,
+          },
         ],
       },
     };
@@ -1999,29 +2023,34 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
       },
       competitiveLandscape: {
         displayHeading: "Competition",
-        bullets: [{ text: "Uncited A" }, { text: "Uncited B" }],
+        bullets: [
+          { title: "T1", text: "Uncited A" },
+          { title: "T2", text: "Uncited B" },
+        ],
       },
       dealsAndMovements: {
         displayHeading: "Deals",
-        bullets: [{ text: "Cited deal", articleIndex: 1 }],
+        bullets: [{ title: "T3", text: "Cited deal", articleIndex: 1 }],
       },
       regulatoryPolicyWatch: {
         displayHeading: "Regulatory",
-        bullets: [{ text: "Uncited regulatory" }],
+        bullets: [{ title: "T4", text: "Uncited regulatory" }],
       },
       disruptorsOrTech: {
         format: "bullets",
         displayHeading: "Disruptors",
-        bullets: [{ text: "Innovation forward.", articleIndex: 2 }],
+        bullets: [
+          { title: "T5", text: "Innovation forward.", articleIndex: 2 },
+        ],
       },
       quickHits: {
         displayHeading: "Quick Hits",
         items: [
-          { text: "Hit with source", articleIndex: 1 },
-          { text: "Hit with source 2", articleIndex: 2 },
-          { text: "Hit with source 3", articleIndex: 3 },
-          { text: "Hit uncited", articleIndex: 99 },
-          { text: "Hit duplicate", articleIndex: 1 },
+          { title: "Q1", text: "Hit with source", articleIndex: 1 },
+          { title: "Q2", text: "Hit with source 2", articleIndex: 2 },
+          { title: "Q3", text: "Hit with source 3", articleIndex: 3 },
+          { title: "Q4", text: "Hit uncited", articleIndex: 99 },
+          { title: "Q5", text: "Hit duplicate", articleIndex: 1 },
         ],
       },
     });
@@ -2055,15 +2084,15 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
     const generateObjectFn = makeSuccessfulGenerateFn({
       competitiveLandscape: {
         displayHeading: "Competition",
-        bullets: [{ text: "Uncited" }],
+        bullets: [{ title: "T1", text: "Uncited" }],
       },
       dealsAndMovements: {
         displayHeading: "Deals",
-        bullets: [{ text: "Uncited" }],
+        bullets: [{ title: "T2", text: "Uncited" }],
       },
       regulatoryPolicyWatch: {
         displayHeading: "Regulatory",
-        bullets: [{ text: "Uncited" }],
+        bullets: [{ title: "T3", text: "Uncited" }],
       },
     });
 
@@ -2142,11 +2171,14 @@ describe("generateNewsletterWithLlm — sectionFillSnapshot", () => {
       },
       competitiveLandscape: {
         displayHeading: "Competition",
-        bullets: [{ text: "Uncited A" }, { text: "Uncited B" }],
+        bullets: [
+          { title: "T1", text: "Uncited A" },
+          { title: "T2", text: "Uncited B" },
+        ],
       },
       regulatoryPolicyWatch: {
         displayHeading: "Regulatory",
-        bullets: [{ text: "Uncited regulatory" }],
+        bullets: [{ title: "T3", text: "Uncited regulatory" }],
       },
     });
 
@@ -2169,20 +2201,20 @@ describe("generateNewsletterWithLlm — sectionFillSnapshot", () => {
       competitiveLandscape: {
         displayHeading: "Comp",
         bullets: [
-          { text: "B1", articleIndex: 1 },
-          { text: "B2", articleIndex: 2 },
-          { text: "B3", articleIndex: 3 },
+          { title: "T1", text: "B1", articleIndex: 1 },
+          { title: "T2", text: "B2", articleIndex: 2 },
+          { title: "T3", text: "B3", articleIndex: 3 },
         ],
       },
       quickHits: {
         displayHeading: "Quick",
         items: [
-          { text: "h1", articleIndex: 1 },
-          { text: "h2", articleIndex: 2 },
-          { text: "h3", articleIndex: 3 },
-          { text: "h4", articleIndex: 1 },
-          { text: "h5", articleIndex: 2 },
-          { text: "h6", articleIndex: 3 },
+          { title: "Q1", text: "h1", articleIndex: 1 },
+          { title: "Q2", text: "h2", articleIndex: 2 },
+          { title: "Q3", text: "h3", articleIndex: 3 },
+          { title: "Q4", text: "h4", articleIndex: 1 },
+          { title: "Q5", text: "h5", articleIndex: 2 },
+          { title: "Q6", text: "h6", articleIndex: 3 },
         ],
       },
     });

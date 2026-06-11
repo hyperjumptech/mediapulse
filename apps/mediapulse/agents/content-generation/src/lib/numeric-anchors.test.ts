@@ -22,15 +22,15 @@ const minimalStructure = (
   industryPulse: { displayHeading: "Pulse", prose: "Lead." },
   competitiveLandscape: {
     displayHeading: "Competitive",
-    bullets: [{ text: "B1" }],
+    bullets: [{ title: "B1", text: "B1" }],
   },
   dealsAndMovements: {
     displayHeading: "Deals",
-    bullets: [{ text: "D1" }],
+    bullets: [{ title: "D1", text: "D1" }],
   },
   regulatoryPolicyWatch: {
     displayHeading: "Regulatory",
-    bullets: [{ text: "R1" }],
+    bullets: [{ title: "R1", text: "R1" }],
   },
   disruptorsOrTech: {
     format: "prose",
@@ -40,11 +40,11 @@ const minimalStructure = (
   quickHits: {
     displayHeading: "Quick",
     items: [
-      { text: "h1", articleIndex: 1 },
-      { text: "h2", articleIndex: 1 },
-      { text: "h3", articleIndex: 1 },
-      { text: "h4", articleIndex: 1 },
-      { text: "h5", articleIndex: 1 },
+      { title: "h1", text: "h1", articleIndex: 1 },
+      { title: "h2", text: "h2", articleIndex: 1 },
+      { title: "h3", text: "h3", articleIndex: 1 },
+      { title: "h4", text: "h4", articleIndex: 1 },
+      { title: "h5", text: "h5", articleIndex: 1 },
     ],
   },
   ...patch,
@@ -185,7 +185,11 @@ describe("auditNumbersInBriefing", () => {
       competitiveLandscape: {
         displayHeading: "Competitive",
         bullets: [
-          { text: "BCA grew net profit to Rp 12.4 trillion", articleIndex: 1 },
+          {
+            title: "BCA net profit grew",
+            text: "BCA grew net profit to Rp 12.4 trillion",
+            articleIndex: 1,
+          },
         ],
       },
     });
@@ -216,7 +220,11 @@ describe("auditNumbersInBriefing", () => {
       competitiveLandscape: {
         displayHeading: "Competitive",
         bullets: [
-          { text: "BCA grew net profit to Rp 12.4 trillion", articleIndex: 1 },
+          {
+            title: "BCA net profit grew",
+            text: "BCA grew net profit to Rp 12.4 trillion",
+            articleIndex: 1,
+          },
         ],
       },
     });
@@ -245,7 +253,12 @@ describe("applyNumericAnchorPolicy — strip", () => {
     const structure = minimalStructure({
       dealsAndMovements: {
         displayHeading: "Deals",
-        bullets: [{ text: "Net profit hit Rp 12.4 trillion last quarter" }],
+        bullets: [
+          {
+            title: "Net profit hit Rp 12.4 trillion",
+            text: "Net profit hit Rp 12.4 trillion last quarter",
+          },
+        ],
       },
     });
 

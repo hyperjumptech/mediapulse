@@ -183,15 +183,18 @@ export const percentile = (values: readonly number[], p: number): number => {
  * @param bullet - Bullet with optional citation.
  * @param decision - Grounding decision for this row.
  */
-const applyOptionalBulletDecision = (
-  bullet: { text: string; articleIndex?: number },
+const applyOptionalBulletDecision = <
+  T extends { text: string; articleIndex?: number },
+>(
+  bullet: T,
   decision: GroundingDecision,
-): { text: string; articleIndex?: number } | null => {
+): Omit<T, "articleIndex"> | T | null => {
   if (decision.kind === "drop") {
     return null;
   }
   if (decision.kind === "unlink") {
-    return { text: bullet.text };
+    const { articleIndex: _articleIndex, ...rest } = bullet;
+    return rest as Omit<T, "articleIndex">;
   }
   return bullet;
 };
@@ -343,8 +346,8 @@ export const groundNewsletterCitations = (
 
   const applyBulletArray = (
     sectionKey: string,
-    bullets: Array<{ text: string; articleIndex?: number }>,
-  ): Array<{ text: string; articleIndex?: number }> => {
+    bullets: Array<{ title: string; text: string; articleIndex?: number }>,
+  ): Array<{ title: string; text: string; articleIndex?: number }> => {
     return bullets.flatMap((bullet, bulletIndex) => {
       if (bullet.articleIndex === undefined) {
         return [bullet];
