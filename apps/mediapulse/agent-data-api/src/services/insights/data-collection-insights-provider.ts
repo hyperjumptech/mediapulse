@@ -328,6 +328,17 @@ export function createDataCollectionInsightsProvider(
               (totalArticles / (totalArticles + failures.length)) * 100,
             )
           : 0;
+      const totalPostFetchDropped =
+        totalDroppedByRelevance +
+        totalDroppedByFreshness +
+        Object.values(totalDroppedByContentQuality).reduce(
+          (sum, v) => sum + v,
+          0,
+        );
+      const dropRate =
+        totalFetched > 0
+          ? Math.round((totalPostFetchDropped / totalFetched) * 100)
+          : 0;
       const articleDelta = totalArticles - priorArticles;
       const medianDurationMs = medianOf(durationMsList);
 
@@ -356,6 +367,38 @@ export function createDataCollectionInsightsProvider(
           value: searchSuccessRate,
           unit: "%",
         },
+        ...(totalArticles > 0 || failures.length > 0
+          ? [
+              {
+                id: "fetch_success_rate",
+                label: "Fetch success rate",
+                value: fetchSuccessRate,
+                unit: "%",
+                tone:
+                  fetchSuccessRate >= 80
+                    ? ("positive" as const)
+                    : fetchSuccessRate < 50
+                      ? ("warning" as const)
+                      : ("neutral" as const),
+              } satisfies KpiCard,
+            ]
+          : []),
+        ...(totalFetched > 0
+          ? [
+              {
+                id: "drop_rate",
+                label: "Drop rate",
+                value: dropRate,
+                unit: "%",
+                tone:
+                  dropRate >= 70
+                    ? ("critical" as const)
+                    : dropRate >= 40
+                      ? ("warning" as const)
+                      : ("neutral" as const),
+              } satisfies KpiCard,
+            ]
+          : []),
         ...(medianDurationMs !== null
           ? [
               {
@@ -400,13 +443,6 @@ export function createDataCollectionInsightsProvider(
         }
       }
 
-      const totalPostFetchDropped =
-        totalDroppedByRelevance +
-        totalDroppedByFreshness +
-        Object.values(totalDroppedByContentQuality).reduce(
-          (sum, v) => sum + v,
-          0,
-        );
       const totalDropped =
         totalPostFetchDropped +
         totalDroppedByDeadUrl +
@@ -667,34 +703,6 @@ export function createDataCollectionInsightsProvider(
               value,
               fraction: providerTotal > 0 ? value / providerTotal : 0,
             })),
-          },
-        });
-      }
-
-      // How — search success rate stat
-      if (totalSearchAttempts > 0) {
-        sections.push({
-          id: "how-search-success-rate",
-          category: "how",
-          title: "Search success rate",
-          widget: {
-            kind: "stat",
-            value: searchSuccessRate,
-            unit: "%",
-          },
-        });
-      }
-
-      // How — fetch success rate stat
-      if (totalArticles > 0 || failures.length > 0) {
-        sections.push({
-          id: "how-fetch-success-rate",
-          category: "how",
-          title: "Fetch success rate",
-          widget: {
-            kind: "stat",
-            value: fetchSuccessRate,
-            unit: "%",
           },
         });
       }

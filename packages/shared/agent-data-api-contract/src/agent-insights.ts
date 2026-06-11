@@ -59,6 +59,7 @@ export const kpiCardSchema = z.object({
   unit: z.string().optional(),
   delta: z.number().optional(),
   sparkline: z.array(z.number()).optional(),
+  tone: z.enum(["neutral", "positive", "warning", "critical"]).optional(),
 });
 
 export const insightAlertSchema = z.object({
