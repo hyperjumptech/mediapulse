@@ -61,10 +61,7 @@ export function narrativeFilteredResults(
   droppedCount: number,
 ): [string, string] {
   if (droppedCount === 0) {
-    return [
-      "Filtering results",
-      `${n(readyCount, "URL")} ready to fetch.`,
-    ];
+    return ["Filtering results", `${n(readyCount, "URL")} ready to fetch.`];
   }
   return [
     "Filtering results",
@@ -106,7 +103,8 @@ export function narrativeRunComplete(
     targetDailySuccessfulSources: number;
   },
 ): [string, string] {
-  const title = opts.status === "failed" ? "Collection failed" : "Collection complete";
+  const title =
+    opts.status === "failed" ? "Collection failed" : "Collection complete";
 
   const savedClause =
     opts.persisted > 0
@@ -115,7 +113,9 @@ export function narrativeRunComplete(
 
   const dropParts: string[] = [];
   if (opts.droppedByRelevance > 0) {
-    dropParts.push(`${opts.droppedByRelevance} did not mention ${subject.symbol}`);
+    dropParts.push(
+      `${opts.droppedByRelevance} did not mention ${subject.symbol}`,
+    );
   }
   if (opts.droppedByFreshness > 0) {
     dropParts.push(`${opts.droppedByFreshness} were stale`);
@@ -128,7 +128,10 @@ export function narrativeRunComplete(
     dropParts.length > 0 ? `; ${dropParts.join(", ")} and were dropped` : "";
 
   let stopClause = "";
-  if (opts.stopReason === "daily_target_met" || opts.stopReason === "daily_target_met_before_start") {
+  if (
+    opts.stopReason === "daily_target_met" ||
+    opts.stopReason === "daily_target_met_before_start"
+  ) {
     stopClause = ` The daily target of ${opts.targetDailySuccessfulSources} was reached.`;
   } else if (opts.stopReason === "max_rounds_reached") {
     stopClause = ` The maximum number of search rounds was reached.`;

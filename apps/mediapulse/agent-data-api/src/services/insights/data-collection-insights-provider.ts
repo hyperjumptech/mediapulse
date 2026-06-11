@@ -382,10 +382,14 @@ export function createDataCollectionInsightsProvider(
             const stageFailures = failures.filter((f) => f.stage === stage);
             const catCounts = new Map<string, number>();
             for (const f of stageFailures) {
-              catCounts.set(f.errorCategory, (catCounts.get(f.errorCategory) ?? 0) + 1);
+              catCounts.set(
+                f.errorCategory,
+                (catCounts.get(f.errorCategory) ?? 0) + 1,
+              );
             }
             const dominantCategory =
-              [...catCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "unknown";
+              [...catCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+              "unknown";
             alerts.push({
               id: `stage-failure-${stage}`,
               severity: "warning",
@@ -413,10 +417,15 @@ export function createDataCollectionInsightsProvider(
         totalDroppedByExistingCanonical +
         totalDroppedByDuplicateCanonical;
       if (totalFetched > 10 && totalPostFetchDropped / totalFetched > 0.6) {
-        const dropPercent = Math.round((totalPostFetchDropped / totalFetched) * 100);
-        const contentQualitySum = Object.values(totalDroppedByContentQuality).reduce((s, v) => s + v, 0);
+        const dropPercent = Math.round(
+          (totalPostFetchDropped / totalFetched) * 100,
+        );
+        const contentQualitySum = Object.values(
+          totalDroppedByContentQuality,
+        ).reduce((s, v) => s + v, 0);
         const dominantReason =
-          totalDroppedByRelevance >= totalDroppedByFreshness && totalDroppedByRelevance >= contentQualitySum
+          totalDroppedByRelevance >= totalDroppedByFreshness &&
+          totalDroppedByRelevance >= contentQualitySum
             ? "relevance"
             : totalDroppedByFreshness >= contentQualitySum
               ? "freshness"
@@ -518,7 +527,10 @@ export function createDataCollectionInsightsProvider(
           id: "where-publishers",
           category: "where",
           title: "Articles by publisher",
-          insight: topPublishers.length > 0 ? `Top sources: ${topPublishers.join(", ")}.` : undefined,
+          insight:
+            topPublishers.length > 0
+              ? `Top sources: ${topPublishers.join(", ")}.`
+              : undefined,
           widget: {
             kind: "categoryBar",
             bars: bucketTopN(
@@ -551,7 +563,10 @@ export function createDataCollectionInsightsProvider(
           id: "who-per-ticker",
           category: "who",
           title: "Articles by ticker",
-          insight: topTickers.length > 0 ? `Top tickers: ${topTickers.join(", ")}.` : undefined,
+          insight:
+            topTickers.length > 0
+              ? `Top tickers: ${topTickers.join(", ")}.`
+              : undefined,
           widget: {
             kind: "categoryBar",
             bars: bucketTopN(

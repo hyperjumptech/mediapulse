@@ -179,7 +179,13 @@ export async function runDataCollection(
   });
   const existingTodaySourceCount = baselineToday.dataSourceTotalCount;
 
-  report(...narrativeDailyQuota(subject, existingTodaySourceCount, targetDailySuccessfulSources));
+  report(
+    ...narrativeDailyQuota(
+      subject,
+      existingTodaySourceCount,
+      targetDailySuccessfulSources,
+    ),
+  );
 
   let roundsExecuted = 0;
   let refillStopReason:
@@ -240,7 +246,14 @@ export async function runDataCollection(
 
     for (let round = 1; round <= maxTotalRounds; round += 1) {
       if (round > 1) {
-        report(...narrativeSearchRound(subject, queries.length, round, maxTotalRounds));
+        report(
+          ...narrativeSearchRound(
+            subject,
+            queries.length,
+            round,
+            maxTotalRounds,
+          ),
+        );
       }
       roundsExecuted += 1;
       const searchThrottleStats = { throttleEvents: 0 };
@@ -372,8 +385,14 @@ export async function runDataCollection(
         );
       }
 
-      const roundDroppedBeforeFetch = roundSearchSuccesses.length - searchSuccessesAfterHostBreaker.length;
-      report(...narrativeFilteredResults(searchSuccessesAfterHostBreaker.length, roundDroppedBeforeFetch));
+      const roundDroppedBeforeFetch =
+        roundSearchSuccesses.length - searchSuccessesAfterHostBreaker.length;
+      report(
+        ...narrativeFilteredResults(
+          searchSuccessesAfterHostBreaker.length,
+          roundDroppedBeforeFetch,
+        ),
+      );
 
       const budgetSelection = applyFetchBudget(
         searchSuccessesAfterHostBreaker,
