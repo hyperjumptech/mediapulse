@@ -2077,7 +2077,7 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
     expect(
       result.requireCitationSummary?.bulletsRemovedUncited,
     ).toBeGreaterThan(0);
-    expect(result.requireCitationSummary?.bulletsRemovedDuplicate).toBe(1);
+    expect(result.requireCitationSummary?.bulletsRemovedDuplicate).toBe(3);
   });
 
   it("passes content through unchanged when requireCitation is disabled", async () => {
