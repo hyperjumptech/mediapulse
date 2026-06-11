@@ -11,6 +11,14 @@ import type {
 } from "../agent-insights-registry.js";
 
 const TOP_N = 10;
+const TOP_RELATION_TYPES = 5;
+const RELATION_EVIDENCE_CAP = 500;
+
+// Threshold constants reconciled with alert thresholds
+const SELECTION_RATE_CRITICAL_THRESHOLD = 20; // matches low-selection-rate alert
+const SELECTION_RATE_WARNING_THRESHOLD = 40;
+const AVG_SCORE_LOW_THRESHOLD = 0.3; // matches low-avg-score alert
+const ENTITY_MENTION_SHARP_DROP_FRACTION = 0.5; // >50% drop is a sharp negative delta
 
 const WINDOW_MS: Record<"24h" | "7d" | "30d", number> = {
   "24h": 24 * 60 * 60 * 1000,
@@ -23,17 +31,27 @@ type ArticleRelevanceRow = {
   tickerId: string;
   ticker: { symbol: string };
   score: number;
+  scoreBreakdown: unknown;
   selected: boolean;
   scoredAt: Date;
 };
 
 type ArticleEntityRow = {
+  dataSourceId: string;
   entityId: string;
   mentionCount: number;
   confidence: number;
   sentiment: string | null;
   createdAt: Date;
   entity: { canonicalName: string };
+};
+
+type EntityRelationEvidenceRow = {
+  createdAt: Date;
+  confidence: number | null;
+  entityRelation: {
+    relationType: { name: string };
+  };
 };
 
 type ArticleAnalysisInsightsDeps = {
@@ -48,6 +66,7 @@ type ArticleAnalysisInsightsDeps = {
         tickerId: boolean;
         ticker: { select: { symbol: boolean } };
         score: boolean;
+        scoreBreakdown: boolean;
         selected: boolean;
         scoredAt: boolean;
       };
@@ -59,6 +78,7 @@ type ArticleAnalysisInsightsDeps = {
     findMany: (args: {
       where: { createdAt: { gte: Date } };
       select: {
+        dataSourceId: boolean;
         entityId: boolean;
         mentionCount: boolean;
         confidence: boolean;
@@ -69,7 +89,54 @@ type ArticleAnalysisInsightsDeps = {
       take?: number;
     }) => Promise<ArticleEntityRow[]>;
   };
+  entityRelationEvidence: {
+    findMany: (args: {
+      where: { createdAt: { gte: Date } };
+      select: {
+        createdAt: boolean;
+        confidence: boolean;
+        entityRelation: {
+          select: { relationType: { select: { name: boolean } } };
+        };
+      };
+      take?: number;
+    }) => Promise<EntityRelationEvidenceRow[]>;
+  };
 };
+
+type ScoreBreakdown = {
+  _version: number;
+  kgRelation: number;
+  fundamental: number;
+  breakingNews: number;
+  sourceQuality: number;
+  tickerSalience: number;
+};
+
+function parseScoreBreakdown(raw: unknown): ScoreBreakdown | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj["_version"] !== "number") return null;
+  if (
+    typeof obj["kgRelation"] !== "number" ||
+    typeof obj["fundamental"] !== "number" ||
+    typeof obj["breakingNews"] !== "number" ||
+    typeof obj["sourceQuality"] !== "number" ||
+    typeof obj["tickerSalience"] !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    _version: obj["_version"],
+    kgRelation: obj["kgRelation"],
+    fundamental: obj["fundamental"],
+    breakingNews: obj["breakingNews"],
+    sourceQuality: obj["sourceQuality"],
+    tickerSalience: obj["tickerSalience"],
+  };
+}
 
 function bucketTopN<T extends { label: string; value: number }>(
   items: T[],
@@ -113,36 +180,50 @@ export function createArticleAnalysisInsightsProvider(
       const windowStart = new Date(now.getTime() - windowMs);
       const priorStart = new Date(windowStart.getTime() - windowMs);
 
-      const [allRelevance, allEntities] = await Promise.all([
-        deps.articleRelevance.findMany({
-          where: {
-            scoredAt: { gte: priorStart },
-            ...(ctx.tickerId ? { tickerId: ctx.tickerId } : {}),
-          },
-          select: {
-            dataSourceId: true,
-            tickerId: true,
-            ticker: { select: { symbol: true } },
-            score: true,
-            selected: true,
-            scoredAt: true,
-          },
-          orderBy: { scoredAt: "asc" },
-          take: 5000,
-        }),
-        deps.articleEntity.findMany({
-          where: { createdAt: { gte: priorStart } },
-          select: {
-            entityId: true,
-            mentionCount: true,
-            confidence: true,
-            sentiment: true,
-            createdAt: true,
-            entity: { select: { canonicalName: true } },
-          },
-          take: 5000,
-        }),
-      ]);
+      const [allRelevance, allEntities, allRelationEvidence] =
+        await Promise.all([
+          deps.articleRelevance.findMany({
+            where: {
+              scoredAt: { gte: priorStart },
+              ...(ctx.tickerId ? { tickerId: ctx.tickerId } : {}),
+            },
+            select: {
+              dataSourceId: true,
+              tickerId: true,
+              ticker: { select: { symbol: true } },
+              score: true,
+              scoreBreakdown: true,
+              selected: true,
+              scoredAt: true,
+            },
+            orderBy: { scoredAt: "asc" },
+            take: 5000,
+          }),
+          deps.articleEntity.findMany({
+            where: { createdAt: { gte: priorStart } },
+            select: {
+              dataSourceId: true,
+              entityId: true,
+              mentionCount: true,
+              confidence: true,
+              sentiment: true,
+              createdAt: true,
+              entity: { select: { canonicalName: true } },
+            },
+            take: 5000,
+          }),
+          deps.entityRelationEvidence.findMany({
+            where: { createdAt: { gte: windowStart } },
+            select: {
+              createdAt: true,
+              confidence: true,
+              entityRelation: {
+                select: { relationType: { select: { name: true } } },
+              },
+            },
+            take: RELATION_EVIDENCE_CAP,
+          }),
+        ]);
 
       // Split into current and prior windows
       const relevance = allRelevance.filter((r) => r.scoredAt >= windowStart);
@@ -153,6 +234,8 @@ export function createArticleAnalysisInsightsProvider(
       const priorEntities = allEntities.filter(
         (e) => e.createdAt >= priorStart && e.createdAt < windowStart,
       );
+
+      // entityRelationEvidence is already window-filtered via where clause
 
       // ─── Aggregated metrics ──────────────────────────────────────────────
 
@@ -188,6 +271,25 @@ export function createArticleAnalysisInsightsProvider(
             ) / 100
           : 0;
 
+      // ─── KPI tones ───────────────────────────────────────────────────────
+
+      const selectionRateTone: KpiCard["tone"] =
+        selectionRate < SELECTION_RATE_CRITICAL_THRESHOLD
+          ? "critical"
+          : selectionRate < SELECTION_RATE_WARNING_THRESHOLD
+            ? "warning"
+            : "positive";
+
+      const avgScoreTone: KpiCard["tone"] =
+        avgScore < AVG_SCORE_LOW_THRESHOLD ? "critical" : "warning";
+
+      const entityMentionTone: KpiCard["tone"] =
+        priorEntityMentions > 0 &&
+        totalEntities <
+          priorEntityMentions * (1 - ENTITY_MENTION_SHARP_DROP_FRACTION)
+          ? "warning"
+          : undefined;
+
       // ─── KPIs ────────────────────────────────────────────────────────────
 
       const kpis: KpiCard[] = [
@@ -208,17 +310,22 @@ export function createArticleAnalysisInsightsProvider(
           label: "Selection rate",
           value: selectionRate,
           unit: "%",
+          tone: selectionRateTone,
         },
         {
           id: "avg_relevance_score",
           label: "Avg relevance score",
           value: avgScore,
+          tone: avgScoreTone,
         },
         {
           id: "entity_mentions",
           label: "Entity mentions",
           value: totalEntities,
           delta: totalEntities - priorEntityMentions,
+          ...(entityMentionTone !== undefined
+            ? { tone: entityMentionTone }
+            : {}),
         },
       ];
 
@@ -264,7 +371,11 @@ export function createArticleAnalysisInsightsProvider(
 
       const sections: InsightSection[] = [];
 
-      // What — scoring funnel
+      // What — scoring funnel (widened: Scored, Selected, With entities, Relations extracted)
+      const articlesWithEntities = new Set(entities.map((e) => e.dataSourceId))
+        .size;
+      const relationsExtracted = allRelationEvidence.length;
+
       sections.push({
         id: "what-scoring-funnel",
         category: "what",
@@ -275,6 +386,8 @@ export function createArticleAnalysisInsightsProvider(
           stages: [
             { label: "Scored", value: relevance.length },
             { label: "Selected", value: totalSelected },
+            { label: "With entities", value: articlesWithEntities },
+            { label: "Relations extracted", value: relationsExtracted },
           ],
         },
       });
@@ -365,11 +478,11 @@ export function createArticleAnalysisInsightsProvider(
           histBuckets[bucketIdx] = (histBuckets[bucketIdx] ?? 0) + 1;
         }
         const bucketLabels = [
-          "0–0.2",
-          "0.2–0.4",
-          "0.4–0.6",
-          "0.6–0.8",
-          "0.8–1.0",
+          "0-0.2",
+          "0.2-0.4",
+          "0.4-0.6",
+          "0.6-0.8",
+          "0.8-1.0",
         ];
         sections.push({
           id: "why-score-distribution",
@@ -380,6 +493,58 @@ export function createArticleAnalysisInsightsProvider(
             buckets: histBuckets.map((count, i) => ({
               label: bucketLabels[i] ?? `${i}`,
               count,
+            })),
+          },
+        });
+      }
+
+      // Why — score composition breakdown
+      const parsedBreakdowns = relevance
+        .map((r) => parseScoreBreakdown(r.scoreBreakdown))
+        .filter((b): b is ScoreBreakdown => b !== null);
+
+      if (parsedBreakdowns.length > 0) {
+        const count = parsedBreakdowns.length;
+        const avgKgRelation =
+          parsedBreakdowns.reduce((sum, b) => sum + b.kgRelation, 0) / count;
+        const avgFundamental =
+          parsedBreakdowns.reduce((sum, b) => sum + b.fundamental, 0) / count;
+        const avgBreakingNews =
+          parsedBreakdowns.reduce((sum, b) => sum + b.breakingNews, 0) / count;
+        const avgSourceQuality =
+          parsedBreakdowns.reduce((sum, b) => sum + b.sourceQuality, 0) / count;
+        const avgTickerSalience =
+          parsedBreakdowns.reduce((sum, b) => sum + b.tickerSalience, 0) /
+          count;
+
+        const componentAverages: Array<{ label: string; value: number }> = [
+          { label: "KG relation", value: avgKgRelation },
+          { label: "Fundamental", value: avgFundamental },
+          { label: "Breaking news", value: avgBreakingNews },
+          { label: "Source quality", value: avgSourceQuality },
+          { label: "Ticker salience", value: avgTickerSalience },
+        ];
+
+        const dominantComponent = componentAverages.reduce((best, current) =>
+          current.value > best.value ? current : best,
+        );
+
+        const total = componentAverages.reduce(
+          (sum, component) => sum + component.value,
+          0,
+        );
+
+        sections.push({
+          id: "why-score-composition",
+          category: "why",
+          title: "Score composition",
+          insight: `The dominant scoring driver is ${dominantComponent.label.toLowerCase()} (avg ${dominantComponent.value.toFixed(2)}).`,
+          widget: {
+            kind: "breakdown",
+            slices: componentAverages.map((component) => ({
+              label: component.label,
+              value: component.value,
+              fraction: total > 0 ? component.value / total : 0,
             })),
           },
         });
@@ -417,16 +582,119 @@ export function createArticleAnalysisInsightsProvider(
         });
       }
 
-      // How — selection rate stat
+      // How — entity extraction yield
       if (relevance.length > 0) {
+        const scoredArticleIds = new Set(relevance.map((r) => r.dataSourceId));
+        const entitiesByScoredArticle = new Map<string, number>();
+        for (const scored of scoredArticleIds) {
+          entitiesByScoredArticle.set(scored, 0);
+        }
+        for (const entityRow of entities) {
+          if (entitiesByScoredArticle.has(entityRow.dataSourceId)) {
+            const existing =
+              entitiesByScoredArticle.get(entityRow.dataSourceId) ?? 0;
+            entitiesByScoredArticle.set(
+              entityRow.dataSourceId,
+              existing + entityRow.mentionCount,
+            );
+          }
+        }
+
+        const totalScoredArticles = scoredArticleIds.size;
+        const articlesWithZeroEntities = Array.from(
+          entitiesByScoredArticle.values(),
+        ).filter((count) => count === 0).length;
+        const zeroEntityShare =
+          totalScoredArticles > 0
+            ? articlesWithZeroEntities / totalScoredArticles
+            : 0;
+        const avgEntitiesPerArticle =
+          totalScoredArticles > 0
+            ? Array.from(entitiesByScoredArticle.values()).reduce(
+                (sum, count) => sum + count,
+                0,
+              ) / totalScoredArticles
+            : 0;
+
+        const zeroEntityPct = Math.round(zeroEntityShare * 100);
+
         sections.push({
-          id: "how-selection-rate",
+          id: "how-entity-yield",
           category: "how",
-          title: "Selection rate",
+          title: "Entity extraction yield",
+          insight: `Avg ${avgEntitiesPerArticle.toFixed(1)} entity mentions per scored article; ${zeroEntityPct}% of articles yielded no entities.`,
           widget: {
-            kind: "stat",
-            value: selectionRate,
-            unit: "%",
+            kind: "breakdown",
+            slices: [
+              {
+                label: "Articles with entities",
+                value: totalScoredArticles - articlesWithZeroEntities,
+                fraction: 1 - zeroEntityShare,
+              },
+              {
+                label: "Articles without entities",
+                value: articlesWithZeroEntities,
+                fraction: zeroEntityShare,
+              },
+            ],
+          },
+        });
+      }
+
+      // What — relation extraction dimension
+      if (allRelationEvidence.length > 0) {
+        const relationDailyBuckets = buildWindowDates(windowStart, now);
+        for (const row of allRelationEvidence) {
+          const dayKey = row.createdAt.toISOString().slice(0, 10);
+          if (relationDailyBuckets.has(dayKey)) {
+            relationDailyBuckets.set(
+              dayKey,
+              (relationDailyBuckets.get(dayKey) ?? 0) + 1,
+            );
+          }
+        }
+
+        sections.push({
+          id: "what-relation-extraction",
+          category: "what",
+          title: "Relation extraction over time",
+          widget: {
+            kind: "timeSeries",
+            points: Array.from(relationDailyBuckets.entries()).map(
+              ([ts, value]) => ({
+                ts: `${ts}T00:00:00.000Z`,
+                value,
+              }),
+            ),
+            unit: "relations",
+          },
+        });
+
+        const relationTypeCounts = new Map<string, number>();
+        for (const row of allRelationEvidence) {
+          const typeName = row.entityRelation.relationType.name;
+          relationTypeCounts.set(
+            typeName,
+            (relationTypeCounts.get(typeName) ?? 0) + 1,
+          );
+        }
+
+        sections.push({
+          id: "what-relation-types",
+          category: "what",
+          title: "Relation types extracted",
+          widget: {
+            kind: "categoryBar",
+            bars: bucketTopN(
+              Array.from(relationTypeCounts.entries()).map(
+                ([label, value]) => ({
+                  label,
+                  value,
+                }),
+              ),
+              TOP_RELATION_TYPES,
+            ),
+            unit: "relations",
           },
         });
       }
