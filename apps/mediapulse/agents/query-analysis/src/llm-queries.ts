@@ -147,8 +147,8 @@ export const buildQueryAnalysisSystemContent = (
   const maxWords = strategy.queryMaxWords ?? 5;
   const phraseLengthHint =
     maxWords === 5
-      ? "Prefer 2–5 word keyword phrases."
-      : `Prefer ${String(maxWords)}-word keyword phrases.`;
+      ? "Keep each query to about 2–5 words."
+      : `Keep each query to about ${String(maxWords)} words.`;
 
   const sections: string[] = [
     "You generate short keyword search queries for news monitoring.",
@@ -156,10 +156,10 @@ export const buildQueryAnalysisSystemContent = (
     `${phraseLengthHint} Do not write full sentences, questions, or analyst-style commentary.`,
     `All queries must be in ${strategy.language} (BCP-47). Do not code-mix or translate ticker symbols and proper nouns.`,
     "Do not translate ticker symbols or proper nouns into other languages.",
-    "Include the company name or ticker symbol in at most 2 queries — the rest should be bare topic keywords, industry terms, or regulatory terms that stand alone without the company name.",
+    "Most queries should be bare topic keywords, industry terms, or regulatory terms that stand alone without the company name or ticker symbol. Only a small minority of your queries should name the company or ticker.",
     "Generate topic keywords across sectors, regulation, supply chain, ESG, and macro themes relevant to the company's operating environment.",
     [
-      "Target approximate intent counts (total queries should not exceed the remaining budget after the deterministic baseline):",
+      `Generate approximately ${String(strategy.queryCount)} queries in total, distributed across the intents below:`,
       intentTargetLines,
     ].join("\n"),
     `At least ${String(strategy.minDeterministicCount)} high-quality queries will be added deterministically by the system; your queries complement that set (avoid duplicating obvious symbol+news patterns).`,
@@ -576,12 +576,15 @@ export const resolveWildcardSystemContent = (
   queryMaxWords?: number,
 ): string => {
   const maxWords = queryMaxWords ?? 5;
-  const wordsHint = maxWords === 5 ? "2–5 words" : `${String(maxWords)} words`;
+  const wordsHint =
+    maxWords === 5
+      ? "2–5 words per query"
+      : `about ${String(maxWords)} words per query`;
   return [
     `Generate ${String(wildcardCount)} short search queries unlike anything an institutional analyst would typically search for.`,
     "Lateral, surprising, second-order, contrarian, or culturally-grounded angles welcome.",
     "Do not use the standard intent taxonomy — these queries are deliberately unconventional.",
-    `Keep queries short — ${wordsHint}. Prefer unusual keyword combinations over full questions or sentences.`,
+    `Keep each query to ${wordsHint}. Prefer unusual keyword combinations over full questions or sentences.`,
     'Return ONLY a JSON object: { "queries": [ { "text": string } ] }.',
     `Write in these languages when natural (BCP-47 codes): ${allowedLanguages.join(", ")}.`,
   ].join("\n\n");
