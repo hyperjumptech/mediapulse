@@ -5,6 +5,7 @@ import type {
   InsightAlert,
   InsightSection,
 } from "@workspace/agent-data-api-contract";
+import { NEWSLETTER_SECTION_IDS } from "@workspace/agent-data-api-contract";
 
 import type {
   AgentInsightsProvider,
@@ -15,6 +16,14 @@ const TOP_N = 10;
 const FAILURE_RATE_THRESHOLD = 0.2;
 const STALE_THRESHOLD_24H_MS = 6 * 60 * 60 * 1000;
 const STALE_THRESHOLD_DEFAULT_MS = 48 * 60 * 60 * 1000;
+
+// KPI tone thresholds
+const SUCCESS_RATE_CRITICAL_THRESHOLD = 60; // below this -> critical
+const SUCCESS_RATE_WARNING_THRESHOLD = 80; // below this -> warning (matches FAILURE_RATE_THRESHOLD = 20%)
+const MEDIAN_DURATION_WARNING_THRESHOLD_MS = 120_000; // 2 minutes
+
+// Section drop alert threshold: alert when a section is dropped in >20% of successful runs
+const SECTION_DROP_RATE_THRESHOLD = 0.2;
 
 const WINDOW_MS: Record<"24h" | "7d" | "30d", number> = {
   "24h": 24 * 60 * 60 * 1000,
@@ -39,6 +48,10 @@ type NewsletterRow = {
   createdAt: Date;
   model: string | null;
   totalTokens: number | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  configVersion: string | null;
+  promptHash: string | null;
 };
 
 type ContentGenerationInsightsDeps = {
@@ -75,6 +88,10 @@ type ContentGenerationInsightsDeps = {
         createdAt: boolean;
         model: boolean;
         totalTokens: boolean;
+        promptTokens: boolean;
+        completionTokens: boolean;
+        configVersion: boolean;
+        promptHash: boolean;
       };
     }) => Promise<NewsletterRow[]>;
   };
@@ -153,6 +170,35 @@ function extractCgFillBySection(
   return bySection as Record<string, { citedBullets: number }>;
 }
 
+function extractCgSectionsRemoved(
+  details: Prisma.JsonValue | null,
+): string[] | null {
+  if (
+    details === null ||
+    typeof details !== "object" ||
+    Array.isArray(details)
+  ) {
+    return null;
+  }
+  const sectionFill = (details as Record<string, unknown>).sectionFill;
+  if (
+    sectionFill === null ||
+    typeof sectionFill !== "object" ||
+    Array.isArray(sectionFill)
+  ) {
+    return null;
+  }
+  const sectionsRemoved = (sectionFill as Record<string, unknown>)
+    .sectionsRemoved;
+  if (!Array.isArray(sectionsRemoved)) {
+    return null;
+  }
+
+  return sectionsRemoved.filter(
+    (item): item is string => typeof item === "string",
+  );
+}
+
 export function createContentGenerationInsightsProvider(
   deps: ContentGenerationInsightsDeps,
 ): AgentInsightsProvider {
@@ -207,6 +253,10 @@ export function createContentGenerationInsightsProvider(
             createdAt: true,
             model: true,
             totalTokens: true,
+            promptTokens: true,
+            completionTokens: true,
+            configVersion: true,
+            promptHash: true,
           },
         }),
       ]);
@@ -245,6 +295,27 @@ export function createContentGenerationInsightsProvider(
         0,
       );
 
+      const newsletterCount = newsletters.length;
+      const avgTokensPerNewsletter =
+        newsletterCount > 0 ? Math.round(totalTokens / newsletterCount) : null;
+
+      // Determine tones for success_rate and median_duration_ms
+      const successRateTone = (() => {
+        if (totalRuns === 0) return undefined;
+        if (successRate < SUCCESS_RATE_CRITICAL_THRESHOLD)
+          return "critical" as const;
+        if (successRate < SUCCESS_RATE_WARNING_THRESHOLD)
+          return "warning" as const;
+        return undefined;
+      })();
+
+      const medianDurationTone = (() => {
+        if (medianDuration === null) return undefined;
+        if (medianDuration > MEDIAN_DURATION_WARNING_THRESHOLD_MS)
+          return "warning" as const;
+        return undefined;
+      })();
+
       const kpis: KpiCard[] = [
         {
           id: "runs",
@@ -257,6 +328,7 @@ export function createContentGenerationInsightsProvider(
           label: "Success rate",
           value: successRate,
           unit: "%",
+          ...(successRateTone !== undefined ? { tone: successRateTone } : {}),
         },
         {
           id: "newsletters",
@@ -271,6 +343,9 @@ export function createContentGenerationInsightsProvider(
                 label: "Median duration",
                 value: medianDuration,
                 unit: "ms",
+                ...(medianDurationTone !== undefined
+                  ? { tone: medianDurationTone }
+                  : {}),
               } satisfies KpiCard,
             ]
           : []),
@@ -279,6 +354,16 @@ export function createContentGenerationInsightsProvider(
           label: "Total tokens",
           value: totalTokens,
         },
+        ...(avgTokensPerNewsletter !== null
+          ? [
+              {
+                id: "avg_tokens_per_newsletter",
+                label: "Avg tokens per newsletter",
+                value: avgTokensPerNewsletter,
+                unit: "tokens",
+              } satisfies KpiCard,
+            ]
+          : []),
       ];
 
       // ─── Alerts ──────────────────────────────────────────────────────────
@@ -292,7 +377,7 @@ export function createContentGenerationInsightsProvider(
         alerts.push({
           id: "high-failure-rate",
           severity: "warning",
-          message: `Failure rate is ${Math.round((failedRuns.length / totalRuns) * 100)}% — above the ${FAILURE_RATE_THRESHOLD * 100}% threshold`,
+          message: `Failure rate is ${Math.round((failedRuns.length / totalRuns) * 100)}% -- above the ${FAILURE_RATE_THRESHOLD * 100}% threshold`,
           sectionRef: "why-failure-by-stage",
         });
       }
@@ -332,7 +417,7 @@ export function createContentGenerationInsightsProvider(
         alerts.push({
           id: "recurring-no-sources",
           severity: "warning",
-          message: `"no_sources" skip occurred ${noSourcesCount} times — check data pipeline for missing article ingestion`,
+          message: `"no_sources" skip occurred ${noSourcesCount} times -- check data pipeline for missing article ingestion`,
           sectionRef: "why-skip-reason",
         });
       }
@@ -359,7 +444,7 @@ export function createContentGenerationInsightsProvider(
 
       const sections: InsightSection[] = [];
 
-      // What — outcome breakdown
+      // What -- outcome breakdown
       if (totalRuns > 0) {
         const outcomeSlices = [
           {
@@ -391,7 +476,7 @@ export function createContentGenerationInsightsProvider(
         });
       }
 
-      // What — stage funnel (runs reaching each stage)
+      // What -- stage funnel (runs reaching each stage)
       const stageDropCounts = new Map<string, number>();
       for (const run of runs) {
         if (run.stage) {
@@ -428,7 +513,7 @@ export function createContentGenerationInsightsProvider(
         },
       });
 
-      // When — runs per day
+      // When -- runs per day
       const runsDailyBuckets = buildWindowDates(windowStart, now);
       for (const run of runs) {
         const dayKey = run.createdAt.toISOString().slice(0, 10);
@@ -450,7 +535,7 @@ export function createContentGenerationInsightsProvider(
         },
       });
 
-      // When — tokens per day (from newsletters only — failed/skipped runs produce no tokens)
+      // When -- tokens per day (from newsletters only -- failed/skipped runs produce no tokens)
       if (newsletters.length > 0) {
         const tokensDailyBuckets = buildWindowDates(windowStart, now);
         for (const newsletter of newsletters) {
@@ -468,7 +553,7 @@ export function createContentGenerationInsightsProvider(
           category: "when",
           title: "Tokens over time",
           insight:
-            "Daily token usage reflects successfully generated newsletters only — failed and skipped runs do not consume tokens.",
+            "Daily token usage reflects successfully generated newsletters only -- failed and skipped runs do not consume tokens.",
           widget: {
             kind: "timeSeries",
             points: Array.from(tokensDailyBuckets.entries()).map(
@@ -482,7 +567,7 @@ export function createContentGenerationInsightsProvider(
         });
       }
 
-      // Where — newsletters by ticker (top-N)
+      // Where -- newsletters by ticker (top-N)
       const tickerNewsletterCounts = new Map<string, number>();
       for (const newsletter of newsletters) {
         const label = newsletter.ticker?.symbol ?? newsletter.tickerId;
@@ -509,35 +594,112 @@ export function createContentGenerationInsightsProvider(
         });
       }
 
-      // Who — model mix from Newsletter.model
+      // Who -- model mix, config version, and prompt hash from Newsletter
       const modelMix = new Map<string, number>();
+      const configVersionMix = new Map<string, number>();
+      const promptHashMix = new Map<string, number>();
       for (const newsletter of newsletters) {
         const model = newsletter.model ?? "unknown";
         modelMix.set(model, (modelMix.get(model) ?? 0) + 1);
+
+        const configVersion = newsletter.configVersion ?? "unknown";
+        configVersionMix.set(
+          configVersion,
+          (configVersionMix.get(configVersion) ?? 0) + 1,
+        );
+
+        const promptHash = newsletter.promptHash ?? "unknown";
+        promptHashMix.set(promptHash, (promptHashMix.get(promptHash) ?? 0) + 1);
       }
       if (modelMix.size > 0) {
         const modelTotal = Array.from(modelMix.values()).reduce(
           (sum, v) => sum + v,
           0,
         );
+        const configVersionTotal = Array.from(configVersionMix.values()).reduce(
+          (sum, v) => sum + v,
+          0,
+        );
+        const promptHashTotal = Array.from(promptHashMix.values()).reduce(
+          (sum, v) => sum + v,
+          0,
+        );
+
         sections.push({
           id: "who-model-mix",
           category: "who",
-          title: "Model mix",
+          title: "Model, config, and prompt distribution",
           insight:
-            "Model distribution reflects successfully generated newsletters only.",
+            "Distribution of model, configVersion, and promptHash across successfully generated newsletters.",
           widget: {
-            kind: "breakdown",
-            slices: Array.from(modelMix.entries()).map(([label, value]) => ({
-              label,
-              value,
-              fraction: modelTotal > 0 ? value / modelTotal : 0,
-            })),
+            kind: "table",
+            columns: ["dimension", "value", "count", "share"],
+            rows: [
+              ...Array.from(modelMix.entries()).map(
+                ([label, value]) =>
+                  [
+                    "model",
+                    label,
+                    value,
+                    modelTotal > 0
+                      ? Math.round((value / modelTotal) * 100) / 100
+                      : 0,
+                  ] as (string | number | null)[],
+              ),
+              ...Array.from(configVersionMix.entries()).map(
+                ([label, value]) =>
+                  [
+                    "configVersion",
+                    label,
+                    value,
+                    configVersionTotal > 0
+                      ? Math.round((value / configVersionTotal) * 100) / 100
+                      : 0,
+                  ] as (string | number | null)[],
+              ),
+              ...Array.from(promptHashMix.entries()).map(
+                ([label, value]) =>
+                  [
+                    "promptHash",
+                    label,
+                    value,
+                    promptHashTotal > 0
+                      ? Math.round((value / promptHashTotal) * 100) / 100
+                      : 0,
+                  ] as (string | number | null)[],
+              ),
+            ],
           },
         });
+
+        // Config drift alerts
+        const distinctConfigVersions = new Set(
+          newsletters.map((n) => n.configVersion ?? "unknown"),
+        );
+        const distinctPromptHashes = new Set(
+          newsletters.map((n) => n.promptHash ?? "unknown"),
+        );
+
+        if (distinctConfigVersions.size > 1) {
+          alerts.push({
+            id: "config-version-drift",
+            severity: "warning",
+            message: `${distinctConfigVersions.size} distinct configVersions active in this window -- newsletters may have been generated with inconsistent configurations`,
+            sectionRef: "who-model-mix",
+          });
+        }
+
+        if (distinctPromptHashes.size > 1) {
+          alerts.push({
+            id: "prompt-hash-drift",
+            severity: "warning",
+            message: `${distinctPromptHashes.size} distinct promptHashes active in this window -- prompt definition changed mid-window`,
+            sectionRef: "who-model-mix",
+          });
+        }
       }
 
-      // Why — failures by stage (only failed runs)
+      // Why -- failures by stage (only failed runs)
       if (failedRuns.length > 0) {
         const failureStages = new Map<string, number>();
         for (const run of failedRuns) {
@@ -562,7 +724,7 @@ export function createContentGenerationInsightsProvider(
         });
       }
 
-      // Why — error category breakdown (only failed runs)
+      // Why -- error category breakdown (only failed runs)
       if (failedRuns.length > 0) {
         const errorCategories = new Map<string, number>();
         for (const run of failedRuns) {
@@ -590,7 +752,7 @@ export function createContentGenerationInsightsProvider(
         });
       }
 
-      // Why — skip reason breakdown (only skipped runs)
+      // Why -- skip reason breakdown (only skipped runs)
       if (skippedRuns.length > 0) {
         const skipReasons = new Map<string, number>();
         for (const run of skippedRuns) {
@@ -613,7 +775,7 @@ export function createContentGenerationInsightsProvider(
         });
       }
 
-      // How — duration histogram (only non-null durationMs)
+      // How -- duration histogram (only non-null durationMs)
       if (durations.length > 0) {
         const durationBuckets = new Map([
           ["< 5s", 0],
@@ -661,36 +823,46 @@ export function createContentGenerationInsightsProvider(
         });
       }
 
-      // How — median duration stat
-      if (medianDuration !== null) {
-        sections.push({
-          id: "how-median-duration",
-          category: "how",
-          title: "Median run duration",
-          widget: {
-            kind: "stat",
-            value: medianDuration,
-            unit: "ms",
-          },
-        });
-      }
-
-      // How — section-fill coverage (cited bullets per section, summed across successful runs)
+      // How -- section-fill coverage (cited bullets per section, averaged across successful runs)
+      // Also track sectionsRemoved per section across successful runs
       const sectionFillTotals = new Map<string, number>();
+      const sectionFillRunCounts = new Map<string, number>();
+      const sectionRemovedCounts = new Map<string, number>();
+      let successRunsWithDetails = 0;
+
       for (const run of successRuns) {
         const bySection = extractCgFillBySection(run.details);
-        if (bySection === null) {
-          continue;
+        const sectionsRemoved = extractCgSectionsRemoved(run.details);
+
+        if (bySection !== null || sectionsRemoved !== null) {
+          successRunsWithDetails += 1;
         }
-        for (const [sectionId, data] of Object.entries(bySection)) {
-          if (typeof data.citedBullets === "number") {
-            sectionFillTotals.set(
+
+        if (bySection !== null) {
+          for (const [sectionId, data] of Object.entries(bySection)) {
+            if (typeof data.citedBullets === "number") {
+              sectionFillTotals.set(
+                sectionId,
+                (sectionFillTotals.get(sectionId) ?? 0) + data.citedBullets,
+              );
+              sectionFillRunCounts.set(
+                sectionId,
+                (sectionFillRunCounts.get(sectionId) ?? 0) + 1,
+              );
+            }
+          }
+        }
+
+        if (sectionsRemoved !== null) {
+          for (const sectionId of sectionsRemoved) {
+            sectionRemovedCounts.set(
               sectionId,
-              (sectionFillTotals.get(sectionId) ?? 0) + data.citedBullets,
+              (sectionRemovedCounts.get(sectionId) ?? 0) + 1,
             );
           }
         }
       }
+
       if (sectionFillTotals.size > 0) {
         sections.push({
           id: "how-section-fill",
@@ -708,6 +880,113 @@ export function createContentGenerationInsightsProvider(
               TOP_N,
             ),
             unit: "cited bullets",
+          },
+        });
+      }
+
+      // What -- section coverage: avg cited bullets and removal share per section
+      const allKnownSections = new Set<string>([
+        ...NEWSLETTER_SECTION_IDS,
+        ...sectionFillTotals.keys(),
+        ...sectionRemovedCounts.keys(),
+      ]);
+
+      if (
+        successRunsWithDetails > 0 &&
+        (sectionFillTotals.size > 0 || sectionRemovedCounts.size > 0)
+      ) {
+        const coverageRows: (string | number | null)[][] = [];
+        for (const sectionId of allKnownSections) {
+          const totalBullets = sectionFillTotals.get(sectionId) ?? 0;
+          const runCount = sectionFillRunCounts.get(sectionId) ?? 0;
+          const avgBullets =
+            runCount > 0 ? Math.round((totalBullets / runCount) * 10) / 10 : 0;
+          const removedCount = sectionRemovedCounts.get(sectionId) ?? 0;
+          const removedShare =
+            successRunsWithDetails > 0
+              ? Math.round((removedCount / successRunsWithDetails) * 100) / 100
+              : 0;
+          coverageRows.push([
+            sectionId,
+            avgBullets,
+            removedCount,
+            removedShare,
+          ]);
+        }
+
+        sections.push({
+          id: "what-section-coverage",
+          category: "what",
+          title: "Section coverage",
+          insight:
+            "Average cited bullets per section and how often each section was removed across successful runs.",
+          widget: {
+            kind: "table",
+            columns: [
+              "section",
+              "avg_cited_bullets",
+              "removed_count",
+              "removed_share",
+            ],
+            rows: coverageRows,
+          },
+        });
+
+        // Alert when a section is dropped in >20% of successful runs
+        for (const [sectionId, removedCount] of sectionRemovedCounts) {
+          const dropRate = removedCount / successRunsWithDetails;
+          if (dropRate > SECTION_DROP_RATE_THRESHOLD) {
+            alerts.push({
+              id: `section-drop-${sectionId}`,
+              severity: "warning",
+              message: `Section "${sectionId}" was removed in ${Math.round(dropRate * 100)}% of successful runs -- content coverage may be degraded`,
+              sectionRef: "what-section-coverage",
+            });
+          }
+        }
+      }
+
+      // How -- prompt vs completion token breakdown
+      const newslettersWithTokenBreakdown = newsletters.filter(
+        (n) => n.promptTokens !== null && n.completionTokens !== null,
+      );
+      if (newslettersWithTokenBreakdown.length > 0) {
+        const totalPromptTokens = newslettersWithTokenBreakdown.reduce(
+          (sum, n) => sum + (n.promptTokens ?? 0),
+          0,
+        );
+        const totalCompletionTokens = newslettersWithTokenBreakdown.reduce(
+          (sum, n) => sum + (n.completionTokens ?? 0),
+          0,
+        );
+        const promptPlusCompletion = totalPromptTokens + totalCompletionTokens;
+
+        sections.push({
+          id: "how-prompt-vs-completion-tokens",
+          category: "how",
+          title: "Prompt vs completion token split",
+          insight:
+            "Breakdown of prompt and completion tokens across newsletters that have both values. Prompt + completion should reconcile to total when both are present.",
+          widget: {
+            kind: "breakdown",
+            slices: [
+              {
+                label: "Prompt",
+                value: totalPromptTokens,
+                fraction:
+                  promptPlusCompletion > 0
+                    ? totalPromptTokens / promptPlusCompletion
+                    : 0,
+              },
+              {
+                label: "Completion",
+                value: totalCompletionTokens,
+                fraction:
+                  promptPlusCompletion > 0
+                    ? totalCompletionTokens / promptPlusCompletion
+                    : 0,
+              },
+            ],
           },
         });
       }
