@@ -48,9 +48,10 @@ describe("WidgetRenderer", () => {
       />,
     );
 
-    expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.getByText("ms")).toBeInTheDocument();
-    expect(screen.getByText("+5 vs prior period")).toBeInTheDocument();
+    // Duration KPIs render as compact format, suppressing the separate unit span
+    expect(screen.getByText("42 ms")).toBeInTheDocument();
+    // Duration delta renders as compact format in neutral color
+    expect(screen.getByText(/5 ms vs prior period/)).toBeInTheDocument();
   });
 
   it("renders stat widget with negative delta", () => {

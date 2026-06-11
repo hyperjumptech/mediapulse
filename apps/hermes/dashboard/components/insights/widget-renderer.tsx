@@ -19,6 +19,8 @@ import {
 } from "@workspace/ui/components/chart";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
+import { formatCompactDuration, isDurationUnit } from "@/lib/format-duration";
+
 type WidgetRendererProps = {
   widget: Widget;
 };
@@ -44,13 +46,24 @@ function formatTs(ts: string): string {
  */
 export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
   if (widget.kind === "stat") {
-    const isPositive = widget.delta !== undefined && widget.delta > 0;
-    const isNegative = widget.delta !== undefined && widget.delta < 0;
-    const deltaColor = isPositive
-      ? "text-emerald-600"
-      : isNegative
-        ? "text-red-500"
-        : "text-muted-foreground";
+    const isDuration = isDurationUnit(widget.unit);
+    const numericValue = Number(widget.value);
+    const displayValue = isDuration
+      ? isNaN(numericValue)
+        ? String(widget.value)
+        : formatCompactDuration(numericValue)
+      : String(widget.value);
+    const isPositive =
+      !isDuration && widget.delta !== undefined && widget.delta > 0;
+    const isNegative =
+      !isDuration && widget.delta !== undefined && widget.delta < 0;
+    const deltaColor = isDuration
+      ? "text-muted-foreground"
+      : isPositive
+        ? "text-emerald-600"
+        : isNegative
+          ? "text-red-500"
+          : "text-muted-foreground";
     const DeltaIcon = isPositive
       ? TrendingUp
       : isNegative
@@ -61,9 +74,9 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
       <div className="py-2">
         <div className="flex items-end gap-2">
           <span className="text-4xl font-bold tracking-tight text-foreground">
-            {widget.value}
+            {displayValue}
           </span>
-          {widget.unit && (
+          {!isDuration && widget.unit && (
             <span className="mb-1 text-base text-muted-foreground">
               {widget.unit}
             </span>
@@ -75,8 +88,10 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
           >
             <DeltaIcon className="h-3.5 w-3.5" />
             <span>
-              {widget.delta > 0 ? "+" : ""}
-              {widget.delta} vs prior period
+              {isDuration
+                ? formatCompactDuration(Math.abs(widget.delta))
+                : `${widget.delta > 0 ? "+" : ""}${widget.delta}`}{" "}
+              vs prior period
             </span>
           </div>
         )}
@@ -85,6 +100,10 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
   }
 
   if (widget.kind === "timeSeries") {
+    const isTimeSeriesDuration = isDurationUnit(widget.unit);
+    const yTickFormatter = isTimeSeriesDuration
+      ? (value: number) => formatCompactDuration(value)
+      : undefined;
     const config: ChartConfig = {
       value: { label: widget.unit ?? "Value", color: "var(--chart-1)" },
     };
@@ -124,9 +143,19 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
             tick={{ fontSize: 11 }}
             tickMargin={4}
             width={36}
+            tickFormatter={yTickFormatter}
           />
           <ChartTooltip
-            content={<ChartTooltipContent labelFormatter={formatTs} />}
+            content={
+              <ChartTooltipContent
+                labelFormatter={formatTs}
+                valueFormatter={
+                  isTimeSeriesDuration
+                    ? (value) => formatCompactDuration(Number(value))
+                    : undefined
+                }
+              />
+            }
           />
           <Area
             type="natural"
@@ -143,6 +172,10 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
   }
 
   if (widget.kind === "categoryBar") {
+    const isCategoryBarDuration = isDurationUnit(widget.unit);
+    const yTickFormatter = isCategoryBarDuration
+      ? (value: number) => formatCompactDuration(value)
+      : undefined;
     const config: ChartConfig = {
       value: { label: widget.unit ?? "Value", color: "var(--chart-1)" },
     };
@@ -167,8 +200,19 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
             tick={{ fontSize: 11 }}
             tickMargin={4}
             width={36}
+            tickFormatter={yTickFormatter}
           />
-          <ChartTooltip content={<ChartTooltipContent />} />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                valueFormatter={
+                  isCategoryBarDuration
+                    ? (value) => formatCompactDuration(Number(value))
+                    : undefined
+                }
+              />
+            }
+          />
           <Bar
             dataKey="value"
             fill="var(--color-value)"

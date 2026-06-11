@@ -6,6 +6,7 @@ import type {
 } from "@workspace/agent-data-api-contract";
 import { SimpleTooltip } from "@workspace/ui/components/tooltip";
 
+import { formatCompactDuration, isDurationUnit } from "@/lib/format-duration";
 import { WidgetRenderer } from "@/components/insights/widget-renderer";
 import { WindowSwitcher } from "./window-switcher";
 
@@ -113,14 +114,25 @@ export const InsightsTab = ({ payload, window }: InsightsTabProps) => {
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {payload.kpis.map((kpi) => {
+              const isDuration = isDurationUnit(kpi.unit);
+              const numericValue = Number(kpi.value);
+              const displayValue = isDuration
+                ? isNaN(numericValue)
+                  ? String(kpi.value)
+                  : formatCompactDuration(numericValue)
+                : String(kpi.value);
               const deltaSign =
-                kpi.delta !== undefined && kpi.delta >= 0 ? "+" : "";
+                !isDuration && kpi.delta !== undefined && kpi.delta >= 0
+                  ? "+"
+                  : "";
               const deltaColor =
                 kpi.delta === undefined
                   ? ""
-                  : kpi.delta >= 0
-                    ? "text-green-600"
-                    : "text-red-600";
+                  : isDuration
+                    ? "text-muted-foreground"
+                    : kpi.delta >= 0
+                      ? "text-green-600"
+                      : "text-red-600";
               const cardStyle =
                 KPI_CARD_STYLES[kpi.tone ?? "neutral"] ??
                 KPI_CARD_STYLES["neutral"];
@@ -129,7 +141,7 @@ export const InsightsTab = ({ payload, window }: InsightsTabProps) => {
                 KPI_VALUE_STYLES["neutral"];
               const tooltipText =
                 kpi.delta !== undefined
-                  ? `${kpi.label} — change vs prior period`
+                  ? `${kpi.label} - change vs prior period`
                   : kpi.label;
 
               return (
@@ -141,8 +153,8 @@ export const InsightsTab = ({ payload, window }: InsightsTabProps) => {
                       {kpi.label}
                     </div>
                     <div className={`mt-1 text-xl font-bold ${valueStyle}`}>
-                      {kpi.value}
-                      {kpi.unit && (
+                      {displayValue}
+                      {!isDuration && kpi.unit && (
                         <span className="ml-1 text-sm font-normal text-muted-foreground">
                           {kpi.unit}
                         </span>
@@ -152,8 +164,10 @@ export const InsightsTab = ({ payload, window }: InsightsTabProps) => {
                       <div
                         className={`mt-0.5 text-xs font-medium ${deltaColor}`}
                       >
-                        {deltaSign}
-                        {kpi.delta}
+                        {isDuration
+                          ? formatCompactDuration(Math.abs(kpi.delta ?? 0))
+                          : `${deltaSign}${kpi.delta}`}{" "}
+                        vs prior period
                       </div>
                     )}
                   </div>

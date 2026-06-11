@@ -94,7 +94,7 @@ describe("ContentGenerationRunDetail", () => {
     expect(screen.getByText("persist")).toBeInTheDocument();
     expect(screen.getByText("TIMEOUT")).toBeInTheDocument();
     expect(screen.getByText("transient")).toBeInTheDocument();
-    expect(screen.getByText("30000 ms")).toBeInTheDocument();
+    expect(screen.getByText("30s")).toBeInTheDocument();
     expect(screen.getByText("pipe-001")).toBeInTheDocument();
   });
 

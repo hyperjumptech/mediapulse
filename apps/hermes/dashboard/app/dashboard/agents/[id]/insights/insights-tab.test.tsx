@@ -93,9 +93,10 @@ describe("InsightsTab", () => {
     expect(screen.getByText("1234")).toBeInTheDocument();
     expect(screen.getByText("req")).toBeInTheDocument();
     expect(screen.getByText("Latency")).toBeInTheDocument();
-    expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.getByText("ms")).toBeInTheDocument();
-    expect(screen.getByText("-5")).toBeInTheDocument();
+    // Duration KPIs render as compact format, not raw value + unit separately
+    expect(screen.getByText("42 ms")).toBeInTheDocument();
+    // Duration delta renders as compact format with "vs prior period"
+    expect(screen.getByText(/5 ms vs prior period/)).toBeInTheDocument();
   });
 
   it("wraps each KPI card in a SimpleTooltip", () => {

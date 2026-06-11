@@ -14,6 +14,7 @@ import {
 import type { ContentGenerationRunListItem } from "@workspace/agent-data-api-contract";
 
 import { AgentRunOutcomeBadge } from "@/components/agent-run-outcome-badge";
+import { formatCompactDuration } from "@/lib/format-duration";
 
 type ContentGenerationRunsTableProps = {
   /** List of run records to display. */
@@ -26,11 +27,12 @@ const BASE_PATH = "/dashboard/agents/content-generation-runs";
  * Formats a duration in milliseconds or returns "—" for null/undefined.
  *
  * @param durationMs - Duration in milliseconds.
- * @returns Formatted string like "1200 ms" or "—".
+ * @returns Compact human-readable string like "1.2s" or "—".
  */
 const formatDuration = (durationMs: number | null | undefined): string => {
   if (durationMs == null) return "—";
-  return `${durationMs} ms`;
+
+  return formatCompactDuration(durationMs);
 };
 
 /**

@@ -56,6 +56,7 @@ type ChartTooltipContentProps = {
   }>;
   label?: string;
   labelFormatter?: (label: string) => string;
+  valueFormatter?: (value: number | string) => string;
   nameKey?: string;
   hideLabel?: boolean;
   indicator?: "line" | "dot" | "dashed";
@@ -75,6 +76,7 @@ const ChartTooltipContent = React.forwardRef<
       payload = [],
       label,
       labelFormatter,
+      valueFormatter,
       nameKey,
       hideLabel = false,
       indicator = "dot",
@@ -139,9 +141,11 @@ const ChartTooltipContent = React.forwardRef<
                 <div className="flex flex-1 justify-between leading-none items-center">
                   <span className="text-muted-foreground">{displayName}</span>
                   <span className="font-mono font-medium tabular-nums text-foreground">
-                    {typeof item.value === "number"
-                      ? item.value.toLocaleString()
-                      : item.value}
+                    {valueFormatter != null
+                      ? valueFormatter(item.value ?? "")
+                      : typeof item.value === "number"
+                        ? item.value.toLocaleString()
+                        : item.value}
                   </span>
                 </div>
               </div>
