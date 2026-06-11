@@ -82,8 +82,6 @@ describe("dataCollectionAgentConfigSchema", () => {
     expect(parsed.collection).toEqual({
       targetDailySuccessfulSources: 5,
       maxRefillRounds: 3,
-      perQueryFetchBudget: 5,
-      perRunFetchBudget: 40,
     });
     expect(parsed.gates.relevance).toEqual({
       enabled: true,
@@ -133,15 +131,26 @@ describe("dataCollectionAgentConfigSchema", () => {
   it("keeps other defaults when only one collection field is overridden", () => {
     const parsed = dataCollectionAgentConfigSchema.parse({
       collection: {
-        perRunFetchBudget: 12,
+        maxRefillRounds: 5,
       },
     });
 
-    expect(parsed.collection.perRunFetchBudget).toBe(12);
-    expect(parsed.collection.perQueryFetchBudget).toBe(5);
+    expect(parsed.collection.maxRefillRounds).toBe(5);
     expect(parsed.collection.targetDailySuccessfulSources).toBe(5);
     expect(parsed.providers.fetch.providers).toHaveLength(4);
     expect(parsed.runPolicy.failOnZeroSuccess).toBe(false);
+  });
+
+  it("strips unknown collection fields like legacy budget keys", () => {
+    const parsed = dataCollectionAgentConfigSchema.parse({
+      collection: {
+        perQueryFetchBudget: 5,
+        perRunFetchBudget: 40,
+      },
+    });
+
+    expect(parsed.collection).not.toHaveProperty("perQueryFetchBudget");
+    expect(parsed.collection).not.toHaveProperty("perRunFetchBudget");
   });
 
   it("accepts ordered fetch providers under providers.fetch.providers", () => {

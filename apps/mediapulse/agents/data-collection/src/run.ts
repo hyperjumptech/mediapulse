@@ -41,7 +41,6 @@ import {
   type WebSearchFailure,
 } from "./utilities/web-search";
 import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
-import { applyFetchBudget } from "./utilities/hit-ranker";
 
 /**
  * Executes the data-collection pipeline: load search queries, run web search and fetch,
@@ -126,8 +125,6 @@ export async function runDataCollection(
   const webSearchConfig = config.providers.search;
   const webFetchConfig = config.providers.fetch;
   const relevanceGateConfig = config.gates.relevance;
-  const perQueryFetchBudget = config.collection.perQueryFetchBudget;
-  const perRunFetchBudget = config.collection.perRunFetchBudget;
   const deadUrlCacheConfig = config.resilience.deadUrlCache;
   const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
   const freshnessGateConfig = config.gates.freshness;
@@ -216,8 +213,6 @@ export async function runDataCollection(
   let droppedByExistingCanonicalUrl = 0;
   const droppedByContentQuality = createEmptyQualityCounters();
   let droppedByRelevance = 0;
-  let droppedByPerQueryBudget = 0;
-  let droppedByPerRunBudget = 0;
   let droppedByDeadUrlCache = 0;
   let droppedByHostErrorRate = 0;
   const droppedByFreshnessReason: Record<string, number> = {
@@ -394,42 +389,20 @@ export async function runDataCollection(
         ),
       );
 
-      const budgetSelection = applyFetchBudget(
-        searchSuccessesAfterHostBreaker,
-        {
-          tickerAliases,
-          hostCounts,
-          perQueryFetchBudget,
-          perRunFetchBudget,
-        },
+      report(
+        ...narrativeFetchStart(subject, searchSuccessesAfterHostBreaker.length),
       );
-      droppedByPerQueryBudget += budgetSelection.droppedByPerQueryBudget;
-      droppedByPerRunBudget += budgetSelection.droppedByPerRunBudget;
-      if (
-        budgetSelection.droppedByPerQueryBudget > 0 ||
-        budgetSelection.droppedByPerRunBudget > 0
-      ) {
-        log.info(
-          {
-            round,
-            selectedForFetch: budgetSelection.hits.length,
-            droppedByPerQueryBudget: budgetSelection.droppedByPerQueryBudget,
-            droppedByPerRunBudget: budgetSelection.droppedByPerRunBudget,
-            skippedByQuery: budgetSelection.skippedByQuery,
-          },
-          "applied pre-fetch ranking and fetch budgets",
-        );
-      }
-
-      report(...narrativeFetchStart(subject, budgetSelection.hits.length));
 
       const fetchThrottleStats = { throttleEvents: 0 };
-      const fetchAttemptResults = await performWebFetch(budgetSelection.hits, {
-        config: webFetchConfig,
-        logger: log,
-        throttleStats: fetchThrottleStats,
-        hostErrorTracker,
-      });
+      const fetchAttemptResults = await performWebFetch(
+        searchSuccessesAfterHostBreaker,
+        {
+          config: webFetchConfig,
+          logger: log,
+          throttleStats: fetchThrottleStats,
+          hostErrorTracker,
+        },
+      );
       throttleEvents += fetchThrottleStats.throttleEvents;
       const roundFetchSuccesses = fetchAttemptResults
         .filter((outcome) => outcome.success !== null)
@@ -549,8 +522,6 @@ export async function runDataCollection(
           droppedByExistingCanonicalUrl,
           droppedByContentQuality,
           droppedByRelevance,
-          droppedByPerQueryBudget,
-          droppedByPerRunBudget,
           droppedByDeadUrlCache,
           droppedByHostErrorRate,
           droppedByFreshnessReason,
@@ -671,8 +642,6 @@ export async function runDataCollection(
     throttleEvents,
     agentId: "data-collection",
     persisted: persistedThisRunCount,
-    droppedByPerQueryBudget,
-    droppedByPerRunBudget,
     droppedByDeadUrl: droppedByDeadUrlCache,
     droppedByHostErrorRate,
     droppedByFreshness: droppedByFreshnessTotalCount,
@@ -717,8 +686,6 @@ export async function runDataCollection(
     fetched: fetchedCount,
     fetchSuccess: fetchSuccessCount,
     droppedByRelevance,
-    droppedByPerQueryBudget,
-    droppedByPerRunBudget,
     droppedByDeadUrlCache,
     droppedByHostErrorRate,
     droppedByFreshness: droppedByFreshnessTotalCount,
@@ -793,8 +760,6 @@ export async function runDataCollection(
       totalSources,
       failureCount: failuresPayload.length,
       droppedByRelevance,
-      droppedByPerQueryBudget,
-      droppedByPerRunBudget,
       throttleEvents,
     },
     completionMessage,
