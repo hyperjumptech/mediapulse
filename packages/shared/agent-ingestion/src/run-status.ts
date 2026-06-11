@@ -26,6 +26,7 @@ export type RunCounters = {
   cacheMisses?: number;
   droppedByContentQuality?: Record<string, number>;
   droppedByFreshness?: number;
+  droppedByFreshnessReason?: Record<string, number>;
   droppedByDeadUrl?: number;
   droppedByHostErrorRate?: number;
   droppedByFetchBudget?: number;
@@ -33,6 +34,8 @@ export type RunCounters = {
   droppedByExistingCanonicalUrl?: number;
   droppedByDuplicateCanonicalUrl?: number;
   droppedByUrlNoise?: number;
+  fetched?: number;
+  searchEmpty?: number;
   persisted?: number;
   deadlineHit?: boolean;
   durationMs?: number;

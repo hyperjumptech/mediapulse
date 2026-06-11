@@ -42,6 +42,7 @@ export interface WebSearchSuccess {
 
 export interface WebSearchFailure {
   success: false;
+  empty?: never;
   queryId: string;
   queryText: string;
   tickerId: string;
@@ -51,7 +52,19 @@ export interface WebSearchFailure {
   httpStatus?: number;
 }
 
-export type WebSearchAttemptResult = WebSearchSuccess | WebSearchFailure;
+/** Serper returned a valid response but no items for this query — not a failure. */
+export interface WebSearchEmptyResult {
+  success: false;
+  empty: true;
+  queryId: string;
+  queryText: string;
+  tickerId: string;
+}
+
+export type WebSearchAttemptResult =
+  | WebSearchSuccess
+  | WebSearchFailure
+  | WebSearchEmptyResult;
 
 /** Minimal structured logger for web-search (e.g. pino or pino child). */
 export type WebSearchLogger = {
@@ -70,14 +83,14 @@ export interface WebSearchDeps {
 
 /** Zod schema for Serper.dev API organic search result item. */
 const serperOrganicItemSchema = z.object({
-  link: z.string().url().optional(),
+  link: z.string().optional(),
   title: z.string().optional(),
   snippet: z.string().optional(),
 });
 
 /** Zod schema for Serper.dev API news result item. */
 const serperNewsItemSchema = z.object({
-  link: z.string().url().optional(),
+  link: z.string().optional(),
   title: z.string().optional(),
   snippet: z.string().optional(),
   date: z.string().optional(),
@@ -145,15 +158,25 @@ const searchOneQuery = async (
         config.query.type === "news"
           ? (parsed.data.news ?? [])
           : (parsed.data.organic ?? []);
-      if (items.length === 0) {
-        throw new Error("Semantic validation failed");
-      }
       return items;
     };
 
     const serpItems = config.retry
       ? await withRetry(fetchTask, config.retry, isRetryableError)
       : await fetchTask();
+
+    if (serpItems.length === 0) {
+      log.info({ queryId: query.id }, "web search: query returned no results");
+      return [
+        {
+          success: false,
+          empty: true,
+          queryId: query.id,
+          queryText: query.text,
+          tickerId: query.tickerId,
+        },
+      ];
+    }
 
     const queryResults: WebSearchAttemptResult[] = [];
     for (const [serpIndex, item] of serpItems.entries()) {

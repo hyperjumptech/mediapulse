@@ -25,7 +25,11 @@ import {
   extractPublishedDate,
   isFresh,
 } from "@workspace/agent-ingestion";
-import { performWebSearch } from "./utilities/web-search";
+import {
+  performWebSearch,
+  type WebSearchEmptyResult,
+  type WebSearchFailure,
+} from "./utilities/web-search";
 import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
 import { applyFetchBudget } from "./utilities/hit-ranker";
 
@@ -183,14 +187,11 @@ export async function runDataCollection(
   let persistedThisRunCount = 0;
   let searchSuccessCount = 0;
   let searchFailedCount = 0;
+  let searchEmptyCount = 0;
   let fetchSuccessCount = 0;
+  let fetchedCount = 0;
   let fetchFailedCount = 0;
-  const searchFailures: Array<
-    Extract<
-      Awaited<ReturnType<typeof performWebSearch>>[number],
-      { success: false }
-    >
-  > = [];
+  const searchFailures: WebSearchFailure[] = [];
   const fetchFailures: Array<
     Awaited<ReturnType<typeof performWebFetch>>[number]["failures"][number]
   > = [];
@@ -208,7 +209,11 @@ export async function runDataCollection(
   let droppedByPerRunBudget = 0;
   let droppedByDeadUrlCache = 0;
   let droppedByHostErrorRate = 0;
-  let droppedByFreshness = 0;
+  const droppedByFreshnessReason: Record<string, number> = {
+    too_old: 0,
+    future_dated: 0,
+    unknown_date: 0,
+  };
   let throttleEvents = 0;
 
   if (queries.length === 0) {
@@ -246,10 +251,14 @@ export async function runDataCollection(
       const roundSearchSuccesses = searchAttemptResults
         .filter((r) => r.success)
         .map((r) => r.data);
+      const roundSearchEmpties = searchAttemptResults.filter(
+        (r): r is WebSearchEmptyResult => !r.success && r.empty === true,
+      );
       const roundSearchFailures = searchAttemptResults.filter(
-        (r) => !r.success,
+        (r): r is WebSearchFailure => !r.success && !r.empty,
       );
       searchSuccessCount += roundSearchSuccesses.length;
+      searchEmptyCount += roundSearchEmpties.length;
       searchFailedCount += roundSearchFailures.length;
       searchFailures.push(...roundSearchFailures);
 
@@ -257,6 +266,7 @@ export async function runDataCollection(
         {
           round,
           searchHitCount: roundSearchSuccesses.length,
+          searchEmpty: roundSearchEmpties.length,
           searchFailed: roundSearchFailures.length,
         },
         "web search stage finished",
@@ -414,6 +424,7 @@ export async function runDataCollection(
       const roundFailedUrlCount = fetchAttemptResults.filter(
         (outcome) => outcome.success === null,
       ).length;
+      fetchedCount += roundFetchSuccesses.length;
       fetchFailedCount += roundFailedUrlCount;
       fetchFailures.push(...roundFetchFailures);
 
@@ -482,7 +493,8 @@ export async function runDataCollection(
             allowUnknown: freshnessGateConfig.allowUnknown,
           });
           if (!freshnessDecision.fresh) {
-            droppedByFreshness += 1;
+            droppedByFreshnessReason[freshnessDecision.reason] =
+              (droppedByFreshnessReason[freshnessDecision.reason] ?? 0) + 1;
             log.info(
               {
                 round,
@@ -528,7 +540,7 @@ export async function runDataCollection(
           droppedByPerRunBudget,
           droppedByDeadUrlCache,
           droppedByHostErrorRate,
-          droppedByFreshness,
+          droppedByFreshnessReason,
           throttleEvents,
         },
         "web fetch stage finished",
@@ -623,12 +635,18 @@ export async function runDataCollection(
     0,
   );
 
+  const droppedByFreshnessTotalCount = Object.values(
+    droppedByFreshnessReason,
+  ).reduce((sum, count) => sum + count, 0);
+
   const counters: RunCounters = {
     queriesTotal: queries.length,
     urlsTotal: searchSuccessCount,
     searchSuccess: searchSuccessCount,
     searchFailed: searchFailedCount,
+    searchEmpty: searchEmptyCount,
     fetchSuccess: fetchSuccessCount,
+    fetched: fetchedCount,
     fetchFailed: fetchFailedCount,
     retryCount: 0,
     droppedByRelevance,
@@ -639,7 +657,8 @@ export async function runDataCollection(
     droppedByPerRunBudget,
     droppedByDeadUrl: droppedByDeadUrlCache,
     droppedByHostErrorRate,
-    droppedByFreshness,
+    droppedByFreshness: droppedByFreshnessTotalCount,
+    droppedByFreshnessReason: { ...droppedByFreshnessReason },
     droppedByDuplicateCanonicalUrl,
     droppedByExistingCanonicalUrl,
     droppedByUrlNoise: droppedByUrlNoiseTotal,
@@ -676,13 +695,16 @@ export async function runDataCollection(
     totalSources,
     status,
     searchSuccess: searchSuccessCount,
+    searchEmpty: searchEmptyCount,
+    fetched: fetchedCount,
     fetchSuccess: fetchSuccessCount,
     droppedByRelevance,
     droppedByPerQueryBudget,
     droppedByPerRunBudget,
     droppedByDeadUrlCache,
     droppedByHostErrorRate,
-    droppedByFreshness,
+    droppedByFreshness: droppedByFreshnessTotalCount,
+    droppedByFreshnessReason: { ...droppedByFreshnessReason },
     throttleEvents,
     refill: {
       roundsExecuted,

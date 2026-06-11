@@ -88,7 +88,7 @@ describe("dataCollectionAgentConfigSchema", () => {
     });
     expect(parsed.gates.relevance).toEqual({
       enabled: true,
-      headChars: 3000,
+      headChars: 6000,
       minMatches: 1,
     });
     expect(parsed.gates.freshness).toEqual({
