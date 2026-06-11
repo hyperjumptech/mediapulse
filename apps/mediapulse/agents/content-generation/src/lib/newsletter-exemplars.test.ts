@@ -174,10 +174,12 @@ describe("detectExemplarPlagiarism", () => {
         displayHeading: "Share shifts",
         bullets: [
           {
+            title: "Vietnam widget exports steady",
             text: "Widget exporters in Vietnam reported steady shipment volumes without pricing concessions to distributors overseas.",
             articleIndex: 1,
           },
           {
+            title: "Clinic software pilot expansions without consolidation",
             text: "Clinic software vendors saw pilot expansions but no consolidation deals among regional hospital groups.",
             articleIndex: 2,
           },
@@ -187,6 +189,7 @@ describe("detectExemplarPlagiarism", () => {
         displayHeading: "Deal tape",
         bullets: [
           {
+            title: "Logistics tuck-in closed at undisclosed terms",
             text: "A small logistics tuck-in closed at undisclosed terms without strategic impact on sector leaders.",
             articleIndex: 3,
           },
@@ -196,6 +199,7 @@ describe("detectExemplarPlagiarism", () => {
         displayHeading: "Policy",
         bullets: [
           {
+            title: "Telecom rules still in consultation",
             text: "Draft telecom rules stayed in consultation with no enforcement timeline published yet.",
             articleIndex: 1,
           },
@@ -210,11 +214,31 @@ describe("detectExemplarPlagiarism", () => {
       quickHits: {
         displayHeading: "Hits",
         items: [
-          { text: "Widget exports steady", articleIndex: 1 },
-          { text: "Clinic pilots expanded", articleIndex: 2 },
-          { text: "Logistics tuck-in closed", articleIndex: 3 },
-          { text: "Telecom draft unchanged", articleIndex: 1 },
-          { text: "Robotics trials only", articleIndex: 2 },
+          {
+            title: "Widget exports steady",
+            text: "Widget exports steady",
+            articleIndex: 1,
+          },
+          {
+            title: "Clinic pilots expanded",
+            text: "Clinic pilots expanded",
+            articleIndex: 2,
+          },
+          {
+            title: "Logistics tuck-in closed",
+            text: "Logistics tuck-in closed",
+            articleIndex: 3,
+          },
+          {
+            title: "Telecom draft unchanged",
+            text: "Telecom draft unchanged",
+            articleIndex: 1,
+          },
+          {
+            title: "Robotics trials only",
+            text: "Robotics trials only",
+            articleIndex: 2,
+          },
         ],
       },
     };

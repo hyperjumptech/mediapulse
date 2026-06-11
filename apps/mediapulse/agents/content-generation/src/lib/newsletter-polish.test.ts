@@ -12,17 +12,17 @@ const minimalStructure = (
   competitiveLandscape: {
     displayHeading: "Competitive",
     bullets: [
-      { text: "B1", articleIndex: 1 },
-      { text: "B2", articleIndex: 2 },
+      { title: "T1", text: "B1", articleIndex: 1 },
+      { title: "T2", text: "B2", articleIndex: 2 },
     ],
   },
   dealsAndMovements: {
     displayHeading: "Deals",
-    bullets: [{ text: "D1", articleIndex: 3 }],
+    bullets: [{ title: "T3", text: "D1", articleIndex: 3 }],
   },
   regulatoryPolicyWatch: {
     displayHeading: "Regulatory",
-    bullets: [{ text: "R1" }],
+    bullets: [{ title: "T4", text: "R1" }],
   },
   disruptorsOrTech: {
     format: "prose",
@@ -32,11 +32,11 @@ const minimalStructure = (
   quickHits: {
     displayHeading: "Quick",
     items: [
-      { text: "h1", articleIndex: 1 },
-      { text: "h2", articleIndex: 2 },
-      { text: "h3", articleIndex: 3 },
-      { text: "h4", articleIndex: 1 },
-      { text: "h5", articleIndex: 2 },
+      { title: "Q1", text: "h1", articleIndex: 1 },
+      { title: "Q2", text: "h2", articleIndex: 2 },
+      { title: "Q3", text: "h3", articleIndex: 3 },
+      { title: "Q4", text: "h4", articleIndex: 1 },
+      { title: "Q5", text: "h5", articleIndex: 2 },
     ],
   },
   ...patch,
@@ -50,10 +50,11 @@ describe("polishNewsletter filler removal", () => {
         displayHeading: "Competitive",
         bullets: [
           {
+            title: "T1",
             text: "It's worth noting that BCA grew profit by 12%",
             articleIndex: 1,
           },
-          { text: "B2", articleIndex: 2 },
+          { title: "T2", text: "B2", articleIndex: 2 },
         ],
       },
     });
@@ -76,7 +77,12 @@ describe("polishNewsletter filler removal", () => {
     const structure = minimalStructure({
       regulatoryPolicyWatch: {
         displayHeading: "Regulatory",
-        bullets: [{ text: "Importantly, the regulator approved the merger" }],
+        bullets: [
+          {
+            title: "T1",
+            text: "Importantly, the regulator approved the merger",
+          },
+        ],
       },
     });
 
@@ -101,17 +107,25 @@ describe("polishNewsletter hedge collapse", () => {
       dealsAndMovements: {
         displayHeading: "Deals",
         bullets: [
-          { text: "The deal could potentially close in Q3", articleIndex: 1 },
+          {
+            title: "T1",
+            text: "The deal could potentially close in Q3",
+            articleIndex: 1,
+          },
         ],
       },
       quickHits: {
         displayHeading: "Quick",
         items: [
-          { text: "Earnings may possibly disappoint", articleIndex: 1 },
-          { text: "h2", articleIndex: 2 },
-          { text: "h3", articleIndex: 3 },
-          { text: "h4", articleIndex: 1 },
-          { text: "h5", articleIndex: 2 },
+          {
+            title: "Q1",
+            text: "Earnings may possibly disappoint",
+            articleIndex: 1,
+          },
+          { title: "Q2", text: "h2", articleIndex: 2 },
+          { title: "Q3", text: "h3", articleIndex: 3 },
+          { title: "Q4", text: "h4", articleIndex: 1 },
+          { title: "Q5", text: "h5", articleIndex: 2 },
         ],
       },
     });
@@ -138,10 +152,10 @@ describe("polishNewsletter overused words", () => {
   it("replaces robust in exactly one bullet when tier is aggressive and 4 bullets repeat it", () => {
     // Setup
     const robustBullets = [
-      { text: "First robust growth outlook", articleIndex: 1 },
-      { text: "Second robust growth outlook", articleIndex: 2 },
-      { text: "Third robust growth outlook", articleIndex: 3 },
-      { text: "Fourth robust growth outlook", articleIndex: 1 },
+      { title: "T1", text: "First robust growth outlook", articleIndex: 1 },
+      { title: "T2", text: "Second robust growth outlook", articleIndex: 2 },
+      { title: "T3", text: "Third robust growth outlook", articleIndex: 3 },
+      { title: "T4", text: "Fourth robust growth outlook", articleIndex: 1 },
     ];
     const structure = minimalStructure({
       competitiveLandscape: {
@@ -190,6 +204,7 @@ describe("polishNewsletter disabled rules", () => {
         displayHeading: "Deals",
         bullets: [
           {
+            title: "T1",
             text: "It's worth noting that BCA grew profit by 12%",
             articleIndex: 1,
           },
@@ -198,11 +213,15 @@ describe("polishNewsletter disabled rules", () => {
       quickHits: {
         displayHeading: "Quick",
         items: [
-          { text: "Earnings may possibly disappoint", articleIndex: 1 },
-          { text: "h2", articleIndex: 2 },
-          { text: "h3", articleIndex: 3 },
-          { text: "h4", articleIndex: 1 },
-          { text: "h5", articleIndex: 2 },
+          {
+            title: "Q1",
+            text: "Earnings may possibly disappoint",
+            articleIndex: 1,
+          },
+          { title: "Q2", text: "h2", articleIndex: 2 },
+          { title: "Q3", text: "h3", articleIndex: 3 },
+          { title: "Q4", text: "h4", articleIndex: 1 },
+          { title: "Q5", text: "h5", articleIndex: 2 },
         ],
       },
     });

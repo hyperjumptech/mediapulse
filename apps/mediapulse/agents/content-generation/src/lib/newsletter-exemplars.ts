@@ -66,14 +66,17 @@ const industrialExemplar: NewsletterExemplar = {
       displayHeading: "Who is stealing share quietly",
       bullets: [
         {
+          title: "Port contract landed despite rival underbids",
           text: "Regional dredging rivals underbid on two Kalimantan packages last month, but INDX's consortium still landed the $420M port contract by bundling financing with local content guarantees cited in the tender documents.",
           articleIndex: 1,
         },
         {
+          title: "Fleet oversupply dents day-rate spreads",
           text: "Fleet oversupply in rented excavators and haul trucks is squeezing day-rate spreads for every contractor serving smelter builds, which explains why even market leaders are talking about utilization before volume growth.",
           articleIndex: 4,
         },
         {
+          title: "Plantation peers split on levy impact",
           text: "Plantation peers diverged after the export-levy tweak: integrated processors with domestic refining capacity framed the change as neutral, while pure exporters warned margin pressure into the second half.",
           articleIndex: 3,
         },
@@ -83,10 +86,12 @@ const industrialExemplar: NewsletterExemplar = {
       displayHeading: "Capital in motion",
       bullets: [
         {
+          title: "Kalimantan dredging award anchors multi-year revenue",
           text: "The Kalimantan dredging award is the week's clearest deal signal — it locks in multi-year earthworks revenue and gives INDX a reference project when bidding the next wave of port upgrades along the nickel corridor.",
           articleIndex: 1,
         },
         {
+          title: "Capex shifting from coal to downstream metals",
           text: "Miners reallocating capex from thermal coal toward downstream metals are reshaping the supplier queue: equipment lessors and EPC firms that leaned on coal maintenance contracts are now pitching modular smelter packages instead.",
           articleIndex: 6,
         },
@@ -96,10 +101,12 @@ const industrialExemplar: NewsletterExemplar = {
       displayHeading: "Permits and levies",
       bullets: [
         {
+          title: "Batam permit acceleration lifts equipment demand outlook",
           text: "Batam industrial-estate permit acceleration is the policy story to watch for heavy-equipment demand — faster land release usually precedes a six-to-nine-month spike in civil works and crane rentals across the region.",
           articleIndex: 5,
         },
         {
+          title: "Palm oil levy revision remains cash-flow swing factor",
           text: "Palm oil levy revisions remain the swing factor for plantation cash flows this quarter; the split reaction among peers suggests investors should track who hedged export exposure versus who stayed spot-heavy.",
           articleIndex: 3,
         },
@@ -110,10 +117,12 @@ const industrialExemplar: NewsletterExemplar = {
       displayHeading: "Power and process tech",
       bullets: [
         {
+          title: "Power tariffs gate smelter startups more than ore grades",
           text: "Nickel smelter JV startup delays tied to power-tariff negotiations highlight how electricity pricing — not ore grades — is becoming the gating item for new Indonesian processing capacity.",
           articleIndex: 2,
         },
         {
+          title: "Modular smelters and fleet telemetry lead contractor pitches",
           text: "Modular smelter designs and digital fleet telemetry are the two technologies contractors cite most when pitching shorter build cycles to miners pivoting away from coal.",
           articleIndex: 6,
         },
@@ -123,26 +132,32 @@ const industrialExemplar: NewsletterExemplar = {
       displayHeading: "Quick hits",
       items: [
         {
+          title: "$420M Kalimantan dredging contract signed",
           text: "INDX-led consortium signed the $420M Kalimantan dredging package.",
           articleIndex: 1,
         },
         {
+          title: "Nickel JV startup delayed by tariff talks",
           text: "Nickel JV pushed commercial startup as tariff talks with the utility dragged.",
           articleIndex: 2,
         },
         {
+          title: "Levy change split plantation margin outlook",
           text: "Export levy change split plantation peers on margin outlook.",
           articleIndex: 3,
         },
         {
+          title: "Equipment rental spreads narrowed on oversupply",
           text: "Equipment rental spreads narrowed on fleet oversupply.",
           articleIndex: 4,
         },
         {
+          title: "Batam industrial permits fast-tracked",
           text: "Batam industrial permits on a fast track.",
           articleIndex: 5,
         },
         {
+          title: "Coal softness accelerates downstream capex shift",
           text: "Coal benchmark softness accelerated capex shifts to downstream metals.",
           articleIndex: 6,
         },
@@ -178,14 +193,17 @@ const consumerFinancialExemplar: NewsletterExemplar = {
       displayHeading: "Share fights without price wars",
       bullets: [
         {
+          title: "FMCG trade spend pivots to promo efficiency",
           text: "FMCG brands are redeploying trade spend toward promo efficiency rather than list-price cuts, a tell that input-cost relief is reaching shelves but volume growth remains fragile across categories.",
           articleIndex: 2,
         },
         {
+          title: "Department stores gain footfall but not basket size",
           text: "Department stores logged footfall gains while average basket size flatlined — a pattern that favors operators with loyalty data and private-label mix over pure square-meter expansion plays.",
           articleIndex: 4,
         },
         {
+          title: "Wallet growth stalls in tier-2 cities",
           text: "Digital wallet growth cooling in tier-2 cities suggests the easy user-acquisition phase is over; incumbents are competing on merchant rebates and cross-sell into lending rather than raw transaction counts.",
           articleIndex: 3,
         },
@@ -195,10 +213,12 @@ const consumerFinancialExemplar: NewsletterExemplar = {
       displayHeading: "Balance-sheet moves",
       bullets: [
         {
+          title: "NIM guidance raised on deposit repricing, not loan demand",
           text: "Lenders raising net interest margin guidance while the policy rate stays unchanged implies deposit repricing and asset-yield mix shifts — not necessarily stronger loan demand — which matters for how you read upcoming earnings beats.",
           articleIndex: 1,
         },
         {
+          title: "KYC audits may consolidate micro-lending to incumbents",
           text: "Micro-lending platforms facing tighter KYC audits may consolidate origination volumes toward balance-sheet lenders with compliance headroom, a subtle share shift for consumer finance incumbents.",
           articleIndex: 5,
         },
@@ -208,10 +228,12 @@ const consumerFinancialExemplar: NewsletterExemplar = {
       displayHeading: "Rates and rules",
       bullets: [
         {
+          title: "Rate hold steadies borrowing costs but NIM pressure lingers",
           text: "The hold on benchmark rates keeps consumer borrowing costs predictable in the near term, but lenders' widened NIM outlook signals they still expect funding-cost pressure from deposit competition.",
           articleIndex: 1,
         },
         {
+          title: "Stricter KYC links wallet slowdowns to origination risk",
           text: "Stricter KYC enforcement on micro-lenders is the regulatory thread tying together wallet slowdowns and origination risk — expect more partnership models with licensed banks rather than standalone apps.",
           articleIndex: 5,
         },
@@ -227,26 +249,32 @@ const consumerFinancialExemplar: NewsletterExemplar = {
       displayHeading: "Quick hits",
       items: [
         {
+          title: "Rate held; NIM guidance lifted",
           text: "Policy rate unchanged; lenders guided wider NIMs.",
           articleIndex: 1,
         },
         {
+          title: "FMCG promos optimized on easing input costs",
           text: "FMCG promos tuned for efficiency as input costs eased.",
           articleIndex: 2,
         },
         {
+          title: "Wallet growth slowed in tier-2 cities",
           text: "Wallet transaction growth slowed in tier-2 cities.",
           articleIndex: 3,
         },
         {
+          title: "Department store traffic up, baskets flat",
           text: "Department store traffic up, baskets flat.",
           articleIndex: 4,
         },
         {
+          title: "Micro-lenders face tighter KYC scrutiny",
           text: "Micro-lenders face tighter KYC audits.",
           articleIndex: 5,
         },
         {
+          title: "Consumer confidence up on stable food prices",
           text: "Consumer confidence improved on stable food prices.",
           articleIndex: 6,
         },

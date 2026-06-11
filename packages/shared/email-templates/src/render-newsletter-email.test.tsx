@@ -325,7 +325,7 @@ describe("renderNewsletterEmail", () => {
     expect(brandingIndex).toBeLessThan(footerNoteIndex);
   });
 
-  it("renders a 'Read the full article' link below each top-news item that has a source URL", async () => {
+  it("renders a CTA link with the item title below each top-news item that has a source URL", async () => {
     // Setup
     const structuredBody = [
       "EXECUTIVE SUMMARY",
@@ -355,8 +355,11 @@ describe("renderNewsletterEmail", () => {
       bodyText: structuredBody,
     });
 
-    // Assert — three anchors with the expected label, one per source.
-    expect(html.match(/Read the full article/g)?.length).toBe(3);
+    // Assert — three anchors, one per source, labelled with the item title.
+    // React inserts <!-- --> between static and dynamic text nodes in JSX.
+    expect(html).toMatch(/Read <!-- -->Fed holds rates steady/);
+    expect(html).toMatch(/Read <!-- -->Apple beats estimates/);
+    expect(html).toMatch(/Read <!-- -->Oil prices dip/);
     expect(html).toContain('href="https://example.com/fed"');
     expect(html).toContain('href="https://example.com/apple"');
     expect(html).toContain('href="https://example.com/oil"');
@@ -390,13 +393,13 @@ describe("renderNewsletterEmail", () => {
       bodyText: structuredBody,
     });
 
-    // Assert — only one anchor with the new label, no empty href.
-    expect(html.match(/Read the full article/g)?.length).toBe(1);
+    // Assert — only one anchor (for the item with URL), labelled with the item title.
+    expect(html).toMatch(/Read <!-- -->With URL/);
     expect(html).toContain('href="https://example.com/with-url"');
     expect(html).not.toMatch(/href=""/);
   });
 
-  it("keeps top-news summaries free of leftover 'Read the full article' label text", async () => {
+  it("strips the raw source-link line from top-news summary paragraphs", async () => {
     // Setup
     const structuredBody = [
       "EXECUTIVE SUMMARY",
@@ -453,7 +456,7 @@ describe("renderNewsletterEmail", () => {
     expect(text).toContain(articleUrl);
   });
 
-  it("renders a 'Read the full article' link below the industry-pulse standfirst when the lead has a url", async () => {
+  it("renders a Read link below the industry-pulse standfirst when the lead has a url", async () => {
     const industryBody = [
       "MP_NEWSLETTER",
       "",

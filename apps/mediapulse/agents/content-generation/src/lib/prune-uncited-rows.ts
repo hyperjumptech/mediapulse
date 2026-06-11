@@ -21,6 +21,7 @@ export type PruneSummary = {
   sectionsRemoved: number;
   bulletsRemovedUncited: number;
   bulletsRemovedDuplicate: number;
+  bulletsRemovedDuplicateTitle: number;
   sectionsKept: number;
 };
 
@@ -42,6 +43,11 @@ export type PruneOptions = {
    * the entire newsletter ('newsletter'). Defaults to 'section'.
    */
   dedupeScope?: "section" | "newsletter";
+  /**
+   * When true, drops items whose normalized title duplicates an earlier item's title
+   * across the entire newsletter. Defaults to true.
+   */
+  dedupeTitlesWithinNewsletter?: boolean;
 };
 
 export type PruneNewsletterResult = {
@@ -60,6 +66,15 @@ const ALL_SECTIONS: ReadonlyArray<PruneSectionKey> = [
 
 /** A row is cited iff `url` resolved to a non-empty string during `attachIndustryNewsletterSourceUrls`. */
 const isRowCited = (row: { url?: string }): boolean => row.url !== undefined;
+
+/** Normalizes a title for uniqueness comparison: lowercase, collapse whitespace, strip trailing punctuation. */
+const normalizeTitle = (title: string): string =>
+  title
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[.,;!?]+$/, "")
+    .trim();
 
 function pruneRows<T extends { url?: string }>(
   rows: ReadonlyArray<T>,
@@ -107,12 +122,35 @@ export function pruneNewsletterToCitedRows(
   const configuredSections = opts.sections ?? ALL_SECTIONS;
   const dedupeEnabled = opts.dedupeArticlesWithinSection ?? true;
   const dedupeScope = opts.dedupeScope ?? "section";
+  const dedupeTitles = opts.dedupeTitlesWithinNewsletter ?? true;
 
   const reports: PruneReport[] = [];
   let sectionsRemoved = 0;
   let bulletsRemovedUncited = 0;
   let bulletsRemovedDuplicate = 0;
+  let bulletsRemovedDuplicateTitle = 0;
   let sectionsKept = 0;
+
+  const seenTitles = new Set<string>();
+
+  const filterByTitle = <T extends { title?: string }>(rows: T[]): T[] => {
+    if (!dedupeTitles) return rows;
+    const kept: T[] = [];
+    for (const row of rows) {
+      if (row.title === undefined) {
+        kept.push(row);
+        continue;
+      }
+      const normalized = normalizeTitle(row.title);
+      if (seenTitles.has(normalized)) {
+        bulletsRemovedDuplicateTitle++;
+        continue;
+      }
+      seenTitles.add(normalized);
+      kept.push(row);
+    }
+    return kept;
+  };
 
   // Shared URL set used when dedupeScope === 'newsletter'.
   const newsletterSeenUrls = new Set<string>();
@@ -146,13 +184,14 @@ export function pruneNewsletterToCitedRows(
     shouldPrune("competitiveLandscape") &&
     competitiveLandscape !== undefined
   ) {
-    const { kept, removedUncited, removedDuplicate } = pruneRows(
-      competitiveLandscape.bullets,
-      getSeenUrls(),
-      dedupeEnabled,
-    );
+    const {
+      kept: citedKept,
+      removedUncited,
+      removedDuplicate,
+    } = pruneRows(competitiveLandscape.bullets, getSeenUrls(), dedupeEnabled);
     bulletsRemovedUncited += removedUncited;
     bulletsRemovedDuplicate += removedDuplicate;
+    const kept = filterByTitle(citedKept);
     const sectionRemoved = kept.length === 0;
     reports.push({
       sectionKey: "competitiveLandscape",
@@ -172,13 +211,14 @@ export function pruneNewsletterToCitedRows(
   // --- dealsAndMovements ---
   let dealsAndMovements = resolved.dealsAndMovements;
   if (shouldPrune("dealsAndMovements") && dealsAndMovements !== undefined) {
-    const { kept, removedUncited, removedDuplicate } = pruneRows(
-      dealsAndMovements.bullets,
-      getSeenUrls(),
-      dedupeEnabled,
-    );
+    const {
+      kept: citedKept,
+      removedUncited,
+      removedDuplicate,
+    } = pruneRows(dealsAndMovements.bullets, getSeenUrls(), dedupeEnabled);
     bulletsRemovedUncited += removedUncited;
     bulletsRemovedDuplicate += removedDuplicate;
+    const kept = filterByTitle(citedKept);
     const sectionRemoved = kept.length === 0;
     reports.push({
       sectionKey: "dealsAndMovements",
@@ -201,13 +241,14 @@ export function pruneNewsletterToCitedRows(
     shouldPrune("regulatoryPolicyWatch") &&
     regulatoryPolicyWatch !== undefined
   ) {
-    const { kept, removedUncited, removedDuplicate } = pruneRows(
-      regulatoryPolicyWatch.bullets,
-      getSeenUrls(),
-      dedupeEnabled,
-    );
+    const {
+      kept: citedKept,
+      removedUncited,
+      removedDuplicate,
+    } = pruneRows(regulatoryPolicyWatch.bullets, getSeenUrls(), dedupeEnabled);
     bulletsRemovedUncited += removedUncited;
     bulletsRemovedDuplicate += removedDuplicate;
+    const kept = filterByTitle(citedKept);
     const sectionRemoved = kept.length === 0;
     reports.push({
       sectionKey: "regulatoryPolicyWatch",
@@ -239,13 +280,14 @@ export function pruneNewsletterToCitedRows(
         sectionRemoved: true,
       });
     } else {
-      const { kept, removedUncited, removedDuplicate } = pruneRows(
-        disruptorsOrTech.bullets,
-        getSeenUrls(),
-        dedupeEnabled,
-      );
+      const {
+        kept: citedKept,
+        removedUncited,
+        removedDuplicate,
+      } = pruneRows(disruptorsOrTech.bullets, getSeenUrls(), dedupeEnabled);
       bulletsRemovedUncited += removedUncited;
       bulletsRemovedDuplicate += removedDuplicate;
+      const kept = filterByTitle(citedKept);
       const sectionRemoved = kept.length === 0;
       reports.push({
         sectionKey: "disruptorsOrTech",
@@ -266,13 +308,14 @@ export function pruneNewsletterToCitedRows(
   // --- quickHits ---
   let quickHits = resolved.quickHits;
   if (shouldPrune("quickHits") && quickHits !== undefined) {
-    const { kept, removedUncited, removedDuplicate } = pruneRows(
-      quickHits.items,
-      getSeenUrls(),
-      dedupeEnabled,
-    );
+    const {
+      kept: citedKept,
+      removedUncited,
+      removedDuplicate,
+    } = pruneRows(quickHits.items, getSeenUrls(), dedupeEnabled);
     bulletsRemovedUncited += removedUncited;
     bulletsRemovedDuplicate += removedDuplicate;
+    const kept = filterByTitle(citedKept);
     const sectionRemoved = kept.length === 0;
     reports.push({
       sectionKey: "quickHits",
@@ -304,6 +347,7 @@ export function pruneNewsletterToCitedRows(
       sectionsRemoved,
       bulletsRemovedUncited,
       bulletsRemovedDuplicate,
+      bulletsRemovedDuplicateTitle,
       sectionsKept,
     },
   };

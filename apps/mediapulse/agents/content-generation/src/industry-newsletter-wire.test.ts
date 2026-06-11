@@ -38,19 +38,28 @@ describe("industryNewsletterStructureSchema — industryPulse articleIndex", () 
       industryPulse: { displayHeading: "L", prose: "p" },
       competitiveLandscape: {
         displayHeading: "C",
-        bullets: [{ text: "b1" }, { text: "b2" }],
+        bullets: [
+          { title: "T1", text: "b1" },
+          { title: "T2", text: "b2" },
+        ],
       },
-      dealsAndMovements: { displayHeading: "D", bullets: [{ text: "d1" }] },
-      regulatoryPolicyWatch: { displayHeading: "R", bullets: [{ text: "r1" }] },
+      dealsAndMovements: {
+        displayHeading: "D",
+        bullets: [{ title: "T3", text: "d1" }],
+      },
+      regulatoryPolicyWatch: {
+        displayHeading: "R",
+        bullets: [{ title: "T4", text: "r1" }],
+      },
       disruptorsOrTech: { format: "prose", displayHeading: "X", prose: "pr" },
       quickHits: {
         displayHeading: "Q",
         items: [
-          { text: "h1", articleIndex: 1 },
-          { text: "h2", articleIndex: 1 },
-          { text: "h3", articleIndex: 1 },
-          { text: "h4", articleIndex: 1 },
-          { text: "h5", articleIndex: 1 },
+          { title: "Q1", text: "h1", articleIndex: 1 },
+          { title: "Q2", text: "h2", articleIndex: 1 },
+          { title: "Q3", text: "h3", articleIndex: 1 },
+          { title: "Q4", text: "h4", articleIndex: 1 },
+          { title: "Q5", text: "h5", articleIndex: 1 },
         ],
       },
     });
@@ -66,19 +75,28 @@ describe("industryNewsletterStructureSchema — industryPulse articleIndex", () 
       industryPulse: { displayHeading: "L", prose: "p", articleIndex: 2 },
       competitiveLandscape: {
         displayHeading: "C",
-        bullets: [{ text: "b1" }, { text: "b2" }],
+        bullets: [
+          { title: "T1", text: "b1" },
+          { title: "T2", text: "b2" },
+        ],
       },
-      dealsAndMovements: { displayHeading: "D", bullets: [{ text: "d1" }] },
-      regulatoryPolicyWatch: { displayHeading: "R", bullets: [{ text: "r1" }] },
+      dealsAndMovements: {
+        displayHeading: "D",
+        bullets: [{ title: "T3", text: "d1" }],
+      },
+      regulatoryPolicyWatch: {
+        displayHeading: "R",
+        bullets: [{ title: "T4", text: "r1" }],
+      },
       disruptorsOrTech: { format: "prose", displayHeading: "X", prose: "pr" },
       quickHits: {
         displayHeading: "Q",
         items: [
-          { text: "h1", articleIndex: 1 },
-          { text: "h2", articleIndex: 1 },
-          { text: "h3", articleIndex: 1 },
-          { text: "h4", articleIndex: 1 },
-          { text: "h5", articleIndex: 1 },
+          { title: "Q1", text: "h1", articleIndex: 1 },
+          { title: "Q2", text: "h2", articleIndex: 1 },
+          { title: "Q3", text: "h3", articleIndex: 1 },
+          { title: "Q4", text: "h4", articleIndex: 1 },
+          { title: "Q5", text: "h5", articleIndex: 1 },
         ],
       },
     });
@@ -96,31 +114,31 @@ describe("attachIndustryNewsletterSourceUrls", () => {
     competitiveLandscape: {
       displayHeading: "C",
       bullets: [
-        { text: "b1", articleIndex: 1 },
-        { text: "b2", articleIndex: 99 },
+        { title: "T1", text: "b1", articleIndex: 1 },
+        { title: "T2", text: "b2", articleIndex: 99 },
       ],
     },
     dealsAndMovements: {
       displayHeading: "D",
-      bullets: [{ text: "d1" }],
+      bullets: [{ title: "T3", text: "d1" }],
     },
     regulatoryPolicyWatch: {
       displayHeading: "R",
-      bullets: [{ text: "r1" }],
+      bullets: [{ title: "T4", text: "r1" }],
     },
     disruptorsOrTech: {
       format: "bullets",
       displayHeading: "X",
-      bullets: [{ text: "x", articleIndex: 2 }],
+      bullets: [{ title: "T5", text: "x", articleIndex: 2 }],
     },
     quickHits: {
       displayHeading: "Q",
       items: [
-        { text: "h1", articleIndex: 1 },
-        { text: "h2", articleIndex: 2 },
-        { text: "h3", articleIndex: 1 },
-        { text: "h4", articleIndex: 2 },
-        { text: "h5", articleIndex: 1 },
+        { title: "Q1", text: "h1", articleIndex: 1 },
+        { title: "Q2", text: "h2", articleIndex: 2 },
+        { title: "Q3", text: "h3", articleIndex: 1 },
+        { title: "Q4", text: "h4", articleIndex: 2 },
+        { title: "Q5", text: "h5", articleIndex: 1 },
       ],
     },
   });
@@ -170,7 +188,7 @@ describe("stripArticleMarkers", () => {
 });
 
 describe("formatIndustryNewsletterWire", () => {
-  it("starts with the wire marker and emits read lines", () => {
+  it("starts with the wire marker and emits read lines with item titles", () => {
     const resolved = attachIndustryNewsletterSourceUrls(
       industryNewsletterStructureSchema.parse({
         subject: "S",
@@ -178,17 +196,17 @@ describe("formatIndustryNewsletterWire", () => {
         competitiveLandscape: {
           displayHeading: "C",
           bullets: [
-            { text: "b1", articleIndex: 1 },
-            { text: "b2", articleIndex: 1 },
+            { title: "Rival A Launches", text: "b1", articleIndex: 1 },
+            { title: "Rival B Expands", text: "b2", articleIndex: 1 },
           ],
         },
         dealsAndMovements: {
           displayHeading: "D",
-          bullets: [{ text: "d1" }],
+          bullets: [{ title: "Deal Closed", text: "d1" }],
         },
         regulatoryPolicyWatch: {
           displayHeading: "R",
-          bullets: [{ text: "r1" }],
+          bullets: [{ title: "New Rule", text: "r1" }],
         },
         disruptorsOrTech: {
           format: "prose",
@@ -198,11 +216,11 @@ describe("formatIndustryNewsletterWire", () => {
         quickHits: {
           displayHeading: "Q",
           items: [
-            { text: "h1", articleIndex: 1 },
-            { text: "h2", articleIndex: 1 },
-            { text: "h3", articleIndex: 1 },
-            { text: "h4", articleIndex: 1 },
-            { text: "h5", articleIndex: 1 },
+            { title: "Hit One", text: "h1", articleIndex: 1 },
+            { title: "Hit Two", text: "h2", articleIndex: 1 },
+            { title: "Hit Three", text: "h3", articleIndex: 1 },
+            { title: "Hit Four", text: "h4", articleIndex: 1 },
+            { title: "Hit Five", text: "h5", articleIndex: 1 },
           ],
         },
       }),
@@ -212,6 +230,8 @@ describe("formatIndustryNewsletterWire", () => {
     const wire = formatIndustryNewsletterWire(resolved);
 
     expect(wire.startsWith(`${INDUSTRY_NEWSLETTER_WIRE_MARKER}\n`)).toBe(true);
+    expect(wire).toContain("TITLE Rival A Launches");
+    expect(wire).toContain("TITLE Hit One");
     expect(wire).toContain("Read the full article: https://src.example");
   });
 
@@ -229,10 +249,12 @@ describe("formatIndustryNewsletterWire", () => {
           displayHeading: "Competition",
           bullets: [
             {
+              title: "Rivals Underbid",
               text: "Rivals underbid on packages but the consortium still won (Article 1).",
               articleIndex: 1,
             },
             {
+              title: "Fleet Oversupply",
               text: "Fleet oversupply is squeezing day-rate spreads across contractors (Article 4).",
               articleIndex: 2,
             },
@@ -242,6 +264,7 @@ describe("formatIndustryNewsletterWire", () => {
           displayHeading: "Deals",
           bullets: [
             {
+              title: "Award Locks Revenue",
               text: "The award locks in multi-year revenue  (article  12).",
               articleIndex: 2,
             },
@@ -251,6 +274,7 @@ describe("formatIndustryNewsletterWire", () => {
           displayHeading: "Policy",
           bullets: [
             {
+              title: "Permit Acceleration",
               text: "Permit acceleration usually precedes a civil-works spike (Article 5).",
               articleIndex: 1,
             },
@@ -261,6 +285,7 @@ describe("formatIndustryNewsletterWire", () => {
           displayHeading: "Tech",
           bullets: [
             {
+              title: "Electricity Pricing",
               text: "Electricity pricing is the gating item for new capacity (Article 2).",
               articleIndex: 2,
             },
@@ -270,22 +295,27 @@ describe("formatIndustryNewsletterWire", () => {
           displayHeading: "Quick hits",
           items: [
             {
+              title: "Consortium Signs Dredging Package",
               text: "Consortium signed the dredging package (Article 1).",
               articleIndex: 1,
             },
             {
+              title: "JV Delays on Tariff Talks",
               text: "JV pushed startup as tariff talks dragged (Article 2).",
               articleIndex: 2,
             },
             {
+              title: "Export Levy Splits Peers",
               text: "Export levy split plantation peers (Article 3).",
               articleIndex: 1,
             },
             {
+              title: "Equipment Spreads Narrow",
               text: "Equipment spreads narrowed (Article 4).",
               articleIndex: 2,
             },
             {
+              title: "Industrial Permits on Fast Track",
               text: "Industrial permits on a fast track (Article 5).",
               articleIndex: 1,
             },
@@ -356,15 +386,18 @@ describe("formatIndustryNewsletterWire", () => {
         industryPulse: { displayHeading: "Lead", prose: "Pulse prose." },
         competitiveLandscape: {
           displayHeading: "C",
-          bullets: [{ text: "c1", articleIndex: 1 }, { text: "c2" }],
+          bullets: [
+            { title: "T1", text: "c1", articleIndex: 1 },
+            { title: "T2", text: "c2" },
+          ],
         },
         dealsAndMovements: {
           displayHeading: "Deals",
-          bullets: [{ text: "d1" }],
+          bullets: [{ title: "T3", text: "d1" }],
         },
         regulatoryPolicyWatch: {
           displayHeading: "R",
-          bullets: [{ text: "r1" }],
+          bullets: [{ title: "T4", text: "r1" }],
         },
         disruptorsOrTech: {
           format: "prose",
@@ -374,11 +407,11 @@ describe("formatIndustryNewsletterWire", () => {
         quickHits: {
           displayHeading: "Q",
           items: [
-            { text: "h1", articleIndex: 1 },
-            { text: "h2", articleIndex: 1 },
-            { text: "h3", articleIndex: 1 },
-            { text: "h4", articleIndex: 1 },
-            { text: "h5", articleIndex: 1 },
+            { title: "Q1", text: "h1", articleIndex: 1 },
+            { title: "Q2", text: "h2", articleIndex: 1 },
+            { title: "Q3", text: "h3", articleIndex: 1 },
+            { title: "Q4", text: "h4", articleIndex: 1 },
+            { title: "Q5", text: "h5", articleIndex: 1 },
           ],
         },
       }),
@@ -417,24 +450,27 @@ describe("formatIndustryNewsletterWire", () => {
         competitiveLandscape: {
           displayHeading: "C",
           bullets: [
-            { text: "c1", articleIndex: 1 },
-            { text: "c2", articleIndex: 1 },
+            { title: "T1", text: "c1", articleIndex: 1 },
+            { title: "T2", text: "c2", articleIndex: 1 },
           ],
         },
-        dealsAndMovements: { displayHeading: "D", bullets: [{ text: "d1" }] },
+        dealsAndMovements: {
+          displayHeading: "D",
+          bullets: [{ title: "T3", text: "d1" }],
+        },
         regulatoryPolicyWatch: {
           displayHeading: "R",
-          bullets: [{ text: "r1" }],
+          bullets: [{ title: "T4", text: "r1" }],
         },
         disruptorsOrTech: { format: "prose", displayHeading: "X", prose: "pr" },
         quickHits: {
           displayHeading: "Q",
           items: [
-            { text: "h1", articleIndex: 1 },
-            { text: "h2", articleIndex: 1 },
-            { text: "h3", articleIndex: 1 },
-            { text: "h4", articleIndex: 1 },
-            { text: "h5", articleIndex: 1 },
+            { title: "Q1", text: "h1", articleIndex: 1 },
+            { title: "Q2", text: "h2", articleIndex: 1 },
+            { title: "Q3", text: "h3", articleIndex: 1 },
+            { title: "Q4", text: "h4", articleIndex: 1 },
+            { title: "Q5", text: "h5", articleIndex: 1 },
           ],
         },
       }),
@@ -507,17 +543,17 @@ describe("formatIndustryNewsletterWire", () => {
         competitiveLandscape: {
           displayHeading: "C",
           bullets: [
-            { text: "Clean bullet.", articleIndex: 1 },
-            { text: "Second clean bullet.", articleIndex: 1 },
+            { title: "T1", text: "Clean bullet.", articleIndex: 1 },
+            { title: "T2", text: "Second clean bullet.", articleIndex: 1 },
           ],
         },
         dealsAndMovements: {
           displayHeading: "D",
-          bullets: [{ text: "Another clean bullet." }],
+          bullets: [{ title: "T3", text: "Another clean bullet." }],
         },
         regulatoryPolicyWatch: {
           displayHeading: "R",
-          bullets: [{ text: "Policy bullet." }],
+          bullets: [{ title: "T4", text: "Policy bullet." }],
         },
         disruptorsOrTech: {
           format: "prose",
@@ -527,11 +563,11 @@ describe("formatIndustryNewsletterWire", () => {
         quickHits: {
           displayHeading: "Q",
           items: [
-            { text: "Hit one", articleIndex: 1 },
-            { text: "Hit two", articleIndex: 1 },
-            { text: "Hit three", articleIndex: 1 },
-            { text: "Hit four", articleIndex: 1 },
-            { text: "Hit five", articleIndex: 1 },
+            { title: "Q1", text: "Hit one", articleIndex: 1 },
+            { title: "Q2", text: "Hit two", articleIndex: 1 },
+            { title: "Q3", text: "Hit three", articleIndex: 1 },
+            { title: "Q4", text: "Hit four", articleIndex: 1 },
+            { title: "Q5", text: "Hit five", articleIndex: 1 },
           ],
         },
       }),

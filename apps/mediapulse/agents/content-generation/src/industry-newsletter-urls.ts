@@ -7,12 +7,14 @@ export type IndustryNewsletterSourceRow = {
 
 /** Bullet with an optional grounded article URL. */
 export type IndustryBulletResolved = {
+  title?: string;
   text: string;
   url?: string;
 };
 
 /** Quick hit with a grounded article URL when the index resolves. */
 export type IndustryQuickHitResolved = {
+  title?: string;
   text: string;
   url?: string;
 };
@@ -89,17 +91,21 @@ export const attachIndustryNewsletterSourceUrls = (
   sources: ReadonlyArray<IndustryNewsletterSourceRow>,
 ): IndustryNewsletterResolved => {
   const mapBullet = (b: {
+    title: string;
     text: string;
     articleIndex?: number;
   }): IndustryBulletResolved => ({
+    title: b.title,
     text: b.text,
     url: resolveArticleUrlForIndustryNewsletter(b.articleIndex, sources),
   });
 
   const mapHit = (h: {
+    title: string;
     text: string;
     articleIndex: number;
   }): IndustryQuickHitResolved => ({
+    title: h.title,
     text: h.text,
     url: resolveArticleUrlForIndustryNewsletter(h.articleIndex, sources),
   });

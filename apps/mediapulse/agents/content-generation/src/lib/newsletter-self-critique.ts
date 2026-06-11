@@ -424,8 +424,8 @@ export const applyNewsletterCritiqueResults = (
 
   const applyToBullets = (
     sectionKey: string,
-    bullets: Array<{ text: string; articleIndex?: number }>,
-  ): Array<{ text: string; articleIndex?: number }> => {
+    bullets: Array<{ title: string; text: string; articleIndex?: number }>,
+  ): Array<{ title: string; text: string; articleIndex?: number }> => {
     return bullets.flatMap((bullet, bulletIndex) => {
       const key = candidateKey(sectionKey, bulletIndex);
       const rewrite = rewriteTargets.get(key);

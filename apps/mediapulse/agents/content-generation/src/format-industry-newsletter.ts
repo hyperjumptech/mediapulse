@@ -18,6 +18,7 @@ const PROSE = "PROSE";
 const FORMAT = "FORMAT";
 const BULLET = "BULLET";
 const ITEM = "ITEM";
+const TITLE = "TITLE";
 
 /**
  * Collapses internal whitespace so display headings stay a single wire line.
@@ -94,7 +95,7 @@ export const formatIndustryNewsletterWire = (
   const pushBulletSection = (
     machineKey: string,
     displayHeading: string,
-    bullets: ReadonlyArray<{ text: string; url?: string }>,
+    bullets: ReadonlyArray<{ title?: string; text: string; url?: string }>,
   ): void => {
     const lines: string[] = [
       `${BEGIN} ${machineKey}`,
@@ -102,10 +103,11 @@ export const formatIndustryNewsletterWire = (
       collapseHeadingLine(displayHeading),
     ];
     for (const b of bullets) {
-      lines.push(
-        BULLET,
-        withOptionalReadLine(stripArticleMarkers(b.text), b.url),
-      );
+      lines.push(BULLET);
+      if (b.title !== undefined && b.title.trim().length > 0) {
+        lines.push(`${TITLE} ${b.title.trim()}`);
+      }
+      lines.push(withOptionalReadLine(stripArticleMarkers(b.text), b.url));
     }
     lines.push(END);
     pushBlock(lines.join("\n"));
@@ -177,10 +179,11 @@ export const formatIndustryNewsletterWire = (
           "bullets",
         ];
         for (const b of d.bullets) {
-          lines.push(
-            BULLET,
-            withOptionalReadLine(stripArticleMarkers(b.text), b.url),
-          );
+          lines.push(BULLET);
+          if (b.title !== undefined && b.title.trim().length > 0) {
+            lines.push(`${TITLE} ${b.title.trim()}`);
+          }
+          lines.push(withOptionalReadLine(stripArticleMarkers(b.text), b.url));
         }
         lines.push(END);
         pushBlock(lines.join("\n"));
@@ -199,8 +202,11 @@ export const formatIndustryNewsletterWire = (
         collapseHeadingLine(briefing.quickHits.displayHeading),
       ];
       for (const item of briefing.quickHits.items) {
+        qhLines.push(ITEM);
+        if (item.title !== undefined && item.title.trim().length > 0) {
+          qhLines.push(`${TITLE} ${item.title.trim()}`);
+        }
         qhLines.push(
-          ITEM,
           withOptionalReadLine(stripArticleMarkers(item.text), item.url),
         );
       }

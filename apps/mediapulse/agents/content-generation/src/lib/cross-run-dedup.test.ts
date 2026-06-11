@@ -17,17 +17,17 @@ const minimalStructure = (
   competitiveLandscape: {
     displayHeading: "Competitive",
     bullets: [
-      { text: "B1", articleIndex: 1 },
-      { text: "B2", articleIndex: 2 },
+      { title: "T1", text: "B1", articleIndex: 1 },
+      { title: "T2", text: "B2", articleIndex: 2 },
     ],
   },
   dealsAndMovements: {
     displayHeading: "Deals",
-    bullets: [{ text: "D1", articleIndex: 3 }],
+    bullets: [{ title: "T3", text: "D1", articleIndex: 3 }],
   },
   regulatoryPolicyWatch: {
     displayHeading: "Regulatory",
-    bullets: [{ text: "R1" }],
+    bullets: [{ title: "T4", text: "R1" }],
   },
   disruptorsOrTech: {
     format: "prose",
@@ -37,11 +37,11 @@ const minimalStructure = (
   quickHits: {
     displayHeading: "Quick",
     items: [
-      { text: "h1", articleIndex: 1 },
-      { text: "h2", articleIndex: 2 },
-      { text: "h3", articleIndex: 3 },
-      { text: "h4", articleIndex: 1 },
-      { text: "h5", articleIndex: 2 },
+      { title: "Q1", text: "h1", articleIndex: 1 },
+      { title: "Q2", text: "h2", articleIndex: 2 },
+      { title: "Q3", text: "h3", articleIndex: 3 },
+      { title: "Q4", text: "h4", articleIndex: 1 },
+      { title: "Q5", text: "h5", articleIndex: 2 },
     ],
   },
   ...patch,
@@ -112,10 +112,11 @@ describe("dedupBullets — mark policy", () => {
         displayHeading: "Competitive",
         bullets: [
           {
+            title: "T1",
             text: "Policy rates held steady while lenders expanded mortgage books across major cities",
             articleIndex: 1,
           },
-          { text: "Fresh angle on exports", articleIndex: 2 },
+          { title: "T2", text: "Fresh angle on exports", articleIndex: 2 },
         ],
       },
     });
@@ -163,32 +164,36 @@ describe("dedupBullets — lowInformationDay", () => {
       competitiveLandscape: {
         displayHeading: "Competitive",
         bullets: [
-          { text: `BCA reported ${duplicateText}`, articleIndex: 1 },
-          { text: `Again ${duplicateText}`, articleIndex: 1 },
+          {
+            title: "T1",
+            text: `BCA reported ${duplicateText}`,
+            articleIndex: 1,
+          },
+          { title: "T2", text: `Again ${duplicateText}`, articleIndex: 1 },
         ],
       },
       dealsAndMovements: {
         displayHeading: "Deals",
         bullets: [
-          { text: duplicateText, articleIndex: 2 },
-          { text: `More on ${duplicateText}`, articleIndex: 2 },
+          { title: "T3", text: duplicateText, articleIndex: 2 },
+          { title: "T4", text: `More on ${duplicateText}`, articleIndex: 2 },
         ],
       },
       regulatoryPolicyWatch: {
         displayHeading: "Regulatory",
         bullets: [
-          { text: duplicateText },
-          { text: `Regulatory ${duplicateText}` },
+          { title: "T5", text: duplicateText },
+          { title: "T6", text: `Regulatory ${duplicateText}` },
         ],
       },
       quickHits: {
         displayHeading: "Quick",
         items: [
-          { text: duplicateText, articleIndex: 1 },
-          { text: duplicateText, articleIndex: 2 },
-          { text: duplicateText, articleIndex: 3 },
-          { text: "Unique mining headline", articleIndex: 1 },
-          { text: "Another unique headline", articleIndex: 2 },
+          { title: "Q1", text: duplicateText, articleIndex: 1 },
+          { title: "Q2", text: duplicateText, articleIndex: 2 },
+          { title: "Q3", text: duplicateText, articleIndex: 3 },
+          { title: "Q4", text: "Unique mining headline", articleIndex: 1 },
+          { title: "Q5", text: "Another unique headline", articleIndex: 2 },
         ],
       },
     });
@@ -220,10 +225,11 @@ describe("dedupBullets — lowInformationDay", () => {
         displayHeading: "Competitive",
         bullets: [
           {
+            title: "T1",
             text: "BCA quarterly net profit growth remained strong across retail",
             articleIndex: 1,
           },
-          { text: "Unique export story", articleIndex: 2 },
+          { title: "T2", text: "Unique export story", articleIndex: 2 },
         ],
       },
     });

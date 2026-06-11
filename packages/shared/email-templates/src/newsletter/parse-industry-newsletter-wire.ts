@@ -7,6 +7,8 @@ export const INDUSTRY_NEWSLETTER_WIRE_MARKER = "MP_NEWSLETTER";
 
 const READ_FULL_ARTICLE_LABEL = "Read the full article";
 
+const TITLE_PREFIX = "TITLE ";
+
 const READ_FULL_ARTICLE_LINE_REGEX = new RegExp(
   String.raw`(?:^|\n)\s*` + READ_FULL_ARTICLE_LABEL + String.raw`:\s*(\S+)\s*$`,
   "i",
@@ -28,7 +30,7 @@ export type ParsedIndustryBulletSection = {
     | "regulatory-policy-watch"
     | "disruptors-or-tech";
   displayHeading: string;
-  bullets: Array<{ text: string; url?: string }>;
+  bullets: Array<{ title?: string; text: string; url?: string }>;
 };
 
 /** Parsed disruptors-or-tech prose variant. */
@@ -42,7 +44,7 @@ export type ParsedIndustryDisruptorsProseSection = {
 export type ParsedIndustryQuickHitsSection = {
   machineKey: "quick-hits";
   displayHeading: string;
-  items: Array<{ text: string; url?: string }>;
+  items: Array<{ title?: string; text: string; url?: string }>;
 };
 
 export type ParsedIndustrySection =
@@ -169,11 +171,21 @@ export const parseIndustryNewsletterWire = (
       machineKey === "deals-and-movements" ||
       machineKey === "regulatory-policy-watch"
     ) {
-      const bullets: Array<{ text: string; url?: string }> = [];
+      const bullets: Array<{ title?: string; text: string; url?: string }> = [];
       while (i < lines.length && (lines[i] ?? "").trim() === "BULLET") {
         i += 1;
+        let title: string | undefined;
+        const maybeTitleLine = (lines[i] ?? "").trim();
+        if (maybeTitleLine.startsWith(TITLE_PREFIX)) {
+          title = maybeTitleLine.slice(TITLE_PREFIX.length).trim();
+          if (title.length === 0) {
+            title = undefined;
+          }
+          i += 1;
+        }
         const body = readUntilToken(new Set(["BULLET", "END"]));
-        bullets.push(splitTrailingReadLine(body));
+        const { text, url } = splitTrailingReadLine(body);
+        bullets.push({ ...(title !== undefined ? { title } : {}), text, url });
       }
       if ((lines[i] ?? "").trim() !== "END") {
         return undefined;
@@ -213,11 +225,26 @@ export const parseIndustryNewsletterWire = (
         continue;
       }
       if (fmt === "bullets") {
-        const bullets: Array<{ text: string; url?: string }> = [];
+        const bullets: Array<{ title?: string; text: string; url?: string }> =
+          [];
         while (i < lines.length && (lines[i] ?? "").trim() === "BULLET") {
           i += 1;
+          let title: string | undefined;
+          const maybeTitleLine = (lines[i] ?? "").trim();
+          if (maybeTitleLine.startsWith(TITLE_PREFIX)) {
+            title = maybeTitleLine.slice(TITLE_PREFIX.length).trim();
+            if (title.length === 0) {
+              title = undefined;
+            }
+            i += 1;
+          }
           const body = readUntilToken(new Set(["BULLET", "END"]));
-          bullets.push(splitTrailingReadLine(body));
+          const { text, url } = splitTrailingReadLine(body);
+          bullets.push({
+            ...(title !== undefined ? { title } : {}),
+            text,
+            url,
+          });
         }
         if ((lines[i] ?? "").trim() !== "END") {
           return undefined;
@@ -234,11 +261,21 @@ export const parseIndustryNewsletterWire = (
     }
 
     if (machineKey === "quick-hits") {
-      const items: Array<{ text: string; url?: string }> = [];
+      const items: Array<{ title?: string; text: string; url?: string }> = [];
       while (i < lines.length && (lines[i] ?? "").trim() === "ITEM") {
         i += 1;
+        let title: string | undefined;
+        const maybeTitleLine = (lines[i] ?? "").trim();
+        if (maybeTitleLine.startsWith(TITLE_PREFIX)) {
+          title = maybeTitleLine.slice(TITLE_PREFIX.length).trim();
+          if (title.length === 0) {
+            title = undefined;
+          }
+          i += 1;
+        }
         const body = readUntilToken(new Set(["ITEM", "END"]));
-        items.push(splitTrailingReadLine(body));
+        const { text, url } = splitTrailingReadLine(body);
+        items.push({ ...(title !== undefined ? { title } : {}), text, url });
       }
       if ((lines[i] ?? "").trim() !== "END") {
         return undefined;
