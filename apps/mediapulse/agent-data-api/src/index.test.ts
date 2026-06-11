@@ -177,6 +177,7 @@ describe("agent-data-api", () => {
           {
             id: "ds-1",
             url: "https://example.com",
+            canonicalUrl: "https://example.com",
             title: "Example",
             content: "Content",
             metadata: null,
