@@ -72,7 +72,6 @@ import {
 } from "./article-analysis-run-policy.js";
 import { buildAnalysisPostChunks } from "./build-analysis-post-chunks.js";
 import {
-  resolveArticleAnalysisConfig,
   toRelevanceWeightMapV1,
   type ArticleAnalysisConfig,
 } from "./config-schema.js";
@@ -252,7 +251,7 @@ export const run = async ({
   ArticleAnalysisInput,
   ArticleAnalysisConfig
 >): Promise<AgentRunResult> => {
-  const cfg = resolveArticleAnalysisConfig(config);
+  const cfg = config;
   const runId = crypto.randomUUID();
   const runStart = Date.now();
 
@@ -372,11 +371,11 @@ export const run = async ({
         : undefined),
     parallelism:
       summary.parallelism ??
-      (cfg.extractionConcurrency > 1 ||
+      (cfg.extraction.concurrency > 1 ||
       extractionSkippedDueToDeadline > 0 ||
       parallelPeakInFlight > 0
         ? {
-            concurrency: cfg.extractionConcurrency,
+            concurrency: cfg.extraction.concurrency,
             peakInFlight: parallelPeakInFlight,
             extractionSkippedDueToDeadline,
             ...(parallelDeadlineFiredAtMs !== undefined
@@ -437,14 +436,14 @@ export const run = async ({
   };
 
   const sourceQualityHostTiers: SourceQualityComputeCtx["hostTiers"] = {
-    ...(cfg.sourceQualityHostTier1 !== undefined
-      ? { tier1: cfg.sourceQualityHostTier1 }
+    ...(cfg.scoring.hostTier1 !== undefined
+      ? { tier1: cfg.scoring.hostTier1 }
       : {}),
-    ...(cfg.sourceQualityHostTier2 !== undefined
-      ? { tier2: cfg.sourceQualityHostTier2 }
+    ...(cfg.scoring.hostTier2 !== undefined
+      ? { tier2: cfg.scoring.hostTier2 }
       : {}),
-    ...(cfg.sourceQualityHostTier3 !== undefined
-      ? { tier3: cfg.sourceQualityHostTier3 }
+    ...(cfg.scoring.hostTier3 !== undefined
+      ? { tier3: cfg.scoring.hostTier3 }
       : {}),
   };
 
@@ -463,8 +462,8 @@ export const run = async ({
   if (cfg.verbose) {
     log.info(
       {
-        openaiModel: cfg.openaiModel,
-        maxContentChars: cfg.maxContentChars,
+        openaiModel: cfg.credentials.openaiModel,
+        maxContentChars: cfg.extraction.maxContentChars,
       },
       "article-analysis run started",
     );
@@ -594,10 +593,10 @@ export const run = async ({
   };
 
   try {
-    const effectiveMaxBatchSize = cfg.maxBatchSize;
+    const effectiveMaxBatchSize = cfg.batch.maxSources;
     const analysisGetLimit = Math.min(
       effectiveMaxBatchSize,
-      cfg.analysisGetDataSourceLimitMax,
+      cfg.batch.getDataSourceLimitMax,
     );
     const query = buildAnalysisGetQuery(input.tickerId, {
       limit: analysisGetLimit,
@@ -607,8 +606,8 @@ export const run = async ({
     const unanalyzedBacklogTotal = ctx.dataSourceTotalCount;
     if (
       unanalyzedBacklogTotal > 0 &&
-      cfg.debounceMinUnanalyzedCount > 0 &&
-      unanalyzedBacklogTotal < cfg.debounceMinUnanalyzedCount
+      cfg.dynamics.debounceMinUnanalyzedCount > 0 &&
+      unanalyzedBacklogTotal < cfg.dynamics.debounceMinUnanalyzedCount
     ) {
       const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "success",
@@ -632,12 +631,12 @@ export const run = async ({
       });
       report(
         "Run debounced",
-        `${unanalyzedBacklogTotal} articles below min ${cfg.debounceMinUnanalyzedCount}`,
+        `${unanalyzedBacklogTotal} articles below min ${cfg.dynamics.debounceMinUnanalyzedCount}`,
         "completed",
       );
       return {
         success: true,
-        message: `debounce: ${unanalyzedBacklogTotal} unanalyzed source(s) below min ${cfg.debounceMinUnanalyzedCount}; skipping run`,
+        message: `debounce: ${unanalyzedBacklogTotal} unanalyzed source(s) below min ${cfg.dynamics.debounceMinUnanalyzedCount}; skipping run`,
         details: {
           yieldSnapshot,
           dataSourcesReturned: unanalyzedBacklogTotal,
@@ -661,10 +660,10 @@ export const run = async ({
 
     if (
       unanalyzedBacklogTotal > 0 &&
-      cfg.debounceMinMinutesSinceLastScore > 0 &&
+      cfg.dynamics.debounceMinMinutesSinceLastScore > 0 &&
       ctx.lastRelevanceScoredAtIso !== null &&
       minutesSinceUtcIso(ctx.lastRelevanceScoredAtIso) <
-        cfg.debounceMinMinutesSinceLastScore
+        cfg.dynamics.debounceMinMinutesSinceLastScore
     ) {
       const yieldSnapshot = emitRunSummaryAndYield({
         outcome: "success",
@@ -688,12 +687,12 @@ export const run = async ({
       });
       report(
         "Run debounced",
-        `last scored within ${cfg.debounceMinMinutesSinceLastScore}min`,
+        `last scored within ${cfg.dynamics.debounceMinMinutesSinceLastScore}min`,
         "completed",
       );
       return {
         success: true,
-        message: `debounce: last relevance scored at ${ctx.lastRelevanceScoredAtIso} is within ${cfg.debounceMinMinutesSinceLastScore} minute(s); skipping run`,
+        message: `debounce: last relevance scored at ${ctx.lastRelevanceScoredAtIso} is within ${cfg.dynamics.debounceMinMinutesSinceLastScore} minute(s); skipping run`,
         details: {
           yieldSnapshot,
           dataSourcesReturned: unanalyzedBacklogTotal,
@@ -818,11 +817,11 @@ export const run = async ({
     const resolvedExemplars = resolveExemplarsForContext(
       DEFAULT_EXTRACTION_EXEMPLARS,
       ctx,
-      cfg.fewShotExemplarCount,
-      cfg.fewShotExemplarArchetypes,
+      cfg.extraction.fewShotExemplarCount,
+      cfg.extraction.fewShotExemplarArchetypes,
     );
     exemplarsObservability = {
-      requestedCount: cfg.fewShotExemplarCount,
+      requestedCount: cfg.extraction.fewShotExemplarCount,
       resolvedCount: resolvedExemplars.length,
       appliedArchetypes: resolvedExemplars.map(
         (exemplar) => exemplar.archetype,
@@ -843,8 +842,8 @@ export const run = async ({
       ctx.existingEntities,
     );
     const isRunDeadlineElapsed = (): boolean =>
-      cfg.runDeadlineMs !== undefined &&
-      Date.now() - runStart >= cfg.runDeadlineMs;
+      cfg.dynamics.runDeadlineMs !== undefined &&
+      Date.now() - runStart >= cfg.dynamics.runDeadlineMs;
 
     const applySourceProcessingOutcome = (
       outcome: SourceProcessingOutcome,
@@ -955,8 +954,8 @@ export const run = async ({
     });
 
     const extractionDeadlineAtMs =
-      cfg.runDeadlineMs !== undefined && cfg.runDeadlineMs > 0
-        ? runStart + cfg.runDeadlineMs
+      cfg.dynamics.runDeadlineMs !== undefined && cfg.dynamics.runDeadlineMs > 0
+        ? runStart + cfg.dynamics.runDeadlineMs
         : undefined;
 
     report(
@@ -965,13 +964,13 @@ export const run = async ({
     );
 
     const walkResult = await runExtractionsInParallel(batch, processOneSource, {
-      concurrency: cfg.extractionConcurrency,
+      concurrency: cfg.extraction.concurrency,
       deadlineAtMs: extractionDeadlineAtMs,
       onDeadlineSkip: (source) => {
         log.warn(
           {
             dataSourceId: source.id,
-            runDeadlineMs: cfg.runDeadlineMs,
+            runDeadlineMs: cfg.dynamics.runDeadlineMs,
           },
           "article-analysis skipped source extraction due to run deadline",
         );
@@ -1014,7 +1013,7 @@ export const run = async ({
     if (
       isArticleAnalysisExtractionPolicyFailure(
         extractionSuccessCount,
-        cfg.runPolicy,
+        cfg.dynamics.runPolicy,
       )
     ) {
       const yieldSnapshot = emitRunSummaryAndYield({
@@ -1046,12 +1045,12 @@ export const run = async ({
       );
       return {
         success: false,
-        message: `Article analysis run failed: only ${extractionSuccessCount} source(s) extracted successfully, but run policy requires at least ${cfg.runPolicy.minSuccessfulSources}.`,
+        message: `Article analysis run failed: only ${extractionSuccessCount} source(s) extracted successfully, but run policy requires at least ${cfg.dynamics.runPolicy.minSuccessfulSources}.`,
         details: {
           yieldSnapshot,
           extractionFailures,
           extractionSuccessCount,
-          runPolicy: cfg.runPolicy,
+          runPolicy: cfg.dynamics.runPolicy,
           articlesScored: 0,
           articlesSelected: 0,
           relevancePostChunks: 0,
@@ -1067,8 +1066,8 @@ export const run = async ({
     const runCapped = applyPerRunCaps(
       entities,
       relations,
-      cfg.maxEntitiesPerRun,
-      cfg.maxRelationsPerRun,
+      cfg.limits.entitiesPerRun,
+      cfg.limits.relationsPerRun,
     );
     entities = runCapped.entities;
     relations = runCapped.relations;
@@ -1173,7 +1172,7 @@ export const run = async ({
     );
     articleEntitiesForPost = applyPerRunArticleEntityCap(
       articleEntitiesForPost,
-      cfg.maxArticleEntitiesPerRun,
+      cfg.limits.articleEntitiesPerRun,
     );
 
     const {
@@ -1248,7 +1247,7 @@ export const run = async ({
       input.tickerId,
       entities,
       relations,
-      cfg.postChunkRelationBatchSize,
+      cfg.posting.chunkRelationBatchSize,
       entityEvidenceForPost,
       relationEvidenceForPost,
     );
@@ -1325,7 +1324,7 @@ export const run = async ({
           chunkIndex: i,
           chunkEntities: chunk.entities.length,
           chunkRelations: chunk.relations.length,
-          model: cfg.openaiModel,
+          model: cfg.credentials.openaiModel,
         },
         "article-analysis posting chunk",
       );
@@ -1333,8 +1332,8 @@ export const run = async ({
         const res = await executeAnalysisCreateWithTransientRetries(
           () => dataApiClient.analysis.create(chunk),
           {
-            maxRetries: cfg.postTransientRetries,
-            baseDelayMs: cfg.postTransientRetryBaseDelayMs,
+            maxRetries: cfg.posting.transientRetries,
+            baseDelayMs: cfg.posting.transientRetryBaseDelayMs,
             sleep: sleepMs,
           },
         );
@@ -1373,7 +1372,7 @@ export const run = async ({
         buildArticleEntityPostChunks(
           input.tickerId,
           articleEntitiesForPost,
-          cfg.postChunkArticleEntityBatchSize,
+          cfg.posting.chunkArticleEntityBatchSize,
         );
       articleEntityParseErrors = parseErrors;
       chunkParseCounts.articleEntityChunkParseErrors =
@@ -1395,7 +1394,7 @@ export const run = async ({
             chunkKind: "article_entities",
             chunkIndex: j,
             chunkArticleEntities: mentionChunk.articleEntities.length,
-            model: cfg.openaiModel,
+            model: cfg.credentials.openaiModel,
           },
           "article-analysis posting chunk",
         );
@@ -1403,8 +1402,8 @@ export const run = async ({
           await executeAnalysisCreateWithTransientRetries(
             () => dataApiClient.analysis.create(mentionChunk),
             {
-              maxRetries: cfg.postTransientRetries,
-              baseDelayMs: cfg.postTransientRetryBaseDelayMs,
+              maxRetries: cfg.posting.transientRetries,
+              baseDelayMs: cfg.posting.transientRetryBaseDelayMs,
               sleep: sleepMs,
             },
           );
@@ -1438,7 +1437,7 @@ export const run = async ({
       );
       const weightMap = toRelevanceWeightMapV1(cfg);
       const relevanceDrafts = perSourceSignals.map((sig) =>
-        buildDraftRelevanceRow(sig, cfg.scoreBreakdownVersion, weightMap),
+        buildDraftRelevanceRow(sig, cfg.scoring.breakdownVersion, weightMap),
       );
       const relevanceValidationErrors: string[] = [];
       for (const row of relevanceDrafts) {
@@ -1495,19 +1494,20 @@ export const run = async ({
       }));
       const remainingBudget = Math.max(
         0,
-        cfg.maxSelectedRelevancePerTickerPerDay -
+        cfg.selection.maxPerTickerPerDay -
           ctx.relevanceSelectionState.selectedCountToday,
       );
-      const relevanceRows = cfg.useSelectionDiversification
+      const relevanceRows = cfg.selection.useDiversification
         ? (() => {
             const diversified = applyRelevanceSelectionDiversified(
               selectionInput,
               perSourceSignals,
               {
-                minScore: cfg.relevanceMinScore,
+                minScore: cfg.selection.minScore,
                 remainingBudget,
-                entityOverlapThreshold: cfg.selectionEntityOverlapThreshold,
-                titleSimilarityThreshold: cfg.selectionTitleSimilarityThreshold,
+                entityOverlapThreshold: cfg.selection.entityOverlapThreshold,
+                titleSimilarityThreshold:
+                  cfg.selection.titleSimilarityThreshold,
               },
             );
             selectionEligibleRows = diversified.stats.eligibleRows;
@@ -1521,7 +1521,7 @@ export const run = async ({
           })()
         : applyRelevanceSelection(
             selectionInput,
-            cfg.relevanceMinScore,
+            cfg.selection.minScore,
             remainingBudget,
           );
       relevanceRowsForObservability = relevanceRows;
@@ -1530,7 +1530,7 @@ export const run = async ({
         buildArticleRelevancePostChunks(
           input.tickerId,
           relevanceRows,
-          cfg.postChunkArticleRelevanceBatchSize,
+          cfg.posting.chunkArticleRelevanceBatchSize,
         );
       chunkParseCounts.articleRelevanceChunkParseErrors =
         relevanceParseErrors.length;
@@ -1584,7 +1584,7 @@ export const run = async ({
             chunkKind: "article_relevances",
             chunkIndex: k,
             chunkArticleRelevances: relChunk.articleRelevances.length,
-            model: cfg.openaiModel,
+            model: cfg.credentials.openaiModel,
           },
           "article-analysis posting chunk",
         );
@@ -1592,8 +1592,8 @@ export const run = async ({
           const relRes = await executeAnalysisCreateWithTransientRetries(
             () => dataApiClient.analysis.create(relChunk),
             {
-              maxRetries: cfg.postTransientRetries,
-              baseDelayMs: cfg.postTransientRetryBaseDelayMs,
+              maxRetries: cfg.posting.transientRetries,
+              baseDelayMs: cfg.posting.transientRetryBaseDelayMs,
               sleep: sleepMs,
             },
           );
@@ -1682,7 +1682,7 @@ export const run = async ({
         relevancePostChunks: relevancePostChunksCompleted,
         relevanceSelectionBudgetRemaining: Math.max(
           0,
-          cfg.maxSelectedRelevancePerTickerPerDay -
+          cfg.selection.maxPerTickerPerDay -
             ctx.relevanceSelectionState.selectedCountToday,
         ),
         droppedRelations,

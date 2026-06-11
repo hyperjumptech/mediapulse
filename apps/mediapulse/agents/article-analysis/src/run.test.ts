@@ -10,7 +10,10 @@ import * as RelevancePostChunks from "./analysis-relevance-post-chunks.js";
 import * as Llm from "./llm-extract-entities.js";
 import * as RelevanceScoring from "./analysis-relevance-scoring.js";
 import * as RelevanceSelection from "./analysis-relevance-selection.js";
-import { type ArticleAnalysisConfig } from "./config-schema.js";
+import {
+  articleAnalysisConfigSchema,
+  type ArticleAnalysisConfig,
+} from "./config-schema.js";
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import { run } from "./run.js";
 
@@ -187,18 +190,74 @@ const analysisGetOk = <
       : null,
 });
 
-const baseConfig: ArticleAnalysisConfig = {
-  openaiApiKey: "sk-test",
+/** Config overrides accepted by `runContext`; `credentials` is optional since the base key is always injected. */
+type RunContextConfigOverride = Omit<
+  ReturnType<typeof articleAnalysisConfigSchema.parse>,
+  | "credentials"
+  | "extraction"
+  | "quality"
+  | "limits"
+  | "posting"
+  | "scoring"
+  | "selection"
+  | "batch"
+  | "dynamics"
+  | "yieldBaseline"
+  | "verbose"
+> & {
+  credentials?: { openaiApiKey?: string; openaiModel?: string };
+  extraction?: Partial<
+    ReturnType<typeof articleAnalysisConfigSchema.parse>["extraction"]
+  >;
+  quality?: Partial<
+    ReturnType<typeof articleAnalysisConfigSchema.parse>["quality"]
+  >;
+  limits?: Partial<
+    ReturnType<typeof articleAnalysisConfigSchema.parse>["limits"]
+  >;
+  posting?: Partial<
+    ReturnType<typeof articleAnalysisConfigSchema.parse>["posting"]
+  >;
+  scoring?: Partial<
+    ReturnType<typeof articleAnalysisConfigSchema.parse>["scoring"]
+  >;
+  selection?: Partial<
+    ReturnType<typeof articleAnalysisConfigSchema.parse>["selection"]
+  >;
+  batch?: Partial<
+    ReturnType<typeof articleAnalysisConfigSchema.parse>["batch"]
+  >;
+  dynamics?: {
+    runDeadlineMs?: number;
+    debounceMinUnanalyzedCount?: number;
+    debounceMinMinutesSinceLastScore?: number;
+    runPolicy?: Partial<
+      ReturnType<
+        typeof articleAnalysisConfigSchema.parse
+      >["dynamics"]["runPolicy"]
+    >;
+  };
+  yieldBaseline?: ReturnType<
+    typeof articleAnalysisConfigSchema.parse
+  >["yieldBaseline"];
+  verbose?: boolean;
 };
 
 function runContext(overrides: {
   input: ArticleAnalysisInput;
-  config?: Partial<ArticleAnalysisConfig>;
+  config?: RunContextConfigOverride;
   token?: string;
 }): AgentRunContext<ArticleAnalysisInput, ArticleAnalysisConfig> {
+  const configOverride = overrides.config ?? {};
   return {
     input: overrides.input,
-    config: { ...baseConfig, ...overrides.config },
+    config: articleAnalysisConfigSchema.parse({
+      ...configOverride,
+      credentials: {
+        openaiApiKey: "sk-test",
+        ...(configOverride.credentials ?? {}),
+      },
+    }),
     token: overrides.token ?? "Bearer test",
   };
 }
@@ -262,7 +321,7 @@ describe("run", () => {
         input: {
           tickerId: "ticker-cap",
         },
-        config: { maxBatchSize: 10, analysisGetDataSourceLimitMax: 4 },
+        config: { batch: { maxSources: 10, getDataSourceLimitMax: 4 } },
       }),
     );
 
@@ -287,7 +346,7 @@ describe("run", () => {
     await run(
       runContext({
         input: { tickerId: "ticker-limit" },
-        config: { maxBatchSize: 3 },
+        config: { batch: { maxSources: 3 } },
       }),
     );
 
@@ -466,7 +525,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { postChunkRelationBatchSize: 1 },
+        config: { posting: { chunkRelationBatchSize: 1 } },
       }),
     );
 
@@ -679,12 +738,24 @@ describe("run", () => {
       articlesSelected: 0,
     });
 
-    const result = await run(
-      runContext({
-        input: { tickerId: "ticker-1" },
-        config: { scoreBreakdownVersion: 1.5 },
+    // Use a manually constructed config so we can inject a non-integer breakdownVersion
+    // that bypasses Zod's .int() constraint, exercising the runtime relevance-row validator.
+    const invalidBreakdownConfig: ArticleAnalysisConfig = {
+      ...articleAnalysisConfigSchema.parse({
+        credentials: { openaiApiKey: "sk-test" },
       }),
-    );
+      scoring: {
+        ...articleAnalysisConfigSchema.parse({
+          credentials: { openaiApiKey: "sk-test" },
+        }).scoring,
+        breakdownVersion: 1.5 as unknown as 1,
+      },
+    };
+    const result = await run({
+      input: { tickerId: "ticker-1" },
+      config: invalidBreakdownConfig,
+      token: "Bearer test",
+    });
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("validation failed before selection");
@@ -1010,7 +1081,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { postChunkRelationBatchSize: 1 },
+        config: { posting: { chunkRelationBatchSize: 1 } },
       }),
     );
 
@@ -1181,7 +1252,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { postChunkArticleEntityBatchSize: 1 },
+        config: { posting: { chunkArticleEntityBatchSize: 1 } },
       }),
     );
 
@@ -1429,8 +1500,10 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          useStructureAwareTruncation: true,
-          maxContentChars: 260,
+          extraction: {
+            useStructureAwareTruncation: true,
+            maxContentChars: 260,
+          },
         },
       }),
     );
@@ -1447,8 +1520,10 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          useStructureAwareTruncation: false,
-          maxContentChars: 260,
+          extraction: {
+            useStructureAwareTruncation: false,
+            maxContentChars: 260,
+          },
         },
       }),
     );
@@ -1548,7 +1623,7 @@ describe("run", () => {
     await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { openaiApiKey: apiKey },
+        config: { credentials: { openaiApiKey: apiKey } },
         token: bearer,
       }),
     );
@@ -1645,7 +1720,7 @@ describe("run", () => {
     await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { maxBatchSize: 1 },
+        config: { batch: { maxSources: 1 } },
       }),
     );
 
@@ -1684,7 +1759,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { debounceMinUnanalyzedCount: 5 },
+        config: { dynamics: { debounceMinUnanalyzedCount: 5 } },
       }),
     );
 
@@ -1727,7 +1802,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { debounceMinMinutesSinceLastScore: 60 },
+        config: { dynamics: { debounceMinMinutesSinceLastScore: 60 } },
       }),
     );
 
@@ -1790,7 +1865,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { useBrainstormPass: true },
+        config: { extraction: { useBrainstormPass: true } },
       }),
     );
 
@@ -1897,7 +1972,7 @@ describe("run", () => {
     const withBrainstorm = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { useBrainstormPass: true },
+        config: { extraction: { useBrainstormPass: true } },
       }),
     );
 
@@ -1909,7 +1984,7 @@ describe("run", () => {
     const withoutBrainstorm = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { useBrainstormPass: false },
+        config: { extraction: { useBrainstormPass: false } },
       }),
     );
 
@@ -1977,7 +2052,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { entityGroundingPolicy: "drop" },
+        config: { quality: { groundingPolicy: "drop" } },
       }),
     );
 
@@ -2069,7 +2144,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { entityGroundingPolicy: "flag" },
+        config: { quality: { groundingPolicy: "flag" } },
       }),
     );
 
@@ -2143,8 +2218,10 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          useRelationSelfCritique: true,
-          relationCritiqueMinRelationCount: 3,
+          quality: {
+            useRelationSelfCritique: true,
+            critiqueMinRelationCount: 3,
+          },
         },
       }),
     );
@@ -2225,15 +2302,24 @@ describe("run", () => {
       articlesSelected: 1,
     });
 
-    const result = await run(
-      runContext({
-        input: { tickerId: "ticker-1" },
-        config: {
-          useRelationSelfCritique: true,
-          runDeadlineMs: 0,
-        },
-      }),
-    );
+    // Use a manually constructed config so we can inject runDeadlineMs: 0,
+    // which bypasses Zod's .positive() constraint and simulates an already-elapsed deadline.
+    const baseResolved = articleAnalysisConfigSchema.parse({
+      credentials: { openaiApiKey: "sk-test" },
+      quality: { useRelationSelfCritique: true },
+    });
+    const zeroDeadlineConfig: ArticleAnalysisConfig = {
+      ...baseResolved,
+      dynamics: {
+        ...baseResolved.dynamics,
+        runDeadlineMs: 0 as unknown as number,
+      },
+    };
+    const result = await run({
+      input: { tickerId: "ticker-1" },
+      config: zeroDeadlineConfig,
+      token: "Bearer test",
+    });
 
     expect(result.success).toBe(true);
     expect(critiqueSpy).not.toHaveBeenCalled();
@@ -2288,7 +2374,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { vocabularyPolicy: "strict" },
+        config: { quality: { vocabularyPolicy: "strict" } },
       }),
     );
 
@@ -2336,7 +2422,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { vocabularyPolicy: "partition" },
+        config: { quality: { vocabularyPolicy: "partition" } },
       }),
     );
 
@@ -2416,7 +2502,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { vocabularyPolicy: "repair" },
+        config: { quality: { vocabularyPolicy: "repair" } },
       }),
     );
 
@@ -2485,7 +2571,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { vocabularyPolicy: "repair" },
+        config: { quality: { vocabularyPolicy: "repair" } },
       }),
     );
 
@@ -2577,7 +2663,7 @@ describe("run", () => {
     const result = await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { useSourceQualityV2: true },
+        config: { scoring: { useSourceQualityV2: true } },
       }),
     );
 
@@ -2655,7 +2741,7 @@ describe("run", () => {
     await run(
       runContext({
         input: { tickerId: "ticker-1" },
-        config: { useSelectionDiversification: false },
+        config: { selection: { useDiversification: false } },
       }),
     );
 
@@ -2745,7 +2831,10 @@ describe("run", () => {
       const result = await run(
         runContext({
           input: { tickerId: "ticker-1" },
-          config: { extractionConcurrency: concurrency, maxBatchSize: 5 },
+          config: {
+            extraction: { concurrency: concurrency },
+            batch: { maxSources: 5 },
+          },
         }),
       );
 
@@ -2798,9 +2887,9 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          extractionConcurrency: 1,
-          runDeadlineMs: 200,
-          maxBatchSize: 10,
+          extraction: { concurrency: 1 },
+          dynamics: { runDeadlineMs: 200 },
+          batch: { maxSources: 10 },
         },
       }),
     );
@@ -2875,9 +2964,9 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          maxBatchSize: 2,
-          entityGroundingPolicy: "drop",
-          useSelectionDiversification: true,
+          batch: { maxSources: 2 },
+          quality: { groundingPolicy: "drop" },
+          selection: { useDiversification: true },
         },
       }),
     );
@@ -3008,9 +3097,11 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          extractionTransientRetries: 2,
-          extractionTransientRetryBaseDelayMs: 1,
-          extractionTransientRetryMaxDelayMs: 1,
+          extraction: {
+            transientRetries: 2,
+            transientRetryBaseDelayMs: 1,
+            transientRetryMaxDelayMs: 1,
+          },
         },
       }),
     );
@@ -3107,9 +3198,11 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          extractionTransientRetries: 2,
-          extractionTransientRetryBaseDelayMs: 1,
-          extractionTransientRetryMaxDelayMs: 1,
+          extraction: {
+            transientRetries: 2,
+            transientRetryBaseDelayMs: 1,
+            transientRetryMaxDelayMs: 1,
+          },
         },
       }),
     );
@@ -3184,9 +3277,11 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          extractionTransientRetries: 2,
-          extractionTransientRetryBaseDelayMs: 1,
-          extractionTransientRetryMaxDelayMs: 1,
+          extraction: {
+            transientRetries: 2,
+            transientRetryBaseDelayMs: 1,
+            transientRetryMaxDelayMs: 1,
+          },
         },
       }),
     );
@@ -3239,10 +3334,14 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          extractionTransientRetries: 1,
-          extractionTransientRetryBaseDelayMs: 1,
-          extractionTransientRetryMaxDelayMs: 1,
-          runPolicy: { minSuccessfulSources: 0 },
+          extraction: {
+            transientRetries: 1,
+            transientRetryBaseDelayMs: 1,
+            transientRetryMaxDelayMs: 1,
+          },
+          dynamics: {
+            runPolicy: { minSuccessfulSources: 0 },
+          },
         },
       }),
     );

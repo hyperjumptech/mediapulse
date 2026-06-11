@@ -2,7 +2,6 @@
 
 import { ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX } from "@workspace/agent-data-api-contract";
 import { describe, expect, it } from "vitest";
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 import {
   buildDraftRelevanceRow,
@@ -10,13 +9,11 @@ import {
 } from "./analysis-relevance-scoring.js";
 import {
   articleAnalysisConfigSchema,
-  articleAnalysisConfigDefaults,
-  resolveArticleAnalysisConfig,
   toRelevanceWeightMapV1,
 } from "./config-schema.js";
 
 const minimalConfig = {
-  openaiApiKey: "sk-test",
+  credentials: { openaiApiKey: "sk-test" },
 } satisfies Parameters<typeof articleAnalysisConfigSchema.parse>[0];
 
 const minimalSignals = {
@@ -32,7 +29,7 @@ const minimalSignals = {
 } satisfies PerSourceRelevanceSignals;
 
 describe("articleAnalysisConfigSchema", () => {
-  it("rejects prompts block under strict mode", () => {
+  it("rejects unknown keys under strict mode", () => {
     const result = articleAnalysisConfigSchema.safeParse({
       ...minimalConfig,
       prompts: {
@@ -46,21 +43,23 @@ describe("articleAnalysisConfigSchema", () => {
     }
   });
 
-  it("parses optional debounce and batch fields", () => {
-    // Act
+  it("parses optional dynamics and batch fields", () => {
     const parsed = articleAnalysisConfigSchema.parse({
       ...minimalConfig,
-      debounceMinUnanalyzedCount: 3,
-      debounceMinMinutesSinceLastScore: 15,
-      maxBatchSize: 20,
-      analysisGetDataSourceLimitMax: 8,
+      dynamics: {
+        debounceMinUnanalyzedCount: 3,
+        debounceMinMinutesSinceLastScore: 15,
+      },
+      batch: {
+        maxSources: 20,
+        getDataSourceLimitMax: 8,
+      },
     });
 
-    // Assert
-    expect(parsed.debounceMinUnanalyzedCount).toBe(3);
-    expect(parsed.debounceMinMinutesSinceLastScore).toBe(15);
-    expect(parsed.maxBatchSize).toBe(20);
-    expect(parsed.analysisGetDataSourceLimitMax).toBe(8);
+    expect(parsed.dynamics.debounceMinUnanalyzedCount).toBe(3);
+    expect(parsed.dynamics.debounceMinMinutesSinceLastScore).toBe(15);
+    expect(parsed.batch.maxSources).toBe(20);
+    expect(parsed.batch.getDataSourceLimitMax).toBe(8);
   });
 
   it("rejects legacy defaultMaxBatchSize key under strict mode", () => {
@@ -74,103 +73,79 @@ describe("articleAnalysisConfigSchema", () => {
       expect(result.error.issues[0]?.message).toMatch(/unrecognized/i);
     }
   });
-});
 
-describe("resolveArticleAnalysisConfig", () => {
-  it("fills debounce defaults of zero when Hermes omits them", () => {
-    // Act
-    const resolved = resolveArticleAnalysisConfig(
-      articleAnalysisConfigSchema.parse(minimalConfig),
-    );
+  it("fills schema defaults when Hermes omits optional groups", () => {
+    const config = articleAnalysisConfigSchema.parse(minimalConfig);
 
-    // Assert
-    expect(resolved.debounceMinUnanalyzedCount).toBe(0);
-    expect(resolved.debounceMinMinutesSinceLastScore).toBe(0);
-    expect(resolved.maxBatchSize).toBe(
-      articleAnalysisConfigDefaults.maxBatchSize,
+    expect(config.dynamics.debounceMinUnanalyzedCount).toBe(0);
+    expect(config.dynamics.debounceMinMinutesSinceLastScore).toBe(0);
+    expect(config.batch.maxSources).toBe(10);
+    expect(config.batch.getDataSourceLimitMax).toBe(
+      ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
     );
-    expect(resolved.analysisGetDataSourceLimitMax).toBe(
-      articleAnalysisConfigDefaults.analysisGetDataSourceLimitMax,
-    );
-    expect(resolved.useStructureAwareTruncation).toBe(false);
-    expect(resolved.truncationLeadParagraphsAlwaysKept).toBe(2);
-    expect(resolved.truncationFinancialKeywordsExtra).toEqual([]);
-    expect(resolved.fewShotExemplarCount).toBe(0);
-    expect(resolved.useBrainstormPass).toBe(false);
-    expect(resolved.brainstormModel).toBe(
-      articleAnalysisConfigDefaults.openaiModel,
-    );
-    expect(resolved.extractionConcurrency).toBe(1);
-    expect(resolved.runDeadlineMs).toBeUndefined();
-    expect(resolved.entityGroundingPolicy).toBe("off");
-    expect(resolved.entityGroundingMinTitleHits).toBe(0);
+    expect(config.extraction.useStructureAwareTruncation).toBe(false);
+    expect(config.extraction.truncationLeadParagraphsAlwaysKept).toBe(2);
+    expect(config.extraction.truncationFinancialKeywordsExtra).toEqual([]);
+    expect(config.extraction.fewShotExemplarCount).toBe(0);
+    expect(config.extraction.useBrainstormPass).toBe(false);
+    expect(config.extraction.concurrency).toBe(1);
+    expect(config.dynamics.runDeadlineMs).toBeUndefined();
+    expect(config.quality.groundingPolicy).toBe("off");
+    expect(config.quality.groundingMinTitleHits).toBe(0);
+    expect(config.credentials.openaiModel).toBe("gpt-4o-mini");
   });
 
-  it("preserves Hermes debounce and maxBatchSize overrides", () => {
-    // Act
-    const resolved = resolveArticleAnalysisConfig(
-      articleAnalysisConfigSchema.parse({
-        ...minimalConfig,
+  it("preserves Hermes dynamics and batch overrides", () => {
+    const config = articleAnalysisConfigSchema.parse({
+      ...minimalConfig,
+      dynamics: {
         debounceMinUnanalyzedCount: 5,
         debounceMinMinutesSinceLastScore: 30,
-        maxBatchSize: 12,
-      }),
-    );
+      },
+      batch: { maxSources: 12 },
+    });
 
-    // Assert
-    expect(resolved.debounceMinUnanalyzedCount).toBe(5);
-    expect(resolved.debounceMinMinutesSinceLastScore).toBe(30);
-    expect(resolved.maxBatchSize).toBe(12);
+    expect(config.dynamics.debounceMinUnanalyzedCount).toBe(5);
+    expect(config.dynamics.debounceMinMinutesSinceLastScore).toBe(30);
+    expect(config.batch.maxSources).toBe(12);
   });
 
-  it("preserves analysisGetDataSourceLimitMax override from Hermes", () => {
-    const resolved = resolveArticleAnalysisConfig(
-      articleAnalysisConfigSchema.parse({
-        ...minimalConfig,
-        analysisGetDataSourceLimitMax: 9,
-      }),
-    );
+  it("preserves batch.getDataSourceLimitMax override from Hermes", () => {
+    const config = articleAnalysisConfigSchema.parse({
+      ...minimalConfig,
+      batch: { getDataSourceLimitMax: 9 },
+    });
 
-    expect(resolved.analysisGetDataSourceLimitMax).toBe(9);
+    expect(config.batch.getDataSourceLimitMax).toBe(9);
   });
 
-  it("rejects analysisGetDataSourceLimitMax above API hard cap", () => {
+  it("rejects batch.getDataSourceLimitMax above API hard cap", () => {
     const result = articleAnalysisConfigSchema.safeParse({
       ...minimalConfig,
-      analysisGetDataSourceLimitMax: ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX + 1,
+      batch: { getDataSourceLimitMax: ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX + 1 },
     });
 
     expect(result.success).toBe(false);
   });
 
-  it("maps scoreBreakdownVersion to resolved config used for POST breakdown", () => {
-    // Act
-    const resolved = resolveArticleAnalysisConfig(
-      articleAnalysisConfigSchema.parse({
-        ...minimalConfig,
-        scoreBreakdownVersion: 7,
-      }),
-    );
+  it("maps scoring.breakdownVersion to the version stored in POST breakdown", () => {
+    const config = articleAnalysisConfigSchema.parse({
+      ...minimalConfig,
+      scoring: { breakdownVersion: 7 },
+    });
     const row = buildDraftRelevanceRow(
       minimalSignals,
-      resolved.scoreBreakdownVersion,
-      toRelevanceWeightMapV1(resolved),
+      config.scoring.breakdownVersion,
+      toRelevanceWeightMapV1(config),
     );
 
-    // Assert
-    expect(resolved.scoreBreakdownVersion).toBe(7);
+    expect(config.scoring.breakdownVersion).toBe(7);
     expect(row.scoreBreakdown._version).toBe(7);
   });
 
-  it("uses package default scoreBreakdownVersion when Hermes omits it", () => {
-    // Act
-    const resolved = resolveArticleAnalysisConfig(
-      articleAnalysisConfigSchema.parse(minimalConfig),
-    );
+  it("uses default breakdownVersion when Hermes omits scoring", () => {
+    const config = articleAnalysisConfigSchema.parse(minimalConfig);
 
-    // Assert
-    expect(resolved.scoreBreakdownVersion).toBe(
-      articleAnalysisConfigDefaults.scoreBreakdownVersion,
-    );
+    expect(config.scoring.breakdownVersion).toBe(1);
   });
 });
