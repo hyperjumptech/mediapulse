@@ -30,12 +30,7 @@ const controlPlaneBatch = Math.max(
   controlPlaneConc,
   Number.parseInt(env.HERMES_CONTROL_PLANE_BATCH_SIZE ?? "5", 10) || 5,
 );
-const groupConcurrency = (() => {
-  const raw = env.HERMES_GROUP_CONCURRENCY?.trim();
-  if (!raw) return undefined;
-  const n = Number.parseInt(raw, 10);
-  return Number.isFinite(n) && n >= 1 ? n : undefined;
-})();
+const groupConcurrency = dataPlaneConc;
 
 // ─── Module-level shutdown hook ───────────────────────────────────────────────
 // Set inside main() once the processor/supervisor are running.
