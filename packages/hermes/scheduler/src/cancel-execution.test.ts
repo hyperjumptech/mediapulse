@@ -69,6 +69,12 @@ describe("cancel-execution", () => {
     );
   });
 
+  it("resolveRunStatusForSettledCancelledExecution returns cancelled when there are no jobs", () => {
+    expect(resolveRunStatusForSettledCancelledExecution([])).toBe(
+      ScheduleRunStatus.cancelled,
+    );
+  });
+
   it("errorIndicatesUserCancel detects structured cancel errors", () => {
     expect(errorIndicatesUserCancel({ cancelled: true })).toBe(true);
     expect(errorIndicatesUserCancel({ message: "x" })).toBe(false);

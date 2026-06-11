@@ -148,6 +148,9 @@ export function resolveRunStatusForSettledCancelledExecution(
     error: Prisma.JsonValue | null;
   }>,
 ): ScheduleRunStatus {
+  if (jobs.length === 0) {
+    return ScheduleRunStatus.cancelled;
+  }
   const hasCompleted = jobs.some(
     (j) => j.status === AgentJobExecutionStatus.completed,
   );
@@ -509,7 +512,7 @@ export const cancelScheduleExecution = async (
       },
     });
     const allStepsTerminal =
-      stepsAfter.length > 0 &&
+      stepsAfter.length === 0 ||
       stepsAfter.every(
         (row) =>
           row.succeededCount + row.failedCount >= row.expectedInvocationCount,
@@ -639,7 +642,7 @@ export const cancelHttpTriggerExecution = async (
       },
     });
     const allStepsTerminal =
-      stepsAfter.length > 0 &&
+      stepsAfter.length === 0 ||
       stepsAfter.every(
         (row) =>
           row.succeededCount + row.failedCount >= row.expectedInvocationCount,
@@ -749,7 +752,7 @@ export const finalizeCancelledExecutionIfSettled = async (
         });
 
     const allStepsTerminal =
-      stepsAfter.length > 0 &&
+      stepsAfter.length === 0 ||
       stepsAfter.every(
         (row) =>
           row.succeededCount + row.failedCount >= row.expectedInvocationCount,
