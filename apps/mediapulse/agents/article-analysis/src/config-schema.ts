@@ -15,14 +15,20 @@ const credentialsSchema = z
     openaiApiKey: z
       .string()
       .min(1)
-      .describe("OpenAI-compatible API key for structured extraction."),
+      .default("{{OPENAI_API_KEY}}")
+      .describe(
+        "OpenAI API key or a Hermes variable placeholder such as {{OPENAI_API_KEY}}.",
+      ),
     openaiModel: z
       .string()
       .min(1)
-      .default("gpt-4o-mini")
-      .describe("Chat model id (e.g. gpt-4o-mini)."),
+      .default("{{OPENAI_MODEL}}")
+      .describe(
+        "Chat model id (e.g. gpt-4o-mini) or a Hermes variable placeholder such as {{OPENAI_MODEL}}.",
+      ),
   })
-  .describe("OpenAI credentials for structured extraction.");
+  .default({})
+  .describe("OpenAI credentials resolved from Hermes Variables.");
 
 const extractionSchema = z
   .object({
