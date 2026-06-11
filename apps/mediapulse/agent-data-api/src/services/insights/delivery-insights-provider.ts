@@ -31,6 +31,7 @@ type RecipientRow = {
 
 type DeliveryRunRow = {
   tickerId: string;
+  ticker: { symbol: string };
   outcome: string;
   stage: string | null;
   successCount: number;
@@ -53,6 +54,7 @@ type DeliveryInsightsDeps = {
       orderBy: { createdAt: "asc" };
       select: {
         tickerId: boolean;
+        ticker: { select: { symbol: boolean } };
         outcome: boolean;
         stage: boolean;
         successCount: boolean;
@@ -134,6 +136,7 @@ export function createDeliveryInsightsProvider(
 
       const runSelect = {
         tickerId: true,
+        ticker: { select: { symbol: true } },
         outcome: true,
         stage: true,
         successCount: true,
@@ -402,9 +405,10 @@ export function createDeliveryInsightsProvider(
       // Where — per-ticker delivery counts (categoryBar, top-N)
       const tickerDeliveryCounts = new Map<string, number>();
       for (const run of runs) {
+        const label = run.ticker?.symbol ?? run.tickerId;
         tickerDeliveryCounts.set(
-          run.tickerId,
-          (tickerDeliveryCounts.get(run.tickerId) ?? 0) + 1,
+          label,
+          (tickerDeliveryCounts.get(label) ?? 0) + 1,
         );
       }
       if (tickerDeliveryCounts.size > 0) {

@@ -21,6 +21,7 @@ function makeRecipient(overrides?: {
 
 function makeRun(overrides?: {
   tickerId?: string;
+  symbol?: string;
   outcome?: string;
   stage?: string | null;
   successCount?: number;
@@ -33,6 +34,7 @@ function makeRun(overrides?: {
 }) {
   return {
     tickerId: overrides?.tickerId ?? "ticker-1",
+    ticker: { symbol: overrides?.symbol ?? "AAPL" },
     outcome: overrides?.outcome ?? "success",
     stage: overrides?.stage !== undefined ? overrides.stage : null,
     successCount: overrides?.successCount ?? 3,
@@ -274,9 +276,50 @@ describe("createDeliveryInsightsProvider", () => {
     expect(typeof recipientsKpi!.delta).toBe("number");
   });
 
+  it("labels per-ticker delivery bars with ticker symbol", async () => {
+    const runs = [
+      makeRun({ tickerId: "t1", symbol: "AAPL" }),
+      makeRun({ tickerId: "t1", symbol: "AAPL" }),
+      makeRun({ tickerId: "t2", symbol: "MSFT" }),
+    ];
+
+    const provider = createDeliveryInsightsProvider(makeDeps({ runs }));
+    const payload = await provider.compute({ window: "7d" });
+    const tickerBar = payload.sections.find((s) => s.id === "where-per-ticker");
+
+    expect(tickerBar).toBeDefined();
+    if (tickerBar!.widget.kind === "categoryBar") {
+      const labels = tickerBar!.widget.bars.map((b) => b.label);
+      expect(labels).toContain("AAPL");
+      expect(labels).toContain("MSFT");
+      expect(labels).not.toContain("t1");
+      expect(labels).not.toContain("t2");
+    }
+  });
+
+  it("falls back to tickerId when ticker symbol is missing", async () => {
+    const run = makeRun({ tickerId: "orphan-id" });
+    const runWithNoSymbol = {
+      ...run,
+      ticker: { symbol: undefined as unknown as string },
+    };
+
+    const provider = createDeliveryInsightsProvider(
+      makeDeps({ runs: [runWithNoSymbol] }),
+    );
+
+    const payload = await provider.compute({ window: "7d" });
+    const tickerBar = payload.sections.find((s) => s.id === "where-per-ticker");
+
+    if (tickerBar?.widget.kind === "categoryBar") {
+      const labels = tickerBar.widget.bars.map((b) => b.label);
+      expect(labels).toContain("orphan-id");
+    }
+  });
+
   it("caps per-ticker delivery bars at TOP_N + Other bucket", async () => {
     const manyRuns = Array.from({ length: 15 }, (_, index) =>
-      makeRun({ tickerId: `ticker-${index}` }),
+      makeRun({ tickerId: `ticker-${index}`, symbol: `SYM${index}` }),
     );
 
     const provider = createDeliveryInsightsProvider(

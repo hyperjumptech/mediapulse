@@ -35,6 +35,7 @@ type CgRunRow = {
 
 type NewsletterRow = {
   tickerId: string;
+  ticker: { symbol: string };
   createdAt: Date;
   model: string | null;
   totalTokens: number | null;
@@ -70,6 +71,7 @@ type ContentGenerationInsightsDeps = {
       orderBy: { createdAt: "asc" };
       select: {
         tickerId: boolean;
+        ticker: { select: { symbol: boolean } };
         createdAt: boolean;
         model: boolean;
         totalTokens: boolean;
@@ -201,6 +203,7 @@ export function createContentGenerationInsightsProvider(
           orderBy: { createdAt: "asc" },
           select: {
             tickerId: true,
+            ticker: { select: { symbol: true } },
             createdAt: true,
             model: true,
             totalTokens: true,
@@ -482,9 +485,10 @@ export function createContentGenerationInsightsProvider(
       // Where — newsletters by ticker (top-N)
       const tickerNewsletterCounts = new Map<string, number>();
       for (const newsletter of newsletters) {
+        const label = newsletter.ticker?.symbol ?? newsletter.tickerId;
         tickerNewsletterCounts.set(
-          newsletter.tickerId,
-          (tickerNewsletterCounts.get(newsletter.tickerId) ?? 0) + 1,
+          label,
+          (tickerNewsletterCounts.get(label) ?? 0) + 1,
         );
       }
       if (tickerNewsletterCounts.size > 0) {

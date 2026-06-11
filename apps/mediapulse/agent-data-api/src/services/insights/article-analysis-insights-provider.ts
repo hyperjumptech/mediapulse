@@ -21,6 +21,7 @@ const WINDOW_MS: Record<"24h" | "7d" | "30d", number> = {
 type ArticleRelevanceRow = {
   dataSourceId: string;
   tickerId: string;
+  ticker: { symbol: string };
   score: number;
   selected: boolean;
   scoredAt: Date;
@@ -45,6 +46,7 @@ type ArticleAnalysisInsightsDeps = {
       select: {
         dataSourceId: boolean;
         tickerId: boolean;
+        ticker: { select: { symbol: boolean } };
         score: boolean;
         selected: boolean;
         scoredAt: boolean;
@@ -120,6 +122,7 @@ export function createArticleAnalysisInsightsProvider(
           select: {
             dataSourceId: true,
             tickerId: true,
+            ticker: { select: { symbol: true } },
             score: true,
             selected: true,
             scoredAt: true,
@@ -301,10 +304,8 @@ export function createArticleAnalysisInsightsProvider(
       // Where — articles scored per ticker
       const tickerCounts = new Map<string, number>();
       for (const row of relevance) {
-        tickerCounts.set(
-          row.tickerId,
-          (tickerCounts.get(row.tickerId) ?? 0) + 1,
-        );
+        const label = row.ticker?.symbol ?? row.tickerId;
+        tickerCounts.set(label, (tickerCounts.get(label) ?? 0) + 1);
       }
       if (tickerCounts.size > 0) {
         sections.push({
