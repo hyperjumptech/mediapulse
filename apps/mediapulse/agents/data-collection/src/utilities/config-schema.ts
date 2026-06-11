@@ -359,50 +359,6 @@ const resilienceSchema = z
   .default({})
   .describe("Failure-avoidance controls applied before and during fetch.");
 
-const semanticDedupeSchema = z.object({
-  enabled: z
-    .boolean()
-    .default(false)
-    .describe(
-      "When enabled, drop near-duplicate pages using embedding similarity against recent corpus fingerprints.",
-    ),
-  threshold: z
-    .number()
-    .min(0)
-    .max(1)
-    .default(0.88)
-    .describe(
-      "Cosine-similarity threshold above which a candidate is dropped.",
-    ),
-  windowDays: z
-    .number()
-    .int()
-    .positive()
-    .default(7)
-    .describe("Lookback window in days for recent corpus fingerprints."),
-  embeddingModel: z
-    .string()
-    .default("{{EMBEDDING_MODEL}}")
-    .describe(
-      "OpenAI embedding model name or a Hermes variable placeholder such as {{EMBEDDING_MODEL}}.",
-    ),
-});
-
-const deduplicationSchema = z
-  .object({
-    semantic: semanticDedupeSchema
-      .default({})
-      .describe("Semantic deduplication against recently persisted sources."),
-    openaiApiKey: z
-      .string()
-      .default("{{OPENAI_API_KEY}}")
-      .describe(
-        "OpenAI API key for semantic dedupe embeddings or a Hermes variable placeholder.",
-      ),
-  })
-  .default({})
-  .describe("Deduplication settings and credentials.");
-
 const runPolicySchema = z
   .object({
     minSuccessfulSources: z
@@ -427,7 +383,6 @@ export const ConfigSchema = z.object({
   collection: collectionSchema,
   gates: gatesSchema,
   resilience: resilienceSchema,
-  deduplication: deduplicationSchema,
   runPolicy: runPolicySchema,
 });
 
