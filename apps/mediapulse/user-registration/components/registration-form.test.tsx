@@ -40,7 +40,9 @@ describe("RegistrationForm", () => {
     render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
 
     // Assert
-    expect(screen.getByLabelText(/Your name/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/What should we call you\?/i),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/Stock ticker/i)).toBeInTheDocument();
   });
 
@@ -75,7 +77,10 @@ describe("RegistrationForm", () => {
     );
 
     // Act
-    await user.type(screen.getByLabelText(/Your name/i), "John Doe");
+    await user.type(
+      screen.getByLabelText(/What should we call you\?/i),
+      "John Doe",
+    );
 
     // Select Ticker
     await user.click(screen.getByLabelText(/Stock ticker/i));
@@ -109,7 +114,10 @@ describe("RegistrationForm", () => {
     const user = userEvent.setup();
     render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
 
-    await user.type(screen.getByLabelText(/Your name/i), "Jane");
+    await user.type(
+      screen.getByLabelText(/What should we call you\?/i),
+      "Jane",
+    );
     await user.click(screen.getByLabelText(/Stock ticker/i));
     await user.click(screen.getByText(/Bank Central Asia Tbk/i));
     await user.click(
@@ -128,7 +136,10 @@ describe("RegistrationForm", () => {
     const user = userEvent.setup();
     render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
 
-    await user.type(screen.getByLabelText(/Your name/i), "Jane");
+    await user.type(
+      screen.getByLabelText(/What should we call you\?/i),
+      "Jane",
+    );
     await user.click(screen.getByLabelText(/Stock ticker/i));
     await user.click(screen.getByText(/Bank Central Asia Tbk/i));
     await user.click(
