@@ -1,7 +1,6 @@
 import { APICallError, NoObjectGeneratedError, TypeValidationError } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { OpenAiReasoningProviderOptions } from "@workspace/agent-runtime";
 import { logger } from "@workspace/logger";
 
 import { parseIndustryNewsletterWire } from "@workspace/email-templates/parse-industry-newsletter-wire";
@@ -1626,35 +1625,6 @@ describe("generateNewsletterWithLlm — self-critique", () => {
       expect.any(String),
     );
   });
-
-  it("scales critique maxOutputTokens above the configured floor with candidate count", async () => {
-    // Setup
-    const generateObjectFn = makeSuccessfulGenerateFn();
-    const critiqueGenerateObjectFn = vi.fn().mockResolvedValue({
-      object: { ratings: [] },
-      usage: { promptTokens: 50, completionTokens: 25 },
-    });
-
-    // Act
-    await generateNewsletterWithLlm(
-      testSources,
-      critiqueEnabledConfig,
-      { ...testContext, runStartedAt: 0 },
-      {
-        generateObjectFn,
-        critiqueGenerateObjectFn,
-        sleepFn: noopSleepFn,
-        nowFn: () => 100,
-      },
-    );
-
-    // Assert — nine eligible bullets must push the budget past the 1500 default
-    expect(critiqueGenerateObjectFn).toHaveBeenCalledOnce();
-    const callArgs = critiqueGenerateObjectFn.mock.calls[0]?.[0] as {
-      maxOutputTokens: number;
-    };
-    expect(callArgs.maxOutputTokens).toBeGreaterThan(1500);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2329,110 +2299,6 @@ describe("generateNewsletterWithLlm — competitor prompt injection", () => {
 
     expect(capturedPrompt).not.toContain("Do NOT make these bullets about");
     expect(capturedPrompt).not.toContain("{{");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Reasoning effort wiring
-// ---------------------------------------------------------------------------
-
-describe("generateNewsletterWithLlm — reasoning effort", () => {
-  it("does not pass providerOptions to the structured generateFn when reasoningEffort is unset", async () => {
-    let capturedArgs: GenerateNewsletterObjectArgs | undefined;
-    const generateObjectFn: GenerateNewsletterObjectFn = vi
-      .fn()
-      .mockImplementation(async (args: GenerateNewsletterObjectArgs) => {
-        capturedArgs = args;
-        return { object: minimalIndustryBrief() };
-      });
-
-    await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
-      generateObjectFn,
-      sleepFn: noopSleepFn,
-    });
-
-    expect(capturedArgs?.providerOptions).toBeUndefined();
-  });
-
-  it("passes providerOptions with reasoningEffort to the structured generateFn when set", async () => {
-    let capturedArgs: GenerateNewsletterObjectArgs | undefined;
-    const generateObjectFn: GenerateNewsletterObjectFn = vi
-      .fn()
-      .mockImplementation(async (args: GenerateNewsletterObjectArgs) => {
-        capturedArgs = args;
-        return { object: minimalIndustryBrief() };
-      });
-
-    const config = resolveContentGenerationConfig(
-      ContentGenerationConfigSchema.parse({
-        ...conservativeTestConfigInput,
-        credentials: { openaiApiKey: "sk-test", reasoningEffort: "high" },
-      }),
-    );
-
-    await generateNewsletterWithLlm(testSources, config, testContext, {
-      generateObjectFn,
-      sleepFn: noopSleepFn,
-    });
-
-    expect(capturedArgs?.providerOptions).toEqual({
-      openai: { reasoningEffort: "high" },
-    });
-  });
-
-  it("per-pass subject-line override is independent of structured-pass effort", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    let capturedSubjectArgs:
-      | { providerOptions?: OpenAiReasoningProviderOptions }
-      | undefined;
-    const subjectGenerateObjectFn = vi
-      .fn()
-      .mockImplementation(
-        async (args: { providerOptions?: OpenAiReasoningProviderOptions }) => {
-          capturedSubjectArgs = args;
-          return {
-            object: {
-              candidates: [
-                {
-                  subject: "Top Story Today",
-                  style: "declarative",
-                  preheader: "Industry news",
-                },
-                {
-                  subject: "Markets Move Fast",
-                  style: "numeric",
-                  preheader: "Key figures",
-                },
-                {
-                  subject: "What Changed?",
-                  style: "question",
-                  preheader: "Sector update",
-                },
-              ],
-            },
-            usage: { promptTokens: 10, completionTokens: 5 },
-          };
-        },
-      );
-
-    const config = resolveContentGenerationConfig(
-      ContentGenerationConfigSchema.parse({
-        ...conservativeTestConfigInput,
-        credentials: { openaiApiKey: "sk-test", reasoningEffort: "high" },
-        delivery: { subjectLine: { enabled: true, reasoningEffort: "low" } },
-      }),
-    );
-
-    await generateNewsletterWithLlm(testSources, config, testContext, {
-      generateObjectFn,
-      sleepFn: noopSleepFn,
-      subjectGenerateObjectFn,
-    });
-
-    expect(capturedSubjectArgs?.providerOptions).toEqual({
-      openai: { reasoningEffort: "low" },
-    });
   });
 });
 

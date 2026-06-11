@@ -649,7 +649,7 @@ describe("fetchLlmQueryCandidates", () => {
     expect(generateObjectForQueries).toHaveBeenCalledTimes(1);
   });
 
-  it("forwards the fixed output-token budget to generateObject", async () => {
+  it("does not pass seed or providerOptions to generateObject", async () => {
     // Setup
     const generateObjectForQueries = vi.fn().mockResolvedValue({
       object: { queries: [] },

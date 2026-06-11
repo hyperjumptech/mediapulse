@@ -241,7 +241,6 @@ export type GenerateObjectForNewsletterCritiqueArgs = {
   schema: typeof newsletterCritiqueLlmSchema;
   system: string;
   prompt: string;
-  maxOutputTokens: number;
   maxRetries: number;
   timeout?: number;
   /** Provider-specific options (e.g. `{ openai: { reasoningEffort } }`). Omit for non-reasoning models. */
@@ -264,7 +263,6 @@ const defaultGenerateObjectForNewsletterCritique: GenerateObjectForNewsletterCri
       system: args.system,
       prompt: args.prompt,
       maxRetries: args.maxRetries,
-      maxOutputTokens: args.maxOutputTokens,
       ...(args.timeout !== undefined ? { timeout: args.timeout } : {}),
       ...(args.providerOptions !== undefined
         ? { providerOptions: args.providerOptions }
@@ -290,7 +288,6 @@ export const critiqueNewsletter = async (
     apiKey: string;
     baseUrl?: string;
     model: string;
-    maxOutputTokens: number;
     system: string;
     prompt: string;
     timeout?: number;
@@ -315,7 +312,6 @@ export const critiqueNewsletter = async (
     schema: newsletterCritiqueLlmSchema,
     system: params.system,
     prompt: params.prompt,
-    maxOutputTokens: params.maxOutputTokens,
     maxRetries: 0,
     ...(params.timeout !== undefined ? { timeout: params.timeout } : {}),
     ...(params.providerOptions !== undefined

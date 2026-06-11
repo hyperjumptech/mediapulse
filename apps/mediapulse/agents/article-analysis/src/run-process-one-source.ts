@@ -1,7 +1,6 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { GetAnalysisResponse } from "@workspace/agent-data-api-contract";
 import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
-import { buildOpenAiReasoningProviderOptions } from "@workspace/agent-runtime";
 import { NoObjectGeneratedError } from "ai";
 
 import { applyPerArticleExtractionCaps } from "./analysis-caps-dedupe.js";
@@ -290,8 +289,6 @@ export const createProcessOneSource =
         ? source.content.slice(0, cfg.maxContentChars)
         : source.content;
 
-    let currentExtractionMaxOutputTokens = cfg.extractionMaxOutputTokens;
-
     try {
       const t0 = Date.now();
       const extractionUserContent = buildArticleAnalysisExtractionUserContent({
@@ -313,15 +310,11 @@ export const createProcessOneSource =
       if (shouldRunBrainstorm) {
         try {
           const brainstormStartedAt = Date.now();
-          const brainstormProviderOptions = buildOpenAiReasoningProviderOptions(
-            cfg.brainstormReasoningEffort,
-          );
           const brainstormResult = await executeLlmCallWithTransientRetries(
             () =>
               fetchArticleBrainstorm({
                 apiKey: cfg.openaiApiKey,
                 model: cfg.brainstormModel,
-                maxOutputTokens: cfg.brainstormMaxOutputTokens,
                 timeoutMs: cfg.extractionCallTimeoutMs,
                 messages: [
                   {
@@ -339,9 +332,6 @@ export const createProcessOneSource =
                     }),
                   },
                 ],
-                ...(brainstormProviderOptions !== undefined
-                  ? { providerOptions: brainstormProviderOptions }
-                  : {}),
               }),
             {
               maxRetries: cfg.extractionTransientRetries,
@@ -384,17 +374,12 @@ export const createProcessOneSource =
         );
       }
 
-      const extractionProviderOptions = buildOpenAiReasoningProviderOptions(
-        cfg.extractionReasoningEffort,
-      );
       let extractionRetryAttempts = 0;
-      const extractionBudgetCap = cfg.extractionMaxOutputTokens * 4;
       const extractedResult = await executeLlmCallWithTransientRetries(
         () =>
           extractEntitiesAndRelationsForSource({
             apiKey: cfg.openaiApiKey,
             model: cfg.openaiModel,
-            maxOutputTokens: currentExtractionMaxOutputTokens,
             timeoutMs: cfg.extractionCallTimeoutMs,
             messages: [
               { role: "system", content: systemContent },
@@ -407,9 +392,6 @@ export const createProcessOneSource =
               ? { exemplars: resolvedExemplars }
               : {}),
             ...(brainstormText !== undefined ? { brainstormText } : {}),
-            ...(extractionProviderOptions !== undefined
-              ? { providerOptions: extractionProviderOptions }
-              : {}),
           }),
         {
           maxRetries: cfg.extractionTransientRetries,
@@ -424,19 +406,12 @@ export const createProcessOneSource =
               outcome.extractionCallTimeouts += 1;
             }
             const noResponseSubtype = classifyNoResponseSubtype(error);
-            if (noResponseSubtype === "length_truncation") {
-              currentExtractionMaxOutputTokens = Math.min(
-                extractionBudgetCap,
-                Math.ceil(currentExtractionMaxOutputTokens * 1.5),
-              );
-            }
             log.warn(
               {
                 dataSourceId: source.id,
                 stage: "extraction",
                 retryAttempt: attempt,
                 noResponseSubtype,
-                currentExtractionMaxOutputTokens,
                 err: toSafeLogError(error),
               },
               "article-analysis LLM extraction transient failure; retrying",
@@ -497,20 +472,13 @@ export const createProcessOneSource =
         ) {
           outcome.vocabularyRepairCallsAttempted = 1;
           try {
-            const repairProviderOptions = buildOpenAiReasoningProviderOptions(
-              cfg.vocabularyRepairReasoningEffort,
-            );
             const repairResult = await repairExtractionVocabulary({
               apiKey: cfg.openaiApiKey,
               model: cfg.vocabularyRepairModel,
-              maxOutputTokens: cfg.maxOutputTokens,
               timeoutMs: cfg.extractionCallTimeoutMs,
               ctx,
               badEntities: partitioned.badEntities,
               badRelations: partitioned.badRelations,
-              ...(repairProviderOptions !== undefined
-                ? { providerOptions: repairProviderOptions }
-                : {}),
             });
             outcome.repairUsage = repairResult.usage;
 
@@ -628,24 +596,17 @@ export const createProcessOneSource =
       } else if (critiqueEligible) {
         try {
           const critiqueStartedAt = Date.now();
-          const critiqueProviderOptions = buildOpenAiReasoningProviderOptions(
-            cfg.relationCritiqueReasoningEffort,
-          );
           const critiqueResult = await executeLlmCallWithTransientRetries(
             () =>
               critiqueExtractedRelations({
                 apiKey: cfg.openaiApiKey,
                 model: cfg.relationCritiqueModel,
-                maxOutputTokens: cfg.maxOutputTokens,
                 timeoutMs: cfg.extractionCallTimeoutMs,
                 messages: buildRelationCritiqueModelMessages(ctx, {
                   articleTitle: source.title,
                   articleBody: source.content,
                   candidates: resolved.relations,
                 }),
-                ...(critiqueProviderOptions !== undefined
-                  ? { providerOptions: critiqueProviderOptions }
-                  : {}),
               }),
             {
               maxRetries: cfg.extractionTransientRetries,
@@ -818,7 +779,6 @@ export const createProcessOneSource =
         if (outputTokens !== undefined) {
           failureRecord.outputTokens = outputTokens;
         }
-        failureRecord.maxOutputTokens = currentExtractionMaxOutputTokens;
       }
       outcome.extractionFailures.push(failureRecord);
       log.warn(
@@ -830,7 +790,6 @@ export const createProcessOneSource =
             ? {
                 finishReason: err.finishReason,
                 outputTokens: err.usage?.outputTokens,
-                maxOutputTokens: currentExtractionMaxOutputTokens,
                 responseTextLength: err.text?.length,
               }
             : {}),
