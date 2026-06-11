@@ -45,6 +45,7 @@ enum SearchQueryIntent {
 model DataSource {
   id            String    @id @default(uuid())
   url           String
+  canonicalUrl  String    @map("canonical_url")
   title         String
   content       String
   metadata      Json?
@@ -61,6 +62,7 @@ model DataSource {
   entityEvidence         EntityEvidence[]
   entityRelationEvidence EntityRelationEvidence[]
 
+  @@unique([tickerId, canonicalUrl])
   @@map("data_source")
 }
 
