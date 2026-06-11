@@ -149,7 +149,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
             content={
               <ChartTooltipContent
                 labelFormatter={formatTs}
-                formatter={
+                valueFormatter={
                   isTimeSeriesDuration
                     ? (value) => formatCompactDuration(Number(value))
                     : undefined
@@ -205,7 +205,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
           <ChartTooltip
             content={
               <ChartTooltipContent
-                formatter={
+                valueFormatter={
                   isCategoryBarDuration
                     ? (value) => formatCompactDuration(Number(value))
                     : undefined
