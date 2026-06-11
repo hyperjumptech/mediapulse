@@ -380,4 +380,122 @@ describe("createQueryAnalysisInsightsProvider", () => {
     const payload = await provider.compute({ window: "7d" });
     expect(() => insightsPayloadSchema.parse(payload)).not.toThrow();
   });
+
+  it("does not surface quickHits as a zero-coverage alert even when all sets report it", async () => {
+    const snapshotWithQuickHitsZero = {
+      ...baseSnapshot,
+      sectionCoverage: {
+        zeroCoverageSections: ["quickHits", "dealsAndMovements"],
+      },
+    };
+    const sets = Array.from({ length: 4 }, (_, i) => ({
+      id: `set-${i}`,
+      tickerId: "ticker-1",
+      generatedAt: makeDate(i * 1000),
+      strategySnapshot: snapshotWithQuickHitsZero,
+    }));
+
+    const provider = createQueryAnalysisInsightsProvider(
+      makeDeps(sets, [], []),
+    );
+    const payload = await provider.compute({ window: "7d" });
+
+    const quickHitsAlert = payload.alerts.find((alert) =>
+      alert.id.includes("quickHits"),
+    );
+    expect(quickHitsAlert).toBeUndefined();
+  });
+
+  it("does not surface competitiveLandscape as zero-coverage when it is covered in >50% of sets", async () => {
+    const snapshotCovered = {
+      ...baseSnapshot,
+      sectionCoverage: {
+        zeroCoverageSections: [],
+      },
+    };
+    const snapshotUncovered = {
+      ...baseSnapshot,
+      sectionCoverage: {
+        zeroCoverageSections: ["competitiveLandscape"],
+      },
+    };
+    // Only 1 of 4 sets has competitiveLandscape at zero (25%), below the 50% threshold.
+    const sets = [
+      {
+        id: "set-0",
+        tickerId: "ticker-1",
+        generatedAt: makeDate(0),
+        strategySnapshot: snapshotUncovered,
+      },
+      {
+        id: "set-1",
+        tickerId: "ticker-1",
+        generatedAt: makeDate(1000),
+        strategySnapshot: snapshotCovered,
+      },
+      {
+        id: "set-2",
+        tickerId: "ticker-1",
+        generatedAt: makeDate(2000),
+        strategySnapshot: snapshotCovered,
+      },
+      {
+        id: "set-3",
+        tickerId: "ticker-1",
+        generatedAt: makeDate(3000),
+        strategySnapshot: snapshotCovered,
+      },
+    ];
+
+    const provider = createQueryAnalysisInsightsProvider(
+      makeDeps(sets, [], []),
+    );
+    const payload = await provider.compute({ window: "7d" });
+
+    const alert = payload.alerts.find(
+      (alert) => alert.id === "zero-coverage-competitiveLandscape",
+    );
+    expect(alert).toBeUndefined();
+  });
+
+  it("does not surface disruptorsOrTech as zero-coverage when it is covered in most sets", async () => {
+    const snapshotCovered = {
+      ...baseSnapshot,
+      sectionCoverage: { zeroCoverageSections: [] },
+    };
+    const snapshotUncovered = {
+      ...baseSnapshot,
+      sectionCoverage: { zeroCoverageSections: ["disruptorsOrTech"] },
+    };
+    const sets = [
+      {
+        id: "set-0",
+        tickerId: "ticker-1",
+        generatedAt: makeDate(0),
+        strategySnapshot: snapshotUncovered,
+      },
+      {
+        id: "set-1",
+        tickerId: "ticker-1",
+        generatedAt: makeDate(1000),
+        strategySnapshot: snapshotCovered,
+      },
+      {
+        id: "set-2",
+        tickerId: "ticker-1",
+        generatedAt: makeDate(2000),
+        strategySnapshot: snapshotCovered,
+      },
+    ];
+
+    const provider = createQueryAnalysisInsightsProvider(
+      makeDeps(sets, [], []),
+    );
+    const payload = await provider.compute({ window: "7d" });
+
+    const alert = payload.alerts.find(
+      (alert) => alert.id === "zero-coverage-disruptorsOrTech",
+    );
+    expect(alert).toBeUndefined();
+  });
 });

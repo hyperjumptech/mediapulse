@@ -54,7 +54,7 @@ const GOLDEN_PROMPT_FINGERPRINT_FIXTURE = {
     headlineSamples: [] as [],
     kgNeighborhood: [] as [],
   },
-  fingerprint: "0e5182b717a66aa9",
+  fingerprint: "730d66ed9cd31a1d",
 } as const;
 
 const emptyEnrichedContext = {
@@ -1117,24 +1117,26 @@ describe("buildQueryAnalysisSystemContent — section coverage", () => {
     intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
   };
 
-  it("does not include deals/M&A guidance when sectionCoverageEnabled is false", () => {
+  it("always includes M&A guidance via the deals intent description", () => {
+    // The deals intent is now always present in the intent listing regardless of
+    // sectionCoverageEnabled, so M&A guidance appears unconditionally.
     const result = buildQueryAnalysisSystemContent({
       ...baseStrategy,
       sectionCoverageEnabled: false,
     });
 
-    expect(result).not.toContain("Deals & Movements");
-    expect(result).not.toContain("M&A");
+    expect(result).toContain("M&A");
+    expect(result).toContain("deals:");
   });
 
-  it("injects deals/M&A keyword guidance when sectionCoverageEnabled is true", () => {
+  it("includes the deals intent in the intent listing when sectionCoverageEnabled is true", () => {
     const result = buildQueryAnalysisSystemContent({
       ...baseStrategy,
       sectionCoverageEnabled: true,
     });
 
     expect(result).toContain("M&A");
-    expect(result).toContain("Deals & Movements");
+    expect(result).toContain("deals:");
   });
 });
 

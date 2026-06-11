@@ -25,6 +25,7 @@ import {
 import type { LlmCandidate } from "./merge-query-candidates";
 import {
   appendWildcardRowsToMerged,
+  applySectionCoverageReserve,
   finalizeWildcardCandidates,
   mergeQueryCandidates,
   normalizeQueryKey,
@@ -972,6 +973,31 @@ export const runQueryAnalysis = async (
       wildcardRows,
       queryCount,
     );
+  }
+
+  // Section-coverage reserve: for each dedicated-intent section with zero coverage,
+  // promote the best deterministic candidate of a matching intent, displacing the
+  // lowest-ranked homeless-intent row. Runs after wildcards so the full set is visible.
+  if (sectionCoverageEnabled) {
+    const allDeterministic = distributedStandard.flatMap((languageQuota) => {
+      const sliceTemplatePack = resolveLanguageTemplatePack(
+        languageQuota.language,
+        languageQuota.templatePack,
+        templatePack,
+      );
+      return buildDeterministicQueries(queryContext, {
+        pack: sliceTemplatePack,
+        kgTemplateCap,
+        language: languageQuota.language,
+        ...(yieldFeedback.enabled
+          ? {
+              priorYield: queryContext.priorYield,
+              minTemplateYield: yieldFeedback.minTemplateYield,
+            }
+          : {}),
+      });
+    });
+    merged = applySectionCoverageReserve(merged, allDeterministic, queryCount);
   }
 
   report("Merged and deduped query set", `${merged.length} total queries`);

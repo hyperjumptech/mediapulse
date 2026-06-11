@@ -509,15 +509,15 @@ describe("queryAnalysisConfigSchema languageQuotas", () => {
 });
 
 describe("queryAnalysisConfigSchema — sectionCoverage", () => {
-  it("defaults sectionCoverage.enabled to false", () => {
+  it("defaults sectionCoverage.enabled to true", () => {
     const parsed = queryAnalysisConfigSchema.parse({});
-    expect(parsed.output.sectionCoverage.enabled).toBe(false);
+    expect(parsed.output.sectionCoverage.enabled).toBe(true);
   });
 
-  it("accepts sectionCoverage.enabled: true", () => {
+  it("accepts sectionCoverage.enabled: false override", () => {
     const parsed = queryAnalysisConfigSchema.parse({
-      output: { sectionCoverage: { enabled: true } },
+      output: { sectionCoverage: { enabled: false } },
     });
-    expect(parsed.output.sectionCoverage.enabled).toBe(true);
+    expect(parsed.output.sectionCoverage.enabled).toBe(false);
   });
 });

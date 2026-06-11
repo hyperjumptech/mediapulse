@@ -91,14 +91,14 @@ const outputSchema = z
       .object({
         enabled: z
           .boolean()
-          .default(false)
+          .default(true)
           .describe(
             "When true, reserve at least one query per newsletter section that has a dedicated intent, and inject keyword guidance for sections with no dedicated intent (e.g. Deals & Movements).",
           ),
       })
       .default({})
       .describe(
-        "Optional section-coverage path: ensures every newsletter section has upstream search budget. Off by default.",
+        "Section-coverage path: ensures every newsletter section has upstream search budget.",
       ),
   })
   .default({})

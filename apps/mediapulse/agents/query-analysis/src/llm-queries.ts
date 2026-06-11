@@ -10,7 +10,6 @@ import {
   QUERY_ANALYSIS_STANDARD_INTENTS,
   SECTION_BY_INTENT,
   queryAnalysisIntentSchema,
-  sectionsWithoutDedicatedIntent,
   type GetQueryAnalysisResponse,
   type QueryAnalysisIntent,
   type QueryAnalysisIntentWeights,
@@ -178,17 +177,9 @@ export const buildQueryAnalysisSystemContent = (
       "- technology_trend: digital disruption, AI adoption, tech shifts in the sector",
       "- geopolitical: trade, sanctions, cross-border dynamics affecting the sector",
       "- industry_trend: sector outlook, analyst views on the industry overall",
+      "- deals: M&A, funding rounds, leadership appointments, and notable corporate actions",
     ].join("\n"),
   ];
-
-  if (strategy.sectionCoverageEnabled) {
-    const homelessSections = sectionsWithoutDedicatedIntent();
-    if (homelessSections.includes("dealsAndMovements")) {
-      sections.push(
-        'Section coverage: Reserve 1–2 queries specifically for M&A deals, funding rounds, leadership appointments, and notable corporate actions — these feed the Deals & Movements section of the end product. Tag such queries with intent: "breaking" when time-sensitive or "kg_change" when structural.',
-      );
-    }
-  }
 
   const base = sections.join("\n\n");
   return applyContractBrief(

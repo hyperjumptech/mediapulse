@@ -15,6 +15,7 @@ export const QUERY_ANALYSIS_INTENTS = [
   "technology_trend",
   "geopolitical",
   "industry_trend",
+  "deals",
   "wildcard",
 ] as const;
 
@@ -32,6 +33,7 @@ export const QUERY_ANALYSIS_STANDARD_INTENTS = [
   "technology_trend",
   "geopolitical",
   "industry_trend",
+  "deals",
 ] as const;
 
 export const queryAnalysisIntentSchema = z.enum(QUERY_ANALYSIS_INTENTS);
@@ -56,6 +58,7 @@ export const DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS: Record<
   technology_trend: 0.55,
   geopolitical: 0.5,
   industry_trend: 0.6,
+  deals: 0.65,
   wildcard: 0,
 };
 
