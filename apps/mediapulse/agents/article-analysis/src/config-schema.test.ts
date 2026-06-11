@@ -92,7 +92,7 @@ describe("articleAnalysisConfigSchema", () => {
     expect(config.dynamics.runDeadlineMs).toBeUndefined();
     expect(config.quality.groundingPolicy).toBe("off");
     expect(config.quality.groundingMinTitleHits).toBe(0);
-    expect(config.credentials.openaiModel).toBe("gpt-4o-mini");
+    expect(config.credentials.openaiModel).toBe("{{OPENAI_MODEL}}");
   });
 
   it("preserves Hermes dynamics and batch overrides", () => {
