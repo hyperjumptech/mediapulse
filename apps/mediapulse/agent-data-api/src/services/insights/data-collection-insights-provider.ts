@@ -104,8 +104,6 @@ type ExtendedCounters = {
   droppedByFreshnessReason?: Record<string, number>;
   droppedByDeadUrl?: number;
   droppedByHostErrorRate?: number;
-  droppedByPerQueryBudget?: number;
-  droppedByPerRunBudget?: number;
   droppedByExistingCanonicalUrl?: number;
   droppedByDuplicateCanonicalUrl?: number;
   droppedByUrlNoise?: number;
@@ -276,8 +274,6 @@ export function createDataCollectionInsightsProvider(
       let totalDroppedByFreshness = 0;
       let totalDroppedByDeadUrl = 0;
       let totalDroppedByHostErrorRate = 0;
-      let totalDroppedByPerQueryBudget = 0;
-      let totalDroppedByPerRunBudget = 0;
       let totalDroppedByUrlNoise = 0;
       let totalDroppedByExistingCanonical = 0;
       let totalDroppedByDuplicateCanonical = 0;
@@ -294,8 +290,6 @@ export function createDataCollectionInsightsProvider(
         totalDroppedByFreshness += ext.droppedByFreshness ?? 0;
         totalDroppedByDeadUrl += ext.droppedByDeadUrl ?? 0;
         totalDroppedByHostErrorRate += ext.droppedByHostErrorRate ?? 0;
-        totalDroppedByPerQueryBudget += ext.droppedByPerQueryBudget ?? 0;
-        totalDroppedByPerRunBudget += ext.droppedByPerRunBudget ?? 0;
         totalDroppedByUrlNoise += ext.droppedByUrlNoise ?? 0;
         totalDroppedByExistingCanonical +=
           ext.droppedByExistingCanonicalUrl ?? 0;
@@ -447,8 +441,6 @@ export function createDataCollectionInsightsProvider(
         totalPostFetchDropped +
         totalDroppedByDeadUrl +
         totalDroppedByHostErrorRate +
-        totalDroppedByPerQueryBudget +
-        totalDroppedByPerRunBudget +
         totalDroppedByUrlNoise +
         totalDroppedByExistingCanonical +
         totalDroppedByDuplicateCanonical;
@@ -625,8 +617,6 @@ export function createDataCollectionInsightsProvider(
         ["Freshness", totalDroppedByFreshness],
         ["Dead URL", totalDroppedByDeadUrl],
         ["Host error rate", totalDroppedByHostErrorRate],
-        ["Per-query budget", totalDroppedByPerQueryBudget],
-        ["Per-run budget", totalDroppedByPerRunBudget],
         ["URL noise", totalDroppedByUrlNoise],
         ["Existing canonical", totalDroppedByExistingCanonical],
         ["Duplicate canonical", totalDroppedByDuplicateCanonical],

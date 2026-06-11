@@ -45,8 +45,6 @@ export const dataCollectionRunInputSchema = z.object({
     agentId: z.string().optional(),
     roundsExecuted: z.number().int().nonnegative().optional(),
     stopReason: z.string().optional(),
-    droppedByPerQueryBudget: z.number().int().nonnegative().optional(),
-    droppedByPerRunBudget: z.number().int().nonnegative().optional(),
   }),
 });
 

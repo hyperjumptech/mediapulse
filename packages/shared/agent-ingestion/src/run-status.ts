@@ -42,8 +42,6 @@ export type RunCounters = {
   agentId?: string;
   roundsExecuted?: number;
   stopReason?: string;
-  droppedByPerQueryBudget?: number;
-  droppedByPerRunBudget?: number;
 };
 
 /**
