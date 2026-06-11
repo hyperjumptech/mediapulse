@@ -19,6 +19,20 @@ vi.mock("./window-switcher", () => ({
   ),
 }));
 
+vi.mock("@workspace/ui/components/tooltip", () => ({
+  SimpleTooltip: ({
+    children,
+    content,
+  }: {
+    children: React.ReactNode;
+    content: string;
+  }) => (
+    <div data-testid="simple-tooltip" data-content={content}>
+      {children}
+    </div>
+  ),
+}));
+
 import { InsightsTab } from "./insights-tab";
 
 const createMockPayload = (
@@ -84,6 +98,42 @@ describe("InsightsTab", () => {
     expect(screen.getByText("-5")).toBeInTheDocument();
   });
 
+  it("wraps each KPI card in a SimpleTooltip", () => {
+    const payload = createMockPayload({
+      kpis: [
+        { id: "k1", label: "Requests", value: 1234 },
+        { id: "k2", label: "Latency", value: 42, delta: -5 },
+      ],
+    });
+
+    render(<InsightsTab payload={payload} window="7d" />);
+
+    const tooltips = screen.getAllByTestId("simple-tooltip");
+    const kpiTooltips = tooltips.filter(
+      (element) =>
+        element.getAttribute("data-content")?.includes("Requests") ||
+        element.getAttribute("data-content")?.includes("Latency"),
+    );
+
+    expect(kpiTooltips).toHaveLength(2);
+  });
+
+  it("KPI tooltip includes delta basis text when delta is present", () => {
+    const payload = createMockPayload({
+      kpis: [{ id: "k1", label: "Latency", value: 42, delta: -5 }],
+    });
+
+    render(<InsightsTab payload={payload} window="7d" />);
+
+    const tooltip = screen
+      .getAllByTestId("simple-tooltip")
+      .find((element) =>
+        element.getAttribute("data-content")?.includes("prior period"),
+      );
+
+    expect(tooltip).toBeTruthy();
+  });
+
   it("renders sections grouped by category", () => {
     const payload = createMockPayload({
       sections: [
@@ -119,6 +169,54 @@ describe("InsightsTab", () => {
     const widgetRenderers = screen.getAllByTestId("widget-renderer");
 
     expect(widgetRenderers).toHaveLength(3);
+  });
+
+  it("wraps section title in a SimpleTooltip when insight text is available", () => {
+    const payload = createMockPayload({
+      sections: [
+        {
+          id: "s1",
+          category: "what",
+          title: "Top events",
+          insight: "Events are up this week",
+          widget: { kind: "stat", value: 100 },
+        },
+      ],
+    });
+
+    render(<InsightsTab payload={payload} window="7d" />);
+
+    const tooltip = screen
+      .getAllByTestId("simple-tooltip")
+      .find(
+        (element) =>
+          element.getAttribute("data-content") === "Events are up this week",
+      );
+
+    expect(tooltip).toBeTruthy();
+  });
+
+  it("wraps section title in a SimpleTooltip using category hint when no insight", () => {
+    const payload = createMockPayload({
+      sections: [
+        {
+          id: "s1",
+          category: "when",
+          title: "Peak hours",
+          widget: { kind: "stat", value: 5 },
+        },
+      ],
+    });
+
+    render(<InsightsTab payload={payload} window="7d" />);
+
+    const tooltip = screen
+      .getAllByTestId("simple-tooltip")
+      .find((element) =>
+        element.getAttribute("data-content")?.includes("timing"),
+      );
+
+    expect(tooltip).toBeTruthy();
   });
 
   it("renders window switcher with current window", () => {

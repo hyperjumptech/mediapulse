@@ -47,17 +47,12 @@ vi.mock("../json-pretty", () => ({
 
 vi.mock("./insights/insights-tab", () => ({
   InsightsTab: ({
-    agentId,
     window: insightsWindow,
   }: {
-    agentId: string;
+    payload: unknown;
     window: string;
   }) => (
-    <div
-      data-testid="insights-tab"
-      data-agent-id={agentId}
-      data-window={insightsWindow}
-    >
+    <div data-testid="insights-tab" data-window={insightsWindow}>
       Insights
     </div>
   ),
@@ -94,7 +89,7 @@ describe("AgentDetailsContent", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders General, Input schema, and Config schema tabs", () => {
+  it("renders Schema and Info tabs without insights", () => {
     // Setup
     const agent = createMockAgent();
 
@@ -102,18 +97,88 @@ describe("AgentDetailsContent", () => {
     render(<AgentDetailsContent agent={agent} />);
 
     // Assert
-    expect(screen.getByTestId("tab-trigger-general")).toHaveTextContent(
-      "General",
+    expect(screen.getByTestId("tab-trigger-schema")).toHaveTextContent(
+      "Schema",
     );
-    expect(screen.getByTestId("tab-trigger-input-schema")).toHaveTextContent(
-      "Input schema",
-    );
-    expect(screen.getByTestId("tab-trigger-config-schema")).toHaveTextContent(
-      "Config schema",
-    );
+    expect(screen.getByTestId("tab-trigger-general")).toHaveTextContent("Info");
+    expect(
+      screen.queryByTestId("tab-trigger-input-schema"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("tab-trigger-config-schema"),
+    ).not.toBeInTheDocument();
   });
 
-  it("renders Details section with Agent ID, Version, Description, Active, Created, Last updated in General tab", () => {
+  it("tab order is Insights, Schema, Info when insights present", () => {
+    // Setup
+    const agent = createMockAgent();
+    const payload = {
+      agentId: "test-agent",
+      window: "7d" as const,
+      generatedAt: "2024-06-01T00:00:00.000Z",
+      kpis: [],
+      alerts: [],
+      sections: [],
+    };
+
+    // Act
+    render(
+      <AgentDetailsContent
+        agent={agent}
+        insightsPayload={payload}
+        insightsWindow="7d"
+      />,
+    );
+
+    // Assert tabs present
+    expect(screen.getByTestId("tab-trigger-insights")).toHaveTextContent(
+      "Insights",
+    );
+    expect(screen.getByTestId("tab-trigger-schema")).toHaveTextContent(
+      "Schema",
+    );
+    expect(screen.getByTestId("tab-trigger-general")).toHaveTextContent("Info");
+
+    // Assert order: Insights before Schema before Info
+    const list = screen.getByTestId("tabs-list");
+    const triggers = within(list).getAllByRole("button");
+    const labels = triggers.map((button) => button.textContent);
+
+    expect(labels).toEqual(["Insights", "Schema", "Info"]);
+  });
+
+  it("defaults to Schema tab when no insights", () => {
+    // Setup
+    const agent = createMockAgent();
+
+    // Act
+    render(<AgentDetailsContent agent={agent} />);
+
+    // Assert: Tabs rendered with defaultValue="schema"
+    // The mock Tabs just renders children, so we check via the Tabs mock passing defaultValue
+    // We verify the schema content is present (both JsonPretty blocks in schema tab)
+    const schemaContent = screen.getByTestId("tab-content-schema");
+
+    expect(schemaContent).toBeInTheDocument();
+  });
+
+  it("merged Schema tab contains both input and config schema blocks", () => {
+    // Setup
+    const agent = createMockAgent();
+
+    // Act
+    render(<AgentDetailsContent agent={agent} />);
+
+    // Assert: both JsonPretty rendered in the schema tab
+    const schemaContent = screen.getByTestId("tab-content-schema");
+    const jsonBlocks = within(schemaContent).getAllByTestId("json-pretty");
+
+    expect(jsonBlocks).toHaveLength(2);
+    expect(jsonBlocks[0]).toHaveAttribute("data-title", "Input schema");
+    expect(jsonBlocks[1]).toHaveAttribute("data-title", "Config schema");
+  });
+
+  it("renders Details section with Agent ID, Version, Description, Active, Created, Last updated in Info tab", () => {
     // Setup: use distinct updatedAt so Last updated value is unique in the document
     const agent = {
       ...createMockAgent(),
@@ -144,7 +209,7 @@ describe("AgentDetailsContent", () => {
     expect(details.getByText("mediapulse-local")).toBeInTheDocument();
   });
 
-  it("renders Endpoint section via EndpointDisplay in General tab", () => {
+  it("renders Endpoint section via EndpointDisplay in Info tab", () => {
     // Setup
     const agent = createMockAgent();
 
@@ -153,18 +218,6 @@ describe("AgentDetailsContent", () => {
 
     // Assert
     expect(screen.getByTestId("endpoint-display")).toBeInTheDocument();
-  });
-
-  it("renders JsonPretty for input and config schema in their tabs", () => {
-    // Setup
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentDetailsContent agent={agent} />);
-
-    // Assert
-    const jsonPretties = screen.getAllByTestId("json-pretty");
-    expect(jsonPretties).toHaveLength(2);
   });
 
   it("shows dash for null description", () => {

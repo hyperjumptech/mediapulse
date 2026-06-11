@@ -32,7 +32,7 @@ type AgentDetailsContentProps = {
 };
 
 /**
- * Renders agent details in a tabbed layout: General (details including domain integration id, endpoint), Input schema (pretty JSON), Config schema (pretty JSON), and Insights.
+ * Renders agent details in a tabbed layout: Insights (when available), Schema (input + config), and Info (details).
  */
 export const AgentDetailsContent = ({
   agent,
@@ -40,20 +40,32 @@ export const AgentDetailsContent = ({
   insightsWindow,
 }: AgentDetailsContentProps) => {
   const showInsights = insightsPayload != null;
-  const tabColsClass = showInsights ? "grid-cols-4" : "grid-cols-3";
+  const tabColsClass = showInsights ? "grid-cols-3" : "grid-cols-2";
+  const defaultTab = showInsights ? "insights" : "schema";
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-foreground">
         Agent details: {agent.agentId}@{agent.agentVersion}
       </h1>
-      <Tabs defaultValue="general" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className={`grid w-full ${tabColsClass}`}>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="input-schema">Input schema</TabsTrigger>
-          <TabsTrigger value="config-schema">Config schema</TabsTrigger>
           {showInsights && <TabsTrigger value="insights">Insights</TabsTrigger>}
+          <TabsTrigger value="schema">Schema</TabsTrigger>
+          <TabsTrigger value="general">Info</TabsTrigger>
         </TabsList>
+        {showInsights && (
+          <TabsContent value="insights" className="pt-6">
+            <InsightsTab
+              payload={insightsPayload}
+              window={insightsWindow ?? "7d"}
+            />
+          </TabsContent>
+        )}
+        <TabsContent value="schema" className="space-y-8 pt-6">
+          <JsonPretty value={agent.inputSchema} title="Input schema" />
+          <JsonPretty value={agent.configSchema} title="Config schema" />
+        </TabsContent>
         <TabsContent value="general" className="space-y-8 pt-6">
           <section className="min-h-0">
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
@@ -116,20 +128,6 @@ export const AgentDetailsContent = ({
             </div>
           </section>
         </TabsContent>
-        <TabsContent value="input-schema" className="pt-6">
-          <JsonPretty value={agent.inputSchema} title="Input schema" />
-        </TabsContent>
-        <TabsContent value="config-schema" className="pt-6">
-          <JsonPretty value={agent.configSchema} title="Config schema" />
-        </TabsContent>
-        {showInsights && (
-          <TabsContent value="insights" className="pt-6">
-            <InsightsTab
-              payload={insightsPayload}
-              window={insightsWindow ?? "7d"}
-            />
-          </TabsContent>
-        )}
       </Tabs>
     </div>
   );
