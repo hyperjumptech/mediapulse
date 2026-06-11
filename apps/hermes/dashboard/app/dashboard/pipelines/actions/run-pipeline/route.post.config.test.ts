@@ -2,8 +2,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { HERMES_ENQUEUE_CORRELATION_METADATA_KEY } from "@hermes/scheduler/enqueue-diagnostics-correlation";
+import {
+  DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS,
+  type InvokeAgentJobPayload,
+} from "@hermes/scheduler";
 
 let mockXRequestId: string | null | undefined;
+
+const { addJobsMock, editJobMock } = vi.hoisted(() => ({
+  addJobsMock: vi.fn(),
+  editJobMock: vi.fn(),
+}));
+
+vi.mock("@/lib/hermes-job-queue", () => ({
+  getHermesJobQueue: () => ({
+    addJobs: addJobsMock,
+    editJob: editJobMock,
+  }),
+}));
 
 vi.mock("next/headers", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/headers")>();
@@ -21,6 +37,7 @@ vi.mock("next/headers", async (importOriginal) => {
 import {
   agentHttpBodyToRawString,
   createRunPipelineHandler,
+  defaultEnqueueManualAgentInvocations,
   detailFromAgentErrorBody,
 } from "./route.post.config";
 
@@ -462,5 +479,64 @@ describe("createRunPipelineHandler", () => {
       payload: { manualExecutionId: string };
     }>;
     expect(batch).toHaveLength(FAN_OUT);
+  });
+});
+
+describe("defaultEnqueueManualAgentInvocations", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const makePayload = (
+    overrides: Partial<InvokeAgentJobPayload> = {},
+  ): InvokeAgentJobPayload => ({
+    jobId: "job-1",
+    executionId: "exec-1",
+    manualExecutionId: "manual-exec-1",
+    pipelineId: "pipeline-1",
+    pipelineStepId: "step-1",
+    domainIntegrationId: "di-1",
+    agentId: "data-collection",
+    agentVersion: "1.0.0",
+    endpointUrl: "https://agent.example/invoke",
+    body: { input: {}, config: {} },
+    timeoutMs: 10_800_000,
+    priority: 0,
+    ...overrides,
+  });
+
+  it("caps the DataQueue job timeout so a hung invoke cannot stall the processor batch", async () => {
+    addJobsMock.mockResolvedValue([101]);
+    editJobMock.mockResolvedValue(undefined);
+
+    // Pipeline configured with a 3-hour agent timeout (e.g. the Data Collection Pipeline).
+    const payload = makePayload({ timeoutMs: 10_800_000 });
+
+    await defaultEnqueueManualAgentInvocations([{ payload }]);
+
+    expect(addJobsMock).toHaveBeenCalledTimes(1);
+    const jobDefs = addJobsMock.mock.calls[0]?.[0] as Array<{
+      timeoutMs: number;
+      payload: InvokeAgentJobPayload;
+    }>;
+
+    expect(jobDefs[0]?.timeoutMs).toBe(DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS);
+    // The agent HTTP deadline on the payload is left untouched.
+    expect(jobDefs[0]?.payload.timeoutMs).toBe(10_800_000);
+  });
+
+  it("keeps the configured timeout when it is already below the cap", async () => {
+    addJobsMock.mockResolvedValue([102]);
+    editJobMock.mockResolvedValue(undefined);
+
+    const payload = makePayload({ timeoutMs: 60_000 });
+
+    await defaultEnqueueManualAgentInvocations([{ payload }]);
+
+    const jobDefs = addJobsMock.mock.calls[0]?.[0] as Array<{
+      timeoutMs: number;
+    }>;
+
+    expect(jobDefs[0]?.timeoutMs).toBe(60_000);
   });
 });

@@ -13,6 +13,7 @@ import {
   diagnosticFromCaughtError,
   mergeExecutionConfig,
   planPipelineInvocations,
+  resolveInvokeAgentJobTimeoutMs,
   type EnqueueDiagnosticEntry,
   type EnqueueInvokeAgentItem,
   type ExpandStepInputs,
@@ -171,7 +172,7 @@ export const agentHttpBodyToRawString = (
  *
  * @param items - Planned invocations with optional same-batch `dependsOn` indices.
  */
-const defaultEnqueueManualAgentInvocations = async (
+export const defaultEnqueueManualAgentInvocations = async (
   items: EnqueueInvokeAgentItem[],
 ): Promise<void> => {
   if (items.length === 0) {
@@ -183,7 +184,10 @@ const defaultEnqueueManualAgentInvocations = async (
     payload: item.payload,
     priority: item.payload.priority,
     idempotencyKey: item.payload.jobId,
-    timeoutMs: item.payload.timeoutMs,
+    // Cap the DataQueue job timeout below the agent HTTP deadline (which may be hours) so a hung
+    // invoke frees the processor batch and the supervisor reclaims within minutes, not hours.
+    // Matches the schedule and HTTP-trigger enqueue paths in the worker's job-handlers.
+    timeoutMs: resolveInvokeAgentJobTimeoutMs(item.payload.timeoutMs),
     dependsOn:
       item.dependsOnBatchIndices && item.dependsOnBatchIndices.length > 0
         ? {
