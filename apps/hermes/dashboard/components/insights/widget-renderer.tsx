@@ -93,7 +93,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
       <ChartContainer config={config} className="h-48 w-full">
         <AreaChart
           data={widget.points}
-          margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+          margin={{ top: 10, right: 4, left: 0, bottom: 0 }}
         >
           <defs>
             <linearGradient id="gradValue" x1="0" y1="0" x2="0" y2="1">
@@ -123,6 +123,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
             axisLine={false}
             tick={{ fontSize: 11 }}
             tickMargin={4}
+            width={36}
           />
           <ChartTooltip
             content={<ChartTooltipContent labelFormatter={formatTs} />}
@@ -150,7 +151,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
       <ChartContainer config={config} className="h-48 w-full">
         <BarChart
           data={widget.bars}
-          margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+          margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
         >
           <CartesianGrid vertical={false} className="stroke-border/40" />
           <XAxis
@@ -165,6 +166,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
             axisLine={false}
             tick={{ fontSize: 11 }}
             tickMargin={4}
+            width={36}
           />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar
@@ -186,7 +188,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
       <ChartContainer config={config} className="h-48 w-full">
         <BarChart
           data={widget.buckets}
-          margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+          margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
         >
           <CartesianGrid vertical={false} className="stroke-border/40" />
           <XAxis
@@ -201,6 +203,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
             axisLine={false}
             tick={{ fontSize: 11 }}
             tickMargin={4}
+            width={36}
           />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar
@@ -285,7 +288,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
         <ChartContainer config={config} className="h-40 w-full">
           <BarChart
             data={data}
-            margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+            margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
           >
             <CartesianGrid vertical={false} className="stroke-border/40" />
             <XAxis
@@ -300,6 +303,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
               axisLine={false}
               tick={{ fontSize: 11 }}
               tickMargin={4}
+              width={36}
             />
             <ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
             <Bar dataKey="value" radius={[4, 4, 0, 0]}>

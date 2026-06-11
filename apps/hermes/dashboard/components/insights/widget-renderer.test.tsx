@@ -4,18 +4,30 @@ import { describe, expect, it, vi } from "vitest";
 import { WidgetRenderer } from "./widget-renderer";
 
 vi.mock("recharts", () => ({
-  AreaChart: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="area-chart">{children}</div>
+  AreaChart: ({
+    children,
+    margin,
+  }: React.PropsWithChildren<{ margin?: Record<string, number> }>) => (
+    <div data-testid="area-chart" data-margin={JSON.stringify(margin)}>
+      {children}
+    </div>
   ),
   Area: () => <div data-testid="area" />,
-  BarChart: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="bar-chart">{children}</div>
+  BarChart: ({
+    children,
+    margin,
+  }: React.PropsWithChildren<{ margin?: Record<string, number> }>) => (
+    <div data-testid="bar-chart" data-margin={JSON.stringify(margin)}>
+      {children}
+    </div>
   ),
   Bar: ({ children }: React.PropsWithChildren) => (
     <div data-testid="bar">{children}</div>
   ),
   XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
+  YAxis: ({ width }: { width?: number }) => (
+    <div data-testid="y-axis" data-width={width} />
+  ),
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
   Cell: () => <div data-testid="cell" />,
 }));
@@ -24,7 +36,7 @@ vi.mock("@workspace/ui/components/chart", () => ({
   ChartContainer: ({ children }: React.PropsWithChildren) => (
     <div data-testid="chart-container">{children}</div>
   ),
-  ChartTooltip: () => null,
+  ChartTooltip: () => <div data-testid="chart-tooltip" />,
   ChartTooltipContent: () => null,
 }));
 
@@ -69,6 +81,52 @@ describe("WidgetRenderer", () => {
     expect(screen.getByTestId("area-chart")).toBeInTheDocument();
   });
 
+  it("timeSeries chart has no negative left margin", () => {
+    render(
+      <WidgetRenderer
+        widget={{
+          kind: "timeSeries",
+          points: [{ ts: "2024-01-01", value: 10 }],
+        }}
+      />,
+    );
+
+    const chart = screen.getByTestId("area-chart");
+    const margin = JSON.parse(
+      chart.getAttribute("data-margin") ?? "{}",
+    ) as Record<string, number>;
+
+    expect(margin.left).toBeGreaterThanOrEqual(0);
+  });
+
+  it("timeSeries Y-axis has explicit width to prevent label clipping", () => {
+    render(
+      <WidgetRenderer
+        widget={{
+          kind: "timeSeries",
+          points: [{ ts: "2024-01-01", value: 10 }],
+        }}
+      />,
+    );
+
+    const yAxis = screen.getByTestId("y-axis");
+
+    expect(Number(yAxis.getAttribute("data-width"))).toBeGreaterThan(0);
+  });
+
+  it("timeSeries chart renders a ChartTooltip", () => {
+    render(
+      <WidgetRenderer
+        widget={{
+          kind: "timeSeries",
+          points: [{ ts: "2024-01-01", value: 10 }],
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("chart-tooltip")).toBeInTheDocument();
+  });
+
   it("renders categoryBar widget with a bar chart", () => {
     render(
       <WidgetRenderer
@@ -85,6 +143,37 @@ describe("WidgetRenderer", () => {
     expect(screen.getByTestId("bar-chart")).toBeInTheDocument();
   });
 
+  it("categoryBar chart has no negative left margin", () => {
+    render(
+      <WidgetRenderer
+        widget={{
+          kind: "categoryBar",
+          bars: [{ label: "A", value: 5 }],
+        }}
+      />,
+    );
+
+    const chart = screen.getByTestId("bar-chart");
+    const margin = JSON.parse(
+      chart.getAttribute("data-margin") ?? "{}",
+    ) as Record<string, number>;
+
+    expect(margin.left).toBeGreaterThanOrEqual(0);
+  });
+
+  it("categoryBar chart renders a ChartTooltip", () => {
+    render(
+      <WidgetRenderer
+        widget={{
+          kind: "categoryBar",
+          bars: [{ label: "A", value: 5 }],
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("chart-tooltip")).toBeInTheDocument();
+  });
+
   it("renders histogram widget with a bar chart", () => {
     render(
       <WidgetRenderer
@@ -99,6 +188,19 @@ describe("WidgetRenderer", () => {
     );
 
     expect(screen.getByTestId("bar-chart")).toBeInTheDocument();
+  });
+
+  it("histogram chart renders a ChartTooltip", () => {
+    render(
+      <WidgetRenderer
+        widget={{
+          kind: "histogram",
+          buckets: [{ label: "0-10", count: 3 }],
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("chart-tooltip")).toBeInTheDocument();
   });
 
   it("renders funnel widget with stages and percentages", () => {
@@ -142,6 +244,19 @@ describe("WidgetRenderer", () => {
     expect(screen.getByText("Beta")).toBeInTheDocument();
     expect(screen.getByText("40")).toBeInTheDocument();
     expect(screen.getByText("40%")).toBeInTheDocument();
+  });
+
+  it("breakdown chart renders a ChartTooltip", () => {
+    render(
+      <WidgetRenderer
+        widget={{
+          kind: "breakdown",
+          slices: [{ label: "Alpha", value: 60, fraction: 0.6 }],
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("chart-tooltip")).toBeInTheDocument();
   });
 
   it("renders table widget with columns and rows", () => {
