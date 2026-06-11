@@ -379,10 +379,21 @@ export function createDataCollectionInsightsProvider(
         }
         for (const [stage, count] of stageFailCounts) {
           if (count > 5) {
+            const stageFailures = failures.filter((f) => f.stage === stage);
+            const catCounts = new Map<string, number>();
+            for (const f of stageFailures) {
+              catCounts.set(
+                f.errorCategory,
+                (catCounts.get(f.errorCategory) ?? 0) + 1,
+              );
+            }
+            const dominantCategory =
+              [...catCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+              "unknown";
             alerts.push({
               id: `stage-failure-${stage}`,
               severity: "warning",
-              message: `${count} failures at stage "${stage}" in the window`,
+              message: `${count} ${stage} failures in the window — most are "${dominantCategory}" errors.`,
               sectionRef: "why-failure-category",
             });
           }
@@ -406,10 +417,23 @@ export function createDataCollectionInsightsProvider(
         totalDroppedByExistingCanonical +
         totalDroppedByDuplicateCanonical;
       if (totalFetched > 10 && totalPostFetchDropped / totalFetched > 0.6) {
+        const dropPercent = Math.round(
+          (totalPostFetchDropped / totalFetched) * 100,
+        );
+        const contentQualitySum = Object.values(
+          totalDroppedByContentQuality,
+        ).reduce((s, v) => s + v, 0);
+        const dominantReason =
+          totalDroppedByRelevance >= totalDroppedByFreshness &&
+          totalDroppedByRelevance >= contentQualitySum
+            ? "relevance"
+            : totalDroppedByFreshness >= contentQualitySum
+              ? "freshness"
+              : "content quality";
         alerts.push({
           id: "high-drop-rate",
           severity: "warning",
-          message: `More than 60% of fetched results are being dropped`,
+          message: `${dropPercent}% of fetched articles were dropped before saving. The ${dominantReason} gate accounts for most of the loss.`,
           sectionRef: "why-drop-reasons",
         });
       }
@@ -448,7 +472,7 @@ export function createDataCollectionInsightsProvider(
         id: "what-funnel",
         category: "what",
         title: "Collection funnel",
-        insight: "Articles from web search hits through to persistence.",
+        insight: `${totalQueries} search queries ran across ${totalRuns} run${totalRuns === 1 ? "" : "s"}; ${totalFetched} articles were fetched and ${totalPersisted} were saved.`,
         widget: {
           kind: "funnel",
           stages: [
@@ -495,10 +519,18 @@ export function createDataCollectionInsightsProvider(
         );
       }
       if (publisherCounts.size > 0) {
+        const topPublishers = Array.from(publisherCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([label]) => label);
         sections.push({
           id: "where-publishers",
           category: "where",
           title: "Articles by publisher",
+          insight:
+            topPublishers.length > 0
+              ? `Top sources: ${topPublishers.join(", ")}.`
+              : undefined,
           widget: {
             kind: "categoryBar",
             bars: bucketTopN(
@@ -523,10 +555,18 @@ export function createDataCollectionInsightsProvider(
         );
       }
       if (tickerArticleCounts.size > 0) {
+        const topTickers = Array.from(tickerArticleCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([symbol]) => symbol);
         sections.push({
           id: "who-per-ticker",
           category: "who",
           title: "Articles by ticker",
+          insight:
+            topTickers.length > 0
+              ? `Top tickers: ${topTickers.join(", ")}.`
+              : undefined,
           widget: {
             kind: "categoryBar",
             bars: bucketTopN(
