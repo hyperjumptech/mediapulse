@@ -245,18 +245,6 @@ const collectionSchema = z
       .describe(
         "Additional search-and-fetch rounds after the initial round when the daily target is not yet met.",
       ),
-    perQueryFetchBudget: z
-      .number()
-      .int()
-      .positive()
-      .default(5)
-      .describe("Maximum URLs fetched per search query after ranking."),
-    perRunFetchBudget: z
-      .number()
-      .int()
-      .positive()
-      .default(40)
-      .describe("Maximum URLs fetched across all queries in one round."),
   })
   .default({})
   .describe("Collection volume and refill behavior.");

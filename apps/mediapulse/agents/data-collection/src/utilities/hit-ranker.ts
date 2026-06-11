@@ -57,18 +57,6 @@ export type RankSearchHitsOptions = {
   hostCounts: Record<string, number>;
 };
 
-export type ApplyFetchBudgetOptions = RankSearchHitsOptions & {
-  perQueryFetchBudget: number;
-  perRunFetchBudget: number;
-};
-
-export type ApplyFetchBudgetResult = {
-  hits: RankedHit[];
-  droppedByPerQueryBudget: number;
-  droppedByPerRunBudget: number;
-  skippedByQuery: Record<string, number>;
-};
-
 /**
  * Counts distinct ticker alias matches inside a title and snippet.
  *
@@ -132,46 +120,3 @@ export const rankSearchHits = (
       score: computeHitScore(hit, options),
     }))
     .sort((left, right) => right.score - left.score);
-
-/**
- * Applies per-query and per-run fetch budgets to ranked search hits.
- *
- * @param hits - Candidate hits grouped across queries.
- * @param options - Ranking inputs and budget caps.
- * @returns Selected hits plus intentional skip counters.
- */
-export const applyFetchBudget = (
-  hits: readonly WebSearchResult[],
-  options: ApplyFetchBudgetOptions,
-): ApplyFetchBudgetResult => {
-  const hitsByQuery = new Map<string, WebSearchResult[]>();
-  for (const hit of hits) {
-    const group = hitsByQuery.get(hit.searchQueryId) ?? [];
-    group.push(hit);
-    hitsByQuery.set(hit.searchQueryId, group);
-  }
-
-  const perQuerySelected: RankedHit[] = [];
-  const skippedByQuery: Record<string, number> = {};
-  let droppedByPerQueryBudget = 0;
-
-  for (const [queryId, queryHits] of hitsByQuery) {
-    const ranked = rankSearchHits(queryHits, options);
-    const kept = ranked.slice(0, options.perQueryFetchBudget);
-    const skipped = queryHits.length - kept.length;
-    skippedByQuery[queryId] = skipped;
-    droppedByPerQueryBudget += skipped;
-    perQuerySelected.push(...kept);
-  }
-
-  perQuerySelected.sort((left, right) => right.score - left.score);
-  const selected = perQuerySelected.slice(0, options.perRunFetchBudget);
-  const droppedByPerRunBudget = perQuerySelected.length - selected.length;
-
-  return {
-    hits: selected,
-    droppedByPerQueryBudget,
-    droppedByPerRunBudget,
-    skippedByQuery,
-  };
-};

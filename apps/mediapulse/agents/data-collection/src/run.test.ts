@@ -63,8 +63,6 @@ const baseConfig = dataCollectionAgentConfigSchema.parse({
   collection: {
     targetDailySuccessfulSources: 1,
     maxRefillRounds: 3,
-    perQueryFetchBudget: 3,
-    perRunFetchBudget: 40,
   },
   runPolicy: {
     minSuccessfulSources: 1,
@@ -397,10 +395,6 @@ describe("runDataCollection", () => {
     const result = await runDataCollection(
       createContext({
         config: withTestConfig({
-          collection: {
-            perQueryFetchBudget: 20,
-            perRunFetchBudget: 100,
-          },
           runPolicy: {
             minSuccessfulSources: 0,
             failOnZeroSuccess: false,
@@ -1090,11 +1084,11 @@ describe("runDataCollection", () => {
     ).toBe("max_rounds_reached");
   });
 
-  it("applies per-query and per-run fetch budgets before issuing fetches", async () => {
-    // Setup
+  it("fetches all hygiene-surviving candidates without a per-query cap", async () => {
+    // Setup: 4 queries × 3 hits each = 12 total candidates
     const queryIds = ["sq-1", "sq-2", "sq-3", "sq-4"];
     const searchHits = queryIds.flatMap((searchQueryId, queryIndex) =>
-      Array.from({ length: 8 }, (_, hitIndex) => ({
+      Array.from({ length: 3 }, (_, hitIndex) => ({
         success: true as const,
         data: {
           url: `https://example.com/q${queryIndex}-h${hitIndex}`,
@@ -1122,26 +1116,14 @@ describe("runDataCollection", () => {
     await runDataCollection(
       createContext({
         config: withTestConfig({
-          collection: {
-            perQueryFetchBudget: 2,
-            perRunFetchBudget: 6,
-          },
           runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
         }),
       }),
     );
 
-    // Assert
+    // Assert: all 12 hygiene-surviving candidates are passed to fetch with no budget cap
     expect(performWebFetch).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(performWebFetch).mock.calls[0]?.[0]).toHaveLength(6);
-    expect(mockRunLog.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        selectedForFetch: 6,
-        droppedByPerQueryBudget: 24,
-        droppedByPerRunBudget: 2,
-      }),
-      "applied pre-fetch ranking and fetch budgets",
-    );
+    expect(vi.mocked(performWebFetch).mock.calls[0]?.[0]).toHaveLength(12);
   });
 });
 

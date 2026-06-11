@@ -3,11 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WebSearchResult } from "./web-search";
-import {
-  applyFetchBudget,
-  rankSearchHits,
-  snippetMatchScore,
-} from "./hit-ranker";
+import { rankSearchHits, snippetMatchScore } from "./hit-ranker";
 
 const aliases = ["bbca", "bank central asia"];
 
@@ -83,64 +79,5 @@ describe("rankSearchHits", () => {
 
     // Assert
     expect(ranked[0]?.url).toBe("https://www.marketwatch.com/fresh");
-  });
-});
-
-describe("applyFetchBudget", () => {
-  it("keeps three hits per query across two queries", () => {
-    // Setup
-    const hits = [
-      ...Array.from({ length: 5 }, (_, index) =>
-        makeHit({
-          url: `https://example.com/a-${index}`,
-          searchQueryId: "sq-1",
-          serpIndex: index,
-        }),
-      ),
-      ...Array.from({ length: 5 }, (_, index) =>
-        makeHit({
-          url: `https://example.com/b-${index}`,
-          searchQueryId: "sq-2",
-          serpIndex: index,
-        }),
-      ),
-    ];
-
-    // Act
-    const result = applyFetchBudget(hits, {
-      tickerAliases: aliases,
-      hostCounts: {},
-      perQueryFetchBudget: 3,
-      perRunFetchBudget: 40,
-    });
-
-    // Assert
-    expect(result.hits).toHaveLength(6);
-    expect(result.droppedByPerQueryBudget).toBe(4);
-    expect(result.droppedByPerRunBudget).toBe(0);
-  });
-
-  it("caps the round at the per-run fetch budget", () => {
-    // Setup
-    const hits = Array.from({ length: 8 }, (_, index) =>
-      makeHit({
-        url: `https://example.com/${index}`,
-        searchQueryId: `sq-${index % 4}`,
-        serpIndex: index,
-      }),
-    );
-
-    // Act
-    const result = applyFetchBudget(hits, {
-      tickerAliases: aliases,
-      hostCounts: {},
-      perQueryFetchBudget: 2,
-      perRunFetchBudget: 6,
-    });
-
-    // Assert
-    expect(result.hits).toHaveLength(6);
-    expect(result.droppedByPerQueryBudget).toBe(0);
-    expect(result.droppedByPerRunBudget).toBe(2);
   });
 });
