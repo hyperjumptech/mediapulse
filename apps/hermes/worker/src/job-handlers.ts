@@ -16,11 +16,13 @@ import { createAgentTokenClient } from "@workspace/agent-auth-client";
 import { DEFAULT_TAKE, MAX_TAKE } from "@hermes/step-input-syntax";
 import {
   applyInvocationCompletion,
+  DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS,
   executeSchedule,
   getDueSchedules,
   invokeAgentPost,
   parseAgentResponseEnvelope,
   parseHttpErrorBodyMessage,
+  resolveInvokeAgentJobTimeoutMs,
   willRetryAfterTransientFailure,
   type ExpandStepInputs,
   type InvokeAgentHttpClient,
@@ -31,8 +33,9 @@ import { executeHttpTrigger } from "./execute-http-trigger";
 import { cleanupOrphanedExecutions } from "./cleanup-orphaned-executions";
 import { reconcileOrphanedPendingExecutions } from "./reconcile-orphaned-pending";
 
-/** Default cap for DataQueue `invoke_agent` job timeout (abort + supervisor reclaim). */
-export const DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS = 1_800_000;
+// Re-exported from `@hermes/scheduler` so the cap lives in one place shared by every
+// `invoke_agent` enqueue path (worker schedule/HTTP trigger + dashboard manual run).
+export { DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS, resolveInvokeAgentJobTimeoutMs };
 
 type ResolvedDataQueueJob = {
   id: number;
@@ -65,20 +68,6 @@ export const resolveDataQueueJob = async (
   );
   return result.rows[0] ?? null;
 };
-
-/**
- * Caps DataQueue job-level timeout so a hung agent invoke cannot block the processor batch
- * for the full agent HTTP deadline (which may be hours).
- *
- * @param agentTimeoutMs - Agent HTTP timeout from pipeline/schedule config.
- * @param capMs - Optional override cap in milliseconds.
- * @returns Min of agent timeout and cap.
- */
-export const resolveInvokeAgentJobTimeoutMs = (
-  agentTimeoutMs: number,
-  capMs?: number,
-): number =>
-  Math.min(agentTimeoutMs, capMs ?? DEFAULT_INVOKE_AGENT_JOB_TIMEOUT_MS);
 
 /**
  * Parses optional positive integer env strings (DataQueue retry delay fields are in seconds).
