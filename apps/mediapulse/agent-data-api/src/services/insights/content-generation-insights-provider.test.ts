@@ -329,7 +329,10 @@ describe("createContentGenerationInsightsProvider", () => {
 
   it("falls back to tickerId when newsletter ticker symbol is missing", async () => {
     const newsletter = makeNewsletter({ tickerId: "orphan-id" });
-    const newsletterWithNoSymbol = { ...newsletter, ticker: { symbol: undefined as unknown as string } };
+    const newsletterWithNoSymbol = {
+      ...newsletter,
+      ticker: { symbol: undefined as unknown as string },
+    };
 
     const provider = createContentGenerationInsightsProvider(
       makeDeps({ newsletters: [newsletterWithNoSymbol] }),

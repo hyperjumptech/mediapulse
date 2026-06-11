@@ -299,7 +299,10 @@ describe("createDeliveryInsightsProvider", () => {
 
   it("falls back to tickerId when ticker symbol is missing", async () => {
     const run = makeRun({ tickerId: "orphan-id" });
-    const runWithNoSymbol = { ...run, ticker: { symbol: undefined as unknown as string } };
+    const runWithNoSymbol = {
+      ...run,
+      ticker: { symbol: undefined as unknown as string },
+    };
 
     const provider = createDeliveryInsightsProvider(
       makeDeps({ runs: [runWithNoSymbol] }),

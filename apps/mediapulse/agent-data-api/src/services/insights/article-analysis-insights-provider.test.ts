@@ -203,7 +203,10 @@ describe("createArticleAnalysisInsightsProvider", () => {
   it("falls back to tickerId when ticker symbol is missing", async () => {
     const row = makeRelevance({ tickerId: "orphan-id", symbol: undefined });
     // Simulate missing symbol by overriding ticker
-    const rowWithNoSymbol = { ...row, ticker: { symbol: undefined as unknown as string } };
+    const rowWithNoSymbol = {
+      ...row,
+      ticker: { symbol: undefined as unknown as string },
+    };
     const provider = createArticleAnalysisInsightsProvider(
       makeDeps([rowWithNoSymbol], []),
     );
@@ -216,7 +219,11 @@ describe("createArticleAnalysisInsightsProvider", () => {
 
   it("caps per-ticker bars to TOP_N + Other", async () => {
     const rows = Array.from({ length: 15 }, (_, i) =>
-      makeRelevance({ dataSourceId: `ds-${i}`, tickerId: `ticker-${i}`, symbol: `SYM${i}` }),
+      makeRelevance({
+        dataSourceId: `ds-${i}`,
+        tickerId: `ticker-${i}`,
+        symbol: `SYM${i}`,
+      }),
     );
     const provider = createArticleAnalysisInsightsProvider(makeDeps(rows, []));
     const payload = await provider.compute({ window: "7d" });
