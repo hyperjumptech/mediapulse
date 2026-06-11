@@ -155,7 +155,7 @@ const clusterBSignals = (): PerSourceRelevanceSignals[] => [
 ];
 
 describe("applyRelevanceSelectionDiversified", () => {
-  it("picks cluster representatives first then fills budget by score", () => {
+  it("picks one cluster representative per cluster regardless of remaining budget", () => {
     const rows = [
       {
         dataSourceId: "a-high",
@@ -202,6 +202,8 @@ describe("applyRelevanceSelectionDiversified", () => {
 
     expect(result.stats.clustersFormed).toBe(2);
     expect(result.stats.largestClusterSize).toBe(3);
+    // Only the highest-scored representative per cluster is selected; near-duplicate
+    // cluster mates are suppressed even when budget would allow them.
     expect(
       result.rows.find((row) => row.dataSourceId === "a-high")?.selected,
     ).toBe(true);
@@ -210,14 +212,14 @@ describe("applyRelevanceSelectionDiversified", () => {
     ).toBe(true);
     expect(
       result.rows.find((row) => row.dataSourceId === "a-mid")?.selected,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       result.rows.find((row) => row.dataSourceId === "a-low")?.selected,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       result.rows.find((row) => row.dataSourceId === "b-low")?.selected,
     ).toBe(false);
-    expect(result.stats.selectedAfterDiversification).toBe(4);
+    expect(result.stats.selectedAfterDiversification).toBe(2);
   });
 
   it("counts suppressed duplicates when budget forces cross-cluster picks", () => {

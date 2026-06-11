@@ -177,6 +177,7 @@ describe("agent-data-api", () => {
           {
             id: "ds-1",
             url: "https://example.com",
+            canonicalUrl: "https://example.com",
             title: "Example",
             content: "Content",
             metadata: null,
@@ -768,12 +769,14 @@ describe("agent-data-api", () => {
         data: [
           {
             url: "https://example.com",
+            canonicalUrl: "https://example.com",
             title: "Example",
             content: "Content",
             tickerId: TICKER_ID,
             searchQueryId: SEARCH_QUERY_ID,
           },
         ],
+        skipDuplicates: true,
       });
     });
   });

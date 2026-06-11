@@ -27,6 +27,7 @@ describe("mapRowToListItem", () => {
     const row = {
       id: "ds-1",
       url: "https://example.com/a",
+      canonicalUrl: "https://example.com/a",
       title: "Article",
       content,
       metadata: null,
@@ -59,6 +60,7 @@ describe("mapRowToDetailItem", () => {
     const row = {
       id: "ds-2",
       url: "https://example.com/b",
+      canonicalUrl: "https://example.com/b",
       title: "Full",
       content: "body text",
       metadata: { key: "v" },

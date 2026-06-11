@@ -5,6 +5,7 @@ import {
   dataCollectionQuerySchema,
 } from "@workspace/agent-data-api-contract";
 import { internalError } from "@workspace/api-utils";
+import { canonicalizeUrl } from "@workspace/utils";
 import { prisma } from "@mediapulse/database";
 
 import { aggregateSearchQueryYieldForTicker } from "../services/search-query-yield.js";
@@ -39,10 +40,22 @@ export async function postDataCollection(context: Context): Promise<Response> {
     const body = await context.req.json();
     const data = await dataCollectionBodySchema.parseAsync(body);
     await prisma.dataSource.createMany({
-      data: data.map((row) => ({
-        ...row,
-        ...(row.publishedAt ? { publishedAt: new Date(row.publishedAt) } : {}),
-      })),
+      data: data.map((row) => {
+        let canonicalUrl: string;
+        try {
+          canonicalUrl = canonicalizeUrl(row.url);
+        } catch {
+          canonicalUrl = row.url;
+        }
+        return {
+          ...row,
+          canonicalUrl,
+          ...(row.publishedAt
+            ? { publishedAt: new Date(row.publishedAt) }
+            : {}),
+        };
+      }),
+      skipDuplicates: true,
     });
 
     const tickerIds = [...new Set(data.map((row) => row.tickerId))];

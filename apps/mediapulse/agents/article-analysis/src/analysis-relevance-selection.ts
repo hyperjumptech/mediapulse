@@ -224,10 +224,21 @@ export const applyRelevanceSelectionDiversified = (
     if (rows[index]!.score < minScore || slots <= 0) {
       continue;
     }
-    if (!selectedIndices.has(index)) {
-      selectedIndices.add(index);
-      slots -= 1;
+    if (selectedIndices.has(index)) {
+      continue;
     }
+    const clusterId = clusterIdByRowIndex.get(index);
+    if (
+      clusterId !== undefined &&
+      clusterHasRepresentativePick.has(clusterId)
+    ) {
+      continue;
+    }
+    selectedIndices.add(index);
+    if (clusterId !== undefined) {
+      clusterHasRepresentativePick.add(clusterId);
+    }
+    slots -= 1;
   }
 
   const classicRows = applyRelevanceSelection(
