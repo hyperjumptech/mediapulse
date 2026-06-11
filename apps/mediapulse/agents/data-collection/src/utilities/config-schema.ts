@@ -272,7 +272,7 @@ const relevanceGateSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(3000)
+    .default(6000)
     .describe(
       "Number of leading content characters scanned for alias matches.",
     ),

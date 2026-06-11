@@ -95,10 +95,13 @@ type ExtendedCounters = {
   agentId?: string;
   discovered?: number;
   afterPrefilter?: number;
+  fetched?: number;
   persisted?: number;
+  searchEmpty?: number;
   droppedByRelevance?: number;
   droppedByContentQuality?: Record<string, number>;
   droppedByFreshness?: number;
+  droppedByFreshnessReason?: Record<string, number>;
   droppedByDeadUrl?: number;
   droppedByHostErrorRate?: number;
   droppedByPerQueryBudget?: number;
@@ -267,6 +270,7 @@ export function createDataCollectionInsightsProvider(
 
       let totalDiscovered = 0;
       let totalAfterPrefilter = 0;
+      let totalFetched = 0;
       let totalPersisted = 0;
       let totalDroppedByRelevance = 0;
       let totalDroppedByFreshness = 0;
@@ -284,6 +288,7 @@ export function createDataCollectionInsightsProvider(
         const ext = parseExtendedCounters(run.extendedCounters);
         totalDiscovered += ext.discovered ?? run.searchSuccess;
         totalAfterPrefilter += ext.afterPrefilter ?? run.searchSuccess;
+        totalFetched += ext.fetched ?? ext.persisted ?? run.fetchSuccess;
         totalPersisted += ext.persisted ?? run.fetchSuccess;
         totalDroppedByRelevance += ext.droppedByRelevance ?? 0;
         totalDroppedByFreshness += ext.droppedByFreshness ?? 0;
@@ -384,24 +389,23 @@ export function createDataCollectionInsightsProvider(
         }
       }
 
-      const totalDropped =
+      const totalPostFetchDropped =
         totalDroppedByRelevance +
         totalDroppedByFreshness +
+        Object.values(totalDroppedByContentQuality).reduce(
+          (sum, v) => sum + v,
+          0,
+        );
+      const totalDropped =
+        totalPostFetchDropped +
         totalDroppedByDeadUrl +
         totalDroppedByHostErrorRate +
         totalDroppedByPerQueryBudget +
         totalDroppedByPerRunBudget +
         totalDroppedByUrlNoise +
         totalDroppedByExistingCanonical +
-        totalDroppedByDuplicateCanonical +
-        Object.values(totalDroppedByContentQuality).reduce(
-          (sum, v) => sum + v,
-          0,
-        );
-      if (
-        totalAfterPrefilter > 10 &&
-        totalDropped / totalAfterPrefilter > 0.6
-      ) {
+        totalDroppedByDuplicateCanonical;
+      if (totalFetched > 10 && totalPostFetchDropped / totalFetched > 0.6) {
         alerts.push({
           id: "high-drop-rate",
           severity: "warning",
@@ -450,7 +454,7 @@ export function createDataCollectionInsightsProvider(
           stages: [
             { label: "Queries", value: totalQueries },
             { label: "Search hits", value: totalDiscovered },
-            { label: "Fetched", value: totalArticles },
+            { label: "Fetched", value: totalFetched },
             { label: "Persisted", value: totalPersisted },
           ],
         },

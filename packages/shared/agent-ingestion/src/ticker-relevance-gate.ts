@@ -17,7 +17,7 @@ export type RelevanceGateOptions = {
   minMatches?: number;
 };
 
-const DEFAULT_HEAD_CHARS = 1500;
+const DEFAULT_HEAD_CHARS = 6000;
 const DEFAULT_MIN_MATCHES = 1;
 
 /**
