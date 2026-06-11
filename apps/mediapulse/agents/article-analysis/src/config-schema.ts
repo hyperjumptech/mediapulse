@@ -33,17 +33,8 @@ export const articleAnalysisConfigSchema = z
      * Leave unset for non-reasoning models like gpt-4o-mini.
      */
     reasoningEffort: reasoningEffortSchema.optional(),
-    /** Max output tokens for `generateObject`. */
-    maxOutputTokens: z.number().int().positive().optional(),
-    /**
-     * Max output tokens for the extraction pass only. Covers reasoning tokens + JSON for reasoning
-     * models. Falls back to `maxOutputTokens` when unset.
-     */
-    extractionMaxOutputTokens: z.number().int().positive().optional(),
     /**
      * Reasoning effort for the extraction pass only. Falls back to `reasoningEffort` when unset.
-     * Tune together with `extractionMaxOutputTokens` — lowering effort saves budget but reduces
-     * extraction quality when brainstorm is disabled.
      */
     extractionReasoningEffort: reasoningEffortSchema.optional(),
     /** Truncate article text in the LLM user message (full text remains in DB). */
@@ -71,8 +62,6 @@ export const articleAnalysisConfigSchema = z
     brainstormModel: z.string().min(1).optional(),
     /** Overrides `reasoningEffort` for the brainstorm pass. */
     brainstormReasoningEffort: reasoningEffortSchema.optional(),
-    /** Max output tokens for the brainstorm `generateText` call. */
-    brainstormMaxOutputTokens: z.number().int().positive().optional(),
     /** Max concurrent per-source extractions (1 = sequential; opt-in parallelism). */
     extractionConcurrency: z.number().int().min(1).max(16).optional(),
     /** Wall-clock budget in ms from run start; skips undispatched sources and late brainstorm/critique. */
@@ -216,7 +205,6 @@ export type ArticleAnalysisConfig = z.infer<typeof articleAnalysisConfigSchema>;
 /** Config with optional fields filled from {@link articleAnalysisConfigDefaults}. */
 export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   openaiModel: string;
-  maxOutputTokens: number;
   maxContentChars: number;
   useStructureAwareTruncation: boolean;
   truncationLeadParagraphsAlwaysKept: number;
@@ -225,9 +213,6 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
   fewShotExemplarArchetypes?: ExtractionExemplarArchetype[];
   useBrainstormPass: boolean;
   brainstormModel: string;
-  brainstormMaxOutputTokens: number;
-  /** Max output tokens for the extraction pass (falls back to `maxOutputTokens`). */
-  extractionMaxOutputTokens: number;
   /** Resolved reasoning effort for the extraction pass (falls back to `reasoningEffort`). */
   extractionReasoningEffort?: import("@workspace/agent-runtime").OpenAiReasoningEffort;
   /** Resolved reasoning effort for the brainstorm pass. */
@@ -290,14 +275,12 @@ export type ResolvedArticleAnalysisConfig = ArticleAnalysisConfig & {
 /** Production-oriented defaults merged onto parsed Hermes config. */
 export const articleAnalysisConfigDefaults = {
   openaiModel: "gpt-4o-mini",
-  maxOutputTokens: 24576,
   maxContentChars: 12_000,
   useStructureAwareTruncation: false,
   truncationLeadParagraphsAlwaysKept: 2,
   truncationFinancialKeywordsExtra: [],
   fewShotExemplarCount: 0,
   useBrainstormPass: false,
-  brainstormMaxOutputTokens: 800,
   extractionConcurrency: 1,
   useRelationSelfCritique: false,
   relationCritiqueDropFraction: 0.25,
@@ -362,12 +345,6 @@ export const resolveArticleAnalysisConfig = (
   return {
     ...config,
     openaiModel,
-    maxOutputTokens:
-      config.maxOutputTokens ?? articleAnalysisConfigDefaults.maxOutputTokens,
-    extractionMaxOutputTokens:
-      config.extractionMaxOutputTokens ??
-      config.maxOutputTokens ??
-      articleAnalysisConfigDefaults.maxOutputTokens,
     maxContentChars:
       config.maxContentChars ?? articleAnalysisConfigDefaults.maxContentChars,
     useStructureAwareTruncation:
@@ -390,9 +367,6 @@ export const resolveArticleAnalysisConfig = (
       config.useBrainstormPass ??
       articleAnalysisConfigDefaults.useBrainstormPass,
     brainstormModel: config.brainstormModel ?? openaiModel,
-    brainstormMaxOutputTokens:
-      config.brainstormMaxOutputTokens ??
-      articleAnalysisConfigDefaults.brainstormMaxOutputTokens,
     extractionConcurrency:
       config.extractionConcurrency ??
       articleAnalysisConfigDefaults.extractionConcurrency,

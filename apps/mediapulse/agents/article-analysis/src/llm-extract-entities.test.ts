@@ -203,7 +203,6 @@ describe("extractEntitiesAndRelationsForSource", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 100,
         messages: [
           { role: "system", content: "system prompt" },
           { role: "user", content: "real user prompt" },
@@ -242,7 +241,6 @@ describe("extractEntitiesAndRelationsForSource", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 100,
         messages,
       },
       { generateObjectForExtraction },
@@ -276,7 +274,6 @@ describe("extractEntitiesAndRelationsForSource", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 100,
         messages,
         brainstormText,
       },
@@ -359,7 +356,6 @@ describe("fetchArticleBrainstorm", () => {
       {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
-        maxOutputTokens: 800,
         messages: [{ role: "user", content: "article" }],
       },
       { generateTextForBrainstorm },
@@ -538,7 +534,6 @@ describe("repairExtractionVocabulary", () => {
       {
         apiKey: "sk-test",
         model: "gpt-test",
-        maxOutputTokens: 512,
         ctx: {
           entityTypes: [{ id: TID, name: "Company", description: null }],
           relationTypes: [{ id: RID, name: "PART_OF", description: null }],
@@ -594,7 +589,6 @@ describe("vocabulary repair with partition (repair policy flow)", () => {
       {
         apiKey: "sk-test",
         model: "gpt-test",
-        maxOutputTokens: 512,
         ctx,
         badEntities: partitioned.badEntities,
         badRelations: partitioned.badRelations,
@@ -653,7 +647,6 @@ describe("vocabulary repair with partition (repair policy flow)", () => {
         {
           apiKey: "sk-test",
           model: "gpt-test",
-          maxOutputTokens: 512,
           ctx,
           badEntities: partitioned.badEntities,
           badRelations: partitioned.badRelations,

@@ -3037,7 +3037,7 @@ describe("run", () => {
     ).toBe(0);
   });
 
-  it("recovers from length-truncation via budget escalation and reports recoveredByRetry", async () => {
+  it("recovers from length-truncation on retry and reports recoveredByRetry", async () => {
     // Setup
     const { NoObjectGeneratedError } = await import("ai");
     const lengthTruncationError = new NoObjectGeneratedError({
@@ -3083,11 +3083,11 @@ describe("run", () => {
         lastRelevanceScoredAtIso: null,
       }),
     );
-    const capturedMaxOutputTokens: number[] = [];
+    let extractionCallCount = 0;
     vi.spyOn(Llm, "extractEntitiesAndRelationsForSource").mockImplementation(
-      async (params) => {
-        capturedMaxOutputTokens.push(params.maxOutputTokens);
-        if (capturedMaxOutputTokens.length === 1) {
+      async () => {
+        extractionCallCount++;
+        if (extractionCallCount === 1) {
           throw lengthTruncationError;
         }
 
@@ -3107,7 +3107,6 @@ describe("run", () => {
       runContext({
         input: { tickerId: "ticker-1" },
         config: {
-          extractionMaxOutputTokens: 8192,
           extractionTransientRetries: 2,
           extractionTransientRetryBaseDelayMs: 1,
           extractionTransientRetryMaxDelayMs: 1,
@@ -3118,10 +3117,7 @@ describe("run", () => {
     // Assert
     expect(result.success).toBe(true);
     expect(result.details?.extractionFailures).toHaveLength(0);
-    expect(capturedMaxOutputTokens).toHaveLength(2);
-    expect(capturedMaxOutputTokens[1]).toBeGreaterThan(
-      capturedMaxOutputTokens[0]!,
-    );
+    expect(extractionCallCount).toBe(2);
 
     const summaryCall = mockLog.info.mock.calls.find(
       (call) =>

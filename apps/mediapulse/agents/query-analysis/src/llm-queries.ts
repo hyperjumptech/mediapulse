@@ -21,9 +21,6 @@ import type { LlmCandidate } from "./merge-query-candidates";
 import { normalizeQueryKey } from "./merge-query-candidates";
 import { resolveEntityDisplayName } from "./i18n/entity-aliases";
 
-/** Fixed LLM output token budget for all query-analysis structured calls. */
-export const QUERY_ANALYSIS_MAX_OUTPUT_TOKENS = 800;
-
 /** Zod schema for structured LLM output (validated by AI SDK). */
 export const llmQueriesOutputSchema = z.object({
   queries: z.array(
@@ -340,21 +337,18 @@ export const buildStructuredQueryMessages = (options: {
 export type GenerateObjectForWildcards = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmWildcardOutputSchema;
-  maxOutputTokens: number;
   messages: ModelMessage[];
 }) => Promise<{ object: z.infer<typeof llmWildcardOutputSchema> }>;
 
 export type GenerateObjectForQueries = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmQueriesOutputSchema;
-  maxOutputTokens: number;
   messages: ModelMessage[];
 }) => Promise<{ object: z.infer<typeof llmQueriesOutputSchema> }>;
 
 export type GenerateObjectForCritique = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmCritiqueOutputSchema;
-  maxOutputTokens: number;
   messages: ModelMessage[];
 }) => Promise<{ object: z.infer<typeof llmCritiqueOutputSchema> }>;
 
@@ -380,7 +374,6 @@ export const fetchLlmQueryCandidates = async (
   const { object } = await deps.generateObjectForQueries({
     model: openai(params.model),
     schema: llmQueriesOutputSchema,
-    maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
     messages: params.messages,
   });
   return (object.queries ?? [])
@@ -484,7 +477,6 @@ export const fetchWildcardCandidates = async (
   const { object } = await deps.generateObjectForWildcards({
     model: openai(params.model),
     schema: llmWildcardOutputSchema,
-    maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
     messages: [
       { role: "system", content: systemContent },
       { role: "user", content: userContent },
@@ -698,7 +690,6 @@ export const critiqueQueryCandidates = async (
   const { object } = await deps.generateObjectForCritique({
     model: openai(params.model),
     schema: llmCritiqueOutputSchema,
-    maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
     messages: [
       {
         role: "system",

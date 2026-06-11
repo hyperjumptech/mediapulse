@@ -100,7 +100,6 @@ describe("resolveArticleAnalysisConfig", () => {
     expect(resolved.brainstormModel).toBe(
       articleAnalysisConfigDefaults.openaiModel,
     );
-    expect(resolved.brainstormMaxOutputTokens).toBe(800);
     expect(resolved.extractionConcurrency).toBe(1);
     expect(resolved.runDeadlineMs).toBeUndefined();
     expect(resolved.entityGroundingPolicy).toBe("off");

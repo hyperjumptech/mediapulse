@@ -6,10 +6,6 @@ import {
   NoObjectGeneratedError,
   type ModelMessage,
 } from "ai";
-import {
-  buildOpenAiReasoningProviderOptions,
-  type OpenAiReasoningProviderOptions,
-} from "@workspace/agent-runtime";
 import type { GetAnalysisResponse } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
@@ -105,9 +101,7 @@ export type ArticleBrainstormCallResult = {
 
 export type GenerateTextForBrainstorm = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
-  maxOutputTokens: number;
   messages: ModelMessage[];
-  providerOptions?: OpenAiReasoningProviderOptions;
   timeoutMs?: number;
 }) => Promise<ArticleBrainstormCallResult>;
 
@@ -333,9 +327,7 @@ export type LlmRelationCritiqueCallResult = {
 export type GenerateObjectForRelationCritique = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmRelationCritiqueSchema;
-  maxOutputTokens: number;
   messages: ModelMessage[];
-  providerOptions?: OpenAiReasoningProviderOptions;
   timeoutMs?: number;
 }) => Promise<{
   object: LlmRelationCritiqueWireOutput;
@@ -345,9 +337,7 @@ export type GenerateObjectForRelationCritique = (args: {
 export type GenerateObjectForExtraction = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmExtractionOpenAiWireSchema;
-  maxOutputTokens: number;
   messages: ModelMessage[];
-  providerOptions?: OpenAiReasoningProviderOptions;
   timeoutMs?: number;
 }) => Promise<{
   object: LlmExtractionWireOutput;
@@ -386,9 +376,7 @@ export type LlmVocabularyRepairCallResult = {
 export type GenerateObjectForVocabularyRepair = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmVocabularyRepairWireSchema;
-  maxOutputTokens: number;
   messages: ModelMessage[];
-  providerOptions?: OpenAiReasoningProviderOptions;
   timeoutMs?: number;
 }) => Promise<{
   object: LlmVocabularyRepairWireOutput;
@@ -424,14 +412,13 @@ export const normalizeLlmUsageFromSdk = (usage: {
 const defaultGenerateObjectForExtraction: GenerateObjectForExtraction = async (
   args,
 ) => {
-  const { providerOptions, timeoutMs, ...rest } = args;
+  const { timeoutMs, ...rest } = args;
   const result = await generateObject({
     ...rest,
     maxRetries: 0,
     ...(timeoutMs !== undefined
       ? { abortSignal: AbortSignal.timeout(timeoutMs) }
       : {}),
-    ...(providerOptions !== undefined ? { providerOptions } : {}),
   });
   return {
     object: result.object,
@@ -442,14 +429,13 @@ const defaultGenerateObjectForExtraction: GenerateObjectForExtraction = async (
 const defaultGenerateTextForBrainstorm: GenerateTextForBrainstorm = async (
   args,
 ) => {
-  const { providerOptions, timeoutMs, ...rest } = args;
+  const { timeoutMs, ...rest } = args;
   const result = await generateText({
     ...rest,
     maxRetries: 0,
     ...(timeoutMs !== undefined
       ? { abortSignal: AbortSignal.timeout(timeoutMs) }
       : {}),
-    ...(providerOptions !== undefined ? { providerOptions } : {}),
   });
   return {
     text: result.text,
@@ -459,14 +445,13 @@ const defaultGenerateTextForBrainstorm: GenerateTextForBrainstorm = async (
 
 const defaultGenerateObjectForRelationCritique: GenerateObjectForRelationCritique =
   async (args) => {
-    const { providerOptions, timeoutMs, ...rest } = args;
+    const { timeoutMs, ...rest } = args;
     const result = await generateObject({
       ...rest,
       maxRetries: 0,
       ...(timeoutMs !== undefined
         ? { abortSignal: AbortSignal.timeout(timeoutMs) }
         : {}),
-      ...(providerOptions !== undefined ? { providerOptions } : {}),
     });
     return {
       object: result.object,
@@ -476,14 +461,13 @@ const defaultGenerateObjectForRelationCritique: GenerateObjectForRelationCritiqu
 
 const defaultGenerateObjectForVocabularyRepair: GenerateObjectForVocabularyRepair =
   async (args) => {
-    const { providerOptions, timeoutMs, ...rest } = args;
+    const { timeoutMs, ...rest } = args;
     const result = await generateObject({
       ...rest,
       maxRetries: 0,
       ...(timeoutMs !== undefined
         ? { abortSignal: AbortSignal.timeout(timeoutMs) }
         : {}),
-      ...(providerOptions !== undefined ? { providerOptions } : {}),
     });
     return {
       object: result.object,
@@ -655,9 +639,7 @@ export const fetchArticleBrainstorm = async (
   params: {
     apiKey: string;
     model: string;
-    maxOutputTokens: number;
     messages: ModelMessage[];
-    providerOptions?: OpenAiReasoningProviderOptions;
     timeoutMs?: number;
   },
   deps: { generateTextForBrainstorm: GenerateTextForBrainstorm } = {
@@ -667,11 +649,7 @@ export const fetchArticleBrainstorm = async (
   const openai = createOpenAI({ apiKey: params.apiKey });
   return deps.generateTextForBrainstorm({
     model: openai(params.model),
-    maxOutputTokens: params.maxOutputTokens,
     messages: params.messages,
-    ...(params.providerOptions !== undefined
-      ? { providerOptions: params.providerOptions }
-      : {}),
     ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
   });
 };
@@ -734,11 +712,9 @@ export const extractEntitiesAndRelationsForSource = async (
   params: {
     apiKey: string;
     model: string;
-    maxOutputTokens: number;
     messages: ModelMessage[];
     exemplars?: readonly ResolvedExemplar[];
     brainstormText?: string;
-    providerOptions?: OpenAiReasoningProviderOptions;
     timeoutMs?: number;
   },
   deps: { generateObjectForExtraction: GenerateObjectForExtraction } = {
@@ -765,11 +741,7 @@ export const extractEntitiesAndRelationsForSource = async (
   const raw = await deps.generateObjectForExtraction({
     model: openai(params.model),
     schema: llmExtractionOpenAiWireSchema,
-    maxOutputTokens: params.maxOutputTokens,
     messages,
-    ...(params.providerOptions !== undefined
-      ? { providerOptions: params.providerOptions }
-      : {}),
     ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
   });
   return {
@@ -938,9 +910,7 @@ export const critiqueExtractedRelations = async (
   params: {
     apiKey: string;
     model: string;
-    maxOutputTokens: number;
     messages: ModelMessage[];
-    providerOptions?: OpenAiReasoningProviderOptions;
     timeoutMs?: number;
   },
   deps: {
@@ -953,11 +923,7 @@ export const critiqueExtractedRelations = async (
   const raw = await deps.generateObjectForRelationCritique({
     model: openai(params.model),
     schema: llmRelationCritiqueSchema,
-    maxOutputTokens: params.maxOutputTokens,
     messages: params.messages,
-    ...(params.providerOptions !== undefined
-      ? { providerOptions: params.providerOptions }
-      : {}),
     ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
   });
   return {
@@ -1103,11 +1069,9 @@ export const repairExtractionVocabulary = async (
   params: {
     apiKey: string;
     model: string;
-    maxOutputTokens: number;
     ctx: Pick<GetAnalysisResponse, "entityTypes" | "relationTypes">;
     badEntities: readonly BadEntityRecord[];
     badRelations: readonly BadRelationRecord[];
-    providerOptions?: OpenAiReasoningProviderOptions;
     timeoutMs?: number;
   },
   deps: {
@@ -1120,15 +1084,11 @@ export const repairExtractionVocabulary = async (
   const raw = await deps.generateObjectForVocabularyRepair({
     model: openai(params.model),
     schema: llmVocabularyRepairWireSchema,
-    maxOutputTokens: params.maxOutputTokens,
     messages: buildVocabularyRepairModelMessages(
       params.ctx,
       params.badEntities,
       params.badRelations,
     ),
-    ...(params.providerOptions !== undefined
-      ? { providerOptions: params.providerOptions }
-      : {}),
     ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
   });
 
