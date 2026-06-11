@@ -125,7 +125,7 @@ describe("ContentGenerationRunsTable", () => {
     render(<ContentGenerationRunsTable runs={runs} />);
 
     // Assert
-    expect(screen.getByText("3400 ms")).toBeInTheDocument();
+    expect(screen.getByText("3.4s")).toBeInTheDocument();
   });
 
   it("renders dash for null durationMs", () => {

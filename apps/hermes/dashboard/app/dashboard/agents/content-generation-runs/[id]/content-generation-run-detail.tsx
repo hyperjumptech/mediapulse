@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { AgentRunOutcomeBadge } from "@/components/agent-run-outcome-badge";
 import type { ContentGenerationRunListItem } from "@workspace/agent-data-api-contract";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
+import { formatCompactDuration } from "@/lib/format-duration";
 
 type ContentGenerationRunDetailProps = {
   /** The run record to display. */
@@ -77,7 +78,9 @@ export const ContentGenerationRunDetail = ({
         </dd>
 
         <dt className="text-muted-foreground">Duration</dt>
-        <dd>{run.durationMs != null ? `${run.durationMs} ms` : "—"}</dd>
+        <dd>
+          {run.durationMs != null ? formatCompactDuration(run.durationMs) : "—"}
+        </dd>
 
         <dt className="text-muted-foreground">Pipeline run ID</dt>
         <dd>{run.pipelineRunId ?? "—"}</dd>
