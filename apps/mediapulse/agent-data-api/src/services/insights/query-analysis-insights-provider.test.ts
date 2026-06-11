@@ -64,12 +64,13 @@ function makeQueries(setIds: string[]) {
   const intents = ["breaking", "fundamental", "sentiment"] as const;
   return setIds.flatMap((setId, i) => [
     {
+      id: `q-${setId}-0`,
       setId,
       source: sources[i % 3] ?? "llm",
       intent: intents[i % 3] ?? "breaking",
     },
-    { setId, source: "llm", intent: "competitor" },
-    { setId, source: "deterministic", intent: "breaking" },
+    { id: `q-${setId}-1`, setId, source: "llm", intent: "competitor" },
+    { id: `q-${setId}-2`, setId, source: "deterministic", intent: "breaking" },
   ]);
 }
 
@@ -120,10 +121,15 @@ describe("createQueryAnalysisInsightsProvider", () => {
   it("source breakdown fractions sum to 1 when sources are present", async () => {
     const sets = makeSets(2);
     const queries = [
-      { setId: "set-0", source: "llm", intent: "breaking" },
-      { setId: "set-0", source: "deterministic", intent: "fundamental" },
-      { setId: "set-1", source: "curated", intent: "sentiment" },
-      { setId: "set-1", source: "llm", intent: "competitor" },
+      { id: "q-0", setId: "set-0", source: "llm", intent: "breaking" },
+      {
+        id: "q-1",
+        setId: "set-0",
+        source: "deterministic",
+        intent: "fundamental",
+      },
+      { id: "q-2", setId: "set-1", source: "curated", intent: "sentiment" },
+      { id: "q-3", setId: "set-1", source: "llm", intent: "competitor" },
     ];
 
     const provider = createQueryAnalysisInsightsProvider(
@@ -163,7 +169,7 @@ describe("createQueryAnalysisInsightsProvider", () => {
       const labels = diversitySection.widget.bars.map((b) => b.label);
       expect(labels).toContain("Lexical diversity");
       expect(labels).toContain("Intent coverage");
-      expect(labels).toContain("Composite");
+      expect(labels).not.toContain("Composite");
     }
   });
 
@@ -222,9 +228,14 @@ describe("createQueryAnalysisInsightsProvider", () => {
   it("intent categoryBar counts SearchQuery.intent values", async () => {
     const sets = makeSets(1);
     const queries = [
-      { setId: "set-0", source: "llm", intent: "breaking" },
-      { setId: "set-0", source: "llm", intent: "breaking" },
-      { setId: "set-0", source: "deterministic", intent: "fundamental" },
+      { id: "q-0", setId: "set-0", source: "llm", intent: "breaking" },
+      { id: "q-1", setId: "set-0", source: "llm", intent: "breaking" },
+      {
+        id: "q-2",
+        setId: "set-0",
+        source: "deterministic",
+        intent: "fundamental",
+      },
     ];
 
     const provider = createQueryAnalysisInsightsProvider(
