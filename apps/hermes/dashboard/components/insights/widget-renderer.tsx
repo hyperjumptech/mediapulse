@@ -219,12 +219,23 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
     return (
       <ul className="space-y-2.5 py-2">
         {widget.stages.map((stage, index) => {
+          const prevValue = widget.stages[index - 1]?.value ?? 0;
+          const drop = index > 0 ? prevValue - stage.value : 0;
+          const dropPct =
+            index > 0 && prevValue > 0
+              ? Math.round((drop / prevValue) * 100)
+              : 0;
           const percentage =
             firstValue > 0 ? Math.round((stage.value / firstValue) * 100) : 100;
           const color = CHART_COLORS[index % CHART_COLORS.length];
 
           return (
             <li key={stage.label} className="space-y-1">
+              {index > 0 && drop > 0 && (
+                <p className="pb-0.5 text-right text-xs leading-none text-muted-foreground/60">
+                  {`−${drop.toLocaleString()} (${dropPct}% dropped)`}
+                </p>
+              )}
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">{stage.label}</span>
                 <span className="tabular-nums font-medium text-foreground">
@@ -248,6 +259,13 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
   }
 
   if (widget.kind === "breakdown") {
+    const dominantIndex = widget.slices.reduce(
+      (maxIndex, slice, index) =>
+        slice.fraction > (widget.slices[maxIndex]?.fraction ?? 0)
+          ? index
+          : maxIndex,
+      0,
+    );
     const config: ChartConfig = Object.fromEntries(
       widget.slices.map((slice, index) => [
         slice.label,
@@ -298,14 +316,17 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
           {widget.slices.map((slice, index) => {
             const percentage = Math.round(slice.fraction * 100);
             const color = CHART_COLORS[index % CHART_COLORS.length];
+            const isDominant = index === dominantIndex;
 
             return (
               <li key={slice.label} className="flex items-center gap-2 text-xs">
                 <span
-                  className="h-2 w-2 shrink-0 rounded-sm"
+                  className={`shrink-0 rounded-sm ${isDominant ? "h-2.5 w-2.5" : "h-2 w-2"}`}
                   style={{ backgroundColor: color }}
                 />
-                <span className="flex-1 text-muted-foreground">
+                <span
+                  className={`flex-1 ${isDominant ? "font-medium text-foreground" : "text-muted-foreground"}`}
+                >
                   {slice.label}
                 </span>
                 <span className="tabular-nums font-medium text-foreground">

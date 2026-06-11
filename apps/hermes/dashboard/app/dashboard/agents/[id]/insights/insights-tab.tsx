@@ -19,6 +19,22 @@ const SEVERITY_STYLES: Record<string, string> = {
   critical: "border-red-200 bg-red-50 text-red-800",
 };
 
+const KPI_CARD_STYLES: Record<string, string> = {
+  neutral: "border-border/50 bg-muted/25",
+  positive:
+    "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/40",
+  warning:
+    "border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950/40",
+  critical: "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/40",
+};
+
+const KPI_VALUE_STYLES: Record<string, string> = {
+  neutral: "text-foreground",
+  positive: "text-green-700 dark:text-green-400",
+  warning: "text-yellow-700 dark:text-yellow-400",
+  critical: "text-red-700 dark:text-red-400",
+};
+
 /**
  * Renders the Insights tab for an agent detail page.
  *
@@ -88,16 +104,22 @@ export const InsightsTab = ({ payload, window }: InsightsTabProps) => {
                   : kpi.delta >= 0
                     ? "text-green-600"
                     : "text-red-600";
+              const cardStyle =
+                KPI_CARD_STYLES[kpi.tone ?? "neutral"] ??
+                KPI_CARD_STYLES["neutral"];
+              const valueStyle =
+                KPI_VALUE_STYLES[kpi.tone ?? "neutral"] ??
+                KPI_VALUE_STYLES["neutral"];
 
               return (
                 <div
                   key={kpi.id}
-                  className="rounded-lg border border-border/50 bg-muted/25 px-4 py-3"
+                  className={`rounded-lg border px-4 py-3 ${cardStyle}`}
                 >
                   <div className="text-xs text-muted-foreground">
                     {kpi.label}
                   </div>
-                  <div className="mt-1 text-xl font-bold text-foreground">
+                  <div className={`mt-1 text-xl font-bold ${valueStyle}`}>
                     {kpi.value}
                     {kpi.unit && (
                       <span className="ml-1 text-sm font-normal text-muted-foreground">
