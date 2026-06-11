@@ -29,7 +29,7 @@ import type {
   ArticleAnalysisExtractionFailureRecord,
   ExtractionLlmFailureReason,
 } from "./article-analysis-run-policy.js";
-import type { ResolvedArticleAnalysisConfig } from "./config-schema.js";
+import type { ArticleAnalysisConfig } from "./config-schema.js";
 import {
   buildArticleAnalysisExtractionUserContent,
   buildBrainstormSystemContent,
@@ -168,7 +168,7 @@ export const createEmptySourceProcessingOutcome =
   });
 
 export type ProcessOneSourceDeps = {
-  cfg: ResolvedArticleAnalysisConfig;
+  cfg: ArticleAnalysisConfig;
   ctx: AnalysisContext;
   tickerId: string;
   systemContent: string;
@@ -273,20 +273,22 @@ export const createProcessOneSource =
       return outcome;
     }
 
-    const truncated = cfg.useStructureAwareTruncation
+    const truncated = cfg.extraction.useStructureAwareTruncation
       ? (() => {
           const result = truncateArticleForExtraction(source.content, {
-            maxChars: cfg.maxContentChars,
+            maxChars: cfg.extraction.maxContentChars,
             tickerSymbols: truncationTickerContext.tickerSymbols,
             companyAliases: truncationTickerContext.companyAliases,
-            leadParagraphsAlwaysKept: cfg.truncationLeadParagraphsAlwaysKept,
-            financialKeywordsExtra: cfg.truncationFinancialKeywordsExtra,
+            leadParagraphsAlwaysKept:
+              cfg.extraction.truncationLeadParagraphsAlwaysKept,
+            financialKeywordsExtra:
+              cfg.extraction.truncationFinancialKeywordsExtra,
           });
           outcome.truncationMeta = result.meta;
           return result.content;
         })()
-      : source.content.length > cfg.maxContentChars
-        ? source.content.slice(0, cfg.maxContentChars)
+      : source.content.length > cfg.extraction.maxContentChars
+        ? source.content.slice(0, cfg.extraction.maxContentChars)
         : source.content;
 
     try {
@@ -305,7 +307,7 @@ export const createProcessOneSource =
 
       let brainstormText: string | undefined;
       const shouldRunBrainstorm =
-        cfg.useBrainstormPass && !isRunDeadlineElapsed();
+        cfg.extraction.useBrainstormPass && !isRunDeadlineElapsed();
 
       if (shouldRunBrainstorm) {
         try {
@@ -313,9 +315,10 @@ export const createProcessOneSource =
           const brainstormResult = await executeLlmCallWithTransientRetries(
             () =>
               fetchArticleBrainstorm({
-                apiKey: cfg.openaiApiKey,
-                model: cfg.brainstormModel,
-                timeoutMs: cfg.extractionCallTimeoutMs,
+                apiKey: cfg.credentials.openaiApiKey,
+                model:
+                  cfg.extraction.brainstormModel ?? cfg.credentials.openaiModel,
+                timeoutMs: cfg.extraction.callTimeoutMs,
                 messages: [
                   {
                     role: "system",
@@ -334,9 +337,9 @@ export const createProcessOneSource =
                 ],
               }),
             {
-              maxRetries: cfg.extractionTransientRetries,
-              baseDelayMs: cfg.extractionTransientRetryBaseDelayMs,
-              maxDelayMs: cfg.extractionTransientRetryMaxDelayMs,
+              maxRetries: cfg.extraction.transientRetries,
+              baseDelayMs: cfg.extraction.transientRetryBaseDelayMs,
+              maxDelayMs: cfg.extraction.transientRetryMaxDelayMs,
               sleep,
               classify: classifyLlmExtractionError,
               shouldAbort: isRunDeadlineElapsed,
@@ -363,12 +366,12 @@ export const createProcessOneSource =
             "article-analysis brainstorm pass failed; falling back to single-pass extraction",
           );
         }
-      } else if (cfg.useBrainstormPass && isRunDeadlineElapsed()) {
+      } else if (cfg.extraction.useBrainstormPass && isRunDeadlineElapsed()) {
         log.warn(
           {
             dataSourceId: source.id,
             runElapsedMs: Date.now() - deps.runStart,
-            runDeadlineMs: cfg.runDeadlineMs,
+            runDeadlineMs: cfg.dynamics.runDeadlineMs,
           },
           "article-analysis skipping brainstorm pass due to run deadline",
         );
@@ -378,9 +381,9 @@ export const createProcessOneSource =
       const extractedResult = await executeLlmCallWithTransientRetries(
         () =>
           extractEntitiesAndRelationsForSource({
-            apiKey: cfg.openaiApiKey,
-            model: cfg.openaiModel,
-            timeoutMs: cfg.extractionCallTimeoutMs,
+            apiKey: cfg.credentials.openaiApiKey,
+            model: cfg.credentials.openaiModel,
+            timeoutMs: cfg.extraction.callTimeoutMs,
             messages: [
               { role: "system", content: systemContent },
               {
@@ -394,9 +397,9 @@ export const createProcessOneSource =
             ...(brainstormText !== undefined ? { brainstormText } : {}),
           }),
         {
-          maxRetries: cfg.extractionTransientRetries,
-          baseDelayMs: cfg.extractionTransientRetryBaseDelayMs,
-          maxDelayMs: cfg.extractionTransientRetryMaxDelayMs,
+          maxRetries: cfg.extraction.transientRetries,
+          baseDelayMs: cfg.extraction.transientRetryBaseDelayMs,
+          maxDelayMs: cfg.extraction.transientRetryMaxDelayMs,
           sleep,
           classify: classifyLlmExtractionError,
           shouldAbort: isRunDeadlineElapsed,
@@ -429,7 +432,7 @@ export const createProcessOneSource =
       let entitiesForPipeline: EntityProposal[] = [...extracted.entities];
       let relationsForPipeline: RelationProposal[] = [...extracted.relations];
 
-      if (cfg.vocabularyPolicy === "strict") {
+      if (cfg.quality.vocabularyPolicy === "strict") {
         const vocab = validateExtractionVocabulary(
           entitiesForPipeline,
           relationsForPipeline,
@@ -466,16 +469,16 @@ export const createProcessOneSource =
           partitioned.badEntities.length + partitioned.badRelations.length;
 
         if (
-          cfg.vocabularyPolicy === "repair" &&
+          cfg.quality.vocabularyPolicy === "repair" &&
           rejectedCount > 0 &&
-          rejectedCount <= cfg.vocabularyRepairMaxItems
+          rejectedCount <= cfg.quality.repairMaxItems
         ) {
           outcome.vocabularyRepairCallsAttempted = 1;
           try {
             const repairResult = await repairExtractionVocabulary({
-              apiKey: cfg.openaiApiKey,
-              model: cfg.vocabularyRepairModel,
-              timeoutMs: cfg.extractionCallTimeoutMs,
+              apiKey: cfg.credentials.openaiApiKey,
+              model: cfg.quality.repairModel ?? cfg.credentials.openaiModel,
+              timeoutMs: cfg.extraction.callTimeoutMs,
               ctx,
               badEntities: partitioned.badEntities,
               badRelations: partitioned.badRelations,
@@ -515,14 +518,14 @@ export const createProcessOneSource =
             );
           }
         } else if (
-          cfg.vocabularyPolicy === "repair" &&
-          rejectedCount > cfg.vocabularyRepairMaxItems
+          cfg.quality.vocabularyPolicy === "repair" &&
+          rejectedCount > cfg.quality.repairMaxItems
         ) {
           log.warn(
             {
               dataSourceId: source.id,
               rejectedCount,
-              vocabularyRepairMaxItems: cfg.vocabularyRepairMaxItems,
+              vocabularyRepairMaxItems: cfg.quality.repairMaxItems,
             },
             "article-analysis skipping vocabulary repair due to rejected row cap",
           );
@@ -536,7 +539,7 @@ export const createProcessOneSource =
             {
               dataSourceId: source.id,
               stage: "vocabulary",
-              vocabularyPolicy: cfg.vocabularyPolicy,
+              vocabularyPolicy: cfg.quality.vocabularyPolicy,
             },
             "article-analysis no vocabulary-valid rows remain for source; skipping",
           );
@@ -550,11 +553,11 @@ export const createProcessOneSource =
         mentions: extracted.articleMentions,
         articleText: source.content,
         title: source.title,
-        policy: cfg.entityGroundingPolicy,
-        entityGroundingMinTitleHits: cfg.entityGroundingMinTitleHits,
+        policy: cfg.quality.groundingPolicy,
+        entityGroundingMinTitleHits: cfg.quality.groundingMinTitleHits,
       });
       outcome.groundingCounters = groundedExtraction.counters;
-      if (cfg.verbose && cfg.entityGroundingPolicy !== "off") {
+      if (cfg.verbose && cfg.quality.groundingPolicy !== "off") {
         log.info(
           {
             dataSourceId: source.id,
@@ -579,8 +582,8 @@ export const createProcessOneSource =
       let relationsAfterCritique = resolved.relations;
       let relationEvidenceByKey: ReadonlyMap<string, string> | undefined;
       const critiqueEligible =
-        cfg.useRelationSelfCritique &&
-        resolved.relations.length >= cfg.relationCritiqueMinRelationCount;
+        cfg.quality.useRelationSelfCritique &&
+        resolved.relations.length >= cfg.quality.critiqueMinRelationCount;
 
       if (critiqueEligible && isRunDeadlineElapsed()) {
         outcome.relationsCritiqueSkippedDueToDeadline = 1;
@@ -588,7 +591,7 @@ export const createProcessOneSource =
           {
             dataSourceId: source.id,
             runElapsedMs: Date.now() - deps.runStart,
-            runDeadlineMs: cfg.runDeadlineMs,
+            runDeadlineMs: cfg.dynamics.runDeadlineMs,
             relationCount: resolved.relations.length,
           },
           "article-analysis skipping relation critique due to run deadline",
@@ -599,9 +602,9 @@ export const createProcessOneSource =
           const critiqueResult = await executeLlmCallWithTransientRetries(
             () =>
               critiqueExtractedRelations({
-                apiKey: cfg.openaiApiKey,
-                model: cfg.relationCritiqueModel,
-                timeoutMs: cfg.extractionCallTimeoutMs,
+                apiKey: cfg.credentials.openaiApiKey,
+                model: cfg.quality.critiqueModel ?? cfg.credentials.openaiModel,
+                timeoutMs: cfg.extraction.callTimeoutMs,
                 messages: buildRelationCritiqueModelMessages(ctx, {
                   articleTitle: source.title,
                   articleBody: source.content,
@@ -609,9 +612,9 @@ export const createProcessOneSource =
                 }),
               }),
             {
-              maxRetries: cfg.extractionTransientRetries,
-              baseDelayMs: cfg.extractionTransientRetryBaseDelayMs,
-              maxDelayMs: cfg.extractionTransientRetryMaxDelayMs,
+              maxRetries: cfg.extraction.transientRetries,
+              baseDelayMs: cfg.extraction.transientRetryBaseDelayMs,
+              maxDelayMs: cfg.extraction.transientRetryMaxDelayMs,
               sleep,
               classify: classifyLlmExtractionError,
               shouldAbort: isRunDeadlineElapsed,
@@ -629,7 +632,7 @@ export const createProcessOneSource =
           const critiqueApplied = applyRelationCritiqueDrops(
             resolved.relations,
             critiqueResult.ratings,
-            cfg.relationCritiqueDropFraction,
+            cfg.quality.critiqueDropFraction,
           );
           outcome.relationsDroppedByCritique = critiqueApplied.droppedCount;
           relationsAfterCritique = critiqueApplied.relations;
@@ -666,8 +669,8 @@ export const createProcessOneSource =
       const capped = applyPerArticleExtractionCaps(
         resolved.entities,
         relationsAfterCritique,
-        cfg.maxEntitiesPerArticle,
-        cfg.maxRelationsPerArticle,
+        cfg.limits.entitiesPerArticle,
+        cfg.limits.relationsPerArticle,
       );
       outcome.mergedEntities = capped.entities;
       outcome.mergedRelations = capped.relations;
@@ -681,7 +684,7 @@ export const createProcessOneSource =
       );
       const mentionCapped = applyPerArticleArticleMentionCap(
         mentionFiltered,
-        cfg.maxArticleEntitiesPerArticle,
+        cfg.limits.articleEntitiesPerArticle,
       );
       outcome.mergedArticleEntityRows = toArticleEntityRowsForSource(
         source.id,
@@ -704,7 +707,7 @@ export const createProcessOneSource =
           : mentionCapped.reduce((s, m) => s + m.confidence, 0) /
             mentionCapped.length;
 
-      if (cfg.useSourceQualityV2) {
+      if (cfg.scoring.useSourceQualityV2) {
         const qualityMeta = computeSourceQualityWithMeta(
           {
             url: source.url,
@@ -715,7 +718,7 @@ export const createProcessOneSource =
           },
           {
             now: new Date(),
-            recencyHalfLifeHours: cfg.sourceQualityRecencyHalfLifeHours,
+            recencyHalfLifeHours: cfg.scoring.sourceQualityRecencyHalfLifeHours,
             hostTiers: sourceQualityHostTiers,
           },
         );
