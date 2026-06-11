@@ -9,6 +9,7 @@ import { createArticleAnalysisInsightsProvider } from "./article-analysis-insigh
 function makeRelevance(overrides?: {
   dataSourceId?: string;
   tickerId?: string;
+  symbol?: string;
   score?: number;
   selected?: boolean;
   scoredAt?: Date;
@@ -16,6 +17,7 @@ function makeRelevance(overrides?: {
   return {
     dataSourceId: overrides?.dataSourceId ?? "ds-1",
     tickerId: overrides?.tickerId ?? "ticker-1",
+    ticker: { symbol: overrides?.symbol ?? "AAPL" },
     score: overrides?.score ?? 0.7,
     selected: overrides?.selected !== undefined ? overrides.selected : true,
     scoredAt: overrides?.scoredAt ?? new Date(Date.now() - 24 * 60 * 60 * 1000),
@@ -181,9 +183,40 @@ describe("createArticleAnalysisInsightsProvider", () => {
     expect(total).toBeCloseTo(1, 5);
   });
 
+  it("labels per-ticker bars with ticker symbol", async () => {
+    const rows = [
+      makeRelevance({ tickerId: "t1", symbol: "AAPL" }),
+      makeRelevance({ tickerId: "t1", symbol: "AAPL" }),
+      makeRelevance({ tickerId: "t2", symbol: "MSFT" }),
+    ];
+    const provider = createArticleAnalysisInsightsProvider(makeDeps(rows, []));
+    const payload = await provider.compute({ window: "7d" });
+    const section = payload.sections.find((s) => s.id === "where-per-ticker");
+    if (section?.widget.kind !== "categoryBar") return;
+    const labels = section.widget.bars.map((b) => b.label);
+    expect(labels).toContain("AAPL");
+    expect(labels).toContain("MSFT");
+    expect(labels).not.toContain("t1");
+    expect(labels).not.toContain("t2");
+  });
+
+  it("falls back to tickerId when ticker symbol is missing", async () => {
+    const row = makeRelevance({ tickerId: "orphan-id", symbol: undefined });
+    // Simulate missing symbol by overriding ticker
+    const rowWithNoSymbol = { ...row, ticker: { symbol: undefined as unknown as string } };
+    const provider = createArticleAnalysisInsightsProvider(
+      makeDeps([rowWithNoSymbol], []),
+    );
+    const payload = await provider.compute({ window: "7d" });
+    const section = payload.sections.find((s) => s.id === "where-per-ticker");
+    if (section?.widget.kind !== "categoryBar") return;
+    const labels = section.widget.bars.map((b) => b.label);
+    expect(labels).toContain("orphan-id");
+  });
+
   it("caps per-ticker bars to TOP_N + Other", async () => {
     const rows = Array.from({ length: 15 }, (_, i) =>
-      makeRelevance({ dataSourceId: `ds-${i}`, tickerId: `ticker-${i}` }),
+      makeRelevance({ dataSourceId: `ds-${i}`, tickerId: `ticker-${i}`, symbol: `SYM${i}` }),
     );
     const provider = createArticleAnalysisInsightsProvider(makeDeps(rows, []));
     const payload = await provider.compute({ window: "7d" });

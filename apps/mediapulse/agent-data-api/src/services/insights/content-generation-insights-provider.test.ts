@@ -32,12 +32,14 @@ function makeRun(overrides?: {
 
 function makeNewsletter(overrides?: {
   tickerId?: string;
+  symbol?: string;
   createdAt?: Date;
   model?: string | null;
   totalTokens?: number | null;
 }) {
   return {
     tickerId: overrides?.tickerId ?? "ticker-1",
+    ticker: { symbol: overrides?.symbol ?? "AAPL" },
     createdAt: overrides?.createdAt ?? new Date("2026-06-07T08:00:00.000Z"),
     model: overrides?.model !== undefined ? overrides.model : "gpt-4o",
     totalTokens:
@@ -301,9 +303,50 @@ describe("createContentGenerationInsightsProvider", () => {
     expect(typeof runsKpi!.delta).toBe("number");
   });
 
+  it("labels per-ticker newsletter bars with ticker symbol", async () => {
+    const newsletters = [
+      makeNewsletter({ tickerId: "t1", symbol: "AAPL" }),
+      makeNewsletter({ tickerId: "t1", symbol: "AAPL" }),
+      makeNewsletter({ tickerId: "t2", symbol: "MSFT" }),
+    ];
+
+    const provider = createContentGenerationInsightsProvider(
+      makeDeps({ newsletters }),
+    );
+
+    const payload = await provider.compute({ window: "7d" });
+    const tickerBar = payload.sections.find((s) => s.id === "where-per-ticker");
+
+    expect(tickerBar).toBeDefined();
+    if (tickerBar!.widget.kind === "categoryBar") {
+      const labels = tickerBar!.widget.bars.map((b) => b.label);
+      expect(labels).toContain("AAPL");
+      expect(labels).toContain("MSFT");
+      expect(labels).not.toContain("t1");
+      expect(labels).not.toContain("t2");
+    }
+  });
+
+  it("falls back to tickerId when newsletter ticker symbol is missing", async () => {
+    const newsletter = makeNewsletter({ tickerId: "orphan-id" });
+    const newsletterWithNoSymbol = { ...newsletter, ticker: { symbol: undefined as unknown as string } };
+
+    const provider = createContentGenerationInsightsProvider(
+      makeDeps({ newsletters: [newsletterWithNoSymbol] }),
+    );
+
+    const payload = await provider.compute({ window: "7d" });
+    const tickerBar = payload.sections.find((s) => s.id === "where-per-ticker");
+
+    if (tickerBar?.widget.kind === "categoryBar") {
+      const labels = tickerBar.widget.bars.map((b) => b.label);
+      expect(labels).toContain("orphan-id");
+    }
+  });
+
   it("caps per-ticker bars at TOP_N + Other bucket", async () => {
     const manyNewsletters = Array.from({ length: 15 }, (_, index) =>
-      makeNewsletter({ tickerId: `ticker-${index}` }),
+      makeNewsletter({ tickerId: `ticker-${index}`, symbol: `SYM${index}` }),
     );
 
     const provider = createContentGenerationInsightsProvider(
