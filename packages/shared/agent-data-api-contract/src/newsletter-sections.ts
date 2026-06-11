@@ -61,6 +61,7 @@ export const SECTION_BY_INTENT: Record<
   technology_trend: "disruptorsOrTech",
   technical: "disruptorsOrTech",
   industry_trend: "industryPulse",
+  deals: "dealsAndMovements",
   breaking: null,
   kg_change: null,
   fundamental: null,
@@ -73,9 +74,20 @@ export const SECTION_BY_INTENT: Record<
 };
 
 /**
- * Returns every section id that no intent maps to via {@link SECTION_BY_INTENT}.
- * These are structurally required sections the upstream search pipeline does not cover by default —
- * e.g. `dealsAndMovements` has no dedicated intent and will be starved unless explicitly budgeted.
+ * Sections that are intentionally excluded from the zero-coverage alert.
+ *
+ * `quickHits` is a catch-all populated at generation time from any homeless-intent
+ * queries — it has no dedicated upstream search intent and is never expected to show
+ * up with a positive count in {@link summarizeSectionCoverage}. Alerting on it would
+ * produce a permanently firing false-positive.
+ */
+export const ZERO_COVERAGE_EXCLUDED_SECTIONS: ReadonlySet<NewsletterSectionId> =
+  new Set<NewsletterSectionId>(["quickHits"]);
+
+/**
+ * Returns every section id that no intent maps to via {@link SECTION_BY_INTENT},
+ * excluding sections in {@link ZERO_COVERAGE_EXCLUDED_SECTIONS} (catch-all sections
+ * that are populated at generation time rather than by targeted search queries).
  */
 export const sectionsWithoutDedicatedIntent = (): NewsletterSectionId[] => {
   const covered = new Set(
@@ -83,7 +95,11 @@ export const sectionsWithoutDedicatedIntent = (): NewsletterSectionId[] => {
       (sectionId): sectionId is NewsletterSectionId => sectionId !== null,
     ),
   );
-  return NEWSLETTER_SECTION_IDS.filter((sectionId) => !covered.has(sectionId));
+  return NEWSLETTER_SECTION_IDS.filter(
+    (sectionId) =>
+      !covered.has(sectionId) &&
+      !ZERO_COVERAGE_EXCLUDED_SECTIONS.has(sectionId),
+  );
 };
 
 /**

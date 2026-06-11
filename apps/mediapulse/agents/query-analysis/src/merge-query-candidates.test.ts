@@ -5,6 +5,7 @@ import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api
 
 import {
   appendWildcardRowsToMerged,
+  applySectionCoverageReserve,
   dedupeDeterministic,
   dedupeLlmAgainstKeys,
   effectiveMergeWeight,
@@ -428,6 +429,190 @@ describe("mergeQueryCandidates with priorYield", () => {
         templateId: "low-yield-template",
         priorYield,
       }),
+    );
+  });
+});
+
+describe("applySectionCoverageReserve", () => {
+  it("promotes a competitor deterministic candidate when no competitor row survived merge", () => {
+    // No competitor or technology_trend rows in the merged set.
+    const merged = [
+      {
+        text: "breaking one",
+        source: "deterministic" as const,
+        intent: "breaking" as const,
+        rank: 1,
+      },
+      {
+        text: "breaking two",
+        source: "deterministic" as const,
+        intent: "breaking" as const,
+        rank: 2,
+      },
+      {
+        text: "macro one",
+        source: "llm" as const,
+        intent: "macro" as const,
+        rank: 3,
+      },
+    ];
+    // Deterministic pool contains a competitor candidate.
+    const deterministic = [
+      { text: "breaking one", intent: "breaking" as const },
+      { text: "industry competitive landscape", intent: "competitor" as const },
+    ];
+
+    const adjusted = applySectionCoverageReserve(merged, deterministic, 3);
+
+    // Total count must not exceed queryCount.
+    expect(adjusted).toHaveLength(3);
+
+    // A competitor-intent row must appear in the output.
+    const competitorRow = adjusted.find((row) => row.intent === "competitor");
+    expect(competitorRow).toBeDefined();
+  });
+
+  it("promotes a technology_trend deterministic candidate when disruptorsOrTech has zero coverage", () => {
+    const merged = [
+      {
+        text: "breaking one",
+        source: "deterministic" as const,
+        intent: "breaking" as const,
+        rank: 1,
+      },
+      {
+        text: "breaking two",
+        source: "deterministic" as const,
+        intent: "breaking" as const,
+        rank: 2,
+      },
+      {
+        text: "breaking three",
+        source: "llm" as const,
+        intent: "breaking" as const,
+        rank: 3,
+      },
+    ];
+    const deterministic = [
+      { text: "breaking one", intent: "breaking" as const },
+      {
+        text: "industry technology disruption",
+        intent: "technology_trend" as const,
+      },
+    ];
+
+    const adjusted = applySectionCoverageReserve(merged, deterministic, 3);
+
+    expect(adjusted).toHaveLength(3);
+    const techRow = adjusted.find(
+      (row) => row.intent === "technology_trend" || row.intent === "technical",
+    );
+    expect(techRow).toBeDefined();
+  });
+
+  it("keeps total row count at queryCount after promoting a reserve", () => {
+    const queryCount = 4;
+    const merged = [
+      {
+        text: "a",
+        source: "deterministic" as const,
+        intent: "breaking" as const,
+        rank: 1,
+      },
+      {
+        text: "b",
+        source: "llm" as const,
+        intent: "breaking" as const,
+        rank: 2,
+      },
+      { text: "c", source: "llm" as const, intent: "macro" as const, rank: 3 },
+      {
+        text: "d",
+        source: "llm" as const,
+        intent: "sentiment" as const,
+        rank: 4,
+      },
+    ];
+    const deterministic = [
+      { text: "a", intent: "breaking" as const },
+      { text: "sector competitive landscape", intent: "competitor" as const },
+    ];
+
+    const adjusted = applySectionCoverageReserve(
+      merged,
+      deterministic,
+      queryCount,
+    );
+
+    expect(adjusted).toHaveLength(queryCount);
+  });
+
+  it("returns unchanged rows when all dedicated-intent sections already have coverage", () => {
+    // competitor, regulatory, technology_trend, industry_trend, deals all covered.
+    const merged = [
+      {
+        text: "peer threats",
+        source: "llm" as const,
+        intent: "competitor" as const,
+        rank: 1,
+      },
+      {
+        text: "compliance news",
+        source: "llm" as const,
+        intent: "regulatory" as const,
+        rank: 2,
+      },
+      {
+        text: "ai disruption",
+        source: "llm" as const,
+        intent: "technology_trend" as const,
+        rank: 3,
+      },
+      {
+        text: "sector outlook",
+        source: "llm" as const,
+        intent: "industry_trend" as const,
+        rank: 4,
+      },
+      {
+        text: "merger deal",
+        source: "llm" as const,
+        intent: "deals" as const,
+        rank: 5,
+      },
+    ];
+    const deterministic: { text: string; intent: "breaking" }[] = [];
+
+    const adjusted = applySectionCoverageReserve(merged, deterministic, 5);
+
+    expect(adjusted.map((row) => row.text)).toEqual(
+      merged.map((row) => row.text),
+    );
+  });
+
+  it("assigns contiguous ranks starting at 1 after adjustment", () => {
+    const merged = [
+      {
+        text: "breaking one",
+        source: "deterministic" as const,
+        intent: "breaking" as const,
+        rank: 1,
+      },
+      {
+        text: "breaking two",
+        source: "deterministic" as const,
+        intent: "breaking" as const,
+        rank: 2,
+      },
+    ];
+    const deterministic = [
+      { text: "competitor query", intent: "competitor" as const },
+    ];
+
+    const adjusted = applySectionCoverageReserve(merged, deterministic, 2);
+
+    expect(adjusted.map((row) => row.rank)).toEqual(
+      Array.from({ length: adjusted.length }, (_, i) => i + 1),
     );
   });
 });

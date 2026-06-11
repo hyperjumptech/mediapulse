@@ -1,6 +1,11 @@
 import type {
+  NewsletterSectionId,
   QueryAnalysisIntent,
   QueryAnalysisPriorYield,
+} from "@workspace/agent-data-api-contract";
+import {
+  NEWSLETTER_SECTION_IDS,
+  SECTION_BY_INTENT,
 } from "@workspace/agent-data-api-contract";
 
 import type { QuerySemanticEmbedder } from "./embeddings";
@@ -455,6 +460,160 @@ export const orderLlmRowsByPersonaRoundRobin = (
   }
 
   return [...ordered, ...withoutPersona];
+};
+
+/**
+ * Post-merge section-coverage reserve pass.
+ *
+ * For each newsletter section that has a dedicated intent (via SECTION_BY_INTENT), if the
+ * merged set contains zero queries mapping to that section, this function promotes the
+ * highest-scored deterministic candidate of a matching intent. It displaces the
+ * lowest-ranked query of the most over-represented intent so the total count stays at
+ * `queryCount`. Sections without a dedicated intent are unaffected; the caller is
+ * responsible for any keyword guidance those sections require (e.g. via LLM system prompt).
+ *
+ * @param merged - Ranked output of {@link mergeQueryCandidates}.
+ * @param deterministic - Full deterministic candidate pool for the run (pre-merge).
+ * @param queryCount - Target total row count; output length will not exceed this.
+ * @returns Adjusted rows with contiguous ranks reassigned.
+ */
+export const applySectionCoverageReserve = (
+  merged: MergedQueryRow[],
+  deterministic: DeterministicCandidate[],
+  queryCount: number,
+): MergedQueryRow[] => {
+  // Build intent -> section mapping for sections that have a dedicated intent.
+  const intentToSection = new Map<string, string>();
+  for (const sectionId of NEWSLETTER_SECTION_IDS) {
+    for (const [intent, mappedSection] of Object.entries(SECTION_BY_INTENT)) {
+      if (mappedSection === sectionId) {
+        intentToSection.set(intent, sectionId);
+      }
+    }
+  }
+
+  // Collect the set of sections that have at least one dedicated intent.
+  const sectionsWithIntent = new Set(
+    Object.values(SECTION_BY_INTENT).filter(
+      (sectionId): sectionId is NewsletterSectionId => sectionId !== null,
+    ),
+  );
+
+  // Determine which dedicated-intent sections are currently uncovered.
+  const coveredSections = new Set(
+    merged
+      .map((row) => SECTION_BY_INTENT[row.intent])
+      .filter(
+        (sectionId): sectionId is NewsletterSectionId => sectionId !== null,
+      ),
+  );
+  const uncoveredSections = [...sectionsWithIntent].filter(
+    (sectionId) => !coveredSections.has(sectionId),
+  );
+
+  if (uncoveredSections.length === 0) {
+    return merged;
+  }
+
+  // Build a dedupe set from the merged rows for candidate lookup.
+  const mergedKeys = new Set(merged.map((row) => normalizeQueryKey(row.text)));
+
+  // For each uncovered section, find the first deterministic candidate that maps to it.
+  // Deterministic candidates are already in pack order; the first match is the best-scored one.
+  let adjusted = [...merged];
+
+  for (const targetSection of uncoveredSections) {
+    // Find intents that map to this section.
+    const matchingIntents = new Set(
+      Object.entries(SECTION_BY_INTENT)
+        .filter(([, section]) => section === targetSection)
+        .map(([intent]) => intent),
+    );
+
+    // Find the first deterministic candidate for those intents not already in the merged set.
+    const candidate = deterministic.find(
+      (row) =>
+        matchingIntents.has(row.intent) &&
+        !mergedKeys.has(normalizeQueryKey(row.text)),
+    );
+
+    if (candidate === undefined) {
+      continue;
+    }
+
+    // Find the intent that is most over-represented among non-dedicated-section intents
+    // (i.e. intents mapping to null), so displacing one of them costs the least coverage.
+    // Fall back to the intent with the most rows overall when all intents are mapped.
+    const intentCounts = new Map<string, number>();
+    for (const row of adjusted) {
+      intentCounts.set(row.intent, (intentCounts.get(row.intent) ?? 0) + 1);
+    }
+
+    // Prefer displacing from homeless intents (null-mapped) first.
+    const homelessIntents = new Set(
+      Object.entries(SECTION_BY_INTENT)
+        .filter(([, section]) => section === null)
+        .map(([intent]) => intent),
+    );
+
+    let victimIntent: string | undefined;
+    let victimCount = 0;
+    for (const [intent, count] of intentCounts) {
+      if (homelessIntents.has(intent) && count > victimCount) {
+        victimIntent = intent;
+        victimCount = count;
+      }
+    }
+
+    // If no homeless intent has rows, fall back to any intent with the most rows.
+    if (victimIntent === undefined) {
+      for (const [intent, count] of intentCounts) {
+        if (count > victimCount) {
+          victimIntent = intent;
+          victimCount = count;
+        }
+      }
+    }
+
+    if (victimIntent === undefined) {
+      continue;
+    }
+
+    // Find the lowest-ranked row with the victim intent (highest rank number = last in list).
+    let victimIndex = -1;
+    for (let rowIndex = adjusted.length - 1; rowIndex >= 0; rowIndex--) {
+      if (adjusted[rowIndex]?.intent === victimIntent) {
+        victimIndex = rowIndex;
+        break;
+      }
+    }
+
+    if (victimIndex === -1) {
+      continue;
+    }
+
+    // Replace victim with the reserve candidate.
+    adjusted[victimIndex] = {
+      text: candidate.text,
+      source: "deterministic",
+      intent: candidate.intent,
+      rank: adjusted[victimIndex]!.rank,
+      ...(candidate.templateId !== undefined
+        ? { templateId: candidate.templateId }
+        : {}),
+      ...(candidate.language !== undefined
+        ? { language: candidate.language }
+        : {}),
+    };
+
+    mergedKeys.add(normalizeQueryKey(candidate.text));
+    coveredSections.add(targetSection);
+  }
+
+  return adjusted.slice(0, queryCount).map((row, index) => ({
+    ...row,
+    rank: index + 1,
+  }));
 };
 
 /**

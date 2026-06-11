@@ -39,6 +39,7 @@ enum SearchQueryIntent {
   technology_trend
   geopolitical
   industry_trend
+  deals
   wildcard
 }
 

@@ -598,7 +598,7 @@ describe("sectionCoverage snapshot", () => {
     }
   });
 
-  it("zeroCoverageSections always includes dealsAndMovements (no dedicated intent)", async () => {
+  it("zeroCoverageSections includes quickHits when no query maps to it", async () => {
     mockFetchQueryLlm.mockResolvedValue([
       { text: "only breaking", intent: "breaking" as const },
     ]);
@@ -621,7 +621,7 @@ describe("sectionCoverage snapshot", () => {
 
     const { zeroCoverageSections } =
       createPayload.strategySnapshot.sectionCoverage;
-    expect(zeroCoverageSections).toContain("dealsAndMovements");
+    // quickHits has no dedicated intent so it always shows zero search coverage.
     expect(zeroCoverageSections).toContain("quickHits");
   });
 
@@ -672,6 +672,90 @@ describe("sectionCoverage snapshot", () => {
     expect(
       createPayload.strategySnapshot.sectionCoverage.contractVersion,
     ).toBeUndefined();
+  });
+});
+
+describe("section-coverage reserve", () => {
+  // Use a language with no localized pack override so the configured global pack
+  // (rich-v2) is actually used. English gets overridden to default-en-v1 which
+  // lacks competitor and technology_trend templates.
+  const richV2Config = queryAnalysisConfigSchema.parse({
+    credentials: { openaiApiKey: "sk" },
+    output: {
+      queryCount: 10,
+      languageQuotas: [{ language: "fr", share: 1 }],
+    },
+    templates: { templatePack: "rich-v2" },
+    creativity: { wildcardFraction: 0 },
+    quality: {
+      useSelfCritique: false,
+      semanticDedupe: { enabled: false },
+      diversityGate: { enabled: false },
+    },
+    dynamics: { yieldFeedback: { enabled: false } },
+  });
+
+  it("includes competitor-intent queries when LLM returns nothing and rich-v2 pack is used", async () => {
+    // LLM stubbed to return empty so only deterministic rows survive.
+    mockFetchQueryLlm.mockResolvedValue([]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: richV2Config,
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
+      queries: Array<{ intent: string }>;
+    };
+
+    // rich-v2 has competitor templates; they appear via normal merge or reserve.
+    const competitorRows = createPayload.queries.filter(
+      (row) => row.intent === "competitor",
+    );
+    expect(competitorRows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("includes technology_trend queries when LLM returns nothing and rich-v2 pack is used", async () => {
+    mockFetchQueryLlm.mockResolvedValue([]);
+
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: richV2Config,
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
+      queries: Array<{ intent: string }>;
+    };
+
+    const techRows = createPayload.queries.filter(
+      (row) => row.intent === "technology_trend" || row.intent === "technical",
+    );
+    expect(techRows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("total query count stays at queryCount after reserve pass runs", async () => {
+    mockFetchQueryLlm.mockResolvedValue([]);
+
+    const queryCount = 10;
+    await runQueryAnalysis({
+      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
+      config: richV2Config,
+      token: "Bearer t",
+    });
+
+    const createPayload = mockCreate.mock.calls[
+      mockCreate.mock.calls.length - 1
+    ]?.[0] as {
+      queries: Array<{ intent: string }>;
+    };
+
+    expect(createPayload.queries).toHaveLength(queryCount);
   });
 });
 

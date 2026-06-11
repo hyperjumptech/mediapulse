@@ -6,6 +6,7 @@ import {
   classifyQueryToSection,
   NEWSLETTER_SECTION_IDS,
   SECTION_BY_INTENT,
+  ZERO_COVERAGE_EXCLUDED_SECTIONS,
   sectionsWithoutDedicatedIntent,
   summarizeSectionCoverage,
 } from "./newsletter-sections.js";
@@ -59,6 +60,10 @@ describe("SECTION_BY_INTENT", () => {
     expect(SECTION_BY_INTENT.industry_trend).toBe("industryPulse");
   });
 
+  it("maps deals to dealsAndMovements", () => {
+    expect(SECTION_BY_INTENT.deals).toBe("dealsAndMovements");
+  });
+
   it("maps homeless intents to null", () => {
     const homelessIntents = [
       "breaking",
@@ -101,6 +106,7 @@ describe("classifyQueryToSection", () => {
     expect(classifyQueryToSection("technology_trend")).toBe("disruptorsOrTech");
     expect(classifyQueryToSection("technical")).toBe("disruptorsOrTech");
     expect(classifyQueryToSection("industry_trend")).toBe("industryPulse");
+    expect(classifyQueryToSection("deals")).toBe("dealsAndMovements");
   });
 
   it("is consistent with SECTION_BY_INTENT", () => {
@@ -123,10 +129,16 @@ describe("summarizeSectionCoverage", () => {
   it("zero-coverage sections have count 0 and share 0", () => {
     const result = summarizeSectionCoverage(["competitor"]);
 
-    expect(result.dealsAndMovements.count).toBe(0);
-    expect(result.dealsAndMovements.share).toBe(0);
     expect(result.quickHits.count).toBe(0);
     expect(result.quickHits.share).toBe(0);
+  });
+
+  it("credits dealsAndMovements when the deals intent is present", () => {
+    const result = summarizeSectionCoverage(["deals", "deals", "regulatory"]);
+
+    expect(result.dealsAndMovements.count).toBe(2);
+    expect(result.dealsAndMovements.share).toBeGreaterThan(0);
+    expect(result.regulatoryPolicyWatch.count).toBe(1);
   });
 
   it("counts queries per mapped section correctly", () => {
@@ -174,8 +186,12 @@ describe("summarizeSectionCoverage", () => {
 });
 
 describe("sectionsWithoutDedicatedIntent", () => {
-  it("includes dealsAndMovements", () => {
-    expect(sectionsWithoutDedicatedIntent()).toContain("dealsAndMovements");
+  it("excludes dealsAndMovements now that deals intent is mapped", () => {
+    expect(sectionsWithoutDedicatedIntent()).not.toContain("dealsAndMovements");
+  });
+
+  it("excludes quickHits because it is in ZERO_COVERAGE_EXCLUDED_SECTIONS", () => {
+    expect(sectionsWithoutDedicatedIntent()).not.toContain("quickHits");
   });
 
   it("excludes competitiveLandscape", () => {
@@ -203,5 +219,23 @@ describe("sectionsWithoutDedicatedIntent", () => {
     for (const sectionId of sectionsWithoutDedicatedIntent()) {
       expect(sectionSet.has(sectionId)).toBe(true);
     }
+  });
+});
+
+describe("ZERO_COVERAGE_EXCLUDED_SECTIONS", () => {
+  it("contains quickHits", () => {
+    expect(ZERO_COVERAGE_EXCLUDED_SECTIONS.has("quickHits")).toBe(true);
+  });
+
+  it("does not contain competitiveLandscape", () => {
+    expect(ZERO_COVERAGE_EXCLUDED_SECTIONS.has("competitiveLandscape")).toBe(
+      false,
+    );
+  });
+
+  it("does not contain dealsAndMovements", () => {
+    expect(ZERO_COVERAGE_EXCLUDED_SECTIONS.has("dealsAndMovements")).toBe(
+      false,
+    );
   });
 });

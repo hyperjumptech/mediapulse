@@ -1,7 +1,9 @@
 import type {
+  NewsletterSectionId,
   QueryAnalysisIntent,
   QueryAnalysisPriorYield,
 } from "@workspace/agent-data-api-contract";
+import { SECTION_BY_INTENT } from "@workspace/agent-data-api-contract";
 
 import type { KgRelationTemplate } from "./slot-resolver";
 
@@ -22,7 +24,7 @@ export type DeterministicPackName = (typeof DETERMINISTIC_PACK_NAMES)[number];
 export const DEFAULT_DETERMINISTIC_PACK: DeterministicPackName = "default-v1";
 
 /** Maximum templates evaluated per pack to avoid dominating merge/dedup work. */
-export const MAX_TEMPLATES_PER_PACK = 25;
+export const MAX_TEMPLATES_PER_PACK = 30;
 
 /** One row in a deterministic template pack before slot resolution. */
 export type DeterministicTemplate = {
@@ -119,6 +121,8 @@ const richV2Pack: DeterministicPack = {
     { template: "{name} ESG controversies", intent: "esg" },
     { template: "{name} sustainability disclosure", intent: "esg" },
     { template: "{name} social media sentiment", intent: "sentiment" },
+    { template: "{name} acquisition deal", intent: "deals" },
+    { template: "{name} merger funding round", intent: "deals" },
   ],
 };
 
@@ -169,6 +173,9 @@ const richV2ExtendedPack: DeterministicPack = {
     },
     { template: "{industry} analyst sector view", intent: "industry_trend" },
     { template: "{name} chart pattern {currentMonth}", intent: "technical" },
+    { template: "{name} acquisition deal", intent: "deals" },
+    { template: "{name} merger funding round", intent: "deals" },
+    { template: "{name} leadership appointment", intent: "deals" },
   ],
 };
 
@@ -238,7 +245,14 @@ export const getDeterministicPack = (
 };
 
 /**
- * Drops low-yield templates from a pack while preserving at least one template per pack.
+ * Drops low-yield templates from a pack while preserving at least one template per pack
+ * and at least one template per dedicated-intent newsletter section.
+ *
+ * A template is protected from removal when its intent maps to a newsletter section via
+ * {@link SECTION_BY_INTENT} and it is the only remaining template for that section in the
+ * pack. This ensures section-coverage-reserve has a candidate to promote even after
+ * aggressive yield-based rotation. Adding a new intent-to-section mapping in
+ * `SECTION_BY_INTENT` automatically extends protection to that section.
  *
  * @param pack - Source deterministic pack.
  * @param priorYield - Rolling yield rollups from GET /query-analysis.
@@ -253,21 +267,76 @@ export const filterPackTemplatesByYield = (
   if (priorYield === undefined || priorYield.perTemplate.length === 0) {
     return pack;
   }
+
   const yieldByTemplate = new Map(
     priorYield.perTemplate.map((row) => [row.templateId, row.avgNovel]),
   );
-  const filtered = pack.templates.filter((row) => {
-    const avgNovel = yieldByTemplate.get(row.template);
-    if (avgNovel === undefined) {
-      return true;
-    }
-    return avgNovel >= minTemplateYield;
-  });
-  if (filtered.length === 0) {
+
+  // First pass: determine which templates pass the yield bar without any protection.
+  const passesYield = (template: DeterministicTemplate): boolean => {
+    const avgNovel = yieldByTemplate.get(template.template);
+    return avgNovel === undefined || avgNovel >= minTemplateYield;
+  };
+
+  const baseFiltered = pack.templates.filter(passesYield);
+
+  // If nothing survived the yield filter, return the full pack unchanged.
+  // This is the same fallback the original implementation used: a complete wipeout
+  // means yield data is not reliable enough to rotate anything.
+  if (baseFiltered.length === 0) {
     return pack;
   }
-  return {
-    ...pack,
-    templates: filtered,
-  };
+
+  // Second pass: for each dedicated-intent newsletter section that has at least one
+  // template in this pack, ensure at least one of its templates survives. If none
+  // passed the yield bar, promote the first one from the pack (preserving pack order).
+  // This prevents the yield filter from silently starving a section when only a few
+  // high-traffic intents happen to have good yield history.
+
+  // Build section -> templates mapping for this pack.
+  const sectionsWithDedicatedIntent = new Set(
+    Object.values(SECTION_BY_INTENT).filter(
+      (sectionId): sectionId is NewsletterSectionId => sectionId !== null,
+    ),
+  );
+  const templatesBySectionId = new Map<string, DeterministicTemplate[]>();
+  for (const sectionId of sectionsWithDedicatedIntent) {
+    templatesBySectionId.set(sectionId, []);
+  }
+  for (const template of pack.templates) {
+    const sectionId = SECTION_BY_INTENT[template.intent];
+    if (sectionId !== null && sectionId !== undefined) {
+      templatesBySectionId.get(sectionId)?.push(template);
+    }
+  }
+
+  const survivorKeys = new Set(baseFiltered.map((t) => t.template));
+  const protectedTemplates: DeterministicTemplate[] = [];
+  for (const [, sectionTemplates] of templatesBySectionId) {
+    if (sectionTemplates.length === 0) {
+      continue;
+    }
+    const hasAnySurvivor = sectionTemplates.some((t) =>
+      survivorKeys.has(t.template),
+    );
+    if (!hasAnySurvivor) {
+      // Promote the first template for this section (pack order = highest priority).
+      const candidate = sectionTemplates[0];
+      if (candidate !== undefined && !survivorKeys.has(candidate.template)) {
+        protectedTemplates.push(candidate);
+        survivorKeys.add(candidate.template);
+      }
+    }
+  }
+
+  if (protectedTemplates.length === 0) {
+    return { ...pack, templates: baseFiltered };
+  }
+
+  // Merge protected templates back in, preserving original pack order.
+  const protectedSet = new Set(protectedTemplates.map((t) => t.template));
+  const merged = pack.templates.filter(
+    (t) => survivorKeys.has(t.template) || protectedSet.has(t.template),
+  );
+  return { ...pack, templates: merged };
 };
