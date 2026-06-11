@@ -30,7 +30,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/registration-form", () => ({
   RegistrationForm: () => (
     <div>
-      <label htmlFor="name">Your name</label>
+      <label htmlFor="name">What should we call you?</label>
       <input id="name" />
       <label htmlFor="ticker">Stock ticker</label>
       <input id="ticker" />
@@ -68,7 +68,9 @@ describe("DevUiIssue483Page", () => {
     render(ui);
 
     // Assert
-    expect(screen.getByLabelText(/Your name/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/What should we call you\?/i),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/Stock ticker/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Open email app to subscribe/i }),

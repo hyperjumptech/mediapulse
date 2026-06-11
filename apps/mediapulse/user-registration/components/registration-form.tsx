@@ -105,7 +105,7 @@ const RegistrationForm = ({
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="name">Your name</Label>
+          <Label htmlFor="name">What should we call you?</Label>
           <Input
             id="name"
             placeholder="John Doe"
