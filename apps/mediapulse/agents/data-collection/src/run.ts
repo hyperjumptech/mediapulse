@@ -8,6 +8,16 @@ import crypto from "node:crypto";
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import {
+  narrativeRunStart,
+  narrativeQueriesLoaded,
+  narrativeDailyQuota,
+  narrativeSearchRound,
+  narrativeFilteredResults,
+  narrativeFetchStart,
+  narrativeSavingSources,
+  narrativeRunComplete,
+} from "./utilities/build-activity-narrative";
+import {
   performWebFetch,
   createEmptyQualityCounters,
   runQualityGate,
@@ -97,18 +107,6 @@ export async function runDataCollection(
     }
   };
 
-  report("Fetching search queries", `ticker ${input.tickerId}`);
-
-  const webSearchConfig = config.providers.search;
-  const webFetchConfig = config.providers.fetch;
-  const relevanceGateConfig = config.gates.relevance;
-  const perQueryFetchBudget = config.collection.perQueryFetchBudget;
-  const perRunFetchBudget = config.collection.perRunFetchBudget;
-  const deadUrlCacheConfig = config.resilience.deadUrlCache;
-  const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
-  const freshnessGateConfig = config.gates.freshness;
-  const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
-
   const tickerRecord = await dataApiClient.ticker.get({
     tickerId: input.tickerId,
   });
@@ -121,10 +119,20 @@ export async function runDataCollection(
     tickerRecord.sector,
     tickerRecord.industry,
   );
-  report(
-    "Loaded ticker context",
-    `${tickerAliases.length} ticker aliases, ${industryAliases.length} industry terms`,
-  );
+  const subject = { symbol: tickerRecord.symbol, name: tickerRecord.name };
+
+  report(...narrativeRunStart(subject));
+
+  const webSearchConfig = config.providers.search;
+  const webFetchConfig = config.providers.fetch;
+  const relevanceGateConfig = config.gates.relevance;
+  const perQueryFetchBudget = config.collection.perQueryFetchBudget;
+  const perRunFetchBudget = config.collection.perRunFetchBudget;
+  const deadUrlCacheConfig = config.resilience.deadUrlCache;
+  const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
+  const freshnessGateConfig = config.gates.freshness;
+  const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
+
   if (tickerAliases.length === 0 && industryAliases.length === 0) {
     log.warn(
       { tickerId: input.tickerId },
@@ -144,7 +152,7 @@ export async function runDataCollection(
     tickerId: input.tickerId,
   });
 
-  report("Loaded search queries", `${queries.length} queries`);
+  report(...narrativeQueriesLoaded(subject, queries.length));
 
   log.info(
     { queryCount: queries.length },
@@ -171,10 +179,7 @@ export async function runDataCollection(
   });
   const existingTodaySourceCount = baselineToday.dataSourceTotalCount;
 
-  report(
-    "Checking daily quota",
-    `${existingTodaySourceCount} sources today, target ${targetDailySuccessfulSources}`,
-  );
+  report(...narrativeDailyQuota(subject, existingTodaySourceCount, targetDailySuccessfulSources));
 
   let roundsExecuted = 0;
   let refillStopReason:
@@ -218,27 +223,24 @@ export async function runDataCollection(
 
   if (queries.length === 0) {
     report(
-      "No search queries available",
-      `ticker ${input.tickerId} has no active queries`,
+      "No search queries configured",
+      `${subject.symbol} (${subject.name}) has no active search queries. Skipping collection.`,
       "completed",
     );
     refillStopReason = "no_queries";
   } else if (existingTodaySourceCount >= targetDailySuccessfulSources) {
     report(
       "Daily target already met",
-      `${existingTodaySourceCount} sources already today`,
+      `${subject.symbol} already has ${existingTodaySourceCount} saved source${existingTodaySourceCount === 1 ? "" : "s"} today, meeting the target of ${targetDailySuccessfulSources}. Skipping collection.`,
       "completed",
     );
     refillStopReason = "daily_target_met_before_start";
   } else {
-    report(
-      "Running web searches",
-      `${queries.length} queries for ${input.tickerId}`,
-    );
+    report(...narrativeSearchRound(subject, queries.length, 1, maxTotalRounds));
 
     for (let round = 1; round <= maxTotalRounds; round += 1) {
       if (round > 1) {
-        report("Search refill round", `round ${round} of ${maxTotalRounds}`);
+        report(...narrativeSearchRound(subject, queries.length, round, maxTotalRounds));
       }
       roundsExecuted += 1;
       const searchThrottleStats = { throttleEvents: 0 };
@@ -370,10 +372,8 @@ export async function runDataCollection(
         );
       }
 
-      report(
-        "Filtered search results",
-        `${searchSuccessesAfterHostBreaker.length} URLs after dedup, existing-URL and dead-cache checks`,
-      );
+      const roundDroppedBeforeFetch = roundSearchSuccesses.length - searchSuccessesAfterHostBreaker.length;
+      report(...narrativeFilteredResults(searchSuccessesAfterHostBreaker.length, roundDroppedBeforeFetch));
 
       const budgetSelection = applyFetchBudget(
         searchSuccessesAfterHostBreaker,
@@ -402,10 +402,7 @@ export async function runDataCollection(
         );
       }
 
-      report(
-        "Fetching article content",
-        `${budgetSelection.hits.length} candidate URLs`,
-      );
+      report(...narrativeFetchStart(subject, budgetSelection.hits.length));
 
       const fetchThrottleStats = { throttleEvents: 0 };
       const fetchAttemptResults = await performWebFetch(budgetSelection.hits, {
@@ -430,10 +427,7 @@ export async function runDataCollection(
 
       let persistedThisRoundCount = 0;
       const roundQualityDrops: QualityDropForDeadUrl[] = [];
-      report(
-        "Saving sources to database",
-        `${roundFetchSuccesses.length} deduplicated sources`,
-      );
+      report(...narrativeSavingSources(subject, roundFetchSuccesses.length));
       for (const page of roundFetchSuccesses) {
         const urlDecision = classifyNoisyUrl(page.url);
         if (urlDecision.blocked) {
@@ -639,6 +633,11 @@ export async function runDataCollection(
     droppedByFreshnessReason,
   ).reduce((sum, count) => sum + count, 0);
 
+  const contentQualityDropped = Object.values(droppedByContentQuality).reduce(
+    (sum, v) => sum + v,
+    0,
+  );
+
   const counters: RunCounters = {
     queriesTotal: queries.length,
     urlsTotal: searchSuccessCount,
@@ -737,8 +736,17 @@ export async function runDataCollection(
     );
 
     report(
-      "Data collection complete",
-      `${totalSources} saved, ${failuresPayload.length} failed`,
+      ...narrativeRunComplete(subject, {
+        status,
+        persisted: totalSources,
+        droppedByRelevance,
+        droppedByFreshness: droppedByFreshnessTotalCount,
+        contentQualityDropped,
+        failureCount: failuresPayload.length,
+        stopReason: refillStopReason,
+        roundsExecuted,
+        targetDailySuccessfulSources,
+      }),
       "completed",
     );
 
@@ -774,8 +782,17 @@ export async function runDataCollection(
   );
 
   report(
-    "Data collection complete",
-    `${totalSources} saved, ${failuresPayload.length} failed`,
+    ...narrativeRunComplete(subject, {
+      status,
+      persisted: totalSources,
+      droppedByRelevance,
+      droppedByFreshness: droppedByFreshnessTotalCount,
+      contentQualityDropped,
+      failureCount: failuresPayload.length,
+      stopReason: refillStopReason,
+      roundsExecuted,
+      targetDailySuccessfulSources,
+    }),
     "completed",
   );
 
