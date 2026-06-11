@@ -13,6 +13,10 @@ import type {
 
 const TOP_N = 10;
 
+const DIVERSITY_WARNING_THRESHOLD = 0.5;
+const DETERMINISTIC_ADHERENCE_WARNING_THRESHOLD = 100;
+const ZERO_YIELD_WARNING_THRESHOLD = 0.5;
+
 const WINDOW_MS: Record<"24h" | "7d" | "30d", number> = {
   "24h": 24 * 60 * 60 * 1000,
   "7d": 7 * 24 * 60 * 60 * 1000,
@@ -27,6 +31,7 @@ type QuerySetRow = {
 };
 
 type QueryRow = {
+  id: string;
   setId: string | null;
   source: string;
   intent: string;
@@ -65,6 +70,7 @@ type QueryAnalysisInsightsDeps = {
         setId: { in: string[] };
       };
       select: {
+        id: boolean;
         setId: boolean;
         source: boolean;
         intent: boolean;
@@ -213,7 +219,7 @@ export function createQueryAnalysisInsightsProvider(
         allSetIds.length > 0
           ? await deps.searchQuery.findMany({
               where: { setId: { in: allSetIds } },
-              select: { setId: true, source: true, intent: true },
+              select: { id: true, setId: true, source: true, intent: true },
             })
           : [];
 
@@ -234,7 +240,7 @@ export function createQueryAnalysisInsightsProvider(
       const queriesPerSet =
         totalSets > 0 ? currentQueries.length / totalSets : 0;
 
-      // Latest composite diversity score (from the most-recent set)
+      // Composite diversity score: window average and latest-set value
       const sortedSets = [...currentSets].sort(
         (a, b) => b.generatedAt.getTime() - a.generatedAt.getTime(),
       );
@@ -244,6 +250,15 @@ export function createQueryAnalysisInsightsProvider(
         : null;
       const latestDiversityScore =
         latestSnapshot?.diversityScore?.composite ?? null;
+
+      const compositeScores = snapshots
+        .map((s) => s.diversityScore?.composite)
+        .filter((v): v is number => typeof v === "number");
+      const windowAvgDiversityScore =
+        compositeScores.length > 0
+          ? compositeScores.reduce((sum, v) => sum + v, 0) /
+            compositeScores.length
+          : null;
 
       // LLM fraction
       const totalQueries = currentQueries.length;
@@ -287,12 +302,16 @@ export function createQueryAnalysisInsightsProvider(
           label: "Avg queries / set",
           value: Math.round(queriesPerSet),
         },
-        ...(latestDiversityScore !== null
+        ...(windowAvgDiversityScore !== null
           ? [
               {
                 id: "diversity_score",
-                label: "Diversity score (latest)",
-                value: Math.round(latestDiversityScore * 100) / 100,
+                label: "Diversity score (window avg)",
+                value: Math.round(windowAvgDiversityScore * 100) / 100,
+                tone:
+                  windowAvgDiversityScore < DIVERSITY_WARNING_THRESHOLD
+                    ? "warning"
+                    : "positive",
               } satisfies KpiCard,
             ]
           : []),
@@ -309,6 +328,11 @@ export function createQueryAnalysisInsightsProvider(
                 label: "Deterministic-floor adherence",
                 value: deterministicAdherence,
                 unit: "%",
+                tone:
+                  deterministicAdherence <
+                  DETERMINISTIC_ADHERENCE_WARNING_THRESHOLD
+                    ? "warning"
+                    : "positive",
               } satisfies KpiCard,
             ]
           : []),
@@ -382,6 +406,85 @@ export function createQueryAnalysisInsightsProvider(
             message: `No query set generated in the last ${ctx.window === "24h" ? "6 hours" : "48 hours"}`,
           });
         }
+      }
+
+      // ─── Yield aggregation ───────────────────────────────────────────────
+
+      // Build a map from searchQueryId to { intent, source } using currentQueries.
+      const queryIdToMeta = new Map<
+        string,
+        { intent: string; source: string }
+      >();
+      for (const q of currentQueries) {
+        queryIdToMeta.set(q.id, { intent: q.intent, source: q.source });
+      }
+
+      // Aggregate novel yield by intent and source.
+      const novelByIntent = new Map<string, number>();
+      const novelBySource = new Map<string, number>();
+      const totalByIntent = new Map<string, number>();
+      let totalNovelArticles = 0;
+      let totalArticles = 0;
+      const queriesWithYield = new Set<string>();
+      for (const row of yieldRows) {
+        const meta = queryIdToMeta.get(row.searchQueryId);
+        if (!meta) continue;
+        queriesWithYield.add(row.searchQueryId);
+        novelByIntent.set(
+          meta.intent,
+          (novelByIntent.get(meta.intent) ?? 0) + row.novelArticleCount,
+        );
+        novelBySource.set(
+          meta.source,
+          (novelBySource.get(meta.source) ?? 0) + row.novelArticleCount,
+        );
+        totalByIntent.set(
+          meta.intent,
+          (totalByIntent.get(meta.intent) ?? 0) + row.articleCount,
+        );
+        totalNovelArticles += row.novelArticleCount;
+        totalArticles += row.articleCount;
+      }
+      const zeroYieldQueryCount = currentQueries.filter(
+        (q) =>
+          !queriesWithYield.has(q.id) ||
+          (yieldRows.find((r) => r.searchQueryId === q.id)?.novelArticleCount ??
+            0) === 0,
+      ).length;
+      const zeroYieldShare =
+        currentQueries.length > 0
+          ? Math.round((zeroYieldQueryCount / currentQueries.length) * 100)
+          : 0;
+      const novelRate =
+        totalArticles > 0
+          ? Math.round((totalNovelArticles / totalArticles) * 100)
+          : 0;
+
+      // Add novel yield KPIs.
+      if (yieldRows.length > 0 || currentQueries.length > 0) {
+        kpis.push(
+          {
+            id: "novel_articles",
+            label: "Novel articles (window)",
+            value: totalNovelArticles,
+          },
+          {
+            id: "novel_rate",
+            label: "Novel rate",
+            value: novelRate,
+            unit: "%",
+          },
+          {
+            id: "zero_yield_query_share",
+            label: "Zero-yield query share",
+            value: zeroYieldShare,
+            unit: "%",
+            tone:
+              zeroYieldShare > ZERO_YIELD_WARNING_THRESHOLD * 100
+                ? "warning"
+                : "positive",
+          },
+        );
       }
 
       // ─── Sections ────────────────────────────────────────────────────────
@@ -537,8 +640,6 @@ export function createQueryAnalysisInsightsProvider(
             label: "Semantic spread",
             value: ds.semanticSpread,
           });
-        if (ds.composite !== undefined)
-          diversityAxes.push({ label: "Composite", value: ds.composite });
       }
       if (diversityAxes.length > 0) {
         sections.push({
@@ -605,6 +706,108 @@ export function createQueryAnalysisInsightsProvider(
               row.novelArticleCount,
               row.articleCount,
             ]),
+          },
+        });
+      }
+
+      // How — novel yield by intent
+      if (novelByIntent.size > 0) {
+        sections.push({
+          id: "how-yield-by-intent",
+          category: "how",
+          title: "Novel yield by intent",
+          insight:
+            "Novel articles produced by each query intent, showing which intents surface new content.",
+          widget: {
+            kind: "categoryBar",
+            bars: bucketTopN(
+              Array.from(novelByIntent.entries()).map(([label, value]) => ({
+                label,
+                value,
+              })),
+              TOP_N,
+            ),
+            unit: "novel articles",
+          },
+        });
+      }
+
+      // How — novel yield by source
+      if (novelBySource.size > 0) {
+        const sourceTotal = Array.from(novelBySource.values()).reduce(
+          (sum, v) => sum + v,
+          0,
+        );
+        sections.push({
+          id: "how-yield-by-source",
+          category: "how",
+          title: "Novel yield by source",
+          insight: "Novel articles produced by deterministic vs LLM queries.",
+          widget: {
+            kind: "breakdown",
+            slices: Array.from(novelBySource.entries()).map(
+              ([label, value]) => ({
+                label,
+                value,
+                fraction: sourceTotal > 0 ? value / sourceTotal : 0,
+              }),
+            ),
+          },
+        });
+      }
+
+      // How — self-critique replacements over the window
+      const selfCritiquePerSet = snapshots
+        .map((s) => s.selfCritiqueReplacedCount ?? 0)
+        .filter((v) => v > 0);
+      if (selfCritiquePerSet.length > 0) {
+        sections.push({
+          id: "how-self-critique",
+          category: "how",
+          title: "Self-critique replacements",
+          insight:
+            "Number of queries replaced by the self-critique pass per set in the window.",
+          widget: {
+            kind: "categoryBar",
+            bars: selfCritiquePerSet.map((value, index) => ({
+              label: `Set ${index + 1}`,
+              value,
+            })),
+            unit: "replacements",
+          },
+        });
+      }
+
+      // How — attribution by template ID
+      const templateIdCounts = new Map<string, number>();
+      for (const snap of snapshots) {
+        if (!Array.isArray(snap.queryAttribution)) continue;
+        for (const entry of snap.queryAttribution) {
+          if (entry.templateId) {
+            templateIdCounts.set(
+              entry.templateId,
+              (templateIdCounts.get(entry.templateId) ?? 0) + 1,
+            );
+          }
+        }
+      }
+      if (templateIdCounts.size > 0) {
+        sections.push({
+          id: "how-attribution",
+          category: "how",
+          title: "Query attribution by template",
+          insight:
+            "Distribution of query attribution across template IDs, showing which templates are used most.",
+          widget: {
+            kind: "categoryBar",
+            bars: bucketTopN(
+              Array.from(templateIdCounts.entries()).map(([label, value]) => ({
+                label,
+                value,
+              })),
+              TOP_N,
+            ),
+            unit: "queries",
           },
         });
       }
