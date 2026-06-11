@@ -54,7 +54,7 @@ const GOLDEN_PROMPT_FINGERPRINT_FIXTURE = {
     headlineSamples: [] as [],
     kgNeighborhood: [] as [],
   },
-  fingerprint: "730d66ed9cd31a1d",
+  fingerprint: "091297a760adf9a3",
 } as const;
 
 const emptyEnrichedContext = {
@@ -150,6 +150,43 @@ describe("buildQueryAnalysisSystemContent", () => {
     expect(text).toContain("supply_chain: suppliers, logistics");
     expect(text).toContain("esg: environmental, social, governance");
     expect(text).not.toContain("{{");
+  });
+
+  it("states the explicit total query count and does not embed a bare '2 queries' cap", () => {
+    const text = buildQueryAnalysisSystemContent({
+      queryCount: 10,
+      language: "en",
+      minDeterministicCount: 4,
+      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+    });
+
+    expect(text).toContain("approximately 10 queries in total");
+    expect(text).not.toContain("at most 2 queries");
+  });
+
+  it("uses unambiguous words-per-query phrasing for the default queryMaxWords", () => {
+    const text = buildQueryAnalysisSystemContent({
+      queryCount: 10,
+      language: "en",
+      minDeterministicCount: 4,
+      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+    });
+
+    expect(text).toContain("Keep each query to about 2–5 words.");
+    expect(text).not.toContain("Prefer 2-word keyword phrases.");
+  });
+
+  it("uses unambiguous words-per-query phrasing when queryMaxWords is 2", () => {
+    const text = buildQueryAnalysisSystemContent({
+      queryCount: 10,
+      language: "en",
+      minDeterministicCount: 4,
+      intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
+      queryMaxWords: 2,
+    });
+
+    expect(text).toContain("Keep each query to about 2 words.");
+    expect(text).not.toContain("Prefer 2-word keyword phrases.");
   });
 });
 
