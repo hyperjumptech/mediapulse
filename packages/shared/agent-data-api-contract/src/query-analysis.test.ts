@@ -57,13 +57,6 @@ describe("queryAnalysisIntentSchema", () => {
 describe("queryAnalysisPriorYieldSchema", () => {
   it("accepts rolling yield rollups on GET /query-analysis responses", () => {
     const parsed = queryAnalysisPriorYieldSchema.parse({
-      perTemplate: [
-        {
-          templateId: "{symbol} latest news",
-          avgArticles: 1.2,
-          avgNovel: 0.8,
-        },
-      ],
       perIntent: [{ intent: "fundamental", avgArticles: 3.2, avgNovel: 3.2 }],
       perPersona: [{ persona: "analyst", avgArticles: 1, avgNovel: 0.5 }],
     });

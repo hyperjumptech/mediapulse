@@ -1,11 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateObject, generateText } from "ai";
+import { generateObject } from "ai";
 import type { ModelMessage } from "ai";
-import { buildOpenAiReasoningProviderOptions } from "@workspace/agent-runtime";
-import type {
-  OpenAiReasoningEffort,
-  OpenAiReasoningProviderOptions,
-} from "@workspace/agent-runtime";
 import {
   QUERY_ANALYSIS_STANDARD_INTENTS,
   SECTION_BY_INTENT,
@@ -26,7 +21,7 @@ import type { LlmCandidate } from "./merge-query-candidates";
 import { normalizeQueryKey } from "./merge-query-candidates";
 import { resolveEntityDisplayName } from "./i18n/entity-aliases";
 
-/** Fixed LLM output token budget for all query-analysis structured and brainstorm calls. */
+/** Fixed LLM output token budget for all query-analysis structured calls. */
 export const QUERY_ANALYSIS_MAX_OUTPUT_TOKENS = 800;
 
 /** Zod schema for structured LLM output (validated by AI SDK). */
@@ -312,104 +307,21 @@ export const buildQueryAnalysisUserContent = (
   language?: string,
 ): string => serializeQueryAnalysisContextBlock(context, language);
 
-/** System instruction for the free-form brainstorm pass. */
-const BRAINSTORM_SYSTEM_PROMPT = [
-  "You are a news researcher brainstorming keyword search angles.",
-  "List 12–20 distinct keyword topics a journalist or researcher would search for about the company below.",
-  "Write free prose as plain bullet points — one angle per line.",
-  "Do not output JSON, intent labels, or numbered schema fields.",
-].join("\n");
-
-/**
- * Builds the system and user messages for the brainstorm pass.
- *
- * When `strategy.brief` is set, appends the product contract brief to the brainstorm
- * system prompt so the brainstorm angles are oriented toward the end artifact.
- *
- * @param strategy - Strategy knobs (languages inform phrasing expectations).
- * @param context - Live GET /query-analysis payload.
- * @returns System and user content for `generateText`.
- */
-export const buildBrainstormPrompt = (
-  strategy: LlmQueryStrategyPrompt,
-  context: GetQueryAnalysisResponse,
-): { system: string; user: string } => {
-  const baseSystem = [
-    BRAINSTORM_SYSTEM_PROMPT,
-    `Write angles in ${strategy.language}. Do not translate ticker symbols or proper nouns.`,
-  ].join("\n\n");
-  return {
-    system: applyContractBrief(
-      baseSystem,
-      strategy.brief !== undefined ? { brief: strategy.brief } : undefined,
-    ),
-    user: serializeQueryAnalysisContextBlock(context, strategy.language),
-  };
-};
-
-/**
- * Parses brainstorm model output into trimmed bullet strings.
- *
- * @param text - Raw `generateText` output.
- * @returns Non-empty bullet lines with common list prefixes stripped.
- */
-export const parseBrainstormBullets = (text: string): string[] => {
-  const bullets: string[] = [];
-  for (const rawLine of text.split("\n")) {
-    const line = rawLine
-      .trim()
-      .replace(/^[-*•]\s*/, "")
-      .replace(/^\d+[.)]\s*/, "")
-      .trim();
-    if (line.length > 0) {
-      bullets.push(line);
-    }
-  }
-  return bullets;
-};
-
-/**
- * Appends brainstorm refinement instructions to the structured-call user content.
- *
- * @param userContent - Serialized live context for the target ticker.
- * @param brainstormBullets - Angles from the brainstorm pass.
- * @returns User message content for the structured JSON call.
- */
-export const buildStructuredUserContentWithBrainstorm = (
-  userContent: string,
-  brainstormBullets: string[],
-): string => {
-  const bulletBlock = brainstormBullets
-    .map((bullet) => `- ${bullet}`)
-    .join("\n");
-  return [
-    userContent,
-    "",
-    "Here are angles you previously brainstormed:",
-    bulletBlock,
-    "",
-    "Now refine, dedupe, and label each with an intent in the JSON response.",
-  ].join("\n");
-};
-
 /**
  * Builds chat messages for the structured query-generation call.
  *
- * @param options - System/user content, optional few-shot exemplars, brainstorm bullets.
+ * @param options - System/user content and optional few-shot exemplars.
  * @returns Message array for `generateObject`.
  */
 export const buildStructuredQueryMessages = (options: {
   systemContent: string;
   userContent: string;
   fewShotExemplarCount: number;
-  brainstormBullets?: string[];
 }): ModelMessage[] => {
   const messages: ModelMessage[] = [
     {
       role: "system",
-      content: options.brainstormBullets?.length
-        ? `${options.systemContent}\n\nRefine the brainstormed angles into the final JSON query list. Dedupe near-duplicates before assigning intents.`
-        : options.systemContent,
+      content: options.systemContent,
     },
   ];
 
@@ -421,34 +333,8 @@ export const buildStructuredQueryMessages = (options: {
     });
   }
 
-  const finalUserContent =
-    options.brainstormBullets && options.brainstormBullets.length > 0
-      ? buildStructuredUserContentWithBrainstorm(
-          options.userContent,
-          options.brainstormBullets,
-        )
-      : options.userContent;
-
-  messages.push({ role: "user", content: finalUserContent });
+  messages.push({ role: "user", content: options.userContent });
   return messages;
-};
-
-export type LlmQuerySampling = {
-  seed?: number;
-  reasoningEffort?: OpenAiReasoningEffort;
-};
-
-/** Returns seed and providerOptions fields for AI SDK calls when configured. */
-const llmSamplingOptions = (
-  sampling: LlmQuerySampling,
-): { seed?: number; providerOptions?: OpenAiReasoningProviderOptions } => {
-  const providerOptions = buildOpenAiReasoningProviderOptions(
-    sampling.reasoningEffort,
-  );
-  return {
-    ...(sampling.seed !== undefined ? { seed: sampling.seed } : {}),
-    ...(providerOptions !== undefined ? { providerOptions } : {}),
-  };
 };
 
 export type GenerateObjectForWildcards = (args: {
@@ -456,8 +342,6 @@ export type GenerateObjectForWildcards = (args: {
   schema: typeof llmWildcardOutputSchema;
   maxOutputTokens: number;
   messages: ModelMessage[];
-  seed?: number;
-  providerOptions?: OpenAiReasoningProviderOptions;
 }) => Promise<{ object: z.infer<typeof llmWildcardOutputSchema> }>;
 
 export type GenerateObjectForQueries = (args: {
@@ -465,8 +349,6 @@ export type GenerateObjectForQueries = (args: {
   schema: typeof llmQueriesOutputSchema;
   maxOutputTokens: number;
   messages: ModelMessage[];
-  seed?: number;
-  providerOptions?: OpenAiReasoningProviderOptions;
 }) => Promise<{ object: z.infer<typeof llmQueriesOutputSchema> }>;
 
 export type GenerateObjectForCritique = (args: {
@@ -474,68 +356,13 @@ export type GenerateObjectForCritique = (args: {
   schema: typeof llmCritiqueOutputSchema;
   maxOutputTokens: number;
   messages: ModelMessage[];
-  seed?: number;
-  providerOptions?: OpenAiReasoningProviderOptions;
 }) => Promise<{ object: z.infer<typeof llmCritiqueOutputSchema> }>;
-
-export type GenerateTextForBrainstorm = (args: {
-  model: ReturnType<ReturnType<typeof createOpenAI>>;
-  messages: ModelMessage[];
-  maxOutputTokens: number;
-  seed?: number;
-  providerOptions?: OpenAiReasoningProviderOptions;
-}) => Promise<{ text: string }>;
-
-/**
- * Runs the free-form brainstorm pass and returns parsed bullet angles.
- *
- * @param params - API key, model, token budget, strategy, context, and sampling.
- * @param deps - Injectable `generateText` (default: production `generateText` from `ai`).
- * @returns Trimmed bullet strings from model output.
- */
-export const fetchBrainstormBullets = async (
-  params: {
-    apiKey: string;
-    model: string;
-    strategy: LlmQueryStrategyPrompt;
-    context: GetQueryAnalysisResponse;
-    sampling: LlmQuerySampling;
-    /** Overrides `sampling.reasoningEffort` for the brainstorm pass only. */
-    brainstormReasoningEffort?: OpenAiReasoningEffort;
-  },
-  deps: { generateTextForBrainstorm: GenerateTextForBrainstorm } = {
-    generateTextForBrainstorm: generateText,
-  },
-): Promise<string[]> => {
-  const openai = createOpenAI({ apiKey: params.apiKey });
-  const { system, user } = buildBrainstormPrompt(
-    params.strategy,
-    params.context,
-  );
-  const effectiveBrainstormSampling: LlmQuerySampling =
-    params.brainstormReasoningEffort !== undefined
-      ? {
-          ...params.sampling,
-          reasoningEffort: params.brainstormReasoningEffort,
-        }
-      : params.sampling;
-  const { text } = await deps.generateTextForBrainstorm({
-    model: openai(params.model),
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
-    ...llmSamplingOptions(effectiveBrainstormSampling),
-  });
-  return parseBrainstormBullets(text);
-};
 
 /**
  * Calls the chat model with structured output; returns trimmed non-empty candidates with intents.
  * Throws on transport, API, or schema validation errors (caller handles fallback).
  *
- * @param params - API key, model id, token budget, chat messages, and sampling knobs.
+ * @param params - API key, model id, and chat messages.
  * @param deps - Injectable `generateObject` (default: production `generateObject` from `ai`).
  * @returns LLM candidate rows (may be empty if the model returns only empty strings).
  */
@@ -544,7 +371,6 @@ export const fetchLlmQueryCandidates = async (
     apiKey: string;
     model: string;
     messages: ModelMessage[];
-    sampling: LlmQuerySampling;
   },
   deps: { generateObjectForQueries: GenerateObjectForQueries } = {
     generateObjectForQueries: generateObject,
@@ -556,7 +382,6 @@ export const fetchLlmQueryCandidates = async (
     schema: llmQueriesOutputSchema,
     maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
     messages: params.messages,
-    ...llmSamplingOptions(params.sampling),
   });
   return (object.queries ?? [])
     .map((q) => ({ text: q.text.trim(), intent: q.intent }))
@@ -628,7 +453,7 @@ export const buildWildcardUserContentWithAvoidNudge = (
 /**
  * Calls the chat model with minimal structured output for wildcard query slots.
  *
- * @param params - API key, model, token budget, count, context, and optional seed.
+ * @param params - API key, model, token budget, count, and context.
  * @param deps - Injectable `generateObject` (default: production `generateObject` from `ai`).
  * @returns Trimmed wildcard candidate rows tagged with `intent: "wildcard"`.
  */
@@ -639,7 +464,6 @@ export const fetchWildcardCandidates = async (
     count: number;
     context: GetQueryAnalysisResponse;
     allowedLanguages: string[];
-    sampling: LlmQuerySampling;
     avoidTexts?: string[];
     queryMaxWords?: number;
   },
@@ -665,74 +489,11 @@ export const fetchWildcardCandidates = async (
       { role: "system", content: systemContent },
       { role: "user", content: userContent },
     ],
-    ...llmSamplingOptions(params.sampling),
   });
   return (object.queries ?? [])
     .map((q) => ({ text: q.text.trim(), intent: "wildcard" as const }))
     .filter((q) => q.text.length > 0)
     .slice(0, params.count);
-};
-
-/** Parameters for the full query-analysis LLM path (optional brainstorm + structured call). */
-export type FetchQueryAnalysisLlmCandidatesParams = {
-  apiKey: string;
-  model: string;
-  brainstormModel: string;
-  systemContent: string;
-  userContent: string;
-  context: GetQueryAnalysisResponse;
-  strategy: LlmQueryStrategyPrompt;
-  sampling: LlmQuerySampling;
-  useBrainstormPass: boolean;
-  fewShotExemplarCount: number;
-  /** Overrides `sampling.reasoningEffort` for the brainstorm pass only. */
-  brainstormReasoningEffort?: OpenAiReasoningEffort;
-};
-
-/**
- * Fetches LLM query candidates, optionally running a brainstorm pass first.
- *
- * @param params - Full LLM path configuration from Hermes invoke config.
- * @param deps - Injectable brainstorm and structured-output collaborators.
- * @returns Trimmed LLM candidate rows with intents.
- */
-export const fetchQueryAnalysisLlmCandidates = async (
-  params: FetchQueryAnalysisLlmCandidatesParams,
-  deps: {
-    fetchBrainstormBullets?: typeof fetchBrainstormBullets;
-    fetchLlmQueryCandidates?: typeof fetchLlmQueryCandidates;
-  } = {},
-): Promise<Array<{ text: string; intent: QueryAnalysisIntent }>> => {
-  const runBrainstorm = deps.fetchBrainstormBullets ?? fetchBrainstormBullets;
-  const runStructured = deps.fetchLlmQueryCandidates ?? fetchLlmQueryCandidates;
-
-  let brainstormBullets: string[] | undefined;
-  if (params.useBrainstormPass) {
-    brainstormBullets = await runBrainstorm({
-      apiKey: params.apiKey,
-      model: params.brainstormModel,
-      strategy: params.strategy,
-      context: params.context,
-      sampling: params.sampling,
-      ...(params.brainstormReasoningEffort !== undefined
-        ? { brainstormReasoningEffort: params.brainstormReasoningEffort }
-        : {}),
-    });
-  }
-
-  const messages = buildStructuredQueryMessages({
-    systemContent: params.systemContent,
-    userContent: params.userContent,
-    fewShotExemplarCount: params.fewShotExemplarCount,
-    brainstormBullets,
-  });
-
-  return runStructured({
-    apiKey: params.apiKey,
-    model: params.model,
-    messages,
-    sampling: params.sampling,
-  });
 };
 
 export type FetchLlmQueryCandidatesByPersonaParams = {
@@ -743,17 +504,15 @@ export type FetchLlmQueryCandidatesByPersonaParams = {
   personas: QueryPersona[];
   perPersonaQuota: number;
   fewShotExemplarCount: number;
-  brainstormBullets?: string[];
   /** Optional extra system instruction (e.g. diversity-gate broaden nudge). */
   broadenSystemNudge?: string;
-  sampling: LlmQuerySampling;
 };
 
 /**
  * Runs one structured LLM call per persona in parallel and tags each row with its persona id.
  * A failing persona is logged and skipped; surviving personas still contribute candidates.
  *
- * @param params - Shared prompt content, persona list, per-persona cap, and sampling knobs.
+ * @param params - Shared prompt content, persona list, and per-persona cap.
  * @param deps - Injectable structured-output runner and optional warn logger.
  * @returns Flattened LLM candidates tagged with `persona` ids.
  */
@@ -788,13 +547,11 @@ export const fetchLlmQueryCandidatesByPersona = async (
           systemContent,
           userContent: params.userContent,
           fewShotExemplarCount: params.fewShotExemplarCount,
-          brainstormBullets: params.brainstormBullets,
         });
         const rows = await runStructured({
           apiKey: params.apiKey,
           model: params.model,
           messages,
-          sampling: params.sampling,
         });
         return rows.slice(0, params.perPersonaQuota).map((row) => ({
           ...row,
@@ -915,7 +672,7 @@ export const mergeCritiqueReplacements = (
 /**
  * Calls the critique model to score each candidate against live ticker context.
  *
- * @param params - API key, model, token budget, context, candidates, and sampling knobs.
+ * @param params - API key, model, context, candidates, and drop fraction.
  * @param deps - Injectable `generateObject` for the critique schema.
  * @returns Parsed critique ratings (may be empty on model output gaps).
  */
@@ -926,7 +683,6 @@ export const critiqueQueryCandidates = async (
     context: GetQueryAnalysisResponse;
     candidates: LlmCandidate[];
     dropFraction: number;
-    sampling: LlmQuerySampling;
   },
   deps: { generateObjectForCritique: GenerateObjectForCritique } = {
     generateObjectForCritique: generateObject,
@@ -950,7 +706,6 @@ export const critiqueQueryCandidates = async (
       },
       { role: "user", content: userContent },
     ],
-    ...llmSamplingOptions(params.sampling),
   });
   return object.ratings ?? [];
 };
@@ -971,7 +726,6 @@ export const regenerateDroppedQueries = async (
     keptCandidates: LlmCandidate[];
     dropCount: number;
     fewShotExemplarCount: number;
-    sampling: LlmQuerySampling;
   },
   deps: { fetchLlmQueryCandidates?: typeof fetchLlmQueryCandidates } = {},
 ): Promise<LlmCandidate[]> => {
@@ -1002,7 +756,6 @@ export const regenerateDroppedQueries = async (
     apiKey: params.apiKey,
     model: params.model,
     messages,
-    sampling: params.sampling,
   });
 
   return rows.slice(0, params.dropCount);
@@ -1027,7 +780,6 @@ export const applySelfCritiqueToCandidateBatch = async (
     context: GetQueryAnalysisResponse;
     dropFraction: number;
     fewShotExemplarCount: number;
-    sampling: LlmQuerySampling;
   },
   deps: {
     critiqueQueryCandidates?: typeof critiqueQueryCandidates;
@@ -1044,7 +796,6 @@ export const applySelfCritiqueToCandidateBatch = async (
     context: params.context,
     candidates,
     dropFraction: params.dropFraction,
-    sampling: params.sampling,
   });
 
   const toDrop = selectCandidatesToDropFromCritique(
@@ -1069,7 +820,6 @@ export const applySelfCritiqueToCandidateBatch = async (
     keptCandidates,
     dropCount: toDrop.length,
     fewShotExemplarCount: params.fewShotExemplarCount,
-    sampling: params.sampling,
   });
 
   return {
@@ -1096,7 +846,6 @@ export const applySelfCritiquePass = async (
     candidates: LlmCandidate[];
     dropFraction: number;
     fewShotExemplarCount: number;
-    sampling: LlmQuerySampling;
     runStartMs: number;
     deadlineMs: number;
   },

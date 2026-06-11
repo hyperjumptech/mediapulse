@@ -8,7 +8,6 @@ import {
 } from "@workspace/agent-data-api-contract";
 
 import {
-  buildBrainstormPrompt,
   buildQueryAnalysisSystemContent,
   buildQueryAnalysisUserContent,
   computeQueryAnalysisIntentTargetCounts,
@@ -16,19 +15,14 @@ import {
   serializeQueryAnalysisContextBlock,
   buildStructuredQueryMessages,
   applySelfCritiqueToCandidateBatch,
-  fetchBrainstormBullets,
   fetchLlmQueryCandidates,
   fetchLlmQueryCandidatesByPersona,
-  fetchQueryAnalysisLlmCandidates,
   fetchWildcardCandidates,
   mergeCritiqueReplacements,
-  parseBrainstormBullets,
-  QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
   regenerateDroppedQueries,
   resolveWildcardSystemContent,
   resolveWildcardUserContent,
   selectCandidatesToDropFromCritique,
-  type LlmQuerySampling,
 } from "./llm-queries";
 import { DEFAULT_QUERY_PERSONAS } from "./personas/default-personas";
 
@@ -87,30 +81,6 @@ describe("computeQueryAnalysisIntentTargetCounts", () => {
 
     expect(counts.breaking).toBeGreaterThanOrEqual(counts.esg);
     expect(counts.kg_change).toBeGreaterThanOrEqual(counts.technical);
-  });
-});
-
-describe("QUERY_ANALYSIS_MAX_OUTPUT_TOKENS", () => {
-  it("is forwarded to generateObject for structured query calls", async () => {
-    const generateObjectForQueries = vi.fn().mockResolvedValue({
-      object: { queries: [] },
-    });
-
-    await fetchLlmQueryCandidates(
-      {
-        apiKey: "sk-test",
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: "hi" }],
-        sampling: {},
-      },
-      { generateObjectForQueries },
-    );
-
-    expect(generateObjectForQueries).toHaveBeenCalledWith(
-      expect.objectContaining({
-        maxOutputTokens: QUERY_ANALYSIS_MAX_OUTPUT_TOKENS,
-      }),
-    );
   });
 });
 
@@ -332,7 +302,6 @@ describe("buildQueryAnalysisUserContent", () => {
       recentThemes: [],
       ...emptyEnrichedContext,
       priorYield: {
-        perTemplate: [],
         perIntent: [
           { intent: "fundamental", avgArticles: 3.2, avgNovel: 3.2 },
           { intent: "sentiment", avgArticles: 0.4, avgNovel: 0.4 },
@@ -354,48 +323,6 @@ describe("formatPriorYieldIntentHints", () => {
   });
 });
 
-describe("parseBrainstormBullets", () => {
-  it("strips list prefixes and empty lines", () => {
-    const bullets = parseBrainstormBullets(
-      "- first angle\n\n2. second angle\n* third angle",
-    );
-    expect(bullets).toEqual(["first angle", "second angle", "third angle"]);
-  });
-});
-
-describe("buildBrainstormPrompt", () => {
-  it("includes serialized context in the user message", () => {
-    const ctx = {
-      ticker: {
-        id: "11111111-1111-4111-a111-111111111111",
-        symbol: "ACME",
-        name: "Acme Co",
-        metadata: null,
-      },
-      topEntities: [],
-      recentThemes: [],
-      ...emptyEnrichedContext,
-    };
-    const prompt = buildBrainstormPrompt(
-      {
-        queryCount: 10,
-        language: "en",
-        allowedLanguages: ["en"],
-        minDeterministicCount: 4,
-        intentWeights: {
-          ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
-          breaking: 1,
-          kg_change: 0.8,
-          fundamental: 0.6,
-        },
-      },
-      ctx,
-    );
-    expect(prompt.system).toContain("12–20");
-    expect(prompt.user).toContain("ACME");
-  });
-});
-
 describe("buildStructuredQueryMessages", () => {
   it("injects few-shot exemplar turns before the live user message", () => {
     const messages = buildStructuredQueryMessages({
@@ -411,134 +338,14 @@ describe("buildStructuredQueryMessages", () => {
     });
   });
 
-  it("appends brainstorm bullets to the final user message", () => {
+  it("uses the user content verbatim as the final user message", () => {
     const messages = buildStructuredQueryMessages({
       systemContent: "system",
       userContent: "live context",
       fewShotExemplarCount: 0,
-      brainstormBullets: ["angle one", "angle two"],
     });
     const finalUser = messages[messages.length - 1];
-    expect(finalUser?.content).toContain("previously brainstormed");
-    expect(finalUser?.content).toContain("angle one");
-  });
-});
-
-describe("fetchBrainstormBullets", () => {
-  it("parses generateText output into bullet strings", async () => {
-    const generateTextForBrainstorm = vi.fn().mockResolvedValue({
-      text: "- margin outlook\n- peer comparison",
-    });
-    const bullets = await fetchBrainstormBullets(
-      {
-        apiKey: "sk-test",
-        model: "gpt-4o-mini",
-        strategy: {
-          queryCount: 10,
-          language: "en",
-          allowedLanguages: ["en"],
-          minDeterministicCount: 4,
-          intentWeights: {
-            ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
-            breaking: 1,
-            kg_change: 0.8,
-            fundamental: 0.6,
-          },
-        },
-        context: {
-          ticker: {
-            id: "11111111-1111-4111-a111-111111111111",
-            symbol: "ACME",
-            name: "Acme Co",
-            metadata: null,
-          },
-          topEntities: [],
-          recentThemes: [],
-          ...emptyEnrichedContext,
-        },
-        sampling: {},
-      },
-      { generateTextForBrainstorm },
-    );
-    expect(bullets).toEqual(["margin outlook", "peer comparison"]);
-  });
-});
-
-describe("fetchQueryAnalysisLlmCandidates", () => {
-  const baseParams = {
-    apiKey: "sk-test",
-    model: "gpt-4o-mini",
-    brainstormModel: "gpt-4o-mini",
-    systemContent: "system",
-    userContent: "user context",
-    context: {
-      ticker: {
-        id: "11111111-1111-4111-a111-111111111111",
-        symbol: "ACME",
-        name: "Acme Co",
-        metadata: null,
-      },
-      topEntities: [],
-      recentThemes: [],
-      ...emptyEnrichedContext,
-    },
-    strategy: {
-      queryCount: 10,
-      language: "en",
-      allowedLanguages: ["en"],
-      minDeterministicCount: 4,
-      intentWeights: {
-        ...DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
-        breaking: 1,
-        kg_change: 0.8,
-        fundamental: 0.6,
-      },
-    },
-    sampling: {},
-    fewShotExemplarCount: 0,
-  };
-
-  it("calls brainstorm first when useBrainstormPass is true", async () => {
-    const fetchBrainstormBulletsSpy = vi
-      .fn()
-      .mockResolvedValue(["angle a", "angle b"]);
-    const fetchLlmQueryCandidatesSpy = vi
-      .fn()
-      .mockResolvedValue([{ text: "ok", intent: "breaking" as const }]);
-
-    await fetchQueryAnalysisLlmCandidates(
-      { ...baseParams, useBrainstormPass: true },
-      {
-        fetchBrainstormBullets: fetchBrainstormBulletsSpy,
-        fetchLlmQueryCandidates: fetchLlmQueryCandidatesSpy,
-      },
-    );
-
-    expect(fetchBrainstormBulletsSpy).toHaveBeenCalledTimes(1);
-    expect(fetchLlmQueryCandidatesSpy).toHaveBeenCalledTimes(1);
-    const messages = fetchLlmQueryCandidatesSpy.mock.calls[0]?.[0]?.messages as
-      | { role: string; content: string }[]
-      | undefined;
-    const lastMessage = messages ? messages[messages.length - 1] : undefined;
-    expect(lastMessage?.content).toContain("angle a");
-  });
-
-  it("skips brainstorm when useBrainstormPass is false", async () => {
-    const fetchBrainstormBulletsSpy = vi.fn();
-    const fetchLlmQueryCandidatesSpy = vi
-      .fn()
-      .mockResolvedValue([{ text: "ok", intent: "breaking" as const }]);
-
-    await fetchQueryAnalysisLlmCandidates(
-      { ...baseParams, useBrainstormPass: false },
-      {
-        fetchBrainstormBullets: fetchBrainstormBulletsSpy,
-        fetchLlmQueryCandidates: fetchLlmQueryCandidatesSpy,
-      },
-    );
-
-    expect(fetchBrainstormBulletsSpy).not.toHaveBeenCalled();
-    expect(fetchLlmQueryCandidatesSpy).toHaveBeenCalledTimes(1);
+    expect(finalUser).toEqual({ role: "user", content: "live context" });
   });
 });
 
@@ -602,7 +409,6 @@ describe("applySelfCritiqueToCandidateBatch", () => {
     },
     dropFraction: 0.3,
     fewShotExemplarCount: 0,
-    sampling: {},
   };
 
   const tenCandidates = Array.from({ length: 10 }, (_, index) => ({
@@ -713,7 +519,6 @@ describe("regenerateDroppedQueries", () => {
         keptCandidates: [],
         dropCount: 0,
         fewShotExemplarCount: 0,
-        sampling: {},
       },
       { fetchLlmQueryCandidates: fetchLlmQueryCandidatesSpy },
     );
@@ -732,7 +537,6 @@ describe("fetchLlmQueryCandidatesByPersona", () => {
     personas,
     perPersonaQuota: 3,
     fewShotExemplarCount: 0,
-    sampling: {},
   };
 
   it("calls generateObject once per persona and tags results", async () => {
@@ -815,8 +619,6 @@ describe("fetchLlmQueryCandidatesByPersona", () => {
 });
 
 describe("fetchLlmQueryCandidates", () => {
-  const defaultSampling = {};
-
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -838,7 +640,6 @@ describe("fetchLlmQueryCandidates", () => {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: "hi" }],
-        sampling: defaultSampling,
       },
       { generateObjectForQueries },
     );
@@ -848,7 +649,7 @@ describe("fetchLlmQueryCandidates", () => {
     expect(generateObjectForQueries).toHaveBeenCalledTimes(1);
   });
 
-  it("omits unsupported sampling fields from generateObject", async () => {
+  it("forwards the fixed output-token budget to generateObject", async () => {
     // Setup
     const generateObjectForQueries = vi.fn().mockResolvedValue({
       object: { queries: [] },
@@ -860,7 +661,6 @@ describe("fetchLlmQueryCandidates", () => {
         apiKey: "sk-test",
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: "hi" }],
-        sampling: defaultSampling,
       },
       { generateObjectForQueries },
     );
@@ -870,34 +670,8 @@ describe("fetchLlmQueryCandidates", () => {
       string,
       unknown
     >;
-    expect(callArgs).not.toHaveProperty("temperature");
-    expect(callArgs).not.toHaveProperty("topP");
-    expect(callArgs).not.toHaveProperty("presencePenalty");
-    expect(callArgs).not.toHaveProperty("frequencyPenalty");
     expect(callArgs).not.toHaveProperty("seed");
-  });
-
-  it("forwards custom seed to generateObject when set", async () => {
-    // Setup
-    const generateObjectForQueries = vi.fn().mockResolvedValue({
-      object: { queries: [] },
-    });
-
-    // Act
-    await fetchLlmQueryCandidates(
-      {
-        apiKey: "sk-test",
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: "hi" }],
-        sampling: { seed: 42 },
-      },
-      { generateObjectForQueries },
-    );
-
-    // Assert
-    expect(generateObjectForQueries).toHaveBeenCalledWith(
-      expect.objectContaining({ seed: 42 }),
-    );
+    expect(callArgs).not.toHaveProperty("providerOptions");
   });
 
   it("propagates generateObject errors to the caller", async () => {
@@ -911,7 +685,6 @@ describe("fetchLlmQueryCandidates", () => {
           apiKey: "sk-test",
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: "hi" }],
-          sampling: defaultSampling,
         },
         { generateObjectForQueries },
       ),
@@ -920,8 +693,6 @@ describe("fetchLlmQueryCandidates", () => {
 });
 
 describe("fetchWildcardCandidates", () => {
-  const defaultSampling = {};
-
   const baseContext = {
     ticker: {
       id: "11111111-1111-4111-a111-111111111111",
@@ -937,35 +708,6 @@ describe("fetchWildcardCandidates", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("omits unsupported sampling fields from wildcard generateObject", async () => {
-    const generateObjectForWildcards = vi.fn().mockResolvedValue({
-      object: {
-        queries: [{ text: "Oblique supply rumor" }],
-      },
-    });
-
-    await fetchWildcardCandidates(
-      {
-        apiKey: "sk-test",
-        model: "gpt-4o-mini",
-        count: 2,
-        context: baseContext,
-        allowedLanguages: ["en"],
-        sampling: defaultSampling,
-      },
-      { generateObjectForWildcards },
-    );
-
-    const callArgs = generateObjectForWildcards.mock.calls[0]?.[0] as Record<
-      string,
-      unknown
-    >;
-    expect(callArgs).not.toHaveProperty("temperature");
-    expect(callArgs).not.toHaveProperty("topP");
-    expect(callArgs).not.toHaveProperty("presencePenalty");
-    expect(callArgs).not.toHaveProperty("frequencyPenalty");
   });
 
   it("tags rows with wildcard intent and respects count cap", async () => {
@@ -986,7 +728,6 @@ describe("fetchWildcardCandidates", () => {
         count: 2,
         context: baseContext,
         allowedLanguages: ["en"],
-        sampling: defaultSampling,
       },
       { generateObjectForWildcards },
     );
@@ -995,112 +736,6 @@ describe("fetchWildcardCandidates", () => {
       { text: "First odd angle", intent: "wildcard" },
       { text: "Second odd angle", intent: "wildcard" },
     ]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// llmSamplingOptions + reasoning effort
-// ---------------------------------------------------------------------------
-
-describe("llmSamplingOptions — reasoning effort", () => {
-  const reasoningEffortContext = {
-    ticker: {
-      id: "11111111-1111-4111-a111-111111111111",
-      symbol: "ACME",
-      name: "Acme Co",
-      metadata: null,
-    },
-    topEntities: [] as [],
-    recentThemes: [] as [],
-    recentRelationDeltas: [] as [],
-    peers: [] as [],
-    calendar: { recentEventTypes: [] as string[] },
-    headlineSamples: [] as [],
-    kgNeighborhood: [] as [],
-  };
-
-  const reasoningEffortStrategy = {
-    queryCount: 5,
-    language: "en",
-    minDeterministicCount: 2,
-    intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
-  };
-
-  it("does not include providerOptions when sampling.reasoningEffort is unset", async () => {
-    let capturedArgs: Record<string, unknown> | undefined;
-    const generateTextForBrainstorm = vi
-      .fn()
-      .mockImplementation(async (args: Record<string, unknown>) => {
-        capturedArgs = args;
-        return { text: "" };
-      });
-
-    const sampling: LlmQuerySampling = {};
-    await fetchBrainstormBullets(
-      {
-        apiKey: "sk-test",
-        model: "gpt-4o-mini",
-        strategy: reasoningEffortStrategy,
-        context: reasoningEffortContext,
-        sampling,
-      },
-      { generateTextForBrainstorm },
-    );
-
-    expect(capturedArgs?.providerOptions).toBeUndefined();
-  });
-
-  it("includes providerOptions when sampling.reasoningEffort is set", async () => {
-    let capturedArgs: Record<string, unknown> | undefined;
-    const generateTextForBrainstorm = vi
-      .fn()
-      .mockImplementation(async (args: Record<string, unknown>) => {
-        capturedArgs = args;
-        return { text: "" };
-      });
-
-    const sampling: LlmQuerySampling = { reasoningEffort: "high" };
-    await fetchBrainstormBullets(
-      {
-        apiKey: "sk-test",
-        model: "gpt-4o-mini",
-        strategy: reasoningEffortStrategy,
-        context: reasoningEffortContext,
-        sampling,
-      },
-      { generateTextForBrainstorm },
-    );
-
-    expect(capturedArgs?.providerOptions).toEqual({
-      openai: { reasoningEffort: "high" },
-    });
-  });
-
-  it("brainstormReasoningEffort override takes precedence over sampling.reasoningEffort", async () => {
-    let capturedArgs: Record<string, unknown> | undefined;
-    const generateTextForBrainstorm = vi
-      .fn()
-      .mockImplementation(async (args: Record<string, unknown>) => {
-        capturedArgs = args;
-        return { text: "" };
-      });
-
-    const sampling: LlmQuerySampling = { reasoningEffort: "high" };
-    await fetchBrainstormBullets(
-      {
-        apiKey: "sk-test",
-        model: "gpt-4o-mini",
-        strategy: reasoningEffortStrategy,
-        context: reasoningEffortContext,
-        sampling,
-        brainstormReasoningEffort: "low",
-      },
-      { generateTextForBrainstorm },
-    );
-
-    expect(capturedArgs?.providerOptions).toEqual({
-      openai: { reasoningEffort: "low" },
-    });
   });
 });
 
@@ -1210,45 +845,5 @@ describe("computeQueryAnalysisIntentTargetCounts — section coverage floor", ()
 
     expect(counts.competitor).toBeGreaterThanOrEqual(1);
     expect(counts.industry_trend).toBeGreaterThanOrEqual(1);
-  });
-});
-
-describe("buildBrainstormPrompt — contract brief", () => {
-  const baseStrategy = {
-    queryCount: 10,
-    language: "en",
-    minDeterministicCount: 3,
-    intentWeights: DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
-  };
-  const emptyContext = {
-    ticker: { id: "t1", symbol: "ACME", name: "Acme Co", metadata: null },
-    topEntities: [] as never[],
-    recentThemes: [] as never[],
-    headlineSamples: [] as never[],
-    kgNeighborhood: [] as never[],
-    peers: [] as never[],
-    calendar: { recentEventTypes: [] as never[] },
-    recentRelationDeltas: [] as never[],
-    sources: [] as never[],
-    priorYield: undefined,
-    competitors: [] as never[],
-    issuerAliases: [] as never[],
-  };
-
-  it("does not include product_contract block when no brief", () => {
-    const { system } = buildBrainstormPrompt(
-      baseStrategy,
-      emptyContext as never,
-    );
-    expect(system).not.toContain("<product_contract>");
-  });
-
-  it("appends product_contract block when brief is present", () => {
-    const { system } = buildBrainstormPrompt(
-      { ...baseStrategy, brief: "Newsletter for executives." },
-      emptyContext as never,
-    );
-    expect(system).toContain("<product_contract>");
-    expect(system).toContain("Newsletter for executives.");
   });
 });

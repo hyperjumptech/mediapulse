@@ -107,7 +107,6 @@ type DiversityScore = {
 type LanguageQuota = {
   language: string;
   share: number;
-  templatePack?: string;
 };
 
 type StrategySnapshot = {
@@ -123,7 +122,6 @@ type StrategySnapshot = {
     source?: string;
     intent?: string;
     persona?: string;
-    templateId?: string;
   }>;
 };
 
@@ -774,40 +772,6 @@ export function createQueryAnalysisInsightsProvider(
               value,
             })),
             unit: "replacements",
-          },
-        });
-      }
-
-      // How — attribution by template ID
-      const templateIdCounts = new Map<string, number>();
-      for (const snap of snapshots) {
-        if (!Array.isArray(snap.queryAttribution)) continue;
-        for (const entry of snap.queryAttribution) {
-          if (entry.templateId) {
-            templateIdCounts.set(
-              entry.templateId,
-              (templateIdCounts.get(entry.templateId) ?? 0) + 1,
-            );
-          }
-        }
-      }
-      if (templateIdCounts.size > 0) {
-        sections.push({
-          id: "how-attribution",
-          category: "how",
-          title: "Query attribution by template",
-          insight:
-            "Distribution of query attribution across template IDs, showing which templates are used most.",
-          widget: {
-            kind: "categoryBar",
-            bars: bucketTopN(
-              Array.from(templateIdCounts.entries()).map(([label, value]) => ({
-                label,
-                value,
-              })),
-              TOP_N,
-            ),
-            unit: "queries",
           },
         });
       }

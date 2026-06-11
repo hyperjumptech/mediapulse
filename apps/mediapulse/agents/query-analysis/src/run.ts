@@ -15,7 +15,6 @@ import {
 import {
   buildQueryAnalysisSystemContent,
   buildQueryAnalysisUserContent,
-  fetchBrainstormBullets,
   fetchLlmQueryCandidatesByPersona,
   fetchWildcardCandidates,
   applySelfCritiquePass,
@@ -45,11 +44,10 @@ import {
   filterPersonasForLanguage,
   type QueryPersona,
 } from "./personas/default-personas";
-import { buildDeterministicQueries } from "./templates/build-deterministic-queries";
+import { buildSeedQueries } from "./build-seed-queries";
 import {
   distributeQueryCountAcrossLanguages,
   resolveLanguageQuotas,
-  resolveLanguageTemplatePack,
   type DistributedLanguageQuota,
 } from "./language-quotas";
 import {
@@ -64,8 +62,6 @@ import {
   computeEventBias,
   type EventBiasResult,
 } from "./temporal/event-bias";
-
-export { buildDeterministicQueries } from "./templates/build-deterministic-queries";
 
 export { DEFAULT_CRITIC_PASS_DEADLINE_MS } from "./llm-queries";
 
@@ -89,18 +85,6 @@ export const computeWildcardCount = (
  */
 export const deriveMinDeterministicCount = (queryCount: number): number =>
   Math.max(2, Math.floor(queryCount * 0.4));
-
-/**
- * Builds optional LLM reproducibility options from parsed invoke config.
- *
- * @param config - Parsed `sampling` group (seed only; temperature/top-p/penalties omitted for reasoning models).
- * @returns Sampling options forwarded to AI SDK calls when supported.
- */
-export const buildLlmSamplingFromConfig = (config: {
-  seed?: number;
-}): { seed?: number } => ({
-  ...(config.seed !== undefined ? { seed: config.seed } : {}),
-});
 
 /**
  * Applies optional calendar-driven event bias to configured intent weights.
@@ -362,12 +346,7 @@ export const clampPerPersonaQuotaCount = (
 type LanguageSliceSharedConfig = {
   openaiApiKey: string;
   openaiModel: string;
-  globalTemplatePack: string;
-  kgTemplateCap: number;
   intentWeights: LlmQueryStrategyPrompt["intentWeights"];
-  llmSampling: ReturnType<typeof buildLlmSamplingFromConfig>;
-  useBrainstormPass: boolean;
-  brainstormModel: string;
   fewShotExemplarCount: number;
   queryMaxWords: number;
   useSelfCritique: boolean;
@@ -414,23 +393,8 @@ export const runLanguageQuerySlice = async (params: {
   const { languageQuota, shared } = params;
   const language = languageQuota.language;
   const langPersonas = filterPersonasForLanguage(params.personas, language);
-  const templatePack = resolveLanguageTemplatePack(
-    language,
-    languageQuota.templatePack,
-    shared.globalTemplatePack,
-  );
 
-  const deterministic = buildDeterministicQueries(params.queryContext, {
-    pack: templatePack,
-    kgTemplateCap: shared.kgTemplateCap,
-    language,
-    ...(shared.yieldFeedback.enabled
-      ? {
-          priorYield: shared.priorYield,
-          minTemplateYield: shared.yieldFeedback.minTemplateYield,
-        }
-      : {}),
-  });
+  const deterministic = buildSeedQueries(params.queryContext, { language });
 
   const strategyPrompt: LlmQueryStrategyPrompt = {
     queryCount: languageQuota.queryCount,
@@ -451,18 +415,7 @@ export const runLanguageQuerySlice = async (params: {
   );
 
   let llmCandidates: LlmCandidate[] = [];
-  let brainstormBullets: string[] | undefined;
   try {
-    if (shared.useBrainstormPass) {
-      brainstormBullets = await fetchBrainstormBullets({
-        apiKey: shared.openaiApiKey,
-        model: shared.brainstormModel,
-        strategy: strategyPrompt,
-        context: params.queryContext,
-        sampling: shared.llmSampling,
-      });
-    }
-
     if (langPersonas.length > 0) {
       const rows = await fetchLlmQueryCandidatesByPersona(
         {
@@ -473,8 +426,6 @@ export const runLanguageQuerySlice = async (params: {
           personas: langPersonas,
           perPersonaQuota: shared.perPersonaQuotaCount,
           fewShotExemplarCount: shared.fewShotExemplarCount,
-          brainstormBullets,
-          sampling: shared.llmSampling,
         },
         {
           warn: (_message, meta) => {
@@ -520,7 +471,6 @@ export const runLanguageQuerySlice = async (params: {
           candidates: llmCandidates,
           dropFraction: shared.critiqueDropFraction,
           fewShotExemplarCount: shared.fewShotExemplarCount,
-          sampling: shared.llmSampling,
           runStartMs: shared.runStartMs,
           deadlineMs: DEFAULT_CRITIC_PASS_DEADLINE_MS,
         });
@@ -570,8 +520,6 @@ export const runLanguageQuerySlice = async (params: {
             personas: langPersonas,
             perPersonaQuota: shared.perPersonaQuotaCount,
             fewShotExemplarCount: shared.fewShotExemplarCount,
-            brainstormBullets,
-            sampling: shared.llmSampling,
             broadenSystemNudge,
           },
           {
@@ -687,19 +635,9 @@ export const runQueryAnalysis = async (
     "Loaded ticker context",
     `${queryContext.topEntities.length} entities, ${queryContext.kgNeighborhood.length} relations`,
   );
-  const {
-    credentials,
-    output,
-    sampling,
-    templates,
-    prompting,
-    creativity,
-    quality,
-    dynamics,
-  } = config;
+  const { credentials, output, prompting, creativity, quality, dynamics } =
+    config;
 
-  const templatePack = templates.templatePack;
-  const kgTemplateCap = templates.kgTemplateCap;
   const sectionCoverageEnabled = output.sectionCoverage.enabled;
   const queryCount = output.queryCount;
   const wildcardFraction = creativity.wildcardFraction;
@@ -725,11 +663,8 @@ export const runQueryAnalysis = async (
     );
   }
   const openaiModel = credentials.chatModel;
-  const { seed } = sampling;
-  const useBrainstormPass = creativity.useBrainstormPass;
   const fewShotExemplarCount = prompting.fewShotExemplarCount;
   const queryMaxWords = prompting.queryMaxWords;
-  const brainstormModel = creativity.brainstormModel ?? openaiModel;
   const useSelfCritique = quality.useSelfCritique;
   const critiqueDropFraction = quality.critiqueDropFraction;
   const critiqueModel = quality.critiqueModel ?? openaiModel;
@@ -778,8 +713,6 @@ export const runQueryAnalysis = async (
     languageQuotas,
   );
 
-  const llmSampling = buildLlmSamplingFromConfig(sampling);
-
   const diversityGate = quality.diversityGate;
   const yieldFeedback = dynamics.yieldFeedback;
   const semanticDedupeConfig = quality.semanticDedupe;
@@ -802,12 +735,7 @@ export const runQueryAnalysis = async (
   const sharedSliceConfig: LanguageSliceSharedConfig = {
     openaiApiKey: credentials.openaiApiKey,
     openaiModel,
-    globalTemplatePack: templatePack,
-    kgTemplateCap,
     intentWeights,
-    llmSampling,
-    useBrainstormPass,
-    brainstormModel,
     fewShotExemplarCount,
     queryMaxWords,
     useSelfCritique,
@@ -827,27 +755,10 @@ export const runQueryAnalysis = async (
   };
 
   const deterministicCount = distributedStandard.reduce(
-    (count, languageQuota) => {
-      const sliceTemplatePack = resolveLanguageTemplatePack(
-        languageQuota.language,
-        languageQuota.templatePack,
-        templatePack,
-      );
-      return (
-        count +
-        buildDeterministicQueries(queryContext, {
-          pack: sliceTemplatePack,
-          kgTemplateCap,
-          language: languageQuota.language,
-          ...(yieldFeedback.enabled
-            ? {
-                priorYield: queryContext.priorYield,
-                minTemplateYield: yieldFeedback.minTemplateYield,
-              }
-            : {}),
-        }).length
-      );
-    },
+    (count, languageQuota) =>
+      count +
+      buildSeedQueries(queryContext, { language: languageQuota.language })
+        .length,
     0,
   );
 
@@ -930,7 +841,6 @@ export const runQueryAnalysis = async (
         count: wildcardCount,
         context: queryContext,
         allowedLanguages: wildcardLanguages,
-        sampling: llmSampling,
         queryMaxWords,
       });
     } catch (error) {
@@ -954,7 +864,6 @@ export const runQueryAnalysis = async (
                   count: wildcardCount,
                   context: queryContext,
                   allowedLanguages: wildcardLanguages,
-                  sampling: llmSampling,
                   avoidTexts,
                   queryMaxWords,
                 });
@@ -979,24 +888,9 @@ export const runQueryAnalysis = async (
   // promote the best deterministic candidate of a matching intent, displacing the
   // lowest-ranked homeless-intent row. Runs after wildcards so the full set is visible.
   if (sectionCoverageEnabled) {
-    const allDeterministic = distributedStandard.flatMap((languageQuota) => {
-      const sliceTemplatePack = resolveLanguageTemplatePack(
-        languageQuota.language,
-        languageQuota.templatePack,
-        templatePack,
-      );
-      return buildDeterministicQueries(queryContext, {
-        pack: sliceTemplatePack,
-        kgTemplateCap,
-        language: languageQuota.language,
-        ...(yieldFeedback.enabled
-          ? {
-              priorYield: queryContext.priorYield,
-              minTemplateYield: yieldFeedback.minTemplateYield,
-            }
-          : {}),
-      });
-    });
+    const allDeterministic = distributedStandard.flatMap((languageQuota) =>
+      buildSeedQueries(queryContext, { language: languageQuota.language }),
+    );
     merged = applySectionCoverageReserve(merged, allDeterministic, queryCount);
   }
 
@@ -1018,7 +912,6 @@ export const runQueryAnalysis = async (
     queryCount,
     wildcardFraction,
     wildcardCount,
-    kgTemplateCap,
     languageQuotas,
     minDeterministicCount,
     intentWeights,
@@ -1038,7 +931,6 @@ export const runQueryAnalysis = async (
         }
       : {}),
     model: openaiModel,
-    useBrainstormPass,
     fewShotExemplarCount,
     personas: personaIds,
     perPersonaQuotaCount,
@@ -1051,8 +943,6 @@ export const runQueryAnalysis = async (
           selfCritiqueSkippedDueToDeadline,
         }
       : {}),
-    ...(useBrainstormPass ? { brainstormModel } : {}),
-    ...(seed !== undefined ? { seed } : {}),
     ...(semanticDedupeConfig.enabled
       ? {
           semanticDedupe: {
@@ -1082,19 +972,15 @@ export const runQueryAnalysis = async (
           yieldFeedback: {
             enabled: true,
             windowDays: yieldFeedback.windowDays,
-            minTemplateYield: yieldFeedback.minTemplateYield,
           },
         }
       : {}),
-    queryAttribution: merged.map(
-      ({ text, source, intent, persona, templateId }) => ({
-        text,
-        source,
-        intent,
-        ...(persona !== undefined ? { persona } : {}),
-        ...(templateId !== undefined ? { templateId } : {}),
-      }),
-    ),
+    queryAttribution: merged.map(({ text, source, intent, persona }) => ({
+      text,
+      source,
+      intent,
+      ...(persona !== undefined ? { persona } : {}),
+    })),
   };
 
   report("Saving query set", `${merged.length} queries`, "completed");

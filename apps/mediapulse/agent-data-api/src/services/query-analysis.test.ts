@@ -7,7 +7,6 @@ vi.mock("@mediapulse/database", () => ({
 
 vi.mock("./search-query-yield.js", () => ({
   getQueryYieldSummary: vi.fn().mockResolvedValue({
-    perTemplate: [],
     perIntent: [],
     perPersona: [],
   }),
@@ -178,7 +177,6 @@ describe("getQueryAnalysisContext", () => {
       },
     ]);
     expect(payload.priorYield).toEqual({
-      perTemplate: [],
       perIntent: [],
       perPersona: [],
     });

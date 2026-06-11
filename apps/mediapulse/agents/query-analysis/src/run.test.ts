@@ -38,7 +38,6 @@ vi.mock("./llm-queries", async (importOriginal) => {
     ...actual,
     fetchLlmQueryCandidatesByPersona: mockFetchQueryLlm,
     fetchWildcardCandidates: mockFetchWildcard,
-    fetchBrainstormBullets: vi.fn(),
     applySelfCritiquePass: vi.fn(),
   };
 });
@@ -51,7 +50,7 @@ vi.mock("@workspace/logger", () => ({
   },
 }));
 
-import { buildDeterministicQueries } from "./templates/build-deterministic-queries";
+import { buildSeedQueries } from "./build-seed-queries";
 import {
   clampPerPersonaQuotaCount,
   computeWildcardCount,
@@ -81,7 +80,6 @@ const baseConfig = queryAnalysisConfigSchema.parse({
 /** Disables quality passes so unrelated run tests stay focused and fast. */
 const conservativeConfig = queryAnalysisConfigSchema.parse({
   credentials: { openaiApiKey: "sk" },
-  creativity: { useBrainstormPass: false },
   quality: {
     useSelfCritique: false,
     semanticDedupe: { enabled: false },
@@ -101,10 +99,7 @@ describe("query-analysis run", () => {
 
     mockFetchWildcard.mockResolvedValue([]);
 
-    const { fetchBrainstormBullets, applySelfCritiquePass } =
-      await import("./llm-queries");
-    vi.mocked(fetchBrainstormBullets).mockReset();
-    vi.mocked(fetchBrainstormBullets).mockResolvedValue([]);
+    const { applySelfCritiquePass } = await import("./llm-queries");
     vi.mocked(applySelfCritiquePass).mockReset();
     vi.mocked(applySelfCritiquePass).mockImplementation(async (params) => ({
       candidates: params.candidates,
@@ -127,16 +122,14 @@ describe("query-analysis run", () => {
     vi.restoreAllMocks();
   });
 
-  describe("buildDeterministicQueries", () => {
-    it("creates deterministic baseline queries from default-v1 pack", () => {
+  describe("buildSeedQueries", () => {
+    it("creates symbol/name anchors plus per-section intent seeds", () => {
       // Act
-      const queries = buildDeterministicQueries(ctxResponse, {
-        pack: "default-v1",
-      });
+      const queries = buildSeedQueries(ctxResponse, { language: "en" });
 
       // Assert
-      expect(queries.length).toBe(5);
-      expect(queries[0]?.text).toContain("ABC");
+      expect(queries.length).toBeGreaterThan(0);
+      expect(queries[0]?.text).toBe("ABC");
       expect(queries.some((query) => query.intent === "industry_trend")).toBe(
         true,
       );
@@ -220,79 +213,23 @@ describe("query-analysis run", () => {
     expect(queries.every((q) => q.source === "deterministic")).toBe(true);
   });
 
-  it("passes useBrainstormPass through to the LLM orchestrator", async () => {
-    const { fetchBrainstormBullets } = await import("./llm-queries");
-    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
-    fetchBrainstormBulletsMock.mockResolvedValue(["angle"]);
-
+  it("persists LLM candidate rows in the created query set", async () => {
     // Act
     const result = await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: queryAnalysisConfigSchema.parse({
-        credentials: { openaiApiKey: "sk" },
-        creativity: { useBrainstormPass: true },
-        quality: {
-          useSelfCritique: false,
-          semanticDedupe: { enabled: false },
-          diversityGate: { enabled: false },
-        },
-        dynamics: { yieldFeedback: { enabled: false } },
-      }),
-      token: "Bearer t",
-    });
-
-    // Assert
-    expect(result.success).toBe(true);
-    expect(fetchBrainstormBulletsMock).toHaveBeenCalledTimes(1);
-    expect(mockFetchQueryLlm).toHaveBeenCalledWith(
-      expect.objectContaining({ brainstormBullets: ["angle"] }),
-      expect.anything(),
-    );
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queries: expect.arrayContaining([
-          expect.objectContaining({ text: "LLM extra", intent: "kg_change" }),
-        ]),
-      }),
-    );
-  });
-
-  it("defaults useBrainstormPass to true in the LLM orchestrator", async () => {
-    const { fetchBrainstormBullets } = await import("./llm-queries");
-    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
-    fetchBrainstormBulletsMock.mockResolvedValue(["macro angle"]);
-
-    // Act
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: baseConfig,
-      token: "Bearer t",
-    });
-
-    // Assert
-    expect(fetchBrainstormBulletsMock).toHaveBeenCalledTimes(1);
-    expect(mockFetchQueryLlm).toHaveBeenCalledWith(
-      expect.objectContaining({ brainstormBullets: ["macro angle"] }),
-      expect.anything(),
-    );
-  });
-
-  it("honors useBrainstormPass=false override in the LLM orchestrator", async () => {
-    const { fetchBrainstormBullets } = await import("./llm-queries");
-    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
-
-    // Act
-    await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: conservativeConfig,
       token: "Bearer t",
     });
 
     // Assert
-    expect(fetchBrainstormBulletsMock).not.toHaveBeenCalled();
-    expect(mockFetchQueryLlm).toHaveBeenCalledWith(
-      expect.objectContaining({ brainstormBullets: undefined }),
-      expect.anything(),
+    expect(result.success).toBe(true);
+    expect(mockFetchQueryLlm).toHaveBeenCalledTimes(1);
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queries: expect.arrayContaining([
+          expect.objectContaining({ text: "LLM extra", intent: "kg_change" }),
+        ]),
+      }),
     );
   });
 
@@ -316,7 +253,6 @@ describe("query-analysis run", () => {
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
       config: queryAnalysisConfigSchema.parse({
         credentials: { openaiApiKey: "sk" },
-        creativity: { useBrainstormPass: false },
         quality: {
           useSelfCritique: false,
           semanticDedupe: { enabled: false },
@@ -346,15 +282,9 @@ describe("query-analysis run", () => {
     ).toBe(true);
   });
 
-  it("runs best-quality default profile with brainstorm, critique, and diversity regenerate", async () => {
-    const { fetchBrainstormBullets, applySelfCritiquePass } =
-      await import("./llm-queries");
-    const fetchBrainstormBulletsMock = vi.mocked(fetchBrainstormBullets);
+  it("runs best-quality default profile with critique and diversity regenerate", async () => {
+    const { applySelfCritiquePass } = await import("./llm-queries");
     const applySelfCritiquePassMock = vi.mocked(applySelfCritiquePass);
-    fetchBrainstormBulletsMock.mockResolvedValue([
-      "macro angle",
-      "supply risk",
-    ]);
 
     const lowDiversityBatch = Array.from({ length: 10 }, () => ({
       text: "ABC latest news",
@@ -384,7 +314,6 @@ describe("query-analysis run", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(fetchBrainstormBulletsMock).toHaveBeenCalledTimes(1);
     expect(applySelfCritiquePassMock).toHaveBeenCalledTimes(1);
     expect(mockFetchQueryLlm).toHaveBeenCalledTimes(2);
 
@@ -392,13 +321,11 @@ describe("query-analysis run", () => {
       mockCreate.mock.calls.length - 1
     ]?.[0] as {
       strategySnapshot: {
-        useBrainstormPass?: boolean;
         useSelfCritique?: boolean;
         diversityGate?: { diversityRegenerateFired: boolean };
         yieldFeedback?: { enabled: boolean };
       };
     };
-    expect(createPayload.strategySnapshot.useBrainstormPass).toBe(true);
     expect(createPayload.strategySnapshot.useSelfCritique).toBe(true);
     expect(
       createPayload.strategySnapshot.diversityGate?.diversityRegenerateFired,
@@ -442,7 +369,7 @@ describe("query-analysis run", () => {
     expect(createPayload.queries).toHaveLength(10);
   });
 
-  it("distributes queryCount across language quotas into locale-specific rows", async () => {
+  it("distributes queryCount across language quotas into per-language slices", async () => {
     mockFetchQueryLlm.mockResolvedValue([]);
 
     await runQueryAnalysis({
@@ -477,19 +404,11 @@ describe("query-analysis run", () => {
       { language: "id", share: 0.4 },
     ]);
 
-    const indonesianPattern = /Indonesia|regulasi/i;
-
     const englishSlice = createPayload.queries.slice(0, 6);
     const indonesianSlice = createPayload.queries.slice(6);
 
     expect(englishSlice).toHaveLength(6);
     expect(indonesianSlice).toHaveLength(4);
-    expect(englishSlice.every((row) => !indonesianPattern.test(row.text))).toBe(
-      true,
-    );
-    expect(
-      indonesianSlice.some((row) => indonesianPattern.test(row.text)),
-    ).toBe(true);
   });
 
   it("boosts regulatory intent weight in snapshot when recent regulatory events are present", async () => {
@@ -676,16 +595,12 @@ describe("sectionCoverage snapshot", () => {
 });
 
 describe("section-coverage reserve", () => {
-  // Use a language with no localized pack override so the configured global pack
-  // (rich-v2) is actually used. English gets overridden to default-en-v1 which
-  // lacks competitor and technology_trend templates.
-  const richV2Config = queryAnalysisConfigSchema.parse({
+  const seedConfig = queryAnalysisConfigSchema.parse({
     credentials: { openaiApiKey: "sk" },
     output: {
       queryCount: 10,
       languageQuotas: [{ language: "fr", share: 1 }],
     },
-    templates: { templatePack: "rich-v2" },
     creativity: { wildcardFraction: 0 },
     quality: {
       useSelfCritique: false,
@@ -695,13 +610,13 @@ describe("section-coverage reserve", () => {
     dynamics: { yieldFeedback: { enabled: false } },
   });
 
-  it("includes competitor-intent queries when LLM returns nothing and rich-v2 pack is used", async () => {
+  it("includes competitor-intent queries when LLM returns nothing", async () => {
     // LLM stubbed to return empty so only deterministic rows survive.
     mockFetchQueryLlm.mockResolvedValue([]);
 
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: richV2Config,
+      config: seedConfig,
       token: "Bearer t",
     });
 
@@ -711,19 +626,19 @@ describe("section-coverage reserve", () => {
       queries: Array<{ intent: string }>;
     };
 
-    // rich-v2 has competitor templates; they appear via normal merge or reserve.
+    // The seed builder emits a competitor anchor; it appears via merge or reserve.
     const competitorRows = createPayload.queries.filter(
       (row) => row.intent === "competitor",
     );
     expect(competitorRows.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("includes technology_trend queries when LLM returns nothing and rich-v2 pack is used", async () => {
+  it("includes technology_trend queries when LLM returns nothing", async () => {
     mockFetchQueryLlm.mockResolvedValue([]);
 
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: richV2Config,
+      config: seedConfig,
       token: "Bearer t",
     });
 
@@ -739,13 +654,13 @@ describe("section-coverage reserve", () => {
     expect(techRows.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("total query count stays at queryCount after reserve pass runs", async () => {
+  it("total query count never exceeds queryCount after reserve pass runs", async () => {
     mockFetchQueryLlm.mockResolvedValue([]);
 
     const queryCount = 10;
     await runQueryAnalysis({
       input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: richV2Config,
+      config: seedConfig,
       token: "Bearer t",
     });
 
@@ -755,7 +670,8 @@ describe("section-coverage reserve", () => {
       queries: Array<{ intent: string }>;
     };
 
-    expect(createPayload.queries).toHaveLength(queryCount);
+    expect(createPayload.queries.length).toBeLessThanOrEqual(queryCount);
+    expect(createPayload.queries.length).toBeGreaterThan(0);
   });
 });
 
