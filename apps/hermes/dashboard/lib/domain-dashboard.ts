@@ -52,6 +52,7 @@ export type DomainTableListParams = {
   to?: string;
   intent?: string;
   source?: string;
+  collectionSource?: string;
   isActive?: string;
 };
 
@@ -403,6 +404,9 @@ export const getDomainTableList = async (
   if (params.to) search.set("to", params.to);
   if (params.intent) search.set("intent", params.intent);
   if (params.source) search.set("source", params.source);
+  if (params.collectionSource) {
+    search.set("collectionSource", params.collectionSource);
+  }
   if (params.isActive) search.set("isActive", params.isActive);
 
   return callDomain(

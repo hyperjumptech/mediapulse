@@ -16,10 +16,12 @@ type DomainTableListFiltersProps = {
   entityTypeOptions?: TableV1EntityTypeOption[];
   intentOptions?: TableV1EntityTypeOption[];
   sourceOptions?: TableV1EntityTypeOption[];
+  collectionSourceOptions?: TableV1EntityTypeOption[];
   tickerId?: string;
   typeId?: string;
   intent?: string;
   source?: string;
+  collectionSource?: string;
   isActive?: string;
   from?: string;
   to?: string;
@@ -36,10 +38,12 @@ export const DomainTableListFilters = ({
   entityTypeOptions = [],
   intentOptions = [],
   sourceOptions = [],
+  collectionSourceOptions = [],
   tickerId,
   typeId,
   intent,
   source,
+  collectionSource,
   isActive,
   from,
   to,
@@ -49,6 +53,7 @@ export const DomainTableListFilters = ({
   const showType = listFilters.includes("typeId");
   const showIntent = listFilters.includes("intent");
   const showSource = listFilters.includes("source");
+  const showCollectionSource = listFilters.includes("collectionSource");
   const showActiveSet = listFilters.includes("isActive");
   const showCreated = listFilters.includes("createdAt");
   const hasActiveFilters =
@@ -56,6 +61,7 @@ export const DomainTableListFilters = ({
     Boolean(typeId) ||
     Boolean(intent) ||
     Boolean(source) ||
+    Boolean(collectionSource) ||
     Boolean(isActive) ||
     Boolean(from) ||
     Boolean(to);
@@ -74,6 +80,7 @@ export const DomainTableListFilters = ({
     !showType &&
     !showIntent &&
     !showSource &&
+    !showCollectionSource &&
     !showActiveSet &&
     !showCreated
   ) {
@@ -182,6 +189,26 @@ export const DomainTableListFilters = ({
             >
               <option value="">All sources</option>
               {sourceOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        {showCollectionSource ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="filter-collection-source" className="text-xs">
+              Collected by
+            </Label>
+            <select
+              id="filter-collection-source"
+              name="collectionSource"
+              defaultValue={collectionSource ?? ""}
+              className="h-9 min-w-[12rem] rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">All</option>
+              {collectionSourceOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

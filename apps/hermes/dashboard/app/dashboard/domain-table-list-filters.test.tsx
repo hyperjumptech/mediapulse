@@ -59,6 +59,30 @@ describe("DomainTableListFilters", () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it("renders collected-by filter when listFilters includes collectionSource", () => {
+    render(
+      <DomainTableListFilters
+        basePath="/dashboard/mediapulse/data-sources"
+        listFilters={["collectionSource"]}
+        collectionSourceOptions={[
+          { value: "page-collection", label: "Page Collection" },
+          { value: "data-collection", label: "Data Collection" },
+        ]}
+        collectionSource="page-collection"
+        preserveParams={{}}
+      />,
+    );
+
+    expect(screen.getByLabelText("Collected by")).toBeTruthy();
+    expect(
+      screen.getByRole("option", { name: "Page Collection" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("option", { name: "Data Collection" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Clear filters/i })).toBeTruthy();
+  });
+
   it("renders intent, source, and active set filters when declared", () => {
     // Act
     render(
