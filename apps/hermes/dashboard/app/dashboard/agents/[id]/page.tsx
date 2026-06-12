@@ -51,9 +51,7 @@ const AgentDetailPage = async ({
     }
   }
 
-  return (
-    <AgentDetailsContent agent={agent} insightsPanel={insightsPanel} />
-  );
+  return <AgentDetailsContent agent={agent} insightsPanel={insightsPanel} />;
 };
 
 export default withAuthProtection(AgentDetailPage);
