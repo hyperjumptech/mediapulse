@@ -34,8 +34,14 @@ const isTsOrTsx = (filePath) =>
 
 const isTsx = (filePath) => /\.tsx$/.test(filePath);
 
-/** Markdown docs are excluded from the kebab-case new-file check (naming varies by tool conventions). */
-const isKebabCheckSkippedPath = (filePath) => /\.mdx?$/i.test(filePath);
+/**
+ * Markdown docs and pnpm patch files are excluded from the kebab-case new-file
+ * check. pnpm generates patch filenames like `@scope__pkg@1.0.0.patch` which
+ * cannot be kebab-case by convention.
+ */
+const isKebabCheckSkippedPath = (filePath) =>
+  /\.mdx?$/i.test(filePath) ||
+  /^patches\//i.test(normalizeRepoPath(filePath));
 
 /** Repo-root `scripts/` only (not e.g. `packages/foo/scripts/`). */
 const normalizeRepoPath = (filePath) => filePath.replaceAll("\\", "/");

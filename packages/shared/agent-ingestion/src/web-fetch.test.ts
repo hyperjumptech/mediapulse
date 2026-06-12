@@ -10,7 +10,7 @@ vi.mock("@workspace/logger", () => ({
   },
 }));
 
-import type { WebSearchResult } from "./web-fetch";
+import type { WebFetchOutcome, WebSearchResult } from "./web-fetch";
 import { performWebFetch } from "./web-fetch";
 
 const jinaProviderConfig = {
@@ -299,6 +299,43 @@ describe("performWebFetch", () => {
     // Assert — both providers were invoked once per URL through their own limiters
     expect(acquireCounts.jina).toBe(2);
     expect(acquireCounts.firecrawl).toBe(2);
+  });
+
+  it("streams each fetch outcome through onOutcome as it resolves", async () => {
+    // Setup
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
+        data: {
+          url: "http://example.com",
+          title: "Title",
+          content: "Full content",
+        },
+      }),
+    );
+    const fakeGot = { post: postMock } as unknown as typeof got;
+    const streamed: WebFetchOutcome[] = [];
+
+    // Act
+    const result = await performWebFetch(
+      [
+        { ...baseSearchResult, searchQueryId: "q1" },
+        { ...baseSearchResult, searchQueryId: "q2" },
+      ],
+      {
+        config: { providers: [jinaProviderConfig] },
+        gotClient: fakeGot,
+        onOutcome: (outcome) => {
+          streamed.push(outcome);
+        },
+      },
+    );
+
+    // Assert — the hook fires once per URL with each resolved outcome
+    expect(streamed).toHaveLength(2);
+    expect(
+      streamed.map((outcome) => outcome.success?.searchQueryId).sort(),
+    ).toEqual(["q1", "q2"]);
+    expect(result).toHaveLength(2);
   });
 
   it("logs a warning with a truncated URL when fetch fails and the URL is very long", async () => {

@@ -69,6 +69,14 @@ export interface WebFetchDeps {
   throttleStats?: StageThrottleStats;
   /** Optional per-run host error tracker updated on every fetch attempt. */
   hostErrorTracker?: HostErrorTracker;
+  /**
+   * Optional hook invoked with each fetch outcome the moment it resolves, before the
+   * rest of the batch finishes. Lets callers stream per-URL side effects (for example,
+   * persisting a successful page immediately) instead of waiting for every fetch in the
+   * batch to complete. Awaited within the fetch concurrency slot, so a rejecting hook
+   * aborts the batch the same way a failing fetch would.
+   */
+  onOutcome?: (outcome: WebFetchOutcome) => void | Promise<void>;
 }
 
 type ProviderChainEntry = {
@@ -257,7 +265,13 @@ export async function performWebFetch(
   searchResults: WebSearchResult[],
   deps: WebFetchDeps,
 ): Promise<WebFetchOutcome[]> {
-  const { config, gotClient = got, logger: logOpt, throttleStats } = deps;
+  const {
+    config,
+    gotClient = got,
+    logger: logOpt,
+    throttleStats,
+    onOutcome,
+  } = deps;
   const log = logOpt ?? defaultLogger;
   const providerConfigs = config.providers;
 
@@ -279,7 +293,13 @@ export async function performWebFetch(
 
   const results = await pMap(
     searchResults,
-    (result) => fetchOneResult(result, chain, sharedDeps),
+    async (result) => {
+      const outcome = await fetchOneResult(result, chain, sharedDeps);
+      if (onOutcome) {
+        await onOutcome(outcome);
+      }
+      return outcome;
+    },
     { concurrency },
   );
 
