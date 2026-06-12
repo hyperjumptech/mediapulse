@@ -1,30 +1,10 @@
 import { z } from "zod";
 
-import { findUnknownLlmPromptPlaceholderTokens } from "@workspace/agent-llm-prompt-template";
 import { NEWSLETTER_SECTION_IDS } from "@workspace/agent-data-api-contract";
 import type { NewsletterSectionId } from "@workspace/agent-data-api-contract";
 
-/** Maximum length for each optional `prompts.*` string (Hermes JSON config). */
-export const CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH = 50_000;
-
 /** Rejects runaway `maxAttempts` overrides that would hammer upstream APIs. */
 export const CONTENT_GENERATION_RETRY_MAX_ATTEMPTS_CEILING = 10;
-
-const contentGenerationSystemPromptPlaceholders = new Set([
-  "topNewsCount",
-  "tickerId",
-  "tickerName",
-  "tickerSymbol",
-]);
-
-const contentGenerationUserPromptPlaceholders = new Set([
-  "sourceSummaries",
-  "tickerId",
-  "tickerName",
-  "tickerSymbol",
-  "date",
-  "topNewsCount",
-]);
 
 const sourceRankingWeightsSchema = z
   .object({
@@ -548,30 +528,6 @@ const outputSchema = z
   .default({})
   .describe("Newsletter output sizing.");
 
-const promptsSchema = z
-  .object({
-    systemPrompt: z
-      .string()
-      .max(CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH, {
-        message: `prompts.systemPrompt must be at most ${String(CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
-      })
-      .optional()
-      .describe(
-        "System prompt template. Placeholders: {{topNewsCount}}, {{tickerId}}, {{tickerName}}, {{tickerSymbol}}. Do not put secrets here.",
-      ),
-    userPromptTemplate: z
-      .string()
-      .max(CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH, {
-        message: `prompts.userPromptTemplate must be at most ${String(CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH)} characters`,
-      })
-      .optional()
-      .describe(
-        "User prompt template. Placeholders: {{sourceSummaries}}, {{tickerId}}, {{tickerName}}, {{tickerSymbol}}, {{date}}, {{topNewsCount}}. Do not put secrets here.",
-      ),
-  })
-  .default({})
-  .describe("Optional LLM prompt template overrides.");
-
 const llmRetrySchema = z
   .object({
     maxAttempts: z
@@ -670,7 +626,6 @@ export const ContentGenerationConfigSchema = z
   .object({
     credentials: credentialsSchema,
     output: outputSchema,
-    prompts: promptsSchema,
     inputs: inputsSchema,
     creativity: creativitySchema,
     quality: qualitySchema,
@@ -681,32 +636,6 @@ export const ContentGenerationConfigSchema = z
   /** Reject unknown keys (e.g. legacy flat `openai`, `sourceRanking`) so configs fail fast. */
   .strict()
   .superRefine((data, ctx) => {
-    const prompts = data.prompts;
-    if (prompts.systemPrompt) {
-      for (const token of findUnknownLlmPromptPlaceholderTokens(
-        prompts.systemPrompt,
-        contentGenerationSystemPromptPlaceholders,
-      )) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Unknown placeholder {{${token}}} in prompts.systemPrompt`,
-          path: ["prompts", "systemPrompt"],
-        });
-      }
-    }
-    if (prompts.userPromptTemplate) {
-      for (const token of findUnknownLlmPromptPlaceholderTokens(
-        prompts.userPromptTemplate,
-        contentGenerationUserPromptPlaceholders,
-      )) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Unknown placeholder {{${token}}} in prompts.userPromptTemplate`,
-          path: ["prompts", "userPromptTemplate"],
-        });
-      }
-    }
-
     refineRetryGroupValidity(
       data.reliability.llmRetry,
       ["reliability", "llmRetry"],
