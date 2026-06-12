@@ -269,8 +269,6 @@ describe("GET /schemas", () => {
     expect(schemaStr).toContain("quality");
     expect(schemaStr).toContain("delivery");
     expect(schemaStr).toContain("reliability");
-    expect(schemaStr).toContain("systemPrompt");
-    expect(schemaStr).toContain("userPromptTemplate");
     expect(schemaStr).toContain("topNewsCount");
     expect(schemaStr).toContain("maxCharsPerSource");
     expect(schemaStr).toContain("maxTotalContextChars");

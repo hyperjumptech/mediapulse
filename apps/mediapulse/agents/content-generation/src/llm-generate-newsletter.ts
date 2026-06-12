@@ -919,7 +919,7 @@ export async function generateNewsletterWithLlm(
 
   // Apply placeholder substitution to the system prompt so {{topNewsCount}},
   // {{tickerName}}, and {{tickerSymbol}} are resolved before the LLM call.
-  const rawSystemPrompt = config.prompts?.systemPrompt || SYSTEM_PROMPT;
+  const rawSystemPrompt = SYSTEM_PROMPT;
   const substitutedSystemPrompt = rawSystemPrompt
     .replaceAll("{{topNewsCount}}", String(effectiveTopNewsCount))
     .replaceAll("{{tickerId}}", context.tickerId)
@@ -962,8 +962,7 @@ export async function generateNewsletterWithLlm(
     context.tickerName ?? context.tickerId,
   );
 
-  const userTemplate =
-    config.prompts?.userPromptTemplate || DEFAULT_USER_PROMPT_TEMPLATE;
+  const userTemplate = DEFAULT_USER_PROMPT_TEMPLATE;
   const prompt = buildUserPrompt(
     promptSources,
     userTemplate,

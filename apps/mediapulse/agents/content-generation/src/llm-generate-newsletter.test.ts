@@ -778,21 +778,14 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
-  it("uses systemPrompt from config when provided", async () => {
+  it("substitutes {{date}} and sources in the default user prompt template", async () => {
     // Setup
-    const customSystem = "You are a specialized financial analyst.";
-    const config = resolveContentGenerationConfig(
-      ContentGenerationConfigSchema.parse({
-        ...conservativeTestConfigInput,
-        prompts: { systemPrompt: customSystem },
-      }),
-    );
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     // Act
     const result = await generateNewsletterWithLlm(
       testSources,
-      config,
+      baseConfig,
       testContext,
       {
         generateObjectFn,
@@ -800,73 +793,12 @@ describe("generateNewsletterWithLlm — prompt wiring and substitution", () => {
       },
     );
 
-    // Assert
-    expect(result.systemPrompt).toBe(customSystem);
-    const callArgs = (generateObjectFn as ReturnType<typeof vi.fn>).mock
-      .calls[0]![0] as GenerateNewsletterObjectArgs;
-    expect(callArgs.system).toBe(customSystem);
-  });
-
-  it("substitutes {{tickerId}} and {{date}} in userPromptTemplate", async () => {
-    // Setup
-    const customTemplate =
-      "Analysis for {{tickerId}} on {{date}}.\n\n{{sourceSummaries}}";
-    const config = resolveContentGenerationConfig(
-      ContentGenerationConfigSchema.parse({
-        ...conservativeTestConfigInput,
-        prompts: { userPromptTemplate: customTemplate },
-      }),
-    );
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    // Act
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      config,
-      testContext,
-      {
-        generateObjectFn,
-        sleepFn: noopSleepFn,
-      },
-    );
-
-    // Assert
-    expect(result.resolvedUserPrompt).toContain(
-      `Analysis for ${testContext.tickerId}`,
-    );
-    expect(result.resolvedUserPrompt).toContain(`on ${testContext.date}`);
+    // Assert — the default template substitutes {{date}} and embeds sources
+    expect(result.resolvedUserPrompt).toContain(testContext.date);
     expect(result.resolvedUserPrompt).toContain("Story A");
     const callArgs = (generateObjectFn as ReturnType<typeof vi.fn>).mock
       .calls[0]![0] as GenerateNewsletterObjectArgs;
     expect(callArgs.prompt).toBe(result.resolvedUserPrompt);
-  });
-
-  it("handles multiple occurrences of the same placeholder", async () => {
-    // Setup
-    const customTemplate = "{{tickerId}} report: {{tickerId}}.";
-    const config = resolveContentGenerationConfig(
-      ContentGenerationConfigSchema.parse({
-        ...conservativeTestConfigInput,
-        prompts: { userPromptTemplate: customTemplate },
-      }),
-    );
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    // Act
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      config,
-      testContext,
-      {
-        generateObjectFn,
-        sleepFn: noopSleepFn,
-      },
-    );
-
-    // Assert
-    expect(result.resolvedUserPrompt).toBe(
-      `${testContext.tickerId} report: ${testContext.tickerId}.`,
-    );
   });
 
   it("formats source summaries as numbered articles in the default template", async () => {

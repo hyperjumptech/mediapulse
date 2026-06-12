@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   ContentGenerationConfigSchema,
-  CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH,
   CONTENT_GENERATION_RETRY_MAX_ATTEMPTS_CEILING,
   resolveContentGenerationConfig,
 } from "./config-schema.js";
@@ -97,10 +96,6 @@ describe("ContentGenerationConfigSchema", () => {
         maxTokens: 1000,
         timeoutMs: 60_000,
       },
-      prompts: {
-        systemPrompt: "You are a bot",
-        userPromptTemplate: "Hello {{tickerId}}",
-      },
       output: {
         topNewsCount: 5,
       },
@@ -133,61 +128,7 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.credentials.baseUrl).toBe("https://example.com");
     expect(parsed.credentials.chatModel).toBe("gpt-4");
     expect(parsed.output.topNewsCount).toBe(5);
-    expect(parsed.prompts.userPromptTemplate).toBe("Hello {{tickerId}}");
     expect(parsed.freshness.timezone).toBe("America/New_York");
-  });
-
-  it("rejects unknown placeholder in prompts.systemPrompt", () => {
-    const result = ContentGenerationConfigSchema.safeParse({
-      ...testCredentials,
-      prompts: {
-        systemPrompt: "{{tickerId}} {{notARealToken}}",
-      },
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(
-        result.error.issues.some((i) =>
-          i.message.includes("{{notARealToken}}"),
-        ),
-      ).toBe(true);
-    }
-  });
-
-  it("rejects unknown placeholder in prompts.userPromptTemplate", () => {
-    const result = ContentGenerationConfigSchema.safeParse({
-      ...testCredentials,
-      prompts: {
-        userPromptTemplate: "{{tickerId}} {{bogus}}",
-      },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects prompts.systemPrompt longer than max", () => {
-    const result = ContentGenerationConfigSchema.safeParse({
-      ...testCredentials,
-      prompts: {
-        systemPrompt: "x".repeat(
-          CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH + 1,
-        ),
-      },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts systemPrompt at exactly max length", () => {
-    const parsed = ContentGenerationConfigSchema.parse({
-      ...testCredentials,
-      prompts: {
-        systemPrompt: "y".repeat(
-          CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH,
-        ),
-      },
-    });
-    expect(parsed.prompts.systemPrompt?.length).toBe(
-      CONTENT_GENERATION_LLM_PROMPT_FIELD_MAX_LENGTH,
-    );
   });
 
   it("parses config with credentials.openaiApiKey only", () => {
@@ -291,8 +232,6 @@ describe("ContentGenerationConfigSchema", () => {
     expect(schemaStr).toContain("delivery");
     expect(schemaStr).toContain("reliability");
     expect(schemaStr).toContain("topNewsCount");
-    expect(schemaStr).toContain("systemPrompt");
-    expect(schemaStr).toContain("userPromptTemplate");
     expect(schemaStr).toContain("calendar_day");
     expect(schemaStr).toContain("maxCharsPerSource");
     expect(schemaStr).toContain("maxTotalContextChars");
