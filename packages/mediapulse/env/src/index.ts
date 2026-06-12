@@ -19,8 +19,6 @@ export const env = createEnv({
     UNSUBSCRIBE_SECRET: z.string().min(1),
     AGENT_DATA_API_URL: z.string().optional(),
     MEDIAPULSE_CGA_DIAGNOSTICS_ENABLED: z.string().optional(),
-    HERMES_DASHBOARD_EXTENSIONS: z.string().optional(),
-    HERMES_DASHBOARD_EXTENSIONS_ENV_DIR: z.string().optional(),
   },
   client: {
   },

@@ -23,7 +23,7 @@ describe("registerDomainIntegrationRequestSchema", () => {
     // Assert
     expect(parsed.dashboard).toEqual({
       templateVersion: 1,
-      pages: [],
+      views: [],
     });
   });
 });
@@ -205,8 +205,10 @@ describe("dashboardObjectFormJsonSchemaForListRow", () => {
       id: "x",
       label: "X",
       pathSegment: "x",
-      template: "table-v1",
+      kind: "resource-table",
+      placement: "sidebar",
       apiPrefix: "/v1/hermes-dashboard/x",
+      createNavigation: "modal",
       createSchema,
     });
 
@@ -231,8 +233,10 @@ describe("dashboardObjectFormJsonSchema", () => {
       id: "x",
       label: "X",
       pathSegment: "x",
-      template: "table-v1",
+      kind: "resource-table",
+      placement: "sidebar",
       apiPrefix: "/v1/hermes-dashboard/x",
+      createNavigation: "modal",
       createSchema,
     });
 
@@ -247,8 +251,10 @@ describe("dashboardPageSchema", () => {
       id: "entity-relations",
       label: "Entity Relations",
       pathSegment: "entity-relations",
-      template: "table-v1",
+      kind: "resource-table",
+      placement: "sidebar",
       apiPrefix: "/v1/hermes-dashboard/entity-relations",
+      createNavigation: "modal",
       columns: [],
       customActions: [
         {
@@ -274,8 +280,10 @@ describe("dashboardPageSchema", () => {
       id: "tickers",
       label: "Tickers",
       pathSegment: "tickers",
-      template: "table-v1",
+      kind: "resource-table",
+      placement: "sidebar",
       apiPrefix: "/v1/hermes-dashboard/tickers",
+      createNavigation: "modal",
       columns: [],
     });
 

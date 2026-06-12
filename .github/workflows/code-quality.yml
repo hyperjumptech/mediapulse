@@ -131,8 +131,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.run_heavy_jobs == 'true'
     env:
-      HERMES_DASHBOARD_EXTENSIONS: "@mediapulse/hermes-dashboard/extensions"
-      HERMES_DASHBOARD_EXTENSIONS_ENV_DIR: packages/mediapulse/env
       MEDIAPULSE_DATABASE_URL: postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=mediapulse
       MEDIAPULSE_API_URL: http://localhost:8090
       HERMES_API_URL: http://localhost:3001

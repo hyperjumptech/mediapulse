@@ -3,7 +3,7 @@
  * and create/update JSON Schema metadata. Also exports the URL path segment constant for this resource.
  */
 
-import { type DashboardPageInput } from "@hermes/domain-contract";
+import { type DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -26,7 +26,8 @@ export const entityTypesDashboardPage = {
   description:
     "Admin-managed entity classification vocabulary used by the analysis agent extraction prompts.",
   pathSegment: entityTypesHermesPathSegment,
-  template: "table-v1" as const,
+  kind: "resource-table" as const,
+  placement: "sidebar" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(entityTypesHermesPathSegment),
   order: 20,
   columns: columnsFor<ListItem>()([
@@ -40,4 +41,4 @@ export const entityTypesDashboardPage = {
   createSchema: entityTypeCreateFormJsonSchema,
   updateSchema: entityTypeUpdateFormJsonSchema,
   customActions: entityTypesCustomActionsForManifest,
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;

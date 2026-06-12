@@ -6,10 +6,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./diagnostics-nav": "./src/diagnostics-nav.ts",
-    "./extensions": "./src/extensions.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
@@ -18,24 +15,14 @@
     "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
-    "@hermes/dashboard-extensions": "workspace:*",
     "@hermes/domain-contract": "workspace:*",
-    "@hermes/env": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
-    "@workspace/agent-data-api-client": "workspace:*",
-    "@workspace/ui": "workspace:*",
-    "date-fns": "^4.1.0",
-    "lucide-react": "catalog:",
-    "next": "catalog:",
-    "react": "catalog:",
-    "recharts": "^2.15.3",
-    "zod": "catalog:"
+    "@workspace/agent-data-api-client": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@types/react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",

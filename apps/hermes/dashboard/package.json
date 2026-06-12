@@ -21,7 +21,6 @@
     "test:coverage": "pnpm generate && vitest --run --coverage"
   },
   "dependencies": {
-    "@hermes/dashboard-extensions": "workspace:*",
     "@hermes/domain-contract": "workspace:*",
     "@hermes/domain-integration-crypto": "workspace:*",
     "@hermes/env": "workspace:*",

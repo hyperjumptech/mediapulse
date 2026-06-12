@@ -28,23 +28,6 @@ ENV HERMES_INTERNAL_API_KEY="dummy-internal-key"
 ENV HERMES_MCP_API_KEY_PEPPER="dummy-mcp-api-key-pepper"
 ENV AGENT_AUTH_API_URL="http://localhost:8080"
 ENV AGENT_AUTH_JWT_SECRET="dummy-jwt-secret-for-build"
-# Optional product extension module and its env directory (set at image build for composed deployments).
-ARG HERMES_DASHBOARD_EXTENSIONS=
-ARG HERMES_DASHBOARD_EXTENSIONS_ENV_DIR=
-ENV HERMES_DASHBOARD_EXTENSIONS="${HERMES_DASHBOARD_EXTENSIONS}"
-ENV HERMES_DASHBOARD_EXTENSIONS_ENV_DIR="${HERMES_DASHBOARD_EXTENSIONS_ENV_DIR}"
-RUN if [ -n "$HERMES_DASHBOARD_EXTENSIONS" ] && [ -n "$HERMES_DASHBOARD_EXTENSIONS_ENV_DIR" ] && [ ! -f "$HERMES_DASHBOARD_EXTENSIONS_ENV_DIR/.env" ]; then \
-      printf '%s\n' \
-        'MEDIAPULSE_DATABASE_URL=postgresql://localhost:5432/dummy' \
-        'MEDIAPULSE_API_URL=http://localhost:8090' \
-        'HERMES_API_URL=http://localhost:3001' \
-        'DOMAIN_INTEGRATION_API_KEY=dummy-domain-integration-key' \
-        'DOMAIN_INTEGRATION_ID=local-domain' \
-        'UNSUBSCRIBE_SECRET=dummy-unsubscribe-secret' \
-        'AGENT_DATA_API_URL=http://localhost:8081' \
-        'MEDIAPULSE_CGA_DIAGNOSTICS_ENABLED=false' \
-        > "$HERMES_DASHBOARD_EXTENSIONS_ENV_DIR/.env"; \
-    fi
 RUN rm -f apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local && \
     touch apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local
 

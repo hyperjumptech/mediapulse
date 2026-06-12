@@ -1,5 +1,6 @@
 import {
   dashboardManifestSchema,
+  domainIntegrationCapabilitySchema,
   type DashboardManifest,
   type RegisterDomainIntegrationRequest,
   type RegisterDomainIntegrationResponse,
@@ -23,11 +24,13 @@ const parseCapabilities = (
   raw: Prisma.JsonValue | null,
 ): RegisterDomainIntegrationResponse["capabilities"] => {
   if (!Array.isArray(raw)) return [...defaultCapabilities];
+  const allowed = domainIntegrationCapabilitySchema.options;
   const parsed = raw.filter(
     (
       entry,
     ): entry is RegisterDomainIntegrationResponse["capabilities"][number] =>
-      entry === "expand-step-inputs" || entry === "preview-expansion",
+      typeof entry === "string" &&
+      (allowed as readonly string[]).includes(entry),
   );
   return parsed.length > 0 ? parsed : [...defaultCapabilities];
 };
@@ -44,7 +47,7 @@ const parseDashboardManifest = (
   return dashboardManifestSchema
     .catch({
       templateVersion: 1,
-      pages: [],
+      views: [],
     })
     .parse(raw);
 };
@@ -84,7 +87,7 @@ export const registerDomainIntegration = async (
   const capabilities = [...payload.capabilities];
   const dashboard = {
     templateVersion: payload.dashboard.templateVersion,
-    pages: payload.dashboard.pages,
+    views: payload.dashboard.views,
   };
   const dashboardManifest = JSON.parse(
     JSON.stringify(dashboard),

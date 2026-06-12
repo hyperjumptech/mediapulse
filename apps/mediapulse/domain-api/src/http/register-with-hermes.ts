@@ -32,11 +32,7 @@ export const registerWithHermes = async (): Promise<void> => {
     name: env.DOMAIN_INTEGRATION_NAME ?? "Mediapulse",
     baseUrl: env.MEDIAPULSE_API_URL,
     version: env.DOMAIN_INTEGRATION_VERSION,
-    capabilities: [
-      "expand-step-inputs",
-      "preview-expansion",
-      "operator-diagnostics",
-    ],
+    capabilities: ["expand-step-inputs", "preview-expansion"],
     isDefault: true,
     dashboard: dashboardManifest,
   });

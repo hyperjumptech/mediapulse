@@ -10,7 +10,8 @@ const mediapulsePages: DashboardPage[] = [
     id: "tickers",
     label: "Tickers",
     pathSegment: "tickers",
-    template: "table-v1",
+    kind: "resource-table",
+    placement: "sidebar",
     apiPrefix: "/v1/hermes-dashboard/tickers",
     columns: [],
     searchableFields: [],
@@ -27,7 +28,8 @@ const mediapulsePagesWithSearchQueries: DashboardPage[] = [
     id: "search-queries",
     label: "Search Queries",
     pathSegment: "search-queries",
-    template: "table-v1",
+    kind: "resource-table",
+    placement: "sidebar",
     apiPrefix: "/v1/hermes-dashboard/search-queries",
     columns: [],
     searchableFields: [],
@@ -202,7 +204,7 @@ describe("DashboardShell", () => {
           {
             integrationId: "mediapulse",
             name: "Mediapulse",
-            pages: mediapulsePages,
+            views: mediapulsePages,
           },
         ]}
       >
@@ -224,7 +226,7 @@ describe("DashboardShell", () => {
           {
             integrationId: "mediapulse",
             name: "Mediapulse",
-            pages: mediapulsePagesWithSearchQueries,
+            views: mediapulsePagesWithSearchQueries,
           },
         ]}
       >

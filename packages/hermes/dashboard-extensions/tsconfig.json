@@ -1,7 +1,0 @@
-{
-  "extends": "@workspace/typescript-config/node16.json",
-  "compilerOptions": {
-    "module": "ESNext"
-  },
-  "include": ["src"]
-}

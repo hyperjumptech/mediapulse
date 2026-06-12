@@ -40,12 +40,13 @@ describe("getDomainTableMeta", () => {
       capabilities: ["expand-step-inputs", "preview-expansion"],
       dashboard: {
         templateVersion: 1,
-        pages: [
+        views: [
           {
             id: "tickers",
             label: "Tickers",
             pathSegment: "tickers",
-            template: "table-v1",
+            kind: "resource-table",
+            placement: "sidebar",
             apiPrefix: "/v1/hermes-dashboard/tickers",
             columns: [],
             searchableFields: [],
@@ -98,12 +99,13 @@ describe("getDomainTableMeta", () => {
       capabilities: [],
       dashboard: {
         templateVersion: 1,
-        pages: [
+        views: [
           {
             id: "newsletters",
             label: "Newsletters",
             pathSegment: "newsletters",
-            template: "table-v1",
+            kind: "resource-table",
+            placement: "sidebar",
             apiPrefix: "/v1/hermes-dashboard/newsletters",
             columns: [],
             searchableFields: [],
@@ -162,7 +164,7 @@ describe("getDomainTableMeta", () => {
       name: "Mediapulse",
       baseUrl: "http://localhost:3001",
       version: null,
-      dashboard: { templateVersion: 1, pages: [] },
+      dashboard: { templateVersion: 1, views: [] },
       capabilities: ["expand-step-inputs", "preview-expansion"],
     });
 
@@ -452,12 +454,13 @@ describe("getDomainTableItemById", () => {
       capabilities: ["preview-expansion", "expand-step-inputs"],
       dashboard: {
         templateVersion: 1,
-        pages: [
+        views: [
           {
             id: "tickers",
             label: "Tickers",
             pathSegment: "tickers",
-            template: "table-v1",
+            kind: "resource-table",
+            placement: "sidebar",
             apiPrefix: "/v1/hermes-dashboard/tickers",
             columns: [],
             searchableFields: [],
@@ -495,12 +498,13 @@ describe("getDomainTableItemById", () => {
       capabilities: ["preview-expansion", "expand-step-inputs"],
       dashboard: {
         templateVersion: 1,
-        pages: [
+        views: [
           {
             id: "tickers",
             label: "Tickers",
             pathSegment: "tickers",
-            template: "table-v1",
+            kind: "resource-table",
+            placement: "sidebar",
             apiPrefix: "/v1/hermes-dashboard/tickers",
             columns: [],
             searchableFields: [],
@@ -534,7 +538,7 @@ describe("previewDomainExpansion", () => {
       baseUrl: "http://localhost",
       version: null,
       capabilities: ["expand-step-inputs"],
-      dashboard: { templateVersion: 1, pages: [] },
+      dashboard: { templateVersion: 1, views: [] },
     });
 
     await expect(
@@ -554,7 +558,7 @@ describe("previewDomainExpansion", () => {
       baseUrl: "http://localhost",
       version: null,
       capabilities: ["preview-expansion"],
-      dashboard: { templateVersion: 1, pages: [] },
+      dashboard: { templateVersion: 1, views: [] },
     });
 
     const result = await previewDomainExpansion("k", "db:ticker:id", {

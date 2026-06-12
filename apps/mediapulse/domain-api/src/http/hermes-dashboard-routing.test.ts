@@ -15,8 +15,8 @@ describe("Hermes dashboard routing contract", () => {
     const mountSegments = new Set(
       hermesDashboardRouteMounts.map((m) => m.segment),
     );
-    const tablePages = dashboardManifest.pages.filter(
-      (p) => p.template === "table-v1",
+    const tablePages = dashboardManifest.views.filter(
+      (p) => p.kind === "resource-table",
     );
 
     // Act & Assert
@@ -30,8 +30,8 @@ describe("Hermes dashboard routing contract", () => {
   it("has a manifest table-v1 page for every mounted Hermes table segment", () => {
     // Setup
     const segmentsFromManifest = new Set(
-      dashboardManifest.pages
-        .filter((p) => p.template === "table-v1")
+      dashboardManifest.views
+        .filter((p) => p.kind === "resource-table")
         .map((p) => p.pathSegment),
     );
 
@@ -43,8 +43,8 @@ describe("Hermes dashboard routing contract", () => {
 
   it("builds manifest apiPrefix from pathSegment for every table-v1 page", () => {
     // Act & Assert
-    for (const page of dashboardManifest.pages.filter(
-      (p) => p.template === "table-v1",
+    for (const page of dashboardManifest.views.filter(
+      (p) => p.kind === "resource-table",
     )) {
       expect(page.apiPrefix).toBe(
         hermesDashboardManifestApiPrefix(
@@ -56,8 +56,8 @@ describe("Hermes dashboard routing contract", () => {
 
   it("keeps page id equal to pathSegment for every table-v1 page", () => {
     // Act & Assert
-    for (const page of dashboardManifest.pages.filter(
-      (p) => p.template === "table-v1",
+    for (const page of dashboardManifest.views.filter(
+      (p) => p.kind === "resource-table",
     )) {
       expect(page.id).toBe(page.pathSegment);
     }

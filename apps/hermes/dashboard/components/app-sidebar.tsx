@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { DashboardPage } from "@hermes/domain-contract";
+import type { DashboardView } from "@hermes/domain-contract";
 import {
   Bot,
   Calendar,
@@ -37,11 +37,11 @@ import type { DashboardUser } from "./dashboard-shell";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   user?: DashboardUser | null;
-  /** Active domain integrations and their manifest pages (integration id in URL). */
+  /** Active domain integrations and their sidebar manifest views. */
   domainIntegrations?: Array<{
     integrationId: string;
     name: string;
-    pages: DashboardPage[];
+    views: DashboardView[];
   }>;
 };
 
@@ -149,11 +149,11 @@ export const AppSidebar = ({
             <SidebarGroupLabel>{integration.name}</SidebarGroupLabel>
             <SidebarGroupContent className="flex flex-col gap-2">
               <SidebarMenu>
-                {integration.pages.map((page) => {
-                  const href = `/dashboard/${integration.integrationId}/${page.pathSegment}`;
+                {integration.views.map((view) => {
+                  const href = `/dashboard/${integration.integrationId}/${view.pathSegment}`;
                   return (
                     <SidebarMenuItem
-                      key={`${integration.integrationId}-${page.id}`}
+                      key={`${integration.integrationId}-${view.id}`}
                     >
                       <SidebarMenuButton
                         asChild
@@ -164,7 +164,7 @@ export const AppSidebar = ({
                       >
                         <Link href={href}>
                           <Database className="size-4" />
-                          <span>{page.label}</span>
+                          <span>{view.label}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

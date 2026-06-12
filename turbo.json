@@ -11,8 +11,6 @@
       "dependsOn": ["^db:generate", "^build", "generate"],
       "env": [
         "ORCHESTRATION_DATABASE_URL",
-        "HERMES_DASHBOARD_EXTENSIONS",
-        "HERMES_DASHBOARD_EXTENSIONS_ENV_DIR",
         "HERMES_INTERNAL_API_KEY",
         "MEDIAPULSE_DATABASE_URL",
         "MEDIAPULSE_API_URL",

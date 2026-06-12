@@ -14,10 +14,13 @@ import { dashboardManifest } from "../../manifest";
 export const buildMetaPayloadForPathSegment = (
   pathSegment: string,
 ): ReturnType<typeof tableV1MetaResponseSchema.parse> | null => {
-  const page = dashboardManifest.pages.find(
-    (entry) => entry.pathSegment === pathSegment,
+  const page = dashboardManifest.views.find(
+    (entry) =>
+      entry.placement === "sidebar" &&
+      entry.pathSegment === pathSegment &&
+      entry.kind === "resource-table",
   );
-  if (!page) {
+  if (!page || page.kind !== "resource-table") {
     return null;
   }
 

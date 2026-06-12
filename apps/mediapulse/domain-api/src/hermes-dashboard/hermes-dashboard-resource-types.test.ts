@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import type { DashboardViewInput } from "@hermes/domain-contract";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import {
@@ -11,12 +11,13 @@ const minimalDashboardPage = {
   id: "test-seg",
   label: "Test",
   pathSegment: "test-seg",
-  template: "table-v1" as const,
+  kind: "resource-table",
+  placement: "sidebar" as const,
   apiPrefix: "/v1/hermes-dashboard/test-seg",
   order: 0,
   columns: [],
   actions: { create: false, update: false, delete: false, view: false },
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;
 
 describe("defineHermesDashboardResource", () => {
   it("returns the same definition object (identity)", () => {

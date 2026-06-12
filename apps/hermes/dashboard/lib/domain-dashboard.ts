@@ -89,13 +89,16 @@ export const getDashboardPage = async (
     };
   }
 
-  const page = integration.dashboard.pages.find(
-    (entry) => entry.pathSegment === resource,
+  const page = integration.dashboard.views.find(
+    (entry) =>
+      entry.placement === "sidebar" &&
+      entry.pathSegment === resource &&
+      entry.kind === "resource-table",
   );
 
-  if (!page) {
+  if (!page || page.kind !== "resource-table") {
     throw new Error(
-      `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
+      `Dashboard resource-table view "${resource}" is not registered for integration "${integrationId}"`,
     );
   }
 

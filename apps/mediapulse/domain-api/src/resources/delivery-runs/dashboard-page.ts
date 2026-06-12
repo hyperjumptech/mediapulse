@@ -1,4 +1,4 @@
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import type { DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -17,7 +17,8 @@ export const deliveryRunsDashboardPage = {
   description:
     "Diagnostic records written by the delivery agent for each newsletter send attempt (read-only).",
   pathSegment: deliveryRunsHermesPathSegment,
-  template: "table-v1" as const,
+  kind: "resource-table" as const,
+  placement: "sidebar" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(deliveryRunsHermesPathSegment),
   order: 55,
   columns: columnsFor<ListItem>()([
@@ -42,4 +43,4 @@ export const deliveryRunsDashboardPage = {
   sortableFields: rowFieldKeysFor<ListItem>()(["createdAt", "outcome"]),
   actions: { create: false, update: false, delete: false, view: true },
   customActions: deliveryRunsCustomActionsForManifest,
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;

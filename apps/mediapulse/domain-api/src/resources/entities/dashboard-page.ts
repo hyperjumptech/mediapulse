@@ -2,7 +2,7 @@
  * Hermes `table-v1` manifest for canonical knowledge-graph entities (read-only list + detail).
  */
 
-import type { DashboardPageInput, DetailBlock } from "@hermes/domain-contract";
+import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   createdAtDateRangeListFilter,
@@ -64,7 +64,8 @@ export const entitiesDashboardPage = {
   description:
     "Canonical knowledge-graph entities extracted from collected articles by the analysis agent (read-only).",
   pathSegment: entitiesHermesPathSegment,
-  template: "table-v1" as const,
+  kind: "resource-table" as const,
+  placement: "sidebar" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(entitiesHermesPathSegment),
   order: 32,
   columns: columnsFor<ListItem>()([
@@ -96,4 +97,4 @@ export const entitiesDashboardPage = {
     entitiesDescriptionBlock,
     entitiesEvidenceBlock,
   ],
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;

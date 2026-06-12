@@ -2,7 +2,7 @@
  * Hermes `table-v1` manifest for knowledge-graph entity relations (CRUD list + detail).
  */
 
-import type { DashboardPageInput, DetailBlock } from "@hermes/domain-contract";
+import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -66,7 +66,8 @@ export const entityRelationsDashboardPage = {
   description:
     "Directed typed edges between entities, extracted from articles by the analysis agent. Create, edit, or delete manually; use Reset all to wipe the graph.",
   pathSegment: entityRelationsHermesPathSegment,
-  template: "table-v1" as const,
+  kind: "resource-table" as const,
+  placement: "sidebar" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(entityRelationsHermesPathSegment),
   order: 33,
   columns: columnsFor<ListItem>()([
@@ -95,4 +96,4 @@ export const entityRelationsDashboardPage = {
   updateSchema: entityRelationUpdateFormJsonSchema,
   customActions: entityRelationsCustomActionsForManifest,
   detailBlocks: [entityRelationsMetadataBlock, entityRelationsEvidenceBlock],
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;

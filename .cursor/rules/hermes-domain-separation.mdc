@@ -10,9 +10,9 @@ Hermes orchestrates pipelines, schedules, and domain integrations. **Product dom
 
 ## Do
 
-- Declare table-v1 **list filters** in the domain integration manifest (`TableV1ListFilterDefinition[]`) and return dynamic options via meta `filterOptions`.
-- Keep domain-specific HTTP semantics in **domain-api** (or product `hermes-integration` packages).
-- Register optional operator UI via domain capabilities (e.g. `operator-diagnostics`) and **`HERMES_DASHBOARD_EXTENSIONS`** (npm module loaded at runtime).
+- Declare dashboard **views** in the domain integration manifest (`resource-table`, `markdown`, `html`, `text`) with `placement: sidebar` or `agent-tab`.
+- Keep domain-specific HTTP semantics in **domain-api** (or product integration packages).
+- Serve operator UI via domain HTTP (`GET {baseUrl}{apiPrefix}` → `contentViewResponseSchema` for content views).
 - Pass `isDefault: true` on domain registration when an integration should be the default expansion target.
 
 ## Do not
@@ -21,16 +21,8 @@ Hermes orchestrates pipelines, schedules, and domain integrations. **Product dom
 - Hardcode integration slugs or vendor names (e.g. product codenames) in Hermes production code.
 - Import `@mediapulse/*` or any product package from `apps/hermes` or `packages/hermes`.
 - Put agent-data-api / CGA / section-coverage logic in `packages/hermes` or `apps/hermes/dashboard/lib`.
-
-## Extension wiring (deployments)
-
-Hermes dashboard loads optional UI via env:
-
-- `HERMES_DASHBOARD_EXTENSIONS` — package subpath (e.g. `@acme/hermes-dashboard/extensions`).
-- `HERMES_DASHBOARD_EXTENSIONS_ENV_DIR` — directory for extension package `.env` (optional).
-
-Product repos set these at deploy time; vanilla Hermes omits them.
+- Use build-time npm plugins or env vars to load product React into Hermes (`HERMES_DASHBOARD_EXTENSIONS` and similar).
 
 ## Review checklist
 
-Before merging Hermes changes: does the diff add domain vocabulary or product imports to Hermes? If yes, move it to the domain manifest or a product extension package.
+Before merging Hermes changes: does the diff add domain vocabulary or product imports to Hermes? If yes, move it to the domain manifest or domain-api HTTP handlers.

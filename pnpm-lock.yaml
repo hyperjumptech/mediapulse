@@ -234,9 +234,6 @@ importers:
 
   apps/hermes/dashboard:
     dependencies:
-      '@hermes/dashboard-extensions':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/dashboard-extensions
       '@hermes/domain-contract':
         specifier: workspace:*
         version: link:../../../packages/hermes/domain-contract
@@ -1001,6 +998,12 @@ importers:
       '@mediapulse/idx-tickers-importer':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/idx-tickers-importer
+      '@workspace/agent-auth-client':
+        specifier: workspace:*
+        version: link:../../../packages/shared/agent-auth-client
+      '@workspace/agent-data-api-client':
+        specifier: workspace:*
+        version: link:../../../packages/shared/agent-data-api-client
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-data-api-contract
@@ -1144,46 +1147,6 @@ importers:
       vite-tsconfig-paths:
         specifier: ^6.1.1
         version: 6.1.1(typescript@5.9.3)(vite@7.3.1(@types/node@20.19.33)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/hermes/dashboard-extensions:
-    dependencies:
-      '@hermes/domain-contract':
-        specifier: workspace:*
-        version: link:../domain-contract
-      '@hermes/env':
-        specifier: workspace:*
-        version: link:../env
-      '@workspace/agent-data-api-contract':
-        specifier: workspace:*
-        version: link:../../shared/agent-data-api-contract
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 20.19.33
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.14
-      '@vitest/coverage-v8':
-        specifier: 'catalog:'
-        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
-      '@workspace/eslint-config':
-        specifier: workspace:^
-        version: link:../../shared/eslint-config
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../../shared/typescript-config
-      eslint:
-        specifier: 'catalog:'
-        version: 9.39.2(jiti@2.6.1)
-      react:
-        specifier: 'catalog:'
-        version: 19.2.4
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
       vitest:
         specifier: 'catalog:'
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
@@ -1518,15 +1481,9 @@ importers:
 
   packages/mediapulse/hermes-dashboard:
     dependencies:
-      '@hermes/dashboard-extensions':
-        specifier: workspace:*
-        version: link:../../hermes/dashboard-extensions
       '@hermes/domain-contract':
         specifier: workspace:*
         version: link:../../hermes/domain-contract
-      '@hermes/env':
-        specifier: workspace:*
-        version: link:../../hermes/env
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../env
@@ -1539,34 +1496,10 @@ importers:
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../../shared/agent-data-api-contract
-      '@workspace/ui':
-        specifier: workspace:*
-        version: link:../../shared/ui
-      date-fns:
-        specifier: ^4.1.0
-        version: 4.1.0
-      lucide-react:
-        specifier: 'catalog:'
-        version: 0.562.0(react@19.2.4)
-      next:
-        specifier: 'catalog:'
-        version: 16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react:
-        specifier: 'catalog:'
-        version: 19.2.4
-      recharts:
-        specifier: ^2.15.3
-        version: 2.15.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      zod:
-        specifier: 'catalog:'
-        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.33
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.14
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.33)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))

@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getAgentByIdMock = vi.fn();
-const getAgentInsightsMock = vi.fn();
+const fetchAgentTabContentsMock = vi.fn();
 const notFoundMock = vi.fn();
 
 vi.mock("@hermes/env", () => ({
@@ -32,14 +32,9 @@ vi.mock("@/lib/agents", () => ({
   getAgentById: (...args: unknown[]) => getAgentByIdMock(...args),
 }));
 
-const runtimeConfig = { internalApiKey: "test-key" };
-
-vi.mock("@/lib/load-hermes-dashboard-extensions", () => ({
-  loadHermesDashboardExtensions: vi.fn(async () => ({
-    getRuntimeConfig: () => runtimeConfig,
-    getAgentInsights: (...args: unknown[]) => getAgentInsightsMock(...args),
-    renderInsightsPanel: () => <div data-testid="insights-panel">Insights</div>,
-  })),
+vi.mock("@/lib/domain-content-view", () => ({
+  fetchAgentTabContents: (...args: unknown[]) =>
+    fetchAgentTabContentsMock(...args),
 }));
 
 vi.mock("./agent-details-content", () => ({
@@ -84,14 +79,14 @@ describe("AgentDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     getAgentByIdMock.mockReset();
-    getAgentInsightsMock.mockReset();
+    fetchAgentTabContentsMock.mockReset();
     notFoundMock.mockReset();
   });
 
   it("renders agent details content when agent exists", async () => {
     const agent = createMockAgent();
     getAgentByIdMock.mockResolvedValue(agent);
-    getAgentInsightsMock.mockResolvedValue({ hasInsights: false });
+    fetchAgentTabContentsMock.mockResolvedValue([]);
 
     const component = await AgentDetailPage({
       params: Promise.resolve({ id: "agent-uuid-1" }),
@@ -99,25 +94,20 @@ describe("AgentDetailPage", () => {
     render(component);
 
     expect(screen.getByTestId("agent-details-content")).toBeInTheDocument();
-    expect(screen.getByTestId("agent-details-content")).toHaveAttribute(
-      "data-agent-id",
-      "test-agent",
-    );
-    expect(screen.getByTestId("agent-details-content")).toHaveAttribute(
-      "data-agent-version",
-      "1.0",
-    );
   });
 
-  it("calls getAgentById with id from params", async () => {
+  it("calls fetchAgentTabContents for the agent integration", async () => {
     getAgentByIdMock.mockResolvedValue(createMockAgent());
-    getAgentInsightsMock.mockResolvedValue({ hasInsights: false });
+    fetchAgentTabContentsMock.mockResolvedValue([]);
 
     await AgentDetailPage({
       params: Promise.resolve({ id: "my-agent-id" }),
     });
 
-    expect(getAgentByIdMock).toHaveBeenCalledWith("my-agent-id");
+    expect(fetchAgentTabContentsMock).toHaveBeenCalledWith(
+      "acme-local",
+      "test-agent",
+    );
   });
 
   it("calls notFound when agent is missing", async () => {

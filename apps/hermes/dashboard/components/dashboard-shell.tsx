@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import type { DashboardPage } from "@hermes/domain-contract";
+import type { DashboardView } from "@hermes/domain-contract";
 
 import {
   SidebarInset,
@@ -84,7 +84,7 @@ const getDomainIntegrationsSubLabel = (
 export type DomainIntegrationNav = {
   integrationId: string;
   name: string;
-  pages: DashboardPage[];
+  views: DashboardView[];
 };
 
 /**
@@ -109,21 +109,14 @@ export const DashboardShell = ({
     first && domainIntegrations.find((i) => i.integrationId === first);
   const isDomainKeyedRoute = Boolean(domainIntegration && second);
 
-  const domainPageLabel =
+  const domainViewLabel =
     domainIntegration && domainResourcePath
-      ? domainIntegration.pages.find(
-          (p) =>
-            p.pathSegment === domainResourcePath || p.pathSegment === second,
+      ? domainIntegration.views.find(
+          (view) =>
+            view.pathSegment === domainResourcePath ||
+            view.pathSegment === second,
         )?.label
       : undefined;
-
-  const integrationDiagnosticsRunDetailLabel =
-    domainIntegration &&
-    domainResourcePath.startsWith("diagnostics/content-generation-runs/")
-      ? getAgentsContentGenerationRunsSubLabel(
-          domainResourcePath.split("/").at(-1),
-        )
-      : null;
 
   const pipelinesSubLabel =
     first === "pipelines" ? getPipelinesSubLabel(second) : null;
@@ -150,10 +143,7 @@ export const DashboardShell = ({
     first && !isDomainKeyedRoute ? SEGMENT_LABELS[first] : undefined;
 
   const currentLabel = isDomainKeyedRoute
-    ? (integrationDiagnosticsRunDetailLabel ??
-      domainPageLabel ??
-      second ??
-      "Dashboard")
+    ? (domainViewLabel ?? second ?? "Dashboard")
     : (pipelinesSubLabel ??
       contentGenerationRunsSubLabel ??
       cgaDiagnosticsLabel ??

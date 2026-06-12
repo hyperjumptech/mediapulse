@@ -1,11 +1,15 @@
+import { notFound } from "next/navigation";
+
 import { DomainTablePage } from "@/app/dashboard/domain-table-page";
+import DomainContentViewPage from "@/app/dashboard/domain-content-view-page";
 import { withAuthProtection } from "@/components/with-auth-protection";
+import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
 import type { DomainTableSearchParams } from "@/lib/domain-table-list-params";
 
 /**
- * Domain integration table-v1 page. URL: /dashboard/{integrationId}/{resource pathSegment}.
+ * Domain integration dashboard view. Dispatches by manifest `kind` for sidebar views.
  */
-const IntegrationDomainTablePage = async ({
+const IntegrationDashboardViewPage = async ({
   params,
   searchParams,
 }: {
@@ -13,13 +17,42 @@ const IntegrationDomainTablePage = async ({
   searchParams: Promise<DomainTableSearchParams> | DomainTableSearchParams;
 }) => {
   const { integrationId, resource } = await params;
-  return (
-    <DomainTablePage
-      integrationId={integrationId}
-      resource={resource}
-      searchParams={searchParams}
-    />
+  const integration = await getDomainIntegrationByIntegrationId(integrationId);
+  if (!integration) {
+    notFound();
+  }
+
+  const view = integration.dashboard.views.find(
+    (entry) => entry.placement === "sidebar" && entry.pathSegment === resource,
   );
+
+  if (!view) {
+    notFound();
+  }
+
+  if (view.kind === "resource-table") {
+    return (
+      <DomainTablePage
+        integrationId={integrationId}
+        resource={resource}
+        searchParams={searchParams}
+      />
+    );
+  }
+
+  if (
+    view.kind === "markdown" ||
+    view.kind === "html" ||
+    view.kind === "text"
+  ) {
+    return (
+      <DomainContentViewPage
+        params={Promise.resolve({ integrationId, resource })}
+      />
+    );
+  }
+
+  notFound();
 };
 
-export default withAuthProtection(IntegrationDomainTablePage);
+export default withAuthProtection(IntegrationDashboardViewPage);

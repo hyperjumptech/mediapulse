@@ -1,4 +1,4 @@
-import type { DashboardPage } from "@hermes/domain-contract";
+import type { DashboardView } from "@hermes/domain-contract";
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -8,7 +8,7 @@ import {
   resolveHermesActiveAdminDashboardAccess,
 } from "@/lib/auth-dashboard";
 import { getActiveDomainIntegrations } from "@/lib/domain-integrations";
-import { mergeDomainIntegrationNavPages } from "@/lib/merge-domain-integration-nav-pages";
+import { mergeDomainIntegrationNavViews } from "@/lib/merge-domain-integration-nav-pages";
 
 /**
  * Dashboard layout: sidebar, header with breadcrumb, and main content area.
@@ -29,17 +29,15 @@ export default async function DashboardLayout({
   let domainIntegrations: Array<{
     integrationId: string;
     name: string;
-    pages: DashboardPage[];
+    views: DashboardView[];
   }> = [];
   try {
     const integrations = await getActiveDomainIntegrations();
-    domainIntegrations = await Promise.all(
-      integrations.map(async (i) => ({
-        integrationId: i.integrationId,
-        name: i.name,
-        pages: await mergeDomainIntegrationNavPages(i),
-      })),
-    );
+    domainIntegrations = integrations.map((i) => ({
+      integrationId: i.integrationId,
+      name: i.name,
+      views: mergeDomainIntegrationNavViews(i),
+    }));
   } catch {
     domainIntegrations = [];
   }

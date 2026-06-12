@@ -12,7 +12,7 @@ describe("dashboardManifest", () => {
     );
 
     // Act
-    const pageIds = dashboardManifest.pages.map((p) => p.id);
+    const pageIds = dashboardManifest.views.map((p) => p.id);
 
     // Assert
     expect(pageIds).toEqual(sorted.map((r) => r.dashboardPage.id));
@@ -21,7 +21,7 @@ describe("dashboardManifest", () => {
 
   it("uses unique path segments for every page", () => {
     // Setup
-    const segments = dashboardManifest.pages.map((p) => p.pathSegment);
+    const segments = dashboardManifest.views.map((p) => p.pathSegment);
 
     // Assert
     expect(new Set(segments).size).toBe(segments.length);
@@ -33,7 +33,7 @@ describe("dashboardManifest", () => {
       HermesDashboardResource,
     ) as (keyof typeof HermesDashboardResource)[]) {
       const segment = HermesDashboardResource[key];
-      const page = dashboardManifest.pages.find(
+      const page = dashboardManifest.views.find(
         (p) => p.pathSegment === segment,
       );
       expect(page, `missing page for ${String(key)}`).toBeDefined();
@@ -44,7 +44,7 @@ describe("dashboardManifest", () => {
 
   it("keeps manifest page order monotonic by page order field", () => {
     // Setup
-    const orders = dashboardManifest.pages.map((p) => p.order);
+    const orders = dashboardManifest.views.map((p) => p.order);
 
     // Assert
     const sorted = [...orders].sort((a, b) => a - b);

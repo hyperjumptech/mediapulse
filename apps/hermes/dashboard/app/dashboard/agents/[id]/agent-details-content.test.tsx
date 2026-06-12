@@ -96,28 +96,31 @@ describe("AgentDetailsContent", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("tab order is Insights, Schema, Info when insights present", () => {
-    // Setup
+  it("tab order is Insights, Schema, Info when domain tabs present", () => {
     const agent = createMockAgent();
-    const insightsPanel = (
-      <div data-testid="insights-tab" data-window="7d">
-        Insights
-      </div>
+    const agentTabContents = [
+      {
+        view: {
+          id: "operator-agent-insights",
+          label: "Insights",
+          tabLabel: "Insights",
+          kind: "html" as const,
+          placement: "agent-tab" as const,
+          apiPrefix: "/v1/hermes-dashboard/content/agent-insights",
+          order: 10,
+        },
+        content: { body: "<p>Insights</p>", title: "Insights" },
+      },
+    ];
+
+    render(
+      <AgentDetailsContent agent={agent} agentTabContents={agentTabContents} />,
     );
 
-    // Act
-    render(<AgentDetailsContent agent={agent} insightsPanel={insightsPanel} />);
+    expect(
+      screen.getByTestId("tab-trigger-operator-agent-insights"),
+    ).toHaveTextContent("Insights");
 
-    // Assert tabs present
-    expect(screen.getByTestId("tab-trigger-insights")).toHaveTextContent(
-      "Insights",
-    );
-    expect(screen.getByTestId("tab-trigger-schema")).toHaveTextContent(
-      "Schema",
-    );
-    expect(screen.getByTestId("tab-trigger-general")).toHaveTextContent("Info");
-
-    // Assert order: Insights before Schema before Info
     const list = screen.getByTestId("tabs-list");
     const triggers = within(list).getAllByRole("button");
     const labels = triggers.map((button) => button.textContent);
@@ -220,36 +223,39 @@ describe("AgentDetailsContent", () => {
     expect(screen.getByText("No")).toBeInTheDocument();
   });
 
-  it("Insights tab is hidden when insights panel is absent", () => {
-    // Setup
+  it("domain tab is hidden when agentTabContents is empty", () => {
     const agent = createMockAgent();
 
-    // Act
-    render(<AgentDetailsContent agent={agent} />);
+    render(<AgentDetailsContent agent={agent} agentTabContents={[]} />);
 
-    // Assert
     expect(
-      screen.queryByTestId("tab-trigger-insights"),
+      screen.queryByTestId("tab-trigger-operator-agent-insights"),
     ).not.toBeInTheDocument();
-    expect(screen.queryByTestId("insights-tab")).not.toBeInTheDocument();
   });
 
-  it("Insights tab appears when insightsPayload is provided", () => {
-    // Setup
+  it("domain tab appears when agentTabContents is provided", () => {
     const agent = createMockAgent();
-    const insightsPanel = (
-      <div data-testid="insights-tab" data-window="7d">
-        Insights
-      </div>
+    const agentTabContents = [
+      {
+        view: {
+          id: "operator-agent-insights",
+          label: "Insights",
+          tabLabel: "Insights",
+          kind: "html" as const,
+          placement: "agent-tab" as const,
+          apiPrefix: "/v1/hermes-dashboard/content/agent-insights",
+          order: 10,
+        },
+        content: { body: "<p>Insights</p>", title: "Insights" },
+      },
+    ];
+
+    render(
+      <AgentDetailsContent agent={agent} agentTabContents={agentTabContents} />,
     );
 
-    // Act
-    render(<AgentDetailsContent agent={agent} insightsPanel={insightsPanel} />);
-
-    // Assert
-    expect(screen.getByTestId("tab-trigger-insights")).toHaveTextContent(
-      "Insights",
-    );
-    expect(screen.getByTestId("insights-tab")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("tab-trigger-operator-agent-insights"),
+    ).toHaveTextContent("Insights");
   });
 });

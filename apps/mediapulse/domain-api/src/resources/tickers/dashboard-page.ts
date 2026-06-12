@@ -2,7 +2,7 @@
  * Hermes `table-v1` manifest for tickers (custom actions, metadata form) and exported path segment.
  */
 
-import { type DashboardPageInput } from "@hermes/domain-contract";
+import { type DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -25,7 +25,8 @@ export const tickersDashboardPage = {
   description:
     "Ticker symbols and company names; admin-created or imported via IDX JSON.",
   pathSegment: tickersHermesPathSegment,
-  template: "table-v1" as const,
+  kind: "resource-table" as const,
+  placement: "sidebar" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(tickersHermesPathSegment),
   order: 10,
   columns: columnsFor<ListItem>()([
@@ -39,4 +40,4 @@ export const tickersDashboardPage = {
   createSchema: tickerCreateFormJsonSchema,
   updateSchema: tickerUpdateFormJsonSchema,
   customActions: tickersCustomActionsForManifest,
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;

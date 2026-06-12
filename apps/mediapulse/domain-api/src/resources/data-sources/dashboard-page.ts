@@ -2,7 +2,7 @@
  * Hermes `table-v1` manifest for collected data sources (read-only list + view detail) and path segment.
  */
 
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import type { DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   collectionSourceSelectListFilter,
@@ -26,7 +26,8 @@ export const dataSourcesDashboardPage = {
   description:
     "Articles and pages collected by the data-collection agent from active search queries (read-only).",
   pathSegment: dataSourcesHermesPathSegment,
-  template: "table-v1" as const,
+  kind: "resource-table" as const,
+  placement: "sidebar" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(dataSourcesHermesPathSegment),
   order: 35,
   columns: columnsFor<ListItem>()([
@@ -61,4 +62,4 @@ export const dataSourcesDashboardPage = {
   ],
   actions: { create: false, update: false, delete: false, view: true },
   customActions: dataSourcesCustomActionsForManifest,
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;

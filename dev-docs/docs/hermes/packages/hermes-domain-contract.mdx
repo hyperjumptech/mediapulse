@@ -42,4 +42,4 @@ Each page may declare `listFilters: TableV1ListFilterDefinition[]`. Definitions 
 | `optionsMetaKey` | Key into meta `filterOptions` for dynamic options                    |
 | `rangeParams`    | For `date-range`: `{ from, to }` param names (default `from` / `to`) |
 
-Meta responses expose `filterOptions: Record<string, { value, label }[]>` instead of per-domain option fields. Domains that register `operator-diagnostics` may add synthetic nav pages via `@mediapulse/hermes-dashboard`; registration may pass `isDefault: true` when an integration should be the default expansion target.
+Meta responses expose `filterOptions: Record<string, { value, label }[]>` instead of per-domain option fields. Domains declare additional sidebar or agent-tab views in the dashboard manifest (`markdown`, `html`, `text`, or extra `resource-table` entries); registration may pass `isDefault: true` when an integration should be the default expansion target.
