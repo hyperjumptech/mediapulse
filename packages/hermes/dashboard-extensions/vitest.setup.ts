@@ -1,3 +1,7 @@
+// cursor-pr-review-disable: env-variables
+/**
+ * Seeds minimal env vars before @hermes/env loads in Vitest (no real DB connections).
+ */
 const testDbBase = "postgresql://local:local@localhost:5432/test";
 process.env.ORCHESTRATION_DATABASE_URL =
   process.env.ORCHESTRATION_DATABASE_URL ??
