@@ -130,7 +130,20 @@ describe("data-collection agent (HTTP)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     performWebSearchMock.mockResolvedValue(defaultSearchSuccess);
-    performWebFetchMock.mockResolvedValue(defaultFetchSuccess);
+    // performWebFetch now streams each outcome through the onOutcome hook (so
+    // run.ts persists per URL); mirror that contract instead of just resolving.
+    performWebFetchMock.mockImplementation(
+      async (
+        _searchResults: unknown,
+        deps: { onOutcome?: (outcome: unknown) => unknown },
+      ) => {
+        for (const outcome of defaultFetchSuccess) {
+          await deps?.onOutcome?.(outcome);
+        }
+
+        return defaultFetchSuccess;
+      },
+    );
     existingUrlsCreateMock.mockResolvedValue({
       existingUrls: [],
       hostCounts: {},
