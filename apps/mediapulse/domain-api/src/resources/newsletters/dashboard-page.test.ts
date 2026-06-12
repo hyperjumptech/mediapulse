@@ -53,6 +53,21 @@ describe("newslettersDashboardPage section rules", () => {
     expect(evaluateDetailBlockRule(ast, { selectedSources: [{}] })).toBe(false);
   });
 
+  it("selected-sources block has a badge Collected by column with correct variants", () => {
+    const sources = findBlock("Selected sources");
+    expect(sources.type).toBe("subTable");
+    if (sources.type !== "subTable") return;
+
+    const column = sources.columns.find((col) => col.label === "Collected by");
+    expect(column).toBeDefined();
+    expect(column?.type).toBe("badge");
+    expect(column?.field).toBe("collectionSourceLabel");
+    expect(column?.badgeVariants).toMatchObject({
+      "Page Collection": "success",
+      "Data Collection": "outline",
+    });
+  });
+
   it("declares a search-queries rule that uses hoursBetween > 24", () => {
     const queries = findBlock("Search queries");
     expect(queries.sectionRule).toMatchObject({

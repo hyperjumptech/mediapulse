@@ -4,8 +4,9 @@ import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
-import type { ListItem } from "./list-mapper";
+import { COLLECTION_SOURCE_BADGE_VARIANTS_BY_LABEL } from "../data-sources/collection-source";
 import { newslettersCustomActionsForManifest } from "./custom-actions";
+import type { ListItem } from "./list-mapper";
 
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const newslettersHermesPathSegment = "newsletters" as const;
@@ -182,6 +183,12 @@ const newslettersSelectedSourcesBlock = {
     { field: "domain", label: "Domain", type: "text" },
     { field: "score", label: "Score", type: "number" },
     { field: "scoredAt", label: "Scored at", type: "date-time" },
+    {
+      field: "collectionSourceLabel",
+      label: "Collected by",
+      type: "badge",
+      badgeVariants: COLLECTION_SOURCE_BADGE_VARIANTS_BY_LABEL,
+    },
   ],
 } satisfies DetailBlock;
 

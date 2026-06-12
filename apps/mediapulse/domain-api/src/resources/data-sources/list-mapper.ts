@@ -3,6 +3,10 @@
  */
 
 import type { Prisma } from "@mediapulse/database";
+import {
+  classifyCollectionSource,
+  COLLECTION_SOURCE_LABEL,
+} from "./collection-source";
 
 /** Max characters of `content` included in list rows (full body is only on GET by id). */
 export const DATA_SOURCE_CONTENT_PREVIEW_MAX = 200;
@@ -21,6 +25,7 @@ export const listInclude = {
     select: {
       id: true,
       text: true,
+      source: true,
     },
   },
 } satisfies Prisma.DataSourceInclude;
@@ -55,21 +60,27 @@ export const truncateContentPreview = (
  * @param row - Row from `prisma.dataSource.findMany` using {@link listInclude}.
  * @returns Serializable list row for the domain API.
  */
-export const mapRowToListItem = (row: ListRow) => ({
-  id: row.id,
-  url: row.url,
-  title: row.title,
-  tickerSymbol: row.ticker.symbol,
-  tickerName: row.ticker.name,
-  searchQueryText: row.searchQuery.text,
-  contentPreview: truncateContentPreview(
-    row.content,
-    DATA_SOURCE_CONTENT_PREVIEW_MAX,
-  ),
-  contentLength: row.content.length,
-  createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
-});
+export const mapRowToListItem = (row: ListRow) => {
+  const collectionSource = classifyCollectionSource(row.searchQuery.source);
+
+  return {
+    id: row.id,
+    url: row.url,
+    title: row.title,
+    tickerSymbol: row.ticker.symbol,
+    tickerName: row.ticker.name,
+    searchQueryText: row.searchQuery.text,
+    collectionSource,
+    collectionSourceLabel: COLLECTION_SOURCE_LABEL[collectionSource],
+    contentPreview: truncateContentPreview(
+      row.content,
+      DATA_SOURCE_CONTENT_PREVIEW_MAX,
+    ),
+    contentLength: row.content.length,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+};
 
 /** JSON list item type; derived from {@link mapRowToListItem}. */
 export type ListItem = ReturnType<typeof mapRowToListItem>;
@@ -80,20 +91,26 @@ export type ListItem = ReturnType<typeof mapRowToListItem>;
  * @param row - Row from `prisma.dataSource.findUnique` using {@link listInclude}.
  * @returns Serializable detail record for the Hermes read-only detail page.
  */
-export const mapRowToDetailItem = (row: ListRow) => ({
-  id: row.id,
-  url: row.url,
-  title: row.title,
-  content: row.content,
-  metadata: row.metadata,
-  tickerId: row.tickerId,
-  searchQueryId: row.searchQueryId,
-  tickerSymbol: row.ticker.symbol,
-  tickerName: row.ticker.name,
-  searchQueryText: row.searchQuery.text,
-  createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
-});
+export const mapRowToDetailItem = (row: ListRow) => {
+  const collectionSource = classifyCollectionSource(row.searchQuery.source);
+
+  return {
+    id: row.id,
+    url: row.url,
+    title: row.title,
+    content: row.content,
+    metadata: row.metadata,
+    tickerId: row.tickerId,
+    searchQueryId: row.searchQueryId,
+    tickerSymbol: row.ticker.symbol,
+    tickerName: row.ticker.name,
+    searchQueryText: row.searchQuery.text,
+    collectionSource,
+    collectionSourceLabel: COLLECTION_SOURCE_LABEL[collectionSource],
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+};
 
 /** JSON detail item type; derived from {@link mapRowToDetailItem}. */
 export type DetailItem = ReturnType<typeof mapRowToDetailItem>;
