@@ -17,7 +17,6 @@ COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
 
 COPY packages ./packages
 COPY apps ./apps
-COPY patches ./patches
 
 RUN pnpm install --frozen-lockfile
 

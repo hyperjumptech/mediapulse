@@ -62,9 +62,6 @@
       "prisma",
       "sharp",
       "unix-dgram"
-    ],
-    "patchedDependencies": {
-      "@nicnocquee/dataqueue@1.39.0": "patches/@nicnocquee__dataqueue@1.39.0.patch"
-    }
+    ]
   }
 }
