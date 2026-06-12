@@ -137,6 +137,7 @@ jobs:
       HERMES_API_URL: http://localhost:3001
       DOMAIN_INTEGRATION_API_KEY: ci-domain-integration-key
       DOMAIN_INTEGRATION_ID: mediapulse
+      AGENT_AUTH_API_URL: http://localhost:8080
       UNSUBSCRIBE_SECRET: ci-unsubscribe-secret
       AGENT_DATA_API_URL: http://localhost:8081
       MEDIAPULSE_CGA_DIAGNOSTICS_ENABLED: "false"
