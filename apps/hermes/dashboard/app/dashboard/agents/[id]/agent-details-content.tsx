@@ -27,7 +27,6 @@ type AgentDetailsContentProps = {
   agent: AgentDetail;
   /** Optional insights panel rendered by a registered dashboard extension. */
   insightsPanel?: ReactNode;
-  insightsWindow?: "24h" | "7d" | "30d";
 };
 
 /**
@@ -36,7 +35,6 @@ type AgentDetailsContentProps = {
 export const AgentDetailsContent = ({
   agent,
   insightsPanel,
-  insightsWindow: _insightsWindow,
 }: AgentDetailsContentProps) => {
   const showInsights = insightsPanel != null;
   const tabColsClass = showInsights ? "grid-cols-3" : "grid-cols-2";

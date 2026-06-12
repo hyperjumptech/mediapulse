@@ -52,11 +52,7 @@ const AgentDetailPage = async ({
   }
 
   return (
-    <AgentDetailsContent
-      agent={agent}
-      insightsPanel={insightsPanel}
-      insightsWindow={insightsWindow}
-    />
+    <AgentDetailsContent agent={agent} insightsPanel={insightsPanel} />
   );
 };
 

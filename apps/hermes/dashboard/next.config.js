@@ -11,9 +11,11 @@ const __dirname = path.dirname(__filename);
 const hermesEnvDir = path.resolve(__dirname, "../../../packages/hermes/env");
 loadEnvConfig(hermesEnvDir);
 
-const extensionPackage = process.env.HERMES_DASHBOARD_EXTENSIONS?.trim();
+const { env } = await import("@hermes/env");
+
+const extensionPackage = env.HERMES_DASHBOARD_EXTENSIONS?.trim();
 const extensionPackageRoot = extensionPackage?.replace(/\/[^/]+$/, "");
-const extensionEnvDir = process.env.HERMES_DASHBOARD_EXTENSIONS_ENV_DIR?.trim();
+const extensionEnvDir = env.HERMES_DASHBOARD_EXTENSIONS_ENV_DIR?.trim();
 if (extensionEnvDir) {
   loadEnvConfig(path.resolve(extensionEnvDir));
 }
