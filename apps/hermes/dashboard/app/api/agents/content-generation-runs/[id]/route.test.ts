@@ -8,6 +8,7 @@ vi.mock("@/lib/require-dashboard-principal-response", () => ({
 
 const runtimeConfig = {
   agentDataApiUrl: "http://test-agent-data-api",
+  agentAuthApiUrl: "http://test-agent-auth-api",
   internalApiKey: "test-key",
   cgaDiagnosticsEnabled: true,
 };

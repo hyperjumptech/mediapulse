@@ -6,6 +6,7 @@ import { getSectionCoverageRollupForTicker } from "./section-coverage-rollup";
 
 const testConfig = {
   agentDataApiUrl: "http://test-agent-data-api",
+  agentAuthApiUrl: "http://test-agent-auth-api",
   internalApiKey: "test-api-key",
   cgaDiagnosticsEnabled: true,
 };

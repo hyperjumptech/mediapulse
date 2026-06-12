@@ -1484,9 +1484,6 @@ importers:
       '@hermes/domain-contract':
         specifier: workspace:*
         version: link:../../hermes/domain-contract
-      '@mediapulse/env':
-        specifier: workspace:*
-        version: link:../env
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../shared/agent-auth-client

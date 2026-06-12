@@ -1,7 +1,4 @@
-export {
-  createMediapulseHermesDashboardRuntimeConfig,
-  type MediapulseHermesDashboardRuntimeConfig,
-} from "./config";
+export type { MediapulseHermesDashboardRuntimeConfig } from "./config";
 export {
   buildOperatorDiagnosticsNavPages,
   CGA_DIAGNOSTICS_PATH_SEGMENT,
@@ -10,7 +7,6 @@ export {
 export { ContentGenerationRunsPageView } from "./content-generation-runs/content-generation-runs-page";
 export { ContentGenerationRunDetailPageView } from "./content-generation-runs/content-generation-run-detail-page";
 export { SectionCoveragePageView } from "./section-coverage/section-coverage-page";
-export { InsightsTab } from "./insights/insights-tab";
 export {
   listContentGenerationRuns,
   getContentGenerationRunById,

@@ -1,6 +1,5 @@
 import type { InsightsPayload } from "@workspace/agent-data-api-contract";
 import { createAgentTokenClient } from "@workspace/agent-auth-client";
-import { env } from "@mediapulse/env";
 
 import type { MediapulseHermesDashboardRuntimeConfig } from "../config";
 import { createMediapulseAgentDataApiClient } from "./agent-data-api-client";
@@ -37,7 +36,7 @@ export const getAgentInsights = async (
       client ??
       (await (async () => {
         const tokenClient = createAgentTokenClient({
-          authApiUrl: env.AGENT_AUTH_API_URL,
+          authApiUrl: config.agentAuthApiUrl,
           credential: config.internalApiKey,
         });
         const jwt = await tokenClient.getToken();

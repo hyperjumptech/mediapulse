@@ -28,6 +28,14 @@ ENV HERMES_INTERNAL_API_KEY="dummy-internal-key"
 ENV HERMES_MCP_API_KEY_PEPPER="dummy-mcp-api-key-pepper"
 ENV AGENT_AUTH_API_URL="http://localhost:8080"
 ENV AGENT_AUTH_JWT_SECRET="dummy-jwt-secret-for-build"
+ENV MEDIAPULSE_DATABASE_URL="postgresql://localhost:5432/dummy"
+ENV MEDIAPULSE_API_URL="http://localhost:8090"
+ENV HERMES_API_URL="http://localhost:3001"
+ENV DOMAIN_INTEGRATION_API_KEY="dummy-domain-integration-key"
+ENV DOMAIN_INTEGRATION_ID="mediapulse"
+ENV UNSUBSCRIBE_SECRET="dummy-unsubscribe-secret"
+ENV AGENT_DATA_API_URL="http://localhost:8081"
+ENV MEDIAPULSE_CGA_DIAGNOSTICS_ENABLED="false"
 RUN rm -f apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local && \
     touch apps/hermes/dashboard/.env apps/hermes/dashboard/.env.local
 

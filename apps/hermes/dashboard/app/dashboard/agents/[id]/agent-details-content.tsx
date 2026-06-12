@@ -15,7 +15,7 @@ import type { InsightsPayload } from "@workspace/agent-data-api-contract";
 import { EndpointDisplay } from "../endpoint-display";
 import { JsonPretty } from "../json-pretty";
 import type { AgentDetail } from "@/lib/agents";
-import { InsightsTab } from "@mediapulse/hermes-dashboard";
+import { InsightsTab } from "@mediapulse/hermes-dashboard/client";
 
 const ROW_CLASS =
   "flex items-center justify-between gap-8 py-4 px-6 sm:px-7 border-b border-border/60 last:border-b-0 first:pt-6 last:pb-6";

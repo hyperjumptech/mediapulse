@@ -2,7 +2,7 @@
  * Merges Hermes-local dashboard pages into a domain integration's manifest-derived nav.
  */
 
-import { buildOperatorDiagnosticsNavPages } from "@mediapulse/hermes-dashboard";
+import { buildOperatorDiagnosticsNavPages } from "@mediapulse/hermes-dashboard/diagnostics-nav";
 import type { DashboardPage } from "@hermes/domain-contract";
 
 import type { DomainIntegrationRecord } from "./domain-integrations";

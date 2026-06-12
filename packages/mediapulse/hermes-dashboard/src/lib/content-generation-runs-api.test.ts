@@ -9,6 +9,7 @@ import {
 
 const testConfig = {
   agentDataApiUrl: "http://test-agent-data-api",
+  agentAuthApiUrl: "http://test-agent-auth-api",
   internalApiKey: "test-api-key",
   cgaDiagnosticsEnabled: true,
 };
