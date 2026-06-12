@@ -9,7 +9,19 @@
     },
     "build": {
       "dependsOn": ["^db:generate", "^build", "generate"],
-      "env": ["ORCHESTRATION_DATABASE_URL", "MEDIAPULSE_DATABASE_URL"],
+      "env": [
+        "ORCHESTRATION_DATABASE_URL",
+        "MEDIAPULSE_DATABASE_URL",
+        "MEDIAPULSE_API_URL",
+        "HERMES_API_URL",
+        "DOMAIN_INTEGRATION_API_KEY",
+        "DOMAIN_INTEGRATION_ID",
+        "AGENT_AUTH_API_URL",
+        "UNSUBSCRIBE_SECRET",
+        "AGENT_DATA_API_URL",
+        "MEDIAPULSE_CGA_DIAGNOSTICS_ENABLED",
+        "HERMES_INTERNAL_API_KEY"
+      ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
