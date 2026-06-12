@@ -1,5 +1,10 @@
 import type { Prisma, prisma } from "@mediapulse/database";
 
+import {
+  classifyCollectionSource,
+  COLLECTION_SOURCE_LABEL,
+  type CollectionSource,
+} from "../data-sources/collection-source";
 import { buildSelectedSourcesWindow } from "./selected-sources-window";
 
 /** Shape of one selected-source entry in the detail payload. */
@@ -10,6 +15,8 @@ export type SelectedSourcePayload = {
   score: number;
   scoredAt: string;
   searchQueryId: string;
+  collectionSource: CollectionSource;
+  collectionSourceLabel: string;
 };
 
 /** Output of {@link buildSelectedSources}. */
@@ -68,6 +75,9 @@ export const buildSelectedSources = async (
         },
         select: { score: true, scoredAt: true },
       },
+      searchQuery: {
+        select: { source: true },
+      },
     },
   } satisfies Prisma.DataSourceFindManyArgs;
 
@@ -76,11 +86,14 @@ export const buildSelectedSources = async (
   type RowWithScore = Prisma.DataSourceGetPayload<{
     include: {
       articleRelevances: { select: { score: true; scoredAt: true } };
+      searchQuery: { select: { source: true } };
     };
   }>;
 
   const mapped = (rows as RowWithScore[]).map((row) => {
     const relevance = row.articleRelevances[0];
+    const collectionSource = classifyCollectionSource(row.searchQuery.source);
+
     return {
       id: row.id,
       url: row.url,
@@ -88,6 +101,8 @@ export const buildSelectedSources = async (
       score: relevance?.score ?? 0,
       scoredAt: (relevance?.scoredAt ?? row.createdAt).toISOString(),
       searchQueryId: row.searchQueryId,
+      collectionSource,
+      collectionSourceLabel: COLLECTION_SOURCE_LABEL[collectionSource],
     } satisfies SelectedSourcePayload;
   });
 

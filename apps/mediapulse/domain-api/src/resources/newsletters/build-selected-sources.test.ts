@@ -36,6 +36,7 @@ describe("buildSelectedSources", () => {
         title: "Low",
         searchQueryId: "sq",
         createdAt: new Date("2026-05-14T01:00:00.000Z"),
+        searchQuery: { source: "deterministic" },
         articleRelevances: [
           { score: 0.2, scoredAt: new Date("2026-05-14T01:00:00.000Z") },
         ],
@@ -46,6 +47,7 @@ describe("buildSelectedSources", () => {
         title: "Mid 1",
         searchQueryId: "sq",
         createdAt: new Date("2026-05-14T01:00:00.000Z"),
+        searchQuery: { source: "deterministic" },
         articleRelevances: [
           { score: 0.7, scoredAt: new Date("2026-05-14T03:00:00.000Z") },
         ],
@@ -56,6 +58,7 @@ describe("buildSelectedSources", () => {
         title: "Mid 2",
         searchQueryId: "sq",
         createdAt: new Date("2026-05-14T01:00:00.000Z"),
+        searchQuery: { source: "deterministic" },
         articleRelevances: [
           { score: 0.7, scoredAt: new Date("2026-05-14T05:00:00.000Z") },
         ],
@@ -84,6 +87,7 @@ describe("buildSelectedSources", () => {
         title: "X",
         searchQueryId: "sq",
         createdAt: new Date("2026-05-14T02:00:00.000Z"),
+        searchQuery: { source: "llm" },
         articleRelevances: [],
       },
     ]);
@@ -100,5 +104,47 @@ describe("buildSelectedSources", () => {
       score: 0,
       scoredAt: "2026-05-14T02:00:00.000Z",
     });
+  });
+
+  it("emits collectionSource and label for curated and deterministic rows", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: "src-curated",
+        url: "https://example.com/curated",
+        title: "Curated",
+        searchQueryId: "sq-c",
+        createdAt: new Date("2026-05-14T01:00:00.000Z"),
+        searchQuery: { source: "curated" },
+        articleRelevances: [
+          { score: 0.9, scoredAt: new Date("2026-05-14T01:00:00.000Z") },
+        ],
+      },
+      {
+        id: "src-det",
+        url: "https://example.com/det",
+        title: "Deterministic",
+        searchQueryId: "sq-d",
+        createdAt: new Date("2026-05-14T01:00:00.000Z"),
+        searchQuery: { source: "deterministic" },
+        articleRelevances: [
+          { score: 0.5, scoredAt: new Date("2026-05-14T01:00:00.000Z") },
+        ],
+      },
+    ]);
+
+    const result = await buildSelectedSources(
+      "nl-1",
+      "tk-1",
+      new Date("2026-05-14T13:00:00.000Z"),
+      { dataSource: { findMany } },
+    );
+
+    const curated = result.sources.find((s) => s.id === "src-curated");
+    const deterministic = result.sources.find((s) => s.id === "src-det");
+
+    expect(curated?.collectionSource).toBe("page-collection");
+    expect(curated?.collectionSourceLabel).toBe("Page Collection");
+    expect(deterministic?.collectionSource).toBe("data-collection");
+    expect(deterministic?.collectionSourceLabel).toBe("Data Collection");
   });
 });

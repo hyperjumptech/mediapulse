@@ -29,6 +29,7 @@ export const dataSourcesDashboardPage = {
     { key: "title", label: "Title", type: "text" },
     { key: "url", label: "URL", type: "text" },
     { key: "searchQueryText", label: "Search query", type: "text" },
+    { key: "collectionSourceLabel", label: "Collected by", type: "text" },
     { key: "contentPreview", label: "Preview", type: "text" },
     { key: "contentLength", label: "Chars", type: "text" },
     { key: "createdAt", label: "Created", type: "date-time" },
@@ -39,6 +40,7 @@ export const dataSourcesDashboardPage = {
     "tickerSymbol",
     "tickerName",
     "searchQueryText",
+    "collectionSourceLabel",
   ]),
   sortableFields: rowFieldKeysFor<ListItem>()([
     "createdAt",
