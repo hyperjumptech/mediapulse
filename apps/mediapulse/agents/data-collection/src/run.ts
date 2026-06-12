@@ -27,6 +27,7 @@ import {
   HostErrorTracker,
   hostFromUrl,
   type QualityDropForDeadUrl,
+  type FetchedWebSearchResult,
   buildTickerAliases,
   buildIndustryAliases,
   isRelevant,
@@ -393,38 +394,20 @@ export async function runDataCollection(
         ...narrativeFetchStart(subject, searchSuccessesAfterHostBreaker.length),
       );
 
-      const fetchThrottleStats = { throttleEvents: 0 };
-      const fetchAttemptResults = await performWebFetch(
-        searchSuccessesAfterHostBreaker,
-        {
-          config: webFetchConfig,
-          logger: log,
-          throttleStats: fetchThrottleStats,
-          hostErrorTracker,
-        },
-      );
-      throttleEvents += fetchThrottleStats.throttleEvents;
-      const roundFetchSuccesses = fetchAttemptResults
-        .filter((outcome) => outcome.success !== null)
-        .map((outcome) => outcome.success!);
-      const roundFetchFailures = fetchAttemptResults.flatMap(
-        (outcome) => outcome.failures,
-      );
-      const roundFailedUrlCount = fetchAttemptResults.filter(
-        (outcome) => outcome.success === null,
-      ).length;
-      fetchedCount += roundFetchSuccesses.length;
-      fetchFailedCount += roundFailedUrlCount;
-      fetchFailures.push(...roundFetchFailures);
-
       let persistedThisRoundCount = 0;
       const roundQualityDrops: QualityDropForDeadUrl[] = [];
-      report(...narrativeSavingSources(subject, roundFetchSuccesses.length));
-      for (const page of roundFetchSuccesses) {
+
+      // Persist a single fetched page as soon as its fetch resolves, so each
+      // source reaches the Agent Data API immediately instead of waiting for the
+      // whole round's fetch batch to finish. Invoked per URL from performWebFetch
+      // via the onOutcome hook below.
+      const persistFetchedPage = async (
+        page: FetchedWebSearchResult,
+      ): Promise<void> => {
         const urlDecision = classifyNoisyUrl(page.url);
         if (urlDecision.blocked) {
           droppedByUrlReason[urlDecision.reason] += 1;
-          continue;
+          return;
         }
 
         const contentDecision = runQualityGate(
@@ -438,7 +421,7 @@ export async function runDataCollection(
             url: urlDecision.canonicalUrl,
             reason: contentDecision.reason,
           });
-          continue;
+          return;
         }
 
         if (relevanceGateConfig.enabled) {
@@ -464,7 +447,7 @@ export async function runDataCollection(
               },
               "dropped page that did not mention the target ticker or industry",
             );
-            continue;
+            return;
           }
         }
 
@@ -490,7 +473,7 @@ export async function runDataCollection(
               },
               "dropped page outside freshness window",
             );
-            continue;
+            return;
           }
         }
 
@@ -510,7 +493,43 @@ export async function runDataCollection(
         persistedThisRunCount += 1;
         persistedThisRoundCount += 1;
         fetchSuccessCount += 1;
-      }
+      };
+
+      report(
+        ...narrativeSavingSources(
+          subject,
+          searchSuccessesAfterHostBreaker.length,
+        ),
+      );
+
+      const fetchThrottleStats = { throttleEvents: 0 };
+      const fetchAttemptResults = await performWebFetch(
+        searchSuccessesAfterHostBreaker,
+        {
+          config: webFetchConfig,
+          logger: log,
+          throttleStats: fetchThrottleStats,
+          hostErrorTracker,
+          onOutcome: async (outcome) => {
+            if (outcome.success !== null) {
+              await persistFetchedPage(outcome.success);
+            }
+          },
+        },
+      );
+      throttleEvents += fetchThrottleStats.throttleEvents;
+      const roundFetchSuccesses = fetchAttemptResults
+        .filter((outcome) => outcome.success !== null)
+        .map((outcome) => outcome.success!);
+      const roundFetchFailures = fetchAttemptResults.flatMap(
+        (outcome) => outcome.failures,
+      );
+      const roundFailedUrlCount = fetchAttemptResults.filter(
+        (outcome) => outcome.success === null,
+      ).length;
+      fetchedCount += roundFetchSuccesses.length;
+      fetchFailedCount += roundFailedUrlCount;
+      fetchFailures.push(...roundFetchFailures);
 
       log.info(
         {

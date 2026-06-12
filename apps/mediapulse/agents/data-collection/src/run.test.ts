@@ -10,8 +10,10 @@ import {
 } from "./utilities/config-schema";
 import type {
   FetchedWebSearchResult,
+  WebFetchDeps,
   WebFetchFailure,
   WebFetchOutcome,
+  WebSearchResult,
 } from "@workspace/agent-ingestion";
 
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
@@ -151,6 +153,26 @@ const mockFetchFailure = (
   failures: [{ provider: "jina", ...failure }],
 });
 
+/**
+ * Mirrors the real performWebFetch streaming contract in tests: invokes the
+ * `onOutcome` hook for each outcome (so per-URL persistence runs in run.ts)
+ * before resolving with the full outcome list.
+ *
+ * @param outcomes - Fetch outcomes the mocked call should stream and return.
+ */
+const fetchYielding =
+  (outcomes: WebFetchOutcome[]) =>
+  async (
+    _searchResults: WebSearchResult[],
+    deps: WebFetchDeps,
+  ): Promise<WebFetchOutcome[]> => {
+    for (const outcome of outcomes) {
+      await deps.onOutcome?.(outcome);
+    }
+
+    return outcomes;
+  };
+
 vi.mock("@mediapulse/env/agents-data-collection", () => ({
   env: {
     AGENT_DATA_API_URL: "http://agent-data-api",
@@ -251,12 +273,14 @@ describe("runDataCollection", () => {
         data: searchSuccessPage,
       },
     ]);
-    vi.mocked(performWebFetch).mockResolvedValue([
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        content: validArticleContent,
-      }),
-    ]);
+    vi.mocked(performWebFetch).mockImplementation(
+      fetchYielding([
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          content: validArticleContent,
+        }),
+      ]),
+    );
     getMock.mockResolvedValue({
       data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
     });
@@ -356,7 +380,7 @@ describe("runDataCollection", () => {
       existingUrls: ["http://example.com"],
       hostCounts: {},
     });
-    vi.mocked(performWebFetch).mockResolvedValueOnce([]);
+    vi.mocked(performWebFetch).mockImplementationOnce(fetchYielding([]));
 
     const result = await runDataCollection(
       createContext({
@@ -390,7 +414,7 @@ describe("runDataCollection", () => {
     deadUrlsLookupMock.mockResolvedValueOnce({
       deadUrls: ["http://example.com/page-0", "http://example.com/page-1"],
     });
-    vi.mocked(performWebFetch).mockResolvedValueOnce([]);
+    vi.mocked(performWebFetch).mockImplementationOnce(fetchYielding([]));
 
     const result = await runDataCollection(
       createContext({
@@ -425,17 +449,19 @@ describe("runDataCollection", () => {
   });
 
   it("records 404 fetch failures to the dead-url cache", async () => {
-    vi.mocked(performWebFetch).mockResolvedValueOnce([
-      mockFetchFailure({
-        url: "http://failed.com",
-        queryId: "sq-1",
-        tickerId: TICKER_ID,
-        errorCategory: "provider_http_error",
-        message: "404 Not Found",
-        retryable: false,
-        httpStatus: 404,
-      }),
-    ]);
+    vi.mocked(performWebFetch).mockImplementationOnce(
+      fetchYielding([
+        mockFetchFailure({
+          url: "http://failed.com",
+          queryId: "sq-1",
+          tickerId: TICKER_ID,
+          errorCategory: "provider_http_error",
+          message: "404 Not Found",
+          retryable: false,
+          httpStatus: 404,
+        }),
+      ]),
+    );
 
     await runDataCollection(
       createContext({
@@ -488,31 +514,33 @@ describe("runDataCollection", () => {
         },
       ]);
 
-      vi.mocked(performWebFetch).mockResolvedValueOnce([
-        mockFetchSuccess({
-          ...searchSuccessPage,
-          url: "http://example.com/fresh",
-          content: validArticleContent,
-          fetchMetadata: { publishedTime: isoDaysAgo(2) },
-        }),
-        mockFetchSuccess({
-          ...searchSuccessPage,
-          url: "http://example.com/stale",
-          content: validArticleContent,
-          fetchMetadata: { publishedTime: isoDaysAgo(30) },
-        }),
-        mockFetchSuccess({
-          ...searchSuccessPage,
-          url: "http://example.com/unknown",
-          content: validArticleContent,
-        }),
-        mockFetchSuccess({
-          ...searchSuccessPage,
-          url: "http://example.com/future",
-          content: validArticleContent,
-          fetchMetadata: { publishedTime: isoDaysAhead(5) },
-        }),
-      ]);
+      vi.mocked(performWebFetch).mockImplementationOnce(
+        fetchYielding([
+          mockFetchSuccess({
+            ...searchSuccessPage,
+            url: "http://example.com/fresh",
+            content: validArticleContent,
+            fetchMetadata: { publishedTime: isoDaysAgo(2) },
+          }),
+          mockFetchSuccess({
+            ...searchSuccessPage,
+            url: "http://example.com/stale",
+            content: validArticleContent,
+            fetchMetadata: { publishedTime: isoDaysAgo(30) },
+          }),
+          mockFetchSuccess({
+            ...searchSuccessPage,
+            url: "http://example.com/unknown",
+            content: validArticleContent,
+          }),
+          mockFetchSuccess({
+            ...searchSuccessPage,
+            url: "http://example.com/future",
+            content: validArticleContent,
+            fetchMetadata: { publishedTime: isoDaysAhead(5) },
+          }),
+        ]),
+      );
 
       const result = await runDataCollection(
         createContext({
@@ -548,7 +576,7 @@ describe("runDataCollection", () => {
 
   it("does not call dataCollection.create when there are no fetch successes", async () => {
     // Setup
-    vi.mocked(performWebFetch).mockResolvedValueOnce([]);
+    vi.mocked(performWebFetch).mockImplementationOnce(fetchYielding([]));
 
     // Act
     await runDataCollection(
@@ -571,17 +599,19 @@ describe("runDataCollection", () => {
 
   it("records partial_success and persists fetch failures", async () => {
     // Setup
-    vi.mocked(performWebFetch).mockResolvedValueOnce([
-      mockFetchFailure({
-        url: "http://failed.com",
-        queryId: "sq-1",
-        tickerId: TICKER_ID,
-        errorCategory: "provider_http_error",
-        message: "404 Not Found",
-        retryable: false,
-        httpStatus: 404,
-      }),
-    ]);
+    vi.mocked(performWebFetch).mockImplementationOnce(
+      fetchYielding([
+        mockFetchFailure({
+          url: "http://failed.com",
+          queryId: "sq-1",
+          tickerId: TICKER_ID,
+          errorCategory: "provider_http_error",
+          message: "404 Not Found",
+          retryable: false,
+          httpStatus: 404,
+        }),
+      ]),
+    );
 
     // Act
     const result = await runDataCollection(
@@ -621,7 +651,7 @@ describe("runDataCollection", () => {
   it("returns semantic failure when run policy requires successes but none were collected", async () => {
     // Setup
     vi.mocked(performWebSearch).mockResolvedValueOnce([]);
-    vi.mocked(performWebFetch).mockResolvedValueOnce([]);
+    vi.mocked(performWebFetch).mockImplementationOnce(fetchYielding([]));
 
     // Act
     const result = await runDataCollection(createContext());
@@ -661,12 +691,14 @@ describe("runDataCollection", () => {
         data: searchSuccessPage,
       },
     ]);
-    vi.mocked(performWebFetch).mockResolvedValueOnce([
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        content: validArticleContent,
-      }),
-    ]);
+    vi.mocked(performWebFetch).mockImplementationOnce(
+      fetchYielding([
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          content: validArticleContent,
+        }),
+      ]),
+    );
 
     // Act
     const result = await runDataCollection(
@@ -713,7 +745,7 @@ describe("runDataCollection", () => {
         },
       },
     ]);
-    vi.mocked(performWebFetch).mockResolvedValueOnce([]);
+    vi.mocked(performWebFetch).mockImplementationOnce(fetchYielding([]));
 
     // Act
     const result = await runDataCollection(createContext());
@@ -755,26 +787,28 @@ describe("runDataCollection", () => {
         },
       },
     ]);
-    vi.mocked(performWebFetch).mockResolvedValueOnce([
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        url: "https://example.com/clean",
-        title: validArticleTitle,
-        content: validArticleContent,
-      }),
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        url: "https://example.com/off-topic",
-        title: "Microsoft earnings headline here",
-        content: offTopicContent,
-      }),
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        url: "https://example.com/paywall",
-        title: "Premium article headline here",
-        content: paywallContent,
-      }),
-    ]);
+    vi.mocked(performWebFetch).mockImplementationOnce(
+      fetchYielding([
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "https://example.com/clean",
+          title: validArticleTitle,
+          content: validArticleContent,
+        }),
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "https://example.com/off-topic",
+          title: "Microsoft earnings headline here",
+          content: offTopicContent,
+        }),
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "https://example.com/paywall",
+          title: "Premium article headline here",
+          content: paywallContent,
+        }),
+      ]),
+    );
 
     // Act
     const result = await runDataCollection(
@@ -850,32 +884,34 @@ describe("runDataCollection", () => {
         },
       },
     ]);
-    vi.mocked(performWebFetch).mockResolvedValueOnce([
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        url: "https://example.com/clean",
-        title: validArticleTitle,
-        content: validArticleContent,
-      }),
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        url: "https://example.com/paywall",
-        title: "Premium article headline here",
-        content: paywallContent,
-      }),
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        url: "https://example.com/soft-404",
-        title: "Missing article headline here",
-        content: soft404Content,
-      }),
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        url: "https://example.com/short",
-        title: "Valid headline for short body",
-        content: shortContent,
-      }),
-    ]);
+    vi.mocked(performWebFetch).mockImplementationOnce(
+      fetchYielding([
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "https://example.com/clean",
+          title: validArticleTitle,
+          content: validArticleContent,
+        }),
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "https://example.com/paywall",
+          title: "Premium article headline here",
+          content: paywallContent,
+        }),
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "https://example.com/soft-404",
+          title: "Missing article headline here",
+          content: soft404Content,
+        }),
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          url: "https://example.com/short",
+          title: "Valid headline for short body",
+          content: shortContent,
+        }),
+      ]),
+    );
 
     // Act
     const result = await runDataCollection(
@@ -923,14 +959,16 @@ describe("runDataCollection", () => {
         },
       },
     ]);
-    vi.mocked(performWebFetch).mockResolvedValueOnce([
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        title: "Company profile and key statistics",
-        url: "https://example.com/stocks",
-        content: `Financial summary and key statistics with market cap details. ${Array.from({ length: 120 }, (_, index) => `Detail paragraph ${index} covers regional lending trends.`).join(" ")}`,
-      }),
-    ]);
+    vi.mocked(performWebFetch).mockImplementationOnce(
+      fetchYielding([
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          title: "Company profile and key statistics",
+          url: "https://example.com/stocks",
+          content: `Financial summary and key statistics with market cap details. ${Array.from({ length: 120 }, (_, index) => `Detail paragraph ${index} covers regional lending trends.`).join(" ")}`,
+        }),
+      ]),
+    );
 
     // Act
     const result = await runDataCollection(createContext());
@@ -989,18 +1027,22 @@ describe("runDataCollection", () => {
         },
       ]);
     vi.mocked(performWebFetch)
-      .mockResolvedValueOnce([
-        mockFetchSuccess({
-          ...searchSuccessPage,
-          content: validArticleContent,
-        }),
-      ])
-      .mockResolvedValueOnce([
-        mockFetchSuccess({
-          ...searchSuccessPage,
-          content: validArticleContent,
-        }),
-      ]);
+      .mockImplementationOnce(
+        fetchYielding([
+          mockFetchSuccess({
+            ...searchSuccessPage,
+            content: validArticleContent,
+          }),
+        ]),
+      )
+      .mockImplementationOnce(
+        fetchYielding([
+          mockFetchSuccess({
+            ...searchSuccessPage,
+            content: validArticleContent,
+          }),
+        ]),
+      );
 
     // Act
     const result = await runDataCollection(
@@ -1027,7 +1069,7 @@ describe("runDataCollection", () => {
   it("stops refill when no progress is made in a round", async () => {
     // Setup
     vi.mocked(performWebSearch).mockResolvedValue([]);
-    vi.mocked(performWebFetch).mockResolvedValue([]);
+    vi.mocked(performWebFetch).mockImplementation(fetchYielding([]));
 
     // Act
     const result = await runDataCollection(
@@ -1056,12 +1098,14 @@ describe("runDataCollection", () => {
         data: searchSuccessPage,
       },
     ]);
-    vi.mocked(performWebFetch).mockResolvedValue([
-      mockFetchSuccess({
-        ...searchSuccessPage,
-        content: validArticleContent,
-      }),
-    ]);
+    vi.mocked(performWebFetch).mockImplementation(
+      fetchYielding([
+        mockFetchSuccess({
+          ...searchSuccessPage,
+          content: validArticleContent,
+        }),
+      ]),
+    );
 
     // Act
     const result = await runDataCollection(
@@ -1103,14 +1147,16 @@ describe("runDataCollection", () => {
     );
 
     vi.mocked(performWebSearch).mockResolvedValueOnce(searchHits);
-    vi.mocked(performWebFetch).mockImplementation(async (results) =>
-      results.map((page) =>
+    vi.mocked(performWebFetch).mockImplementation((results, deps) => {
+      const outcomes = results.map((page) =>
         mockFetchSuccess({
           ...page,
           content: validArticleContent,
         }),
-      ),
-    );
+      );
+
+      return fetchYielding(outcomes)(results, deps);
+    });
 
     // Act
     await runDataCollection(
