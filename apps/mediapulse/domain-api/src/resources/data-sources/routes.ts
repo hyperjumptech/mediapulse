@@ -11,6 +11,10 @@ import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templa
 import { parseCreatedDateBound } from "../../lib/parse-created-date-bound";
 import { parsePagination } from "../../lib/list-pagination";
 import { dataSourcesTableV1CustomActionRegistrations } from "./custom-actions";
+import {
+  COLLECTION_SOURCE_OPTIONS,
+  collectionSourceSchema,
+} from "./collection-source";
 import { buildDataSourceListWhere } from "./list-filters";
 import {
   listInclude,
@@ -67,10 +71,16 @@ dataSourcesRoutes.get("/", async (c) => {
     .string()
     .uuid()
     .safeParse(c.req.query("tickerId")?.trim() ?? "");
+  const collectionSourceFilter = collectionSourceSchema.safeParse(
+    c.req.query("collectionSource")?.trim() ?? "",
+  );
 
   const where = buildDataSourceListWhere({
     q: c.req.query("q"),
     tickerId: tickerFilter.success ? tickerFilter.data : undefined,
+    collectionSource: collectionSourceFilter.success
+      ? collectionSourceFilter.data
+      : undefined,
     from: parseCreatedDateBound(c.req.query("from"), "start"),
     to: parseCreatedDateBound(c.req.query("to"), "end"),
   });
@@ -121,6 +131,7 @@ dataSourcesRoutes.get("/meta", async (c) => {
       value: ticker.id,
       label: `${ticker.symbol} — ${ticker.name}`,
     })),
+    collectionSourceOptions: COLLECTION_SOURCE_OPTIONS,
   });
 });
 

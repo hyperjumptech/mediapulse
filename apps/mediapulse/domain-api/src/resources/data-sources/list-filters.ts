@@ -1,4 +1,8 @@
 import { Prisma } from "@mediapulse/database";
+import {
+  buildCollectionSourceSearchQueryWhere,
+  type CollectionSource,
+} from "./collection-source";
 
 /**
  * Input filters parsed from query string for the data-source list endpoint.
@@ -9,6 +13,8 @@ export type DataSourceListFilters = {
   q?: string;
   /** UUID; restricts results to a single ticker. */
   tickerId?: string;
+  /** Collection source bucket (page-collection or data-collection). */
+  collectionSource?: CollectionSource;
   /** Lower bound on `createdAt` (inclusive). */
   from?: Date;
   /** Upper bound on `createdAt` (inclusive). */
@@ -52,6 +58,14 @@ export const buildDataSourceListWhere = (
 
   if (filters.tickerId) {
     parts.push({ tickerId: filters.tickerId });
+  }
+
+  if (filters.collectionSource) {
+    parts.push({
+      searchQuery: buildCollectionSourceSearchQueryWhere(
+        filters.collectionSource,
+      ),
+    });
   }
 
   const createdAt: { gte?: Date; lte?: Date } = {};

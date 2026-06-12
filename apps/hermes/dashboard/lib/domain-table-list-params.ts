@@ -12,6 +12,7 @@ export type DomainTableSearchParams = {
   to?: string;
   intent?: string;
   source?: string;
+  collectionSource?: string;
   isActive?: string;
 };
 
@@ -27,6 +28,7 @@ export type DomainTableListParamsParsed = {
   to?: string;
   intent?: string;
   source?: string;
+  collectionSource?: string;
   isActive?: string;
 };
 
@@ -39,7 +41,14 @@ export type DomainTableListParamsParsed = {
 export const buildDomainTableFilterExtraParams = (
   params: Pick<
     DomainTableListParamsParsed,
-    "tickerId" | "typeId" | "from" | "to" | "intent" | "source" | "isActive"
+    | "tickerId"
+    | "typeId"
+    | "from"
+    | "to"
+    | "intent"
+    | "source"
+    | "collectionSource"
+    | "isActive"
   >,
 ): Record<string, string> => {
   const extra: Record<string, string> = {};
@@ -49,6 +58,7 @@ export const buildDomainTableFilterExtraParams = (
   if (params.to) extra.to = params.to;
   if (params.intent) extra.intent = params.intent;
   if (params.source) extra.source = params.source;
+  if (params.collectionSource) extra.collectionSource = params.collectionSource;
   if (params.isActive) extra.isActive = params.isActive;
   return extra;
 };
@@ -74,6 +84,7 @@ export const parseDomainTableSearchParams = (
   const to = searchParams.to?.trim() || undefined;
   const intent = searchParams.intent?.trim() || undefined;
   const source = searchParams.source?.trim() || undefined;
+  const collectionSource = searchParams.collectionSource?.trim() || undefined;
   const isActive = searchParams.isActive?.trim() || undefined;
   return {
     page,
@@ -85,6 +96,7 @@ export const parseDomainTableSearchParams = (
     to,
     intent,
     source,
+    collectionSource,
     isActive,
   };
 };

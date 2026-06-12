@@ -49,7 +49,7 @@ export const dataSourcesDashboardPage = {
     "tickerSymbol",
     "searchQueryText",
   ]),
-  listFilters: ["tickerId", "createdAt"],
+  listFilters: ["tickerId", "collectionSource", "createdAt"],
   actions: { create: false, update: false, delete: false, view: true },
   customActions: dataSourcesCustomActionsForManifest,
 } satisfies DashboardPageInput;

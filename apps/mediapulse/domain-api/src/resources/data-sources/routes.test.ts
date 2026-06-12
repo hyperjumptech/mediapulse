@@ -52,15 +52,43 @@ describe("dataSourcesRoutes", () => {
       title?: string;
       listFilters?: string[];
       tickerOptions?: Array<{ value: string; label: string }>;
+      collectionSourceOptions?: Array<{ value: string; label: string }>;
     };
     expect(body.title).toBe("Data Sources");
-    expect(body.listFilters).toEqual(["tickerId", "createdAt"]);
+    expect(body.listFilters).toEqual([
+      "tickerId",
+      "collectionSource",
+      "createdAt",
+    ]);
     expect(body.tickerOptions).toEqual([
       {
         value: "11111111-1111-4111-a111-111111111111",
         label: "AAPL — Apple",
       },
     ]);
+    expect(body.collectionSourceOptions).toEqual([
+      { value: "page-collection", label: "Page Collection" },
+      { value: "data-collection", label: "Data Collection" },
+    ]);
+  });
+
+  it("passes collectionSource filter to Prisma findMany", async () => {
+    vi.mocked(prisma.dataSource.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.dataSource.count).mockResolvedValue(0);
+
+    const res = await dataSourcesRoutes.request(
+      "http://localhost/?collectionSource=page-collection",
+      { method: "GET" },
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.dataSource.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          searchQuery: { source: "curated" },
+        },
+      }),
+    );
   });
 
   it("passes list filter query params to Prisma findMany", async () => {

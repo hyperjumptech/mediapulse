@@ -43,6 +43,22 @@ describe("buildDataSourceListWhere", () => {
     ).toEqual({ tickerId: "11111111-1111-4111-a111-111111111111" });
   });
 
+  it("filters by page-collection collectionSource", () => {
+    expect(
+      buildDataSourceListWhere({ collectionSource: "page-collection" }),
+    ).toEqual({
+      searchQuery: { source: "curated" },
+    });
+  });
+
+  it("filters by data-collection collectionSource", () => {
+    expect(
+      buildDataSourceListWhere({ collectionSource: "data-collection" }),
+    ).toEqual({
+      searchQuery: { source: { in: ["deterministic", "llm"] } },
+    });
+  });
+
   it("filters by a partial date range (from only)", () => {
     const from = new Date("2026-05-01T00:00:00.000Z");
     expect(buildDataSourceListWhere({ from })).toEqual({

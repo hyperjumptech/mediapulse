@@ -47,6 +47,7 @@ describe("buildDomainTableListParams", () => {
           to: "2026-05-31",
           intent: "breaking",
           source: "llm",
+          collectionSource: "page-collection",
           isActive: "true",
         },
         newslettersMeta,
@@ -58,6 +59,7 @@ describe("buildDomainTableListParams", () => {
       to: "2026-05-31",
       intent: "breaking",
       source: "llm",
+      collectionSource: "page-collection",
       isActive: "true",
       sortBy: "createdAt",
       sortDir: "desc",
@@ -97,11 +99,13 @@ describe("buildDomainTableFilterExtraParams", () => {
       buildDomainTableFilterExtraParams({
         intent: "breaking",
         source: "llm",
+        collectionSource: "data-collection",
         isActive: "false",
       }),
     ).toEqual({
       intent: "breaking",
       source: "llm",
+      collectionSource: "data-collection",
       isActive: "false",
     });
   });

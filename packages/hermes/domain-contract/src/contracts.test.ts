@@ -159,6 +159,29 @@ describe("tableV1MetaResponseSchema", () => {
     ]);
     expect(parsed.sourceOptions).toEqual([{ value: "llm", label: "llm" }]);
   });
+
+  it("parses meta with data-source collectionSource filter options", () => {
+    const parsed = tableV1MetaResponseSchema.parse({
+      title: "Data Sources",
+      columns: [{ key: "title", label: "Title" }],
+      actions: { create: false, update: false, delete: false, view: true },
+      listFilters: ["tickerId", "collectionSource", "createdAt"],
+      collectionSourceOptions: [
+        { value: "page-collection", label: "Page Collection" },
+        { value: "data-collection", label: "Data Collection" },
+      ],
+    });
+
+    expect(parsed.listFilters).toEqual([
+      "tickerId",
+      "collectionSource",
+      "createdAt",
+    ]);
+    expect(parsed.collectionSourceOptions).toEqual([
+      { value: "page-collection", label: "Page Collection" },
+      { value: "data-collection", label: "Data Collection" },
+    ]);
+  });
 });
 
 describe("dashboardObjectFormJsonSchemaForListRow", () => {

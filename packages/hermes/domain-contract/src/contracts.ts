@@ -70,6 +70,7 @@ export const tableV1ListFilterKeySchema = z.enum([
   "createdAt",
   "intent",
   "source",
+  "collectionSource",
   "isActive",
 ]);
 
@@ -278,6 +279,10 @@ export const tableV1MetaResponseSchema = z.object({
    * Source dropdown options for `source` list filters (dynamic; search-queries meta merges these).
    */
   sourceOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
+  /**
+   * Collection source dropdown options for `collectionSource` list filters (dynamic; data-sources meta merges these).
+   */
+  collectionSourceOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
 });
 
 /**
