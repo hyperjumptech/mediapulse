@@ -130,6 +130,16 @@ jobs:
     name: Code quality check
     needs: changes
     if: needs.changes.outputs.run_heavy_jobs == 'true'
+    env:
+      # Hermes dashboard imports @mediapulse/env when building operator diagnostics routes.
+      MEDIAPULSE_DATABASE_URL: postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=mediapulse
+      MEDIAPULSE_API_URL: http://localhost:8090
+      HERMES_API_URL: http://localhost:3001
+      DOMAIN_INTEGRATION_API_KEY: ci-domain-integration-key
+      DOMAIN_INTEGRATION_ID: mediapulse
+      UNSUBSCRIBE_SECRET: ci-unsubscribe-secret
+      AGENT_DATA_API_URL: http://localhost:8081
+      MEDIAPULSE_CGA_DIAGNOSTICS_ENABLED: "false"
 
     services:
       postgres:
