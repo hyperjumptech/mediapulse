@@ -1,9 +1,7 @@
 {
-  "extends": "@workspace/typescript-config/base.json",
+  "extends": "@workspace/typescript-config/node16.json",
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "rootDir": "src",
-    "outDir": "dist"
+    "module": "ESNext"
   },
   "include": ["src"]
 }
