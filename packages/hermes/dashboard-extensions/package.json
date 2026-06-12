@@ -15,6 +15,7 @@
     "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
+    "@hermes/env": "workspace:*",
     "@hermes/domain-contract": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*"
   },

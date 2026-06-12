@@ -1,4 +1,16 @@
-import baseConfig from "@workspace/eslint-config/base.js";
+import { config as baseConfig } from "@workspace/eslint-config/base";
 
 /** @type {import("eslint").Linter.Config[]} */
-export default [...baseConfig];
+export default [
+  ...baseConfig,
+  {
+    languageOptions: {
+      parserOptions: {
+        project: true,
+      },
+    },
+  },
+  {
+    ignores: ["node_modules/**"],
+  },
+];

@@ -1,3 +1,5 @@
+import { env } from "@hermes/env";
+
 import type { HermesDashboardExtensions } from "./types";
 
 let cached: HermesDashboardExtensions | null | undefined;
@@ -14,7 +16,7 @@ export const loadHermesDashboardExtensions =
       return cached;
     }
 
-    const moduleId = process.env.HERMES_DASHBOARD_EXTENSIONS?.trim();
+    const moduleId = env.HERMES_DASHBOARD_EXTENSIONS?.trim();
     if (!moduleId) {
       cached = null;
       return null;
