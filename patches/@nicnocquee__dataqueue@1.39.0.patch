@@ -1,0 +1,282 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index ba6a07535d9fac7b0acbb0bba474ef3cb26eda66..90ea5161c97b42198d0dc55b26a1ec464ea644ce 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -593,8 +593,11 @@ var createProcessor = (backend, handlers, options = {}, onBeforeBatch, emit) =>
+     );
+   }
+   let running = false;
+-  let intervalId = null;
+-  let currentBatchPromise = null;
++  let pollTimer = null;
++  let claimInProgress = false;
++  let pumpRequested = false;
++  let inFlight = 0;
++  const inFlightJobs = new Set();
+   setLogContext(options.verbose ?? false);
+   const processJobs = async () => {
+     if (!running) return 0;
+@@ -643,22 +646,75 @@ var createProcessor = (backend, handlers, options = {}, onBeforeBatch, emit) =>
+       if (running) return;
+       log(`Starting job processor with workerId: ${workerId}`);
+       running = true;
+-      const scheduleNext = (immediate) => {
++      const pump = async () => {
+         if (!running) return;
+-        if (immediate) {
+-          intervalId = setTimeout(loop, 0);
+-        } else {
+-          intervalId = setTimeout(loop, pollInterval);
++        if (claimInProgress) {
++          pumpRequested = true;
++          return;
++        }
++        if (inFlight >= concurrency) return;
++        claimInProgress = true;
++        pumpRequested = false;
++        let claimLimit = 0;
++        let claimed = 0;
++        try {
++          claimLimit = Math.min(concurrency - inFlight, batchSize);
++          const jobs = await backend.getNextBatch(
++            workerId,
++            claimLimit,
++            jobType,
++            groupConcurrency
++          );
++          claimed = jobs.length;
++          for (const job of jobs) {
++            emit?.("job:processing", { jobId: job.id, jobType: job.jobType });
++            inFlight++;
++            const jobPromise = processJobWithHandlers(
++              backend,
++              job,
++              handlers,
++              emit
++            ).catch((err) => {
++              onError(err instanceof Error ? err : new Error(String(err)));
++            }).finally(() => {
++              inFlight--;
++              inFlightJobs.delete(jobPromise);
++              void pump();
++            });
++            inFlightJobs.add(jobPromise);
++          }
++        } catch (error) {
++          const err = error instanceof Error ? error : new Error(String(error));
++          onError(err);
++          emit?.("error", err);
++        } finally {
++          claimInProgress = false;
++        }
++        const moreLikely = claimed === claimLimit || pumpRequested;
++        if (running && moreLikely && inFlight < concurrency) {
++          void pump();
+         }
+       };
+-      const loop = async () => {
++      const tick = async () => {
+         if (!running) return;
+-        currentBatchPromise = processJobs();
+-        const processed = await currentBatchPromise;
+-        currentBatchPromise = null;
+-        scheduleNext(processed === batchSize);
++        if (onBeforeBatch) {
++          try {
++            await onBeforeBatch();
++          } catch (hookError) {
++            log(`onBeforeBatch hook error: ${hookError}`);
++            const err = hookError instanceof Error ? hookError : new Error(String(hookError));
++            onError(err);
++            emit?.("error", err);
++          }
++        }
++        await pump();
++        if (running) {
++          pollTimer = setTimeout(() => {
++            void tick();
++          }, pollInterval);
++        }
+       };
+-      loop();
++      void tick();
+     },
+     /**
+      * Stop the job processor that runs in the background.
+@@ -667,9 +723,9 @@ var createProcessor = (backend, handlers, options = {}, onBeforeBatch, emit) =>
+     stop: () => {
+       log(`Stopping job processor with workerId: ${workerId}`);
+       running = false;
+-      if (intervalId) {
+-        clearTimeout(intervalId);
+-        intervalId = null;
++      if (pollTimer) {
++        clearTimeout(pollTimer);
++        pollTimer = null;
+       }
+     },
+     /**
+@@ -679,17 +735,15 @@ var createProcessor = (backend, handlers, options = {}, onBeforeBatch, emit) =>
+     stopAndDrain: async (drainTimeoutMs = 3e4) => {
+       log(`Stopping and draining job processor with workerId: ${workerId}`);
+       running = false;
+-      if (intervalId) {
+-        clearTimeout(intervalId);
+-        intervalId = null;
++      if (pollTimer) {
++        clearTimeout(pollTimer);
++        pollTimer = null;
+       }
+-      if (currentBatchPromise) {
++      if (inFlightJobs.size > 0) {
+         await Promise.race([
+-          currentBatchPromise.catch(() => {
+-          }),
++          Promise.allSettled(Array.from(inFlightJobs)),
+           new Promise((resolve) => setTimeout(resolve, drainTimeoutMs))
+         ]);
+-        currentBatchPromise = null;
+       }
+       log(`Job processor ${workerId} drained`);
+     },
+diff --git a/dist/index.js b/dist/index.js
+index 2eab8d874c5c99d7470b0f8e0e38f0e618c064e5..5557498b04705214ed460055f12a9e88d7866c60 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -586,8 +586,11 @@ var createProcessor = (backend, handlers, options = {}, onBeforeBatch, emit) =>
+     );
+   }
+   let running = false;
+-  let intervalId = null;
+-  let currentBatchPromise = null;
++  let pollTimer = null;
++  let claimInProgress = false;
++  let pumpRequested = false;
++  let inFlight = 0;
++  const inFlightJobs = new Set();
+   setLogContext(options.verbose ?? false);
+   const processJobs = async () => {
+     if (!running) return 0;
+@@ -636,22 +639,75 @@ var createProcessor = (backend, handlers, options = {}, onBeforeBatch, emit) =>
+       if (running) return;
+       log(`Starting job processor with workerId: ${workerId}`);
+       running = true;
+-      const scheduleNext = (immediate) => {
++      const pump = async () => {
+         if (!running) return;
+-        if (immediate) {
+-          intervalId = setTimeout(loop, 0);
+-        } else {
+-          intervalId = setTimeout(loop, pollInterval);
++        if (claimInProgress) {
++          pumpRequested = true;
++          return;
++        }
++        if (inFlight >= concurrency) return;
++        claimInProgress = true;
++        pumpRequested = false;
++        let claimLimit = 0;
++        let claimed = 0;
++        try {
++          claimLimit = Math.min(concurrency - inFlight, batchSize);
++          const jobs = await backend.getNextBatch(
++            workerId,
++            claimLimit,
++            jobType,
++            groupConcurrency
++          );
++          claimed = jobs.length;
++          for (const job of jobs) {
++            emit?.("job:processing", { jobId: job.id, jobType: job.jobType });
++            inFlight++;
++            const jobPromise = processJobWithHandlers(
++              backend,
++              job,
++              handlers,
++              emit
++            ).catch((err) => {
++              onError(err instanceof Error ? err : new Error(String(err)));
++            }).finally(() => {
++              inFlight--;
++              inFlightJobs.delete(jobPromise);
++              void pump();
++            });
++            inFlightJobs.add(jobPromise);
++          }
++        } catch (error) {
++          const err = error instanceof Error ? error : new Error(String(error));
++          onError(err);
++          emit?.("error", err);
++        } finally {
++          claimInProgress = false;
++        }
++        const moreLikely = claimed === claimLimit || pumpRequested;
++        if (running && moreLikely && inFlight < concurrency) {
++          void pump();
+         }
+       };
+-      const loop = async () => {
++      const tick = async () => {
+         if (!running) return;
+-        currentBatchPromise = processJobs();
+-        const processed = await currentBatchPromise;
+-        currentBatchPromise = null;
+-        scheduleNext(processed === batchSize);
++        if (onBeforeBatch) {
++          try {
++            await onBeforeBatch();
++          } catch (hookError) {
++            log(`onBeforeBatch hook error: ${hookError}`);
++            const err = hookError instanceof Error ? hookError : new Error(String(hookError));
++            onError(err);
++            emit?.("error", err);
++          }
++        }
++        await pump();
++        if (running) {
++          pollTimer = setTimeout(() => {
++            void tick();
++          }, pollInterval);
++        }
+       };
+-      loop();
++      void tick();
+     },
+     /**
+      * Stop the job processor that runs in the background.
+@@ -660,9 +716,9 @@ var createProcessor = (backend, handlers, options = {}, onBeforeBatch, emit) =>
+     stop: () => {
+       log(`Stopping job processor with workerId: ${workerId}`);
+       running = false;
+-      if (intervalId) {
+-        clearTimeout(intervalId);
+-        intervalId = null;
++      if (pollTimer) {
++        clearTimeout(pollTimer);
++        pollTimer = null;
+       }
+     },
+     /**
+@@ -672,17 +728,15 @@ var createProcessor = (backend, handlers, options = {}, onBeforeBatch, emit) =>
+     stopAndDrain: async (drainTimeoutMs = 3e4) => {
+       log(`Stopping and draining job processor with workerId: ${workerId}`);
+       running = false;
+-      if (intervalId) {
+-        clearTimeout(intervalId);
+-        intervalId = null;
++      if (pollTimer) {
++        clearTimeout(pollTimer);
++        pollTimer = null;
+       }
+-      if (currentBatchPromise) {
++      if (inFlightJobs.size > 0) {
+         await Promise.race([
+-          currentBatchPromise.catch(() => {
+-          }),
++          Promise.allSettled(Array.from(inFlightJobs)),
+           new Promise((resolve) => setTimeout(resolve, drainTimeoutMs))
+         ]);
+-        currentBatchPromise = null;
+       }
+       log(`Job processor ${workerId} drained`);
+     },

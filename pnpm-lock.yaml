@@ -100,6 +100,11 @@ catalogs:
       specifier: ^3
       version: 3.25.76
 
+patchedDependencies:
+  '@nicnocquee/dataqueue@1.39.0':
+    hash: f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c
+    path: patches/@nicnocquee__dataqueue@1.39.0.patch
+
 importers:
 
   .:
@@ -252,7 +257,7 @@ importers:
         version: 16.2.3
       '@nicnocquee/dataqueue':
         specifier: ^1.39.0
-        version: 1.39.0(pg@8.18.0)
+        version: 1.39.0(patch_hash=f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c)(pg@8.18.0)
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
@@ -297,7 +302,7 @@ importers:
         version: 0.562.0(react@19.2.4)
       next:
         specifier: 'catalog:'
-        version: 16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next-themes:
         specifier: 'catalog:'
         version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -315,7 +320,7 @@ importers:
         version: 6.9.2(@react-email/render@1.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       route-action-gen:
         specifier: 'catalog:'
-        version: 0.0.10(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76)
+        version: 0.0.10(next@16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76)
       sonner:
         specifier: 'catalog:'
         version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -397,7 +402,7 @@ importers:
         version: link:../../../packages/hermes/step-input-syntax
       '@nicnocquee/dataqueue':
         specifier: ^1.39.0
-        version: 1.39.0(pg@8.18.0)
+        version: 1.39.0(patch_hash=f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c)(pg@8.18.0)
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
@@ -1077,7 +1082,7 @@ importers:
         version: 0.562.0(react@19.2.4)
       next:
         specifier: 'catalog:'
-        version: 16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next-themes:
         specifier: 'catalog:'
         version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1319,7 +1324,7 @@ importers:
         version: link:../orchestration-database
       '@nicnocquee/dataqueue':
         specifier: ^1.39.0
-        version: 1.39.0(pg@8.18.0)
+        version: 1.39.0(patch_hash=f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c)(pg@8.18.0)
       ajv:
         specifier: ^8.17.1
         version: 8.17.1
@@ -11919,7 +11924,7 @@ snapshots:
   '@next/swc-win32-x64-msvc@16.2.3':
     optional: true
 
-  '@nicnocquee/dataqueue@1.39.0(pg@8.18.0)':
+  '@nicnocquee/dataqueue@1.39.0(patch_hash=f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c)(pg@8.18.0)':
     dependencies:
       '@modelcontextprotocol/sdk': 1.27.1(zod@3.25.76)
       croner: 10.0.1
@@ -17326,7 +17331,7 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  next@16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@next/env': 16.2.3
       '@swc/helpers': 0.5.15
@@ -17335,7 +17340,7 @@ snapshots:
       postcss: 8.4.31
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
-      styled-jsx: 5.1.6(react@19.2.4)
+      styled-jsx: 5.1.6(@babel/core@7.29.0)(react@19.2.4)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.2.3
       '@next/swc-darwin-x64': 16.2.3
@@ -18461,12 +18466,12 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.57.1
       fsevents: 2.3.3
 
-  route-action-gen@0.0.10(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76):
+  route-action-gen@0.0.10(next@16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76):
     dependencies:
       glob: 13.0.2
       zod: 3.25.76
     optionalDependencies:
-      next: 16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      next: 16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
 
   router@2.2.0:
@@ -18954,10 +18959,12 @@ snapshots:
 
   stubborn-utils@1.0.2: {}
 
-  styled-jsx@5.1.6(react@19.2.4):
+  styled-jsx@5.1.6(@babel/core@7.29.0)(react@19.2.4):
     dependencies:
       client-only: 0.0.1
       react: 19.2.4
+    optionalDependencies:
+      '@babel/core': 7.29.0
 
   supports-color@10.2.2: {}
 
