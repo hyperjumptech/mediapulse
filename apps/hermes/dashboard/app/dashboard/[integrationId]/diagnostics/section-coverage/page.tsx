@@ -1,13 +1,12 @@
 import { notFound } from "next/navigation";
-import { SectionCoveragePageView } from "@mediapulse/hermes-dashboard";
 
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
-import { getMediapulseHermesDashboardRuntimeConfig } from "@/lib/mediapulse-hermes-dashboard-config";
+import { loadHermesDashboardExtensions } from "@/lib/load-hermes-dashboard-extensions";
 import { integrationSupportsOperatorDiagnostics } from "@/lib/operator-diagnostics-capabilities";
 
 /**
- * Integration-scoped section coverage diagnostics page.
+ * Integration-scoped operator section coverage page (extension-provided).
  */
 const IntegrationSectionCoveragePage = async ({
   params,
@@ -18,18 +17,20 @@ const IntegrationSectionCoveragePage = async ({
 }) => {
   const { integrationId } = await params;
   const integration = await getDomainIntegrationByIntegrationId(integrationId);
+  const extensions = await loadHermesDashboardExtensions();
   if (
     !integration ||
+    !extensions ||
     !integrationSupportsOperatorDiagnostics(integration.capabilities)
   ) {
     notFound();
   }
 
+  const { SectionCoveragePageView } = extensions;
+  const config = extensions.getRuntimeConfig();
+
   return (
-    <SectionCoveragePageView
-      config={getMediapulseHermesDashboardRuntimeConfig()}
-      searchParams={searchParams}
-    />
+    <SectionCoveragePageView config={config} searchParams={searchParams} />
   );
 };
 

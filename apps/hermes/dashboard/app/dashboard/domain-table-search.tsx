@@ -5,7 +5,7 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 
 type DomainTableSearchProps = {
-  /** Base path for GET search (e.g. `/dashboard/mediapulse/tickers`). */
+  /** Base path for GET search (e.g. `/dashboard/{integrationId}/tickers`). */
   basePath: string;
   /** Current search query for the input default value. */
   initialQuery?: string;

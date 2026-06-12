@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Fails when Hermes production code encodes Mediapulse-specific domain semantics.
+ * Fails when Hermes production code encodes product-domain semantics or vendor names.
  */
 
 import { execSync } from "node:child_process";
@@ -22,6 +22,8 @@ const PATTERNS = [
     label: "closed table-v1 filter enum",
     regex: "tableV1ListFilterKeySchema",
   },
+  { label: "mediapulse string", regex: "\\bmediapulse\\b", flags: "-i" },
+  { label: "@mediapulse import", regex: "@mediapulse/" },
 ];
 
 const SCAN_DIRS = ["packages/hermes", "apps/hermes"];
@@ -32,15 +34,18 @@ const ALLOWLIST = [
   /hermes-domain-separation\.mdc$/,
   /env\.example$/,
   /env\..*\.example$/,
+  /check-hermes-domain-separation\.mjs$/,
+  /Dockerfile$/,
 ];
 
 const run = () => {
   const hits = [];
-  for (const { label, regex } of PATTERNS) {
+  for (const { label, regex, flags } of PATTERNS) {
     for (const dir of SCAN_DIRS) {
       let output = "";
       try {
-        output = execSync(`rg -n --pcre2 "${regex}" ${dir} || true`, {
+        const rgFlags = flags ? `${flags} ` : "";
+        output = execSync(`rg -n ${rgFlags}--pcre2 "${regex}" ${dir} || true`, {
           cwd: repoRoot,
           encoding: "utf8",
         });

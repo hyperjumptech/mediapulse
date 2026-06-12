@@ -50,7 +50,7 @@ export type DomainTableListParams = {
 /**
  * Resolves a dashboard page from a specific domain integration manifest.
  *
- * @param integrationId - Registered integration id (e.g. "mediapulse", URL segment).
+ * @param integrationId - Registered integration id (URL segment).
  * @param resource - Dashboard path segment (matches manifest `pathSegment`).
  * @returns Domain page descriptor and base URL.
  */

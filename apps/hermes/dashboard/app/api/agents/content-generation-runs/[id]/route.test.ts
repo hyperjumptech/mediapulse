@@ -6,23 +6,18 @@ vi.mock("@/lib/require-dashboard-principal-response", () => ({
   resolveDashboardPrincipalOrUnauthorized: vi.fn(),
 }));
 
-const runtimeConfig = {
-  agentDataApiUrl: "http://test-agent-data-api",
-  agentAuthApiUrl: "http://test-agent-auth-api",
-  internalApiKey: "test-key",
-  cgaDiagnosticsEnabled: true,
-};
+const runtimeConfig = { internalApiKey: "test-key" };
+const getContentGenerationRunByIdMock = vi.fn();
 
-vi.mock("@/lib/mediapulse-hermes-dashboard-config", () => ({
-  getMediapulseHermesDashboardRuntimeConfig: () => runtimeConfig,
-}));
-
-vi.mock("@mediapulse/hermes-dashboard", () => ({
-  getContentGenerationRunById: vi.fn(),
+vi.mock("@/lib/load-hermes-dashboard-extensions", () => ({
+  loadHermesDashboardExtensions: vi.fn(async () => ({
+    getRuntimeConfig: () => runtimeConfig,
+    getContentGenerationRunById: (...args: unknown[]) =>
+      getContentGenerationRunByIdMock(...args),
+  })),
 }));
 
 import { GET } from "./route";
-import { getContentGenerationRunById } from "@mediapulse/hermes-dashboard";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 const run = {
@@ -37,6 +32,7 @@ const run = {
 describe("GET /api/agents/content-generation-runs/[id]", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    getContentGenerationRunByIdMock.mockReset();
   });
 
   it("returns 401 without principal", async () => {
@@ -63,7 +59,7 @@ describe("GET /api/agents/content-generation-runs/[id]", () => {
       readOnly: false,
       label: "k",
     });
-    vi.mocked(getContentGenerationRunById).mockResolvedValue(null);
+    getContentGenerationRunByIdMock.mockResolvedValue(null);
     const res = await GET(
       new Request(
         `http://localhost/api/agents/content-generation-runs/${run.id}`,
@@ -86,7 +82,7 @@ describe("GET /api/agents/content-generation-runs/[id]", () => {
       readOnly: false,
       label: "k",
     });
-    vi.mocked(getContentGenerationRunById).mockResolvedValue(run);
+    getContentGenerationRunByIdMock.mockResolvedValue(run);
     const res = await GET(
       new Request(
         `http://localhost/api/agents/content-generation-runs/${run.id}`,
@@ -94,7 +90,7 @@ describe("GET /api/agents/content-generation-runs/[id]", () => {
       ),
       { params: Promise.resolve({ id: run.id }) },
     );
-    expect(getContentGenerationRunById).toHaveBeenCalledWith(
+    expect(getContentGenerationRunByIdMock).toHaveBeenCalledWith(
       run.id,
       runtimeConfig,
     );

@@ -132,5 +132,7 @@ jobs:
           build-args: |
             NEXT_PUBLIC_REGISTRATION_EMAIL=${{ matrix.service == 'user-registration' && 'registration@example.com' || '' }}
             AGENT_DATA_API_URL=${{ matrix.service == 'user-registration' && 'http://agent-data-api.local' || '' }}
+            HERMES_DASHBOARD_EXTENSIONS=${{ matrix.service == 'hermes' && '@mediapulse/hermes-dashboard/extensions' || '' }}
+            HERMES_DASHBOARD_EXTENSIONS_ENV_DIR=${{ matrix.service == 'hermes' && '/app/packages/mediapulse/env' || '' }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}

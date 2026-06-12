@@ -2,7 +2,6 @@
  * Merges Hermes-local dashboard pages into a domain integration's manifest-derived nav.
  */
 
-import { buildOperatorDiagnosticsNavPages } from "@mediapulse/hermes-dashboard/diagnostics-nav";
 import type { DashboardPage } from "@hermes/domain-contract";
 
 import type { DomainIntegrationRecord } from "./domain-integrations";
@@ -12,6 +11,7 @@ import {
   buildSyntheticDataSourceExpansionsDashboardPage,
   DATA_SOURCE_EXPANSIONS_PATH_SEGMENT,
 } from "./data-source-expansion-template-meta";
+import { loadHermesDashboardExtensions } from "./load-hermes-dashboard-extensions";
 
 /**
  * Returns manifest pages plus Hermes-only entries (e.g. data source expansion templates)
@@ -20,9 +20,9 @@ import {
  * @param integration - Parsed domain integration record.
  * @returns Pages for sidebar navigation, ordered by `order`.
  */
-export const mergeDomainIntegrationNavPages = (
+export const mergeDomainIntegrationNavPages = async (
   integration: DomainIntegrationRecord,
-): DashboardPage[] => {
+): Promise<DashboardPage[]> => {
   const pages = [...integration.dashboard.pages];
   const hasDataSourceExpansions = pages.some(
     (p) => p.pathSegment === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT,
@@ -36,7 +36,10 @@ export const mergeDomainIntegrationNavPages = (
     pages.push(buildSyntheticDataSourceExpansionsDashboardPage());
   }
   if (integrationSupportsOperatorDiagnostics(integration.capabilities)) {
-    pages.push(...buildOperatorDiagnosticsNavPages());
+    const extensions = await loadHermesDashboardExtensions();
+    if (extensions) {
+      pages.push(...extensions.buildOperatorDiagnosticsNavPages());
+    }
   }
   return pages.sort((a, b) => a.order - b.order);
 };

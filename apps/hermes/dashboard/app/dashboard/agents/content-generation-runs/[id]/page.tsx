@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
+import { CGA_DIAGNOSTICS_PATH_SEGMENT } from "@hermes/dashboard-extensions";
 
 import { getDefaultDomainIntegration } from "@/lib/domain-integrations";
-import { CGA_DIAGNOSTICS_PATH_SEGMENT } from "@mediapulse/hermes-dashboard/diagnostics-nav";
 
 /**
  * Legacy route redirect to integration-scoped CGA run detail.

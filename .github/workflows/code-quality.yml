@@ -131,12 +131,13 @@ jobs:
     needs: changes
     if: needs.changes.outputs.run_heavy_jobs == 'true'
     env:
-      # Hermes dashboard imports @mediapulse/env when building operator diagnostics routes.
+      HERMES_DASHBOARD_EXTENSIONS: "@mediapulse/hermes-dashboard/extensions"
+      HERMES_DASHBOARD_EXTENSIONS_ENV_DIR: packages/mediapulse/env
       MEDIAPULSE_DATABASE_URL: postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=mediapulse
       MEDIAPULSE_API_URL: http://localhost:8090
       HERMES_API_URL: http://localhost:3001
       DOMAIN_INTEGRATION_API_KEY: ci-domain-integration-key
-      DOMAIN_INTEGRATION_ID: mediapulse
+      DOMAIN_INTEGRATION_ID: local-domain
       AGENT_AUTH_API_URL: http://localhost:8080
       UNSUBSCRIBE_SECRET: ci-unsubscribe-secret
       AGENT_DATA_API_URL: http://localhost:8081

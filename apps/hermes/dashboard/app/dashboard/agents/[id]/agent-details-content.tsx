@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { format } from "date-fns";
 
 import { Badge } from "@workspace/ui/components/badge";
@@ -10,12 +11,9 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 
-import type { InsightsPayload } from "@workspace/agent-data-api-contract";
-
 import { EndpointDisplay } from "../endpoint-display";
 import { JsonPretty } from "../json-pretty";
 import type { AgentDetail } from "@/lib/agents";
-import { InsightsTab } from "@mediapulse/hermes-dashboard/client";
 
 const ROW_CLASS =
   "flex items-center justify-between gap-8 py-4 px-6 sm:px-7 border-b border-border/60 last:border-b-0 first:pt-6 last:pb-6";
@@ -27,19 +25,20 @@ const VALUE_CLASS =
 type AgentDetailsContentProps = {
   /** Agent from getAgentById (registry row with domain integration id). */
   agent: AgentDetail;
-  insightsPayload?: InsightsPayload | null;
+  /** Optional insights panel rendered by a registered dashboard extension. */
+  insightsPanel?: ReactNode;
   insightsWindow?: "24h" | "7d" | "30d";
 };
 
 /**
- * Renders agent details in a tabbed layout: Insights (when available), Schema (input + config), and Info (details).
+ * Renders agent details in a tabbed layout: Insights (when extension provides data), Schema (input + config), and Info (details).
  */
 export const AgentDetailsContent = ({
   agent,
-  insightsPayload,
-  insightsWindow,
+  insightsPanel,
+  insightsWindow: _insightsWindow,
 }: AgentDetailsContentProps) => {
-  const showInsights = insightsPayload != null;
+  const showInsights = insightsPanel != null;
   const tabColsClass = showInsights ? "grid-cols-3" : "grid-cols-2";
   const defaultTab = showInsights ? "insights" : "schema";
 
@@ -56,10 +55,7 @@ export const AgentDetailsContent = ({
         </TabsList>
         {showInsights && (
           <TabsContent value="insights" className="pt-6">
-            <InsightsTab
-              payload={insightsPayload}
-              window={insightsWindow ?? "7d"}
-            />
+            {insightsPanel}
           </TabsContent>
         )}
         <TabsContent value="schema" className="space-y-8 pt-6">

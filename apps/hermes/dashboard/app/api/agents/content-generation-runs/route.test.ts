@@ -6,23 +6,18 @@ vi.mock("@/lib/require-dashboard-principal-response", () => ({
   resolveDashboardPrincipalOrUnauthorized: vi.fn(),
 }));
 
-const runtimeConfig = {
-  agentDataApiUrl: "http://test-agent-data-api",
-  agentAuthApiUrl: "http://test-agent-auth-api",
-  internalApiKey: "test-key",
-  cgaDiagnosticsEnabled: true,
-};
+const runtimeConfig = { internalApiKey: "test-key" };
+const listContentGenerationRunsMock = vi.fn();
 
-vi.mock("@/lib/mediapulse-hermes-dashboard-config", () => ({
-  getMediapulseHermesDashboardRuntimeConfig: () => runtimeConfig,
-}));
-
-vi.mock("@mediapulse/hermes-dashboard", () => ({
-  listContentGenerationRuns: vi.fn(),
+vi.mock("@/lib/load-hermes-dashboard-extensions", () => ({
+  loadHermesDashboardExtensions: vi.fn(async () => ({
+    getRuntimeConfig: () => runtimeConfig,
+    listContentGenerationRuns: (...args: unknown[]) =>
+      listContentGenerationRunsMock(...args),
+  })),
 }));
 
 import { GET } from "./route";
-import { listContentGenerationRuns } from "@mediapulse/hermes-dashboard";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 const run = {
@@ -37,6 +32,7 @@ const run = {
 describe("GET /api/agents/content-generation-runs", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    listContentGenerationRunsMock.mockReset();
   });
 
   it("returns 401 without principal", async () => {
@@ -62,7 +58,7 @@ describe("GET /api/agents/content-generation-runs", () => {
       readOnly: false,
       label: "k",
     });
-    vi.mocked(listContentGenerationRuns).mockResolvedValue({ items: [] });
+    listContentGenerationRunsMock.mockResolvedValue({ items: [] });
     const res = await GET(
       new Request("http://localhost/api/agents/content-generation-runs"),
     );
@@ -87,7 +83,7 @@ describe("GET /api/agents/content-generation-runs", () => {
       readOnly: false,
       label: "k",
     });
-    vi.mocked(listContentGenerationRuns).mockResolvedValue({
+    listContentGenerationRunsMock.mockResolvedValue({
       items: [run],
       nextCursor: "next",
     });
@@ -97,7 +93,7 @@ describe("GET /api/agents/content-generation-runs", () => {
         { headers: { Authorization: "Bearer hmcp_ok" } },
       ),
     );
-    expect(listContentGenerationRuns).toHaveBeenCalledWith(
+    expect(listContentGenerationRunsMock).toHaveBeenCalledWith(
       {
         cursor: undefined,
         limit: 10,

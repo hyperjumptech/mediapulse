@@ -9,11 +9,10 @@ const notFoundMock = vi.fn();
 vi.mock("@hermes/env", () => ({
   env: {
     ORCHESTRATION_DATABASE_URL:
-      "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse",
+      "postgresql://postgres:postgres@localhost:5432/hermes?schema=orchestration",
     TEMP_ADMIN_USERNAME: "test",
     TEMP_ADMIN_PASSWORD: "testtest",
     HERMES_INTERNAL_API_KEY: "test-key",
-    AGENT_DATA_API_URL: "http://test-agent-data-api",
   },
 }));
 
@@ -33,19 +32,14 @@ vi.mock("@/lib/agents", () => ({
   getAgentById: (...args: unknown[]) => getAgentByIdMock(...args),
 }));
 
-const runtimeConfig = {
-  agentDataApiUrl: "http://test-agent-data-api",
-  agentAuthApiUrl: "http://test-agent-auth-api",
-  internalApiKey: "test-key",
-  cgaDiagnosticsEnabled: true,
-};
+const runtimeConfig = { internalApiKey: "test-key" };
 
-vi.mock("@/lib/mediapulse-hermes-dashboard-config", () => ({
-  getMediapulseHermesDashboardRuntimeConfig: () => runtimeConfig,
-}));
-
-vi.mock("@mediapulse/hermes-dashboard", () => ({
-  getAgentInsights: (...args: unknown[]) => getAgentInsightsMock(...args),
+vi.mock("@/lib/load-hermes-dashboard-extensions", () => ({
+  loadHermesDashboardExtensions: vi.fn(async () => ({
+    getRuntimeConfig: () => runtimeConfig,
+    getAgentInsights: (...args: unknown[]) => getAgentInsightsMock(...args),
+    renderInsightsPanel: () => <div data-testid="insights-panel">Insights</div>,
+  })),
 }));
 
 vi.mock("./agent-details-content", () => ({
@@ -83,6 +77,7 @@ const createMockAgent = () => ({
   isActive: true,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
+  domainIntegration: { integrationId: "acme-local" },
 });
 
 describe("AgentDetailPage", () => {
@@ -94,18 +89,15 @@ describe("AgentDetailPage", () => {
   });
 
   it("renders agent details content when agent exists", async () => {
-    // Setup
     const agent = createMockAgent();
     getAgentByIdMock.mockResolvedValue(agent);
     getAgentInsightsMock.mockResolvedValue({ hasInsights: false });
 
-    // Act
     const component = await AgentDetailPage({
       params: Promise.resolve({ id: "agent-uuid-1" }),
     });
     render(component);
 
-    // Assert
     expect(screen.getByTestId("agent-details-content")).toBeInTheDocument();
     expect(screen.getByTestId("agent-details-content")).toHaveAttribute(
       "data-agent-id",
@@ -118,29 +110,24 @@ describe("AgentDetailPage", () => {
   });
 
   it("calls getAgentById with id from params", async () => {
-    // Setup
     getAgentByIdMock.mockResolvedValue(createMockAgent());
     getAgentInsightsMock.mockResolvedValue({ hasInsights: false });
 
-    // Act
     await AgentDetailPage({
       params: Promise.resolve({ id: "my-agent-id" }),
     });
 
-    // Assert
     expect(getAgentByIdMock).toHaveBeenCalledWith("my-agent-id");
   });
 
-  it("calls notFound when agent does not exist", async () => {
-    // Setup
+  it("calls notFound when agent is missing", async () => {
     getAgentByIdMock.mockResolvedValue(null);
 
-    // Act
     await expect(
-      AgentDetailPage({ params: Promise.resolve({ id: "non-existent" }) }),
+      AgentDetailPage({
+        params: Promise.resolve({ id: "missing" }),
+      }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
-
-    // Assert
     expect(notFoundMock).toHaveBeenCalled();
   });
 });

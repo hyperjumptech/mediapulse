@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getContentGenerationRunById } from "@mediapulse/hermes-dashboard";
-import { getMediapulseHermesDashboardRuntimeConfig } from "@/lib/mediapulse-hermes-dashboard-config";
+import { loadHermesDashboardExtensions } from "@/lib/load-hermes-dashboard-extensions";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 /**
@@ -18,11 +17,17 @@ export const GET = async (
     return principal;
   }
 
+  const extensions = await loadHermesDashboardExtensions();
+  if (!extensions) {
+    return NextResponse.json(
+      { error: "Operator diagnostics extensions are not configured" },
+      { status: 404 },
+    );
+  }
+
   const { id } = await context.params;
-  const run = await getContentGenerationRunById(
-    id,
-    getMediapulseHermesDashboardRuntimeConfig(),
-  );
+  const config = extensions.getRuntimeConfig();
+  const run = await extensions.getContentGenerationRunById(id, config);
   if (!run) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

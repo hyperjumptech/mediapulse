@@ -33,11 +33,13 @@ export default async function DashboardLayout({
   }> = [];
   try {
     const integrations = await getActiveDomainIntegrations();
-    domainIntegrations = integrations.map((i) => ({
-      integrationId: i.integrationId,
-      name: i.name,
-      pages: mergeDomainIntegrationNavPages(i),
-    }));
+    domainIntegrations = await Promise.all(
+      integrations.map(async (i) => ({
+        integrationId: i.integrationId,
+        name: i.name,
+        pages: await mergeDomainIntegrationNavPages(i),
+      })),
+    );
   } catch {
     domainIntegrations = [];
   }

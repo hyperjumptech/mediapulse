@@ -45,19 +45,6 @@ vi.mock("../json-pretty", () => ({
   ),
 }));
 
-vi.mock("@mediapulse/hermes-dashboard/client", () => ({
-  InsightsTab: ({
-    window: insightsWindow,
-  }: {
-    payload: unknown;
-    window: string;
-  }) => (
-    <div data-testid="insights-tab" data-window={insightsWindow}>
-      Insights
-    </div>
-  ),
-}));
-
 const createMockAgent = () => ({
   id: "agent-123",
   domainIntegrationId: "di-1",
@@ -71,7 +58,7 @@ const createMockAgent = () => ({
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
   domainIntegration: {
-    integrationId: "mediapulse-local",
+    integrationId: "acme-local",
   },
 });
 
@@ -112,23 +99,14 @@ describe("AgentDetailsContent", () => {
   it("tab order is Insights, Schema, Info when insights present", () => {
     // Setup
     const agent = createMockAgent();
-    const payload = {
-      agentId: "test-agent",
-      window: "7d" as const,
-      generatedAt: "2024-06-01T00:00:00.000Z",
-      kpis: [],
-      alerts: [],
-      sections: [],
-    };
+    const insightsPanel = (
+      <div data-testid="insights-tab" data-window="7d">
+        Insights
+      </div>
+    );
 
     // Act
-    render(
-      <AgentDetailsContent
-        agent={agent}
-        insightsPayload={payload}
-        insightsWindow="7d"
-      />,
-    );
+    render(<AgentDetailsContent agent={agent} insightsPanel={insightsPanel} />);
 
     // Assert tabs present
     expect(screen.getByTestId("tab-trigger-insights")).toHaveTextContent(
@@ -206,7 +184,7 @@ describe("AgentDetailsContent", () => {
     expect(details.getByText("Last updated")).toBeInTheDocument();
     expect(details.getByText("Feb 20, 2024")).toBeInTheDocument();
     expect(details.getByText("Domain integration id")).toBeInTheDocument();
-    expect(details.getByText("mediapulse-local")).toBeInTheDocument();
+    expect(details.getByText("acme-local")).toBeInTheDocument();
   });
 
   it("renders Endpoint section via EndpointDisplay in Info tab", () => {
@@ -242,18 +220,12 @@ describe("AgentDetailsContent", () => {
     expect(screen.getByText("No")).toBeInTheDocument();
   });
 
-  it("Insights tab is hidden when insightsPayload is null", () => {
+  it("Insights tab is hidden when insights panel is absent", () => {
     // Setup
     const agent = createMockAgent();
 
     // Act
-    render(
-      <AgentDetailsContent
-        agent={agent}
-        insightsPayload={null}
-        insightsWindow="7d"
-      />,
-    );
+    render(<AgentDetailsContent agent={agent} />);
 
     // Assert
     expect(
@@ -265,23 +237,14 @@ describe("AgentDetailsContent", () => {
   it("Insights tab appears when insightsPayload is provided", () => {
     // Setup
     const agent = createMockAgent();
-    const payload = {
-      agentId: "test-agent",
-      window: "7d" as const,
-      generatedAt: "2024-06-01T00:00:00.000Z",
-      kpis: [],
-      alerts: [],
-      sections: [],
-    };
+    const insightsPanel = (
+      <div data-testid="insights-tab" data-window="7d">
+        Insights
+      </div>
+    );
 
     // Act
-    render(
-      <AgentDetailsContent
-        agent={agent}
-        insightsPayload={payload}
-        insightsWindow="7d"
-      />,
-    );
+    render(<AgentDetailsContent agent={agent} insightsPanel={insightsPanel} />);
 
     // Assert
     expect(screen.getByTestId("tab-trigger-insights")).toHaveTextContent(

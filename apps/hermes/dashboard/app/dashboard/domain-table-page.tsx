@@ -41,7 +41,7 @@ import {
 } from "@/lib/domain-table-list-params";
 
 type DomainTablePageProps = {
-  /** Registered domain integration id (e.g. "mediapulse", URL segment). */
+  /** Registered domain integration id (URL segment). */
   integrationId: string;
   /** Manifest path segment for this table (e.g. "tickers"). */
   resource: string;

@@ -21,6 +21,8 @@ export const env = createEnv({
     HERMES_RESEND_API_KEY: z.string().optional(),
     HERMES_RESEND_FROM: z.string().optional(),
     HERMES_MCP_API_KEY_PEPPER: z.string().min(1),
+    HERMES_DASHBOARD_EXTENSIONS: z.string().optional(),
+    HERMES_DASHBOARD_EXTENSIONS_ENV_DIR: z.string().optional(),
   },
   client: {
   },

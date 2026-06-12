@@ -2,13 +2,12 @@ import { notFound } from "next/navigation";
 
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getAgentById } from "@/lib/agents";
-import { getAgentInsights } from "@mediapulse/hermes-dashboard";
-import { getMediapulseHermesDashboardRuntimeConfig } from "@/lib/mediapulse-hermes-dashboard-config";
+import { loadHermesDashboardExtensions } from "@/lib/load-hermes-dashboard-extensions";
 
 import { AgentDetailsContent } from "./agent-details-content";
 
 /**
- * Agent detail page. Loads agent by id (with domain integration id); shows 404 if not found, otherwise tabbed details (General, Input schema, Config schema, and Insights).
+ * Agent detail page. Loads agent by id (with domain integration id); shows 404 if not found, otherwise tabbed details (General, Input schema, Config schema, and optional Insights from extensions).
  */
 const AgentDetailPage = async ({
   params,
@@ -33,19 +32,29 @@ const AgentDetailPage = async ({
       ? windowParam
       : "7d";
 
-  const result = await getAgentInsights(
-    {
-      agentId: agent.agentId,
-      window: insightsWindow,
-    },
-    getMediapulseHermesDashboardRuntimeConfig(),
-  );
-  const insightsPayload = result.hasInsights ? result.payload : null;
+  const extensions = await loadHermesDashboardExtensions();
+  let insightsPanel = null;
+  if (extensions) {
+    const config = extensions.getRuntimeConfig();
+    const result = await extensions.getAgentInsights(
+      {
+        agentId: agent.agentId,
+        window: insightsWindow,
+      },
+      config,
+    );
+    if (result.hasInsights) {
+      insightsPanel = extensions.renderInsightsPanel({
+        payload: result.payload,
+        window: insightsWindow,
+      });
+    }
+  }
 
   return (
     <AgentDetailsContent
       agent={agent}
-      insightsPayload={insightsPayload}
+      insightsPanel={insightsPanel}
       insightsWindow={insightsWindow}
     />
   );

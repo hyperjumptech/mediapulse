@@ -45,7 +45,7 @@ export const AgentContractFormFields = ({
           onChange={(e: ChangeEvent<HTMLInputElement>) =>
             onNameChange(e.target.value)
           }
-          placeholder="e.g. MediaPulse Newsletter Brief"
+          placeholder="e.g. Weekly newsletter brief"
           disabled={disabled}
           required
         />

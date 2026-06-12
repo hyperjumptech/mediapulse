@@ -311,7 +311,7 @@ export const getActiveDomainIntegrations = async (
 };
 
 /**
- * Loads a single active domain integration by integration id (stable slug, e.g. `mediapulse`).
+ * Loads a single active domain integration by integration id (stable slug).
  *
  * @param integrationId - Stable id from registration.
  * @param db - Prisma delegate (injectable for tests).

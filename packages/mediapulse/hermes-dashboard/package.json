@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
-    "./diagnostics-nav": "./src/diagnostics-nav.ts"
+    "./diagnostics-nav": "./src/diagnostics-nav.ts",
+    "./extensions": "./src/extensions.ts"
   },
   "scripts": {
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
@@ -17,7 +18,10 @@
     "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
+    "@hermes/dashboard-extensions": "workspace:*",
     "@hermes/domain-contract": "workspace:*",
+    "@hermes/env": "workspace:*",
+    "@mediapulse/env": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",

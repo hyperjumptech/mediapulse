@@ -9,12 +9,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const hermesEnvDir = path.resolve(__dirname, "../../../packages/hermes/env");
-const mediapulseEnvDir = path.resolve(
-  __dirname,
-  "../../../packages/mediapulse/env",
-);
 loadEnvConfig(hermesEnvDir);
-loadEnvConfig(mediapulseEnvDir);
+
+const extensionPackage = process.env.HERMES_DASHBOARD_EXTENSIONS?.trim();
+const extensionPackageRoot = extensionPackage?.replace(/\/[^/]+$/, "");
+const extensionEnvDir = process.env.HERMES_DASHBOARD_EXTENSIONS_ENV_DIR?.trim();
+if (extensionEnvDir) {
+  loadEnvConfig(path.resolve(extensionEnvDir));
+}
 
 const monorepoRoot = path.resolve(__dirname, "../../..");
 
@@ -22,7 +24,8 @@ const monorepoRoot = path.resolve(__dirname, "../../..");
 const nextConfig = {
   output: "standalone",
   transpilePackages: [
-    "@mediapulse/hermes-dashboard",
+    "@hermes/dashboard-extensions",
+    ...(extensionPackageRoot ? [extensionPackageRoot] : []),
     "@workspace/agent-auth-client",
     "@workspace/json-schema-form",
   ],
@@ -31,6 +34,7 @@ const nextConfig = {
   turbopack: {
     root: monorepoRoot,
   },
+  serverExternalPackages: extensionPackage ? [extensionPackage] : [],
 };
 
 export default nextConfig;

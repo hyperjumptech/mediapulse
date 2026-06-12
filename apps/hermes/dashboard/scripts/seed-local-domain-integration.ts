@@ -7,7 +7,7 @@
  * Usage:
  *   pnpm seed-local-domain-integration <admin-email> [integration-id] [display-name]
  *
- * Defaults: integration id `mediapulse`, display-name `Local dev Mediapulse`.
+ * Defaults: integration id `local-domain`, display-name `Local dev domain`.
  *
  * Machine-readable footer (for dev-setup-local.sh):
  *   PLAIN_API_KEY=<secret>
@@ -28,8 +28,8 @@ if (!fs.existsSync(envPath)) {
 }
 config({ path: envPath });
 
-const DEFAULT_INTEGRATION_ID = "mediapulse";
-const DEFAULT_NAME = "Local dev Mediapulse";
+const DEFAULT_INTEGRATION_ID = "local-domain";
+const DEFAULT_NAME = "Local dev domain";
 
 /**
  * CLI entry: ensure admin user exists in argv, then create or skip domain integration seed.

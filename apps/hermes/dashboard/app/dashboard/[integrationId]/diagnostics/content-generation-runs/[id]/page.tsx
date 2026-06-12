@@ -1,13 +1,12 @@
 import { notFound } from "next/navigation";
-import { ContentGenerationRunDetailPageView } from "@mediapulse/hermes-dashboard";
 
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
-import { getMediapulseHermesDashboardRuntimeConfig } from "@/lib/mediapulse-hermes-dashboard-config";
+import { loadHermesDashboardExtensions } from "@/lib/load-hermes-dashboard-extensions";
 import { integrationSupportsOperatorDiagnostics } from "@/lib/operator-diagnostics-capabilities";
 
 /**
- * Integration-scoped CGA diagnostics detail page.
+ * Integration-scoped operator CGA diagnostics detail page (extension-provided).
  */
 const IntegrationContentGenerationRunDetailPage = async ({
   params,
@@ -16,19 +15,19 @@ const IntegrationContentGenerationRunDetailPage = async ({
 }) => {
   const { integrationId, id } = await params;
   const integration = await getDomainIntegrationByIntegrationId(integrationId);
+  const extensions = await loadHermesDashboardExtensions();
   if (
     !integration ||
+    !extensions ||
     !integrationSupportsOperatorDiagnostics(integration.capabilities)
   ) {
     notFound();
   }
 
-  return (
-    <ContentGenerationRunDetailPageView
-      runId={id}
-      config={getMediapulseHermesDashboardRuntimeConfig()}
-    />
-  );
+  const { ContentGenerationRunDetailPageView } = extensions;
+  const config = extensions.getRuntimeConfig();
+
+  return <ContentGenerationRunDetailPageView runId={id} config={config} />;
 };
 
 export default withAuthProtection(IntegrationContentGenerationRunDetailPage);

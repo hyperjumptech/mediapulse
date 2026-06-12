@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import type { ContentGenerationRunOutcome } from "@workspace/agent-data-api-contract";
 
-import { listContentGenerationRuns } from "@mediapulse/hermes-dashboard";
-import { getMediapulseHermesDashboardRuntimeConfig } from "@/lib/mediapulse-hermes-dashboard-config";
+import { loadHermesDashboardExtensions } from "@/lib/load-hermes-dashboard-extensions";
 import { parseApiPageParams } from "@/lib/parse-api-page-params";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
@@ -28,6 +27,14 @@ export const GET = async (request: Request): Promise<NextResponse> => {
     return principal;
   }
 
+  const extensions = await loadHermesDashboardExtensions();
+  if (!extensions) {
+    return NextResponse.json(
+      { error: "Operator diagnostics extensions are not configured" },
+      { status: 404 },
+    );
+  }
+
   const url = new URL(request.url);
   const { page, pageSize } = parseApiPageParams(request);
   const cursor = url.searchParams.get("cursor") ?? undefined;
@@ -46,7 +53,8 @@ export const GET = async (request: Request): Promise<NextResponse> => {
   const endTime = url.searchParams.get("endTime")?.trim() || undefined;
   const outcome = parseOptionalOutcome(url.searchParams.get("outcome"));
 
-  const result = await listContentGenerationRuns(
+  const config = extensions.getRuntimeConfig();
+  const result = await extensions.listContentGenerationRuns(
     {
       cursor,
       limit: pageSize,
@@ -55,7 +63,7 @@ export const GET = async (request: Request): Promise<NextResponse> => {
       startTime,
       endTime,
     },
-    getMediapulseHermesDashboardRuntimeConfig(),
+    config,
   );
 
   return NextResponse.json({
