@@ -8,6 +8,8 @@ import { detailBlockSchema } from "./detail-blocks";
 export const domainIntegrationCapabilitySchema = z.enum([
   "expand-step-inputs",
   "preview-expansion",
+  /** Operator diagnostics pages (e.g. CGA runs, section coverage) scoped under the integration. */
+  "operator-diagnostics",
 ]);
 
 /**
@@ -63,28 +65,64 @@ export const tableV1DefaultSortSchema = z.object({
   sortDir: z.enum(["asc", "desc"]),
 });
 
-/** List filter keys a table-v1 page may expose in the Hermes UI. */
-export const tableV1ListFilterKeySchema = z.enum([
-  "tickerId",
-  "typeId",
-  "createdAt",
-  "intent",
-  "source",
-  "collectionSource",
-  "isActive",
+/** Dropdown option for table-v1 list filters (static in manifest or dynamic via meta). */
+export const tableV1SelectOptionSchema = z.object({
+  value: z.string().min(1),
+  label: z.string().min(1),
+});
+
+/** UI control type for a manifest-declared table-v1 list filter. */
+export const tableV1ListFilterUiSchema = z.enum([
+  "select",
+  "boolean-select",
+  "date-range",
 ]);
 
-/** Ticker dropdown option for list `tickerId` filters (usually from GET meta). */
-export const tableV1TickerOptionSchema = z.object({
-  value: z.string().min(1),
-  label: z.string().min(1),
+/** Query param names for `date-range` filters (defaults to `from` / `to`). */
+export const tableV1ListFilterRangeParamsSchema = z.object({
+  from: z.string().min(1).default("from"),
+  to: z.string().min(1).default("to"),
 });
 
-/** Entity type dropdown option for list `typeId` filters (usually from GET meta). */
-export const tableV1EntityTypeOptionSchema = z.object({
-  value: z.string().min(1),
-  label: z.string().min(1),
-});
+/**
+ * Manifest-declared list filter. Domain integrations own filter keys, labels,
+ * and semantics; Hermes renders controls and forwards query params generically.
+ */
+export const tableV1ListFilterDefinitionSchema = z
+  .object({
+    /** URL query param for `select` / `boolean-select`, or logical id for `date-range`. */
+    key: z.string().min(1),
+    label: z.string().min(1),
+    ui: tableV1ListFilterUiSchema,
+    /** Placeholder for the empty option on `select` filters (e.g. "All tickers"). */
+    placeholderAll: z.string().optional(),
+    /** Inline options when the domain does not load options from meta. */
+    staticOptions: z.array(tableV1SelectOptionSchema).optional(),
+    /** Key into {@link tableV1MetaResponseSchema} `filterOptions` for `select` filters. */
+    optionsMetaKey: z.string().min(1).optional(),
+    /** Query param names for `date-range` filters. */
+    rangeParams: tableV1ListFilterRangeParamsSchema.optional(),
+  })
+  .superRefine((filter, ctx) => {
+    if (
+      filter.ui === "select" &&
+      !filter.staticOptions &&
+      !filter.optionsMetaKey
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "select filters require staticOptions or optionsMetaKey",
+        path: ["optionsMetaKey"],
+      });
+    }
+    if (filter.ui === "date-range" && !filter.rangeParams) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "date-range filters require rangeParams",
+        path: ["rangeParams"],
+      });
+    }
+  });
 
 /**
  * Schema for a custom action registered on a dashboard page. For example, a bulk import action.
@@ -194,8 +232,8 @@ export const dashboardPageSchema = z.object({
   detailBlocks: z.array(detailBlockSchema).optional(),
   /** Default list sort when the client omits sort query params. */
   defaultSort: tableV1DefaultSortSchema.optional(),
-  /** Optional list filters rendered above the table (static per manifest). */
-  listFilters: z.array(tableV1ListFilterKeySchema).optional(),
+  /** Optional list filters rendered above the table (declared per manifest page). */
+  listFilters: z.array(tableV1ListFilterDefinitionSchema).optional(),
 });
 
 /**
@@ -261,28 +299,15 @@ export const tableV1MetaResponseSchema = z.object({
   detailBlocks: z.array(detailBlockSchema).optional(),
   /** Default list sort when the client omits sort query params. */
   defaultSort: tableV1DefaultSortSchema.optional(),
-  /** Optional list filters rendered above the table (static per manifest). */
-  listFilters: z.array(tableV1ListFilterKeySchema).optional(),
+  /** Optional list filters rendered above the table (echoed from manifest). */
+  listFilters: z.array(tableV1ListFilterDefinitionSchema).optional(),
   /**
-   * Ticker dropdown options for `tickerId` list filters (dynamic; newsletters meta merges these).
+   * Dynamic dropdown options keyed by manifest `optionsMetaKey` values
+   * (domain-owned; Hermes does not interpret key names).
    */
-  tickerOptions: z.array(tableV1TickerOptionSchema).optional(),
-  /**
-   * Entity type dropdown options for `typeId` list filters (dynamic; entities meta merges these).
-   */
-  entityTypeOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
-  /**
-   * Intent dropdown options for `intent` list filters (dynamic; search-queries meta merges these).
-   */
-  intentOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
-  /**
-   * Source dropdown options for `source` list filters (dynamic; search-queries meta merges these).
-   */
-  sourceOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
-  /**
-   * Collection source dropdown options for `collectionSource` list filters (dynamic; data-sources meta merges these).
-   */
-  collectionSourceOptions: z.array(tableV1EntityTypeOptionSchema).optional(),
+  filterOptions: z
+    .record(z.string(), z.array(tableV1SelectOptionSchema))
+    .optional(),
 });
 
 /**
@@ -295,6 +320,11 @@ export const registerDomainIntegrationRequestSchema = z.object({
   baseUrl: z.string().url(),
   version: z.string().optional(),
   capabilities: z.array(domainIntegrationCapabilitySchema).default([]),
+  /**
+   * When true, Hermes marks this integration as the default for expansion
+   * and clears `isDefault` on other active integrations.
+   */
+  isDefault: z.boolean().optional(),
   dashboard: dashboardManifestSchema.default({
     templateVersion: 1,
     pages: [],
@@ -390,10 +420,13 @@ export type TableV1ListRequestQuery = z.infer<
 export type TableV1ListResponse = z.infer<typeof tableV1ListResponseSchema>;
 export type TableV1MetaResponse = z.infer<typeof tableV1MetaResponseSchema>;
 export type TableV1DefaultSort = z.infer<typeof tableV1DefaultSortSchema>;
-export type TableV1ListFilterKey = z.infer<typeof tableV1ListFilterKeySchema>;
-export type TableV1TickerOption = z.infer<typeof tableV1TickerOptionSchema>;
-export type TableV1EntityTypeOption = z.infer<
-  typeof tableV1EntityTypeOptionSchema
+export type TableV1SelectOption = z.infer<typeof tableV1SelectOptionSchema>;
+export type TableV1ListFilterUi = z.infer<typeof tableV1ListFilterUiSchema>;
+export type TableV1ListFilterRangeParams = z.infer<
+  typeof tableV1ListFilterRangeParamsSchema
+>;
+export type TableV1ListFilterDefinition = z.infer<
+  typeof tableV1ListFilterDefinitionSchema
 >;
 export type DashboardPageCustomAction = z.infer<
   typeof dashboardPageCustomActionSchema

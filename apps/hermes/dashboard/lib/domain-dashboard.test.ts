@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   callDomainCustomPost,
-  fetchAllTickersForPipelineRun,
+  fetchAllDomainTableIdsForPipelineRun,
   getDomainTableItemById,
   getDomainTableList,
   getDomainTableMeta,
@@ -136,10 +136,12 @@ describe("getDomainTableMeta", () => {
       pageSize: 15,
       sortBy: "createdAt",
       sortDir: "desc",
-      tickerId: "11111111-1111-4111-a111-111111111111",
-      typeId: "22222222-2222-4222-a222-222222222222",
-      from: "2026-05-01",
-      to: "2026-05-31",
+      filters: {
+        tickerId: "11111111-1111-4111-a111-111111111111",
+        typeId: "22222222-2222-4222-a222-222222222222",
+        from: "2026-05-01",
+        to: "2026-05-31",
+      },
     });
 
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
@@ -567,7 +569,7 @@ describe("previewDomainExpansion", () => {
   });
 });
 
-describe("fetchAllTickersForPipelineRun", () => {
+describe("fetchAllDomainTableIdsForPipelineRun", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -580,12 +582,12 @@ describe("fetchAllTickersForPipelineRun", () => {
     vi.unstubAllGlobals();
   });
 
-  it("throws when mediapulse domain integration is not registered", async () => {
+  it("throws when domain integration is not registered", async () => {
     getDomainIntegrationByIntegrationId.mockResolvedValue(null);
 
-    await expect(fetchAllTickersForPipelineRun()).rejects.toThrow(
-      'Domain integration "mediapulse"',
-    );
+    await expect(
+      fetchAllDomainTableIdsForPipelineRun("acme", "tickers"),
+    ).rejects.toThrow('Domain integration "acme"');
   });
 
   const injectedResolve = async () => ({
@@ -605,9 +607,11 @@ describe("fetchAllTickersForPipelineRun", () => {
       }),
     });
 
-    const result = await fetchAllTickersForPipelineRun({
-      resolveUrl: injectedResolve,
-    });
+    const result = await fetchAllDomainTableIdsForPipelineRun(
+      "acme",
+      "tickers",
+      { resolveUrl: injectedResolve },
+    );
 
     expect(result).toEqual([{ id: "a1" }, { id: "a2" }]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -641,9 +645,11 @@ describe("fetchAllTickersForPipelineRun", () => {
       };
     });
 
-    const result = await fetchAllTickersForPipelineRun({
-      resolveUrl: injectedResolve,
-    });
+    const result = await fetchAllDomainTableIdsForPipelineRun(
+      "acme",
+      "tickers",
+      { resolveUrl: injectedResolve },
+    );
 
     expect(result).toHaveLength(150);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -660,9 +666,11 @@ describe("fetchAllTickersForPipelineRun", () => {
       }),
     });
 
-    const result = await fetchAllTickersForPipelineRun({
-      resolveUrl: injectedResolve,
-    });
+    const result = await fetchAllDomainTableIdsForPipelineRun(
+      "acme",
+      "tickers",
+      { resolveUrl: injectedResolve },
+    );
 
     expect(result).toEqual([{ id: "bad" }]);
   });
@@ -678,9 +686,11 @@ describe("fetchAllTickersForPipelineRun", () => {
       }),
     });
 
-    const result = await fetchAllTickersForPipelineRun({
-      resolveUrl: injectedResolve,
-    });
+    const result = await fetchAllDomainTableIdsForPipelineRun(
+      "acme",
+      "tickers",
+      { resolveUrl: injectedResolve },
+    );
 
     expect(result).toEqual([]);
   });

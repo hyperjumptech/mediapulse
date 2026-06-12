@@ -94,27 +94,36 @@ export const DashboardShell = ({
   children,
   user,
   domainIntegrations = [],
-  showCgaDiagnostics = false,
 }: {
   children: React.ReactNode;
   user?: DashboardUser | null;
   domainIntegrations?: DomainIntegrationNav[];
-  /** Whether to show the CGA diagnostics nav link in the sidebar. */
-  showCgaDiagnostics?: boolean;
 }) => {
   const pathname = usePathname();
   const segments = pathname?.split("/").filter(Boolean) ?? [];
   const first = segments[1];
   const second = segments[2];
+  const domainResourcePath = segments.slice(2).join("/");
 
   const domainIntegration =
     first && domainIntegrations.find((i) => i.integrationId === first);
   const isDomainKeyedRoute = Boolean(domainIntegration && second);
 
   const domainPageLabel =
-    domainIntegration && second
-      ? domainIntegration.pages.find((p) => p.pathSegment === second)?.label
+    domainIntegration && domainResourcePath
+      ? domainIntegration.pages.find(
+          (p) =>
+            p.pathSegment === domainResourcePath || p.pathSegment === second,
+        )?.label
       : undefined;
+
+  const integrationDiagnosticsRunDetailLabel =
+    domainIntegration &&
+    domainResourcePath.startsWith("diagnostics/content-generation-runs/")
+      ? getAgentsContentGenerationRunsSubLabel(
+          domainResourcePath.split("/").at(-1),
+        )
+      : null;
 
   const pipelinesSubLabel =
     first === "pipelines" ? getPipelinesSubLabel(second) : null;
@@ -141,7 +150,10 @@ export const DashboardShell = ({
     first && !isDomainKeyedRoute ? SEGMENT_LABELS[first] : undefined;
 
   const currentLabel = isDomainKeyedRoute
-    ? (domainPageLabel ?? second ?? "Dashboard")
+    ? (integrationDiagnosticsRunDetailLabel ??
+      domainPageLabel ??
+      second ??
+      "Dashboard")
     : (pipelinesSubLabel ??
       contentGenerationRunsSubLabel ??
       cgaDiagnosticsLabel ??
@@ -163,7 +175,6 @@ export const DashboardShell = ({
       <AppSidebar
         user={user ?? null}
         domainIntegrations={domainIntegrations}
-        showCgaDiagnostics={showCgaDiagnostics}
         variant="inset"
       />
       <SidebarInset>

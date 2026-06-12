@@ -50,23 +50,22 @@ describe("dataSourcesRoutes", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       title?: string;
-      listFilters?: string[];
-      tickerOptions?: Array<{ value: string; label: string }>;
-      collectionSourceOptions?: Array<{ value: string; label: string }>;
+      listFilters?: Array<{ key: string; ui: string }>;
+      filterOptions?: Record<string, Array<{ value: string; label: string }>>;
     };
     expect(body.title).toBe("Data Sources");
-    expect(body.listFilters).toEqual([
+    expect(body.listFilters?.map((filter) => filter.key)).toEqual([
       "tickerId",
       "collectionSource",
       "createdAt",
     ]);
-    expect(body.tickerOptions).toEqual([
+    expect(body.filterOptions?.tickerOptions).toEqual([
       {
         value: "11111111-1111-4111-a111-111111111111",
         label: "AAPL — Apple",
       },
     ]);
-    expect(body.collectionSourceOptions).toEqual([
+    expect(body.filterOptions?.collectionSourceOptions).toEqual([
       { value: "page-collection", label: "Page Collection" },
       { value: "data-collection", label: "Data Collection" },
     ]);

@@ -5,6 +5,13 @@
 import type { DashboardPageInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
+  createdAtDateRangeListFilter,
+  intentSelectListFilter,
+  isActiveBooleanSelectListFilter,
+  sourceSelectListFilter,
+  tickerIdSelectListFilter,
+} from "../../hermes-dashboard/templates/table-v1/list-filter-definitions";
+import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
@@ -55,7 +62,13 @@ export const searchQueriesDashboardPage = {
     "rank",
     "activeSet",
   ]),
-  listFilters: ["tickerId", "isActive", "intent", "source", "createdAt"],
+  listFilters: [
+    tickerIdSelectListFilter,
+    isActiveBooleanSelectListFilter,
+    intentSelectListFilter,
+    sourceSelectListFilter,
+    createdAtDateRangeListFilter,
+  ],
   actions: { create: false, update: false, delete: true, view: false },
   customActions: searchQueriesCustomActionsForManifest,
 } satisfies DashboardPageInput;

@@ -1,5 +1,4 @@
 import type { DashboardPage } from "@hermes/domain-contract";
-import { env } from "@hermes/env";
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -43,11 +42,7 @@ export default async function DashboardLayout({
     domainIntegrations = [];
   }
   return (
-    <DashboardShell
-      user={user}
-      domainIntegrations={domainIntegrations}
-      showCgaDiagnostics={env.HERMES_CGA_DIAGNOSTICS_ENABLED === "true"}
-    >
+    <DashboardShell user={user} domainIntegrations={domainIntegrations}>
       {children}
     </DashboardShell>
   );

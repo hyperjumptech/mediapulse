@@ -1,0 +1,41 @@
+{
+  "name": "@mediapulse/hermes-dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "type:check": "tsc --noEmit",
+    "test": "vitest --run",
+    "test:coverage": "vitest --run --coverage"
+  },
+  "dependencies": {
+    "@hermes/domain-contract": "workspace:*",
+    "@mediapulse/env": "workspace:*",
+    "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-data-api-contract": "workspace:*",
+    "@workspace/agent-data-api-client": "workspace:*",
+    "@workspace/ui": "workspace:*",
+    "date-fns": "^4.1.0",
+    "lucide-react": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
+    "recharts": "^2.15.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

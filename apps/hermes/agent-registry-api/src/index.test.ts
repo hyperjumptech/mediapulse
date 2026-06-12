@@ -30,8 +30,6 @@ vi.mock("@hermes/env", () => ({
     AGENT_AUTH_API_URL: "https://auth.example.com",
     ORCHESTRATION_DATABASE_URL:
       "postgresql://user:pass@localhost:5432/db?schema=orchestration",
-    MEDIAPULSE_DATABASE_URL:
-      "postgresql://user:pass@localhost:5432/db?schema=mediapulse",
     TEMP_ADMIN_USERNAME: "admin",
     TEMP_ADMIN_PASSWORD: "password",
   },

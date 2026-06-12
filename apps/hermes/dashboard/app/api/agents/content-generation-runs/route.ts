@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type { ContentGenerationRunOutcome } from "@workspace/agent-data-api-contract";
 
-import { listContentGenerationRuns } from "@/lib/content-generation-runs-api";
+import { listContentGenerationRuns } from "@mediapulse/hermes-dashboard";
+import { getMediapulseHermesDashboardRuntimeConfig } from "@/lib/mediapulse-hermes-dashboard-config";
 import { parseApiPageParams } from "@/lib/parse-api-page-params";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
@@ -45,14 +46,17 @@ export const GET = async (request: Request): Promise<NextResponse> => {
   const endTime = url.searchParams.get("endTime")?.trim() || undefined;
   const outcome = parseOptionalOutcome(url.searchParams.get("outcome"));
 
-  const result = await listContentGenerationRuns({
-    cursor,
-    limit: pageSize,
-    outcome,
-    tickerId,
-    startTime,
-    endTime,
-  });
+  const result = await listContentGenerationRuns(
+    {
+      cursor,
+      limit: pageSize,
+      outcome,
+      tickerId,
+      startTime,
+      endTime,
+    },
+    getMediapulseHermesDashboardRuntimeConfig(),
+  );
 
   return NextResponse.json({
     items: result.items,

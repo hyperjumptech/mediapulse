@@ -90,7 +90,7 @@ export const registerDomainIntegration = async (
     JSON.stringify(dashboard),
   ) as Prisma.InputJsonValue;
 
-  if (payload.integrationId === "mediapulse") {
+  if (payload.isDefault === true) {
     await prisma.domainIntegration.updateMany({
       where: { integrationId: { not: payload.integrationId } },
       data: { isDefault: false },
@@ -106,7 +106,7 @@ export const registerDomainIntegration = async (
       version: payload.version,
       capabilities,
       dashboardManifest,
-      isDefault: payload.integrationId === "mediapulse",
+      isDefault: payload.isDefault === true,
       isActive: true,
       status: DomainIntegrationStatus.active,
       lastSeenAt: new Date(),
@@ -120,7 +120,7 @@ export const registerDomainIntegration = async (
       isActive: true,
       status: DomainIntegrationStatus.active,
       lastSeenAt: new Date(),
-      ...(payload.integrationId === "mediapulse" ? { isDefault: true } : {}),
+      ...(payload.isDefault === true ? { isDefault: true } : {}),
     },
   });
 
@@ -344,12 +344,14 @@ export const getDomainIntegrationByIntegrationId = async (
 };
 
 export type CreatePendingDomainIntegrationInput = {
-  /** Unique integration id (e.g. `mediapulse`). */
+  /** Unique integration id (URL segment for `/dashboard/{integrationId}/…`). */
   integrationId: string;
   /** Human-readable name. */
   name: string;
   /** Orchestration user id recorded on `domain_integration.created_by_id`. */
   userId: string;
+  /** When true, marks this integration as the default for expansion and templates. */
+  isDefault?: boolean;
 };
 
 export type CreatePendingDomainIntegrationResult = {
@@ -386,7 +388,7 @@ export const createPendingDomainIntegration = async (
         status: DomainIntegrationStatus.pending,
         isActive: false,
         createdById: input.userId,
-        ...(input.integrationId === "mediapulse" ? { isDefault: true } : {}),
+        ...(input.isDefault === true ? { isDefault: true } : {}),
         encryptedPayload: {
           create: {
             ciphertext: encrypted,

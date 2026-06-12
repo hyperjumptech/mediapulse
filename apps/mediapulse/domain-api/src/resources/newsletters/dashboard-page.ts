@@ -1,6 +1,10 @@
 import type { DashboardPageInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
+  createdAtDateRangeListFilter,
+  tickerIdSelectListFilter,
+} from "../../hermes-dashboard/templates/table-v1/list-filter-definitions";
+import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
@@ -307,7 +311,7 @@ export const newslettersDashboardPage = {
   searchableFields: rowFieldKeysFor<ListItem>()(["subject"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["createdAt", "subject"]),
   defaultSort: { sortBy: "createdAt", sortDir: "desc" },
-  listFilters: ["tickerId", "createdAt"],
+  listFilters: [tickerIdSelectListFilter, createdAtDateRangeListFilter],
   actions: { create: false, update: false, delete: false, view: true },
   detailBlocks: [
     newslettersMetadataBlock,

@@ -2,10 +2,12 @@
  * Merges Hermes-local dashboard pages into a domain integration's manifest-derived nav.
  */
 
+import { buildOperatorDiagnosticsNavPages } from "@mediapulse/hermes-dashboard";
 import type { DashboardPage } from "@hermes/domain-contract";
 
 import type { DomainIntegrationRecord } from "./domain-integrations";
 import { integrationSupportsHermesDataSourceExpansionTemplates } from "./data-source-expansion-template-capabilities";
+import { integrationSupportsOperatorDiagnostics } from "./operator-diagnostics-capabilities";
 import {
   buildSyntheticDataSourceExpansionsDashboardPage,
   DATA_SOURCE_EXPANSIONS_PATH_SEGMENT,
@@ -26,13 +28,15 @@ export const mergeDomainIntegrationNavPages = (
     (p) => p.pathSegment === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT,
   );
   if (
-    hasDataSourceExpansions ||
-    !integrationSupportsHermesDataSourceExpansionTemplates(
+    !hasDataSourceExpansions &&
+    integrationSupportsHermesDataSourceExpansionTemplates(
       integration.capabilities,
     )
   ) {
-    return pages;
+    pages.push(buildSyntheticDataSourceExpansionsDashboardPage());
   }
-  const synthetic = buildSyntheticDataSourceExpansionsDashboardPage();
-  return [...pages, synthetic].sort((a, b) => a.order - b.order);
+  if (integrationSupportsOperatorDiagnostics(integration.capabilities)) {
+    pages.push(...buildOperatorDiagnosticsNavPages());
+  }
+  return pages.sort((a, b) => a.order - b.order);
 };

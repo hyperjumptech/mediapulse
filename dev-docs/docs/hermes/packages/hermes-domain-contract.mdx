@@ -28,3 +28,18 @@ Registration includes a `dashboard` object with `pages` for the generic table te
 - **Custom actions** — Optional `customActions[]` entries describe extra operations the domain service implements (for example bulk JSON import). Each entry has `id`, `label`, `ui` (e.g. `json-file-upload`), `method`, `path` (suffix after the page `apiPrefix`), and optional `accept` for file inputs.
 
 Hermes loads `GET {apiPrefix}/meta` and renders `customActions` when present. Submitting a custom action POSTs JSON to `{baseUrl}{apiPrefix}{path}` with the integration bearer token.
+
+### List filters (`table-v1`)
+
+Each page may declare `listFilters: TableV1ListFilterDefinition[]`. Definitions are **domain-owned**: Hermes renders filters generically from the manifest and forwards query params without hardcoding field names.
+
+| Field            | Purpose                                                              |
+| ---------------- | -------------------------------------------------------------------- |
+| `key`            | URL query param name                                                 |
+| `label`          | Operator-facing label                                                |
+| `ui`             | `select`, `boolean-select`, or `date-range`                          |
+| `staticOptions`  | Inline select options (optional)                                     |
+| `optionsMetaKey` | Key into meta `filterOptions` for dynamic options                    |
+| `rangeParams`    | For `date-range`: `{ from, to }` param names (default `from` / `to`) |
+
+Meta responses expose `filterOptions: Record<string, { value, label }[]>` instead of per-domain option fields. Domains that register `operator-diagnostics` may add synthetic nav pages via `@mediapulse/hermes-dashboard`; registration may pass `isDefault: true` when an integration should be the default expansion target.

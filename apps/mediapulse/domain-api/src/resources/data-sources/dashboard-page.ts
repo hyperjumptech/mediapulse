@@ -5,6 +5,11 @@
 import type { DashboardPageInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
+  collectionSourceSelectListFilter,
+  createdAtDateRangeListFilter,
+  tickerIdSelectListFilter,
+} from "../../hermes-dashboard/templates/table-v1/list-filter-definitions";
+import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
@@ -49,7 +54,11 @@ export const dataSourcesDashboardPage = {
     "tickerSymbol",
     "searchQueryText",
   ]),
-  listFilters: ["tickerId", "collectionSource", "createdAt"],
+  listFilters: [
+    tickerIdSelectListFilter,
+    collectionSourceSelectListFilter,
+    createdAtDateRangeListFilter,
+  ],
   actions: { create: false, update: false, delete: false, view: true },
   customActions: dataSourcesCustomActionsForManifest,
 } satisfies DashboardPageInput;

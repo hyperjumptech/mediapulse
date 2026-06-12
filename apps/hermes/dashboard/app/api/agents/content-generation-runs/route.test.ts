@@ -6,12 +6,22 @@ vi.mock("@/lib/require-dashboard-principal-response", () => ({
   resolveDashboardPrincipalOrUnauthorized: vi.fn(),
 }));
 
-vi.mock("@/lib/content-generation-runs-api", () => ({
+const runtimeConfig = {
+  agentDataApiUrl: "http://test-agent-data-api",
+  internalApiKey: "test-key",
+  cgaDiagnosticsEnabled: true,
+};
+
+vi.mock("@/lib/mediapulse-hermes-dashboard-config", () => ({
+  getMediapulseHermesDashboardRuntimeConfig: () => runtimeConfig,
+}));
+
+vi.mock("@mediapulse/hermes-dashboard", () => ({
   listContentGenerationRuns: vi.fn(),
 }));
 
 import { GET } from "./route";
-import { listContentGenerationRuns } from "@/lib/content-generation-runs-api";
+import { listContentGenerationRuns } from "@mediapulse/hermes-dashboard";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 const run = {
@@ -86,14 +96,17 @@ describe("GET /api/agents/content-generation-runs", () => {
         { headers: { Authorization: "Bearer hmcp_ok" } },
       ),
     );
-    expect(listContentGenerationRuns).toHaveBeenCalledWith({
-      cursor: undefined,
-      limit: 10,
-      outcome: undefined,
-      tickerId: undefined,
-      startTime: undefined,
-      endTime: undefined,
-    });
+    expect(listContentGenerationRuns).toHaveBeenCalledWith(
+      {
+        cursor: undefined,
+        limit: 10,
+        outcome: undefined,
+        tickerId: undefined,
+        startTime: undefined,
+        endTime: undefined,
+      },
+      runtimeConfig,
+    );
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({
       items: [run],

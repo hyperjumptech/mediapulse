@@ -25,9 +25,6 @@ import {
 /** Page size for pipeline ticker fetch; must not exceed domain-api `MAX_PAGE_SIZE` (100). */
 const PIPELINE_TICKER_PAGE_SIZE = 100;
 
-/** Dashboard path segment for the mediapulse tickers table-v1 resource. */
-const TICKERS_RESOURCE = "tickers";
-
 /** Result state for JSON file custom actions (e.g. IDX import) returned from server actions. */
 export type DomainTableJsonImportState =
   | { status: "idle" }
@@ -46,14 +43,8 @@ export type DomainTableListParams = {
   query?: string;
   sortBy?: string;
   sortDir?: "asc" | "desc";
-  tickerId?: string;
-  typeId?: string;
-  from?: string;
-  to?: string;
-  intent?: string;
-  source?: string;
-  collectionSource?: string;
-  isActive?: string;
+  /** Filter query params forwarded generically to the domain list API. */
+  filters?: Record<string, string>;
 };
 
 /**
@@ -398,16 +389,9 @@ export const getDomainTableList = async (
   if (params.query) search.set("q", params.query);
   if (params.sortBy) search.set("sortBy", params.sortBy);
   if (params.sortDir) search.set("sortDir", params.sortDir);
-  if (params.tickerId) search.set("tickerId", params.tickerId);
-  if (params.typeId) search.set("typeId", params.typeId);
-  if (params.from) search.set("from", params.from);
-  if (params.to) search.set("to", params.to);
-  if (params.intent) search.set("intent", params.intent);
-  if (params.source) search.set("source", params.source);
-  if (params.collectionSource) {
-    search.set("collectionSource", params.collectionSource);
+  for (const [key, value] of Object.entries(params.filters ?? {})) {
+    if (value) search.set(key, value);
   }
-  if (params.isActive) search.set("isActive", params.isActive);
 
   return callDomain(
     `${baseUrl}${page.apiPrefix}?${search.toString()}`,
@@ -418,39 +402,50 @@ export const getDomainTableList = async (
 };
 
 /**
- * Resolves base URL and API prefix for the mediapulse tickers table-v1 list endpoint from the registered integration manifest.
+ * Resolves base URL and API prefix for a domain table-v1 list endpoint.
  *
+ * @param integrationId - Registered domain integration id.
+ * @param resource - Manifest `pathSegment` for the list resource.
  * @returns Base URL without trailing slash and path prefix for GET list requests.
  */
-const resolveMediapulseTickersListUrl = async (): Promise<{
+export const resolveDomainTableListUrl = async (
+  integrationId: string,
+  resource: string,
+): Promise<{
   baseUrl: string;
   apiPrefix: string;
   domainIntegrationId: string;
 }> => {
   const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
-    "mediapulse",
-    TICKERS_RESOURCE,
+    integrationId,
+    resource,
   );
   return { baseUrl, apiPrefix: page.apiPrefix, domainIntegrationId };
 };
 
-export type FetchAllTickersForPipelineRunDependencies = {
-  /** Resolves HTTP base URL and path for tickers list (inject in tests). */
-  resolveUrl?: typeof resolveMediapulseTickersListUrl;
+export type FetchAllDomainTableIdsForPipelineRunDependencies = {
+  /** Resolves HTTP base URL and path for a table-v1 list (inject in tests). */
+  resolveUrl?: typeof resolveDomainTableListUrl;
 };
 
 /**
- * Loads every ticker id from the domain integration via the table-v1 HTTP API (paginated).
- * Used by Hermes pipeline run so the dashboard does not depend on `@mediapulse/database`.
+ * Loads every row id from a domain table-v1 list via HTTP (paginated).
  *
+ * @param integrationId - Registered domain integration id.
+ * @param resource - Manifest `pathSegment` for the list resource.
  * @param dependencies - Optional `resolveUrl` override for tests.
- * @returns Ticker rows with string ids suitable for agent `tickerId` payloads.
+ * @returns Rows with string ids from the domain list API.
  */
-export const fetchAllTickersForPipelineRun = async (
-  dependencies: FetchAllTickersForPipelineRunDependencies = {},
+export const fetchAllDomainTableIdsForPipelineRun = async (
+  integrationId: string,
+  resource: string,
+  dependencies: FetchAllDomainTableIdsForPipelineRunDependencies = {},
 ): Promise<Array<{ id: string }>> => {
-  const resolveUrl = dependencies.resolveUrl ?? resolveMediapulseTickersListUrl;
-  const { baseUrl, apiPrefix, domainIntegrationId } = await resolveUrl();
+  const resolveUrl = dependencies.resolveUrl ?? resolveDomainTableListUrl;
+  const { baseUrl, apiPrefix, domainIntegrationId } = await resolveUrl(
+    integrationId,
+    resource,
+  );
   const all: Array<{ id: string }> = [];
   let page = 1;
 

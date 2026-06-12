@@ -65,4 +65,22 @@ describe("mergeDomainIntegrationNavPages", () => {
       false,
     );
   });
+
+  it("appends operator diagnostics pages when capability is registered", () => {
+    const integration = baseIntegration();
+    integration.capabilities = [
+      "expand-step-inputs",
+      "preview-expansion",
+      "operator-diagnostics",
+    ];
+    const merged = mergeDomainIntegrationNavPages(integration);
+    expect(
+      merged.some(
+        (p) => p.pathSegment === "diagnostics/content-generation-runs",
+      ),
+    ).toBe(true);
+    expect(
+      merged.some((p) => p.pathSegment === "diagnostics/section-coverage"),
+    ).toBe(true);
+  });
 });

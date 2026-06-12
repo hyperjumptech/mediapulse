@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getContentGenerationRunById } from "@/lib/content-generation-runs-api";
+import { getContentGenerationRunById } from "@mediapulse/hermes-dashboard";
+import { getMediapulseHermesDashboardRuntimeConfig } from "@/lib/mediapulse-hermes-dashboard-config";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 /**
@@ -18,7 +19,10 @@ export const GET = async (
   }
 
   const { id } = await context.params;
-  const run = await getContentGenerationRunById(id);
+  const run = await getContentGenerationRunById(
+    id,
+    getMediapulseHermesDashboardRuntimeConfig(),
+  );
   if (!run) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

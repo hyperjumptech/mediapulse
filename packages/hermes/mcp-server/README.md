@@ -66,29 +66,29 @@ Use Cursor secret substitution or your OS env for `HERMES_PROD_API_KEY`; do not 
 
 ## Tools → HTTP
 
-| MCP tool                              | HTTP | Path                                                      |
-| ------------------------------------- | ---- | --------------------------------------------------------- |
-| `hermes_ping`                         | GET  | `/api/mcp/whoami`                                         |
-| `hermes_get_agent_schemas`            | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`            |
-| `hermes_get_pipeline_schemas`         | GET  | `/api/pipelines/{pipelineId}/schemas`                     |
-| `hermes_get_schedule_execution`       | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`    |
-| `hermes_get_http_trigger_execution`   | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}` |
-| `hermes_get_pipeline_execution`       | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`    |
-| `hermes_get_variable`                 | POST | `/dashboard/variables/actions/get`                        |
-| `hermes_get_agent_config`             | POST | `/dashboard/agent-configs/actions/get`                    |
-| `hermes_list_agents`                  | GET  | `/api/agents`                                             |
-| `hermes_list_schedules`               | GET  | `/api/schedules`                                          |
-| `hermes_list_pipelines`               | GET  | `/api/pipelines`                                          |
-| `hermes_list_http_triggers`           | GET  | `/api/http-triggers`                                      |
-| `hermes_list_variables`               | GET  | `/api/variables`                                          |
-| `hermes_list_agent_configs`           | GET  | `/api/agent-configs`                                      |
-| `hermes_list_domain_integrations`     | GET  | `/api/domain-integrations`                                |
-| `hermes_list_content_generation_runs` | GET  | `/api/agents/content-generation-runs`                     |
-| `hermes_get_content_generation_run`   | GET  | `/api/agents/content-generation-runs/{id}`                |
-| `hermes_list_profiles`                | —    | Lists configured profile names (no HTTP)                  |
-| `hermes_set_active_profile`           | —    | Switches active profile in-process                        |
+| MCP tool                            | HTTP | Path                                                      |
+| ----------------------------------- | ---- | --------------------------------------------------------- |
+| `hermes_ping`                       | GET  | `/api/mcp/whoami`                                         |
+| `hermes_get_agent_schemas`          | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`            |
+| `hermes_get_pipeline_schemas`       | GET  | `/api/pipelines/{pipelineId}/schemas`                     |
+| `hermes_get_schedule_execution`     | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`    |
+| `hermes_get_http_trigger_execution` | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}` |
+| `hermes_get_pipeline_execution`     | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`    |
+| `hermes_get_variable`               | POST | `/dashboard/variables/actions/get`                        |
+| `hermes_get_agent_config`           | POST | `/dashboard/agent-configs/actions/get`                    |
+| `hermes_list_agents`                | GET  | `/api/agents`                                             |
+| `hermes_list_schedules`             | GET  | `/api/schedules`                                          |
+| `hermes_list_pipelines`             | GET  | `/api/pipelines`                                          |
+| `hermes_list_http_triggers`         | GET  | `/api/http-triggers`                                      |
+| `hermes_list_variables`             | GET  | `/api/variables`                                          |
+| `hermes_list_agent_configs`         | GET  | `/api/agent-configs`                                      |
+| `hermes_list_domain_integrations`   | GET  | `/api/domain-integrations`                                |
+| `hermes_list_profiles`              | —    | Lists configured profile names (no HTTP)                  |
+| `hermes_set_active_profile`         | —    | Switches active profile in-process                        |
 
-List tools accept optional `limit` and `cursor` query parameters. `hermes_list_content_generation_runs` also accepts `outcome` and `tickerId`.
+List tools accept optional `limit` and `cursor` query parameters.
+
+Mediapulse operator diagnostics tools (`mediapulse_list_content_generation_runs`, `mediapulse_get_content_generation_run`) live in `@mediapulse/hermes-dashboard` (`MEDIAPULSE_CGA_READ_TOOL_SPECS`). Pass them as `additionalReadToolSpecs` to `registerHermesTools` when composing a combined MCP server.
 
 Wrong or revoked API keys return Hermes error JSON in the tool result (`isError: true`).
 

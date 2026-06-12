@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getAgentById } from "@/lib/agents";
-import { getAgentInsights } from "@/lib/agent-insights-api";
+import { getAgentInsights } from "@mediapulse/hermes-dashboard";
+import { getMediapulseHermesDashboardRuntimeConfig } from "@/lib/mediapulse-hermes-dashboard-config";
 
 import { AgentDetailsContent } from "./agent-details-content";
 
@@ -32,10 +33,13 @@ const AgentDetailPage = async ({
       ? windowParam
       : "7d";
 
-  const result = await getAgentInsights({
-    agentId: agent.agentId,
-    window: insightsWindow,
-  });
+  const result = await getAgentInsights(
+    {
+      agentId: agent.agentId,
+      window: insightsWindow,
+    },
+    getMediapulseHermesDashboardRuntimeConfig(),
+  );
   const insightsPayload = result.hasInsights ? result.payload : null;
 
   return (

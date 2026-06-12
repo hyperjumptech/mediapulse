@@ -6,12 +6,22 @@ vi.mock("@/lib/require-dashboard-principal-response", () => ({
   resolveDashboardPrincipalOrUnauthorized: vi.fn(),
 }));
 
-vi.mock("@/lib/content-generation-runs-api", () => ({
+const runtimeConfig = {
+  agentDataApiUrl: "http://test-agent-data-api",
+  internalApiKey: "test-key",
+  cgaDiagnosticsEnabled: true,
+};
+
+vi.mock("@/lib/mediapulse-hermes-dashboard-config", () => ({
+  getMediapulseHermesDashboardRuntimeConfig: () => runtimeConfig,
+}));
+
+vi.mock("@mediapulse/hermes-dashboard", () => ({
   getContentGenerationRunById: vi.fn(),
 }));
 
 import { GET } from "./route";
-import { getContentGenerationRunById } from "@/lib/content-generation-runs-api";
+import { getContentGenerationRunById } from "@mediapulse/hermes-dashboard";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 const run = {
@@ -83,7 +93,10 @@ describe("GET /api/agents/content-generation-runs/[id]", () => {
       ),
       { params: Promise.resolve({ id: run.id }) },
     );
-    expect(getContentGenerationRunById).toHaveBeenCalledWith(run.id);
+    expect(getContentGenerationRunById).toHaveBeenCalledWith(
+      run.id,
+      runtimeConfig,
+    );
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ item: run });
   });

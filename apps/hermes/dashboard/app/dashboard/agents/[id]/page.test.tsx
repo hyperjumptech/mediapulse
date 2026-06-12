@@ -33,7 +33,17 @@ vi.mock("@/lib/agents", () => ({
   getAgentById: (...args: unknown[]) => getAgentByIdMock(...args),
 }));
 
-vi.mock("@/lib/agent-insights-api", () => ({
+const runtimeConfig = {
+  agentDataApiUrl: "http://test-agent-data-api",
+  internalApiKey: "test-key",
+  cgaDiagnosticsEnabled: true,
+};
+
+vi.mock("@/lib/mediapulse-hermes-dashboard-config", () => ({
+  getMediapulseHermesDashboardRuntimeConfig: () => runtimeConfig,
+}));
+
+vi.mock("@mediapulse/hermes-dashboard", () => ({
   getAgentInsights: (...args: unknown[]) => getAgentInsightsMock(...args),
 }));
 

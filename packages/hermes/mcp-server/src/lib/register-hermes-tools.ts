@@ -14,30 +14,31 @@ import {
   extractListSearchParams,
   HERMES_READ_TOOL_SPECS,
   resolvePathTemplate,
+  type HermesReadToolSpec,
 } from "./tool-catalog.js";
 
 export type RegisterHermesToolsDependencies = {
   server: McpServer;
   httpClient: HermesHttpClient;
+  additionalReadToolSpecs?: HermesReadToolSpec[];
   getActiveProfile?: typeof getActiveProfile;
   listProfileSummary?: typeof listProfileSummary;
   setActiveProfileOverride?: typeof setActiveProfileOverride;
 };
 
 /**
- * Registers Hermes read tools and profile management tools on an MCP server.
+ * Registers read-only HTTP-backed tools on an MCP server.
  *
- * @param dependencies - MCP server instance, HTTP client, and optional profile helpers.
+ * @param server - MCP server instance.
+ * @param httpClient - Hermes dashboard HTTP client.
+ * @param specs - Tool specifications to register.
  */
-export const registerHermesTools = ({
-  server,
-  httpClient,
-  getActiveProfile: getActiveProfileFn = getActiveProfile,
-  listProfileSummary: listProfileSummaryFn = listProfileSummary,
-  setActiveProfileOverride:
-    setActiveProfileOverrideFn = setActiveProfileOverride,
-}: RegisterHermesToolsDependencies): void => {
-  for (const spec of HERMES_READ_TOOL_SPECS) {
+export const registerHermesReadToolSpecs = (
+  server: McpServer,
+  httpClient: HermesHttpClient,
+  specs: HermesReadToolSpec[],
+): void => {
+  for (const spec of specs) {
     server.registerTool(
       spec.name,
       {
@@ -67,6 +68,26 @@ export const registerHermesTools = ({
       },
     );
   }
+};
+
+/**
+ * Registers Hermes read tools and profile management tools on an MCP server.
+ *
+ * @param dependencies - MCP server instance, HTTP client, and optional profile helpers.
+ */
+export const registerHermesTools = ({
+  server,
+  httpClient,
+  additionalReadToolSpecs = [],
+  getActiveProfile: getActiveProfileFn = getActiveProfile,
+  listProfileSummary: listProfileSummaryFn = listProfileSummary,
+  setActiveProfileOverride:
+    setActiveProfileOverrideFn = setActiveProfileOverride,
+}: RegisterHermesToolsDependencies): void => {
+  registerHermesReadToolSpecs(server, httpClient, [
+    ...HERMES_READ_TOOL_SPECS,
+    ...additionalReadToolSpecs,
+  ]);
 
   server.registerTool(
     "hermes_list_profiles",

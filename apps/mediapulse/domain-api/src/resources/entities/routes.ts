@@ -119,14 +119,16 @@ entitiesRoutes.get("/meta", async (c) => {
 
   return c.json({
     ...base,
-    tickerOptions: tickerOptions.map((ticker) => ({
-      value: ticker.id,
-      label: `${ticker.symbol} — ${ticker.name}`,
-    })),
-    entityTypeOptions: entityTypeOptions.map((entityType) => ({
-      value: entityType.id,
-      label: entityType.name,
-    })),
+    filterOptions: {
+      tickerOptions: tickerOptions.map((ticker) => ({
+        value: ticker.id,
+        label: `${ticker.symbol} — ${ticker.name}`,
+      })),
+      entityTypeOptions: entityTypeOptions.map((entityType) => ({
+        value: entityType.id,
+        label: entityType.name,
+      })),
+    },
   });
 });
 

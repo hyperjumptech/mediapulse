@@ -16,6 +16,8 @@ export const env = createEnv({
     REQUIRE_HTTPS_AGENT_ENDPOINTS: z.string().optional(),
     PROCESSOR_BATCH_SIZE: z.string().optional(),
     PROCESSOR_CONCURRENCY: z.string().optional(),
+    HERMES_CONTROL_PLANE_CONCURRENCY: z.string().optional(),
+    HERMES_CONTROL_PLANE_BATCH_SIZE: z.string().optional(),
     HERMES_INVOKE_AGENT_MAX_ATTEMPTS: z.string().optional(),
     HERMES_INVOKE_AGENT_DLQ_JOB_TYPE: z.string().optional(),
     HERMES_INVOKE_AGENT_RETRY_DELAY: z.string().optional(),
@@ -23,8 +25,6 @@ export const env = createEnv({
     HERMES_INVOKE_AGENT_RETRY_DELAY_MAX: z.string().optional(),
     HERMES_INVOKE_AGENT_JOB_TIMEOUT_MS: z.string().optional(),
     HERMES_INVOKE_AGENT_CANCEL_POLL_MS: z.string().optional(),
-    HERMES_CONTROL_PLANE_CONCURRENCY: z.string().optional(),
-    HERMES_CONTROL_PLANE_BATCH_SIZE: z.string().optional(),
     HERMES_SCHEDULE_RECOVERY_GRACE_MS: z.number({ coerce: true }).optional(),
   },
   client: {

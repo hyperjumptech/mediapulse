@@ -1,0 +1,26 @@
+---
+description: Hermes must not encode product-domain vocabulary; use manifest-driven domain contracts
+globs: packages/hermes/**/*.{ts,tsx},apps/hermes/**/*
+alwaysApply: false
+---
+
+# Hermes / domain separation
+
+Hermes orchestrates pipelines, schedules, and domain integrations. **Product domains** (e.g. Mediapulse) own business models, filters, and operator diagnostics.
+
+## Do
+
+- Declare table-v1 **list filters** in the domain integration manifest (`TableV1ListFilterDefinition[]`) and return dynamic options via meta `filterOptions`.
+- Keep domain-specific HTTP semantics in **domain-api** (or `@mediapulse/hermes-integration`).
+- Register optional operator UI via domain capabilities (e.g. `operator-diagnostics`) and `@mediapulse/hermes-dashboard`.
+- Pass `isDefault: true` on domain registration when an integration should be the default expansion target.
+
+## Do not
+
+- Add closed enums or hardcoded UI branches in `@hermes/domain-contract` or Hermes dashboard for domain field names (`tickerId`, `collectionSource`, etc.).
+- Hardcode integration slugs (e.g. `mediapulse`) in Hermes production code.
+- Put agent-data-api / CGA / section-coverage logic in `packages/hermes` or `apps/hermes/dashboard/lib`.
+
+## Review checklist
+
+Before merging Hermes changes: does the diff add domain vocabulary to Hermes? If yes, move it to the domain manifest or `@mediapulse/*` package.

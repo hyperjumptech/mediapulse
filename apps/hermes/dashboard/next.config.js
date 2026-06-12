@@ -8,8 +8,13 @@ const { loadEnvConfig } = nextEnv;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const envDir = path.resolve(__dirname, "../../../packages/hermes/env");
-loadEnvConfig(envDir);
+const hermesEnvDir = path.resolve(__dirname, "../../../packages/hermes/env");
+const mediapulseEnvDir = path.resolve(
+  __dirname,
+  "../../../packages/mediapulse/env",
+);
+loadEnvConfig(hermesEnvDir);
+loadEnvConfig(mediapulseEnvDir);
 
 const monorepoRoot = path.resolve(__dirname, "../../..");
 
@@ -17,6 +22,7 @@ const monorepoRoot = path.resolve(__dirname, "../../..");
 const nextConfig = {
   output: "standalone",
   transpilePackages: [
+    "@mediapulse/hermes-dashboard",
     "@workspace/agent-auth-client",
     "@workspace/json-schema-form",
   ],

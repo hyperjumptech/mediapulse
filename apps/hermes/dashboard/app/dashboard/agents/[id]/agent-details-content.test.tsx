@@ -45,7 +45,7 @@ vi.mock("../json-pretty", () => ({
   ),
 }));
 
-vi.mock("./insights/insights-tab", () => ({
+vi.mock("@mediapulse/hermes-dashboard", () => ({
   InsightsTab: ({
     window: insightsWindow,
   }: {

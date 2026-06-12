@@ -5,6 +5,11 @@
 import type { DashboardPageInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
+  createdAtDateRangeListFilter,
+  entityTypeIdSelectListFilter,
+  tickerIdSelectListFilter,
+} from "../../hermes-dashboard/templates/table-v1/list-filter-definitions";
+import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
@@ -79,7 +84,11 @@ export const entitiesDashboardPage = {
     "createdAt",
   ]),
   defaultSort: { sortBy: "createdAt", sortDir: "desc" },
-  listFilters: ["tickerId", "typeId", "createdAt"],
+  listFilters: [
+    tickerIdSelectListFilter,
+    entityTypeIdSelectListFilter,
+    createdAtDateRangeListFilter,
+  ],
   actions: { create: false, update: false, delete: false, view: true },
   customActions: entitiesCustomActionsForManifest,
   detailBlocks: [

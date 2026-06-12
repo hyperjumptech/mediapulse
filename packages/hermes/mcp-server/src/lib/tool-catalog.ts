@@ -154,29 +154,6 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     pathTemplate: "/api/domain-integrations",
     inputSchema: { ...optionalPagination },
   },
-  {
-    name: "hermes_list_content_generation_runs",
-    description: "List content-generation diagnostic runs.",
-    method: "GET",
-    pathTemplate: "/api/agents/content-generation-runs",
-    inputSchema: {
-      ...optionalPagination,
-      outcome: z
-        .string()
-        .optional()
-        .describe("Filter by outcome (e.g. success, failure)"),
-      tickerId: z.string().optional().describe("Filter by ticker id"),
-    },
-  },
-  {
-    name: "hermes_get_content_generation_run",
-    description: "Content-generation run detail by id.",
-    method: "GET",
-    pathTemplate: "/api/agents/content-generation-runs/{id}",
-    inputSchema: {
-      id: z.string().uuid().describe("Content-generation run id"),
-    },
-  },
 ];
 
 /**
