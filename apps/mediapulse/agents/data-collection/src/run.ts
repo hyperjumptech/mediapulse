@@ -35,6 +35,11 @@ import {
   type RunCounters,
   extractPublishedDate,
   isFresh,
+  makeDroppedOutcome,
+  makeCollectedOutcome,
+  makeFailedOutcome,
+  postOutcomesInChunks,
+  type CollectionUrlOutcomeInput,
 } from "@workspace/agent-ingestion";
 import {
   performWebSearch,
@@ -58,6 +63,9 @@ export async function runDataCollection(
   const { input, config, token, hermesCorrelation } = context;
   const startedAt = new Date();
   const runId = crypto.randomUUID();
+  const scheduleExecutionId =
+    hermesCorrelation?.scheduleExecutionId ?? undefined;
+  const outcomes: CollectionUrlOutcomeInput[] = [];
 
   const hermes = hermesCorrelation;
   const log = logger.child({
@@ -291,11 +299,43 @@ export async function runDataCollection(
         const decision = classifyNoisyUrl(hit.url);
         if (decision.blocked) {
           droppedByUrlReason[decision.reason] += 1;
+          outcomes.push(
+            makeDroppedOutcome(
+              {
+                id: crypto.randomUUID(),
+                scheduleExecutionId,
+                runId,
+                tickerId: input.tickerId,
+                agent: "data-collection",
+                url: hit.url,
+                source: hit.searchQueryText,
+                searchQueryId: hit.searchQueryId,
+                createdAt: new Date().toISOString(),
+              },
+              { reason: `url_noise_${decision.reason}`, detail: hit.url },
+            ),
+          );
           continue;
         }
 
         if (canonicalUniqueHits.has(decision.canonicalUrl)) {
           droppedByDuplicateCanonicalUrl += 1;
+          outcomes.push(
+            makeDroppedOutcome(
+              {
+                id: crypto.randomUUID(),
+                scheduleExecutionId,
+                runId,
+                tickerId: input.tickerId,
+                agent: "data-collection",
+                url: decision.canonicalUrl,
+                source: hit.searchQueryText,
+                searchQueryId: hit.searchQueryId,
+                createdAt: new Date().toISOString(),
+              },
+              { reason: "duplicate_canonical_url" },
+            ),
+          );
           continue;
         }
 
@@ -313,9 +353,28 @@ export async function runDataCollection(
           candidateUrls,
           (body) => dataApiClient.dataCollectionExistingUrls.create(body),
         );
-      const searchSuccessesForFetch = filteredSearchSuccesses.filter(
-        (hit) => !existingUrlSet.has(hit.url),
-      );
+      const searchSuccessesForFetch = filteredSearchSuccesses.filter((hit) => {
+        if (existingUrlSet.has(hit.url)) {
+          outcomes.push(
+            makeDroppedOutcome(
+              {
+                id: crypto.randomUUID(),
+                scheduleExecutionId,
+                runId,
+                tickerId: input.tickerId,
+                agent: "data-collection",
+                url: hit.url,
+                source: hit.searchQueryText,
+                searchQueryId: hit.searchQueryId,
+                createdAt: new Date().toISOString(),
+              },
+              { reason: "existing_canonical_url" },
+            ),
+          );
+          return false;
+        }
+        return true;
+      });
       const skippedExistingUrlCount =
         filteredSearchSuccesses.length - searchSuccessesForFetch.length;
       droppedByExistingCanonicalUrl += skippedExistingUrlCount;
@@ -339,12 +398,33 @@ export async function runDataCollection(
           deadUrlCacheConfig.skipLookupBatchSize,
         );
         if (deadUrlSet.size > 0) {
-          const beforeCount = searchSuccessesAfterDeadUrl.length;
+          const beforeDeadUrlCount = searchSuccessesAfterDeadUrl.length;
           searchSuccessesAfterDeadUrl = searchSuccessesAfterDeadUrl.filter(
-            (hit) => !deadUrlSet.has(hit.url),
+            (hit) => {
+              if (deadUrlSet.has(hit.url)) {
+                outcomes.push(
+                  makeDroppedOutcome(
+                    {
+                      id: crypto.randomUUID(),
+                      scheduleExecutionId,
+                      runId,
+                      tickerId: input.tickerId,
+                      agent: "data-collection",
+                      url: hit.url,
+                      source: hit.searchQueryText,
+                      searchQueryId: hit.searchQueryId,
+                      createdAt: new Date().toISOString(),
+                    },
+                    { reason: "dead_url_cache" },
+                  ),
+                );
+                return false;
+              }
+              return true;
+            },
           );
           const skippedDeadUrlCount =
-            beforeCount - searchSuccessesAfterDeadUrl.length;
+            beforeDeadUrlCount - searchSuccessesAfterDeadUrl.length;
           droppedByDeadUrlCache += skippedDeadUrlCount;
           log.info(
             {
@@ -362,6 +442,22 @@ export async function runDataCollection(
           const host = hostFromUrl(hit.url);
           if (hostErrorTracker.isSkipped(host)) {
             droppedByHostErrorRate += 1;
+            outcomes.push(
+              makeDroppedOutcome(
+                {
+                  id: crypto.randomUUID(),
+                  scheduleExecutionId,
+                  runId,
+                  tickerId: input.tickerId,
+                  agent: "data-collection",
+                  url: hit.url,
+                  source: hit.searchQueryText,
+                  searchQueryId: hit.searchQueryId,
+                  createdAt: new Date().toISOString(),
+                },
+                { reason: "host_error_rate", host },
+              ),
+            );
             return false;
           }
           return true;
@@ -404,9 +500,27 @@ export async function runDataCollection(
       const persistFetchedPage = async (
         page: FetchedWebSearchResult,
       ): Promise<void> => {
+        const outcomeBase = {
+          id: crypto.randomUUID(),
+          scheduleExecutionId,
+          runId,
+          tickerId: input.tickerId,
+          agent: "data-collection" as const,
+          url: page.url,
+          source: page.searchQueryText,
+          searchQueryId: page.searchQueryId,
+          createdAt: new Date().toISOString(),
+        };
+
         const urlDecision = classifyNoisyUrl(page.url);
         if (urlDecision.blocked) {
           droppedByUrlReason[urlDecision.reason] += 1;
+          outcomes.push(
+            makeDroppedOutcome(outcomeBase, {
+              reason: `url_noise_${urlDecision.reason}`,
+              detail: page.url,
+            }),
+          );
           return;
         }
 
@@ -421,6 +535,17 @@ export async function runDataCollection(
             url: urlDecision.canonicalUrl,
             reason: contentDecision.reason,
           });
+          outcomes.push(
+            makeDroppedOutcome(
+              { ...outcomeBase, url: urlDecision.canonicalUrl },
+              contentDecision.reason === "content_too_short"
+                ? {
+                    reason: contentDecision.reason,
+                    charCount: page.content.length,
+                  }
+                : { reason: contentDecision.reason },
+            ),
+          );
           return;
         }
 
@@ -439,6 +564,16 @@ export async function runDataCollection(
           );
           if (!relevanceDecision.relevant) {
             droppedByRelevance += 1;
+            outcomes.push(
+              makeDroppedOutcome(
+                { ...outcomeBase, url: urlDecision.canonicalUrl },
+                {
+                  reason: "relevance_no_match",
+                  tickerSymbol: subject.symbol,
+                  headChars: relevanceGateConfig.headChars ?? 4000,
+                },
+              ),
+            );
             log.info(
               {
                 round,
@@ -464,6 +599,22 @@ export async function runDataCollection(
           if (!freshnessDecision.fresh) {
             droppedByFreshnessReason[freshnessDecision.reason] =
               (droppedByFreshnessReason[freshnessDecision.reason] ?? 0) + 1;
+            const freshnessContext =
+              freshnessDecision.reason === "too_old" && publishedAt
+                ? {
+                    reason: "freshness_too_old" as const,
+                    publishedAt,
+                    maxAgeDays: freshnessGateConfig.maxAgeDays ?? 14,
+                  }
+                : freshnessDecision.reason === "future_dated" && publishedAt
+                  ? { reason: "freshness_future_dated" as const, publishedAt }
+                  : { reason: "freshness_unknown_date" as const };
+            outcomes.push(
+              makeDroppedOutcome(
+                { ...outcomeBase, url: urlDecision.canonicalUrl },
+                freshnessContext,
+              ),
+            );
             log.info(
               {
                 round,
@@ -490,6 +641,12 @@ export async function runDataCollection(
           "persisting collected source to Agent Data API",
         );
         await dataApiClient.dataCollection.create([source]);
+        outcomes.push(
+          makeCollectedOutcome({
+            ...outcomeBase,
+            url: urlDecision.canonicalUrl,
+          }),
+        );
         persistedThisRunCount += 1;
         persistedThisRoundCount += 1;
         fetchSuccessCount += 1;
@@ -677,6 +834,7 @@ export async function runDataCollection(
   const runPayload = {
     id: runId,
     tickerId: input.tickerId,
+    scheduleExecutionId,
     startedAt: startedAt.toISOString(),
     completedAt: new Date().toISOString(),
     status,
@@ -695,6 +853,45 @@ export async function runDataCollection(
       "recording run failures to Agent Data API",
     );
     await dataApiClient.dataCollectionFailure.create(failuresPayload);
+  }
+
+  for (const failure of fetchFailures) {
+    if (failure.url) {
+      outcomes.push(
+        makeFailedOutcome(
+          {
+            id: crypto.randomUUID(),
+            scheduleExecutionId,
+            runId,
+            tickerId: input.tickerId,
+            agent: "data-collection",
+            url: failure.url,
+            source: undefined,
+            searchQueryId: failure.queryId,
+            createdAt: new Date().toISOString(),
+          },
+          failure.errorCategory,
+          failure.httpStatus,
+        ),
+      );
+    }
+  }
+
+  if (outcomes.length > 0) {
+    try {
+      await postOutcomesInChunks(outcomes, (batch) =>
+        dataApiClient.collectionUrlOutcome.create(batch),
+      );
+      log.info(
+        { outcomeCount: outcomes.length },
+        "posted per-URL collection outcomes",
+      );
+    } catch (outcomeError) {
+      log.warn(
+        { err: outcomeError },
+        "failed to post collection URL outcomes; continuing",
+      );
+    }
   }
 
   const summary = {

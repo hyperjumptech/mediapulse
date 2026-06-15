@@ -253,6 +253,18 @@ export {
   type Widget,
 } from "./agent-insights.js";
 export {
+  collectionAgentSchema,
+  collectionUrlOutcomeInputSchema,
+  collectionUrlStatusSchema,
+  postCollectionUrlOutcomeBodySchema,
+  postCollectionUrlOutcomeResponseSchema,
+  type CollectionAgent,
+  type CollectionUrlOutcomeInput,
+  type CollectionUrlStatus,
+  type PostCollectionUrlOutcomeBody,
+  type PostCollectionUrlOutcomeResponse,
+} from "./collection-url-outcome.js";
+export {
   classifyQueryToSection,
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,

@@ -30,6 +30,11 @@ import {
   type DiscoveryCache,
   type DiscoverySource,
   type WebSearchResult,
+  makeDroppedOutcome,
+  makeCollectedOutcome,
+  makeFailedOutcome,
+  postOutcomesInChunks,
+  type CollectionUrlOutcomeInput,
 } from "@workspace/agent-ingestion";
 import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
 import { prefilterByAliases } from "./utilities/prefilter-by-aliases";
@@ -48,6 +53,9 @@ export async function runPageCollection(
   const { input, config, token, hermesCorrelation } = context;
   const startedAt = new Date();
   const runId = crypto.randomUUID();
+  const scheduleExecutionId =
+    hermesCorrelation?.scheduleExecutionId ?? undefined;
+  const outcomes: CollectionUrlOutcomeInput[] = [];
 
   const hermes = hermesCorrelation;
   const log = logger.child({
@@ -211,18 +219,56 @@ export async function runPageCollection(
       { droppedByRunItemCap, maxDiscoveredItemsPerRun: maxDiscoveredItems },
       "discovered items truncated by per-run cap",
     );
+    for (const item of discoveredItems.slice(maxDiscoveredItems)) {
+      outcomes.push(
+        makeDroppedOutcome(
+          {
+            id: crypto.randomUUID(),
+            scheduleExecutionId,
+            runId,
+            tickerId: input.tickerId,
+            agent: "page-collection",
+            url: item.url,
+            source: undefined,
+            searchQueryId,
+            createdAt: new Date().toISOString(),
+          },
+          { reason: "dropped_by_run_item_cap" },
+        ),
+      );
+    }
   }
 
-  const prefilterDropCount =
-    cappedDiscoveredItems.length -
-    prefilterByAliases(cappedDiscoveredItems, {
-      tickerAliases,
-      industryAliases,
-    }).length;
   const filteredItems = prefilterByAliases(cappedDiscoveredItems, {
     tickerAliases,
     industryAliases,
   });
+  const prefilterDropCount =
+    cappedDiscoveredItems.length - filteredItems.length;
+
+  if (prefilterDropCount > 0) {
+    const filteredItemUrls = new Set(filteredItems.map((item) => item.url));
+    for (const item of cappedDiscoveredItems) {
+      if (!filteredItemUrls.has(item.url)) {
+        outcomes.push(
+          makeDroppedOutcome(
+            {
+              id: crypto.randomUUID(),
+              scheduleExecutionId,
+              runId,
+              tickerId: input.tickerId,
+              agent: "page-collection",
+              url: item.url,
+              source: undefined,
+              searchQueryId,
+              createdAt: new Date().toISOString(),
+            },
+            { reason: "prefilter_alias_mismatch" },
+          ),
+        );
+      }
+    }
+  }
 
   log.info(
     {
@@ -261,11 +307,43 @@ export async function runPageCollection(
     const decision = classifyNoisyUrl(item.url);
     if (decision.blocked) {
       droppedByUrlReason[decision.reason] += 1;
+      outcomes.push(
+        makeDroppedOutcome(
+          {
+            id: crypto.randomUUID(),
+            scheduleExecutionId,
+            runId,
+            tickerId: input.tickerId,
+            agent: "page-collection",
+            url: item.url,
+            source: undefined,
+            searchQueryId,
+            createdAt: new Date().toISOString(),
+          },
+          { reason: `url_noise_${decision.reason}`, detail: item.url },
+        ),
+      );
       continue;
     }
 
     if (canonicalItemMap.has(decision.canonicalUrl)) {
       droppedByDuplicateCanonicalUrl += 1;
+      outcomes.push(
+        makeDroppedOutcome(
+          {
+            id: crypto.randomUUID(),
+            scheduleExecutionId,
+            runId,
+            tickerId: input.tickerId,
+            agent: "page-collection",
+            url: decision.canonicalUrl,
+            source: undefined,
+            searchQueryId,
+            createdAt: new Date().toISOString(),
+          },
+          { reason: "duplicate_canonical_url" },
+        ),
+      );
       continue;
     }
 
@@ -301,6 +379,26 @@ export async function runPageCollection(
       { droppedByExistingCanonicalUrl },
       "skipped fetch for URLs already stored as data sources",
     );
+    for (const url of candidateUrls) {
+      if (existingUrlSet.has(url)) {
+        outcomes.push(
+          makeDroppedOutcome(
+            {
+              id: crypto.randomUUID(),
+              scheduleExecutionId,
+              runId,
+              tickerId: input.tickerId,
+              agent: "page-collection",
+              url,
+              source: undefined,
+              searchQueryId,
+              createdAt: new Date().toISOString(),
+            },
+            { reason: "existing_canonical_url" },
+          ),
+        );
+      }
+    }
   }
 
   let candidatesAfterDeadUrl = candidatesAfterExisting;
@@ -321,6 +419,26 @@ export async function runPageCollection(
         { droppedByDeadUrlCache },
         "skipped fetch for URLs in dead-url negative cache",
       );
+      for (const url of candidatesAfterExisting) {
+        if (deadUrlSet.has(url)) {
+          outcomes.push(
+            makeDroppedOutcome(
+              {
+                id: crypto.randomUUID(),
+                scheduleExecutionId,
+                runId,
+                tickerId: input.tickerId,
+                agent: "page-collection",
+                url,
+                source: undefined,
+                searchQueryId,
+                createdAt: new Date().toISOString(),
+              },
+              { reason: "dead_url_cache" },
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -328,6 +446,22 @@ export async function runPageCollection(
     const host = hostFromUrl(url);
     if (hostErrorTracker.isSkipped(host)) {
       droppedByHostErrorRate += 1;
+      outcomes.push(
+        makeDroppedOutcome(
+          {
+            id: crypto.randomUUID(),
+            scheduleExecutionId,
+            runId,
+            tickerId: input.tickerId,
+            agent: "page-collection",
+            url,
+            source: undefined,
+            searchQueryId,
+            createdAt: new Date().toISOString(),
+          },
+          { reason: "host_error_rate", host },
+        ),
+      );
       return false;
     }
     return true;
@@ -354,6 +488,24 @@ export async function runPageCollection(
       { droppedByFetchBudget, perRunFetchBudget },
       "fetch candidates truncated by per-run fetch budget",
     );
+    for (const url of candidatesAfterHostBreaker.slice(perRunFetchBudget)) {
+      outcomes.push(
+        makeDroppedOutcome(
+          {
+            id: crypto.randomUUID(),
+            scheduleExecutionId,
+            runId,
+            tickerId: input.tickerId,
+            agent: "page-collection",
+            url,
+            source: undefined,
+            searchQueryId,
+            createdAt: new Date().toISOString(),
+          },
+          { reason: "dropped_by_fetch_budget" },
+        ),
+      );
+    }
   }
 
   report(
@@ -408,6 +560,22 @@ export async function runPageCollection(
     const urlDecision = classifyNoisyUrl(page.url);
     if (urlDecision.blocked) {
       droppedByUrlReason[urlDecision.reason] += 1;
+      outcomes.push(
+        makeDroppedOutcome(
+          {
+            id: crypto.randomUUID(),
+            scheduleExecutionId,
+            runId,
+            tickerId: input.tickerId,
+            agent: "page-collection",
+            url: page.url,
+            source: undefined,
+            searchQueryId,
+            createdAt: new Date().toISOString(),
+          },
+          { reason: `url_noise_${urlDecision.reason}`, detail: page.url },
+        ),
+      );
       continue;
     }
 
@@ -418,6 +586,22 @@ export async function runPageCollection(
         url: urlDecision.canonicalUrl,
         reason: contentDecision.reason,
       });
+      outcomes.push(
+        makeDroppedOutcome(
+          {
+            id: crypto.randomUUID(),
+            scheduleExecutionId,
+            runId,
+            tickerId: input.tickerId,
+            agent: "page-collection",
+            url: urlDecision.canonicalUrl,
+            source: undefined,
+            searchQueryId,
+            createdAt: new Date().toISOString(),
+          },
+          { reason: contentDecision.reason },
+        ),
+      );
       continue;
     }
 
@@ -442,6 +626,26 @@ export async function runPageCollection(
             reason: relevanceDecision.reason,
           },
           "dropped page that did not mention the target ticker or industry",
+        );
+        outcomes.push(
+          makeDroppedOutcome(
+            {
+              id: crypto.randomUUID(),
+              scheduleExecutionId,
+              runId,
+              tickerId: input.tickerId,
+              agent: "page-collection",
+              url: urlDecision.canonicalUrl,
+              source: undefined,
+              searchQueryId,
+              createdAt: new Date().toISOString(),
+            },
+            {
+              reason: "relevance_no_match",
+              tickerSymbol: tickerRecord.symbol,
+              headChars: relevanceGateConfig.headChars,
+            },
+          ),
         );
         continue;
       }
@@ -472,6 +676,31 @@ export async function runPageCollection(
           },
           "dropped page outside freshness window",
         );
+        outcomes.push(
+          makeDroppedOutcome(
+            {
+              id: crypto.randomUUID(),
+              scheduleExecutionId,
+              runId,
+              tickerId: input.tickerId,
+              agent: "page-collection",
+              url: urlDecision.canonicalUrl,
+              source: undefined,
+              searchQueryId,
+              createdAt: new Date().toISOString(),
+            },
+            freshnessDecision.reason === "too_old" && publishedAt !== null
+              ? {
+                  reason: "freshness_too_old",
+                  publishedAt,
+                  maxAgeDays: freshnessGateConfig.maxAgeDays,
+                }
+              : freshnessDecision.reason === "future_dated" &&
+                  publishedAt !== null
+                ? { reason: "freshness_future_dated", publishedAt }
+                : { reason: "freshness_unknown_date" },
+          ),
+        );
         continue;
       }
     }
@@ -486,6 +715,19 @@ export async function runPageCollection(
       metadata: { provider: page.provider },
     });
     fetchSuccessCount += 1;
+    outcomes.push(
+      makeCollectedOutcome({
+        id: crypto.randomUUID(),
+        scheduleExecutionId,
+        runId,
+        tickerId: input.tickerId,
+        agent: "page-collection",
+        url: urlDecision.canonicalUrl,
+        source: undefined,
+        searchQueryId,
+        createdAt: new Date().toISOString(),
+      }),
+    );
   }
 
   if (sourcesToPersist.length > 0) {
@@ -636,6 +878,7 @@ export async function runPageCollection(
   const runPayload = {
     id: runId,
     tickerId: input.tickerId,
+    scheduleExecutionId,
     startedAt: startedAt.toISOString(),
     completedAt: new Date().toISOString(),
     status,
@@ -650,6 +893,44 @@ export async function runPageCollection(
       "recording run failures to Agent Data API",
     );
     await dataApiClient.dataCollectionFailure.create(failuresPayload);
+    for (const failure of failuresPayload) {
+      if (failure.url) {
+        outcomes.push(
+          makeFailedOutcome(
+            {
+              id: crypto.randomUUID(),
+              scheduleExecutionId,
+              runId,
+              tickerId: input.tickerId,
+              agent: "page-collection",
+              url: failure.url,
+              source: undefined,
+              searchQueryId,
+              createdAt: failure.createdAt,
+            },
+            failure.errorCategory,
+            failure.httpStatus ?? undefined,
+          ),
+        );
+      }
+    }
+  }
+
+  if (outcomes.length > 0) {
+    try {
+      await postOutcomesInChunks(outcomes, (batch) =>
+        dataApiClient.collectionUrlOutcome.create(batch),
+      );
+      log.info(
+        { outcomeCount: outcomes.length },
+        "posted collection URL outcomes",
+      );
+    } catch (outcomeError) {
+      log.warn(
+        { outcomeCount: outcomes.length, err: outcomeError },
+        "failed to post collection URL outcomes; continuing",
+      );
+    }
   }
 
   const summary = {

@@ -171,6 +171,15 @@ export default async function ScheduleExecutionDetailPage({
         </div>
       </section>
 
+      <div>
+        <Link
+          href={`/dashboard/schedules/${scheduleId}/executions/${executionId}/processed-urls`}
+          className="text-sm underline-offset-4 hover:underline"
+        >
+          View Processed URLs →
+        </Link>
+      </div>
+
       <section>
         <h2 className="mb-2 text-lg font-medium">Invocations</h2>
         <ScheduleExecutionInvocationsTable

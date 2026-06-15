@@ -11,6 +11,7 @@ import { hermesDashboardManifestRoutes } from "./routes/hermes-dashboard-manifes
 import { stepInputExpansionRoutes } from "./routes/step-input-expansion-routes";
 import { unsubscribeRoutes } from "./routes/unsubscribe-routes";
 import { verifyInvocationJwtFromHeader } from "./verify-invocation-jwt-middleware";
+import { processedUrlsRoutes } from "../resources/processed-urls/routes";
 
 /**
  * Builds the Mediapulse domain API Hono application (middleware, versioned routes).
@@ -56,6 +57,7 @@ export const createDomainApiServer = (): {
     api.route(hermesDashboardTableMountPath(segment), subApp);
   }
 
+  api.route("/hermes-dashboard/processed-urls", processedUrlsRoutes);
   api.route(HERMES_DASHBOARD_V1_MOUNT_PATH, hermesDashboardManifestRoutes);
   api.route("/", stepInputExpansionRoutes);
 
