@@ -109,6 +109,10 @@ import {
   getAgentInsightsQuerySchema,
   getAgentInsightsResponseSchema,
 } from "./agent-insights.js";
+import {
+  postCollectionUrlOutcomeBodySchema,
+  postCollectionUrlOutcomeResponseSchema,
+} from "./collection-url-outcome.js";
 
 type AgentDataApiMethodSchema =
   | {
@@ -655,6 +659,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       get: {
         query: getAgentInsightsQuerySchema,
         response: getAgentInsightsResponseSchema,
+      },
+    },
+  },
+  collectionUrlOutcome: {
+    v1: {
+      post: {
+        body: postCollectionUrlOutcomeBodySchema,
+        response: postCollectionUrlOutcomeResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postCollectionUrlOutcomeBodySchema,
+        response: postCollectionUrlOutcomeResponseSchema,
       },
     },
   },

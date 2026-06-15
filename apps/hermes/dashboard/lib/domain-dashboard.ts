@@ -740,3 +740,94 @@ export const deleteDomainTableItem = async (
     domainIntegrationId,
   );
 };
+
+/** Mediapulse integration id used for processed-URL lookups. */
+const MEDIAPULSE_INTEGRATION_ID = "mediapulse";
+
+/** Domain-api path for the processed-urls endpoint (relative to `/v1`). */
+const PROCESSED_URLS_PATH = "/hermes-dashboard/processed-urls";
+
+/** Response item shape returned by the processed-urls domain-api endpoint. */
+export type ProcessedUrlItem = {
+  id: string;
+  tickerSymbol: string;
+  agent: string;
+  url: string;
+  status: string;
+  reason: string | null;
+  reasonDetail: string | null;
+  source: string | null;
+  createdAt: string;
+};
+
+/** Paginated response from the processed-urls domain-api endpoint. */
+export type ProcessedUrlsListResponse = {
+  items: ProcessedUrlItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+const processedUrlsListResponseSchema = (
+  value: unknown,
+): ProcessedUrlsListResponse => {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !Array.isArray((value as { items?: unknown }).items) ||
+    typeof (value as { total?: unknown }).total !== "number" ||
+    typeof (value as { page?: unknown }).page !== "number" ||
+    typeof (value as { pageSize?: unknown }).pageSize !== "number"
+  ) {
+    throw new Error("Invalid processed-urls response shape");
+  }
+  return value as ProcessedUrlsListResponse;
+};
+
+/** Query params for {@link fetchProcessedUrlsForExecution}. */
+export type FetchProcessedUrlsParams = {
+  scheduleExecutionId: string;
+  page?: number;
+  pageSize?: number;
+  tickerId?: string;
+  agent?: string;
+  status?: string;
+};
+
+/**
+ * Fetches paginated processed-URL outcomes for a given schedule execution from the mediapulse domain-api.
+ *
+ * @param params - Required `scheduleExecutionId` plus optional filters and pagination.
+ * @returns Paginated list of processed-URL outcome items.
+ */
+export const fetchProcessedUrlsForExecution = async (
+  params: FetchProcessedUrlsParams,
+): Promise<ProcessedUrlsListResponse> => {
+  const integration = await getDomainIntegrationByIntegrationId(
+    MEDIAPULSE_INTEGRATION_ID,
+  );
+  if (!integration) {
+    throw new Error(
+      "Mediapulse domain integration is not active or not registered",
+    );
+  }
+
+  const baseUrl = integration.baseUrl.replace(/\/$/, "");
+  const domainIntegrationId = integration.id;
+
+  const search = new URLSearchParams();
+  search.set("scheduleExecutionId", params.scheduleExecutionId);
+  if (params.page !== undefined) search.set("page", String(params.page));
+  if (params.pageSize !== undefined)
+    search.set("pageSize", String(params.pageSize));
+  if (params.tickerId) search.set("tickerId", params.tickerId);
+  if (params.agent) search.set("agent", params.agent);
+  if (params.status) search.set("status", params.status);
+
+  return callDomain(
+    `${baseUrl}/v1${PROCESSED_URLS_PATH}?${search.toString()}`,
+    processedUrlsListResponseSchema,
+    undefined,
+    domainIntegrationId,
+  );
+};
