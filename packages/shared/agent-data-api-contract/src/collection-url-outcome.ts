@@ -15,7 +15,7 @@ export const collectionUrlOutcomeInputSchema = z.object({
   id: z.string().uuid(),
   scheduleExecutionId: z.string().uuid().optional(),
   runId: z.string().uuid(),
-  tickerId: z.string().trim().min(1),
+  tickerId: z.string().trim().min(1).optional(),
   agent: collectionAgentSchema,
   status: collectionUrlStatusSchema,
   url: z.string().url(),
@@ -23,6 +23,7 @@ export const collectionUrlOutcomeInputSchema = z.object({
   reasonDetail: z.string().optional(),
   source: z.string().optional(),
   searchQueryId: z.string().uuid().optional(),
+  curatedSourceId: z.string().uuid().optional(),
   createdAt: z.string().datetime(),
 });
 

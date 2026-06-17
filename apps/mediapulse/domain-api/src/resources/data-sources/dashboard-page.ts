@@ -2,9 +2,10 @@
  * Hermes `table-v1` manifest for collected data sources (read-only list + view detail) and path segment.
  */
 
-import type { DashboardViewInput } from "@hermes/domain-contract";
+import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
+  collectionGateStatusSelectListFilter,
   collectionSourceSelectListFilter,
   createdAtDateRangeListFilter,
   tickerIdSelectListFilter,
@@ -19,7 +20,69 @@ import { dataSourcesCustomActionsForManifest } from "./custom-actions";
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const dataSourcesHermesPathSegment = "data-sources" as const;
 
-/** Hermes `table-v1` manifest page for collected data sources. */
+const dataSourcesGateBlock = {
+  type: "keyValue",
+  label: "Collection gate",
+  sectionRule: {
+    when: "present(collectionGateStatus)",
+    badge: "outline",
+    label: "Page collection",
+  },
+  rows: [
+    { field: "collectionGateStatusLabel", label: "Status" },
+    { field: "collectionGateReason", label: "Reason" },
+  ],
+} satisfies DetailBlock;
+
+const dataSourcesCuratedSourceBlock = {
+  type: "keyValue",
+  label: "Curated source",
+  sectionRule: {
+    when: "present(curatedSourceId)",
+    badge: "success",
+    label: "Curated listing",
+  },
+  rows: [
+    {
+      field: "curatedSourceName",
+      label: "Name",
+      linkTemplate:
+        "/dashboard/{integrationId}/curated-sources/{curatedSourceId}",
+    },
+    {
+      field: "curatedSourceListingUrl",
+      label: "Listing URL",
+      copyAction: true,
+    },
+  ],
+} satisfies DetailBlock;
+
+const dataSourcesLinkedTickersBlock = {
+  type: "subTable",
+  label: "Linked tickers",
+  field: "articleRelevances",
+  captionTemplate: "Linked tickers ({articleRelevances.length})",
+  emptyState:
+    "No ticker associations yet. Run article analysis to link this article to tickers.",
+  columns: [
+    {
+      field: "tickerSymbol",
+      label: "Ticker",
+      type: "text",
+      linkTemplate: "/dashboard/{integrationId}/tickers/{tickerId}",
+    },
+    { field: "tickerName", label: "Name", type: "text" },
+    { field: "score", label: "Score", type: "number" },
+    {
+      field: "associationReasoning",
+      label: "Association reasoning",
+      type: "text",
+      truncate: 120,
+    },
+  ],
+} satisfies DetailBlock;
+
+/** Hermes `table-v1` manifest for collected data sources. */
 export const dataSourcesDashboardPage = {
   id: dataSourcesHermesPathSegment,
   label: "Data Sources",
@@ -36,6 +99,11 @@ export const dataSourcesDashboardPage = {
     { key: "url", label: "URL", type: "text" },
     { key: "searchQueryText", label: "Search query", type: "text" },
     { key: "collectionSourceLabel", label: "Collected by", type: "text" },
+    {
+      key: "collectionGateStatusLabel",
+      label: "Gate",
+      type: "text",
+    },
     { key: "contentPreview", label: "Preview", type: "text" },
     { key: "contentLength", label: "Chars", type: "text" },
     { key: "createdAt", label: "Created", type: "date-time" },
@@ -47,6 +115,7 @@ export const dataSourcesDashboardPage = {
     "tickerName",
     "searchQueryText",
     "collectionSourceLabel",
+    "collectionGateStatusLabel",
   ]),
   sortableFields: rowFieldKeysFor<ListItem>()([
     "createdAt",
@@ -58,8 +127,14 @@ export const dataSourcesDashboardPage = {
   listFilters: [
     tickerIdSelectListFilter,
     collectionSourceSelectListFilter,
+    collectionGateStatusSelectListFilter,
     createdAtDateRangeListFilter,
   ],
   actions: { create: false, update: false, delete: false, view: true },
   customActions: dataSourcesCustomActionsForManifest,
+  detailBlocks: [
+    dataSourcesGateBlock,
+    dataSourcesCuratedSourceBlock,
+    dataSourcesLinkedTickersBlock,
+  ],
 } satisfies DashboardViewInput;

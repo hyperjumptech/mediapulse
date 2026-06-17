@@ -2,11 +2,22 @@
 import { describe, expect, it } from "vitest";
 import {
   DATA_SOURCE_CONTENT_PREVIEW_MAX,
-  mapRowToDetailItem,
   mapRowToListItem,
   truncateContentPreview,
   type ListRow,
 } from "./list-mapper";
+
+const baseRowFields = {
+  canonicalUrl: "https://example.com/a",
+  metadata: null,
+  publishedAt: null,
+  analyzedAt: null,
+  curatedSourceId: null,
+  collectionGateStatus: null,
+  collectionGateReason: null,
+  curatedSource: null,
+  articleRelevances: [] as ListRow["articleRelevances"],
+};
 
 describe("truncateContentPreview", () => {
   it("returns the full string when within the max length", () => {
@@ -27,11 +38,8 @@ describe("mapRowToListItem", () => {
     const row = {
       id: "ds-1",
       url: "https://example.com/a",
-      canonicalUrl: "https://example.com/a",
       title: "Article",
       content,
-      metadata: null,
-      publishedAt: null,
       tickerId: "t-1",
       searchQueryId: "sq-1",
       createdAt,
@@ -42,6 +50,7 @@ describe("mapRowToListItem", () => {
         text: "earnings news",
         source: "curated" as const,
       },
+      ...baseRowFields,
     } satisfies ListRow;
 
     const item = mapRowToListItem(row);
@@ -56,6 +65,8 @@ describe("mapRowToListItem", () => {
     );
     expect(item.collectionSource).toBe("page-collection");
     expect(item.collectionSourceLabel).toBe("Page Collection");
+    expect(item.collectionGateStatus).toBeNull();
+    expect(item.articleRelevances).toEqual([]);
   });
 
   it("emits data-collection for deterministic source", () => {
@@ -64,11 +75,8 @@ describe("mapRowToListItem", () => {
     const row = {
       id: "ds-2",
       url: "https://example.com/b",
-      canonicalUrl: "https://example.com/b",
       title: "Article 2",
       content: "short",
-      metadata: null,
-      publishedAt: null,
       tickerId: "t-1",
       searchQueryId: "sq-2",
       createdAt,
@@ -79,6 +87,7 @@ describe("mapRowToListItem", () => {
         text: "news",
         source: "deterministic" as const,
       },
+      ...baseRowFields,
     } satisfies ListRow;
 
     const item = mapRowToListItem(row);
@@ -86,58 +95,57 @@ describe("mapRowToListItem", () => {
     expect(item.collectionSource).toBe("data-collection");
     expect(item.collectionSourceLabel).toBe("Data Collection");
   });
-});
 
-describe("mapRowToDetailItem", () => {
-  it("includes full content, metadata, and collection source for curated", () => {
+  it("maps global page-collection gate fields and article relevances", () => {
     const createdAt = new Date("2024-07-01T00:00:00.000Z");
     const updatedAt = new Date("2024-07-02T00:00:00.000Z");
     const row = {
-      id: "ds-2",
-      url: "https://example.com/b",
-      canonicalUrl: "https://example.com/b",
-      title: "Full",
-      content: "body text",
-      metadata: { key: "v" },
-      publishedAt: null,
-      tickerId: "t-1",
-      searchQueryId: "sq-1",
+      id: "ds-global",
+      url: "https://example.com/global",
+      title: "Global article",
+      content: "body",
+      tickerId: null,
+      searchQueryId: null,
       createdAt,
       updatedAt,
-      ticker: { symbol: "ACME", name: "Acme Inc" },
-      searchQuery: { id: "sq-1", text: "q", source: "curated" as const },
-    } satisfies ListRow;
-
-    const detail = mapRowToDetailItem(row);
-
-    expect(detail.content).toBe("body text");
-    expect(detail.metadata).toEqual({ key: "v" });
-    expect(detail.collectionSource).toBe("page-collection");
-    expect(detail.collectionSourceLabel).toBe("Page Collection");
-  });
-
-  it("emits data-collection for llm source", () => {
-    const createdAt = new Date("2024-07-01T00:00:00.000Z");
-    const updatedAt = new Date("2024-07-02T00:00:00.000Z");
-    const row = {
-      id: "ds-3",
-      url: "https://example.com/c",
-      canonicalUrl: "https://example.com/c",
-      title: "LLM",
-      content: "body text",
+      ticker: null,
+      searchQuery: null,
+      curatedSourceId: "cs-1",
+      collectionGateStatus: "passed" as const,
+      collectionGateReason: null,
+      analyzedAt: null,
+      curatedSource: {
+        id: "cs-1",
+        name: "Tech feed",
+        listingUrl: "https://example.com/feed",
+      },
+      articleRelevances: [
+        {
+          id: "rel-1",
+          score: 0.91,
+          associationReasoning: "Mentions AAPL earnings.",
+          ticker: { id: "t-1", symbol: "AAPL", name: "Apple Inc." },
+        },
+      ],
+      canonicalUrl: "https://example.com/global",
       metadata: null,
       publishedAt: null,
-      tickerId: "t-1",
-      searchQueryId: "sq-3",
-      createdAt,
-      updatedAt,
-      ticker: { symbol: "ACME", name: "Acme Inc" },
-      searchQuery: { id: "sq-3", text: "q", source: "llm" as const },
     } satisfies ListRow;
 
-    const detail = mapRowToDetailItem(row);
+    const item = mapRowToListItem(row);
 
-    expect(detail.collectionSource).toBe("data-collection");
-    expect(detail.collectionSourceLabel).toBe("Data Collection");
+    expect(item.collectionSource).toBe("page-collection");
+    expect(item.collectionGateStatusLabel).toBe("Passed");
+    expect(item.curatedSource?.listingUrl).toBe("https://example.com/feed");
+    expect(item.articleRelevances).toEqual([
+      {
+        id: "rel-1",
+        tickerId: "t-1",
+        tickerSymbol: "AAPL",
+        tickerName: "Apple Inc.",
+        score: 0.91,
+        associationReasoning: "Mentions AAPL earnings.",
+      },
+    ]);
   });
 });

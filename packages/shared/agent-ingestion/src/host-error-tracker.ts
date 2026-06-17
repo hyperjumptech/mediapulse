@@ -114,7 +114,7 @@ const qualityReasonToErrorCategory = (
  * @param qualityDrops - URLs dropped by the content quality gate.
  */
 export const buildDeadUrlRecords = (
-  tickerId: string,
+  tickerId: string | undefined,
   fetchFailures: readonly WebFetchFailure[],
   qualityDrops: readonly QualityDropForDeadUrl[],
 ): PostDataCollectionDeadUrlsRecordBody => {
@@ -130,7 +130,7 @@ export const buildDeadUrlRecords = (
     }
     seen.add(failure.url);
     records.push({
-      tickerId,
+      ...(tickerId !== undefined ? { tickerId } : {}),
       url: failure.url,
       errorCategory: failure.errorCategory as DeadUrlCacheableCategory,
       ...(failure.httpStatus !== undefined
@@ -149,7 +149,7 @@ export const buildDeadUrlRecords = (
     }
     seen.add(drop.url);
     records.push({
-      tickerId,
+      ...(tickerId !== undefined ? { tickerId } : {}),
       url: drop.url,
       errorCategory: category,
     });

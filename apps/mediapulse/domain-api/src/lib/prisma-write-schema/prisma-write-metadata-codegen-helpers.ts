@@ -15,6 +15,7 @@
  *   (and routes/dashboard) for that resource.
  */
 export const PRISMA_WRITE_METADATA_MODEL_NAMES = [
+  "CuratedSource",
   "EntityType",
   "RelationType",
   "MediapulseUser",

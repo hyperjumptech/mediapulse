@@ -2,6 +2,7 @@ import { dashboardManifestSchema } from "@hermes/domain-contract";
 import type { DashboardViewInput } from "@hermes/domain-contract";
 import type { Hono } from "hono";
 import { buildMediapulseOperatorContentViews } from "./extra-manifest-views";
+import { curatedSourcesHermesDashboardResource } from "../resources/curated-sources/resource-definition";
 import { dataSourcesHermesDashboardResource } from "../resources/data-sources/resource-definition";
 import { deliveryRunsHermesDashboardResource } from "../resources/delivery-runs/resource-definition";
 import { entitiesHermesDashboardResource } from "../resources/entities/resource-definition";
@@ -23,6 +24,7 @@ export { defineHermesDashboardResource } from "./hermes-dashboard-resource-types
  */
 export const hermesDashboardResources = [
   tickersHermesDashboardResource,
+  curatedSourcesHermesDashboardResource,
   mediapulseUsersHermesDashboardResource,
   entityTypesHermesDashboardResource,
   relationTypesHermesDashboardResource,

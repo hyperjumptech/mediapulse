@@ -9,6 +9,16 @@ vi.mock("@mediapulse/database", () => ({
   prisma: {},
 }));
 
+const emptyGlobalAnalysisFields = {
+  analyzedDataSourceIds: [] as string[],
+  tickers: [] as {
+    id: string;
+    symbol: string;
+    name: string;
+    aliases: string[];
+  }[],
+};
+
 const mockLoggerWarn = vi.fn();
 vi.mock("@workspace/logger", () => ({
   logger: {
@@ -195,7 +205,7 @@ describe("loadAnalysisContext", () => {
       }),
     );
     expect(result.dataSourceTotalCount).toBe(0);
-    expect(result.relevanceSelectionState.selectedCountToday).toBe(2);
+    expect(result.relevanceSelectionState?.selectedCountToday).toBe(2);
     expect(result.lastRelevanceScoredAtIso).toBeNull();
   });
 
@@ -561,6 +571,7 @@ describe("applyAnalysisPost", () => {
           articleRelevances: [],
           entityEvidence: [],
           relationEvidence: [],
+          ...emptyGlobalAnalysisFields,
         },
         { db: db as never },
       ),
@@ -623,6 +634,7 @@ describe("applyAnalysisPost", () => {
       ],
       entityEvidence: [],
       relationEvidence: [],
+      ...emptyGlobalAnalysisFields,
     };
 
     await applyAnalysisPost(body, { db: db as never });
@@ -718,6 +730,7 @@ describe("applyAnalysisPost", () => {
         articleRelevances: [],
         entityEvidence: [],
         relationEvidence: [],
+        ...emptyGlobalAnalysisFields,
       },
       { db: db as never },
     );
@@ -825,6 +838,7 @@ describe("applyAnalysisPost", () => {
             evidenceSpan: "Acme announced",
           },
         ],
+        ...emptyGlobalAnalysisFields,
       },
       { db: db as never },
     );

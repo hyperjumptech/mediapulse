@@ -53,7 +53,7 @@ export async function postDataCollectionRun(
     await prisma.dataCollectionRun.create({
       data: {
         id: data.id,
-        tickerId: data.tickerId,
+        tickerId: data.tickerId ?? null,
         scheduleExecutionId: data.scheduleExecutionId ?? null,
         startedAt: new Date(data.startedAt),
         completedAt: data.completedAt ? new Date(data.completedAt) : null,

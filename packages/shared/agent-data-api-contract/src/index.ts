@@ -265,6 +265,27 @@ export {
   type PostCollectionUrlOutcomeResponse,
 } from "./collection-url-outcome.js";
 export {
+  collectionGateStatusSchema,
+  getPageCollectionArticlesQuerySchema,
+  getPageCollectionArticlesResponseSchema,
+  pageCollectionArticleListItemSchema,
+  PAGE_COLLECTION_EXISTING_URLS_MAX,
+  postPageCollectionBodySchema,
+  postPageCollectionExistingUrlsBodySchema,
+  postPageCollectionExistingUrlsResponseSchema,
+  postPageCollectionResolveSourcesBodySchema,
+  postPageCollectionResolveSourcesResponseSchema,
+  postPageCollectionResponseSchema,
+  type GetPageCollectionArticlesQuery,
+  type GetPageCollectionArticlesResponse,
+  type PostPageCollectionBody,
+  type PostPageCollectionExistingUrlsBody,
+  type PostPageCollectionExistingUrlsResponse,
+  type PostPageCollectionResolveSourcesBody,
+  type PostPageCollectionResolveSourcesResponse,
+  type PostPageCollectionResponse,
+} from "./page-collection.js";
+export {
   classifyQueryToSection,
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,

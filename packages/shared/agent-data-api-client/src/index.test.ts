@@ -341,6 +341,8 @@ describe("createAgentDataApiClient", () => {
       relations: [],
       articleEntities: [],
       articleRelevances: [],
+      analyzedDataSourceIds: [],
+      tickers: [],
       entityEvidence: [],
       relationEvidence: [],
     });
@@ -354,6 +356,8 @@ describe("createAgentDataApiClient", () => {
           relations: [],
           articleEntities: [],
           articleRelevances: [],
+          analyzedDataSourceIds: [],
+          tickers: [],
           entityEvidence: [],
           relationEvidence: [],
         },

@@ -184,6 +184,10 @@ describe("agent-data-api", () => {
             publishedAt: null,
             tickerId: TICKER_ID,
             searchQueryId: SEARCH_QUERY_ID,
+            curatedSourceId: null,
+            collectionGateStatus: null,
+            collectionGateReason: null,
+            analyzedAt: null,
             createdAt: new Date("2026-03-19T00:00:00.000Z"),
             updatedAt: new Date("2026-03-19T00:00:00.000Z"),
           },
@@ -468,6 +472,7 @@ describe("agent-data-api", () => {
       const mod = await getAnalysisService();
       vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
         ticker: { id: TICKER_ID, symbol: "T1", name: "Ticker One" },
+        tickers: [],
         dataSources: [
           {
             id: "33333333-3333-4333-a333-333333333333",
@@ -508,6 +513,7 @@ describe("agent-data-api", () => {
       const mod = await getAnalysisService();
       vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
         ticker: { id: TICKER_ID, symbol: "T1", name: "Ticker One" },
+        tickers: [],
         dataSources: [],
         dataSourceTotalCount: 0,
         entityTypes: [],

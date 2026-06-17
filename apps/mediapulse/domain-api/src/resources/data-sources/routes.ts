@@ -15,12 +15,13 @@ import {
   COLLECTION_SOURCE_OPTIONS,
   collectionSourceSchema,
 } from "./collection-source";
-import { buildDataSourceListWhere } from "./list-filters";
 import {
-  listInclude,
-  mapRowToDetailItem,
-  mapRowToListItem,
-} from "./list-mapper";
+  COLLECTION_GATE_STATUS_OPTIONS,
+  collectionGateStatusFilterSchema,
+} from "./collection-gate-status";
+import { buildDataSourceListWhere } from "./list-filters";
+import { detailInclude, mapRowToDetailItem } from "./detail-mapper";
+import { listInclude, mapRowToListItem } from "./list-mapper";
 
 /** Manifest `pathSegment` for this resource (must match the data-sources page in the Hermes dashboard manifest). */
 const DATA_SOURCES_PATH_SEGMENT = "data-sources" as const;
@@ -74,12 +75,18 @@ dataSourcesRoutes.get("/", async (c) => {
   const collectionSourceFilter = collectionSourceSchema.safeParse(
     c.req.query("collectionSource")?.trim() ?? "",
   );
+  const collectionGateStatusFilter = collectionGateStatusFilterSchema.safeParse(
+    c.req.query("collectionGateStatus")?.trim() ?? "",
+  );
 
   const where = buildDataSourceListWhere({
     q: c.req.query("q"),
     tickerId: tickerFilter.success ? tickerFilter.data : undefined,
     collectionSource: collectionSourceFilter.success
       ? collectionSourceFilter.data
+      : undefined,
+    collectionGateStatus: collectionGateStatusFilter.success
+      ? collectionGateStatusFilter.data
       : undefined,
     from: parseCreatedDateBound(c.req.query("from"), "start"),
     to: parseCreatedDateBound(c.req.query("to"), "end"),
@@ -133,6 +140,7 @@ dataSourcesRoutes.get("/meta", async (c) => {
         label: `${ticker.symbol} — ${ticker.name}`,
       })),
       collectionSourceOptions: COLLECTION_SOURCE_OPTIONS,
+      collectionGateStatusOptions: COLLECTION_GATE_STATUS_OPTIONS,
     },
   });
 });
@@ -141,7 +149,7 @@ dataSourcesRoutes.get("/meta", async (c) => {
 dataSourcesRoutes.get("/:id", async (c) => {
   const row = await prisma.dataSource.findUnique({
     where: { id: c.req.param("id") },
-    include: listInclude,
+    include: detailInclude,
   } satisfies Prisma.DataSourceFindUniqueArgs);
 
   if (!row) {

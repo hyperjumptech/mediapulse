@@ -168,11 +168,13 @@ const analysisGetOk = <
   partial: T & {
     dataSourceTotalCount?: number;
     lastRelevanceScoredAtIso?: string | null;
+    tickers?: Array<{ id: string; symbol: string; name: string }>;
   },
 ): T & {
-  ticker: { id: string; symbol: string; name: string };
+  ticker: { id: string; symbol: string; name: string } | null;
   dataSourceTotalCount: number;
   lastRelevanceScoredAtIso: string | null;
+  tickers: Array<{ id: string; symbol: string; name: string }>;
 } => ({
   ...partial,
   ticker:
@@ -188,6 +190,7 @@ const analysisGetOk = <
     partial.lastRelevanceScoredAtIso !== undefined
       ? partial.lastRelevanceScoredAtIso
       : null,
+  tickers: partial.tickers ?? [],
 });
 
 /** Config overrides accepted by `runContext`; `credentials` is optional since the base key is always injected. */

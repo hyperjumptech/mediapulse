@@ -16,7 +16,7 @@ export async function postCollectionUrlOutcome(
         id: item.id,
         scheduleExecutionId: item.scheduleExecutionId ?? null,
         runId: item.runId,
-        tickerId: item.tickerId,
+        tickerId: item.tickerId ?? null,
         agent:
           item.agent === "data-collection"
             ? "data_collection"
@@ -27,6 +27,7 @@ export async function postCollectionUrlOutcome(
         reasonDetail: item.reasonDetail ?? null,
         source: item.source ?? null,
         searchQueryId: item.searchQueryId ?? null,
+        curatedSourceId: item.curatedSourceId ?? null,
         createdAt: new Date(item.createdAt),
       })),
       skipDuplicates: true,

@@ -194,16 +194,14 @@ export const describeOutcomeReason = (
 export const makeDroppedOutcome = (
   fields: Pick<
     CollectionUrlOutcomeInput,
-    | "id"
-    | "scheduleExecutionId"
-    | "runId"
-    | "tickerId"
-    | "agent"
-    | "url"
-    | "source"
-    | "searchQueryId"
-    | "createdAt"
-  >,
+    "id" | "scheduleExecutionId" | "runId" | "agent" | "url" | "createdAt"
+  > &
+    Partial<
+      Pick<
+        CollectionUrlOutcomeInput,
+        "tickerId" | "source" | "searchQueryId" | "curatedSourceId"
+      >
+    >,
   dropContext: DropOutcomeContext,
 ): CollectionUrlOutcomeInput => {
   const { reason, reasonDetail } = describeOutcomeReason(dropContext);
@@ -219,16 +217,14 @@ export const makeDroppedOutcome = (
 export const makeCollectedOutcome = (
   fields: Pick<
     CollectionUrlOutcomeInput,
-    | "id"
-    | "scheduleExecutionId"
-    | "runId"
-    | "tickerId"
-    | "agent"
-    | "url"
-    | "source"
-    | "searchQueryId"
-    | "createdAt"
-  >,
+    "id" | "scheduleExecutionId" | "runId" | "agent" | "url" | "createdAt"
+  > &
+    Partial<
+      Pick<
+        CollectionUrlOutcomeInput,
+        "tickerId" | "source" | "searchQueryId" | "curatedSourceId"
+      >
+    >,
 ): CollectionUrlOutcomeInput => ({
   ...fields,
   status: "collected",

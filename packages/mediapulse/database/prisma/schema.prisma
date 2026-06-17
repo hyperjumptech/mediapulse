@@ -43,40 +43,72 @@ enum SearchQueryIntent {
   wildcard
 }
 
-model DataSource {
-  id            String    @id @default(uuid())
-  url           String
-  canonicalUrl  String    @map("canonical_url")
-  title         String
-  content       String
-  metadata      Json?
-  publishedAt   DateTime? @map("published_at")
-  tickerId      String    @map("ticker_id")
-  searchQueryId String    @map("search_query_id")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+enum CollectionGateStatus {
+  passed
+  failed
+}
 
-  ticker                 Ticker                   @relation(fields: [tickerId], references: [id])
-  searchQuery            SearchQuery              @relation(fields: [searchQueryId], references: [id])
+enum ArticleAssociationSource {
+  inferred
+  manual
+}
+
+/// Operator-managed listing URLs for page-collection (RSS, sitemap, or single article).
+model CuratedSource {
+  id         String   @id @default(uuid())
+  name       String?
+  listingUrl String   @unique @map("listing_url")
+  enabled    Boolean  @default(true)
+  maxItems   Int?     @map("max_items")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  articles              DataSource[]
+  collectionUrlOutcomes CollectionUrlOutcome[]
+
+  @@map("curated_source")
+}
+
+model DataSource {
+  id                   String                @id @default(uuid())
+  url                  String
+  canonicalUrl         String                @map("canonical_url")
+  title                String
+  content              String
+  metadata             Json?
+  publishedAt          DateTime?             @map("published_at")
+  tickerId             String?               @map("ticker_id")
+  searchQueryId        String?               @map("search_query_id")
+  curatedSourceId      String?               @map("curated_source_id")
+  collectionGateStatus CollectionGateStatus? @map("collection_gate_status")
+  collectionGateReason String?               @map("collection_gate_reason")
+  analyzedAt           DateTime?             @map("analyzed_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  ticker                 Ticker?                  @relation(fields: [tickerId], references: [id])
+  searchQuery            SearchQuery?             @relation(fields: [searchQueryId], references: [id])
+  curatedSource          CuratedSource?           @relation(fields: [curatedSourceId], references: [id], onDelete: SetNull)
   articleEntities        ArticleEntity[]
   articleRelevances      ArticleRelevance[]
   entityEvidence         EntityEvidence[]
   entityRelationEvidence EntityRelationEvidence[]
 
-  @@unique([tickerId, canonicalUrl])
+  @@index([curatedSourceId])
+  @@index([collectionGateStatus, analyzedAt])
   @@map("data_source")
 }
 
 /// Negative cache for URLs that recently failed terminally during data collection.
 model DeadUrl {
   id            String   @id @default(uuid())
-  tickerId      String   @map("ticker_id")
+  tickerId      String?  @map("ticker_id")
   url           String   @unique
   errorCategory String   @map("error_category")
   recordedAt    DateTime @default(now()) @map("recorded_at")
   expiresAt     DateTime @map("expires_at")
 
-  @@index([tickerId, expiresAt])
+  @@index([expiresAt])
   @@map("dead_url")
 }
 
@@ -292,13 +324,15 @@ model ArticleEntity {
 
 /// Per-ticker relevance score for an article including selected state and breakdown.
 model ArticleRelevance {
-  id             String   @id @default(uuid())
-  dataSourceId   String   @map("data_source_id")
-  tickerId       String   @map("ticker_id")
-  score          Float
-  scoreBreakdown Json     @map("score_breakdown")
-  selected       Boolean  @default(false)
-  scoredAt       DateTime @default(now()) @map("scored_at")
+  id                   String                   @id @default(uuid())
+  dataSourceId         String                   @map("data_source_id")
+  tickerId             String                   @map("ticker_id")
+  score                Float
+  scoreBreakdown       Json                     @map("score_breakdown")
+  selected             Boolean                  @default(false)
+  scoredAt             DateTime                 @default(now()) @map("scored_at")
+  associationReasoning String?                  @map("association_reasoning") @db.Text
+  associationSource    ArticleAssociationSource @default(inferred) @map("association_source")
 
   dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
   ticker     Ticker     @relation(fields: [tickerId], references: [id], onDelete: Cascade)
@@ -380,11 +414,11 @@ model Ticker {
   articleRelevances      ArticleRelevance[]
   entityEvidence         EntityEvidence[]
   entityRelationEvidence EntityRelationEvidence[]
-  dataCollectionRuns      DataCollectionRun[]
-  dataCollectionFailures  DataCollectionFailure[]
-  collectionUrlOutcomes   CollectionUrlOutcome[]
-  deliveryRuns            DeliveryRun[]
-  contentGenerationRuns   ContentGenerationRun[]
+  dataCollectionRuns     DataCollectionRun[]
+  dataCollectionFailures DataCollectionFailure[]
+  collectionUrlOutcomes  CollectionUrlOutcome[]
+  deliveryRuns           DeliveryRun[]
+  contentGenerationRuns  ContentGenerationRun[]
 
   @@map("ticker")
 }
@@ -537,7 +571,7 @@ enum DataCollectionErrorCategory {
 
 model DataCollectionRun {
   id                  String                  @id @default(uuid())
-  tickerId            String                  @map("ticker_id")
+  tickerId            String?                 @map("ticker_id")
   scheduleExecutionId String?                 @map("schedule_execution_id")
   startedAt           DateTime                @map("started_at")
   completedAt         DateTime?               @map("completed_at")
@@ -553,7 +587,7 @@ model DataCollectionRun {
 
   extendedCounters Json? @map("extended_counters")
 
-  ticker   Ticker                  @relation(fields: [tickerId], references: [id])
+  ticker   Ticker?                 @relation(fields: [tickerId], references: [id])
   failures DataCollectionFailure[]
   outcomes CollectionUrlOutcome[]
 
@@ -564,7 +598,7 @@ model DataCollectionRun {
 model DataCollectionFailure {
   id       String                      @id @default(uuid())
   runId    String                      @map("run_id")
-  tickerId String                      @map("ticker_id")
+  tickerId String?                     @map("ticker_id")
   stage    DataCollectionProviderStage
   provider DataCollectionProvider
 
@@ -578,7 +612,7 @@ model DataCollectionFailure {
   createdAt     DateTime                    @default(now()) @map("created_at")
 
   run         DataCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  ticker      Ticker            @relation(fields: [tickerId], references: [id])
+  ticker      Ticker?           @relation(fields: [tickerId], references: [id])
   searchQuery SearchQuery?      @relation(fields: [searchQueryId], references: [id])
 
   @@map("data_collection_failure")
@@ -600,27 +634,30 @@ model CollectionUrlOutcome {
   id                  String              @id @default(uuid())
   scheduleExecutionId String?             @map("schedule_execution_id")
   runId               String              @map("run_id")
-  tickerId            String              @map("ticker_id")
+  tickerId            String?             @map("ticker_id")
   agent               CollectionAgent
   status              CollectionUrlStatus
 
-  url           String
+  url             String
   /// Stable machine token (e.g. "relevance_no_match", "freshness_too_old"). Null when collected.
-  reason        String?
+  reason          String?
   /// Human-readable sentence built at the drop moment (e.g. "Published 2019-03-12, older than the 30-day window"). Null when collected.
-  reasonDetail  String?  @map("reason_detail")
+  reasonDetail    String? @map("reason_detail")
   /// Discovery listing/RSS URL (page-collection) or search query text (data-collection).
-  source        String?
-  searchQueryId String?  @map("search_query_id")
+  source          String?
+  searchQueryId   String? @map("search_query_id")
+  curatedSourceId String? @map("curated_source_id")
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  run    DataCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  ticker Ticker            @relation(fields: [tickerId], references: [id])
+  run           DataCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ticker        Ticker?           @relation(fields: [tickerId], references: [id])
+  curatedSource CuratedSource?    @relation(fields: [curatedSourceId], references: [id], onDelete: SetNull)
 
   @@index([scheduleExecutionId])
   @@index([runId, status])
   @@index([tickerId, createdAt])
+  @@index([curatedSourceId, createdAt])
   @@map("collection_url_outcome")
 }
 

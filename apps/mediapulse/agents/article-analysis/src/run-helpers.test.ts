@@ -15,6 +15,12 @@ describe("buildAnalysisGetQuery", () => {
     });
   });
 
+  it("omits tickerId for global backlog mode", () => {
+    expect(buildAnalysisGetQuery()).toEqual({
+      unanalyzed: true,
+    });
+  });
+
   it("includes limit when options provide it", () => {
     expect(buildAnalysisGetQuery("tick-d", { limit: 10 })).toEqual({
       tickerId: "tick-d",

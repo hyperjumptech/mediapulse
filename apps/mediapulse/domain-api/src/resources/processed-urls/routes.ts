@@ -1,19 +1,22 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
-import { prisma, Prisma, type CollectionAgent } from "@mediapulse/database";
+import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 import { z } from "zod";
 
 import { parsePagination } from "../../lib/list-pagination";
+import {
+  agentFilterSchema,
+  buildProcessedUrlListWhere,
+  gateStatusFilterSchema,
+  statusFilterSchema,
+} from "./list-filters";
 import { listInclude, mapRowToListItem } from "./list-mapper";
-
-const agentFilterSchema = z.enum(["data-collection", "page-collection"]);
-const statusFilterSchema = z.enum(["collected", "dropped", "failed"]);
 
 /**
  * Hermes dashboard API for per-execution processed-URL outcomes (read-only paginated list).
  *
- * Required query param: `scheduleExecutionId` (UUID).
- * Optional filters: `tickerId`, `agent`, `status`.
+ * Optional query params: `scheduleExecutionId`, `tickerId`, `agent`, `status`,
+ * `curatedSourceId`, `gateStatus`.
  */
 export const processedUrlsRoutes = new Hono();
 
@@ -22,10 +25,6 @@ processedUrlsRoutes.get("/", async (c) => {
     .string()
     .uuid()
     .safeParse(c.req.query("scheduleExecutionId")?.trim() ?? "");
-
-  if (!scheduleExecutionIdResult.success) {
-    return c.json({ message: "scheduleExecutionId must be a valid UUID" }, 400);
-  }
 
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
@@ -43,19 +42,26 @@ processedUrlsRoutes.get("/", async (c) => {
   const statusFilter = statusFilterSchema.safeParse(
     c.req.query("status")?.trim() ?? "",
   );
+  const curatedSourceFilter = z
+    .string()
+    .uuid()
+    .safeParse(c.req.query("curatedSourceId")?.trim() ?? "");
+  const gateStatusFilter = gateStatusFilterSchema.safeParse(
+    c.req.query("gateStatus")?.trim() ?? "",
+  );
 
-  const agentDbValue: CollectionAgent | undefined = agentFilter.success
-    ? agentFilter.data === "data-collection"
-      ? "data_collection"
-      : "page_collection"
-    : undefined;
-
-  const where = {
-    scheduleExecutionId: scheduleExecutionIdResult.data,
-    ...(tickerFilter.success ? { tickerId: tickerFilter.data } : {}),
-    ...(agentDbValue !== undefined ? { agent: agentDbValue } : {}),
-    ...(statusFilter.success ? { status: statusFilter.data } : {}),
-  } satisfies Prisma.CollectionUrlOutcomeWhereInput;
+  const where = buildProcessedUrlListWhere({
+    scheduleExecutionId: scheduleExecutionIdResult.success
+      ? scheduleExecutionIdResult.data
+      : undefined,
+    tickerId: tickerFilter.success ? tickerFilter.data : undefined,
+    agent: agentFilter.success ? agentFilter.data : undefined,
+    status: statusFilter.success ? statusFilter.data : undefined,
+    curatedSourceId: curatedSourceFilter.success
+      ? curatedSourceFilter.data
+      : undefined,
+    gateStatus: gateStatusFilter.success ? gateStatusFilter.data : undefined,
+  });
 
   const findManyArgs = {
     where,

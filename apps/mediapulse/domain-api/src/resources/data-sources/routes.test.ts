@@ -57,6 +57,7 @@ describe("dataSourcesRoutes", () => {
     expect(body.listFilters?.map((filter) => filter.key)).toEqual([
       "tickerId",
       "collectionSource",
+      "collectionGateStatus",
       "createdAt",
     ]);
     expect(body.filterOptions?.tickerOptions).toEqual([
@@ -69,6 +70,30 @@ describe("dataSourcesRoutes", () => {
       { value: "page-collection", label: "Page Collection" },
       { value: "data-collection", label: "Data Collection" },
     ]);
+    expect(body.filterOptions?.collectionGateStatusOptions).toEqual([
+      { value: "passed", label: "Passed" },
+      { value: "failed", label: "Failed" },
+    ]);
+  });
+
+  it("passes collectionGateStatus filter to Prisma findMany", async () => {
+    vi.mocked(prisma.dataSource.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.dataSource.count).mockResolvedValue(0);
+
+    const res = await dataSourcesRoutes.request(
+      "http://localhost/?collectionGateStatus=failed",
+      { method: "GET" },
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.dataSource.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tickerId: null,
+          collectionGateStatus: "failed",
+        },
+      }),
+    );
   });
 
   it("passes collectionSource filter to Prisma findMany", async () => {

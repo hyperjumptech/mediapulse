@@ -15,6 +15,29 @@ export type RelevanceSelectionInputRow = ArticleRelevanceRow & {
 };
 
 /**
+ * Copies POST fields from a draft relevance row, preserving optional global-mode metadata.
+ *
+ * @param row - Draft row from scoring or global inference.
+ * @param selected - Whether the row is selected for delivery.
+ */
+const toArticleRelevancePostRow = (
+  row: RelevanceSelectionInputRow,
+  selected: boolean,
+): ArticleRelevanceRow => ({
+  dataSourceId: row.dataSourceId,
+  score: row.score,
+  scoreBreakdown: row.scoreBreakdown,
+  selected,
+  ...(row.tickerId !== undefined ? { tickerId: row.tickerId } : {}),
+  ...(row.associationReasoning !== undefined
+    ? { associationReasoning: row.associationReasoning }
+    : {}),
+  ...(row.associationSource !== undefined
+    ? { associationSource: row.associationSource }
+    : {}),
+});
+
+/**
  * Applies minimum score and top-K selection budget (UTC day budget is pre-computed by the caller).
  * Rows below `minScore` stay `selected: false`. Among the rest, highest scores win; ties break on newer `createdAt`.
  *
@@ -44,12 +67,7 @@ export const applyRelevanceSelection = (
     if (eligible) {
       slots -= 1;
     }
-    out.push({
-      dataSourceId: row.dataSourceId,
-      score: row.score,
-      scoreBreakdown: row.scoreBreakdown,
-      selected,
-    });
+    out.push(toArticleRelevancePostRow(row, selected));
   }
 
   return out;
@@ -264,12 +282,9 @@ export const applyRelevanceSelectionDiversified = (
     }
   }
 
-  const out: ArticleRelevanceRow[] = rows.map((row, index) => ({
-    dataSourceId: row.dataSourceId,
-    score: row.score,
-    scoreBreakdown: row.scoreBreakdown,
-    selected: selectedIndices.has(index),
-  }));
+  const out: ArticleRelevanceRow[] = rows.map((row, index) =>
+    toArticleRelevancePostRow(row, selectedIndices.has(index)),
+  );
 
   return {
     rows: out,

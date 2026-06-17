@@ -24,7 +24,7 @@ export type RecordDeadUrlDeps = {
  * @param now - Reference time for expiry filtering.
  */
 export async function lookupDeadUrls(
-  tickerId: string,
+  tickerId: string | undefined,
   urls: readonly string[],
   deadUrl: DeadUrlDb,
   now: Date = new Date(),
@@ -37,7 +37,7 @@ export async function lookupDeadUrls(
 
   const findArgs = {
     where: {
-      tickerId,
+      ...(tickerId !== undefined ? { tickerId } : {}),
       url: { in: uniqueRequested },
       expiresAt: { gt: now },
     },

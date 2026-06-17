@@ -752,9 +752,13 @@ export type ProcessedUrlItem = {
   agent: string;
   url: string;
   status: string;
+  gateStatus: string;
   reason: string | null;
   reasonDetail: string | null;
   source: string | null;
+  curatedSourceId: string | null;
+  curatedSourceName: string | null;
+  curatedSourceListingUrl: string | null;
   createdAt: string;
 };
 
@@ -784,18 +788,20 @@ const processedUrlsListResponseSchema = (
 
 /** Query params for {@link fetchProcessedUrlsForExecution}. */
 export type FetchProcessedUrlsParams = {
-  scheduleExecutionId: string;
+  scheduleExecutionId?: string;
   page?: number;
   pageSize?: number;
   tickerId?: string;
   agent?: string;
   status?: string;
+  curatedSourceId?: string;
+  gateStatus?: string;
 };
 
 /**
- * Fetches paginated processed-URL outcomes for a given schedule execution from the mediapulse domain-api.
+ * Fetches paginated processed-URL outcomes from the mediapulse domain-api.
  *
- * @param params - Required `scheduleExecutionId` plus optional filters and pagination.
+ * @param params - Optional `scheduleExecutionId` plus filters and pagination.
  * @returns Paginated list of processed-URL outcome items.
  */
 export const fetchProcessedUrlsForExecution = async (
@@ -814,13 +820,18 @@ export const fetchProcessedUrlsForExecution = async (
   const domainIntegrationId = integration.id;
 
   const search = new URLSearchParams();
-  search.set("scheduleExecutionId", params.scheduleExecutionId);
+  if (params.scheduleExecutionId) {
+    search.set("scheduleExecutionId", params.scheduleExecutionId);
+  }
   if (params.page !== undefined) search.set("page", String(params.page));
   if (params.pageSize !== undefined)
     search.set("pageSize", String(params.pageSize));
   if (params.tickerId) search.set("tickerId", params.tickerId);
   if (params.agent) search.set("agent", params.agent);
   if (params.status) search.set("status", params.status);
+  if (params.curatedSourceId)
+    search.set("curatedSourceId", params.curatedSourceId);
+  if (params.gateStatus) search.set("gateStatus", params.gateStatus);
 
   return callDomain(
     `${baseUrl}/v1${PROCESSED_URLS_PATH}?${search.toString()}`,

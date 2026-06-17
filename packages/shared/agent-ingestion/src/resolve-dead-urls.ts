@@ -20,7 +20,7 @@ export type LookupDeadUrls = (
  * @returns Set of URLs to skip because they are in the negative cache.
  */
 export async function resolveDeadUrls(
-  tickerId: string,
+  tickerId: string | undefined,
   candidateUrls: readonly string[],
   lookupDeadUrls: LookupDeadUrls,
   batchSize: number = DATA_COLLECTION_DEAD_URLS_LOOKUP_MAX,
@@ -39,7 +39,7 @@ export async function resolveDeadUrls(
   for (let index = 0; index < unique.length; index += effectiveBatchSize) {
     const chunk = unique.slice(index, index + effectiveBatchSize);
     const response = await lookupDeadUrls({
-      tickerId,
+      ...(tickerId !== undefined ? { tickerId } : {}),
       urls: chunk,
     });
     for (const url of response.deadUrls) {

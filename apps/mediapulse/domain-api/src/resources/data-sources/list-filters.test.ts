@@ -59,6 +59,15 @@ describe("buildDataSourceListWhere", () => {
     });
   });
 
+  it("filters global articles by collection gate status", () => {
+    expect(
+      buildDataSourceListWhere({ collectionGateStatus: "passed" }),
+    ).toEqual({
+      tickerId: null,
+      collectionGateStatus: "passed",
+    });
+  });
+
   it("filters by a partial date range (from only)", () => {
     const from = new Date("2026-05-01T00:00:00.000Z");
     expect(buildDataSourceListWhere({ from })).toEqual({

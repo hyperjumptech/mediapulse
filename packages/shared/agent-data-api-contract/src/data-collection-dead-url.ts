@@ -21,7 +21,8 @@ export const deadUrlErrorCategorySchema = z.enum([
  * Body for POST `/data-collection/dead-urls/lookup`: which ticker and candidate URLs to check.
  */
 export const postDataCollectionDeadUrlsLookupBodySchema = z.object({
-  tickerId: z.string().trim().min(1),
+  /** When omitted, lookup is global (page-collection v2). */
+  tickerId: z.string().trim().min(1).optional(),
   urls: z.array(z.string().url()).max(DATA_COLLECTION_DEAD_URLS_LOOKUP_MAX),
 });
 
@@ -33,7 +34,8 @@ export const postDataCollectionDeadUrlsLookupResponseSchema = z.object({
 });
 
 const deadUrlRecordInputSchema = z.object({
-  tickerId: z.string().trim().min(1),
+  /** Optional; global negative cache when omitted. */
+  tickerId: z.string().trim().min(1).optional(),
   url: z.string().url(),
   errorCategory: deadUrlErrorCategorySchema,
   /** HTTP status when `errorCategory` is `provider_http_error` (404, 403, 410, 451). */

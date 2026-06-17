@@ -69,6 +69,12 @@ import {
 import { getSectionCoverageRollupHandler } from "./routes/section-coverage-rollup.js";
 import { getAgentInsights } from "./routes/agent-insights.js";
 import { postCollectionUrlOutcome } from "./routes/collection-url-outcome.js";
+import {
+  getPageCollectionArticles,
+  postPageCollection,
+  postPageCollectionExistingUrls,
+  postPageCollectionResolveSources,
+} from "./routes/page-collection.js";
 import { createPageCollectionInsightsProvider } from "./services/insights/page-collection-insights-provider.js";
 import { createContentGenerationInsightsProvider } from "./services/insights/content-generation-insights-provider.js";
 import { createUserRegistrationInsightsProvider } from "./services/insights/user-registration-insights-provider.js";
@@ -203,6 +209,18 @@ const routeHandlers = {
   },
   collectionUrlOutcome: {
     post: postCollectionUrlOutcome,
+  },
+  pageCollection: {
+    post: postPageCollection,
+  },
+  pageCollectionExistingUrls: {
+    post: postPageCollectionExistingUrls,
+  },
+  pageCollectionResolveSources: {
+    post: postPageCollectionResolveSources,
+  },
+  pageCollectionArticles: {
+    get: getPageCollectionArticles,
   },
 } satisfies AgentDataApiHandlers;
 
