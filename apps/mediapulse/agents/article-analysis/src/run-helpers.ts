@@ -8,15 +8,15 @@ export type BuildAnalysisGetQueryOptions = {
 /**
  * Builds the typed agent-data-api `analysis.get` query for an incremental run.
  *
- * @param tickerId - Hermes run input ticker id.
+ * @param tickerId - Hermes run input ticker id; omit for global page-collection backlog.
  * @param options - Optional `limit` to cap rows returned from agent-data-api.
  * @returns Query object for `createAgentDataApiClient().analysis.get`.
  */
 export const buildAnalysisGetQuery = (
-  tickerId: string,
+  tickerId?: string,
   options?: BuildAnalysisGetQueryOptions,
 ): GetAnalysisQuery => ({
-  tickerId,
+  ...(tickerId !== undefined ? { tickerId } : {}),
   unanalyzed: true,
   ...(options?.limit !== undefined ? { limit: options.limit } : {}),
 });

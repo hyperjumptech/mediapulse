@@ -13,7 +13,7 @@ const app = createAgentApp<
 >(
   {
     agentId: "page-collection",
-    agentVersion: "1.0.0",
+    agentVersion: "2.0.0",
     description:
       "Discovers and fetches article pages from curated listing sources for a ticker.",
     inputSchema: BodySchema,

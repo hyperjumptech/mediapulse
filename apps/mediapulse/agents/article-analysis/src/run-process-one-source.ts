@@ -84,6 +84,12 @@ type AnalysisContext = Pick<
   "ticker" | "entityTypes" | "relationTypes"
 >;
 
+const GLOBAL_EXTRACTION_TICKER_CONTEXT = {
+  id: "global",
+  symbol: "GLOBAL",
+  name: "Global financial news",
+} as const;
+
 type BatchSource = {
   id: string;
   url: string;
@@ -170,7 +176,8 @@ export const createEmptySourceProcessingOutcome =
 export type ProcessOneSourceDeps = {
   cfg: ArticleAnalysisConfig;
   ctx: AnalysisContext;
-  tickerId: string;
+  /** Legacy ticker-scoped runs; omit in global backlog mode. */
+  tickerId?: string;
   systemContent: string;
   resolvedExemplars: readonly ExtractionExemplar[];
   existingLookup: ReadonlyMap<string, ExistingEntity>;
@@ -245,29 +252,31 @@ export const createProcessOneSource =
         "article-analysis skipped source with non-article prefilter",
       );
       if (shouldHardDeleteDataSourceForNonArticleReason(nonArticleReason)) {
-        try {
-          await hardDeleteDataSource(source.id, {
-            dataApiClient,
-            tickerId,
-          });
-          log.warn(
-            {
-              dataSourceId: source.id,
-              stage: "prefilter",
-              nonArticleReason,
-            },
-            "article-analysis hard-deleted data source after non-article prefilter",
-          );
-        } catch (deleteErr) {
-          log.warn(
-            {
-              dataSourceId: source.id,
-              stage: "prefilter",
-              err: toSafeLogError(deleteErr),
-              nonArticleReason,
-            },
-            "article-analysis failed to hard-delete data source after non-article prefilter",
-          );
+        if (tickerId !== undefined) {
+          try {
+            await hardDeleteDataSource(source.id, {
+              dataApiClient,
+              tickerId,
+            });
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "prefilter",
+                nonArticleReason,
+              },
+              "article-analysis hard-deleted data source after non-article prefilter",
+            );
+          } catch (deleteErr) {
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "prefilter",
+                err: toSafeLogError(deleteErr),
+                nonArticleReason,
+              },
+              "article-analysis failed to hard-delete data source after non-article prefilter",
+            );
+          }
         }
       }
       return outcome;
@@ -292,11 +301,12 @@ export const createProcessOneSource =
         : source.content;
 
     try {
+      const extractionTicker = ctx.ticker ?? GLOBAL_EXTRACTION_TICKER_CONTEXT;
       const t0 = Date.now();
       const extractionUserContent = buildArticleAnalysisExtractionUserContent({
-        tickerId,
-        tickerSymbol: ctx.ticker.symbol,
-        tickerName: ctx.ticker.name,
+        tickerId: tickerId ?? extractionTicker.id,
+        tickerSymbol: extractionTicker.symbol,
+        tickerName: extractionTicker.name,
         title: source.title,
         contentTruncated: truncated,
       });
@@ -327,9 +337,9 @@ export const createProcessOneSource =
                   {
                     role: "user",
                     content: buildBrainstormUserContent({
-                      tickerId,
-                      tickerSymbol: ctx.ticker.symbol,
-                      tickerName: ctx.ticker.name,
+                      tickerId: tickerId ?? extractionTicker.id,
+                      tickerSymbol: extractionTicker.symbol,
+                      tickerName: extractionTicker.name,
                       title: source.title,
                       contentTruncated: truncated,
                     }),
@@ -801,27 +811,29 @@ export const createProcessOneSource =
         "article-analysis LLM extraction failed for source; skipping",
       );
       if (shouldHardDeleteDataSourceForExtractionError(message)) {
-        try {
-          await hardDeleteDataSource(source.id, {
-            dataApiClient,
-            tickerId,
-          });
-          log.warn(
-            {
-              dataSourceId: source.id,
-              stage: "llm",
-            },
-            "article-analysis hard-deleted data source after unrecoverable extraction parse failure",
-          );
-        } catch (deleteErr) {
-          log.warn(
-            {
-              dataSourceId: source.id,
-              stage: "llm",
-              err: toSafeLogError(deleteErr),
-            },
-            "article-analysis failed to hard-delete data source after extraction parse failure",
-          );
+        if (tickerId !== undefined) {
+          try {
+            await hardDeleteDataSource(source.id, {
+              dataApiClient,
+              tickerId,
+            });
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "llm",
+              },
+              "article-analysis hard-deleted data source after unrecoverable extraction parse failure",
+            );
+          } catch (deleteErr) {
+            log.warn(
+              {
+                dataSourceId: source.id,
+                stage: "llm",
+                err: toSafeLogError(deleteErr),
+              },
+              "article-analysis failed to hard-delete data source after extraction parse failure",
+            );
+          }
         }
       }
     }

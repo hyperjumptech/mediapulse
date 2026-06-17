@@ -12,7 +12,7 @@ export const dataCollectionFailureErrorCategorySchema = z.enum([
 export const dataCollectionFailureInputSchema = z.object({
   id: z.string().uuid(),
   runId: z.string().uuid(),
-  tickerId: z.string().trim().min(1),
+  tickerId: z.string().trim().min(1).optional(),
   stage: z.enum(["web-search", "web-fetch"]),
   provider: z.enum(["serper", "jina", "firecrawl", "diffbot"]),
   searchQueryId: z.string().uuid().optional(),

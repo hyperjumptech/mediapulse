@@ -48,6 +48,7 @@ export default async function ProcessedUrlsPage({
   const tickerId = first(resolvedSearchParams.tickerId);
   const agent = first(resolvedSearchParams.agent);
   const status = first(resolvedSearchParams.status);
+  const gateStatus = first(resolvedSearchParams.gateStatus);
 
   let data: Awaited<ReturnType<typeof fetchProcessedUrlsForExecution>> | null =
     null;
@@ -61,6 +62,7 @@ export default async function ProcessedUrlsPage({
       tickerId,
       agent,
       status,
+      gateStatus,
     });
   } catch (error) {
     fetchError =
@@ -71,7 +73,14 @@ export default async function ProcessedUrlsPage({
 
   const buildFilterHref = (updates: Record<string, string | undefined>) => {
     const next = new URLSearchParams();
-    const merged = { tickerId, agent, status, page: "1", ...updates };
+    const merged = {
+      tickerId,
+      agent,
+      status,
+      gateStatus,
+      page: "1",
+      ...updates,
+    };
     for (const [key, value] of Object.entries(merged)) {
       if (value) next.set(key, value);
     }
@@ -87,6 +96,7 @@ export default async function ProcessedUrlsPage({
     if (tickerId) next.set("tickerId", tickerId);
     if (agent) next.set("agent", agent);
     if (status) next.set("status", status);
+    if (gateStatus) next.set("gateStatus", gateStatus);
     next.set("page", String(targetPage));
 
     return `/dashboard/schedules/${scheduleId}/executions/${executionId}/processed-urls?${next.toString()}`;
@@ -138,6 +148,20 @@ export default async function ProcessedUrlsPage({
             href={buildFilterHref({ status: value || undefined })}
             className={`rounded px-2 py-0.5 ${
               (status ?? "") === value
+                ? "bg-foreground text-background"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {value || "All"}
+          </Link>
+        ))}
+        <span className="ml-4 text-muted-foreground">Gate:</span>
+        {["", "passed", "failed"].map((value) => (
+          <Link
+            key={value || "all-gate"}
+            href={buildFilterHref({ gateStatus: value || undefined })}
+            className={`rounded px-2 py-0.5 ${
+              (gateStatus ?? "") === value
                 ? "bg-foreground text-background"
                 : "bg-muted text-muted-foreground hover:text-foreground"
             }`}

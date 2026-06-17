@@ -4,13 +4,29 @@ import { describe, expect, it } from "vitest";
 import { articleAnalysisInputSchema } from "./article-analysis-input-schema.js";
 
 describe("articleAnalysisInputSchema", () => {
-  it("accepts tickerId only", () => {
+  it("accepts empty input for global backlog mode", () => {
+    const result = articleAnalysisInputSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({});
+    }
+  });
+
+  it("accepts optional tickerId for legacy runs", () => {
     const result = articleAnalysisInputSchema.safeParse({
       tickerId: "t1",
     });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data).toEqual({ tickerId: "t1" });
+    }
+  });
+
+  it("accepts optional limit", () => {
+    const result = articleAnalysisInputSchema.safeParse({ limit: 5 });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ limit: 5 });
     }
   });
 

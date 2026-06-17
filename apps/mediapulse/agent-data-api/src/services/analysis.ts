@@ -25,9 +25,14 @@ export class AnalysisPostValidationError extends Error {
 type AnalysisDb = {
   dataSource: Pick<
     typeof prisma.dataSource,
-    "findMany" | "findUnique" | "findFirst" | "count" | "deleteMany"
+    | "findMany"
+    | "findUnique"
+    | "findFirst"
+    | "count"
+    | "deleteMany"
+    | "updateMany"
   >;
-  ticker: Pick<typeof prisma.ticker, "findUnique">;
+  ticker: Pick<typeof prisma.ticker, "findUnique" | "findMany">;
   entityType: Pick<typeof prisma.entityType, "findMany" | "findFirst">;
   relationType: Pick<typeof prisma.relationType, "findMany">;
   entity: Pick<typeof prisma.entity, "findFirst" | "findMany" | "create">;
@@ -185,6 +190,79 @@ export const normalizeAnalysisName = (value: string): string =>
   value.trim().toLowerCase();
 
 /**
+ * Loads global page-collection backlog for ticker inference analysis runs.
+ *
+ * @param query - Parsed GET query without tickerId.
+ * @param db - Injectable database delegates.
+ */
+const loadGlobalAnalysisContext = async (
+  query: GetAnalysisQuery,
+  db: AnalysisDb,
+): Promise<GetAnalysisResponse> => {
+  const dataSourceWhere = {
+    tickerId: null,
+    collectionGateStatus: "passed" as const,
+    ...(query.unanalyzed ? { analyzedAt: null } : {}),
+  } satisfies Prisma.DataSourceWhereInput;
+
+  const dataSourceSelect = {
+    id: true,
+    url: true,
+    title: true,
+    content: true,
+    tickerId: true,
+    createdAt: true,
+  } satisfies Prisma.DataSourceSelect;
+
+  const dataSourceFindArgsBase = {
+    where: dataSourceWhere,
+    orderBy: { createdAt: "asc" as const },
+    select: dataSourceSelect,
+  } satisfies Prisma.DataSourceFindManyArgs;
+
+  const entityTypeArgs = {
+    orderBy: { name: "asc" as const },
+  } satisfies Prisma.EntityTypeFindManyArgs;
+
+  const relationTypeArgs = {
+    orderBy: { name: "asc" as const },
+  } satisfies Prisma.RelationTypeFindManyArgs;
+
+  const tickerArgs = {
+    orderBy: { symbol: "asc" as const },
+    select: { id: true, symbol: true, name: true },
+  } satisfies Prisma.TickerFindManyArgs;
+
+  const limit = query.limit;
+
+  const { dataSources, dataSourceTotalCount } =
+    await loadAnalysisDataSourcesPage(
+      db,
+      dataSourceFindArgsBase,
+      dataSourceWhere,
+      limit,
+    );
+
+  const [entityTypes, relationTypes, tickers] = await Promise.all([
+    db.entityType.findMany(entityTypeArgs),
+    db.relationType.findMany(relationTypeArgs),
+    db.ticker.findMany(tickerArgs),
+  ]);
+
+  return {
+    ticker: null,
+    dataSources,
+    dataSourceTotalCount,
+    entityTypes,
+    relationTypes,
+    existingEntities: [],
+    relevanceSelectionState: null,
+    lastRelevanceScoredAtIso: null,
+    tickers,
+  };
+};
+
+/**
  * Loads ticker-scoped analysis context: eligible data sources, vocabulary, and existing KG entities.
  *
  * @param query - Parsed GET query (`unanalyzed` defaults to incremental backlog only; optional `start` / `end` bound `DataSource.createdAt` inclusively when set).
@@ -196,6 +274,10 @@ export const loadAnalysisContext = async (
   deps: { db?: AnalysisDb } = {},
 ): Promise<GetAnalysisResponse> => {
   const db = deps.db ?? defaultDb;
+
+  if (query.tickerId === undefined) {
+    return loadGlobalAnalysisContext(query, db);
+  }
 
   const ticker = await db.ticker.findUnique({
     where: { id: query.tickerId },
@@ -318,6 +400,7 @@ export const loadAnalysisContext = async (
     lastRelevanceScoredAtIso: lastRelevanceRow
       ? lastRelevanceRow.scoredAt.toISOString()
       : null,
+    tickers: [],
   };
 };
 
@@ -356,11 +439,42 @@ export const applyAnalysisPost = async (
       where: { id: dataSourceId },
       select: { tickerId: true },
     });
-    if (!ds || ds.tickerId !== body.tickerId) {
+    if (!ds) {
       throw new AnalysisPostValidationError(
-        `dataSourceId ${dataSourceId} is missing or not scoped to tickerId`,
+        `dataSourceId ${dataSourceId} is missing`,
       );
     }
+    if (body.tickerId !== undefined) {
+      if (ds.tickerId !== body.tickerId) {
+        throw new AnalysisPostValidationError(
+          `dataSourceId ${dataSourceId} is not scoped to tickerId`,
+        );
+      }
+    } else if (ds.tickerId !== null) {
+      throw new AnalysisPostValidationError(
+        `dataSourceId ${dataSourceId} is not a global page-collection article`,
+      );
+    }
+  }
+
+  const primaryTickerId = body.tickerId;
+  if (
+    primaryTickerId === undefined &&
+    body.articleRelevances.length > 0 &&
+    body.entities.length > 0
+  ) {
+    throw new AnalysisPostValidationError(
+      "tickerId is required when posting entities for legacy ticker-scoped runs",
+    );
+  }
+
+  const entityTickerId =
+    primaryTickerId ?? body.articleRelevances.find((r) => r.tickerId)?.tickerId;
+
+  if (entityTickerId === undefined && body.entities.length > 0) {
+    throw new AnalysisPostValidationError(
+      "tickerId or articleRelevances[].tickerId required for entity persistence",
+    );
   }
 
   const nameToEntityId = new Map<string, string>();
@@ -380,13 +494,13 @@ export const applyAnalysisPost = async (
       entityId = existing.id;
       entitiesReused += 1;
       const linked = await db.tickerEntity.findFirst({
-        where: { tickerId: body.tickerId, entityId },
+        where: { tickerId: entityTickerId!, entityId },
         select: { id: true },
       });
       if (!linked) {
         await db.tickerEntity.create({
           data: {
-            tickerId: body.tickerId,
+            tickerId: entityTickerId!,
             entityId,
             source: "EXTRACTED",
           },
@@ -429,7 +543,7 @@ export const applyAnalysisPost = async (
 
       await db.tickerEntity.create({
         data: {
-          tickerId: body.tickerId,
+          tickerId: entityTickerId!,
           entityId,
           source: "EXTRACTED",
         },
@@ -445,7 +559,10 @@ export const applyAnalysisPost = async (
     }
   }
 
-  const issuerAnchor = await ensureTickerIssuerCompanyAnchor(db, body.tickerId);
+  const issuerAnchor =
+    entityTickerId !== undefined
+      ? await ensureTickerIssuerCompanyAnchor(db, entityTickerId)
+      : null;
   if (issuerAnchor) {
     const registerName = (raw: string) => {
       const k = normalizeAnalysisName(raw);
@@ -509,7 +626,7 @@ export const applyAnalysisPost = async (
       entityId =
         (await resolveEntityIdByNameForTicker(
           db,
-          body.tickerId,
+          entityTickerId!,
           evidence.entityName,
         )) ?? undefined;
     }
@@ -530,13 +647,13 @@ export const applyAnalysisPost = async (
         entityId_dataSourceId_tickerId: {
           entityId,
           dataSourceId: evidence.dataSourceId,
-          tickerId: body.tickerId,
+          tickerId: entityTickerId!,
         },
       },
       create: {
         entityId,
         dataSourceId: evidence.dataSourceId,
-        tickerId: body.tickerId,
+        tickerId: entityTickerId!,
         confidence: evidence.confidence ?? null,
         lastSeenAt: new Date(),
       },
@@ -557,7 +674,7 @@ export const applyAnalysisPost = async (
     );
     if (entityRelationId === undefined) {
       entityRelationId =
-        (await resolveEntityRelationIdByNames(db, body.tickerId, evidence)) ??
+        (await resolveEntityRelationIdByNames(db, entityTickerId!, evidence)) ??
         undefined;
     }
     if (entityRelationId === undefined) {
@@ -579,13 +696,13 @@ export const applyAnalysisPost = async (
         entityRelationId_dataSourceId_tickerId: {
           entityRelationId,
           dataSourceId: evidence.dataSourceId,
-          tickerId: body.tickerId,
+          tickerId: entityTickerId!,
         },
       },
       create: {
         entityRelationId,
         dataSourceId: evidence.dataSourceId,
-        tickerId: body.tickerId,
+        tickerId: entityTickerId!,
         confidence: evidence.confidence ?? null,
         evidenceSpan: evidence.evidenceSpan?.trim() ?? null,
         lastSeenAt: new Date(),
@@ -611,7 +728,7 @@ export const applyAnalysisPost = async (
       entityId =
         (await resolveEntityIdByNameForTicker(
           db,
-          body.tickerId,
+          entityTickerId!,
           mention.entityName,
         )) ?? undefined;
     }
@@ -651,30 +768,47 @@ export const applyAnalysisPost = async (
 
   let articlesScored = 0;
   for (const relRow of body.articleRelevances) {
+    const relTickerId = relRow.tickerId ?? body.tickerId;
+    if (relTickerId === undefined) {
+      throw new AnalysisPostValidationError(
+        "articleRelevances row requires tickerId when body.tickerId is omitted",
+      );
+    }
     const scoreBreakdown = relRow.scoreBreakdown as Prisma.InputJsonValue;
     await db.articleRelevance.upsert({
       where: {
         dataSourceId_tickerId: {
           dataSourceId: relRow.dataSourceId,
-          tickerId: body.tickerId,
+          tickerId: relTickerId,
         },
       },
       create: {
         dataSourceId: relRow.dataSourceId,
-        tickerId: body.tickerId,
+        tickerId: relTickerId,
         score: relRow.score,
         scoreBreakdown,
         selected: relRow.selected,
         scoredAt: new Date(),
+        associationReasoning: relRow.associationReasoning ?? null,
+        associationSource: relRow.associationSource ?? "inferred",
       },
       update: {
         score: relRow.score,
         scoreBreakdown,
         selected: relRow.selected,
         scoredAt: new Date(),
+        associationReasoning: relRow.associationReasoning ?? null,
+        associationSource: relRow.associationSource ?? "inferred",
       },
     });
     articlesScored += 1;
+  }
+
+  if ((body.analyzedDataSourceIds?.length ?? 0) > 0) {
+    await db.dataSource.updateMany({
+      where: { id: { in: body.analyzedDataSourceIds ?? [] } },
+      data: { analyzedAt: new Date() },
+    });
   }
 
   const articlesSelected = body.articleRelevances.filter(

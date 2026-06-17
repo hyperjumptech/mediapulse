@@ -103,6 +103,8 @@ export const buildAnalysisPostChunks = (
         articleRelevances: [],
         entityEvidence: entityEvidenceForChunk(entities),
         relationEvidence: [],
+        tickers: [],
+        analyzedDataSourceIds: [],
       };
       const parsed = postAnalysisBodySchema.safeParse(body);
       if (!parsed.success) {
@@ -161,6 +163,8 @@ export const buildAnalysisPostChunks = (
       articleRelevances: [],
       entityEvidence: entityEvidenceForChunk(chunkEntities),
       relationEvidence: relationEvidenceForChunk(filtered),
+      tickers: [],
+      analyzedDataSourceIds: [],
     };
 
     const parsed = postAnalysisBodySchema.safeParse(body);

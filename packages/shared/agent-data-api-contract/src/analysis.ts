@@ -20,7 +20,8 @@ const relevanceBreakdownSchema = z
 
 export const getAnalysisQuerySchema = z
   .object({
-    tickerId: z.string().trim().min(1),
+    /** When omitted, returns global page-collection backlog (ticker-agnostic articles). */
+    tickerId: z.string().trim().min(1).optional(),
     /** Omitted query param defaults to incremental unanalyzed-only runs (PRD FR2). */
     unanalyzed: z
       .enum(["true", "false"])
@@ -65,7 +66,8 @@ export const getAnalysisQuerySchema = z
   });
 
 export const postAnalysisBodySchema = z.object({
-  tickerId: z.string().trim().min(1),
+  /** Required for legacy ticker-scoped runs; optional for global article processing. */
+  tickerId: z.string().trim().min(1).optional(),
   entities: z
     .array(
       z.object({
@@ -101,9 +103,27 @@ export const postAnalysisBodySchema = z.object({
     .array(
       z.object({
         dataSourceId: z.string().uuid(),
+        tickerId: z.string().trim().min(1).optional(),
         score: z.number().min(0).max(1),
         scoreBreakdown: relevanceBreakdownSchema,
         selected: z.boolean(),
+        associationReasoning: z.string().optional(),
+        associationSource: z.enum(["inferred", "manual"]).optional(),
+      }),
+    )
+    .default([]),
+  /** Marks global articles as analyzed after processing. */
+  analyzedDataSourceIds: z.array(z.string().uuid()).default([]),
+  /** Active tickers for global inference mode (symbol, name, aliases). */
+  tickers: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        symbol: z.string(),
+        name: z.string(),
+        aliases: z.array(z.string()).default([]),
+        sector: z.string().nullable().optional(),
+        industry: z.string().nullable().optional(),
       }),
     )
     .default([]),
@@ -137,7 +157,7 @@ export const analysisDataSourceSchema = z.object({
   url: z.string(),
   title: z.string(),
   content: z.string(),
-  tickerId: z.string().trim().min(1),
+  tickerId: z.string().trim().min(1).nullable(),
   createdAt: z.coerce.date(),
 });
 
@@ -175,19 +195,21 @@ export const analysisRelevanceSelectionStateSchema = z.object({
 });
 
 export const getAnalysisResponseSchema = z.object({
-  ticker: analysisTickerSchema,
+  ticker: analysisTickerSchema.nullable(),
   dataSources: z.array(analysisDataSourceSchema),
   /** Count of data sources matching the GET filters (ignores `limit` on the request). */
   dataSourceTotalCount: z.number().int().nonnegative(),
   entityTypes: z.array(analysisEntityTypeSchema),
   relationTypes: z.array(analysisRelationTypeSchema),
   existingEntities: z.array(analysisExistingEntitySchema),
-  relevanceSelectionState: analysisRelevanceSelectionStateSchema,
+  relevanceSelectionState: analysisRelevanceSelectionStateSchema.nullable(),
   /**
    * ISO 8601 instant of the most recent `article_relevance.scored_at` for this ticker,
    * or `null` if no relevance row exists (debounce support for article-analysis).
    */
   lastRelevanceScoredAtIso: z.string().datetime().nullable(),
+  /** All active tickers for global inference mode. */
+  tickers: z.array(analysisTickerSchema).default([]),
 });
 
 export const postAnalysisResponseSchema = z.object({

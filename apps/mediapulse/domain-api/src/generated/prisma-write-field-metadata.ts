@@ -24,6 +24,50 @@ export type PrismaWriteFieldMeta =
 export type PrismaWriteFieldMetadata = typeof prismaWriteFieldMetadata;
 
 export const prismaWriteFieldMetadata = {
+  CuratedSource: {
+    id: {
+      kind: "scalar",
+      type: "String",
+      isRequired: true,
+      isList: false,
+    },
+    name: {
+      kind: "scalar",
+      type: "String",
+      isRequired: false,
+      isList: false,
+    },
+    listingUrl: {
+      kind: "scalar",
+      type: "String",
+      isRequired: true,
+      isList: false,
+    },
+    enabled: {
+      kind: "scalar",
+      type: "Boolean",
+      isRequired: true,
+      isList: false,
+    },
+    maxItems: {
+      kind: "scalar",
+      type: "Int",
+      isRequired: false,
+      isList: false,
+    },
+    createdAt: {
+      kind: "scalar",
+      type: "DateTime",
+      isRequired: true,
+      isList: false,
+    },
+    updatedAt: {
+      kind: "scalar",
+      type: "DateTime",
+      isRequired: true,
+      isList: false,
+    },
+  },
   EntityType: {
     id: {
       kind: "scalar",

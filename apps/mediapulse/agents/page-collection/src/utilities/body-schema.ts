@@ -1,9 +1,8 @@
-import { hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { z } from "zod";
 
-/** Validates the agent run body: required ticker id. */
+/** Validates page-collection run input: curated source URLs to harvest. */
 export const BodySchema = z.object({
-  tickerId: hermesTickerIdSchema,
+  sourceUrls: z.array(z.string().url()).min(1),
 });
 
 export type BodySchemaType = z.infer<typeof BodySchema>;

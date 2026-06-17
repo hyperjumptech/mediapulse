@@ -1,5 +1,5 @@
 /**
- * Prisma `include` for data-source list/detail rows and mappers to list items and detail payloads.
+ * Prisma `include` for data-source list rows and mappers to list items.
  */
 
 import type { Prisma } from "@mediapulse/database";
@@ -7,12 +7,13 @@ import {
   classifyCollectionSource,
   COLLECTION_SOURCE_LABEL,
 } from "./collection-source";
+import { formatCollectionGateStatusLabel } from "./collection-gate-status";
 
 /** Max characters of `content` included in list rows (full body is only on GET by id). */
 export const DATA_SOURCE_CONTENT_PREVIEW_MAX = 200;
 
 /**
- * `include` passed to `dataSource.findMany` / `findUnique` for list and detail views.
+ * `include` passed to `dataSource.findMany` for list views.
  */
 export const listInclude = {
   ticker: {
@@ -28,6 +29,28 @@ export const listInclude = {
       source: true,
     },
   },
+  curatedSource: {
+    select: {
+      id: true,
+      name: true,
+      listingUrl: true,
+    },
+  },
+  articleRelevances: {
+    orderBy: { score: "desc" as const },
+    select: {
+      id: true,
+      score: true,
+      associationReasoning: true,
+      ticker: {
+        select: {
+          id: true,
+          symbol: true,
+          name: true,
+        },
+      },
+    },
+  },
 } satisfies Prisma.DataSourceInclude;
 
 /**
@@ -36,6 +59,26 @@ export const listInclude = {
 export type ListRow = Prisma.DataSourceGetPayload<{
   include: typeof listInclude;
 }>;
+
+type ArticleRelevanceListRow = ListRow["articleRelevances"][number];
+
+/**
+ * Maps one article-relevance row to a Hermes linked-ticker item.
+ *
+ * @param row - Relevance row with joined ticker from {@link listInclude}.
+ * @returns Serializable linked-ticker row.
+ */
+export const mapArticleRelevanceRow = (row: ArticleRelevanceListRow) => ({
+  id: row.id,
+  tickerId: row.ticker.id,
+  tickerSymbol: row.ticker.symbol,
+  tickerName: row.ticker.name,
+  score: row.score,
+  associationReasoning: row.associationReasoning ?? "",
+});
+
+/** JSON linked-ticker row type; derived from {@link mapArticleRelevanceRow}. */
+export type ArticleRelevanceItem = ReturnType<typeof mapArticleRelevanceRow>;
 
 /**
  * Truncates plain text for a list preview (ellipsis when longer than max).
@@ -55,23 +98,38 @@ export const truncateContentPreview = (
 };
 
 /**
- * Maps a data-source row (with ticker and search query) to the JSON list item.
+ * Maps a data-source row (with relations) to the JSON list item.
  *
  * @param row - Row from `prisma.dataSource.findMany` using {@link listInclude}.
  * @returns Serializable list row for the domain API.
  */
 export const mapRowToListItem = (row: ListRow) => {
-  const collectionSource = classifyCollectionSource(row.searchQuery.source);
+  const collectionSource = row.searchQuery
+    ? classifyCollectionSource(row.searchQuery.source)
+    : "page-collection";
 
   return {
     id: row.id,
     url: row.url,
     title: row.title,
-    tickerSymbol: row.ticker.symbol,
-    tickerName: row.ticker.name,
-    searchQueryText: row.searchQuery.text,
+    tickerSymbol: row.ticker?.symbol ?? "",
+    tickerName: row.ticker?.name ?? "",
+    searchQueryText: row.searchQuery?.text ?? "",
     collectionSource,
     collectionSourceLabel: COLLECTION_SOURCE_LABEL[collectionSource],
+    collectionGateStatus: row.collectionGateStatus,
+    collectionGateStatusLabel: formatCollectionGateStatusLabel(
+      row.collectionGateStatus,
+    ),
+    collectionGateReason: row.collectionGateReason,
+    curatedSource: row.curatedSource
+      ? {
+          id: row.curatedSource.id,
+          name: row.curatedSource.name,
+          listingUrl: row.curatedSource.listingUrl,
+        }
+      : null,
+    articleRelevances: row.articleRelevances.map(mapArticleRelevanceRow),
     contentPreview: truncateContentPreview(
       row.content,
       DATA_SOURCE_CONTENT_PREVIEW_MAX,
@@ -84,33 +142,3 @@ export const mapRowToListItem = (row: ListRow) => {
 
 /** JSON list item type; derived from {@link mapRowToListItem}. */
 export type ListItem = ReturnType<typeof mapRowToListItem>;
-
-/**
- * Maps a data-source row to the JSON detail payload (GET by id), including full `content`.
- *
- * @param row - Row from `prisma.dataSource.findUnique` using {@link listInclude}.
- * @returns Serializable detail record for the Hermes read-only detail page.
- */
-export const mapRowToDetailItem = (row: ListRow) => {
-  const collectionSource = classifyCollectionSource(row.searchQuery.source);
-
-  return {
-    id: row.id,
-    url: row.url,
-    title: row.title,
-    content: row.content,
-    metadata: row.metadata,
-    tickerId: row.tickerId,
-    searchQueryId: row.searchQueryId,
-    tickerSymbol: row.ticker.symbol,
-    tickerName: row.ticker.name,
-    searchQueryText: row.searchQuery.text,
-    collectionSource,
-    collectionSourceLabel: COLLECTION_SOURCE_LABEL[collectionSource],
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-};
-
-/** JSON detail item type; derived from {@link mapRowToDetailItem}. */
-export type DetailItem = ReturnType<typeof mapRowToDetailItem>;

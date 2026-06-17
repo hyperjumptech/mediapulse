@@ -113,6 +113,16 @@ import {
   postCollectionUrlOutcomeBodySchema,
   postCollectionUrlOutcomeResponseSchema,
 } from "./collection-url-outcome.js";
+import {
+  getPageCollectionArticlesQuerySchema,
+  getPageCollectionArticlesResponseSchema,
+  postPageCollectionBodySchema,
+  postPageCollectionExistingUrlsBodySchema,
+  postPageCollectionExistingUrlsResponseSchema,
+  postPageCollectionResolveSourcesBodySchema,
+  postPageCollectionResolveSourcesResponseSchema,
+  postPageCollectionResponseSchema,
+} from "./page-collection.js";
 
 type AgentDataApiMethodSchema =
   | {
@@ -673,6 +683,66 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postCollectionUrlOutcomeBodySchema,
         response: postCollectionUrlOutcomeResponseSchema,
+      },
+    },
+  },
+  pageCollection: {
+    v1: {
+      post: {
+        body: postPageCollectionBodySchema,
+        response: postPageCollectionResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postPageCollectionBodySchema,
+        response: postPageCollectionResponseSchema,
+      },
+    },
+  },
+  pageCollectionExistingUrls: {
+    v1: {
+      post: {
+        body: postPageCollectionExistingUrlsBodySchema,
+        response: postPageCollectionExistingUrlsResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postPageCollectionExistingUrlsBodySchema,
+        response: postPageCollectionExistingUrlsResponseSchema,
+      },
+    },
+  },
+  pageCollectionResolveSources: {
+    v1: {
+      pathSegment: "/page-collection/resolve-sources",
+      post: {
+        body: postPageCollectionResolveSourcesBodySchema,
+        response: postPageCollectionResolveSourcesResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/page-collection/resolve-sources",
+      post: {
+        body: postPageCollectionResolveSourcesBodySchema,
+        response: postPageCollectionResolveSourcesResponseSchema,
+      },
+    },
+  },
+  pageCollectionArticles: {
+    v1: {
+      pathSegment: "/page-collection/articles",
+      get: {
+        query: getPageCollectionArticlesQuerySchema,
+        response: getPageCollectionArticlesResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/page-collection/articles",
+      get: {
+        query: getPageCollectionArticlesQuerySchema,
+        response: getPageCollectionArticlesResponseSchema,
       },
     },
   },

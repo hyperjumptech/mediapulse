@@ -33,6 +33,13 @@ export const isActiveBooleanSelectListFilter = {
   ui: "boolean-select",
 } satisfies TableV1ListFilterDefinition;
 
+/** Enabled yes/no filter (`enabled` query param). */
+export const enabledBooleanSelectListFilter = {
+  key: "enabled",
+  label: "Enabled",
+  ui: "boolean-select",
+} satisfies TableV1ListFilterDefinition;
+
 /** Intent dropdown filter for search queries. */
 export const intentSelectListFilter = {
   key: "intent",
@@ -58,4 +65,13 @@ export const collectionSourceSelectListFilter = {
   ui: "select",
   placeholderAll: "All",
   optionsMetaKey: "collectionSourceOptions",
+} satisfies TableV1ListFilterDefinition;
+
+/** Collection gate status filter for global page-collection articles. */
+export const collectionGateStatusSelectListFilter = {
+  key: "collectionGateStatus",
+  label: "Gate status",
+  ui: "select",
+  placeholderAll: "All",
+  optionsMetaKey: "collectionGateStatusOptions",
 } satisfies TableV1ListFilterDefinition;

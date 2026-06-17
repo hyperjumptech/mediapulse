@@ -394,14 +394,7 @@ const runTimingSchema = z
 
 /** Zod schema for agent config grouped for Hermes form sections. */
 export const ConfigSchema = z.object({
-  curatedSources: z
-    .array(curatedSourceSchema)
-    .default([])
-    .describe(
-      "Operator-managed listing sources. Each entry is a feed or listing page the agent discovers articles from.",
-    ),
   providers: providersSchema,
-  gates: gatesSchema,
   resilience: resilienceSchema,
   discoveryCache: discoveryCacheSchema,
   discovery: discoverySchema,

@@ -3,6 +3,7 @@ import {
   buildCollectionSourceSearchQueryWhere,
   type CollectionSource,
 } from "./collection-source";
+import type { CollectionGateStatusFilter } from "./collection-gate-status";
 
 /**
  * Input filters parsed from query string for the data-source list endpoint.
@@ -19,6 +20,8 @@ export type DataSourceListFilters = {
   from?: Date;
   /** Upper bound on `createdAt` (inclusive). */
   to?: Date;
+  /** Gate status for global page-collection articles (`tickerId` null). */
+  collectionGateStatus?: CollectionGateStatusFilter;
 };
 
 /**
@@ -65,6 +68,13 @@ export const buildDataSourceListWhere = (
       searchQuery: buildCollectionSourceSearchQueryWhere(
         filters.collectionSource,
       ),
+    });
+  }
+
+  if (filters.collectionGateStatus) {
+    parts.push({
+      tickerId: null,
+      collectionGateStatus: filters.collectionGateStatus,
     });
   }
 

@@ -1,4 +1,3 @@
-import type { DataCollectionInput } from "@workspace/agent-types";
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-page-collection";
@@ -8,44 +7,37 @@ import crypto from "node:crypto";
 
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
+import { expandSourceUrl } from "./utilities/expand-source-urls";
 import {
   performWebFetch,
   createEmptyQualityCounters,
   runQualityGate,
-  resolveExistingDataSourceUrls,
-  resolveDeadUrls,
   buildDeadUrlRecords,
   HostErrorTracker,
   hostFromUrl,
   type QualityDropForDeadUrl,
-  buildTickerAliases,
-  buildIndustryAliases,
-  isRelevant,
   deriveRunStatus,
   type RunCounters,
-  extractPublishedDate,
-  isFresh,
-  runDiscovery,
-  RateLimiter,
-  type DiscoveryCache,
-  type DiscoverySource,
   type WebSearchResult,
   makeDroppedOutcome,
   makeCollectedOutcome,
   makeFailedOutcome,
   postOutcomesInChunks,
   type CollectionUrlOutcomeInput,
+  RateLimiter,
 } from "@workspace/agent-ingestion";
 import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
-import { prefilterByAliases } from "./utilities/prefilter-by-aliases";
+import {
+  PAGE_COLLECTION_EXISTING_URLS_MAX,
+  type PostPageCollectionBody,
+} from "@workspace/agent-data-api-contract";
 
 /**
- * Executes the page-collection pipeline: discover article links from curated listing
- * sources, pre-filter by ticker/industry aliases, fetch survivors, apply quality/relevance/
- * freshness gates, and persist new data sources under the ticker's curated listing query.
+ * Executes the page-collection pipeline: expand curated source URLs, fetch article
+ * content, apply the content quality gate, and persist ticker-agnostic articles.
  *
- * @param context - Validated input and config, plus the bearer token for the Agent Data API.
- * @returns Success with summary counts, or semantic failure when the run policy shortfall is hit.
+ * @param context - Validated input (`sourceUrls`) and config, plus bearer token.
+ * @returns Success with summary counts, or semantic failure when run policy is not met.
  */
 export async function runPageCollection(
   context: AgentRunContext<BodySchemaType, ConfigSchemaType>,
@@ -57,28 +49,21 @@ export async function runPageCollection(
     hermesCorrelation?.scheduleExecutionId ?? undefined;
   const outcomes: CollectionUrlOutcomeInput[] = [];
 
-  const hermes = hermesCorrelation;
   const log = logger.child({
     component: "page-collection",
     runId,
-    tickerId: input.tickerId,
-    ...(hermes?.scheduleId ? { scheduleId: hermes.scheduleId } : {}),
-    ...(hermes?.scheduleExecutionId
-      ? { scheduleExecutionId: hermes.scheduleExecutionId }
+    ...(hermesCorrelation?.scheduleId
+      ? { scheduleId: hermesCorrelation.scheduleId }
       : {}),
-    ...(hermes?.pipelineStepId
-      ? { pipelineStepId: hermes.pipelineStepId }
+    ...(hermesCorrelation?.scheduleExecutionId
+      ? { scheduleExecutionId: hermesCorrelation.scheduleExecutionId }
       : {}),
   });
 
-  log.info({ runPolicy: config.runPolicy }, "page collection run started");
-
   const runPolicy = config.runPolicy;
   const webFetchConfig = config.providers.fetch;
-  const relevanceGateConfig = config.gates.relevance;
   const deadUrlCacheConfig = config.resilience.deadUrlCache;
   const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
-  const freshnessGateConfig = config.gates.freshness;
   const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
 
   const dataApiClient = createAgentDataApiClient({
@@ -102,181 +87,65 @@ export async function runPageCollection(
     }
   };
 
-  report("Loading ticker context", `ticker ${input.tickerId}`);
+  report("Resolving curated sources", `${input.sourceUrls.length} URLs`);
 
-  const tickerRecord = await dataApiClient.ticker.get({
-    tickerId: input.tickerId,
-  });
-  const tickerAliases = buildTickerAliases(
-    tickerRecord.symbol,
-    tickerRecord.name,
-    tickerRecord.aliases,
-  );
-  const industryAliases = buildIndustryAliases(
-    tickerRecord.sector,
-    tickerRecord.industry,
-  );
-
-  if (tickerAliases.length === 0 && industryAliases.length === 0) {
-    log.warn(
-      { tickerId: input.tickerId },
-      "ticker has no aliases or industry labels; relevance gate is a no-op for this run",
-    );
-  } else {
-    log.info(
-      {
-        aliasCount: tickerAliases.length,
-        industryAliasCount: industryAliases.length,
-      },
-      "loaded ticker and industry aliases for relevance gate",
-    );
-  }
-
-  const { searchQueryId } =
-    await dataApiClient.dataCollectionCuratedListingQuery.create({
-      tickerId: input.tickerId,
+  const { sources: resolvedSources } =
+    await dataApiClient.pageCollectionResolveSources.create({
+      listingUrls: input.sourceUrls,
     });
 
-  report(
-    "Loaded ticker context",
-    `${tickerAliases.length} ticker aliases, ${industryAliases.length} industry terms`,
+  const sourceMetaByUrl = new Map(
+    resolvedSources.map((s) => [s.listingUrl, s]),
   );
 
-  const discoverySources: DiscoverySource[] = config.curatedSources.map(
-    (source) => ({
-      url: source.listingUrl,
-      strategy: source.strategy,
-      enabled: source.enabled,
-      maxItems: source.maxItems,
-    }),
-  );
+  const discoveryDeps = {
+    gotClient: got,
+    rateLimiter: new RateLimiter(2, 1),
+    logger: log,
+    hostErrorTracker,
+    timeoutMs: config.discovery.timeoutMs,
+    concurrency: config.discovery.concurrency,
+  };
 
-  report("Running discovery", `${discoverySources.length} curated sources`);
+  report("Expanding source URLs", `${input.sourceUrls.length} sources`);
 
-  const discoveryConfig = config.discovery;
+  type CandidateItem = {
+    url: string;
+    sourceListingUrl: string;
+    curatedSourceId?: string;
+    publishedAt?: string;
+  };
+
+  const allCandidates: CandidateItem[] = [];
+
+  for (const sourceUrl of input.sourceUrls) {
+    const meta = sourceMetaByUrl.get(sourceUrl);
+    const expanded = await expandSourceUrl(sourceUrl, discoveryDeps, {
+      maxItems: meta?.maxItems ?? undefined,
+    });
+    for (const item of expanded) {
+      allCandidates.push({
+        url: item.url,
+        sourceListingUrl: sourceUrl,
+        ...(meta?.curatedSourceId
+          ? { curatedSourceId: meta.curatedSourceId }
+          : {}),
+        ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}),
+      });
+    }
+  }
+
   const collectionConfig = config.collection;
   const runConfig = config.run;
   const deadline = startedAt.getTime() + runConfig.maxDurationMs;
   let deadlineHit = false;
 
-  const discoveryRateLimiter = new RateLimiter(2, 1);
-  const discoveryDeps = {
-    gotClient: got,
-    rateLimiter: discoveryRateLimiter,
-    logger: log,
-    hostErrorTracker,
-    timeoutMs: discoveryConfig.timeoutMs,
-    concurrency: discoveryConfig.concurrency,
-  };
-
-  const discoveryCacheConfig = config.discoveryCache;
-  const discoveryCache: DiscoveryCache | undefined =
-    discoveryCacheConfig.enabled
-      ? {
-          ttlSeconds: discoveryCacheConfig.ttlSeconds,
-          lookup: async (listingUrls) => {
-            const response =
-              await dataApiClient.listingDiscoveryCacheLookup.create({
-                listingUrls,
-              });
-            return response.entries;
-          },
-          record: async (entries) => {
-            await dataApiClient.listingDiscoveryCacheRecord.create(entries);
-          },
-        }
-      : undefined;
-
-  const {
-    items: discoveredItems,
-    failures: discoveryFailures,
-    sourceReports,
-  } = await runDiscovery(discoverySources, discoveryDeps, discoveryCache);
-
-  log.info(
-    {
-      discoveredCount: discoveredItems.length,
-      discoveryFailureCount: discoveryFailures.length,
-      perSource: sourceReports.map((report) => ({
-        listingUrl: report.listingUrl.slice(0, 80),
-        discovered: report.discovered,
-        itemCount: report.itemCount,
-        winningStrategy: report.winningStrategy,
-        failureCount: report.failureCount,
-      })),
-    },
-    "discovery stage finished",
-  );
-
   const maxDiscoveredItems = collectionConfig.maxDiscoveredItemsPerRun;
   const droppedByRunItemCap = Math.max(
     0,
-    discoveredItems.length - maxDiscoveredItems,
+    allCandidates.length - maxDiscoveredItems,
   );
-  const cappedDiscoveredItems = discoveredItems.slice(0, maxDiscoveredItems);
-  if (droppedByRunItemCap > 0) {
-    log.warn(
-      { droppedByRunItemCap, maxDiscoveredItemsPerRun: maxDiscoveredItems },
-      "discovered items truncated by per-run cap",
-    );
-    for (const item of discoveredItems.slice(maxDiscoveredItems)) {
-      outcomes.push(
-        makeDroppedOutcome(
-          {
-            id: crypto.randomUUID(),
-            scheduleExecutionId,
-            runId,
-            tickerId: input.tickerId,
-            agent: "page-collection",
-            url: item.url,
-            source: undefined,
-            searchQueryId,
-            createdAt: new Date().toISOString(),
-          },
-          { reason: "dropped_by_run_item_cap" },
-        ),
-      );
-    }
-  }
-
-  const filteredItems = prefilterByAliases(cappedDiscoveredItems, {
-    tickerAliases,
-    industryAliases,
-  });
-  const prefilterDropCount =
-    cappedDiscoveredItems.length - filteredItems.length;
-
-  if (prefilterDropCount > 0) {
-    const filteredItemUrls = new Set(filteredItems.map((item) => item.url));
-    for (const item of cappedDiscoveredItems) {
-      if (!filteredItemUrls.has(item.url)) {
-        outcomes.push(
-          makeDroppedOutcome(
-            {
-              id: crypto.randomUUID(),
-              scheduleExecutionId,
-              runId,
-              tickerId: input.tickerId,
-              agent: "page-collection",
-              url: item.url,
-              source: undefined,
-              searchQueryId,
-              createdAt: new Date().toISOString(),
-            },
-            { reason: "prefilter_alias_mismatch" },
-          ),
-        );
-      }
-    }
-  }
-
-  log.info(
-    {
-      filteredCount: filteredItems.length,
-      prefilterDropCount,
-    },
-    "alias pre-filter applied",
-  );
+  const cappedCandidates = allCandidates.slice(0, maxDiscoveredItems);
 
   const droppedByUrlReason: Record<UrlNoiseReason, number> = {
     blocked_host: 0,
@@ -287,23 +156,15 @@ export async function runPageCollection(
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
   const droppedByContentQuality = createEmptyQualityCounters();
-  let droppedByRelevance = 0;
   let droppedByDeadUrlCache = 0;
   let droppedByHostErrorRate = 0;
-  let droppedByFreshness = 0;
   let fetchSuccessCount = 0;
   let fetchFailedCount = 0;
   let persistedCount = 0;
 
-  const fetchFailures: Array<
-    Awaited<ReturnType<typeof performWebFetch>>[number]["failures"][number]
-  > = [];
+  const canonicalItemMap = new Map<string, CandidateItem>();
 
-  const canonicalItemMap = new Map<
-    string,
-    { searchResult: WebSearchResult; discoveryPublishedAt?: string }
-  >();
-  for (const item of filteredItems) {
+  for (const item of cappedCandidates) {
     const decision = classifyNoisyUrl(item.url);
     if (decision.blocked) {
       droppedByUrlReason[decision.reason] += 1;
@@ -313,11 +174,10 @@ export async function runPageCollection(
             id: crypto.randomUUID(),
             scheduleExecutionId,
             runId,
-            tickerId: input.tickerId,
             agent: "page-collection",
             url: item.url,
-            source: undefined,
-            searchQueryId,
+            source: item.sourceListingUrl,
+            curatedSourceId: item.curatedSourceId,
             createdAt: new Date().toISOString(),
           },
           { reason: `url_noise_${decision.reason}`, detail: item.url },
@@ -328,45 +188,34 @@ export async function runPageCollection(
 
     if (canonicalItemMap.has(decision.canonicalUrl)) {
       droppedByDuplicateCanonicalUrl += 1;
-      outcomes.push(
-        makeDroppedOutcome(
-          {
-            id: crypto.randomUUID(),
-            scheduleExecutionId,
-            runId,
-            tickerId: input.tickerId,
-            agent: "page-collection",
-            url: decision.canonicalUrl,
-            source: undefined,
-            searchQueryId,
-            createdAt: new Date().toISOString(),
-          },
-          { reason: "duplicate_canonical_url" },
-        ),
-      );
       continue;
     }
 
     canonicalItemMap.set(decision.canonicalUrl, {
-      searchResult: {
-        url: decision.canonicalUrl,
-        title: item.title ?? "",
-        content: "",
-        tickerId: input.tickerId,
-        searchQueryId,
-        searchQueryText: "",
-        serpIndex: 0,
-      },
-      discoveryPublishedAt: item.publishedAt,
+      ...item,
+      url: decision.canonicalUrl,
     });
   }
 
   const candidateUrls = [...canonicalItemMap.keys()];
-  const { existingUrls: existingUrlSet } = await resolveExistingDataSourceUrls(
-    input.tickerId,
-    candidateUrls,
-    (body) => dataApiClient.dataCollectionExistingUrls.create(body),
-  );
+
+  const existingUrlSet = new Set<string>();
+  for (
+    let index = 0;
+    index < candidateUrls.length;
+    index += PAGE_COLLECTION_EXISTING_URLS_MAX
+  ) {
+    const chunk = candidateUrls.slice(
+      index,
+      index + PAGE_COLLECTION_EXISTING_URLS_MAX,
+    );
+    const response = await dataApiClient.pageCollectionExistingUrls.create({
+      urls: chunk,
+    });
+    for (const url of response.existingUrls) {
+      existingUrlSet.add(url);
+    }
+  }
 
   let candidatesAfterExisting = candidateUrls.filter(
     (url) => !existingUrlSet.has(url),
@@ -374,37 +223,9 @@ export async function runPageCollection(
   droppedByExistingCanonicalUrl =
     candidateUrls.length - candidatesAfterExisting.length;
 
-  if (droppedByExistingCanonicalUrl > 0) {
-    log.info(
-      { droppedByExistingCanonicalUrl },
-      "skipped fetch for URLs already stored as data sources",
-    );
-    for (const url of candidateUrls) {
-      if (existingUrlSet.has(url)) {
-        outcomes.push(
-          makeDroppedOutcome(
-            {
-              id: crypto.randomUUID(),
-              scheduleExecutionId,
-              runId,
-              tickerId: input.tickerId,
-              agent: "page-collection",
-              url,
-              source: undefined,
-              searchQueryId,
-              createdAt: new Date().toISOString(),
-            },
-            { reason: "existing_canonical_url" },
-          ),
-        );
-      }
-    }
-  }
-
   let candidatesAfterDeadUrl = candidatesAfterExisting;
   if (deadUrlCacheConfig.enabled) {
-    const deadUrlSet = await resolveDeadUrls(
-      input.tickerId,
+    const deadUrlSet = await resolveDeadUrlsGlobal(
       candidatesAfterExisting,
       (body) => dataApiClient.dataCollectionDeadUrlsLookup.create(body),
       deadUrlCacheConfig.skipLookupBatchSize,
@@ -415,30 +236,6 @@ export async function runPageCollection(
       );
       droppedByDeadUrlCache =
         candidatesAfterExisting.length - candidatesAfterDeadUrl.length;
-      log.info(
-        { droppedByDeadUrlCache },
-        "skipped fetch for URLs in dead-url negative cache",
-      );
-      for (const url of candidatesAfterExisting) {
-        if (deadUrlSet.has(url)) {
-          outcomes.push(
-            makeDroppedOutcome(
-              {
-                id: crypto.randomUUID(),
-                scheduleExecutionId,
-                runId,
-                tickerId: input.tickerId,
-                agent: "page-collection",
-                url,
-                source: undefined,
-                searchQueryId,
-                createdAt: new Date().toISOString(),
-              },
-              { reason: "dead_url_cache" },
-            ),
-          );
-        }
-      }
     }
   }
 
@@ -446,33 +243,10 @@ export async function runPageCollection(
     const host = hostFromUrl(url);
     if (hostErrorTracker.isSkipped(host)) {
       droppedByHostErrorRate += 1;
-      outcomes.push(
-        makeDroppedOutcome(
-          {
-            id: crypto.randomUUID(),
-            scheduleExecutionId,
-            runId,
-            tickerId: input.tickerId,
-            agent: "page-collection",
-            url,
-            source: undefined,
-            searchQueryId,
-            createdAt: new Date().toISOString(),
-          },
-          { reason: "host_error_rate", host },
-        ),
-      );
       return false;
     }
     return true;
   });
-
-  if (droppedByHostErrorRate > 0) {
-    log.info(
-      { droppedByHostErrorRate },
-      "skipped fetch for hosts over error-rate threshold",
-    );
-  }
 
   const perRunFetchBudget = collectionConfig.perRunFetchBudget;
   const droppedByFetchBudget = Math.max(
@@ -483,30 +257,6 @@ export async function runPageCollection(
     0,
     perRunFetchBudget,
   );
-  if (droppedByFetchBudget > 0) {
-    log.warn(
-      { droppedByFetchBudget, perRunFetchBudget },
-      "fetch candidates truncated by per-run fetch budget",
-    );
-    for (const url of candidatesAfterHostBreaker.slice(perRunFetchBudget)) {
-      outcomes.push(
-        makeDroppedOutcome(
-          {
-            id: crypto.randomUUID(),
-            scheduleExecutionId,
-            runId,
-            tickerId: input.tickerId,
-            agent: "page-collection",
-            url,
-            source: undefined,
-            searchQueryId,
-            createdAt: new Date().toISOString(),
-          },
-          { reason: "dropped_by_fetch_budget" },
-        ),
-      );
-    }
-  }
 
   report(
     "Fetching article content",
@@ -515,15 +265,23 @@ export async function runPageCollection(
 
   if (Date.now() > deadline) {
     deadlineHit = true;
-    log.warn(
-      { maxDurationMs: runConfig.maxDurationMs },
-      "run deadline exceeded before fetch; finalizing with partial_success",
-    );
   }
 
   const fetchInputs = !deadlineHit
     ? candidatesAfterBudget
-        .map((url) => canonicalItemMap.get(url)?.searchResult)
+        .map((url) => {
+          const item = canonicalItemMap.get(url);
+          if (!item) return undefined;
+          return {
+            url,
+            title: "",
+            content: "",
+            tickerId: "",
+            searchQueryId: "",
+            searchQueryText: "",
+            serpIndex: 0,
+          } satisfies WebSearchResult;
+        })
         .filter((r): r is WebSearchResult => r !== undefined)
     : [];
 
@@ -536,48 +294,22 @@ export async function runPageCollection(
         })
       : [];
 
-  const roundFetchSuccesses = fetchAttemptResults
-    .filter((outcome) => outcome.success !== null)
-    .map((outcome) => outcome.success!);
-  const roundFetchFailures = fetchAttemptResults.flatMap(
-    (outcome) => outcome.failures,
-  );
-  const roundFailedUrlCount = fetchAttemptResults.filter(
-    (outcome) => outcome.success === null,
-  ).length;
-  fetchFailedCount += roundFailedUrlCount;
-  fetchFailures.push(...roundFetchFailures);
-
   const roundQualityDrops: QualityDropForDeadUrl[] = [];
-  const sourcesToPersist: DataCollectionInput[] = [];
+  const sourcesToPersist: PostPageCollectionBody = [];
+  const fetchFailures: Array<
+    Awaited<ReturnType<typeof performWebFetch>>[number]["failures"][number]
+  > = [];
 
-  report(
-    "Saving sources to database",
-    `${roundFetchSuccesses.length} fetched pages`,
-  );
-
-  for (const page of roundFetchSuccesses) {
-    const urlDecision = classifyNoisyUrl(page.url);
-    if (urlDecision.blocked) {
-      droppedByUrlReason[urlDecision.reason] += 1;
-      outcomes.push(
-        makeDroppedOutcome(
-          {
-            id: crypto.randomUUID(),
-            scheduleExecutionId,
-            runId,
-            tickerId: input.tickerId,
-            agent: "page-collection",
-            url: page.url,
-            source: undefined,
-            searchQueryId,
-            createdAt: new Date().toISOString(),
-          },
-          { reason: `url_noise_${urlDecision.reason}`, detail: page.url },
-        ),
-      );
+  for (const outcome of fetchAttemptResults) {
+    if (outcome.success === null) {
+      fetchFailedCount += 1;
+      fetchFailures.push(...outcome.failures);
       continue;
     }
+
+    const page = outcome.success;
+    const urlDecision = classifyNoisyUrl(page.url);
+    const item = canonicalItemMap.get(urlDecision.canonicalUrl);
 
     const contentDecision = runQualityGate(page.title, page.content, page.url);
     if (contentDecision.blocked) {
@@ -592,11 +324,10 @@ export async function runPageCollection(
             id: crypto.randomUUID(),
             scheduleExecutionId,
             runId,
-            tickerId: input.tickerId,
             agent: "page-collection",
             url: urlDecision.canonicalUrl,
-            source: undefined,
-            searchQueryId,
+            source: item?.sourceListingUrl,
+            curatedSourceId: item?.curatedSourceId,
             createdAt: new Date().toISOString(),
           },
           { reason: contentDecision.reason },
@@ -605,113 +336,13 @@ export async function runPageCollection(
       continue;
     }
 
-    if (relevanceGateConfig.enabled) {
-      const relevanceDecision = isRelevant(
-        {
-          title: page.title,
-          content: page.content,
-          aliases: tickerAliases,
-          industryAliases,
-        },
-        {
-          headChars: relevanceGateConfig.headChars,
-          minMatches: relevanceGateConfig.minMatches,
-        },
-      );
-      if (!relevanceDecision.relevant) {
-        droppedByRelevance += 1;
-        log.info(
-          {
-            url: page.url.slice(0, 120),
-            reason: relevanceDecision.reason,
-          },
-          "dropped page that did not mention the target ticker or industry",
-        );
-        outcomes.push(
-          makeDroppedOutcome(
-            {
-              id: crypto.randomUUID(),
-              scheduleExecutionId,
-              runId,
-              tickerId: input.tickerId,
-              agent: "page-collection",
-              url: urlDecision.canonicalUrl,
-              source: undefined,
-              searchQueryId,
-              createdAt: new Date().toISOString(),
-            },
-            {
-              reason: "relevance_no_match",
-              tickerSymbol: tickerRecord.symbol,
-              headChars: relevanceGateConfig.headChars,
-            },
-          ),
-        );
-        continue;
-      }
-    }
-
-    const extractedDate = extractPublishedDate({
-      fetchMetadata: page.fetchMetadata ?? page.jinaMetadata,
-      content: page.content,
-    });
-    const itemEntry = canonicalItemMap.get(urlDecision.canonicalUrl);
-    const discoveryPublishedAt = itemEntry?.discoveryPublishedAt;
-    const publishedAt =
-      extractedDate ??
-      (discoveryPublishedAt ? new Date(discoveryPublishedAt) : null);
-
-    if (freshnessGateConfig.enabled) {
-      const freshnessDecision = isFresh(publishedAt, {
-        maxAgeDays: freshnessGateConfig.maxAgeDays,
-        allowUnknown: freshnessGateConfig.allowUnknown,
-      });
-      if (!freshnessDecision.fresh) {
-        droppedByFreshness += 1;
-        log.info(
-          {
-            url: urlDecision.canonicalUrl.slice(0, 120),
-            publishedAt: publishedAt?.toISOString() ?? null,
-            reason: freshnessDecision.reason,
-          },
-          "dropped page outside freshness window",
-        );
-        outcomes.push(
-          makeDroppedOutcome(
-            {
-              id: crypto.randomUUID(),
-              scheduleExecutionId,
-              runId,
-              tickerId: input.tickerId,
-              agent: "page-collection",
-              url: urlDecision.canonicalUrl,
-              source: undefined,
-              searchQueryId,
-              createdAt: new Date().toISOString(),
-            },
-            freshnessDecision.reason === "too_old" && publishedAt !== null
-              ? {
-                  reason: "freshness_too_old",
-                  publishedAt,
-                  maxAgeDays: freshnessGateConfig.maxAgeDays,
-                }
-              : freshnessDecision.reason === "future_dated" &&
-                  publishedAt !== null
-                ? { reason: "freshness_future_dated", publishedAt }
-                : { reason: "freshness_unknown_date" },
-          ),
-        );
-        continue;
-      }
-    }
-
     sourcesToPersist.push({
       url: urlDecision.canonicalUrl,
       title: page.title,
       content: page.content,
-      tickerId: input.tickerId,
-      searchQueryId,
-      ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
+      curatedSourceListingUrl:
+        item?.sourceListingUrl ?? urlDecision.canonicalUrl,
+      collectionGateStatus: "passed",
       metadata: { provider: page.provider },
     });
     fetchSuccessCount += 1;
@@ -720,100 +351,40 @@ export async function runPageCollection(
         id: crypto.randomUUID(),
         scheduleExecutionId,
         runId,
-        tickerId: input.tickerId,
         agent: "page-collection",
         url: urlDecision.canonicalUrl,
-        source: undefined,
-        searchQueryId,
+        source: item?.sourceListingUrl,
+        curatedSourceId: item?.curatedSourceId,
         createdAt: new Date().toISOString(),
       }),
     );
   }
 
   if (sourcesToPersist.length > 0) {
-    log.info(
-      { persistCount: sourcesToPersist.length },
-      "persisting collected sources to Agent Data API",
-    );
-    await dataApiClient.dataCollection.create(sourcesToPersist);
-    persistedCount += sourcesToPersist.length;
+    const result = await dataApiClient.pageCollection.create(sourcesToPersist);
+    persistedCount += result.persistedCount;
   }
 
-  log.info(
-    {
-      fetchSuccess: fetchSuccessCount,
-      fetchFailed: fetchFailedCount,
-      droppedByUrlReason,
-      droppedByDuplicateCanonicalUrl,
-      droppedByExistingCanonicalUrl,
-      droppedByContentQuality,
-      droppedByRelevance,
-      droppedByDeadUrlCache,
-      droppedByHostErrorRate,
-      droppedByFreshness,
-      droppedByRunItemCap,
-      droppedByFetchBudget,
-      prefilterDropCount,
-    },
-    "fetch stage finished",
-  );
-
   if (deadUrlCacheConfig.enabled) {
-    const deadUrlFetchFailures = fetchAttemptResults
-      .filter((outcome) => outcome.success === null)
-      .flatMap((outcome) => outcome.failures);
     const deadUrlRecords = buildDeadUrlRecords(
-      input.tickerId,
-      deadUrlFetchFailures,
+      undefined,
+      fetchFailures,
       roundQualityDrops,
     );
     if (deadUrlRecords.length > 0) {
       try {
         await dataApiClient.dataCollectionDeadUrlsRecord.create(deadUrlRecords);
-        log.info(
-          { deadUrlRecordCount: deadUrlRecords.length },
-          "recorded dead URLs to negative cache",
-        );
       } catch (recordError) {
-        log.warn(
-          { deadUrlRecordCount: deadUrlRecords.length, err: recordError },
-          "failed to record dead URLs; continuing without negative cache write",
-        );
+        log.warn({ err: recordError }, "failed to record dead URLs");
       }
-    }
-  }
-
-  if (sourceReports.length > 0) {
-    const healthRecords = sourceReports.map((report) => ({
-      listingUrl: report.listingUrl,
-      runDate: startedAt.toISOString(),
-      discovered: report.discovered,
-      itemCount: report.itemCount,
-      winningStrategy: report.winningStrategy,
-      failureCount: report.failureCount,
-      lastError: report.lastError,
-    }));
-    try {
-      await dataApiClient.discoverySourceHealthRecord.create(healthRecords);
-      log.info(
-        { healthRecordCount: healthRecords.length },
-        "posted per-source discovery health records",
-      );
-    } catch (healthError) {
-      log.warn(
-        { healthRecordCount: healthRecords.length, err: healthError },
-        "failed to post discovery source health records; continuing",
-      );
     }
   }
 
   const failuresPayload = fetchFailures.map((f) => ({
     id: crypto.randomUUID(),
     runId,
-    tickerId: input.tickerId,
     stage: "web-fetch" as const,
     provider: f.provider,
-    searchQueryId: f.queryId,
     url: f.url,
     errorCategory: f.errorCategory,
     retryable: f.retryable,
@@ -825,7 +396,7 @@ export async function runPageCollection(
   const totalSources = persistedCount;
   const derivedStatus = deriveRunStatus({
     totalSources,
-    failureCount: failuresPayload.length + discoveryFailures.length,
+    failureCount: failuresPayload.length,
     runPolicy,
   });
   const status =
@@ -833,87 +404,50 @@ export async function runPageCollection(
       ? "partial_success"
       : derivedStatus;
 
-  const cacheHits = sourceReports.filter(
-    (r) => r.winningStrategy === "cache",
-  ).length;
-  const cacheMisses = sourceReports.filter(
-    (r) => r.discovered && r.winningStrategy !== "cache",
-  ).length;
-  const droppedByUrlNoiseTotal = Object.values(droppedByUrlReason).reduce(
-    (sum, count) => sum + count,
-    0,
-  );
-
   const counters: RunCounters = {
-    queriesTotal: discoverySources.filter((s) => s.enabled !== false).length,
-    urlsTotal: cappedDiscoveredItems.length,
-    searchSuccess: discoveredItems.length,
-    searchFailed: discoveryFailures.length,
+    queriesTotal: input.sourceUrls.length,
+    urlsTotal: cappedCandidates.length,
+    searchSuccess: allCandidates.length,
+    searchFailed: 0,
     fetchSuccess: fetchSuccessCount,
     fetchFailed: fetchFailedCount,
     retryCount: 0,
-    droppedByRelevance,
+    droppedByRelevance: 0,
     throttleEvents: 0,
-    // Extended counters for insights
-    discovered: discoveredItems.length,
-    afterPrefilter: filteredItems.length,
-    discoveryFailed: discoveryFailures.length,
-    cacheHits,
-    cacheMisses,
+    discovered: allCandidates.length,
+    afterPrefilter: cappedCandidates.length,
+    discoveryFailed: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
     droppedByContentQuality: { ...droppedByContentQuality },
-    droppedByFreshness,
+    droppedByFreshness: 0,
     droppedByDeadUrl: droppedByDeadUrlCache,
     droppedByHostErrorRate,
     droppedByFetchBudget,
     droppedByRunItemCap,
     droppedByExistingCanonicalUrl,
     droppedByDuplicateCanonicalUrl,
-    droppedByUrlNoise: droppedByUrlNoiseTotal,
+    droppedByUrlNoise: Object.values(droppedByUrlReason).reduce(
+      (sum, n) => sum + n,
+      0,
+    ),
     persisted: persistedCount,
     deadlineHit,
     durationMs: Date.now() - startedAt.getTime(),
     agentId: "page-collection",
   };
 
-  const runPayload = {
+  await dataApiClient.dataCollectionRun.create({
     id: runId,
-    tickerId: input.tickerId,
     scheduleExecutionId,
     startedAt: startedAt.toISOString(),
     completedAt: new Date().toISOString(),
     status,
     counters,
-  };
-
-  await dataApiClient.dataCollectionRun.create(runPayload);
+  });
 
   if (failuresPayload.length > 0) {
-    log.warn(
-      { failureRecords: failuresPayload.length },
-      "recording run failures to Agent Data API",
-    );
     await dataApiClient.dataCollectionFailure.create(failuresPayload);
-    for (const failure of failuresPayload) {
-      if (failure.url) {
-        outcomes.push(
-          makeFailedOutcome(
-            {
-              id: crypto.randomUUID(),
-              scheduleExecutionId,
-              runId,
-              tickerId: input.tickerId,
-              agent: "page-collection",
-              url: failure.url,
-              source: undefined,
-              searchQueryId,
-              createdAt: failure.createdAt,
-            },
-            failure.errorCategory,
-            failure.httpStatus ?? undefined,
-          ),
-        );
-      }
-    }
   }
 
   if (outcomes.length > 0) {
@@ -921,99 +455,55 @@ export async function runPageCollection(
       await postOutcomesInChunks(outcomes, (batch) =>
         dataApiClient.collectionUrlOutcome.create(batch),
       );
-      log.info(
-        { outcomeCount: outcomes.length },
-        "posted collection URL outcomes",
-      );
     } catch (outcomeError) {
-      log.warn(
-        { outcomeCount: outcomes.length, err: outcomeError },
-        "failed to post collection URL outcomes; continuing",
-      );
+      log.warn({ err: outcomeError }, "failed to post collection URL outcomes");
     }
   }
 
   const summary = {
     totalSources,
     status,
-    discoveredCount: discoveredItems.length,
-    discoveryFailureCount: discoveryFailures.length,
-    prefilterDropCount,
+    discoveredCount: allCandidates.length,
     fetchSuccess: fetchSuccessCount,
-    droppedByRelevance,
+    droppedByContentQuality,
     droppedByDeadUrlCache,
-    droppedByHostErrorRate,
-    droppedByFreshness,
-    droppedByRunItemCap,
     droppedByFetchBudget,
     deadlineHit,
   };
 
-  const durationMs = Date.now() - startedAt.getTime();
-
   if (status === "failed") {
-    const minRequired = runPolicy.minSuccessfulSources;
-    const message =
-      totalSources === 0
-        ? `Page collection run failed: no sources were successfully collected, but the run policy requires at least ${minRequired} successful source${minRequired === 1 ? "" : "s"}.`
-        : `Page collection run failed: only ${totalSources} successful source${totalSources === 1 ? "" : "s"} collected, but the run policy requires at least ${minRequired}.`;
-
-    log.warn(
-      {
-        status,
-        durationMs,
-        totalSources,
-        minRequired,
-        failureCount: failuresPayload.length,
-        discoveryFailureCount: discoveryFailures.length,
-      },
-      "page collection run completed with policy failure (semantic failure response)",
-    );
-
-    report(
-      "Page collection complete",
-      `${totalSources} saved, ${failuresPayload.length} failed`,
-      "completed",
-    );
-
     return {
       success: false,
-      message,
-      details: {
-        summary,
-        failureReason: "insufficient_successful_sources" as const,
-        requiredSuccessfulSources: minRequired,
-        collectedSuccessfulSources: totalSources,
-      },
+      message: `Page collection run failed: ${totalSources} sources persisted.`,
+      details: { summary, failureReason: "insufficient_successful_sources" },
     };
   }
 
-  const completionMessage =
-    status === "partial_success"
-      ? "page collection run completed with partial success"
-      : "page collection run completed successfully";
+  return { success: true, details: { summary } };
+}
 
-  log.info(
-    {
-      status,
-      durationMs,
-      totalSources,
-      failureCount: failuresPayload.length,
-      discoveryFailureCount: discoveryFailures.length,
-      droppedByRelevance,
-      droppedByFreshness,
-    },
-    completionMessage,
-  );
+/**
+ * Global dead-URL lookup without ticker scope.
+ *
+ * @param candidateUrls - URLs to check against the negative cache.
+ * @param lookupDeadUrls - Injected Agent Data API lookup.
+ * @param batchSize - Batch size per request.
+ */
+async function resolveDeadUrlsGlobal(
+  candidateUrls: readonly string[],
+  lookupDeadUrls: (body: { urls: string[] }) => Promise<{ deadUrls: string[] }>,
+  batchSize: number,
+): Promise<Set<string>> {
+  const unique = [...new Set(candidateUrls)];
+  const dead = new Set<string>();
 
-  report(
-    "Page collection complete",
-    `${totalSources} saved, ${failuresPayload.length} failed`,
-    "completed",
-  );
+  for (let index = 0; index < unique.length; index += batchSize) {
+    const chunk = unique.slice(index, index + batchSize);
+    const response = await lookupDeadUrls({ urls: chunk });
+    for (const url of response.deadUrls) {
+      dead.add(url);
+    }
+  }
 
-  return {
-    success: true,
-    details: { summary },
-  };
+  return dead;
 }
