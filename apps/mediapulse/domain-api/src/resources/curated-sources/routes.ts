@@ -34,6 +34,7 @@ const parseSortBy = (
 ): CuratedSourceListSortField | undefined => {
   if (raw === "name") return "name";
   if (raw === "listingUrl") return "listingUrl";
+  if (raw === "linkType") return "linkType";
   if (raw === "enabled") return "enabled";
   if (raw === "maxItems") return "maxItems";
   if (raw === "createdAt") return "createdAt";
@@ -64,6 +65,7 @@ const toCuratedSourceWriteData = (
 ) => ({
   name: nullableText(body.name),
   listingUrl: body.listingUrl.trim(),
+  linkType: body.linkType,
   enabled: body.enabled,
   maxItems: body.maxItems ?? null,
 });

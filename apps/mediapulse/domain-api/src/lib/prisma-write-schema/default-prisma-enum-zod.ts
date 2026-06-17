@@ -2,10 +2,15 @@
  * Maps Prisma enum names from DMMF to `z.nativeEnum` schemas for write-body validation.
  */
 
-import { Sentiment, TickerEntitySource } from "@mediapulse/database";
+import {
+  CuratedSourceLinkType,
+  Sentiment,
+  TickerEntitySource,
+} from "@mediapulse/database";
 import { z } from "zod";
 
 const prismaEnumZodByName: Record<string, z.ZodTypeAny> = {
+  CuratedSourceLinkType: z.nativeEnum(CuratedSourceLinkType),
   Sentiment: z.nativeEnum(Sentiment),
   TickerEntitySource: z.nativeEnum(TickerEntitySource),
 };

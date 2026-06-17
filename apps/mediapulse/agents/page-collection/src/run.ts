@@ -122,6 +122,7 @@ export async function runPageCollection(
     const meta = sourceMetaByUrl.get(sourceUrl);
     const expanded = await expandSourceUrl(sourceUrl, discoveryDeps, {
       maxItems: meta?.maxItems ?? undefined,
+      linkType: meta?.linkType,
     });
     for (const item of expanded) {
       allCandidates.push({

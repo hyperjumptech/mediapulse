@@ -124,19 +124,24 @@ export const resolveCuratedSourcesByListingUrls = async (
   deps: { db?: Pick<typeof prisma.curatedSource, "findMany"> } = {},
 ) => {
   const curatedSource = deps.db ?? prisma.curatedSource;
-  const rows = await curatedSource.findMany({
+  const findManyArgs = {
     where: { listingUrl: { in: body.listingUrls }, enabled: true },
-    select: { id: true, listingUrl: true, maxItems: true },
-  } satisfies Prisma.CuratedSourceFindManyArgs);
+    select: { id: true, listingUrl: true, linkType: true, maxItems: true },
+  } satisfies Prisma.CuratedSourceFindManyArgs;
+
+  const rows = await curatedSource.findMany(findManyArgs);
+
+  type ResolvedCuratedSourceRow = Prisma.CuratedSourceGetPayload<{
+    select: typeof findManyArgs.select;
+  }>;
 
   return {
-    sources: rows.map(
-      (row: { listingUrl: string; id: string; maxItems: number | null }) => ({
-        listingUrl: row.listingUrl,
-        curatedSourceId: row.id,
-        maxItems: row.maxItems,
-      }),
-    ),
+    sources: rows.map((row: ResolvedCuratedSourceRow) => ({
+      listingUrl: row.listingUrl,
+      curatedSourceId: row.id,
+      linkType: row.linkType,
+      maxItems: row.maxItems,
+    })),
   };
 };
 

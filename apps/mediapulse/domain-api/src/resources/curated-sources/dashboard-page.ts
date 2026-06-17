@@ -33,6 +33,7 @@ const curatedSourcesMetadataBlock = {
       linkTemplate: "{listingUrl}",
       copyAction: true,
     },
+    { field: "linkType", label: "Link type", format: "text" },
     { field: "enabled", label: "Enabled", format: "text" },
     { field: "maxItems", label: "Max items", format: "text" },
     { field: "createdAt", label: "Created", format: "date-time" },
@@ -45,7 +46,7 @@ export const curatedSourcesDashboardPage = {
   id: curatedSourcesHermesPathSegment,
   label: "Curated Sources",
   description:
-    "Operator-managed listing URLs for page-collection (RSS feeds, sitemaps, or single article pages).",
+    "Operator-managed URLs for page-collection. Choose Page for a single article URL or Listing for RSS, sitemap, or HTML listing pages.",
   pathSegment: curatedSourcesHermesPathSegment,
   kind: "resource-table" as const,
   placement: "sidebar" as const,
@@ -54,6 +55,7 @@ export const curatedSourcesDashboardPage = {
   columns: columnsFor<ListItem>()([
     { key: "name", label: "Name", type: "text" },
     { key: "listingUrl", label: "Listing URL", type: "text" },
+    { key: "linkType", label: "Link type", type: "text" },
     { key: "enabled", label: "Enabled", type: "text" },
     { key: "maxItems", label: "Max items", type: "text" },
     { key: "createdAt", label: "Created", type: "date-time" },
@@ -62,6 +64,7 @@ export const curatedSourcesDashboardPage = {
   sortableFields: rowFieldKeysFor<ListItem>()([
     "name",
     "listingUrl",
+    "linkType",
     "enabled",
     "maxItems",
     "createdAt",

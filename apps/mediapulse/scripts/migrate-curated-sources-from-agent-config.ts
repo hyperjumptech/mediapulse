@@ -73,6 +73,7 @@ async function main() {
         where: { listingUrl: source.listingUrl },
         create: {
           listingUrl: source.listingUrl,
+          linkType: "listing",
           enabled: source.enabled ?? true,
           maxItems: source.maxItems ?? null,
         },

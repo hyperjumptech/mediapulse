@@ -48,7 +48,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/user-registration-unsubscribe`         | Apply one-click unsubscribe from the user-registration app                 |
 | GET    | `/api/v1/query-analysis`                        | Get query-analysis context by ticker                                       |
 | POST   | `/api/v1/query-analysis`                        | Store and activate a versioned query set                                   |
-| GET    | `/api/v1/section-coverage-rollup`               | Per-section average query coverage and newsletter fill by contract version   |
+| GET    | `/api/v1/section-coverage-rollup`               | Per-section average query coverage and newsletter fill by contract version |
 
 ### Content generation (`/api/v1/content-generation`)
 
@@ -298,6 +298,15 @@ const rollup = await dataApiClient.sectionCoverageRollup.get({
 - **Config (`configSchema`):** required **`resendApiKey`** and **`resend.from`** (no env fallback); optional `resend.replyTo` / **`resend.tags`**, **`send.includeHtml` / `send.includeText`** (defaults `true`; at least one required), `rateLimit.minIntervalMs` + `maxSendsPerMinute`, `retry` (`maxAttempts`, `baseDelayMs`, `maxDelayMs`, `jitter`), `template.newsletterVariant` (`default` only in v1), optional **`template.preferencesUrl`** (absolute URL; when set, the default newsletter template shows a “Manage preferences” link).
 - **Pipeline HTTP outcome:** Partial delivery still returns **invoke envelope `status: success`** with `details.outcome: "partial_success"`; full diagnostics live in **delivery runs** (DB + Hermes Mediapulse **Delivery runs** table). All recipients failing returns `status: failure` on the agent response.
 - **PII:** Logs use hashed `userTickerId` fragments; persisted diagnostics store `userTickerId` and sanitized error text (not raw emails in optional summary fields).
+
+### Page collection (`/api/v1/page-collection-*`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/page-collection.ts`. Schemas live in `@workspace/agent-data-api-contract` (`page-collection.ts`).
+
+- **POST `/api/v1/page-collection-resolve-sources`** — Body: `listingUrls` (array of URLs). Response: `sources[]` with `listingUrl`, `curatedSourceId`, **`linkType`** (`page` | `listing`), and optional `maxItems`. Used by the page-collection agent before URL expansion.
+- **POST `/api/v1/page-collection`** — Persist ticker-agnostic articles collected from curated sources.
+- **POST `/api/v1/page-collection-existing-urls`** — Global dedup lookup for candidate article URLs.
+- **GET `/api/v1/page-collection-articles`** — Paginated list of page-collection articles with optional gate and analysis filters.
 
 ## Versioning
 

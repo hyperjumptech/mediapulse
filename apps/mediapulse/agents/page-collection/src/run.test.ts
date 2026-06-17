@@ -127,6 +127,7 @@ describe("runPageCollection", () => {
         {
           listingUrl: SOURCE_URL,
           curatedSourceId: "33333333-3333-4333-a333-333333333333",
+          linkType: "page",
           maxItems: null,
         },
       ],

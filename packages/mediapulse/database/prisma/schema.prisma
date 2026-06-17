@@ -53,15 +53,21 @@ enum ArticleAssociationSource {
   manual
 }
 
+enum CuratedSourceLinkType {
+  page
+  listing
+}
+
 /// Operator-managed listing URLs for page-collection (RSS, sitemap, or single article).
 model CuratedSource {
-  id         String   @id @default(uuid())
+  id         String                @id @default(uuid())
   name       String?
-  listingUrl String   @unique @map("listing_url")
-  enabled    Boolean  @default(true)
-  maxItems   Int?     @map("max_items")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  listingUrl String                @unique @map("listing_url")
+  linkType   CuratedSourceLinkType @default(listing) @map("link_type")
+  enabled    Boolean               @default(true)
+  maxItems   Int?                  @map("max_items")
+  createdAt  DateTime              @default(now()) @map("created_at")
+  updatedAt  DateTime              @updatedAt @map("updated_at")
 
   articles              DataSource[]
   collectionUrlOutcomes CollectionUrlOutcome[]

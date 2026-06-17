@@ -22,6 +22,7 @@ export type CuratedSourceListSortDir = "asc" | "desc";
 export type CuratedSourceListSortField =
   | "name"
   | "listingUrl"
+  | "linkType"
   | "enabled"
   | "maxItems"
   | "createdAt";
@@ -85,6 +86,8 @@ export const buildCuratedSourceListOrderBy = (
       return { name: dir };
     case "listingUrl":
       return { listingUrl: dir };
+    case "linkType":
+      return { linkType: dir };
     case "enabled":
       return { enabled: dir };
     case "maxItems":
