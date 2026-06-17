@@ -179,12 +179,16 @@ export const createAgentDataApiClient = <
   };
 
   const resourceKeys = Object.keys(manifest) as AgentDataApiResourceKey[];
-  const entries = resourceKeys.map((resourceKey) => [
-    resourceKey,
-    buildResourceClient(resourceKey, manifest[resourceKey]),
-  ]);
+  const client: Record<string, unknown> = {};
 
-  return Object.fromEntries(entries) as AgentDataApiClient<TVersion>;
+  for (const resourceKey of resourceKeys) {
+    client[resourceKey] = buildResourceClient(
+      resourceKey,
+      manifest[resourceKey],
+    );
+  }
+
+  return client as AgentDataApiClient<TVersion>;
 };
 
 /**
