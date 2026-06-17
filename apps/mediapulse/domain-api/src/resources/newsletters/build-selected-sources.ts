@@ -92,7 +92,9 @@ export const buildSelectedSources = async (
 
   const mapped = (rows as RowWithScore[]).map((row) => {
     const relevance = row.articleRelevances[0];
-    const collectionSource = classifyCollectionSource(row.searchQuery.source);
+    const collectionSource = row.searchQuery
+      ? classifyCollectionSource(row.searchQuery.source)
+      : "page-collection";
 
     return {
       id: row.id,
@@ -100,7 +102,7 @@ export const buildSelectedSources = async (
       title: row.title,
       score: relevance?.score ?? 0,
       scoredAt: (relevance?.scoredAt ?? row.createdAt).toISOString(),
-      searchQueryId: row.searchQueryId,
+      searchQueryId: row.searchQueryId ?? "",
       collectionSource,
       collectionSourceLabel: COLLECTION_SOURCE_LABEL[collectionSource],
     } satisfies SelectedSourcePayload;

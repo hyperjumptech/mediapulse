@@ -11,12 +11,13 @@ const baseRowFields = {
   canonicalUrl: "https://example.com/a",
   metadata: null,
   publishedAt: null,
+  analyzedAt: null,
   curatedSourceId: null,
   collectionGateStatus: null,
   collectionGateReason: null,
   curatedSource: null,
-  articleRelevances: [],
-} as const;
+  articleRelevances: [] as ListRow["articleRelevances"],
+};
 
 describe("truncateContentPreview", () => {
   it("returns the full string when within the max length", () => {
@@ -112,6 +113,7 @@ describe("mapRowToListItem", () => {
       curatedSourceId: "cs-1",
       collectionGateStatus: "passed" as const,
       collectionGateReason: null,
+      analyzedAt: null,
       curatedSource: {
         id: "cs-1",
         name: "Tech feed",
