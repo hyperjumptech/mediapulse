@@ -1,13 +1,4 @@
-import { config as baseConfig } from "@workspace/eslint-config/base";
+import { config } from "@workspace/eslint-config/react-internal";
 
 /** @type {import("eslint").Linter.Config[]} */
-export default [
-  ...baseConfig,
-  {
-    languageOptions: {
-      parserOptions: {
-        project: true,
-      },
-    },
-  },
-];
+export default [...config, { ignores: ["coverage/**"] }];
