@@ -131,15 +131,12 @@ export const resolveCuratedSourcesByListingUrls = async (
 
   return {
     sources: rows.map(
-      (row: {
-        listingUrl: string;
-        id: string;
-        maxItems: number | null;
-      }) => ({
-      listingUrl: row.listingUrl,
-      curatedSourceId: row.id,
-      maxItems: row.maxItems,
-    })),
+      (row: { listingUrl: string; id: string; maxItems: number | null }) => ({
+        listingUrl: row.listingUrl,
+        curatedSourceId: row.id,
+        maxItems: row.maxItems,
+      }),
+    ),
   };
 };
 
@@ -193,8 +190,7 @@ export const listPageCollectionArticles = async (
   ]);
 
   return {
-    items: rows.map(
-      (row: (typeof rows)[number]) => ({
+    items: rows.map((row: (typeof rows)[number]) => ({
       id: row.id,
       url: row.url,
       title: row.title,
